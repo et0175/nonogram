@@ -83,6 +83,7 @@ on every text object, which is what CARD-299's rewritten
 
 from __future__ import annotations
 
+import re
 import struct
 import time
 import zlib
@@ -1110,6 +1111,15 @@ def _flate_face(face: bytes) -> bytes:
     return zlib.compress(face, 9)
 
 
+#: The ``Do`` operator, which is the only way a content stream paints an
+#: XObject — matched as a whole token so a literal string's ``(…Do…)`` body or
+#: a resource named ``/Do`` is not mistaken for one. Written as an explicit
+#: character class rather than with ``\b``, which this board has measured
+#: silently matching nothing in POSIX ERE and which is a habit worth not
+#: carrying into Python's own regex engine.
+_XOBJECT_PAINT = re.compile(r"(?:^|[ \t])Do(?:[ \t]|$)")
+
+
 def write_vector_page(
     pdf: PdfParser.PdfParser,
     stream: ContentStream,
@@ -1132,10 +1142,32 @@ def write_vector_page(
     which would still be a page that *has* an XObject entry — which is
     ADR-0042/R1 as a property of this function rather than of each caller.
 
+    **And since CARD-306 a page that tried to paint one is refused rather
+    than written** (that card's AC-4). Leaving the resource dictionary silent
+    makes an XObject unreachable *to a viewer*; it does not make the operator
+    unwritable, and a ``Do`` whose name resolves to nothing is a page that
+    shows less than its stream says — the "merely reported" failure mode AC-4
+    names. :class:`ContentStream` has no XObject vocabulary, so the only way
+    to reach this refusal is to append the operator by hand, which is exactly
+    the case worth refusing: an image on a vector page is a medium decision
+    and belongs in ``book_pdf_generator._RASTER_DECLARATIONS`` with a reason
+    and an ``expires_with``, not in a page's operator list.
+
     ``font_ref`` is the file's one ``/Font``, written once per document by
     :func:`write_face_objects`; every page names the same object, which is
     ADR-0042/R5.
+
+    Raises:
+        ContentStreamError: ``stream`` paints an XObject (a ``Do`` operator).
     """
+    painted = [row for row in stream.operators if _XOBJECT_PAINT.search(row)]
+    if painted:
+        raise ContentStreamError(
+            "a vector page paints no XObject: this stream carries "
+            f"{len(painted)} Do operator(s), the first being {painted[0]!r}. An "
+            "image on an interior page is a declared medium (ADR-0042/R2), not "
+            "an operator"
+        )
     _, _, width_pt, height_pt = stream.media_box
     pdf.write_page(
         page_ref,

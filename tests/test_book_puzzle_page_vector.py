@@ -69,12 +69,21 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     _BAND_WIDTH_RATIO,
     _MIN_BAND_FONT_RATIO,
+    _QR_PLACEHOLDER_MODULES,
+    FOLIO_PT,
+    QR_CAPTION_TEXT,
+    SIZE_LABEL_PT,
     BookPDFGenerator,
     PageKind,
     band_identity,
     example_line_layout,
+    grid_size_label,
     guide_icon_layout,
+    page_is_right_hand,
     print_order,
+    qr_group_caption,
+    qr_link,
+    type_px,
 )
 from nonogram.admin.book_vector import (
     POINTS_PER_INCH,
@@ -85,11 +94,21 @@ from nonogram.admin.book_vector import (
 )
 from nonogram.export import pdf as export_pdf
 from nonogram.export.layout import (
+    DPI,
+    INTERIOR_FOOTER_LINE_PT,
     GridLine,
     HeaderBand,
+    InteriorFrame,
     Layout,
+    PageRule,
+    PageSpec,
+    QrCaption,
+    QrSlot,
     compute_layout,
     header_band,
+    interior_frame,
+    qr_caption,
+    qr_slot,
 )
 from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.export.png import INK
@@ -155,6 +174,14 @@ class Shown:
 
 Mark = Stroke | Shown
 
+#: The :attr:`Stroke.width` a **filled** rectangle is recorded with. A fill
+#: has no stroke width — the ``f`` operator does not read one — so recording
+#: whatever ``w`` happened to be set last would make the mark's identity
+#: depend on a piece of graphics state the viewer never consults for it. A
+#: sentinel instead, so the oracle states it too and the comparison is of
+#: what the operator actually carries (CARD-306).
+FILLED = Decimal(-1)
+
 
 def _in_stroke_order(layout: Layout) -> list[tuple[GridLine, bool]]:
     """``layout``'s ruled lines as ``(line, is_vertical)``, in stroke order.
@@ -172,6 +199,85 @@ def _in_stroke_order(layout: Layout) -> list[tuple[GridLine, bool]]:
             *((line, False) for line in layout.horizontal_lines),
         ],
         key=lambda pair: pair[0].major,
+    )
+
+
+@dataclass(frozen=True)
+class _QrGroup:
+    """One QR group as the test tree states it: a box, an anchor, two strings."""
+
+    icon: QrSlot
+    caption: QrCaption
+    invitation: str
+    link: str
+
+
+@dataclass(frozen=True)
+class _Furniture:
+    """One page's sheet furniture, **recomputed in the test tree** (CARD-306).
+
+    The oracle's input, and the point of the class is that nothing in
+    ``book_sheet_vector`` and nothing in ``BookPDFGenerator._sheet_furniture``
+    builds one: :func:`_furniture_of` composes it from COMP-007's own
+    measurements (:func:`~nonogram.export.layout.interior_frame`,
+    :func:`~nonogram.export.layout.qr_slot`,
+    :func:`~nonogram.export.layout.qr_caption`) and from the generator's
+    public strings and type sizes. So "the folio is centred on the trim" and
+    "the label is on the gutter side" are claims *about those objects* rather
+    than a comparison of the writer with itself — which is what the
+    production :class:`~nonogram.admin.book_sheet_vector.SheetFurniture`
+    would have made this.
+    """
+
+    frame: InteriorFrame
+    folio: str
+    folio_size_px: int
+    size_label: str | None
+    label_size_px: int
+    caption_size_px: int
+    qr_modules: int
+    groups: tuple[_QrGroup, ...]
+    content_bottom: int | None
+    right_hand: bool
+
+
+def _furniture_of(
+    layout: Layout, spec: PageSpec, page_number: int, puzzle_numbers: Sequence[int]
+) -> _Furniture:
+    """``layout``'s page's furniture, derived from COMP-007 and the strings.
+
+    ``puzzle_numbers`` is the page's puzzles in print order — one on a single
+    page, two on a two-up page — and it is what decides the invitation's form
+    (:data:`QR_CAPTION_TEXT` for one group, :func:`qr_group_caption`'s named
+    form for several), the same distinction ``_draw_qr_caption``'s
+    ``name_the_puzzle`` makes.
+
+    The QR groups a **two-up** page carries are not composed here: their
+    insets are the pairing walk's (``_two_up_qr_insets``), and recomputing
+    those would be re-deriving the pairing verdict rather than reading it.
+    This builds the single-page group, which is one icon at inset 0.
+    """
+    placement = layout.page
+    assert placement is not None, "a book page's Layout is placed"
+    frame = interior_frame(spec)
+    icon, caption = qr_slot(layout), qr_caption(layout)
+    groups: tuple[_QrGroup, ...] = ()
+    if icon is not None and caption is not None:
+        (number,) = puzzle_numbers
+        groups = (
+            _QrGroup(icon, caption, QR_CAPTION_TEXT, qr_link(number)),
+        )
+    return _Furniture(
+        frame=frame,
+        folio=str(page_number),
+        folio_size_px=type_px(FOLIO_PT, DPI),
+        size_label=grid_size_label(layout.columns, layout.rows),
+        label_size_px=type_px(SIZE_LABEL_PT, DPI),
+        caption_size_px=type_px(INTERIOR_FOOTER_LINE_PT, DPI),
+        qr_modules=_QR_PLACEHOLDER_MODULES,
+        groups=groups,
+        content_bottom=placement.drawing_bottom,
+        right_hand=page_is_right_hand(page_number),
     )
 
 
@@ -319,6 +425,159 @@ class Expected:
     def page(self, band: HeaderBand, text: str, room: int) -> list[Mark]:
         return self.grid() + self.frame() + self.clues() + self.band(band, text, room)
 
+    # -- CARD-306: the sheet's furniture ------------------------------------
+
+    def _advance(self, text: str, size_px: int | Decimal) -> Decimal:
+        return (
+            sum(Decimal(self.metrics.widths_1000[byte]) for byte in text.encode("cp1252"))
+            / 1000
+            * Decimal(size_px)
+        )
+
+    def _set(
+        self, text: str, x: int, baseline: int, size_px: int, align: str
+    ) -> Shown:
+        """Where a footer mark anchored at ``x`` by ``align`` sets its pen.
+
+        The row **is** the baseline, which is the one convention every vector
+        footer mark in this package uses; the horizontal half is the face's
+        own advance, summed in exact decimal from ``widths_1000`` rather than
+        borrowed from ``advance_px``.
+        """
+        advance = self._advance(text, size_px)
+        if align == "right":
+            pen = Decimal(x) - advance
+        elif align == "centre":
+            pen = Decimal(x) - advance / 2
+        else:
+            pen = Decimal(x)
+        return Shown(text, self._x(pen), self._y(baseline), self._x(size_px), self.grey)
+
+    def _rule(self, rule: PageRule) -> Stroke:
+        return Stroke(
+            "line",
+            (self._x(rule.left), self._y(rule.y), self._x(rule.right), self._y(rule.y)),
+            self._x(rule.width),
+            self.grey,
+        )
+
+    def furniture(self, sheet: _Furniture) -> list[Mark]:
+        """What a conforming writer must emit for ``sheet``'s furniture.
+
+        A second implementation of ``book_sheet_vector.draw_sheet_furniture``
+        in the sense CLAUDE.md's test style asks for: it reads COMP-007's
+        :class:`~nonogram.export.layout.InteriorFrame`,
+        :class:`~nonogram.export.layout.QrSlot` and
+        :class:`~nonogram.export.layout.QrCaption` and states the marks they
+        demand, calling nothing in ``book_sheet_vector`` — not
+        ``qr_module_boxes``, not ``footer_is_clear``, not ``_set_at_baseline``.
+        Independent of the **writer**, not of COMP-007, for the reason this
+        class's own docstring gives.
+        """
+        frame = sheet.frame
+        marks: list[Mark] = [self._rule(frame.header_rule)]
+        if sheet.content_bottom is not None and sheet.content_bottom > frame.footer_rule.y:
+            # The corner fallback: ``draw_folio``'s own two checks, restated.
+            ascent = Decimal(self.metrics.ascent) * Decimal(sheet.folio_size_px) / 1000
+            descent = -Decimal(self.metrics.descent) * Decimal(sheet.folio_size_px) / 1000
+            if Decimal(frame.page_bottom - sheet.content_bottom) >= ascent + descent:
+                marks.append(
+                    self._set(
+                        sheet.folio,
+                        frame.header_rule.right if sheet.right_hand else frame.header_rule.left,
+                        frame.page_bottom,
+                        sheet.folio_size_px,
+                        "right" if sheet.right_hand else "left",
+                    )
+                )
+            return marks
+        marks.append(self._rule(frame.footer_rule))
+        if sheet.size_label is not None:
+            marks.append(
+                self._set(
+                    sheet.size_label,
+                    frame.label_x,
+                    frame.baseline,
+                    sheet.label_size_px,
+                    "right" if frame.label_right_aligned else "left",
+                )
+            )
+        marks.append(
+            self._set(
+                sheet.folio, frame.folio_x, frame.baseline, sheet.folio_size_px, "centre"
+            )
+        )
+        border = self._x(frame.footer_rule.width)
+        for group in sheet.groups:
+            icon = group.icon
+            marks.append(
+                Stroke(
+                    "box",
+                    (
+                        self._x(icon.left),
+                        self._y(icon.bottom),
+                        self._x(icon.right - icon.left),
+                        self._x(icon.bottom - icon.top),
+                    ),
+                    border,
+                    self.grey,
+                )
+            )
+            side = Decimal(icon.right - icon.left)
+            step = side / sheet.qr_modules
+            for row in range(sheet.qr_modules):
+                for column in range(sheet.qr_modules):
+                    if (row + column) % 2 == 0:
+                        continue
+                    left = icon.left + _half_even(column * step)
+                    top = icon.top + _half_even(row * step)
+                    right = icon.left + _half_even((column + 1) * step)
+                    bottom = icon.top + _half_even((row + 1) * step)
+                    marks.append(
+                        Stroke(
+                            "box_fill",
+                            (
+                                self._x(left),
+                                self._y(bottom),
+                                self._x(right - left),
+                                self._x(bottom - top),
+                            ),
+                            FILLED,
+                            self.grey,
+                        )
+                    )
+            align = "right" if group.caption.right_aligned else "left"
+            marks.append(
+                self._set(
+                    group.invitation,
+                    group.caption.x,
+                    group.caption.caption_baseline,
+                    sheet.caption_size_px,
+                    align,
+                )
+            )
+            marks.append(
+                self._set(
+                    group.link,
+                    group.caption.x,
+                    group.caption.link_baseline,
+                    sheet.caption_size_px,
+                    align,
+                )
+            )
+        return marks
+
+
+def _half_even(value: Decimal) -> int:
+    """``round`` on a :class:`~decimal.Decimal`, the way CPython rounds a float.
+
+    The chequer's boundaries are ``round(column * step)`` in the writer, on a
+    binary float; here the same product is exact, so the tie rule has to be
+    stated rather than inherited — and CPython's ``round`` is half-to-even,
+    which is what ``ROUND_HALF_EVEN`` is.
+    """
+    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_EVEN))
+
 
 def _slot_room(layout: Layout) -> int:
     """The width a band on ``layout`` has to fit inside, in device pixels.
@@ -349,6 +608,8 @@ _PATTERNS = {
     "width": re.compile(rf"^({_N}) w$"),
     "line": re.compile(rf"^({_N}) ({_N}) m ({_N}) ({_N}) l S$"),
     "box": re.compile(rf"^({_N}) ({_N}) ({_N}) ({_N}) re S$"),
+    "fill": re.compile(rf"^({_N}) g$"),
+    "box_fill": re.compile(rf"^({_N}) ({_N}) ({_N}) ({_N}) re f$"),
     "text": re.compile(
         rf"^({_N}) g BT /(\w+) ({_N}) Tf ({_N}) ({_N}) Td \((.*)\) Tj ET$"
     ),
@@ -364,24 +625,42 @@ def marks_of(stream_text: str) -> list[Mark]:
     image XObject's ``Do``, a Bézier's ``c``, a clipping path's ``W`` would
     each stop the suite here.
 
-    A **fill** tone is one of those, and deliberately: a bare ``N g`` —
-    ``ContentStream.fill_grey``'s own spelling — matches nothing below and
-    raises. :data:`_PATTERNS` carried a ``"fill"`` entry until cycle 1's
-    F-008 noticed the if-chain never consulted it, so the table described a
-    classification that did not happen while the refusal that did happen was
-    invisible. The entry is gone and the refusal is the behaviour: a filled
-    shape on an interior page is a page nothing here can speak for. (The
-    ``g`` that *is* read is the one inside a text object, where it is the
-    glyphs' tone.)
+    A **fill** tone and a **filled rectangle** were two of those until
+    CARD-306, and the history is worth keeping because it is the shape of the
+    refusal rather than a list of operators. A bare ``N g`` —
+    ``ContentStream.fill_grey``'s own spelling — matched nothing and raised;
+    :data:`_PATTERNS` carried a ``"fill"`` entry that cycle 1's F-008 found
+    the if-chain never consulting, so the table described a classification
+    that did not happen while the refusal that did happen was invisible. The
+    entry came back when a mark that *is* filled arrived: the QR
+    placeholder's chequer (CARD-306), whose dark modules are ``re f``. Both
+    are now read, and the if-chain below really consults both — which is what
+    F-008 was about, not the presence of the entry.
+
+    **Default-DENY is unchanged by that.** A filled shape this module cannot
+    place is still an ``AssertionError`` naming it: ``re f`` is read, ``re B``
+    (fill *and* stroke) is not, ``Do`` is not, ``c`` is not, ``W`` is not.
+    (The ``g`` that is read *inside* a text object is a third thing again —
+    there it is the glyphs' tone.)
     """
     width: Decimal | None = None
     grey: Decimal | None = None
+    fill: Decimal | None = None
     marks: list[Mark] = []
     for row in stream_text.splitlines():
         if not row.strip():
             continue
         if match := _PATTERNS["grey"].match(row):
             grey = Decimal(match.group(1))
+        elif match := _PATTERNS["fill"].match(row):
+            fill = Decimal(match.group(1))
+        elif match := _PATTERNS["box_fill"].match(row):
+            assert fill is not None, row
+            marks.append(
+                Stroke(
+                    "box_fill", tuple(Decimal(g) for g in match.groups()), FILLED, fill
+                )
+            )
         elif match := _PATTERNS["width"].match(row):
             width = Decimal(match.group(1))
         elif match := _PATTERNS["line"].match(row):
@@ -422,12 +701,42 @@ class Case:
     band: HeaderBand
     text: str
     stream: ContentStream
+    spec: PageSpec
+    page_number: int
+    puzzle_number: int
+
+    @property
+    def furniture(self) -> _Furniture:
+        """This page's sheet furniture, recomputed in the test tree (CARD-306)."""
+        return _furniture_of(
+            self.layout, self.spec, self.page_number, (self.puzzle_number,)
+        )
+
+    @property
+    def oracle(self) -> Expected:
+        return Expected(
+            self.layout, Decimal(str(book_vector_draw.INK_GREY)), interior_face_metrics()
+        )
+
+    @property
+    def puzzle_marks(self) -> list[Mark]:
+        """The marks that make this page a **puzzle** page: ``book_puzzle_vector``'s.
+
+        Split out from :attr:`expected` by CARD-306, which added the sheet's
+        furniture to the production call: the two halves are drawn by two
+        modules and a failure that names which half it is in is worth the
+        property.
+        """
+        return self.oracle.page(self.band, self.text, _slot_room(self.layout))
+
+    @property
+    def furniture_marks(self) -> list[Mark]:
+        """The marks that make this page a **sheet**: ``book_sheet_vector``'s."""
+        return self.oracle.furniture(self.furniture)
 
     @property
     def expected(self) -> list[Mark]:
-        return Expected(
-            self.layout, Decimal(str(book_vector_draw.INK_GREY)), interior_face_metrics()
-        ).page(self.band, self.text, _slot_room(self.layout))
+        return self.puzzle_marks + self.furniture_marks
 
     @property
     def found(self) -> list[Mark]:
@@ -566,6 +875,9 @@ def _case(
         band=header_band(layout),
         text=band_identity(number, payload.difficulty),
         stream=stream,
+        spec=spec,
+        page_number=page,
+        puzzle_number=number,
     )
 
 
@@ -697,6 +1009,77 @@ def twin() -> Twin:
     )
 
 
+def _furniture_words(sheet: _Furniture) -> list[str]:
+    """Every word the sheet's furniture sets, in no particular order (CARD-306).
+
+    Derived from the furniture the page carries — the footer's verdict
+    included, so a page that fell back to the corner folio contributes its
+    one number and nothing else, and a page that lost its footer entirely
+    contributes nothing. Split on whitespace because that is what
+    ``pdftotext -bbox`` reports: ``"20 x 25"`` reaches a reader as three
+    words, not one.
+    """
+    if sheet.content_bottom is not None and sheet.content_bottom > sheet.frame.footer_rule.y:
+        # The corner fallback is itself conditional; what it draws is read
+        # from the stream by the all-or-nothing tests, not guessed here.
+        return []
+    words = list(sheet.folio.split())
+    if sheet.size_label is not None:
+        words += sheet.size_label.split()
+    for group in sheet.groups:
+        words += group.invitation.split() + group.link.split()
+    return words
+
+
+def _furniture_rows(case: Case) -> tuple[int, ...]:
+    """The rows this page's **furniture** rules are stroked on (CARD-306).
+
+    Derived from COMP-007's :class:`~nonogram.export.layout.InteriorFrame`
+    and from the footer's own all-or-nothing verdict — the header rule
+    always, the footer hairline only where the page's content clears it — so
+    this moves with the sheet rather than naming two numbers.
+    """
+    frame = case.furniture.frame
+    bottom = case.furniture.content_bottom
+    rows = [frame.header_rule.y]
+    if bottom is None or bottom <= frame.footer_rule.y:
+        rows.append(frame.footer_rule.y)
+    return tuple(rows)
+
+
+def _grid_strokes(case: Case) -> list[Stroke]:
+    """``case``'s ruled lines with the **sheet's** rules taken out (CARD-306).
+
+    Every reader below this point is asking about the *grid* — how many rules
+    a column boundary gets, which weights the drawing carries, how the ink and
+    the stream place the same box. Since CARD-306 the page also carries the
+    interior frame's two horizontal rules, which are furniture and answer none
+    of those questions.
+
+    **Default-DENY, not a filter** (ADR-0039/R2): the rows that come out are
+    :func:`_furniture_rows`' derived set, and exactly one stroke must be found
+    on each. A furniture rule that moved, doubled or vanished reds here rather
+    than quietly leaving the grid's readings one rule short — which is the
+    failure mode a ``!=`` filter would have.
+    """
+    wanted = {
+        _pt(Decimal(case.layout.height - row), case.layout.dpi): row
+        for row in _furniture_rows(case)
+    }
+    grid: list[Stroke] = []
+    found: dict[Decimal, int] = {y: 0 for y in wanted}
+    for mark in case.found:
+        if not isinstance(mark, Stroke) or mark.kind != "line":
+            continue
+        _x1, y1, _x2, y2 = mark.numbers
+        if y1 == y2 and y1 in found:
+            found[y1] += 1
+            continue
+        grid.append(mark)
+    assert all(count == 1 for count in found.values()), (found, wanted)
+    return grid
+
+
 def _device_rules(case: Case) -> tuple[list[tuple[Decimal, Decimal]], ...]:
     """``case``'s ruled lines back in **device pixels**, as the raster has them.
 
@@ -712,9 +1095,7 @@ def _device_rules(case: Case) -> tuple[list[tuple[Decimal, Decimal]], ...]:
     height = Decimal(case.layout.height)
     verticals: list[tuple[Decimal, Decimal]] = []
     horizontals: list[tuple[Decimal, Decimal]] = []
-    for mark in case.found:
-        if not isinstance(mark, Stroke) or mark.kind != "line":
-            continue
+    for mark in _grid_strokes(case):
         x1, y1, x2, _y2 = mark.numbers
         if x1 == x2:
             verticals.append((x1 / scale, mark.width / scale))
@@ -816,17 +1197,34 @@ class TestPuzzlePage_CarriesNoImageXObject:
     ) -> None:
         """Default-DENY over the operators, not a denylist of forbidden ones.
 
-        The page sets a tone, a width, lines, one box and text, and the set
-        below is the whole of it. An image's ``Do`` fails this, and so does
-        anything else a later edit reaches for.
+        The page sets a stroke tone, a width, lines, stroked boxes, a fill
+        tone, filled boxes and text, and the set below is the whole of it. An
+        image's ``Do`` fails this, and so does anything else a later edit
+        reaches for.
+
+        **``f`` joined the set in CARD-306 and that is the QR block's medium
+        decision, visible here as one letter** (AC-4): the placeholder chequer
+        is filled rectangles, so there is no image XObject to declare and
+        ``Do`` is still absent. ``B`` — fill *and* stroke — is absent too,
+        which is what keeps the addition one operator rather than a licence.
+
+        The identity below is counted rather than asserted as a constant: a
+        ``line`` is ``m l S`` and a rectangle is ``re`` followed by its own
+        paint operator, so the strokes that are *not* lines (the drawing's
+        frame and each QR icon's border) are ``S - m`` on one side and
+        ``re - f`` on the other. Two independent ways of counting the same
+        rectangles, which is what makes it a check and not a restatement.
         """
         (written,) = pdf_vector.content_streams(
             write_vector_pdf([hero.stream], 1).getvalue()
         )
         tally = pdf_vector.operator_tally(written)
 
-        assert set(tally) == {"G", "w", "m", "l", "S", "re", "g", "BT", "Tf", "Td", "Tj", "ET"}
-        assert tally["m"] == tally["l"] == tally["S"] - tally["re"]
+        assert set(tally) == {
+            "G", "w", "m", "l", "S", "re", "f", "g", "BT", "Tf", "Td", "Tj", "ET"
+        }
+        assert tally["m"] == tally["l"]
+        assert tally["S"] - tally["m"] == tally["re"] - tally["f"] >= 2
 
     def test_the_page_draws_no_bezier(self, hero: Case) -> None:
         """No curve — stated as "no Bézier", which is what can be measured.
@@ -1118,9 +1516,15 @@ class TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt:
         expected = [str(entry.value) for entry in hero.layout.clue_entries]
         assert len(expected) >= MIN_HERO_DIGITS, len(expected)
         found = [word.text for word in words]
-        assert sorted(found) == sorted(expected + hero.text.split()), (
+        # The band's words, plus — since CARD-306 — the sheet's furniture's,
+        # derived from the furniture this page really carries rather than
+        # listed, so a mark that stopped being drawn reds here too.
+        furniture = _furniture_words(hero.furniture)
+        assert len(furniture) >= 8, furniture
+        assert sorted(found) == sorted(expected + hero.text.split() + furniture), (
             len(found),
             len(expected),
+            furniture,
         )
 
     def test_the_digits_are_the_clue_sets_own_encoding(self, hero: Case) -> None:
@@ -1519,18 +1923,40 @@ class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture:
 
     ``book_puzzle_vector``'s docstring says the sheet's furniture — the
     interior frame's two rules, the footer's grid-size label, the folio and
-    the QR caption — is **not drawn**, and that no card in the ADR-0042 phase
-    draws it. A declaration that outlives its hole is the defect this board
-    gates on most, so it is checked rather than written: the page is the
-    drawing and the band, and the day somebody adds the folio this test is
-    what tells them to delete the paragraph.
+    the QR caption — is **not drawn** *by that module*, because every
+    interior page kind carries the same furniture off the same
+    ``interior_frame`` and a page card that drew it would be the second of
+    four to do so. A declaration that outlives its hole is the defect this
+    board gates on most, so it is checked rather than written.
+
+    **CARD-306 moved what was behind that boundary, and did not move the
+    boundary.** When this class was written the docstring also said the
+    furniture was drawn by *nothing*, and the test below read the page
+    ``BookPDFGenerator.vector_puzzle_page`` composes — the two were the same
+    page, because nothing else drew on it. They are no longer: the furniture
+    is drawn by :mod:`nonogram.admin.book_sheet_vector` and composed into the
+    production page, so this class now reads
+    :func:`~nonogram.admin.book_puzzle_vector.puzzle_page_stream`'s **own**
+    output, which is the call the docstring's claim is about. The whole page is
+    read by :class:`TestSheetFurniture_TheProductionPageCarriesTheFurniture`
+    instead, and the two together say what each module draws.
     """
 
     def test_the_page_shows_only_the_clue_digits_and_the_band(self, hero: Case) -> None:
-        shown = [mark.text for mark in hero.found if isinstance(mark, Shown)]
+        bare = book_puzzle_vector.puzzle_page_stream(
+            hero.layout, hero.band, hero.text
+        )
+        pdf = write_vector_pdf([bare], 1).getvalue()
+        (written,) = pdf_vector.content_streams(pdf)
+        shown = [mark.text for mark in marks_of(written) if isinstance(mark, Shown)]
         expected = [str(entry.value) for entry in hero.layout.clue_entries]
 
         assert sorted(shown) == sorted(expected + [hero.text])
+        # The control: the production page of the *same* layout shows more,
+        # so this reading is a statement about the module and not about a
+        # page that has no furniture anywhere.
+        composed = [mark.text for mark in hero.found if isinstance(mark, Shown)]
+        assert len(composed) > len(shown)
 
     def test_the_raster_twin_shows_more(self, twin: Twin) -> None:
         """The other side of the same statement, measured not assumed.
@@ -1600,8 +2026,11 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         self, hero: Case
     ) -> None:
         scale = Decimal(POINTS_PER_INCH) / Decimal(hero.layout.dpi)
-        strokes = [mark for mark in hero.found if isinstance(mark, Stroke)]
-        lines = [mark for mark in strokes if mark.kind == "line"]
+        # The **grid's** rules: since CARD-306 the page also carries the
+        # interior frame's two, which are the sheet's and are read by
+        # ``TestSheetFurniture_*`` instead (:func:`_grid_strokes`).
+        lines = _grid_strokes(hero)
+        strokes = lines
 
         assert len(lines) == len(hero.layout.vertical_lines) + len(
             hero.layout.horizontal_lines
@@ -1712,13 +2141,7 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         the quantity ADR-0037/R2 names and the only one the two sides can be
         compared through at all.
         """
-        stated = sorted(
-            {
-                mark.width
-                for mark in twin.case.found
-                if isinstance(mark, Stroke) and mark.kind == "line"
-            }
-        )
+        stated = sorted({mark.width for mark in _grid_strokes(twin.case)})
         inked = _inked_rule_widths(twin)
         counts = sorted(
             round(rule.width_pt * twin.case.layout.dpi / 72)
@@ -1781,8 +2204,10 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         whole module does today.
         """
         for case in corpus:
-            assert len(case.stream.operators) == len(case.expected) + _state_operators(
-                case.layout
+            assert len(case.stream.operators) == len(
+                case.expected
+            ) + _state_operators(case.layout) + _furniture_state_operators(
+                case.furniture
             ), case.label
 
     def test_the_operator_count_holds_on_a_page_of_many_widths(
@@ -1846,6 +2271,25 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         assert page_digest(twin.page) == twin.digest
 
 
+def _furniture_state_operators(sheet: _Furniture) -> int:
+    """How many ``G``/``w``/``g`` operators the **furniture** emits beside its marks.
+
+    :func:`_state_operators`' sibling for CARD-306's marks, derived the same
+    way — from what the sheet actually carries, not from a constant:
+
+    * the header rule sets a tone and a width, always: **2**;
+    * a page whose footer is not clear stops there, and its fallback corner
+      folio is a text object that carries its own ``g`` inside the ``BT``
+      block (which :func:`marks_of` reads as part of the mark);
+    * a page with a footer adds the hairline's own tone and width: **2**;
+    * each QR group sets a tone and a width for the icon's border and a
+      **fill** tone for the chequer: **3** apiece.
+    """
+    if sheet.content_bottom is not None and sheet.content_bottom > sheet.frame.footer_rule.y:
+        return 2
+    return 2 + 2 + 3 * len(sheet.groups)
+
+
 def _state_operators(layout: Layout) -> int:
     """How many ``G``/``w`` operators a page emits beside its marks.
 
@@ -1886,3 +2330,837 @@ def _state_operators(layout: Layout) -> int:
         return sum(1 for before, after in zip([None, *values], values) if before != after)
 
     return changes(widths) + changes(tones) + (2 if layout.frame is not None else 0)
+
+
+# --------------------------------------------------------------------------
+# CARD-306 — the sheet's furniture on the vector puzzle page
+# --------------------------------------------------------------------------
+
+
+def _text_marks(case: Case) -> list[Shown]:
+    return [mark for mark in case.found if isinstance(mark, Shown)]
+
+
+def _furniture_only(case: Case) -> list[Mark]:
+    """``case``'s marks with the puzzle's own taken off the front (CARD-306).
+
+    The furniture is drawn after the puzzle, so it is the tail — and the head
+    must be exactly :attr:`Case.puzzle_marks`, which is asserted rather than
+    assumed, so a puzzle mark that moved into the tail reds here instead of
+    being read as furniture.
+    """
+    head = case.puzzle_marks
+    assert case.found[: len(head)] == head, case.label
+    return case.found[len(head) :]
+
+
+def _stream_of(sheet: _Furniture, layout: Layout) -> ContentStream:
+    """``sheet``'s furniture alone, on an empty page of ``layout``'s extent.
+
+    The production writer through the production spec type, so a test that
+    varies one field of the furniture is varying the real writer's input.
+    """
+    from nonogram.admin.book_sheet_vector import SheetFurniture, draw_sheet_furniture
+
+    stream = book_vector_draw.page_stream(layout)
+    draw_sheet_furniture(
+        stream,
+        SheetFurniture(
+            frame=sheet.frame,
+            folio=sheet.folio,
+            folio_size_px=sheet.folio_size_px,
+            size_label=sheet.size_label,
+            label_size_px=sheet.label_size_px,
+            caption_size_px=sheet.caption_size_px,
+            qr_modules=sheet.qr_modules,
+            groups=tuple(
+                _production_group(group) for group in sheet.groups
+            ),
+            content_bottom=sheet.content_bottom,
+            right_hand=sheet.right_hand,
+        ),
+        interior_face_metrics(),
+    )
+    return stream
+
+
+def _production_group(group: _QrGroup):
+    from nonogram.admin.book_sheet_vector import QrGroup
+
+    return QrGroup(
+        icon=group.icon,
+        caption=group.caption,
+        invitation=group.invitation,
+        link=group.link,
+    )
+
+
+def _marks_of_stream(stream: ContentStream) -> list[Mark]:
+    (written,) = pdf_vector.content_streams(write_vector_pdf([stream], 1).getvalue())
+    return marks_of(written)
+
+
+class TestSheetFurniture_TheProductionPageCarriesTheFurniture:
+    """AC-1: the folio, the frame rules, the grid-size label and the QR block.
+
+    **Each asserted by its own operators in the stream**, never by a rendered
+    bitmap — so "the page carries a folio" is a text object at the trim's own
+    centre and not a count of dark pixels. The oracle's half of this is
+    :meth:`Expected.furniture`, which the module's own
+    ``test_every_mark_on_every_page_is_the_one_the_layout_demands`` already
+    holds over sixty pages; what these tests add is that each *named* piece is
+    present and identified, so a failure says which piece went missing rather
+    than that a list of 540 marks differs somewhere.
+    """
+
+    def test_the_page_carries_all_four_pieces_of_furniture(self, hero: Case) -> None:
+        sheet = hero.furniture
+        frame = sheet.frame
+        tail = _furniture_only(hero)
+        rules = [
+            mark
+            for mark in tail
+            if isinstance(mark, Stroke) and mark.kind == "line"
+        ]
+        texts = [mark for mark in tail if isinstance(mark, Shown)]
+        filled = [
+            mark
+            for mark in tail
+            if isinstance(mark, Stroke) and mark.kind == "box_fill"
+        ]
+        icons = [
+            mark for mark in tail if isinstance(mark, Stroke) and mark.kind == "box"
+        ]
+
+        # the frame rules: both of them, on COMP-007's own rows
+        assert [mark.numbers[1] for mark in rules] == [
+            _pt(Decimal(hero.layout.height - frame.header_rule.y), hero.layout.dpi),
+            _pt(Decimal(hero.layout.height - frame.footer_rule.y), hero.layout.dpi),
+        ], rules
+        # the folio: one mark, centred on the TRIM's own centre
+        folio = [mark for mark in texts if mark.text == sheet.folio]
+        assert len(folio) == 1, texts
+        assert abs(frame.folio_x * 2 - hero.layout.width) <= 1, (
+            frame.folio_x,
+            hero.layout.width,
+        )
+        # The coincidence this book makes, declared rather than relied on:
+        # its gutter and outside margins are equal, so the trim's centre and
+        # the usable area's are the same column here and this page cannot
+        # tell the two rules apart. The claim that it is the *trim's* is the
+        # equality above, which is a reading of the sheet.
+        assert frame.folio_x == (frame.header_rule.left + frame.header_rule.right) // 2
+        # the grid-size label: this puzzle's own extent, on the gutter side
+        assert sheet.size_label == f"{hero.layout.columns} x {hero.layout.rows}"
+        assert [mark.text for mark in texts].count(sheet.size_label) == 1, texts
+        # the QR block: one bordered chequer and its two lines
+        assert len(sheet.groups) == 1, sheet.groups
+        (group,) = sheet.groups
+        assert len(icons) == 1, icons
+        assert len(filled) == sheet.qr_modules**2 // 2, len(filled)
+        assert {mark.text for mark in texts} >= {group.invitation, group.link}
+
+    def test_the_reading_sees_each_piece_go_missing(self, hero: Case) -> None:
+        """The instrument's control: each of the four reads can fail (ADR-0039/R1).
+
+        The page above is unmutated; what is mutated here is the **reading**,
+        by taking one piece out of the marks the page emitted and re-running
+        the assertion that names it. A read that passed on a page with no
+        folio would be measuring nothing, and this is where that is shown
+        rather than argued. The code-level mutants — deleting the folio's
+        draw, breaking the all-or-nothing coupling — are run out of tree
+        against this same module; these are the in-suite halves that run on
+        every commit.
+        """
+        sheet = hero.furniture
+        tail = _furniture_only(hero)
+        (group,) = sheet.groups
+        gone = {
+            "folio": [m for m in tail if not (isinstance(m, Shown) and m.text == sheet.folio)],
+            "label": [
+                m for m in tail if not (isinstance(m, Shown) and m.text == sheet.size_label)
+            ],
+            "rules": [
+                m for m in tail if not (isinstance(m, Stroke) and m.kind == "line")
+            ],
+            "chequer": [
+                m for m in tail if not (isinstance(m, Stroke) and m.kind == "box_fill")
+            ],
+            "caption": [
+                m
+                for m in tail
+                if not (isinstance(m, Shown) and m.text in {group.invitation, group.link})
+            ],
+        }
+        for piece, without in gone.items():
+            assert len(without) < len(tail), piece
+        assert not [
+            m for m in gone["folio"] if isinstance(m, Shown) and m.text == sheet.folio
+        ]
+        assert not [m for m in gone["rules"] if isinstance(m, Stroke) and m.kind == "line"]
+
+    def test_the_footer_lines_sit_where_the_raster_page_sets_them(
+        self, twin: Twin
+    ) -> None:
+        """The anchor claim, measured across the two media (CARD-306).
+
+        ``book_sheet_vector`` takes the footer row as a **baseline**, which is
+        the convention every vector footer mark in this package uses. Pillow's
+        ``b`` anchor — what the raster page uses — puts the *ink box's* bottom
+        on the row instead. For a string with no descender those are the same
+        place; for one with a descender they are not, and the one footer mark
+        that has a descender is the typed link.
+
+        Measured on the bundled face at the footer's own size rather than
+        reasoned: the three descender-free strings agree exactly, the link
+        differs by the face's descender depth, and both halves are asserted
+        so neither can drift unnoticed.
+        """
+        from importlib import resources
+        from io import BytesIO
+
+        from PIL import ImageFont
+
+        size = type_px(INTERIOR_FOOTER_LINE_PT, DPI)
+        face = ImageFont.truetype(
+            BytesIO(
+                resources.files(export_pdf.FONT_PACKAGE)
+                .joinpath(export_pdf.FONT_RESOURCE)
+                .read_bytes()
+            ),
+            size=size,
+        )
+        sheet = twin.case.furniture
+        (group,) = sheet.groups
+        no_descender = (sheet.folio, sheet.size_label, group.invitation)
+        for text in no_descender:
+            assert _ink_rows(face, text, "lb") == _ink_rows(face, text, "ls"), text
+        # ... and the one that does descend. The two media put its ink in
+        # different places by exactly its own descender, which is a figure
+        # rather than a surprise: 9 device pixels at the book's 300 DPI, or
+        # 0.76 mm.
+        _top_b, bottom_b = _ink_rows(face, group.link, "lb")
+        _top_s, bottom_s = _ink_rows(face, group.link, "ls")
+        offset = bottom_s - bottom_b
+        assert offset == 9, offset
+        assert 0 < offset <= face.getmetrics()[1], (offset, face.getmetrics())
+        # The property that matters, and it holds: the lower ink still lands
+        # inside the footer strip, clear of the bottom margin by most of the
+        # icon's own row.
+        assert group.caption.link_baseline + offset < sheet.frame.page_bottom, (
+            group.caption.link_baseline,
+            offset,
+            sheet.frame.page_bottom,
+        )
+
+
+def _ink_rows(face, text: str, anchor: str) -> tuple[int, int]:
+    """The top and bottom rows ``text``'s ink occupies at ``anchor``.
+
+    Drawn on a scratch bitmap and read back, because the question is where
+    Pillow puts the glyphs and not what its metrics say it will.
+    """
+    import numpy as np
+    from PIL import ImageDraw
+
+    canvas = Image.new("L", (2000, 600), 255)
+    ImageDraw.Draw(canvas).text((20, 400), text, font=face, fill=0, anchor=anchor)
+    rows = np.nonzero((np.asarray(canvas) < 128).any(axis=1))[0]
+    return int(rows.min()), int(rows.max())
+
+
+#: The corpus floor for the all-or-nothing count, asserted inside the test
+#: that uses it so it cannot silently shrink (CLAUDE.md's test style).
+MIN_FOOTER_PAGES = 54
+
+
+class TestSheetFurniture_TheFooterIsAllOrNothing:
+    """AC-2 and EC(all-or-nothing footer), in **both** directions.
+
+    ``_draw_page_frame``'s footer group is all-or-nothing, so the vector
+    version must be: *a page with a frame and no number, or a number and no
+    frame, is a defect, not a degraded state.* Both halves are asserted
+    directly, and each has a mutant — the code-level pair is run out of tree
+    (both reds recorded on the card), and what runs here is the behaviour
+    those mutants break.
+    """
+
+    def test_a_clear_footer_draws_the_rule_and_the_number_together(
+        self, hero: Case
+    ) -> None:
+        sheet = hero.furniture
+        assert sheet.content_bottom <= sheet.frame.footer_rule.y
+        tail = _furniture_only(hero)
+        rows = [
+            mark.numbers[1]
+            for mark in tail
+            if isinstance(mark, Stroke) and mark.kind == "line"
+        ]
+        folio_row = _pt(
+            Decimal(hero.layout.height - sheet.frame.baseline), hero.layout.dpi
+        )
+
+        assert len(rows) == 2, rows
+        assert [
+            mark for mark in tail if isinstance(mark, Shown) and mark.text == sheet.folio
+        ][0].y == folio_row
+
+    def test_a_blocked_footer_draws_neither_the_rule_nor_the_number(
+        self, hero: Case
+    ) -> None:
+        """The other direction, on the production writer.
+
+        The sheet is the hero's own, with **one field** changed: the content's
+        own bottom row moved one pixel past the footer rule, which is the
+        figure ``_draw_page_frame`` reaches its verdict from. Nothing else
+        about the page differs, so what is measured is the verdict and not a
+        second page.
+        """
+        from dataclasses import replace
+
+        blocked = replace(
+            hero.furniture,
+            content_bottom=hero.furniture.frame.footer_rule.y + 1,
+            groups=(),
+        )
+        marks = _marks_of_stream(_stream_of(blocked, hero.layout))
+        rules = [m for m in marks if isinstance(m, Stroke) and m.kind == "line"]
+        texts = [m for m in marks if isinstance(m, Shown)]
+
+        # The header rule is unconditional; the footer's hairline is gone.
+        assert len(rules) == 1, rules
+        assert rules[0].numbers[1] == _pt(
+            Decimal(hero.layout.height - blocked.frame.header_rule.y), hero.layout.dpi
+        )
+        # No centred folio and no label on the footer line, because there is
+        # no footer line. Whether the CORNER folio is drawn is CARD-200's own
+        # omit-rather-than-collide rule, and the oracle states which.
+        assert [m.y for m in texts] == [
+            m.y for m in hero.oracle.furniture(blocked) if isinstance(m, Shown)
+        ]
+        assert blocked.size_label is not None
+        assert blocked.size_label not in {m.text for m in texts}
+
+    def test_the_one_pixel_either_side_of_the_verdict_decides_it(
+        self, hero: Case
+    ) -> None:
+        """The claim's **edge**, which is the mutant ADR-0039/R1 asks for.
+
+        ``content_bottom == footer_rule.y`` draws the footer and
+        ``content_bottom == footer_rule.y + 1`` does not. One pixel, and the
+        page changes from four pieces of furniture to one — so the inequality
+        is ``<=`` and not ``<``, which is the off-by-one a reading of the
+        whole page would not localise.
+        """
+        from dataclasses import replace
+
+        row = hero.furniture.frame.footer_rule.y
+        counts = []
+        for bottom in (row, row + 1):
+            sheet = replace(hero.furniture, content_bottom=bottom, groups=())
+            marks = _marks_of_stream(_stream_of(sheet, hero.layout))
+            counts.append(
+                len([m for m in marks if isinstance(m, Stroke) and m.kind == "line"])
+            )
+
+        assert counts == [2, 1], counts
+
+    def test_the_corpus_counts_folios_and_frames_equal(
+        self, corpus: list[Case]
+    ) -> None:
+        """EC(all-or-nothing footer) over the seeded corpus of trims and extents.
+
+        The count of pages carrying a **centred folio** equals the count
+        carrying a **footer rule** — read off each page's own stream, not
+        derived from the verdict the writer returned.
+        """
+        assert len(corpus) >= MIN_FOOTER_PAGES, len(corpus)
+        with_rule = 0
+        with_folio = 0
+        for case in corpus:
+            sheet = case.furniture
+            tail = _furniture_only(case)
+            rules = [m for m in tail if isinstance(m, Stroke) and m.kind == "line"]
+            baseline = _pt(
+                Decimal(case.layout.height - sheet.frame.baseline), case.layout.dpi
+            )
+            centred = [
+                m
+                for m in tail
+                if isinstance(m, Shown) and m.text == sheet.folio and m.y == baseline
+            ]
+            assert len(rules) in (1, 2), (case.label, rules)
+            with_rule += len(rules) == 2
+            with_folio += len(centred) == 1
+
+        assert with_rule == with_folio, (with_rule, with_folio)
+        # The floor, and it is the reason this corpus is worth sweeping: the
+        # equality would hold trivially on a corpus where every page, or no
+        # page, had a footer. **Measured: 47 of these 60 pages carry one and
+        # 13 do not** — the 13 are the page-fit-bound grids whose drawing
+        # reaches past the footer rule, which is exactly the branch
+        # ``_draw_page_frame`` keeps CARD-200's corner for. So both arms of
+        # the all-or-nothing verdict are exercised by this one count.
+        assert with_rule == 47, with_rule
+        assert 0 < len(corpus) - with_rule == 13, (with_rule, len(corpus))
+
+    def test_a_footer_that_is_not_there_cannot_carry_a_qr_group(
+        self, hero: Case
+    ) -> None:
+        """The refusal, which is the coupling made structural.
+
+        ``qr_slot`` answers ``None`` on exactly the figure the footer's own
+        verdict reads, so a caller composing both from one layout cannot
+        produce this. One that measured the icon on a different extent can —
+        the defect CARD-248 removed from the raster two-up page — and the
+        writer refuses it rather than drawing a chequer on a page with no
+        footer line.
+        """
+        from dataclasses import replace
+
+        from nonogram.admin.book_sheet_vector import SheetFurnitureError
+
+        blocked = replace(
+            hero.furniture, content_bottom=hero.furniture.frame.footer_rule.y + 1
+        )
+        assert blocked.groups, "the hero's own group, kept"
+
+        with pytest.raises(SheetFurnitureError, match="no footer"):
+            _stream_of(blocked, hero.layout)
+
+
+#: The numeric literals ``book_sheet_vector`` is allowed to contain, each with
+#: the reason it is not a coordinate. **A default-DENY allowlist**
+#: (ADR-0039/R2): the guard below collects every numeric constant in the
+#: module's AST and asserts set equality against this, so a literal nobody
+#: justified is a FAILURE rather than something the walk did not look for.
+#:
+#: * ``0`` — ``(row + column) % 2 != 0`` and ``modules <= 0``;
+#: * ``1`` — ``range``'s own step is not here, but ``column + 1``/``row + 1``
+#:   are: the chequer's far edge is one module along;
+#: * ``2`` — the chequer's parity, and the halving a centred string needs;
+#: * ``0.0`` — the type-size defaults on :class:`SheetFurniture`, which say
+#:   "this page prints no mark at this size" and are read only when the
+#:   matching string is ``None``;
+#: * ``2.0`` — the float form of the halving, so the division is not integer.
+#:
+#: No coordinate, no row, no weight, no point size. That is G-2 and AC-3: a
+#: magic number copied from ``_draw_page_frame`` is the defect they exist to
+#: catch, and this is the instrument that would catch it.
+SHEET_VECTOR_LITERALS = frozenset({0, 1, 2, 0.0, 2.0})
+
+
+class TestSheetFurniture_OneDefinitionNotTwo:
+    """AC-3: every piece's geometry comes from one source shared with the raster.
+
+    Three readings, because "one definition" can fail in three ways:
+
+    * a **coordinate** written into the vector module — caught by the literal
+      allowlist above, derived from the module's own AST;
+    * a **weight** picked rather than read — caught by holding the QR icon's
+      border against the footer hairline's own width, which is where the
+      raster placeholder's literal ``width=2`` really comes from;
+    * an **import** that would let the vector module re-derive a position —
+      caught by walking its imports, the same reading
+      ``TestGridRoutine_DrawsALayoutItWasNotWrittenFor`` already makes of
+      ``book_vector_draw``.
+    """
+
+    MODULE = "src/nonogram/admin/book_sheet_vector.py"
+
+    def _tree(self):
+        import ast
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / self.MODULE).read_text()
+        return ast.parse(source), source
+
+    def test_the_module_writes_no_coordinate_of_its_own(self) -> None:
+        import ast
+
+        tree, _source = self._tree()
+        found = {
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)
+        }
+
+        assert found == SHEET_VECTOR_LITERALS, sorted(
+            found.symmetric_difference(SHEET_VECTOR_LITERALS), key=repr
+        )
+
+    def test_the_walk_sees_a_planted_coordinate(self, tmp_path) -> None:
+        """The instrument's positive control, and its negative (ADR-0039/R4).
+
+        The **positive**: the same walk over the module's text with one
+        coordinate planted in it — ``_draw_page_frame``'s own kind of number —
+        finds it and the equality reds. The **negative**: the walk over a
+        near-miss, the same number written inside a *docstring*, does **not**
+        rise, because a number in prose is not a number in code and a guard
+        that could not tell them apart would red on every paragraph this
+        module has.
+        """
+        import ast
+
+        _tree, source = self._tree()
+
+        planted = source.replace(
+            "    side = icon.right - icon.left",
+            "    side = icon.right - icon.left - 2806",
+        )
+        assert planted != source
+        found = {
+            node.value
+            for node in ast.walk(ast.parse(planted))
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+        }
+        assert found != SHEET_VECTOR_LITERALS
+        assert 2806 in found
+
+        near_miss = source.replace(
+            "not a lighter glyph", "not a lighter glyph (y=2806)"
+        )
+        assert near_miss != source
+        quiet = {
+            node.value
+            for node in ast.walk(ast.parse(near_miss))
+            if isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
+        }
+        assert quiet == SHEET_VECTOR_LITERALS, sorted(quiet, key=repr)
+
+    def test_the_icons_border_is_the_hairlines_own_weight(self, hero: Case) -> None:
+        """The raster's literal ``width=2`` is the hairline, and here it is read.
+
+        ``_draw_qr_placeholder`` strokes the icon's border at a literal 2
+        device pixels, which is the 2-device-pixel furniture floor
+        CARD-222/CARD-248 cite — and that floor is what ``interior_frame``
+        already rounded ``INTERIOR_FOOTER_RULE_PT`` up to. The vector writer
+        reads it off the frame, and that the two are the same number is
+        asserted here rather than assumed, on the sheet a real book page uses.
+        """
+        frame = hero.furniture.frame
+        tail = _furniture_only(hero)
+        icons = [m for m in tail if isinstance(m, Stroke) and m.kind == "box"]
+
+        assert frame.footer_rule.width == 2, frame.footer_rule
+        assert len(icons) == 1, icons
+        assert icons[0].width == _pt(
+            Decimal(frame.footer_rule.width), hero.layout.dpi
+        ), icons
+
+    def test_the_module_imports_nothing_that_could_re_derive_a_position(self) -> None:
+        """Its imports are COMP-007's measurements and the stream vocabulary.
+
+        No page kind, no generator, no ``PageSpec`` door — so there is nothing
+        it *could* measure a frame from even if a later edit wanted to, and
+        ``book_pdf_generator`` can keep importing it without a cycle.
+        """
+        import ast
+
+        tree, _source = self._tree()
+        modules = {
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        }
+        modules |= {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        }
+
+        assert modules == {
+            "__future__",
+            "dataclasses",
+            "nonogram.admin.book_vector",
+            "nonogram.admin.book_vector_draw",
+            "nonogram.export.layout",
+        }, sorted(modules)
+
+
+class TestSheetFurniture_TheQrBlockIsOperatorsAndTheWriterRefusesAnXObject:
+    """AC-4: the QR block's medium is declared, and the other choice is refused.
+
+    **Decided: operators.** The icon is CARD-204's placeholder — a bordered
+    square around a plain alternating chequer, never a real module pattern —
+    so it is rectangles, not a photograph. Declaring it raster would mean an
+    entry in ``_RASTER_DECLARATIONS`` with a reason, an ``expires_with`` and
+    an image object on every page of the book, to ship a 5×5 chequer.
+
+    The second half of the AC is the one that needs a mechanism rather than a
+    preference: *an undeclared XObject on a vector page must be refused by the
+    writer, not merely reported.* Leaving ``/XObject`` out of the resources —
+    which ``write_vector_page`` already did — makes such an image unreachable
+    to a **viewer**; it does not stop the operator being written, and a page
+    whose stream paints something the file cannot resolve shows less than it
+    says. So the writer now refuses a stream carrying ``Do``.
+    """
+
+    def test_the_chequer_is_filled_rectangles_and_the_count_is_derived(
+        self, hero: Case
+    ) -> None:
+        from nonogram.admin.book_sheet_vector import qr_module_boxes
+
+        sheet = hero.furniture
+        (group,) = sheet.groups
+        tail = _furniture_only(hero)
+        filled = [m for m in tail if isinstance(m, Stroke) and m.kind == "box_fill"]
+
+        # The count is the chequer's odd diagonal, derived from the module
+        # count the generator owns rather than from the number 12.
+        dark = sum(
+            1
+            for row in range(sheet.qr_modules)
+            for column in range(sheet.qr_modules)
+            if (row + column) % 2 != 0
+        )
+        assert len(filled) == dark == len(qr_module_boxes(group.icon, sheet.qr_modules))
+        assert dark >= 1 and sheet.qr_modules >= 3, (dark, sheet.qr_modules)
+
+    def test_the_vector_chequer_inks_where_the_raster_chequer_inks(
+        self, twin: Twin
+    ) -> None:
+        """The cross-medium check on the one piece this card reimplemented.
+
+        ``book_sheet_vector.qr_module_boxes`` is ``_draw_qr_placeholder``'s
+        own tiling written natively, because that generator cannot be imported
+        from a module it imports. So the two are held against each other here,
+        where the import *is* legal: the same ``QrSlot``, the same module
+        count, and the dark squares' own boxes compared edge for edge.
+
+        The one documented difference is Pillow's inclusive rectangle: a
+        raster module is one device pixel wider and taller than the path's,
+        which is 0.085 mm at 300 DPI and is asserted as exactly one pixel
+        rather than waved at.
+        """
+        from nonogram.admin.book_pdf_generator import (
+            _QR_PLACEHOLDER_MODULES,
+            _draw_qr_placeholder,
+        )
+        from nonogram.admin.book_sheet_vector import qr_module_boxes
+
+        sheet = twin.case.furniture
+        (group,) = sheet.groups
+        icon = group.icon
+
+        # The raster side, drawn on its own scratch page and read back as the
+        # boxes it filled -- through the production function, not a copy.
+        recorded: list[tuple] = []
+
+        class _Spy:
+            def rectangle(self, box, **kwargs):
+                recorded.append((box, kwargs))
+
+        _draw_qr_placeholder(_Spy(), icon)
+
+        border, *modules = recorded
+        assert border[1].get("width") == 2, border
+        ours = qr_module_boxes(icon, _QR_PLACEHOLDER_MODULES)
+        assert len(modules) == len(ours), (len(modules), len(ours))
+        for (box, kwargs), mine in zip(modules, ours, strict=True):
+            assert kwargs.get("fill") is not None, kwargs
+            assert box == mine, (box, mine)
+
+    def test_the_writer_refuses_a_page_that_paints_an_xobject(
+        self, hero: Case
+    ) -> None:
+        """The refusal, with the page it refuses built by hand.
+
+        ``ContentStream`` has no XObject vocabulary, so the only way to reach
+        this is to append the operator — which is the case worth refusing, and
+        the only one there is.
+        """
+        from nonogram.admin.book_vector import ContentStreamError
+
+        smuggled = book_vector_draw.page_stream(hero.layout)
+        smuggled.rectangle(0, 0, 10, 10)
+        smuggled._operators.append("/Im0 Do")
+
+        with pytest.raises(ContentStreamError, match="paints no XObject"):
+            write_vector_pdf([smuggled], 1)
+
+    def test_the_refusal_does_not_fire_on_a_near_miss(self, hero: Case) -> None:
+        """Its negative control: ``Do`` inside a string, and a resource named Do.
+
+        A text object whose literal happens to contain ``Do`` is not a painted
+        XObject, and neither is a word ending in ``Do``. A refusal keyed on a
+        substring would red on both, which would make it a guard nobody could
+        keep — so the near-miss is measured rather than trusted to the regex's
+        shape.
+        """
+        near = book_vector_draw.page_stream(hero.layout)
+        near.text("Done. Do", 10, 10, 10.0)
+        near.text("Dodo", 10, 40, 10.0)
+
+        pdf = write_vector_pdf([near], 1).getvalue()
+        (written,) = pdf_vector.content_streams(pdf)
+        assert "Do" in written
+        assert [m.text for m in marks_of(written)] == ["Done. Do", "Dodo"]
+
+
+#: The furniture's own stroke floor, in **device pixels**. Not ADR-0037/R2's:
+#: that rule binds the puzzle **grid** and has never bound furniture (its
+#: History, 2026-10-17, which corrected CARD-222's reading of it and measured
+#: the exemption that card wrote as vacuous). The floor the interior frame's
+#: rules meet is the 2-device-pixel **dropout** floor CARD-222/CARD-225/
+#: CARD-248 cite directly, applied inside ``interior_frame`` by
+#: ``_pt_to_px_at_least``. Named here with its real authority, because this
+#: card's own EC attributes it to R2 and R2 disclaims it.
+FURNITURE_FLOOR_PX = 2
+
+
+class TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor:
+    """EC(the furniture's stroke floor) over the corpus of trims and extents.
+
+    Read **from the stream** — the width operand each rule was really stroked
+    at, converted back to device pixels — and not off ink, which is CARD-299's
+    re-expression of the two pixel-reading property tests this card's EC
+    points at.
+
+    The class is ``TestPropertyTest_…`` and not ``PropertyTest_…`` for the
+    reason the module's other property class states: this repository
+    configures no ``python_classes``, so a class named ``PropertyTest_…``
+    collects **zero** tests with no skip and no warning.
+    """
+
+    def test_the_corpus_is_as_wide_as_it_claims(self, corpus: list[Case]) -> None:
+        assert len(corpus) >= MIN_CASES, len(corpus)
+        trims = {(case.layout.width, case.layout.height) for case in corpus}
+        assert len(trims) >= 3, trims
+
+    def test_every_frame_rule_meets_the_floor(self, corpus: list[Case]) -> None:
+        seen = 0
+        for case in corpus:
+            scale = Decimal(POINTS_PER_INCH) / Decimal(case.layout.dpi)
+            for mark in _furniture_only(case):
+                if not isinstance(mark, Stroke) or mark.kind != "line":
+                    continue
+                seen += 1
+                assert mark.width / scale >= FURNITURE_FLOOR_PX, (
+                    case.label,
+                    mark.width,
+                )
+        # The floor on the reading itself: 47 pages with two rules and 13 with
+        # one is 107 rules, and a reading that found none would pass the loop
+        # above trivially.
+        assert seen == 107, seen
+
+    def test_the_reading_would_see_a_sub_floor_rule(self, hero: Case) -> None:
+        """Its control: the same reading on a frame whose rules are one pixel.
+
+        A hairline of 1 device pixel is precisely the dropout the furniture
+        floor exists to refuse, and ADR-0037's own 2026-10-17 entry records
+        the one-pixel grey grid that 7 of 17 reviews of the 450-puzzle book
+        complained about. Planted into the **frame** — the single source the
+        writer reads — so what is shown is that the floor reading
+        discriminates, not that a constant is still 2.
+        """
+        from dataclasses import replace
+
+        thin = replace(
+            hero.furniture,
+            frame=replace(
+                hero.furniture.frame,
+                header_rule=replace(hero.furniture.frame.header_rule, width=1),
+                footer_rule=replace(hero.furniture.frame.footer_rule, width=1),
+            ),
+            groups=(),
+        )
+        scale = Decimal(POINTS_PER_INCH) / Decimal(hero.layout.dpi)
+        marks = _marks_of_stream(_stream_of(thin, hero.layout))
+        rules = [m for m in marks if isinstance(m, Stroke) and m.kind == "line"]
+
+        assert len(rules) == 2, rules
+        assert all(mark.width / scale < FURNITURE_FLOOR_PX for mark in rules), rules
+
+
+class TestSheetFurniture_TheTwoUpPageCarriesItToo:
+    """A two-up slot *is* a puzzle page, so it gets the furniture as well.
+
+    The page CARD-306's title is about: if the conversion card flipped the
+    declaration while a two-up page had no folio, the printed book would ship
+    pages with no number — and a two-up page is the book's dominant shape at
+    small grid sizes.
+
+    What differs from a single page, and each of it read: **no grid-size
+    label** (two slots carry two sizes, so ``_draw_page_frame`` is passed
+    ``None`` there and so is this), **two** QR groups rather than one, and
+    their invitations in :func:`qr_group_caption`'s **named** form so a reader
+    can tell which link is which.
+    """
+
+    @staticmethod
+    def _page():
+        generator = BookPDFGenerator(corpus_book())
+        rows = [
+            puzzle(f"card306-{index}", 10, 10, 2, "easy", f"Small {index}")
+            for index in range(6)
+        ]
+        payloads = [BookPDFGenerator._payload(row) for row in rows]
+        plans = [plan for plan in generator.puzzle_pages(payloads) if plan.is_two_up]
+        assert plans, "six 10x10s pair up, which is what makes this page a pair"
+        plan = plans[0]
+        stream = generator.vector_two_up_page(
+            plan, [payloads[number - 1] for number in plan.numbers]
+        )
+        return generator, plan, stream
+
+    def test_the_pair_carries_one_folio_two_links_and_no_size_label(self) -> None:
+        generator, plan, stream = self._page()
+        frame = interior_frame(generator.page_spec(plan.page_number))
+        marks = _marks_of_stream(stream)
+        texts = [mark.text for mark in marks if isinstance(mark, Shown)]
+
+        # One folio for the sheet, at the footer line's centre.
+        assert texts.count(str(plan.page_number)) == 1, texts
+        # Two groups, each naming its own puzzle (CARD-248's AC-3).
+        for number in plan.numbers:
+            assert qr_group_caption(number) in texts, (number, texts)
+            assert qr_link(number) in texts, (number, texts)
+        # No grid-size label: there is no one grid size on this page.
+        assert not [
+            text for text in texts if grid_size_label(10, 10) == text
+        ], texts
+        # Both frame rules, and the whole footer group with them.
+        rows = [
+            mark.numbers[1]
+            for mark in marks
+            if isinstance(mark, Stroke) and mark.kind == "line"
+        ]
+        height = Decimal(stream.height_px)
+        for rule in (frame.header_rule, frame.footer_rule):
+            assert _pt(height - rule.y, int(stream.dpi)) in rows, rule
+
+    def test_the_two_groups_are_drawn_where_the_raster_pair_draws_them(self) -> None:
+        """The insets are the pairing walk's, read through one definition.
+
+        ``_two_up_qr_insets`` is the only thing that decides where a group
+        sits, and both media read it — which is AC-3 on the one piece of
+        furniture a two-up page places differently from a single page. Held
+        here against the raster writer's own call on the same pair.
+        """
+        generator, plan, stream = self._page()
+        pair = plan.pair
+        placements = generator._two_up_qr_insets(pair, plan.numbers)
+        marks = _marks_of_stream(stream)
+        texts = {
+            mark.text: mark.x for mark in marks if isinstance(mark, Shown)
+        }
+
+        assert len(placements) == len(plan.numbers) == 2, placements
+        for number, inset in placements:
+            caption = qr_caption(pair.lower, inset_px=inset)
+            assert caption is not None
+            pen = texts[qr_link(number)]
+            # Right-aligned on an ODD page, left-aligned on an EVEN one: the
+            # anchor is the caption's own x and the direction is its own flag,
+            # so the pen is one advance in from it or exactly on it.
+            anchor = _pt(Decimal(caption.x), int(stream.dpi))
+            if caption.right_aligned:
+                assert pen < anchor, (pen, anchor)
+            else:
+                assert pen == anchor, (pen, anchor)
