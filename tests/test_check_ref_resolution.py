@@ -129,8 +129,12 @@ other, and only the second is dangerous.
 
 **The board's own worst instance of that overstatement is ADR-0006/R1**, and it
 is worth spelling out here because this module is where someone will come to
-look. Its ref has zero definitions and 109 resolvers, so it is a genuinely dead
-pointer and this module reports it. The **rule** it points at is nevertheless
+look. Its ref has zero definitions and **110** resolvers, so it is a genuinely
+dead pointer and this module reports it. (The figure was 109 at the cut and 110
+once ``main`` was merged in -- one more synced review report. A resolver count
+that climbs every wave with nothing being written is the mechanism, stated as a
+moving number rather than a fixed one, because quoting it as fixed is how it
+stops being re-derived.) The **rule** it points at is nevertheless
 tested: ``tests/test_export_pdf.py:1249`` asserts the runtime dependency list
 equals ``{"pillow", "numpy"}`` exactly, and says in its own docstring that
 ADR-0006's revision is what makes it the rule's check rather than one card's
@@ -170,9 +174,21 @@ by its own detector. Two defences, both load-bearing:
    therefore exposes every prefix. Truncation revives any ref whose declared
    name is a prefix of the truncation — review cycle 1 planted one and got
    ``1 failed``. What makes the device safe is the self-check in point 2 above,
-   which reads this file's own bytes against the whole declared set; today 0 of
-   the 5 truncations here has a declared ref as its prefix, and that is a fact
-   the assertion establishes rather than one the ellipsis guarantees. It can
+   which reads this file's own bytes against the whole declared set. The claim
+   that matters is the PROPERTY, not a count: **no truncation in this file has a
+   declared ref as its prefix**, and the assertion establishes that rather than
+   the ellipsis guaranteeing it.
+
+   **The count is deliberately not stated, and that is a finding rather than an
+   omission.** Earlier wording here said "0 of the 5 truncations"; review cycle 2
+   measured 6 tokens and spent a finding on the ambiguity between "truncations of
+   refs", "tokens containing an ellipsis" and "ellipsis characters". Writing the
+   measured number back into this docstring **changed it**: the sentence stating
+   the figure contained ellipses of its own, so the file went from 8 occurrences
+   to 11 and the new sentence was wrong the moment it was written. A figure whose
+   act of being stated falsifies it cannot be pinned, and this card is the card
+   about stated figures that nothing re-derives -- so the figure is replaced by
+   the property, which is derived on every run and cannot drift. It can
    establish it for the same reason the ellipsis fails: :func:`_trie_pattern`
    reproduces ``-w``'s boundaries, so a truncation whose prefix is a declared
    ref matches there exactly as it matches under real ``git grep -lw``.
@@ -192,6 +208,7 @@ along with every other guarded source; it reports ``[]`` for it.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 import subprocess
@@ -245,10 +262,30 @@ FORM_PATH = "path"
 
 # --- the four authorities that declare a verifying ref ----------------------
 # Every one of them is read here, because a ref the guard does not enumerate is
-# a ref it cannot report, and the EC is about the whole board. The shapes are
-# deliberately matched narrowly: an unrecognised one raises rather than being
-# skipped (ADR-0039/R2), and :func:`test_every_declared_check_is_classified`
-# is the control for that.
+# a ref it cannot report, and the EC is about the whole board.
+#
+# The patterns below are deliberately narrow, and "an unrecognised shape raises"
+# is TWO claims with two different controls. Review cycle 2 found this comment
+# naming one control for both, and the named one could not witness the half that
+# mattered -- which is this card's own subject arriving on this card's own code,
+# for the second cycle running:
+#
+# * a ref whose FORM cannot be resolved raises -- :meth:`Declared.form`, whose
+#   control is :func:`test_an_unclassifiable_shape_is_a_failure_and_not_a_pass`,
+#   with :func:`test_every_declared_check_is_classified` recording that no ref on
+#   the board reaches it today;
+# * a declaration KEY whose shape none of these patterns claims raises --
+#   :func:`_refuse_unread_declaration_keys`, whose control is
+#   :func:`test_an_unreadable_declaration_key_shape_is_a_failure_and_not_a_skip`.
+#
+# ``test_every_declared_check_is_classified`` is NOT the control for the second:
+# it iterates the refs the derivation already produced and checks each one's
+# form, so a key whose shape was never read contributes no ref for it to look
+# at and it stays green. Six YAML-legal ``tests:`` key shapes fell through the
+# dispatch exactly that way until review cycle 2 planted one and measured the
+# consequence: census unmoved, both readings of ``trace.yml`` agreeing at 510,
+# every cell green, and the G-2 self-check's trie -- built FROM the derived set
+# -- reporting CLEAN on a text that spelled the planted ref in full.
 
 _ADR_CHECK = re.compile(
     r"^[ \t]*check:[ \t]*\{kind:[ \t]*(?P<kind>[a-z-]+)(?:,[ \t]*ref:[ \t]*(?P<ref>[^}]*))?\}",
@@ -269,6 +306,33 @@ _LIST_ITEM = re.compile(r"^[ \t]*-[ \t]*(?P<ref>.+?)[ \t]*$")
 _MAPPING_KEY = re.compile(
     r"^[ \t]*(?P<key>[A-Za-z_][\w .()/'\"-]*):(?:[ \t](?P<value>.*))?[ \t]*$"
 )
+
+#: A **declaration key**, matched loosely on purpose: this is the default-deny
+#: half of the derivation and it sits one frame ABOVE :func:`_tests_block`.
+#: ``_ADR_CHECK``, ``_BLOCK_CHECK``, ``_TEST_KEY``, ``_TESTS_INLINE`` and
+#: ``_TESTS_BLOCK`` are each narrow, and a ``test:``/``tests:``/``check:`` key in
+#: any other YAML-legal shape used to fall through all of them and contribute
+#: nothing, with no exception and nothing to read -- a multi-line flow sequence
+#: (``tests: [A,``), a block scalar (``tests: >-``), a plain scalar
+#: (``tests: SomeName``), a comment after the key (``tests: # note``), a trailing
+#: comment on an inline list (``tests: [A] # note``), an anchor
+#: (``tests: &a``). Two of those six are invisible to
+#: :func:`_trace_tests_refs_by_backward_scan` as well, because both readings
+#: assume a ref lives either in a flow sequence or in a block sequence of
+#: ``- item`` lines; so the cross-reading AGREED at 510 and both were wrong.
+#: Every line this pattern matches must be claimed by one of the narrow patterns
+#: or :func:`_refuse_unread_declaration_keys` raises. A space or end-of-line
+#: after the colon is demanded because that is what makes a YAML mapping key a
+#: mapping key.
+_DECLARATION_KEY = re.compile(r"^[ \t]*(?P<key>tests?|check):(?:[ \t].*)?$")
+
+#: A block scalar's opener (``key: >-``, ``key: |``). Its body is **prose**, so
+#: a line inside it that looks like a declaration key is not one.
+_BLOCK_SCALAR = re.compile(r"^(?P<indent>[ \t]*)[^#\s][^:]*:[ \t]*[>|][-+0-9]*[ \t]*$")
+
+#: A Markdown code fence. The ADRs are prose documents; only their fenced YAML
+#: blocks declare anything.
+_FENCE = re.compile(r"^[ \t]*```")
 
 
 class RefShapeNotClassifiable(AssertionError):
@@ -317,12 +381,127 @@ class Declared:
         )
 
 
+def _declaration_key_lines(lines: list[str], *, fenced: bool) -> tuple[int, ...]:
+    """Indices of lines on which a declaration key could legitimately live.
+
+    A default-deny is only as good as its notion of *where* a declaration can
+    be, and getting that wrong in the loose direction makes the guard red on
+    English rather than on a missed ref. Both regions are **measured**, not
+    assumed, and the measurement is the reason they exist:
+
+    * ``fenced`` -- the ADRs are Markdown, so only a fenced block declares
+      anything. All **68** anchored ``check:`` lines in the ADR set are inside a
+      fence. Exactly **one** declaration-key-looking line is outside one, and it
+      is English: ``0042-book-interior-is-vector-cover-stays-raster.md:153``
+      wraps a sentence onto a line beginning *"tests: its 0.48/1.28/2.08 pt are
+      the owner's figures"*. It declares nothing, it arrived with an ordinary ADR
+      edit, and a scan without a notion of fences would red the suite on it. So
+      the region is part of the rule.
+    * the YAML authorities -- everywhere except inside a block scalar, whose body
+      is prose for the same reason. Measured: **152** such blocks in
+      ``requirements.yml`` and **69** in ``trace.yml``, **2309** body lines
+      between them, and **0** of those lines looks like a declaration key today.
+      This half therefore changes nothing on today's board and is here because
+      the ADR authority proves the shape is not hypothetical; it is carried by a
+      synthetic control rather than by a live witness, and that is said rather
+      than left for the next reviewer to find.
+    """
+    candidates: list[int] = []
+    inside_fence = False
+    cursor = 0
+    while cursor < len(lines):
+        raw = lines[cursor]
+        if fenced and _FENCE.match(raw):
+            inside_fence = not inside_fence
+            cursor += 1
+            continue
+        if inside_fence or not fenced:
+            # The key test comes FIRST: ``tests: >-`` is a declaration key in a
+            # block-scalar shape, so it is both a candidate (nothing claims it,
+            # so it must raise) and the owner of a body to skip. Testing the
+            # block-scalar shape first would have skipped the key itself, which
+            # is the same silent-skip bug one more frame out.
+            if _DECLARATION_KEY.match(raw):
+                candidates.append(cursor)
+            opener = _BLOCK_SCALAR.match(raw)
+            if opener:
+                base = len(opener.group("indent").expandtabs(8))
+                cursor += 1
+                while cursor < len(lines):
+                    body = lines[cursor]
+                    if body.strip() and (
+                        len(body[: len(body) - len(body.lstrip(" \t"))].expandtabs(8)) <= base
+                    ):
+                        break
+                    cursor += 1
+                continue
+        cursor += 1
+    return tuple(candidates)
+
+
+def _refuse_unread_declaration_keys(
+    label: str, lines: list[str], unread: tuple[int, ...]
+) -> None:
+    """Default-deny on the declaration KEY itself (ADR-0039/R2), one frame up.
+
+    :func:`_tests_block` is total for the lines *inside* a block sequence --
+    review cycle 2 drove fourteen shapes at it and every one is collected or
+    raises. The hole it found is the frame that decides whether ``_tests_block``
+    is entered at all: a ``tests:`` key was read only if it was a complete
+    single-line flow sequence or a bare key, and every other YAML-legal shape of
+    the same key fell through both branches and contributed nothing. That is
+    cycle 1's defect verbatim, moved up one frame, and it is why this function
+    exists on **all four** authorities rather than on the one that was caught.
+
+    **Why no pinned count could have caught it, and therefore why nothing is
+    pinned instead of this raise.** :data:`CENSUS` pins what *is* derived, not
+    what is missed. CONVERTING an existing list into an unreadable shape drops
+    refs and reds :data:`CENSUS`; ADDING a ref in an unreadable shape is
+    silently absent and :data:`CENSUS` does not move -- measured. That asymmetry
+    is exactly what let the 576 census sit baselined for a whole cycle.
+
+    ``unread`` is passed in rather than recomputed, because the callers derive
+    the lines they READ from :func:`_declaration_key_lines` as well. Both halves
+    therefore share one notion of where a declaration can live, and cannot drift
+    apart -- which they did in this function's first draft: the narrow
+    ``_TEST_KEY`` pattern was still matching every line in the file, so it
+    collected a wrapped prose line inside a ``rationale: >-`` block as a ref
+    while the default-deny correctly ignored it. A guard that invents a ref out
+    of prose corrupts the census in the opposite direction to the one this card
+    is about, and it was found by the synthetic authority set in
+    :func:`test_an_unreadable_declaration_key_shape_is_a_failure_and_not_a_skip`
+    rather than by reasoning.
+    """
+    if not unread:
+        return
+    first = unread[0]
+    key = _DECLARATION_KEY.match(lines[first])
+    raise RefShapeNotClassifiable(
+        f"{label}:{first + 1}: {lines[first]!r} is a "
+        f"{key.group('key') if key else '?'}: declaration key in a shape no "
+        f"pattern in this module claims, so every ref it declares is invisible "
+        f"to the derivation -- and to its independent second reading, which "
+        f"shares the same assumption about where a ref lives. "
+        f"{len(unread)} such line(s) in {label}. ADR-0039/R2 makes an "
+        f"unanalysable shape a FAILURE: the alternative is the silent skip that "
+        f"kept 16 refs out of the census for a whole review cycle one frame "
+        f"below this one, and that no pinned count can see. Teach the "
+        f"derivation this shape; do not widen a narrow pattern until it "
+        f"swallows the shape without reading it."
+    )
+
+
 def _declared_refs() -> tuple[Declared, ...]:
     """Every verifying ref the model carries, derived from all four authorities.
 
     Never a written-down list: the whole point of G-2 is that a list of refs in
-    this file would revive them. An authority that is missing from disk, or a
-    ``check:`` whose shape cannot be read, raises.
+    this file would revive them. An authority that is missing from disk, a
+    ``check:`` whose shape cannot be read, **or a declaration key whose shape no
+    pattern here claims**, raises. The last of those three is
+    :func:`_refuse_unread_declaration_keys`, and it is the half that was missing:
+    each authority's scan records the lines it CLAIMED, and every line that looks
+    like a ``test:``/``tests:``/``check:`` key and was claimed by nothing is a
+    failure rather than a silent skip.
     """
     sources: dict[str, set[str]] = {}
 
@@ -334,7 +513,19 @@ def _declared_refs() -> tuple[Declared, ...]:
     if not adrs:
         raise AssertionError(f"no ADR found under {ADR_DIR} -- the ref set cannot be derived")
     for adr in adrs:
-        for match in _ADR_CHECK.finditer(adr.read_text(encoding="utf-8")):
+        document = adr.read_text(encoding="utf-8")
+        lines = document.splitlines()
+        claimed: set[int] = set()
+        for match in _ADR_CHECK.finditer(document):
+            # A match may in principle span lines (``[^}]*`` crosses newlines),
+            # so every line it covers counts as claimed rather than just its
+            # first.
+            claimed.update(
+                range(
+                    document.count("\n", 0, match.start()),
+                    document.count("\n", 0, match.end()) + 1,
+                )
+            )
             if match.group("kind") != "test":
                 continue
             ref = match.group("ref")
@@ -344,27 +535,58 @@ def _declared_refs() -> tuple[Declared, ...]:
                     f"{match.group(0)!r}"
                 )
             add(ref, f"adr/{adr.name}")
+        # The ADRs declare refs ONLY through the inline form. A block-form
+        # ``check:`` in one would be read by nothing here, so it raises; 0 ADRs
+        # use one today, which is why this is latent and fixed anyway.
+        #
+        # The asymmetry here is deliberate: ``_ADR_CHECK`` collects from the
+        # whole document while the REFUSAL is scoped to fenced regions. So an
+        # anchored inline ``check:`` outside a fence is still collected (never
+        # skipped) and never raises, while an unreadable shape inside a fence
+        # raises. Permissive collection, region-scoped refusal -- the other way
+        # round would turn ADR-0042's wrapped prose line into a failure, and
+        # scoping collection too would turn an out-of-fence declaration into a
+        # silent skip.
+        _refuse_unread_declaration_keys(
+            f"adr/{adr.name}",
+            lines,
+            tuple(
+                index
+                for index in _declaration_key_lines(lines, fenced=True)
+                if index not in claimed
+            ),
+        )
 
     for path, label in ((REQUIREMENTS, "requirements.yml"), (TRACE, "trace.yml")):
         if not path.is_file():
             raise AssertionError(f"{path} is missing -- the ref set cannot be derived")
 
     lines = REQUIREMENTS.read_text(encoding="utf-8").splitlines()
-    for index, line in enumerate(lines):
+    unread: list[int] = []
+    for index in _declaration_key_lines(lines, fenced=False):
+        line = lines[index]
         key = _TEST_KEY.match(line)
         if key:
             add(key.group("ref"), "requirements.yml (test:)")
-        if _BLOCK_CHECK.match(line):
+        elif _BLOCK_CHECK.match(line):
             add(*_block_check(lines, index))
+        else:
+            unread.append(index)
+    _refuse_unread_declaration_keys("requirements.yml", lines, tuple(unread))
 
     lines = TRACE.read_text(encoding="utf-8").splitlines()
-    for index, line in enumerate(lines):
+    unread = []
+    for index in _declaration_key_lines(lines, fenced=False):
+        line = lines[index]
         inline = _TESTS_INLINE.match(line)
         if inline:
             add(inline.group("refs"), "trace.yml")
         elif _TESTS_BLOCK.match(line):
             for ref in _tests_block(lines, index):
                 add(ref, "trace.yml")
+        else:
+            unread.append(index)
+    _refuse_unread_declaration_keys("trace.yml", lines, tuple(unread))
 
     return tuple(
         Declared(ref, tuple(sorted(sources[ref]))) for ref in sorted(sources)
@@ -738,6 +960,30 @@ def _fingerprint(refs: tuple[str, ...]) -> str:
     return hashlib.sha256(joined).hexdigest()[:16]
 
 
+def _digest_of(ref: str) -> str:
+    """One ref's own digest. **A digest is not a ref, and that is the point.**
+
+    Review cycle 1's round concluded that enforcing the repair-vs-signal-loss
+    rule was impossible: enforcement needs the refs that LEFT a class, a stored
+    ref list is exactly what G-2 forbids because it revives them, and one digest
+    over a whole class cannot say who left. The first two halves are right. The
+    conclusion is not, and the missing step is that the ref **population is
+    re-derived at run time**: the stored artefact never has to be resolvable,
+    only matchable against a set the guard rebuilds. So a *per-member* digest set
+    names the departed member exactly while storing nothing a text search can
+    use. ``git grep -lw 080555bfe5ee`` cannot match any ref, and the 580 digests
+    on this board are collision-free -- both measured. The G-2 self-check is what
+    holds the property mechanically rather than by this argument: it runs the
+    whole declared set's trie over this file's own bytes.
+    """
+    return hashlib.sha256(ref.encode("utf-8")).hexdigest()[:12]
+
+
+def _member_digests(refs: tuple[str, ...]) -> frozenset[str]:
+    """A class as per-member digests -- the artefact a departure is read from."""
+    return frozenset(_digest_of(ref) for ref in refs)
+
+
 def _report(verdicts: tuple[Verdict, ...]) -> str:
     """A ref class, spelled out for a human. Derived, so it is safe to print."""
     return "\n".join(
@@ -757,20 +1003,39 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # does. Either direction reds and prints the current class in full.
 
 #: Refs kept alive solely by pipeline bookkeeping -- the gate's class.
-BOOKKEEPING_ONLY = (13, "f10ea23d3f456cba")
+#: 13 at the cut (f64112f2); **15** once ``main`` was merged in, and the two that
+#: arrived are this card's own mechanism firing on live data between its fix
+#: rounds -- see :data:`HONEST_DEAD`.
+BOOKKEEPING_ONLY = (15, "50e897ff86ef7c3d")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
 #: which is the limit case no pathspec can exclude.
-FALSELY_ALIVE = (164, "47dac2b0c321ceeb")
+#: 164 at the cut; **166** after the merge, the same two refs.
+FALSELY_ALIVE = (166, "34194ced6ad4c11e")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
 FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 
 #: Refs both resolvers agree are absent: an honest gap, and the only class that
-#: reads correctly today.
-HONEST_DEAD = (30, "cc5207403de4ae67")
+#: reads correctly today -- so a ref LEAVING this class is a validator warning
+#: disappearing, which is the card's headline event.
+#:
+#: **30 at the cut, 28 after ``main`` was merged in, and the two that left are
+#: signal loss rather than repair -- re-derived against a def/class, not
+#: pasted.** Both are FR-045 node-id refs under
+#: ``tests/test_public_player_pages.py``. Measured with ``git grep`` against the
+#: cut itself: at f64112f2 each had **zero** loose resolvers and zero
+#: definitions (honest-dead, and the validator warned about both). On ``main``
+#: each has **exactly one** resolver -- ``meta/review/20261029T130000Z-CARD-285-cycle1.yml``,
+#: a synced cycle-1 review report -- and still **no** ``def`` or ``class``
+#: anywhere. Nothing was written, nothing was repaired, and the validator's
+#: warning count fell from 102 to 100 for exactly those two. That is the
+#: mechanism this module exists to detect, detecting itself, unprompted; and it
+#: is the departure :data:`HONEST_DEAD_MEMBERS` now makes mechanical instead of
+#: leaving to a reader who has only a digest and a paste-ready line.
+HONEST_DEAD = (28, "87d4c53c6c34b01b")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -794,12 +1059,28 @@ RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 #: because this module and ADR-0039 both STATE this number, and a stated figure
 #: that nothing checks is the exact defect this card is about -- ADR-0006/R1's
 #: ref read as mechanically checked for months on a pointer nobody re-derived.
-#: Derived as: 579 distinct refs = 510 from ``trace.yml``'s ``tests:`` lists +
-#: ``requirements.yml``'s ``test:`` keys and block-form ``check:`` refs + 43
-#: distinct refs from the ADRs' inline ``check:`` (45 *occurrences* -- counting
-#: those gave 580 and was one high), unioned, so a ref declared by two
-#: authorities is one entry.
-CENSUS = (579, "b0469543ee0ae4a8")
+#: Derived at HEAD, every term re-measured rather than carried:
+#:
+#: * ``trace.yml``'s ``tests:`` lists (block and inline): **510**;
+#: * ``requirements.yml``: **404** -- 401 distinct from its 421 ``test:`` keys
+#:   and 10 from its 11 block-form ``check:`` blocks (the eleventh is not of
+#:   kind ``test``), with **7** refs declared by both, so 401 + 10 is 411
+#:   *mentions* and 404 distinct. An earlier figure of "401 + 10 = 404" was
+#:   quoted without the overlap and does not add up on its face; the overlap is
+#:   what reconciles it;
+#: * the ADRs' inline ``check: {kind: test}``: **44** distinct, from **45**
+#:   occurrences and **47** ref-mentions (one occurrence declares two
+#:   comma-separated refs; one ref is declared three times and one twice).
+#:
+#: Unioned, so a ref declared by two authorities is one entry: **580**. At the
+#: cut (f64112f2) the same derivation gave **579**, with 44 ADR occurrences and
+#: 43 distinct; ``main`` then declared one new ref
+#: (``requirements.yml``/``trace.yml`` + one more ADR occurrence), and that ref
+#: has a real definition -- which is why :data:`DEFINED` moved by one too. The
+#: three figures that were wrong are kept straight in ADR-0039's table, and the
+#: coincidence worth naming is that 580 was once an *erroneous* census (ADR
+#: occurrences counted as refs at the cut) and is now the correct one.
+CENSUS = (580, "18c0c85ab5ae4317")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -812,8 +1093,11 @@ TRACE_TESTS = (510, "0ad7bd1af729a4bf")
 #: quarter of them stopped being honest. Pinned exact like every other class
 #: here. **This is the one count the F-001 repair moved**: 382 -> 385, which is
 #: exactly the 3 refs the silent drop had removed from the census, each of them
-#: a real ``class`` in ``tests/test_book_puzzle_frame.py``.
-DEFINED = (385, "48510317eab24a12")
+#: a real ``class`` in ``tests/test_book_puzzle_frame.py``. It then moved again,
+#: 385 -> 386, when ``main`` was merged in: one new ref declared there, defined
+#: at ``tests/test_book_pdf.py:1797``. Re-derived against that ``def``, so the
+#: move is recorded as the honest event it is rather than as a digest update.
+DEFINED = (386, "af36d65a4d2020be")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -827,34 +1111,157 @@ DEFINED = (385, "48510317eab24a12")
 #: pinned cannot witness a member leaving it.
 SAME_FILE_PROSE = (16, "5539b351de2562fb")
 
+#: **Per-member digests of the two classes whose shrink is answerable
+#: mechanically** -- the enforceable half of repair-vs-signal-loss, and the
+#: thing a single class digest could only describe in English.
+#:
+#: Why only these two. A departure is answerable when exactly one question
+#: decides whether it was a repair, and :func:`_refuse_unexplained_departures`
+#: asks it: *does the departed ref carry a ``def``/``class`` now, or is it at
+#: least loose-DEAD now so the validator warns about it honestly?* For
+#: :data:`HONEST_DEAD` a departure is a warning vanishing, and for
+#: :data:`BOOKKEEPING_ONLY` it is the gate's own class losing a member, so in
+#: both cases a "no" to that question is signal loss by this card's definition.
+#: For :data:`FALSELY_ALIVE`, :data:`CENSUS`, :data:`DEFINED` and
+#: :data:`TRACE_TESTS` there is no single such question -- and they are 166, 580,
+#: 386 and 510 members, so a per-member set for them would put thousands of hex
+#: characters in this file to answer a question nobody can state. Their closure
+#: is the partition arithmetic instead: with CENSUS, FALSELY_ALIVE,
+#: FALSELY_DEAD, HONEST_DEAD and DEFINED all pinned exact, no ref can enter or
+#: leave the population in any class without reddening at least one cell.
+#:
+#: G-2: a 12-hex digest is not a ref and resolves nothing -- asserted, not
+#: argued, by :func:`test_this_module_resolves_no_verifying_ref_at_all` running
+#: the whole declared set's trie over this file's bytes.
+BOOKKEEPING_ONLY_MEMBERS = frozenset(
+    {
+        "080555bfe5ee", "1eb591d49a25", "29e08f59dc97", "5dffd6a19d09",
+        "65011680c167", "67727cff20af", "6971a52601f1", "70e3102a3463",
+        "80168d60bd5b", "be5117c9525f", "c19c9922ca0a", "cae6c630eb4b",
+        "cc7262aedc8f", "efad4f46f347", "fd377ad19c33",
+    }
+)
+
+#: The 28 members of :data:`HONEST_DEAD`. The two that left this class when
+#: ``main`` was merged in are deliberately **absent**: they were re-derived
+#: against a ``def``/``class``, found to have none, and recorded on
+#: :data:`HONEST_DEAD` as signal loss. Had this set existed one merge earlier,
+#: :func:`_refuse_unexplained_departures` would have named both by itself --
+#: which is the measurement behind taking review cycle 2's counter-example
+#: rather than restating the refusal.
+HONEST_DEAD_MEMBERS = frozenset(
+    {
+        "036d0ebf4aa2", "0df83fbf2e09", "10c62d9a9310", "18b227c7c63e",
+        "35147234566c", "37410c6d83f1", "3af12f7aad47", "3d0816e8981f",
+        "3dc2d668529d", "4fd2f3f82707", "5989c001ec2a", "64cb91389bdd",
+        "706b6f89e198", "724703d80fe5", "751ab66ab856", "779d88646ffd",
+        "7d23efdda011", "7fe155ce4ee7", "9701bc0b3f85", "9c951b39bf87",
+        "9de898a558be", "a8cd42d7bc1e", "bdaa2b084e1b", "c2a2ccef71ff",
+        "d2b90c440d41", "de54ba7800a7", "eb8e625174c7", "fb5e99ae0ae7",
+    }
+)
+
+
+def _refuse_unexplained_departures(
+    label: str, stored: frozenset[str], members: tuple[Verdict, ...]
+) -> None:
+    """A ref that LEFT this class must have left for a reason that is not erosion.
+
+    The enforceable form of *"a class that shrinks because a review report was
+    synced in is signal loss, not a fix"*. The departed member is named without
+    any name being stored: the missing per-member digest is matched against the
+    digest of every ref the model declares **today**, re-derived, and the one it
+    matches is the departed ref. Then the mechanical question is asked --
+    ``_strict_resolution`` for a definition, ``_loose_resolution`` for whether
+    the validator at least warns honestly now -- and a departure that answers
+    "no" to both reds here, by name, with its remaining resolvers printed.
+
+    The one honest residual, and it is distinguishable rather than hidden: if the
+    departed ref's **declaration** also left the model, nothing in today's
+    population hashes to the missing digest and it cannot be named. That case
+    moves :data:`CENSUS`, which is pinned exactly, so it reds there instead; it
+    is reported here as a count so the two cases are never confused.
+    """
+    departed = stored - _member_digests(tuple(verdict.ref for verdict in members))
+    if not departed:
+        return
+    population = {_digest_of(declared.ref): declared for declared in _declared_refs()}
+    recovered = [population[digest] for digest in sorted(departed) if digest in population]
+    withdrawn = len(departed) - len(recovered)
+    losses = {
+        declared.ref: _loose_resolution().get(declared.ref, ())
+        for declared in recovered
+        if not _strict_resolution(declared) and _loose_resolution().get(declared.ref)
+    }
+    assert not losses, (
+        f"the {label!r} class lost {len(departed)} member(s), and {len(losses)} of "
+        f"them left WITHOUT gaining a def/class and while still reading as alive "
+        f"to the validator. That is SIGNAL LOSS, not a repair:\n"
+        + "\n".join(
+            f"  {ref}\n      still resolved by : {', '.join(hits)}\n"
+            f"      defined at        : (nowhere)"
+            for ref, hits in sorted(losses.items())
+        )
+        + (
+            f"\n(plus {withdrawn} digest(s) matching no ref the model declares "
+            f"today -- the declaration itself left, which moves CENSUS and reds "
+            f"there.)"
+            if withdrawn
+            else ""
+        )
+        + f"\nThe departed refs above were named by re-deriving the whole "
+        f"{len(population)}-ref population and matching the missing per-member "
+        f"digests; no ref is stored anywhere in this module (G-2). If a "
+        f"departure really is a repair, the ref carries a def/class and this "
+        f"cell goes green without anything being pasted."
+    )
+
+
 
 def _class_of(predicate) -> tuple[Verdict, ...]:
     return tuple(verdict for verdict in _verdicts() if predicate(verdict))
 
 
-def _assert_class(label: str, baseline: tuple[int, str], members: tuple[Verdict, ...]) -> None:
+def _assert_class(
+    label: str,
+    baseline: tuple[int, str],
+    members: tuple[Verdict, ...],
+    stored_members: frozenset[str] | None = None,
+) -> None:
     """Hold one derived class to its measured count and digest.
 
-    **The shrink direction is documented and cannot be enforced here, and the
-    reason is a trade-off rather than an omission.** "A class that shrinks
-    because a review report was synced in is signal loss, not a fix" is this
-    card's own rule; enforcing it would mean comparing the departed refs
-    against a stored list and asking whether each gained a ``def``/``class``.
-    A stored list is exactly what G-2 forbids: it would spell the dead refs
-    into tracked, non-Markdown code and revive every one of them through the
-    mechanism this module exists to detect. So the baseline is a **digest**,
-    which pins the class exactly and resolves nothing -- and a digest cannot
-    say which member left. The property that makes the guard safe is the
-    property that makes the response unenforceable, and the honest statement is
-    that the message below is a **prompt to a human, not a gate**. The gate is
-    that the cell reds at all, in either direction; what the reader does next is
-    on the reader, and the paste-ready line is offered knowing it is also the
-    lazy exit.
+    **The shrink direction, and the claim here that review cycle 2 refuted.**
+    This docstring used to say: enforcing *"a class that shrinks because a review
+    report was synced in is signal loss, not a fix"* would need a stored ref
+    list, G-2 forbids one, a digest cannot say who left, and therefore "the
+    property that makes the guard safe is the property that makes the response
+    unenforceable". **That last sentence is false as written, and it was the
+    sharpest claim in the round that wrote it** -- which is this card's own
+    subject, so it is corrected here rather than quietly dropped.
+
+    It is true of ONE digest over a whole class, which cannot name a member. It
+    does not follow that no artefact can, because the ref population is
+    **re-derived at run time**: a stored *per-member* digest set never has to be
+    resolvable, only matchable against a set the guard rebuilds. See
+    :func:`_digest_of` and :func:`_refuse_unexplained_departures`, which is now
+    wired into the two classes whose shrink reduces to one mechanical question
+    (:data:`BOOKKEEPING_ONLY_MEMBERS`, :data:`HONEST_DEAD_MEMBERS`) and which
+    names the departed ref and asserts the departure was a repair.
+
+    What stays a prompt rather than a gate is narrower, and stated as such: for a
+    class with no per-member set -- :data:`FALSELY_ALIVE`, :data:`CENSUS`,
+    :data:`DEFINED`, :data:`TRACE_TESTS` -- the message below is still a message,
+    and the paste-ready line is offered knowing it is also the lazy exit. The
+    gate is that the cell reds at all, in either direction.
 
     The one thing that IS mechanical: whatever the class moved to must still
     satisfy every other cell here, so a baseline updated without re-derivation
     typically moves the partition, the census or the gate as well.
     """
+    if stored_members is not None:
+        # Before the count, because "two members left and here they are" is a
+        # better failure than "the digest changed".
+        _refuse_unexplained_departures(label, stored_members, members)
     refs = tuple(verdict.ref for verdict in members)
     actual = (len(refs), _fingerprint(refs))
     assert actual == baseline, (
@@ -904,7 +1311,7 @@ def test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping() -> None:
         f"{sorted(strays)}. They are still refs with no definition, but the "
         f"class name no longer describes them -- rename it or split it."
     )
-    _assert_class("bookkeeping-only", BOOKKEEPING_ONLY, members)
+    _assert_class("bookkeeping-only", BOOKKEEPING_ONLY, members, BOOKKEEPING_ONLY_MEMBERS)
 
 
 def test_the_two_directions_of_disagreement_are_exactly_the_measured_ones() -> None:
@@ -922,6 +1329,7 @@ def test_the_two_directions_of_disagreement_are_exactly_the_measured_ones() -> N
         "honest-dead",
         HONEST_DEAD,
         _class_of(lambda v: not v.loose and not v.strict),
+        HONEST_DEAD_MEMBERS,
     )
 
 
@@ -1007,7 +1415,9 @@ def test_every_declared_ref_lands_in_exactly_one_class() -> None:
 #: CARD-301 cycle-1 review report alone, and the test it names has never
 #: existed. Confirmed at f64112f2: no ``def`` and no ``class`` anywhere, and
 #: exactly two resolvers, one of them ``meta/kanban/dispatcher.state`` -- which
-#: the orchestrator wrote while recording this defect.
+#: the orchestrator wrote while recording this defect. Re-derived at HEAD after
+#: ``main`` was merged in: still no definition, still exactly those two
+#: resolvers.
 _AC038_REF = "TestGenerate_50x50_" + "RespectsTimeoutBound"
 
 #: A node-id instance of the same class. AC-4 as drafted named
@@ -1341,7 +1751,8 @@ def test_the_trace_tests_lists_agree_with_an_independent_reading() -> None:
     **The witness neither older self-check could be.** F-001 was a ``break`` on
     the first non-``- item`` line of a ``tests:`` list, so a ``#`` comment
     inside a list truncated it; 16 of ``trace.yml``'s 510 refs and 3 of the
-    board's 579 vanished with no exception raised. Both existing controls were
+    board's 579 (the census at the cut; it is 580 at HEAD) vanished with no
+    exception raised. Both existing controls were
     blind to exactly that:
 
     * :func:`test_every_declared_ref_lands_in_exactly_one_class` compares the
@@ -1436,13 +1847,294 @@ def test_a_non_item_line_inside_a_tests_list_is_classified_and_never_a_break() -
         raise AssertionError("an unanalysable line inside a tests: list was accepted")
 
 
+def test_an_unreadable_declaration_key_shape_is_a_failure_and_not_a_skip(
+    tmp_path, monkeypatch
+) -> None:
+    """The control for :func:`_refuse_unread_declaration_keys` (ADR-0039/R2).
+
+    Review cycle 1's F-001 was a silent skip inside a block sequence. Cycle 2
+    found the same rule broken one frame up, in the dispatch that decides whether
+    the block is read at all, and the reason the cell that *claimed* to cover it
+    could not is worth keeping in view: ``test_every_declared_check_is_classified``
+    iterates the refs the derivation already produced, so a key whose shape was
+    never read contributes nothing for it to look at. **This** cell drives the
+    shapes at the derivation itself, which is the only place the raise is
+    observable.
+
+    Every shape is driven against a synthetic authority set in ``tmp_path``, so
+    no tracked file is written at any point. The clean set is derived first and
+    its refs asserted -- an instrument that raised on everything, or that
+    collected nothing, would pass the six negative cases while proving nothing.
+    """
+    alpha = "Synthetic" + "Authority_Alpha"
+    beta = "Synthetic" + "Authority_Beta"
+    gamma = "Synthetic" + "Authority_Gamma"
+    delta = "Synthetic" + "Authority_Delta"
+
+    adr_dir = tmp_path / "adr"
+    adr_dir.mkdir()
+    requirements = tmp_path / "requirements.yml"
+    trace = tmp_path / "trace.yml"
+    monkeypatch.setattr("tests.test_check_ref_resolution.ADR_DIR", adr_dir)
+    monkeypatch.setattr("tests.test_check_ref_resolution.REQUIREMENTS", requirements)
+    monkeypatch.setattr("tests.test_check_ref_resolution.TRACE", trace)
+
+    def write(adr_body: str = "", requirements_body: str = "", trace_body: str = "") -> None:
+        (adr_dir / "0001-synthetic.md").write_text(
+            "# Synthetic ADR\n\n"
+            "Prose outside a fence, wrapped so that a sentence begins with a word\n"
+            f"tests: like this one, which declares nothing (the live shape at\n"
+            "0042-book-interior-is-vector-cover-stays-raster.md:153).\n\n"
+            "```yaml\n"
+            "- id: SYN/R1\n"
+            f"  check: {{kind: test, ref: {alpha}}}\n"
+            f"{adr_body}"
+            "```\n",
+            encoding="utf-8",
+        )
+        requirements.write_text(
+            "requirements:\n"
+            "  - id: SYN-001\n"
+            f"    test: {beta}\n"
+            "    check:\n"
+            "      kind: test\n"
+            f"      ref: {gamma}\n"
+            "    rationale: >-\n"
+            "      a block scalar whose body wraps onto a line beginning\n"
+            "      test: which is prose and declares nothing\n"
+            f"{requirements_body}",
+            encoding="utf-8",
+        )
+        trace.write_text(
+            "covered:\n"
+            "  - id: SYN-001\n"
+            "    tests:\n"
+            f"      - {delta}\n"
+            "      # a note about a retired test\n"
+            "    notes: >-\n"
+            "      folded prose wrapping onto a line beginning\n"
+            "      tests: which is prose and declares nothing\n"
+            f"{trace_body}",
+            encoding="utf-8",
+        )
+
+    # The instrument, proved on an unmutated input first: all four authorities
+    # read, the two prose lines and the comment-in-list ignored, nothing raised.
+    write()
+    derived = {declared.ref: declared.sources for declared in _declared_refs()}
+    assert set(derived) == {alpha, beta, gamma, delta}, derived
+    assert derived[alpha] == ("adr/0001-synthetic.md",)
+    assert derived[beta] == ("requirements.yml (test:)",)
+    assert derived[gamma] == ("requirements.yml (check:)",)
+    assert derived[delta] == ("trace.yml",)
+
+    planted = "Synthetic" + "Authority_Planted"
+
+    def derive_and_classify() -> set[str]:
+        """The derivation the board actually runs: read, then classify.
+
+        ``Declared.form`` is a lazy property, so a shape whose garbage is
+        COLLECTED rather than skipped raises one frame later, when a cell asks
+        for its form -- which is what ``test_every_declared_check_is_classified``
+        does. R2's property is "collected or raised, never skipped", so the check
+        has to cover both routes or it mis-reports one of them. The first draft
+        of this cell asserted that ``_declared_refs`` itself must raise, and it
+        red on ``requirements.yml``'s ``test: [A,`` -- which is collected, not
+        skipped. Where the raise comes from is a message-quality difference and
+        it is recorded in the table below, not papered over: the key refusal
+        names the file and LINE, the form refusal names the shape and the
+        declaring authority but not the line.
+        """
+        declared = _declared_refs()
+        for entry in declared:
+            entry.form
+        return {entry.ref for entry in declared}
+
+    # THE MATRIX. Every authority's own declaration key, driven at each
+    # YAML-legal shape of that key -- not just at the one authority cycle 2
+    # caught. `route` records which frame refuses it: "key" is
+    # _refuse_unread_declaration_keys (names the line), "form" is Declared.form
+    # (names the shape).
+    illegal = (
+        ("trace.yml", "key", f"    tests: [{planted},\n      {planted}2]\n"),
+        ("trace.yml", "key", f"    tests: >-\n      {planted}\n"),
+        ("trace.yml", "key", f"    tests: {planted}\n"),
+        ("trace.yml", "key", "    tests: # a note instead of a list\n"),
+        ("trace.yml", "key", f"    tests: [{planted}] # a note\n"),
+        ("trace.yml", "key", f"    tests: &anchor [{planted}]\n"),
+        ("requirements.yml", "form", f"    test: [{planted},\n      {planted}2]\n"),
+        ("requirements.yml", "form", f"    test: >-\n      {planted}\n"),
+        ("requirements.yml", "form", "    test: # a note instead of a ref\n"),
+        ("requirements.yml", "form", f"    test: [{planted}] # a note\n"),
+        ("requirements.yml", "form", f"    test: &anchor {planted}\n"),
+        ("requirements.yml", "form", f"    test: [{planted}]\n"),
+        ("requirements.yml", "key", f"    test:\n      - {planted}\n"),
+        ("requirements.yml", "key", f"    check: {{kind: test, ref: {planted}}}\n"),
+        ("requirements.yml", "key", f"    check: >-\n      {planted}\n"),
+        ("requirements.yml", "key", f"    check: {planted}\n"),
+        ("requirements.yml", "key", "    check: # a note\n"),
+        ("requirements.yml", "key", f"    check: [{planted}]\n"),
+        ("requirements.yml", "key", f"    check: &anchor {planted}\n"),
+        ("adr/0001-synthetic.md", "key", f"  check:\n    kind: test\n    ref: {planted}\n"),
+        ("adr/0001-synthetic.md", "key", f"  check: >-\n    {planted}\n"),
+        ("adr/0001-synthetic.md", "key", f"  check: {planted}\n"),
+        ("adr/0001-synthetic.md", "key", "  check: # a note\n"),
+        ("adr/0001-synthetic.md", "key", f"  check: [{planted}]\n"),
+        ("adr/0001-synthetic.md", "key", f"  check: &anchor {planted}\n"),
+        ("adr/0001-synthetic.md", "key", f"  check: {{kind: test,\n    ref: {planted}}}\n"),
+    )
+    # The legal shapes, asserted to still DERIVE their ref. Without these a
+    # derivation that raised on absolutely everything would pass every negative
+    # case above while reading nothing at all.
+    legal = (
+        ("trace.yml", f"    tests:\n      - {planted}\n"),
+        ("trace.yml", f"    tests: [{planted}]\n"),
+        ("requirements.yml", f"    test: {planted}\n"),
+        ("requirements.yml", f"    check:\n      kind: test\n      ref: {planted}\n"),
+    )
+
+    def plant(label: str, body: str) -> None:
+        if label == "trace.yml":
+            write(trace_body="  - id: SYN-002\n" + body)
+        elif label == "requirements.yml":
+            write(requirements_body="  - id: SYN-002\n" + body)
+        else:
+            write(adr_body=body)
+
+    for label, route, body in illegal:
+        plant(label, body)
+        try:
+            derive_and_classify()
+        except RefShapeNotClassifiable as refusal:
+            if route == "key":
+                assert label.split("/")[-1] in str(refusal), (body, str(refusal))
+            continue
+        raise AssertionError(
+            f"{label}: {body.strip()!r} was SILENTLY SKIPPED instead of raising "
+            f"-- the shape contributed nothing, and nothing on this board would "
+            f"have noticed. That is ADR-0039/R2's failure, one frame above the "
+            f"frame review cycle 1 repaired."
+        )
+
+    for label, body in legal:
+        plant(label, body)
+        derived_now = derive_and_classify()
+        assert planted in derived_now, (
+            f"{label}: the legal shape {body.strip()!r} derived no ref -- this "
+            f"control would pass on a derivation that reads nothing: "
+            f"{sorted(derived_now)}"
+        )
+
+    # And the ADR's block form specifically, which the ADR scan does not read at
+    # all. 0 ADRs use one today, so this is the latent half -- latent is not the
+    # same as absent.
+    write(adr_body="  check:\n    kind: test\n    ref: " + planted + "\n")
+    try:
+        _declared_refs()
+    except RefShapeNotClassifiable as refusal:
+        assert "adr/0001-synthetic.md" in str(refusal), str(refusal)
+    else:
+        raise AssertionError("a block-form check: in an ADR was silently skipped")
+
+
+def test_a_departed_member_is_recovered_by_name_and_its_departure_judged() -> None:
+    """The control for :func:`_refuse_unexplained_departures` (F-002c2).
+
+    The claim it carries is that a stored per-member digest set makes the
+    repair-vs-signal-loss response **enforceable** while storing nothing a text
+    search can resolve. A claim like that needs a control that can fail in the
+    direction it is about, so all four cases are driven -- including the two that
+    must stay GREEN, because a helper that red on every input would "pass" the
+    negative case while proving nothing.
+
+    Nothing here is written down: the planted departures are refs picked out of
+    the derived population at run time, and the assertion is that the helper
+    recovers the one that matters **by name** from a digest alone.
+    """
+    gate = _class_of(lambda v: v.bookkeeping_only)
+    stored = _member_digests(tuple(verdict.ref for verdict in gate))
+    assert len(stored) == len(gate), "per-member digests collided on the gate's class"
+
+    # 1. Nothing departed: silent.
+    _refuse_unexplained_departures("control", stored, gate)
+
+    # 2. A departure that is NOT a repair -- a ref the validator still reads as
+    #    alive and nothing defines. It must be named, from its digest alone.
+    losses = [v for v in _verdicts() if v.falsely_alive and not v.bookkeeping_only]
+    assert losses, "no falsely-alive non-gate ref exists; this case is unexercised"
+    try:
+        _refuse_unexplained_departures("control", stored | {_digest_of(losses[0].ref)}, gate)
+    except AssertionError as refusal:
+        assert losses[0].ref in str(refusal), (
+            f"the departed member was not recovered by name: {refusal}"
+        )
+        assert "SIGNAL LOSS" in str(refusal), str(refusal)
+    else:
+        raise AssertionError(
+            "a member that left without gaining a def/class was accepted silently"
+        )
+
+    # 3. A departure that IS a repair -- the ref carries a real def/class.
+    repairs = [v for v in _verdicts() if v.strict and not v.bookkeeping_only]
+    assert repairs, "no defined ref exists; this case is unexercised"
+    _refuse_unexplained_departures("control", stored | {_digest_of(repairs[0].ref)}, gate)
+
+    # 4. The honest residual: a digest matching no ref the model declares today.
+    #    The declaration itself left, which moves CENSUS, so this cell must not
+    #    claim to have judged it.
+    _refuse_unexplained_departures("control", stored | {"0" * 12}, gate)
+
+
+def test_the_cross_reading_cell_calls_the_second_reader_by_name() -> None:
+    """The second reading cannot be silently replaced by a copy of the first.
+
+    :func:`test_the_trace_tests_lists_agree_with_an_independent_reading` has a
+    declared survivor: rewriting its body as ``independent = set(primary)``
+    leaves it GREEN, because an instrument that agrees with itself looks exactly
+    like one that agrees with something else. That insight is kept in that cell's
+    own docstring and it is the right account of why the *assertion* cannot carry
+    the claim -- but independence is a property of the SOURCE, and a source
+    property is assertable. Measured: an ``ast`` walk of that cell's own
+    ``FunctionDef`` yields ``_trace_tests_refs_by_backward_scan`` on a clean tree
+    and does not after the rewrite.
+
+    What this proves and does not: it pins the **call site**, not the
+    algorithm's independence -- a future author could satisfy it with a second
+    function that is a copy of the first. The evidence that the algorithms really
+    differ is that three independent readings agree at 510 (the forward scan, the
+    backward scan, and review cycle 2's indentation-stack walker run out of
+    tree), plus the measured fact that the backward scan is strictly stronger on
+    two of F-001c2's key shapes. House pattern, not a new idea:
+    ``tests/test_guard_integrity.py`` AST-walks guard sources throughout and at
+    one point parses its own ``__file__``.
+    """
+    module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    cells = [
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "test_the_trace_tests_lists_agree_with_an_independent_reading"
+    ]
+    assert len(cells) == 1, f"expected exactly one cross-reading cell, found {len(cells)}"
+    called = {node.id for node in ast.walk(cells[0]) if isinstance(node, ast.Name)}
+    assert "_trace_tests_refs_by_backward_scan" in called, (
+        "the cross-reading cell no longer calls the second reader -- it is "
+        f"comparing the forward scan against something else, or against itself. "
+        f"Names it uses: {sorted(called)}"
+    )
+    # And the control for the control: the cell must still use the forward
+    # derivation too, or the comparison has lost its other side.
+    assert "_declared_refs" in called, sorted(called)
+
+
 def test_the_derivation_reads_all_four_authorities() -> None:
     """No authority is silently missing from the ref set.
 
     A ref declared only in ``trace.yml`` and nowhere else is still a ref the
     validator resolves, and an earlier census of this board missed both
     ``trace.yml`` and ``requirements.yml``'s block-form checks -- 424 refs
-    instead of 579, which is a 27 % blind spot in a guard about blind spots.
+    instead of the 579 then on the board (580 at HEAD), which is a 27 % blind
+    spot in a guard about blind spots.
 
     The floor below is deliberately left a floor: the census is pinned exactly,
     as :data:`CENSUS`, by

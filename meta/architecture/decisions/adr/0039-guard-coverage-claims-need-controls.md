@@ -240,7 +240,7 @@ not anybody's mistake:
 | `meta/kanban/backlog-scored.yml` | scoring bookkeeping | resolves **6** model refs, **4** of them with no definition anywhere — a broader kanban-side resolver than the state log |
 | `meta/kanban/waves.yml` | wave bookkeeping | resolves **3** model refs, **1** of them undefined; sole resolver for none. The **fifth** kanban-side resolver, and listed without a figure until review cycle 1 asked for one — an unmeasured row in this table is the same phantom as an unmeasured check ref |
 | `meta/profiling/*.txt` | duration logs, which name every node id that ran | sole resolver for exactly **1** ref |
-| prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by **109** files, two of them a comment and a docstring under `tests/` |
+| prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by **110** files (109 at the cut — one more synced review report since), two of them a comment and a docstring under `tests/` |
 
 **Author discipline is not available as the remedy.** CARD-291's cycle-1 reviewer knew the
 hazard, wrote one ref into its YAML split across two pieces so the report would not revive
@@ -272,30 +272,86 @@ means the population of dishonest ones has not moved without being read. Its own
 refs spells them into tracked non-Markdown code and revives them; on its first run that
 test named three refs the module's own docstring had revived.
 
-**The census is 579, and here is how it is derived**, because three different figures were
-quoted for it inside one card and each was wrong in a way worth recording:
+**The census is 580, and here is how it is derived** — *with the tree named, because it
+moves*. Three different figures were quoted for it inside one card and each was wrong in a
+way worth recording, and a fourth row in this very table was left unmeasured.
 
-| source | distinct refs |
-|---|---|
-| `trace.yml` `tests:` lists (block form and inline) | 510 |
-| `requirements.yml` `test:` keys and block-form `check:` refs | — |
-| ADR inline `check: {kind: test, ref: …}` | 43 distinct, from **45 occurrences** |
-| **union, de-duplicated across authorities** | **579** |
+Every row below is re-derived at `card/308` after `main` was merged in (the figures at the
+cut `f64112f2` are in brackets where they differ):
 
-The three wrong figures: **576** came from a forward scan of `trace.yml` that stopped at the
-first non-`- item` line, so a `#` comment *inside* three `tests:` lists truncated each one —
-494 refs instead of 510, 16 dropped silently with no exception, 3 of them declared nowhere
-else. **580** came from counting the ADRs' 45 `check:` *occurrences* as 45 refs when two are
-re-declarations. And **510** is right but is only one authority. The lesson is the smaller,
-duller one: a census is only as good as an **independent** reading of the same file, which is
-why `trace.yml`'s contribution is now derived twice by two different algorithms — a forward
-scan that classifies every line it meets, and a backward scan from each list item to its
-owning key — and the two are asserted equal. The forward scan now **raises** on a line it
-cannot classify, per R2; a `break` there was a silent truncation masquerading as a parse.
+| source | distinct refs | decomposition |
+|---|---|---|
+| `trace.yml` `tests:` lists (block form and inline) | **510** | 64 block-form keys + 11 inline |
+| `requirements.yml` `test:` keys and block-form `check:` refs | **404** | 401 distinct from 421 `test:` keys, 10 from 11 block-form `check:` blocks (the 11th is not kind `test`), **7 refs declared by both** — so 401 + 10 is 411 *mentions* and 404 distinct |
+| ADR inline `check: {kind: test, ref: …}` | **44** [43] | **45** [44] occurrences, **47** [46] ref-mentions (one occurrence declares two comma-separated refs; one ref is declared 3× and one 2×) |
+| **union, de-duplicated across authorities** | **580** [579] | |
+
+The `requirements.yml` row was an em-dash until review cycle 2 asked for it, two lines below
+the row that condemns unmeasured rows; and the figure first offered for it, "404 (401 `test:`
+keys + 10 block-form `check:`)", does not add up on its face. The reconciliation is the
+overlap: 7 refs are declared by both forms. A decomposition that does not sum is an
+invitation to re-measure, which is the opposite of what a table is for.
+
+The three wrong figures, and the one coincidence worth naming. **576** came from a forward
+scan of `trace.yml` that stopped at the first non-`- item` line, so a `#` comment *inside*
+three `tests:` lists truncated each one — 494 refs instead of 510, 16 dropped silently with
+no exception, 3 of them declared nowhere else. **510** is right but is only one authority.
+And **580** was, at the cut, an *erroneous* census: it came from counting the ADRs' 44
+`check:` occurrences as 44 refs when one is declared three times and one twice
+(579 − 43 + 44 = 580). It is now the *correct* census, because `main` declared one genuinely
+new ref — defined at `tests/test_book_pdf.py:1797`, re-derived against that `def`. A figure
+that is wrong on one tree and right on the next is the strongest argument this ADR has for
+naming the tree beside the number.
+
+The lesson is the smaller, duller one: a census is only as good as an **independent** reading
+of the same file, which is why `trace.yml`'s contribution is derived twice by two different
+algorithms — a forward scan that classifies every line it meets, and a backward scan from
+each list item to its owning key — and the two are asserted equal.
+
+**And a cross-reading is not a default-deny — review cycle 2 measured the difference and it
+is the sharper half of R2.** The forward scan raises on a *line inside a list* it cannot
+classify. It did **not** raise on a `tests:` **key** whose shape it could not read: a
+multi-line flow sequence, a block scalar, a plain scalar, a comment after the key, a trailing
+comment on an inline list, an anchor. Those six fell through the dispatch and contributed
+nothing, and **two of them are invisible to the backward reading as well**, because both
+readings assume a ref lives either in a flow sequence or in a block sequence of `- item`
+lines. So the two readings agreed at 510 and both were wrong, every pinned count stayed
+green, and the detector's own G-2 self-check — a trie built *from* the derived set — reported
+CLEAN on a text spelling the missed ref in full. Two readings of the same assumption cannot
+close that class; only refusing the key can. The derivation now default-denies on the
+declaration **key** across all four authorities: a `test:`/`tests:`/`check:` key no pattern
+claims is a FAILURE naming the file, line and text.
+
+Two things that repair taught, both measured and both worth a line here because they are
+general:
+
+* **A default-deny needs a notion of where a declaration can live, or it reds on English.**
+  All 68 anchored `check:` lines in the ADR set are inside a ``` fence; exactly one
+  declaration-key-looking line is outside one, and it is prose —
+  `0042-book-interior-is-vector-cover-stays-raster.md:153` wraps a sentence onto a line
+  beginning *"tests: its 0.48/1.28/2.08 pt are the owner's figures"*. The same holds for block
+  scalars in the YAML authorities (152 in `requirements.yml`, 69 in `trace.yml`, 2309 body
+  lines, 0 of them declaration-key-shaped today). So the region is part of the rule.
+* **The opposite failure exists and is worse for a census.** Before the regions were shared
+  between the two halves, the narrow `test:` pattern still matched every line in the file and
+  **collected a wrapped prose line inside a `rationale: >-` block as a ref**. A guard that
+  invents a ref out of prose corrupts the census in the direction nothing else here checks.
+  It was found by a synthetic authority set in the new control, not by reading the code.
+
+**A sub-shape of the `tests/`-prose limit case that nothing on this board had named.** A guard
+written to assert that some tests do **not** exist yet, holding their names as string
+literals, would — if the model declared those refs in **bare** form — make the validator read
+all three as checked. A test that tracks not-yet-written tests, silencing the warnings it
+tracks, is the most self-defeating member of this family. It is **not** operative on this
+board: the refs in question (FR-045's) are declared as node ids, and `git grep -lw` on a
+`path::name` pattern cannot match a bare name — measured per ref, with the resolver's own
+query. That is an argument **for** the node-id migration, and it is recorded here because the
+next bare-form declaration re-opens it.
 
 **`dead ref` and `untested rule` are different findings, and this board has been conflating
 them in the worst possible direction.** ADR-0006/R1's ref
-(`TestDependencyBaseline_IsExactlyPillowAndNumpy`) has zero definitions and 109 resolvers, so
+(`TestDependencyBaseline_IsExactlyPillowAndNumpy`) has zero definitions and **110** resolvers
+(109 at the cut, and climbing with each synced report), so
 it is the limit case above and the pointer is genuinely dead. **The rule it points at is
 nevertheless tested.** `tests/test_export_pdf.py:1249` asserts the whole runtime dependency
 list equals `{"pillow", "numpy"}`, and its own docstring says *"ADR-0006's revision is what
@@ -316,8 +372,13 @@ report *"the model's pointer does not resolve to a definition"* and must not be 
 is `forge_1`'s `validate.py --root meta/architecture --phase all`; the forge plugin cache's
 copy reports a spurious `[ERROR] ADR-0025 circular supersession` because its
 `adr_integrity.py` counts "supersedes" and "superseded by" as two edges. `validate.py` is
-byte-identical between the copies. On this board, 2026-10-29: **forge_1 — 0 errors, 102
-warnings; plugin cache — 1 error, 102 warnings.** The honest error count is 0.
+byte-identical between the copies. Measured on `card/308` with `main` merged in, 2026-10-29:
+**forge_1 — 0 errors, 100 warnings** (23 of them "no definition was found" dead-ref
+warnings); the plugin cache's copy adds its one spurious error and agrees on the warnings.
+The honest error count is 0. The figure was **102** earlier the same day on the same branch
+before `main` was merged, and the 2 that went are the FR-045 pair above — so even this row is
+a measurement of the defect and not just a reading of the instrument. A warning count
+without both a binary **and** a tree is not a figure.
 
 **Interaction with CARD-307, with the figure CARD-307 needs corrected.** CARD-307 repairs
 the `path::nodeid` refs so they resolve; this section and its detector stop the resolution
@@ -331,14 +392,23 @@ card's scope. Derived 2026-10-29 over the 23 distinct `path::nodeid` check refs 
 carries (`requirements.yml` `test:` keys and block-form `check:`, `trace.yml` `tests:`
 lists, ADR inline `check:`), forge_1 validator agreeing:
 
-| | count |
-|---|---|
-| loose-alive **and** defined in the named module | 20 |
-| loose-alive, **no** definition anywhere (falsely alive) | 1 — FR-045/AC-392's |
-| loose-dead and absent (the honest state, and the only two the validator flags) | 2 |
+| | at the cut `f64112f2` | at HEAD, `main` merged in |
+|---|---|---|
+| loose-alive **and** defined in the named module | 20 | 20 |
+| loose-alive, **no** definition anywhere (falsely alive) | 1 — FR-045/AC-392's | **3** |
+| loose-dead and absent (the honest state, the only ones the validator flags) | 2 | **0** |
 
 The docstring node-id tables that CARD-284, CARD-291 and CARD-294 landed are why 20 of 23
-now resolve. So the validator reports exactly **2** dead node-id refs, not 30.
+resolve. So the validator reported exactly **2** dead node-id refs, not 30.
+
+**And then it reported none, without anything being repaired.** The two honest-dead node-id
+refs at the cut were FR-045/AC-390's and AC-391's. On `main` each has exactly **one**
+resolver — `meta/review/20261029T130000Z-CARD-285-cycle1.yml`, a synced cycle-1 review
+report — and still no `def` or `class` anywhere, measured with `git grep` against both trees.
+The validator's warning count fell from 102 to 100 for precisely those two. Nothing was
+written; the board simply stopped being able to see them. That is this ADR's mechanism
+firing on live data *while the card documenting it was in flight*, and the detector caught it
+by reddening five of its pinned classes, which is why the last column exists.
 
 **A third shape this turned up, and it is the one CARD-307 should actually be scoped on.**
 Four node-id refs are defined in the module they name while that module does **not** spell
@@ -352,10 +422,11 @@ additionally named by `tests/test_public_player.py`'s table, so another module's
 carrying it — a first draft of this section said all three were review-only and the
 detector's own assertion refuted it, which is R1 landing on this card's work. The fourth,
 ADR-0042/R4's
-`tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, has **57**
-resolvers — 51 `meta/review`, 4 `meta/profiling`, 1 `meta/kanban/backlog-scored.yml`, and
+`tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, has **58**
+resolvers — 52 `meta/review`, 4 `meta/profiling`, 1 `meta/kanban/backlog-scored.yml`, and
 one `tests/` file that is *not* the module holding its `def`
-(`tests/test_admin_serving.py`). Its definition is real
+(`tests/test_admin_serving.py`). It was 57 at the cut; the extra one is a review report
+synced in since, which is this row measuring the mechanism rather than just illustrating it. Its definition is real
 (`tests/test_export_pdf.py:1249`); none of the 57 is that definition.
 
 The repair is the existing precedent: a docstring node-id table in
