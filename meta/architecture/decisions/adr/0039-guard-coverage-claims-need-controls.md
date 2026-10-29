@@ -237,9 +237,10 @@ not anybody's mistake:
 |---|---|---|
 | `meta/review/**` | the CARD SYNC PROTOCOL copies each cycle's report into the main repo one-way, because `/commit` excludes `meta/` from card branches and `forge:fix`/`forge:commit`/`forge:retrospective` read them | twice: a warning retired on the sync commit alone, test still absent |
 | `meta/kanban/dispatcher.state` | the orchestrator's state log. **No `.md` extension, so unlike `board.md` it is inside the domain** | it became one of two load-bearing resolvers for a dead ref while recording this defect |
-| `meta/kanban/backlog-scored.yml`, `waves.yml` | scoring and wave bookkeeping | `backlog-scored.yml` alone resolves **6** model refs, **4** of which have no definition anywhere — a broader kanban-side resolver than the state log |
-| `meta/profiling/*.txt` | duration logs, which name every node id that ran | sole resolver for one ref |
-| prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by over a hundred files, two of them a comment and a docstring under `tests/` |
+| `meta/kanban/backlog-scored.yml` | scoring bookkeeping | resolves **6** model refs, **4** of them with no definition anywhere — a broader kanban-side resolver than the state log |
+| `meta/kanban/waves.yml` | wave bookkeeping | resolves **3** model refs, **1** of them undefined; sole resolver for none. The **fifth** kanban-side resolver, and listed without a figure until review cycle 1 asked for one — an unmeasured row in this table is the same phantom as an unmeasured check ref |
+| `meta/profiling/*.txt` | duration logs, which name every node id that ran | sole resolver for exactly **1** ref |
+| prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by **109** files, two of them a comment and a docstring under `tests/` |
 
 **Author discipline is not available as the remedy.** CARD-291's cycle-1 reviewer knew the
 hazard, wrote one ref into its YAML split across two pieces so the report would not revive
@@ -270,6 +271,46 @@ means the population of dishonest ones has not moved without being read. Its own
 `test_this_module_resolves_no_verifying_ref_at_all` exists because a guard that lists dead
 refs spells them into tracked non-Markdown code and revives them; on its first run that
 test named three refs the module's own docstring had revived.
+
+**The census is 579, and here is how it is derived**, because three different figures were
+quoted for it inside one card and each was wrong in a way worth recording:
+
+| source | distinct refs |
+|---|---|
+| `trace.yml` `tests:` lists (block form and inline) | 510 |
+| `requirements.yml` `test:` keys and block-form `check:` refs | — |
+| ADR inline `check: {kind: test, ref: …}` | 43 distinct, from **45 occurrences** |
+| **union, de-duplicated across authorities** | **579** |
+
+The three wrong figures: **576** came from a forward scan of `trace.yml` that stopped at the
+first non-`- item` line, so a `#` comment *inside* three `tests:` lists truncated each one —
+494 refs instead of 510, 16 dropped silently with no exception, 3 of them declared nowhere
+else. **580** came from counting the ADRs' 45 `check:` *occurrences* as 45 refs when two are
+re-declarations. And **510** is right but is only one authority. The lesson is the smaller,
+duller one: a census is only as good as an **independent** reading of the same file, which is
+why `trace.yml`'s contribution is now derived twice by two different algorithms — a forward
+scan that classifies every line it meets, and a backward scan from each list item to its
+owning key — and the two are asserted equal. The forward scan now **raises** on a line it
+cannot classify, per R2; a `break` there was a silent truncation masquerading as a parse.
+
+**`dead ref` and `untested rule` are different findings, and this board has been conflating
+them in the worst possible direction.** ADR-0006/R1's ref
+(`TestDependencyBaseline_IsExactlyPillowAndNumpy`) has zero definitions and 109 resolvers, so
+it is the limit case above and the pointer is genuinely dead. **The rule it points at is
+nevertheless tested.** `tests/test_export_pdf.py:1249` asserts the whole runtime dependency
+list equals `{"pillow", "numpy"}`, and its own docstring says *"ADR-0006's revision is what
+makes this the **rule's** check and not just one card's guardrail."* The ADR does name that
+test — in a `#` comment inside `meta/architecture/**`, which `code_search` excludes, so the
+validator cannot see it and reports the ref as dead.
+
+So the defect is a **phantom pointer, not an unverified dependency baseline**, and every
+earlier framing on this board — including the card that cut this work — implied the baseline
+itself was unchecked. It is not, and the overstatement is the more dangerous error of the
+two: it invites a card to go "verify" a rule that has a passing exact-equality assertion,
+and it inflates the cost of a one-line repair. A detector in this family must therefore
+report *"the model's pointer does not resolve to a definition"* and must not be read as
+*"this rule is unchecked"* — a distinction the detector's own docstring now carries under
+"What a report here does NOT claim". The one-line pointer repair belongs to CARD-307.
 
 **Two figures that only mean something with a binary attached.** The validator of record
 is `forge_1`'s `validate.py --root meta/architecture --phase all`; the forge plugin cache's

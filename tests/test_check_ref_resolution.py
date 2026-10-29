@@ -97,9 +97,12 @@ The three ref forms, and the one the board cannot resolve
     model's bare ref to be the test's Python name: ADR-0022/R4's
     ``PropertyTest_BareSize_Derives…SourceShape`` is implemented
     by ``def test_a_bare_size_derives_the_shorter_side_from_the_source_shape``.
-    163 bare refs therefore have no containing definition, and flagging all of
-    them would be a census of a naming convention rather than a detector of
-    erosion.
+    **191** bare refs therefore have no containing definition, and flagging all
+    of them would be a census of a naming convention rather than a detector of
+    erosion. (This sentence read 163 until review cycle 1, which is two
+    different populations in one number: 191 bare refs have no definition, and
+    **163** of those are additionally *loose-alive*, i.e. bare **and** falsely
+    alive. Both figures are derived; only the first belongs in this sentence.)
 
 So the **gate** (:func:`test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping`)
 is drawn where the evidence is unambiguous for every form: a ref that the loose
@@ -124,6 +127,19 @@ detector's. Reading a report here as a coverage gap overstates it in one
 direction; reading a green run as "the refs are honest" overstates it in the
 other, and only the second is dangerous.
 
+**The board's own worst instance of that overstatement is ADR-0006/R1**, and it
+is worth spelling out here because this module is where someone will come to
+look. Its ref has zero definitions and 109 resolvers, so it is a genuinely dead
+pointer and this module reports it. The **rule** it points at is nevertheless
+tested: ``tests/test_export_pdf.py:1249`` asserts the runtime dependency list
+equals ``{"pillow", "numpy"}`` exactly, and says in its own docstring that
+ADR-0006's revision is what makes it the rule's check rather than one card's
+guardrail. The ADR does name that test, in a ``#`` comment inside the excluded
+``meta/architecture/**``, where the validator cannot see it. Every earlier
+telling on this board implied the dependency baseline itself was unverified; it
+is not. *Dead ref* and *untested rule* are different findings, and this module
+only ever reports the first.
+
 G-2: this file does not revive what it detects
 ==============================================
 
@@ -136,16 +152,32 @@ by its own detector. Two defences, both load-bearing:
    that are written down are a count and a SHA-256 of the sorted class, which
    revive nothing.
 2. The two refs AC-4 pins must be named to be pinned, so they are named in
-   pieces that are joined at run time, never as a whole token. Every *other*
-   ref this module's prose quotes as an example is truncated with an ellipsis
-   for the same reason: ``…`` is not a word character, so ``git grep -w``
-   cannot complete the token.
+   pieces that are joined at run time, never as a whole token.
    :func:`test_this_module_resolves_no_verifying_ref_at_all` asserts the
    property over **every** ref in the model, not just those two — which is the
    half CARD-291's reviewer did not have, and the reason its careful split
    still made no difference. Measured: on this module's first run that test
    named three refs its own docstring had revived -- which is how ready a
    file written *about* the defect is to commit it.
+
+   **The ellipsis is a convenience and NOT the safety property — the earlier
+   wording here had this backwards and the correction matters.** Where this
+   module's prose quotes a ref as an example it truncates it with ``…``, and
+   the reason given used to be that ``…`` is not a word character so
+   ``git grep -w`` cannot complete the token. That is false, and measured false
+   in a throwaway repository: ``git grep -lw ZZPrefix`` **matches**
+   ``ZZPrefix…Tail``, because a non-word character *terminates* the token and
+   therefore exposes every prefix. Truncation revives any ref whose declared
+   name is a prefix of the truncation — review cycle 1 planted one and got
+   ``1 failed``. What makes the device safe is the self-check in point 2 above,
+   which reads this file's own bytes against the whole declared set; today 0 of
+   the 5 truncations here has a declared ref as its prefix, and that is a fact
+   the assertion establishes rather than one the ellipsis guarantees. It can
+   establish it for the same reason the ellipsis fails: :func:`_trie_pattern`
+   reproduces ``-w``'s boundaries, so a truncation whose prefix is a declared
+   ref matches there exactly as it matches under real ``git grep -lw``.
+   Anybody dropping the self-check and keeping the ellipsis keeps the
+   appearance and loses the property.
 
 No skips, by construction
 =========================
@@ -229,6 +261,14 @@ _TEST_KEY = re.compile(r"^[ \t]*test:[ \t]*(?P<ref>.+?)[ \t]*$")
 _TESTS_INLINE = re.compile(r"^[ \t]*tests:[ \t]*\[(?P<refs>.*)\][ \t]*$")
 _TESTS_BLOCK = re.compile(r"^[ \t]*tests:[ \t]*$")
 _LIST_ITEM = re.compile(r"^[ \t]*-[ \t]*(?P<ref>.+?)[ \t]*$")
+#: A mapping key, which is how a block-form ``tests:`` list legitimately ENDS --
+#: the only non-item line that may close one. Everything else between two items
+#: is either a classified survivor (comment, blank) or a failure; see
+#: :func:`_tests_block`, where a ``break`` on this distinction silently dropped
+#: 16 refs.
+_MAPPING_KEY = re.compile(
+    r"^[ \t]*(?P<key>[A-Za-z_][\w .()/'\"-]*):(?:[ \t](?P<value>.*))?[ \t]*$"
+)
 
 
 class RefShapeNotClassifiable(AssertionError):
@@ -323,17 +363,128 @@ def _declared_refs() -> tuple[Declared, ...]:
         if inline:
             add(inline.group("refs"), "trace.yml")
         elif _TESTS_BLOCK.match(line):
-            cursor = index + 1
-            while cursor < len(lines):
-                item = _LIST_ITEM.match(lines[cursor])
-                if not item:
-                    break
-                add(item.group("ref"), "trace.yml")
-                cursor += 1
+            for ref in _tests_block(lines, index):
+                add(ref, "trace.yml")
 
     return tuple(
         Declared(ref, tuple(sorted(sources[ref]))) for ref in sorted(sources)
     )
+
+
+def _tests_block(lines: list[str], index: int) -> tuple[str, ...]:
+    """The items of the block-form ``tests:`` list opened at ``lines[index]``.
+
+    Every line after the key is **classified**; nothing is used as a mute stop
+    signal. The first draft of this scan stopped at the first line that was not
+    a ``- item``, which is wrong on this file and wrong in the direction that
+    cannot be noticed: a ``#`` comment *inside* a list ended the list and
+    dropped every remaining item with no exception and nothing to read.
+    Measured on ``trace.yml``: three such comments -- and all three are notes
+    about a **retired** test, i.e. sitting exactly where the interesting refs
+    are -- cost 16 of that file's 510 refs, 494 derived instead of 510, and 3
+    refs off the whole board's census. ADR-0039/R2 makes an unanalysable shape
+    a FAILURE, and ``break`` is not a failure.
+
+    So the four cases are named instead:
+
+    * a ``- item`` indented at least as far as the key -- collected;
+    * a blank line or a ``#`` comment -- **surviving**, because YAML ends a
+      block sequence at neither;
+    * a mapping key at or outside the key's own indentation, or a list item
+      dedented past it -- the list legitimately ends;
+    * anything else -- :exc:`RefShapeNotClassifiable`, so the next shape this
+      file grows is read by a human rather than silently swallowed.
+
+    The count this returns is held against a second, independent reading of the
+    same file by
+    :func:`test_the_trace_tests_lists_agree_with_an_independent_reading`, which
+    is the witness neither of the two older self-checks could be: one compares
+    the ref set against itself and the other asserts a floor far below it.
+
+    **What this repair does and does not turn from luck into design.** None of
+    the six class baselines moved when the 3 missing refs came back, because all
+    3 happen to resolve to a real ``class``. That was luck and it stays luck: it
+    is a fact about today's data, not something any code here guarantees, and
+    the next silently-dropped ref could as easily have been a dead one sitting
+    in the gate's class. What *is* design now is the layer underneath: a line
+    this scan cannot classify **raises**, so a drop cannot be silent again; and
+    the census and ``trace.yml``'s contribution are pinned exactly and
+    cross-read, so a count that moves for any reason -- including the one that
+    looked like nothing happening -- reds and has to be read. The honest
+    statement is that the fix removes the *silence*, not the luck.
+    """
+    base = len(lines[index][: len(lines[index]) - len(lines[index].lstrip(" \t"))].expandtabs(8))
+    refs: list[str] = []
+    for cursor in range(index + 1, len(lines)):
+        raw = lines[cursor]
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        width = len(raw[: len(raw) - len(raw.lstrip(" \t"))].expandtabs(8))
+        item = _LIST_ITEM.match(raw)
+        if item:
+            if width < base:
+                return tuple(refs)
+            refs.append(item.group("ref"))
+            continue
+        if _MAPPING_KEY.match(raw) and width <= base:
+            return tuple(refs)
+        raise RefShapeNotClassifiable(
+            f"trace.yml:{cursor + 1}: inside the tests: list opened at line "
+            f"{index + 1}, {raw!r} is neither a list item, a comment, a blank "
+            f"line nor a key closing the list -- this scan cannot tell whether "
+            f"it declares a ref, which ADR-0039/R2 makes a failure rather than "
+            f"a silent truncation of the list"
+        )
+    return tuple(refs)
+
+
+def _trace_tests_refs_by_backward_scan() -> set[str]:
+    """``trace.yml``'s ``tests:`` refs, read by a different algorithm entirely.
+
+    The independent instrument for the census, and independent in the way that
+    matters: it never scans *forward* from a ``tests:`` key, so no line between
+    two items can terminate anything. It starts from every ``- item`` line in
+    the file and walks **backwards** to the nearest key at or outside the item's
+    indentation; the item belongs to a ``tests:`` list exactly when that key is
+    ``tests``. A comment, a blank line or a retired-test note between two items
+    is invisible to it by construction, which is precisely the blind spot of a
+    forward scan.
+
+    Falling out of that for free: an item under ``notes:``' folded prose
+    resolves backwards to ``notes`` and is correctly not a ref.
+
+    Proven, not asserted: on this file it returns exactly the same 510 refs as
+    ``yaml.safe_load`` does over the parsed document, ref for ref, with an empty
+    symmetric difference in both directions. PyYAML is **not** importable here
+    -- it is in no part of ``pyproject.toml``, so a test that imported it would
+    fail collection on a bare checkout rather than skip -- which is why the
+    second reading is a second implementation instead of a parser.
+    """
+    lines = TRACE.read_text(encoding="utf-8").splitlines()
+
+    def width_of(raw: str) -> int:
+        return len(raw[: len(raw) - len(raw.lstrip(" \t"))].expandtabs(8))
+
+    refs: set[str] = set()
+    for index, raw in enumerate(lines):
+        key = _MAPPING_KEY.match(raw)
+        if key and key.group("key") == "tests":
+            value = (key.group("value") or "").strip()
+            if value.startswith("["):
+                refs.update(_split(value.strip("[]")))
+            continue
+        item = _LIST_ITEM.match(raw)
+        if not item:
+            continue
+        width = width_of(raw)
+        for back in range(index - 1, -1, -1):
+            owner = _MAPPING_KEY.match(lines[back])
+            if owner and width_of(lines[back]) <= width:
+                if owner.group("key") == "tests":
+                    refs.update(_split(item.group("ref")))
+                break
+    return refs
 
 
 def _block_check(lines: list[str], index: int) -> tuple[str, str]:
@@ -639,6 +790,31 @@ HONEST_DEAD = (30, "cc5207403de4ae67")
 #: when CARD-307 shrinks it the shrink has to be read.
 RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 
+#: The whole census: every verifying ref the four authorities declare. Pinned
+#: because this module and ADR-0039 both STATE this number, and a stated figure
+#: that nothing checks is the exact defect this card is about -- ADR-0006/R1's
+#: ref read as mechanically checked for months on a pointer nobody re-derived.
+#: Derived as: 579 distinct refs = 510 from ``trace.yml``'s ``tests:`` lists +
+#: ``requirements.yml``'s ``test:`` keys and block-form ``check:`` refs + 43
+#: distinct refs from the ADRs' inline ``check:`` (45 *occurrences* -- counting
+#: those gave 580 and was one high), unioned, so a ref declared by two
+#: authorities is one entry.
+CENSUS = (579, "b0469543ee0ae4a8")
+
+#: ``trace.yml``'s contribution on its own, pinned separately because it is the
+#: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
+#: ``tests:`` list derived 494 of these 510 and raised nothing.
+TRACE_TESTS = (510, "0ad7bd1af729a4bf")
+
+#: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
+#: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
+#: claim "honest refs are not absorbed" could have gone on passing while a
+#: quarter of them stopped being honest. Pinned exact like every other class
+#: here. **This is the one count the F-001 repair moved**: 382 -> 385, which is
+#: exactly the 3 refs the silent drop had removed from the census, each of them
+#: a real ``class`` in ``tests/test_book_puzzle_frame.py``.
+DEFINED = (385, "48510317eab24a12")
+
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
 #: deliberate docstring node-id table paired with a two-direction guard holding
@@ -657,6 +833,28 @@ def _class_of(predicate) -> tuple[Verdict, ...]:
 
 
 def _assert_class(label: str, baseline: tuple[int, str], members: tuple[Verdict, ...]) -> None:
+    """Hold one derived class to its measured count and digest.
+
+    **The shrink direction is documented and cannot be enforced here, and the
+    reason is a trade-off rather than an omission.** "A class that shrinks
+    because a review report was synced in is signal loss, not a fix" is this
+    card's own rule; enforcing it would mean comparing the departed refs
+    against a stored list and asking whether each gained a ``def``/``class``.
+    A stored list is exactly what G-2 forbids: it would spell the dead refs
+    into tracked, non-Markdown code and revive every one of them through the
+    mechanism this module exists to detect. So the baseline is a **digest**,
+    which pins the class exactly and resolves nothing -- and a digest cannot
+    say which member left. The property that makes the guard safe is the
+    property that makes the response unenforceable, and the honest statement is
+    that the message below is a **prompt to a human, not a gate**. The gate is
+    that the cell reds at all, in either direction; what the reader does next is
+    on the reader, and the paste-ready line is offered knowing it is also the
+    lazy exit.
+
+    The one thing that IS mechanical: whatever the class moved to must still
+    satisfy every other cell here, so a baseline updated without re-derivation
+    typically moves the partition, the census or the gate as well.
+    """
     refs = tuple(verdict.ref for verdict in members)
     actual = (len(refs), _fingerprint(refs))
     assert actual == baseline, (
@@ -664,7 +862,10 @@ def _assert_class(label: str, baseline: tuple[int, str], members: tuple[Verdict,
         f"This is not automatically a regression and not automatically a repair "
         f"-- re-derive each ref against a def/class before updating the baseline, "
         f"because a class that shrinks because a review report was synced in is "
-        f"signal loss, not a fix.\nOnce re-derived, the line to paste is\n"
+        f"signal loss, not a fix. Nothing below checks that you did: the "
+        f"baseline is a digest and not a ref list (G-2), so this message is a "
+        f"prompt and not a gate -- see _assert_class's docstring for why that "
+        f"trade is deliberate.\nOnce re-derived, the line to paste is\n"
         f"    {label.replace('-', '_').upper()} = {actual!r}\n"
         f"The class as it stands:\n{_report(members)}"
     )
@@ -788,6 +989,19 @@ def test_every_declared_ref_lands_in_exactly_one_class() -> None:
 # this file as the whole token the loose search matches (G-2). The property is
 # not left to care: test_this_module_resolves_no_verifying_ref_at_all asserts it
 # over every ref in the model.
+#
+# Both pins below are PERMANENT instances -- refs whose test never landed -- and
+# that is a limit of pinning, stated rather than papered over. The card's second
+# measured instance was TRANSIENT: CARD-291's ref was revived by its own review
+# sync and then became a real `def` when the card merged, so a test naming it
+# would have been green for one reading and red for the next through no change
+# of its own. A transient instance cannot be pinned stably BY CONSTRUCTION: the
+# thing that makes it transient is that it stops being a member. What covers it
+# is the generic half -- the gate's class is pinned as a count and a digest, so a
+# transient member ARRIVING reds the gate on the way in and LEAVING reds it again
+# on the way out, and both have to be read against a def/class. The named pins
+# are for the permanent case precisely because that is the case a count alone
+# would let sit still forever.
 
 #: NFR-001/AC-038's ref -- the permanent case. Its warning was retired by the
 #: CARD-301 cycle-1 review report alone, and the test it names has never
@@ -854,7 +1068,10 @@ def test_a_ref_with_a_real_definition_is_not_reported() -> None:
     by an empty set.
     """
     defined = [verdict for verdict in _verdicts() if verdict.strict]
-    assert len(defined) > 300, f"only {len(defined)} refs resolve to a definition"
+    # Exact, not a floor. The floor was `> 300` against a measured 382, so 82
+    # refs could have stopped resolving to a definition with this cell still
+    # green -- a control that cannot fail in the direction it is about.
+    _assert_class("defined", DEFINED, tuple(defined))
     absorbed = [v.ref for v in defined if v.falsely_alive or v.bookkeeping_only]
     assert not absorbed, f"refs with a real definition were reported anyway: {absorbed}"
 
@@ -1118,13 +1335,119 @@ def test_a_check_of_kind_test_without_a_ref_is_a_failure() -> None:
     ), "a review-lens check must contribute no ref rather than raise"
 
 
+def test_the_trace_tests_lists_agree_with_an_independent_reading() -> None:
+    """The census, held against a second reading of the same file.
+
+    **The witness neither older self-check could be.** F-001 was a ``break`` on
+    the first non-``- item`` line of a ``tests:`` list, so a ``#`` comment
+    inside a list truncated it; 16 of ``trace.yml``'s 510 refs and 3 of the
+    board's 579 vanished with no exception raised. Both existing controls were
+    blind to exactly that:
+
+    * :func:`test_every_declared_ref_lands_in_exactly_one_class` compares the
+      partition against ``len(_verdicts())`` -- both sides derived from the
+      same truncated scan, so a dropped ref is absent from both and the cell
+      stays green;
+    * :func:`test_the_derivation_reads_all_four_authorities` asserted a floor of
+      ``> 500`` against 576, which 494-from-``trace.yml`` never came near.
+
+    A count is only evidence against an **independent** reading of the same
+    bytes, so that is what this asserts: set equality, both directions, against
+    :func:`_trace_tests_refs_by_backward_scan`, whose algorithm cannot be
+    confused by any line *between* two items.
+
+    Measured by replaying the bug -- the comment-survives branch of
+    :func:`_tests_block` turned back into an early return, line count
+    preserved, blob checked both sides, ``__pycache__`` swept: **3 failed, 16
+    passed**, this cell naming all 16 dropped refs in its message, plus the
+    control below and :data:`DEFINED`. The other six class baselines stay
+    green, which is what "the non-movement was luck" means concretely.
+
+    Two teeth, and the second earned its place: deleting the second
+    implementation (``independent = set(primary)``) **survives on a clean
+    tree**, because an instrument that agrees with itself looks exactly like
+    one that agrees with something else. Replaying the bug *with* that deletion
+    still reds, on :data:`TRACE_TESTS` -- the cross-reading catches the cause,
+    the pinned counts catch the consequence, and neither alone is the witness.
+
+    The whole-board census is pinned here too, for the plainest reason this card
+    has: every figure this module and ADR-0039 state about the board has to be
+    re-derivable, or it becomes another ADR-0006/R1 -- a number that read as
+    checked because it was written down confidently.
+    """
+    primary = {
+        declared.ref for declared in _declared_refs() if "trace.yml" in declared.sources
+    }
+    independent = _trace_tests_refs_by_backward_scan()
+    missing = sorted(independent - primary)
+    extra = sorted(primary - independent)
+    assert not missing and not extra, (
+        f"the forward scan of trace.yml's tests: lists and the independent "
+        f"backward reading of the same file disagree: {len(missing)} ref(s) the "
+        f"backward reading sees and the scan does not ({missing}), "
+        f"{len(extra)} the other way ({extra}). A ref the derivation cannot see "
+        f"is a ref this module reports nothing about, and nothing else here "
+        f"would notice -- every other count is derived from the same scan."
+    )
+    assert (len(primary), _fingerprint(tuple(primary))) == TRACE_TESTS, (
+        f"trace.yml's tests: refs moved: {(len(primary), _fingerprint(tuple(primary)))} "
+        f"against baseline {TRACE_TESTS}"
+    )
+    census = tuple(declared.ref for declared in _declared_refs())
+    assert (len(census), _fingerprint(census)) == CENSUS, (
+        f"the census moved: {(len(census), _fingerprint(census))} against "
+        f"baseline {CENSUS}. Re-derive it before updating the baseline, and "
+        f"check which authority moved -- a census that SHRINKS is how F-001 "
+        f"looked from the inside."
+    )
+
+
+def test_a_non_item_line_inside_a_tests_list_is_classified_and_never_a_break() -> None:
+    """The control for :func:`_tests_block`'s four cases (ADR-0039/R2).
+
+    Without it the comment-survives branch is unexercised and "a comment does
+    not end the list" is a comment about a comment. Each case is checked on a
+    synthetic block, including the one that must RAISE -- because the whole
+    defect was a shape that ended the scan instead of failing it.
+    """
+    item = "  - Synthetic" + "RefName_One"
+    second = "  - Synthetic" + "RefName_Two"
+    # A comment and a blank line between two items: both survive, both items
+    # are collected. This is F-001's exact shape.
+    assert _tests_block(["  tests:", item, "  # a note about a retired test", "", second], 0) == (
+        item.strip()[2:],
+        second.strip()[2:],
+    )
+    # A key at the list's own indentation ends it; a deeper item is still part
+    # of it; a dedented item belongs to an outer sequence and ends it.
+    assert _tests_block(["  tests:", item, "  notes: >-", "    prose", second], 0) == (
+        item.strip()[2:],
+    )
+    assert len(_tests_block(["  tests:", item, "      - Deeper" + "RefName", second], 0)) == 3
+    assert _tests_block(["  tests:", item, "- Outer" + "RefName"], 0) == (item.strip()[2:],)
+    # And the unanalysable shape: indented, not an item, not a comment, not a
+    # key. A break here is what dropped 16 refs; a raise is what ADR-0039/R2
+    # asks for.
+    try:
+        _tests_block(["  tests:", item, "    a bare scalar continuation"], 0)
+    except RefShapeNotClassifiable:
+        pass
+    else:
+        raise AssertionError("an unanalysable line inside a tests: list was accepted")
+
+
 def test_the_derivation_reads_all_four_authorities() -> None:
     """No authority is silently missing from the ref set.
 
     A ref declared only in ``trace.yml`` and nowhere else is still a ref the
     validator resolves, and an earlier census of this board missed both
     ``trace.yml`` and ``requirements.yml``'s block-form checks -- 424 refs
-    instead of 576, which is a 26 % blind spot in a guard about blind spots.
+    instead of 579, which is a 27 % blind spot in a guard about blind spots.
+
+    The floor below is deliberately left a floor: the census is pinned exactly,
+    as :data:`CENSUS`, by
+    :func:`test_the_trace_tests_lists_agree_with_an_independent_reading`. What
+    this cell is for is the *source labels*, which that one does not check.
     """
     sources = {source for declared in _declared_refs() for source in declared.sources}
     assert any(source.startswith("adr/") for source in sources), sources
