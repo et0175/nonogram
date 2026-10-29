@@ -1,6 +1,6 @@
 # CARD-299: The interior's claims stop measuring ink — the registry's verifying tests move to the content stream, and the guard that keeps them there is derived
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/299-interior-claims-read-the-stream
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-299
 **Source:** ADR-0042/R6 (DEC-048), 2026-10-25; CARD-293's spike §4 and §6 item 6; the surface counted in `meta/profiling/adr-0042-migration-census.md`. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 66
@@ -18,7 +18,7 @@
 **Depends on:** CARD-298, CARD-276
 **Touches:** tests/test_book_interior_type_floor.py, tests/property/test_book_export_interior.py, tests/property/test_book_layout.py, tests/property/test_book_two_up.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -255,8 +255,15 @@ treats as vector. So the generalisation is: read each page by the medium
 without the test changing. Written that way this card lands **before** any page
 converts, which is the only order that works.
 
-**3. FINDING — five raster declarations name this card as their expiry, and this
-card cannot discharge them.** CARD-298 shipped
+**3. ~~FINDING — five raster declarations name this card as their expiry~~
+RESOLVED, and this paragraph is stale. 2026-10-29: CARD-298's fix round retargeted
+all five to `expires_with=("CARD-299", "CARD-309")` before it merged (verified at
+`book_pdf_generator.py` lines 625/640/655/670/685, each `authority` naming CARD-309
+explicitly), and CARD-309 was cut for the conversion. So there is nothing to
+re-point and no card is missing. The orchestrator wrote this finding before that
+fix landed and did not revise it when it did — CARD-299's own round caught the
+staleness. Kept rather than deleted because the paragraph below is still the right
+reading of this card's scope.** The original text: CARD-298 shipped
 `_RASTER_DECLARATIONS` with `expires_with=('CARD-299',)` on **TITLE, GUIDE, TOC,
 ANSWER and PUZZLE**. But this card is **test-side only**: items 1–5 convert
 assertions and readers, and nothing here writes a page. The pages themselves are
@@ -294,3 +301,126 @@ is the one piece of good news.
 **Also owed to the phase, now cut as its own card:** the vector puzzle page draws
 no folio, frame rules, grid-size label or QR block — see **CARD-306**. A vector
 puzzle page cannot ship without it, and CARD-295 wrongly named CARD-298 for it.
+
+## [Implementation round 1 — 2026-10-29. Items 1–2 delivered; items 3, 4 and 5 refused with measurements. G-9 DELIBERATELY UNSATISFIED.]
+
+Branch `card/299-interior-claims-read-the-stream` @ **`eed831ea`**, one commit,
+6 files **+777/−27**, tree clean. `src/` **0 files**, `tests/fixtures/` **0 files**,
+`pyproject.toml` untouched. Validator of record: main **0 errors / 102 warnings**,
+branch **0 / 102**, warning sets **byte-identical** by `comm -3`.
+
+### The measurement that shaped the card, verified by the orchestrator
+
+**All seven `PageKind` members are still RASTER**, so `pdf_vector.type_sizes`
+returns `[]` on every page of the baseline interior and the first stream is
+`q … /image Do Q`. **A reading rewritten to ask the content stream *today* is
+vacuously green over an empty list** — strictly worse than the ink assertion it
+replaces, and the exact defect ADR-0039 exists for.
+
+So every conversion is **medium-gated**: the bitmap arm is today's assertion
+unchanged, the stream arm is R6's exact one, and an unclassifiable page is a
+**FAILURE** per ADR-0039/R2. That is what finding 1 asked for, and the round
+proved the stream arm is **not dormant** by lifting one `_RASTER_DECLARATIONS`
+entry so production's own writer emits a vector page (`media[0] = vector`,
+`type_sizes` called exactly once, and `pages=None` proving the bitmap arm was
+never taken).
+
+### Items 1 and 2 landed; the node ids did NOT move — and the brief was wrong to expect otherwise
+
+CON-020's verifying test was **re-expressed inside the class**, so
+`TestInteriorType_EveryFaceHoldsTheFloor::…` and
+`::test_the_recording_covers_every_kind_of_interior_lettering` are **byte-identical
+before and after**. 23 passed → **28** (the 5 new controls). Item 2 converted the
+three real FR-043/EC-034 readings (`:731`, `:734`, `:736`); **`:652`'s cover
+`same_page` untouched (G-1)**.
+
+**The orchestrator's brief said "a rename is expected here" and that contradicted
+this card's own AC-1 ("both node ids preserved") and AC-6.** The round followed the
+card, which was right — and the consequence is the good one: **no ref died, CON-020's
+`trace.yml` row needed no re-stamp, and the ERROR-level `_check_covered_tests`
+gate-3 hazard was never armed.** The warning about that gate was sound in principle
+and predicated on a rename the card forbids.
+
+### The non-vacuity floor is carried across AND shown failing
+
+Deleting the footer label's `draw.text` (line-count-preserving, blob asserted both
+sides, `__pycache__` swept) reds **the sibling coverage assertion** while the floor
+assertion stays green — precisely the control that would otherwise have been lost.
+Deleting the DPI conversion (CARD-149's defect verbatim) reds the floor assertion in
+two classes.
+
+**One survivor, declared:** deleting the *band's* `draw.text` does not red the
+coverage assertion, because `BAND_SETTERS` has two members so one deletion leaves
+"band" covered. **Pre-existing, not introduced here.**
+
+### THE SHARPEST FINDING — CON-020 becomes unverifiable on a vector puzzle page
+
+Measured on a real vector puzzle page: **205 `Tf` operators, distinct sizes
+`[8.64, 14.16]` pt, and 8.64 is below the 10 pt floor.** Those 8.64 pt digits are
+**exactly the ones CON-020 exempts** — and the exemption is keyed on the **drawing
+function** (`_draw_clues` / `_write_clues`), while **a content stream records no
+provenance**. So a stream-read floor cannot tell an exempt clue digit from body
+type.
+
+`stream_faces` therefore **refuses a vector puzzle page by name** (default-DENY)
+rather than reporting 205 false violations, or exempting 8.64 pt *by its value* —
+which would exempt a body face that happened to measure 8.64 pt. **The converting
+card owes the stream a way to mark its clue digits, and that is a `src/` change this
+test-side card cannot make.** Without it, CON-020 is unverifiable the day the puzzle
+page converts.
+
+### Items 3, 4 and 5 refused, each with a measurement
+
+**Item 3 is not deliverable as specified, and R6's own enumeration is wrong.** Both
+named "stroke-weight probes" read a **PNG**, never a written PDF — verified
+independently: `tests/property/test_book_layout.py:364` and
+`tests/property/test_book_two_up.py:682` both call `getpixel` on a PIL image, and
+**neither module mentions `BookPDFGenerator` even once**. No PDF ⇒ no content stream.
+Both are COMP-007's drawing surface, which this card's G-4 and CON-019 put outside
+ADR-0042's reach.
+
+**Item 4 refused: R6's check stays a `review-lens`, so G-9 is unsatisfied.** Four
+measurements: two of the six sites R6 enumerates are not interior PDF readings (as
+above); the two cited authorities disagree by ~50× (R6 names **6**; the census's own
+regexes read **34 files / 321 sites** at HEAD); the census is **4 days stale and
+moved the wrong way** (32 files / 315 sites at `c12c33ce` → 34 / 321); and **an idiom
+count cannot measure "the set is empty"** — the round's own *correct* conversion
+raised one module's occurrences 8 → 13, so a guard ratcheting that count reds on the
+work it exists to encourage. **Flipping a mandatory check onto a guard derived from a
+wrong enumeration is worse than leaving the lens** — the same judgement CARD-298 made
+on R1 and was right about.
+
+**Item 5 is its own card, decided in the first hour as instructed.** R6's live
+enumeration **does not name `tests/test_book_pdf_memory.py` at all**, and that file's
+premise (`PAGE_BITMAP_BYTES`, page-bitmap retention) does not change until a page
+converts — which happens in CARD-309, not here. The spike's 1.00 → 0.000246 measures
+a vector interior that does not exist. File untouched: **54 passed, 1 skipped**.
+
+### Node ids and skips
+
+Over the six Touches modules: **172 → 180, +8 / −0**, every added id named, no
+`parametrize` id reworded. Impact runs: 6 Touches modules **179 passed / 1 skipped**;
+the five meta-guards **425 passed**; six vector/layout modules **545 passed**.
+`_conditional_silences(<source>) == []` for all four changed files.
+
+**Exactly one skip across every run** — `tests/test_book_pdf_memory.py:1297`,
+`setrlimit` refused by the kernel. **The brief said `:1296`; it is `:1297`** — the
+orchestrator's error.
+
+### Four more corrections to the card and the brief, all measured
+
+1. **AC-5's "168 → 41 lines, 4.1× smaller" did not reproduce and could not.** The
+   replacement is **larger** (+272 and +361 lines), because the 4.1× assumes the ink
+   arm is **deleted**, which needs the page to be vector. With all seven kinds raster
+   both arms must coexist *and* the stream arm needs its own non-dormancy controls.
+   **The 4.1× becomes available to CARD-309**, when an arm can actually be removed.
+2. **The non-vacuity floor is conditional, not unconditional.** The brief quoted
+   `{"guide","divider","band","footer label","answer caption"} <= kinds`; the code
+   requires `{"guide","divider","band"}` and adds the other two **only when
+   `book != "min-trim"`**. Carried across unchanged.
+3. **CARD-295's work partly pre-empts item 1** —
+   `tests/test_book_guide_page_vector.py::TestGuidePage_EveryFaceHoldsTheFloorInTheStream`
+   already reads `Tf` sizes and asserts the floor with its own non-vacuity pairing.
+   Item 1's prose reads as if no stream-side floor check existed.
+4. **The ADR's History says "the baselines move when R6 lands"; they cannot** — R6
+   is test-side. They move when a **page** converts. Measured: 0 of 21 moved here.
