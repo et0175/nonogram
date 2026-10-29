@@ -2,7 +2,7 @@
 
 <!-- NARROWED 2026-10-29 by owner decision after implementation round 1 hit the scope gate. This card was cut expecting to ALSO convert interior pages to vector (ADR-0042/R1) and re-record the 21 baselines. Both belong to CARD-299: `tests/helpers/pdf_pages.py:34-40` asserts one image XObject per page for EVERY page, so a single vector page breaks all 14 test modules that read a book interior, and that reader conversion is ADR-0042/R6 = CARD-299 — which declares `Depends on: CARD-298`. The slice, not the implementation, was wrong. This card is now the MECHANISM card; R1's flip and the baselines move to CARD-299, which breaks the cycle because CARD-298 no longer needs it. -->
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -11,7 +11,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/298-per-page-medium-and-the-raster-declaration
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+**Worktree:** — (removed at merge)
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 5. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 65
@@ -19,11 +19,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-295, CARD-296, CARD-297, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_vector.py, tests/test_book_pdf.py, tests/test_book_solved_answer_key.py, tests/test_book_export_interior_cover.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py, tests/test_book_pdf_vector_primitives.py, tests/helpers/book_corpus.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- AMENDED 2026-10-29 on narrowing: `tests/fixtures/book_baseline_*.json` REMOVED — zero baselines move here (see AC-5). Added the eight files round 1 was forced into: `book_vector.py` (so the mixed writer emits a vector page and its font objects through ONE definition rather than a second transcription of the /FontDescriptor), the four `_write_pdf` call sites the required `kinds=` keyword forced, `test_book_solved_answer_key.py` (F2-01, explicitly owed to this card), `test_book_export_interior_cover.py` (four CARD-206/262 AST pins re-derived row by row), and one docstring rename. --> <!-- CORRECTED 2026-10-29 at dispatch: the declared path was `tests/fixtures/book_baselines/**`, and **no such directory exists**. The real layout is FLAT, in `tests/fixtures/` itself: **21 `book_baseline_*.json` files** (~1.0 MB with their companions), plus **2 `book_baseline_card200_guide_page{1,2}.jpg`** which are card200’s guide-page images, not JSON baselines. So the card body’s and AC-5’s figure of **21 is CORRECT** — the orchestrator first counted 23 by including those two jpgs, which is the wider domain, not a discrepancy. AC-5 says "exactly the 21": if a re-record also moves either jpg, that is a finding to raise, not a number to adjust. -->
-**Review score:** —
+**Review score:** 8.5 (cycle 2 of 3, CERTIFIED; cycle 1 scored 7.0)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-29
+**Actual:** 2d (estimate 1d — narrowed mid-flight at the scope gate, then a fix round and a second cycle)
+**Merge commit:** 1fd39bb1
 **Blocked by:** —
 
 ## What to implement
@@ -647,3 +647,65 @@ for names or prefixes, and `tests/test_suite_profile.py:3581-3588` says the repo
 *"invites many"* such walks. So card **existence** is a sanctioned read and card
 **status** is the novel one. CARD-310 depends on this card and serializes against
 CARD-306 on `tests/test_book_pdf.py`.
+
+## [MERGED `1fd39bb1` — 2026-10-29]
+
+Fast-forward onto `main`, three commits, 10 files +2344/−80. **Merge gate green:**
+
+```
+9720 passed, 27 skipped, 1 xfailed, 0 failed     1393.10s (23:13)
+skips: 26 × DATABASE_URL unset + 1 × setrlimit   — the baseline exactly, both named
+hang dumps: 0        load 8.78 → 11.69
+```
+
+Collection reconciles exactly: 9720 + 27 + 1 = **9748**, against `main`'s 9723 — the
+**+25 / −0** measured on the branch, 22 in `tests/test_book_pdf.py` and 3 in
+`tests/test_book_solved_answer_key.py`, matching the reviewer's own AST-derived
+figure.
+
+**AC/EC/G gate by node id: 12 passed, 0 skipped, 0 failed.** All nine criterion
+names were resolved to real definitions first — including the two `PropertyTest_`
+ones, whose prefix the orchestrator's own extraction regex ate, which is the naming
+trap this board keeps paying for. Guardrails re-measured rather than read: **G-1**
+7 `PageKind` members against 7 registry entries with every kind still RASTER, so
+nothing converts; **G-2** both byte-identity tripwires green at 66 passed;
+**G-3/G-4/G-7** `tests/fixtures/`, `src/nonogram/export/` and `pyproject.toml` at 0
+files each, 0 new files under `tests/`, 0 `RENDER_HEAVY_SNAPSHOT` in the diff;
+**G-6 in both directions** — R2 at `:403` a live test ref and **R1 at `:345` still
+`review-lens`**.
+
+**Post-merge validator: 0 errors, 102 warnings — unchanged, and no ADR-0042 warning
+of any kind.** So R2's flip resolves and added nothing, which is the bare name's
+whole point; and the five FR-046 warnings the branch carried were CARD-291's older
+tree, not this card's, exactly as cycle 2's W-1 concluded.
+
+### Two things the orchestrator got wrong, both self-inflicted
+
+**The merge was not a fast-forward on the first attempt, because the orchestrator
+moved `main` while the gate ran** — cutting CARD-310 and CARD-311 advanced it past
+the branch's base. Rather than assume card files are inert, the branch was rebased
+onto `cd58b3f3` and the delta re-verified: it is **two card `.md` files**
+(`CARD-231.md`, `CARD-311.md`), and this card's new guard **reads card files**, so
+the ten modules that touch `meta/kanban` plus this card's own module were re-run —
+**1012 passed, 1 xfailed, 0 failed, 0 skipped**. The lesson is narrow and worth
+keeping: **do not advance `main` while a gate runs, or expect to re-verify the
+delta.**
+
+**The gate's "real rival pytest: 1" figure is wrong, for the third time this
+session.** The counter was "fixed" after CARD-291's gate to match only
+interpreters, and it still matches the `/bin/zsh` wrapper whose `-c` argument
+contains the pytest command — measured: the regex reports **2** where
+`ps -Ao comm=` reports **0**. So the gate ran with no rival; the load rise to 11.69
+is real but unattributed. The result stands on its own terms — 0 failures, 0 hang
+dumps, and `hang_guard`'s 120 s ceiling would have fired on a starved test — but
+the rival figure in the header should be read as noise. The honest probe is the
+executable name alone, never the command line.
+
+### What this card actually delivered, after the narrowing
+
+The per-page medium decision at one named point, **seven** derived raster
+declarations each with a reason, an authority and an `expires_with`, four
+default-DENY refusals, ADR-0042/**R2** flipped honestly as a bare name, the
+landing-direction expiry guard with its control over synthetic cards, and CARD-297's
+owed F2-01. **It converts no page and moves no baseline** — 0 of 21 — because the
+conversion is CARD-309's, which this card's cycle 1 discovered nobody owned.

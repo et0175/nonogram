@@ -1869,3 +1869,84 @@ active:
 queued: [CARD-307]
 blocked_in_wave_66: [CARD-299]
 done_in_wave_65: [CARD-291]
+
+# ---- WAVE 65 CLOSED (2026-10-29) ----
+# Appended as a fresh block because this file has repeated top-level keys and
+# YAML last-wins; `active` is restated in full.
+#
+# BOTH CARDS MERGED ON GREEN GATES:
+#   CARD-291 -> 70f8e07e, 9.0 CERTIFIED on cycle 1 of 3, actual 1d vs 1d.
+#     Gate attempt 2: 9695 passed / 27 skipped / 1 xfailed / 0 failed, 19:57.
+#     Attempt 1 was RED and the defect was the orchestrator's own post-
+#     certification fix. AC/EC/G 5 passed by node id.
+#   CARD-298 -> 1fd39bb1, 8.5 CERTIFIED on cycle 2 of 3, actual 2d vs 1d
+#     (narrowed mid-flight at the scope gate, then a fix round and a second
+#     cycle). Gate: 9720 passed / 27 skipped / 1 xfailed / 0 failed, 23:13.
+#     AC/EC/G 12 passed by node id. Converts no page, moves 0 of 21 baselines.
+#
+# WAVE SMOKE TEST SATISFIED BY MEASUREMENT, not by assertion: the full suite
+#   ran on CARD-298's gated commit b08bea50, and `src/` and `tests/` are
+#   BYTE-IDENTICAL between that commit and the merged tip 1fd39bb1 (tree
+#   9522b60e and c679cd09 on both sides). The only delta is two card .md files,
+#   which the card's new landing guard DOES read -- so the ten modules touching
+#   meta/kanban plus the card's own module were re-run: 1012 passed, 1 xfailed,
+#   0 failed, 0 skipped.
+#
+# THE WAVE CUT SIX CARDS, every one from a measured finding rather than an idea:
+#   CARD-306 furniture, CARD-307 the ref census, CARD-308 the eroded detector,
+#   CARD-309 the interior conversion NOBODY owned, CARD-310 the sibling-worktree
+#   verdict, CARD-311 the owner's divider upload.
+#
+# FINDINGS THAT OUTLIVE THE WAVE:
+#   1. A `path::nodeid` check ref is structurally unresolvable, and the BARE
+#      NAME is the only honest spelling -- the orchestrator briefed the node-id
+#      form and a round refused it correctly. 469 verifying refs in the model,
+#      only 33 node-id form against 436 bare, and the defect is a FALSE ALIVE in
+#      31 of the 33, not a dead ref. CARD-307.
+#   2. Ordinary bookkeeping in any tracked non-Markdown file revives a phantom
+#      ref. Four instances now, by four different routes, one of them THIS FILE.
+#      Rule adopted: ref and test names go in card files (.md, excluded), never
+#      here. CARD-308.
+#   3. The full-suite lock is SCOPE-BLIND -- a merge gate blocks every other
+#      card's test runs for its whole duration, not just other full suites.
+#   4. A fix written after a review certifies is covered by nothing: CARD-291's
+#      gate caught the orchestrator's own post-certification edit breaking a
+#      guard the reviewer's impact scope never reached.
+#   5. Do not advance `main` while a gate runs. Cutting two cards mid-gate cost
+#      CARD-298 a rebase and a delta re-verification.
+#   6. A counter that can see its own question is not a measurement -- the rival-
+#      pytest probe was wrong THREE times, and still matched the zsh wrapper
+#      after being "fixed". The honest probe is `ps -Ao comm=`, never the
+#      command line.
+#   7. trace.yml's `status: partial` carries almost no information: 42 of 43
+#      partial rows list tests, 409 refs in all, the largest with 85. And NINE
+#      of the 32 `covered` rows list none -- the only rows the validator reads.
+#      CARD-307.
+#
+# WAVE 66 CONTINUES, and a slot just freed -- but SERIALIZATION, NOT SLOTS, is
+#   the binding constraint: CARD-299, CARD-307 and CARD-308 each pair-wise share
+#   `adr/**` and `tests/**` (overlap 0.500 against max_overlap 0.3), and CARD-308
+#   is mid-flight editing an ADR. So nothing is dispatched into the freed slot
+#   while it runs.
+#   CARD-299 IS NOW UNBLOCKED: its dependencies were CARD-298 and CARD-276, and
+#   both are done. The choice of which card takes the slot when CARD-308 lands
+#   is the owner's, and is NOT made here.
+wave: 66
+wave_65: closed
+mode: interactive
+max_concurrent_override: 2
+active:
+- id: CARD-308
+  wave: 66
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  branch: card/308-the-sync-erodes-dead-ref-detection
+queued: [CARD-307, CARD-299]
+blocked_in_wave_66: []
+done_in_wave_65:
+- id: CARD-291
+  merge_commit: 70f8e07e
+  score: "9.0 cycle 1/3"
+- id: CARD-298
+  merge_commit: 1fd39bb1
+  score: "8.5 cycle 2/3"
