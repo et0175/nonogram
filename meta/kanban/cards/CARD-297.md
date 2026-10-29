@@ -1,6 +1,6 @@
 # CARD-297: The table of contents and the answer pages as operators — the solution tiles, their headers, and the QR slot
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/297-toc-and-answer-pages-as-operators
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-297
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 (the non-puzzle pages, less the guide — CARD-296 — and less the dividers, which the owner left raster). Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 64
@@ -18,7 +18,7 @@
 **Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -190,3 +190,20 @@ prevent.
 
 **Dispatch status: NOT dispatchable.** Two of three dependencies are unmet —
 CARD-295 is `in_progress` (review cycle 1), CARD-227 is `ready` and unstarted.
+
+## [Dependencies MET — 2026-10-29, orchestrator] superseding the line above; dispatched into wave 64
+
+All three are `done` and merged, re-read from the card files rather than from
+the board: **CARD-294** `b850bbbd`, **CARD-295** `ec6e4a06`, **CARD-227**
+`8579094a` (wave 63, merged 2026-10-28). The reuse claim AC-3 rests on was
+already verified above against CARD-295's real signature, and that signature is
+now on main — so AC-3 is checkable, not predicted.
+
+**Conflict graph, measured at dispatch rather than taken from the `Wave:`
+comments.** CARD-301 is the wave's other card:
+`CARD-301 ∩ CARD-297 = ∅` (3 paths vs 6, all nine present on disk), overlap
+`0/min(3,6) = 0.000` against `max_overlap 0.3`. Hotspots: this card holds
+`src/nonogram/admin/book_pdf_generator.py`, CARD-301 holds **none** of the
+eight, so the shared-hotspot rule does not fire either. **Concurrent, under
+the owner's cap of 2.** The `meta/architecture/requirements.yml` edge that
+serialized CARD-301 against CARD-284 is moot — CARD-284 merged at `8492b63c`.

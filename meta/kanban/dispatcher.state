@@ -1266,7 +1266,6 @@ wave_63_complete:
   cards: [CARD-227, CARD-267, CARD-284]
   at: 2026-10-28
   smoke: "satisfied by tree identity 5f37df22 == gated 836290b0; 9543/27/0 in 1135.40s"
-active: []
 closed_last:
 - id: CARD-284
   phase: merged 8492b63c
@@ -1278,6 +1277,57 @@ closed_last:
     regions. Its own two files re-run green on the merged tree (59 passed) before
     the reviewer was spawned, so cycle 3 reviews the tree that would merge.
 escalated: []
-queued:
-- CARD-301   # wave 64, P1, blocked on the 284 edge above
-- CARD-297   # wave 64, P2, free
+
+# ── 2026-10-29, WAVE 64 OPENED ───────────────────────────────────────────────
+# Owner's "open wave 64". Conflict graph MEASURED at dispatch, not read off the
+# cards' own Wave: comments:
+#   CARD-301 touches 3 paths, CARD-297 touches 6, all nine present on disk
+#   intersection = EMPTY ; overlap = 0/min(3,6) = 0.000 < max_overlap 0.3
+#   hotspots: CARD-297 holds src/nonogram/admin/book_pdf_generator.py
+#             CARD-301 holds NONE of the eight -> shared-hotspot rule does not fire
+#   -> CONCURRENT, 2 of 2 slots under the owner's cap.
+# The requirements.yml edge that serialized CARD-301 in wave 63 is moot: its
+# other half, CARD-284, merged at 8492b63c.
+#
+# Both premises re-measured before the agents were spawned:
+#   CARD-301: bare run collects 9570 tests, 0 in tests/bench_generate.py
+#             (the card's own 9224/0 figure, re-derived with -o addopts='').
+#             NEW, and recorded on the card: the AC-037 gate is
+#             @pytest.mark.xfail(strict=True) -- the requirement is known MISSED,
+#             not merely unverified, so collecting the file does not verify
+#             NFR-001. Three docstring falsehoods, not one (the "see
+#             tests/conftest.py" pointer resolves to nothing; no python_files
+#             setting exists anywhere). AC-037's test: ref
+#             BenchGenerate_20x20_p95Under5s resolves to NO class, function or
+#             node id -- only to two prose lines in the file it names.
+#             Card amended with G-5 (do not remove the xfail / reshape the
+#             corpus) and AC-5 (the ref becomes resolvable).
+#   CARD-297: all three dependencies done and merged -- CARD-294 b850bbbd,
+#             CARD-295 ec6e4a06, CARD-227 8579094a. Its own "NOT dispatchable"
+#             note is superseded on the card rather than deleted.
+wave: 64
+mode: interactive
+max_concurrent_override: 2
+wave_64_opened:
+  at: 2026-10-29
+  base: 6b0dfa30
+  conflict_graph: "intersection EMPTY, overlap 0.000, no shared hotspot -> concurrent"
+  cards:
+  - id: CARD-301
+    priority: P1
+    estimate: 0.5d
+    branch: card/301-the-bench-file-pytest-never-opens
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
+  - id: CARD-297
+    priority: P2
+    estimate: 1d
+    branch: card/297-toc-and-answer-pages-as-operators
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
+active:
+- id: CARD-301
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
+- id: CARD-297
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
+queued: []

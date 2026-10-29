@@ -1,6 +1,6 @@
 # CARD-301: NFR-001's 5-second p95 gate has never run — `bench_generate.py` is not a file pytest opens, and its docstring says it is
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/301-the-bench-file-pytest-never-opens
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-301
 **Source:** orchestrator, 2026-10-25, from CARD-294's fix round 1. The guard that round built for its own critical finding (`tests/test_collected_names.py`) found a **second instance of the same family on the day it was written**, in a file belonging to no card. Independently re-measured by the orchestrator before this card was cut.
 **Idea:** —
 **Wave:** 64 <!-- assigned 2026-10-28. HARD contention, not a preference: CARD-301 declares meta/architecture/requirements.yml, and so does CARD-299 at wave 66 (measured intersection: exactly that path), so 66 is excluded. CARD-297 (w64) and CARD-298 (w65) intersect its three files EMPTY, so both are free. 64 chosen because at 0.5d against CARD-297's 1d it does not extend the wave, and because what it restores is a MEASUREMENT -- NFR-001's 5-second p95 gate has never executed, so every wave landing before it ships against an unverified performance threshold, waves 64-67 included. A gate is worth most early. -->
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/bench_generate.py, meta/architecture/requirements.yml, tests/test_collected_names.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -120,6 +120,65 @@ argument for the guard, and this card is the first thing it caught.
 - **ADR:** ADR-0039 (R1 controls that can fail, R2 default-deny)
 - **Components:** COMP-002
 - **Trace:** meta/architecture/trace.yml
+
+## [Premise RE-MEASURED at dispatch — 2026-10-29, orchestrator] confirmed, and one thing the card does not say
+
+**The hole is real and still open.** Re-measured on main `6b0dfa30`, with
+`-o addopts=''` so the `addopts = "-q"` stacking trap cannot swallow the output:
+a bare run collects **9,570** tests (up from the card's 9,224 as the board has
+landed cards) and **0** are in `tests/bench_generate.py`. The card's two
+measurements hold.
+
+**What the card does not say, and it changes route selection: the gate is
+`@pytest.mark.xfail(strict=True)`.** `test_20x20_p95_is_under_5s` carries a
+marker whose reason is CARD-006/CARD-018's density sweep — *"Still over on
+every seed at 35/38/40%, and 4-of-5 at 42% … do not remove it on partial
+data."* So **AC-037 is not merely unverified, it is known MISSED and recorded as
+missed**, and collecting the file does not verify NFR-001: under `strict=True`
+a collected gate asserts the requirement is **still** unmet, and would RED the
+suite on the day the solver got fast enough. That is a worthwhile gate — it is
+the thing that forces the marker's removal rather than letting it rot — but it
+is a different claim from the one AC-1 reads like, and the card must not report
+NFR-001 as verified on resolution. **G-5 (new, below) forbids removing the
+marker as part of this card.**
+
+**Three falsehoods in that docstring, not one.** Item 2 says "correct the
+docstring"; the measured list is:
+
+1. *"it runs inside `pytest -q` with the rest of the suite"* — it collects 0.
+2. *"see `tests/conftest.py` for why a file named `bench_generate.py` is
+   collected at all"* — **`tests/conftest.py` says nothing about it.** Its only
+   near-match is `config.addinivalue_line("markers", "performance: …")` at
+   `:110`, and no `python_files` setting exists anywhere in the repo
+   (`pyproject.toml:86-93` sets `minversion`, `testpaths`, `addopts`,
+   `pythonpath`, `markers` — that is all). The docstring points at a mechanism
+   that does not exist, which is why the first claim reads as load-bearing.
+3. *"This is a gate … and it fails when the cap is missed"* — inverted by the
+   `xfail(strict=True)`: as written it fails when the cap is **met**.
+
+**AC-037's `test:` ref resolves to nothing.** `requirements.yml:5414` names
+`BenchGenerate_20x20_p95Under5s`. That string exists in exactly **one** file —
+`tests/bench_generate.py`, at its own `:3` and `:139`, both of them prose. It is
+not a class, not a function, not a node id. So AC-1's second branch ("or
+AC-037's `test:` names a different verifier that is") is not an alternative to
+be considered — **the ref is broken either way and this card is the one that
+fixes it**, to a real node id a `git grep -w` can find. Same family as
+[the board's standing rule] that a planned ref reads as a mechanically checked
+one.
+
+- **G-5 (added at dispatch): do not remove or weaken the `xfail(strict=True)`
+  marker, and do not touch `P95_CAP_SECONDS`, `CORPUS`, `_P95_RANK` or
+  `_ALLOWED_OVER_CAP`.** The marker's own reason forbids removal on partial
+  data, and this card is about *where the verifier lives and whether it runs* —
+  not about the solver's performance. A card that makes AC-037 green by
+  reshaping the corpus has taken CARD-018's scope and broken a requirement's
+  record of being missed.
+- **AC-5 (added at dispatch): the record stops reading as verified.** *Given*
+  the resolution, *then* AC-037's `test:` is a node id that `git grep -w`
+  resolves in `tests/`, and the criterion's state — verified / known-missed —
+  is stated where a reader of `requirements.yml` sees it, not only in a pytest
+  marker. (test: the collect-only assertion of AC-1 extended to assert the ref
+  string resolves; **gate**: the ref re-grepped at merge.)
 
 ## Worktree notes
 
