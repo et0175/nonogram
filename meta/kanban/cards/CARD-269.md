@@ -15,7 +15,7 @@
 **Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** **5.5 (cycle 1/3) — NOT CERTIFIED**, 3 gating findings; fix round 1 running on F-1/F-3/F-4/F-5/F-6/F-7/F-8/F-9/F-10. **F-2 is with the owner.**
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -434,3 +434,123 @@ before the amendment rather than after.
 does not mention the ladder, because `test_the_page_copy_describes_the_new_click` pins it
 by exact equality and this card forbids editing that file. The round **reverted its own
 copy addition** rather than edit a forbidden file. One sentence, player-visible, owed.
+
+---
+
+## Review cycle 1 — **5.5 / 10, NOT CERTIFIED** (`min_score: 8`), 3 gating
+
+`meta/review/20261029T222119Z-CARD-269-cycle1.yml`. Eleven findings, thirteen judgements.
+
+### F-1 (gating) — the branch is red, and the round did not know
+
+`tests/test_puzzle_solver_resume.py` is **15/15 at the base `560d7e09`** and **13/15 at
+`bcd136b5`**, deterministic across two runs and reproduced inside a 12-file selection.
+`test_reload_restores` and `test_saves_every_change` each press Hint **once** and assert the board
+or the localStorage entry changed; **under the ladder, one press changes neither.**
+
+**This is the round's own correction-1 class in a THIRD file.** The card says *"G-5's blast radius is
+wrong — two further existing files"*; it is wrong by **three**, and the third was left failing. The
+second failure is **the save**, which **G-3 and AC-9 are both about.** And the derivation was
+available: `grep -rln '"Hint"' tests/` returns **seven** player files that press the button, and it
+names `resume.py`. **The round's "11-file affected selection" excluded it** — a selection, not a
+derivation, which is the defect under the two reds.
+
+### F-2 (gating) — rung 2 is invisible to a sighted player. **WITH THE OWNER.**
+
+`#puzzle-player-announce` is a **1×1 clipped region**, measured 1×1 live. By **SHA-256 of element
+screenshots with `getAnimations()` settled**, rung 2's board and toolbar are **byte-identical to
+rung 1's** — and the instrument was proved first: rung 1 *does* differ from blank, rung 3 from both.
+The class toggle off/on **coalesces in one task**, so there is not even a re-fade, and under reduced
+motion there is no animation at all.
+
+So **the rung whose job is "explain the deduction" — half the card's title — changes nothing a
+sighted player can see.** On the exhausted board **rungs 1 and 2 both** show nothing; **Check on a
+clean board** shows nothing. CARD-183's Hint always did something visible on every press; the ladder
+introduces **presses indistinguishable from a dead button.** The one visible channel, the line tint,
+is **1.15:1** against the paper — under **WCAG 1.4.11's 3:1** — and carries **two meanings** (rung 1
+vs Check) with only the hidden sentence to separate them.
+
+**And all ten ACs are phrased "the live region says…", so they pass while the feature does not reach
+the player.** That is the shape the board has been correcting all day, in the acceptance criteria
+this time.
+
+The reviewer's answer to the asked judgement: **shipping with no on-page mention is not acceptable,
+and not as documentation debt** — the on-page paragraph is the only remaining channel that could
+explain two presses with no visible effect. Reverting the copy rather than editing a forbidden file
+was still the right call.
+
+### F-3 (gating) — the supersession is recorded nowhere executable
+
+**AC-327, AC-329 and AC-334 are live and unamended in `requirements.yml`, each now false of the
+shipped code**, and each carries a `test:` ref that **resolves to a live class now asserting the
+opposite**. CARD-308/CARD-319's defect class one level up: **ref alive, requirement dead.**
+`inputs/raw-requirements.md`, where the card routes the FR-044 delta, was **never touched** — while
+`bcd136b5` **does** edit `requirements.yml`, **which the card forbids itself twice.** Fix round 1
+writes the delta; the three amendments are owed and are the owner's, as AC-333's was.
+
+### F-4 (important) — the evidence for an owner decision does not exist
+
+The card claims captures at both widths. **All 20 are 1280 px. There is no 1440 px capture**, and
+`announcements.txt` states the toolbar shown *"is NOT the shipped layout"*. **So the owner accepted
+the 1280 px layout change on evidence that is not there** — and the figures *were* right
+(268 / 186 / 82 / 1440-fits-all all re-derive exactly, 82 two ways), so this is a missing-artefact
+defect, not a wrong-measurement one. Surfaced to the owner; fix round 1 produces the real captures.
+
+### Answers to the brief's questions
+
+- **`hintLine()`'s null: behaviourally one case, structurally three.** `hint === null` (unreachable
+  from the UI), the fallback (the real exhausted state), and **"neither axis forces it"** — the
+  *"I could not tell"* null, unreachable **only because `knownLine` duplicates `hintCell`'s
+  projection by hand.** Measured: **mutating that projection passes every page test**; only the 1×3
+  unit assertion reds. **The card's whole promise rests on those two nulls being the same thing, and
+  today they are the same only by a duplication nothing guards.** G-4's *"AC-328 holds at every rung
+  by construction"* has **no control**.
+- **Drift rungs 1–2 → rung 3: none.** `commit()` is the single choke point; all seven call sites
+  traced including `setBoard` → `marking.commit`, and `editing` is a `const`. **Sound.**
+- **Enumerable authority: partly, and the card misattributes it.** The working authority is
+  **`HINT_REASONS`**, not `HINT_RUNGS`/`RUNG_EVENTS`. **`LADDER_REASON` is not exported**, so both
+  comments claiming *"the suite asserts these keys ARE `HINT_REASONS`"* assert something **no test
+  can perform**. Second lists do exist: `RUNG_AFTER_PRESS`, the test's `_REASON_SENTENCE`,
+  `knownLine`, and an underived rung ternary. **One unreachable row, `(3, "press")`** — an
+  unreachable row is an untested row.
+- **M5 reproduces exactly**, reddening only the one cell with seven siblings green — **and its pair
+  is genuinely two independent assertions**, measured: the converse mutant reds the *second* having
+  **passed** the first. The card's strongest claim survives intact.
+- **The four adapted classes weakened no assertion**, several strengthened. **The superseded set
+  really is seven.**
+- **The runs-complete third correction is RIGHT**: deleting the second half leaves 53/53 green — a
+  permanent surviving mutant, honestly noted, and the note is the right form.
+- **The five toolbar numbers re-derive exactly**, and **the 1440 control does achieve the
+  threshold-moved-not-broken distinction** — the same inequality is false at 1280 and true at 1440.
+  But **187 → 223 are bottom-edge coordinates, not heights**; the real heights are **39 → 75 px**,
+  mislabelled on this card, in `admin.css` and in the test docstring.
+- **AC-333's ref resolves to a real `class` line**, exactly as the card claims; `hintIsLastChild` is
+  gone and the amended `then:` is genuinely asserted. **The check made before the amendment was
+  sound.** Residue: that class's docstring is now stale.
+- **The colour claim holds**: the shipped capture samples **`#e6efec`, exactly
+  `--color-accent-tint`**, and `tokens.css` is byte-identical to `meta/design/tokens.css`. The
+  round's `getAnimations()` self-catch was right.
+- **CARD-263's path is report-only**, `errorCount` and the counter untouched. Confirmed.
+
+### Also measured wrong in shipped code, and one figure of the round's
+
+- **"Assigning the SAME string is a no-op in the DOM" is false** — a MutationObserver records the
+  identical assignment, so the stated rationale does not hold.
+- **Check reads `aria-disabled="false"` mid-drag while its handler silently returns**; Hint reads
+  `"true"`.
+- `8 files +1895/−65` and **29 node ids added, 0 removed/renamed/merged (94 → 123)** re-derive, zero
+  skips across every run, both unforeseen files marked in place. **The two card files measured
+  36.4 s, below the card's stated 41–43 s** — a band exceeded in the *low* direction, which is the
+  day's third card to do that.
+
+### Strengths the review named
+
+The **1800-line seeded reason corpus with counted near-misses and independent re-verification of the
+module's own claims**; the exhausted pair; the 1440 discriminator; in-test negative controls
+throughout; and the `getAnimations()` self-catch written into `admin.css` so the next eyeball of that
+colour waits for the animation. **The ladder does remove the falsehood it set out to remove.**
+
+- [Review 1/3] Score: 5.5 ✗ below threshold, 3 gating findings
+- [Fix 1] Dispatched on F-1, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10. **F-2 excluded and escalated**
+  — a visible channel for rung 2 is a player-facing design decision with an accessibility dimension,
+  and the on-page copy sentence it depends on is already owed to the owner.
