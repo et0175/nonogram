@@ -84,8 +84,18 @@ re-records the baselines the change moves.
    - **The A4 golden does NOT break.** ADR-0036/R1's golden captures the
      **no-PageSpec default path** plus the CLI's bytes — neither is a book
      interior.
-   Record the new baselines with the load average at both ends (CARD-292's AC-6
-   convention) and say in the card what changed and by how much.
+   Record the interior's size and generation time with the load average at
+   both ends (CARD-292's AC-6 convention) and say in the card what changed and
+   by how much — which, if nothing converts, is **nothing**, stated as a
+   measurement rather than left blank. <!-- NARROWING RESIDUE, fixed 2026-10-29
+   after review cycle 1's A-5: this said "Record the new baselines", which the
+   narrowing had already made impossible — there are no new baselines. The
+   load-average convention still applies, to the size/time readings AC-5 asks
+   for, not to a re-record. Round 1 did take those readings (3,468,586 B and
+   0.277 s on main vs 0.283 s on the branch, load stated at both ends, and the
+   whole written interior sha256-identical with Pillow's two /Info dates
+   masked), so AC-5's figures ARE discharged — the card just no longer asks for
+   them under a heading about baselines. -->
 
 ## Acceptance criteria
 
@@ -256,10 +266,14 @@ would. **It must ship with its control in the same commit.**
   flip here, and R6 flips in CARD-299. R3 and R7 stay lenses by design — R3 is a
   "derives none" prohibition and R7 is a scope statement, neither of which a test
   can own.
-- **`tests/fixtures/**` is otherwise untouchable**, so item 4's scoped exception
-  must be enumerated file by file in the worktree notes when it is done. A
-  reviewer should be able to count the re-recorded baselines without running
-  anything.
+- **`tests/fixtures/**` is untouchable here, with no exception to enumerate.**
+  <!-- NARROWING RESIDUE, fixed 2026-10-29 after review cycle 1's A-6: this
+  demanded that "item 4's scoped exception must be enumerated file by file",
+  but the narrowing WITHDREW that exception (G-3), so the instruction asked for
+  a list of something that must not exist. The reviewer should be able to see
+  `git diff --name-only <cut>..HEAD -- tests/fixtures/` return nothing, which
+  is the whole of the accounting. The enumeration obligation moves with the
+  exception, to whichever card re-records the baselines. -->
 
 ## [Implementation round 1 — HELD AT THE SCOPE GATE, 2026-10-29, orchestrator]
 
@@ -357,3 +371,140 @@ different. The round's mutant table should read 2.
   `TestDependencyBaseline_IsExactlyPillowAndNumpy` (zero definitions in this repo);
   the substance was checked instead — `pyproject.toml` unchanged, new imports are
   stdlib `enum` plus internal `book_vector` names.
+
+## [Review cycle 1 — 7.0, DOES NOT CERTIFY, 2026-10-29]
+
+`min_score: 8`, cycle 1 of 3. **Two findings block**, both small to fix, and both
+verified independently by the orchestrator before a fix round was dispatched.
+Everything else the reviewer called cycle-2-at-9 quality, and the two things the
+dispatch most doubted — the four default-DENY claims and the four AST pins — both
+survived its own measurement.
+
+Impact gate (the reviewer's own, wider than the round's): import closure over the
+two changed `src` modules, the changed helper and the two call doors whose
+signature changed → **48 modules, 2365 passed, 5 skipped, 0 failed, 355 s**. Skips
+all attributed: 1 × `test_book_pdf_memory.py:1297` (`setrlimit`, pre-existing) +
+4 × `tests/conftest.py:207` (`DATABASE_URL` unset). Guardrail run
+(`test_cli_exports_byte_identity`, `test_export_a4_golden`,
+`test_guard_integrity`, `test_suite_profile`): **643 passed, 0 skipped**.
+Mutation `deferred(cost)` per Step 8f's ladder, correctly — gating findings this
+cycle.
+
+### F-001, GATING — G-6 is not met: ADR-0042/R2's check is still `review-lens`
+
+Confirmed at `adr/0042-…md:403`: `check: {kind: review-lens}`, with a comment
+**directly beneath it** saying *"The test now EXISTS and is green"* and naming
+three node ids. That is the defect shape this board has repaired twice — a rule
+reading as checked while its `check:` is a placeholder.
+
+The round justified it with *"CARD-298 leaves the flip to the merge, as this board
+does"*. **That convention does not exist, and the two counter-precedents are the
+only two comparable cards.** Measured by `git log -S`:
+- CARD-227's ADR-0037/R2 flip is in **`7d86a869 feat(book): CARD-227 …`**
+- CARD-294's ADR-0042/R5 flip is in **`0c63a328 feat(book-export): …`**
+
+Both flipped in their **own feature commit**. Neither waited for a merge. Fix is
+one line, and the named test exists and passed in the reviewer's gate.
+
+Owed with it: the card's **Trace** line is unactionable — `trace.yml` carries **no
+ADR-0042 rule rows at all** (only two prose mentions, at `:1813` and `:1853`;
+`0042/R2` and `0042/R5` return nothing). Not the commit's fault, and the line was
+inherited from the pre-narrowing card.
+
+### F-002, important — the five expiries name the wrong card, AND the guard cannot notice
+
+Both halves verified. CARD-299's `Touches` names six test modules plus
+`requirements.yml` and the ADR — **not one file under `src/`** — so it converts no
+page; and a board sweep for `book_pdf_generator` finds **no non-done card** owning
+the interior conversion (CARD-231 is the divider only).
+
+**The question the dispatch asked has a worse answer than expected: NO, AC-3's
+mechanism will NOT red when CARD-299 lands.** `_declaration_findings`
+(`tests/test_book_pdf.py:1607-1613`) fires the expiry finding only on
+`declaration is not None and _RASTER not in media` — **only when a page's medium
+actually changed**. CARD-299 changes no medium, so the pages stay raster, the
+declarations stay matched, findings stay empty, and the five entries go **silently
+stale on the day their own `expires_with` is satisfied**.
+
+Independently confirmed: `expires_with` is read in exactly **two** places in the
+whole tree — the finding's message text, and a `re.fullmatch(r"CARD-\d+")`
+**format** check. **Nothing reads a card's status.** So the field is documentation
+in a guard's clothes, and R2's own clause — *"once CARD-231 lands, the divider's
+exception goes with it"* — is unguarded in the **landing** direction. The
+registry docstring's claim that AC-3 "exists to force" the shrink is half-true: it
+forces the **conversion** direction only, and that half should be stated rather
+than left to read as both.
+
+### F-004 — a tracked comment cites a path that resolves nowhere
+
+`tests/test_book_export_interior_cover.py:3651` cites
+`scratchpad/card298/ast_delta.py` for the +42 `ast.Call` cross-check. **Correction
+to the reviewer, which said the file exists nowhere:** it does exist — in this
+session's scratchpad, at an absolute path outside the repo — but the comment cites
+it *relatively*, so it resolves nowhere from the repo and the file dies with the
+session. The finding stands and its wording does not. Either move the census under
+`meta/profiling/` or restate the one-line derivation inline; a tracked claim must
+not rest on an ephemeral path.
+
+### F-005 — M8's second reading is adequate as a control, overstated as independence
+
+The "different door" is the **same door**: `interior_stream` itself calls
+`self.section_plan(puzzles)` (`:7102`) and reads `decided.pages` (`:7112`), and the
+test calls the same method on the same objects; the kind discrimination is the same
+`isinstance(entry, DividerPagePlan)` predicate, transcribed twice. What **is**
+independent is the **ordering authority** — `entry.page_number` against enumeration
+order — a real second fact, and because the test owns its own transcription a
+production-only kind-mapping mutant does die. But the docstring's claim that the
+readings *"share nothing about which kind sits at which position"* is one step too
+strong, and the shared predicate is unnamed. Also unnamed: the answer tail is not
+production-equivalent (production guards the SOLUTIONS divider on `if payloads:`,
+the test only on `generator.divider_pages`) — unexercised, but a restatement that
+diverges.
+
+### What survived, and is worth not re-reviewing in cycle 2
+
+- **All four default-DENY claims are real, four for four.** `_UNCLASSIFIABLE` is a
+  genuine third outcome, proved by building the two probe pages out of tree and
+  running three classifiers: both two-branch spellings misclassify **both** probes
+  (image-first → raster/vector; font-first → vector/raster), so the control kills
+  either. The probes are built in-memory into a `BytesIO`; the diff adds **no
+  file** under `tests/`.
+- **The four AST pins were RE-DERIVED, not bumped — all four re-derived by the
+  reviewer** by running each instrument on the **base** source as well as HEAD's,
+  which a bump fails immediately. `inside` 17→18 (the extra call is
+  `self.page_spec(page_number)` at `:5013`); `POSITION_SITE_COUNT` 24→25 with a
+  row-set diff of exactly one added row and none removed; guide-counting 8→9 with
+  the added site character-identical to `produce()`'s own range;
+  `CALLEE_EXEMPTION_COST` 776/522/204/202 reproducing from the old source and the
+  step deltas summing with **no remainder**, cross-checked at +42 `ast.Call`.
+- **The widened `zigzag` assertion is a WIDENING, unambiguously** — still an
+  equality, now over nine names instead of one, with `unclassified == ("zigzag",)`
+  preserved verbatim. The only loss is tuple ordering, which is immaterial because
+  `_public_members` is `sorted`. The reviewer also checked the one thing that would
+  have made `dir()` unsafe: **no metaclass leakage** in CPython 3.14
+  (`'mro' not in dir(ContentStream)`), so F2-01 is a true no-op at HEAD.
+
+### C-1 — and this one is about the board's instrument, not the card
+
+The reviewer measured **main 106, branch 107** and reached the right conclusion:
+**107 is the honest count and main's 106 is the depressed one.** The extra warning
+is **not this card's** — it is FR-046/AC-395's dead check ref, which `main`
+silenced when it acquired CARD-291's cycle-1 review YAML in `93d04a50`, and which
+this branch (cut earlier) still reports. **Third measured instance of CARD-308's
+mechanism, and the first where a card branch reads WORSE than `main` because of
+it.** Consequence for this card's merge gate: a naive branch-vs-main warning
+comparison would read as *CARD-298 adds a warning*, which is false. Compare
+against a `main` without that YAML, or compare the warning **sets** and attribute
+each difference. Recorded on CARD-308.
+
+### Three narrowing residues — the orchestrator's own misses, fixed above
+
+Review cycle 1 caught three places where today's narrowing pass left stale text:
+item 4 still said *"Record the new baselines"*, the worktree note still demanded
+the **withdrawn** fixtures exception be enumerated file by file, and AC-5's
+size/time readings were asked for under a heading about re-recording. All three
+corrected in place with the reason marked. The size/time figures themselves **were**
+taken by round 1 (3,468,586 B; 0.277 s on main vs 0.283 s on the branch, load
+stated at both ends, whole interior sha256-identical with Pillow's two `/Info`
+dates masked), so AC-5 is discharged — the card had simply stopped asking for them
+coherently.

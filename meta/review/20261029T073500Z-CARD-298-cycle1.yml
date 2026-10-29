@@ -1,0 +1,843 @@
+version: 1
+generated_at: "2026-10-29T07:35:00Z"
+target: CARD-298
+cycle: 1
+max_cycles: 3
+min_score: 8
+overall_score: 7.0
+previous_score: null
+delta: "n/a (first cycle; the round was held at the scope gate and not dispatched)"
+risk_level: medium
+review_lane: impact
+reviewer: claude-opus-5
+reviewer_version: cycle1
+scope_gate: on
+judged_against: "the NARROWED card (main repo, meta/kanban/cards/CARD-298.md, amended 2026-10-29), NOT the worktree's pre-narrowing copy"
+base_commit: 8b307c22
+head_commit: 283164a9
+
+verdict: >-
+  DOES NOT CERTIFY at 7.0, on one guardrail miss and one measured
+  mis-attribution. Everything else in this commit is of a quality I would have
+  certified at 9: the four AST pins really were re-derived and I re-derived all
+  four myself, the default-DENY claims are all four real and I proved the one
+  the dispatch doubted with my own two-branch experiment, and the F2-01 fix
+  ships with controls that bite.
+
+  WHY IT DOES NOT CERTIFY. (1) G-6 is not met. ADR-0042/R2's check is still
+  `check: {kind: review-lens}` at the branch HEAD. The card's item 3 says
+  "flip R2's check likewise" and G-6 says "R2's lens must not survive this
+  card". The round instead wrote, into the ADR itself, "CARD-298 leaves the
+  flip to the merge, as this board does, and records that it is owed". I
+  measured that convention and it does not exist: the two other cards on this
+  board carrying the identically worded guardrail both landed the flip in
+  their OWN feature commit -- CARD-227 in `7d86a869`, CARD-294 in `0c63a328`.
+  The flip is a one-line edit, the named test exists and is green, and leaving
+  it undone means the rule this card exists to make mechanically checked stays
+  a lens on main with nobody owing it. (2) All five `expires_with=('CARD-299',)`
+  values are wrong, and the mechanism the card advertises as the thing that
+  will notice cannot notice it. CARD-299 is test-side only (measured: its
+  Touches names six test modules, requirements.yml and the ADR -- not one file
+  under `src/`), so it converts no page; and `_declaration_findings` fires the
+  expiry finding only when a page's medium actually CHANGED, so when CARD-299
+  lands with nothing converted the five entries go silently stale. That is the
+  card's own guard failing to catch a real mis-attribution, in the direction
+  ADR-0042/R2's statement is actually written in ("once CARD-231 lands, the
+  divider's exception goes with it").
+
+  Both are small to fix and neither is a product-correctness defect. No book
+  this product ships changes a byte on this branch, and I verified that rather
+  than assuming it.
+
+  WHAT I CERTIFY POSITIVELY, each from a run. (a) The four default-DENY claims
+  are real defaults, not two-branch classifiers with a fallback -- and
+  `_UNCLASSIFIABLE` is a genuine third outcome, which I proved by building the
+  round's two probe pages myself and running three classifiers over them (see
+  findings/positive.default_deny). (b) The four AST pins were RE-DERIVED, not
+  bumped: I reproduced the OLD figures from the base module's source and the
+  NEW figures from HEAD's, through the test's own analyser and through two
+  analysers I wrote from scratch. A bumped pin would have failed that test.
+  (c) The widened `zigzag` assertion is a widening: it pins nine names where
+  it used to pin one, and it preserves `unclassified == ("zigzag",)` verbatim.
+  (d) G-1, G-2, G-3, G-4, G-5 and G-7 all hold, measured. (e) ADR-0006/R1's
+  substance holds: pyproject.toml is a 0-file diff and the only import lines
+  added to `src/` are stdlib `enum` and a `from nonogram.admin.book_vector
+  import (...)` block.
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-298.md from the MAIN repo (the narrowed card, all 360 lines including every 2026-10-29 amendment)
+    - meta/kanban/cards/CARD-299.md from the MAIN repo (header through AC-4, for the expires_with measurement)
+    - meta/kanban/cards/CARD-227.md and CARD-294.md (the two G-6-shaped precedents)
+    - "the whole 10-file diff 8b307c22..283164a9, hunk by hunk"
+    - "src/nonogram/admin/book_pdf_generator.py: PageKind/PageMedium/RasterDeclaration/_RASTER_DECLARATIONS/page_medium, vector_title_page, interior_stream's page-kind walk, produce()'s title branch, _write_pdf in full"
+    - "src/nonogram/admin/book_vector.py: write_vector_page and write_face_objects (the extraction), write_vector_pdf's loop"
+    - "tests/test_book_pdf.py:1504-2566 (the whole CARD-298 block)"
+    - "tests/test_book_solved_answer_key.py: _public_members, _content_stream_doors, the live guard cell at :3044-3062, the widened zigzag cell, the three new F2-01 cells"
+    - "tests/test_book_export_interior_cover.py: the four moved pins and the tests that consume them (:1463, :3233, :3658, :5561), plus _page_positions' signature and the cost-ladder test at :4610"
+    - "meta/architecture/decisions/adr/0042-...md: R1's and R2's blocks on both sides of the diff, and the 2026-10-29 consequence entry"
+    - meta/architecture/trace.yml (grepped for ADR-0042 rule rows -- there are none)
+    - meta/profiling/rank_durations.py:40-95 (RENDER_HEAVY_SNAPSHOT, for G-7)
+  not_run:
+    - the full suite (review.test_scope=impact; it is the orchestrator's merge gate and takes meta/kanban/.full-suite.lock)
+    - >-
+      a per-node-id confirmation run of the 14 CARD-298 node ids. I attempted it
+      and pytest refused: meta/kanban/.full-suite.lock was taken at
+      2026-10-29T07:33:07Z by "CARD-291 merge gate (orchestrator)" in the
+      card-291 worktree, and pid 18508 is alive spawning it. I did not override.
+      All 14 node ids are inside tests/test_book_pdf.py, which is one of the 48
+      modules in my own impact run below, so they are covered at module level.
+      The refusal is itself the proof my two earlier runs did NOT overlap that
+      gate: the same conftest check let them through and blocks now.
+    - the forge plugin-cache copy of the validator (its ADR-0025 circular-supersession ERROR is a regex defect in that copy; not run here)
+  mutation:
+    executed: false
+    reason: >-
+      Step 8f cost ladder. This cycle carries one gating and two important
+      findings, so mutants are deferred rather than executed, per the dispatch.
+    deferred_cost:
+      - "M-A: in interior_stream's page-kind walk, make the section comprehension yield PageKind.PUZZLE unconditionally (the M8 shape). Cost ~2 min: one targeted edit to book_pdf_generator.py + `pytest tests/test_book_pdf.py::test_the_page_kinds_are_the_positions_the_plan_itself_states` (~25 s) + blob restore. Expected KILLED, derived structurally below."
+      - "M-B: revert _public_members from dir(cls) to vars(cls). Cost ~3 min + tests/test_book_solved_answer_key.py (~90 s). The orchestrator already measured this: 2 cells red. I carry that figure and did not re-run it."
+      - "M-C: collapse _page_media's three branches to two. Cost ~0 (I ran the equivalent OUT of tree, as a pure-function experiment -- see positive.default_deny; both two-branch spellings misclassify both probes)."
+    note: >-
+      The round built no recording rewriter, so no figure in this report or in
+      the round's claims assert-level attribution. Everything here is node-id
+      red/green or a pure-function measurement.
+
+metrics:
+  diff:
+    files: 10
+    added: 1860
+    removed: 79
+    base: 8b307c22
+    commits_on_top_of_base: 1
+    working_tree: clean
+    confirms_orchestrator: true
+    touches_declared_vs_actual: "all 10 changed paths appear in the card's amended Touches: line; 0 drift"
+    fixtures_files_changed: 0
+    export_dir_files_changed: 0
+    pyproject_changed: false
+  test_gate:
+    scope: impact
+    files: 48
+    file_list_is_my_own: true
+    derivation: >-
+      Import closure over what this commit changes. `grep -rln
+      'book_pdf_generator|book_vector|book_corpus|_write_pdf|export_interior'
+      tests/` -> 54 paths, of which 6 are tests/helpers/* (no tests of their
+      own) and 1 is tests/test_suite_profile.py, held out of this run because
+      it is the file that owns the duration/RENDER_HEAVY_SNAPSHOT pins and I
+      wanted it in its own reading. 48 collectable modules ran. The grep terms
+      are the two changed src modules, the changed helper, and the two call
+      doors whose signature this commit changed (_write_pdf gained a required
+      keyword; export_interior now passes kinds).
+    command: "PYTHONDONTWRITEBYTECODE=1 /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly -q <the 48 files> -rs"
+    result: "2365 passed, 5 skipped, 0 failed, 0 errors, 355.01s, exit 0"
+    passed: 2365
+    failed: 0
+    errors: 0
+    skipped: 5
+  guardrail_run:
+    command: "PYTHONDONTWRITEBYTECODE=1 .../python -m pytest -o addopts='' -p no:randomly -q tests/property/test_cli_exports_byte_identity.py tests/test_export_a4_golden.py tests/test_guard_integrity.py tests/test_suite_profile.py -rs"
+    result: "643 passed, 0 skipped, 0 failed, 64.30s, exit 0"
+    why_these_four: >-
+      G-2's two named tripwires (CON-019's property module and the A4 golden),
+      plus the two structural owners that would notice a probe or a duration
+      landing in tests/ (G-7).
+  skips:
+    count: 5
+    every_one_attributed_by_name: true
+    entries:
+      - id: "tests/test_book_pdf_memory.py:1297"
+        cause: "setrlimit(RLIMIT_AS) refused by this kernel ('current limit exceeds maximum limit')"
+        pre_existing: true
+        is_a_gate_test_for_this_card: false
+      - id: "tests/conftest.py:207 x4 -- 'Database not reachable: DATABASE_URL is not set' (db_required)"
+        cause: "no DATABASE_URL on this box; 4 of the 26 db_required cells suite-wide"
+        pre_existing: true
+        is_a_gate_test_for_this_card: false
+    no_card_298_gate_test_skipped: true
+    disagreement_with_the_round: >-
+      The round's impact gate reported 2060 passed / 1 skipped and explained
+      the absent 26 DB skips by "its impact scope contains no DB-mode module".
+      That is true of the round's scope and NOT of an import-closure scope:
+      mine contains five DB-touching modules (test_puzzle_edit_routes,
+      test_admin_error_text, test_admin_tier_surfaces, test_book_detail_page,
+      test_book_scaffolding) and 4 db_required cells skip inside it. My scope
+      is 305 passing cells wider than the round's. Neither figure is wrong;
+      the round's scope was narrower than the change's blast radius, which is
+      worth saying because a DB-mode door this commit's required `kinds=`
+      keyword could reach is a door the round did not open.
+  architecture_validator:
+    binary: /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+    command: "--root meta/architecture --phase all"
+    main: {errors: 0, warnings: 106}
+    branch: {errors: 0, warnings: 107}
+    warning_set_diff_method: "full WARN lists from both trees, sorted, diffed"
+    warning_set_diff: "exactly one warning present on the branch and absent on main; 0 present on main and absent on the branch"
+    the_one_extra_warning: >-
+      FR-046/AC-395's check ref -- the approval-guess-gate module's
+      unknown-verdict cell. I deliberately do NOT spell its full `path::name`
+      string anywhere in this file, because the validator's check-ref search is
+      a TEXT search and this report syncs into main (CARD-308).
+    attribution: >-
+      NOT this card's. The ref is dead on BOTH trees. It is silenced on main by
+      meta/review/20261029T000000Z-CARD-291-cycle1.yml, which main acquired in
+      93d04a50 -- whose own subject line reads "the sync silenced a live
+      warning again". That YAML is not on this branch (cut at 8b307c22, before
+      it), so 107 is the HONEST count and main's 106 is the depressed one. This
+      is the third measured instance of the CARD-308 mechanism on this board,
+      and the first where a card branch reads WORSE than main because of it.
+    correction_to_the_dispatch: >-
+      The dispatch said this binary "reports 0 errors on both sides" -- correct,
+      and I reproduced it. It did not mention that the WARNING counts differ by
+      one. Anyone diffing the two trees will see +1 and must not read it as a
+      CARD-298 regression.
+
+guardrails:
+  G-1:
+    verdict: holds
+    measurement: >-
+      No page converts. `page_medium` returns RASTER for all seven declared
+      kinds, so every page of every book written on this branch is a bitmap.
+      Measured on the file, not the plan: my impact run includes
+      test_PropertyTest_Interior_NoVectorPageCarriesABitmap, whose first arm
+      asserts `vector_pages == 0` over nine books and passes. The cover, the
+      dividers and the five interior kinds are all still raster.
+    observation_not_a_finding: >-
+      The commit DOES add the machinery for one conversion -- `vector_title_page`
+      and a `page_medium(PageKind.TITLE) is PageMedium.VECTOR` branch in
+      `produce()` -- but TITLE is declared raster, so that arm is dead in
+      production and reachable only by lifting a declaration under monkeypatch.
+      I judge that in scope for a mechanism card: it is the only way AC-1's
+      vector arm and ADR-0042/R5's "no face objects in a raster-only file" half
+      get exercised through production's own writer at all, and the card's own
+      amended body anticipates it ("the one kind whose two media are
+      ink-identical by construction"). Stated here so the score is read
+      correctly: ADR-0042/R1 is 0 % delivered at this commit, and the ADR
+      amendment says so in those words.
+  G-2:
+    verdict: holds
+    measurement: >-
+      Neither tripwire is in the diff (`git diff --name-only 8b307c22..HEAD`
+      lists neither tests/property/test_cli_exports_byte_identity.py nor
+      tests/test_export_a4_golden.py) and both are green: the 643-passed run
+      above. Nothing was refreshed, because nothing reddened.
+  G-3:
+    verdict: holds
+    measurement: "`git diff --name-only 8b307c22..HEAD -- tests/fixtures/` -> 0 files. The 21 book_baseline_*.json and both book_baseline_card200_guide_page*.jpg are untouched. No corpus minimum was lowered: the two new property tests assert their floors upward (books == 9, raster_pages >= 90, mixed_vector >= 9)."
+  G-4:
+    verdict: holds
+    measurement: "`git diff --name-only 8b307c22..HEAD -- src/nonogram/export/` -> 0 files."
+  G-5:
+    verdict: holds
+    measurement: >-
+      I did not re-derive the +23/-0 node-id difference (the dispatch says not
+      to unless challenging it, and I am not). I confirmed the one cell the
+      dispatch flagged as at risk is still at its own node id and not renamed:
+      `def test_a_member_added_to_the_class_is_watched_without_being_listed` at
+      tests/test_book_solved_answer_key.py:3088. The widening inside it is
+      judged in findings/positive.zigzag -- it is a widening.
+  G-6:
+    verdict: VIOLATED
+    finding: F-001
+    measurement: >-
+      R2's lens SURVIVES. `awk` over
+      meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+      at HEAD gives ADR-0042/R1 `review-lens`, ADR-0042/R2 `review-lens`,
+      ADR-0042/R3 `review-lens`, R4 `kind: test`, R5 `kind: test`, R6/R7
+      `review-lens`. R1's lens correctly survives (the half G-6 requires to
+      survive, and the round's refusal to flip it is the right call, which I
+      endorse without reservation). R2's was supposed to flip and did not.
+  G-7:
+    verdict: holds
+    measurement: >-
+      No file was added under tests/ at all (the diff changes 6 existing test
+      files and adds none), so no probe landed there. The two
+      "unclassifiable" probe PDFs are built in-memory inside
+      test_a_page_whose_medium_cannot_be_determined_is_a_defect via
+      PIL.PdfParser into a BytesIO -- nothing on disk. tests/test_suite_profile.py
+      passes (the 643-run), which is the module that owns RENDER_HEAVY_SNAPSHOT
+      and would red on a new render-heavy module. The off-tree AST census is
+      a separate matter -- see F-004.
+
+findings:
+  - id: F-001
+    severity: important
+    gating: true
+    confidence: high
+    source: measurement
+    title: "G-6 is not met: ADR-0042/R2's check is still `review-lens`, and the stated reason for leaving it is a board convention that does not exist"
+    where: "meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md:403 (branch 283164a9)"
+    what_the_card_asks: >-
+      Item 3: "Write tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason
+      and flip R2's check likewise." G-6: "ADR-0042/R2's lens must not survive
+      this card." The Architecture context line adds "R2 lands here".
+    what_the_commit_did: >-
+      It rewrote R2's statement, rewrote R2's comment block to say "The test now
+      EXISTS and is green", named three node ids beneath it -- and left
+      `check: {kind: review-lens}` in place, with the sentence "CARD-298 leaves
+      the flip to the merge, as this board does, and records that it is owed."
+    how_i_reproduced_it: >-
+      (1) `awk '/^- id: ADR-0042/{id=$3} /check:/{print id": "$0}'` over the ADR
+      at HEAD -> R2 is review-lens. (2) The claimed convention, tested against
+      the board: `grep -rn "lens must not survive" meta/kanban/cards/*.md`
+      returns four cards -- CARD-227 (G-6, ADR-0037/R2), CARD-294 (G-8,
+      ADR-0042/R5), CARD-298 (G-6, this one) and CARD-299 (G-9, ADR-0042/R6).
+      Of the two that are done, BOTH flipped in their own feature commit:
+      `git log -S "TestBookGridRules_HasThreeWeights" -- .../0037-*.md` ->
+      `7d86a869 feat(book): CARD-227 the printed grid gets the owner's three
+      rule weights`; `git log -S "ref: test_the_interior_embeds_the_projects_own_face"
+      -- .../0042-*.md` -> `0c63a328 feat(book-export): the interior's vector
+      drawing vocabulary...`, which is CARD-294's own feature commit. Neither
+      flip waited for a merge.
+    why_it_matters: >-
+      The flip is the whole point of the rule's half of this card. Left as a
+      lens, ADR-0042/R2 reads to system_rules.py and forge:review Step 8h as a
+      rule a human must look at, when a derived, default-DENY, corpus-swept test
+      for exactly its statement now exists and is green. The failure mode is the
+      mirror of the one the round correctly refused for R1: there, a flip would
+      have overclaimed; here, a non-flip underclaims and leaves nobody owing it,
+      because the card will close and its Touches already name the ADR.
+    cost_to_fix: >-
+      One line: `check: {kind: test, ref: "tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason"}`
+      on R2, in the style R5 already uses in the same file. The ref resolves (the
+      def exists at tests/test_book_pdf.py and passed in my impact run).
+    also_owed_with_it: >-
+      The card's Trace line says "R2's check becomes a live test ref here, so
+      only its trace row is re-stamped in this card". Measured:
+      meta/architecture/trace.yml contains NO ADR-0042 rule rows at all --
+      `grep -n "ADR-0042" meta/architecture/trace.yml` returns two prose
+      mentions (lines 1813 and 1853) and nothing resembling a row, and a grep
+      for "0042/R2" or "0042/R5" returns nothing. So there is no R2 trace row
+      to re-stamp and that instruction is unactionable as written. Either the
+      card's Trace line or trace.yml's shape needs amending; the commit is not
+      at fault for not doing the impossible.
+
+  - id: F-002
+    severity: important
+    gating: false
+    confidence: high
+    source: measurement
+    title: "All five `expires_with=('CARD-299',)` values name a card that converts no page, and no card on the board converts them"
+    where: "src/nonogram/admin/book_pdf_generator.py, _RASTER_DECLARATIONS entries for PageKind.TITLE, GUIDE, TOC, ANSWER, PUZZLE"
+    measurement: >-
+      (1) CARD-299's declared scope, read from the main repo
+      (meta/kanban/cards/CARD-299.md:19): Touches names
+      tests/test_book_interior_type_floor.py,
+      tests/property/test_book_export_interior.py,
+      tests/property/test_book_layout.py, tests/property/test_book_two_up.py,
+      tests/test_book_pdf.py, tests/test_book_pdf_memory.py,
+      meta/architecture/requirements.yml and the ADR. NOT ONE FILE UNDER src/.
+      Its items 1-5 re-express assertions, move the registry's verifying tests,
+      write R6's guard and flip R6's check. Nothing in it writes a page.
+      (2) Board sweep for a card that would: I read every
+      meta/kanban/cards/CARD-*.md Touches line for `book_pdf_generator`. Of the
+      non-done ones (CARD-207/208/209/210/226/229/230/231/232/233/273/289), none
+      is the ADR-0042 interior conversion; CARD-231 is the divider redesign
+      only, and CARD-295/296/297 (all done) built the four vector page writers,
+      three of which still cannot be called from the interior's walk at all.
+      So the five entries name the wrong card AND the right card does not exist.
+    answer_to_the_dispatchs_question: >-
+      NO -- AC-3's expiry mechanism will NOT red when CARD-299 lands without
+      converting anything, and I measured why rather than inferring it. The
+      expiry finding in `_declaration_findings`
+      (tests/test_book_pdf.py:1607-1613) fires on `declaration is not None and
+      _RASTER not in media` -- i.e. only when the page's medium has ACTUALLY
+      CHANGED. CARD-299 changes no medium, so the pages stay raster, the
+      declarations stay matched, `findings` stays empty, and the five entries go
+      silently stale on the day their own `expires_with` is satisfied.
+      Independently: `expires_with` is read in exactly two places in the whole
+      tree -- tests/test_book_pdf.py:1611 (message formatting) and :1618 (a
+      `re.fullmatch(r"CARD-\d+", card)` FORMAT check). Nothing anywhere reads
+      a card's status. The field is documentation wearing a guard's clothes.
+    so_the_cards_own_claim_is_half_true: >-
+      The registry's docstring says the set "shrinks by deletion as each
+      converting card lands -- which is precisely what AC-3's expiry check
+      exists to force". AC-3's check forces the CONVERSION direction (page went
+      vector, entry left behind) and I confirm it does that well. It does not
+      and cannot force the LANDING direction, which is the direction
+      ADR-0042/R2's statement is written in: "once CARD-231 lands, the divider's
+      exception goes with it". If CARD-231 ships a redesigned divider that is
+      still a bitmap, the declaration's reason is spent and nothing reds.
+    disagreement_with_the_card: >-
+      I disagree with the card's framing, backed by the measurement above, on
+      one point: the declared set of seven is honest and I endorse it, but five
+      of its seven `expires_with` values currently point at a card that cannot
+      discharge them, and the card's own text ratifies that ("TITLE / GUIDE /
+      TOC / ANSWER / PUZZLE (each expiring with CARD-299)"). The card needs
+      amending as much as the code does.
+    suggested_fix: >-
+      Either (a) retarget the five to the card that will actually convert the
+      pages, which means cutting it -- the decompose station owes it, and
+      CARD-295 already names CARD-298 for the related puzzle-page furniture gap,
+      which CARD-298 also cannot close; or (b) keep CARD-299 named and add
+      CARD-299 the obligation to re-target or delete them, stated on CARD-299.
+      Either way the honest reading today is "blocked by work nobody owns", and
+      that is worth writing into the reasons, which currently read as though
+      CARD-299 were the converting card.
+
+  - id: F-003
+    severity: minor
+    gating: false
+    confidence: high
+    source: measurement
+    cluster_root: "same root cause as F-002: an expiry declared as data with no mechanism that reads the expiry condition"
+    title: "AC-3's test simulates the conversion well, but the `expires_with` tuple itself has no control of any kind beyond a format regex"
+    judgement_the_dispatch_asked_for: >-
+      "Judge whether this actually simulates CARD-231's landing or merely
+      toggles a dict." It does substantially more than toggle a dict, and I
+      checked each step. It lifts the divider's declaration, asserts
+      `page_medium(DIVIDER) is PageMedium.VECTOR`, builds a REAL ContentStream
+      at the real divider page frame with a real `text()` operator, writes it
+      through PRODUCTION's `_write_pdf`, and classifies the result off the
+      WRITTEN BYTES (`_page_media(data) == [_VECTOR]`). Only then does it
+      restore the entry -- and the restore is the defect being simulated, not a
+      shortcut. So: a real simulation of the conversion direction.
+    the_two_bounded_weaknesses: >-
+      (1) It cannot simulate CARD-231 writing a vector divider, because no
+      vector divider writer exists; the ContentStream is hand-built. Unavoidable
+      and correctly so. (2) It calls `_declaration_findings` on a hand-built
+      `{PageKind.DIVIDER: set(media)}` rather than through `_media_by_kind` over
+      a real interior, so the live interior path is not exercised in the expired
+      direction. That path IS exercised in the converted direction by
+      test_no_interior_page_carries_an_image_xobject_in_a_mixed_file, over a
+      whole real interior with TITLE lifted, so the gap is narrow -- but the
+      same test could have been written over `export_interior` with TITLE,
+      which would have closed it.
+    why_it_matters_more_than_the_card_predicted: >-
+      The dispatch is right that this mechanism is now load-bearing for five
+      more declarations than the card predicted. On that heavier load its one
+      real gap (F-002's landing direction) is the one that will be reached
+      first, because CARD-299 is the next card in the phase.
+
+  - id: F-004
+    severity: minor
+    gating: false
+    confidence: high
+    source: measurement
+    title: "A test docstring cites an off-tree probe file that does not exist anywhere"
+    where: "tests/test_book_export_interior_cover.py, the CALLEE_EXEMPTION_COST comment block (~:3651): \"an AST census written for this card (``scratchpad/card298/ast_delta.py``) reads +42 ``ast.Call`` nodes\""
+    measurement: >-
+      The path does not exist. The card-298 worktree has no `scratchpad/`
+      directory at all (`ls` -> No such file or directory). The main repo's
+      `scratchpad/` holds card284, card284fix and card305 only. So the named
+      artefact cannot be opened by anyone.
+    what_i_did_about_it: >-
+      I re-derived the figure myself rather than trusting it: `ast.Call` node
+      count over book_pdf_generator.py is 838 at 8b307c22 and 880 at HEAD,
+      delta exactly +42. So the CLAIM is true and the cross-check is sound. It
+      is the CITATION that is dangling.
+    why_it_matters: >-
+      G-7 is right to keep probes out of tests/, but a cross-check whose
+      provenance is a path nobody can open is a cross-check nobody can re-run,
+      which is the same failure shape as a dead check ref one level down. Either
+      commit the census under meta/profiling/ (where rank_durations.py and the
+      migration census already live, and where the ADR-0042 phase has precedent
+      for exactly this), or state the derivation in the comment in a form a
+      reader can re-execute in one line. The derivation is in fact a one-liner,
+      which is what makes the dangling path avoidable.
+
+  - id: F-005
+    severity: minor
+    gating: false
+    confidence: high
+    source: measurement
+    title: "M8's repair is an adequate mutation control but not a second authority: the \"different door\" is the same door, re-indexed"
+    where: "tests/test_book_pdf.py::test_the_page_kinds_are_the_positions_the_plan_itself_states"
+    judgement_the_dispatch_asked_for: >-
+      "Decide whether that is an adequate independent reading or a restatement,
+      and whether the weakness is honestly bounded or merely mentioned."
+      Verdict: ADEQUATE AS A CONTROL, OVERSTATED AS INDEPENDENCE, and the
+      weakness is bounded for two of its three parts and unmentioned for the
+      third.
+    measurement: >-
+      The test's docstring says the kinds are "read a second time, off a
+      different authority ... the public BookPDFGenerator.section_plan door".
+      That is the SAME door production reads: interior_stream itself does
+      `decided = self.section_plan(puzzles)` (book_pdf_generator.py:7102) and
+      `section = decided.pages` (:7112). The test calls the same method and
+      reads the same attribute, getting the same objects in the same order. And
+      the kind discrimination is the same predicate transcribed twice --
+      production writes `PageKind.DIVIDER if isinstance(entry, DividerPagePlan)
+      else PageKind.PUZZLE`, the test writes `if isinstance(entry,
+      DividerPagePlan): ... elif isinstance(entry, PuzzlePagePlan): ...`.
+    what_is_genuinely_independent: >-
+      The ORDERING authority, and only that: production reads kind-at-position
+      from enumeration order, the test from `entry.page_number`. That is a real
+      second fact and it is worth having -- it would catch a SectionPlan whose
+      `pages` order disagreed with its own page_numbers, which nothing else
+      checks. And because the test carries its own transcription of the
+      predicate, a production-only mutant in the kind mapping IS killed. So the
+      M8 shape dies here, structurally. I did not execute M-A (mutation
+      deferred, see coverage.mutation) and I therefore report this as a
+      structural derivation, not as a measured kill.
+    the_unmentioned_third_part: >-
+      The docstring honestly names the front matter and the answer tail as "the
+      same arithmetic restated". It does NOT name the shared `isinstance`
+      predicate, and it claims the two readings "share nothing about which KIND
+      sits at which position" -- which is one step too strong, since both derive
+      the kind from the plan object's class. Also unmentioned: the answer tail is
+      not production-equivalent. Production guards the SOLUTIONS divider on `if
+      payloads:`; the test guards it only on `generator.divider_pages` and takes
+      the answer count from `stream.answer_page_count`. On a book with no
+      drawable member the two disagree. The corpus always has payloads, so the
+      branch is unexercised rather than wrong -- but it is a restatement that
+      diverges, which is strictly worse than one that does not.
+
+  - id: F-006
+    severity: nit
+    gating: false
+    confidence: high
+    source: measurement
+    title: "AC-1's \"refused before the buffer exists\" is not true of the representation refusal (and cannot be)"
+    measurement: >-
+      In `_write_pdf`, the `mode` check and the `len(kinds) != page_count` check
+      both precede `written = BytesIO()`. The two representation refusals (a
+      bitmap under a VECTOR medium, a ContentStream under a RASTER one) are
+      inside the `for page in _as_planned(pages, page_count)` loop, after the
+      buffer, the header and the catalog have been written. Necessarily so: the
+      pages arrive one at a time from a generator (CARD-145), so their types
+      cannot be known before the buffer exists.
+    why_it_is_only_a_nit: >-
+      The substance holds. The buffer is a local BytesIO and the TypeError
+      propagates out of the method, so nothing half-written escapes -- which is
+      the property tests/test_book_pdf_memory.py's
+      TestBookPdfMemory_NothingHalfWrittenEscapes owns, and whose two cells this
+      commit correctly updated for the new keyword. The docstring the round
+      wrote is accurate ("anything else raises before it is written" -- before
+      the PAGE is written). It is AC-1's and the dispatch's wording that
+      overstates. Amend AC-1, not the code.
+
+positive:
+  default_deny:
+    question: "are the four default-DENY claims real defaults, or two-branch classifiers with a fallback?"
+    verdict: "all four are real. Four for four."
+    claim_1_page_medium:
+      real: true
+      measurement: >-
+        `page_medium` has two independent defaults, not one. (a) `if not
+        isinstance(kind, PageKind): raise TypeError` -- so the string "puzzle",
+        None, 0 and the PageKind CLASS itself all raise rather than reaching a
+        medium. Driven over all four by
+        TestWritePdf_RefusesWhatItCannotWrite::test_the_decider_refuses_something_that_is_not_a_page_kind.
+        (b) For something that IS a kind, `RASTER if kind in
+        _RASTER_DECLARATIONS else VECTOR` -- so raster requires a declaration
+        and a NEW page kind is vector by default. That is the direction
+        ADR-0042/R2 asks for; an allow-list of vector kinds would have been the
+        inverse and would have let a forgotten kind ship as a bitmap.
+    claim_2_page_media:
+      real: true
+      is_unclassifiable_a_genuine_third_branch: "YES -- measured, not read"
+      measurement: >-
+        I built the two probe pages MYSELF, out of tree, with the same
+        PIL.PdfParser construction the test uses (a page naming both an
+        /XObject and a /Font, and a page with an empty resource dictionary),
+        confirmed each is a readable PDF whose resource keys come back as
+        {'Font','XObject'} and set() respectively, and ran THREE classifiers
+        over them:
+          3-branch (shipped):        both -> unclassifiable, neither -> unclassifiable
+          2-branch, image tested 1st: both -> raster,        neither -> vector
+          2-branch, font tested 1st:  both -> vector,        neither -> raster
+        So BOTH two-branch spellings misclassify BOTH probes, and
+        test_a_page_whose_medium_cannot_be_determined_is_a_defect (which
+        asserts `== [_UNCLASSIFIABLE]` for each) kills either one. The else arm
+        is not a fallback onto a medium: `_UNCLASSIFIABLE` is never returned as
+        a medium and `_declaration_findings` turns it into a finding
+        unconditionally, ahead of every other clause.
+      probes_are_not_in_the_tree: "confirmed -- built in-memory into a BytesIO inside the test function; the diff adds no file under tests/"
+    claim_3_representation_refusal:
+      real: true
+      both_directions: true
+      measurement: "two `isinstance` guards raising TypeError, one per arm, each driven by its own cell (test_a_bitmap_under_a_vector_declaration_is_refused, test_a_stream_under_a_raster_declaration_is_refused). See F-006 for the one wording correction."
+    claim_4_kinds_length:
+      real: true
+      measurement: "`if len(kinds) != page_count: raise ValueError`, before the buffer. Driven by test_a_kind_list_that_is_not_one_per_page_is_refused."
+    ac_4_non_vacuity:
+      cell_exists: true
+      where: "tests/test_book_pdf.py::TestWritePdf_TheMediumIsChosenInOnePlace::test_the_decider_is_the_only_function_that_reads_the_registry"
+      what_it_asserts: "`reads == ['page_medium']` -- exactly one Load of _RASTER_DECLARATIONS in a function, and that function is the decider. Removing the registry read entirely would make `reads == []` and red it, which is precisely the vacuity the dispatch asked me to check for."
+      second_non_vacuity_cell: "test_the_writer_asks_the_decider_once_per_page asserts `callers == {'_write_pdf': 1, 'produce': 1}` -- so the decider is actually called, by name, from exactly the two places."
+      the_four_plants: >-
+        Confirmed, and three of the four are genuinely not the obvious second
+        if/else: (1) a second if/else in the page loop -- the obvious one;
+        (2) a medium inside a dict literal `{PageKind.TITLE: PageMedium.VECTOR}`;
+        (3) a helper `def _medium_for(kind): return PageMedium.VECTOR`;
+        (4) `if PageKind.TITLE in _RASTER_DECLARATIONS` in another function.
+        The guard's allow-shape is narrow enough to catch all four: a
+        `PageMedium.<member>` attribute is permitted ONLY inside the decider or
+        as an ast.Compare operand, so Assign, Return, Dict-value and argument
+        positions all report. `test_each_plant_is_found` also asserts the clean
+        string reports nothing, so both directions are driven on the same pure
+        function.
+      one_honest_caveat: >-
+        `test_the_shipped_module_decides_in_one_place` and
+        `test_each_plant_is_found` both route through the same `findings()`
+        classmethod, so they are not independent OF EACH OTHER -- a defect
+        inside `findings()` reds both or neither. That is the right design (one
+        implementation, driven from both sides) and the dispatch's own standard
+        for _declaration_findings; noting it so the cell count is not read as
+        two independent readings.
+  ast_pins:
+    question: "were the four pins RE-DERIVED or BUMPED?"
+    verdict: "RE-DERIVED. All four. This is the strongest thing in the commit."
+    method: >-
+      For each pin I measured BOTH sides: I extracted the base module source
+      (`git show 8b307c22:src/nonogram/admin/book_pdf_generator.py`) and ran the
+      SAME instrument over the base source and over HEAD's. A bumped pin fails
+      that test immediately, because the OLD figure would not reproduce from the
+      OLD source. All four old figures reproduced exactly.
+    pin_1_inside_17_to_18:
+      re_derived_by_me: true
+      independence: "fully independent -- I wrote my own ast walk from scratch (count ast.Call whose callee name is in ('page_spec','book_page_spec'); count matching FunctionDefs) rather than calling the test's helper"
+      result: >-
+        base 17 calls / 1 def; HEAD 18 calls / 1 def. I then attributed the
+        extra call by resolving each call's enclosing function by descent:
+        base's enclosers are default_toc_frame, __init__, page_spec, cell_sizes,
+        _puzzle_page_spec, create_guide_page, create_title_page,
+        create_divider_page, create_toc_page, _two_up_page, solved_puzzle_page,
+        _packed_answer_page x2, section_plan, interior_stream x3. HEAD's list is
+        identical PLUS `vector_title_page` at line 5013. So the one added call
+        is `self.page_spec(page_number)` inside vector_title_page, exactly as
+        the comment names it, and the definition count is unmoved at one.
+    pin_2_position_site_count_24_to_25:
+      re_derived_by_me: true
+      result: >-
+        Ran the test's own `_page_positions(source=...)` against both sources
+        out of process. BASE -> 24 sites, vocabulary unchanged at the six
+        POSITION_NAMES, 0 refusals, kinds {door argument: 6, parameter default:
+        6, assignment: 5, augmented: 3, loop: 2, argument: 2}. HEAD -> 25 sites,
+        same vocabulary, 0 refusals, kinds identical EXCEPT `parameter default`
+        6 -> 7. I then diffed the row SETS: ADDED = exactly one row,
+        `('parameter default', 'vector_title_page(page_number)', '1')`; REMOVED =
+        empty. Row-by-row attribution confirmed; nothing drifted in the other 24.
+    pin_3_guide_counting_8_to_9:
+      re_derived_by_me: true
+      independence: "fully independent -- my own outermost-expression walk over GUIDE_PAGE_COUNT Load names"
+      result: >-
+        base 8, HEAD 9. The 8 base sites and 8 of the 9 HEAD sites are the same
+        expressions; the one added site is at HEAD line 7387, `range(1 +
+        TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1)` in
+        interior_stream's page-kind walk -- character-for-character the same
+        spelling as produce()'s own guide range at HEAD line 7445, which is the
+        claim the comment makes ("so the two walks read as one walk"). And the
+        spelling choice is load-bearing: as `[PageKind.GUIDE] * GUIDE_PAGE_COUNT`
+        the expression would contain no TITLE_PAGE_COUNT and would red the
+        INNER assertion of that test, which is what the comment says was
+        measured.
+    pin_4_callee_exemption_cost:
+      re_derived_by_me: true
+      result: >-
+        BASE source through the shipped analyser -> ((), 776), (('builtins',),
+        522), (('builtins','definitions and imports'), 204), (+parameters, 202),
+        then 0, 0 -- the EXACT four old figures. HEAD source -> 816, 546, 212,
+        210, then 0, 0 -- the exact four new ones. The old pins reproduce from
+        the old source, which is the signature of a re-measurement and the
+        opposite of a bump.
+      attribution_reconciles_arithmetically: >-
+        Step deltas from my own ladder: total refusals +40 (776->816);
+        builtins absorbs 16 more (step 254 -> 270), definitions-and-imports
+        absorbs 16 more (318 -> 334), parameters absorbs 0 more (2 -> 2),
+        receiver-attribute absorbs 8 more (202 -> 210). 16 + 16 + 0 + 8 = 40,
+        with no remainder. The comment's three named groups sum to exactly those
+        three numbers: 16 builtins (isinstance x4, TypeError x3, range x3, len
+        x2, type x2, ValueError, tuple), 16 definitions/imports
+        (RasterDeclaration x7, page_medium x2, dataclass, page_frame,
+        ContentStream, write_face_objects, write_vector_page,
+        interior_face_bytes, interior_face_metrics), 8 receiver attributes
+        (page_kinds.extend x5, pdf.next_object_id x3 -- and I checked that
+        third one: next_object_id goes 3 -> 6 in _write_pdf because the three
+        font ids are allocated under `if any_vector`).
+      cross_domain_check_reproduced: >-
+        +42 ast.Call nodes (838 -> 880), measured by me. Residual against the
+        +40 refusals is exactly 2, and I can name both: `self.page_spec` and
+        `self.vector_title_page`, whose receiver `self` IS a definition this
+        module makes, so they resolve rather than refuse. `append` nets zero
+        because `image_refs.append(...)` became a dict subscript assignment
+        while `page_kinds.append(...)` appeared. Two readings, one
+        reconciliation, no unexplained remainder -- the round's claim, and it
+        holds under my own measurement. See F-004 for the one problem: the file
+        the comment cites for this does not exist.
+  zigzag:
+    question: "is the widened assertion a widening or a weakening?"
+    verdict: "a WIDENING, unambiguously"
+    measurement: >-
+      Old: `assert doors == ("zigzag",)`, twice. That tuple was only ever true
+      BECAUSE of the vars() defect -- it measured a subclass whose own __dict__
+      held one member while the eight doors it really exposes sat outside the
+      reading. New: `assert set(doors) == set(_STROKERS) | {"zigzag"}` -- still
+      an EQUALITY, now over nine names instead of one, so it pins eight members
+      it previously could not see. zigzag is still required in the set (it is an
+      explicit term of the union). And the second half is preserved verbatim:
+      `unclassified == ("zigzag",)` with the probe removed, which also requires
+      the eight strokers to remain CLASSIFIED -- so the widened surface did not
+      widen the verdict.
+      Two incidental improvements: the old second assertion was a single `and`
+      conjunction whose failure message could not say which half broke; it is
+      now two asserts with messages.
+      One incidental loss, immaterial: tuple ordering is no longer pinned (set
+      equality). `_public_members` returns `sorted(...)`, so the order is
+      deterministic anyway, and with one element the old ordering pinned nothing.
+    the_fix_is_bounded_by_its_own_cells: >-
+      `set(_STROKERS)` could in principle follow a shrinking _STROKERS, so I
+      checked it is pinned elsewhere:
+      test_the_derivation_is_unmoved_on_the_shipped_class asserts `len(_STROKERS)
+      == 8`, and the live guard cell asserts the eight names literally and
+      `len(members) == 16`. It cannot drift silently.
+    f2_01_itself: >-
+      Correct, and I checked the one thing that would have made dir() unsafe
+      here: metaclass leakage. `dir()` on a class does NOT merge the metaclass's
+      own public surface in CPython 3.14 (measured: 'mro' not in
+      dir(ContentStream); a class with a metaclass defining `helper` reports no
+      public names). dir(ContentStream) minus underscores is exactly the same 16
+      names vars() gives, so the fix is a no-op at HEAD, which is what makes it
+      safe to ship inside a merge gate. The over-returning version is caught by
+      the LIVE cell (`_UNCLASSIFIED_DOORS == ()`) and by `len(members) == 16`
+      and by `set(_NOT_A_DOOR_BECAUSE) == unwatched`, not by inspection.
+  book_vector_public_surface:
+    question: "is making write_face_objects and write_vector_page public the minimum change, and does write_vector_pdf really route through the new function?"
+    verdict: "minimum change, and yes it routes -- not a copy"
+    measurement: >-
+      The diff shows write_vector_pdf's loop body DELETED and replaced by a call
+      to `write_vector_page(pdf, stream, page_refs[index], contents_refs[index],
+      font_ref)`; the deleted lines and the new function's body are the same
+      statements, so there is one definition and no second transcription.
+      Likewise `_write_face(...)` became `write_face_objects(...)` at the one
+      existing call site, with the body unmoved. Two names changed visibility,
+      nothing else; no signature changed, no behaviour changed, and the one
+      affected docstring reference was updated
+      (tests/test_book_pdf_vector_primitives.py).
+    is_the_single_definition_claim_asserted_or_argued: >-
+      ARGUED, not asserted -- and that is a real gap, though a small one. No
+      test holds the package to "exactly one definition of what a vector page
+      object looks like". What IS asserted is the consequence:
+      TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics reads every
+      /FontDescriptor value back off a written file, and
+      test_no_interior_page_carries_an_image_xobject_in_a_mixed_file asserts
+      `len(embedded_faces(data)) == 1` on a mixed file and `== []` on a
+      raster-only one -- so a second transcription that disagreed would be
+      caught on the values. I do not raise this as a finding: AC-4's AST guard
+      is the precedent for how this board would assert it, and extending that
+      guard to book_vector.py is a reasonable thing for a later card to want
+      rather than a defect in this one.
+  adr_0006_r1:
+    checked_as_substance_not_by_the_dead_ref: true
+    measurement: "`git diff --name-only 8b307c22..HEAD -- pyproject.toml` -> 0 files. `git diff 8b307c22..HEAD -- src/ | grep -E '^\\+(import|from) '` -> exactly two lines: `import enum` (stdlib) and `from nonogram.admin.book_vector import (` (internal). No third-party runtime dependency added."
+    note_on_the_ref: >-
+      The ref this card's system contract names for ADR-0006/R1 is DEAD -- zero
+      definitions anywhere in this repo. I am naming it here only to say it is
+      dead, and I do not report ADR-0042/R4's or ADR-0006/R1's verification
+      through it. ADR-0042/R4's own check in the ADR points at a DIFFERENT and
+      live test in tests/test_export_pdf.py, which is the one that actually
+      closes the baseline.
+
+corrections_to_the_dispatch:
+  - id: C-1
+    about: "the validator figures"
+    correction: >-
+      "0 errors on both sides" is right and I reproduced it. But the WARNING
+      counts are not equal: main 106, this branch 107. The extra one is NOT
+      this card's and is not a regression -- it is main's count being depressed
+      by one, by the CARD-291 cycle-1 review YAML main acquired after the cut.
+      107 is the honest number on both trees. Stated so the +1 is not
+      misattributed at merge.
+  - id: C-2
+    about: "the impact scope and the skip explanation"
+    correction: >-
+      The round's "the 26 DB-mode skips are absent because its impact scope
+      contains no DB-mode module" is a true statement about a scope narrower
+      than this change's blast radius. An import-closure scope over the two
+      changed src modules, the changed helper and the two changed call doors
+      gives 48 collectable modules and 2365 cells, five of them DB-touching, 4
+      db_required skips inside. 305 cells wider than the round's.
+  - id: C-3
+    about: "\"refused before the buffer exists, in both directions\""
+    correction: "see F-006. Only the mode and kinds-length refusals precede the buffer; the two representation refusals are per-page inside the loop, and necessarily so."
+  - id: C-4
+    about: "the M13-shaped overstatement sweep the dispatch asked for"
+    correction: >-
+      I could not audit the round's mutant TABLE -- it is in the round's own
+      report, which is not in the worktree or the card, so I had no rows to
+      check. What I could do, and did, is check the three F2-01 cells for the
+      M13 shape myself: test_the_derivation_is_unmoved_on_the_shipped_class
+      indeed cannot die under dir->vars (it asserts the two readings AGREE as a
+      set on the shipped class), confirming the orchestrator's correction;
+      test_an_inherited_drawing_door_is_watched dies (its `assert "hatch" in
+      _public_members(_Mixed)` is false under vars); and
+      test_the_derivation_is_not_simply_returning_everything dies (its `assert
+      "describe" in _public_members(_Mixed)` is false under vars). I found no
+      OTHER cell in the new set that is logically unable to die under its own
+      stated mutant. The one thing I would flag about cell independence is in
+      positive.default_deny.ac_4_non_vacuity.one_honest_caveat.
+  - id: C-5
+    about: "nothing else"
+    correction: >-
+      Every other orchestrator verification I spot-checked reproduced: the
+      10-file / +1860 / -79 diffstat against 8b307c22, the 0-file
+      tests/fixtures diff, the 7 declarations each with reason + authority +
+      expires_with, page_medium(ANSWER) == RASTER, the setrlimit skip's
+      pre-existence, and AC-5's answer of 0.
+
+card_amendments_still_owed_after_todays_narrowing:
+  - id: A-1
+    owed_because: F-001
+    text: >-
+      Either the commit flips ADR-0042/R2's check (cycle 2) or G-6 and item 3
+      must be amended to say the flip lands at merge -- and if the latter, the
+      two counter-precedents (CARD-227 `7d86a869`, CARD-294 `0c63a328`) must be
+      reconciled, because the ADR's own new comment asserts a convention the
+      board does not have.
+  - id: A-2
+    owed_because: F-001
+    text: >-
+      The Trace line ("only its trace row is re-stamped in this card") is
+      unactionable: trace.yml carries no ADR-0042 rule rows. Amend the line or
+      say explicitly that ADR rule checks live only in the ADR on this board.
+  - id: A-3
+    owed_because: F-002
+    text: >-
+      The card ratifies `expires_with=('CARD-299',)` for the five interior
+      kinds ("TITLE / GUIDE / TOC / ANSWER / PUZZLE (each expiring with
+      CARD-299)"). CARD-299 converts no page. The card's correction block needs
+      correcting, and the converting card needs cutting -- the same decompose
+      pass also owes the vector puzzle-page furniture card that CARD-295 names
+      CARD-298 for and that CARD-298 cannot close.
+  - id: A-4
+    owed_because: F-006
+    text: "AC-1's \"both directions, refused before the buffer exists\" should read \"refused before the page is written\"; the pre-buffer half is the mode and kinds-length refusals."
+  - id: A-5
+    owed_because: "narrowing residue (vestigial text the narrowing did not reach)"
+    text: >-
+      Item 4's closing sentence still says "Record the new baselines with the
+      load average at both ends (CARD-292's AC-6 convention) and say in the card
+      what changed and by how much." Zero baselines move, so there are no new
+      baselines to record. Delete or restate.
+  - id: A-6
+    owed_because: "narrowing residue"
+    text: >-
+      Worktree notes bullet 2 still says "item 4's scoped exception must be
+      enumerated file by file in the worktree notes when it is done". G-3
+      withdrew that exception. Delete.
+  - id: A-7
+    owed_because: "unverified AC clause"
+    text: >-
+      AC-5's second half ("the before/after interior size and generation time
+      are recorded with the load average at both ends") is not discharged by
+      anything I can see: `meta/` is excluded from card branches, so the round
+      could not write it into the card, and no Worktree notes section for round
+      1 exists on main. Either record the figures on the card at merge, or
+      amend AC-5 -- with nothing converting, before and after are the same
+      file, which may make the measurement meaningless rather than merely
+      unrecorded.
+
+next_cycle:
+  required_to_reach_8:
+    - "F-001: flip ADR-0042/R2's check to `{kind: test, ref: \"tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason\"}` and delete the \"leaves the flip to the merge\" sentence. One line plus one sentence."
+    - "F-002: fix the five expires_with values (or state on CARD-299 that it owes retargeting them) AND change the five reasons so they do not read as though CARD-299 were the converting card. Code + card."
+  worth_doing_and_cheap:
+    - "F-004: move the AST census under meta/profiling/ or restate its derivation inline."
+    - "F-005: soften the \"different authority\" sentence to name what is actually independent (the ordering), and name the shared isinstance predicate and the payload-less divergence as the restatement they are."
+    - "F-006 / A-4 / A-5 / A-6: four text edits, no code."
+  explicitly_not_asked_for:
+    - "do NOT flip ADR-0042/R1. The round's refusal is correct, G-6 requires R1's lens to survive, and a cycle that flips it should be reverted."
+    - "do NOT convert any page, and do NOT re-record a baseline."
