@@ -635,3 +635,15 @@ must have a readable status or the cell reds.
 - G-5 re-derived by the reviewer's **own** AST walk, not pytest's: 398 (cut) → 421
   → **423**, so **+25/−0** cut→HEAD and **+2/−0** for the fix round, removed set
   empty at both steps.
+
+### F2-001's preferred remedy is now CARD-310
+
+Cut 2026-10-29 on owner decision. This card keeps the honest bound in its
+docstring and the measured false-RED property; **CARD-310 re-homes the
+landing-direction assertion so that no test's verdict depends on a sibling working
+tree**, and decides the pattern once — measured at the cutting: **not one test on
+`main` reads `**Status:**`**, while three modules already walk the cards directory
+for names or prefixes, and `tests/test_suite_profile.py:3581-3588` says the repo
+*"invites many"* such walks. So card **existence** is a sanctioned read and card
+**status** is the novel one. CARD-310 depends on this card and serializes against
+CARD-306 on `tests/test_book_pdf.py`.

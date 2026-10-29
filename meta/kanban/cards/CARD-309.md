@@ -199,5 +199,7 @@ with *"Left contains one more item: 'CARD-309'"*). That is a false RED and never
 false green, and CARD-298 states the bound honestly in the docstring. **The
 direction worth taking — hoisting the check into the board's own gate, where the
 board is the subject rather than a neighbour — is NOT this card's**, and a
-conditional skip would be an ungated door. If it has been carded by the time this
-runs, that card is the owner; if not, raise it rather than absorb it.
+conditional skip would be an ungated door. **It is now carded as CARD-310**, which
+also decides the general pattern: a card's *name* is a structural fact that may be
+walked from `tests/`, a card's *status* is a board-time fact that may not. Raise
+anything CARD-310 has not covered rather than absorbing it.
