@@ -541,10 +541,29 @@ asserted against the registry is a declaration.
   # pytest command, in three spellings including the framework re-exec path,
   # and a search tool whose own argv carries the pattern. Each near-miss is
   # asserted VISIBLE in `ps` before its flatness is believed, because the
-  # obvious probe shape leaves no such process behind. The two rejected
-  # instruments a bare command can refute are re-executed every run, and each
-  # prescribed command is asserted to be written in exactly ONE place, which
-  # is the only mechanically checkable corner of R4's last clause.
+  # obvious probe shape leaves no such process behind -- and for the search
+  # tool that means THE SEARCH TOOL, a child of the pipeline whose own $1 is
+  # not a shell, not the `zsh` that owns it: zsh forks for a pipeline and the
+  # wrapper's argv carries the pattern too, so an assertion on the wrapper
+  # held whether or not a grep had ever started (measured by killing the grep
+  # on arrival; review cycle 1, F-001). That visibility check now carries its
+  # own standing control in both directions -- two planted probes that must be
+  # seen and two that must not -- because it is the instrument every negative
+  # control here is believed on, and a probe's whole process GROUP is killed
+  # and asserted gone, since signalling the wrapper alone left case (e)'s own
+  # false-positive shape on a 5-card board for 30 s per run. The two rejected
+  # instruments a bare command can refute are re-executed every run; each
+  # prescribed command is asserted to be written in exactly ONE place IN
+  # `config.yml` (the file that prescribes it -- tree-wide is NOT reached, and
+  # must not be: the other copies are timestamped review reports, which are
+  # historical records rather than live claims), which is the only
+  # mechanically checkable corner of R4's last clause; and every test name
+  # that file SPELLS -- in prose, in a declared bound, and as the
+  # `re_executed_by` value that says a rejection is re-executed rather than
+  # remembered -- is asserted to resolve to a `def`, which is R4's FIRST shape
+  # ("a figure whose named instrument may not exist") reached inside R4's own
+  # convention file. A definition and not a mention, deliberately: CARD-308's
+  # section above records what a word-match resolver cannot tell apart.
   #
   # WHAT THEY DO NOT REACH, and why each is unreachable rather than deferred:
   #   * a figure in prose — a number in a card, a retro, an ADR or a docstring

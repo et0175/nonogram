@@ -83,7 +83,7 @@ review:
   #   rival-pytest            the `rival-pytest` cell of `host_cells:` below,
   #                           at both ends. The commands are written THERE AND
   #                           NOWHERE ELSE, including not here: CARD-304's
-  #                           `test_each_prescribed_command_is_written_in_one_place`
+  #                           `test_each_prescribed_command_is_written_in_one_place_in_config_yml`
   #                           reds if one of them is restated in this prose,
   #                           because a prescription corrected in one copy
   #                           survives in the other -- ADR-0039/R4's last
@@ -182,7 +182,22 @@ review:
   #                           shells still counts one. It is case (e) in
   #                           `host_cells:` below. The prescribed `ps|awk` form
   #                           is immune because $1 is then `/usr/bin/grep`, and
-  #                           that immunity is now asserted rather than reasoned.
+  #                           that immunity is now asserted rather than reasoned
+  #                           -- asserted ON THE GREP, which is the part that
+  #                           took two goes. zsh FORKS for a pipeline, so the
+  #                           process a harness holds is the wrapper, and the
+  #                           wrapper's own argv carries the pattern too: an
+  #                           assertion on it holds whether or not a search
+  #                           tool ever started, which was measured by giving
+  #                           the grep a flag it does not have (it died on
+  #                           arrival, no search tool existed on the host, and
+  #                           every assertion passed -- review cycle 1, F-001).
+  #                           The check now requires a CHILD of that wrapper
+  #                           whose own $1 is not a shell, which is the same
+  #                           field the immunity itself turns on, and that
+  #                           requirement carries its own standing control in
+  #                           both directions (a search tool really there, and
+  #                           one that dies on arrival).
   #
   #                           (a) pytest via `python -m pytest`; (b) via the
   #                           `.venv/bin/pytest` console script; (c) nothing
@@ -343,7 +358,7 @@ review:
           "stdout": "^ *[0-9]+$",
           "role": "the cell that decides whether the run was quiet; > 0 is a rival run",
           "controls": "rival_pytest",
-          "why_this_shape_is_storable_at_all": "awk exits 0 when it matches nothing, so the pipeline's exit status carries executability and not emptiness. A pgrep- or grep-based prescription exits 1 on a legitimate empty match, so under pipefail it cannot be stored here without conflating 'blind' with 'quiet' -- which is the AC-1 criterion's own bound."
+          "why_this_shape_is_storable_at_all": "awk exits 0 when it matches nothing, so the pipeline's exit status carries executability and not emptiness. AC-1's pipefail criterion therefore EXCLUDES any instrument that signals emptiness through exit status -- including correct ones: the same awk with `| grep -c .` as its counting stage reads right in every case of the table below and still cannot be stored here. That is a declared bound on the criterion, not a defect in the rejected forms. Corrected 2026-10-30 (review cycle 1, F-008): the earlier claim that a grep- or pgrep-based prescription 'cannot be stored here at all' is FALSE, because `<form> || [ $? -eq 1 ]` exits 0 on a legitimate empty match and still reds `pgrep -fc`, whose usage failure is exit 2 and not 1 (measured both ways under pipefail: normalized grep form exit 0, normalized `pgrep -fc` exit 1). awk is preferred because grep's READINGS are wrong, which is the argument already in the `rejected` list below: the `ps -Ao command= | grep -c` form counts the measuring agent's own wrappers, and was re-measured on 2026-10-30 reading 3 at an instant when the prescribed cell read 1 and exactly one real `-m pytest` was alive."
         },
         {
           "id": "per-test-ceiling",

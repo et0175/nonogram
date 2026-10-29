@@ -39,12 +39,31 @@ comparable across loads. CARD-239 measured 16.1-17.2s at load 2-4, with the
 stdlib construction probe adding a call per surface spelling and no
 subprocess.
 
-Re-measured 2026-10-29 by CARD-304 on a different host (arm64 Darwin 25.6):
-**30.4-34.0s over four runs**, and that is the figure WITHOUT CARD-304's own
-class as much as with it -- two runs each way, interleaved, 30.37/33.98 against
-31.76/33.10. The class costs 3.74-4.03s run alone, which is inside that spread,
-so no delta for it is claimed from the module total: a difference smaller than
-the quantity's run-to-run spread is not a difference. The 2026-10-16 figures
+Re-measured 2026-10-29 by CARD-304 on a different host (arm64 Darwin 25.6),
+and the band it published was exceeded within a day. What the measurements
+say, with the domain each was taken in, because that domain is part of the
+figure:
+
+* **30.4-34.0s over four runs** (2026-10-29, CARD-304's implementation round,
+  410 then 439 node ids, two runs each way interleaved: 30.37/33.98 without
+  the new class against 31.76/33.10 with it);
+* **35.2s and 37.9s** (2026-10-29, review cycle 1, same host, same 439 node
+  ids, two runs) -- both ABOVE that four-run ceiling, which is why the band
+  is written as a list of domains now rather than as one range: four runs do
+  not bound a quantity whose spread this paragraph itself argues is large,
+  and the board runs up to five cards at once, which the original domain did
+  not mention;
+* **37.6-39.0s over six runs** (2026-10-30, fix round 1, same host, 445 node
+  ids, a sibling card's gate live on the host for part of it).
+
+All of those are **pytest-reported session time**, which is the reading every
+module total in this docstring uses. The host-cells class alone costs
+**5.3-5.8s session over five runs** (6.2-6.7s WALL -- a second of interpreter
+start-up, and the two readings are named because CARD-304 first published the
+class's wall figure next to the module's session figures without saying so).
+The class is inside the module total's spread between any two of the three
+domains above, so no delta for it is claimable from that total: a difference
+smaller than the quantity's run-to-run spread is not a difference. The 2026-10-16 figures
 above are kept rather than replaced, with their domain (that host, that date)
 now explicit, because they are what two cards were sized against.
 Review cycle 5's added tests are the stdlib-surface audit and the controls
@@ -77,6 +96,7 @@ import os
 import pathlib
 import random
 import re
+import signal
 import subprocess
 import sys
 import textwrap
@@ -4880,19 +4900,39 @@ SANDBOX_CROSS_MODULE_NODEID = (
 # the tree-walking guards, which see a full tree because _build_sandbox
 # mirrors `tests/`.
 #
-# CARD-304 adds the second, and the reason is different: the sandbox mirrors
-# `tests/` and `meta/profiling/` only, so `meta/kanban/config.yml` -- the file
-# that class executes the prescriptions of -- is absent in there, and every
-# assertion would error for want of the convention rather than for want of a
-# log. It is also the one class in this module that is *supposed* to depend on
-# the host: it probes it. Deselected with that stated, and recorded as
-# CARD-304 residue: this class carries the structural half of its defence only
-# (its own planted controls), not the behavioural comparison's.
+# CARD-304 adds the rest, and the reason is different: they are the methods
+# that request the `rival_matrix` fixture, which SPAWNS LIVE PROBES and reads
+# the host between them. Running that twice more per comparison -- once per
+# sandbox copy -- puts three concurrent copies of the same probe matrix on one
+# machine and makes each copy's own baseline move, which the fixture correctly
+# refuses to judge. Those four are host-probing by design rather than
+# accidentally, so the comparison has nothing to tell us about them.
+#
+# It is FOUR METHODS and not the whole class. Review cycle 1 (F-006) measured
+# the whole-class form to be over-broad: narrowed to these four, the
+# comparison stays green and the class's remaining node ids run in both
+# sandbox copies. Those remaining ones are the log-INDEPENDENT half -- the
+# reader and its controls, the one-place check, the data-shape assertions --
+# which is exactly the kind that can acquire an accidental log coupling with
+# nothing to make it obvious, and cycle 1 found such a coupling hiding in
+# another class of this module. They resolve `meta/kanban/config.yml` through
+# the symlink `_build_sandbox` plants, i.e. they read the REAL convention
+# file, which for a data assertion about that file is the right file; the
+# symlink is what lets the copy collect at all, and with this narrowing it is
+# also what those node ids read.
 SANDBOX_DESELECTED = (
     f"tests/{Path(__file__).name}::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog"
     "::test_the_outcomes_are_identical_with_and_without_the_log",
-    f"tests/{Path(__file__).name}"
-    "::TestHostCells_ThePrescribedInstrumentsExecuteAndRespond",
+    *(
+        f"tests/{Path(__file__).name}"
+        f"::TestHostCells_ThePrescribedInstrumentsExecuteAndRespond::{name}"
+        for name in (
+            "test_each_near_miss_probe_is_visible_to_ps",
+            "test_the_instrument_rises_on_a_real_pytest",
+            "test_the_instrument_does_not_rise_on_a_near_miss",
+            "test_a_declared_bound_is_still_exactly_as_blind_as_declared",
+        )
+    ),
 )
 
 
@@ -4960,10 +5000,15 @@ def _build_sandbox(root: Path, log: str | None) -> None:
     # A symlink, like every other data entry here, so
     # test_what_resolves_outside_the_sandbox_is_exactly_the_data_links stays an
     # equality (it is not a `*.py` and not a directory, which is what that
-    # assertion cares about). It therefore resolves to the REAL file, which is
-    # the second reason that class is deselected in here and not merely the
-    # cost one: judging the real convention from inside the sandbox is exactly
-    # the vacuity this layout exists to prevent.
+    # assertion cares about). It therefore resolves to the REAL file.
+    #
+    # That was once given as a second reason for deselecting the whole
+    # host-cells class in here. Review cycle 1 (F-006) struck it down and the
+    # deselect is now four methods: for a data assertion ABOUT config.yml,
+    # reading the real config.yml is reading the right file, and a copy would
+    # only let the two sandbox runs agree about a file neither of them is
+    # judging. The symlink is load-bearing for the class's remaining node ids
+    # and not merely for collection.
     (root / "meta" / "kanban" / KANBAN_CONFIG.name).symlink_to(KANBAN_CONFIG)
     for name in mirrored_names:
         source = REPO_ROOT / name
@@ -5365,13 +5410,40 @@ KANBAN_CONFIG = REPO_ROOT / "meta" / "kanban" / "config.yml"
 #: The key whose block scalar holds those prescriptions.
 HOST_CELLS_KEY = "host_cells"
 
-#: How long a probe process lives if nothing kills it. Every probe IS killed
-#: as soon as the instrument has been read, so this is a ceiling for an
-#: orphan, not a cost.
+#: How long a probe process lives if nothing kills it. Every probe's whole
+#: PROCESS GROUP is killed as soon as the instrument has been read, so this is
+#: a ceiling for an orphan, not a cost.
+#:
+#: The process group, and not the process, because review cycle 1 (F-004)
+#: measured what ``proc.kill()`` alone leaves behind: immediately after a clean
+#: 29-passed run, four orphan ``sleep 30`` and one orphan
+#: ``/usr/bin/grep -- ... -m pytest``, all reparented to pid 1. ``Popen``
+#: holds the wrapper, and the backgrounded ``sleep`` of (d)/(d2)/(d3) and the
+#: pipeline's ``sleep`` and ``grep`` of (e) outlive it. The orphan grep is
+#: literally case (e)'s own false-positive shape, injected into a host whose
+#: board concurrency is 5 for the whole of this lifetime -- so a check about
+#: instruments that mislead was itself able to move a sibling card's reading
+#: of a less careful one. Hence :data:`PROBE_LIFETIME_SECONDS` is a bound on
+#: nothing that happens: ``os.killpg`` in ``rival_matrix``'s ``finally`` takes
+#: the group, and ``test_a_probe_leaves_no_orphan_behind`` measures the
+#: leftovers rather than trusting this sentence.
 PROBE_LIFETIME_SECONDS = 30
 
 #: How long to wait for a probe to become observable, in seconds.
-PROBE_VISIBLE_TIMEOUT = 30.0
+#:
+#: 5.0 and not 30.0, because of where the waiting lands. The whole matrix is
+#: built inside the FIRST node that requests the module-scoped fixture, and
+#: ``tests/hang_guard.py`` arms its 120 s timer in ``pytest_runtest_protocol``
+#: -- which wraps setup -- with ``exit=True``. Review cycle 1 (F-005) measured
+#: three invisible negatives costing 93.30 s on that one node; there are five
+#: visibility cases, so a 30 s budget puts the ceiling at 150 s, past the
+#: guard. The guard's action is to write stacks and KILL the process, so a
+#: broken negative control would have presented as no summary line at all --
+#: which ``meta/kanban/config.yml`` calls "a MEASUREMENT defect, never a tree
+#: verdict" -- instead of as named reds. Realized need is ~15x smaller: a
+#: healthy matrix becomes visible in well under a second per case. 5.0 keeps a
+#: wide margin over that and keeps five failures inside one node's budget.
+PROBE_VISIBLE_TIMEOUT = 5.0
 
 #: How many times one case may be re-run when the baseline moved under it. A
 #: sibling card's gate starting or finishing mid-case moves the reading by
@@ -5455,6 +5527,25 @@ NOT_A_HOST_CELLS_BLOCK: tuple[tuple[str, str], ...] = (
         "review:\n  test_scope: impact\n",
     ),
 )
+
+#: Identifiers in ``config.yml`` that LOOK like a test name and are not one.
+#: Declared rather than filtered by shape, so the list cannot grow quietly:
+#: ``test_the_named_tests_in_config_yml_all_resolve`` asserts every entry here
+#: is NOT a definition in this module, which is that check's own negative
+#: control -- an allowlist that silently covered a real dead reference would
+#: be R4's defect wearing an exemption's clothes.
+NOT_TEST_NAMES_IN_KANBAN_CONFIG: tuple[str, ...] = (
+    "test_command",
+    "test_scope",
+)
+
+#: The smallest number of test names ``config.yml`` must spell for the check
+#: above to be measuring anything. Four distinct names across five mentions
+#: today (two prose, one inside a declared bound, two ``re_executed_by``
+#: values). Asserted because a regex that matches nothing passes every
+#: ``all()`` ever written, which is this module's standing trap.
+NAMED_TESTS_IN_KANBAN_CONFIG_AT_LEAST = 4
+
 
 #: The prescribed commands, by cell id, as the live file declares them.
 HOST_CELLS = _host_cells()
@@ -5594,6 +5685,28 @@ def _argv_of(pid: int) -> str:
     return _run_prescribed(f"ps -o command= -p {pid}").stdout.strip()
 
 
+def _children_of(pid: int) -> tuple[tuple[int, str], ...]:
+    """Every live child of ``pid`` as a ``(pid, argv)`` pair.
+
+    ``ps -eo pid=,ppid=,command=`` is the only enumeration here that carries
+    the parentage, and it is needed for exactly one case. Review cycle 1
+    (F-001) measured that ``zsh`` **forks for a pipeline**, so the process
+    ``Popen`` hands back for case (e) is the wrapper and not the search tool --
+    and the wrapper's own argv carries the pattern, which made the assertion
+    on ``proc.pid`` true whether or not a ``grep`` had ever started. The
+    search tool is a child, so this is what has to be looked at.
+    """
+    done = _run_prescribed("ps -eo pid=,ppid=,command=")
+    found: list[tuple[int, str]] = []
+    for line in done.stdout.splitlines():
+        fields = line.split(maxsplit=2)
+        if len(fields) < 3:
+            continue
+        if fields[0].isdigit() and fields[1].isdigit() and int(fields[1]) == pid:
+            found.append((int(fields[0]), fields[2]))
+    return tuple(found)
+
+
 def _substituted(text: str) -> str:
     """A case's ``argv_mentions`` with the table's placeholders resolved.
 
@@ -5615,7 +5728,17 @@ def _substituted(text: str) -> str:
 
 
 def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
-    """Put this case's condition on the host and return the process to kill."""
+    """Put this case's condition on the host and return the group to kill.
+
+    Every shape gets ``start_new_session=True``, so the returned ``Popen``'s
+    pid is also its process-GROUP id and ``os.killpg`` can take the whole
+    probe. Without it ``proc.kill()`` reaches the wrapper only and the
+    wrapper's own children -- a backgrounded ``sleep``, or a pipeline's
+    ``sleep`` and ``grep`` -- are reparented to pid 1 and live out
+    :data:`PROBE_LIFETIME_SECONDS` on a shared host. See that constant for
+    what review cycle 1 measured, and ``test_a_probe_leaves_no_orphan_behind``
+    for the assertion that replaced the sentence claiming it did not happen.
+    """
     shape = case["probe"]
     if shape == "shell-wrapper":
         # `& wait` and not a trailing `sleep`: zsh execs its last command, so
@@ -5623,7 +5746,8 @@ def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
         # is about never exists. Measured 2026-10-29, both shapes.
         mentioned = _substituted(case["argv_mentions"])
         return subprocess.Popen(
-            [_shell(), "-c", f": {mentioned}; sleep {PROBE_LIFETIME_SECONDS} & wait"]
+            [_shell(), "-c", f": {mentioned}; sleep {PROBE_LIFETIME_SECONDS} & wait"],
+            start_new_session=True,
         )
     if shape == "search-tool":
         mentioned = _substituted(case["argv_mentions"])
@@ -5632,7 +5756,8 @@ def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
                 _shell(),
                 "-c",
                 f"sleep {PROBE_LIFETIME_SECONDS} | /usr/bin/grep -- '{mentioned}'",
-            ]
+            ],
+            start_new_session=True,
         )
     if shape in {"pytest-module", "pytest-console-script"}:
         ready.unlink(missing_ok=True)
@@ -5658,33 +5783,194 @@ def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": ""},
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
     raise AssertionError(f"case {case['id']} names no probe shape: {shape!r}")
 
 
-def _wait_until_visible(case: dict, proc: subprocess.Popen, ready: Path) -> str:
+def _is_a_shell(argv: str) -> bool:
+    """Whether ``argv``'s executable is a shell, by the only field that says so.
+
+    ``$1`` of a ``ps`` command column is the executable, which is the whole
+    basis of the prescribed instrument's immunity to case (e): a ``grep``
+    carrying ``-m pytest`` in its argv is not counted because ``$1`` is
+    ``/usr/bin/grep``. So the same field decides here whether the process the
+    visibility check found is the search tool or the shell that owns it.
+    """
+    executable = argv.split(maxsplit=1)[0] if argv.split() else ""
+    return executable == _shell() or Path(executable).name.endswith("sh")
+
+
+def _kill_group(proc: subprocess.Popen) -> None:
+    """Take the probe's whole process group, then reap the wrapper.
+
+    ``proc.kill()`` alone signals the wrapper, which is why review cycle 1
+    found five orphans on the host after a green run. ``start_new_session=True``
+    in :func:`_spawn` makes the wrapper a group leader, so its pid is the
+    group id and one ``killpg`` reaches the backgrounded ``sleep`` and the
+    pipeline's ``grep`` as well.
+
+    ``ProcessLookupError`` is tolerated and nothing else is: the group being
+    gone already is the normal race (a probe that exited on its own), while
+    any other error is a failure to clean up and must not be swallowed inside
+    a ``finally``.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    proc.wait(timeout=60)
+
+
+def _is_a_real_pytest_run(argv: str) -> bool:
+    """Whether ``argv`` is what the prescribed cell counts, by the same test.
+
+    ``$1`` matching ``[Pp]ython[0-9.]*$`` **and** the argv carrying
+    ``-m pytest`` -- the two halves of the prescribed awk, reimplemented here
+    rather than shelled out to, because what this is used for is deciding
+    whether a REJECTED instrument found a run the prescribed one would count.
+    """
+    fields = argv.split()
+    if not fields:
+        return False
+    return (
+        re.search(r"[Pp]ython[0-9.]*$", fields[0]) is not None
+        and "-m pytest" in argv
+    )
+
+
+def _wait_until_visible(
+    case: dict,
+    proc: subprocess.Popen,
+    ready: Path,
+    timeout: float = PROBE_VISIBLE_TIMEOUT,
+) -> str:
     """Block until the probe is observable, and return the argv that proves it.
 
-    Two different proofs for two different probe shapes, and neither is "it
-    was spawned": for a pytest probe, the module it imports writes ``ready``
-    *before* it sleeps, so the file is the interpreter's own signal that it is
-    past start-up; for a wrapper or a search tool, the proof is that ``ps``
-    shows a process whose argv carries the text the case is about.
+    Three different proofs for three different probe shapes, and none of them
+    is "it was spawned":
+
+    * a **pytest** probe imports a module that writes ``ready`` *before* it
+      sleeps, so the file is the interpreter's own signal that it is past
+      start-up;
+    * a **shell wrapper** is proved by ``ps`` showing the spawned process
+      itself with the text the case is about in its argv. That is sound here
+      because the wrapper *is* the near-miss: the thing the instrument must
+      not count is that very process;
+    * a **search tool** is proved by ``ps`` showing a CHILD of the spawned
+      process whose argv carries the text and whose ``$1`` is not a shell.
+
+    The third branch is review cycle 1's F-001, and it is the difference
+    between asserting a control and reasoning about one. ``zsh`` forks for a
+    pipeline, so ``proc.pid`` is the wrapper, and the wrapper's own argv
+    carries the pattern -- the old assertion on ``proc.pid`` was therefore
+    satisfied whether or not a ``grep`` had ever started, which was measured
+    by giving the ``grep`` a flag it does not have: it died on arrival, no
+    search tool existed on the host, and every assertion still passed. Case
+    (e) is also the one near-miss whose immunity argument is *about which
+    process is observed* (``$1`` being ``/usr/bin/grep`` rather than a
+    python), so a flat reading attributable to the wrapper proves nothing in
+    the direction the case exists for.
+
+    If a future shell stops forking for a pipeline, ``proc.pid`` becomes the
+    search tool, this branch finds no child, and the control goes RED rather
+    than quietly passing on the wrapper again. That is the safe direction and
+    it is why the child is required rather than preferred.
 
     Returns "" if the probe never became observable, which every caller turns
     into a failure. A negative control that cannot be seen is not a control.
+    :data:`VISIBILITY_CONTROL_PROBES` is this function's own standing
+    control: four planted probes, two visible and two not, one pair per
+    branch, at one shared budget.
     """
-    deadline = time.monotonic() + PROBE_VISIBLE_TIMEOUT
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if case["probe"].startswith("pytest"):
             if ready.is_file():
                 return _argv_of(proc.pid)
+        elif case["probe"] == "search-tool":
+            for _, child in _children_of(proc.pid):
+                if "pytest" in child and not _is_a_shell(child):
+                    return child
         else:
             argv = _argv_of(proc.pid)
             if "pytest" in argv:
                 return argv
         time.sleep(0.05)
     return ""
+
+
+#: How long a planted visibility-control probe lives, and how long the control
+#: waits for it. Seconds rather than :data:`PROBE_LIFETIME_SECONDS` and
+#: :data:`PROBE_VISIBLE_TIMEOUT`, because the question these four cases ask is
+#: whether :func:`_wait_until_visible` can answer BOTH ways at all -- not how
+#: much slack the truth table's own probes deserve. Stated rather than left to
+#: be inferred: a shorter budget here would make the two invisible rows pass
+#: for the wrong reason, which is why the two VISIBLE rows are measured at the
+#: same budget and in the same test.
+VISIBILITY_CONTROL_LIFETIME = 4
+VISIBILITY_CONTROL_TIMEOUT = 1.0
+
+#: The standing control on :func:`_wait_until_visible` -- the control on the
+#: controls, which review cycle 1 (F-002) found was the one new instrument on
+#: this card without one. Its sibling :data:`NOT_A_HOST_CELLS_BLOCK` shipped
+#: with exactly this, and the asymmetry was the finding.
+#:
+#: Four planted probes as ``(what, probe shape, command, must be seen)``, two
+#: visible and two not, one pair per branch of the function:
+#:
+#: * the forking wrapper and the tail form zsh **execs away** -- the vacuity
+#:   this card discovered, now a row rather than a comment;
+#: * a search tool that is really there and one that **dies on arrival** --
+#:   review cycle 1's F-001 mutant, standing. The invisible row's wrapper argv
+#:   still carries the pattern, so this row reds the day the (e) branch goes
+#:   back to looking at ``proc.pid``; the visible row reds if requiring a
+#:   non-shell child is wrong on this host.
+#:
+#: Held as a constant, like :data:`NOT_A_HOST_CELLS_BLOCK` and
+#: :data:`REINTRODUCTIONS`, rather than written inline in the test.
+VISIBILITY_CONTROL_PROBES: tuple[tuple[str, str, str, bool], ...] = (
+    (
+        "a wrapper that forks and stays",
+        "shell-wrapper",
+        ": {mentioned}; sleep {lifetime} & wait",
+        True,
+    ),
+    (
+        "the tail form zsh execs away",
+        "shell-wrapper",
+        ": {mentioned}; sleep {lifetime}",
+        False,
+    ),
+    (
+        "a search tool that is really there",
+        "search-tool",
+        "sleep {lifetime} | /usr/bin/grep -- '{mentioned}'",
+        True,
+    ),
+    (
+        "a search tool that dies on arrival",
+        "search-tool",
+        "sleep {lifetime} | /usr/bin/grep --not-a-real-flag -- '{mentioned}'",
+        False,
+    ),
+)
+
+#: What a planted control probe's argv spells. Not a real command, and it
+#: never runs: `:` discards it in the wrapper rows and it is a search PATTERN
+#: in the search-tool rows. :func:`_wait_until_visible` only needs the string
+#: ``pytest`` in it.
+#:
+#: Deliberately NOT the near-miss wording of case (d) -- `python -m pytest
+#: tests/foo.py`. Written that way first, it was measured to red
+#: ``test_a_rejected_instrument_is_still_refuted_on_this_host[pgrep -f]``,
+#: because that rejected instrument matches `python.* -m pytest` and a planted
+#: wrapper spelling it IS a hit. A control that litters the host with a shape
+#: another check in its own class reads is this card's subject committed by
+#: the card, so the text carries no instrument's pattern: no lowercase
+#: ``python``, no `` -m pytest``, and ``$1`` is never a python, so the
+#: prescribed cell cannot see it either.
+VISIBILITY_CONTROL_TEXT = "pytest-card304-visibility-control-probe"
 
 
 @pytest.fixture(scope="module")
@@ -5719,8 +6005,7 @@ def rival_matrix(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
                 during = _reading(instrument)
                 matched = _matched_lines()
             finally:
-                proc.kill()
-                proc.wait(timeout=60)
+                _kill_group(proc)
             after = _reading(instrument)
             measured[case["id"]] = {
                 "before": before,
@@ -5756,11 +6041,15 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
       and a point estimate published for a quantity with run-to-run spread.
       Both are properties of how two numbers were *obtained*, and the text
       retains nothing of that;
-    * the live-log sandbox comparison does not cover this class -- it is
-      deselected there, because the sandbox mirrors ``tests/`` and
-      ``meta/profiling/`` only, so ``config.yml`` is absent in it, and because
-      a cell whose job is to probe the host is declaredly host-coupled rather
-      than accidentally so.
+    * the live-log sandbox comparison does not cover the four methods that
+      request :func:`rival_matrix`: they spawn live probes and read the host
+      between them, so running the matrix once per sandbox copy would put
+      three of it on one machine and move every copy's baseline. Those four
+      are host-probing by design rather than accidentally so. Everything else
+      in this class DOES run in both copies -- review cycle 1 (F-006)
+      measured the whole-class deselect this replaced to be over-broad, and
+      the log-independent half is the half that can acquire an accidental
+      coupling unnoticed.
     """
 
     def test_the_host_cells_block_is_data_this_test_can_parse(self) -> None:
@@ -5833,7 +6122,7 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         assert cell.get("no_command_because"), cell
 
     @pytest.mark.parametrize("cell_id", COMMANDED_CELLS)
-    def test_each_prescribed_command_is_written_in_one_place(
+    def test_each_prescribed_command_is_written_in_one_place_in_config_yml(
         self, cell_id: str
     ) -> None:
         """R4's last clause, in the one form a tree can check.
@@ -5845,6 +6134,15 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         has done: a bound written for ``pgrep -f 'MacOS/Python.*pytest'``
         outlived that instrument by one revision and read as a bound on its
         replacement.
+
+        **In ``config.yml``, and the name now says so.** The docstring was
+        scoped from the start and the name was not, and review cycle 1
+        (F-009) measured what a reader of the name alone would get wrong:
+        tree-wide, the rival-pytest prescription appears byte-identically in
+        three tracked files, the two others being timestamped review reports.
+        Widening to the tree would red on those, and they are historical
+        records that must not be retracted -- so the scope belongs in the
+        name rather than in the assertion.
 
         Measured narrowness, stated because planting a mutant found it: the
         comparison is between the **decoded** command and the raw file text,
@@ -5860,6 +6158,76 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
             f"the {cell_id} cell's command appears {text.count(cell['command'])} "
             "times in config.yml. A second copy is a prescription that can be "
             "corrected in one place and left wrong in the other."
+        )
+
+    def test_the_named_tests_in_config_yml_all_resolve(self) -> None:
+        """Review cycle 1's F-007: R4's first shape, inside R4's own file.
+
+        ``config.yml`` names tests -- in prose, inside a declared bound, and
+        as the ``re_executed_by`` value that says a rejection is re-executed
+        rather than remembered. *Nothing asserted that any of them exists.*
+        :data:`RE_EXECUTED_REJECTS` selects on the ``re_executed_by`` key's
+        PRESENCE and never reads its value, so renaming the named test left
+        the parametrization intact and the reference silently dead; the prose
+        names had no checker at all. "A named instrument that may not exist"
+        is the first of the three shapes this card was created to catch, and
+        it was in the file the card had just made machine-readable.
+
+        The resolver is a **definition**, not a mention: the name must appear
+        as a ``def`` line in this module's own source. That is deliberate and
+        it is the distinction CARD-308 recorded for the model's own ref
+        resolver, which keys on a word match and therefore cannot tell a test
+        that exists from one that is merely discussed.
+
+        Declared bound: ``config.yml`` names tests in **this module** only,
+        today, and a name defined elsewhere would red here and have to be
+        restated rather than quietly allowed. That is the narrow direction.
+        The precedent for the shape is ``CLIFF_EDGE_SNAPSHOT``, which asserts
+        its frozen node ids are still collected.
+
+        :data:`NOT_TEST_NAMES_IN_KANBAN_CONFIG` is the negative control: the
+        file's ``test_command`` and ``test_scope`` keys are name-shaped and
+        are not tests, and this test asserts they do NOT resolve -- so the
+        resolver is shown able to answer "no" in the same run in which it
+        answers "yes" four times.
+        """
+        text = KANBAN_CONFIG.read_text(encoding="utf-8")
+        source = Path(__file__).read_text(encoding="utf-8")
+        # Anchored on both sides, and the measurement that forced it is
+        # worth keeping: the unanchored pattern read `test_configure` out of
+        # the middle of `pytest_configure` and `test_suite_profile` out of a
+        # module PATH, so the check's first run named two phantoms beside the
+        # one real dead reference it was written to find. A lookbehind on
+        # `[\w.]` drops the hook-name halves; a lookahead on the same drops
+        # `...profile.py`, because a file is not a test.
+        spelled = {
+            match.group(0)
+            for match in re.finditer(r"(?<![\w.])test_[a-z0-9_]{3,}(?![\w.])", text)
+        }
+        named = sorted(spelled - set(NOT_TEST_NAMES_IN_KANBAN_CONFIG))
+        assert len(named) >= NAMED_TESTS_IN_KANBAN_CONFIG_AT_LEAST, (
+            f"config.yml spells {named!r}, fewer than the "
+            f"{NAMED_TESTS_IN_KANBAN_CONFIG_AT_LEAST} names this check was "
+            "written against. A pattern that matches nothing passes every "
+            "assertion below it."
+        )
+
+        def defines(name: str) -> bool:
+            return re.search(rf"^\s*def {re.escape(name)}\(", source, re.M) is not None
+
+        dead = [name for name in named if not defines(name)]
+        assert not dead, (
+            f"config.yml names {dead!r}, which resolve to no `def` in "
+            f"{Path(__file__).name}. A convention file that names an "
+            "instrument it does not have is the first shape ADR-0039/R4 "
+            "exists for -- rename the reference with the test, or move the "
+            "name into the data where RE_EXECUTED_REJECTS can carry it."
+        )
+        alive = [name for name in NOT_TEST_NAMES_IN_KANBAN_CONFIG if defines(name)]
+        assert not alive, (
+            f"{alive!r} is exempted from the resolution check above and is a "
+            "real test in this module, so the exemption is now hiding a "
+            "reference instead of excluding a YAML key"
         )
 
     def test_the_truth_table_carries_a_control_in_each_direction(self) -> None:
@@ -5898,6 +6266,105 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         assert "pytest" in seen["argv"], (
             f"case {case_id}'s probe never became observable, so a flat "
             f"reading proves nothing about the instrument: argv {seen['argv']!r}"
+        )
+
+    @pytest.mark.parametrize(
+        ("shape", "command", "must_be_seen"),
+        [(shape, command, seen) for _, shape, command, seen in VISIBILITY_CONTROL_PROBES],
+        ids=[what for what, _, _, _ in VISIBILITY_CONTROL_PROBES],
+    )
+    def test_the_visibility_check_is_proved_in_both_directions(
+        self, shape: str, command: str, must_be_seen: bool, tmp_path: Path
+    ) -> None:
+        """The control on the control on the controls (review cycle 1, F-002).
+
+        Every negative below is believed only after
+        ``test_each_near_miss_probe_is_visible_to_ps``, which makes
+        :func:`_wait_until_visible` the instrument the whole negative half
+        rests on -- and an instrument that cannot return "" would make all of
+        it pass while measuring nothing. That is this card's own subject, and
+        the round applied the rule to its other new instrument (the
+        ``host_cells`` reader, which ships
+        :data:`NOT_A_HOST_CELLS_BLOCK`) and not to this one.
+
+        So: four planted probes at one shared budget, two visible and two not,
+        one pair per branch. The two invisible rows are the two real vacuities
+        measured on this card -- the tail form ``zsh`` execs away, and a
+        search tool that dies on arrival while its wrapper's argv still
+        carries the pattern. The second is review cycle 1's F-001 mutant kept
+        standing: it reds the day the (e) branch goes back to asserting on
+        ``proc.pid``.
+        """
+        rendered = command.format(
+            mentioned=VISIBILITY_CONTROL_TEXT,
+            lifetime=VISIBILITY_CONTROL_LIFETIME,
+        )
+        proc = subprocess.Popen(
+            [_shell(), "-c", rendered], start_new_session=True
+        )
+        try:
+            seen = _wait_until_visible(
+                {"probe": shape},
+                proc,
+                tmp_path / "ready",
+                timeout=VISIBILITY_CONTROL_TIMEOUT,
+            )
+        finally:
+            _kill_group(proc)
+        if must_be_seen:
+            assert seen, (
+                f"a probe planted as {rendered!r} was NOT seen within "
+                f"{VISIBILITY_CONTROL_TIMEOUT}s, so every negative control "
+                "that waits on this function is about to pass for the wrong "
+                "reason"
+            )
+            assert not _is_a_shell(seen) or shape == "shell-wrapper", seen
+        else:
+            assert seen == "", (
+                f"a probe planted as {rendered!r} is deliberately invisible "
+                f"and the visibility check reported {seen!r}. An instrument "
+                "that cannot say 'not there' cannot be the thing a negative "
+                "control is believed on."
+            )
+
+    def test_a_probe_leaves_no_orphan_behind(self, tmp_path: Path) -> None:
+        """Review cycle 1's F-004, as a measurement rather than a sentence.
+
+        :data:`PROBE_LIFETIME_SECONDS` used to say every probe *is* killed as
+        soon as the instrument has been read. It was not: ``proc.kill()``
+        signals the wrapper, and after a clean 29-passed run the host carried
+        four orphan ``sleep`` and one orphan ``grep`` whose argv spelled
+        ``-m pytest`` -- case (e)'s own false-positive shape, left on a board
+        with concurrency 5 for 30 s per run, where a sibling card's gate reads
+        a less careful instrument than this one.
+
+        So the claim is re-executed on the probe shape with the most children:
+        the children are enumerated while the probe is alive, the group is
+        killed the way the fixture kills it, and every pid that was there has
+        to be gone. Non-vacuous by construction -- it fails if there were
+        fewer than two children to begin with, which is what a probe that
+        never started would look like.
+        """
+        case = next(c for c in REALIZABLE_CASES if c["probe"] == "search-tool")
+        proc = _spawn(case, tmp_path, tmp_path / "ready")
+        try:
+            argv = _wait_until_visible(case, proc, tmp_path / "ready")
+            assert argv, "the probe never became observable; nothing to measure"
+            children = _children_of(proc.pid)
+        finally:
+            _kill_group(proc)
+        assert len(children) >= 2, (
+            "a search-tool probe should own both a `sleep` and the `grep`; "
+            f"found {children!r}, so this test is not measuring a kill"
+        )
+        survivors = [
+            (pid, argv) for pid, argv in children if _argv_of(pid) != ""
+        ]
+        assert not survivors, (
+            f"killing the probe left {survivors!r} behind, reparented to pid 1 "
+            "for the rest of PROBE_LIFETIME_SECONDS. One of these shapes is "
+            "case (e)'s own false-positive, and this board runs 5 cards at "
+            "once."
         )
 
     @pytest.mark.parametrize("case_id", [case["id"] for case in RISING_CASES])
@@ -6028,13 +6495,56 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         The other four are rejected for blindness or false-positives against a
         live process, which is the truth table's job above and not a
         standalone command's.
+
+        **What "still refuted" means, corrected 2026-10-30.** It used to mean
+        "exits non-zero, or printed something that is not a number", and that
+        criterion was measured to red on a HEALTHY tree: ``pgrep -f
+        'python.* -m pytest'`` without ``-c`` prints a PID LIST, so the
+        instant any process argv spells that pattern it exits 0 printing one
+        pid, ``'12530'.isdigit()`` is true, and the rejection reads as no
+        longer refuted. The processes that spell it are this module's own
+        near-miss (d)/(d2) wording and, measured on this board, a sibling
+        card's shell wrapper -- a gate going red for a reason that is not
+        about this tree at all, on a board whose concurrency is 5.
+
+        So the criterion is now what the rejections actually claim, in two
+        parts. First, the instrument does not produce the number the
+        prescribed cell produces -- which is the stale-rejection property the
+        old criterion was reaching for, and keeps it: the day ``pgrep`` grows
+        a working ``-c`` that agrees with the prescribed cell, this reds.
+        Second, nothing the instrument matched is a run the prescribed cell
+        would count, which is the ``BLIND here`` verdict re-executed
+        literally. Declared bound: the second half is strong while a real
+        ``-m pytest`` is alive and weak while none is, because then there is
+        nothing to be blind to; the first half carries the row either way.
         """
-        done = _run_prescribed(instrument)
-        assert done.returncode != 0 or not done.stdout.strip().isdigit(), (
-            f"{instrument!r} now exits 0 and prints "
-            f"{done.stdout.strip()!r} on this host. config.yml rejects it as "
-            "unusable; if that is no longer true the rejection is stale and "
-            "must be restated rather than left standing."
+        prescribed = _reading(_instrument())
+        assert prescribed is not None, (
+            "the prescribed cell produced no reading, so there is nothing to "
+            "refute this rejection against"
+        )
+        assert _reading(instrument) != prescribed, (
+            f"{instrument!r} now reads {_reading(instrument)!r} on this host, "
+            f"which is what the prescribed cell reads ({prescribed}). "
+            "config.yml rejects it as unusable; if it has started producing "
+            "the right number the rejection is stale and must be restated "
+            "rather than left standing."
+        )
+        matched = [
+            pid
+            for pid in _run_prescribed(instrument).stdout.split()
+            if pid.isdigit()
+        ]
+        counted = [
+            (pid, _argv_of(int(pid)))
+            for pid in matched
+            if _is_a_real_pytest_run(_argv_of(int(pid)))
+        ]
+        assert not counted, (
+            f"{instrument!r} matched {counted!r}, which the prescribed cell "
+            "counts as a real `-m pytest` run. config.yml rejects this "
+            "instrument as BLIND to exactly those, so the rejection is stale "
+            "and must be restated rather than left standing."
         )
 
     def test_the_pytest_probe_runs_outside_this_repository(
