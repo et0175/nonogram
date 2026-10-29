@@ -27,14 +27,21 @@ lines (``book_pdf_generator._draw_page_frame``, ``_draw_qr_caption``,
 CARD-200/CARD-222/CARD-223). None of it is a puzzle-page mark — every
 interior page kind carries the same furniture off the same
 :func:`~nonogram.export.layout.interior_frame`, and a page card that drew it
-would be the second of four to do so. It is **not drawn by any card in the
-ADR-0042 phase as the phase stands on 2026-10-26**, which is a gap this card
-raises rather than closes: the card that makes the medium real per page is
-**CARD-298**, and it cannot land a vector puzzle page that has no page number
-on it. ``tests/test_book_puzzle_page_vector.py``'s
-``TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`` holds the
-boundary where this docstring claims it is, so the gap cannot quietly close
-or quietly widen.
+would be the second of four to do so.
+
+**CARD-306 closed that gap, and not here.** This docstring said for three
+cards that the furniture was drawn by nothing in the ADR-0042 phase and
+named CARD-298 as the card that owed it; CARD-298 was narrowed to the
+mechanism and could not. It is now drawn **once**, by
+:mod:`nonogram.admin.book_sheet_vector`, and composed by
+:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.vector_puzzle_page`
+— which is where the words and the type sizes live. So the statement above
+is still true of *this module*: a page drawn by
+:func:`puzzle_page_stream` carries the drawing and the band and no sheet
+furniture, and a page the **book** writes carries both.
+``tests/test_book_puzzle_page_vector.py``'s
+``TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`` holds that
+boundary where this docstring claims it is, on this module's own call.
 
 **Two-up pages are in scope** (:func:`two_up_page_stream`), because a two-up
 slot *is* a puzzle page — ``_two_up_page`` draws each of its two slots with

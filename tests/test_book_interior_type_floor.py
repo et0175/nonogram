@@ -999,6 +999,18 @@ class TestInteriorType_TheStreamArmIsReached:
         floor is not a formality — it has something below 10 pt to find on the
         very first page the phase converts, and it finds it.
 
+        **CARD-306 added a third size and it is the one above the floor.**
+        That card put the sheet's furniture on this page — the folio, the
+        grid-size label and the QR group's two lines — all set at
+        ``type_px(10 pt, 300 DPI)``, which is 42 device pixels and reaches
+        the stream as **10.08 pt**. So CON-020's 10 pt interior floor is
+        **met** by every mark this card added, with 0.08 pt of slack that is
+        the one whole device pixel the raster font had to be asked for; the
+        sub-floor residue is still the clue digits and still only them. The
+        third figure is asserted below rather than left to be discovered,
+        because a furniture size that silently dropped under 10 pt would
+        otherwise look like the exempt digits.
+
         It is also the whole of the finding: those 8.64 pt digits are exactly
         the ones CON-020 **exempts**, and nothing in the stream says so. The
         exemption is keyed on the drawing function (``png._draw_clues`` /
@@ -1016,7 +1028,12 @@ class TestInteriorType_TheStreamArmIsReached:
 
         found = pdf_vector.type_sizes(stream)
 
-        assert sorted(set(found)) == [8.64, 14.16], sorted(set(found))
+        assert sorted(set(found)) == [8.64, 10.08, 14.16], sorted(set(found))
+        # CARD-306's furniture is the middle figure, and it clears the floor.
+        assert 10.08 >= FLOOR_PT, FLOOR_PT
+        assert [size for size in found if size < FLOOR_PT] == [8.64] * found.count(
+            8.64
+        ), sorted(set(found))
         assert [size for size in found if size < FLOOR_PT], (
             "a vector puzzle page sets nothing below the floor, so this "
             "card's finding about the clue-digit exemption has no subject"

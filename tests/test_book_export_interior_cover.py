@@ -3667,10 +3667,16 @@ class Generator:
     #: because one site moved from ``image_refs`` to ``page_kinds``. Two
     #: readings, one reconciliation, no unexplained remainder.
     CALLEE_EXEMPTION_COST = (
-        ((), 816),
-        (("builtins",), 546),
-        (("builtins", "definitions and imports"), 212),
-        (("builtins", "definitions and imports", "parameters"), 210),
+        # CARD-306 re-measured the whole sequence after adding the sheet's
+        # furniture to the two vector puzzle-page writers: 816 -> 841 calls,
+        # 546 -> 567 after builtins, 212 -> 213, 210 -> 211. The steps are
+        # still strict drops (274, 354, 2, 211), which is what this table is
+        # for; the figures moved because the module gained calls, not because
+        # a class started absorbing something new.
+        ((), 841),
+        (("builtins",), 567),
+        (("builtins", "definitions and imports"), 213),
+        (("builtins", "definitions and imports", "parameters"), 211),
         (
             (
                 "builtins",
@@ -5578,7 +5584,13 @@ class Generator:
         # ``create_title_page`` does. The door is ``page_spec``; the
         # definition count is unmoved at one, so 18 + 1 = 19 under cycle 2's
         # occurrence rule.
-        assert inside == 18, inside
+        # CARD-306: 19, and again the one added call is named rather than
+        # counted — ``self.page_spec(plan.page_number)`` inside
+        # ``vector_two_up_page``, which takes the sheet its furniture is
+        # measured on from the plan's own position exactly as
+        # ``_two_up_page`` does. Same door, definition count still one, so
+        # 19 + 1 = 20 under cycle 2's occurrence rule.
+        assert inside == 19, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "
