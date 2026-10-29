@@ -2,7 +2,7 @@
 
 <!-- RETITLED 2026-10-29 on owner decision. The retired title was "A `path::nodeid` check ref is structurally dead on this board — 30 of them read as mechanically checked, and the validator cannot resolve any of them", and it was wrong in both halves: the count was 30 against a measured 23, and 20 of those 23 DO resolve. It is retired rather than adjusted because the lesson is that **a title carrying a figure goes stale** — this one did within a day, while three cards landed docstring tables that fixed most of its subject incidentally. The new title names the MECHANISM and the three outcomes, which do not drift: a ref can read alive without resolving to a definition; the repair is to name the false alives, demote the honest gaps, and give a table to the refs held up only by bookkeeping. No number appears in it on purpose. -->
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d <!-- RE-SCOPED 2026-10-29 from 1d, after the third premise re-measurement. 1d was priced against "30 refs the validator cannot resolve". Measured over all four authorities: 580 refs, 23 in node-id form, and 20 of the 23 already resolve through docstring tables CARD-284/291/294 landed incidentally. The live work is FOUR table entries across two files (tests/test_player_bundle.py, which spells zero of its own three node ids, and tests/test_export_pdf.py) plus THREE refs to decide -- two honestly dead, one the board's only true false-alive. Within sizing.min_estimate 0.25d. -->
@@ -21,7 +21,7 @@
 **Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/**, tests/** (one docstring table per affected module), meta/architecture/trace.yml
 **Review score:** —
 **Started:** —
-**Closed:** —
+**Closed:** 2026-10-29 (cut, not built)
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -505,3 +505,94 @@ first census used a regex that over-counted; the second omitted the largest
 authority; both were corrected only when something else measured the same thing.
 **Derive from all four authorities, and cross-check the count against a second
 implementation before writing a figure onto a card.**
+
+---
+
+## CUT 2026-10-29 — the measurement that retired this card
+
+**This card is skipped, not done. No code was written. It is kept because the
+measurement that killed it is the useful artefact, and because twelve other cards
+carry a "see CARD-307" pointer — they land here and are routed on below.**
+
+The card was re-measured a fourth time before dispatch. Three of its four figures
+held. The fourth finding killed it: **it is aimed at a population that produces no
+warnings, and the population it dismissed in a parenthesis produces all of them.**
+
+### What held
+
+Derived by walking `requirements.yml`, the ADR `check:` entries and `trace.yml`'s
+`tests:` lists, splitting on commas the way `split_check_ref` does:
+
+- **23 distinct node-id refs** on the board — the card's figure, confirmed.
+- **20 of them are defined in their own file and resolve** — confirmed.
+- **4 table entries across 2 files** (`tests/test_player_bundle.py` ×3,
+  `tests/test_export_pdf.py` ×1, neither spelling its own node id) — confirmed.
+
+### What killed it
+
+**1. The node-id population produces ZERO warnings.** Run on the validator of
+record at `main` (`0 error(s), 100 warning(s)`): not one of the 100 names a node-id
+ref. The card's title claims a `path::nodeid` ref is *"structurally dead on this
+board"*. It is not, and has not been since the docstring tables landed.
+
+**2. AC-5 was satisfied by the bug it was written to catch.** It required that
+dead-ref warnings for node-id refs *"fall to zero"*. They were already zero —
+including for three refs with **no definition anywhere**. The defect was never that
+warnings existed; it was that they did not, while three refs had nothing behind
+them. An AC that the defect satisfies is worse than no AC.
+
+**3. The "three refs to decide" are not what the card says.** It calls them *"two
+honestly dead, one the board's only true false-alive."* All three are **CARD-285's**
+— `test_assembled_site_is_self_contained`, `test_pages_work_with_analytics_blocked`,
+`test_no_homegrown_tracking` — and all three are **defined on CARD-285's branch**
+(`:2397`, `:2577`, `:2679`). None is honestly dead. They become ordinary live refs on
+that card's merge. Live work here: **zero**.
+
+**4. The real dead-ref population is the shape this card set aside.** Of the 100
+warnings, **23 are DEAD check refs**, and every one is a **bare class name** —
+`TestGenerateRandom_*`, `TestSolveStrategies_*`, `TestPuzzleReview_*`,
+`TestBookAnswerKey_*`, `PropertyTest_SolveStrategies_*` — across FR-001, FR-028,
+FR-029, FR-032, FR-035, FR-040 and FR-042. None has a `class` definition anywhere in
+`tests/`. This card dismissed them as *"25 unrelated to this week's work"*. They are
+23, and they are the only dead-ref population there is.
+
+**5. All four table entries were a shim by the card's own admission** (item 5). They
+exist only to give a text search something to find. The honest repair is to the
+predicate, which is forge-side — now **CARD-319**.
+
+### A sixth thing, found on the way and owned by nobody until now
+
+**The validator does not check ADR rule check refs at all.**
+`TestDependencyBaseline_IsExactlyPillowAndNumpy` — ADR-0006/R1's ref, with zero
+definitions in this repo — appears **nowhere** in the validator's output. Neither
+does any other ADR rule ref. The dead-ref check covers AC/EC `test:` keys only.
+
+That is why twelve cards carry hand-written `**DEAD REF**` notes in their System
+contract sections: **no gate has ever checked those refs, so humans have been doing a
+gate's job by hand.** Routed to CARD-319.
+
+### Where this card's work went
+
+| was CARD-307's | now | what |
+|---|---|---|
+| the 7 phantom `test:` keys | **CARD-316** | rejected alternatives, retired ACs, one forward declaration — delete the key, write no test |
+| re-pointing refs to tests that exist | **CARD-317** | FR-001 ×4, FR-042 ×2, **and ADR-0006/R1's pointer** — plus the stale bound the dead ref was hiding |
+| the FR-029 coverage gap | **CARD-318** | 10 refs, genuinely unwritten |
+| the predicate repair (item 5) | **CARD-319** | forge-side: a text search standing in for a definition check, and ADR rule refs going unchecked |
+
+**Nothing is lost by skipping this card.** Nothing declares `Depends on: CARD-307`.
+The twelve "see CARD-307" pointers are prose and still navigable — they land on this
+section, which routes them. They were deliberately **not** rewritten: twelve
+mechanical edits to live cards, to repoint a pointer that still works, is the kind of
+churn that breaks something quietly.
+
+### The method note worth keeping
+
+The first instrument built for this re-measurement used `\b` in a `git grep -E`
+pattern. **`\b` is undefined in POSIX ERE and silently matches nothing**, so every
+definition check came back empty and all 23 refs classified identically as false
+alives. A second instrument counted `^\[WARN` against output that indents its
+warnings two spaces, and reported `0 errors, 0 warnings` for a run that produced 100.
+**Both looked like clean results.** Every figure above comes from an instrument
+proven in both directions first — it finds a name known to exist and rejects a
+nonsense one — which is the only reason the error was caught rather than shipped.

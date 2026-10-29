@@ -50,6 +50,7 @@ Pillow's own parser.
 
 from __future__ import annotations
 
+import dataclasses
 import random
 import re
 from collections import Counter
@@ -69,6 +70,9 @@ from nonogram.admin.book_pdf_generator import (
     _folio_reserve_px,
     page_is_right_hand,
 )
+from nonogram.admin import book_pdf_generator
+from tests.helpers import pdf_vector
+from tests.helpers.book_corpus import baseline_puzzles, corpus_book
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 from tests.helpers.two_up_ink import drawings_of
@@ -394,6 +398,207 @@ def _expected_guide(puzzles):
     return BookPDFGenerator().create_guide_page(
         len(puzzles), tiers["easy"], tiers["medium"], tiers["hard"]
     )
+
+
+# --------------------------------------------------------------------------
+# ADR-0042/R6 — this file's three interior readings, read in the medium the
+# page was actually written in (CARD-299)
+# --------------------------------------------------------------------------
+#
+# R6: *a claim about an interior page's geometry, rule widths or tone is
+# asserted against the content stream of the written PDF, not against a
+# rendered bitmap.* R6's own comment names :731's ``min() == 255``, :734's and
+# :736's ``same_page`` as three of the six sites it must drive to empty.
+#
+# **They are not converted outright, and the reason is a measurement rather
+# than caution.** At CARD-298's merge every one of the seven page kinds is a
+# DECLARED raster exception (``book_pdf_generator._RASTER_DECLARATIONS``), so
+# every page of every interior this product ships today *is* a bitmap. Read on
+# this branch: all 14 pages of the baseline interior carry ``/image Do`` and
+# nothing else, and ``pdf_vector.type_sizes`` returns ``[]`` on every one of
+# them. A reading rewritten to ask the content stream for marks today would
+# therefore be **vacuously true of a page it never looked at** — the precise
+# defect class ADR-0039 exists for, and a strictly worse assertion than the
+# ink one it replaced.
+#
+# So each reading below asks the **file** which medium its page is in and
+# reads it that way: the bitmap arm is today's assertion, unchanged in force,
+# and the stream arm is the exact one R6 wants.
+#
+# **How far that reaches, stated exactly, because round 1 overstated it and
+# review cycle 1 measured the overstatement (F-002).** The three HELPERS below
+# are medium-agnostic: a declaration can shrink underneath them without their
+# bodies changing. **This module's call site is not**, and neither are the
+# other modules' — the property test reads its interior with
+# ``pdf_pages(interior_bytes)``, and ``tests/helpers/pdf_pages.py:34-40`` loops
+# **every** page asserting ``len(xobjects) == 1`` and ``Filter == DCTDecode``.
+# Measured on this branch: lift one ``_RASTER_DECLARATIONS`` entry so the title
+# page is written as operators, and ``pdf_pages`` on that interior raises
+# ``KeyError: b'XObject'`` — so the property test dies in its own reader
+# before any helper below is reached, and the stream arms are exercised only by
+# :class:`TestInteriorReadings_TheStreamArmIsReached` calling them directly.
+#
+# That failure is loud rather than silent, so it is not a correctness hole
+# today. But the order is **not** "the declarations shrink and nothing else
+# moves": the one-image reader has to become medium-agnostic in the same change
+# that converts a page, and **CARD-309 owns that** — its AC-3 names exactly
+# this surface ("every test module that reads a book interior passes — the 14
+# modules plus 3 helpers that went through ``tests/helpers/pdf_pages.py``'s
+# one-image assertion"). Measured here, **12 test modules import that
+# one-image reader** and CARD-299 converted the readings in **2** of them, one
+# being this one, which still routes through it. CARD-299 does not finish the
+# reader conversion, and nothing in this file should be read as saying it does.
+#
+# **Default-DENY in both the directions that matter.** A page
+# :func:`pdf_vector.page_media` cannot classify is a failure, not a page read
+# with whichever arm came first (ADR-0039/R2); and a page that *is* vector but
+# whose expected side has no writer yet fails by name, saying which card owes
+# it, rather than passing because there was nothing to compare against.
+
+#: The PDF operators that put a mark on the page. Everything else a content
+#: stream holds — ``q``/``Q``, ``cm``, ``BT``/``ET``, ``Tf``, ``Td``, ``g``,
+#: ``w``, ``m``/``l``/``c``/``re``/``h`` — changes state or builds a path
+#: without painting it, so a page can hold plenty of them and still be blank.
+#:
+#: ``n`` is deliberately absent: it is the *no-op* path painter, the operator a
+#: clip-only path ends with, and counting it would make a clipped blank page
+#: read as inked. ``Do`` is present because an XObject is a mark whether it is
+#: an image or a form.
+_MARKING_OPERATORS = frozenset(
+    {"Tj", "TJ", "'", '"', "S", "s", "f", "F", "f*", "B", "B*", "b", "b*", "sh", "Do", "EI"}
+)
+
+
+def _marks_on(stream: str) -> list[str]:
+    """Every marking operator ``stream`` paints with, in order."""
+    return [
+        token
+        for token in pdf_vector.operator_tokens(stream)
+        if token in _MARKING_OPERATORS
+    ]
+
+
+def _medium_of(data: bytes, index: int, label: str) -> str:
+    """Which medium page ``index`` of ``data`` is written in — or fail.
+
+    ADR-0039/R2's half of every reading below: a page nobody has classified is
+    a page nothing can be asserted of, so this raises rather than returning a
+    third value for the caller to forget to handle.
+    """
+    medium = pdf_vector.page_media(data)[index]
+    assert medium != pdf_vector.UNCLASSIFIABLE, (
+        f"{label}: interior page {index + 1} is neither a bitmap nor operators "
+        "— nothing below can be true of it (ADR-0039/R2)"
+    )
+    return medium
+
+
+def _title_page_is_blank(data: bytes, pages, label: str) -> None:
+    """AC-283 — interior page 1 carries no ink, in the medium it was written.
+
+    "No ink of any kind" is a statement about **marks**, which is why the
+    bitmap arm measures ink rather than comparing against a white image: a
+    page comparison would report a lone folio as "different" without saying it
+    was ink.
+
+    The stream arm is the stronger of the two and is why R6 wants it. The
+    bitmap arm's ``min() == 255`` is a claim about 8.4 million JPEG-decoded
+    samples and it is exactly as strong as the DCT round trip lets it be; the
+    stream arm reads that the page paints **nothing at all**, which is the
+    claim AC-283 actually makes, with no tolerance in it.
+    """
+    medium = _medium_of(data, 0, label)
+    if medium == pdf_vector.RASTER:
+        assert np.asarray(pages[0].convert("L")).min() == 255, (
+            f"{label}: interior page 1 carries ink — it is the blank title page"
+        )
+        return
+    marks = _marks_on(pdf_vector.content_streams(data)[0])
+    assert marks == [], (
+        f"{label}: interior page 1 paints {marks} — it is the blank title page"
+    )
+
+
+def _page_two_is_the_guide(data: bytes, pages, puzzles, label: str) -> None:
+    """Interior page 2 is the guide's first page, in the medium it was written.
+
+    The bitmap arm is ``same_page`` against the guide the generator draws for
+    the same puzzles. The stream arm is **exact** where ``same_page`` is
+    tolerant: it compares the shipped page's operators against the operators
+    the generator writes for that page, so a drifted guide is a difference in
+    the file rather than a 0.9 ink-overlap score that happens to clear a
+    threshold.
+
+    **The vector arm fails by name rather than passing.** There is no vector
+    guide writer reachable from the generator today — ``book_guide_vector``
+    imports ``book_pdf_generator``, so the interior's own walk cannot call it,
+    and no ``BookPDFGenerator.vector_guide_page`` exists (measured: the
+    generator's only ``vector_*`` page methods are ``vector_title_page`` and
+    the two puzzle ones). The day CARD-309 converts the guide, this fails and
+    says so, which is the behaviour ADR-0039/R2 asks for and the opposite of a
+    comparison that quietly had nothing to compare.
+    """
+    medium = _medium_of(data, 1, label)
+    if medium == pdf_vector.RASTER:
+        assert same_page(pages[1], _expected_guide(puzzles)), label
+        return
+    writer = getattr(BookPDFGenerator, "vector_guide_page", None)
+    assert writer is not None, (
+        f"{label}: interior page 2 is written as operators but no vector "
+        "guide writer is reachable from BookPDFGenerator, so this reading has "
+        "nothing to compare the shipped page against — the card that converts "
+        "the guide page (CARD-309) owes the expected side here"
+    )
+    tiers = Counter(p["difficulty_tier"].lower() for p in puzzles)
+    expected = writer(
+        BookPDFGenerator(),
+        len(puzzles),
+        tiers["easy"],
+        tiers["medium"],
+        tiers["hard"],
+    )
+    assert pdf_vector.content_streams(data)[1] == "\n".join(expected.operators), label
+
+
+def _no_interior_page_is_the_cover(data: bytes, pages, cover_page, label: str) -> None:
+    """No page of the interior is the cover, in the medium each was written.
+
+    The bitmap arm is today's ``not same_page``. The vector arm needs no
+    comparison at all and is the **stronger** statement: the cover is raster
+    permanently (ADR-0042/R2, ``expires_with=()``), so a page written as
+    operators cannot be the cover whatever it draws. That is a fact about the
+    two media rather than a measurement with a threshold in it — and it is
+    discharged here explicitly rather than by skipping the page, so a vector
+    page is still *visited* and its trim still asserted.
+
+    **The vector arm reads the declaration, and review cycle 1's F-006 is why
+    it has to.** Round 1 wrote it as ``RASTER not in media[i:i+1]`` — which
+    restates the branch's own condition and so cannot fail; it passed with
+    ``object()`` handed in as the cover. The premise the arm actually rests on
+    is ADR-0042/R2's **permanence**, and that is a live fact in ``src/``: the
+    cover's :class:`~nonogram.admin.book_pdf_generator.RasterDeclaration`
+    exists and its ``expires_with`` is empty. Read that way the arm fails if
+    the cover is ever given an expiry, which is exactly the event that would
+    make "a vector page cannot be the cover" untrue.
+    """
+    for page_number, page in enumerate(pages, start=1):
+        medium = _medium_of(data, page_number - 1, label)
+        if medium == pdf_vector.RASTER:
+            assert not same_page(page, cover_page), (
+                f"{label}: page {page_number} is the cover"
+            )
+        else:
+            declaration = book_pdf_generator._RASTER_DECLARATIONS.get(
+                book_pdf_generator.PageKind.COVER
+            )
+            assert declaration is not None and declaration.expires_with == (), (
+                f"{label}: page {page_number} is written as operators, and "
+                "this arm concludes it cannot be the cover only because the "
+                "cover is raster PERMANENTLY (ADR-0042/R2). That premise is "
+                f"gone — the cover's declaration is {declaration!r} — so the "
+                "page has to be compared against the cover after all"
+            )
+        assert page.size == TRIM_PX, f"{label}: page {page_number} is not the trim"
 
 
 #: Which level a stored tier word belongs to — written out here, like every
@@ -724,17 +929,13 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 seen["finalise count with a shared page"] += 1
 
         # Page 1 is the blank title page, page 2 the guide's first page, and
-        # no interior page is the cover. The blank page is measured as ink
-        # rather than compared against a white image: "no ink of any kind"
-        # (AC-283) is a statement about marks, and a page comparison would
-        # report a lone folio as "different" without saying it was ink.
-        assert np.asarray(interior[0].convert("L")).min() == 255, (
-            f"{label}: interior page 1 carries ink — it is the blank title page"
-        )
-        assert same_page(interior[1], _expected_guide(case["puzzles"])), label
-        for page_number, page in enumerate(interior, start=1):
-            assert not same_page(page, cover_page), f"{label}: page {page_number} is the cover"
-            assert page.size == TRIM_PX, f"{label}: page {page_number} is not the trim"
+        # no interior page is the cover — each read in the medium its page was
+        # actually written in (ADR-0042/R6, CARD-299). See the three helpers'
+        # own docstrings, and the block comment above them for why these are
+        # medium-gated rather than converted outright.
+        _title_page_is_blank(interior_bytes, interior, label)
+        _page_two_is_the_guide(interior_bytes, interior, case["puzzles"], label)
+        _no_interior_page_is_the_cover(interior_bytes, interior, cover_page, label)
 
         # Each page's parity is its 1-based position in the interior (CARD-116).
         # Measured off the page: a right-hand (odd) page carries the gutter
@@ -1156,3 +1357,153 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
     # All three tiers are in the corpus, so the divider the position counts
     # is not always the same level's.
     assert set(seen) >= {"easy", "medium", "hard", "measured"}, seen
+
+
+# --------------------------------------------------------------------------
+# ADR-0042/R6 — the stream arm of the three readings above is NOT dormant
+# (CARD-299)
+# --------------------------------------------------------------------------
+
+
+class TestInteriorReadings_TheStreamArmIsReached:
+    """The medium-gated readings really do read a stream, on a real file.
+
+    **Why this class is the load-bearing half of the conversion.** Every one
+    of the seven page kinds is a declared raster exception at this commit, so
+    the three helpers above take their *bitmap* arm on every page of every
+    interior the property test exports — measured: 14 of 14 pages of the
+    baseline interior carry ``/image Do``. Without this class the stream arm
+    would be code that has never run, and "the reading was converted" would be
+    a claim about a branch nobody took. That is the defect ADR-0039/R2 names,
+    and it is the one a conversion written ahead of its page conversion is
+    most likely to ship.
+
+    The vector page is produced **through production's own writer**, by
+    lifting one entry from ``_RASTER_DECLARATIONS`` exactly as
+    ``tests/test_book_pdf.py``'s mixed-file test does — not by hand-building a
+    PDF. So what this exercises is the file a converted book will really hold.
+    """
+
+    def _vector_title_interior(self, monkeypatch) -> bytes:
+        monkeypatch.delitem(
+            book_pdf_generator._RASTER_DECLARATIONS,
+            book_pdf_generator.PageKind.TITLE,
+        )
+        generator = BookPDFGenerator(corpus_book())
+        return generator.export_interior(baseline_puzzles()).getvalue()
+
+    def test_the_title_pages_blankness_is_read_from_the_stream(self, monkeypatch):
+        """``_title_page_is_blank`` takes the stream arm and never the bitmap.
+
+        ``pages=None`` is the proof, and it is why this is not merely a second
+        green assertion: the bitmap arm's first act is
+        ``pages[0].convert("L")``, so a helper that fell through to it raises
+        ``TypeError`` here rather than passing. The page really is vector —
+        asserted, not assumed — and it really paints nothing.
+        """
+        data = self._vector_title_interior(monkeypatch)
+
+        assert pdf_vector.page_media(data)[0] == pdf_vector.VECTOR
+
+        _title_page_is_blank(data, None, "vector title page")
+
+    def test_a_vector_page_that_paints_is_caught_by_the_stream_arm(self, monkeypatch):
+        """The mutant AC-283 needs: a vector title page that marks the sheet.
+
+        The blank-page claim has to be able to **fail** on the stream arm, or
+        the arm above is a true sentence about an operator list nobody
+        inspected. One marking operator is appended to the page the writer
+        produced and the reading reds — and it reds naming the operator, so
+        the failure says what was painted rather than that a number moved.
+        """
+        data = self._vector_title_interior(monkeypatch)
+        inked = pdf_vector.content_streams(data)[0] + "\n0 0 10 10 re f\n"
+
+        assert _marks_on(inked) == ["f"]
+
+        monkeypatch.setattr(
+            pdf_vector, "content_streams", lambda _data: [inked]
+        )
+        with pytest.raises(AssertionError, match=r"paints \['f'\]"):
+            _title_page_is_blank(data, None, "mutant")
+
+    def test_an_unclassifiable_page_is_a_failure_and_not_a_pass(self, monkeypatch):
+        """ADR-0039/R2 — neither bitmap nor operators fails, both ways.
+
+        The third value is the whole of default-DENY here: a page that names
+        both an ``/XObject`` and a ``/Font``, or neither, is a page nobody has
+        classified, and every reading above refuses it rather than reading it
+        with whichever arm came first.
+        """
+        data = self._vector_title_interior(monkeypatch)
+        monkeypatch.setattr(
+            pdf_vector,
+            "page_media",
+            lambda _data: [pdf_vector.UNCLASSIFIABLE],
+        )
+        with pytest.raises(AssertionError, match="neither a bitmap nor operators"):
+            _title_page_is_blank(data, None, "unclassifiable")
+
+    def test_the_guide_pages_vector_arm_fails_by_name_and_names_its_card(
+        self, monkeypatch
+    ):
+        """Review cycle 1's F-006 — the second vector arm, driven.
+
+        ``_page_two_is_the_guide``'s vector arm had no test at all. It is the
+        arm whose whole job is to **fail by name** rather than pass with
+        nothing to compare: there is no vector guide writer reachable from the
+        generator, so a vector guide page has no expected side, and a reading
+        that quietly skipped it would be the silent pass ADR-0039/R2 forbids.
+
+        Page 2 alone is forced vector, so what this reaches is the guide's own
+        arm and not the title page's.
+        """
+        data = self._vector_title_interior(monkeypatch)
+        media = pdf_vector.page_media(data)
+        assert getattr(BookPDFGenerator, "vector_guide_page", None) is None, (
+            "a vector guide writer now exists, so this arm should compare "
+            "against it instead of failing — CARD-309's work has landed"
+        )
+
+        monkeypatch.setattr(
+            pdf_vector,
+            "page_media",
+            lambda _data, _media=media: [
+                pdf_vector.VECTOR if index == 1 else value
+                for index, value in enumerate(_media)
+            ],
+        )
+        with pytest.raises(AssertionError, match="CARD-309"):
+            _page_two_is_the_guide(data, None, baseline_puzzles(), "vector guide")
+
+    def test_no_interior_page_is_the_cover_reads_the_covers_permanent_declaration(
+        self, monkeypatch
+    ):
+        """Review cycle 1's F-006 — the third vector arm, driven and mutated.
+
+        Round 1's vector arm here restated its own branch condition, so it
+        could not fail: driven with ``object()`` as the cover it passed. The
+        arm now reads the premise it actually argues from — ADR-0042/R2's
+        permanence of the cover's raster declaration — so it passes on a real
+        vector page with no cover to compare against, and **reds** when that
+        declaration is given an expiry.
+        """
+        data = self._vector_title_interior(monkeypatch)
+        pages = [Image.new("RGB", TRIM_PX, "white")]
+        assert pdf_vector.page_media(data)[0] == pdf_vector.VECTOR
+
+        # The vector arm never touches the cover, so a sentinel suffices —
+        # and a sentinel is the proof it never touches it.
+        _no_interior_page_is_the_cover(data, pages, object(), "vector title page")
+
+        permanent = book_pdf_generator._RASTER_DECLARATIONS[
+            book_pdf_generator.PageKind.COVER
+        ]
+        assert permanent.expires_with == (), permanent
+        monkeypatch.setitem(
+            book_pdf_generator._RASTER_DECLARATIONS,
+            book_pdf_generator.PageKind.COVER,
+            dataclasses.replace(permanent, expires_with=("CARD-999",)),
+        )
+        with pytest.raises(AssertionError, match="raster PERMANENTLY"):
+            _no_interior_page_is_the_cover(data, pages, object(), "expiring cover")

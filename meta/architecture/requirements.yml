@@ -6577,6 +6577,77 @@ constraints:
     check:
       kind: test
       ref: TestInteriorType_EveryFaceHoldsTheFloor
+      # 2026-10-29 (CARD-299, ADR-0042/R6): the ref is UNCHANGED, and that is
+      # a finding rather than an omission. R6 moves an interior claim onto the
+      # content stream of the written PDF, and CON-020's floor is a type size,
+      # so this check was expected to move to a re-expressed test under a new
+      # name — the card's item 1 says "flip CON-020's check to the
+      # re-expressed test", and its Trace line warns that renaming without
+      # re-stamping trace.yml turns validators/trace.py's gate 3 RED at
+      # Severity.ERROR.
+      #
+      # It did not need to move. The same card's AC-1 requires "both node ids
+      # preserved" and AC-6 requires the collected node-id set to lose
+      # nothing, so the re-expression had to happen INSIDE
+      # TestInteriorType_EveryFaceHoldsTheFloor, not beside it under a new
+      # name. It did: both of that class's node ids are byte-identical before
+      # and after (node-id set difference, removals 0), and what changed is
+      # what its two assertions READ. No rename happened, no ref died, and
+      # CON-020's trace.yml row — the one at status: covered with seven listed
+      # tests, four of them in that file — needed no re-stamp. The
+      # ERROR-level hazard was avoided by not creating it.
+      #
+      # What the re-expressed test reads: each interior page in the medium
+      # `page_medium` declares for its kind — the ImageDraw spy for a bitmap
+      # page, the stream's `Tf` operands for a page of operators. Measured at
+      # CARD-298's merge, all seven page kinds are still declared raster
+      # (`book_pdf_generator._RASTER_DECLARATIONS`), so the floor's force
+      # today is exactly what it was; the stream arm is proved non-dormant on
+      # a real vector page by TestInteriorType_TheStreamArmIsReached, and the
+      # non-vacuity floor that makes this constraint real is carried across in
+      # two vocabularies by
+      # test_the_recording_covers_every_kind_of_interior_lettering.
+      #
+      # CARD-299 RAISED: the clue-digit exemption amended in 2026-10-06 (a)
+      # has NO counterpart in a content stream. It is keyed on the function
+      # that draws (png._draw_clues / book_pdf_generator._write_clues, and
+      # book_vector_draw.draw_clue_digits in the vector medium) and a content
+      # stream records no provenance. Measured on a real vector puzzle page
+      # (BookPDFGenerator.vector_puzzle_page): 205 `Tf` operands at 8.64 pt and
+      # 14.16 pt, and the 8.64 pt digits are exactly the exempt ones. So a
+      # stream-read floor cannot tell an exempt clue digit from body type.
+      #
+      # CORRECTED 2026-10-29 by review cycle 1's F-001: this is NOT one page
+      # kind. Joining every exempt face in the spy recording to its page's
+      # PageKind, the exempt sub-floor faces are ('answer', 8.64 pt): 258 and
+      # ('puzzle', 8.64 pt): 204 — so 258 of the 462, the LARGER share, are on
+      # ANSWER pages, drawn 322x per book through
+      # book_pdf_generator._write_clues, and src/nonogram/admin/
+      # book_answer_vector.py:403 calls draw_clue_digits so the vector answer
+      # writer draws them too. Round 1's refusal was keyed on "puzzle" alone,
+      # which means the day PageKind.ANSWER's declaration lifted it would have
+      # read the page and reported 258 false CON-020 violations — the exact
+      # failure the refusal exists to prevent.
+      #
+      # So `stream_faces` now refuses every page kind whose vector writer draws
+      # clue digits, and the set is DERIVED rather than listed (ADR-0039/R2):
+      # tests/test_book_interior_type_floor.py walks src/ with `ast` for each
+      # PageKind's vector writers — book_<kind>_vector.py and
+      # BookPDFGenerator.vector_<kind>_page — and asks whether any of them
+      # CALLS a clue-digit drawer. Today that derives {answer, puzzle}, and its
+      # control is the same set read a second, independent way off the live spy
+      # recording keyed on this exemption's own two function names. A page kind
+      # with no vector writer at all is a FAILURE, never a silent pass.
+      # Refusal is by KIND and not by size on purpose: exempting 8.64 pt by its
+      # value would exempt a body face that happened to measure 8.64 pt.
+      #
+      # The card that converts these pages owes the stream a way to mark its
+      # clue digits — CARD-314, whose scope covers both page kinds. That is a
+      # src/ change, and CARD-299 is test-side only.
+      #
+      # The STATEMENT below is unchanged, and correctly so: a 10 pt
+      # reader-facing floor is a physical measure and is medium-independent.
+      #
       # 2026-10-06: was `kind: review-lens` ("deliberately NOT a test ref" —
       # CARD-149's guide-page tests covered one page only, and a test walking
       # every interior face was owed). CARD-184 wrote it

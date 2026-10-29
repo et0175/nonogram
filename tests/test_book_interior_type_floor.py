@@ -36,8 +36,12 @@ AC-1..AC-4 of CARD-184, one class each.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import sys
+import textwrap
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -47,6 +51,7 @@ from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
+from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import BASELINE_PAGE_COUNT, baseline_puzzles, corpus_book
 
 # --------------------------------------------------------------------------
@@ -342,15 +347,334 @@ def below_floor(calls: List[TextCall]) -> List[str]:
 
 
 # --------------------------------------------------------------------------
+# ADR-0042/R6 — the same floor, read off the stream of the written file
+# (CARD-299)
+# --------------------------------------------------------------------------
+#
+# R6: *a claim about an interior page's geometry, rule widths or tone is
+# asserted against the content stream of the written PDF, not against a
+# rendered bitmap.* CON-020's floor is a type size, so this file is one of the
+# readers that conversion reaches, and the spy above is the reading it names:
+# a page written as operators makes **no** ``ImageDraw.text`` call at all, so
+# on the day a kind converts, the recording for that page goes empty and the
+# floor assertion over it passes by having nothing to judge.
+#
+# **What is read instead, and what the honest shape of the swap is.** The
+# stream states a face's size as the operand of ``Tf``, in points, which is
+# CON-020's own unit — no ``size * 72 / dpi`` conversion, no DPI to get wrong,
+# and the number comes off the file that actually ships rather than an
+# in-memory page upstream of the JPEG.
+#
+# But the swap cannot be made outright today and the reason is measured, not
+# cautious: at CARD-298's merge **all seven page kinds are declared raster**
+# (``book_pdf_generator._RASTER_DECLARATIONS``), so every page of the baseline
+# interior is ``/image Do`` and ``pdf_vector.type_sizes`` returns ``[]`` on all
+# 14 of them. A floor assertion rewritten to read ``Tf`` today would be
+# **vacuously green over an empty list** — which is the very defect AC-1's
+# non-vacuity sibling exists to prevent, reintroduced by the fix for it.
+#
+# So the reading below is **medium-agnostic**: each page is read in the medium
+# ``page_medium`` declares for its kind — the spy for a bitmap page, the
+# stream for a page of operators — and the declarations shrink underneath it
+# without this file changing. The floor's force today is byte-for-byte what it
+# was, because today every page takes the spy arm; the stream arm is proved
+# non-dormant by :class:`TestInteriorType_TheStreamArmIsReached`, on a real
+# vector page written by production's own writer.
+
+#: The kinds whose pages letter something for the reader, so that "this kind
+#: is covered" is a claim with content. TITLE is absent on purpose: AC-283
+#: makes the blank title page blank, and a title page that lettered anything
+#: would be a defect in a different test.
+#:
+#: **This set is hand-written, and :data:`NON_LETTERING_KINDS` beside it is
+#: what keeps it from being a silent pass** (review cycle 1's F-003). The two
+#: together must PARTITION :class:`~nonogram.admin.book_pdf_generator.PageKind`
+#: — asserted by
+#: :meth:`TestInteriorType_TheNonVacuityFloorCanFail.test_the_lettering_kinds_partition_the_page_kinds`
+#: — so a new page kind is a **failure** here rather than a kind quietly
+#: outside the coverage claim (ADR-0039/R2). There is no authority in the tree
+#: to derive "letters something" from: whether a kind letters is a fact about
+#: what its writer draws, and the writers are exactly what this file is the
+#: independent statement of.
+LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer"})
+
+#: The interior's remaining page kinds, each with the reason it letters
+#: nothing — the complement of :data:`LETTERING_KINDS`, written out so the
+#: pair is checkable against the enum rather than merely plausible.
+NON_LETTERING_KINDS = {
+    "cover": (
+        "not an interior page at all — the cover is its own file and stays "
+        "raster permanently (ADR-0042/R2)"
+    ),
+    "title": (
+        "blank by AC-283 (CARD-206): the interior's first page carries no ink "
+        "of any kind, so a lettered title page is a defect a different test "
+        "catches"
+    ),
+}
+
+#: The functions that draw a nonogram's **clue digits** — the one family of
+#: faces CON-020 exempts. The raster pair is :data:`EXEMPT_CALLERS`, stated by
+#: CARD-184; the vector one is ``book_vector_draw.draw_clue_digits``, the only
+#: way a page of operators sets a clue digit.
+CLUE_DIGIT_DRAWERS = frozenset(
+    {name for _module, name in EXEMPT_CALLERS} | {"draw_clue_digits"}
+)
+
+#: Where the vector page writers live.
+_ADMIN_DIR = Path(book_pdf_generator.__file__).parent
+
+
+def vector_writer_sources(kind: str) -> Dict[str, str]:
+    """Every ``src/`` source that writes a VECTOR page of ``kind``.
+
+    Two authorities, both enumerable, and **empty is meaningful**: a kind with
+    no vector writer is a kind nothing can write as operators, so a page of
+    that kind classified VECTOR is a page nobody can account for.
+
+    * ``src/nonogram/admin/book_<kind>_vector.py`` — the per-kind writer
+      module CARD-295/296/297 established (``book_guide_vector``,
+      ``book_toc_vector``, ``book_answer_vector``, ``book_puzzle_vector``);
+    * ``BookPDFGenerator.vector_<kind>_page`` — the generator's own method,
+      which is where the title page's writer is.
+    """
+    sources: Dict[str, str] = {}
+    module = _ADMIN_DIR / f"book_{kind}_vector.py"
+    if module.exists():
+        sources[module.name] = module.read_text(encoding="utf-8")
+    writer = getattr(BookPDFGenerator, f"vector_{kind}_page", None)
+    if writer is not None:
+        sources[f"BookPDFGenerator.vector_{kind}_page"] = textwrap.dedent(
+            inspect.getsource(writer)
+        )
+    return sources
+
+
+def called_names(source: str) -> set:
+    """Every name ``source`` **calls**, by AST and not by text.
+
+    By AST deliberately: ``book_guide_vector`` discusses ``_write_clues`` at
+    length in its own comments (its lines 235-245) without calling it, so a
+    text search over the same files would exempt the guide page — and the
+    guide's worked example is precisely the lettering CON-020 does *not*
+    exempt.
+    """
+    names = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            function = node.func
+            if isinstance(function, ast.Name):
+                names.add(function.id)
+            elif isinstance(function, ast.Attribute):
+                names.add(function.attr)
+    return names
+
+
+def draws_clue_digits(kind: str) -> bool:
+    """Does any vector writer of ``kind`` draw clue digits?"""
+    return any(
+        called_names(source) & CLUE_DIGIT_DRAWERS
+        for source in vector_writer_sources(kind).values()
+    )
+
+
+#: The page kinds whose stream a floor **cannot** be read off, **derived**
+#: from ``src/`` rather than listed (review cycle 1's F-001).
+#:
+#: Why the set and not just the puzzle page: CON-020's clue-digit exemption is
+#: keyed on the **function that draws** and a content stream records no
+#: provenance, so a stream-read floor cannot tell an exempt clue digit from
+#: body type on any page that draws one. Measured on this branch's baseline
+#: interior, the exempt sub-floor faces live on **two** kinds, and the answer
+#: page holds the larger share: ``('answer', 8.64 pt): 258`` and
+#: ``('puzzle', 8.64 pt): 204``. Round 1's refusal was keyed on ``"puzzle"``
+#: alone, so the day ``PageKind.ANSWER``'s declaration lifted it would have
+#: reported 258 false CON-020 violations — the exact failure the refusal
+#: exists to prevent.
+#:
+#: The derivation is :func:`draws_clue_digits` over :func:`vector_writer_sources`,
+#: and its control is
+#: :meth:`TestInteriorType_TheStreamArmIsReached.test_the_refused_kinds_are_derived_and_agree_with_the_spy`:
+#: the same set read a second, independent way — off the live spy recording,
+#: keyed on CON-020's own :data:`EXEMPT_CALLERS` — must agree with it. So a
+#: renamed drawer empties the AST reading and reds, rather than quietly
+#: refusing nothing.
+CLUE_DIGIT_KINDS = frozenset(
+    kind.value for kind in book_pdf_generator.PageKind if draws_clue_digits(kind.value)
+)
+
+
+@dataclass(frozen=True)
+class StreamFace:
+    """One ``Tf`` size a written interior page set, read off the shipped file.
+
+    The sibling of :class:`TextCall` for a page of operators, and
+    deliberately **poorer**: a content stream records no call chain, so
+    ``kind`` here is the page's own :class:`PageKind` value and not one of the
+    spy's five semantic kinds.
+
+    **There is no ``exempt`` here, and that absence is the point** — round 1's
+    docstring pointed at a ``:meth:`exempt`` it never wrote, which review
+    cycle 1 raised as F-007. :attr:`TextCall.exempt` can exist because the spy
+    sees the call chain; a content stream carries no provenance at all, so this
+    class has nothing to key an exemption on and does not pretend to. The
+    exemption is therefore honoured one level up, by :func:`stream_faces`
+    **refusing** every page kind that draws clue digits
+    (:data:`CLUE_DIGIT_KINDS`), which is a statement about the page rather
+    than about the face — and refusing by kind rather than by size, because
+    exempting 8.64 pt by its value would exempt a body face that happened to
+    measure 8.64 pt.
+    """
+
+    page: int
+    kind: str
+    points: float
+
+    def describe(self) -> str:
+        return f"page {self.page} {self.kind} (stream): {self.points:.2f} pt"
+
+
+def stream_faces(generator: BookPDFGenerator, puzzles) -> List[StreamFace]:
+    """Every ``Tf`` size the written interior sets, on its operator pages only.
+
+    The page kinds come from the generator's own **page plan** and the sizes
+    from the **file**, zipped ``strict=True``, so a plan that does not describe
+    the file it wrote is a failure rather than a short walk — the same pairing
+    ``tests/test_book_pdf.py::_media_by_kind`` uses, and for the same reason.
+    """
+    kinds = generator.interior_stream(puzzles).page_kinds
+    data = generator.export_interior(puzzles).getvalue()
+    media = pdf_vector.page_media(data)
+    streams = pdf_vector.content_streams(data)
+    faces: List[StreamFace] = []
+    for number, (kind, medium, stream) in enumerate(
+        zip(kinds, media, streams, strict=True), start=1
+    ):
+        assert medium != pdf_vector.UNCLASSIFIABLE, (
+            f"interior page {number} ({kind.value}) is neither a bitmap nor "
+            "operators — its type cannot be read at all (ADR-0039/R2)"
+        )
+        if medium != pdf_vector.VECTOR:
+            continue
+        assert vector_writer_sources(kind.value), (
+            f"interior page {number} ({kind.value}) is written as operators, "
+            "but no vector writer for that kind exists in src/ — neither "
+            f"book_{kind.value}_vector.py nor "
+            f"BookPDFGenerator.vector_{kind.value}_page. So nothing here can "
+            "say whether its faces are exempt, and an unclassifiable shape is "
+            "a FAILURE and never a silent pass (ADR-0039/R2). The card that "
+            "wrote that page owes this file its writer's name."
+        )
+        assert kind.value not in CLUE_DIGIT_KINDS, (
+            f"interior page {number} is a VECTOR {kind.value} page, whose "
+            "writer draws clue digits, and CON-020's clue-digit exemption has "
+            "no counterpart in a content stream: the exemption is keyed on the "
+            "function that draws (png._draw_clues / _write_clues / "
+            "book_vector_draw.draw_clue_digits) and a stream records no "
+            "provenance. Measured on this branch's baseline interior, the "
+            "exempt sub-floor faces are ('answer', 8.64 pt): 258 and "
+            "('puzzle', 8.64 pt): 204 — so a stream-read floor cannot tell "
+            "them from body type on either kind. The card that converts this "
+            "page owes the stream a way to mark its clue digits (CARD-314); "
+            f"the refused kinds are derived, and today they are "
+            f"{sorted(CLUE_DIGIT_KINDS)}."
+        )
+        faces.extend(
+            StreamFace(number, kind.value, size)
+            for size in pdf_vector.type_sizes(stream)
+        )
+    return faces
+
+
+_STREAM_FACES: Dict[str, List[StreamFace]] = {}
+
+
+def stream_recording(book: str) -> List[StreamFace]:
+    """:func:`stream_faces` for ``book``'s interior; once each."""
+    if book not in _STREAM_FACES:
+        _STREAM_FACES[book] = stream_faces(
+            BookPDFGenerator(BOOKS[book]()), baseline_puzzles()
+        )
+    return _STREAM_FACES[book]
+
+
+def below_floor_in_its_medium(book: str) -> List[str]:
+    """Every face below the floor, each page read in the medium it was written.
+
+    The union of the two arms, which is what makes the claim whole: a kind
+    that converts moves from the left arm to the right one, and neither arm
+    going quiet can take a face out of the judgment.
+    """
+    return below_floor(recording(book, arial=True)) + [
+        face.describe()
+        for face in stream_recording(book)
+        if face.points < FLOOR_PT
+    ]
+
+
+def kinds_covered_in_their_medium(book: str) -> set:
+    """Every page kind whose pages letter something, in its declared medium.
+
+    AC-1's non-vacuity floor, carried through the medium change. The spy's
+    recording gives the semantic kinds (``"guide"``, ``"band"``, …) and the
+    stream gives :class:`PageKind` values, so the two are reduced to the one
+    vocabulary both can speak — the page kind — and the richer semantic floor
+    stays asserted beside it in
+    :meth:`TestInteriorType_EveryFaceHoldsTheFloor.test_the_recording_covers_every_kind_of_interior_lettering`.
+    """
+    covered = {
+        page_kind
+        for page_kind, pages in _pages_by_kind(book).items()
+        if any(
+            call.page in pages for call in recording(book, arial=True)
+        )
+        or any(face.kind == page_kind for face in stream_recording(book))
+    }
+    return covered
+
+
+_PAGES_BY_KIND: Dict[str, Dict[str, set]] = {}
+
+
+def _pages_by_kind(book: str) -> Dict[str, set]:
+    """``{page kind value: {1-based page numbers}}`` for ``book``'s interior."""
+    if book not in _PAGES_BY_KIND:
+        kinds = (
+            BookPDFGenerator(BOOKS[book]())
+            .interior_stream(baseline_puzzles())
+            .page_kinds
+        )
+        by_kind: Dict[str, set] = {}
+        for number, kind in enumerate(kinds, start=1):
+            by_kind.setdefault(kind.value, set()).add(number)
+        _PAGES_BY_KIND[book] = by_kind
+    return _PAGES_BY_KIND[book]
+
+
+# --------------------------------------------------------------------------
 # AC-1
 # --------------------------------------------------------------------------
 
 
 class TestInteriorType_EveryFaceHoldsTheFloor:
-    """AC-1 — every drawn face outside the exemption is at least 10 pt."""
+    """AC-1 — every face outside the exemption is at least 10 pt.
+
+    **CON-020's verifying test, and CARD-299 re-expressed it rather than
+    renaming it.** ADR-0042/R6 moves an interior claim onto the content stream
+    of the written PDF; this class's two node ids are unchanged, so CON-020's
+    ``check:`` and its ``trace.yml`` row still resolve to the same two
+    definitions they did before — the re-expression is in what the assertions
+    read, not in what they are called.
+
+    What changed: both assertions now read each page in the medium
+    ``page_medium`` declares for its kind (see the block comment above
+    :class:`StreamFace`). Today every kind is a declared raster exception, so
+    both read exactly what they read before; the stream arm is proved
+    non-dormant by :class:`TestInteriorType_TheStreamArmIsReached`.
+    """
 
     def test_every_face_outside_the_exemption_is_at_least_ten_points(self, book):
-        assert below_floor(recording(book, arial=True)) == []
+        assert below_floor_in_its_medium(book) == []
 
     def test_the_recording_covers_every_kind_of_interior_lettering(self, book):
         """CARD-198: "answer heading" is gone — there is no level heading
@@ -358,6 +682,26 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         also not required on ``min-trim``: CARD-197's AC-6 omits the caption
         rather than overlap the drawing when the trim leaves no slack for
         it, which the 10x10 cm book genuinely does not.
+
+        **This is the assertion the floor above rests on, and CARD-299's job
+        was to carry it across the medium change without weakening it.** Its
+        sibling is ``below_floor_in_its_medium(book) == []``, which is
+        **vacuously true of an empty reading** — a recording that saw nothing
+        holds every floor there is. What makes CON-020 a real constraint is
+        this test, and the medium change is exactly the event that could have
+        emptied the reading silently: a page written as operators makes no
+        ``ImageDraw.text`` call, so the spy would simply stop seeing it.
+
+        So the floor is asserted twice over, in two vocabularies:
+
+        * the **semantic** kinds the spy can see — guide, divider, band,
+          footer label, answer caption — unchanged from CARD-184, which is the
+          finer of the two and the one that would notice a *piece* of
+          lettering going missing from a page that still letters something;
+        * every **page kind** that letters at all, in whichever medium it was
+          written (:func:`kinds_covered_in_their_medium`), which is the only
+          vocabulary a content stream can speak, and the one that keeps biting
+          after a kind converts and the semantic arm goes quiet for it.
         """
         kinds = {call.kind for call in recording(book, arial=True)}
         required = {"guide", "divider", "band"}
@@ -369,6 +713,16 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         if book != "min-trim":
             required.add("answer caption")
         assert required <= kinds
+
+        # The medium-independent half: every kind that letters is covered,
+        # whichever arm read it. ``LETTERING_KINDS`` is intersected with the
+        # kinds this book's plan actually holds, so the claim is about pages
+        # that exist rather than about a kind the 10x10 cm book never prints.
+        planned = LETTERING_KINDS & set(_pages_by_kind(book))
+        assert planned <= kinds_covered_in_their_medium(book), (
+            sorted(planned - kinds_covered_in_their_medium(book))
+        )
+        assert planned, "this book's plan letters nothing at all"
 
 
 # --------------------------------------------------------------------------
@@ -586,3 +940,336 @@ class TestInteriorType_DifficultyDotsAreNotText:
         assert len(sizes) == 1
         assert sizes[0] is not None
         assert sizes[0] * POINTS_PER_INCH / 300 >= FLOOR_PT
+
+
+# --------------------------------------------------------------------------
+# ADR-0042/R6 — the stream arm is reached, and the non-vacuity floor can fail
+# (CARD-299)
+# --------------------------------------------------------------------------
+
+
+class TestInteriorType_TheStreamArmIsReached:
+    """The medium-agnostic floor really reads a stream, and really discriminates.
+
+    Three claims, and none of them is "the suite is still green". At this
+    commit every page kind is a declared raster exception, so
+    :func:`below_floor_in_its_medium`'s stream arm contributes nothing to any
+    assertion above — which means without this class the conversion would be a
+    branch nobody took, asserted by a test that could not tell.
+    """
+
+    def test_lifting_a_declaration_makes_the_stream_arm_read_that_page(
+        self, monkeypatch
+    ):
+        """A real vector page, written by production's own writer, is read there.
+
+        The declaration is lifted exactly as ``tests/test_book_pdf.py``'s
+        mixed-file test lifts it, so the file walked is the file a converted
+        book will hold. ``type_sizes`` is wrapped rather than asserted *about*,
+        because the question is whether the arm **called** it: a reader that
+        fell through to the spy would leave the wrapper untouched and the
+        recorded page list empty.
+        """
+        monkeypatch.delitem(
+            book_pdf_generator._RASTER_DECLARATIONS,
+            book_pdf_generator.PageKind.TITLE,
+        )
+        asked: List[str] = []
+        original = pdf_vector.type_sizes
+        monkeypatch.setattr(
+            pdf_vector,
+            "type_sizes",
+            lambda stream: (asked.append(stream), original(stream))[1],
+        )
+
+        faces = stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+
+        # Exactly one page took the stream arm: the title page, now operators.
+        assert len(asked) == 1, len(asked)
+        # And it is genuinely blank, which is AC-283 and why it adds no face.
+        assert faces == []
+
+    def test_the_floor_catches_a_real_vector_pages_sub_floor_type(self):
+        """The stream arm discriminates — on a real page, at a real size.
+
+        The measurement behind CARD-299's raised finding, asserted rather than
+        reported: ``vector_puzzle_page`` is the one vector page writer the
+        generator exposes that letters anything, and the type it sets is
+        **8.64 pt** clue digits beside a **14.16 pt** band. So a stream-read
+        floor is not a formality — it has something below 10 pt to find on the
+        very first page the phase converts, and it finds it.
+
+        It is also the whole of the finding: those 8.64 pt digits are exactly
+        the ones CON-020 **exempts**, and nothing in the stream says so. The
+        exemption is keyed on the drawing function (``png._draw_clues`` /
+        ``_write_clues``) and a content stream records no provenance, so this
+        floor cannot honour the exemption it must honour. That is why
+        :func:`stream_faces` refuses a vector puzzle page by name instead of
+        reporting 205 false violations or exempting 8.64 pt by its value.
+        """
+        generator = BookPDFGenerator(corpus_book())
+        payload = BookPDFGenerator._payload(baseline_puzzles()[0])
+        sizes = generator.cell_sizes([payload])
+        stream = "\n".join(
+            generator.vector_puzzle_page(payload, 1, 1, sizes).operators
+        )
+
+        found = pdf_vector.type_sizes(stream)
+
+        assert sorted(set(found)) == [8.64, 14.16], sorted(set(found))
+        assert [size for size in found if size < FLOOR_PT], (
+            "a vector puzzle page sets nothing below the floor, so this "
+            "card's finding about the clue-digit exemption has no subject"
+        )
+
+    def test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits(
+        self, monkeypatch
+    ):
+        """The default-DENY arm: an unreadable shape FAILS (ADR-0039/R2).
+
+        A page kind whose exemption the stream cannot express is refused by
+        name, naming what it would take to read it. A reading that instead
+        skipped the page, or exempted 8.64 pt because that is what clue digits
+        happen to measure, would be the silent pass the rule forbids — the
+        second would exempt a *body* face that happened to be 8.64 pt.
+
+        Only the **puzzle** pages are forced vector here, so the refusal this
+        reaches is the clue-digit one rather than the no-writer one a vector
+        divider would hit first.
+        """
+        self._refuse_only("puzzle", monkeypatch)
+        with pytest.raises(AssertionError, match="VECTOR puzzle page"):
+            stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+
+    def test_a_vector_answer_page_refuses_too(self, monkeypatch):
+        """Review cycle 1's F-001 — the refusal covers BOTH kinds, not one.
+
+        Round 1 keyed the refusal on ``"puzzle"`` alone. Measured on this
+        branch's baseline interior, **258 of the 462 exempt sub-floor faces are
+        on ANSWER pages** — more than the puzzle page's 204 — drawn through
+        ``book_pdf_generator._write_clues``, and
+        ``book_answer_vector.draw_clue_digits`` draws them in the vector medium
+        too. So the day ``PageKind.ANSWER``'s declaration lifted, the one-kind
+        refusal would not have fired: it would have read the page and reported
+        258 false CON-020 violations, which is the exact failure the refusal
+        exists to prevent.
+        """
+        self._refuse_only("answer", monkeypatch)
+        with pytest.raises(AssertionError, match="VECTOR answer page"):
+            stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+
+    def test_the_refusal_does_not_absorb_the_guide_or_the_toc(self):
+        """ADR-0039/R3's control — what the refusal must NOT swallow.
+
+        An exemption is a claim, so it carries a control for what it must not
+        absorb. The guide and the TOC letter the reader and their writers draw
+        no clue digits, so their streams are exactly the pages this floor must
+        keep reading — and the guide's worked example sets clue digits that
+        CON-020 holds to the floor rather than exempting. A refusal that
+        widened to "any page that sets small type", or keyed itself on 8.64 pt,
+        would take these with it.
+        """
+        for kind in ("guide", "toc"):
+            assert kind in LETTERING_KINDS, kind
+            assert kind not in CLUE_DIGIT_KINDS, kind
+            with pytest.MonkeyPatch.context() as context:
+                self._refuse_only(kind, context)
+                # No raise: the page is read, not refused.
+                stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+
+    def test_a_page_kind_with_no_vector_writer_is_a_failure_not_a_pass(
+        self, monkeypatch
+    ):
+        """ADR-0039/R2 — a kind that cannot be classified FAILS.
+
+        ``divider`` stays raster (G-2) and CARD-231 is the card that makes it
+        vector. There is no ``book_divider_vector.py`` and no
+        ``BookPDFGenerator.vector_divider_page``, so nothing in ``src/`` can
+        say whether a vector divider would draw clue digits — and the rule is
+        that such a kind is a failure here, loudly, rather than a page read on
+        a guess.
+        """
+        assert vector_writer_sources("divider") == {}, "a writer appeared"
+        self._refuse_only("divider", monkeypatch)
+        with pytest.raises(AssertionError, match="no vector writer for that kind"):
+            stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+
+    def test_the_refused_kinds_are_derived_and_agree_with_the_spy(self):
+        """:data:`CLUE_DIGIT_KINDS` is derived, and read a second way agrees.
+
+        The derivation walks ``src/`` with :mod:`ast`: for each page kind it
+        finds that kind's vector writers (:func:`vector_writer_sources`) and
+        asks whether any of them **calls** a clue-digit drawer. The second,
+        independent reading is the live spy recording keyed on CON-020's own
+        :data:`EXEMPT_CALLERS` — a different medium, a different mechanism, and
+        no shared code with the first.
+
+        The agreement is what makes the derivation non-vacuous. If
+        ``draw_clue_digits`` were renamed, the AST reading would quietly empty
+        and refuse nothing; the spy reading would still name both kinds, and
+        this reds. It also pins the direction cycle 1's F-001 was about: both
+        readings say **two** kinds, not one.
+        """
+        from nonogram.admin import book_vector_draw
+
+        assert hasattr(book_vector_draw, "draw_clue_digits"), (
+            "the vector clue-digit drawer this derivation seeds on no longer "
+            "exists under that name, so the AST reading below reads nothing"
+        )
+
+        by_the_spy = set()
+        for name in sorted(BOOKS):
+            page_kind = {
+                page: kind
+                for kind, pages in _pages_by_kind(name).items()
+                for page in pages
+            }
+            by_the_spy |= {
+                page_kind[call.page]
+                for call in recording(name, arial=True)
+                if call.exempt
+            }
+
+        assert by_the_spy == {"answer", "puzzle"}, sorted(by_the_spy)
+        assert set(CLUE_DIGIT_KINDS) == by_the_spy, (
+            sorted(CLUE_DIGIT_KINDS),
+            sorted(by_the_spy),
+        )
+
+    def test_the_stream_arm_of_the_floor_judges_a_face_it_is_handed(
+        self, monkeypatch
+    ):
+        """Review cycle 1's F-006 — the stream arm, on a non-empty reading.
+
+        Every kind is a declared raster exception at this commit, so the union
+        in :func:`below_floor_in_its_medium` has only ever been asked to add an
+        **empty** right-hand side. A sub-floor face is handed to it here and
+        has to come out in the verdict; a face at the floor must not.
+        """
+        monkeypatch.setitem(_STREAM_FACES, "book1", [StreamFace(7, "toc", 9.0)])
+
+        assert below_floor_in_its_medium("book1") == [
+            "page 7 toc (stream): 9.00 pt"
+        ]
+
+        monkeypatch.setitem(
+            _STREAM_FACES, "book1", [StreamFace(7, "toc", FLOOR_PT)]
+        )
+
+        assert below_floor_in_its_medium("book1") == []
+
+    @staticmethod
+    def _refuse_only(kind: str, monkeypatch) -> None:
+        """Classify every page of ``kind`` VECTOR and every other page RASTER.
+
+        Keyed off the generator's own page plan, so the forced classification
+        lines up with the kinds :func:`stream_faces` zips it against.
+        """
+        pages = _pages_by_kind("book1")[kind]
+        media = [
+            pdf_vector.VECTOR if number in pages else pdf_vector.RASTER
+            for number in range(1, PAGE_COUNTS["book1"] + 1)
+        ]
+        assert pdf_vector.VECTOR in media, kind
+        monkeypatch.setattr(pdf_vector, "page_media", lambda _data: list(media))
+
+
+class TestInteriorType_TheNonVacuityFloorCanFail:
+    """AC-1's second mutant — the control that would otherwise have been lost.
+
+    ``below_floor_in_its_medium(book) == []`` is vacuously true of an empty
+    reading, so the constraint lives in the coverage assertion beside it.
+    These tests drop a covered kind from the reading and show the coverage
+    assertion red — on both vocabularies, because the medium change moved the
+    claim into a second one and a floor that only held in the old vocabulary
+    would stop holding the day a kind converted.
+    """
+
+    def test_dropping_a_semantic_kind_reds_the_coverage_assertion(self):
+        """The CARD-184 arm: a *piece* of lettering stops being drawn."""
+        kept = [call for call in recording("book1", arial=True) if call.kind != "band"]
+
+        kinds = {call.kind for call in kept}
+
+        assert "band" not in kinds
+        assert not {"guide", "divider", "band"} <= kinds, (
+            "dropping every band call left the required set satisfied, so the "
+            "coverage assertion would not have noticed the band going away"
+        )
+
+    def test_dropping_a_page_kind_reds_the_medium_independent_assertion(self):
+        """The CARD-299 arm: a whole page kind stops lettering, in any medium.
+
+        **Rewritten in fix round 1, because review cycle 1's F-004 was right
+        about the first version.** That version computed
+        ``covered = kinds_covered_in_their_medium("book1")`` and then asserted
+        ``not planned <= (covered - {dropped})`` for each ``dropped`` in
+        ``planned`` — which is true of *any* two sets and *any* member, calls
+        nothing in the module under test after the first line, and so passed on
+        every possible implementation of the thing it claimed to demonstrate.
+
+        The drop now goes into the **reading**, where a lost kind would really
+        appear: the pages of one kind are taken out of the spy's recording and
+        the stream recording is emptied, and then
+        :func:`kinds_covered_in_their_medium` is asked again. So a coverage
+        function that ignored its reading — returned every planned kind, say,
+        or read the page plan instead of the faces — reds here.
+        """
+        module = sys.modules[__name__]
+        planned = LETTERING_KINDS & set(_pages_by_kind("book1"))
+        full = recording("book1", arial=True)
+
+        assert planned, "the book plans no lettering kinds at all"
+        assert planned <= kinds_covered_in_their_medium("book1"), planned
+
+        for dropped in sorted(planned):
+            pages = _pages_by_kind("book1")[dropped]
+            with pytest.MonkeyPatch.context() as context:
+                context.setattr(
+                    module,
+                    "recording",
+                    lambda book, arial, _drop=pages: [
+                        call for call in full if call.page not in _drop
+                    ],
+                )
+                context.setattr(module, "stream_recording", lambda book: [])
+
+                covered = kinds_covered_in_their_medium("book1")
+
+                assert dropped not in covered, (
+                    f"removing every face on the {dropped!r} pages left "
+                    f"{dropped!r} covered, so the coverage set is not read "
+                    "off the faces at all"
+                )
+                assert not planned <= covered, (
+                    f"dropping {dropped!r} from the reading left the coverage "
+                    "assertion satisfied, so that kind could stop lettering "
+                    "unnoticed"
+                )
+
+    def test_the_lettering_kinds_partition_the_page_kinds(self):
+        """Review cycle 1's F-003 — an unlisted kind is a failure, not a pass.
+
+        :data:`LETTERING_KINDS` is hand-written, and the coverage assertion
+        intersects it with the book's plan (``LETTERING_KINDS & set(...)``), so
+        on its own a page kind nobody listed would simply drop out of the claim
+        — covered by neither arm and required by nothing. It is complete today,
+        but by accident rather than by derivation, which ADR-0039/R2 does not
+        accept.
+
+        So the two sets are held to **partition**
+        :class:`~nonogram.admin.book_pdf_generator.PageKind`: every kind is
+        either claimed to letter or carries a written reason why it does not,
+        and a new member of the enum fails here until someone files it. That is
+        the control the hand-written set needs; there is no authority in the
+        tree to derive "letters something" from, because what letters is what
+        the writers draw and this file is the independent statement of that.
+        """
+        declared = LETTERING_KINDS | set(NON_LETTERING_KINDS)
+        actual = {kind.value for kind in book_pdf_generator.PageKind}
+
+        assert declared == actual, sorted(declared ^ actual)
+        assert not LETTERING_KINDS & set(NON_LETTERING_KINDS), (
+            sorted(LETTERING_KINDS & set(NON_LETTERING_KINDS))
+        )
+        assert all(NON_LETTERING_KINDS.values()), NON_LETTERING_KINDS

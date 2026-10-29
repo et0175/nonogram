@@ -105,6 +105,22 @@ smaller**, it needs no `pytest.approx`, no `CELL_PITCH_SLACK_MM`, no
 and imports no geometry, so only the right half of the pairing changes, and it
 gets *more* precise by losing `PX_PER_MM` rounding.
 
+<!-- CORRECTED 2026-10-29 (CARD-299 round 1, figures labelled in fix round 1).
+The 4.1x above is real but CONDITIONAL: it assumes the ink arm is DELETED, which
+requires the page to be vector. CARD-299 converted three of this rule's sites
+with all seven page kinds still declared raster, so both arms had to coexist AND
+the stream arm needed its own non-dormancy controls — and the replacement was
+necessarily LARGER. The figures, each labelled by its reading because the same
+diff reads two ways. `git show --numstat eed831ea` reads **261 added / 11
+deleted** for `tests/property/test_book_export_interior.py` and **359 added / 2
+deleted** for `tests/test_book_interior_type_floor.py`; `git show --stat` reads
+**272** and **361** for the same two files, which are added PLUS deleted
+(261+11 and 359+2) and not insertion counts. Round 1's "+272 and +361" quoted
+the `--stat` totals as if they were insertions. The 4.1x becomes available to
+CARD-309, when an arm can
+actually be removed. "No weaker" was demonstrated by mutants and stands. -->
+
+
 **Mixing is permitted per page, and is a stable end state rather than a
 migration artefact.** Each PDF page is its own content stream, so a page that
 turns out not to be worth converting may stay raster — declared, with its reason.
@@ -570,6 +586,86 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     not be used to recover a width the generator stated.
   scope: {code: ["tests/**"]}
   check: {kind: review-lens}
+  # CARD-299 (2026-10-29) was dispatched to flip this check to the planned test
+  # named below and DID NOT, and the refusal is four measurements rather than
+  # caution. CARD-298 refused R1's flip for the same class of reason and was
+  # right; this is the same refusal one rule along.
+  #
+  #   1. **Two of the six sites this comment names are not interior PDF
+  #      readings at all.** `tests/property/test_book_layout.py:364` renders
+  #      through `nonogram.export.png.render_image`, and
+  #      `tests/property/test_book_two_up.py:682` builds a bare `PIL.Image` and
+  #      calls `png._draw_grid` / `png._draw_clues` directly. Neither writes a
+  #      PDF, so neither has a content stream to be asserted against, and both
+  #      are COMP-007's drawing surface — which CARD-299's own G-4 and CON-019
+  #      put outside ADR-0042's reach. A guard built from this enumeration
+  #      would be built from a wrong set.
+  #   2. **The enumeration disagrees with the census by 50x.** Re-derived with
+  #      `meta/profiling/adr-0042-migration-census.md`'s own two regexes on
+  #      main at `4ce84c30`: **34 files, 321 sites**. This comment names 6.
+  #      Both are cited as this rule's authority and they are not the same set.
+  #   3. **The census is stale in the direction that matters.** It records
+  #      **32 files / 315 sites** at `c12c33ce` (2026-10-25); the same
+  #      derivation reads **34 / 321** at `4ce84c30` four days later. The
+  #      migration surface GREW by 2 files and 6 sites during the phase that
+  #      exists to shrink it.
+  #   4. **An idiom count cannot measure "the set is empty".** CARD-299's own
+  #      correct conversion of this comment's three real sites RAISED
+  #      `tests/property/test_book_export_interior.py` from **8 to 13** idiom
+  #      occurrences — the medium-gated helpers and their non-dormancy controls
+  #      are themselves matches — while making the assertions exact. So the
+  #      census idiom count moves the wrong way on a conversion, and a guard
+  #      ratcheting it would red on the work it exists to encourage.
+  #
+  # What CARD-299 landed instead, and why it is the instrument this rule wants:
+  # the three real sites are now read in the medium `page_medium` declares for
+  # the page's kind (bitmap arm = today's assertion, stream arm = R6's exact
+  # one), with a page the classifier cannot classify a FAILURE per ADR-0039/R2,
+  # and with the stream arm proved non-dormant on a real vector page written by
+  # production's own writer. The same shape landed on CON-020's floor check.
+  # That is a RUNTIME property — "this claim was read in the medium its page
+  # was written in" — and it is why a static enumeration over `tests/**` is the
+  # wrong instrument: which page a `getpixel` lands on is not an AST fact.
+  #
+  # Flip this check when a card owns the guard as its subject. **That card is
+  # CARD-312** (cut 2026-10-29 on owner decision, inheriting CARD-299's AC-3
+  # and AC-4 together with the enumeration correction above): a 321-site
+  # surface, a per-site disposition, and the conclusion-keyed device-fact
+  # discriminator below (the `==`-against-a-declared-width versus bracketing
+  # distinction, which is decidable but is a static-analysis card of its own)
+  # are not a sub-item of a reader conversion. CARD-299's G-9 was INVERTED on
+  # the same decision: this lens MUST survive CARD-299, so a later round
+  # "restoring" the flip here is a defect, not a fix.
+  #
+  # TWO THINGS CARD-299 RAISED THAT THIS RULE'S OWN READERS NEED, both
+  # measured, and both wider than round 1 wrote them (review cycle 1, F-001
+  # and F-002):
+  #
+  #   * **CON-020's clue-digit exemption has no counterpart in a content
+  #     stream, on TWO page kinds and not one.** The exemption is keyed on the
+  #     function that draws and a stream records no provenance. Joining every
+  #     exempt face in the spy recording to its page's `PageKind`, the exempt
+  #     sub-floor faces are ('answer', 8.64 pt): **258** and
+  #     ('puzzle', 8.64 pt): **204** — the larger share on the ANSWER page,
+  #     drawn 322x per book through `book_pdf_generator._write_clues`, and
+  #     `book_answer_vector.py:403` calls `draw_clue_digits` so the vector
+  #     answer writer draws them too. So a stream-read floor on either kind
+  #     would report false CON-020 violations, and CON-020's reading refuses
+  #     both kinds — the set DERIVED from `src/` per ADR-0039/R2, not listed.
+  #     The `src/` change that lets the stream mark its clue digits is
+  #     **CARD-314's**, and its scope covers both kinds.
+  #   * **A medium-agnostic READING is not a medium-agnostic reader.** The
+  #     helpers CARD-299 converted take the declarations as they shrink, but
+  #     the modules' own call sites still read an interior through
+  #     `tests/helpers/pdf_pages.py`, which loops every page asserting one
+  #     `DCTDecode` image: measured, lifting one `_RASTER_DECLARATIONS` entry
+  #     makes `pdf_pages` raise `KeyError: b'XObject'`. 12 test modules import
+  #     that reader and CARD-299 converted the readings in 2 of them, so
+  #     **CARD-299 does not finish the reader conversion** — an `expires_with`
+  #     naming it should not be read as saying it does. **CARD-309's AC-3 owns
+  #     the reader surface** ("the 14 modules plus 3 helpers that went through
+  #     `tests/helpers/pdf_pages.py`'s one-image assertion").
+  #
   # PLANNED TEST, owed by the card that converts the last interior pixel reader
   # (see R1's note on why this is a lens and not a dead `kind: test` ref):
   #   tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink
