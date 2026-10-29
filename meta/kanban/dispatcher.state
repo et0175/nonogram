@@ -1351,7 +1351,7 @@ wave_64_opened:
 #     The card body's item 2 contradicts its own G-2; the round followed G-2.
 active:
 - id: CARD-301
-  phase: review cycle 2 of 3 (fix round 1 closed all six findings)
+  phase: MERGED 46e74741 — done, worktree and branch removed
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
   branch_head: 6f721e57
   implementation: "route 2; 4 paths; collection +10 reconciling exactly; 599/1 xfail/0 skip"
@@ -1493,8 +1493,31 @@ active:
     in AC-5; AC-2's "each" softened to "wherever the trim leaves room", because the
     literal was false of the shipping book (10x10 trim: 1 prints, 1 clipped, 2 omitted).
 queued: []
+card_301_done:
+  merge_commit: 46e74741
+  tested_tree: 237018ba
+  at: 2026-10-29
+  gate: "9553 passed / 27 skipped / 1 xfailed / 0 failed, exit 0, 1103.62s; collection 9581 = 9553+27+1 reconciling exactly; rival-pytest 0->0, load 2.65->3.44"
+  ac_gate: "8 passed / 1 xfailed / 0 skipped by node id; deferral scan 0"
+  validator: "0 errors, 107 warnings through forge_1, unchanged. AC-037 no longer mentioned at all."
+  gated_tree_is_what_landed: >-
+    Main had moved one commit since the gate's base, touching only meta/kanban/ and
+    meta/review/ -- nothing under src/, tests/ or pyproject.toml -- so the merge preserved
+    the tested tree rather than a second rebase changing its hash.
+  orchestrator_over_correction: >-
+    Mid-merge the orchestrator read a STALE memory saying the plugin-cache validator was
+    the real one and its "1 error -- ADR-0025 circular supersession" was pre-existing. It
+    told the owner it had "been running the wrong validator all session". THAT CORRECTION
+    WAS ITSELF WRONG. Re-verified: validate.py is byte-identical across installs;
+    adr_integrity.py is the only differing file; the plugin cache counts "supersedes" and
+    "superseded by" as two edges; forge_1 matches only the forward phrase and carries the
+    comment explaining why; the ADR data is one edge stated from both ends. forge_1 was
+    right all along and the honest error count is 0. The root cause was already in
+    backlog.md from CARD-284's fix round 2. Memory reversed.
 owed_at_merge:
   CARD-301:
+  - "trace.yml's NFR-001 row still lists TestGenerate_50x50_RespectsTimeoutBound (AC-038's label), which has NO definition anywhere. That warning was LIVE on main until the orchestrator synced this card's own cycle-1 review report, whose prose quotes the name and so satisfied git grep -lw: 108 -> 107 warnings with nothing repaired. Second measured instance of a review YAML silencing a real finding."
+  - "ADR-0006/R1's check ref TestDependencyBaseline_IsExactlyPillowAndNumpy has ZERO definitions and is text-resolved by 110+ files (backlog-scored.yml, ~107 review YAMLs from CARD-030 to CARD-251, and two prose mentions in tests/). The DEPENDENCY BASELINE -- a mandatory rule CLAUDE.md singles out -- has read as mechanically checked for months on a test that never existed. Found while gating CARD-297; pre-existing, not either card's. Worst instance of the family on this board: the two tests/ mentions alone defeat any meta/review exclusion."
   - "meta/architecture/decisions/adr/0001-...md:23 cites the old path as a node id. Cycle 1: declining this was RIGHT -- decisions/adr/ is outside Touches, it is prose in a dated decision record with no check: key, nothing reads it mechanically. Owe it to a named card."
   - "src/nonogram/orchestrator.py:338 names the path tests/bench_generate.py (present identically on main). G-1 forbids this card to touch src/, so route 2 leaves it true; recorded because the round's seven-reference count could not see it (F-5)."
   - "AC-4's figures are now transcribed onto the card -- that gate reads 'the measurement on the card' and had nothing to read, because the dispatch brief wrongly told the round not to commit under meta/."

@@ -1,6 +1,6 @@
 # CARD-301: NFR-001's 5-second p95 gate has never run — `bench_generate.py` is not a file pytest opens, and its docstring says it is
 
-**Status:** in progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/301-the-bench-file-pytest-never-opens
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-301
+**Worktree:** — (removed at merge)
 **Source:** orchestrator, 2026-10-25, from CARD-294's fix round 1. The guard that round built for its own critical finding (`tests/test_collected_names.py`) found a **second instance of the same family on the day it was written**, in a file belonging to no card. Independently re-measured by the orchestrator before this card was cut.
 **Idea:** —
 **Wave:** 64 <!-- assigned 2026-10-28. HARD contention, not a preference: CARD-301 declares meta/architecture/requirements.yml, and so does CARD-299 at wave 66 (measured intersection: exactly that path), so 66 is excluded. CARD-297 (w64) and CARD-298 (w65) intersect its three files EMPTY, so both are free. 64 chosen because at 0.5d against CARD-297's 1d it does not extend the wave, and because what it restores is a MEASUREMENT -- NFR-001's 5-second p95 gate has never executed, so every wave landing before it ships against an unverified performance threshold, waves 64-67 included. A gate is worth most early. -->
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/bench_generate.py, meta/architecture/requirements.yml, tests/test_collected_names.py, tests/test_nfr001_generation_time.py, meta/architecture/trace.yml <!-- amended 2026-10-29: the new module is the file route 2 cannot be taken without, declared by the round rather than hidden, and accepted by cycle 1 (+1 path, 0 src, 0 pyproject); trace.yml added when cycle 1's F-3 made its repair part of this card -->
-**Review score:** 7.0 cycle 1/3 (not certified; F-1/F-2/F-3 required, fix round 1 running)
+**Review score:** 7.0 → **9.0 cycle 2/3 CERTIFIED** (2 minor, neither gating)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-29
+**Actual:** 0.5d (estimate 0.5d — on estimate)
+**Merge commit:** `46e74741`
 **Blocked by:** —
 
 ## Why this is P1
@@ -443,6 +443,62 @@ docstring's relayed overclaim, caught before hand-back.
 Review cycle 2 is open and owes Step 8f's full campaign — cycle 1 deferred it
 under the cost ladder because the tests it would certify were about to change,
 and they are now stable.
+
+## [Post-merge — merged `46e74741`, and a correction the orchestrator made in the WRONG direction]
+
+**Merge gate (green):** 9553 passed / 27 skipped / 1 xfailed / **0 failed**, exit
+0, **1103.62 s (18:23)**, `rival-pytest 0 → 0`, load 2.65 → 3.44. Collection
+**9581 = 9553 + 27 + 1**, reconciling exactly. Both skip groups attributed:
+**26** × `DATABASE_URL is not set` and **1** × `setrlimit(RLIMIT_AS)` refused by
+this kernel — both pre-existing and both already on record here.
+
+**The gated tree is what landed.** Main had moved one commit since the gate's
+base, touching only `meta/kanban/` and `meta/review/` — nothing under `src/`,
+`tests/` or `pyproject.toml` — so the merge preserved the tested tree rather than
+a second rebase changing its hash and discarding the gate's provenance.
+
+**AC/EC/G gate:** 8 passed / 1 xfailed / 0 skipped by node id (the xfail is
+AC-037's gate, by design). **Deferral scan:** 0.
+
+**Post-merge validator: 0 errors, 107 warnings** through `forge_1`, unchanged.
+AC-037 is no longer mentioned at all — its ref now resolves to a real
+definition — and NFR-001's remaining warning is the `status: partial` one this
+board has twice recorded as misleading (it fires on the status alone, not on a
+missing `tests:` key).
+
+### The orchestrator's own over-correction, recorded because the retraction is the finding
+
+Mid-merge the orchestrator read a **stale memory** saying the plugin-cache
+validator was the one forge executes and that its `1 error — ADR-0025 circular
+supersession` was a real pre-existing finding. It announced to the owner that it
+had "been running the wrong validator all session" and re-measured through the
+plugin cache. **That self-correction was itself wrong.** The root cause was
+already in `meta/kanban/backlog.md`, found by CARD-284's fix round 2 on
+2026-10-28, and re-verified directly here:
+
+- `validate.py` is **byte-identical** across the two installs;
+  `validators/adr_integrity.py` is the only differing source file;
+- the plugin cache matches `supersed(?:es?|ed\s+by)`, counting **"supersedes"
+  and "superseded by" as two separate edges**;
+- `forge_1` matches only the forward phrase and carries the comment saying why —
+  *"the back-pointer … describes the SAME edge from the other end; counting it as
+  a second edge turned every properly two-sided supersession into a cycle"*;
+- the data is a correctly documented one-way supersession, stated from both ends.
+
+**So `forge_1` was right all along, the honest error count is 0, and the figures
+this card reported through it never needed correcting.** The memory has been
+reversed. Cycle 2's N-1 asked for the installation to be *named*, which remains
+right and is now done — naming it is what made the stale instruction visible.
+
+### Owed, outside this card and now measured
+
+`meta/architecture/trace.yml`'s NFR-001 row still lists
+**`TestGenerate_50x50_RespectsTimeoutBound`** (AC-038's label), which has no
+definition anywhere. That warning was live on `main` until the orchestrator
+**synced this card's own cycle-1 review report**, whose prose quotes the name and
+so satisfied `git grep -lw` — 108 → 107 warnings with nothing repaired. Pre-existing
+and not this card's, but it is the second measured instance of a review YAML
+silencing a real finding.
 
 ## Worktree notes
 
