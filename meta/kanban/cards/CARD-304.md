@@ -90,6 +90,16 @@ The three shapes the wave actually produced, in descending tractability:
   not reach a guard written tomorrow"*). If only AC-1 lands, the ref flips for that
   half and the comment says so.
 - **AC-5** (no test retired): collected node-id set loses nothing; additions named.
+  <!-- CONTRADICTED BY HEAD 2026-10-30, cycle 2's F-107, and it is the ONE AC that HEAD
+  literally falsifies. Fix round 1 made a deliberate rename that its own brief prescribed
+  (F-009) and its own discipline line forbade: two `parametrize` ids retired, two added.
+  So the node-id set DOES lose something, and the raw symmetric difference is 2 REMOVED /
+  8 ADDED, not the "6 additions, 0 deletions" the record states -- that figure is
+  net-of-rename. The commit message discloses the rename; the AC and the summary did not.
+  AC-5 is therefore read as: no test retired WITHOUT an accounted successor, and both the
+  raw and the net delta must be stated. Recorded here rather than silently re-worded,
+  because the card whose subject is figures that read true while being false must not
+  carry one in its own acceptance criteria. -->
   **Param ids count.**
 
 ## Guardrails
@@ -202,7 +212,8 @@ file, and a copy would only let two sandbox runs agree about a file neither is j
 
 R4's `check:` flipped to three bare names in R1's shape, all verified to resolve, with
 `--verify-refs` reporting `dead_check_ref: []` post-commit. **R4's statement is untouched**
-(G-1). Census **410 → 439, 0 lost**, all 29 additions named. **Zero skips**, confirmed with
+(G-1). Census **410 → 439, 0 lost**, all 29 additions named — **true of the implementation round,
+and superseded by fix round 1's rename: see AC-5's comment above.** **Zero skips**, confirmed with
 `-rs` printing nothing. Validator 0 errors / 100 warnings.
 
 ## It answered the orchestrator's question by refuting the orchestrator's answer
@@ -469,7 +480,10 @@ because this board has measured a synced review YAML silencing a live dead-ref w
 
 ### Numbers
 
-**Node ids 439 → 445**: 6 additions (the orphan test, the config-ref resolver, and the four
+**Node ids 439 → 445 NET.** Cycle 2 re-derived the **raw** symmetric difference as **2 removed /
+8 added**; the 6/0 below is net-of-rename, which the commit message disclosed and this summary did
+not. Both figures are now stated, labelled. The 6 net additions are (the orphan test, the
+config-ref resolver, and the four
 visibility-control rows), 0 deletions, plus the one rename above. **Zero skips, and that is
 derived** — `-rs` printed no skip section on the class (35 passed), the module (445 passed) or
 the three guard modules (77 passed); the suite-wide **27 is explicitly not confirmed**, because
@@ -492,3 +506,124 @@ down rather than left: it is finding 12, now gone, with six consecutive 445-pass
   criterion and its declared bound, and the edit to CARD-308's frozen census. The round's own
   reason, which I accept: **a fix round that adds instruments should not be the round that
   vouches for them.**
+
+---
+
+## Review cycle 2 — **8.5** (cycle 1: 8.0; `min_improvement: 0.5` met **exactly**)
+
+`meta/review/20261030T120000Z-CARD-304-cycle2.yml`. Reviewed `2583783b` on base `74debef2`.
+Nine findings. **Its verdict was "land it"; the orchestrator overrode that and took fix round 2** —
+see the reason at the bottom of this section.
+
+**What it confirmed, by re-deriving rather than reading:**
+- **F-001's two sentences are true and R4's normative text is untouched.** Replaying cycle 1's
+  *surviving* mutant (the grep given a bad flag) now **reds** `…visible_to_ps[e]` where cycle 1
+  got 29/29 green. G-1: one hunk, **every changed line a `#` comment**, nothing touching
+  `statement:`, `scope:`, `severity:` or `check:`.
+- **`grep -q` really is non-discriminating** — under `-q` the grep child still carries the pattern
+  in its argv, so the fixed branch finds it legitimately; only the bad-flag form leaves no child.
+  **Fix round 1's correction to the committed cycle-1 report stands.**
+- **`_children_of` survives embedded whitespace, structurally**: `split(maxsplit=2)` with the
+  command column last cannot shift; multi-space runs come back byte-identical to `ps -o command=`;
+  a 1034-char argv was untruncated through a pipe; right-aligned pids are eaten by `str.split`.
+  Truncating the argv and dropping the parentage filter both red.
+- **CENSUS/DEFINED is exactly three in, zero out** — re-derived independently by running CARD-308's
+  own `_declared_refs()`/`_verdicts()` against out-of-tree archives of both commits; all three in
+  DEFINED with `def` lines. **G-2 intact (23 passed), and its counterfactual confirmed**: naming
+  the three refs in that file **reds G-2**, so the unnamed form was necessary, not stylistic.
+  Updating the frozen baseline was right — it went red and *forced* the derivation.
+- The **≥2 orphan floor is right and tight** (child count exactly 2 over 12 trials), and the orphan
+  claim re-derives from a pre-fix archive: **five before, zero after.**
+- Sandbox deselect **11 of 35, 24 participating**; comparison **127 passed**; validators **100 WARN
+  / 0 ERROR**, `dead_check_ref: []`, `unparseable_sources: []`.
+
+### The four findings that decided the override
+
+**F-101 (high) — a row that cannot red, and the mechanism nobody had named.**
+> **BSD `pgrep` excludes the invoking process *and all its ancestors* unless `-a`.**
+
+So the test's own runner — always a real `-m pytest`, which the prescribed cell counts (it reads 2
+from inside a run) — is **invisible to every pgrep form in the list**, and half (1) of fix round 1's
+new criterion is **structurally incapable** of reddening on the `[pgrep -f]` row. Proved both ways
+with the same stale instrument: **killed by half (2) alone while CARD-306's gate was live**, naming
+its pids; **survived at 2 passed on a quiet host.** So the declared bound — *"half (1) carries the
+row either way"* — **is false for that row**, and the docstring says otherwise. Half (1) *is* real
+for the `-fc` row.
+
+**F-104 (medium) — F-005's failure mode re-entered through the F-004 fix.**
+`test_a_probe_leaves_no_orphan_behind` **measures a wait, not a kill**: with
+`start_new_session=False` on one site it still **passed**, in **65 s against ~5 s**, because
+`proc.wait(timeout=60)` waits the probes out. With all six sites, **the 120 s hang guard fired —
+15 dots, no summary line** — *exactly* the no-verdict mode F-005 was raised to remove, because
+`_kill_group`'s 60 s wait multiplies by up to 24 spawns in one fixture node. **The exposure was
+moved, not shrunk.**
+
+**F-103 (medium) — `_is_a_shell` is hand-written, permissive by default, uncontrolled, and never
+exercised.** `/etc/shells` exists, has **7 entries, and all 7 agree with the heuristic** — so
+deriving it changes no present answer and makes the set checkable, which is what ADR-0039/R2 asks
+for (mandatory, `tests/**` in scope). False negatives measured: `env zsh`, `/usr/bin/env sh`,
+`/bin/bash-5.2`, a shebang wrapper; false positive `/usr/bin/ssh`. **Its mutant does not red** —
+`return False` leaves 35 passed; only `return True` reds — so it is controlled **only in the
+harmless direction**, and its default on an unrecognised shape is a **silent pass in exactly the
+direction F-001 was about**. And 12 trials × 30 polls showed the case-(e) child set constant: zsh's
+pre-exec window **never appears**, so the guard is never exercised.
+
+**F-102 (medium) — the native reimplementation is faithful today and has no control.** Zero
+divergences against the awk over every live `ps` row and a 20-case corpus — but **the awk is read
+from `config.yml` at runtime while the two halves are frozen in Python and nothing compares them**,
+and `_is_a_real_pytest_run` → `return False` **survives**. The project's `mask_runs` precedent is
+cross-checked from the test tree; this copy is not.
+
+### Five carried figures measured wrong, two of them mine
+
+1. **"439 → 445, 6 additions, 0 deletions"** is **net-of-rename**; raw is **2 removed / 8 added**.
+   Corrected above, with AC-5.
+2. **"each new instrument carries a mutant that reds it"** is **false** for `_is_a_shell` and
+   `_is_a_real_pytest_run` — and the orphan test's own subject escapes its coverage.
+3. The **class cost band 5.3–5.8 s / 6.2–6.7 s** is exceeded in **both directions one day old**:
+   4.95/4.99/5.31 s session and 5.54/5.61/6.51 s wall quiet; 5.64/5.87/5.96 and 6.65/6.74/7.13 with
+   a sibling gate live. **The class figure never got the domain treatment the module figures got.**
+4. The **module band 37.6–39.0 s** measured 37.28 / 38.62 / 39.09 / **40.30** s — outside at both
+   ends. (445 passed, 0 skips, every run.)
+5. `config.yml`'s **"reading 3 against a true 1"** is **not reproducible**: 2 vs 1 with a gate live,
+   1 vs 0 quiet. **Contention-dependent, no domain stated.** The *argument* stands; the figure does
+   not.
+
+### F-105 — the silencer, measured on this card rather than feared
+
+The rename's orphaned name is **inert today**: 0 `def` lines, spelled in exactly one tracked file
+(the cycle-1 YAML), absent from the census, never named by R4. But with that dead name planted into
+R4's `check:` list, the result is **`[]` while the cycle-1 YAML is present, and the warning appears
+the moment that one file is moved aside.** This board's known mechanism, now demonstrated.
+CARD-319 owns the resolver.
+
+### Process
+
+**CARD-306's merge gate took the lock at 21:34:29Z mid-cycle**, and CARD-255's foreign-holder guard
+collapsed **every worktree run to 0 collected tests** — *a 0-collected run is not a green run*, and
+the reviewer recognised it rather than banking it. Work moved to an out-of-tree `git archive` with
+blob hashes recorded, labelled by phase. **That interference is also what made F-101's both-ways
+measurement possible**: the stale instrument could only be shown killed *while a sibling gate was
+live*. Twelve mutants, all out of tree, blobs restored to the commit's own hashes, no `git stash`
+(list still 4), no orphans left behind.
+
+**One instrument defect of the orchestrator's, before the sync.** My own pre-sync dead-ref check on
+this YAML reported **26 of 26 symbols dead**, because I wrote `\b` in a BSD ERE pattern, where it is
+undefined and silently matches nothing — **the single trap I have put in every brief today.**
+Re-run with a proved instrument (positive and negative control stated): **7 apparent dead, all 7
+artefacts of my own over-broad regex** — module *paths* (`test_suite_profile`,
+`test_check_ref_resolution`), `config.yml` **keys** (`test_command`, `test_scope`, which are the
+card's own negative control and *must not* resolve), a line-wrapped class fragment, the
+`pytest_configure` fragment, and a prose placeholder. **Zero genuine dead refs**, so the sync is
+safe — and the over-broad shape is the same one fix round 1 had already had to narrow in the card's
+own resolver.
+
+- [Review 2/3] Score: 8.5 ✓ threshold reached, improvement +0.5 (min_improvement met exactly)
+- [Fix 2] **Dispatched against the reviewer's own "land it" verdict.** Four instruments in this card
+  are blind, uncontrolled, or both: a row that cannot red on a quiet board, a guard whose permissive
+  default is uncontrolled and never exercised, a predicate with no control and no cross-check, and a
+  test that measures a wait instead of a kill while re-entering the hang-guard mode F-005 removed.
+  **This is the card whose entire purpose is to stop figures whose instrument cannot distinguish
+  "the quantity is zero" from "the instrument is blind."** Landing four of those from this card
+  would be the same mistake as shipping the false ADR sentence fix round 1 was dispatched to repair.
+  Cycle 3 remains.
