@@ -2807,3 +2807,49 @@ def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:
     for source in sorted(assembler.PLAYER_FILES):
         text = (PLAYER_DIR / source).read_text(encoding="utf-8")
         assert assembler.ANALYTICS_MARKER not in text, source
+
+
+def test_the_counting_snippet_goes_in_once_and_refuses_anything_else() -> None:
+    """Card item 3 — "include-once across all player pages", held both ways.
+
+    ``test_assembled_site_is_self_contained`` holds the positive half on the
+    real tree (one ``data-goatcounter`` per published page, and the snippet is
+    the whole difference between the counted and uncounted trees). What is
+    held here is every way the injection must REFUSE, because each one is a
+    way the deployed site ends up counting somewhere
+    ``docs/deploy/player.md`` does not name — and a scan after the fact is a
+    worse place to catch that than the one line that writes it.
+
+    Four refusals, and the second is the one "include-once" actually needs:
+    the marker is the ATTRIBUTE and not a URL, so a second injection with a
+    *different* endpoint is refused too. A marker that varied with the
+    endpoints would have admitted exactly that.
+    """
+    inject = assembler.with_analytics
+    count, script = ALLOW_RUNTIME["count"], ALLOW_RUNTIME["script"]
+    page = "<html><head><title>t</title></head><body></body></html>"
+
+    once = inject(page, count=count, script=script)
+    assert once.count(assembler.ANALYTICS_MARKER) == 1
+    assert once.count("</head>") == 1
+    assert count in once and script in once
+    # Before </head>, so the tag is in the head and nothing after it moved.
+    assert once.index(assembler.ANALYTICS_MARKER) < once.index("</head>")
+    assert once.replace(
+        assembler.ANALYTICS_SNIPPET.format(count=count, script=script) + "\n", ""
+    ) == page
+
+    with pytest.raises(ValueError, match="already carries"):
+        inject(once, count=count, script=script)
+    # The same page, a DIFFERENT endpoint: still refused, which is what the
+    # attribute marker buys over a URL one.
+    with pytest.raises(ValueError, match="already carries"):
+        inject(once, count="https://elsewhere.example/count", script=script)
+    with pytest.raises(ValueError, match="not an https URL"):
+        inject(page, count="http://insecure.example/count", script=script)
+    with pytest.raises(ValueError, match="not a bare URL"):
+        inject(page, count=f'{count}" onload="x', script=script)
+    with pytest.raises(ValueError, match="cannot be counted exactly once"):
+        inject("<html><body>no head at all</body></html>", count=count, script=script)
+    with pytest.raises(ValueError, match="cannot be counted exactly once"):
+        inject(page + page, count=count, script=script)
