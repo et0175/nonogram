@@ -131,3 +131,126 @@ FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
 ## Worktree notes
 
 —
+
+## [Implementation round 1 — 2026-10-29. The three unverified claims now have tests, and the counting had to move to assembly time.]
+
+Branch `card/285-player-hosting-and-counting` @ **`af160fd5`**, three commits on the
+cut `464ae377`, tree clean, nothing under `meta/` touched. **6 files, +1583/−25** —
+`docs/deploy/player.md` (new, 187), `scripts/assemble_player_site.py` (new, 238),
+`player/assemble.py` (+147), `player/play.html`, `scripts/README.md`,
+`tests/test_public_player_pages.py` (+986).
+
+### The decision the whole card turned on, and it was forced
+
+**Item 3's counting snippet collides head-on with CARD-283/284's own controls**, and
+`player/play.html`'s existing comment predicted it. **Verified by the orchestrator:
+four shipped browser tests assert that every request the page issues is
+same-origin** — `test_resume_is_local_and_the_page_writes_nowhere`,
+`test_no_write_request_for_any_interaction`,
+`test_the_page_carries_no_answer_and_no_third_party_asset`,
+`test_the_listing_pages_only_get_and_write_nothing` — three of them by the literal
+`assert all(request.startswith(url + "/") …)`.
+
+A GoatCounter tag hard-written into `player/*.html` is **cross-origin**, so it would
+have red all four — and AC-390's load-bearing word **"unchanged"** would have been
+false by the round's own hand.
+
+**Resolution: the snippet is injected at assembly time, default-off.**
+`ANALYTICS_SNIPPET` is the one copy of the tag anywhere in the repo, with
+`--analytics-count` / `--analytics-script` both-or-neither and
+`AssembleReport.counted`. With no flags — every fixture, every local run — no tag is
+written. The card's own wording supports it: *"the pages must render fine with it
+blocked **or absent**"*.
+
+**The residual is declared, not hidden**, and turned into an assertion: CARD-283/284's
+no-egress controls therefore measure the **uncounted** tree, so AC-390 asserts the
+byte difference between the counted and uncounted trees is **exactly the snippet
+line, in exactly the pages `report.counted` names, and nothing else.** Widen what
+counting does and that assertion reds.
+
+**Measured consequence: CARD-283/284's Playwright suites pass unchanged** — 59 passed
+before the first line, 59 of 66 after, no suite body edited.
+
+### The three ACs, and the gap they close
+
+| AC | node id | at the cut | now |
+|---|---|---|---|
+| AC-390 | `…::test_assembled_site_is_self_contained` | **0 resolvers** | `def` at `:2299` |
+| AC-391 | `…::test_pages_work_with_analytics_blocked` | **0 resolvers** | `def` at `:2454` |
+| AC-392 | `…::test_no_homegrown_tracking` | **3, all review YAMLs** | `def` at `:2548` |
+
+Re-measured by the orchestrator under the validator's own pathspec. AC-392's three
+resolvers were CARD-218 cycle 1 and 2 and CARD-284 cycle 1 — **the board's one true
+false alive, and it is gone.** This also closes **two of CARD-307's three honest
+gaps**; CARD-307 was not edited.
+
+Runs: both player modules **66 passed, 0 skipped**; `-m browser` **22 passed, 44
+deselected** with **no Chromium skip** — `browser_type` calls
+`pytest.fail(pytrace=False)` on a missing executable, so a missing browser is red
+rather than an ungated door. Node ids **9748 → 9755, +7 / −0**. Mutants **7 of 7
+killed**, no survivors, instrument proved on an unmutated tree first.
+
+### Two false positives the scanner found on the real tree
+
+Both findings about the scanner rather than the site, and both worth keeping:
+`_IMPORT_TARGET` matched **English prose** in `player.css` (*"reads differently
+from"* + a newline + a quoted phrase), and `solver_state.js:6` documents the admin
+panel's own path inside a `//` comment — a rooted path that exists in the panel and
+not in this tree, which is exactly what "resolves to nothing" is for. Comment forms
+are now blanked before the quoted shapes are read, while `_ABSOLUTE_TARGET` runs on
+the **unstripped** text so a full URL parked in a comment is still a finding.
+
+A third correction worth recording: Chromium's text for an aborted subresource is
+`"Failed to load resource: net::ERR_FAILED"` and **names no URL**, so a text-only
+exemption would also have absorbed a failed load of a *page* asset — the one thing
+AC-391 must not excuse. The handler records `(text, location.url)` and exempts by the
+located URL.
+
+### Where it disagrees with the card, measured
+
+**AC-392's "the only analytics endpoint" is singular and the integration is two
+origins** — the count endpoint and the script host `gc.zgo.at` — plus a pre-existing
+third external reference that is not analytics at all: `player/vercel.json`'s
+`$schema` → `openapi.vercel.sh`, the only absolute URL in the player tree at the cut.
+**A scanner enforcing "one endpoint" would have red on a file CARD-283 shipped.** So
+the doc carries two allow-list blocks, runtime (2) and non-runtime (1, declared as an
+editor hint nothing fetches), and the scan is held to their union. The AC's intent is
+met; its count is not literally satisfiable. **AC-392's wording is owed an
+amendment.**
+
+**`scripts/impact_set.py --base 464ae377` returns `FULL`** — measured, not guessed:
+`player/` is not in its `KNOWN_ROOTS` (`src/ tests/ meta/ docs/ scripts/
+migrations/`), and an unmodelled path returns FULL by design. **Fail-closed, not a
+defect**, but it means this card has no narrowed impact set and the merge gate is the
+only full reading.
+
+**One existing test was edited and it had to be**:
+`test_the_registrys_refs_for_this_file_resolve_or_are_card_285s` — CARD-284's
+ref-bookkeeping test, which **asserted the three CARD-285 refs were absent**
+(`assert refs - defined == card_285`). It could not survive this card landing. No
+Playwright suite body was touched.
+
+### Corrections to the orchestrator's brief
+
+- **The brief's "57 tracked files" for ADR-0006/R1's ref: mine reproduces, the
+  round's 53 does not.** Settled: all tracked **80**, under the validator's pathspec
+  **57**, non-Markdown-only **57**, `*.py` **1**. The round's sharper point stands —
+  that single `.py` hit is **prose, not the definition**.
+- **The round's qualifier on AC-390/391's "zero resolvers" is unnecessary**, though
+  honestly flagged as unverified: the validator excludes `meta/architecture`, so
+  `requirements.yml` and `trace.yml` do not resolve, and `CARD-285.md` is `.md`.
+  Zero is right.
+- **The `setrlimit` skip is at `:1297`** — `:1296` is the `if verdict != "bites":`
+  guard. The brief had it wrong, twice now.
+- **Card item 4's instruction to "note on CARD-210" is a `meta/` edit** the brief
+  forbids. Correctly not done and reported instead.
+
+### What CARD-210 now has, and what it still lacks
+
+`docs/deploy/player.md`'s `qr-url-shapes` block is machine-readable and **held to
+`vercel.json`'s rewrite sources** — the authority a host actually routes by — by
+`test_the_qr_url_shapes_here_are_the_shipped_routes`. The reasoning is the right one:
+**a QR code printed in a book cannot be fixed by a redeploy.** What is still missing
+is the **base**, explicitly marked `TODO(owner), NOT observed`. CARD-210's remaining
+blocker is one owner action: create the Vercel project and write the domain into that
+one line. **CARD-210 was not flipped** (G-4).
