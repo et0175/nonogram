@@ -90,9 +90,16 @@ as the one that removes them.
   the edge: the last kind converted, and a kind converted while its declaration is
   left behind.)
 - **AC-3** (the readers survive): *Given* the converted interior, *then* every test
-  module that reads a book interior passes — the 14 modules plus 3 helpers that
-  went through `tests/helpers/pdf_pages.py`'s one-image assertion before CARD-299
-  converted them. A module that needs a further edit here is a **finding about
+  module that reads a book interior passes — the **12 test modules** that import
+  `tests/helpers/pdf_pages.py`'s one-image reader. <!-- CORRECTED 2026-10-29 by
+  CARD-299's fix round: this said "14 modules plus 3 helpers", which was the
+  orchestrator's figure and does not reproduce. Measured: 18 files MENTION the
+  string, 14 import something from the helper, and only 12 import the one-image
+  reader itself -- `tests/helpers/book_corpus.py` imports only `pdf_page_count`
+  (which asserts nothing about images), `tests/test_book_toc.py` only `same_page`,
+  and `tests/property/test_book_pdf_geometry.py` imports it ZERO times, matching a
+  grep only because THREE OF ITS NODE IDS END IN `_pdf_pages`. A mention count is
+  not a reader count. --> A module that needs a further edit here is a **finding about
   CARD-299's completeness**, to be raised, not absorbed.
 - **AC-4** (the baselines move once, enumerated): *Given* the branch, *then* the
   re-recorded baselines are listed file by file in the card, the count is stated,
@@ -203,3 +210,33 @@ conditional skip would be an ungated door. **It is now carded as CARD-310**, whi
 also decides the general pattern: a card's *name* is a structural fact that may be
 walked from `tests/`, a card's *status* is a board-time fact that may not. Raise
 anything CARD-310 has not covered rather than absorbing it.
+
+## [CARD-314 is a PREREQUISITE for the puzzle page, added 2026-10-29]
+
+CARD-299's round measured the thing that makes this ordering non-negotiable. On a
+real vector puzzle page written by `BookPDFGenerator.vector_puzzle_page`:
+
+```
+Tf operators: 205     distinct sizes (pt): [8.64, 14.16]     below the 10 pt floor: [8.64]
+```
+
+**The 8.64 pt faces are exactly the ones CON-020 exempts — and a content stream
+records no provenance.** CON-020's exemption is keyed on the *drawing function*
+(`_draw_clues` / `_write_clues`), so a stream-read floor cannot tell an exempt clue
+digit from body type. CARD-299's guard therefore **refuses a vector puzzle page by
+name**, which is correct and is a hole with a date on it: **the day this card
+converts the puzzle page, CON-020 has no verifying reading for it.**
+
+That is worse than a warning. **CON-020 is a `status: covered` row in `trace.yml`
+whose `tests:` list `_check_covered_tests` actually reads, and its gate 3 — a listed
+test with no definition — is `Severity.ERROR`.**
+
+**So CARD-314 lands before this card converts the puzzle page**, not after. It is the
+one card in the phase that touches `src/`, and it exists to make the conversion safe
+for CON-020 by marking the clue digits in the stream so the exemption survives **by
+its mark, never by its size** — exempting 8.64 pt by value would exempt any body face
+that happened to measure 8.64 pt.
+
+**If this card converts the puzzle page with CARD-314 unlanded, raise it rather than
+proceeding.** Converting the other four kinds first is a legitimate order; converting
+the puzzle page is not.

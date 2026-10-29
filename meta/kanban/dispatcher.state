@@ -1950,3 +1950,646 @@ done_in_wave_65:
 - id: CARD-298
   merge_commit: 1fd39bb1
   score: "8.5 cycle 2/3"
+
+# ---- CORRECTION to the wave-66 opening block above (2026-10-29) ----
+# That block recorded CARD-307's premise as "469 verifying refs, 33 in node-id
+# form". BOTH figures are wrong and the correction came from CARD-308's own round,
+# not from the orchestrator. The census had omitted `trace.yml`'s `tests:` lists --
+# 510 refs, the LARGEST of the four authorities -- and over-counted node-id forms
+# with a loose regex. Re-derived from all four authorities:
+#     580 distinct refs; 23 in node-id form; 557 bare.
+#     Of the 23: 20 resolve in their own module, 3 have no definition, and 0 are
+#     reported dead while a definition exists.
+# So CARD-307's live scope is SEVEN refs, not thirty -- 3 undefined (2 of them
+# honestly dead with no resolver at all, which is the CORRECT state) plus 4 that
+# are defined and resolved only from outside their own module. Twenty resolve
+# because three earlier cards landed docstring tables incidentally.
+# ESTIMATE re-scoped 1d -> 0.5d on the owner's instruction, and the card RETITLED
+# on the owner's instruction: the retired title carried a figure and went stale
+# within a day, so the replacement names the mechanism and no number.
+# NOTE ON THIS FILE: no ref or test name is written in this block, deliberately.
+# CARD-308's round measured that `dispatcher.state` has no .md extension and so
+# sits INSIDE the validator's search domain -- naming a ref here makes it read as
+# alive. Two names written here earlier are the reason that rule now exists.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+card_307_rescope:
+  at: 2026-10-29
+  estimate: "1d -> 0.5d"
+  retitled: true
+  by: owner decision
+  live_scope_refs: 7
+  census: "580 distinct refs over four authorities; 23 node-id form; 20 of those resolve"
+  superseded_figures: "469 refs / 33 node-id form -- both wrong; trace.yml's tests: lists were omitted entirely"
+
+# ---- ACTIVE LIST CORRECTED + CARD-285 DISPATCHED (2026-10-29) ----
+# BOOKKEEPING ERROR, the orchestrator's: when CARD-299 was dispatched its card
+# file and board.md were updated but THIS FILE'S `active` list was not, so the
+# live state said one card in flight when two were. Found while checking slots
+# for CARD-285. Both are restated below.
+#
+# SLOT CAP DELIBERATELY EXCEEDED, on the owner's instruction "dispatch 285":
+# this is THREE cards in flight against max_concurrent_override 2. Recorded as a
+# decision rather than an accident. What makes it tolerable:
+#   - CARD-285's Touches intersect BOTH in-flight cards EMPTILY (player/**,
+#     scripts/**, docs/deploy/player.md, tests/test_public_player_pages.py vs
+#     adr/0042 + requirements.yml + six book modules, and adr/0039 + one new
+#     test module). No shared path, no shared hotspot.
+#   - it is 0.5d, the smallest card in flight.
+# What it costs, stated because it is real: the full-suite lock is SCOPE-BLIND,
+#   so whichever card reaches a merge gate first stalls the other two for ~20
+#   minutes, and tests that spawn a nested pytest FAIL rather than wait (nine
+#   did during CARD-298's gate). Three concurrent rounds also mean more load on
+#   an 11-core box already running at 7-11.
+#
+# WHY THIS CARD, now: the owner asked whether the player could be deployed
+# independently. Measured answer: yes -- player/assemble.py is a standard-library
+# -only site assembler that emits a self-contained tree including its host's
+# rewrites, and no admin route serves the player. BUT the three acceptance
+# criteria that would PROVE it (self-contained output, pages working with
+# analytics blocked, no visitor IP touched) are the three with no test at all --
+# two honestly dead, one alive only through review reports. CARD-285 closes
+# exactly those three, writes docs/deploy/player.md (absent today; only the
+# admin panel's render.md exists), and delivers the URL base CARD-210 is blocked
+# on. Note the limit: creating the Vercel account and domain is the OWNER's
+# action, so this card delivers the artifact, the script, the doc and the tests
+# -- not a live site.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: implementation complete, awaiting review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  branch: card/308-the-sync-erodes-dead-ref-detection
+- id: CARD-299
+  wave: 66
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  branch: card/299-interior-claims-read-the-stream
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+  branch: card/285-player-hosting-and-counting
+  estimate: 0.5d
+queued: [CARD-307]
+
+# ---- CARD-299 to REVIEW CYCLE 1 (2026-10-29) ----
+# Narrowed first, on the owner's decision, so the cycle judges the corrected
+# contract and not the one round 1 refused:
+#   G-9 INVERTED -- R6's lens must now SURVIVE this card, so flipping it is a
+#     defect rather than a deliverable. Inverted rather than dropped because the
+#     reason is load-bearing and a later round must not "restore" the flip.
+#   AC-3 re-homed to CARD-312 VERBATIM, not weakened.
+#   AC-5's "smaller" struck with its measurement; "no weaker" stands.
+#   items 3 and 5 are CARD-312's and CARD-313's.
+# The reviewer is told explicitly that flagging "R6 was not flipped" or "AC-3 is
+# unmet" means it is reading the pre-narrowing card.
+#
+# Three cards cut from the refusals, all on owner decision: CARD-312 (R6's guard
+# from a corrected enumeration, owning the flip), CARD-313 (the memory-file
+# rewrite, depending on CARD-309 rather than this card), CARD-314 (the clue-digit
+# provenance in the stream -- P1, the only card in the phase that must touch
+# src/, and a PREREQUISITE for CARD-309's puzzle page rather than a follow-up,
+# because CON-020's trace row is status covered and its gate 3 is ERROR-level).
+#
+# TWO ORCHESTRATOR ERRORS the round caught, both recorded on the card and
+# flagged in the review brief as already-corrected so they are not re-reported:
+#   1. the dispatch brief said "a rename is expected here", which CONTRADICTS
+#      this card's AC-1 ("both node ids preserved") and AC-6. The round followed
+#      the card. Consequence: no ref died, CON-020's row needed no re-stamp, and
+#      the ERROR-level gate-3 hazard the brief warned about was never armed --
+#      the warning was sound in principle and predicated on a rename the card
+#      forbids.
+#   2. the appended FINDING 3 was stale: CARD-298's fix round had already
+#      retargeted all five expiry values to name CARD-309 as well, and the
+#      paragraph was never revised when that landed.
+#
+# AND A BOARD ERROR OF MINE, fixed the same day: the header claimed 265 done /
+#   39 ready / 2 in progress when the truth was 266 / 40 / 1. I had just
+#   introduced a set check and it PASSED -- because I re-derived the Ready set
+#   and took done and in-progress from arithmetic, and those were exactly the two
+#   that moved when CARD-298 merged. Every column is now asserted as a set
+#   against the card files before any tally is written. Same family as the
+#   rival-pytest counter: a number that agrees is not a measurement that agrees.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: implementation complete, awaiting review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+cards_cut_from_card_299_refusals: [CARD-312, CARD-313, CARD-314]
+board_tallies_set_checked:
+  at: 2026-10-29
+  derived: "266 done, 41 ready, 3 in progress, 1 parked, 2 blocked = 313"
+  method: "every column asserted board_set == files_set per column; no count carried forward"
+
+# ---- CARD-308 to REVIEW CYCLE 1 (2026-10-29) ----
+# Branch 19bc968b, 4 commits off f64112f2, 2 files +1249: an ADR-0039 section
+# and tests/test_check_ref_resolution.py. Nothing under meta/kanban on the
+# branch, which is correct -- AC-1's config key could not land there because
+# /commit excludes meta/, so the orchestrator applied `architecture_validator`
+# to main on the round's behalf after re-verifying its claims (validate.py
+# byte-identical between the two validator copies; validators/adr_integrity.py
+# the only differing SOURCE file). The reviewer is told AC-1 is closed
+# off-branch so it is not reported as unmet.
+#
+# THE HAZARD THIS CARD IS ABOUT APPLIES TO ITS OWN REVIEWER, and the brief
+# leads with that: meta/review is not excluded from the resolver, so a review
+# report that spells a whole path::name revives that ref -- measured four times
+# now, by four routes, one of them this file and one of them the round's own
+# report. The reviewer is instructed not to spell a dead ref's whole string, to
+# use a device that the loose search cannot match, and to SAY IN THE YAML which
+# device it used. A report that revives a ref while reviewing the card about
+# refs being revived is the defect eating its own reviewer.
+#
+# WHERE THE BUDGET IS POINTED, in order:
+#   1. the self-check cell that must prove the module revives nothing -- the
+#      subtlest property here. The round got it right only after finding that
+#      routing the check through the tracked-file pass made it pass VACUOUSLY on
+#      a new file, because git ls-files cannot see an untracked one. Its
+#      truncation device is also to be verified against git grep itself rather
+#      than reasoned about, specifically against a prefix collision.
+#   2. whether count+digest pinning is a measurement or a tripwire that will be
+#      bumped, and whether repair-vs-signal-loss is ENFORCED or only written
+#      down.
+#   3. the loose resolver's prefix bug -- its trie bound `?` to one character and
+#      SILENTLY emptied three refs' hit sets, found only by diffing against a
+#      second implementation. A loose resolver that under-reports makes every
+#      class figure wrong in the safe-looking direction, so the control for it is
+#      the most important thing in the diff.
+#   4. AC-3's edge mutant, which first SURVIVED VACUOUSLY because the mutated ref
+#      dropped out of its own set -- and whether any other cell can still pass
+#      that way, which is a shape rather than a one-off.
+#
+# CENSUS DISAGREEMENT TO RECONCILE: the round derives 576 distinct refs from the
+#   four authorities; the orchestrator, deriving independently, got 580. Both
+#   agree on the shape and on 23 node-id refs. Whichever is wrong, the partition
+#   counts inherit it, so the reviewer is asked to find the parsing difference.
+#
+# CREDITED RATHER THAN RE-FOUND: the round caught its own overstatement with its
+#   own assertion -- it claimed three refs were review-resolved and nothing else,
+#   asserted >= 3, and it RED AT 2 because a third module's table carries one.
+#   Commit 19bc968b is that correction. ADR-0039/R1 landing on the card's own
+#   work. It also flagged one unreproduced kill_matrix LeakedPatch rather than
+#   burying it.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  implementation_head: 19bc968b
+  ac_1_closed_off_branch: "architecture_validator applied to main by the orchestrator; /commit excludes meta/kanban from card branches"
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+
+# ---- CARD-285 to REVIEW CYCLE 1 (2026-10-29) ----
+# Branch af160fd5, 3 commits off 464ae377, 6 files +1583/-25. All THREE cards in
+# flight are now at review cycle 1 or past it; nothing is at implementation.
+#
+# HOST CONDITION recorded because it affects how the report should be read:
+#   load 22.25 on 11 cores with two other review cycles running. The brief tells
+#   the reviewer that a slow test is probably contention, not the card, and that
+#   hang_guard's 120s per-test ceiling _exit()s the session -- so re-measure
+#   before attributing. No lock was held at dispatch.
+#
+# WHAT THE ROUND DELIVERED, and the decision it was forced into: the card's
+#   counting item collides with CARD-283/284's own controls. Verified by the
+#   orchestrator -- FOUR shipped browser tests assert every request the page
+#   issues is same-origin, three by the literal startswith(url + "/"). A
+#   GoatCounter tag hard-written into the pages is cross-origin and would have
+#   red all four, making AC-390's load-bearing "unchanged" false by the round's
+#   own hand. So the snippet is injected at ASSEMBLY TIME, DEFAULT-OFF, and the
+#   residual is declared rather than hidden: the no-egress controls now measure
+#   the UNCOUNTED tree, with AC-390 asserting the byte difference between the
+#   counted and uncounted trees is exactly the snippet line in exactly the pages
+#   the report names.
+#
+# THE THREE REFS ARE CLOSED. Re-measured under the validator's own pathspec at
+#   the cut: AC-390 and AC-391 had ZERO resolvers, AC-392 had THREE and all three
+#   were review YAMLs -- the board's one true false alive. All three now resolve
+#   to real def lines. This also closes two of CARD-307's three honest gaps
+#   without CARD-307 being touched.
+#
+# WHERE THE REVIEW BUDGET IS POINTED:
+#   1. whether the counted-vs-uncounted byte assertion genuinely CONSTRAINS, and
+#      whether "the deployed tree is never the tested tree" is adequately covered
+#      or is itself a finding -- no browser test loads the counted tree with
+#      counting on except AC-390's own;
+#   2. the ONE existing test the round had to edit -- CARD-284's ref-bookkeeping
+#      test, which asserted the three refs were ABSENT and could not survive the
+#      card landing. The question is whether the edit KEPT ITS TEETH: can it still
+#      catch a fourth undefined ref, or was it narrowed into silence;
+#   3. the scanner's declared/derived split -- 22 declared identifier regexes as a
+#      trip-wire, with the DERIVED half being a closed egress set. Whether that
+#      satisfies ADR-0039/R2 or is a denylist wearing a derivation's clothes, and
+#      whether the bound is stated where a reader meets the claim;
+#   4. the comment-stripping asymmetry: a full URL in a comment is caught, a
+#      rooted path in a comment is not.
+#
+# MEASURED, AND IT CONSTRAINS THE GATE: scripts/impact_set.py --base 464ae377
+#   returns FULL, because player/ is not in its KNOWN_ROOTS and an unmodelled
+#   path fails closed by design. So this card has no derivable narrow impact set
+#   and the merge gate is the only full reading.
+#
+# ONE FIGURE OF MINE THE ROUND GOT WRONG, and one it got right: the 57-file
+#   figure for ADR-0006/R1's ref reproduces exactly under the validator's
+#   pathspec (all tracked 80, pathspec 57, *.py 1) and the round's 53 does not --
+#   but its sharper point stands, that the single .py hit is prose and not the
+#   definition. And it is right that the setrlimit skip is at :1297; my brief has
+#   now had that wrong twice.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  implementation_head: 19bc968b
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+  implementation_head: af160fd5
+  impact_set: "FULL -- player/ is not in impact_set.py's KNOWN_ROOTS, so the merge gate is the only full reading"
+queued: [CARD-307]
+
+# ---- ALL THREE CARDS TO FIX ROUND 1 (2026-10-29) ----
+# Every in-flight card had a review cycle and none certified. All three fix
+# rounds dispatched together; their Touches intersect emptily.
+#   CARD-299  7.5  two gating
+#   CARD-308  7.5  one gating
+#   CARD-285  7.0  three gating, all with a reviewer-verified green fix
+#
+# Each cycle found something the card itself claimed and could not do, and in
+# two cases the claim was the load-bearing half of the argument:
+#   CARD-299: the clue-digit refusal is keyed on ONE page kind while the exempt
+#     sub-floor faces live on TWO -- 258 on answer pages against the puzzle
+#     page's 204, with the vector answer writer drawing them too. And the
+#     diff's own central prose claim is falsified by its own call site, which
+#     routes through a reader asserting one image per page.
+#   CARD-308: the derived set silently drops 16 trace.yml refs, because the
+#     scan breaks on the first non-item line and three tests: blocks carry
+#     comments inside the list -- so the self-check's claim to cover every ref
+#     is false at 576 of 579, and that claim is the card's whole point.
+#   CARD-285: a test makes live third-party requests; the comment stripper eats
+#     protocol-relative URLs so two planted references pass silently, breaking
+#     the default-deny condition ADR-0039/R2's escape clause depends on; and an
+#     endpoint test greps the whole tracked tree with no pathspec, so a review
+#     YAML quoting the URL would red the suite -- cycle 2's own report would
+#     have done it.
+#
+# ORCHESTRATOR ERRORS CARRIED INTO THE BRIEFS AS ALREADY-CORRECTED, so no round
+# re-reports them as new:
+#   - "a rename is expected here" contradicted CARD-299's AC-1; the round
+#     followed the card and the ERROR-level gate-3 hazard was never armed.
+#   - FINDING 3's "nothing to re-point" was itself inaccurate: the five expiry
+#     values name CARD-299 for a reader conversion that is 2 of 18 done.
+#   - the "exempts by the located URL" mechanism is wrong in my brief AND in
+#     CARD-285's round record; the predicate is text OR url.
+#   - "the deployed tree is never the tested tree" was FALSE as stated; the
+#     counted tree is browser-driven by both new tests.
+#   - the setrlimit tally was OVER-CORRECTION: the line is 1296 before
+#     CARD-298's merge and 1297 after, so every figure was right at its own
+#     commit and the tally of my errors was itself an error.
+#   - a load figure does not belong in a brief at all: 22.25 at dispatch, 6.59
+#     when read, both real. A measurement without its moment is not a fact.
+#
+# THE CORRECTION THAT CHANGES THE BOARD'S STANDING STORY: ADR-0006/R1's RULE IS
+#   TESTED. tests/test_export_pdf.py:1249 pins the whole runtime list and its
+#   own docstring says it is the rule's check. The defect is a phantom POINTER,
+#   not an unverified rule -- every earlier framing here, mine included,
+#   overstated it. CARD-308's ADR section records the distinction; the one-line
+#   pointer repair is CARD-307's.
+#
+# TWO HAZARDS NOW LIVE AND WORTH KNOWING BEFORE ANY GATE:
+#   1. CARD-285's endpoint test is a landmine for this board's own sync until
+#      its fix lands. Verified: 0 tracked files on main hold either full
+#      endpoint, so it is not armed -- but I came within one path segment of
+#      arming it in a card file while recording the finding about it. The file
+#      that records a trap is inside the trap's domain.
+#   2. kill_matrix.py reads the full-suite lock but states at :96 that it never
+#      writes one, so nothing serialises its plant window against a concurrent
+#      git add/commit. That is what produced the unreproduced LeakedPatch, and
+#      it is live with three cards in flight. Raised, not carded.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: fix round 1 (cycle 1 scored 7.5, two gating)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: fix round 1 (cycle 1 scored 7.5, one gating)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: fix round 1 (cycle 1 scored 7.0, three gating)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+
+# ---- ALL THREE FIX ROUNDS LANDED (2026-10-29) ----
+# CARD-299 f0304cb9 | CARD-308 3f3012a4 | CARD-285 79ecafcb. Every gating finding
+# across all three is closed. All three are ready for review cycle 2.
+#
+# MAIN IS TWO WARNINGS QUIETER THAN HONEST, AND I AM THE CAUSE. Measured: main
+#   reads 100, FR-045/AC-390 and AC-391 have NO def on main, and the SOLE
+#   resolver for each is meta/review/20261029T130000Z-CARD-285-cycle1.yml --
+#   the file I synced. I checked it for CARD-285's own endpoint landmine and
+#   never for CARD-308's dead-ref hazard: the wrong hazard on the right file,
+#   after I had written the rule warning about exactly this.
+#   OPERATIONAL CONSEQUENCE, and it binds the next three gates: comparing a
+#   branch's warning count to main's is UNSOUND unless the review YAMLs are held
+#   equal. A branch cut before the sync reads LOUDER and looks like it added
+#   warnings -- which is precisely what CARD-299's branch does at 102 against
+#   main's 100. It self-heals when CARD-285 merges, because its fix round has
+#   the two defs.
+#   The sync itself stays mandatory (CARD-308/G-3). What changes is the check
+#   before it: every path::name a YAML spells, resolved against a def/class.
+#
+# WHAT THE THREE ROUNDS EACH DID THAT IS WORTH REMEMBERING:
+#   CARD-299 made its refusal set DERIVED by reading src/ with ast over Call
+#     nodes, and the reason is measured: book_guide_vector DISCUSSES the clue
+#     drawer at length in its own comments without calling it, so a text search
+#     would have exempted the guide page -- the one interior lettering CON-020
+#     does not exempt. Its control is a second reading off the live spy
+#     recording, different medium, no shared code.
+#   CARD-308 reported the one count that MOVED (defined 382 -> 385) as a finding
+#     rather than pasting a digest over it -- its own repair-vs-signal-loss rule
+#     demonstrated on itself -- and refused to call the six unchanged baselines
+#     design: "the fix removes the silence, not the luck."
+#   CARD-285 found that its own first Worker probe measured the wrong pattern:
+#     the mutant that drops Worker SURVIVED it, because the URL-literal pattern
+#     reads any quoted host whatever call surrounds it. A probe whose value
+#     another pattern already reads measures the other pattern.
+#
+# FIVE FIGURES OF MINE CORRECTED BY THE ROUNDS, and the pattern across them is
+# one failure, not five:
+#   - "18 files read pdf_pages" -> 12. 18 MENTION the string; one matched only
+#     because three of its node ids end in _pdf_pages. A mention count is not a
+#     reader count -- and the bad figure had already reached CARD-309's AC-3,
+#     now corrected there.
+#   - ADR-inline refs 44 -> 43 distinct from 45 occurrences. Same error class.
+#   - the clue-digit finding was never in the ADR, so "the understatement
+#     propagated there" was wrong; the round ADDED it in corrected form.
+#   - _conditional_silences is in test_suite_profile.py, which I had right
+#     before mis-propagating a correction about two sibling functions.
+#   - PyYAML is absent from pyproject.toml entirely, so a test-side import is a
+#     collection error on a bare checkout -- my brief called it tolerable.
+#   THE PATTERN: four of the five are a figure or a location carried from a
+#   report into a brief without being re-derived. The rule now in memory: no
+#   file:line and no count passes into a brief without a fresh measurement, and
+#   a correction about a neighbour is not a correction about the thing.
+#
+# ALSO LEARNED, worth not rediscovering: validating a git archive COPY is
+#   invalid -- 77 warnings against the worktree's 102, because the copy has no
+#   .git and the staleness and drift checks fall silent. Isolate a meta delta by
+#   swapping files in the worktree instead, which is what CARD-299's round did.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: fix round 1 landed f0304cb9, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: fix round 1 landed 3f3012a4, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: fix round 1 landed 79ecafcb, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+main_warning_count_is_depressed:
+  measured: "main 100, honest 102"
+  cause: "a review YAML the orchestrator synced is the sole resolver for two dead refs"
+  binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"
+
+# --- review cycle 2 dispatched for all three, 2026-10-29 ---
+# One agent per card, briefed with the measurement rules the fix rounds
+# established. Each brief carries its card's own judgement targets and the
+# standing traps (scope-blind lock, NOT-REACHED instruments, pytestmark by
+# assignment, no load figure, no carried file:line or count).
+#
+# CORRECTION TO MY OWN RECORD, measured while writing the third brief.
+#   The key below claimed a synced review YAML was the SOLE resolver for two
+#   dead refs and that main therefore reads two warnings quieter than honest.
+#   Both halves are wrong, and the wrong version also reached main's commit
+#   message b440b490 and two cycle-2 briefs (both agents have been corrected
+#   in flight).
+#   What is actually true: each of those refs resolves on main through TWO
+#   tracked non-excluded files. Besides the YAML, the player test module
+#   itself spells the names as STRING LITERALS inside a set whose assertion
+#   exists to record that those tests are not yet defined -- so deleting the
+#   YAML would not raise main's count, and the cause of the 2-warning gap is
+#   now UNEXPLAINED rather than attributed.
+#   (Ref names are deliberately not spelled here: this file has no .md
+#   extension, so it is inside the validator's own search domain.)
+#
+#   WHY IT MATTERS BEYOND THE FIGURE: that string-literal set is a seventh
+#   instance of CARD-308's hazard by a route nobody had listed -- not a
+#   report, not dispatcher.state, but a test written to TRACK not-yet-written
+#   tests, which thereby silences the very warnings it tracks. CARD-285's
+#   branch inverts that guard and removes this instance; the shape is general
+#   and CARD-308's reviewer has been asked whether its census covers it.
+#
+#   The instruction the bad claim was attached to survives unchanged and for a
+#   better reason: a branch-vs-main warning comparison is unsound in either
+#   direction, because the two trees differ in WHAT RESOLVES, not merely in
+#   which report is present. Hold the meta files equal inside one worktree.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 running on f0304cb9
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 running on 3f3012a4
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 running on 79ecafcb
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+main_warning_count_is_depressed:
+  measured: "main 100; honest count NOT established"
+  cause: "WITHDRAWN -- the sole-resolver attribution was wrong, see the note above"
+  binds: "no gate may credit a branch-vs-main warning comparison, because the two trees differ in what resolves"
+
+# --- cycle 2 verdicts, and a correction REVERSED, 2026-10-29 night ---
+#
+# CARD-299 cycle 2: 8.5 CERTIFIED, no gating findings. Both cycle-1 gating
+#   findings genuinely closed; the derivation proven by a src/ deletion moving a
+#   set in the test tree, and the AST-over-text justification reproduced (a text
+#   search would have exempted the guide page). Five non-gating findings, seven
+#   cheap card amendments owed. Ready for its merge gate.
+# CARD-308 cycle 2: 7.5, DOES NOT CERTIFY. One gating finding and it is the same
+#   shape as cycle 1's at a different door: the key-shape dispatch one frame above
+#   the classifier has no else branch, so six YAML-legal key shapes contribute
+#   nothing and raise nothing. Latent today (0 live instances across all four
+#   authorities), which is why it is one finding and not a downgrade. Fix round 2
+#   owed; this is cycle 2 of 3.
+# CARD-285 cycle 2: still running.
+#
+# THE CORRECTION I MADE EARLIER TODAY WAS ITSELF WRONG, AND IS NOW REVERSED.
+#   Earlier in this file I withdrew the claim that a synced review report is the
+#   SOLE resolver for two of FR-045's dead refs, and that main at 100 warnings is
+#   two quieter than honest. I withdrew it on the strength of a grep that found a
+#   second resolver. That grep used the BARE test name. The model declares those
+#   refs in NODE-ID form, and a bare name can never match a path::name string --
+#   so the second resolver does not resolve them, and never did.
+#   MEASURED AGAIN, per ref, with the exact query the resolver uses: ONE resolver
+#   each, the synced report, and no definition anywhere. THE ORIGINAL CLAIM STANDS:
+#   main is two warnings quieter than honest.
+#   Caught by CARD-308's cycle-2 reviewer, which measured it independently and
+#   said so plainly rather than accepting the correction it was handed.
+#
+#   WHAT MAKES THIS WORTH THE LINES: it is the SAME wrong-token error I had caught
+#   myself making ONE HOUR EARLIER in this same investigation, on this same
+#   requirement -- grepping an id where the resolver is given a different string.
+#   I caught it, named it, and then committed it again in the opposite direction.
+#   Three instruments in this investigation returned clean-looking wrong answers
+#   (\b in POSIX ERE; a ^-anchored pattern against indented output; a macOS
+#   `timeout` that does not exist, read as a clean 0/0). The wrong-token grep is a
+#   fourth, and the only one that reached main's commit messages -- twice, in both
+#   directions, b440b490 and bcf861f6.
+#   THE RULE: when a claim is about what an INSTRUMENT resolves, measure with the
+#   instrument's own query, on the exact string it is handed. A near-miss query is
+#   not weaker evidence; it is evidence about a different question.
+#
+#   Note the shape the bad correction described IS real and is recorded on
+#   CARD-319 as a LATENT seventh route: a guard asserting that three tests do not
+#   exist would, in bare-name form, make the validator read all three as checked.
+#   It is inoperative here only because that requirement migrated to node ids,
+#   which is an argument FOR the migration.
+#
+# CARD-307 CUT, four successors drafted: CARD-316 (seven phantom test: keys),
+#   CARD-317 (six re-points plus the 50-vs-30 bound the dead ref was hiding),
+#   CARD-318 (FR-029's ten, the one real coverage gap), CARD-319 (the two
+#   validator defects, blocked -- the code is outside this repo).
+#   Board re-derived as SETS from all 318 card files and the check PASSES:
+#   266 done, 44 ready, 3 in progress, 1 parked, 3 blocked, 1 skipped.
+#   `skipped` is new to this board and has its own rendered section, for the same
+#   reason `parked` got one.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 CERTIFIED 8.5 on f0304cb9, no gating findings, ready for merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 scored 7.5 on 3f3012a4, one gating finding, fix round 2 owed
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 running on 79ecafcb
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []
+main_warning_count_is_depressed:
+  measured: "main 100, honest 102"
+  cause: "a synced review report is the sole resolver for two of FR-045's dead refs -- REINSTATED after a wrong withdrawal, re-measured with the resolver's own query"
+  binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"
+
+# --- CARD-285 cycle 2 verdict, 2026-10-29 night ---
+# 7.5, DOES NOT CERTIFY. One gating finding, and cycle 3 is the LAST.
+#   F-101: the comment-stripping scan has FOUR silent passes, not the one cycle 1
+#   found. The round fixed the single-line form with a lookbehind; the two
+#   DOTALL block forms have no lookbehind at all and cross lines, so a planted
+#   block comment with its delimiters inside string literals swallows a
+#   protocol-relative script src, a CSS url(), an HTML attribute src, and a fetch
+#   after a regex literal -- each a SILENT PASS against a clean baseline. These
+#   are shapes inside the scanner's own pattern set, so they break the
+#   default-deny clause the round had just promoted into the AC. The round also
+#   DELETED the sentence that admitted the hazard.
+#   The honest direction, at least: the AC is ahead of the test, not weakened to
+#   match it. Clauses 1 and 2 are enforced and mutation-resistant.
+#
+# THE RESOLVER QUESTION IS SETTLED, THREE WAYS, AND MY WITHDRAWAL WAS THE ERROR.
+#   This round isolated it properly -- inside ONE worktree at the cut, with the
+#   validator of record: with the synced report absent, two DEAD-check-ref
+#   warnings; the same worktree with only that file added, both gone. The report
+#   IS the sole resolver and main IS exactly two warnings quieter than honest.
+#   That is now independent confirmation from two reviewers plus my own
+#   re-measurement with the resolver's own query. The claim as first written on
+#   b440b490 was right; bcf861f6's withdrawal was wrong; e861b261 reinstated it.
+#
+# AND THE HAZARD GOT ITS CLEAREST INSTANCE YET, recorded as CARD-319's route 8.
+#   A module docstring's ref table spells seven whole path::name strings as
+#   tracked code. Six are held to the requirements registry by that module's own
+#   guard. The seventh is held by NOTHING -- its authority is an ADR rule, and the
+#   guard reads only the registry. Mutant survived: rename the def, 33 passed, no
+#   definition anywhere in the repo, and the ref still resolves from four tracked
+#   files. A MANDATORY ADR RULE READS AS MECHANICALLY CHECKED WITH NOTHING BEHIND
+#   IT. It is the proof that the two validator defects COMPOUND: invisible to the
+#   ADR gate because it is an ADR rule, falsely resolved by the text search
+#   because four files mention it. Fixing either alone leaves it green.
+#   It is also self-inflicted: the per-module docstring tables were introduced to
+#   give a text search something to find, which is what makes a rename invisible.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 CERTIFIED 8.5 on f0304cb9, no gating findings, ready for merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 scored 7.5 on 3f3012a4, one gating finding, fix round 2 owed (cycle 2 of 3)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 scored 7.5 on 79ecafcb, one gating finding, fix round 2 owed (cycle 3 is the LAST)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []
