@@ -1,6 +1,6 @@
 # CARD-298: `_write_pdf` chooses a medium per page, the two raster exceptions are declared and guarded, and the book baselines are re-recorded once
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/298-per-page-medium-and-the-raster-declaration
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-298
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 5. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 65
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** CARD-295, CARD-296, CARD-297, CARD-227
-**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/fixtures/book_baselines/**, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- CORRECTED 2026-10-29 at dispatch: the declared path was `tests/fixtures/book_baselines/**`, and **no such directory exists**. The real layout is FLAT, in `tests/fixtures/` itself: **21 `book_baseline_*.json` files** (~1.0 MB with their companions), plus **2 `book_baseline_card200_guide_page{1,2}.jpg`** which are card200’s guide-page images, not JSON baselines. So the card body’s and AC-5’s figure of **21 is CORRECT** — the orchestrator first counted 23 by including those two jpgs, which is the wider domain, not a discrepancy. AC-5 says "exactly the 21": if a re-record also moves either jpg, that is a finding to raise, not a number to adjust. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -156,6 +156,52 @@ re-records the baselines the change moves.
 - **ADR:** **ADR-0042** (R1, R2, R3, R5 — this card lands two of its three outstanding checks), ADR-0036/R1-R2, ADR-0039/R1-R2
 - **Components:** COMP-009
 - **Trace:** meta/architecture/trace.yml — R1's and R2's checks become live test refs here, so the trace rows for them are re-stamped in this card.
+
+## [Premise RE-MEASURED at dispatch — 2026-10-29, orchestrator]
+
+**Dependencies: all four done.** CARD-295 `ec6e4a06`, CARD-296, CARD-297
+`73fa5cb2`, CARD-227 `8579094a` — read from the card files, not the board.
+
+**This is the card that makes CARD-297's work reach a reader, and that is worth
+stating plainly because CARD-297 deliberately did not.** Measured on main after
+its merge: `book_toc_vector` and `book_answer_vector` have **zero call sites
+anywhere in `src/`**, `book_pdf_generator.py` imports neither, and only the two
+test files import them. So the TOC and answer pages exist as writers and reach no
+artefact a reader receives. **Everything CARD-297 declared latent becomes
+reachable here**, including its declared clip divergence: on the 10×10 cm trim the
+two writers clip a caption **one character apart** (Pillow's `getlength` reads
+491.98 px and the `/Widths` sum 492.87 px across the same 492 px measure), which
+is declared and machine-checked as `_DECLARED_CLIP_DIVERGENCE` on the argument
+that neither medium is wrong. The moment `_write_pdf` chooses the vector medium
+for an answer page, that divergence stops being latent.
+
+**The baseline layout was mis-declared and is corrected above** — flat
+`tests/fixtures/book_baseline_*.json`, 21 of them, not a `book_baselines/`
+directory.
+
+**Inherited, not created here, and the gate cannot see it:** this card's system
+contract names `ADR-0006/R1 — the dependency baseline ... (check:
+TestDependencyBaseline_IsExactlyPillowAndNumpy)`. That ref has **zero
+definitions anywhere in the repo** and is text-resolved by **110+ files** (the
+scored backlog, ~107 review YAMLs, and two prose mentions in `tests/`), so the
+rule reads as mechanically checked and is not checked at all. Measured while
+gating CARD-297. **Do not take it on** — but do not report ADR-0006/R1 as
+verified by that ref either; check the substance instead (`pyproject.toml`
+unchanged, and no third-party import added).
+
+### Owed to this card by CARD-297's review cycle 2 — F2-01
+
+CARD-297's AC-3 guard derives its watched set from `ContentStream` by `vars(cls)`,
+so **a drawing door inherited from a base class is invisible to it**. Cycle 2
+built that case — a mixin ahead of `ContentStream`, the own surface left at 16 —
+and a `stream.hatch` grid walk was **ADMITTED** with both guard cells green and
+`_UNCLASSIFIED_DOORS` empty. It is **not live at HEAD**, because today's class
+inherits only `object` and `dir()`/`vars()` agree on its 16 members, so this is a
+durability gap rather than an open route. It was deliberately **not** taken on
+CARD-297's last cycle for a reason that applies to whoever fixes it: **it changes
+the guard's own derivation, and a merge gate does not mutate** — a `dir()`-based
+version that silently returned everything would pass exactly as a correct one
+would. **It must ship with its control in the same commit.**
 
 ## Worktree notes
 

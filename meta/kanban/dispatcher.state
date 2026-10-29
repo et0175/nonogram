@@ -1597,3 +1597,77 @@ closed_last:
     reach a book, and it also owes F2-01, the base-class hole in AC-3's door derivation.
 queued:
 - CARD-298   # wave 65, P2, architectural; depends on CARD-295/296/297 -- all now done
+
+# ── 2026-10-29, WAVE 65 OPENED ───────────────────────────────────────────────
+# Owner's "open wave 65". FIRST CORRECTION: the wave-64 closure block listed
+# `queued: [CARD-298]` only. Sweeping the card files shows wave 65 holds TWO
+# ready cards -- CARD-291 P1 1d and CARD-298 P2 1d -- so that queue line was
+# drift the orchestrator introduced by copying its own closed_last note instead
+# of re-deriving from the cards. Corrected here.
+#
+# Conflict graph MEASURED at dispatch, not read off the cards' Wave: comments:
+#   CARD-291 touches 5 paths, CARD-298 touches 4
+#   intersection = EMPTY ; overlap = 0/min(5,4) = 0.000 < max_overlap 0.3
+#   hotspots: CARD-291 holds src/nonogram/admin/app.py
+#             CARD-298 holds src/nonogram/admin/book_pdf_generator.py
+#             -> DIFFERENT hotspots, so the shared-hotspot rule does not fire
+#   -> CONCURRENT, 2 of 2 slots under the owner's cap.
+# CARD-291's Wave: comment reserves app.py against CARD-305 at wave 67; CARD-305
+# is already DONE (merged 48457877), so that edge is moot.
+#
+# Both premises re-measured before the agents were spawned:
+#   CARD-291: its "Why this card exists" is accurate as HISTORY and STALE as
+#     production state. All three remediation commits are on main (61de1a04,
+#     ccac87e5 = ADR-0029/R6, 504384eb), all 7 puzzles were pulled from book c1
+#     (164 -> 157) and rejected, and production was regraded across 311 rows. So
+#     "six are approved and in book c1" is no longer true. What IS still open is
+#     exactly this card: the formula refuses to under-grade a branching puzzle,
+#     but nothing refuses to APPROVE one. Residual carried into the brief: the
+#     deployed Render service runs PRE-R6 code (dashboard-managed deploys), so
+#     anything generated there is still graded by the old formula until redeploy
+#     -- which makes AC-395's fail-closed behaviour load-bearing, not a corner.
+#     Its five refs (AC-393..396, EC-051) are HONEST planned refs: full node ids
+#     under a file that does not exist yet, resolving to NOTHING, not even a
+#     prose mention. That is the correct state and the card owes all five as
+#     definitions.
+#   CARD-298: all four deps done (295, 296, 297 73fa5cb2, 227 8579094a). Its
+#     Touches declared `tests/fixtures/book_baselines/**` and NO SUCH DIRECTORY
+#     EXISTS -- the layout is flat: 21 `tests/fixtures/book_baseline_*.json`
+#     plus 2 card200 guide-page jpgs. Corrected on the card. The body's and
+#     AC-5's figure of 21 is CORRECT; the orchestrator's first count of 23 was
+#     the wider domain (it included the jpgs), not a discrepancy.
+#     This is the card that makes CARD-297's writers reach a reader: measured on
+#     main, both have ZERO call sites in src/ and book_pdf_generator.py imports
+#     neither, so everything CARD-297 declared latent becomes reachable here --
+#     including its declared one-character clip divergence.
+#     It also OWES F2-01 from CARD-297 cycle 2: AC-3's guard derives its door set
+#     from vars(cls), so an inherited drawing door is invisible; cycle 2 built it
+#     and a stream.hatch grid walk was ADMITTED. Not live at HEAD. Must ship with
+#     its control in the same commit, because a merge gate does not mutate.
+wave: 65
+mode: interactive
+max_concurrent_override: 2
+wave_65_opened:
+  at: 2026-10-29
+  base: 8b307c22
+  conflict_graph: "intersection EMPTY, overlap 0.000, different hotspots -> concurrent"
+  cards:
+  - id: CARD-291
+    priority: P1
+    estimate: 1d
+    branch: card/291-approval-guess-gate
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
+  - id: CARD-298
+    priority: P2
+    estimate: 1d
+    complexity: architectural
+    branch: card/298-per-page-medium-and-the-raster-declaration
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+active:
+- id: CARD-291
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
+- id: CARD-298
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+queued: []

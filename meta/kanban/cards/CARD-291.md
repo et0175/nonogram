@@ -1,6 +1,6 @@
 # CARD-291: Approval refuses a puzzle whose solve needed guessing — the human-solvability gate
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,18 +9,69 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/291-approval-guess-gate
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-291
 **Source:** owner session 2026-10-24 (the Christmas-ornament report); memory `guess-puzzles-in-book-c1`
 **Idea:** —
 **Wave:** 65 <!-- assigned 2026-10-28. HARD contention: CARD-291 declares src/nonogram/admin/app.py, which meta/kanban/config.yml names as a conflict HOTSPOT (CARD-131/132/139/140/142) precisely so it serializes intentionally rather than by arithmetic accident -- and CARD-305 at wave 67 declares app.py too (measured intersection: exactly that path). They must not run concurrently; wave 65 satisfies that with room. CARD-298 (w65) intersects CARD-291 EMPTY. If only ONE of 291/301 can have a slot, this is the one to take: CARD-301 is a verification hole, while CARD-291 prevents a defect that ALREADY REACHED A BOOK -- seven guess-requiring puzzles were pulled from book c1 and production was regraded across 311 rows. Adjacent waves make the 64/65 ordering nearly free, so both are scheduled; reversing them is defensible if the owner weights that owner-facing risk above cost. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_approval_guess_gate.py, tests/test_puzzle_review.py, tests/test_bulk_operations.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** — (was: the architect delta — resolved 2026-10-24 the same day: DEC-047 recorded resolved, ADR-0032 revised with R3, FR-046/AC-393..396/EC-051/US-029 minted, trace + CAP-004 rows added, validators 0 errors)
+
+## [Premise RE-MEASURED at dispatch — 2026-10-29, orchestrator] the remediation already happened; the GATE has not
+
+**The "Why this card exists" section below is accurate as history and stale as a
+description of production.** Read it that way. Measured from the repo rather than
+from the card:
+
+**What is already done, and verifiable here.** All three remediation commits
+exist on `main`: `61de1a04` (ADR-0032/R3 + FR-046 and the stock decision),
+`ccac87e5` (**ADR-0029/R6** — a branching solve scores the ceiling, in code and
+docs), `504384eb` (the pre-regrade snapshot of 311 production rows). ADR-0029
+records R6 in its own revision history. Per the owner session of 2026-10-24: all
+**7 puzzles were removed from book c1 (164 → 157) and rejected**, and production
+was regraded across **311 rows** — 0 skipped, the only tier moves being those 7
+to hard/100, 24 other rows drifting ±1 point, and **no new guess rows**.
+
+**So the sentence "six are approved and all six are in book c1" is no longer
+true of production, and the card must not be implemented as though a live
+contamination is waiting to be found.** The defect it describes *reached a book*
+and was *removed from it*; that history is the card's justification, not its
+current state.
+
+**What is still open is exactly this card, and nothing else covers it.** The
+approval doors are **ungated**: the scoring formula now refuses to under-grade a
+branching puzzle, but nothing refuses to *approve* one. The grade is a number;
+the gate is a door, and the door is what this card builds.
+
+**One residual the implementation must not assume away.** The deployed Render
+service runs **pre-R6 code** — deploys there are dashboard-managed and the repo's
+`render.yaml` does not drive them — so a puzzle generated or edited on production
+is still graded by the **old** formula until a redeploy. For anything created in
+that window, this gate is the only defence, which is an argument for AC-395's
+fail-closed behaviour being the load-bearing criterion rather than a corner case.
+Do **not** connect to the production database as part of this card; the premise
+above is established from the repo and the owner's recorded session.
+
+### Its five check refs are HONEST planned refs — keep them that way
+
+Measured: `AC-393`, `AC-394`, `AC-395`, `AC-396` and `EC-051` each name a full
+node id under `tests/test_approval_guess_gate.py`, a file that **does not yet
+exist**, and **none of the five resolves to anything** — neither a definition nor
+a prose mention anywhere in `tests/`. That is the **correct** state for an
+unstarted card and the opposite of the defect this board has been finding all
+week: a ref that reads as mechanically checked while nothing backs it. This card
+owes all five as **definitions**.
+
+**So the AC/EC gate for this card has a specific bar:** each of the five must
+resolve to a real collected node id by merge, verified with
+`git grep -nE '(class|def)[[:space:]]+<name>'` and by `--collect-only`, **not** by
+`git grep -lw` — which on this board has been satisfied by a docstring more than
+once, and in one case by 110+ files none of which were code.
 
 ## Why this card exists (measured, 2026-10-24)
 
