@@ -1,6 +1,6 @@
 # CARD-285: Hosting and counting — the player goes public without storing anyone's IP
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** —
 **Depends on:** CARD-283, CARD-284
 **Touches:** player/**, docs/deploy/player.md, scripts/**, tests/test_public_player_pages.py
-**Review score:** —
+**Review score:** 7.5 (cycle 3 of 3, **NOT certified** against min_score 8 — merged on an owner decision after fix round 3 closed both gating findings)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-29
+**Actual:** 1d — merged 2026-10-29; 3 review cycles, 3 fix rounds, 1 merge gate
+**Merge commit:** f13e8d85
 **Blocked by:** —
 
 ## What to implement
@@ -827,3 +827,41 @@ because this host runs shells and search tools whose own command lines carry the
 **No one-liner gets it right**, so the gate scripts now **record the python PID list** for
 a human to read instead of a count. Measured for this gate: one real pytest for most of
 the run, with a sibling card's out-of-tree mutant processes alongside it for part of it.
+
+
+---
+
+## Closed 2026-10-29 — merged `f13e8d85` on an owner decision, NOT on a certification
+
+**This card never reached `min_score: 8`.** Cycles scored **7.0 → 7.5 → 7.5**, and
+`min_improvement: 0.5` was missed on the last step. It merges because the owner, at the
+escalation point, chose to take fix round 3's two measured fixes and go to the gate
+rather than spend a fourth cycle. **Recorded as a decision, not as a pass** — a card
+that merges at 7.5 should say so where a reader meets it.
+
+**[AC/EC check] All criteria/constraints ✓** — AC-390, AC-391 and AC-392's tests run by
+**node id**, not by `-k`: **3 passed, 0 skipped**, each named individually in the `-rA`
+listing, on the merged tree.
+
+**Merge gate GREEN at `e59ee80b`**: 9743 passed, 27 skipped, 1 xfailed, **0 failed, 0
+errors** in 32:02, reconciling exactly at **+23** against main's 9748 collected.
+
+**The merge is a merge commit, not a fast-forward**, because main gained card-record
+text under `meta/` after the branch last merged it. **The gate's coverage of the merged
+tree is proved rather than argued**: `src/` and `tests/` tree hashes in the merged
+commit are **byte-identical** to the gated commit (`9522b60e9197` and `485115b81d8a` on
+both sides). That is the check an arithmetic reconciliation cannot give.
+
+**What ships DECLARED**, carried from cycle 3 and fix round 3 and not closed by the gate:
+the scan's lexical / single-file / one-hop bound and out-of-set sink shapes; the declared
+(not derived) identifier vocabulary; the stripper's residual, whose cost statement fix
+round 3 corrected in four places after cycle 3 found it understated in two; the vendor
+script's own behaviour; the owner's accepted uncounted-publish cost, now held by a mutant
+that kills; the QR base as `TODO(owner)`; and one cost fix round 3 introduced and declared
+itself — a quoted value merely beginning `//` now reports as `foreign`, a false positive
+rather than a silent pass.
+
+**What ships UNREVIEWED**: no review cycle of this card ever ran the full suite — the
+merge gate was its only full reading — and the 16 node ids it inherited from `main` were
+exercised there for the first time. AC-390's counted-tree request-**set** closure
+(cycle 1's F-010) is still absent and still not owed.

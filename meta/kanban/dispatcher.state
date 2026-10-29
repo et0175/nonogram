@@ -2918,3 +2918,62 @@ active:
   phase: fix round 3 running on 6caccb65 under owner decision, then straight to the merge gate
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-285 MERGED f13e8d85, 2026-10-30 early ---
+# Gate GREEN: 9743 passed, 27 skipped, 1 xfailed, 0 failed, 32:02, reconciling
+#   exactly at +23 against main's 9748 collected. AC tests run BY NODE ID, 3
+#   passed 0 skipped. Worktree removed; it was completely clean, nothing to
+#   preserve.
+#
+# IT MERGES AT 7.5 ON AN OWNER DECISION, NOT ON A CERTIFICATION. 7.0 -> 7.5 ->
+#   7.5, min_improvement missed on the last step, max_cycles spent. The owner
+#   took fix round 3's two measured fixes and went to the gate rather than spend
+#   a fourth cycle. The card says so where a reader meets it, because a card
+#   that merges below its bar should not read like one that passed.
+#
+# THE MERGE IS A MERGE COMMIT, NOT A FAST-FORWARD, and the gate's coverage of
+#   the merged tree is PROVED rather than argued: the src/ and tests/ tree hashes
+#   in the merged commit are byte-identical to the gated commit's on both sides.
+#   That is the check an arithmetic reconciliation cannot give, and it is the
+#   right answer to a question this board has previously answered by addition.
+#
+# THREE CYCLES EACH FOUND A SILENT PASS THE PREVIOUS ONE MISSED -- one, then
+#   four, then four more of a different class. The last class was the sharpest:
+#   the pattern the design called internal-only actually routes a protocol-
+#   relative target to the egress bucket, while its raw counterpart demanded a
+#   dotted letter-TLD authority -- so single-label, bracketed-IPv6, encoded,
+#   userinfo and port-only authorities were readable only through the stripped
+#   text. Fix round 3 moved the stripper off the egress path entirely rather than
+#   patching the reported instance, and declared a cost of its own fix.
+#
+# THE GATE WRAPPER'S exit 127 WAS MINE. I edited the running gate script, twice,
+#   while bash was executing it. Bash reads a script by byte offset, so changing
+#   its length shifted the offsets and bash resumed on a mangled line, whose
+#   failure the script captured instead of pytest's exit code. Pytest's own
+#   summary is the verdict and it is green; the trap still released the lock.
+#   A GATE REPORTING ONLY AN EXIT CODE WOULD HAVE READ RED ON A GREEN SUITE.
+#   Editing a file another process is reading is the plant-window hazard I had
+#   been briefing three rounds about the same day.
+#
+# AND I RETRACTED PART OF CARD-299'S MERGE RECORD. Its "0 rival pytest at both
+#   ends" was measuring nothing: the probe prints the executable name, which for
+#   this suite is the framework binary, so the grep cannot match a running suite.
+#   Five one-liner variants at one instant gave 0, 3, 2, 0, 2, because this host
+#   runs shells and search tools whose own command lines carry the pattern -- a
+#   command-line form over-counts as badly as an executable-name form under-
+#   counts. NO ONE-LINER GETS IT RIGHT, so the gate scripts now RECORD THE PID
+#   LIST for a human to read instead of reporting a count. The gate verdicts are
+#   untouched; only the host-quietness cell was blind.
+#   A mid-run warning of mine was wrong too: I read live database connections as
+#   newly-unskipped tests and predicted the skip count would fall and the
+#   arithmetic would not close. Skips were the baseline and it closed exactly.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: fix round 3 running under owner decision, then its merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+queued: []

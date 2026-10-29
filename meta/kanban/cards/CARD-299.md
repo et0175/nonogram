@@ -773,10 +773,31 @@ exits 4 instead of passing silently.
 
 **Merge gate: GREEN at `7e434c72` — 9736 passed, 27 skipped, 1 xfailed, 0 failed,
 0 errors in 1373.75 s (22:53).** Lock written with an **absolute** `worktree:` line,
-trap armed with it and disarmed in the same breath, file verified gone; **0 rival
-pytest processes at both ends** (`ps -Ao comm=`, the executable name alone — a `ps`
-piped through `grep -c` counts its own shell wrapper, which this board has reported
-wrongly three times).
+trap armed with it and disarmed in the same breath, file verified gone; ~~**0 rival
+pytest processes at both ends**~~ — **RETRACTED, see below**.
+
+<!-- RETRACTED 2026-10-29 by the orchestrator, which wrote it. The retired sentence
+read: "0 rival pytest processes at both ends (`ps -Ao comm=`, the executable name
+alone — a `ps` piped through `grep -c` counts its own shell wrapper, which this board
+has reported wrongly three times)."
+
+It is wrong, and wrong in a way that makes the parenthetical worse than the figure.
+`ps -Ao comm=` prints the EXECUTABLE NAME, which for this suite is `Python` — the
+framework binary — so `grep 'pytest'` CANNOT MATCH A RUNNING SUITE. The probe returns
+0 whatever the host is doing. So the figure is **unverified**, not necessarily false,
+and the board's claim to have fixed an earlier probe error was itself a new probe
+error: one broken instrument swapped for another, with the reasoning written up as if
+it were sound.
+
+Measured at a single instant on this host, five one-liner variants gave **0, 3, 2, 0,
+2** — because the box runs shells and search tools whose own command lines carry the
+pattern, so a `command=` form over-counts exactly as badly as a `comm=` form
+under-counts. **No one-liner gets this right.** The gate scripts now RECORD THE PYTHON
+PID LIST for a human to read instead of reporting a count.
+
+What this does NOT put in doubt: the gate's verdict. 9736/27/1xf/0f and the exact
+collection reconciliation stand on pytest's own summary line. Only the host-quietness
+cell was measuring nothing. -->
 
 **Collection reconciles exactly: 9736 = main's 9720 + this card's 16 additions**, and
 main's own full suite at `47905251` reads **9720 passed / 27 skipped / 1 xfailed / 0
