@@ -71,6 +71,10 @@ from urllib.parse import quote
 import pytest
 
 from tests.helpers.db import make_book
+# CARD-291's two 9x9 fixtures, each with its premise asserted against the
+# solver in the module that owns it: one whose verifying solve branches and
+# one of the same extent that line logic finishes.
+from tests.test_approval_guess_gate import GUESS_GRID, LINE_GRID
 from tests.test_puzzle_edit_store import (
     MINUS_CORNER_SCORE,
     MINUS_CORNER_TIER,
@@ -887,6 +891,16 @@ class TestPuzzleEditor_Guardrails:
         client.post(VERIFY.format(booked), json={"grid": solid_minus_corner()})
         resized = seed(admin_app)
         client.post(VERIFY.format(resized), json={"grid": solid(12, 15)})
+        # CARD-291's: an APPROVED puzzle, and a verified replacement of the
+        # same extent whose solve branches. The grids come from that card's
+        # own test module, which pins both of their premises against the
+        # solver — a local fourth copy of a 9x9 whose verifying solve has to
+        # search would be a fixture with nothing checking it.
+        guessing = seed_with_real_clues(
+            admin_app, grid=LINE_GRID, strategies_used=["simple_overlap"]
+        )
+        assert admin_app.puzzle_review_service.approve_puzzle(guessing) is True
+        client.post(VERIFY.format(guessing), json={"grid": GUESS_GRID})
 
         seen = {
             "not_unique": client.post(
@@ -904,6 +918,8 @@ class TestPuzzleEditor_Guardrails:
                 VERIFY.format(regrading), json={"grid": solid_minus_corner()}),
             "extent_changed": client.post(
                 SAVE.format(resized), json={"grid": solid(12, 15)}),
+            "needs_guessing": client.post(
+                SAVE.format(guessing), json={"grid": GUESS_GRID}),
         }
         # Every declared reason is driven, not a subset of them: a reason the
         # routes gained without joining this map would leave the editor's

@@ -164,6 +164,33 @@ class ReplacementExtentChanged(ValueError):
         self.submitted = submitted
 
 
+class GridNotApprovable(ValueError):
+    """A replacement grid may not be stored behind the approval door (FR-046).
+
+    CARD-291 / AC-396. The invariant the approval door keeps — a puzzle in
+    ``approved`` or ``in_book`` needs no guessing — is only an invariant if the
+    *grid* behind that status cannot be swapped for one that does. The edit
+    path is the second way into the state, and the first version of the rule
+    guarded only the status transition, which would have left every approved
+    row reachable by a posted edit.
+
+    A **draft** puzzle may hold a branching grid: the rule is "a puzzle cannot
+    leave draft carrying one", not "no such grid may be stored". That is the
+    same asymmetry :class:`RegradeInsideABook` has — the refusal attaches to
+    the state the row is in, not to the grid in the abstract.
+
+    Attributes:
+        verdict: The :class:`Approvability` member that refused it — which of
+            the two refusals this is, for a route that words them apart.
+        status: The row's stored status, the fact that made the door apply.
+    """
+
+    def __init__(self, message: str, *, verdict: "Approvability", status: object) -> None:
+        super().__init__(message)
+        self.verdict = verdict
+        self.status = status
+
+
 @dataclass
 class _Verification:
     """One proved grid: the proof, and who has been shown its grade.
@@ -245,6 +272,37 @@ class PuzzleStatus(Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     IN_BOOK = "in_book"
+
+
+class Approvability(Enum):
+    """Whether one stored puzzle may pass the approval door (FR-046).
+
+    **Three members, not a bool**, and the third is the point. CARD-291's
+    invariant is that a puzzle in ``approved`` or ``in_book`` needs no
+    guessing — its verifying solve has ``branch_nodes == 0``. A puzzle whose
+    verdict cannot be *obtained* (an unreadable grid, a grid that is not
+    uniquely solvable, or a solve that did not conclude inside the budget)
+    satisfies neither "needs guessing" nor "does not": an approval is a claim
+    of publishability, and an unverifiable claim fails closed (AC-395). That
+    is INV-002's posture one door earlier, and it is the load-bearing member
+    rather than the corner case — the deployed service still grades with the
+    pre-ADR-0029/R6 formula until it is redeployed, so for anything created in
+    that window this door is the only reader of the fact.
+
+    Each member carries the sentence a refusal is worded with, so the route,
+    the flash message and the bulk report say the same thing from one place
+    instead of three. :attr:`OK` carries no sentence because there is nothing
+    to say about a puzzle that passes.
+    """
+
+    OK = ""
+    NEEDS_GUESSING = "needs guessing to solve — not approvable"
+    UNVERIFIABLE = "solvability could not be verified"
+
+    @property
+    def refuses(self) -> bool:
+        """Does this verdict close the door?"""
+        return self is not Approvability.OK
 
 
 @dataclass
@@ -363,6 +421,17 @@ class BulkOutcome:
     unchanged: int = 0
     #: Puzzles left alone because they belong to a book.
     in_book: int = 0
+    #: Puzzles a bulk approve held back because their solve branched
+    #: (CARD-291, AC-394). Its own field rather than a share of ``unchanged``
+    #: for the reason ``in_book`` is: "Approved 4 puzzles" on a batch of six
+    #: is the count that sends the owner looking for the other two, and
+    #: "2 were already approved" would be a false answer to that question.
+    needs_guessing: int = 0
+    #: Puzzles a bulk approve held back because no verdict could be obtained
+    #: for them at all (CARD-291, AC-395) — distinct from the above, because
+    #: the owner's next move differs: one is a puzzle to reject, the other a
+    #: row to look at.
+    unverifiable: int = 0
 
 
 @dataclass
@@ -1099,6 +1168,51 @@ class PuzzleReviewService:
         )
 
     @staticmethod
+    def _refuse_a_grid_the_approval_door_would_not(
+        puzzle: Dict[str, Any], strategies: List[str]
+    ) -> None:
+        """Refuse a branching replacement behind the approval door (AC-396).
+
+        The second way into CARD-291's invariant, and the one a status gate
+        alone leaves open: the row is already ``approved`` or ``in_book``, so
+        no transition happens, and without this every approved row would be
+        reachable by a posted edit carrying a grid the approval door would
+        have refused.
+
+        ``strategies`` is read off the grade this write would store, not
+        computed here — the caller has already been through the one verifying
+        solve (ADR-0029/R2), so this costs no solver entry and cannot disagree
+        with what lands in the row. There is no unverifiable case to answer at
+        this seam for the same reason: a grid that reached the grade was proved
+        a puzzle by :meth:`_refuse_unless_uniquely_solvable` first, and one
+        that was not never gets here.
+
+        A **draft** puzzle takes the early return: the rule is that a puzzle
+        cannot leave draft carrying a branching grid, not that no such grid
+        may be stored (FR-046). The owner paints before they publish.
+
+        Raises:
+            GridNotApprovable: the row is behind the approval door and this
+                grid needs guessing. Nothing is written.
+        """
+        status = puzzle.get("status")
+        behind_the_door = status in (
+            PuzzleStatus.APPROVED.value,
+            PuzzleStatus.IN_BOOK.value,
+        ) or PuzzleReviewService._holds_a_book(puzzle.get("book_id"), status)
+        if not behind_the_door:
+            return
+        if STRATEGY_GUESS not in strategies:
+            return
+        raise GridNotApprovable(
+            f"this replacement {Approvability.NEEDS_GUESSING.value}, and the "
+            f"puzzle it would replace is {status}: a published puzzle has to "
+            "be solvable by reasoning alone (FR-046). Nothing was stored",
+            verdict=Approvability.NEEDS_GUESSING,
+            status=status,
+        )
+
+    @staticmethod
     def _refuse_unless_the_stored_extent(
         puzzle: Dict[str, Any], grid: List[List[bool]]
     ) -> None:
@@ -1267,6 +1381,9 @@ class PuzzleReviewService:
                 as at the verify, by the same discipline the confirmation
                 follows: a save posted straight at the route, with no page in
                 front of it, writes nothing either.
+            GridNotApprovable: this puzzle is ``approved`` or ``in_book`` and
+                the replacement needs guessing (CARD-291 AC-396). Nothing is
+                written. A draft puzzle takes no such refusal.
 
         A verification is **not** consumed by a save. A retried save of the
         same grid — a double click, a write that failed on the connection —
@@ -1308,6 +1425,10 @@ class PuzzleReviewService:
         # route cannot walk past that. Read off `derived` — the grade this
         # write would store — rather than graded a second time (ADR-0029/R2).
         self._refuse_a_regrade_inside_a_book(row, derived["difficulty_tier"])
+        # CARD-291 (AC-396): the approval door's invariant, enforced at the
+        # other way in. Read off `derived` for the same reason the regrade
+        # above is — the grade this write would store, not a second solve.
+        self._refuse_a_grid_the_approval_door_would_not(row, derived["strategies_used"])
         edited_at = datetime.now(timezone.utc)
 
         if self._session_factory is None:
@@ -1935,6 +2056,73 @@ class PuzzleReviewService:
             return False
         return self._holds_a_book(puzzle.get("book_id"), puzzle.get("status"))
 
+    # ------------------------------------------------------------------
+    # CARD-291 (FR-046, ADR-0032/R3) — the human-solvability gate
+    # ------------------------------------------------------------------
+
+    def _approvability(
+        self,
+        puzzle: Dict[str, Any],
+        *,
+        deadline_seconds: float = GENERATION_BUDGET_SECONDS,
+    ) -> "Approvability":
+        """The one verdict every approval door reads (FR-046).
+
+        **Why this is not a grader change.** Unique (CON-005, ADR-0032/R1) is
+        not the same fact as humanly derivable: a solve can prove exactly one
+        solution while finding it only by branching. The seven production rows
+        that reached book c1 were all graded *medium* by a formula that reads
+        probe-settled cells — which, for a branching puzzle, inverts: the
+        heavier the search, the fewer cells a probe settles. ADR-0029/R6 closed
+        that half (a branching solve now scores the ceiling), but a score is a
+        number and publishable *hard* is still publishable. The score's job is
+        not to lie; this method's job is not to sell it.
+
+        **One solve per grade, reused** (ADR-0029/R2). The verdict comes off
+        :meth:`strategies_for`, which reads the stored solver-written list when
+        there is one — which generation and the two-phase edit both write — so
+        an approval of a normally stored puzzle is an O(1) read and enters the
+        solver not at all. A re-solve happens only for a row whose stored list
+        no solver here wrote (``[]`` from before the column was recorded, or an
+        invented name like ``"line_logic"`` from an older test or demo
+        writer), and then it is budgeted.
+
+        **What defaults to DENY.** ``None`` from :meth:`strategies_for` — an
+        unreadable grid, a grid that is not uniquely solvable, or a solve that
+        did not conclude — is :attr:`Approvability.UNVERIFIABLE`, a refusal,
+        not a pass. An approval is a claim of publishability and an
+        unverifiable claim fails closed; see :class:`Approvability`.
+
+        Reads only. No stored grade, tier, score or ``strategies_used`` moves
+        (G-1) — the regrade module is the only writer of those and it is
+        untouched by this card.
+        """
+        strategies = self.strategies_for(puzzle, deadline_seconds=deadline_seconds)
+        if strategies is None:
+            return Approvability.UNVERIFIABLE
+        if STRATEGY_GUESS in strategies:
+            return Approvability.NEEDS_GUESSING
+        return Approvability.OK
+
+    def approvability_of(self, puzzle_id: str) -> Optional["Approvability"]:
+        """The gate's verdict for one stored puzzle, so a caller can say why.
+
+        The same shape, and the same reason, as :meth:`in_a_book`: the doors
+        return a bool because a status change either happened or did not, and a
+        caller that has to *word* the refusal asks a predicate first.
+        :meth:`approve_puzzle` therefore keeps its ``bool`` contract and the
+        route stays the only place that turns a fact into a sentence and an
+        HTTP code.
+
+        Returns:
+            The :class:`Approvability` member, or ``None`` if no such puzzle
+            exists — which is the route's 404 and not a refusal by this gate.
+        """
+        puzzle = self.get_puzzle(puzzle_id)
+        if puzzle is None:
+            return None
+        return self._approvability(puzzle)
+
     def _set_status(self, puzzle_id: str, status: PuzzleStatus) -> bool:
         """Move one puzzle to ``status``, unless a book is built on it.
 
@@ -1943,17 +2131,29 @@ class PuzzleReviewService:
         straight past the protection the bulk path takes care over (CARD-100).
         One implementation, one rule, one place for it to be wrong.
 
+        **CARD-291 joined the guess gate here**, for the reason CARD-100 put
+        the book protection here: one implementation, one rule, one place to
+        be wrong. It fires only on a transition *to*
+        :attr:`PuzzleStatus.APPROVED` — reject and restore move a puzzle out
+        of the invariant, not into it, and gating them would make a branching
+        puzzle unrejectable, which is the opposite of what the owner needs.
+        Both store modes, because a rule that held in one of them would be a
+        rule the panel does not have.
+
         Returns:
-            True if the puzzle moved. False if it does not exist **or** a book
-            holds it; callers that need to tell those apart ask
-            :meth:`in_a_book` first, which is what the routes do so they can
-            say why.
+            True if the puzzle moved. False if it does not exist, **or** a book
+            holds it, **or** the guess gate refused the approval; callers that
+            need to tell those apart ask :meth:`in_a_book` and
+            :meth:`approvability_of` first, which is what the routes do so
+            they can say why.
         """
         if self._session_factory is None:
             puzzle = self.puzzles.get(puzzle_id)
             if puzzle is None:
                 return False
             if self._holds_a_book(puzzle.get("book_id"), puzzle.get("status")):
+                return False
+            if status is PuzzleStatus.APPROVED and self._approvability(puzzle).refuses:
                 return False
             puzzle["status"] = status.value
             return True
@@ -1967,6 +2167,11 @@ class PuzzleReviewService:
             if row is None:
                 return False
             if self._holds_a_book(row.book_id, row.status):
+                return False
+            if (
+                status is PuzzleStatus.APPROVED
+                and self._approvability(self._row_to_dict(row)).refuses
+            ):
                 return False
             row.status = status.value
             return True
@@ -2050,14 +2255,45 @@ class PuzzleReviewService:
         A puzzle already in a book is left alone: approving or rejecting it in
         bulk would silently detach it from the book's curation state.
 
+        **The same rule as the per-puzzle door, not a sibling with the
+        identical defect** (CARD-291). This method does not go through
+        :meth:`_set_status` — it writes ``status`` in its own two loops — which
+        is exactly how the bulk path came to lack the book protection the
+        per-puzzle path had, once. So the guess gate is applied here too, on a
+        bulk approve only, and a held-back puzzle keeps its status and is
+        counted under its own reason rather than absorbed into ``unchanged``.
+
         Returns:
-            A :class:`BulkOutcome` — what changed, what needed nothing, and
-            what a book held back (CARD-068). It was a bare count until the
-            page had to explain itself.
+            A :class:`BulkOutcome` — what changed, what needed nothing, what a
+            book held back (CARD-068) and what the guess gate held back
+            (CARD-291). It was a bare count until the page had to explain
+            itself.
         """
         if status is PuzzleStatus.IN_BOOK:
             raise ValueError("in_book is set by assigning to a book, not in bulk")
+        gating = status is PuzzleStatus.APPROVED
         changed = unchanged = in_book = 0
+        held = {Approvability.NEEDS_GUESSING: 0, Approvability.UNVERIFIABLE: 0}
+
+        def held_back(puzzle: Dict[str, Any]) -> bool:
+            """Does the gate refuse this row, and if so under which reason?"""
+            if not gating:
+                return False
+            verdict = self._approvability(puzzle)
+            if not verdict.refuses:
+                return False
+            held[verdict] += 1
+            return True
+
+        def outcome() -> BulkOutcome:
+            return BulkOutcome(
+                changed,
+                unchanged,
+                in_book,
+                held[Approvability.NEEDS_GUESSING],
+                held[Approvability.UNVERIFIABLE],
+            )
+
         if self._session_factory is None:
             for puzzle in self.puzzles.values():
                 if puzzle.get("batch_id") != batch_id:
@@ -2066,10 +2302,12 @@ class PuzzleReviewService:
                     in_book += 1
                 elif puzzle["status"] == status.value:
                     unchanged += 1
+                elif held_back(puzzle):
+                    continue
                 else:
                     puzzle["status"] = status.value
                     changed += 1
-            return BulkOutcome(changed, unchanged, in_book)
+            return outcome()
 
         import uuid as uuid_module
         from nonogram.db.models import Puzzle
@@ -2081,10 +2319,12 @@ class PuzzleReviewService:
                     in_book += 1
                 elif row.status == status.value:
                     unchanged += 1
+                elif held_back(self._row_to_dict(row)):
+                    continue
                 else:
                     row.status = status.value
                     changed += 1
-        return BulkOutcome(changed, unchanged, in_book)
+        return outcome()
 
     def puzzles_with_missing_books(self, known_book_ids=None) -> List[Tuple[str, str]]:
         """``(puzzle_id, book_id)`` for every puzzle naming a book that is gone.

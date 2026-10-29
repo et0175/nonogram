@@ -55,9 +55,11 @@ from nonogram.admin.batch_generator import (
 )
 from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
+    Approvability,
     BOOK_TAB_SORT,
     EditNeedsConfirmation,
     EditNotVerified,
+    GridNotApprovable,
     MAX_PUZZLE_NAME_LENGTH,
     RegradeInsideABook,
     ReplacementExtentChanged,
@@ -204,6 +206,14 @@ def _bulk_report(verb: str, outcome, already: str | None, *, noun: str = "puzzle
         sentence += f"; {outcome.unchanged} {was} {already}"
     if outcome.in_book:
         sentence += f"; {outcome.in_book} left alone: in a book"
+    # CARD-291 (AC-394): the two reasons a bulk approve holds a puzzle back,
+    # each said rather than absorbed into a count that means something else.
+    # Read off the outcome's own fields, so a batch where the gate fired on
+    # nothing reads exactly as it did before this card.
+    if outcome.needs_guessing:
+        sentence += f"; {outcome.needs_guessing} held back: need guessing"
+    if outcome.unverifiable:
+        sentence += f"; {outcome.unverifiable} held back: {Approvability.UNVERIFIABLE.value}"
     return sentence + "."
 
 
@@ -1214,6 +1224,11 @@ EDIT_REFUSAL_REASONS = (
     "needs_confirmation",
     "regrade_in_a_book",
     "extent_changed",
+    # CARD-291 (FR-046 AC-396): a replacement that needs guessing, onto a
+    # puzzle already behind the approval door. It belongs on the client's
+    # REFUSALS_THAT_NEVER_WRITE list as well, and does: the store raises
+    # before it touches a row, so "nothing was stored" is true of it.
+    "needs_guessing",
 )
 
 
@@ -2441,8 +2456,19 @@ def create_app(debug=None):
         # CARD-100: the store refuses a puzzle a book is built on, and a bare
         # "Puzzle not found" would send the owner looking for a missing row
         # rather than telling them what actually stopped it.
+        # CARD-291: and the gate, asked the same way and for the same reason —
+        # the store answers False, so the route asks the predicate to say
+        # which False this is. 409 like the book conflict: the request is well
+        # formed and the row exists; it is the puzzle itself that may not be
+        # published. Asked after the book check, so an in-book refusal does
+        # not buy a verdict (which, for a row whose stored strategies list no
+        # solver wrote, is a solve).
         if puzzle_review.in_a_book(puzzle_id):
             ok, code, message = False, 409, "Cannot approve a puzzle that is in a book"
+        elif (verdict := puzzle_review.approvability_of(puzzle_id)) is not None and (
+            verdict.refuses
+        ):
+            ok, code, message = False, 409, f"Cannot approve: {verdict.value}"
         elif puzzle_review.approve_puzzle(puzzle_id):
             ok, code, message = True, 200, f"Puzzle {puzzle_id} approved"
         else:
@@ -2905,6 +2931,15 @@ def create_app(debug=None):
             # was submitted rather than about this route or the stored row.
             return _refused(
                 "extent_changed", str(refusal), 422,
+                puzzle_review.get_puzzle(puzzle_id),
+            )
+        except GridNotApprovable as refusal:
+            # 409 (CARD-291 AC-396): the grid is a perfectly good puzzle and
+            # the request is well formed — it is the *approved* row underneath
+            # it that this replacement conflicts with, which is the booked
+            # refusal's shape and code, not the grid refusals' 422.
+            return _refused(
+                "needs_guessing", str(refusal), 409,
                 puzzle_review.get_puzzle(puzzle_id),
             )
         except NotUniquelySolvable as refusal:

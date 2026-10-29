@@ -411,6 +411,9 @@ const REFUSALS_THAT_NEVER_WRITE = [
   "needs_confirmation",
   "regrade_in_a_book",
   "extent_changed",
+  // CARD-291: a branching replacement onto an approved or in-book puzzle.
+  // The store raises before it writes, so nothing was stored.
+  "needs_guessing",
 ];
 // The same refusals arriving with no reason on them — the codes CARD-245
 // gives them. `code: 0` (this page's own value for "no answer at all", see
