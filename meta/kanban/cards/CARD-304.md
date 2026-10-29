@@ -1,6 +1,6 @@
 # CARD-304: ADR-0039/R4 has no executing check — a figure's instrument is held by a lens, not by the tree
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/304-an-executing-check-for-figures
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-304
 **Source:** wave 62's retrospective (2026-10-28), which promoted the wave's dominant finding family into **ADR-0039/R4**. The rule ships with `check: {kind: review-lens}` and this card owes the flip to an executing check — an ADR check ref that names a planned test reads as mechanically checked while checking nothing.
 **Idea:** —
 **Wave:** 67

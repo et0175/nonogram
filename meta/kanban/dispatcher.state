@@ -2977,3 +2977,61 @@ active:
   phase: fix round 3 running under owner decision, then its merge gate
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
 queued: []
+
+# --- CARD-304 dispatched, CARD-220 queued behind it, 2026-10-30 (owner decision) ---
+# CARD-304 is the retrospective's own highest-leverage finding turned into work:
+#   ADR-0039/R4 is the only one of that ADR's four rules with no executing check,
+#   and the family it was promoted from has now cost waves 62-66 repeatedly while
+#   the rule sat correct, correctly scoped, and executing nothing.
+#   Worktree created at ca7c8c56; implementation agent dispatched.
+#
+# THE BRIEF CARRIES A LIVE CORPUS, which is the unusual part: this session
+#   produced TEN measured instances of R4's exact defect, by the author of the
+#   rule, with the rule already written and scoped to the files being edited.
+#   Several sit precisely in the host-cell domain the card targets -- the
+#   rival-pytest probe prescribed in config.yml was measured FIVE ways at one
+#   instant and gave five different answers (0, 3, 2, 0, 2) against a ground
+#   truth of one. That is AC-2's subject, handed over as test material rather
+#   than as a lesson.
+#   It also carries a design input the card did not have: the truth table may
+#   need a THIRD false-positive case, because a search tool spawned by the
+#   measurement itself carries the pattern in its own argv. And it names the
+#   possibility, inside the card's own G-1, that the prescription cannot be made
+#   correct at all and belongs in AC-3's declared residue.
+#
+# CARD-220 SEQUENCED AFTER, with two card edits recorded on its own file:
+#   (1) Touches NARROWED from `tests/**` to the paths where the measured cost is.
+#       Under max_overlap 0.3 a repo-wide footprint could only ever run ALONE and
+#       would block its whole wave; and the narrowing matches the card's OWN
+#       method, whose step 1 already restricts candidates to tests that are both
+#       expensive and suspected subsumed. A FOOTPRINT narrowing, not a scope cut:
+#       the deletion rule, the three never-touch classes and the per-pair
+#       mutation proof are untouched, and a proven-subsumed pair found outside
+#       the footprint widens the field with a reason rather than being deleted
+#       silently.
+#   (2) Wave 68 stamped rather than a `Depends on: CARD-304` edge. There is no
+#       technical dependency -- 220 needs only CARD-217, which is done -- and a
+#       sequencing preference written as a dependency would pollute the graph the
+#       dispatcher reasons over.
+#   Its 29-wave age was never a judgement: the aging counter reads 0 for every
+#   open tech-debt card, so nobody could see it.
+#
+# WHAT I TOLD THE OWNER AND STILL HOLD: if the goal is suite TIME rather than
+#   unblocking CARD-273, CARD-220 is aimed at the wrong place. The measured cost
+#   is one file at 29.8% of wall clock which grew by ADDING tests (90 -> 127,
+#   344 -> 467s), not by retaining subsumed ones, and CARD-300 is the card for
+#   that file -- currently parked, priced before it is attempted.
+wave: 67
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: fix round 4 running (merge gate 1 was RED on a repair the card detected)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-304
+  wave: 67
+  phase: implementation dispatched on ca7c8c56
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
+queued: [CARD-220]
