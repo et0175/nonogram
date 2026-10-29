@@ -1351,10 +1351,32 @@ wave_64_opened:
 #     The card body's item 2 contradicts its own G-2; the round followed G-2.
 active:
 - id: CARD-301
-  phase: review cycle 1 of 3
+  phase: fix round 1 (after review cycle 1 = 7.0, not certified)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
   branch_head: 6f721e57
   implementation: "route 2; 4 paths; collection +10 reconciling exactly; 599/1 xfail/0 skip"
+  cycle_1: >-
+    7.0, 10 findings, 3 important and all a few lines. F-1 is the real one and the
+    orchestrator reproduced it: the card's own newly-added G-5 guard pins the corpus
+    SHAPE, not its CONTENT, so DENSITIES = (30,40,50,60) -> (50,60,70,80) leaves the
+    guard green and the only red is XPASS(strict) on the gate -- which reads as "the
+    cap is met, remove the marker". 9 passed / 1 failed in 0.27s. That is the exact
+    outcome G-5 was added at dispatch to prevent, reached THROUGH the guard the card
+    points at. F-2 rename the pin's test; F-3 repair trace.yml:539.
+    Mutants 15 fired / 13 killed at the named cell / 2 survived; Step 8f deferred(cost).
+  orchestrator_corrected_by_cycle_1:
+  - >-
+    "trace.yml's tests: list is mechanically read" was WRONG -- all three gates in
+    validators/trace.py::_check_covered_tests are guarded on status == covered, and
+    NFR-001 is status: partial. The label is latent, not live. The second edge cycle 1
+    supplied is why it is still worth fixing: when NFR-001 flips to covered, gate 2
+    ERRORs on the missing AC-037 linkage while gate 3 SILENTLY accepts the dead label,
+    because this card's own new module text-matches the retired string.
+  - >-
+    The suspicion that AC-5's control shares the validator's text-search blindness was
+    WRONG: it resolves refs against globals() filtered by callable -- a real definition
+    check, strictly stronger than git grep -lw -- and the rename mutant kills it.
+    Verified directly at tests/test_nfr001_generation_time.py:412-420.
 - id: CARD-297
   phase: review cycle 1 of 3
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
@@ -1363,5 +1385,8 @@ active:
 queued: []
 owed_at_merge:
   CARD-301:
-  - "meta/architecture/trace.yml:539 still carries the retired label BenchGenerate_20x20_p95Under5s in a mechanically-read tests: list"
-  - "meta/architecture/decisions/adr/0001-...md:23 cites the old path as a node id (prose; that ADR has no check: key)"
+  - "meta/architecture/decisions/adr/0001-...md:23 cites the old path as a node id. Cycle 1: declining this was RIGHT -- decisions/adr/ is outside Touches, it is prose in a dated decision record with no check: key, nothing reads it mechanically. Owe it to a named card."
+  - "src/nonogram/orchestrator.py:338 names the path tests/bench_generate.py (present identically on main). G-1 forbids this card to touch src/, so route 2 leaves it true; recorded because the round's seven-reference count could not see it (F-5)."
+  - "AC-4's figures are now transcribed onto the card -- that gate reads 'the measurement on the card' and had nothing to read, because the dispatch brief wrongly told the round not to commit under meta/."
+  resolved_into_the_card:
+  - "trace.yml:539 -- moved from owed_at_merge into fix round 1 as cycle 1's F-3, and trace.yml added to this card's Touches."

@@ -16,8 +16,8 @@
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/bench_generate.py, meta/architecture/requirements.yml, tests/test_collected_names.py
-**Review score:** —
+**Touches:** tests/bench_generate.py, meta/architecture/requirements.yml, tests/test_collected_names.py, tests/test_nfr001_generation_time.py, meta/architecture/trace.yml <!-- amended 2026-10-29: the new module is the file route 2 cannot be taken without, declared by the round rather than hidden, and accepted by cycle 1 (+1 path, 0 src, 0 pyproject); trace.yml added when cycle 1's F-3 made its repair part of this card -->
+**Review score:** 7.0 cycle 1/3 (not certified; F-1/F-2/F-3 required, fix round 1 running)
 **Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
@@ -254,7 +254,17 @@ with review cycle 1, not prejudged here.
 ### Owed at merge, outside this card's Touches
 
 - `meta/architecture/trace.yml:539` still carries the retired label
-  `BenchGenerate_20x20_p95Under5s` in a **mechanically-read** `tests:` list
+  `BenchGenerate_20x20_p95Under5s`. **Correction, 2026-10-29:** the orchestrator
+  called this list "mechanically-read" and that was wrong. All three gates in
+  `validators/trace.py::_check_covered_tests` are guarded by
+  `if entry.get("status") != "covered": continue`, and NFR-001 is
+  `status: partial` — so the label is **latent, not live**, and nothing reads it
+  today. Cycle 1 caught the overstatement and supplied the second edge that
+  makes it worth fixing anyway: the day NFR-001 flips to `covered`, gate 2
+  **ERRORs** loudly on the missing AC-037 linkage while gate 3 **silently
+  accepts** the dead label, because `cs.exists()` is `git grep -lw` and this
+  card's own new module now text-matches that retired string at `:388` and
+  `:441`. The card relocated the camouflage into its own new file.
 - `meta/architecture/decisions/adr/0001-...md:23` cites the old path as a node
   id (prose — that ADR has no `check:` key, verified)
 
@@ -266,6 +276,99 @@ without which AC-5 cannot be satisfied, and it measured three card-branch
 precedents carrying that same file (`d579f491`, `daaa2f2f`, `7d86a869`) — all
 three verified. The exclusion is about `meta/kanban` and `meta/review`. **The
 round was right and the brief was over-broad.**
+
+## [AC-4's measurement — transcribed by the orchestrator 2026-10-29]
+
+**AC-4's gate is "the measurement on the card", and the figures were not on it.**
+The round put them in the module docstring and `requirements.yml` because the
+dispatch brief told it not to commit under `meta/` — the orchestrator's error,
+not the round's. Transcribed here so the gate has something to read. Every row
+was **independently re-derived by review cycle 1**; where the two differ, both
+are given, and the spread is the honest precision of the figure.
+
+| figure | round | cycle 1 re-derived |
+|---|---|---|
+| gate call time | 14.0 s (13.85–14.22, five readings) | **13.91 s, 14.12 s** |
+| the module's whole cost | 14.03 s over **30** setup/call/teardown rows | **14.15 s / 30** |
+| share of a full suite | 0.98 % | **0.99 %** |
+| tests in that profile individually slower | 14, slowest 81.03 s | **14, 81.03 s** |
+| full corpus, early exit disabled, 5 s budget | 40.79 s, 6/20 over cap, p95 5.001 s | **41.61 s, 6/20, p95 5.001 s** |
+| uncensored 30 s-budget sweep | 122.04 s, p95 **24.881 s** | **122.67 s, p95 24.966 s**, one censored at 30.003 s |
+
+**The suite denominator is quoted, not measured, and is labelled as such** —
+1433.47 s from `meta/profiling/suite-durations-20261023.txt`, the board's last
+committed profile. Cycle 1 confirmed the labelling is honest: it names its
+artefact and does not read as re-measured.
+
+**Route 1's cost, which is what AC-4 exists to decide.** Route 1 (rename to a
+`test_*.py` spelling) costs the same seconds — it collects the same functions —
+**plus committed references to the path `tests/bench_generate.py` go dead.** The
+round counted **seven** over `docs` and `meta`; cycle 1 found an **eighth** the
+round's pathspec could not see, `src/nonogram/orchestrator.py:338`, which G-1
+forbids this card to touch. So the conclusion is *strengthened* while the
+round's scope hid a ref — recorded as F-5 rather than waved through. Route 2
+keeps seven of the eight true as written. It is **not** a render-set issue:
+`tests/bench_generate.py` is not in `RENDER_HEAVY_SNAPSHOT`, neither
+new/changed file matches any of the eight render idioms, and
+`test_the_frozen_render_set_still_matches_the_grep_that_defines_it` passes.
+
+Two further measured points that bear on the route: the uncensored sweep at
+**122.04 s is past `hang_guard.py`'s 120 s per-test ceiling**, so `measure()`
+and `report()` must stay standalone; and the capped gate cannot reach that
+ceiling (20 requests × 5 s with a measured ≤ 2 ms overshoot ⇒ a ~100 s bound,
+which cycle 1 notes sits only 17 % under the ceiling — F-10, minor).
+
+**And the asymmetry the card got backwards.** The card reasoned that "a p95
+benchmark inside the gate is a flaky gate". Measured on this corpus it is not
+flaky at all — the verdict is reached with no sample near the decision
+boundary, in three independent runs. The real asymmetry is the opposite one:
+the gate is **cheapest while red** (14.0 s, early exit at sample 6) and **most
+expensive as it approaches green** (41.61 s for the full corpus). The cost grows
+exactly as the gap closes.
+
+## [Review cycle 1 — 7.0, not certified]
+
+Report: `meta/review/20261029T025000Z-CARD-301-cycle1.yml` (10 findings, 16
+mutation rows, `yaml.safe_load` clean). **Three important findings, all a few
+lines, and the first is the one that matters:**
+
+- **F-1 — the card's own G-5 guard does not pin what its docstring claims.**
+  Reproduced independently by the orchestrator: one line-count-preserving
+  change, `DENSITIES = (30, 40, 50, 60)` → `(50, 60, 70, 80)`, leaves the corpus
+  guard **green** (still 20 unique pairs, rank 19, allowed 1, cap 5.0) and the
+  only red is `FAILED test_20x20_p95_is_under_5s [XPASS(strict)]` — whose marker
+  message ends *"do not remove it on partial data"*. **9 passed, 1 failed in
+  0.27 s.** A future round swaps the band in good faith, reads that red as *"the
+  cap is met, remove the marker"*, and NFR-001 ships recorded as **met** over an
+  80 %-density corpus — the exact outcome G-5 was added at dispatch to prevent,
+  reached *through* the guard the card points at. (Context: density 50 times at
+  0.008–0.041 s and density 60 at 0.004–0.011 s, against density 40 at
+  7.5–30.0 s.)
+- **F-2 — rename the pin's test**, whose name still says "two" over an assertion
+  holding one. The round's reason for keeping it inverts the mechanism:
+  `code_search()` excludes `meta/architecture` and `*.md`, so `meta/review` is
+  the validator's **haystack, never a source of refs** — a review YAML can make
+  a dead ref look alive but can never produce a finding when a name it quotes
+  goes away. Neither validator arm's output mentions the test name at all.
+- **F-3 — repair `trace.yml:539`** (see the correction above; latent, not live).
+
+**Two of the orchestrator's own readings were corrected by cycle 1, and both
+corrections stand:** the `trace.yml` "mechanically-read" overstatement above,
+and the suspicion that AC-5's control shares the validator's blindness — it does
+**not**. `test_the_registry_names_this_module_and_every_ref_resolves` resolves
+each ref against `globals()` filtered by `callable`, a real definition check and
+strictly stronger than `git grep -lw`; the rename mutant kills it. Verified
+directly at `tests/test_nfr001_generation_time.py:412-420`.
+
+**Cycle 1 also re-derived the round's own M7 finding and sharpened an
+attribution** (F-7): under M7 the new instrument control *passes* — it calls
+`_time_one_request`, which M7 does not touch — so the mutant it actually kills
+is M13, and the killer under M7 is the declared-names assertion. Reasoning
+sound, attribution off.
+
+**Mutants: 15 fired, 13 killed at the named cell, 2 survived.** Step 8f's full
+campaign is `deferred(cost)` under the cost ladder — three important findings
+all touch tests the fix round will change.
 
 ## Worktree notes
 
