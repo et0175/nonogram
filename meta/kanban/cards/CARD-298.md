@@ -215,3 +215,100 @@ would. **It must ship with its control in the same commit.**
   must be enumerated file by file in the worktree notes when it is done. A
   reviewer should be able to count the re-recorded baselines without running
   anything.
+
+## [Implementation round 1 — HELD AT THE SCOPE GATE, 2026-10-29, orchestrator]
+
+Branch `card/298-per-page-medium-and-the-raster-declaration` @ **`283164a9`**, one
+commit on the cut `8b307c22`, tree clean, not pushed, not merged. **10 files,
++1860/−79** — measured against the real cut base. (The round reported its diffstat
+against `fb2ecb40`, which is *not* an ancestor of this branch; that reading showed
+`meta/kanban/**` as changed because it reverses the orchestrator's own wave-65
+commit. Against `8b307c22` **nothing under `meta/kanban/` or `meta/review/` is
+touched** and `tests/fixtures/` is 0 files, as the round claimed.)
+
+**The mechanism the card asks for is built and gated.** Verified independently:
+node-id difference vs main **+23 / −0** (20 in `tests/test_book_pdf.py`, 3 in
+`tests/test_book_solved_answer_key.py`, nothing moved or removed);
+`_RASTER_DECLARATIONS` holds **7** entries, each with a non-empty reason, an
+authority and an `expires_with` (`COVER` permanent, `DIVIDER` → CARD-231, and
+`TITLE`/`GUIDE`/`TOC`/`ANSWER`/`PUZZLE` → CARD-299); `page_medium` returns RASTER
+**iff** the kind is a key, so a new kind is vector by default.
+
+**AC-5's answer is 0, and that is a fact about the slice, not a shortfall.** All
+six baseline-reading test modules run **389 passed, 1 skipped** on the branch (the
+skip is `tests/test_book_pdf_memory.py:1297`, `setrlimit`, pre-existing), so the
+21 baselines did not need to move. The card's "the 21 baselines move / that is the
+whole of the byte-identity cost" is a prediction about **CARD-299**, not about this
+commit.
+
+### Why R1 could not land here — three blockers, all confirmed structurally
+
+1. **`tests/helpers/pdf_pages.py:34-40`** loops `for ref in parser.pages` and
+   asserts `len(xobjects) == 1, "a book page is exactly one image"` **and**
+   `Filter == DCTDecode` for **every page**. So one vector page in an interior
+   breaks every reader of that interior — zero-or-all follows from the helper's own
+   loop, not from an estimate. **14 test modules + 3 helpers** (`book_corpus`,
+   `page_ink`, `pdf_vector`) read an interior through it. That conversion is
+   **ADR-0042/R6, owned by CARD-299**.
+2. **The puzzle page has no sheet furniture** — no folio, frame rules, size label
+   or QR block — and `book_puzzle_vector`'s own docstring raises it as a gap **no
+   card owns**.
+3. **Layering, and the asymmetry is the point.** `book_guide_vector:103`,
+   `book_toc_vector:60` and `book_answer_vector:62` all import
+   `book_pdf_generator` at module level, while `book_pdf_generator:400` imports
+   `book_puzzle_vector`. So the one page the interior's walk *can* call is the
+   puzzle page — precisely the one with no furniture — and the other three cannot
+   be called from it without a cycle.
+
+### The scope gate fires, and the dependency graph has a cycle
+
+`CARD-299` is `Status: ready` and declares **`Depends on: CARD-298`**, while this
+card's R1 half depends on CARD-299. This commit covers **3 of CARD-299's 8
+declared Touches** (`tests/test_book_pdf.py`, `tests/test_book_pdf_memory.py`,
+`adr/0042-*.md`), which is `scope_gate: on`'s second clause — *covers a ready
+sibling's Touches* → **escalate to the decompose station, do not polish in the
+review loop.** Review cycle 1 was therefore NOT dispatched: the card's R1
+contract cannot be met in this order, and a reviewer would only rediscover that.
+
+**The round refused to flip R1 and flipped only R2 — that was the right call.** Its
+AC-1 test is green but asserts *"every page is the medium its kind declares"*,
+which is **not** R1's statement (*"puzzle pages, answer pages, the TOC and the
+guide are written as PDF content-stream operators"*) while all five of those are
+declared exceptions. Flipping R1 would have marked a rule mechanically checked by a
+test that passes **while the rule is violated** — the defect repaired in `c12c33ce`
+and again in ADR-0032/R3. R2's ref resolves and its flip is honest.
+
+### F2-01 is delivered, with its control, and the table overstates one row
+
+`_public_members` now reads `dir(cls)` (`tests/test_book_solved_answer_key.py:2751`)
+with three control cells in the same commit. Independently killed: reverting to
+`vars(cls)` reds `test_an_inherited_drawing_door_is_watched` and
+`test_the_derivation_is_not_simply_returning_everything`. **M13 kills 2 of the 3
+cells, not 3** — `test_the_derivation_is_unmoved_on_the_shipped_class` asserts the
+`dir()` and `vars()` readings *agree* as a set on the shipped class, so it cannot
+red under that mutant by construction. Not a defect in the test; its job is
+different. The round's mutant table should read 2.
+
+### Carried forward, not decided here
+
+- **CARD-297's declared clip divergence is still unreached.** `page_medium(ANSWER)`
+  is RASTER and `book_answer_vector` still has zero real call sites in `src/`, so
+  nothing was silently inherited. The round's position for the card that *does*
+  reach it: once the answer page is vector there is one answer-page writer, the
+  book clips by `/Widths` — the measure the reader's viewer uses — so
+  `_DECLARED_CLIP_DIVERGENCE` becomes a declaration about a page nobody prints and
+  **should expire with the conversion and be deleted by the converting card**.
+  Recorded for CARD-299; CARD-297's declaration is untouched and still true of the
+  two writers as they stand.
+- **The vector puzzle-page furniture needs a card**, cut after CARD-299. CARD-295
+  names CARD-298 for it; CARD-298 cannot close it.
+- **AC-1's "any export path" is not reachable over the proof sheet.**
+  `book_proof.render_proof_pdf` writes through `Image.save(format="PDF",
+  save_all=True)` — a second writer with no page kinds behind it. Declared and
+  pinned by `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision`,
+  which asserts it by AST because **both writers stamp the same `% created by
+  Pillow PDF driver` comment**.
+- ADR-0006/R1 was **not** reported as verified by
+  `TestDependencyBaseline_IsExactlyPillowAndNumpy` (zero definitions in this repo);
+  the substance was checked instead — `pyproject.toml` unchanged, new imports are
+  stdlib `enum` plus internal `book_vector` names.

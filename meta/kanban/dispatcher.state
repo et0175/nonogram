@@ -1663,11 +1663,82 @@ wave_65_opened:
     complexity: architectural
     branch: card/298-per-page-medium-and-the-raster-declaration
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+# ---- WAVE 65, round 1 handed back (2026-10-29) ----
+# Both implementation rounds handed back. Every figure below was re-derived by the
+# orchestrator in the worktree before any phase advanced; the two corrections to
+# the rounds' own reports are recorded as corrections, not smoothed over.
+#
+# CARD-291 -> REVIEW CYCLE 1 DISPATCHED. 3 commits on 8b307c22 (b8070170 feat,
+#   250d2645 docs, 02a24694 fix), tree clean, 6 files +2372/-20. The five refs
+#   (AC-393..396, EC-051) resolve to real module-level `def` lines at 326/505/
+#   649/801/1548, collect as plain node ids with no param suffix, and run
+#   5 passed / 0 skipped; whole file 37 passed / 0 skipped. Node ids +37/-0, all
+#   37 in the new module, nothing moved. Validator (forge_1 copy) 107 -> 102
+#   warnings with the sets diffed line by line: exactly the five FR-046 dead-ref
+#   warnings removed, ZERO added, and 0 errors on BOTH sides.
+#   THE ROUND'S MAIN FINDING REPRODUCES: writing the tests did NOT revive the
+#   refs. The validator resolves a `kind: test` ref by `git grep -lw` of the whole
+#   `path::name` string, and a node id is never a code identifier, so the string
+#   appeared in no code file and all five read DEAD while green. The fix is a
+#   docstring node-id table (CARD-294's precedent) plus a two-direction test --
+#   and that test is NOT blind: renaming one of the five defs reds it at :2033
+#   (`missing`), deleting AC-395's table line reds it at :2036 (`unnamed`). Both
+#   halves load-bearing, blob restored. It is stricter than CARD-301's equivalent
+#   because it also filters on `__module__ == __name__`.
+#   CORRECTION to the round: it reported "1 ERROR ADR-0025 circular supersession
+#   on both sides". That is the PLUGIN CACHE's regex bug (it counts "supersedes"
+#   and "superseded by" as two edges). The forge_1 validator of record reports
+#   0 errors on both sides. Standing memory `forge-validator-location` applies.
+#
+# CARD-298 -> HELD AT THE SCOPE GATE. Review cycle 1 deliberately NOT dispatched.
+#   One commit 283164a9, tree clean. Correct diffstat vs the real cut 8b307c22 is
+#   10 files +1860/-79, nothing under meta/kanban or meta/review, 0 fixtures.
+#   (The round diffed against fb2ecb40, which is NOT an ancestor of this branch,
+#   so its reading showed the orchestrator's own wave-65 commit reversed. Caught
+#   before reporting.) Node ids +23/-0. _RASTER_DECLARATIONS holds 7 entries with
+#   derived expiries. AC-5's answer is 0 baselines moved, confirmed by running all
+#   six baseline-reading modules on the branch: 389 passed, 1 skipped (setrlimit,
+#   pre-existing).
+#   THE MECHANISM IS BUILT AND GATED; R1's HALF IS NOT BUILDABLE IN THIS ORDER.
+#   Three blockers, all confirmed structurally rather than taken on report:
+#     1. tests/helpers/pdf_pages.py:34-40 loops every page and asserts
+#        len(xobjects) == 1 ("a book page is exactly one image") plus DCTDecode,
+#        so ONE vector page breaks every reader of that interior. 14 test modules
+#        + 3 helpers read an interior through it. That conversion is ADR-0042/R6,
+#        owned by CARD-299.
+#     2. The puzzle page draws no folio, frame, size label or QR block, and NO
+#        CARD OWNS that furniture.
+#     3. book_guide_vector:103, book_toc_vector:60, book_answer_vector:62 all
+#        import book_pdf_generator at module level, while book_pdf_generator:400
+#        imports book_puzzle_vector -- so the only page the interior walk can call
+#        is the puzzle page, exactly the one with no furniture.
+#   GATE VERDICT: CARD-299 is `ready` and declares `Depends on: CARD-298`, while
+#   this card's R1 half depends on CARD-299 -- a cycle in the board's own graph.
+#   The commit covers 3 of CARD-299's 8 declared Touches (test_book_pdf.py,
+#   test_book_pdf_memory.py, adr/0042), which is scope_gate's second clause,
+#   "covers a ready sibling's Touches" -> escalate to the decompose station.
+#   The round flipped R2 only and refused R1: its AC-1 asserts "every page is the
+#   medium its kind declares", which is NOT R1's statement while all five interior
+#   kinds are declared exceptions. Flipping it would have marked a rule
+#   mechanically checked by a test passing WHILE THE RULE IS VIOLATED -- the
+#   c12c33ce defect. Right call, held.
+#   F2-01 delivered with its control (dir(cls) at :2751). Independently killed:
+#   reverting to vars(cls) reds 2 of the 3 cells. CORRECTION to the round's table:
+#   M13 kills 2, not 3 -- test_the_derivation_is_unmoved_on_the_shipped_class
+#   asserts the dir() and vars() readings AGREE on the shipped class, so it cannot
+#   red under that mutant by construction.
+#   CARD-297's clip divergence is still UNREACHED: page_medium(ANSWER) is RASTER
+#   and book_answer_vector still has zero real call sites in src/. Nothing was
+#   silently inherited.
+#   AWAITING OWNER: the slice decision. Options recorded in the user-facing report.
 active:
 - id: CARD-291
-  phase: implementation
+  phase: review cycle 1
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
+  implementation_head: 02a24694
 - id: CARD-298
-  phase: implementation
+  phase: held at scope gate (decompose escalation, awaiting owner)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+  implementation_head: 283164a9
+  escalation: "scope_gate clause 2: covers 3 of ready sibling CARD-299's 8 Touches; CARD-299 declares Depends on CARD-298 while this card's R1 half depends on CARD-299"
 queued: []
