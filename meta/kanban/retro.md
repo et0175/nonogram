@@ -1562,3 +1562,190 @@ sound and the magnitude as not._
 - **Fill in `Actual:`.** Two waves running with proxy-only data means the effort
   scale is being calibrated off cycle counts, which on measurement cards track
   certification cost rather than work.
+
+## Waves 63–65 — 2026-10-30
+
+_Three waves journalled together: 63, 64 and 65 all closed without a retrospective
+(the last section before this one is wave 62). **Wave 66 is OPEN and excluded** —
+CARD-308 is in a fix round. CARD-285, merged the same day, carries `Wave: unscheduled`
+and is therefore in no wave's metrics; its findings are counted in the families below._
+
+### Cards
+
+| Card | Wave | Title | Est | Actual | Accuracy | Cycles | Initial | Final | Signal |
+|------|------|-------|-----|--------|----------|--------|---------|-------|--------|
+| CARD-227 | 63 | Printed grid gets three rule weights | 0.5d | — | n/a | 2 | 6.8 | 9.0 | accurate (cycles proxy) |
+| CARD-267 | 63 | Crosshair — hovered cell, row, column, clues | 0.5d | 1.4d | 2.80× | 2 | 7.0 | 9.5 | significantly underestimated (actual) |
+| CARD-284 | 63 | QR landing and library — /b/&lt;slug&gt; and /library | 0.5d | 1.7d | 3.40× | 3 | 6.5 | 8.5 | significantly underestimated (actual) |
+| CARD-297 | 64 | TOC and answer pages as operators | 1d | 1d | 1.00× | 2 | 7.0 | 8.5 | accurate (actual) |
+| CARD-301 | 64 | NFR-001's 5s p95 gate had never run | 0.5d | 0.5d | 1.00× | 2 | 7.0 | 9.0 | accurate (actual) |
+| CARD-291 | 65 | Check refs resolve to real definitions | 1d | 1d | 1.00× | 1 | 9.0 | 9.0 | accurate (actual) |
+| CARD-298 | 65 | Per-page medium decision for the interior | 1d | 2d | 2.00× | 2 | 7.0 | 8.5 | underestimated (actual) |
+
+### Metrics
+
+- cards: 7, escalated: **0**, split: 0, actual_time: 6 of 7 (CARD-227 proxy-only)
+- total_estimate: 5.0d, total_actual: 7.6d (over the 6 cards with a figure)
+- avg_accuracy: **1.87×** — estimates run low, and this is the **first wave group with
+  real `Actual:` data** rather than a cycles proxy
+- avg_cycles: **2.00 / 3** (↑ from wave 62's 3.0 — every cycle was spent there)
+- avg_final_score: **8.86** (↑ +0.36 vs wave 62's 8.5)
+- score_improvement: **+1.67** (initial 7.19 → final 8.86)
+- test_cost: full suite **1135.40 s** (wave 63) → **1096.66 s** (wave 64), against wave
+  62's closing 1222.22 s — **−7% then −3%, stable**. No wave-65 line in
+  `suite-timing.log`; per-card gate durations were not collected by this scan, so no
+  `gate_total` is reported rather than a guessed one.
+
+### Calibration signals
+
+- python-pro (6 cards with actual, avg_accuracy **1.87×**) → **estimates too low** →
+  suggest effort scale **×1.87**. This supersedes wave 62's ×1.4, which was a
+  **cycles proxy**; this one is measured from wall-clock card time.
+- The miss is concentrated, not uniform: **wave 63's three cards ran 2.8–3.4×** while
+  waves 64–65 ran 1.0–2.0×. All three wave-63 cards were estimated at **0.5d** and none
+  came in under 1.4d — the 0.5d bucket is where the estimate breaks, not python-pro
+  as a whole.
+
+### Complexity breakdown
+
+- standard (6 cards): avg cycles **2.00**, avg score **8.92**, 0 escalated
+- architectural (1 card, quality-heavy model): avg cycles **2.00**, avg score 8.5, 0 escalated
+- → with history (15 standard, 8 architectural): standard **2.20** vs architectural
+  **2.03** → verdict **upgrade holding** — design-heavy cards converge at least as fast
+  as standard ones, and no architectural card escalated. `cx_share[architectural]` 14%,
+  below the over-marking trigger.
+
+### Category split
+
+| Category | Est | Share |
+|----------|----:|------:|
+| feature | 3.5d | 70% |
+| enabler | 1.0d | 20% |
+| tech-debt | 0.5d | 10% |
+
+No `capacity:` block in `meta/.skills.yml`, so no plan to drift against.
+
+### Finding families
+
+25 gating findings across 14 review reports. Four families, and **the headline is that
+three of them are already covered by rules — the question is why they recurred anyway.**
+
+- **A figure or a document's claim about the code goes stale and is never re-derived** —
+  **8 gating across 5 cards** (CARD-227 c1 ×2, CARD-267 c1, CARD-297 c1 ×2, CARD-298 c2,
+  CARD-301 c1 ×2). **Covered by ADR-0039/R4**, whose scope correctly includes
+  `meta/kanban/**` — but **R4's `check:` is a `review-lens`, so nothing executes it**,
+  and R4's own comment says so and names **CARD-304** as owing the flip to an executing
+  check. **CARD-304 is `ready` and unscheduled.** The ADR's Context describes this exact
+  failure mode for the family's *previous* promotion ("living in a brief, it carried no
+  `check:`, so nothing executed it") — and R4 then reproduced it one level up. **Not a
+  new rule: schedule CARD-304.**
+  → Measured outside the card system the same day: the orchestrator made **eight**
+  instrument or inference errors of this family in one session (a `\b` in POSIX ERE that
+  silently matches nothing; a `^`-anchored pattern against indented output; a macOS
+  `timeout` that does not exist, read as a clean 0/0; a bare-name grep where the resolver
+  takes a node id; an occurrence count right at one revision and stale at another; a
+  runtime band a cold reading exceeded; an impact base that yields zero modules because
+  it *is* HEAD; and a process probe whose executable name can never match). R4's
+  sentence — *"a reading that cannot distinguish 'the quantity is zero' from 'the
+  instrument is blind' is not a measurement"* — describes every one of them.
+- **A control is not driven in the state where its failure would be observable** —
+  **5 gating across 4 cards** (CARD-227 c1, CARD-267 c1, CARD-284 c1 ×2, CARD-301 c1).
+  **R1 covers "a claim needs a control that CAN fail" but not this refinement**: the
+  control existed and was driven from the one state in which the defect is invisible.
+  **Refinement candidate for R1's wording**, not a new rule.
+- **"default-DENY" claimed for a hand-enumerated allow-list** — **3 gating across 2
+  cards** (CARD-227 c1, CARD-297 c1 ×2). **Covered by R2, which HAS an executing check.**
+  The findings are in guards written *by those cards*, i.e. outside R2's test's
+  enumeration at the time — a **footprint** problem, not a wording one.
+- **A check ref resolves to a mention rather than a definition** — **4 gating across 4
+  cards** (CARD-284 c2, CARD-297 c1, CARD-298 c2, CARD-301 c1), and then the whole of
+  wave 66: CARD-307 cut and skipped, CARD-308 three cycles, CARD-319 blocked, with
+  **seven measured routes** by which a mention satisfies a definition predicate.
+  **No rule covers it.** **CARD-319 owns the real fix and is blocked — the validator
+  code lives outside this repository.** This family has the longest unpaid tail on the
+  board.
+- watch: `expires_with` naming a card that changes nothing — 2 gating, one card
+  (CARD-298 c1), below threshold.
+
+**fix-induced share: 3 of 25 gating findings arrived after cycle 1 (12%)**, of which 1
+attributes to the card's own prior-cycle artefact. That is a **healthy** number — the fix
+loop is not feeding on itself; the cost is concentrated in cycle 1, which is where it
+belongs.
+
+### Merge conflicts
+
+No entries in `conflict-history.yml` for waves 63–65. **But a known friction recurred
+twice outside the record**, on 2026-10-29: merging `main` into the CARD-308 and CARD-285
+worktrees was refused with *"untracked working tree files would be overwritten by
+merge"* — the worktrees' own untracked review YAMLs colliding with the copies the sync
+had already committed to `main`. `conflict-history.yml` records this from waves 40–41
+(CARD-237/238, hit three times) **and names the structural fix**: *"delete the worktree
+copies immediately after syncing, or sync only at `done` time."* It was never applied;
+the recoveries are still manual each time.
+
+### Suggestions
+
+- **Schedule CARD-304** — the flip of ADR-0039/R4 from a `review-lens` to an executing
+  check. It is the measured response to the wave's largest finding family, and the family
+  has now recurred across four waves plus the orchestrator's own session work.
+- python-pro effort scale **×1.87** (measured, supersedes wave 62's ×1.4 proxy).
+  Apply: `/forge:retrospective calibrate`. Consider instead/also **retiring the 0.5d
+  estimate bucket**: all three cards estimated at 0.5d in wave 63 came in at 1.4–1.7d.
+- Apply `conflict-history.yml`'s own wave-40/41 structural fix for the review-YAML
+  sync, or record the two 2026-10-29 recurrences so the count reflects reality.
+
+### Applied 2026-10-30
+
+- **CARD-304 stamped into wave 67** (owner decision) — the flip of ADR-0039/R4 from a
+  `review-lens` to an executing check. `Deferred waves:` corrected **0 → 3** with the
+  reason recorded on the card.
+- **python-pro job_size calibrated ×1.87** across **74 of 76** backlog ideas (the 2
+  `fifo` ones have no `job_size`). **First application ever** — no `Calibrated` mark
+  existed in `backlog-scored.yml` and no `applied:` marker for an effort suggestion
+  existed in this journal, so it does not stack. `config.calibration_note` rewritten to
+  record the **direction reversal**: waves 28–31 observed ~0.55× (estimates too *high*),
+  waves 63–65 measure 1.87×. (applied: 2026-10-30)
+  → **What the factor does not buy**: every WSJF idea got the *same* multiplier, so the
+  backlog's **relative ranking is unchanged**. It rescales absolute job sizes to be
+  honest against capacity; it reorders nothing.
+- **Signals exported** to `~/.forge/retro-signals.yml` — effort_calibration (1 updated,
+  1 new), review_quality (sample 54 → 61), capacity_drift (5 new), tech_debt_aging.
+
+### Two mechanism failures in the retrospective process itself
+
+- **The tech-debt aging counter is not measuring age.** 21 open tech-debt cards all read
+  `Deferred waves: 0`, including **CARD-220, created in wave 37 and still `ready` at wave
+  66 — 29 waves.** Step 4c increments only tech-debt cards *in the current wave scope*, so
+  a card never scheduled into a wave never ages — which is exactly the debt that matters.
+  The formula's `estimated_interest_d: 1.0d` is an artefact of a stuck counter; the real
+  open tech-debt estimate is **~19d across 21 cards**. Exported with `signal_is_broken: true`.
+- **The same blindness hid CARD-304 for three waves.** It is `Category: enabler`, so Step
+  4c never looked at it at all — while the family it exists to close cost 8 more gating
+  findings. An aging mechanism scoped to one category cannot see the enabler that fixes
+  the rule.
+
+### Capacity vs plan (source: `backlog-scored.yml` config, not `.skills.yml`)
+
+| Category | Plan % | Actual % | Drift | Signal |
+|----------|-------:|---------:|------:|--------|
+| feature | 60 | 70 | +10pp | overutilized |
+| enabler | 15 | 20 | +5pp | on target |
+| tech-debt | 5 | 10 | +5pp | on target |
+| compliance | 15 | 0 | **−15pp** | **underutilized** |
+| ops | 5 | 0 | −5pp | on target |
+
+_The retro skill looks for `capacity:` in `meta/.skills.yml`, where this project has none
+— so an earlier pass of this retrospective reported "no capacity plan". The plan exists,
+in `backlog-scored.yml`'s `config` block. Corrected here._
+
+### Not run, and why
+
+- **Value review (4d):** `meta/business/vision.md`'s Success metrics section holds only
+  `(none agreed yet) — hobby project`. Nothing to judge; no `metrics.md` ledger exists.
+- **Risk review (4g):** no `meta/risk-register.yml`.
+- **Sprint metrics (4b) / velocity (7.5b):** no `waves.duration` configured.
+- **Testing impact (7.5d):** `config.yml` has `tdd: false` and no card opted in, so all 7
+  resolve to one group — a delta needs both.
+- **Review false positives (7.5e):** no `.claude/fix-suppress.yaml`, and no wave-63–65
+  report carries a `status: dismissed` finding.
+- **Process shortcuts (4a):** owner answered none.
