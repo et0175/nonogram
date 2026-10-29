@@ -2017,3 +2017,2413 @@ class TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside:
         assert columns.max() <= placement.drawing_right + 4
         assert columns.max() >= placement.drawing_right - 6
         assert columns.min() > placement.usable_left
+
+
+# ==========================================================================
+# CARD-297 — the answer pages as PDF operators (ADR-0042/R1)
+#
+#     AC-1  TestAnswerAndTocPages_CarryNoImageXObject
+#     AC-2  TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted
+#     AC-3  TestAnswerTiles_ReuseTheGridRoutine
+#     AC-5  TestAnswerTileHeader_DifficultyDotsAreRound
+#     AC-6  TestAnswerPages_CaptionHoldsTheFloorInTheStream
+#     EC    TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry
+#     (AC-4 is the table of contents' own, in ``tests/test_book_toc.py``.)
+#
+# **Every claim about a vector page is made against the content stream of a
+# written PDF, or against poppler — an engine that did not write it.** No
+# claim about a vector page is made by counting dark pixels; the one place a
+# raster page is read below is AC-1's *positive control*, where the raster
+# twin of the same page really does reference an image XObject, which is what
+# makes AC-1's reading capable of failing (ADR-0039/R1).
+#
+# **The pages come from one walk of the real interior** (:func:`recorded`).
+# The three vector twins take the same arguments their raster twins take, so
+# that walk is spied on once — what each TOC page, full answer page and packed
+# answer page was asked to draw — and exactly that is handed to the twin. No
+# page plan is re-derived here: a second walk would be a second opinion on the
+# book, and the arguments are the production ones by construction.
+#
+# G-5: the pixel-reading sites above this line are **not** converted. They
+# read the raster pages the book still ships (``_write_pdf`` chooses no medium
+# per page until CARD-298), so converting them would drop the control on what
+# ships in exchange for a control on what does not. This block is the
+# stream-side half, beside the ink-side half rather than instead of it.
+# ==========================================================================
+
+import ast as _ast
+import math as _math
+import re as _re
+import sys as _sys
+from pathlib import Path as _Path
+from random import Random as _Random
+
+from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+from nonogram.admin import book_answer_vector, book_toc_vector, book_vector_draw
+from nonogram.admin.book_pdf_generator import (
+    DividerPagePlan,
+    PuzzlePagePlan,
+    TocEntry,
+    _SOLVED_GRID_GRAY,
+    _draw_difficulty_dots,
+    answer_title,
+    structural_toc_entries,
+)
+from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin.book_plan import TIERS
+from nonogram.admin.book_vector import ContentStream, interior_face_metrics, write_vector_pdf
+from nonogram.difficulty import Tier as _Tier
+from nonogram.export.layout import (
+    PageParity,
+    compute_answer_page_layout,
+    compute_layout,
+    difficulty_dots,
+)
+from tests.helpers import pdf_vector, round_ink
+
+NO_POPPLER_PPM = "poppler (pdftoppm) is not installed: AC-5's independent engine is absent"
+needs_pdftoppm = pytest.mark.skipif(pdf_vector.PDFTOPPM is None, reason=NO_POPPLER_PPM)
+NO_POPPLER_TEXT = (
+    "poppler (pdftotext) is not installed: the caption's own placement has no "
+    "independent engine to read it back"
+)
+needs_poppler_text = pytest.mark.skipif(
+    pdf_vector.PDFTOTEXT is None, reason=NO_POPPLER_TEXT
+)
+
+#: One shown string of a content stream: the ``Tf`` size it was set at and the
+#: text itself. ``book_vector.ContentStream.text`` writes the whole show on
+#: one line, so one pattern reads both — which is what lets AC-6 assert a
+#: **named** face's size rather than "the smallest size on the page".
+_SHOW = _re.compile(
+    r"/\S+ (" + pdf_vector.NUMBER + r") Tf \S+ \S+ Td \((.*?)\) Tj"
+)
+
+#: One stroked straight line, as ``ContentStream.line`` writes it.
+_LINE = _re.compile(
+    r"("
+    + pdf_vector.NUMBER
+    + r") ("
+    + pdf_vector.NUMBER
+    + r") m ("
+    + pdf_vector.NUMBER
+    + r") ("
+    + pdf_vector.NUMBER
+    + r") l S"
+)
+
+#: One painted rectangle, as ``ContentStream.rectangle`` writes it.
+_RECT = _re.compile(
+    r"("
+    + pdf_vector.NUMBER
+    + r") ("
+    + pdf_vector.NUMBER
+    + r") ("
+    + pdf_vector.NUMBER
+    + r") ("
+    + pdf_vector.NUMBER
+    + r") re ([SfB])"
+)
+
+
+def _shows(stream_text: str) -> List[Tuple[float, str]]:
+    """``(size in points, text)`` for every string the stream sets, in order."""
+    return [(float(size), text) for size, text in _SHOW.findall(stream_text)]
+
+
+def _strings(stream_text: str) -> List[str]:
+    return [text for _, text in _shows(stream_text)]
+
+
+def _written(streams: Sequence[ContentStream]) -> bytes:
+    return write_vector_pdf(list(streams), len(streams)).getvalue()
+
+
+class _Recorded:
+    """What one walk of a book's real interior asked each page kind to draw."""
+
+    def __init__(self, book: Book, puzzles: Sequence[dict]) -> None:
+        self.generator = BookPDFGenerator(book)
+        self.toc: List[Tuple[List[TocEntry], int]] = []
+        self.answers: List[Tuple[object, int, int, Optional[str]]] = []
+        self.packed: List[Tuple[PackedAnswerPage, list, int, dict]] = []
+        #: Every ``ImageDraw.text`` the walk made, as ``(page, text, names)``
+        #: where ``names`` is the ``nonogram`` functions on the stack above
+        #: it. This is AC-2's **whole-interior** reading: a page kind that
+        #: printed a title would print it through one of these calls.
+        self.text: List[Tuple[int, str, frozenset]] = []
+        self._walk(list(puzzles))
+
+    def _walk(self, puzzles: List[dict]) -> None:
+        self_recorded = self
+        generator = self.generator
+        klass = BookPDFGenerator
+        original = {
+            name: getattr(klass, name)
+            for name in ("create_toc_page", "solved_puzzle_page", "_packed_answer_page")
+        }
+        original_text = _ImageDraw.ImageDraw.text
+        current = {"page": 0}
+
+        def spy_toc(self, entries, page_number):
+            self_recorded.toc.append((list(entries), page_number))
+            return original["create_toc_page"](self, entries, page_number)
+
+        def spy_answer(self, payload, puzzle_number, page_number, title=None):
+            self_recorded.answers.append((payload, puzzle_number, page_number, title))
+            return original["solved_puzzle_page"](
+                self, payload, puzzle_number, page_number, title
+            )
+
+        def spy_packed(self, plan, payloads, page_number, titles):
+            self_recorded.packed.append((plan, list(payloads), page_number, dict(titles)))
+            return original["_packed_answer_page"](self, plan, payloads, page_number, titles)
+
+        def spy_text(self, xy, text, fill=None, font=None, *args, **kwargs):
+            names = []
+            frame = _sys._getframe(1)
+            while frame is not None:
+                if frame.f_globals.get("__name__", "").startswith("nonogram."):
+                    names.append(frame.f_code.co_name)
+                frame = frame.f_back
+            self_recorded.text.append((current["page"], str(text), frozenset(names)))
+            return original_text(self, xy, text, fill, font, *args, **kwargs)
+
+        klass.create_toc_page = spy_toc
+        klass.solved_puzzle_page = spy_answer
+        klass._packed_answer_page = spy_packed
+        _ImageDraw.ImageDraw.text = spy_text
+        try:
+            stream = generator.interior_stream(puzzles)
+            pages = iter(stream.pages)
+            drawn = 0
+            while True:
+                current["page"] = drawn + 1
+                try:
+                    next(pages)
+                except StopIteration:
+                    break
+                drawn += 1
+            self.page_count = drawn
+            assert drawn == stream.page_count
+        finally:
+            for name, function in original.items():
+                setattr(klass, name, function)
+            _ImageDraw.ImageDraw.text = original_text
+
+    def toc_streams(self) -> List[ContentStream]:
+        generator = self.generator
+        return [
+            book_toc_vector.toc_page_stream(
+                entries,
+                page_frame(generator.page_spec(page_number)),
+                generator.dpi,
+                page_number,
+            )
+            for entries, page_number in self.toc
+        ]
+
+    def answer_streams(self) -> List[ContentStream]:
+        """Every answer page of the book, full and packed, in print order."""
+        generator = self.generator
+        pages = [
+            (
+                page_number,
+                book_answer_vector.answer_page(
+                    generator.page_spec(page_number),
+                    generator.dpi,
+                    payload,
+                    number,
+                    page_number,
+                    title,
+                ),
+            )
+            for payload, number, page_number, title in self.answers
+        ]
+        pages += [
+            (
+                page_number,
+                book_answer_vector.packed_answer_page(
+                    generator.page_spec(page_number),
+                    generator.dpi,
+                    plan,
+                    payloads,
+                    page_number,
+                    titles,
+                ),
+            )
+            for plan, payloads, page_number, titles in self.packed
+        ]
+        return [stream for _, stream in sorted(pages, key=lambda pair: pair[0])]
+
+
+#: The book this block reads, and the titles its answer key prints. Named
+#: puzzles rather than ``_puzzle``'s default "Picture N", because AC-2 is
+#: about a *title* and a book whose titles were all absent would pass it
+#: vacuously — ``test_every_answer_page_prints_a_title`` is the control that
+#: refuses that.
+_TITLES = ("Snowflake", "Owl in a Pine", "Reindeer", "Tiny Bell")
+
+
+def _titled_book_puzzles() -> List[dict]:
+    """Four puzzles: two that pack two-up and two that take a page each."""
+    return [
+        _puzzle(12, 12, number=1, depth=3, name=_TITLES[0], tier="easy"),
+        _puzzle(12, 12, number=2, depth=3, name=_TITLES[1], tier="easy"),
+        _puzzle(18, 18, number=3, depth=3, name=_TITLES[2], tier="medium"),
+        _puzzle(18, 18, number=4, depth=3, name=_TITLES[3], tier="hard"),
+    ]
+
+
+_RECORDINGS: dict = {}
+
+
+def _recorded(profile: str) -> _Recorded:
+    """One walk per profile, shared by every test below."""
+    if profile not in _RECORDINGS:
+        book = _book() if profile == "book1" else _kdp_min_book()
+        _RECORDINGS[profile] = _Recorded(book, _titled_book_puzzles())
+    return _RECORDINGS[profile]
+
+
+@pytest.fixture(scope="module", params=["book1", "min-trim"])
+def profile(request) -> str:
+    """Book 1's trim, and the 10 x 10 cm minimum trim CON-018 also stocks."""
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def recorded(profile: str) -> _Recorded:
+    return _recorded(profile)
+
+
+# --------------------------------------------------------------------------
+# AC-1 — neither page kind carries a bitmap
+# --------------------------------------------------------------------------
+
+
+class TestAnswerAndTocPages_CarryNoImageXObject:
+    """AC-1 (ADR-0042/R1): no page of either kind references an image XObject.
+
+    Read off the written file's own ``/Resources`` dictionaries, by
+    :func:`~tests.helpers.pdf_vector.page_resource_keys` — which spells the
+    keys out as strings rather than handing back Pillow's ``PdfDict``, because
+    ``PdfDict`` indexes by ``bytes`` and *iterates* ``PdfName``, and a
+    membership test that silently reads ``False`` is exactly how "this page
+    carries no image XObject" would pass without being true.
+
+    The positive control is :meth:`test_the_raster_twin_of_the_same_page_does_carry_one`:
+    the raster answer page of the same book really does reference one, so this
+    reading can fail (ADR-0039/R1).
+    """
+
+    def test_no_answer_page_of_the_book_names_an_xobject(self, recorded) -> None:
+        streams = recorded.answer_streams()
+        assert streams, "the book printed no answer page to read"
+        for keys in pdf_vector.page_resource_keys(_written(streams)):
+            assert "XObject" not in keys, keys
+
+    def test_no_toc_page_of_the_book_names_an_xobject(self, recorded) -> None:
+        streams = recorded.toc_streams()
+        assert streams, "the book printed no table of contents to read"
+        for keys in pdf_vector.page_resource_keys(_written(streams)):
+            assert "XObject" not in keys, keys
+
+    def test_every_page_of_both_kinds_draws_something(self, recorded) -> None:
+        """A blank page carries no XObject either, so emptiness is ruled out."""
+        for stream in recorded.toc_streams() + recorded.answer_streams():
+            assert stream.render(), "an empty stream is a blank sheet, not a page"
+
+    def test_the_operator_alphabet_is_closed_at_what_these_pages_draw(
+        self, recorded
+    ) -> None:
+        """Default-DENY over the operators, not a search for ``Do``.
+
+        ``Do`` is how an XObject is *painted*, and naming it is the obvious
+        check; this asserts the whole alphabet instead, so an operator neither
+        page kind should emit — a transformation, a clip, an inline image
+        (``BI``) — fails here rather than being absent from a list nobody
+        updated.
+
+        **An equality, not a subset, since review cycle 2.** F-297-04 measured
+        the allow-list at 16 members against 13 emitted, and the three surplus
+        ones — ``B``, ``c`` and ``h`` — were exactly
+        :meth:`ContentStream.round_mark`'s own vocabulary, so the cell carried
+        slack precisely where
+        :meth:`TestAnswerTileHeader_DifficultyDotsAreRound.test_no_answer_page_draws_a_round_mark_today`
+        needs it tight, and the two cells disagreed about whether ``c`` was
+        allowed. The reading is now the measured set itself, over both page
+        kinds together, which closes the slack in both directions: a new
+        operator reds, and an operator these pages *stop* emitting reds too.
+        Measured identical on both profiles (13 members; the TOC alone emits 6
+        of them and the answer pages all 13).
+        """
+        emitted = {
+            "g", "G", "w", "m", "l", "S", "re", "f",
+            "BT", "ET", "Tf", "Td", "Tj",
+        }
+        seen: set = set()
+        for stream_text in pdf_vector.content_streams(
+            _written(recorded.toc_streams() + recorded.answer_streams())
+        ):
+            tokens = set(pdf_vector.operator_tokens(stream_text))
+            assert tokens <= emitted, sorted(tokens - emitted)
+            seen |= tokens
+        assert seen == emitted, (sorted(seen - emitted), sorted(emitted - seen))
+        # The three members F-297-04 found surplus are a round mark's, and a
+        # round shape on these pages is CARD-233's signal rather than this
+        # card's licence. Stated here as well as in the limit cell so the two
+        # cannot drift apart again.
+        assert not ({"B", "c", "h"} & seen), sorted({"B", "c", "h"} & seen)
+
+    def test_the_raster_twin_of_the_same_page_does_carry_one(self, recorded) -> None:
+        """The control. The same answer page as a bitmap references an image."""
+        payload, number, page_number, title = recorded.answers[0]
+        page = recorded.generator.solved_puzzle_page(payload, number, page_number, title)
+        data = recorded.generator._write_pdf(
+            [page], 1, mode=recorded.generator.interior_bitmap_mode
+        ).getvalue()
+        assert any("XObject" in keys for keys in pdf_vector.page_resource_keys(data))
+
+
+# --------------------------------------------------------------------------
+# AC-2 / EC(ADR-0037/R1) — the answer key is the only place the title prints
+# --------------------------------------------------------------------------
+
+
+class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
+    """AC-2 (FR-033/AC-194, ADR-0037/R1), in both halves and both media.
+
+    The half that **can** fail is the second one, and it is asserted over the
+    **whole interior** rather than over the answer section: a claim read only
+    off the answer pages cannot notice a puzzle page that started printing the
+    picture's name. So the second half is taken two ways, and neither is a
+    reading of the answer pages:
+
+    * **over every mark the raster interior makes** — one walk's worth of
+      ``ImageDraw.text`` calls, tagged with the ``nonogram`` functions above
+      them, so a title drawn by *any* page kind is seen. That is every page
+      the book ships today: the title page, both guide pages, the TOC, the
+      puzzle pages, the dividers and the answer pages;
+    * **over the vector streams** of the three page kinds that have a vector
+      writer — this card's two and CARD-295's puzzle page — read as the
+      strings they actually set.
+
+    The corpus arm (:meth:`test_the_title_prints_only_on_answer_pages_across_a_corpus`)
+    is the EC: the same comparison over a seeded corpus of books, with its
+    minimum case count asserted inside it.
+    """
+
+    @staticmethod
+    def _titles_of(recorded: _Recorded) -> List[str]:
+        return [
+            answer_title(None, payload.name)
+            for payload, _, _, _ in recorded.answers
+        ] + [
+            answer_title(titles.get(str(puzzle_id)), payload.name)
+            for _, payloads, _, titles in recorded.packed
+            for puzzle_id, payload in payloads
+        ]
+
+    def test_every_answer_page_prints_its_pictures_name(
+        self, recorded, profile
+    ) -> None:
+        """The first half, and the control that the second half is not vacuous.
+
+        **Asserted against the raster answer key rather than against a
+        literal**, because a caption is *omitted* rather than overlapped where
+        the trim leaves no slack for it (CARD-197's AC-6), and the 10 x 10 cm
+        minimum trim genuinely has pages where it is. So the claim is the
+        cross-medium one — the titles the vector answer pages set are exactly
+        the titles the raster answer captions drew — plus two controls: the
+        set is not empty on either profile, and on Book 1 it is the whole
+        book's four titles, so the comparison is not an agreement between two
+        empty sets.
+        """
+        printed = [
+            " ".join(_strings(text))
+            for text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+        ]
+        assert printed
+        vector = {title for title in _TITLES for page in printed if title in page}
+        raster = {
+            title
+            for title in _TITLES
+            for _, text, names in recorded.text
+            if "_draw_solved_slot" in names and title in text
+        }
+        assert vector == raster, (sorted(vector), sorted(raster))
+        assert vector, "no answer page printed a title, so AC-2's sweep is vacuous"
+        if profile == "book1":
+            assert vector == set(_TITLES), sorted(vector)
+
+    def test_a_clipped_title_is_counted_as_printed_in_both_media(
+        self, recorded
+    ) -> None:
+        """F-297-03's half of AC-2: a clip is not an omission.
+
+        The cell above reads whole titles, which is the right reading for "is
+        the name on the page". It is also blind to a *clipped* name on both
+        sides at once — the 10 x 10 cm trim prints ``'Puzzle 2 — Owl in a …'``
+        today — so this adds the reading that is not: the set of titles each
+        medium printed **something** for, clips included, must agree, and the
+        caption cells' element-for-element comparison then pins the string
+        itself.
+        """
+        wanted = set(self._captions_for(recorded))
+        vector = {
+            _caption_behind(reading, wanted)
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for _, text in _shows(stream_text)
+            if (reading := _caption_reading(text, wanted)) is not None
+        }
+        raster = {
+            _caption_behind(reading, wanted)
+            for _, text, names in recorded.text
+            if "_draw_solved_slot" in names
+            and (reading := _caption_reading(text, wanted)) is not None
+        }
+        assert vector == raster, (sorted(vector), sorted(raster))
+        assert vector, "no answer page carried a name at all"
+
+    @staticmethod
+    def _captions_for(recorded: _Recorded) -> List[str]:
+        """The whole caption lines this book's answer key would print."""
+        return TestAnswerPages_CaptionHoldsTheFloorInTheStream._captions(recorded)
+
+    def test_the_only_raster_calls_carrying_a_title_are_answer_captions(
+        self, recorded
+    ) -> None:
+        """The second half, over every mark the interior draws."""
+        offenders = [
+            (page, text, sorted(names))
+            for page, text, names in recorded.text
+            if any(title in text for title in _TITLES)
+            and "_draw_solved_slot" not in names
+        ]
+        assert offenders == []
+
+    def test_the_interior_really_was_walked_end_to_end(self, recorded) -> None:
+        """Guard the instrument: a walk that drew nothing would pass above."""
+        assert recorded.page_count >= 10
+        assert len({page for page, _, _ in recorded.text}) >= 6
+        assert any(
+            any(title in text for title in _TITLES) for _, text, _ in recorded.text
+        ), "no page of the interior printed a title at all, so the sweep is vacuous"
+
+    def test_no_toc_row_prints_a_title_in_the_stream_either(self, recorded) -> None:
+        for text in pdf_vector.content_streams(_written(recorded.toc_streams())):
+            shown = " ".join(_strings(text))
+            assert not any(title in shown for title in _TITLES), shown
+
+    def test_no_vector_puzzle_page_prints_a_title(self, recorded) -> None:
+        payloads = [payload for payload, _, _, _ in recorded.answers] + [
+            payload for _, payloads, _, _ in recorded.packed for _, payload in payloads
+        ]
+        streams = list(recorded.generator.vector_puzzle_pages(payloads))
+        assert streams
+        for text in pdf_vector.content_streams(_written(streams)):
+            shown = " ".join(_strings(text))
+            assert not any(title in shown for title in _TITLES), shown
+
+    def test_the_title_prints_only_on_answer_pages_across_a_corpus(self) -> None:
+        """EC(ADR-0037/R1): the same comparison over a seeded corpus of books.
+
+        Built by hand with ``random.Random`` (no ``hypothesis`` — it is not in
+        the dependency baseline), over the trims CON-018 stocks and over
+        puzzle names chosen to be unmistakable in a stream. The minimum case
+        count is asserted **inside** the test, so the corpus cannot silently
+        shrink (G-7).
+        """
+        random = _Random(297)
+        names = [
+            "Zarquon",
+            "Vexing Owl",
+            "Quokka at Dusk",
+            "Jellyfish",
+            "Wyvern",
+            "Xyloph",
+        ]
+        cases = 0
+        printed = 0
+        omitted = 0
+        clipped = 0
+        # Four of the trims CON-018 stocks, three of them portrait KDP sizes
+        # and the fourth the 10 x 10 cm square minimum — which is in the
+        # corpus precisely because a square trim leaves a full-page answer no
+        # vertical slack at all (measured: 0 px), so the omission branch is
+        # exercised rather than assumed.
+        for trim in ((10.0, 10.0), (13.97, 21.59), (15.24, 22.86), (21.59, 27.94)):
+            for seed in range(3):
+                picked = [names[random.randrange(len(names))] for _ in range(2)]
+                book = Book(
+                    book_id=f"card-297-corpus-{trim[0]}x{trim[1]}-{seed}",
+                    metadata=BookMetadata(
+                        title="Corpus",
+                        description="CARD-297's EC corpus.",
+                        theme="generic",
+                        target_audience="adults",
+                        size="",
+                        page_count=0,
+                    ),
+                    trim_width_cm=_cm(trim[0] * 10),
+                    trim_height_cm=_cm(trim[1] * 10),
+                    gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                    outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                )
+                generator = BookPDFGenerator(book)
+                puzzles = [
+                    _puzzle(12, 12, number=index + 1, depth=3, name=name)
+                    for index, name in enumerate(picked)
+                ]
+                payloads = [generator._payload(row) for row in puzzles]
+                answers = [
+                    book_answer_vector.answer_page(
+                        generator.page_spec(11 + index),
+                        generator.dpi,
+                        payload,
+                        index + 1,
+                        11 + index,
+                        picked[index],
+                    )
+                    for index, payload in enumerate(payloads)
+                ]
+                puzzle_streams = list(generator.vector_puzzle_pages(payloads))
+                for index, text in enumerate(
+                    pdf_vector.content_streams(_written(answers))
+                ):
+                    shown = " ".join(_strings(text))
+                    # The caption is OMITTED rather than overlapped where the
+                    # trim leaves no slack (CARD-197's AC-6), which the 10 cm
+                    # trim genuinely does. So the page either prints its own
+                    # title or prints no title at all -- never a different
+                    # puzzle's, and never one on a page that had no room for
+                    # a caption.
+                    if picked[index] in shown:
+                        printed += 1
+                    elif any(
+                        len(piece) > 1
+                        and piece.endswith("…")
+                        and picked[index].startswith(piece.split(" — ")[-1][:-1])
+                        for piece in _strings(text)
+                    ):
+                        # CLIPPED, which is neither printed nor omitted. Counted
+                        # as its own outcome since review cycle 2 (F-297-03):
+                        # the old reading swept a clipped name into `omitted`
+                        # and then asserted the name was absent, so a clip that
+                        # kept part of the name would have failed here for the
+                        # wrong reason — or, worse, a future clip that dropped
+                        # the whole stem would have silently inflated the
+                        # omission floor.
+                        clipped += 1
+                    else:
+                        omitted += 1
+                        for name in set(picked):
+                            assert name not in shown, (trim, seed, name, shown)
+                    cases += 1
+                for text in pdf_vector.content_streams(_written(puzzle_streams)):
+                    shown = " ".join(_strings(text))
+                    for name in set(picked):
+                        assert name not in shown, (trim, seed, name, shown)
+                    cases += 1
+        assert cases >= 40, cases
+        # Measured on this corpus: 18 of the 24 answer pages have the slack to
+        # print a caption (the six that do not are the 10 cm trim's). Asserted
+        # as a floor so the sweep cannot go vacuous by every caption being
+        # omitted, which is the one way the "prints its own title" half above
+        # could pass without being exercised.
+        assert printed >= 18, printed
+        # And the omission branch is exercised rather than assumed: the 10 cm
+        # square trim's six answer pages have 0 px of slack (measured), so the
+        # ``else`` arm above is live. A corpus where every caption printed
+        # would make it dead.
+        assert omitted >= 6, omitted
+        # And no case in this corpus clips, so the two floors above are an
+        # equality over 24 answer pages rather than three buckets with slack.
+        # Pinned because a clip is what F-297-03 showed the old reading could
+        # not see: if a corpus name starts clipping, that shows up here as a
+        # changed figure instead of as a quietly larger omission count.
+        assert clipped == 0, clipped
+        assert printed + omitted + clipped == 24, (printed, omitted, clipped)
+
+
+# --------------------------------------------------------------------------
+# AC-3 — the tiles are the grid routine, not a third copy
+# --------------------------------------------------------------------------
+
+#: The PDF operators that put a path or a mark on a page, as against the ones
+#: that only set state (``g``/``G``/``w``) or set type
+#: (``BT``/``Tf``/``Td``/``Tj``/``ET``). A grid is a path, so anything that
+#: emits one of these is a door a second grid walk could be driven through.
+_PATH_OPERATORS = frozenset({"m", "l", "re", "c", "h", "S", "f", "B"})
+
+#: One call per public ``ContentStream`` member, so :func:`_content_stream_doors`
+#: can **drive** each one and read what comes out rather than being told. The
+#: arguments only have to be valid — what is measured is which operators are
+#: emitted, not where they land.
+#:
+#: A member with no entry here is **watched anyway** (that is the default-DENY)
+#: *and* reported through :data:`_UNCLASSIFIED_DOORS`, so a method added to
+#: ``ContentStream`` cannot become an unwatched door by nobody noticing it.
+_DOOR_PROBE = {
+    "to_points": (10.0,),
+    "stroke_grey": (0.0,),
+    "fill_grey": (0.0,),
+    "stroke_width": (1.0,),
+    "line": (1.0, 2.0, 3.0, 4.0),
+    "rectangle": (1.0, 2.0, 3.0, 4.0),
+    "curve": (1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
+    "begin_path": (1.0, 2.0),
+    "line_to": (1.0, 2.0),
+    "close_path": (),
+    "paint": (),
+    "round_mark": (50.0, 50.0, 10.0),
+    "text": ("x", 1.0, 2.0, 10.0),
+    "render": (),
+}
+
+#: Why each public ``ContentStream`` member the guard does **not** watch is not
+#: watched — one entry per exclusion, machine-checked by
+#: ``test_every_unwatched_member_is_excluded_by_its_own_measurement``: the
+#: member really emits no path operator, and every operator it *does* emit is
+#: named in its own reason. An exclusion is therefore a statement about a
+#: measurement rather than an absence from a list (ADR-0039/R2).
+#:
+#: ``text`` is the entry worth reading twice. It emits no path, so it is not a
+#: path door; a *rule* set as a run of underscore glyphs, or a disc set as a
+#: round dingbat, is the **named limit**
+#: :meth:`~nonogram.admin.book_vector.ContentStream.round_mark`'s own docstring
+#: records with **CARD-298** as its owner — ADR-0042/R1's derived
+#: per-page-kind check, measured as ink. Nothing here claims it shut.
+_NOT_A_DOOR_BECAUSE = {
+    "to_points": "converts pixels to points and emits no operator at all",
+    "media_box": "a property reading the page box; it emits no operator at all",
+    "operators": "a property reading the record back; it emits no operator at all",
+    "render": "encodes what was already recorded; it emits no operator at all",
+    "stroke_grey": "sets the stroke tone (G) and constructs no path",
+    "fill_grey": "sets the fill tone (g) and constructs no path",
+    "stroke_width": "sets the stroke width (w) and constructs no path",
+    "text": (
+        "sets type (g BT Tf Td Tj ET) and constructs no path; a rule set as "
+        "glyphs is round_mark's named limit, owned by CARD-298"
+    ),
+}
+
+
+def _public_members(cls) -> List[str]:
+    """``cls``'s own public names, in a stable order."""
+    return sorted(name for name in vars(cls) if not name.startswith("_"))
+
+
+def _content_stream_doors(cls=ContentStream) -> Tuple[Tuple[str, ...], dict, Tuple[str, ...]]:
+    """``cls``'s drawing doors, **derived by driving every member**.
+
+    Returns ``(doors, emitted, unclassified)`` — the public members whose own
+    output carries a path operator, what each member emitted, and the ones
+    :data:`_DOOR_PROBE` does not know how to call.
+
+    This is the half of AC-3's guard review cycle 1 found hand-listed
+    (F-297-01). ``_STROKERS`` named ``line`` and ``rectangle``, and a complete
+    grid walk written as ``begin_path``/``line_to``/``paint`` reached the page
+    through three doors nothing watched. The set is now a **measurement of the
+    class**: a door added to ``ContentStream`` is watched because it paints,
+    not because somebody remembered to list it, and a member left unwatched is
+    left unwatched by :data:`_NOT_A_DOOR_BECAUSE` and the measurement behind
+    it.
+    """
+    doors: List[str] = []
+    emitted: dict = {}
+    unclassified: List[str] = []
+    for name in _public_members(cls):
+        member = getattr(cls, name)
+        stream = cls(width_px=1000.0, height_px=1000.0, dpi=300)
+        if isinstance(member, property):
+            getattr(stream, name)
+        elif name in _DOOR_PROBE:
+            getattr(stream, name)(*_DOOR_PROBE[name])
+        else:
+            # Unknown: watched, and reported. Default-DENY is what happens to
+            # a member nobody has classified yet; it is not a reason to skip.
+            unclassified.append(name)
+            doors.append(name)
+            emitted[name] = ()
+            continue
+        tokens = tuple(pdf_vector.operator_tokens("\n".join(stream.operators)))
+        emitted[name] = tokens
+        if set(tokens) & _PATH_OPERATORS:
+            doors.append(name)
+    return tuple(doors), emitted, tuple(unclassified)
+
+
+#: Everything in ``ContentStream`` that can put a path on a page, derived
+#: above. Eight of sixteen public members, on the measurement this file makes:
+#: ``begin_path``, ``close_path``, ``curve``, ``line``, ``line_to``, ``paint``,
+#: ``rectangle``, ``round_mark``. The other eight are
+#: :data:`_NOT_A_DOOR_BECAUSE`'s.
+_STROKERS, _DOOR_EMITS, _UNCLASSIFIED_DOORS = _content_stream_doors()
+
+#: The modules AC-3's guard governs: this card's two page writers. The
+#: shared routines they draw through live in ``book_vector_draw``, which is
+#: CARD-295's and is deliberately **not** in the domain — a guard over the
+#: routine itself would forbid the one implementation it exists to protect.
+_GUARDED = (book_answer_vector, book_toc_vector)
+
+
+def _enclosing(tree: _ast.AST) -> dict:
+    """Every node's innermost enclosing ``FunctionDef``, by ``id``.
+
+    Built by descent rather than by :func:`ast.walk`, because ``walk`` loses
+    the nesting: a helper defined *inside* an exempt function would otherwise
+    be attributed to that function and inherit its exemption, which is one of
+    the shapes this guard is controlled against.
+    """
+    owner: dict = {}
+
+    def descend(node, current):
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            current = node
+        for child in _ast.iter_child_nodes(node):
+            owner[id(child)] = current
+            descend(child, current)
+
+    owner[id(tree)] = None
+    descend(tree, None)
+    return owner
+
+
+def _parameters(function) -> set:
+    args = function.args
+    named = [*args.posonlyargs, *args.args, *args.kwonlyargs]
+    if args.vararg is not None:
+        named.append(args.vararg)
+    if args.kwarg is not None:
+        named.append(args.kwarg)
+    return {argument.arg for argument in named}
+
+
+def _fills(call: _ast.Call) -> bool:
+    """Whether ``call`` paints a **fill** — stated as a literal, or not at all.
+
+    **Read, no longer acted on.** Until review cycle 2 this function was an
+    exception inside :func:`stroke_violations`: a ``rectangle`` whose ``paint``
+    was the literal ``"fill"`` was admitted without the exemption. That was a
+    second discrimination the guard made by *hand* underneath a set that read
+    as derived — F-297-01's own defect class — and it left a grid walk written
+    as a row of thin filled rectangles admitted on every path. The guard is now
+    default-DENY over every door whatever it paints, and a fill reaches a page
+    only through the one derived exemption like any other mark.
+
+    It is kept because ``test_a_fill_is_not_a_rule_and_is_admitted`` and this
+    docstring are the record of which reading changed, and because a reader
+    asking "does this guard still treat a fill specially?" should find the
+    answer written down rather than inferred from an absence.
+    """
+    for keyword in call.keywords:
+        if keyword.arg == "paint":
+            return (
+                isinstance(keyword.value, _ast.Constant)
+                and keyword.value.value == "fill"
+            )
+    return False
+
+
+def stroke_violations(source: str) -> List[str]:
+    """Every place ``source`` rules a line outside the derived exemption.
+
+    **Default-DENY** (ADR-0039/R2). Everything that can put a path on a page is
+    collected first — a call to one of :data:`_STROKERS` on any object, and any
+    *reference* to one of them that is not a call, which is how such a method
+    would be bound to a name and called under another one — and each is then
+    admitted only if its innermost enclosing function is in the exemption set.
+    An expression at module level has no enclosing function and is therefore
+    denied, not skipped.
+
+    **:data:`_STROKERS` is a measurement of ``ContentStream``, not a list.**
+    :func:`_content_stream_doors` drives every public member of that class and
+    watches the ones whose own output carries a path operator — eight of
+    sixteen — so a door added there is watched because it paints. Review cycle
+    1 (F-297-01) found this set hand-listed at ``("line", "rectangle")`` and
+    drove a complete grid walk past it through ``begin_path``/``line_to``/
+    ``paint``; that artefact is now
+    ``test_the_guard_catches_a_grid_walk_in_each_of_these_shapes``'s
+    ``polyline-through-begin-path-and-paint`` case.
+
+    **What a call paints is no longer consulted.** A fill is watched like a
+    stroke, because a grid can be walked with thin filled rectangles as well as
+    with lines, and admitting one by its ``paint`` argument was a second
+    hand-made discrimination under a derived set (see :func:`_fills`).
+
+    **The exemption set is derived, not listed**: a function is exempt exactly
+    when it takes a parameter named ``grid``. That is the structural
+    difference between the two kinds of line an answer page draws. The grid's
+    own rules are a function of the *layout* alone — which is why CARD-295's
+    :func:`~nonogram.admin.book_vector_draw.draw_grid_lines` never sees a
+    solution and why it can be reused here at all — while the lighter join
+    between two adjacent filled cells is a function of the *solution*, and no
+    routine that does not take the grid could decide where one goes. So a
+    function that rules a line while holding the grid is drawing a mark the
+    shared routine does not have; one that rules a line without it is drawing
+    the grid again.
+    """
+    tree = _ast.parse(source)
+    owner = _enclosing(tree)
+    exempt = {
+        id(node)
+        for node in _ast.walk(tree)
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+        and "grid" in _parameters(node)
+    }
+    called = set()
+    found: List[str] = []
+
+    for node in _ast.walk(tree):
+        if (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Attribute)
+            and node.func.attr in _STROKERS
+        ):
+            called.add(id(node.func))
+            function = owner[id(node)]
+            where = "module level" if function is None else function.name
+            if function is None or id(function) not in exempt:
+                found.append(f"line {node.lineno}: {where} rules a {node.func.attr}")
+
+    for node in _ast.walk(tree):
+        if (
+            isinstance(node, _ast.Attribute)
+            and node.attr in _STROKERS
+            and id(node) not in called
+        ):
+            function = owner[id(node)]
+            where = "module level" if function is None else function.name
+            found.append(f"line {node.lineno}: {where} binds .{node.attr} to a name")
+
+    return sorted(found)
+
+
+def exempt_functions(source: str) -> List[str]:
+    """The names the derivation above admits, for a test to read back."""
+    tree = _ast.parse(source)
+    return sorted(
+        node.name
+        for node in _ast.walk(tree)
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+        and "grid" in _parameters(node)
+    )
+
+
+def _all_functions(source: str) -> List[str]:
+    tree = _ast.parse(source)
+    return sorted(
+        node.name
+        for node in _ast.walk(tree)
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+    )
+
+
+def _source_of(module) -> str:
+    return _Path(module.__file__).read_text(encoding="utf-8")
+
+
+class TestAnswerTiles_ReuseTheGridRoutine:
+    """AC-3: the answer tiles are drawn through CARD-295's grid routine.
+
+    Two halves, because a guard alone would not be a measurement of the reuse
+    and a drive alone would not stop the next copy:
+
+    * **the guard** — :func:`stroke_violations`, default-DENY over everything
+      in this card's two writer modules that can rule a line, with a
+      **derived** exemption (a function that takes the ``grid``). Its controls
+      below are deliberately *not* one per branch of the detector: a
+      module-level stroke, a helper nested inside an exempt function, a method
+      bound to a name, a rectangle whose paint is decided elsewhere. Those
+      are the shapes the guard was **not** written from, which is what makes
+      them evidence about its completeness rather than about its branches;
+    * **the drive** — the routine is run on a real
+      :class:`~nonogram.export.layout.AnswerTile`, which is **not** a
+      ``Layout`` and carries no clue gutter, and every line it emits is held
+      against that tile's own :class:`~nonogram.export.layout.GridLine`\\ s.
+      CARD-295's own round reported that this reuse "does not reach"; it
+      does, and this is the cell that drives it rather than reading it.
+    """
+
+    def test_neither_writer_rules_a_line_outside_the_exemption(self) -> None:
+        for module in _GUARDED:
+            assert stroke_violations(_source_of(module)) == [], module.__name__
+
+    def test_the_exemption_set_is_derived_and_not_everything(self) -> None:
+        """The guard is not default-ALLOW underneath (ADR-0039/R2).
+
+        Three readings, because "derived rather than hand-listed" has been
+        satisfied literally before by a predicate that admitted everything:
+        the set is non-empty where lines are drawn, it is a **strict** subset
+        of the module's functions, and the module that draws no line at all
+        exempts nothing.
+        """
+        answer = _source_of(book_answer_vector)
+        exempt = exempt_functions(answer)
+        assert exempt, "no function in the answer writer takes the grid"
+        assert set(exempt) < set(_all_functions(answer))
+        assert exempt_functions(_source_of(book_toc_vector)) == [], (
+            "the table of contents rules no line, so it may exempt nothing"
+        )
+
+    def test_the_only_exempt_stroker_is_the_solution_dependent_one(self) -> None:
+        """Which functions actually use their exemption, read off the module.
+
+        The exemption *set* is derived; this records which of its members are
+        load-bearing, so a later card that adds a third exemption has to change
+        this cell and say why.
+
+        **Two names, not one, since review cycle 2.** The reading used to be
+        the same two-name ``_STROKERS`` tuple the guard used, with a fill
+        admitted by its ``paint`` argument, so it saw only the join. It now
+        reads all eight derived doors and consults no ``paint``, which brings
+        ``draw_answer_cells``' filled cells into view beside
+        ``draw_solved_joins``' lines. Both are exempt for the one reason the
+        exemption encodes — each is a mark whose *existence* is a function of
+        the solution, which no routine that does not take the grid could place
+        — so the widening records the same property over a wider vocabulary.
+        The cell's name predates it and G-6 forbids renaming a test.
+        """
+        strokes = {
+            owner.name
+            for node, owner in _strokers_of(_source_of(book_answer_vector))
+            if owner is not None
+        }
+        assert strokes == {"draw_answer_cells", "draw_solved_joins"}
+        # Both hold the grid, which is what makes them exempt rather than
+        # tolerated: the set above is a subset of the derivation's own.
+        assert strokes <= set(exempt_functions(_source_of(book_answer_vector)))
+
+    def test_the_watched_set_is_derived_from_the_class_and_not_listed(self) -> None:
+        """F-297-01: the stroker vocabulary is a measurement of ``ContentStream``.
+
+        Three readings, and the third is the one that matters. The set is
+        exactly the public members whose own output carries a path operator,
+        it is a **strict** subset of that class's public surface (so the
+        derivation is not "everything"), and every door review cycle 1 drove a
+        grid walk through is in it.
+        """
+        members = set(_public_members(ContentStream))
+        assert set(_STROKERS) < members, sorted(members - set(_STROKERS))
+        assert _UNCLASSIFIED_DOORS == (), _UNCLASSIFIED_DOORS
+        # The eight this file measures, named so a change to the class shows
+        # up here as a diff rather than as a silently wider or narrower guard.
+        assert set(_STROKERS) == {
+            "begin_path",
+            "close_path",
+            "curve",
+            "line",
+            "line_to",
+            "paint",
+            "rectangle",
+            "round_mark",
+        }, sorted(_STROKERS)
+        assert len(members) == 16, sorted(members)
+        for name in _STROKERS:
+            assert set(_DOOR_EMITS[name]) & _PATH_OPERATORS, (name, _DOOR_EMITS[name])
+
+    def test_every_unwatched_member_is_excluded_by_its_own_measurement(self) -> None:
+        """An exclusion is a statement with a reason, not an absence.
+
+        For each public member the guard does not watch: it is named in
+        :data:`_NOT_A_DOOR_BECAUSE`, it really emitted no path operator when
+        driven, and every operator it *did* emit is named in its own reason —
+        so a reason cannot drift away from the measurement it stands on.
+        """
+        unwatched = set(_public_members(ContentStream)) - set(_STROKERS)
+        assert set(_NOT_A_DOOR_BECAUSE) == unwatched, (
+            sorted(unwatched - set(_NOT_A_DOOR_BECAUSE)),
+            sorted(set(_NOT_A_DOOR_BECAUSE) - unwatched),
+        )
+        assert len(unwatched) == 8, sorted(unwatched)
+        for name, reason in _NOT_A_DOOR_BECAUSE.items():
+            emitted = _DOOR_EMITS[name]
+            assert not (set(emitted) & _PATH_OPERATORS), (name, emitted)
+            assert reason.strip(), name
+            if emitted:
+                words = _re.findall(r"[A-Za-z*]+", reason)
+                for operator in set(emitted):
+                    assert operator in words, (name, operator, reason)
+            else:
+                assert "emits no operator at all" in reason, (name, reason)
+
+    def test_a_member_added_to_the_class_is_watched_without_being_listed(
+        self,
+    ) -> None:
+        """The default-DENY, driven: a new door needs no edit to be watched.
+
+        A subclass carrying one more drawing method is handed to the same
+        derivation, and the method is in the watched set — the property the
+        hand-listed tuple did not have, and the one that would have caught
+        F-297-01 the day ``begin_path`` was added.
+        """
+
+        class _WithOneMoreDoor(ContentStream):
+            def zigzag(self, x: float, y: float) -> None:
+                self.begin_path(x, y)
+                self.line_to(x + 1, y + 1)
+                self.paint("stroke")
+
+        # Driven through the shipped derivation, not a copy of it: with a probe
+        # entry the new door is classified by what it emits, and WITHOUT one it
+        # is watched anyway and reported as unclassified. Both halves are the
+        # default-DENY.
+        saved = dict(_DOOR_PROBE)
+        try:
+            _DOOR_PROBE["zigzag"] = (1.0, 2.0)
+            doors, emits, unclassified = _content_stream_doors(_WithOneMoreDoor)
+            assert doors == ("zigzag",), doors
+            assert unclassified == (), unclassified
+            assert set(emits["zigzag"]) & _PATH_OPERATORS, emits["zigzag"]
+            del _DOOR_PROBE["zigzag"]
+            doors, _, unclassified = _content_stream_doors(_WithOneMoreDoor)
+            assert doors == ("zigzag",) and unclassified == ("zigzag",)
+        finally:
+            _DOOR_PROBE.clear()
+            _DOOR_PROBE.update(saved)
+
+    @pytest.mark.parametrize(
+        "planted,expected",
+        [
+            pytest.param(
+                "stream.line(1, 2, 3, 4)\n",
+                "module level rules a line",
+                id="module-level-stroke",
+            ),
+            pytest.param(
+                "def draw(stream, tile, grid):\n"
+                "    def helper(stream):\n"
+                "        stream.line(1, 2, 3, 4)\n"
+                "    helper(stream)\n",
+                "helper rules a line",
+                id="helper-nested-inside-an-exempt-function",
+            ),
+            pytest.param(
+                "def caption(stream, text):\n    rule = stream.line\n    rule(1, 2, 3, 4)\n",
+                "caption binds .line to a name",
+                id="method-bound-to-a-name",
+            ),
+            pytest.param(
+                "def caption(stream, box):\n    stream.rectangle(1, 2, 3, 4)\n",
+                "caption rules a rectangle",
+                id="rectangle-stroked-by-default",
+            ),
+            pytest.param(
+                "def caption(stream, how):\n    stream.rectangle(1, 2, 3, 4, paint=how)\n",
+                "caption rules a rectangle",
+                id="rectangle-whose-paint-is-decided-elsewhere",
+            ),
+            pytest.param(
+                "class Pen:\n    def stroke(self, stream):\n        stream.line(1, 2, 3, 4)\n",
+                "stroke rules a line",
+                id="stroke-inside-a-class",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.begin_path(line.position, line.start)\n",
+                "draw rules a begin_path",
+                id="a-path-started-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.line_to(line.position, line.end)\n",
+                "draw rules a line_to",
+                id="a-path-extended-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.paint('stroke')\n",
+                "draw rules a paint",
+                id="a-path-painted-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.rectangle(\n"
+                "            line.position, line.start, line.position + 1,\n"
+                "            line.end, paint='fill',\n"
+                "        )\n",
+                "draw rules a rectangle",
+                id="grid-walked-as-thin-filled-rectangles",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.curve(1, 2, 3, 4, 5, 6)\n",
+                "draw rules a curve",
+                id="a-curve-is-a-path-too",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.round_mark(1, 2, 3)\n",
+                "draw rules a round_mark",
+                id="a-round-mark-is-a-path-too",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.close_path()\n",
+                "draw rules a close_path",
+                id="a-bare-close-path",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    paint = stream.paint\n"
+                "    paint('stroke')\n",
+                "draw binds .paint to a name",
+                id="a-new-door-bound-to-a-name",
+            ),
+        ],
+    )
+    def test_the_guard_catches_a_grid_walk_in_each_of_these_shapes(
+        self, planted: str, expected: str
+    ) -> None:
+        found = stroke_violations(planted)
+        assert len(found) == 1, found
+        assert found[0].endswith(expected), found
+
+    def test_review_cycle_1s_own_artefact_is_now_a_violation(self) -> None:
+        """F-297-01's demonstration, re-fired as a cell.
+
+        Cycle 1 built a complete grid walk through ``begin_path``/``line_to``/
+        ``paint`` and the guard returned ``[]`` for it, then fed the same code
+        a real :class:`ContentStream` and read back three ruled lines
+        (``'24 228 m'``, ``'24 12 l'`` …) — a whole grid on a page with zero
+        violations reported. Both halves are asserted here: the source is now
+        refused, *and* the page it draws really does carry the stroked lines
+        that made it a hole rather than a curiosity.
+        """
+        source = (
+            "def draw(stream, tile):\n"
+            "    for line in tile.vertical_lines:\n"
+            "        stream.begin_path(line.position, line.start)\n"
+            "        stream.line_to(line.position, line.end)\n"
+            "    stream.paint('stroke')\n"
+        )
+        found = stroke_violations(source)
+        assert found, "cycle 1's grid walk is admitted again"
+        assert [place.split(": ")[1] for place in found] == [
+            "draw rules a begin_path",
+            "draw rules a line_to",
+            "draw rules a paint",
+        ], found
+
+        # The same code, run. Three ruled lines and one S, through doors the
+        # hand-listed tuple did not watch.
+        stream = ContentStream(width_px=100.0, height_px=240.0, dpi=72)
+        namespace: dict = {}
+        exec(compile(source, "<cycle1-artefact>", "exec"), namespace)
+
+        class _Line:
+            def __init__(self, position: float) -> None:
+                self.position, self.start, self.end = position, 12.0, 228.0
+
+        class _Tile:
+            vertical_lines = (_Line(24.0), _Line(48.0), _Line(72.0))
+
+        namespace["draw"](stream, _Tile())
+        assert stream.operators == (
+            "24 228 m",
+            "24 12 l",
+            "48 228 m",
+            "48 12 l",
+            "72 228 m",
+            "72 12 l",
+            "S",
+        ), stream.operators
+
+    def test_a_fill_is_not_a_rule_and_is_admitted(self) -> None:
+        """The negative control: the guard is not "no rectangle anywhere".
+
+        **What admits this one changed in review cycle 2.** It used to be the
+        ``paint="fill"`` literal — an exception the guard made by hand under a
+        set that read as derived, which left a grid walked as thin filled
+        rectangles admitted everywhere (now a case of
+        ``test_the_guard_catches_a_grid_walk_in_each_of_these_shapes``). What
+        admits it now is the one derived exemption: the function holds the
+        grid. The companion below is the half that would have been missing.
+        """
+        assert (
+            stroke_violations(
+                'def cells(stream, grid):\n'
+                '    stream.rectangle(1, 2, 3, 4, paint="fill")\n'
+            )
+            == []
+        )
+
+    def test_the_same_fill_without_the_grid_is_denied(self) -> None:
+        """The exemption is what admits a fill, not the word "fill".
+
+        One character of difference from the cell above — the parameter the
+        exemption is derived from — and the same filled rectangle is refused.
+        That is the pair that makes the admission a reading of the exemption
+        rather than a blanket pass for fills.
+        """
+        found = stroke_violations(
+            'def cells(stream, tile):\n'
+            '    stream.rectangle(1, 2, 3, 4, paint="fill")\n'
+        )
+        assert len(found) == 1, found
+        assert found[0].endswith("cells rules a rectangle"), found
+
+    def test_the_routine_draws_a_real_answer_tile_that_is_not_a_layout(self) -> None:
+        """The drive. An ``AnswerTile`` is not a ``Layout``, and this is it."""
+        from nonogram.export.layout import AnswerTile, Layout as _Layout
+
+        spec = BookPDFGenerator(_book()).page_spec(11)
+        page = compute_answer_page_layout([(10, 10)] * 4, 4, spec)
+        tile = page.tiles[0]
+        assert isinstance(tile, AnswerTile) and not isinstance(tile, _Layout)
+        assert not hasattr(tile, "clue_entries")
+        assert len(tile.vertical_lines) == 11 and len(tile.horizontal_lines) == 11
+
+        grid = [[(row + column) % 3 != 0 for column in range(10)] for row in range(10)]
+        stream = ContentStream(width_px=page.width, height_px=page.height, dpi=page.dpi)
+        book_answer_vector.draw_solved_grid(stream, tile, grid)
+        (written,) = pdf_vector.content_streams(_written([stream]))
+
+        drawn = {
+            (float(x1), float(y1), float(x2), float(y2))
+            for x1, y1, x2, y2 in _LINE.findall(written)
+        }
+        expected = set()
+        for line in tile.vertical_lines:
+            expected.add(
+                (
+                    _pt(line.position, page.dpi),
+                    _flip(line.start, page.height, page.dpi),
+                    _pt(line.position, page.dpi),
+                    _flip(line.end, page.height, page.dpi),
+                )
+            )
+        for line in tile.horizontal_lines:
+            expected.add(
+                (
+                    _pt(line.start, page.dpi),
+                    _flip(line.position, page.height, page.dpi),
+                    _pt(line.end, page.dpi),
+                    _flip(line.position, page.height, page.dpi),
+                )
+            )
+        assert expected <= drawn, sorted(expected - drawn)
+        assert len(expected) == 22
+
+    def test_the_comparison_above_can_fail(self) -> None:
+        """One line moved by a pixel, and the comparison notices."""
+        import dataclasses
+
+        spec = BookPDFGenerator(_book()).page_spec(11)
+        page = compute_answer_page_layout([(10, 10)] * 4, 4, spec)
+        tile = page.tiles[0]
+        moved = dataclasses.replace(
+            tile,
+            vertical_lines=(
+                dataclasses.replace(
+                    tile.vertical_lines[0], position=tile.vertical_lines[0].position + 1
+                ),
+                *tile.vertical_lines[1:],
+            ),
+        )
+        grid = [[False] * 10 for _ in range(10)]
+        streams = []
+        for candidate in (tile, moved):
+            stream = ContentStream(
+                width_px=page.width, height_px=page.height, dpi=page.dpi
+            )
+            book_answer_vector.draw_solved_grid(stream, candidate, grid)
+            streams.append(stream)
+        one, two = pdf_vector.content_streams(_written(streams))
+        assert set(_LINE.findall(one)) != set(_LINE.findall(two))
+
+
+def _strokers_of(source: str) -> List[Tuple[object, object]]:
+    """Every call through a drawing door in ``source``, with its owner.
+
+    The same vocabulary :func:`stroke_violations` denies from — eight derived
+    doors, no exception for what a call paints — so the two halves of AC-3's
+    structural claim can no longer disagree about what counts as a mark. They
+    shared a two-name tuple until review cycle 2; F-297-01 is that both halves
+    were blind to the same shapes, not that one was.
+    """
+    tree = _ast.parse(source)
+    owner = _enclosing(tree)
+    out = []
+    for node in _ast.walk(tree):
+        if (
+            isinstance(node, _ast.Call)
+            and isinstance(node.func, _ast.Attribute)
+            and node.func.attr in _STROKERS
+        ):
+            out.append((node, owner[id(node)]))
+    return out
+
+
+def _pt(pixels: float, dpi: int) -> float:
+    """``pixels`` as the points a content stream writes, rounded as it rounds."""
+    return round(pixels * 72.0 / dpi, 3)
+
+
+def _flip(pixels: float, height: float, dpi: int) -> float:
+    """A row counted down from the page top, as the PDF y counted up."""
+    return _pt(height - pixels, dpi)
+
+
+# --------------------------------------------------------------------------
+# AC-5 — the difficulty dots on a tile header are the priced primitive
+# --------------------------------------------------------------------------
+
+
+def _solution_tile_bands(spec) -> List[Tuple[int, int, int, int]]:
+    """Every band a packed solution tile reserves inside itself, on ``spec``.
+
+    CARD-228's own derivation, re-run here rather than quoted: the band runs
+    from the tile's own usable top to one pixel above its drawing, across the
+    tile's whole usable width. ``SOLVED_TILE_CAPACITIES`` is ``(2, 4)``, so a
+    trim yields ``2 + 4`` such boxes.
+    """
+    boxes: List[Tuple[int, int, int, int]] = []
+    clues = ((2, 2), (2, 2), (2, 2), (2, 2), (2, 2))
+    for capacity in (2, 4):
+        packed = compute_packed_solved_layout([(clues, clues)] * capacity, capacity, spec)
+        assert packed is not None, capacity
+        for slot in packed.slots:
+            placement = slot.page
+            assert placement is not None
+            boxes.append(
+                (
+                    placement.usable_left,
+                    placement.usable_top,
+                    placement.usable_right,
+                    placement.drawing_top - 1,
+                )
+            )
+    return boxes
+
+
+class TestAnswerTileHeader_DifficultyDotsAreRound:
+    """AC-5: a tile header's difficulty dots render as round shapes.
+
+    **What this measures, and the limit it states out loud.** A solution
+    tile's header prints its difficulty as a *word* today — ``band_identity``
+    composes ``"Puzzle 12 · Hard"`` and nothing else — so there are **no dots
+    on an answer page to read back**: ``ContentStream.round_mark`` has zero
+    callers in ``src/`` (asserted below), and CARD-228's own AC-5 says why —
+    *"what each caller actually puts there is CARD-207/229/231/233's
+    business"*. **CARD-233** is the card that gives a tile one header, it is
+    queued and gated, and this card's G-1 forbids drawing its design here.
+
+    So AC-5 is taken exactly as CARD-228 left it for its adopting cards —
+    *"the adopting cards re-run AC-5 against their own box"* — in the new
+    medium: the box is the **real** narrowest band a packed solution tile
+    reserves, COMP-007 measures the ladder for it, the ladder is drawn through
+    the **one** round-shape primitive CARD-294 priced, and poppler is asked
+    whether what came out is round at the stated diameter. Nothing is wired
+    into a page, which is what keeps this inside G-1 — and the one claim it
+    does **not** make is that an answer page prints dots, which
+    :meth:`test_no_answer_page_draws_a_round_mark_today` states as a fact
+    rather than leaving to be discovered.
+    """
+
+    @pytest.fixture(scope="class")
+    @staticmethod
+    def box() -> Tuple[int, int, int, int]:
+        spec = BookPDFGenerator(_kdp_min_book()).page_spec(11)
+        bands = _solution_tile_bands(spec)
+        assert len(bands) == 6
+        return min(bands, key=lambda band: band[2] - band[0])
+
+    @staticmethod
+    def _drawn(box: Tuple[int, int, int, int], dpi: int):
+        """The ladder of ``box``, drawn through ``round_mark`` on its own sheet.
+
+        Translated to the box's own corner — a translation, not a
+        measurement — so the render is the box and a two-pixel border rather
+        than a whole 10 cm page at 1200 DPI.
+        """
+        left, top, right, bottom = box
+        dots = difficulty_dots(
+            left, top, right, bottom, filled=len(TIERS), total=len(TIERS)
+        )
+        assert dots is not None, box
+        stream = ContentStream(
+            width_px=right - left + 5, height_px=bottom - top + 5, dpi=dpi
+        )
+        stream.fill_grey(book_vector_draw.INK_GREY)
+        for one in dots.dots:
+            radius = (one[2] - one[0]) / 2.0
+            stream.round_mark(
+                one[0] - left + 2 + radius, one[1] - top + 2 + radius, radius
+            )
+        return dots, stream
+
+    def test_the_box_is_the_narrowest_band_a_solution_tile_reserves(self, box) -> None:
+        spec = BookPDFGenerator(_kdp_min_book()).page_spec(11)
+        bands = _solution_tile_bands(spec)
+        assert box in bands
+        assert all(box[2] - box[0] <= other[2] - other[0] for other in bands)
+
+    def test_the_geometry_fits_three_dots_in_that_box(self, box) -> None:
+        dots, _ = self._drawn(box, 1200)
+        assert dots.total == len(TIERS) == 3
+        assert dots.diameter > 0
+        assert box[0] < dots.left and dots.right < box[2]
+        assert box[1] < dots.top and dots.bottom < box[3]
+
+    @needs_pdftoppm
+    def test_poppler_reads_three_round_marks_at_the_stated_diameter(
+        self, box, tmp_path
+    ) -> None:
+        dots, stream = self._drawn(box, 1200)
+        data = _written([stream])
+        page = pdf_vector.rendered_page(data, 1200, out_dir=tmp_path)
+        image = _Image.fromarray(page.astype("uint8"), mode="L")
+        marks = round_ink.round_marks(image)
+        assert len(marks) == dots.total, [mark.box for mark in marks]
+        for mark in marks:
+            assert mark.is_round, (mark.aspect, mark.fill)
+            assert abs(mark.width - dots.diameter) <= 2, (mark.width, dots.diameter)
+            assert abs(mark.height - dots.diameter) <= 2, (mark.height, dots.diameter)
+
+    @needs_pdftoppm
+    def test_the_roundness_reading_can_fail(self, box, tmp_path) -> None:
+        """The control (ADR-0039/R1): the same ladder as squares is not round.
+
+        Drawn at the same boxes, with the same fill, through the rectangle
+        primitive instead — so what changes between this cell and the one
+        above is the shape alone.
+        """
+        dots, _ = self._drawn(box, 1200)
+        left, top = box[0], box[1]
+        stream = ContentStream(
+            width_px=box[2] - left + 5, height_px=box[3] - top + 5, dpi=1200
+        )
+        stream.fill_grey(book_vector_draw.INK_GREY)
+        for one in dots.dots:
+            stream.rectangle(
+                one[0] - left + 2,
+                one[1] - top + 2,
+                one[2] - left + 2,
+                one[3] - top + 2,
+                paint="fill",
+            )
+        page = pdf_vector.rendered_page(_written([stream]), 1200, out_dir=tmp_path)
+        image = _Image.fromarray(page.astype("uint8"), mode="L")
+        assert round_ink.round_marks(image) == []
+
+    def test_the_vector_ladder_is_the_geometry_the_raster_ladder_draws(
+        self, box
+    ) -> None:
+        """One implementation, three users: the boxes are the same boxes.
+
+        The raster glyph is ``_draw_difficulty_dots``'s ellipses; both read
+        :func:`~nonogram.export.layout.difficulty_dots` for the same box, so
+        the comparison is of the two drawings' own inputs rather than of two
+        re-derivations.
+        """
+        left, top, right, bottom = box
+        canvas = _Image.new("RGB", (right + 3, bottom + 3), BACKGROUND)
+        raster = _draw_difficulty_dots(
+            _ImageDraw.Draw(canvas), _Tier.HARD.value, left, top, right, bottom
+        )
+        vector, _ = self._drawn(box, 1200)
+        assert raster is not None
+        assert raster.dots == vector.dots
+        assert raster.diameter == vector.diameter
+
+    def test_no_answer_page_draws_a_round_mark_today(self, recorded) -> None:
+        """The stated limit, as a test rather than as prose (G-1).
+
+        A ``c`` operator is how :meth:`ContentStream.round_mark` draws a
+        quadrant, and it is the only thing in this card's writers that could
+        emit one. A page kind that starts drawing dots reds here, which is
+        CARD-233's own signal to update AC-5 rather than to discover it.
+        """
+        for text in pdf_vector.content_streams(
+            _written(recorded.answer_streams() + recorded.toc_streams())
+        ):
+            assert " c\n" not in text and not text.rstrip().endswith(" c")
+        assert "round_mark" not in _source_of(book_answer_vector)
+        assert "round_mark" not in _source_of(book_toc_vector)
+
+
+# --------------------------------------------------------------------------
+# AC-6 — the answer caption still holds CON-020's floor, read off the stream
+# --------------------------------------------------------------------------
+
+#: CON-020's floor for reader-facing interior text, in points.
+_FLOOR_PT = 10.0
+
+#: Where the two media's answer captions differ, and **why** — one entry per
+#: divergence, as ``{whole caption: (what the raster page set, what the vector
+#: page sets)}``.
+#:
+#: Review cycle 1's F-297-03: every title and caption reading in this card
+#: filtered by membership in the set of **unclipped** strings, so a clipped
+#: caption landed in the "omitted" bucket on both sides and a one-character
+#: clip difference passed 596 cells. Measured once the readings admit clipped
+#: strings, the two media **already** differ — today, on the 10 x 10 cm minimum
+#: trim, in a shipped book:
+#:
+#: * both clip against the **same** measure, 492 px, which is COMP-007's
+#:   ``caption_slot`` figure and not either renderer's;
+#: * the raster page measures ``'Puzzle 2 — Owl in a P…'`` with
+#:   ``FreeTypeFont.getlength`` at 491.98 px and keeps it;
+#: * the vector page measures the same string as a sum of the embedded face's
+#:   ``/Widths`` at 492.87 px and runs the loop one more step.
+#:
+#: 0.89 px across a 492 px string — the "fraction of a dot's advance" this
+#: card's own TOC header admits the two engines agree to, landing on an integer
+#: boundary. **Neither medium is wrong**: ``/Widths`` is what a PDF viewer sums,
+#: so each page clips by the measure its own reader will use, which is the port
+#: being faithful rather than broken. It is recorded here because it is a
+#: product fact no cell stated, and exact agreement is **not** achievable
+#: without one medium measuring with the other's engine.
+_DECLARED_CLIP_DIVERGENCE = {
+    "Puzzle 2 — Owl in a Pine": (
+        "Puzzle 2 — Owl in a P…",
+        "Puzzle 2 — Owl in a …",
+    ),
+}
+
+
+def _caption_reading(text: str, wanted) -> Optional[str]:
+    """``text`` as the caption it is a reading of — whole or clipped — or ``None``.
+
+    The clip loop both media run is ``clipped[:-2] + "…"`` applied until the
+    string fits, so every clipped reading is ``caption[:k] + "…"``. Admitting
+    those is the whole of F-297-03's fix: a reading that is not in the set of
+    unclipped captions is a *clip*, not an omission, and the two are different
+    facts about a printed book.
+    """
+    if text in wanted:
+        return text
+    if text.endswith("…") and len(text) > 1:
+        stem = text[:-1]
+        if any(caption.startswith(stem) and caption != stem for caption in wanted):
+            return text
+    return None
+
+
+def _caption_behind(reading: str, wanted) -> str:
+    """The whole caption ``reading`` is a reading of."""
+    if reading in wanted:
+        return reading
+    stem = reading[:-1]
+    matches = sorted(
+        caption for caption in wanted if caption.startswith(stem) and caption != stem
+    )
+    assert len(matches) == 1, (reading, matches)
+    return matches[0]
+
+
+def _unexplained_clip_divergences(vector, raster, wanted) -> List[Tuple[str, ...]]:
+    """Captions whose two media disagree **outside** the declared table.
+
+    Both arguments are the readings each medium actually set, clips included.
+    Grouped by the caption behind each reading, so "both omitted it" and "both
+    printed it clipped to the same string" are both agreement and anything else
+    is reported.
+    """
+    out: List[Tuple[str, ...]] = []
+    for caption in sorted(wanted):
+        mine = sorted(r for r in vector if _caption_behind(r, wanted) == caption)
+        theirs = sorted(r for r in raster if _caption_behind(r, wanted) == caption)
+        if mine == theirs:
+            continue
+        declared = _DECLARED_CLIP_DIVERGENCE.get(caption)
+        if declared is not None and theirs == [declared[0]] and mine == [declared[1]]:
+            continue
+        out.append((caption, tuple(theirs), tuple(mine)))
+    return out
+
+
+class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
+    """AC-6 (CON-020): the answer caption's ``Tf`` size is at or above 10 pt.
+
+    Read off the written stream's own ``Tf`` operand — a *point* size against
+    the page, which is what makes this a device-independent claim in the new
+    medium where the raster page could only be measured in pixels at one DPI.
+
+    **Conditional on the profile, exactly as**
+    ``tests/test_book_interior_type_floor.py:369`` **already is**: the
+    caption is *omitted* rather than overlapped on the 10 x 10 cm minimum
+    trim (CARD-197's AC-6), so requiring one there would fail for the wrong
+    reason. The condition is not a licence either — the omission itself is
+    asserted, and asserted as **agreement with the raster page's own
+    verdict** rather than against a profile name, so a vector writer that
+    omitted a caption Book 1 prints would red.
+    """
+
+    @staticmethod
+    def _captions(recorded: _Recorded) -> List[str]:
+        """Every caption string the book's answer key would print."""
+        wanted = [
+            answer_caption(number, title)
+            for _, number, _, title in recorded.answers
+        ]
+        wanted += [
+            answer_caption(
+                number, answer_title(titles.get(str(puzzle_id)), payload.name)
+            )
+            for plan, payloads, _, titles in recorded.packed
+            for number, (puzzle_id, payload) in zip(plan.numbers, payloads)
+        ]
+        return wanted
+
+    def test_every_caption_the_stream_sets_is_at_or_above_the_floor(
+        self, recorded, profile
+    ) -> None:
+        wanted = set(self._captions(recorded))
+        assert wanted, "the book has no answer captions to look for"
+        found = [
+            (size, text)
+            for text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for size, text in _shows(text)
+            if text in wanted
+        ]
+        for size, text in found:
+            assert size >= _FLOOR_PT, (size, text)
+        if profile != "min-trim":
+            assert found, (
+                "Book 1's answer key prints captions, so an empty reading here "
+                "is the writer failing to set them, not CARD-197's omission"
+            )
+
+    @staticmethod
+    def _readings(recorded: _Recorded, wanted) -> Tuple[List[str], List[str]]:
+        """What each medium actually set, **clips included** (F-297-03).
+
+        The filter is :func:`_caption_reading`, not membership in ``wanted``:
+        until review cycle 2 every caption reading in this card tested
+        ``text in wanted``, so a clipped caption was absent from both sides'
+        sets and counted as an omission in both media. That is the blindness
+        F-297-03 names — the clip point is the one axis the two media are known
+        to measure differently.
+        """
+        vector = [
+            reading
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for _, text in _shows(stream_text)
+            if (reading := _caption_reading(text, wanted)) is not None
+        ]
+        raster = [
+            reading
+            for _, text, names in recorded.text
+            if "_draw_solved_slot" in names
+            and (reading := _caption_reading(text, wanted)) is not None
+        ]
+        return vector, raster
+
+    def test_the_two_media_omit_the_same_captions(self, recorded) -> None:
+        """The omission is the raster page's own verdict, not a profile name.
+
+        **About omission, and no longer blind to clipping.** The two sides are
+        compared as the set of *captions* each medium printed something for, a
+        clipped reading counting as printed — so a medium that omitted a
+        caption the other clipped now reds here, where before cycle 2 both
+        would have read as omissions and agreed.
+        """
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        mine = {_caption_behind(reading, wanted) for reading in vector}
+        theirs = {_caption_behind(reading, wanted) for reading in raster}
+        assert mine == theirs, (sorted(mine), sorted(theirs))
+
+    def test_the_two_media_clip_the_same_captions_to_the_same_string(
+        self, recorded, profile
+    ) -> None:
+        """F-297-03: the caption **string**, not its presence in a set.
+
+        Per caption, the readings the two media set are compared element for
+        element, so the three outcomes a slot really has — printed whole,
+        clipped to a particular string, omitted — are distinguishable instead
+        of collapsing into two. Any disagreement outside
+        :data:`_DECLARED_CLIP_DIVERGENCE` fails here, which is what makes a
+        clip that moves by one character red.
+        """
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        assert vector or profile == "min-trim", "the vector pages set no caption"
+        assert (
+            _unexplained_clip_divergences(vector, raster, wanted) == []
+        ), _unexplained_clip_divergences(vector, raster, wanted)
+
+    def test_the_min_trim_really_does_clip_one_caption_in_each_medium(self) -> None:
+        """Non-vacuity: the comparison above has a clip to compare.
+
+        Without this the element-for-element cell could pass on two media that
+        never clip anything, which is how F-297-03's reading survived. Measured
+        on the 10 x 10 cm trim, where a packed page prints one caption whole and
+        clips the next.
+        """
+        recorded = _recorded("min-trim")
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        assert [r for r in vector if r.endswith("…")], vector
+        assert [r for r in raster if r.endswith("…")], raster
+        # And the declared table is the pair this profile really sets, so an
+        # entry that stops being true reds here rather than going stale.
+        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
+            assert [
+                r for r in raster if _caption_behind(r, wanted) == caption
+            ] == [raster_text], raster
+            assert [
+                r for r in vector if _caption_behind(r, wanted) == caption
+            ] == [vector_text], vector
+
+    def test_the_declared_clip_divergence_is_one_step_of_the_same_loop(self) -> None:
+        """The reason behind the declaration, machine-checked rather than told.
+
+        For each declared pair: both readings are clips of the same caption,
+        the vector's is exactly **one step** of the shared ``[:-2] + "…"`` loop
+        shorter (two source characters off, one ellipsis on), there is an integer measure at which the two shipped clip
+        functions really produce exactly those two strings, and at such a
+        measure the two engines' widths of the raster string **straddle** it by
+        under one pixel. So the divergence is one rounding boundary between two
+        font engines and not a second clip rule.
+        """
+        from nonogram.admin.book_pdf_generator import _clipped_to, _guide_face
+
+        face = interior_face_metrics()
+        size = book_answer_vector.answer_type(300).caption_size_px
+        font = _guide_face(int(size))
+        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
+            assert raster_text.endswith("…") and vector_text.endswith("…")
+            assert caption.startswith(raster_text[:-1]), (caption, raster_text)
+            assert caption.startswith(vector_text[:-1]), (caption, vector_text)
+            # One step of ``clipped[:-2] + "…"`` drops two characters and adds
+            # one, so exactly one step is one character of length.
+            assert len(raster_text) - len(vector_text) == 1, (raster_text, vector_text)
+            whole = book_vector_draw.advance_px(caption, size, face)
+            straddle = [
+                measure
+                for measure in range(1, int(whole) + 2)
+                if _clipped_to(caption, font, measure) == raster_text
+                and book_answer_vector._clipped_to_measure(
+                    caption, size, face, measure
+                )
+                == vector_text
+            ]
+            assert straddle, (caption, raster_text, vector_text)
+            measure = straddle[0]
+            raster_width = font.getlength(raster_text)
+            vector_width = book_vector_draw.advance_px(raster_text, size, face)
+            assert raster_width <= measure < vector_width, (
+                measure,
+                raster_width,
+                vector_width,
+            )
+            assert vector_width - raster_width < 1.0, vector_width - raster_width
+
+    def test_the_clip_comparison_can_fail(self) -> None:
+        """The control (ADR-0039/R1): one character, and it reds.
+
+        The same comparison over a vector reading clipped one step further than
+        the page really clips it — which is exactly the
+        ``clipped[:-2] -> clipped[:-3]`` mutant that survived 596 cells in
+        review cycle 1.
+        """
+        wanted = {"Puzzle 2 — Owl in a Pine"}
+        raster = ["Puzzle 2 — Owl in a P…"]
+        assert _unexplained_clip_divergences(
+            ["Puzzle 2 — Owl in a …"], raster, wanted
+        ) == []
+        for moved in ("Puzzle 2 — Owl in …", "Puzzle 2 — Owl in a Pine"):
+            assert _unexplained_clip_divergences([moved], raster, wanted) != [], moved
+        # And a caption one medium omits entirely is not agreement either.
+        assert _unexplained_clip_divergences([], raster, wanted) != []
+
+    def test_the_minimum_trim_omits_its_captions_rather_than_shrinking_them(
+        self,
+    ) -> None:
+        """The condition above, named: on the 10 cm trim there is no caption.
+
+        Asserted on the full answer pages, whose drawing reaches the bottom
+        margin on a square trim (measured: 0 px of slack). A packed page's
+        tiles are shorter than the page and may still have room, which is why
+        this reads the full pages rather than the whole section.
+        """
+        recorded = _recorded("min-trim")
+        wanted = {
+            answer_caption(number, title)
+            for _, number, _, title in recorded.answers
+        }
+        assert wanted
+        streams = [
+            book_answer_vector.answer_page(
+                recorded.generator.page_spec(page_number),
+                recorded.generator.dpi,
+                payload,
+                number,
+                page_number,
+                title,
+            )
+            for payload, number, page_number, title in recorded.answers
+        ]
+        for text in pdf_vector.content_streams(_written(streams)):
+            assert not (set(_strings(text)) & wanted), _strings(text)
+
+    def test_the_two_media_omit_at_the_same_slack_for_every_integer(self) -> None:
+        """The threshold agreement review cycle 1 found claimed but unasserted.
+
+        F-297-08 item 4: the round reported that the vector writer's omission
+        threshold and the raster page's "agree for every integer slack", and
+        no assertion of it was committed anywhere — ``grep`` over the whole
+        diff for ``72.9``, "threshold" and "every integer slack" returned
+        nothing. Here it is, driven rather than reasoned.
+
+        Each threshold is recomputed from its **own** medium's own face
+        measurement — the vector's from the embedded face's ``/Ascent`` and
+        ``/Descent``, the raster's from ``FreeTypeFont.getmetrics`` — and the
+        two verdicts (print or omit) are compared at every integer slack from
+        zero to past both. The agreement is not a coincidence of two numbers:
+        a slack is a difference of two integer page coordinates, so what
+        matters is that **no integer falls between the two thresholds**, and
+        that is asserted as such. A face change that moved them apart across
+        an integer reds here instead of silently changing which pages print a
+        caption.
+        """
+        raster_gap = round(ANSWER_TILE_GAP_MM / 25.4 * 300)
+        caption_pt = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        ascent, descent = _band_font(type_px(caption_pt, 300)).getmetrics()
+        raster_threshold = raster_gap + ascent + descent
+
+        spec = book_answer_vector.answer_type(300)
+        face = interior_face_metrics()
+        vector_threshold = spec.gap_px + book_vector_draw.line_height_px(
+            spec.caption_size_px, face
+        )
+
+        # The two really are different numbers, so the agreement below is a
+        # measurement and not an identity.
+        assert vector_threshold != raster_threshold
+        low, high = sorted((float(vector_threshold), float(raster_threshold)))
+        assert high - low < 1.0, (low, high)
+        assert not [n for n in range(0, int(high) + 2) if low <= n < high], (low, high)
+
+        cases = 0
+        for slack in range(0, int(high) * 2 + 2):
+            assert (slack >= vector_threshold) == (slack >= raster_threshold), (
+                slack,
+                vector_threshold,
+                raster_threshold,
+            )
+            cases += 1
+        assert cases >= 140, cases
+
+    def test_the_floor_is_the_one_the_constant_states(self) -> None:
+        """The figure is re-derived, not quoted: 10 pt is where it comes from."""
+        assert ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4 == pytest.approx(_FLOOR_PT)
+
+
+# --------------------------------------------------------------------------
+# EC(ADR-0042/R3) — neither writer derives geometry
+# --------------------------------------------------------------------------
+
+
+def _page_coordinates(stream_text: str) -> Tuple[set, set]:
+    """Every x and every y a stream's **paths** name, in points.
+
+    Text is deliberately excluded: where a string sits for a given centre or
+    edge is the sum of its glyphs' advances, which
+    :mod:`nonogram.admin.book_vector_draw`'s own header names as the one
+    arithmetic a writer does ("where a string sits is layout while how wide it
+    sets is type"). This is the geometry half.
+    """
+    xs: set = set()
+    ys: set = set()
+    for x1, y1, x2, y2 in _LINE.findall(stream_text):
+        xs.update((float(x1), float(x2)))
+        ys.update((float(y1), float(y2)))
+    for x, y, width, height, _ in _RECT.findall(stream_text):
+        xs.update((float(x), round(float(x) + float(width), 3)))
+        ys.update((float(y), round(float(y) + float(height), 3)))
+    return xs, ys
+
+
+def _stated_coordinates(slots, height: float, dpi: int) -> Tuple[set, set]:
+    """Every x and y COMP-007 states for ``slots``, in the stream's own points.
+
+    An **independent recomputation** rather than a second call into the
+    writer: the positions, the ends and the frame's four edges are read off
+    the layouts and converted here, by this file's own :func:`_pt`/:func:`_flip`.
+    """
+    xs: set = set()
+    ys: set = set()
+    for slot in slots:
+        for line in slot.vertical_lines:
+            xs.add(_pt(line.position, dpi))
+            ys.update((_flip(line.start, height, dpi), _flip(line.end, height, dpi)))
+        for line in slot.horizontal_lines:
+            ys.add(_flip(line.position, height, dpi))
+            xs.update((_pt(line.start, dpi), _pt(line.end, dpi)))
+        frame = getattr(slot, "frame", None)
+        if frame is not None:
+            xs.update((_pt(frame.left, dpi), _pt(frame.right, dpi)))
+            ys.update(
+                (_flip(frame.top, height, dpi), _flip(frame.bottom, height, dpi))
+            )
+    return xs, ys
+
+
+class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
+    """EC(ADR-0042/R3): every path coordinate is one COMP-007 already stated.
+
+    **The class name carries the ``Test`` prefix deliberately.** ``pytest``
+    matches ``python_classes`` by ``str.startswith``, not by glob, so a class
+    named ``PropertyTest_…`` holds tests it silently never runs — no skip, no
+    error. The card named this property with the prefix dropped; it is spelled
+    **with** the prefix here so that it is actually collected, and the node ids
+    are reported with the hand-back.
+
+    The dead spelling is deliberately **not written out** anywhere in this
+    file. Review cycle 1's F-297-05: the project's ref resolver is
+    ``git grep -lw``, a text search, so a sentence quoting a name that has no
+    definition makes that name read as alive — and the one thing keeping the
+    card's own spelling resolvable was this very docstring. The card's ref is
+    corrected to the collected spelling; stating the rule without restating
+    the token is what stops the correction from being undone by prose.
+
+    **No ``hypothesis``** (it is not in the dependency baseline): the corpus is
+    built by hand with ``random.Random`` over the book profiles CON-018 stocks
+    crossed with **every tile count per page** FR-042 defines — the full page,
+    and the packed page at each of ``SOLVED_TILE_CAPACITIES`` — with the case
+    count asserted inside the test.
+    """
+
+    #: Three of the trims CON-018 stocks, portrait and square, plus the
+    #: minimum. Crossed with both parities, because parity moves the usable
+    #: area sideways and a writer that derived a position would derive it
+    #: differently on each side.
+    PROFILES = ((10.0, 10.0), (13.97, 21.59), (21.59, 27.94))
+
+    @staticmethod
+    def _books():
+        random = _Random(2971)
+        for width, height in TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry.PROFILES:
+            for page_number in (11, 12):
+                extent = 10 + random.randrange(4)
+                yield width, height, page_number, extent
+
+    def test_every_path_coordinate_of_a_full_answer_page_is_stated(self) -> None:
+        cases = 0
+        for width, height, page_number, extent in self._books():
+            generator = BookPDFGenerator(
+                Book(
+                    book_id=f"ec-{width}-{height}",
+                    metadata=BookMetadata(
+                        title="EC",
+                        description="",
+                        theme="generic",
+                        target_audience="adults",
+                        size="",
+                        page_count=0,
+                    ),
+                    trim_width_cm=_cm(width * 10),
+                    trim_height_cm=_cm(height * 10),
+                    gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                    outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                )
+            )
+            payload = generator._payload(
+                _puzzle(extent, extent, number=1, depth=3, name="Zarquon")
+            )
+            layout = compute_layout(
+                payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+            )
+            stream = book_answer_vector.answer_page(
+                generator.page_spec(page_number), generator.dpi, payload, 1, page_number, "Zarquon"
+            )
+            (text,) = pdf_vector.content_streams(_written([stream]))
+            xs, ys = _page_coordinates(text)
+            stated_x, stated_y = _stated_coordinates(
+                [layout], layout.height, layout.dpi
+            )
+            assert xs <= stated_x, sorted(xs - stated_x)
+            assert ys <= stated_y, sorted(ys - stated_y)
+            assert xs and ys
+            cases += 1
+        assert cases >= 6, cases
+
+    @pytest.mark.parametrize("capacity", [2, 4])
+    def test_every_path_coordinate_of_a_packed_page_is_stated(
+        self, capacity: int
+    ) -> None:
+        cases = 0
+        for width, height, page_number, extent in self._books():
+            generator = BookPDFGenerator(
+                Book(
+                    book_id=f"ec-packed-{width}-{height}",
+                    metadata=BookMetadata(
+                        title="EC",
+                        description="",
+                        theme="generic",
+                        target_audience="adults",
+                        size="",
+                        page_count=0,
+                    ),
+                    trim_width_cm=_cm(width * 10),
+                    trim_height_cm=_cm(height * 10),
+                    gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                    outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+                )
+            )
+            rows = [
+                _puzzle(extent, extent, number=index + 1, depth=3, name=f"P{index}")
+                for index in range(capacity)
+            ]
+            payloads = [(row["id"], generator._payload(row)) for row in rows]
+            packed = compute_packed_solved_layout(
+                [(payload.row_clues, payload.column_clues) for _, payload in payloads],
+                capacity,
+                generator.page_spec(page_number),
+            )
+            if packed is None:
+                continue
+            plan = PackedAnswerPage(
+                answers=tuple(
+                    Answer(number=index + 1, width=extent, height=extent, level=Tier.EASY)
+                    for index in range(capacity)
+                )
+            )
+            stream = book_answer_vector.packed_answer_page(
+                generator.page_spec(page_number), generator.dpi, plan, payloads, page_number, {}
+            )
+            (text,) = pdf_vector.content_streams(_written([stream]))
+            xs, ys = _page_coordinates(text)
+            frame = page_frame(generator.page_spec(page_number))
+            stated_x, stated_y = _stated_coordinates(
+                packed.slots, frame.height, packed.dpi
+            )
+            assert xs <= stated_x, sorted(xs - stated_x)
+            assert ys <= stated_y, sorted(ys - stated_y)
+            cases += 1
+        assert cases >= 4, cases
+
+    def test_the_coordinate_comparison_can_fail(self) -> None:
+        """One stated coordinate removed, and the containment breaks.
+
+        The control ADR-0039/R1 asks for: the assertion above is a subset
+        test, which an empty left side would satisfy, so this shows the left
+        side is really being compared.
+        """
+        generator = BookPDFGenerator(_book())
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+        stream = book_answer_vector.answer_page(
+            generator.page_spec(11), generator.dpi, payload, 1, 11, "Zarquon"
+        )
+        (text,) = pdf_vector.content_streams(_written([stream]))
+        xs, _ = _page_coordinates(text)
+        stated_x, _ = _stated_coordinates([layout], layout.height, layout.dpi)
+        assert xs <= stated_x
+        assert not xs <= (stated_x - {sorted(xs)[0]})
+
+    def test_the_media_box_is_the_trim_and_nothing_measured(self) -> None:
+        """The page's own extent comes from COMP-007, not from its content."""
+        generator = BookPDFGenerator(_book())
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+        stream = book_answer_vector.answer_page(
+            generator.page_spec(11), generator.dpi, payload, 1, 11, "Zarquon"
+        )
+        assert stream.width_px == layout.width
+        assert stream.height_px == layout.height
+        frame = page_frame(generator.page_spec(11))
+        toc = book_toc_vector.toc_page_stream(
+            [TocEntry("Solutions", 11)], frame, generator.dpi, 7
+        )
+        assert (toc.width_px, toc.height_px) == (frame.width, frame.height)
+
+    def test_the_toc_rows_sit_on_the_ladder_the_type_spec_states(self) -> None:
+        """The TOC's own half: the baselines are a recomputed ladder.
+
+        Recomputed here from the frame, the face and the three gap constants —
+        not read back out of the writer — so a writer that invented a leading
+        would red rather than agree with itself.
+        """
+        generator = BookPDFGenerator(_book())
+        frame = page_frame(generator.page_spec(7))
+        spec = book_toc_vector.toc_type(generator.dpi)
+        face = interior_face_metrics()
+        rows = [
+            TocEntry("How to Solve Nonograms", 2),
+            TocEntry("Easy", None, starts_group=True),
+            TocEntry("Puzzles 1–2", 5),
+            TocEntry("Solutions", 11, starts_group=True),
+        ]
+        stream = book_toc_vector.toc_page_stream(rows, frame, generator.dpi, 7)
+        (text,) = pdf_vector.content_streams(_written([stream]))
+
+        ascent = book_vector_draw.ascent_px(spec.entry_size_px, face)
+        top = (
+            frame.top
+            + book_vector_draw.line_height_px(spec.title_size_px, face)
+            + spec.title_gap_px
+        )
+        line = book_vector_draw.line_height_px(spec.entry_size_px, face) + spec.entry_gap_px
+        expected = set()
+        y = top
+        for index, row in enumerate(rows):
+            if row.starts_group and index > 0:
+                y += spec.group_gap_px
+            expected.add(_flip(y + ascent, frame.height, generator.dpi))
+            y += line
+        expected.add(
+            _flip(
+                frame.top + book_vector_draw.ascent_px(spec.title_size_px, face),
+                frame.height,
+                generator.dpi,
+            )
+        )
+        expected.add(_flip(frame.bottom, frame.height, generator.dpi))
+
+        baselines = {
+            float(y)
+            for y in _re.findall(
+                r"Tf \S+ (" + pdf_vector.NUMBER + r") Td", text
+            )
+        }
+        assert baselines == expected, sorted(baselines ^ expected)
+
+
+# --------------------------------------------------------------------------
+# The two constants this card's writers restate rather than import
+# --------------------------------------------------------------------------
+
+
+class TestAnswerPages_TheRestatedConstantsAreTheRasterPagesOwn:
+    """The native-reimplementation convention's own control (CLAUDE.md).
+
+    ``book_pdf_generator`` imports :mod:`nonogram.admin.book_answer_vector`,
+    so the writer may not import *it* back — and the one tone and one ratio it
+    needs from there are therefore restated. "Restated" is only safe while the
+    two are held equal somewhere, and the import is legal here, which is the
+    same arrangement ``solver/propagate.mask_runs`` and
+    ``book_puzzle_vector.BAND_WIDTH_RATIO`` already have.
+    """
+
+    def test_the_join_tone_is_derived_from_the_raster_pages_own(self) -> None:
+        assert book_answer_vector.SOLVED_JOIN_GREY == _SOLVED_GRID_GRAY[0] / 255
+
+    @staticmethod
+    def _layout(generator):
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
+        return compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+
+    def test_the_joins_are_set_in_that_tone_on_a_real_layout(self) -> None:
+        """And it reaches the stream: a ``G`` operand no other mark carries.
+
+        Drawn over a **dense** picture, and that is a measurement about this
+        file's own corpus rather than a convenience: ``_grid`` above builds a
+        gutter-depth pattern whose filled cells are isolated by construction
+        (``x % 2 == 0 and y % 2 == 0``), so **no answer page of any book this
+        file exports draws a single join**. The branch is live in production —
+        a picture is a picture — and it would be dead in every test here that
+        went through ``_puzzle``.
+        """
+        generator = BookPDFGenerator(_book())
+        layout = self._layout(generator)
+        stream = ContentStream(
+            width_px=layout.width, height_px=layout.height, dpi=layout.dpi
+        )
+        book_answer_vector.draw_solved_grid(
+            stream, layout, [[True] * 12 for _ in range(12)]
+        )
+        (text,) = pdf_vector.content_streams(_written([stream]))
+        # The stream writes a number to three places (``book_vector._number``),
+        # so the tones come back rounded; the comparison rounds the same way
+        # rather than widening to an approximation.
+        tones = {level for level, operator in pdf_vector.tones(text) if operator == "G"}
+        assert round(book_answer_vector.SOLVED_JOIN_GREY, 3) in tones
+        assert round(book_vector_draw.INK_GREY, 3) in tones
+
+    def test_a_picture_with_no_two_adjacent_cells_draws_no_join(self) -> None:
+        """The branch from the other side: no adjacency, no lighter tone.
+
+        And no ``g`` either — an empty picture fills nothing, so neither state
+        operator is emitted. That is what keeps a reader of the stream from
+        mistaking a tone for a mark.
+        """
+        generator = BookPDFGenerator(_book())
+        layout = self._layout(generator)
+        stream = ContentStream(
+            width_px=layout.width, height_px=layout.height, dpi=layout.dpi
+        )
+        book_answer_vector.draw_solved_grid(
+            stream, layout, [[False] * 12 for _ in range(12)]
+        )
+        (text,) = pdf_vector.content_streams(_written([stream]))
+        tones = pdf_vector.tones(text)
+        assert round(book_answer_vector.SOLVED_JOIN_GREY, 3) not in {
+            level for level, operator in tones if operator == "G"
+        }
+        assert [level for level, operator in tones if operator == "g"] == []
+
+
+class TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt:
+    """Where the caption's glyphs actually land, asked of poppler.
+
+    The stream can say where the *pen* went; where the ink goes is the pen
+    plus the face's advances, and only an engine that did not write the file
+    can answer that. ``pdftotext -bbox`` reports the box poppler laid the
+    glyphs out in, so the caption is checked where a **reader** finds it —
+    which is also the one cell that fails if
+    :func:`~nonogram.admin.book_vector_draw.set_right_middle`'s two anchor
+    conversions are wrong, since every other reading here is of sizes and
+    strings.
+    """
+
+    @needs_poppler_text
+    def test_the_caption_is_right_aligned_on_the_slot_comp_007_reports(
+        self, tmp_path
+    ) -> None:
+        from nonogram.export.layout import caption_slot
+
+        generator = BookPDFGenerator(_book())
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Snowflake"))
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+        caption = answer_caption(1, "Snowflake")
+        stream = book_answer_vector.answer_page(
+            generator.page_spec(11), generator.dpi, payload, 1, 11, "Snowflake"
+        )
+        data = _written([stream])
+        words = pdf_vector.word_boxes(data, out_dir=tmp_path)
+        # The **title** word only, and that is a measurement rather than a
+        # convenience: the band reads "Puzzle 1 · Easy" and the caption
+        # "Puzzle 1 — Snowflake", so matching on the caption's whole word
+        # list picks up the band's own "Puzzle" and "1" at the top of the page
+        # and the vertical reading comes back 233 pt out (measured). The title
+        # appears on the answer page and nowhere else on it (AC-2), which is
+        # exactly what makes it the word to read, and it is also the caption's
+        # **last** word, so its right edge is the caption's.
+        picked = [word for word in words if word.text == "Snowflake"]
+        assert len(picked) == 1, [word.text for word in words]
+
+        spec = book_answer_vector.answer_type(generator.dpi)
+        face = interior_face_metrics()
+        width = book_vector_draw.advance_px(caption, spec.caption_size_px, face)
+        box = caption_slot(layout, _math.ceil(width))
+        assert box is not None
+        scale = 72.0 / generator.dpi
+        right = max(word.right for word in picked)
+        assert abs(right - box.right * scale) <= 1.0, (right, box.right * scale)
+
+        placement = layout.page
+        assert placement is not None
+        height = book_vector_draw.line_height_px(spec.caption_size_px, face)
+        centre = (placement.drawing_bottom + spec.gap_px + height / 2) * scale
+        middle = (
+            min(word.top for word in picked) + max(word.bottom for word in picked)
+        ) / 2
+        assert abs(middle - centre) <= 2.0, (middle, centre)
+
+
+class TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries:
+    """Which boundaries the lighter tone re-rules, against an independent walk.
+
+    Added because a mutant survived: disabling the **vertical** adjacency test
+    in :func:`~nonogram.admin.book_answer_vector.draw_solved_joins` left every
+    cell of this file green, because the only other reading of the joins is
+    "the tone appears on the page" and the horizontal loop still supplied it.
+    A tone reading cannot see which boundaries were drawn; this does.
+
+    The expected set is re-derived here from the grid and the tile's own
+    rules — a second walk, not a second call into the writer.
+    """
+
+    @staticmethod
+    def _drawn_and_expected(grid):
+        generator = BookPDFGenerator(_book())
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+        stream = ContentStream(
+            width_px=layout.width, height_px=layout.height, dpi=layout.dpi
+        )
+        book_answer_vector.draw_solved_joins(stream, layout, grid)
+        (text,) = pdf_vector.content_streams(_written([stream]))
+        drawn = {
+            (float(x1), float(y1), float(x2), float(y2))
+            for x1, y1, x2, y2 in _LINE.findall(text)
+        }
+        xs = [line.position for line in layout.vertical_lines]
+        ys = [line.position for line in layout.horizontal_lines]
+        dpi, height = layout.dpi, layout.height
+        expected = set()
+        for column in range(1, len(xs) - 1):
+            for row in range(len(ys) - 1):
+                if grid[row][column - 1] and grid[row][column]:
+                    expected.add(
+                        (
+                            _pt(xs[column], dpi),
+                            _flip(ys[row], height, dpi),
+                            _pt(xs[column], dpi),
+                            _flip(ys[row + 1], height, dpi),
+                        )
+                    )
+        for row in range(1, len(ys) - 1):
+            for column in range(len(xs) - 1):
+                if grid[row - 1][column] and grid[row][column]:
+                    expected.add(
+                        (
+                            _pt(xs[column], dpi),
+                            _flip(ys[row], height, dpi),
+                            _pt(xs[column + 1], dpi),
+                            _flip(ys[row], height, dpi),
+                        )
+                    )
+        return drawn, expected
+
+    def test_a_solid_picture_joins_every_internal_boundary(self) -> None:
+        drawn, expected = self._drawn_and_expected([[True] * 12 for _ in range(12)])
+        assert drawn == expected
+        # 11 internal boundaries per axis x 12 cells along it, both axes.
+        assert len(expected) == 2 * 11 * 12
+
+    def test_a_picture_with_only_vertical_pairs_joins_only_those(self) -> None:
+        """The arm a surviving mutant hid: the vertical loop on its own.
+
+        Every row is a pair of filled cells side by side and nothing else, so
+        there is exactly one vertical join per row and **no** horizontal one.
+        """
+        grid = [[column in (3, 4) for column in range(12)] for _ in range(1)]
+        grid += [[False] * 12 for _ in range(11)]
+        drawn, expected = self._drawn_and_expected(grid)
+        assert drawn == expected
+        assert len(expected) == 1, sorted(expected)
+
+    def test_a_picture_with_only_horizontal_pairs_joins_only_those(self) -> None:
+        grid = [[column == 3 for column in range(12)] for _ in range(2)]
+        grid += [[False] * 12 for _ in range(10)]
+        drawn, expected = self._drawn_and_expected(grid)
+        assert drawn == expected
+        assert len(expected) == 1, sorted(expected)
+
+    def test_two_filled_cells_that_do_not_touch_join_nothing(self) -> None:
+        grid = [[False] * 12 for _ in range(12)]
+        grid[0][0] = True
+        grid[2][2] = True
+        drawn, expected = self._drawn_and_expected(grid)
+        assert expected == set()
+        assert drawn == set()

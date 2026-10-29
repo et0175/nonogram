@@ -67,13 +67,21 @@ from nonogram.export.png import INK
 
 __all__ = [
     "INK_GREY",
+    "advance_px",
     "as_grey",
+    "ascent_px",
+    "descent_px",
     "draw_clue_digits",
     "draw_frame",
     "draw_grid_lines",
+    "draw_folio",
     "draw_ruled_grid",
+    "line_height_px",
     "page_stream",
     "set_centred",
+    "set_from_top",
+    "set_right_from_top",
+    "set_right_middle",
 ]
 
 
@@ -294,6 +302,212 @@ def _middle_em(metrics: FontMetrics) -> float:
     ``set_centred`` and its control have to agree about.
     """
     return (metrics.ascent + metrics.descent) / 2000.0
+
+
+# --------------------------------------------------------------------------
+# The rest of Pillow's anchors, and the face measurements behind them
+# --------------------------------------------------------------------------
+#
+# CARD-297. :func:`set_centred` above is the vector spelling of Pillow's
+# ``"mm"``; the table of contents and the answer caption are set with three
+# more of that vocabulary's anchors, and they belong beside it rather than in
+# either page's own module — a page kind that has to reach past a sibling
+# page's name for an anchor conversion writes its own, which is the argument
+# this module's own header makes about the grid.
+#
+# Every one is the same two-line conversion: Pillow is handed a *box* edge and
+# ``ContentStream.text`` is handed a *baseline*, so the horizontal half is the
+# string's own advance and the vertical half is either the ascender (the
+# ``"a"`` anchors, which measure from the top of the line) or the
+# ascender/descender midpoint (the ``"m"`` anchors, :func:`_middle_em`).
+# Both halves are the embedded face's own numbers, which is what lets the two
+# media put a string in the same place without sharing a rasteriser.
+
+
+def advance_px(text: str, size_px: float, metrics: FontMetrics) -> float:
+    """How wide ``text`` sets at ``size_px``, in device pixels.
+
+    :meth:`~nonogram.admin.book_vector.FontMetrics.advance` is the authority
+    rather than an estimate of one: the face is written ``/TrueType`` with
+    ``/WinAnsiEncoding``, for which a viewer consults neither ``GPOS`` nor
+    ``kern``, so the sum of the ``/Widths`` the writer emits *is* the width
+    the reader's viewer will set.
+    """
+    return metrics.advance(text) * size_px
+
+
+def ascent_px(size_px: float, metrics: FontMetrics) -> float:
+    """The face's ascender at ``size_px``, in device pixels.
+
+    The number that turns a *top of line* into a baseline — the one
+    conversion the two media disagree about, because Pillow's default anchor
+    puts the ascender at the ``y`` it is given and
+    :meth:`~nonogram.admin.book_vector.ContentStream.text` puts the baseline
+    there.
+    """
+    return metrics.ascent / 1000.0 * size_px
+
+
+def descent_px(size_px: float, metrics: FontMetrics) -> float:
+    """The face's descender depth at ``size_px``, in device pixels (positive).
+
+    ``FontDescriptor``'s ``/Descent`` is negative, as a PDF states it; a
+    renderer wants a depth, so the sign is flipped here and not at four call
+    sites.
+    """
+    return -metrics.descent / 1000.0 * size_px
+
+
+def line_height_px(size_px: float, metrics: FontMetrics) -> float:
+    """Ascender plus descender at ``size_px`` — one line's vertical extent.
+
+    The vector reading of the raster pages' ``ascent + descent`` out of
+    ``PIL.ImageFont.FreeTypeFont.getmetrics``, which is what every one of them
+    measures a line's depth with.
+    """
+    return ascent_px(size_px, metrics) + descent_px(size_px, metrics)
+
+
+def set_right_middle(
+    stream: ContentStream,
+    text: str,
+    right: float,
+    center_y: float,
+    size_px: float,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """Set ``text`` ending at ``right``, centred on ``center_y``.
+
+    Pillow's ``anchor="rm"`` — how a solved slot's caption is placed, so that
+    the reader's eye runs down the grid's right edge and meets the picture's
+    name there (CARD-203). The vertical half is :func:`set_centred`'s own.
+    """
+    size_pt = stream.to_points(size_px)
+    left = right - advance_px(text, size_px, metrics)
+    baseline = center_y + _middle_em(metrics) * size_px
+    stream.text(text, left, baseline, size_pt, grey=grey)
+
+
+def set_from_top(
+    stream: ContentStream,
+    text: str,
+    left: float,
+    top: float,
+    size_px: float,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """Set ``text`` with its left edge at ``left`` and its ascender at ``top``.
+
+    Pillow's **default** anchor, ``"la"`` — the one every line of the table of
+    contents and of the guide's prose is drawn at, because a page that sets
+    one line under another advances a pen down the page rather than naming a
+    centre for each line.
+    """
+    # The point size is bound before the call, not computed inside it. Both
+    # ``set_centred`` above and this do it, and it is load-bearing rather than
+    # stylistic: ``tests/test_book_difficulty_dots.py``'s round-mark walk
+    # excuses a ``ContentStream`` call only while no positional argument is a
+    # *call result* (``_hides_a_sequence_argument`` — a result could be a
+    # vertex list, which is where a disc hides), so a ``Tf`` operand computed
+    # in the argument list takes this module out of that excuse and reds that
+    # file's equality.
+    size_pt = stream.to_points(size_px)
+    stream.text(text, left, top + ascent_px(size_px, metrics), size_pt, grey=grey)
+
+
+def set_right_from_top(
+    stream: ContentStream,
+    text: str,
+    right: float,
+    top: float,
+    size_px: float,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """Set ``text`` ending at ``right``, with its ascender at ``top``.
+
+    Pillow's ``anchor="ra"`` — a table-of-contents row's page number, right
+    aligned on the measure's far edge while sharing the label's own line.
+    """
+    set_from_top(
+        stream,
+        text,
+        right - advance_px(text, size_px, metrics),
+        top,
+        size_px,
+        metrics,
+        grey=grey,
+    )
+
+
+def draw_folio(
+    stream: ContentStream,
+    left: float,
+    top: float,
+    right: float,
+    bottom: float,
+    text: str,
+    size_px: float,
+    metrics: FontMetrics,
+    *,
+    right_hand: bool,
+    content_bottom: float | None = None,
+    content_right: float | None = None,
+    content_left: float | None = None,
+    grey: float = INK_GREY,
+) -> bool:
+    """``text`` at the bottom-outer corner of a usable area, or nothing (FR-043).
+
+    :func:`~nonogram.admin.book_pdf_generator._draw_folio`'s corner path in
+    operators, **omit-rather-than-collide rule included**: the four edges are
+    one page's usable area in device pixels, ``content_bottom`` the lowest
+    pixel the page's own content already reaches, and
+    ``content_right``/``content_left`` its rightmost/leftmost — read only when
+    the vertical check already shows no room, exactly as the raster function
+    reads them, so a caller with no horizontal figure keeps the more
+    conservative rule.
+
+    Returns whether the folio was drawn, because "this page prints no page
+    number" is a fact a caller may have to pass on (the raster function's
+    callers learn it from the pixels; a stream's caller would have to parse
+    its own output back).
+
+    ``right_hand`` is the caller's, not derived here:
+    :func:`~nonogram.admin.book_pdf_generator.page_is_right_hand` is the one
+    reader of a page number's parity and it lives where the page numbers do
+    (this module imports no page kind — see its header).
+
+    **The baseline is ``bottom``, measured rather than reasoned.** Pillow's
+    ``"rb"``/``"lb"`` anchor puts the *glyph box's* bottom at the ``y`` it is
+    given, and a plain decimal number has no descender, so for this one string
+    the anchor is the baseline: measured at ``FOLIO_PT`` on this face at
+    1200 DPI, ``anchor="ls"`` (an explicit baseline) and ``anchor="lb"`` put
+    the same digits' ink within 2 px of each other, against the 40 px the
+    descender would have moved them. The ``"b"`` anchor is **not** the
+    descender line for this text, which is what the equivalent conversion in
+    :mod:`nonogram.admin.book_guide_vector` already assumes for the guide's
+    own folio.
+    """
+    if content_bottom is not None and bottom - content_bottom < line_height_px(
+        size_px, metrics
+    ):
+        width = advance_px(text, size_px, metrics)
+        if right_hand:
+            clear = content_right is not None and content_right <= right - width
+        else:
+            clear = content_left is not None and content_left >= left + width
+        if not clear:
+            return False
+    x = right - advance_px(text, size_px, metrics) if right_hand else left
+    # Bound before the call for the reason :func:`set_from_top` states.
+    size_pt = stream.to_points(size_px)
+    stream.text(text, x, bottom, size_pt, grey=grey)
+    return True
 
 
 def draw_clue_digits(
