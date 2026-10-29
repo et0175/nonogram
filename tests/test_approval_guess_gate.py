@@ -1,10 +1,25 @@
 """CARD-291 (FR-046) — approval refuses a puzzle whose solve needed guessing.
 
-    AC-393  test_approve_refuses_a_branching_puzzle
-    AC-394  test_batch_approve_holds_back_branching_puzzles
-    AC-395  test_unknown_verdict_fails_closed
-    AC-396  test_edit_refuses_a_branching_grid_behind_the_approved_door
-    EC-051  test_every_approved_writer_passes_the_gate
+Tests, by node id (FR-046, ADR-0032/R3)
+=======================================
+Written out in full — path and name on one line each — because the
+architecture validator resolves a check ref by ``git grep -lw`` of the WHOLE
+``path::name`` string over tracked, non-Markdown code. **A ref whose string
+appears nowhere reads as a DEAD check ref however green the test is**, so
+writing the tests does not by itself revive the five refs the model carries:
+measured on this branch, with all five collected and passing, the validator
+still reported them dead until this table existed. The precedent and the
+mechanism are CARD-294's (``tests/test_public_player.py``'s own table), and
+``test_the_registrys_check_refs_for_this_card_all_resolve`` below holds this
+table to the registry in both directions, so it cannot outlive a rename.
+
+* AC-393 — ``tests/test_approval_guess_gate.py::test_approve_refuses_a_branching_puzzle``
+* AC-394 — ``tests/test_approval_guess_gate.py::test_batch_approve_holds_back_branching_puzzles``
+* AC-395 — ``tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed``
+* AC-396 — ``tests/test_approval_guess_gate.py::test_edit_refuses_a_branching_grid_behind_the_approved_door``
+* EC-051 — ``tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate``
+
+ADR-0032/R3's own check names the last of those, by the same whole string.
 
 **What this file is about.** Unique (CON-005, ADR-0032/R1) is not the same fact
 as humanly derivable. A solve can prove exactly one solution while finding it
@@ -1957,4 +1972,85 @@ def bless(row):
     assert outside_probe["escapes"][name], (
         "axis A does not see the enum member outside the store module, which "
         "would make the vocabulary scoping a hole rather than a narrowing"
+    )
+
+
+def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
+    """Every ``tests/test_approval_guess_gate.py::…`` the model names is here.
+
+    The defect this closes is the one this card arrived with, and it is the
+    one the board has spent the week on: a ref that reads as mechanically
+    checked while nothing backs it. FR-046's AC-393..396 and EC-051 named node
+    ids in a file that did not exist, and ADR-0032/R3's check was held as a
+    `review-lens` for exactly that reason.
+
+    Writing the tests is only half the fix. **Measured on this branch**: with
+    all five collected and passing, the architecture validator still reported
+    five DEAD check refs, because it matches the whole ``path::name`` string
+    with ``git grep -lw`` and that string appeared in no code file. So the
+    other half is the docstring table above — and this test, in both
+    directions and derived from the registry rather than from a list kept
+    here:
+
+    #. every ref ``meta/architecture/requirements.yml`` points at this module
+       resolves to a module-level function in it — a renamed test reds here
+       instead of going quietly dead in the model;
+    #. every one of them is written out in this module's docstring, which is
+       what the validator's ``git grep`` actually reads, so a ref cannot be
+       alive in pytest and dead in the model at the same time;
+    #. and the same for ADR-0032/R3's own check ref, which is this card's
+       ``flip``: the rule and the registry name the same node id, so neither
+       can drift from the test alone.
+
+    The registry is parsed with a regex rather than a YAML library: there is
+    no YAML parser in the dependency baseline (ADR-0006/R1), and the shape
+    being read is one line.
+    """
+    import re
+
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    module = pathlib.Path(__file__).resolve().relative_to(repo_root).as_posix()
+    pattern = rf"({re.escape(module)}::[A-Za-z_][A-Za-z0-9_]*)"
+
+    registry = (repo_root / "meta" / "architecture" / "requirements.yml").read_text(
+        encoding="utf-8"
+    )
+    refs = sorted(set(re.findall(pattern, registry)))
+    # Five: AC-393..396 and EC-051. Counted from the registry rather than
+    # restated, so a sixth joining FR-046 is seen rather than assumed away.
+    assert len(refs) == 5, refs
+
+    defined = {
+        name
+        for name, value in globals().items()
+        if name.startswith("test_")
+        and callable(value)
+        and getattr(value, "__module__", "") == __name__
+    }
+    assert len(defined) >= 15, sorted(defined)
+
+    missing = [ref for ref in refs if ref.split("::", 1)[1] not in defined]
+    assert missing == [], missing
+
+    docstring = __doc__ or ""
+    unnamed = [ref for ref in refs if ref not in docstring]
+    assert unnamed == [], (
+        "these refs resolve in pytest but the validator's git grep will not "
+        f"find their node id in any code file: {unnamed}"
+    )
+
+    # And the ADR rule this card flipped out of `review-lens`.
+    rule = (
+        repo_root
+        / "meta"
+        / "architecture"
+        / "decisions"
+        / "adr"
+        / "0032-admin-storage-guarantees.md"
+    ).read_text(encoding="utf-8")
+    rule_refs = sorted(set(re.findall(pattern, rule)))
+    assert f"{module}::test_every_approved_writer_passes_the_gate" in rule_refs, rule_refs
+    unnamed_rule = [ref for ref in rule_refs if ref not in docstring]
+    assert unnamed_rule == [], (
+        f"ADR-0032/R3 names node ids this module's docstring does not: {unnamed_rule}"
     )
