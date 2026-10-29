@@ -108,11 +108,17 @@ round trip greys a rule's edges.
   CON-020's `check:` names the re-expressed test, its **statement is
   byte-identical** to today's, and no other requirement's statement changed.
   (**gate**: a diff showing the `check:` moved and the statement unchanged.)
-- **AC-3** (no interior claim measures ink, derived and default-deny): *Given*
-  `tests/**`, *then* the guard enumerates interior pixel idioms and the set is
-  empty, with every exemption declared and carrying its own control. (test:
+- **AC-3** — **MOVED TO CARD-312 2026-10-29**, not met here and not owed here.
+  <!-- NARROWED by owner decision. The AC asked for a guard enumerating interior
+  pixel idioms "and the set is empty". Measured: the set is 321 sites across 34
+  files, two of R6's own six named sites are not interior PDF readings, and an idiom
+  COUNT cannot express "empty" without reddening correct conversions. The AC is not
+  weakened, it is re-homed with the enumeration correction it needs. Original text
+  kept below for CARD-312 to inherit. -->
+  *Given* `tests/**`, *then* the guard enumerates interior pixel idioms and the set
+  is empty, with every exemption declared and carrying its own control. (test:
   `tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink` — the
-  node id ADR-0042/R6's comment names, so item 4's flip lands on a real test.
+  node id ADR-0042/R6's comment names, so **CARD-312's** flip lands on a real test.
   **Two mutants**: reintroduce an ink scan on an interior page — it reds; and
   hand it a test shape it cannot classify — it **fails** rather than passing.)
 - **AC-4** (the exemptions did not swallow the subject): *Given* the guard's
@@ -131,7 +137,14 @@ round trip greys a rule's edges.
   assertions, *then* the line count before and after is recorded, and each
   converted claim is shown to still discriminate — a mutant that the ink version
   caught is still caught. (**gate**: the figures recorded; the spike's own
-  168 → 41 is the precedent, not the target.)
+  168 → 41 is the precedent, not the target.) <!-- CORRECTED 2026-10-29: round 1
+  measured that the 4.1x CANNOT reproduce here and the replacement is necessarily
+  LARGER (+272 and +361 lines). The spike's figure assumes the ink arm is DELETED,
+  which requires the page to be vector; with all seven kinds raster both arms must
+  coexist AND the stream arm needs its own non-dormancy controls. The reduction
+  becomes available to CARD-309, when an arm can actually be removed. "Smaller" is
+  therefore struck as a criterion; "no weaker" stands and was demonstrated by
+  mutants. -->
 - **AC-6** (no test deleted, renamed, skipped or merged — `parametrize` ids
   included): *Given* the touched files, *then* the collected node-id set loses
   nothing. (**gate**: set difference with `-o addopts=''`; removals 0, additions
@@ -187,12 +200,26 @@ round trip greys a rule's edges.
   `tests/test_suite_profile.py:482`) reds the suite on a new `tests/` file naming
   one of its eight idioms. Several files this card touches are **in** that
   snapshot.
-- **G-9: ADR-0042/R6's lens must not survive this card.** Item 4's flip is part
-  of the card.
+- **G-9: ADR-0042/R6's lens MUST survive this card.** <!-- NARROWED 2026-10-29 by
+  owner decision, after round 1 refused the flip with four measurements the
+  orchestrator verified. This guardrail said the opposite -- "R6's lens must not
+  survive" -- and it is inverted rather than dropped, because the reason is
+  load-bearing and a later round must not "restore" the flip. R6 names SIX sites and
+  TWO of them read a PNG and never produce a PDF (`test_book_layout.py:364`,
+  `test_book_two_up.py:682` -- both call `getpixel`, neither mentions
+  `BookPDFGenerator` at all), so a guard derived from that enumeration is derived
+  from a wrong set. The census the guard would otherwise read gives 34 files / 321
+  sites at HEAD against R6's 6, and it is four days stale IN THE WRONG DIRECTION
+  (32/315 at c12c33ce). And an idiom count cannot measure "the set is empty": this
+  round's own CORRECT conversion raised one module's occurrences 8 -> 13, so a guard
+  ratcheting that count reds on the work it exists to encourage. Flipping a mandatory
+  check onto such a guard is the `c12c33ce` defect -- a rule reading as mechanically
+  checked by a test that cannot see its breach -- and is the same refusal CARD-298
+  made on R1. **R6's flip moves to CARD-312**, with the enumeration correction. -->
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
-- ADR-0042/R6 — an interior claim is asserted against the content stream, not a bitmap; the oracles are exempt (check: review-lens → this card's AC-3)
+- ADR-0042/R6 — an interior claim is asserted against the content stream, not a bitmap; the oracles are exempt (check: **review-lens, and it SURVIVES this card** — the flip moves to **CARD-312** with the six-site enumeration corrected; see G-9)
 - ADR-0042/R1 — interior pages are operators; no image XObject (check: tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject)
 - ADR-0042/R2 — a raster page is declared with a reason (check: tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason)
 - ADR-0039/R1 — a claim needs a control that CAN fail; two mutants, one at the claim's edge (check: review-lens)
