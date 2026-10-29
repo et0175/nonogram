@@ -3623,3 +3623,94 @@ class TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt:
             min(word.top for word in picked) + max(word.bottom for word in picked)
         ) / 2
         assert abs(middle - centre) <= 2.0, (middle, centre)
+
+
+class TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries:
+    """Which boundaries the lighter tone re-rules, against an independent walk.
+
+    Added because a mutant survived: disabling the **vertical** adjacency test
+    in :func:`~nonogram.admin.book_answer_vector.draw_solved_joins` left every
+    cell of this file green, because the only other reading of the joins is
+    "the tone appears on the page" and the horizontal loop still supplied it.
+    A tone reading cannot see which boundaries were drawn; this does.
+
+    The expected set is re-derived here from the grid and the tile's own
+    rules — a second walk, not a second call into the writer.
+    """
+
+    @staticmethod
+    def _drawn_and_expected(grid):
+        generator = BookPDFGenerator(_book())
+        payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(11)
+        )
+        stream = ContentStream(
+            width_px=layout.width, height_px=layout.height, dpi=layout.dpi
+        )
+        book_answer_vector.draw_solved_joins(stream, layout, grid)
+        (text,) = pdf_vector.content_streams(_written([stream]))
+        drawn = {
+            (float(x1), float(y1), float(x2), float(y2))
+            for x1, y1, x2, y2 in _LINE.findall(text)
+        }
+        xs = [line.position for line in layout.vertical_lines]
+        ys = [line.position for line in layout.horizontal_lines]
+        dpi, height = layout.dpi, layout.height
+        expected = set()
+        for column in range(1, len(xs) - 1):
+            for row in range(len(ys) - 1):
+                if grid[row][column - 1] and grid[row][column]:
+                    expected.add(
+                        (
+                            _pt(xs[column], dpi),
+                            _flip(ys[row], height, dpi),
+                            _pt(xs[column], dpi),
+                            _flip(ys[row + 1], height, dpi),
+                        )
+                    )
+        for row in range(1, len(ys) - 1):
+            for column in range(len(xs) - 1):
+                if grid[row - 1][column] and grid[row][column]:
+                    expected.add(
+                        (
+                            _pt(xs[column], dpi),
+                            _flip(ys[row], height, dpi),
+                            _pt(xs[column + 1], dpi),
+                            _flip(ys[row], height, dpi),
+                        )
+                    )
+        return drawn, expected
+
+    def test_a_solid_picture_joins_every_internal_boundary(self) -> None:
+        drawn, expected = self._drawn_and_expected([[True] * 12 for _ in range(12)])
+        assert drawn == expected
+        # 11 internal boundaries per axis x 12 cells along it, both axes.
+        assert len(expected) == 2 * 11 * 12
+
+    def test_a_picture_with_only_vertical_pairs_joins_only_those(self) -> None:
+        """The arm a surviving mutant hid: the vertical loop on its own.
+
+        Every row is a pair of filled cells side by side and nothing else, so
+        there is exactly one vertical join per row and **no** horizontal one.
+        """
+        grid = [[column in (3, 4) for column in range(12)] for _ in range(1)]
+        grid += [[False] * 12 for _ in range(11)]
+        drawn, expected = self._drawn_and_expected(grid)
+        assert drawn == expected
+        assert len(expected) == 1, sorted(expected)
+
+    def test_a_picture_with_only_horizontal_pairs_joins_only_those(self) -> None:
+        grid = [[column == 3 for column in range(12)] for _ in range(2)]
+        grid += [[False] * 12 for _ in range(10)]
+        drawn, expected = self._drawn_and_expected(grid)
+        assert drawn == expected
+        assert len(expected) == 1, sorted(expected)
+
+    def test_two_filled_cells_that_do_not_touch_join_nothing(self) -> None:
+        grid = [[False] * 12 for _ in range(12)]
+        grid[0][0] = True
+        grid[2][2] = True
+        drawn, expected = self._drawn_and_expected(grid)
+        assert expected == set()
+        assert drawn == set()

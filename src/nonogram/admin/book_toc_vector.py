@@ -161,11 +161,32 @@ def clipped_to(text: str, size_px: float, metrics: FontMetrics, measure: float) 
 def leader_dots(run: float, size_px: float, metrics: FontMetrics) -> str:
     """The dots that fill ``run`` pixels, measured rather than divided.
 
-    The raster page's own three steps, and the middle one is not the verdict:
-    the division is a **first estimate, corrected both ways** — trimmed while
-    the string overruns the gap, grown while another dot would still fit.
-    Correcting only downwards would silently drop a dot on any face whose
-    ``..`` pair measures narrower than two advances.
+    The raster page's own three steps — the division, then a trim while the
+    string overruns the gap, then a growth while another dot would still fit.
+
+    **Neither correction can fire in this medium, and that is measured rather
+    than reasoned.** The raster page corrects in both directions because
+    ``FreeTypeFont.getlength`` need not be linear in a repeated glyph (a
+    kerning pair for ``..``, or float drift at this size), and that was a real
+    difference between two faces before CARD-221. Here the measure is
+    :meth:`~nonogram.admin.book_vector.FontMetrics.advance`, which **sums
+    per-glyph ``/Widths``** and divides once, so ``n`` dots measure exactly
+    ``n`` times one dot — tested to 150, longer than the longest run any trim
+    CON-018 stocks prints — and ``int(run // dot)`` is therefore already both
+    the largest count that fits and not one short of it. Both loops are dead
+    here: ``TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace`` proves the
+    linearity they would correct for, and two deletion mutants on them survive
+    every cell of this card — **declared in advance, not discovered**.
+
+    The same cell records that ``create_toc_page``'s own two loops are inert
+    too, at this size on this face. Nothing is pruned there: this card ports
+    a design and does not redesign one (G-1).
+
+    They are kept rather than removed because this card ports today's page and
+    does not redesign it (G-1): the shape is ``create_toc_page``'s, the day a
+    viewer-side measure stops being a sum of ``/Widths`` is the day they
+    matter, and a correction nobody can see firing is cheaper than a page kind
+    whose dot run differs from the raster page's for a reason nobody recorded.
 
     A run too short for even one dot gets none, which is the row CARD-205's
     AC-6 keeps dotless.

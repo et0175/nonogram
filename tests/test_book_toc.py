@@ -2756,3 +2756,80 @@ class TestToc_TheFolioYieldsToARowThatReachesItsLine:
             _write_vector_pdf([stream], 1).getvalue()
         )
         assert _toc_strings(text)[-1] == "7"
+
+
+class TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace:
+    """Why :func:`book_toc_vector.leader_dots`' two corrections are inert here.
+
+    They are the raster page's, kept by G-1, and **two deletion mutants on
+    them survive every cell of this card**. That is declared rather than
+    discovered, and this class is the proof of why: the vector measure is a
+    sum of the face's own ``/Widths``, so it is exactly linear in a repeated
+    glyph, and a linear measure makes ``int(run // dot)`` both the largest
+    count that fits and not one short of it. The raster page corrects because
+    ``FreeTypeFont.getlength`` carries no such guarantee.
+    """
+
+    @staticmethod
+    def _face():
+        from nonogram.admin.book_vector import interior_face_metrics
+
+        return interior_face_metrics()
+
+    def test_the_measure_is_linear_in_a_repeated_dot(self) -> None:
+        """Exactly, up to the counts a page uses; then float accumulation.
+
+        ``FontMetrics.advance`` sums ``/Widths`` and divides once, so the sum
+        of ``n`` dots and ``n`` times one dot are the same number — **exactly**
+        to 150 dots, which is already longer than the longest run a TOC row
+        prints on any trim CON-018 stocks (measured on Book 1: 120 to 153).
+        At 400 they differ by 9e-13 relative, which is float accumulation and
+        not kerning; it is recorded here rather than rounded away, because it
+        is the one thing that could in principle make the correction loops
+        fire, and it is three orders of magnitude below the 0.001 pt the
+        stream rounds its own numbers to.
+        """
+        from nonogram.admin.book_vector_draw import advance_px
+
+        face = self._face()
+        size = type_px(TOC_ENTRY_PT, DPI)
+        one = advance_px(".", size, face)
+        for count in (1, 2, 3, 17, 150):
+            assert advance_px("." * count, size, face) == count * one, count
+        assert advance_px("." * 400, size, face) == pytest.approx(
+            400 * one, rel=1e-11
+        )
+
+    def test_the_division_alone_is_therefore_the_answer(self) -> None:
+        from nonogram.admin.book_vector_draw import advance_px
+
+        face = self._face()
+        size = type_px(TOC_ENTRY_PT, DPI)
+        one = advance_px(".", size, face)
+        for run in (0.0, one / 2, one, one * 2.5, one * 40, one * 40 + 0.001):
+            dots = _book_toc_vector.leader_dots(run, size, face)
+            assert len(dots) == int(run // one), (run, len(dots))
+            assert advance_px(dots, size, face) <= run + 1e-9
+            assert advance_px(dots + ".", size, face) > run
+
+    def test_the_raster_measure_is_linear_at_this_size_too(self) -> None:
+        """A FINDING, recorded where it was measured rather than acted on.
+
+        ``create_toc_page``'s own correction loops are inert **as well**: at
+        ``TOC_ENTRY_PT`` on the packaged face, ``getlength("." * n)`` is
+        exactly ``n * getlength(".")`` for every count tried, so neither of
+        that method's two loops can fire either. Its own comment attributes
+        them to a face's kerning differing "between Arial and ``_guide_face``'s
+        own fallback, and so between one machine's render and another's" —
+        a condition **CARD-221 removed** when it made the interior one
+        packaged face.
+
+        Asserted rather than written as prose, so the day a face or a size
+        makes either measure non-linear this cell reds and the loops in both
+        media stop being dead code. Nothing is changed in the raster page:
+        this card ports a design, it does not prune one (G-1).
+        """
+        font = _guide_face(type_px(TOC_ENTRY_PT, DPI))
+        one = font.getlength(".")
+        for count in (2, 3, 17, 150):
+            assert font.getlength("." * count) == count * one, count
