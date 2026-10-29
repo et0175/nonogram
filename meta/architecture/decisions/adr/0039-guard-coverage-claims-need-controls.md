@@ -209,6 +209,80 @@ must be retracted everywhere it was written.* One gating instance (four docstrin
 it, but it has not yet been paid for twice in two cards — if it recurs it earns its own rule rather
 than a clause.
 
+## The validator's own ref resolver is a control that cannot fail — 2026-10-29 (CARD-308)
+
+R1 is about a *guard's* claim. This section records the same defect one level up, in the
+instrument the whole model is read through, because the finding kept being re-derived and
+because the repair is **not in this repository**.
+
+**The mechanism.** `validators/utils.symbol_exists()` — the single technique every
+"the model names test X, was it written?" question goes through — is
+
+```
+git grep -lw <ref> -- . ':(exclude)meta/architecture' ':(exclude)*.md'
+```
+
+Its docstring says `-w` resolves a name "to its `def test_x` definition". It does not;
+`-w` only enforces word boundaries. So **a ref is alive as soon as its string appears in
+tracked, non-Markdown content**, including content that merely discusses it. The claim
+"this criterion is mechanically checked" therefore has no control that can fail in the one
+way it matters: a ref that nothing implements reads identically to one that is implemented.
+
+**The in-domain writers a resolver has to survive.** `meta/architecture/**` and every
+`*.md` are excluded, so the registry cannot self-validate and `board.md` resolves nothing.
+Everything else tracked is in domain, and these are all **mandatory pipeline bookkeeping**,
+not anybody's mistake:
+
+| writer | why it exists | measured |
+|---|---|---|
+| `meta/review/**` | the CARD SYNC PROTOCOL copies each cycle's report into the main repo one-way, because `/commit` excludes `meta/` from card branches and `forge:fix`/`forge:commit`/`forge:retrospective` read them | twice: a warning retired on the sync commit alone, test still absent |
+| `meta/kanban/dispatcher.state` | the orchestrator's state log. **No `.md` extension, so unlike `board.md` it is inside the domain** | it became one of two load-bearing resolvers for a dead ref while recording this defect |
+| `meta/kanban/backlog-scored.yml`, `waves.yml` | scoring and wave bookkeeping | resolvers for several refs |
+| `meta/profiling/*.txt` | duration logs, which name every node id that ran | sole resolver for one ref |
+| prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by over a hundred files, two of them a comment and a docstring under `tests/` |
+
+**Author discipline is not available as the remedy.** CARD-291's cycle-1 reviewer knew the
+hazard, wrote one ref into its YAML split across two pieces so the report would not revive
+it, and verified the split worked. It made no difference: a review report's most-quoted
+refs are its own card's, and on `main` those were the dead ones. A rule that depends on a
+report being written carefully is not a control.
+
+**Why `:(exclude)meta/review` is NOT the repair.** It is the obvious narrowing and it is
+insufficient in two independent ways. First, it addresses one writer of five — the same
+erosion arrives from `meta/profiling/**`, from `dispatcher.state` and from
+`backlog-scored.yml`. Second and decisively, **`tests/` cannot be excluded**: it is the
+only directory the search *must* look in, and it is also a place refs are named in prose.
+ADR-0006/R1 is the limit case, and CARD-301's is the sharpest: `BenchGenerate_20x20_p95Under5s`
+read as ALIVE on nothing but a docstring line and a `# AC-037 —` banner inside the very
+file that could not run. No pathspec can separate "defines the test" from "mentions the
+test", because that is not a property of the path. **Only a definition-based resolver can**:
+the hit must be a `def`/`class` line, and for a `path::name` ref the `def` must be in that
+path. That change belongs in `forge_1`'s `validators/utils.py` and is out of this
+repository's scope; recording the argument here is what stops the pathspec narrowing being
+proposed a third time.
+
+**What this repository has instead, and what it is not.** `tests/test_check_ref_resolution.py`
+re-implements the loose resolver strictly and reports every ref on which the two disagree,
+in both directions, with its set derived from `requirements.yml`, `trace.yml` and the ADR
+set at run time. It is a **DETECTOR, not a repair**: it changes nothing about what the
+validator reports, and a green suite does not mean the model's refs resolve honestly — it
+means the population of dishonest ones has not moved without being read. Its own
+`test_this_module_resolves_no_verifying_ref_at_all` exists because a guard that lists dead
+refs spells them into tracked non-Markdown code and revives them; on its first run that
+test named three refs the module's own docstring had revived.
+
+**Two figures that only mean something with a binary attached.** The validator of record
+is `forge_1`'s `validate.py --root meta/architecture --phase all`; the forge plugin cache's
+copy reports a spurious `[ERROR] ADR-0025 circular supersession` because its
+`adr_integrity.py` counts "supersedes" and "superseded by" as two edges. `validate.py` is
+byte-identical between the copies. On this board, 2026-10-29: **forge_1 — 0 errors, 102
+warnings; plugin cache — 1 error, 102 warnings.** The honest error count is 0.
+
+**Interaction with CARD-307.** CARD-307 repairs the `path::nodeid` refs so they resolve.
+This section and its detector stop the *resolution* from being eroded afterwards. Neither
+closes the hole alone: a repaired ref can still be silenced by the next sync, and an
+un-eroded detector still reports refs nobody has repaired.
+
 ## Rules
 
 ```yaml
