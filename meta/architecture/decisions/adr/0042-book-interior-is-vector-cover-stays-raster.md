@@ -400,17 +400,52 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     and so is a declaration whose reason has expired: once CARD-231 lands, the
     divider's exception goes with it.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
-  check: {kind: review-lens}
-  # The test now EXISTS and is green, derived and default-DENY per ADR-0039/R2
-  # (a page whose medium it cannot classify is a FAILURE, never a silent pass):
+  check: {kind: test, ref: test_every_raster_page_is_declared_with_its_reason}
+  # FLIPPED FROM review-lens 2026-10-29 by CARD-298, in CARD-298's own feature
+  # commit — the precedent R5 sets in this same file (CARD-294, `0c63a328`) and
+  # CARD-227's ADR-0037/R2 flip in `7d86a869`. Both flipped in the commit that
+  # wrote the test; neither waited for a merge. The ref is written as the BARE
+  # test name for the reason R5's note measures at length: the validators'
+  # `split_check_ref` splits on COMMAS only, so a `file::name` ref is handed to
+  # `git grep -lw` as one literal symbol and resolves to nothing. Re-measured
+  # on this very edit, on this branch, with the validator's own pathspec:
+  #   git grep -lw "tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason" \
+  #     -- . ":(exclude)meta/architecture" ":(exclude)*.md"   -> rc=1, 0 files
+  #   git grep -lw "test_every_raster_page_is_declared_with_its_reason" \
+  #     -- . ":(exclude)meta/architecture" ":(exclude)*.md"   -> tests/test_book_pdf.py
+  # and end to end through the validator of record: the node-id spelling took
+  # this tree from 107 warnings to 108, the added one being "ADR-0042/R2 ...
+  # DEAD check ref"; the bare name leaves the warning SET byte-identical at 107.
+  # So the node-id spelling would have flipped the lens into something strictly
+  # worse than a lens, and this spelling is the honest one.
+  #
+  # The test EXISTS and is green, derived and default-DENY per ADR-0039/R2
+  # (a page whose medium it cannot classify is a FAILURE, never a silent pass).
+  # The three node ids, spelled here in the COMMENT where no search reads them:
   #   tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason
   # with the expiry clause as its own criterion —
   #   tests/test_book_pdf.py::test_a_declaration_whose_reason_expired_is_a_defect
   # and swept over a seeded corpus by
   #   tests/test_book_pdf.py::test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages
   # This ref resolves and the test checks exactly this statement, so unlike R1's
-  # the flip is honest. CARD-298 leaves the flip to the merge, as this board
-  # does, and records that it is owed.
+  # the flip is honest.
+  #
+  # What the ref does NOT reach, stated because the rule's own clause depends on
+  # it: the guard sees a declaration go stale in TWO directions, and they were
+  # closed by two different cards. The CONVERSION direction (a page became
+  # vector while its declaration stayed) is `test_a_declaration_whose_reason_
+  # expired_is_a_defect`, CARD-298's original work. The LANDING direction — this
+  # statement's own wording, "once CARD-231 lands, the divider's exception goes
+  # with it" — was UNGUARDED at CARD-298 review cycle 1 and is closed by
+  #   tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it
+  # with its control over a synthetic board at
+  #   tests/test_book_pdf.py::test_a_declaration_outliving_its_done_card_is_a_defect
+  # which read the expiry card's `**Status:**` out of meta/kanban/cards/. What
+  # that reads is that the CARD is done, not that the CONVERSION happened: a card
+  # closed without converting its page still reds (which is the mis-attribution
+  # cycle 1 found), and a page converted by a card that is still open is caught
+  # by the conversion direction instead. Between them the two directions are
+  # total over the ways an entry can go stale; neither alone is.
   #
   # **The statement was amended by CARD-298, and the amendment is the finding.**
   # It used to read "Two are declared"; the registry holds SEVEN. The five

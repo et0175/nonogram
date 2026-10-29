@@ -88,6 +88,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.export import pdf as export_pdf
 from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests import full_suite_lock
 from tests.helpers import pdf_vector
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import pdf_pages
@@ -1925,6 +1926,310 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
     ), findings
 
 
+# --------------------------------------------------------------------------
+# AC-3's OTHER direction — the landing direction (CARD-298 fix round 1)
+# --------------------------------------------------------------------------
+#
+# Review cycle 1's F-002. The expiry finding in :func:`_declaration_findings`
+# fires only on ``declaration is not None and _RASTER not in media`` — only
+# when a page's medium actually **changed**. ADR-0042/R2's own clause is
+# written in the other direction: *"once CARD-231 lands, the divider's
+# exception goes with it"*. Measured on the branch: ``expires_with`` was read
+# in exactly two places in the whole tree — the finding's message text and a
+# ``re.fullmatch(r"CARD-\d+")`` FORMAT check — and **nothing read a card's
+# status**, so a declaration went silently stale on the day its own expiry
+# card landed. That is the direction below, and it is a **new coupling from
+# ``tests/`` to the kanban board**, built deliberately rather than inherited.
+
+
+#: The board's whole status vocabulary, measured 2026-10-29 over all 308
+#: ``meta/kanban/cards/CARD-*.md`` in the main working tree: ``done`` 264,
+#: ``ready`` 39, ``in progress`` 2, ``blocked`` 2, ``parked`` 1. Only ``done``
+#: is terminal. A **sixth** spelling is an unanalysable shape, which
+#: ADR-0039/R2 makes a failure here rather than a card quietly read as
+#: not-done — the direction that cannot ship a false green.
+_BOARD_STATUSES = frozenset({"done", "ready", "in progress", "blocked", "parked"})
+_DONE = "done"
+
+#: ``**Status:** <value>`` on a line of its own, which is how all 308 cards on
+#: this board write it. Parsed with a regex and not a YAML library because
+#: there is no YAML parser in the dependency baseline (ADR-0006/R1) and the
+#: shape being read is one line — the precedent CARD-291 set for exactly this.
+_CARD_STATUS = re.compile(r"^\*\*Status:\*\*[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
+
+
+def _board_cards() -> pathlib.Path:
+    """``meta/kanban/cards`` of the **main working tree**, not of this checkout.
+
+    A card worktree does not carry board updates — this board's ``/commit``
+    excludes ``meta/`` — so a linked worktree's ``meta/kanban/cards`` is a
+    snapshot of whatever commit the branch was cut from, and a card cut *after*
+    that cut is simply absent from it. **Measured on this very branch**: the
+    worktree's board holds 304 card files and the main working tree's holds
+    308, and ``CARD-309`` — the card all five interior declarations now name —
+    is one of the four it is missing. Reading the snapshot would make "the
+    board has never heard of this card" (the ``expires_with`` typo case, the
+    one the format regex cannot catch) indistinguishable from "this checkout
+    is older than the card", and the first of those must red.
+
+    The walk from a linked worktree back to the main checkout is **not
+    re-implemented here**: ``tests/full_suite_lock.main_repo_root`` already
+    does it, for the same reason stated in its own docstring ("a linked
+    worktree has to follow its ``.git`` file back there"), it is driven by
+    ``tests/test_full_suite_lock.py``'s own synthetic-worktree cells, and a
+    second transcription of a path walk is how the two would come to disagree.
+    In an ordinary checkout it returns the checkout itself, so CI and a fresh
+    clone see no difference.
+    """
+    return full_suite_lock.main_repo_root(
+        pathlib.Path(__file__).resolve().parent.parent
+    ) / "meta" / "kanban" / "cards"
+
+
+def _card_status(card: str, cards: pathlib.Path) -> str | None:
+    """``CARD-NNN``'s status on the board, or ``None`` when it is undeterminable.
+
+    ``None`` is the **default-DENY** value and every caller below turns it
+    into a finding. Five shapes produce it, and ADR-0039/R2 is why none of
+    them is a pass:
+
+    #. the card file is **absent** — the ``expires_with`` typo case, which
+       ``re.fullmatch(r"CARD-\\d+")`` cannot catch because ``CARD-9999`` is a
+       perfectly well-formed id for a card nobody ever cut;
+    #. it cannot be read (permissions, a directory of that name, bad UTF-8);
+    #. it carries **no** ``**Status:**`` line;
+    #. it carries **more than one**, so which one is the status is a guess;
+    #. its status word is outside :data:`_BOARD_STATUSES` — a sixth spelling
+       on the board reds here instead of being read as "not done", because
+       "not done" is the answer that ships a stale declaration.
+
+    Kept out of the assertions on purpose, so
+    :func:`test_a_declaration_outliving_its_done_card_is_a_defect` can drive
+    it over a **synthetic** board and prove it discriminates: at HEAD no
+    declaration is stale, so a test asserting over the real board would pass
+    whatever this returned, ``return None``/``return "ready"`` included.
+    """
+    try:
+        text = (cards / f"{card}.md").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    found = _CARD_STATUS.findall(text)
+    if len(found) != 1:
+        return None
+    return found[0] if found[0] in _BOARD_STATUSES else None
+
+
+def _landing_findings(declarations, cards: pathlib.Path) -> list[str]:
+    """Declarations that have outlived the cards named to remove them.
+
+    The **one** implementation of the landing direction, driven by
+    :func:`test_no_declaration_outlives_the_cards_that_remove_it` over the real
+    registry and the real board and by
+    :func:`test_a_declaration_outliving_its_done_card_is_a_defect` over a
+    synthetic board — so the live assertion and its control cannot be checking
+    two different rules (the shape :func:`_declaration_findings` already uses).
+
+    Two findings, and each is a direction something can be wrong in:
+
+    #. **a card whose status the board cannot give** — nobody can be shown to
+       own removing the declaration, so the ``expires_with`` is decoration;
+    #. **every card named is ``done`` and the entry is still here** — the
+       expiry is the day the *last* of them lands (the field is a tuple
+       precisely because a kind can be held by more than one unlanded piece of
+       work), so all-done plus still-present is the defect.
+
+    An entry with an **empty** ``expires_with`` is not judged at all: that is
+    the cover's permanent exception, which has no expiry to outlive. A
+    deny-everything version of this function would claim it, and the control
+    checks that it does not.
+    """
+    findings: list[str] = []
+    for kind in sorted(declarations, key=lambda k: k.value):
+        named = declarations[kind].expires_with
+        if not named:
+            continue
+        statuses = {card: _card_status(card, cards) for card in named}
+        unreadable = sorted(card for card, status in statuses.items() if status is None)
+        if unreadable:
+            findings.append(
+                f"{kind.value}: {unreadable} name no card whose status this "
+                "board can give, so nobody can be shown to own removing this "
+                "declaration"
+            )
+            continue
+        if all(status == _DONE for status in statuses.values()):
+            findings.append(
+                f"{kind.value}: a declaration outliving its own expiry — "
+                f"{sorted(named)} are all done and the entry is still here"
+            )
+    return findings
+
+
+def test_no_declaration_outlives_the_cards_that_remove_it() -> None:
+    """AC-3's landing direction, live over the real registry and the real board.
+
+    This is the cell that reds **the day CARD-309 (or CARD-231) is marked
+    done** and its declarations are still in :data:`_RASTER_DECLARATIONS`.
+    Nothing in the tree did that before CARD-298's fix round 1.
+
+    Three non-vacuity checks first, because this assertion is an *emptiness*
+    and emptiness is what a broken derivation also returns:
+
+    #. the registry really does hold temporary entries — a registry of purely
+       permanent exceptions would make :func:`_landing_findings` skip
+       everything. A floor and not the count, for the reason the comment on it
+       gives;
+    #. the board really is there and really is the board — at least 300 card
+       files;
+    #. **every** card on it has a status this file can read, which is the one
+       assertion that proves :func:`_card_status` parses rather than returning
+       ``None``, and which reds on a sixth status spelling appearing on the
+       board (ADR-0039/R2's direction: an unanalysable shape is a failure).
+
+    The discrimination itself — reds on done, stays green on open — is proved
+    over a synthetic board by
+    :func:`test_a_declaration_outliving_its_done_card_is_a_defect`, because at
+    HEAD no declaration is stale and this cell would pass whatever the
+    derivation did.
+    """
+    temporary = {
+        kind for kind, entry in _RASTER_DECLARATIONS.items() if entry.expires_with
+    }
+    # A floor, deliberately NOT the count: the registry is the authority for
+    # how many exceptions there are, and a number restated beside the mapping
+    # is the drift CARD-261 found twice. All this needs is that there is
+    # something to judge, so that an emptiness below means "nothing stale"
+    # and not "nothing looked at".
+    assert len(temporary) >= 2, sorted(kind.value for kind in temporary)
+    assert _RASTER_DECLARATIONS[PageKind.COVER].expires_with == ()
+
+    cards = _board_cards()
+    assert cards.is_dir(), cards
+    on_the_board = sorted(path.stem for path in cards.glob("CARD-*.md"))
+    assert len(on_the_board) >= 300, len(on_the_board)
+
+    statuses = {card: _card_status(card, cards) for card in on_the_board}
+    assert [card for card, status in statuses.items() if status is None] == [], [
+        card for card, status in statuses.items() if status is None
+    ]
+    assert sum(1 for status in statuses.values() if status == _DONE) >= 200
+    assert sum(1 for status in statuses.values() if status != _DONE) >= 10
+
+    # And every card any declaration names is one the board actually holds --
+    # stated separately from the findings below so a typo is read as a typo.
+    named = sorted(
+        {card for entry in _RASTER_DECLARATIONS.values() for card in entry.expires_with}
+    )
+    assert named == sorted(set(named) & set(on_the_board)), [
+        card for card in named if card not in set(on_the_board)
+    ]
+
+    findings = _landing_findings(_RASTER_DECLARATIONS, cards)
+    assert findings == [], findings
+
+
+def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
+    """The control the new board coupling owes, over a **synthetic** board.
+
+    A guard added because a hole was found has to be shown to close the hole
+    *and* shown not to be vacuous. At HEAD no declaration is stale and every
+    card named is open, so asserting over the real board would pass whatever
+    :func:`_landing_findings` did — including ``return []`` and ``return
+    ["everything"]``. So the cards are written into ``tmp_path``: no real card
+    file is read, edited or depended on, and the synthetic ids are far outside
+    the board's range so a stray real file cannot answer for one.
+
+    Both directions, and all five undeterminable shapes
+    :func:`_card_status` names.
+    """
+
+    def card(name: str, body: str) -> None:
+        (tmp_path / f"{name}.md").write_text(body, encoding="utf-8")
+
+    def status_card(name: str, status: str) -> None:
+        card(name, f"# {name}: a probe\n\n**Status:** {status}\n**Priority:** P2\n")
+
+    def declared(*cards: str):
+        return {
+            PageKind.PUZZLE: RasterDeclaration(
+                reason="a probe", authority="a probe", expires_with=cards
+            )
+        }
+
+    status_card("CARD-90001", "done")
+    status_card("CARD-90008", "done")
+    status_card("CARD-90002", "ready")
+    status_card("CARD-90003", "in progress")
+    status_card("CARD-90004", "shipped")  # a status word the board does not use
+    card("CARD-90005", "# CARD-90005: a probe\n\nno status line at all\n")
+    card("CARD-90006", "# p\n\n**Status:** done\n**Status:** ready\n")
+    (tmp_path / "CARD-90007.md").mkdir()  # a directory where a card should be
+
+    # ---- the defect: the card is done and the declaration is still here ----
+    reds = _landing_findings(declared("CARD-90001"), tmp_path)
+    assert len(reds) == 1, reds
+    assert reds[0].startswith("puzzle: a declaration outliving its own expiry"), reds
+    assert "CARD-90001" in reds[0]
+
+    # ---- and NOT a defect while the card is still open ----
+    # This is the half that stops a deny-everything derivation from passing
+    # the assertion above.
+    for still_open in ("CARD-90002", "CARD-90003"):
+        assert _landing_findings(declared(still_open), tmp_path) == [], still_open
+
+    # ---- the expiry is the LAST card, not the first ----
+    assert _landing_findings(declared("CARD-90001", "CARD-90002"), tmp_path) == []
+    assert _landing_findings(declared("CARD-90002", "CARD-90001"), tmp_path) == []
+    both_done = _landing_findings(declared("CARD-90001", "CARD-90008"), tmp_path)
+    assert len(both_done) == 1, both_done
+    assert "CARD-90001" in both_done[0] and "CARD-90008" in both_done[0], both_done
+
+    # ---- a permanent exception has no expiry to outlive ----
+    assert (
+        _landing_findings(
+            {
+                PageKind.COVER: RasterDeclaration(
+                    reason="a photograph", authority="ADR-0042/R2", expires_with=()
+                )
+            },
+            tmp_path,
+        )
+        == []
+    )
+
+    # ---- and every undeterminable shape FAILS rather than passing ----
+    # CARD-90099 is the typo case: a well-formed id naming no card at all,
+    # which `re.fullmatch(r"CARD-\d+")` accepts and only the board can reject.
+    for undeterminable in (
+        "CARD-90099",  # absent
+        "CARD-90004",  # a status outside the board's vocabulary
+        "CARD-90005",  # no **Status:** line
+        "CARD-90006",  # two of them
+        "CARD-90007",  # a directory, so unreadable
+    ):
+        findings = _landing_findings(declared(undeterminable), tmp_path)
+        assert len(findings) == 1, (undeterminable, findings)
+        assert "name no card whose status this board can give" in findings[0], (
+            undeterminable,
+            findings,
+        )
+        assert undeterminable in findings[0], (undeterminable, findings)
+        assert _card_status(undeterminable, tmp_path) is None, undeterminable
+
+    # One done card beside one undeterminable one reports the undeterminable
+    # one and does NOT also claim the expiry, so the two findings cannot stand
+    # in for each other.
+    mixed = _landing_findings(declared("CARD-90001", "CARD-90099"), tmp_path)
+    assert len(mixed) == 1, mixed
+    assert "name no card whose status this board can give" in mixed[0], mixed
+
+    # The statuses the board does use are read as themselves, not merely as
+    # "not done" -- a parser returning a constant would pass the arms above.
+    assert _card_status("CARD-90001", tmp_path) == "done"
+    assert _card_status("CARD-90002", tmp_path) == "ready"
+    assert _card_status("CARD-90003", tmp_path) == "in progress"
+
+
 def test_a_page_whose_medium_cannot_be_determined_is_a_defect() -> None:
     """AC-2's third clause, on two shapes the guard was **not** written from.
 
@@ -2100,7 +2405,17 @@ class TestWritePdf_TheMediumIsChosenInOnePlace:
         return sorted(found)
 
     def test_the_shipped_module_decides_in_one_place(self) -> None:
-        """The live assertion: no finding, on the module that ships."""
+        """The live assertion: no finding, on the module that ships.
+
+        **Not an independent reading of** :meth:`test_each_plant_is_found`,
+        and recorded here so the two cells are not counted as two (review
+        cycle 1, A-7). Both route through the same :meth:`findings`
+        classmethod: a defect inside ``findings`` reds both or neither. That
+        is the intended design — one implementation, driven from the clean
+        side here and from the four planted sides there, which is the same
+        shape :func:`_declaration_findings` uses — but it buys *drive in both
+        directions*, not *corroboration*.
+        """
         source = self.MODULE.read_text(encoding="utf-8")
         assert self.findings(source) == [], self.findings(source)
 
@@ -2432,11 +2747,28 @@ class TestWritePdf_RefusesWhatItCannotWrite:
     """The writer's own refusals, each driven — the runtime half of default-DENY.
 
     ``_write_pdf`` lays its object table out from the page kinds before a page
-    exists, so everything that can be wrong about them has to be wrong *before
-    the buffer exists*: a kind list that is not one per page, and a page that
-    arrives in the other medium's representation from the one its kind
-    declares. Neither is a shape production reaches today, which is exactly why
-    each has a cell: they are the refusals that make a half-converted interior
+    exists, so what can be wrong about them is refused at two different
+    moments — and **review cycle 1's F-006 was right that an earlier wording
+    collapsed them into one.** Stated exactly:
+
+    * **Before the buffer exists**: ``mode`` is not a colour space this writer
+      knows, and ``kinds`` is not one kind per planned page. Both precede
+      ``written = BytesIO()``, so nothing at all is built.
+    * **Per page, inside the loop, and necessarily so**: a page that arrives
+      in the other medium's representation from the one its kind declares. The
+      pages arrive one at a time from a generator (CARD-145), so their *types*
+      cannot be known before the buffer exists. "Refused before the buffer"
+      is not true of this half and cannot be made true of it.
+
+    The substance is unaffected, which is why this is a wording fix and not a
+    code one: the buffer is a **local** ``BytesIO`` and the ``TypeError``
+    propagates out of the method, so a refusal at page *k* of *N* takes its
+    partial bytes with it and no caller is handed a truncated PDF. That
+    property is ``tests/test_book_pdf_memory.py``'s
+    ``TestBookPdfMemory_NothingHalfWrittenEscapes``, not this class's.
+
+    Neither shape is one production reaches today, which is exactly why each
+    has a cell: they are the refusals that make a half-converted interior
     impossible to ship rather than merely unlikely.
     """
 
@@ -2502,7 +2834,7 @@ class TestWritePdf_RefusesWhatItCannotWrite:
 
 
 def test_the_page_kinds_are_the_positions_the_plan_itself_states() -> None:
-    """The kind list, re-derived through a **different door** (CARD-298).
+    """The kind list, re-derived off a second **ordering authority** (CARD-298).
 
     ``interior_stream`` builds :attr:`InteriorStream.page_kinds` by walking its
     own five sections in order, so nothing in AC-1 or AC-2 can tell a
@@ -2511,20 +2843,41 @@ def test_the_page_kinds_are_the_positions_the_plan_itself_states() -> None:
     **survived** the whole of this card's own guard set, measured, because
     both kinds are declared bitmaps and both pages come out bitmaps.
 
-    So the kinds are read a second time, off a different authority: the
-    **page numbers the plan objects carry**.
-    :attr:`DividerPagePlan.page_number` and
-    :attr:`PuzzlePagePlan.page_number` come out of the public
-    :meth:`BookPDFGenerator.section_plan` door — the one the Arrangement
-    screen asks where a puzzle prints — and the kind list is reconstructed
-    from those positions rather than from enumeration order. The two readings
-    share the walk that decided the pages; they share nothing about which
-    *kind* sits at which position, which is the fact being checked.
+    **What is genuinely independent here, stated exactly** (review cycle 1's
+    F-005 corrected an earlier docstring that claimed more). It is the
+    **ordering authority**, and only that: production reads kind-at-position
+    from *enumeration order*, this test reads it from the **page number each
+    plan object carries** — :attr:`DividerPagePlan.page_number` and
+    :attr:`PuzzlePagePlan.page_number`, the numbers the Arrangement screen
+    asks where a puzzle prints. That is a real second fact, and it would catch
+    a :class:`SectionPlan` whose ``pages`` order disagreed with its own
+    ``page_number`` values, which nothing else in the tree checks.
 
-    The front matter and the answer tail are reconstructed from the two page
-    constants and the answer page count, which is the same arithmetic stated
-    in a different place — named here as the weaker half rather than left to
-    look as independent as the dividers' own numbers are.
+    **What is NOT independent, and the earlier wording overstated.** It is the
+    same *door*: :meth:`BookPDFGenerator.interior_stream` itself calls
+    ``self.section_plan(puzzles)`` and reads ``decided.pages``, so this test
+    calls the same method on the same objects and gets them in the same order.
+    And the kind discrimination is the **same predicate transcribed twice** —
+    production writes ``PageKind.DIVIDER if isinstance(entry, DividerPagePlan)
+    else PageKind.PUZZLE``, the loop below writes the same ``isinstance``
+    chain. So both readings derive the kind from the plan object's class; they
+    do **not** "share nothing about which kind sits at which position", which
+    is what this docstring used to say. The value that remains is as a
+    **control**: because the transcription is this test's own, a
+    production-only mutant in the kind mapping still dies here.
+
+    Two further restatements rather than second readings, both named so neither
+    reads as evidence:
+
+    * the front matter is rebuilt from the two page constants, which is the
+      same arithmetic stated in a different place;
+    * the answer tail is rebuilt from ``stream.answer_page_count`` **and is not
+      production-equivalent**: production guards the SOLUTIONS divider on
+      ``if payloads:`` while the ``if generator.divider_pages`` below does not.
+      The corpus always has payloads, so the branch is unexercised rather than
+      wrong — but a restatement that diverges is strictly worse than one that
+      does not, and it is written down here instead of being discovered on the
+      first book with no drawable member.
     """
     generator, puzzles = _interior_with_every_page_kind()
     decided = generator.section_plan(puzzles)

@@ -3647,10 +3647,21 @@ class Generator:
     #:   ``page_kinds.extend`` x5 and ``pdf.next_object_id`` x3. Nothing
     #:   absorbs these, which is why the last two steps move by the same +8.
     #:
-    #: **Independently counted, in a different domain**: an AST census written
-    #: for this card (``scratchpad/card298/ast_delta.py``) reads **+42**
-    #: ``ast.Call`` nodes between ``8b307c22`` and this branch, against this
-    #: walk's **+40** refusals. The residual is exactly two — ``self.page_spec``
+    #: **Independently counted, in a different domain**: the module gains
+    #: **+42** ``ast.Call`` nodes between ``8b307c22`` and this branch
+    #: (**838 → 880**), against this walk's **+40** refusals. The derivation is
+    #: restated here rather than cited: it used to name a census file that
+    #: lived in a session scratchpad at an absolute path *outside* the repo, so
+    #: it resolved nowhere from a checkout and died with the session — a dead
+    #: check ref one level down (CARD-298 review cycle 1, F-004). It is one
+    #: line, which is what made the dangling citation avoidable. From the repo
+    #: root, for either side:
+    #:
+    #:     git show REV:src/nonogram/admin/book_pdf_generator.py | python -c \
+    #:       'import ast,sys; print(sum(isinstance(n, ast.Call) for n in
+    #:        ast.walk(ast.parse(sys.stdin.read()))))'
+    #:
+    #: The residual is exactly two — ``self.page_spec``
     #: and ``self.vector_title_page`` — which this walk resolves because
     #: ``self`` is a receiver the module does define, and ``append`` nets zero
     #: because one site moved from ``image_refs`` to ``page_kinds``. Two

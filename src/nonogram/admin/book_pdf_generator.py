@@ -524,13 +524,25 @@ class RasterDeclaration:
             somebody's preference.
         expires_with: The card ids that between them remove this exception, or
             ``()`` for an exception with no end — the cover's. **A declaration
-            that names a card is a temporary one**, and
-            ``test_a_declaration_whose_reason_expired_is_a_defect`` is what
-            notices the day the last of them lands and this entry does not go
-            with it (ADR-0042/R2's own clause). It is a tuple because a kind
-            can be held raster by more than one unlanded piece of work, and a
+            that names a card is a temporary one**, and it can go stale in
+            **two** directions, which two different tests notice:
+
+            * the page is converted and this entry is left behind —
+              ``test_a_declaration_whose_reason_expired_is_a_defect``;
+            * the last card named here reaches ``done`` and this entry is
+              still present — ``test_a_declaration_outliving_its_done_card``
+              ``_is_a_defect``, which reads each card's ``**Status:**`` off
+              ``meta/kanban/cards/``.
+
+            Neither direction implies the other, which is why both exist: a
+            card can close without converting its page (measured — CARD-298's
+            review cycle 1 found all five interior entries naming CARD-299,
+            which converts no page), and a page can convert while the card
+            that owns it is still open. It is a tuple because a kind can be
+            held raster by more than one unlanded piece of work, and a
             declaration that named only the first of them would read as
-            nearly clear when it is not.
+            nearly clear when it is not; **the expiry is the day the LAST of
+            them is done**, so an entry still present then is the defect.
     """
 
     reason: str
@@ -551,9 +563,29 @@ class RasterDeclaration:
 #: measurably cannot be yet. **Read their reasons rather than their count**:
 #: they are not "not converted yet", they are three named blockers, and the
 #: count of this mapping is the one honest reading of how far ADR-0042/R1 has
-#: actually got. Each entry names the card that removes it, and
-#: ``test_a_declaration_whose_reason_expired_is_a_defect`` is what reds the day
-#: a kind goes vector and its entry stays.
+#: actually got.
+#:
+#: **Each entry names the cards that between them remove it, and the shrink is
+#: guarded in two directions — neither of which alone is the whole claim.**
+#: ``test_a_declaration_whose_reason_expired_is_a_defect`` reds the day a kind
+#: goes vector and its entry stays (the CONVERSION direction);
+#: ``test_a_declaration_outliving_its_done_card_is_a_defect`` reds the day the
+#: last card named in an ``expires_with`` reaches ``done`` and the entry is
+#: still here (the LANDING direction, which is the direction ADR-0042/R2's own
+#: clause is written in — "once CARD-231 lands, the divider's exception goes
+#: with it"). The second was **added by CARD-298's fix round 1**: before it,
+#: this comment claimed AC-3's expiry check "exists to force" the shrink, and
+#: that was half the truth — review cycle 1 measured that the finding fires
+#: only on ``declaration is not None and _RASTER not in media``, i.e. only
+#: when a page's medium actually changed, so a card could close without
+#: converting its page and five entries would go silently stale.
+#:
+#: **The bound both directions leave.** Reading a card file tells you the card
+#: is *done*; it does not tell you the conversion happened. A done card that
+#: converted nothing reds here (the landing direction), a conversion whose
+#: card is still open reds there (the conversion direction) — and a card
+#: wrongly *marked* done still reds, because the board is the authority for
+#: "done" and nothing else in this tree claims to be.
 #:
 #: **Nothing else may be a bitmap.** :func:`page_medium` returns ``VECTOR``
 #: for every kind absent from this mapping, so a new page kind is vector by
@@ -580,43 +612,62 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
         reason=(
             "every reader of a book PDF in the test tree requires a DCTDecode "
             "image on every page (tests/helpers/pdf_pages.py: \"a book page is "
-            "exactly one image\"), so no interior page can change medium "
-            "before ADR-0042/R6's conversion lands; measured on this, the one "
+            "exactly one image\"), so no interior page can change medium until "
+            "ADR-0042/R6's READER conversion lands — measured on this, the one "
             "kind whose two media are ink-identical by construction, at 112 "
-            "red cells across 14 modules"
+            "red cells across 14 modules — and until the PAGE conversion is "
+            "written there is nothing to write this page as operators with"
         ),
-        authority="ADR-0042/R6, whose conversion CARD-299 owns",
-        expires_with=("CARD-299",),
+        authority=(
+            "ADR-0042/R1, whose page conversion is CARD-309's; the reader "
+            "conversion it waits on is ADR-0042/R6's, CARD-299's"
+        ),
+        expires_with=("CARD-299", "CARD-309"),
     ),
     PageKind.GUIDE: RasterDeclaration(
         reason=(
             "its vector writer exists (book_guide_vector.guide_page) but is "
             "downstream of this module and cannot be called from the "
-            "interior's own walk, and ADR-0042/R6's reader conversion has not "
-            "landed either"
+            "interior's own walk at all, so an assembly point has to be built "
+            "before any page walk can reach it; and ADR-0042/R6's reader "
+            "conversion has not landed either"
         ),
-        authority="ADR-0042/R6, whose conversion CARD-299 owns",
-        expires_with=("CARD-299",),
+        authority=(
+            "ADR-0042/R1, whose page conversion and whose assembly point are "
+            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
+            "CARD-299's"
+        ),
+        expires_with=("CARD-299", "CARD-309"),
     ),
     PageKind.TOC: RasterDeclaration(
         reason=(
             "its vector writer exists (book_toc_vector.toc_page_stream) but is "
             "downstream of this module and cannot be called from the "
-            "interior's own walk, and ADR-0042/R6's reader conversion has not "
-            "landed either"
+            "interior's own walk at all, so an assembly point has to be built "
+            "before any page walk can reach it; and ADR-0042/R6's reader "
+            "conversion has not landed either"
         ),
-        authority="ADR-0042/R6, whose conversion CARD-299 owns",
-        expires_with=("CARD-299",),
+        authority=(
+            "ADR-0042/R1, whose page conversion and whose assembly point are "
+            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
+            "CARD-299's"
+        ),
+        expires_with=("CARD-299", "CARD-309"),
     ),
     PageKind.ANSWER: RasterDeclaration(
         reason=(
             "its vector writers exist (book_answer_vector.answer_page and "
             "packed_answer_page) but are downstream of this module and cannot "
-            "be called from the interior's own walk, and ADR-0042/R6's reader "
-            "conversion has not landed either"
+            "be called from the interior's own walk at all, so an assembly "
+            "point has to be built before any page walk can reach them; and "
+            "ADR-0042/R6's reader conversion has not landed either"
         ),
-        authority="ADR-0042/R6, whose conversion CARD-299 owns",
-        expires_with=("CARD-299",),
+        authority=(
+            "ADR-0042/R1, whose page conversion and whose assembly point are "
+            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
+            "CARD-299's"
+        ),
+        expires_with=("CARD-299", "CARD-309"),
     ),
     PageKind.PUZZLE: RasterDeclaration(
         reason=(
@@ -626,8 +677,12 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
             "would print with no page number on it; and ADR-0042/R6's reader "
             "conversion has not landed either"
         ),
-        authority="CARD-295's raised gap; ADR-0042/R6, whose conversion CARD-299 owns",
-        expires_with=("CARD-299",),
+        authority=(
+            "CARD-295's raised gap, whose furniture and whose page conversion "
+            "are both CARD-309's; the reader conversion is ADR-0042/R6's, "
+            "CARD-299's"
+        ),
+        expires_with=("CARD-299", "CARD-309"),
     ),
 }
 
