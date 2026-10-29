@@ -239,7 +239,7 @@ def draw_page_rule(
     :attr:`~nonogram.export.layout.PageRule.width` is whole device pixels —
     ``_pt_to_px_at_least`` of ``INTERIOR_HEADER_RULE_PT``/
     ``INTERIOR_FOOTER_RULE_PT``, i.e. the stated point weight rounded **up**
-    to the device floor that keeps furniture from dropping out on press — so
+    to whole pixels — so
     :meth:`~nonogram.admin.book_vector.ContentStream.to_points` converts that
     figure back rather than this function reaching for the point constant. The
     two differ: at the book's 300 DPI the hairline's 0.4 pt is 1.667 px, which
@@ -253,9 +253,28 @@ def draw_page_rule(
     **Not ADR-0037/R2's floor, and that is not an oversight.** R2 binds the
     puzzle **grid**'s rules and has never bound furniture (that ADR's History,
     2026-10-17). The floor these two rules meet is the 2-device-pixel dropout
-    floor CARD-222/CARD-225/CARD-248 cite directly, which is already applied
-    inside ``interior_frame`` — so this strokes what it is handed and claims
-    no exemption from a rule that does not reach it.
+    floor CARD-222/CARD-225/CARD-248 cite directly — so this strokes what it is
+    handed and claims no exemption from a rule that does not reach it.
+
+    **Where that floor actually comes from, since this docstring got it wrong
+    once** (CARD-306's review): *not* from ``_pt_to_px_at_least``, which is a
+    ceiling on a conversion and not a minimum of two —
+    ``_pt_to_px_at_least(0.2)`` is 1, measured. The floor is held by the two
+    **point constants**, chosen so that their conversion lands at 3 px and 2 px
+    at the book's 300 DPI (``layout.py``'s own comment on
+    ``INTERIOR_FOOTER_RULE_PT``: "Two device pixels is the floor, and this rule
+    sits on it"). Nothing applies it as a function.
+
+    So a point constant chosen at or below 0.24 pt (measured: 0.24 pt converts
+    to 1 px, 0.2401 pt to 2) is caught by a **test** and not by the conversion,
+    and the readings that catch it sit on both sides of the medium split:
+    ``test_the_hairline_is_at_the_floor_and_the_header_rule_is_heavier`` on the
+    raster page's measured ink (pre-existing, CARD-222/CARD-225's) and
+    ``TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor`` on
+    this writer's own ``w`` operand (CARD-306's EC). That makes this card's EC
+    the **vector** medium's reading of a floor nothing applies, rather than a
+    restatement of one held upstream — more load-bearing than a "floor applied
+    in ``interior_frame``" reading would suggest, not less.
     """
     stream.stroke_grey(grey)
     stream.stroke_width(stream.to_points(rule.width))
@@ -330,10 +349,17 @@ def _set_at_baseline(
     bottom on the row, so for the folio's digits, ``"20 x 25"`` and
     ``"Solve it online"`` the two agree to the pixel, while the typed link —
     whose ``p``/``g`` descend — sets its ink one descender lower here than the
-    raster page sets it: 35 px at the book's 300 DPI… (see this module's test
+    raster page sets it: **9 device px, 0.76 mm, at the book's 300 DPI**. That
+    is the face's own ink descent at the footer's size — 42 px of type whose
+    declared ascent/descent is (39, 10) — so the offset is bounded by the
+    declared descent rather than being a free figure. (An earlier draft of this
+    paragraph said 35 px and trailed off. 35 px is ``type_px(8.5, DPI)``, the
+    interior clue size ``book_pdf_generator`` records, not this offset; as an
+    offset it would be 2.96 mm. CARD-306's review measured the real one.) See
+    this module's test
     ``test_the_footer_lines_sit_where_the_raster_page_sets_them``, which pins
-    the three exact agreements and records the link's offset as the one
-    exception rather than leaving it to be discovered). Reproducing Pillow's
+    the three exact agreements and asserts both this offset and its bound
+    rather than leaving either to be discovered. Reproducing Pillow's
     ink-box anchor would need the face's per-glyph ``yMin``, which
     :class:`~nonogram.admin.book_vector.FontMetrics` does not read and which
     would make this the only mark in the interior placed by a second rule.

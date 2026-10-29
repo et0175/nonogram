@@ -2749,6 +2749,119 @@ class TestSheetFurniture_TheFooterIsAllOrNothing:
 #: catch, and this is the instrument that would catch it.
 SHEET_VECTOR_LITERALS = frozenset({0, 1, 2, 0.0, 2.0})
 
+#: The syntactic **positions** a numeric literal is allowed to occupy in
+#: ``book_sheet_vector``, each with the reason that position is not a figure
+#: handed to something that draws. A second default-DENY allowlist
+#: (ADR-0039/R2), over positions rather than over values — and the reason it
+#: exists is measured.
+#:
+#: The first version of this guard asked only whether a bare ``ast.Constant``
+#: sat directly in a ``Call``'s ``args``. CARD-306's review planted
+#: ``_QR_BORDER_PX = 2`` at module level with
+#: ``to_points(_QR_BORDER_PX)`` — the raster placeholder's own border weight,
+#: one binding out — and **every cell of AC-3 passed**: ``2`` is on the value
+#: allowlist above, and a ``Name`` is not a ``Constant``. Re-measured in
+#: CARD-306's fix round over 14 shapes of the same transcription (local
+#: variable, module constant, class attribute, tuple, list, starred tuple,
+#: dict value, f-string, default argument, ``f(1 + 1)``, ``f(-2)``, nested
+#: call, comprehension, bare literal): the old pair of arms caught **2 of
+#: 14**; this one catches **14 of 14**.
+#:
+#: The allowlist is derived from the module's own census — those nine literals
+#: and no others — so a literal in any other position is reported as a
+#: FAILURE and not as an absence, which is what ADR-0039/R2 asks of an
+#: unanalysable shape. In particular ``Assign`` and ``AnnAssign``-with-a-value
+#: are **not** positions, which is what closes the binding the plant used.
+SHEET_VECTOR_LITERAL_POSITIONS = frozenset(
+    {
+        # ``label_size_px: float = 0.0`` and its two siblings: "this page
+        # prints no mark at this size", read only when the matching string is
+        # ``None``. Restricted to zero, so a field default of 2 is a failure.
+        "a zero default on a SheetFurniture field",
+        # ``modules <= 0`` and ``(row + column) % 2 != 0``.
+        "a comparison against zero",
+        # ``% 2`` (the chequer's parity), ``/ 2.0`` (the halving a centred
+        # string needs) and ``+ 1`` (the chequer's far edge). The other
+        # operand must NOT be a literal, so ``f(1 + 1)`` is a failure.
+        "an operand of %, / or + whose other side is read",
+    }
+)
+
+#: What the module's census says the count is. Pinned so that a literal added
+#: in a justified position still has to be justified by a reader rather than
+#: landing silently inside an allowlisted shape.
+SHEET_VECTOR_LITERAL_COUNT = 9
+
+
+def _literal_position(node, parent, field: str) -> str | None:
+    """Which allowlisted position ``node`` occupies, or ``None`` for no position.
+
+    ``None`` is the default-DENY answer: the caller turns it into a failure
+    naming the parent node, so an expression shape this classifier has never
+    seen reads as a defect rather than as something the walk did not look at.
+    """
+    import ast
+
+    value = node.value
+    if isinstance(parent, ast.AnnAssign) and field == "value" and value == 0:
+        return "a zero default on a SheetFurniture field"
+    if isinstance(parent, ast.Compare) and value == 0:
+        return "a comparison against zero"
+    if isinstance(parent, ast.BinOp) and isinstance(
+        parent.op, (ast.Mod, ast.Div, ast.Add)
+    ):
+        other = parent.right if parent.left is node else parent.left
+        if not isinstance(other, ast.Constant):
+            return "an operand of %, / or + whose other side is read"
+    return None
+
+
+def _numeric_literals(tree) -> list[tuple[int, object, str, str | None]]:
+    """Every numeric literal in ``tree`` as ``(line, value, position, handed_to)``.
+
+    ``position`` is one of :data:`SHEET_VECTOR_LITERAL_POSITIONS` or a string
+    beginning ``"UNJUSTIFIED"``. ``handed_to`` is the nearest enclosing
+    **method** call, if the literal sits anywhere inside its arguments, at any
+    depth and through any expression — a container, an f-string, a unary
+    minus, a nested call. Every drawing this module does is a method on
+    ``stream``, so "no number is handed to a drawing call" is exactly
+    ``handed_to is None`` for all of them, and that reading does not depend on
+    the literal being a bare argument.
+
+    ``bool`` is an ``int``, and ``@dataclass(frozen=True, slots=True)`` hands
+    two of them to a call on every dataclass in the module. A ``True`` is not
+    a figure, so it is excluded by type and not by value.
+    """
+    import ast
+
+    parents: dict[int, tuple] = {}
+    for node in ast.walk(tree):
+        for field, value in ast.iter_fields(node):
+            for child in value if isinstance(value, list) else [value]:
+                if isinstance(child, ast.AST):
+                    parents[id(child)] = (node, field)
+
+    rows = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)
+        ):
+            continue
+        parent, field = parents[id(node)]
+        position = _literal_position(node, parent, field)
+        if position is None:
+            position = f"UNJUSTIFIED: inside {type(parent).__name__}.{field}"
+        handed_to, cursor = None, node
+        while id(cursor) in parents:
+            cursor, _field = parents[id(cursor)]
+            if isinstance(cursor, ast.Call) and isinstance(cursor.func, ast.Attribute):
+                handed_to = ast.unparse(cursor.func)
+                break
+        rows.append((node.lineno, node.value, position, handed_to))
+    return rows
+
 
 class TestSheetFurniture_OneDefinitionNotTwo:
     """AC-3: every piece's geometry comes from one source shared with the raster.
@@ -2798,80 +2911,157 @@ class TestSheetFurniture_OneDefinitionNotTwo:
         ``2`` is on the allowlist for the chequer's parity and for halving a
         centred string, so a transcription that happens to be ``2`` passes
         it — and the one transcription most likely to be written here is
-        exactly that: ``stroke_width(to_points(2))``, the raster
-        placeholder's own literal border weight, which on a book page is
-        **numerically identical** to the hairline the writer is supposed to
-        read off the frame. Mutant M5 planted it and every other guard in
+        exactly that: the raster placeholder's own literal border weight,
+        which on a book page is **numerically identical** to the hairline the
+        writer is supposed to read off the frame. Mutant M5 planted it
+        directly, as ``stroke_width(to_points(2))``, and every other guard in
         this module stayed green.
 
-        So the second arm is structural rather than numeric: **no numeric
-        literal reaches any call as an argument.** A number may be compared
-        (``modules <= 0``), may be a modulus (``% 2``), may be a divisor
-        (``/ 2.0``) and may be a field default — none of those is a figure
-        being handed to something that draws. One that is handed to a call is
-        either a coordinate, a weight or a size, and all three belong to the
-        caller.
+        So the second arm is structural rather than numeric. **It was one
+        notch too narrow when it was written**, and this is the widened form:
+        the first version asked whether a bare ``ast.Constant`` sat in a
+        ``Call``'s ``args``, and CARD-306's review planted the same weight one
+        binding out — ``_QR_BORDER_PX = 2`` at module level, passed by name —
+        and this cell **passed**. Re-measured over 14 shapes of that
+        transcription, the old reading caught 2 and this one catches all 14
+        (see :data:`SHEET_VECTOR_LITERAL_POSITIONS`).
+
+        The two conditions, both default-DENY:
+
+        * **position** — every numeric literal occupies one of the three
+          positions the module's own census justifies, and any other position
+          (an ``Assign``, a ``Call`` argument, a container, an f-string, a
+          unary minus, a function default) is a FAILURE naming the parent
+          node, not an absence;
+        * **reach** — no numeric literal sits inside a **method** call's
+          arguments, at any depth and through any expression. Every mark this
+          module makes is a method on ``stream``, so this is "no number is
+          handed to a drawing call" read transitively rather than at one
+          syntactic slot.
+
+        **What still escapes, enumerated** (ADR-0039/R2 wants the set
+        knowable, not empty by assertion): a literal in one of the three
+        allowlisted positions whose result never passes through a method
+        call. Concretely two shapes — a ``0``/``0.0`` field default that a
+        drawer then reads as a coordinate, and an arithmetic operand over a
+        value read from the frame, as ``modules % 2``. Neither is a
+        transcription of a measured figure: the second derives from what the
+        frame said, and the first is restricted to zero. A *nudge* —
+        ``to_points(footer_rule.width + 2)`` — is **not** in the escape set;
+        it is caught by the reach condition, measured.
         """
-        import ast
-
         tree, _source = self._tree()
-        # ``bool`` is an ``int``, and ``@dataclass(frozen=True, slots=True)``
-        # hands two of them to a call on every dataclass in the module. A
-        # ``True`` is not a figure, so it is excluded by type and not by value.
-        handed = [
-            (node.lineno, argument.value)
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            for argument in [*node.args, *(kw.value for kw in node.keywords)]
-            if isinstance(argument, ast.Constant)
-            and isinstance(argument.value, (int, float))
-            and not isinstance(argument.value, bool)
-        ]
+        literals = _numeric_literals(tree)
 
+        unjustified = [row for row in literals if row[2].startswith("UNJUSTIFIED")]
+        assert unjustified == [], unjustified
+
+        handed = [row for row in literals if row[3] is not None]
         assert handed == [], handed
 
+        # Non-vacuity, both ways: the walk found the census it was derived
+        # from, and every allowlisted position is really occupied — so a
+        # reading that found nothing could not pass the two assertions above
+        # trivially, and a position nobody uses any more cannot sit in the
+        # allowlist unnoticed.
+        assert len(literals) == SHEET_VECTOR_LITERAL_COUNT, literals
+        assert {row[2] for row in literals} == SHEET_VECTOR_LITERAL_POSITIONS, sorted(
+            {row[2] for row in literals}
+        )
+
     def test_the_call_argument_walk_sees_the_numerically_identical_plant(self) -> None:
-        """Its control, which is mutant M5 run in-suite.
+        """Its control, which is mutant M5 and the review's one-hop M-A in-suite.
 
         The plant is the border weight the raster page really does write as a
         literal, and it draws the **same line** this module draws today — so
         a reading of the page cannot tell it apart and only this walk can.
-        The negative half: the same number in a modulus is not a figure handed
-        to a call, and the walk stays silent on it.
+
+        **The plant is built by mutating the parsed tree, not the source
+        text.** The first version of this control did
+        ``source.replace("stream.to_points(furniture.frame.footer_rule.width)",
+        "stream.to_points(2)")`` and then ``assert planted != source``, which
+        made the needle's presence the control's first assertion. CARD-306's
+        review ran its one-hop mutant and watched *this cell* go red — on the
+        missing needle, while the arm it is the control for stayed green. A
+        reviewer reading "1 failed" would have concluded the guard caught the
+        transcription. So the anchor is now found structurally and asserted as
+        its own named check, and a moved anchor reports exactly that.
+
+        Both halves are planted, because they fail the two conditions for
+        different reasons: the **direct** literal is caught by reach (it sits
+        inside ``stream.to_points``'s arguments) and the **one-hop binding**
+        by position (a module-level ``Assign`` is not an allowlisted position).
+        The negative half: the same number in a modulus is the chequer's own
+        parity, and the walk stays silent on it.
         """
         import ast
 
-        _tree, source = self._tree()
+        tree, source = self._tree()
 
-        planted = source.replace(
-            "stream.to_points(furniture.frame.footer_rule.width)",
-            "stream.to_points(2)",
+        def anchored(tree):
+            """The call that converts the **hairline's** own width for the icon.
+
+            ``draw_page_rule`` has a second ``to_points(rule.width)``, which
+            is the same kind of read on the rule it was handed; this picks
+            the QR border's, which is M5's and the review's target because
+            the raster placeholder writes that one as a literal ``2``.
+            """
+            return [
+                node
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "to_points"
+                and len(node.args) == 1
+                and isinstance(node.args[0], ast.Attribute)
+                and ast.unparse(node.args[0]).endswith("footer_rule.width")
+            ]
+
+        # The control's own anchor, as its own named check. If this reds, the
+        # anchor moved and the control needs re-pointing -- which is a
+        # different fact from "the plant was detected".
+        anchors = anchored(tree)
+        assert len(anchors) == 1, (
+            "the control's anchor moved: expected exactly one "
+            "to_points(<...>.width) call",
+            [ast.unparse(node) for node in anchors],
         )
-        assert planted != source
-        found = [
-            argument.value
-            for node in ast.walk(ast.parse(planted))
-            if isinstance(node, ast.Call)
-            for argument in [*node.args, *(kw.value for kw in node.keywords)]
-            if isinstance(argument, ast.Constant)
-            and isinstance(argument.value, (int, float))
-            and not isinstance(argument.value, bool)
-        ]
-        assert found == [2], found
 
-        # The near miss: ``% 2`` is the chequer's own parity, not a figure
-        # handed to anything, and the walk does not rise on it.
+        # Plant 1, M5 direct: the argument node swapped for the literal 2.
+        direct, _source = self._tree()
+        (target,) = anchored(direct)
+        target.args[0] = ast.Constant(2)
+        ast.fix_missing_locations(direct)
+        rose = _numeric_literals(direct)
+        assert [row for row in rose if row[3] is not None], rose
+        assert [row for row in rose if row[2].startswith("UNJUSTIFIED")], rose
+
+        # Plant 2, the review's M-A: the same weight one binding out, which
+        # the first version of this arm could not see at all.
+        one_hop, _source = self._tree()
+        (target,) = anchored(one_hop)
+        target.args[0] = ast.Name(id="_QR_BORDER_PX", ctx=ast.Load())
+        one_hop.body.insert(
+            1,  # after the module docstring, so the tree stays well formed
+            ast.Assign(
+                targets=[ast.Name(id="_QR_BORDER_PX", ctx=ast.Store())],
+                value=ast.Constant(2),
+            ),
+        )
+        ast.fix_missing_locations(one_hop)
+        bound = _numeric_literals(one_hop)
+        offenders = [row for row in bound if row[2].startswith("UNJUSTIFIED")]
+        assert offenders and all(row[1] == 2 for row in offenders), bound
+        # ...and it is the position arm that sees it, not the reach arm: the
+        # name, not the number, is what reaches the drawing call.
+        assert [row for row in bound if row[3] is not None] == [], bound
+
+        # The near miss, unplanted: the parity is still justified and still
+        # out of every method call's arguments, so neither arm rises.
         assert "(row + column) % 2 != 0" in source
-        quiet = [
-            argument.value
-            for node in ast.walk(ast.parse(source))
-            if isinstance(node, ast.Call)
-            for argument in [*node.args, *(kw.value for kw in node.keywords)]
-            if isinstance(argument, ast.Constant)
-            and isinstance(argument.value, (int, float))
-            and not isinstance(argument.value, bool)
-        ]
-        assert quiet == [], quiet
+        quiet = _numeric_literals(tree)
+        assert [row for row in quiet if row[2].startswith("UNJUSTIFIED")] == [], quiet
+        assert [row for row in quiet if row[3] is not None] == [], quiet
 
     def test_the_walk_sees_a_planted_coordinate(self, tmp_path) -> None:
         """The instrument's positive control, and its negative (ADR-0039/R4).
@@ -3086,15 +3276,112 @@ class TestSheetFurniture_TheQrBlockIsOperatorsAndTheWriterRefusesAnXObject:
         assert "Do" in written
         assert [m.text for m in marks_of(written)] == ["Done. Do", "Dodo"]
 
+    def test_the_refusal_reads_pdf_whitespace_and_not_string_bodies(self) -> None:
+        """The class the refusal is keyed on, both directions, per character.
+
+        CARD-306's review measured the first version of this check being
+        wrong in **both** directions at once, and neither error was visible
+        from the two near-misses the cell above happens to choose:
+
+        * too narrow — the class was ``[ \\t]``, two of PDF's six whitespace
+          characters (ISO 32000-1 §7.2.2: space, tab, CR, LF, FF, NUL), so
+          ``"q\\n/Im0 Do\\nQ"`` appended as **one** operator row was silent.
+          Appending the operator by hand is the only way to reach this
+          refusal at all, and a hand-written ``q … Q`` block is at least as
+          natural as a bare single-line ``Do``, so the miss was on the only
+          live path;
+        * too wide — ``"(Scan Do now) Tj"`` **fired**, because the character
+          after ``Do`` in that body is a space. The control's own two bodies
+          (``"Done. Do"``, ``"Dodo"``) are silent only because the character
+          after ``Do`` is ``)``, so the docstring's claim about a literal's
+          ``(…Do…)`` body was true of those two and false in general. No live
+          footer string trips it today, but CARD-210 edits the link line.
+
+        Read against :func:`_paints_xobject` directly rather than through a
+        written file, because the claim is about one operator row and the row
+        is what the writer tests. All six whitespace characters are swept, so
+        the class cannot quietly shrink back to two.
+        """
+        from nonogram.admin.book_vector import _PDF_WHITESPACE, _paints_xobject
+
+        assert len(_PDF_WHITESPACE) == 6, _PDF_WHITESPACE
+        assert set(_PDF_WHITESPACE) == {" ", "\t", "\r", "\n", "\f", "\x00"}
+
+        # Positive: a Do token delimited by each of the six, one row each.
+        for space in _PDF_WHITESPACE:
+            row = f"q{space}/Im0{space}Do{space}Q"
+            assert _paints_xobject(row), repr(row)
+        # ...and at the row's own ends, and after a delimiter.
+        for row in ("Do", "/Im0 Do", "[1 2]Do"):
+            assert _paints_xobject(row), repr(row)
+
+        # Negative: a name that merely ends in Do, the hex encoding of "Do",
+        # and three literal bodies -- including the one the old control's two
+        # bodies could not distinguish, and one with an escaped ``)``.
+        for row in (
+            "/Im0Do",
+            "<446F>",
+            "0 g BT /F1 10 Tf 10 10 Td (Done. Do) Tj ET",
+            "0 g BT /F1 10 Tf 10 10 Td (Scan Do now) Tj ET",
+            "0 g BT /F1 10 Tf 10 10 Td (a\\) Do b) Tj ET",
+        ):
+            assert not _paints_xobject(row), repr(row)
+
+        # The declared conservative edge: a row whose literal is never closed
+        # cannot be read for operators, so a Do anywhere in it is refused
+        # rather than blanked away.
+        assert _paints_xobject("(oops /Im0 Do")
+
+    def test_the_writer_refuses_a_multi_line_appended_paint(self, hero: Case) -> None:
+        """The same widening, end to end through the writer.
+
+        The row the old class missed, appended the way the only reachable
+        caller would append it: one ``q … Q`` block carrying its own
+        newlines. This is the cell that would have stayed green before the
+        fix, so it is the one that makes the widening load-bearing rather
+        than merely documented.
+        """
+        from nonogram.admin.book_vector import ContentStreamError
+
+        smuggled = book_vector_draw.page_stream(hero.layout)
+        smuggled.rectangle(0, 0, 10, 10)
+        smuggled._operators.append("q\n/Im0 Do\nQ")
+
+        with pytest.raises(ContentStreamError, match="paints no XObject"):
+            write_vector_pdf([smuggled], 1)
+
 
 #: The furniture's own stroke floor, in **device pixels**. Not ADR-0037/R2's:
 #: that rule binds the puzzle **grid** and has never bound furniture (its
 #: History, 2026-10-17, which corrected CARD-222's reading of it and measured
 #: the exemption that card wrote as vacuous). The floor the interior frame's
 #: rules meet is the 2-device-pixel **dropout** floor CARD-222/CARD-225/
-#: CARD-248 cite directly, applied inside ``interior_frame`` by
-#: ``_pt_to_px_at_least``. Named here with its real authority, because this
+#: CARD-248 cite directly. Named here with its real authority, because this
 #: card's own EC attributes it to R2 and R2 disclaims it.
+#:
+#: **And nothing applies it as a function.** This comment said the floor was
+#: "applied inside ``interior_frame`` by ``_pt_to_px_at_least``"; CARD-306's
+#: review measured that function to be a *ceiling* on a conversion rather than
+#: a minimum of two — ``_pt_to_px_at_least(0.2)`` is 1 and
+#: ``_pt_to_px_at_least(0.24)`` is 1, both below this floor. The floor is held
+#: by the two **point constants**, ``INTERIOR_HEADER_RULE_PT = 0.6`` and
+#: ``INTERIOR_FOOTER_RULE_PT = 0.4``, chosen so the conversion lands at 3 px
+#: and 2 px at ``DPI`` (``layout.py``'s own comment: "Two device pixels is the
+#: floor, and this rule sits on it"). So the class below is not a restatement
+#: of a guarantee held upstream: a point constant chosen at or below 0.24 pt is
+#: caught by a **test** and not by the conversion, and the readings that catch
+#: it live on both sides of the medium split. Measured, by planting
+#: ``INTERIOR_FOOTER_RULE_PT = 0.2`` out of tree: four cells red, two reading
+#: the raster page's measured ink
+#: (``test_the_hairline_is_at_the_floor_and_the_header_rule_is_heavier`` and
+#: ``test_a_hairline_spans_the_text_width_lighter_than_the_header_rule``, both
+#: in ``tests/test_book_page_frame.py``) and two reading this writer's own
+#: stream (``test_the_icons_border_is_the_hairlines_own_weight`` and
+#: ``test_every_frame_rule_meets_the_floor`` below). CARD-306's review called
+#: this class "the only thing in the tree" that would catch it; that is
+#: measurably wrong, and the accurate statement is that it is the **vector**
+#: medium's reading of a floor no function applies — which still makes it more
+#: load-bearing than the sentence it replaces claimed, not less.
 FURNITURE_FLOOR_PX = 2
 
 

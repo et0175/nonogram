@@ -326,10 +326,34 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   ADR-0037's History (2026-10-17), which corrected CARD-222's reading of it and
   measured the exemption that card wrote as *vacuous*. The floor the interior
   frame's two rules meet is the 2-device-pixel dropout floor CARD-222/CARD-225/
-  CARD-248 cite directly, applied inside `interior_frame` by `_pt_to_px_at_least`
-  and measured here at 3 px (header) and 2 px (hairline) on the book's 300 DPI.
-  The EC is held against that floor, named as its own, and claims no exemption
-  from a rule that does not reach it.
+  CARD-248 cite directly, measured here at 3 px (header) and 2 px (hairline) on
+  the book's 300 DPI. The EC is held against that floor, named as its own, and
+  claims no exemption from a rule that does not reach it.
+
+  **And a second correction to this entry itself, made in CARD-306's fix round
+  1.** The sentence above originally said that floor was "applied inside
+  `interior_frame` by `_pt_to_px_at_least`". That function is a **ceiling on a
+  conversion, not a minimum of two**: `_pt_to_px_at_least(0.2)` is 1 and
+  `_pt_to_px_at_least(0.24)` is 1, both below the floor, while 0.2401 pt is the
+  first weight it answers 2 for (all four measured). Nothing in the tree applies
+  the floor as a function. It is held by the two **point constants** —
+  `INTERIOR_HEADER_RULE_PT = 0.6` and `INTERIOR_FOOTER_RULE_PT = 0.4` — chosen so
+  that conversion lands at 3 px and 2 px, which `layout.py`'s own comment on the
+  hairline states ("Two device pixels is the floor, and this rule sits on it").
+  The consequence is the opposite of a weakening: a future point constant chosen
+  at or below 0.24 pt is caught by a **test** and not by the conversion, so each
+  medium needs its own reading. Measured by planting
+  `INTERIOR_FOOTER_RULE_PT = 0.2` out of tree: two raster cells red
+  (`test_the_hairline_is_at_the_floor_and_the_header_rule_is_heavier`,
+  `test_a_hairline_spans_the_text_width_lighter_than_the_header_rule`) and two
+  vector cells red, CARD-306's new EC
+  (`TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor`) among
+  them. That EC is therefore the vector medium's whole reading of this floor, and
+  more load-bearing than "a floor applied upstream" implies — though **not** "the
+  only thing in the tree", which is what the review claimed and this round
+  measured wrong.
+  Corrected under ADR-0039/R4: a refuted figure is retracted everywhere it was
+  written, and this entry is one of the four places that wording reached.
 
 - 2026-10-25: **Created.** Resolves DEC-048 (the book interior is drawn as PDF
   operators; the cover stays raster; the whole interior rather than a carve-out;
