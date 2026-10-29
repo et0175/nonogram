@@ -2461,3 +2461,81 @@ main_warning_count_is_depressed:
   measured: "main 100; honest count NOT established"
   cause: "WITHDRAWN -- the sole-resolver attribution was wrong, see the note above"
   binds: "no gate may credit a branch-vs-main warning comparison, because the two trees differ in what resolves"
+
+# --- cycle 2 verdicts, and a correction REVERSED, 2026-10-29 night ---
+#
+# CARD-299 cycle 2: 8.5 CERTIFIED, no gating findings. Both cycle-1 gating
+#   findings genuinely closed; the derivation proven by a src/ deletion moving a
+#   set in the test tree, and the AST-over-text justification reproduced (a text
+#   search would have exempted the guide page). Five non-gating findings, seven
+#   cheap card amendments owed. Ready for its merge gate.
+# CARD-308 cycle 2: 7.5, DOES NOT CERTIFY. One gating finding and it is the same
+#   shape as cycle 1's at a different door: the key-shape dispatch one frame above
+#   the classifier has no else branch, so six YAML-legal key shapes contribute
+#   nothing and raise nothing. Latent today (0 live instances across all four
+#   authorities), which is why it is one finding and not a downgrade. Fix round 2
+#   owed; this is cycle 2 of 3.
+# CARD-285 cycle 2: still running.
+#
+# THE CORRECTION I MADE EARLIER TODAY WAS ITSELF WRONG, AND IS NOW REVERSED.
+#   Earlier in this file I withdrew the claim that a synced review report is the
+#   SOLE resolver for two of FR-045's dead refs, and that main at 100 warnings is
+#   two quieter than honest. I withdrew it on the strength of a grep that found a
+#   second resolver. That grep used the BARE test name. The model declares those
+#   refs in NODE-ID form, and a bare name can never match a path::name string --
+#   so the second resolver does not resolve them, and never did.
+#   MEASURED AGAIN, per ref, with the exact query the resolver uses: ONE resolver
+#   each, the synced report, and no definition anywhere. THE ORIGINAL CLAIM STANDS:
+#   main is two warnings quieter than honest.
+#   Caught by CARD-308's cycle-2 reviewer, which measured it independently and
+#   said so plainly rather than accepting the correction it was handed.
+#
+#   WHAT MAKES THIS WORTH THE LINES: it is the SAME wrong-token error I had caught
+#   myself making ONE HOUR EARLIER in this same investigation, on this same
+#   requirement -- grepping an id where the resolver is given a different string.
+#   I caught it, named it, and then committed it again in the opposite direction.
+#   Three instruments in this investigation returned clean-looking wrong answers
+#   (\b in POSIX ERE; a ^-anchored pattern against indented output; a macOS
+#   `timeout` that does not exist, read as a clean 0/0). The wrong-token grep is a
+#   fourth, and the only one that reached main's commit messages -- twice, in both
+#   directions, b440b490 and bcf861f6.
+#   THE RULE: when a claim is about what an INSTRUMENT resolves, measure with the
+#   instrument's own query, on the exact string it is handed. A near-miss query is
+#   not weaker evidence; it is evidence about a different question.
+#
+#   Note the shape the bad correction described IS real and is recorded on
+#   CARD-319 as a LATENT seventh route: a guard asserting that three tests do not
+#   exist would, in bare-name form, make the validator read all three as checked.
+#   It is inoperative here only because that requirement migrated to node ids,
+#   which is an argument FOR the migration.
+#
+# CARD-307 CUT, four successors drafted: CARD-316 (seven phantom test: keys),
+#   CARD-317 (six re-points plus the 50-vs-30 bound the dead ref was hiding),
+#   CARD-318 (FR-029's ten, the one real coverage gap), CARD-319 (the two
+#   validator defects, blocked -- the code is outside this repo).
+#   Board re-derived as SETS from all 318 card files and the check PASSES:
+#   266 done, 44 ready, 3 in progress, 1 parked, 3 blocked, 1 skipped.
+#   `skipped` is new to this board and has its own rendered section, for the same
+#   reason `parked` got one.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 CERTIFIED 8.5 on f0304cb9, no gating findings, ready for merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 scored 7.5 on 3f3012a4, one gating finding, fix round 2 owed
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 running on 79ecafcb
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []
+main_warning_count_is_depressed:
+  measured: "main 100, honest 102"
+  cause: "a synced review report is the sole resolver for two of FR-045's dead refs -- REINSTATED after a wrong withdrawal, re-measured with the resolver's own query"
+  binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"
