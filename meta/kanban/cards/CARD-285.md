@@ -680,3 +680,95 @@ Also: everything the pre-round merge brought; the rest of `docs/deploy/player.md
 shapes beyond the four planted (percent/unicode-encoded, userinfo, port-only — the
 measured one-line fix covers them by construction but they are unmeasured); and AC-390's
 counted-tree request-**set** closure.
+
+---
+
+## Fix round 3 — under the owner's decision, no cycle behind it — `6caccb65` → `9140739f`
+
+Two commits, two files (`tests/test_public_player_pages.py`, `docs/deploy/player.md`).
+`git diff --name-only 464ae377..HEAD -- src/ pyproject.toml` → **0 lines across the whole
+card**. Scope held: no new finding of substance was fixed, and the ones found are reported
+below instead.
+
+### F-201 closed — and the three "covered by construction" shapes are now MEASURED
+
+The one-line change, `_HOST_LITERAL` → `(["'`])(//[^/"'`\n][^"'`\n]*)\1`, **still read
+raw**. The real counted site stays clean in all three buckets, proven twice by two
+independent equalities over two independent copies of the assembled tree.
+
+**Seven authority shapes, each planted ALONE** into a copy whose baseline is asserted empty
+in the same run, each asserted three ways — the shipped stripper really does blank the
+region (so the plant is the declared residual, not a reference with a comment nearby), the
+shipped scan reports it `foreign` **matched by needle rather than filename**, and the narrow
+pattern patched back in makes it a **silent pass in every bucket**: IPv4 in an `import`,
+bare CSS `@import`, single-label authority, bracketed IPv6, **percent-encoded**,
+**userinfo**, and **port-only**. The last three are exactly what cycle 3 could only call
+*"covered by construction"* — the narrow pattern misses all three because `[A-Za-z0-9.-]+`
+cannot cross `%`, `@` or `:`, checked by hand as well as by run.
+
+The **three isolating controls** are each asserted caught **under the narrow pattern too**,
+which is what keeps the cause attributed to *both* ingredients rather than either alone.
+
+**The false claim lived in FOUR places, not the two the orchestrator's brief named.**
+Besides the pattern block, the stripper's docstring and the deploy page, **`scan_site`'s own
+docstring carried the same proposition in shorter words** — *"the two whose misses are
+internal"* — and **no report or brief mentioned it**. All four corrected, and the deploy
+page states the correction rather than quietly rewriting it.
+
+**What remains unread, stated in both documents:** an **unquoted** `//authority`, refused on
+purpose with the argument already on the module (a bare `//` is a comment far more often
+than a reference). `///path` is **not** in that gap — empty authority, resolves to the
+serving origin — which is why the fix requires a non-slash, said where the pattern is defined.
+
+### F-202 closed — the owner's condition now has teeth
+
+The hold reads the publish **command**: it finds every line mentioning the helper, glues
+backslash continuations, asserts the page documents an invocation, asserts the command's
+flags are a subset of argparse's options, and asserts the opt-in flag is on it.
+**Cycle 3's surviving mutant is killed**: deleting ` --analytics` from the documented
+command now gives **1 failed / 65 passed** where cycle 3 measured **66 passed**. The
+argparse direction got stronger too — a one-character rename reds **two** nodes.
+
+### The three corrections, landed in code rather than in a report
+
+- **F-204**: now stated as **four assertions, three independent**. (d) was kept with a
+  reason — the plant is reported on the tree that *ships*, not only under a patched stripper
+  — and **both (c) and (d) now match by needle as well as filename**, which closes the decoy
+  self-satisfaction. Proved: with the CSS read disabled, (d) now reds where cycle 3 measured
+  it passing with the controlled read entirely removed.
+- **F-205**: AC-391's comment now says what the assertion buys, and records that the
+  scenario it used to name is passed by both assertions and harmless anyway, because the
+  route pattern is host-keyed so one pattern aborts both endpoints.
+- **F-203**: `IDENTIFIER_SHAPES` is off the "can hide EGRESS" list in **both** places that
+  carried it, with its real reason stated.
+
+### It declared a cost of its OWN fix rather than leaving it to be found
+
+The relaxation is stricter as well as broader: a quoted value that merely *begins* `//` —
+`"// TODO"` parked in a string — is now a `foreign` finding where the narrow pattern said
+nothing. **A false positive, not a silent pass**, so it fails in the direction this guard is
+built to fail — but an undeclared cost is the defect class this card has been punished for
+three times, and the first commit corrected two understated cost statements while
+introducing one. The second commit declares it in both places, with the measurement:
+**`player/**` holds no quoted value beginning `//` at all**, and the counted site scans clean.
+
+### Two things it found that no report had
+
+- **The code and fix round 2's record disagreed with each other about the plant count, and
+  cycle 3 only measured the record.** The record said "four ways"; the *code comment* said
+  "asserted three ways" while the code makes four assertions. The module was already wrong
+  in the **opposite** direction from the record. Both now agree.
+- **Cycle 3's F-204 recommendation does not add up** — "three assertions plus two
+  text-level checks" is five items for four assertions. The structure was implemented, not
+  the phrasing.
+
+### Node ids, skips, and the two honest reservations
+
+**+0/−0 this round** (9771 unchanged; every addition went inside two existing test bodies).
+**Zero skips in every run**; a grep for `pytestmark|skipif|pytest.skip|xfail|importorskip`
+across both player modules and both scripts returns **no hits at all**. Four mutants, all
+killed, all in throwaway worktrees with blobs asserted back.
+
+**Its own reservations, which are the right ones:** the **full suite has not been run by any
+cycle of this card**, and the branch carries **16 node ids from `main` that no cycle has
+exercised**. The merge gate is the right place for both.
