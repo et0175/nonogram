@@ -886,3 +886,61 @@ by name, none a gate.
   fence"* — but the gate should know it exists.
 - The seventh `both-agree` baseline is still unpinned, and the `path`-form class is still
   size 1.
+
+---
+
+## Merge gate 1 — RED at `d7eec7e7`, and the red is a REPAIR this card detected
+
+**5 failed, 9760 passed, 27 skipped, 1 xfailed** in 1375.04 s (22:55). All five failures
+are in this card's **own** module, and all five are **one event**.
+
+### What happened
+
+**CARD-285 merged into `main`** and gave real `def`s in `tests/test_public_player_pages.py`
+to the three tests that were, until that merge, resolved **only** by a synced review YAML
+and **defined nowhere** — FR-045/AC-390, AC-391 and AC-392's node-id refs. Four class pins
+moved, and the arithmetic reconciles exactly as those three refs changing class:
+
+| pin | baseline | measured | delta |
+|---|---|---|---|
+| `BOOKKEEPING_ONLY` | `(15, '50e897ff86ef7c3d')` | `(12, '16acfad2b066a66d')` | **−3** |
+| `FALSELY_ALIVE` | `(166, '34194ced6ad4c11e')` | `(163, '755f56056ce50a09')` | **−3** |
+| `DEFINED` | `(386, 'af36d65a4d2020be')` | `(389, '44af24f9281c7a97')` | **+3** |
+| `SAME_FILE_PROSE` | `(16, '5539b351de2562fb')` | `(19, 'e899a08818a9c4be')` | **+3** |
+
+They left bookkeeping-only and falsely-alive, entered defined, and became same-file-prose
+— definition and prose mention now in one file. **−3, −3, +3, +3.**
+
+**This is the card's instrument working exactly as specified.** It detected the movement,
+**refused to auto-update**, named every affected ref with its declaration sites, its
+resolvers and `defined at (nowhere)`, and told the operator to re-derive each against a
+`def`/`class` **before** touching the baseline. A guard that had quietly re-pinned itself
+would have reported nothing and this repair would have been invisible.
+
+### The fifth failure is a design finding, not a baseline bump
+
+`test_the_node_id_eroded_instance_is_detected` pins **a live instance** of the erosion
+hazard — `…::test_no_homegrown_tracking` — and CARD-285 **repaired that instance**, so the
+cell died with its own subject. **An instance pin is self-destroying.** The hazard itself
+is untouched: ADR-0006/R1's ref still has zero definitions and ~110 text resolvers, and
+the class still holds 12 members. Only the example was fixed.
+
+A detector test whose fixture is the production board's current defect list cannot survive
+those defects being fixed — which is the wrong incentive to build in. **Fix round 4 is
+dispatched to re-derive the four baselines with the repair attribution recorded, and to
+re-shape that cell so it proves the detector rather than the board's current state.**
+
+### A process error of the orchestrator's, recorded with the figures it taints
+
+**This gate ran at load 17.61** (`uptime` at start), because the orchestrator was running
+the waves 63–65 retrospective and the roadmap pass **on the same box at the same time**.
+`tests/README.md` is explicit: *"a contended run tells you nothing at all"*, and even two
+quiet-host runs of near-identical suites differ by ~19%.
+
+What that does and does not invalidate, stated rather than waved past: the **five failures
+are deterministic assertion failures on exact counts and digests**, so they are unaffected
+— and they are independently corroborated by the arithmetic reconciling to exactly three
+refs. The **1375.04 s duration is contaminated** and must not be compared with any other
+gate on this board. And a timing-sensitive test was at avoidable risk for 23 minutes for
+no reason. The next gate on this card runs with nothing else of the orchestrator's on the
+box.
