@@ -1942,17 +1942,25 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
 # ``tests/`` to the kanban board**, built deliberately rather than inherited.
 
 
-#: The board's whole status vocabulary, measured 2026-10-29 over all 308
-#: ``meta/kanban/cards/CARD-*.md`` in the main working tree: ``done`` 264,
-#: ``ready`` 39, ``in progress`` 2, ``blocked`` 2, ``parked`` 1. Only ``done``
-#: is terminal. A **sixth** spelling is an unanalysable shape, which
+#: The board's whole status vocabulary, derived 2026-10-29 by reading every
+#: ``meta/kanban/cards/CARD-*.md`` in the main working tree. Only ``done`` is
+#: terminal. **No per-status counts are written here, and that is deliberate:**
+#: the ones this comment first carried were already two cells out within the
+#: day (``done`` and ``ready`` both moved when CARD-291 merged and CARD-308
+#: started), which is the drift :mod:`tests/test_cli.py`'s component map and
+#: CARD-261 were built to stop — and which the comment a hundred lines below
+#: refuses for the same reason. The **set** is the load-bearing claim and it is
+#: mechanically pinned by
+#: :func:`test_no_declaration_outlives_the_cards_that_remove_it`, which
+#: requires every card on the board to have a readable status, so a sixth
+#: spelling reds rather than drifting. A **sixth** spelling is an unanalysable shape, which
 #: ADR-0039/R2 makes a failure here rather than a card quietly read as
 #: not-done — the direction that cannot ship a false green.
 _BOARD_STATUSES = frozenset({"done", "ready", "in progress", "blocked", "parked"})
 _DONE = "done"
 
-#: ``**Status:** <value>`` on a line of its own, which is how all 308 cards on
-#: this board write it. Parsed with a regex and not a YAML library because
+#: ``**Status:** <value>`` on a line of its own, which is how every card on
+#: this board writes it (asserted, not counted — see above). Parsed with a regex and not a YAML library because
 #: there is no YAML parser in the dependency baseline (ADR-0006/R1) and the
 #: shape being read is one line — the precedent CARD-291 set for exactly this.
 _CARD_STATUS = re.compile(r"^\*\*Status:\*\*[ \t]*(\S.*?)[ \t]*$", re.MULTILINE)
@@ -1978,8 +1986,29 @@ def _board_cards() -> pathlib.Path:
     worktree has to follow its ``.git`` file back there"), it is driven by
     ``tests/test_full_suite_lock.py``'s own synthetic-worktree cells, and a
     second transcription of a path walk is how the two would come to disagree.
-    In an ordinary checkout it returns the checkout itself, so CI and a fresh
-    clone see no difference.
+    **What that redirection costs, stated because review cycle 2 measured it
+    and the sentence here used to deny it.** The retired claim was that in an
+    ordinary checkout ``main_repo_root`` returns the checkout itself "so CI and
+    a fresh clone see no difference". That is true of the *return value* and
+    **false of this test's verdict**: imposing ordinary-checkout semantics on
+    this worktree (``main_repo_root = lambda worktree: worktree``, which is the
+    documented fall-through when ``.git`` is a directory) makes
+    :func:`test_no_declaration_outlives_the_cards_that_remove_it` **red** with
+    ``Left contains one more item: 'CARD-309'`` — measured, from an out-of-tree
+    plugin, with the instrument first proven on the unmutated tree. So the
+    "no difference" case is precisely the case that fails.
+
+    The honest property, which a reader should have instead: **this cell's
+    verdict is a function of the main working tree's card directory, not of a
+    commit.** Marking ``CARD-309`` done on ``main`` reds this branch with no
+    commit made to this branch. Three things keep that from being a defect
+    today rather than a design to like — it is a false RED and never a false
+    green; the merge gate runs from the main worktree; and a fresh clone of
+    ``main`` carries every card, so it is green there. **This repo has no CI**
+    (no ``ci/``, no ``.github/``), so that half is latent rather than broken.
+    The direction worth taking is to hoist this check into the board's own
+    gate, where the board is the subject rather than a neighbour — not a
+    conditional skip, which would be an ungated door.
     """
     return full_suite_lock.main_repo_root(
         pathlib.Path(__file__).resolve().parent.parent
