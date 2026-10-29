@@ -2037,3 +2037,66 @@ active:
   branch: card/285-player-hosting-and-counting
   estimate: 0.5d
 queued: [CARD-307]
+
+# ---- CARD-299 to REVIEW CYCLE 1 (2026-10-29) ----
+# Narrowed first, on the owner's decision, so the cycle judges the corrected
+# contract and not the one round 1 refused:
+#   G-9 INVERTED -- R6's lens must now SURVIVE this card, so flipping it is a
+#     defect rather than a deliverable. Inverted rather than dropped because the
+#     reason is load-bearing and a later round must not "restore" the flip.
+#   AC-3 re-homed to CARD-312 VERBATIM, not weakened.
+#   AC-5's "smaller" struck with its measurement; "no weaker" stands.
+#   items 3 and 5 are CARD-312's and CARD-313's.
+# The reviewer is told explicitly that flagging "R6 was not flipped" or "AC-3 is
+# unmet" means it is reading the pre-narrowing card.
+#
+# Three cards cut from the refusals, all on owner decision: CARD-312 (R6's guard
+# from a corrected enumeration, owning the flip), CARD-313 (the memory-file
+# rewrite, depending on CARD-309 rather than this card), CARD-314 (the clue-digit
+# provenance in the stream -- P1, the only card in the phase that must touch
+# src/, and a PREREQUISITE for CARD-309's puzzle page rather than a follow-up,
+# because CON-020's trace row is status covered and its gate 3 is ERROR-level).
+#
+# TWO ORCHESTRATOR ERRORS the round caught, both recorded on the card and
+# flagged in the review brief as already-corrected so they are not re-reported:
+#   1. the dispatch brief said "a rename is expected here", which CONTRADICTS
+#      this card's AC-1 ("both node ids preserved") and AC-6. The round followed
+#      the card. Consequence: no ref died, CON-020's row needed no re-stamp, and
+#      the ERROR-level gate-3 hazard the brief warned about was never armed --
+#      the warning was sound in principle and predicated on a rename the card
+#      forbids.
+#   2. the appended FINDING 3 was stale: CARD-298's fix round had already
+#      retargeted all five expiry values to name CARD-309 as well, and the
+#      paragraph was never revised when that landed.
+#
+# AND A BOARD ERROR OF MINE, fixed the same day: the header claimed 265 done /
+#   39 ready / 2 in progress when the truth was 266 / 40 / 1. I had just
+#   introduced a set check and it PASSED -- because I re-derived the Ready set
+#   and took done and in-progress from arithmetic, and those were exactly the two
+#   that moved when CARD-298 merged. Every column is now asserted as a set
+#   against the card files before any tally is written. Same family as the
+#   rival-pytest counter: a number that agrees is not a measurement that agrees.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: implementation complete, awaiting review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+cards_cut_from_card_299_refusals: [CARD-312, CARD-313, CARD-314]
+board_tallies_set_checked:
+  at: 2026-10-29
+  derived: "266 done, 41 ready, 3 in progress, 1 parked, 2 blocked = 313"
+  method: "every column asserted board_set == files_set per column; no count carried forward"
