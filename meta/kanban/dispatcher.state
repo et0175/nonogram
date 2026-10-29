@@ -2724,3 +2724,73 @@ active:
   phase: fix round 2 landed 6caccb65, ready for review cycle 3 (the LAST) once the owner rules on the deploy-flag inversion
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-308 fix round 2 landed 3fab6828, 2026-10-29 ---
+# The gating finding is closed on all six shapes and all four authorities, and
+#   by a stronger repair than the brief asked for: each authority's scan now
+#   derives the lines it READS from one shared region helper, and any
+#   declaration key no narrow pattern claims hits a default-deny naming file,
+#   line and text. Collection and refusal cannot drift apart because both come
+#   from one notion of where a declaration lives.
+#   Proof is a MATRIX: 26 illegal shapes at all four authorities against a
+#   synthetic authority set, PLUS 4 legal shapes asserted to still derive their
+#   ref -- without those, a derivation that raised on everything would pass
+#   every negative case while reading nothing. Cycle 2's false green was
+#   reproduced and then killed.
+#   THE SHARPER RULE IT STATES, and the card's real lesson: a cross-reading is
+#   not a default-deny. Two readings of the same assumption about where refs
+#   live agreed on a figure and were BOTH wrong.
+#
+# TWO HOLES IT FOUND THAT NEITHER MY BRIEF NOR THE REVIEW NAMED:
+#   (a) a declaration-key default-deny needs a region notion or it reds on
+#       ENGLISH, and the shape is live today -- exactly one declaration-shaped
+#       line in the ADR set sits outside a fence and it is a wrapped prose
+#       sentence, which arrived with main's own recent ADR edit. A naive
+#       anchored default-deny would have reded the suite on it.
+#   (b) the opposite failure already existed and is worse for a census: the
+#       narrow pattern was COLLECTING a wrapped prose line from inside a block
+#       scalar AS A REF. A guard that invents a ref out of prose corrupts the
+#       census in the direction nothing else here checks.
+#
+# ITS REPAIR OF THE "UNENFORCEABLE" CLAIM WAS DEMONSTRATED ON THE REAL EVENT:
+#   per-member digests recover a departed member BY NAME and judge the departure,
+#   and replayed against the live move it names both departed refs as SIGNAL
+#   LOSS with no definition anywhere. That is this card's instrument detecting,
+#   on live data, the very thing I did to the board earlier today.
+#
+# TWO OF MY OWN FIGURES WERE WRONG IN THE BRIEF, and the second is the lesson:
+#   an ADR path with a doubled segment, and an occurrence count that was right
+#   at the review's tree and STALE at HEAD because main's edit moved it. Pasting
+#   it would have written a wrong number into the ADR -- the exact failure the
+#   brief warned about, demonstrated on the brief. It re-derived at three
+#   revisions with two independent instruments instead.
+#   It also made the review's non-summing decomposition sum, by finding the
+#   overlap the review had missed.
+#   And it REMOVED one figure rather than correcting it, because the quantity is
+#   unstatable: the sentence stating it contains ellipses of its own and so
+#   changes what it reports. Replaced by the property, derived on every run.
+#
+# IT SELF-REPORTED A PROCESS ERROR rather than hiding it: it ran a stash on the
+#   module while a 36-module run was reading that file -- exactly the plant
+#   window its brief told it to avoid. It stopped the run, discarded the partial
+#   result, re-ran clean, and re-confirmed the affected baseline by diff-level
+#   evidence needing no stash.
+#
+# I RETRACTED a sentence of mine on the card: fix round 1's "0 errors, 102
+#   warnings, identical to main". The figure was right at its commit and the
+#   COMPARISON was unsound even then, for this card's own reason -- the two
+#   trees differ in what resolves, not in which report sits in meta/review.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: fix round 2 landed 3fab6828, review cycle 3 running (the LAST)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 3 running (the LAST) on 6caccb65
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []
