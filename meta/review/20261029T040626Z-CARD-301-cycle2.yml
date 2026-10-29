@@ -1,0 +1,732 @@
+card: CARD-301
+cycle: 2
+reviewer: forge:review (Claude Opus 5)
+date: "2026-10-29T04:06:26Z"
+revision_reviewed: af18ad8d
+previous_revision_reviewed: 6f721e57
+fork_point: 6b0dfa30
+branch: card/301-the-bench-file-pytest-never-opens
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
+score: 9
+previous_score: 7
+delta: "+2.0"
+certified: true
+min_score: 8
+min_improvement: "off"
+test_scope: impact
+mutation_check: "step-8f campaign run — 21 mutants, 20 killed at the named cell, 1 declared survivor"
+family_regression: "not applicable — no gating finding of mine is attributable to the fix round's edits"
+
+verdict: >-
+  **All three of cycle 1's important findings are closed, each one load-bearing
+  by its own deletion mutant rather than by its author's account, and the fix
+  round's additions are the best-measured work on this card so far.** I
+  re-derived every guardrail and every claim the orchestrator pre-gated, fired
+  21 mutants of my own under a `PYTHONDONTWRITEBYTECODE=1` + `__pycache__`
+  sweep on both sides of every change, and verified each blob back to HEAD
+  after each one. Footprint is 5 paths at merge-base `6b0dfa30`; `git diff
+  --name-only 6b0dfa30...HEAD -- src/` is **0** and `pyproject.toml` is **0**
+  diff lines, so G-1 and G-2 hold structurally. Collection is **9581** with
+  **0** `bench_generate` node ids and **11** in the new module; the impact gate
+  reads **600 passed, 1 xfailed, 0 skipped** in 48.08 s with zero `SKIPPED`
+  lines under `-rs`, matching the baseline to the test.
+
+  **F-1 is closed and the three new assertions are the whole catcher.** The
+  deletion mutant proves it in the only way that counts: gut the three new
+  asserts to nine lines of filler, apply cycle 1's `DENSITIES = (30,40,50,60)
+  -> (50,60,70,80)`, and the module reads **1 failed / 10 passed** with the one
+  red being `[XPASS(strict)]` on the gate — cycle 1's hole, reconstructed
+  exactly. Restore them and the same mutant reads **2 failed / 9 passed in
+  0.26 s** with the corpus pin among the failures, killed at `:286`. The
+  literal twenty-row spelling earns its place beyond the shape pin: the
+  comprehension-order mutant (`for seed in SEEDS for density in DENSITIES` ->
+  `for density ... for seed ...`) is invisible to `DENSITIES`, to `SEEDS` and to
+  every shape assertion, and reds **at `:288` alone**. `SEEDS` reds at `:287`
+  alone. Three asserts, three distinct defects, three sole catchers.
+
+  **F-3 is closed, and the camouflage is genuinely removed rather than
+  relocated — I drove the validator rather than reading it.** The
+  two-fragment `RETIRED_LABEL` assembly does defeat the validator's door:
+  `git grep -lw BenchGenerate_20x20_p95Under5s -- . ':(exclude)meta/architecture'
+  ':(exclude)*.md'` exits **1** in this worktree, while the same search at
+  `main` returns three files including `tests/bench_generate.py`. Driven
+  through `validate.py --root meta/architecture`: branch baseline is
+  byte-identical to a clean `6b0dfa30` arm; restoring the label with NFR-001
+  `partial` is byte-identical to the baseline (the latency claim); the label
+  plus `covered` reads **1** NFR-001 ERROR at the first cut `6f721e57` and
+  **2** at this HEAD, so gate 3 — the ERROR half, as the fix round correctly
+  re-derived against my own and cycle 1's wrong severity map — is loud now and
+  was silent before. All three asserts of the new control are sole catchers:
+  `:643` (the node id absent from NFR-001's `tests:`), `:644` (the retired
+  label present *alongside* the correct node id), `:641` (the registry and the
+  matrix disagreeing); and with `:644` gutted, `F3d` survives 10/10, which is
+  the single-point-of-failure the brief asked me to check for and which the
+  docstring declares.
+
+  **F-2 is closed.** The old node id does not resolve (`ERROR: not found`), the
+  new one collects, the retired spelling lands twice in the live module
+  (`:68`, `:478`) so a `git grep` for any of the three external references
+  reaches it, and the planted-third-file control reds at `:502` naming
+  `tests/card301_planted_third.py` and passes when it is removed, worktree
+  clean. **G-4 is byte-unchanged**: with docstrings stripped, the only code
+  difference against `main` in that module is the rename itself;
+  `MIN_DECLARING_NAMES = 5000` and the default-deny walk are line-identical.
+
+  **G-5 re-derived in my own domain.** `XFAIL_REASON` is 1390 chars with
+  sha256 `9554bc42bccd59bb341923574eb8f4e7532099f225a114226731541fd0393b2e`,
+  and `main`'s decorator string — pulled by walking `main:tests/bench_generate.py`
+  for `reason=` keywords and `ast.literal_eval`-ing them — is the same length
+  and the same digest, `==` True. `P95_CAP_SECONDS`, `SIZE`, `DENSITIES`,
+  `SEEDS`, `CORPUS`, `_P95_RANK`, `_ALLOWED_OVER_CAP` are AST-identical to
+  `main`, now pinned by assertions that each kill their own mutant.
+
+  **What is left is two minors, neither in the mechanism.** The trace control's
+  docstring states four validator totals without naming which forge
+  installation produced them, and the two installations on this machine
+  disagree by one ERROR *and by exit code*; and the fix round's stated reason
+  for declining F-9's control ("both doors agree once the registry and trace
+  are right") is measurably false, though the decision it supports is right
+  for a different and stronger reason. Both are recorded, neither gates. The
+  step-8f campaign this cycle owed is delivered and found no undeclared
+  survivor.
+
+cycle_1_findings_disposition:
+  - id: F-1
+    severity_then: important
+    status: closed
+    my_rederivation: >-
+      Not taken from the fix round's account. F1-del (the three new asserts ->
+      nine filler lines, line-count preserving, plus the DENSITIES mutant):
+      **1 failed / 10 passed**, the single red `FAILED
+      test_20x20_p95_is_under_5s - [XPASS(strict)]`. That is cycle 1's hole
+      reproduced from scratch. With the asserts in place, F1a (DENSITIES) is
+      **2 failed / 9 passed in 0.26 s** killed at `:286`; F1b (SEEDS) 1 failed
+      killed at `:287` alone; F1c (comprehension order) 1 failed killed at
+      `:288` alone. Each of the three new assertions is the sole catcher of a
+      distinct reshape, and the literal spelling is what reaches the ordering
+      case that no shape assertion can see.
+  - id: F-2
+    severity_then: important
+    status: closed
+    my_rederivation: >-
+      `test_the_files_pytest_never_opens_are_the_two_known_ones` no longer
+      resolves as a node id (`ERROR: not found: ...`); the live assertion is at
+      `tests/test_collected_names.py:502` and holds one entry.
+      `git grep -n -w` for the retired spelling lands at `:68` and `:478` in
+      the live module, so the three committed references (CARD-294.md,
+      CARD-301.md, `meta/review/20261025T182306Z-CARD-294-cycle2.yml`) still
+      reach a real file. Control re-fired by explicit node id: planted
+      `tests/card301_planted_third.py` -> 1 failed at `:502` naming the plant;
+      removed -> 1 passed; `git status --porcelain` clean.
+  - id: F-3
+    severity_then: important
+    status: closed
+    my_rederivation: >-
+      `trace.yml:539` now carries the node id (one-line diff, verified).
+      Validator-driven, four scenarios, counted from the summary line: branch
+      baseline byte-identical to a clean 6b0dfa30 arm; label restored with
+      NFR-001 `partial` byte-identical to the baseline; label + `covered` at
+      `6f721e57` -> **1** NFR-001 ERROR (AC-038's unrelated dead label only —
+      the retired label accepted in silence because that cut's module spelled
+      it out contiguously); label + `covered` at this HEAD -> **2** NFR-001
+      ERRORs, the retired label now loud. The `"BenchGenerate" +
+      "_20x20_p95Under5s"` import-time assembly is load-bearing and verified:
+      the validator's own pathspec exits **1** here and returns
+      `tests/bench_generate.py` at `main`.
+  - id: F-4
+    severity_then: minor
+    status: closed-but-differently
+    my_rederivation: >-
+      Closed by narrowing rather than widening, and the narrowing is honest:
+      the `RETIRED_CLAIMS` comment now states the width as exact spellings
+      only, says the positive statement closes the *replacement* case and not
+      the *coexistence* case, and names the structural pin
+      (`test_the_benchmark_module_declares_no_name_pytest_would_have_to_collect`)
+      as what reaches the general case. The declined widening is measured
+      below under `declared_survivors`; it would red three times on arrival,
+      not once.
+  - id: F-5
+    severity_then: minor
+    status: closed
+    my_rederivation: >-
+      Recounted myself over the whole tracked tree at `main` and at HEAD:
+      **eight** pre-existing references name `tests/bench_generate.py` as where
+      the benchmark lives — four pages under
+      `docs/how-it-works/01-domain/puzzle-creation/`
+      (`01-the-layered-pipeline.md`, `04-uniqueness-and-recovery.md`,
+      `README.md`, `perspectives/sre.md`), three architecture artefacts
+      (ADR-0001, ADR-0029, `handoff.md`) and one comment in
+      `src/nonogram/orchestrator.py`. Exactly the fix round's breakdown. Two
+      further mentions exist and are correctly excluded from that count:
+      `tests/test_collected_names.py` (names it as a file pytest never opens,
+      not as where the benchmark lives, and is in this card's Touches) and the
+      card's own new `requirements.yml` comment.
+  - id: F-6
+    severity_then: minor
+    status: closed-but-differently
+    my_rederivation: >-
+      Cycle 1's corrected figure (0 errors / 108 warnings / 0 info, both arms,
+      outputs byte-identical) **reproduces exactly at the door cycle 1 named**
+      — `/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py`
+      — and the fix round's scenario figure (2 errors at this HEAD with the
+      label restored and NFR-001 covered) reproduces there too, to the error.
+      It does **not** reproduce through the other installation present on this
+      machine (`~/.claude/plugins/cache/adverax/forge/2026.8.17/...`), which
+      reads 1/108/0 and **exits 1** on an unmutated tree, and 2 and 3 errors
+      for the two `covered` scenarios. The cause is a validator bug, not the
+      card: the plugin-cache `adr_integrity.py` counts the `superseded by`
+      back-pointer as a second edge and reports `circular supersession:
+      ADR-0025 -> ADR-0031 -> ADR-0025`; the `forge_1` checkout's regex drops
+      that alternation and its own comment says the old form "turned every
+      properly two-sided supersession into a cycle". So the figures are
+      right and the door identity is now load-bearing — carried forward as
+      N-1.
+  - id: F-7
+    severity_then: minor
+    status: closed
+    my_rederivation: >-
+      The attribution is corrected in the test's own docstring (M13, not M7,
+      with M7's killer named as the declared-names assertion). The substance
+      holds in my campaign: `I-1` (`_time_one_request` returning 0.0 elapsed)
+      and `I-2` (outcome forced to `"bogus"`) are killed at `:414` and `:415`
+      by this control and by nothing else; `D-2` (`gate_verdict` ->
+      `test_gate_verdict`) is killed at `:450` by the declared-names
+      assertion, which is M7's cell.
+  - id: F-8
+    severity_then: minor
+    status: closed
+    my_rederivation: >-
+      The docstring now reads "The three node ids **moved here from the
+      uncollected file** — not the whole module, which declares eleven", and
+      `--collect-only -q` enumerates exactly **11**. The header no longer
+      claims a count the file does not bear out.
+  - id: F-9
+    severity_then: minor
+    status: closed-but-differently
+    my_rederivation: >-
+      The edit is applied: `tests/bench_generate.py:3` now reads
+      `AC-037  tests/test_nfr001_generation_time.py  (the gate; node id named
+      there)`. No in-suite control was added, and the declination is sound —
+      but not for the reason given. See N-2: measured, the two doors do **not**
+      agree.
+  - id: F-10
+    severity_then: minor
+    status: closed
+    my_rederivation: >-
+      The headroom is now a number in the docstring ("20 x 5.0 s = 100.0 s
+      against 120 s is **20 s of margin**", "a floor rather than a ceiling",
+      "`P95_CAP_SECONDS` and `len(CORPUS)` cannot both grow"), and
+      `tests/hang_guard.py:41` is `HANG_SECONDS =
+      float(os.getenv("NONOGRAM_TEST_HANG_SECONDS", "120"))`, confirmed.
+
+findings:
+  - id: N-1
+    severity: minor
+    gating: false
+    confidence: certain
+    source: measured
+    file: tests/test_nfr001_generation_time.py
+    line: 613
+    title: >-
+      The trace control's docstring states four validator totals and names the
+      door only as "validate.py --root meta/architecture" — but the two forge
+      installations on this machine disagree by one ERROR and by exit code, so
+      the figures are not reproducible from the docstring alone
+    evidence: >-
+      The docstring says "Door: `validate.py --root meta/architecture` from the
+      repo root, captured `> file 2>&1`, counted from the validator's own
+      summary line", then gives 0 errors / 108 warnings / 0 info for the
+      baseline and for the label-restored-with-`partial` arm, 1 error at
+      `6f721e57` and 2 errors at this HEAD. Through
+      `/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py`
+      every one of those reproduces: baseline `0 error(s), 108 warning(s), 0
+      info` exit 0; label + `partial` byte-identical to it; label + `covered` at
+      HEAD `2 error(s), 107 warning(s)`. Through
+      `/Users/omelnikova/.claude/plugins/cache/adverax/forge/2026.8.17/skills/architect-validate/scripts/validate.py`
+      the same four read 1/108/0 **exit 1**, 1/108/0, 2 errors and 3 errors —
+      every one exactly one ERROR higher, and the baseline **fails** rather than
+      passes. The extra ERROR is `circular supersession: ADR-0025 -> ADR-0031
+      -> ADR-0025`, present identically on a clean `6b0dfa30` arm and in the
+      primary checkout, so it is not this card's. Its cause is the older
+      installation's regex `supersed(?:es?|ed\s+by)` counting the back-pointer
+      as a second edge; the `forge_1` copy uses `supersedes?:?` and carries the
+      comment "counting it as a second edge turned every properly two-sided
+      supersession into a cycle". Note also that the plugin-cache figures
+      coincide with what the board's documented `grep -c '^\[ERROR'` trap
+      produces (anchored ERROR count 0, unanchored `[WARN ` count 108), which
+      is why this needed two doors to separate rather than one.
+    failure_scenario: >-
+      A later cycle or the merge gate re-runs "the validator" to check this
+      card's trace repair, resolves `validate.py` through the plugin cache (the
+      installation a `forge:architect-validate` invocation reaches in this
+      session), sees `1 error(s)` and exit 1 on an unmutated branch, and either
+      attributes the ADR-0025 error to CARD-301 or concludes the docstring's
+      figures were fabricated. Both are wrong, and the docstring gives the
+      reader nothing to tell them apart. The exit-code difference is the
+      sharper half: a gate reads the exit code, and these two installations
+      disagree about whether this tree passes.
+    fix: >-
+      One clause in the docstring: name the installation the figures came from
+      (`forge_1`'s checkout), and add that the plugin-cache 2026.8.17 copy
+      reads one ERROR higher throughout because of a known supersession-regex
+      defect it has since fixed. No code change.
+  - id: N-2
+    severity: minor
+    gating: false
+    confidence: certain
+    source: measured
+    file: tests/bench_generate.py
+    line: 3
+    title: >-
+      F-9's declination rests on "both doors agree once the registry and trace
+      are right"; measured, they do not — the validator's door is permanently
+      blind to a rename of this gate, because the module's own docstring
+      text-resolves the node id by AC-5's design. The decision is still right,
+      for the stronger reason the round did not give.
+    evidence: >-
+      F9a (the node id re-quoted contiguously at `bench_generate.py:3`):
+      **SURVIVED**, 23 passed over both test files — nothing in the suite
+      objects, exactly as declared. F9b (same, plus the gate renamed to
+      `..._under_5sX`): **KILLED** at `:541` (`missing == []`, resolved against
+      `globals()` filtered by `callable`) and at `:365`, so the camouflage
+      cannot make a dead ref pass *in the suite*. But the validator's door
+      tells a different story: with the gate renamed and the node id **not**
+      re-quoted anywhere, NFR-001 flipped to `covered`, the validator reports
+      **no** dead-link ERROR for `tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s`
+      — and `git grep -lw` for that node id under the validator's pathspec
+      returns exactly one file, `tests/test_nfr001_generation_time.py` itself;
+      excluding that file the grep exits 1. The module's docstring is the sole
+      text source, and it is there deliberately (its own line 12-13: "written
+      out in full because a check ref is only alive if a `git grep` finds it in
+      a code file") and required by AC-5. So dropping the suffix from
+      `bench_generate.py:3` removed a redundant second text source and changed
+      nothing about the validator's blindness; the doors are structurally
+      unequal and always will be for this ref.
+    failure_scenario: >-
+      The next card reads "both doors agree" and treats the validator's dead-ref
+      ERROR as a backstop for this gate's existence. It is not one: the ref will
+      read ALIVE to `git grep -lw` for as long as AC-5's own requirement is
+      satisfied, whatever happens to the `def`. Only the in-suite `:541`
+      resolution catches a rename, and nothing catches wholesale deletion of
+      the module (see DEL-1 in the mutant table).
+    fix: >-
+      A record correction, not an edit: state that the validator's text door is
+      blind to a rename of this gate *by construction* (AC-5 requires the node
+      id to appear in a code file, and the module that defines it is the file
+      that does), and that `test_the_registry_names_this_module_and_every_ref_resolves`
+      at `:533-541` is the only door that reds. Belongs in CARD-301's worktree
+      notes at merge.
+
+the_fourth_instance_question:
+  answer: >-
+    Yes — one, and it is N-1, in `tests/test_nfr001_generation_time.py`'s
+    trace-control docstring. It is the same shape as the three the fix round
+    narrowed in its §6: a committed figure stated more absolutely than what
+    backs it. Here the gap is not a wrong count but an unnamed instrument — the
+    four totals are true at one of two installations and false at the other,
+    including the exit code.
+  everything_else_recounts: >-
+    I re-derived every other quantified claim in both files and they hold.
+    `9,570` collected on a clean `6b0dfa30` arm with 0 in the benchmark
+    (re-measured, and 9581/0/11 at HEAD); "eleven" declared names (11
+    collected); "the other eight names are CARD-301's own controls" (11 - 3);
+    "every other name in this module costs 0.02 s or less" (only the gate's
+    14.04 s call row exceeds it); "33 rows over 11 tests" (3 visible +
+    30 hidden under 0.005 s — exact); "0.98 % of 1433.47 s" (arithmetic, and
+    the denominator is still the last committed profile and still labelled as
+    quoted); "fourteen tests in that profile are individually slower, slowest
+    81.03 s" (14 `call` rows above 14.05 s, max 81.03 s — exact); "20 x 5.0 s =
+    100.0 s against 120 s is 20 s of margin"
+    (`hang_guard.py:41` HANG_SECONDS 120); "eight committed references" (8,
+    with the breakdown); "`tests/conftest.py`'s only near-match is a
+    `performance` marker registration at `:110`" (exact);
+    "`RETIRED_LABEL` resolved at `tests/bench_generate.py:3` and `:139` on main"
+    (exact, both prose); "also in `meta/kanban/dispatcher.state` and in
+    CARD-301's own cycle-1 review YAML through the validator's pathspec"
+    (exact — those three and no others at `main`); "`code_search()` builds
+    `[':(exclude)meta/architecture', ':(exclude)*.md']`" (exact, read from
+    `validators/utils.py`).
+  one_imprecision_not_worth_a_finding: >-
+    The `RETIRED_CLAIMS` comment says the live docstring "legitimately contains
+    both 'suite' and 'collected' in one sentence (about the other module)".
+    Measured, two sentences do, and one of them is about *this* module (the
+    recital "that the suite ran it with the rest of the tests — it collected
+    nothing"). The parenthetical attribution is loose; the measurement it
+    supports is true and understated.
+
+declared_survivors_verdict:
+  - id: M6edge / the declined widening
+    verdict: >-
+      **The declination holds, and its measurement is understated rather than
+      overstated.** I built the proposed rule rather than taking the round's
+      word: `ast.get_docstring` on `tests/bench_generate.py`, whitespace
+      normalised, split on sentence boundaries, flag any sentence matching
+      `(pytest|suite)` and `(collect\w*|runs?|ran|execute\w*)`. Over 35
+      sentences it returns **3 hits on arrival** — and the first hit is the
+      *positive* statement the rule exists to protect ("**pytest does not
+      collect this file, and since CARD-301 that is deliberate rather than
+      accidental.**"), the second is the retired-claim recital, the third is
+      the cross-reference to the collected module. The rule cannot distinguish
+      an affirmation from a negation, and any polarity-aware variant is a new
+      natural-language problem inside a prose guard. So the widening would red
+      immediately, the narrowing was the right move, and the declared survivor
+      stays a declared survivor with a reason that is true. The structural pin
+      the comment names as reaching the general case does reach it: `D-2`
+      (planting `test_gate_verdict` back into the benchmark) is killed at
+      `:450`, so prose claiming the suite runs the file is false *and cannot
+      become true by accident*, which is the residual's real bound.
+  - id: F-9's missing in-suite control
+    verdict: >-
+      **The declination holds in outcome; its stated reason does not — see
+      N-2.** "Both doors agree once the registry and trace are right" is false:
+      measured, with the gate renamed the validator reports no dead-link ERROR
+      for it, because the module's own docstring is the `git grep` match and is
+      required to be. What makes the declination right is the asymmetry rather
+      than the agreement — `:541` resolves the ref against `globals()` filtered
+      by `callable`, which is strictly stronger than `git grep -lw`, reds on a
+      rename (F9b), and reds in the same commit as the rename. A control
+      asserting "`bench_generate.py` does not quote the node id" would protect
+      the weaker door only, and would not protect it, since the stronger
+      door's own file supplies the same text. **Not adding it was correct.**
+  - id: DEL-1
+    verdict: >-
+      **New declared survivor of my own, with a reason I believe is true.**
+      Renaming `test_the_trace_matrix_names_this_modules_gate_for_nfr001` out
+      of collection (prefix `_retired_`) survives: 9 passed, nothing reds. The
+      module's only existence floor is `assert len(defined) >= 8` at `:538`
+      against 11 declared, so up to three of the card's own controls can be
+      deleted silently, and `tests/test_collected_names.py` checks
+      collect*ibility*, never existence. I declare rather than gate this for
+      two reasons: the loose floor is the same deliberate pattern as
+      `MIN_DECLARING_NAMES = 5000` against a measured 6,348 (a bound far below
+      the count so ordinary deletions do not red it, far above zero so an empty
+      walk cannot read clean), and the defect is a property of this board's
+      guard idiom rather than of this card. It is named here so the next card
+      that wants a control-count pin knows the gap is measured, not assumed.
+
+mutations_refired:
+  method: >-
+    Own harness under
+    /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/c614013f-3aed-4267-b97b-f6b7c4245f96/scratchpad/card301review2
+    — never the shared root, a sibling card's agents are live. Every mutant
+    asserts all five branch paths are at their HEAD blob by `git hash-object`
+    before it applies, asserts its own `old_str` occurs exactly once, restores
+    with `git show`/`git checkout --` (never `git checkout <rev> -- <path>`,
+    which stages), and re-asserts all five blobs by hash afterwards.
+    `PYTHONDONTWRITEBYTECODE=1` throughout and a `find -name __pycache__ -prune
+    -exec rm -rf` + `*.pyc` + `.pytest_cache` sweep **before and after every
+    mutant**, per the fix round's timestamp-`.pyc` hazard. Plain passes with
+    `-o addopts=` and `--tb=line`, selected by node id or by module with the
+    14 s gate explicitly `--deselect`ed; figures counted from the rows.
+  recording_instrument: >-
+    Built and proven before use, per the brief: an `ast` transformer wrapping
+    every `assert` in `try/except AssertionError/except BaseException` with a
+    per-line `_REC` dict pre-seeded `NOT-REACHED` and dumped at `atexit`, so no
+    assertion short-circuits and a crash is reported as `CRASH:` rather than as
+    a survivor. Proven on a deliberately failing bare `assert x == y` twice —
+    once under pytest (reported `FAIL: assert 1 == 2`) and once with no pytest
+    rewriting at all, where the `AssertionError` message is genuinely empty and
+    it reported `FAIL: <bare assert, empty message>`, not `NOT-REACHED` and not
+    a crash. In the event the plain passes gave unambiguous single-cell
+    attribution for 20 of 21 mutants, so the recorder was needed only as the
+    guarantee that a zero would have been readable.
+  deletion_shaped_and_line_count_preserving: true
+  refired_from_cycle_1:
+    - id: F1a (cycle 1's Mcorpus / the orchestrator's pre-gate)
+      mutation: "tests/bench_generate.py: DENSITIES = (30, 40, 50, 60) -> (50, 60, 70, 80)"
+      named_cell: ":286"
+      observed: "KILLED at :286. 2 failed, 9 passed in 0.26 s; the failures are the corpus pin and [XPASS(strict)]."
+      cell_named_is_cell_that_reds: "yes"
+    - id: F1b
+      mutation: "tests/bench_generate.py: SEEDS = (0, 1, 2, 3, 4) -> (0, 1, 2, 3, 5)"
+      named_cell: ":287"
+      observed: "KILLED at :287 alone. 1 failed, 9 passed, 1 xfailed in 14.17 s."
+      cell_named_is_cell_that_reds: "yes"
+    - id: F1c
+      mutation: "tests/bench_generate.py: CORPUS comprehension reordered to density-major"
+      named_cell: ":288"
+      observed: >-
+        KILLED at :288 **alone** — 1 failed, 9 passed, 1 xfailed in 21.12 s.
+        DENSITIES and SEEDS both still pass; only the literal twenty-row
+        spelling sees it. This is the assertion the fix round added beyond
+        cycle 1's ask and it is the one that earns the literal.
+      cell_named_is_cell_that_reds: "yes"
+    - id: F1del
+      mutation: >-
+        the three new asserts (:286-:294) -> nine filler lines, line-count
+        preserving, PLUS the DENSITIES mutant — the fix round's claim to
+        reconstruct cycle 1's hole
+      named_cell: "-"
+      observed: >-
+        SURVIVED at the corpus pin, exactly as claimed: 1 failed, 10 passed in
+        0.26 s, the one red being `FAILED test_20x20_p95_is_under_5s -
+        [XPASS(strict)]`. Cycle 1's hole, reproduced from the fix applied
+        backwards. Declared non-kill, and it is one.
+      cell_named_is_cell_that_reds: "n/a — this is the hole, not a gate"
+    - id: F3a
+      mutation: "meta/architecture/trace.yml: the node id removed from NFR-001's tests:"
+      named_cell: ":643"
+      observed: "KILLED at :643 alone. 1 failed, 9 passed, 1 deselected."
+      cell_named_is_cell_that_reds: "yes"
+    - id: F3b
+      mutation: "meta/architecture/requirements.yml: AC-037's test: repointed to a different node id in the same module"
+      named_cell: ":641"
+      observed: >-
+        KILLED at :641 (within the trace control) and additionally at :531 and
+        :571 in the two registry tests. 3 failed, 7 passed.
+      cell_named_is_cell_that_reds: "yes"
+    - id: F3d
+      mutation: "trace.yml: the retired label added ALONGSIDE the correct node id"
+      named_cell: ":644"
+      observed: "KILLED at :644 alone. 1 failed, 9 passed, 1 deselected."
+      cell_named_is_cell_that_reds: "yes"
+    - id: F3d-del
+      mutation: "the :644 assert gutted to one filler line, then F3d applied"
+      named_cell: "-"
+      observed: >-
+        SURVIVED, 10 passed — so `:644` is the sole catcher of the coexistence
+        case and nothing else in the module sees it. The single point of
+        failure the brief asked about is real and is what the docstring's third
+        numbered claim declares.
+      cell_named_is_cell_that_reds: "n/a — declared"
+    - id: F-2's planted-third-file control
+      mutation: "tests/card301_planted_third.py planted, pin run by explicit node id"
+      named_cell: ":502"
+      observed: >-
+        KILLED at :502, `collected 1 item`, `AssertionError:
+        ['tests/card301_planted_third.py', 'tests/integration_tests.py']`;
+        plant removed -> 1 passed; worktree clean.
+      cell_named_is_cell_that_reds: "yes"
+    - id: F9a
+      mutation: "bench_generate.py:3 re-quotes the node id contiguously"
+      named_cell: "-"
+      observed: "SURVIVED, 23 passed over both files. Declared by the fix round, and it is a true survivor."
+      cell_named_is_cell_that_reds: "n/a — declared"
+    - id: F9b
+      mutation: "F9a PLUS the gate renamed to ..._under_5sX"
+      named_cell: ":541"
+      observed: >-
+        KILLED at :541 and :365. The camouflage cannot make a dead ref pass in
+        the suite; see N-2 for the validator's half, where it can.
+      cell_named_is_cell_that_reds: "yes"
+  step_8f_campaign:
+    status: "run — the cycle that owed it delivers it"
+    scope: >-
+      21 mutants over everything the card's 11 collected tests pin: the G-5
+      marker and its reason text, the statistic constants, the instrument, the
+      benchmark's declared-name set, both halves of the prose rule, the
+      docstring ref list, and all four registry/matrix assertions. Gate
+      deselected throughout (its own two mutants are F1a/F1del above, where
+      the verdict is readable only from the plain pass because nothing
+      propagates out of a strict xfail).
+    result: "20 killed at the named cell, 1 declared survivor, 0 undeclared survivors"
+    rows:
+      - {id: G5-1, mutation: "strict=True -> strict=False", cell: ":368", verdict: KILLED, match: yes}
+      - {id: G5-2b, mutation: "reason=XFAIL_REASON -> XFAIL_REASON.encode().decode() (a genuine non-identity, unlike cycle 1's str() no-op)", cell: ":369", verdict: KILLED, match: yes}
+      - {id: G5-3, mutation: "XFAIL_REASON: 'do not remove it on partial data' reworded", cell: ":372", verdict: KILLED, match: yes}
+      - {id: G5-4, mutation: "XFAIL_REASON: '35/38/40%' -> '35/38/41%'", cell: ":373", verdict: KILLED, match: yes}
+      - {id: G5-5, mutation: "XFAIL_REASON: one of two 'CARD-018' occurrences reworded", cell: ":374", verdict: "SURVIVED — my mutant's fault, not a hole: the constant names CARD-018 twice (:147, :156)", match: "no (re-fired as G5-5b)"}
+      - {id: G5-5b, mutation: "both 'CARD-018' occurrences reworded", cell: ":374", verdict: KILLED, match: yes}
+      - {id: P-1, mutation: "_P95_RANK: ceil(0.95*n) -> ceil(0.90*n)", cell: ":297", verdict: KILLED, match: yes}
+      - {id: P-2, mutation: "_ALLOWED_OVER_CAP + 1", cell: ":298", verdict: KILLED, match: yes}
+      - {id: P-3, mutation: "P95_CAP_SECONDS 5.0 -> 4.0", cell: ":299", verdict: KILLED, match: yes}
+      - {id: I-1, mutation: "_time_one_request returns 0.0 elapsed", cell: ":414", verdict: KILLED, match: yes}
+      - {id: I-2, mutation: "_time_one_request outcome forced to 'bogus'", cell: ":415", verdict: KILLED, match: yes}
+      - {id: D-1, mutation: "def main -> def run_cli (a __main__ door removed)", cell: ":457", verdict: KILLED, match: yes}
+      - {id: D-2, mutation: "def gate_verdict -> def test_gate_verdict (a collectible name planted back into the benchmark — M7's cell)", cell: ":450", verdict: KILLED, match: yes}
+      - {id: PR-1, mutation: "NON_COLLECTION_STATEMENT's sentence reworded away", cell: ":476", verdict: KILLED, match: yes}
+      - {id: PR-2, mutation: "a retired claim planted back into the benchmark docstring", cell: ":475", verdict: KILLED, match: yes}
+      - {id: R-1, mutation: "the gate's node-id bullet deleted from the module docstring", cell: ":544", verdict: "KILLED at :545", match: "yes in substance — :545 is the continuation line of the assert opening at :544"}
+      - {id: REG-1, mutation: "requirements.yml: status: unmet -> status: met", cell: ":568", verdict: KILLED, match: yes}
+      - {id: REG-2, mutation: "requirements.yml: 'KNOWN MISSED' reworded away", cell: ":569", verdict: KILLED, match: yes}
+      - {id: REG-3, mutation: "requirements.yml: AC-037's test: replaced by the retired label", cell: ":575", verdict: "KILLED at :531/:571/:641 — :575 NOT reached", match: "no — see the note below"}
+      - {id: REG-4, mutation: "requirements.yml: the retired label added as a SECOND test: line beside the correct one", cell: ":575", verdict: "KILLED at :575 (and :641)", match: yes}
+      - {id: DEL-1, mutation: "a CARD-301 control renamed out of collection (_retired_ prefix)", cell: "-", verdict: "SURVIVED — declared, see declared_survivors_verdict", match: "n/a"}
+    note_on_575: >-
+      `assert "test: BenchGenerate" not in block` at `:575` is unreachable by
+      *replacement*: any mutant that puts the retired label back as AC-037's
+      `test:` value necessarily removes the correct one, and `:571` reds first.
+      It is reachable, and the sole catcher, only in the **coexistence** case —
+      a second `test:` line added beside the correct one (REG-4). That is
+      exactly what the assertion's own comment says it is for ("what must not
+      come back is its use as a `test:` value"), so the assertion is live
+      rather than dead; it took a second mutant in the right domain to show it.
+
+guardrails:
+  G-1:
+    status: held
+    evidence: "`git diff --name-only 6b0dfa30...HEAD -- src/` -> 0 paths. 5 paths total, all five blobs matching their HEAD entry by `git hash-object`."
+  G-2:
+    status: held
+    evidence: >-
+      `python_files` / `python_classes` / `python_functions` appear in none of
+      `pyproject.toml`, `tests/conftest.py`; `setup.cfg`, `tox.ini`,
+      `pytest.ini` and a repo-root `conftest.py` do not exist.
+      `[tool.pytest.ini_options]` is `minversion`, `testpaths`, `addopts`,
+      `pythonpath`, `markers` — the whole list, as the benchmark's docstring
+      says. `git diff main...HEAD -- pyproject.toml` -> **0** lines.
+  G-3:
+    status: held
+    evidence: "0 `pyproject.toml` diff lines, so the dependency baseline is untouched; the new module imports only `ast`, `re`, `pathlib`, `pytest` and `tests.bench_generate`."
+  G-4:
+    status: held
+    evidence: >-
+      Byte-unchanged in the strong sense. `MIN_DECLARING_NAMES = 5000` is
+      line-identical to `main`; with every docstring stripped and the tree
+      re-unparsed, the only code difference against `main` in
+      `tests/test_collected_names.py` is the method rename itself. The
+      default-deny walk and `collects_file`/`collects_function`/`collects_class`
+      are untouched. The pin still reds on a planted third file (`:502`).
+  G-5:
+    status: held
+    evidence: >-
+      Re-derived in my own domain, not read off the fix round's. The `xfail`
+      marker is present, single, and `strict is True` (G5-1 kills the
+      weakening at `:368`). `XFAIL_REASON` is **1390** chars, sha256
+      `9554bc42bccd59bb341923574eb8f4e7532099f225a114226731541fd0393b2e`; the
+      decorator string on `main:tests/bench_generate.py`, extracted by walking
+      the AST for `reason=` keywords and `ast.literal_eval`, is the same length
+      and the same digest and compares `==` True. `P95_CAP_SECONDS` (5.0),
+      `SIZE` (20), `DENSITIES`, `SEEDS`, `CORPUS`, `_P95_RANK`,
+      `_ALLOWED_OVER_CAP` are AST-identical to `main` and are now each pinned
+      by an assertion that kills its own mutant (P-1/P-2/P-3, F1a/F1b/F1c).
+      AC-037 was not made green: the gate still XFAILs.
+
+test_gate:
+  scope: >-
+    impact — tests/test_nfr001_generation_time.py (11),
+    tests/test_collected_names.py (13), tests/test_guard_integrity.py (167),
+    tests/test_suite_profile.py (410) = 601 collected, which is the baseline's
+    601. The full suite was NOT run: a sibling card is live, the lock is the
+    merge gate's.
+  result: "600 passed, 1 xfailed, 0 skipped in 48.08 s"
+  skips_attributed: "none — `grep -c SKIPPED` under `-rs` is 0, so the green is a green and not a quiet skip"
+  xfail: "tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s — AC-037's gate, by design while the criterion is known missed"
+  matches_baseline: true
+  collection: "9581 collected with `-o addopts=''`, `grep -c bench_generate` = 0, 11 node ids in the new module; 9570/0 on a clean 6b0dfa30 arm, so the +11 reconciles exactly"
+
+acceptance_criteria:
+  AC-1: {status: met, note: "9570 -> 9581 reconciles to the eleven node ids; the gate is collected and runs (XFAIL, the correct verdict while AC-037 is known missed). The existing guard agrees and reds on a plant."}
+  AC-2: {status: met, note: "One entry at :502, changed in the same commit as the mechanism, reds on a planted third file, and the name now matches the assertion (F-2 closed)."}
+  AC-3: {status: met, note: "All three retired spellings absent and the positive statement present, both asserted and both mutation-killed (PR-1, PR-2). The width of the rule is declared honestly and the declination of the widening is measured (3 hits on arrival)."}
+  AC-4: {status: met, note: "Every route-deciding figure recounts; route 1's cost is eight committed references, recounted independently with the same breakdown."}
+  AC-5: {status: met, note: "Both halves met, and the trace.yml half cycle 1 judged short is now closed and asserted three ways, each a sole catcher. The validator's text door remains blind to a rename of this gate by AC-5's own construction — N-2, named rather than left implied."}
+
+measurement_hazards_encountered:
+  - id: H-1
+    title: "`-o addopts=''` is a shell idiom, and inside a subprocess argv it silently means 'run the whole suite'"
+    detail: >-
+      My own campaign harness passed `"-o", "addopts=''"` through
+      `subprocess.run` with no shell, so pytest received `addopts` set to the
+      literal two-character string `''`, shlex-split it into an empty
+      positional argument, resolved that to the rootdir, and collected
+      **9581** tests instead of the module's 11. I caught it at four minutes
+      of CPU on the first mutant (the symptom reads as a pathologically slow
+      mutant, not as a scope error), killed it, restored every blob by hash,
+      and re-ran with `"-o", "addopts="`, which collects 11. Measured both
+      forms side by side to confirm: `addopts=''` -> 9581 collected,
+      `addopts=` -> 11. **No figure in this report came from the aborted run,
+      and the full-suite lock was never taken** (the run was killed before
+      completion). Recording it because the board's documented fix for the
+      stacked-`-q` trap is spelled with quotes, and the quotes are the bug as
+      soon as the command stops going through a shell.
+  - id: H-2
+    title: "Two forge installations, one of them with a supersession-regex defect, disagree about this tree's exit code"
+    detail: >-
+      See N-1. `~/.claude/plugins/cache/adverax/forge/2026.8.17` reports a
+      false `circular supersession: ADR-0025 -> ADR-0031 -> ADR-0025` and exits
+      1 on an unmutated `main`; `/Users/omelnikova/MyProjects/forge_1/forge`
+      does not and exits 0. The defect is pre-existing, is not CARD-301's, and
+      is already fixed in the second checkout, whose regex comment names the
+      cause. Worth a card of its own or a plugin update — a validator that
+      exits 1 on a clean tree cannot be a gate.
+  - id: H-3
+    title: "The pycache hazard did not bite, because it was defended against"
+    detail: >-
+      `PYTHONDONTWRITEBYTECODE=1` plus a `__pycache__`/`*.pyc`/`.pytest_cache`
+      sweep ran before and after all 21 mutants and every restore. No result in
+      this report failed to reproduce after a sweep, so no survivor here is a
+      cache artefact and no kill here is a stale-bytecode kill.
+
+non_reproducing_figures:
+  - figure: "the fix round's four validator scenario totals (0/108/0 baseline, byte-identical with the label restored, 1 error at 6f721e57, 2 errors at this HEAD)"
+    reproduces: >-
+      yes at the door cycle 1 named (forge_1 checkout): baseline 0/108/0 exit
+      0, label+partial byte-identical to it, HEAD+label+covered 2 errors. No at
+      the plugin-cache 2026.8.17 door, where the same four read 1/108/0 exit 1,
+      1/108/0, 2 and 3 — each one ERROR higher, for a reason that is not this
+      card's. The *deltas* (0, 0, +1 NFR-001 error, +2 NFR-001 errors) are
+      door-independent and are what the argument rests on. Recorded as N-1
+      because the docstring does not name the installation.
+  - figure: "'the live docstring legitimately contains both suite and collected in one sentence (about the other module)'"
+    reproduces: >-
+      understated. Two sentences carry both words; one is about this module and
+      one about the other. The rule the sentence declines reds **three** times
+      on arrival, not once, so the declination is stronger than its stated
+      reason.
+  - figure: "'the eleven collected tests add 14.03-14.05 s ... 33 rows over 11 tests'"
+    reproduces: >-
+      yes on the structural half (3 visible duration rows + 30 hidden under
+      0.005 s = 33, over 11 tests) and 0.02 s outside on the sum (I read
+      14.07 s of visible rows, the gate's `call` row alone 14.04 s). Inside the
+      0.4 s solver noise the same docstring declares two paragraphs earlier, so
+      not a finding — but the range is quoted two decimals tighter than the
+      instrument supports.
+  - figure: "'eight committed references name tests/bench_generate.py'"
+    reproduces: "yes, exactly, with the stated breakdown — 4 docs pages + ADR-0001 + ADR-0029 + handoff.md + src/nonogram/orchestrator.py. Recounted at main and at HEAD."
+  - figure: "'the retired label resolved in exactly one code file, at :3 and :139, plus dispatcher.state and the cycle-1 review YAML through the validator's pathspec'"
+    reproduces: "yes — exactly those three files at main, and exit 1 on the branch."
+  - figure: "cycle 1's Midentity (reason=str(XFAIL_REASON)) recorded as inconclusive"
+    reproduces: >-
+      confirmed inconclusive (CPython returns the same object), and replaced
+      with a genuine one: `XFAIL_REASON.encode().decode()` builds an equal but
+      distinct object and is KILLED at `:369`, so the `is` assertion is live.
+
+what_i_did_not_verify:
+  - "The 40.79 s early-exit-disabled sweep and the 122.04 s / p95 24.881 s uncensored sweep were not re-run. Cycle 1 re-derived both independently (41.61 s / 6-of-20 / p95 5.001 s; 122.67 s / p95 24.966 s) and a third run with the same method would confirm only the method. The load-bearing half — 122 s exceeding hang_guard's 120 s, so `measure()`/`report()` must stay standalone — is arithmetic over figures already twice measured."
+  - "The full suite. Impact-scoped by the brief; the lock is the merge gate's."
+  - "`meta/architecture/decisions/adr/0001-...md:23`, which still cites the old path as a node id. Outside Touches, prose, no `check:` key — owed at merge, unchanged from cycle 1."
+
+prescribed_edits:
+  recommendation: "NONE. Certify at 9.0 and land it."
+  reasoning: >-
+    Both of my findings are minor, neither is in a mechanism, and this is the
+    second-to-last cycle. Per the board's standing rule — `max_cycles` is a
+    cycle budget, not a last-mile rule — I must say what the merge gate alone
+    would establish about any edit I prescribe, and for these two the honest
+    answer is: **not the thing that matters.** N-1's fix is one clause in a
+    docstring naming a validator installation. The merge gate would re-collect
+    the module (11 node ids) and re-run the impact set (600/1/0), so it would
+    establish that the suite is unchanged — and nothing at all about whether
+    the newly written figure is the one the newly named door produces, because
+    no test and no gate recomputes a validator total. An edit whose only
+    interesting property is unverifiable by the gate that would certify it is
+    an edit better made with the measurement in hand, which is now in this
+    report. N-2 is a record correction with no code to change; it belongs in
+    CARD-301's worktree notes, where the merge gate reads nothing and
+    establishes nothing either way.
+  if_the_owner_wants_them_anyway: >-
+    Then make both in one commit, paste the `forge_1` door's own summary line
+    into the commit message (since no gate will recompute it), and treat the
+    merge gate's 600/1/0 + 11-node-id re-collection as the whole of what it
+    certifies about that commit. Do not spend the third cycle on them.
+
+family_regression_note: >-
+  Not triggered: none of my findings is gating, so there is no family of gating
+  findings attributable to the fix round's edits. One pattern is worth the
+  retrospective rather than this cycle, though, and it is a convergence signal
+  rather than a divergence one: the *validator-figure* family has produced a
+  flaw in three consecutive rounds — the implementation round's "56 warnings"
+  (wrong), cycle 1's 0/108/0 (right, and right at the door it named, but the
+  door was in a non-standard checkout), and the fix round's four totals (right,
+  same unnamed door). Each round's figure was better than the last and the
+  conclusion was right every time; what never got written down was *which
+  validator*. The fix is a convention, not a card: a committed validator figure
+  names its installation, because this machine has two and they disagree about
+  the exit code.
+
+recommended:
+  - "Land it. The hole is closed, the route is measured rather than argued, and every mechanism the card points at now reds when the thing it describes is broken."
+  - "At merge, carry into the card's worktree notes: (a) N-2's corrected statement about the two doors, since 'both doors agree' will otherwise be read as a backstop that does not exist; (b) DEL-1, so the next card that wants a control-count pin knows the >= 8 floor leaves three deletions silent; (c) H-1, because `-o addopts=''` is now a documented trap with a second form."
+  - "Open a card (or update the plugin) for H-2: the plugin-cache forge validator exits 1 on a clean tree over a false ADR supersession cycle that the other checkout already fixes. That is a CI gate reporting a failure nobody caused."
+  - "ADR-0001:23's dead node id is still owed at merge, unchanged from cycle 1."
