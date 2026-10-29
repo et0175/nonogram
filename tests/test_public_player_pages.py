@@ -102,7 +102,19 @@ resolves a ref by ``git grep -lw`` of the whole ``path::name`` over tracked
 non-Markdown files, and before this line the only such hits were prose
 mentions in ``player/assemble.py`` and ``tests/test_public_player.py`` — two
 files that could lose a sentence without anybody noticing the ref had died
-with it. The defining module is the one place that cannot.
+with it. The defining module is the one place that cannot — **and that is
+true only because the guard holds this table to what it spells.** Cycle 2 of
+CARD-285's review measured the hold missing: renaming this one ``def`` by a
+character left the module green at 33 passed while the whole ``path::name``
+still resolved from four tracked non-Markdown files, this table among them,
+so a MANDATORY ADR rule read as mechanically checked with zero definitions
+behind it. ``refs`` comes out of ``requirements.yml`` and an ADR rule's
+authority is an ADR, so the hand-written registry partition could never
+reach this line.
+``test_the_registrys_refs_for_this_file_resolve_or_are_card_285s`` now holds
+every whole ``path::name`` the table carries — this one included, and every
+one added later — to a ``def`` in this file. That is CARD-308's subject with
+a measured instance rather than a theory, and the instance is this bullet.
 """
 
 from __future__ import annotations
@@ -1880,14 +1892,37 @@ def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
     not.** This test used to assert ``refs - defined == card_285`` — the three
     were deliberately absent, and the assertion held the absence so it could
     not be forgotten. CARD-285 wrote them, so the same assertion is now an
-    equality against the empty set, and the half that used to carry the
-    obligation (``refs - defined``) carries nothing. The half with teeth is
-    the other one: every ref the registry names for this file is defined
-    here, and every one of the six is spelled in the module docstring's table
-    as the whole ``path::name`` string — the only form the validator resolves.
-    AC-392 is the reason the second half matters more than it looks: before
-    this card its node id read ALIVE through three review YAMLs and nothing
-    else, which is a false alive rather than an honest gap.
+    equality against the empty set.
+
+    **Both arms have teeth and they catch different things.** Fix round 1
+    wrote here that ``refs - defined`` "carries nothing" and that the other
+    half is "the half with teeth". Cycle 2 isolated them with a seventh
+    registry ref and measured that backwards: a seventh ref naming a node
+    NOTHING defines reds ``refs - defined`` only, and a seventh ref naming a
+    node this file DOES define reds the intersection only. They are
+    complementary, and ``refs - defined`` is the one arm that catches a newly
+    planted DEAD ref for this file — the exact defect the paragraph above
+    says this test exists for. Neither may be weakened, and the wording is
+    corrected here rather than left standing, because a docstring that tells
+    the next reader an assertion is inert is how an assertion gets deleted in
+    a tidy-up.
+
+    AC-392 is why the intersection matters more than it looks: before this
+    card its node id read ALIVE through three review YAMLs and nothing else,
+    which is a false alive rather than an honest gap.
+
+    **And the module docstring's table is held to what it SPELLS, not to a
+    hand-written subset.** A whole ``path::name`` in tracked non-Markdown
+    code is exactly what the validator reads as a definition, and the table
+    writes seven of them. Six are the registry's. The seventh is
+    ADR-0041/R2's own ``check:`` ref — the book-title exemption CARD-284
+    flipped — and ``refs`` is read out of ``requirements.yml``, so no
+    registry-derived set can ever reach it: an ADR rule's authority is an
+    ADR. Cycle 2 renamed that ``def`` by one character and this module stayed
+    green while the whole string still resolved from four tracked files, this
+    table among them. The last two assertions below close that without
+    spelling any name themselves, so a ref added to the table later is held
+    the day it is written, whatever registry or ADR it belongs to.
 
     Both directions, so neither half can rot: a ref this file does not define
     is a failure naming it, and a ref that IS defined here must be in the
@@ -1929,6 +1964,17 @@ def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
         assert f"tests/{here}::{name}" in table, name
     assert f"tests/{here}::test_no_such_node" not in table
 
+    # And every whole path::name the table spells is defined here, whatever
+    # names it — the direction the two hand-written sets above cannot reach,
+    # because an ADR rule's check ref is not in `requirements.yml` at all.
+    spelled = set(re.findall(rf"tests/{here}::(\w+)", table))
+    assert spelled >= card_284 | card_285, sorted((card_284 | card_285) - spelled)
+    assert spelled - defined == set(), sorted(spelled - defined)
+    # The control: this arm is not a restatement of the two sets. The table
+    # spells at least one ref neither set holds, so the assertion above is
+    # reached by a name nothing else in this test names.
+    assert spelled - (card_284 | card_285), sorted(spelled)
+
 
 # ==========================================================================
 # Hosting and counting (CARD-285, FR-045 AC-390..392, ADR-0041/R6)
@@ -1964,22 +2010,54 @@ driver = _load_driver()
 #: bytes of the same file, or the scan measures its own copy.
 ALLOW_RUNTIME, ALLOW_STATIC = driver.allow_list(REPO_ROOT)
 
-#: Where a reference may appear in a served file. Every pattern reads a
-#: QUOTED value, and that is the limit which makes the scan precise instead
-#: of noisy: a bare ``//`` is a JavaScript comment far more often than a
-#: protocol-relative URL, and any host pattern loose enough to read
-#: ``//gc.zgo.at/count.js`` also reads ``// assemble.py's`` out of a comment
-#: (``.py`` is a two-letter TLD as far as a regex is concerned). So a
-#: protocol-relative target is read only where a quote says the value is one.
-#: An absolute ``https://`` target is read anywhere, quoted or not, which is
-#: what makes a URL hidden in a comment a finding rather than a blind spot.
+#: Where a reference may appear in a served file. Every pattern but
+#: :data:`_ABSOLUTE_TARGET` reads a QUOTED value, and that is the limit which
+#: makes the scan precise instead of noisy: a bare ``//`` is a JavaScript
+#: comment far more often than a protocol-relative URL, and any host pattern
+#: loose enough to read a protocol-relative analytics endpoint also reads
+#: ``// assemble.py's`` out of a comment (``.py`` is a two-letter TLD as far
+#: as a regex is concerned). So a protocol-relative target is read only where
+#: a quote says the value is one. An absolute ``https://`` target is read
+#: anywhere, quoted or not, which is what makes a URL hidden in a comment a
+#: finding rather than a blind spot.
+#:
+#: **Which TEXT each pattern reads is not uniform, and that split is the
+#: F-101 fix.** Cycle 2 of this card's review measured four silent passes
+#: with a single cause: a comment delimiter opened from inside a string
+#: literal, an attribute value or a regex literal made
+#: :func:`_without_comments` blank the region after it — the two block forms
+#: cross lines — and every pattern that read the stripped text lost the live
+#: reference inside it. ``s.src = "//host/x"`` behind a ``"/*"``,
+#: ``url("//host/f.woff2")`` behind a CSS ``"/*"``,
+#: ``<script src="//host/x">`` behind a ``data-x="<!--"`` and a ``fetch()``
+#: behind a ``/\/\//`` regex all scanned CLEAN. So the patterns that can
+#: hide EGRESS no longer depend on the stripper at all:
+#:
+#: * RAW text — :data:`_ABSOLUTE_TARGET` (as always), :data:`_HOST_LITERAL`,
+#:   and every FETCHING position: :data:`_ATTR_TARGET`, :data:`_CSS_TARGET`,
+#:   :data:`_PROPERTY_SINK`, the :data:`URL_CALLS` loop and
+#:   :data:`IDENTIFIER_SHAPES`. An external host, and anything in a position
+#:   that fetches, is a finding wherever it is written — inside a comment
+#:   included. A comment read as code can only PRODUCE a finding, never hide
+#:   one, which is the direction this guard has to fail in;
+#: * STRIPPED text — :data:`_IMPORT_TARGET` and :data:`_ROOTED_LITERAL`, and
+#:   only these two. They are the two patterns both MEASURED false positives
+#:   came from (see :data:`_COMMENTS`), and the only two whose misses cannot
+#:   be egress: what a bad strip costs there is a module specifier or a
+#:   rooted path that resolves to nothing — an ``unclassifiable`` lost, never
+#:   a ``foreign`` one.
+#:
+#: :data:`_URL_LITERAL` was one pattern doing both jobs and is split for
+#: exactly this reason: the quoted ``//host`` half is egress and reads raw,
+#: the quoted rooted half is internal and reads stripped.
 _ATTR_TARGET = re.compile(r"""(?:src|href)\s*=\s*(["'`])([^"'`\n]*)\1""")
 _IMPORT_TARGET = re.compile(r"""\bfrom\s+(["'])([^"'\n]*)\1""")
 _CSS_TARGET = re.compile(r"""url\(\s*(["']?)([^"')\n]*)\1\s*\)""")
 _ABSOLUTE_TARGET = re.compile(r"""\bhttps?://[^\s"'`)<>\\]+""")
-_URL_LITERAL = re.compile(
-    r"""(["'`])((?:/|https?://|//[A-Za-z0-9.-]+\.[A-Za-z]{2,})[^"'`\n]*)\1"""
+_HOST_LITERAL = re.compile(
+    r"""(["'`])(//[A-Za-z0-9.-]+\.[A-Za-z]{2,}[^"'`\n]*)\1"""
 )
+_ROOTED_LITERAL = re.compile(r"""(["'`])(/[^"'`\n]*)\1""")
 
 #: Comment forms, blanked before the quoted shapes are read. Declared with
 #: the two false positives that put them here, both MEASURED on the real
@@ -2001,38 +2079,71 @@ _URL_LITERAL = re.compile(
 #: the real tree is clean of it: a second analytics endpoint parked in a
 #: comment is something a reviewer should see, and an endpoint is never prose.
 #:
-#: The ``//`` form's lookbehind excludes a QUOTE as well as a colon, and the
-#: quote is the half that matters. With ``(?<!:)`` alone, ``src="//host/x"``
-#: had the ``//`` preceded by the quote, so the whole reference was blanked
-#: as a comment — and :data:`_ABSOLUTE_TARGET` needs ``https?://`` and could
-#: not see it either. The consequence was measured, not theoretical: both
-#: ``<script src="//evil.example/t.js">`` and
-#: ``url("//evil.example/f.woff2")`` were SILENT PASSES on a copy of the
-#: clean counted site, and :func:`classify`'s whole ``//`` branch plus
-#: :data:`_URL_LITERAL`'s protocol-relative alternative were unreachable. A
-#: silent pass is the one thing :func:`scan_site` is built not to have
-#: (ADR-0039/R2's default-deny condition), so the stripper may not eat a
-#: reference a quote has already declared to be one.
+#: **All three forms carry the same lookbehind, and the ``//`` form carries
+#: a backslash too.** With ``(?<!:)`` on the ``//`` form alone,
+#: ``src="//host/x"`` had its ``//`` preceded by the quote, so the whole
+#: reference was blanked as a comment — and :data:`_ABSOLUTE_TARGET` needs
+#: ``https?://`` and could not see it either. Cycle 1 measured that; cycle 2
+#: measured the same defect one level up, on the two BLOCK forms, which had
+#: no guard at all and cross lines: a ``"/*"`` string literal, a
+#: ``content:"/*"`` CSS value, a ``data-x="<!--"`` attribute and a
+#: ``/\/\//`` regex literal each opened a strip that swallowed a live
+#: external reference, four SILENT PASSES on a copy of the clean counted
+#: site. A silent pass is the one thing :func:`scan_site` is built not to
+#: have (ADR-0039/R2's default-deny condition).
+#:
+#: The lookbehind is the cheap half of the answer and it is not the whole of
+#: it — the character in front of a delimiter is a guess, and a guess cannot
+#: be the only thing between a tracker and a clean verdict. The other half
+#: is the pattern block above: everything that can hide egress reads the RAW
+#: text, so a mis-strip cannot blank a reference out of the scan's reach. The
+#: four shapes are planted as controls in
+#: ``test_no_homegrown_tracking``, so the split can fail.
 _COMMENTS = (
-    re.compile(r"/\*.*?\*/", re.DOTALL),
-    re.compile(r"<!--.*?-->", re.DOTALL),
-    re.compile(r"""(?<![:"'`])//[^\n]*"""),
+    re.compile(r"""(?<![:"'`\\])/\*.*?\*/""", re.DOTALL),
+    re.compile(r"""(?<![:"'`\\])<!--.*?-->""", re.DOTALL),
+    re.compile(r"""(?<![:"'`\\])//[^\n]*"""),
 )
 
 
 def _without_comments(text: str) -> str:
-    """``text`` with the :data:`_COMMENTS` forms blanked, newlines preserved.
+    r"""``text`` with the :data:`_COMMENTS` forms blanked, newlines preserved.
 
-    A heuristic, declared as one: the ``//`` form keeps ``://`` and a
-    quote-led ``//`` out with a lookbehind, so neither an absolute URL inside
-    a string nor a protocol-relative reference a quote introduces is
-    stripped. What remains is the residual cost: a comment whose ``//``
-    directly follows a quote character — ``const s = "a"// note`` — is not
-    recognised as a comment and survives into the quoted passes. That is the
-    safe direction (a comment that is read as code can only produce a
-    finding, never hide one), nothing in the served tree has one, and
-    ``test_no_homegrown_tracking``'s comment-stripping controls hold both
-    halves of what this exemption may and may not absorb (ADR-0039/R3).
+    A heuristic, declared as one, and **only two patterns still read what it
+    returns** — :data:`_IMPORT_TARGET` and :data:`_ROOTED_LITERAL` — which is
+    the bound on what a mis-strip can cost.
+
+    What the lookbehinds keep out: ``://``, and an opener a quote or a
+    backslash has already introduced, so neither an absolute URL inside a
+    string, nor a protocol-relative reference a quote declares, nor a ``//``
+    inside a ``/\/\//`` regex literal is treated as a comment.
+
+    **The residual that can HIDE a finding, stated because it still exists.**
+    A delimiter is recognised by the single character in front of it and
+    nothing more. An opener whose preceding character is none of the guarded
+    ones still opens a strip — ``const open = "x/*"``, or a ``//`` after a
+    letter inside a regex such as ``/a//`` — and the two block forms cross
+    lines, so everything up to the next closer is blanked. Fix round 1
+    declared only the quote-led case and called it "the safe direction",
+    which is the narrower and more comfortable half; cycle 2 then measured
+    four shapes of this residual as SILENT PASSES. They are not silent any
+    more, and **the reason is not this function**: the patterns that can hide
+    egress — every fetching position, :data:`_ABSOLUTE_TARGET`,
+    :data:`_HOST_LITERAL` and :data:`IDENTIFIER_SHAPES` — read the RAW text.
+    So what a bad strip can still cost is one reading of
+    :data:`_IMPORT_TARGET` or :data:`_ROOTED_LITERAL`: a module specifier, or
+    a rooted path that resolves to nothing. An ``unclassifiable`` lost, never
+    a ``foreign`` one. That residual is real and it is not nothing — a
+    dangling internal reference is a defect this scan would stop reporting —
+    it is simply not a channel anything can leave by.
+
+    The other residual is the safe direction and is unchanged: a comment
+    whose ``//`` directly follows a quote — ``const s = "a"// note`` — is not
+    recognised as a comment and survives into the quoted passes, where it can
+    only produce a finding. Nothing in the served tree has one.
+    ``test_no_homegrown_tracking`` holds both halves of what this exemption
+    may and may not absorb (ADR-0039/R3), and its four F-101 plants hold the
+    raw/stripped split.
     """
     for pattern in _COMMENTS:
         text = pattern.sub(lambda match: "\n" * match.group(0).count("\n"), text)
@@ -2173,6 +2284,16 @@ def scan_site(
     member and watch the scan catch what the member was permitting
     (ADR-0039/R1): caught without it, missed with it.
 
+    **Comments are not a hiding place, and which text each pattern reads is
+    the reason.** Everything that can hide egress reads the file as written:
+    the absolute and quoted-``//host`` forms, every fetching position, and
+    the identifier vocabulary. Only :data:`_IMPORT_TARGET` and
+    :data:`_ROOTED_LITERAL` read :func:`_without_comments`' output, because
+    they are the two patterns whose measured false positives put the stripper
+    here in the first place, and the two whose misses are internal. Cycle 2
+    measured four comment-delimiter swallows as silent passes when every
+    pattern read the stripped text; all four are controls below.
+
     **The bound, stated here because this is where a reader meets the
     claim.** This is a lexical, single-file, one-hop scan over a known set of
     reference shapes. It is default-deny WITHIN that set — a shape it finds
@@ -2252,19 +2373,26 @@ def scan_site(
     for relative in sorted(files):
         raw = (site_dir / relative).read_text(encoding="utf-8", errors="replace")
         text = _without_comments(raw)
+        # RAW for everything that could hide egress, STRIPPED for the two
+        # patterns whose misses are internal (F-101; the split is argued in
+        # the pattern block above). A bare URL and a quoted literal say
+        # nothing about who fetches them; the markup, CSS, sink, call and
+        # import shapes do.
         for shape in IDENTIFIER_SHAPES:
-            for hit in re.finditer(shape, text, re.IGNORECASE):
+            for hit in re.finditer(shape, raw, re.IGNORECASE):
                 found["identifiers"].append(f"{relative}: {hit.group(0)!r} ({shape})")
-        # A bare URL in the raw text and a quoted literal say nothing about
-        # who fetches them; the markup, CSS and import shapes do.
         for match in _ABSOLUTE_TARGET.finditer(raw):
             classify(relative, match.group(0), fetching=False)
-        for match in _URL_LITERAL.finditer(text):
+        for match in _HOST_LITERAL.finditer(raw):
             classify(relative, match.group(2), fetching=False)
-        for pattern in (_ATTR_TARGET, _IMPORT_TARGET, _CSS_TARGET):
-            for match in pattern.finditer(text):
+        for match in _ROOTED_LITERAL.finditer(text):
+            classify(relative, match.group(2), fetching=False)
+        for match in _IMPORT_TARGET.finditer(text):
+            classify(relative, match.group(2), fetching=True)
+        for pattern in (_ATTR_TARGET, _CSS_TARGET):
+            for match in pattern.finditer(raw):
                 classify(relative, match.group(2), fetching=True)
-        for match in _PROPERTY_SINK.finditer(text):
+        for match in _PROPERTY_SINK.finditer(raw):
             prop, rhs = match.group(1), match.group(2).strip()
             if rhs[:1] in ('"', "'", "`"):
                 end = rhs.find(rhs[0], 1)
@@ -2280,8 +2408,8 @@ def scan_site(
                 f"this scan cannot read"
             )
         for name in URL_CALLS:
-            for match in re.finditer(rf"\b{name}\s*\(\s*", text):
-                rest = text[match.end() :]
+            for match in re.finditer(rf"\b{name}\s*\(\s*", raw):
+                rest = raw[match.end() :]
                 if rest[:1] in ('"', "'", "`"):
                     end = rest.find(rest[0], 1)
                     if end == -1:
@@ -2298,7 +2426,7 @@ def scan_site(
                         f"{rest[:40]!r}"
                     )
                     continue
-                literals, total = _assignments(text, word.group(1))
+                literals, total = _assignments(raw, word.group(1))
                 if not literals or len(literals) != total:
                     found["unclassifiable"].append(
                         f"{relative}: {name}({word.group(1)}) — "
@@ -2410,8 +2538,9 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
        asks for in place of "do not fork ``assemble.py``" as a promise:
        ``COPIED_FROM_ADMIN``'s byte-identical copies cannot drift through a
        script that writes no file;
-    #. **and byte-identical with ``--no-analytics`` to the tree every
-       existing fixture assembles.** This is where AC-390's "passes
+    #. **and byte-identical, with no flag at all, to the tree every
+       existing fixture assembles.** Counting is opt-in (``--analytics``), so
+       the default path and the fixtures' path are the same path. This is where AC-390's "passes
        CARD-283/284's Playwright suites unchanged" is actually carried:
        ``pages_site`` and ``tests/test_public_player.py``'s ``site`` already
        call ``assembler.assemble`` and already serve the result with a plain
@@ -2443,6 +2572,7 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
             str(root),
             "--out",
             str(out),
+            "--analytics",
         ],
         capture_output=True,
         text=True,
@@ -2478,7 +2608,6 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
             str(root),
             "--out",
             str(plain_out),
-            "--no-analytics",
         ],
         capture_output=True,
         text=True,
@@ -2610,7 +2739,15 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
     url, report, keys, slug = counted_host
 
     hosts = sorted({value.split("/")[2] for value in ALLOW_RUNTIME.values()})
-    assert len(hosts) >= 1, hosts
+    # Derived, not a floor (cycle 2's F-104). `REQUIRED_RUNTIME` is the closed
+    # set of endpoints the deploy page must name, so what this interceptor has
+    # to cover is an equality: `>= 1` passed a run in which the two endpoints
+    # had collapsed onto one host and half of what should be blocked was not.
+    # It reds if the runtime block grows a host too, which is the right
+    # direction — widening what a counted page may fetch is a decision.
+    required = [ALLOW_RUNTIME[name] for name in driver.REQUIRED_RUNTIME]
+    assert len(set(required)) == len(driver.REQUIRED_RUNTIME), required
+    assert sorted({url.split("/")[2] for url in required}) == hosts, (required, hosts)
     blocked: list[str] = []
 
     def kill(route):
@@ -2791,6 +2928,61 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         "// the panel loads this one as await import('/not-in-this-tree.js')\n",
         encoding="utf-8",
     )
+    # 9 (F-101) — the comment-delimiter SWALLOWS. Cycle 2 measured four of
+    # these as silent passes: each one opens a comment delimiter from inside
+    # a string literal, a CSS value, an attribute value or a regex literal,
+    # so `_without_comments` blanks the region after it — the two block forms
+    # cross lines — and carries whatever is in that region away with it. Two
+    # more are here because every `raw` read in `scan_site` should have one:
+    # a quoted `//host` in no fetching position at all, and an
+    # `IDENTIFIER_SHAPES` hit. Each plant is asserted three ways below, which
+    # is what makes it a control over the FIX and not over the patterns.
+    (probed / "probe-block-swallow.js").write_text(
+        'const open = "/*";\n'
+        'const s = document.createElement("script");\n'
+        's.src = "//evil.example/t.js";\n'
+        'const close = "*/";\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-block-swallow.css").write_text(
+        'a{content:"/*"}\n'
+        '@font-face{font-family:y;src:url("//evil.example/f.woff2")}\n'
+        'b{content:"*/"}\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-html-comment-swallow.html").write_text(
+        "<!doctype html><html><head><title>p</title></head><body>"
+        '<p data-x="<!--"></p>'
+        '<script src="//evil.example/t.js"></script>'
+        '<p data-y="-->"></p>'
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-regex-swallow.js").write_text(
+        'const re = /\\/\\//; await fetch("/also-gone-from-this-tree.json");\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-bare-host-swallow.js").write_text(
+        'const open = "/*";\n'
+        'const endpoint = "//evil.example/count";\n'
+        'const close = "*/";\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-identifier-swallow.js").write_text(
+        'const open = "/*";\n'
+        'window.localStorage.setItem("device_id", 1);\n'
+        'const close = "*/";\n',
+        encoding="utf-8",
+    )
+    # 10 (ADR-0039/R3, cycle 1's F-004, asked for three cycles running): the
+    # sharper half of the comment-stripping exemption. `_ABSOLUTE_TARGET`
+    # reads the raw text, so a full URL parked in a comment is a FINDING and
+    # not a blind spot — which is the asymmetry the whole exemption rests on
+    # and the half that had no planted control.
+    (probed / "probe-url-in-comment.js").write_text(
+        "// see https://evil.example/t.js for why this is not a blind spot\n",
+        encoding="utf-8",
+    )
     planted = scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)
 
     # 2 — a second analytics endpoint, which is AC-392's own wording.
@@ -2811,8 +3003,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     # quote-led `//` as a comment: the quote precedes the slashes, so the
     # whole reference was blanked, and `_ABSOLUTE_TARGET` wants `https?://`
     # and never saw it. They are the controls that make `classify`'s `//`
-    # branch and `_URL_LITERAL`'s protocol-relative alternative reachable
-    # code rather than decoration.
+    # branch and `_HOST_LITERAL` reachable code rather than decoration.
     assert [
         hit for hit in planted["foreign"] if "probe-protocol-relative.html" in hit
     ], planted
@@ -2825,7 +3016,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     # Both probes are deliberately the UNREADABLE form. A `new Worker(
     # "//host/x")` probe was written first and measured SURVIVING the mutant
     # that drops `Worker` from `URL_CALLS`: a quoted protocol-relative value
-    # is read by `_URL_LITERAL` whatever the call around it is, so that probe
+    # is read by `_HOST_LITERAL` whatever the call around it is, so that probe
     # was a control over the wrong line. A target the scan cannot read is
     # reachable only through the call name itself.
     assert [
@@ -2876,6 +3067,63 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         if "probe-exempt-comment.js" in hit
     ], unstripped
     monkeypatch.undo()
+
+    # 9's verdicts. F-101 was answered in two places and only one of them is
+    # load-bearing, so both are asserted separately rather than rolled into
+    # "it is caught now":
+    #
+    #  (a) each plant really is the SWALLOW shape — the pre-fix stripper
+    #      (no guard on either block opener, `(?<!:)` on the `//` form)
+    #      destroys the thing the scan has to find, so these are controls
+    #      over the fix and not plain references with a comment nearby;
+    #  (b) the shipped `_COMMENTS` does NOT destroy it, which is what the
+    #      three lookbehinds buy and the only thing that holds them;
+    #  (c) the scan reports it EVEN WITH the pre-fix stripper patched back
+    #      in, which is the half that carries the fix. A lookbehind is a
+    #      guess about the character in front of a delimiter, and the next
+    #      shape nobody thought of walks straight past it — that is how this
+    #      defect arrived twice. What closes it is that nothing which could
+    #      hide egress reads the stripped text at all.
+    swallows = (
+        ("probe-block-swallow.js", "evil.example", "foreign"),
+        ("probe-block-swallow.css", "evil.example", "foreign"),
+        ("probe-html-comment-swallow.html", "evil.example", "foreign"),
+        ("probe-regex-swallow.js", "also-gone-from-this-tree", "unclassifiable"),
+        ("probe-bare-host-swallow.js", "evil.example", "foreign"),
+        ("probe-identifier-swallow.js", "device_id", "identifiers"),
+    )
+    destructive = (
+        re.compile(r"/\*.*?\*/", re.DOTALL),
+        re.compile(r"<!--.*?-->", re.DOTALL),
+        re.compile(r"(?<!:)//[^\n]*"),
+    )
+
+    def strip_with(patterns, body):
+        for pattern in patterns:
+            body = pattern.sub(lambda match: "\n" * match.group(0).count("\n"), body)
+        return body
+
+    for name, needle, bucket in swallows:
+        assert [hit for hit in planted[bucket] if name in hit], (name, planted)
+        body = (probed / name).read_text(encoding="utf-8")
+        assert needle in body, name
+        assert needle not in strip_with(destructive, body), (
+            f"{name} is not the swallow shape: the pre-fix stripper left "
+            f"{needle!r} in place, so it is not a control over this fix"
+        )
+        assert needle in strip_with(_COMMENTS, body), (
+            f"{name}'s {needle!r} is destroyed by the SHIPPED stripper, so a "
+            "lookbehind is missing from _COMMENTS"
+        )
+    monkeypatch.setattr(sys.modules[__name__], "_COMMENTS", destructive)
+    swallowed = scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)
+    monkeypatch.undo()
+    for name, _, bucket in swallows:
+        assert [hit for hit in swallowed[bucket] if name in hit], (name, swallowed)
+    # 10 — a full URL in a comment is reported.
+    assert [
+        hit for hit in planted["foreign"] if "probe-url-in-comment.js" in hit
+    ], planted
 
     # And the vocabulary is compound rather than bare, which is a measured
     # requirement and not a style: the tree's own grid fingerprints would
@@ -3010,6 +3258,36 @@ def test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself() ->
         "o",
         "--force",
     ]
+
+    # And the flag names the deploy page spells ARE the options argparse
+    # accepts. Cycle 2's F-103: the page and the parser agreed by hand and
+    # nothing held them to each other, in a card whose subject is that an
+    # unfalsifiable claim is not a claim. Derived from `--help` rather than
+    # from this module's source, so a renamed option reds here even while the
+    # old name survives in prose. The page backticks another tool's flag only
+    # inside the whole command it belongs to (`vercel deploy --prebuilt`), so
+    # a flag backticked on its own in that page is this helper's.
+    helped = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
+            "--help",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert helped.returncode == 0, helped.stderr
+    options = set(re.findall(r"--[a-z][a-z-]*", helped.stdout))
+    page = (REPO_ROOT / driver.DEPLOY_DOC).read_text(encoding="utf-8")
+    page_flags = set(re.findall(r"`(--[a-z][a-z-]*)`", page))
+    assert {"--analytics", "--print-only"} <= page_flags, sorted(page_flags)
+    assert page_flags <= options, sorted(page_flags - options)
+    # Counting is opt-IN, so the opt-out flag exists in neither place: the
+    # safe tree is what a bare run produces (drift step 4).
+    assert "--no-analytics" not in page_flags | options, sorted(options)
+    assert "--analytics" in options, sorted(options)
 
 
 def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:
