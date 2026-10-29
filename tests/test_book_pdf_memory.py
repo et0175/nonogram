@@ -159,6 +159,7 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_PAGE_COUNT,
     BookPDFGenerator,
     DividerPagePlan,
+    PageKind,
     PuzzlePagePlan,
     _answer_extent,
     _band_font,
@@ -3867,7 +3868,9 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             yield blank
 
         with pytest.raises(RuntimeError) as raised:
-            generator._write_pdf(two_of_three(), 3, mode="RGB")
+            generator._write_pdf(
+                two_of_three(), 3, mode="RGB", kinds=(PageKind.PUZZLE,) * 3
+            )
 
         assert "interior has 2 pages, its page plan says 3" in str(raised.value)
 
@@ -3883,7 +3886,9 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
                 yield blank
 
         with pytest.raises(RuntimeError) as raised:
-            generator._write_pdf(four_of_three(), 3, mode="RGB")
+            generator._write_pdf(
+                four_of_three(), 3, mode="RGB", kinds=(PageKind.PUZZLE,) * 3
+            )
 
         assert "interior has at least 4 pages, its page plan says 3" in str(
             raised.value

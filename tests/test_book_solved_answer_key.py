@@ -2063,6 +2063,7 @@ from PIL import Image as _Image, ImageDraw as _ImageDraw
 from nonogram.admin import book_answer_vector, book_toc_vector, book_vector_draw
 from nonogram.admin.book_pdf_generator import (
     DividerPagePlan,
+    PageKind,
     PuzzlePagePlan,
     TocEntry,
     _SOLVED_GRID_GRAY,
@@ -2382,7 +2383,10 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         payload, number, page_number, title = recorded.answers[0]
         page = recorded.generator.solved_puzzle_page(payload, number, page_number, title)
         data = recorded.generator._write_pdf(
-            [page], 1, mode=recorded.generator.interior_bitmap_mode
+            [page],
+            1,
+            mode=recorded.generator.interior_bitmap_mode,
+            kinds=(PageKind.ANSWER,),
         ).getvalue()
         assert any("XObject" in keys for keys in pdf_vector.page_resource_keys(data))
 
@@ -2716,8 +2720,35 @@ _NOT_A_DOOR_BECAUSE = {
 
 
 def _public_members(cls) -> List[str]:
-    """``cls``'s own public names, in a stable order."""
-    return sorted(name for name in vars(cls) if not name.startswith("_"))
+    """``cls``'s public names, **inherited ones included**, in a stable order.
+
+    **CARD-298, taking CARD-297's review cycle 2 finding F2-01.** This was
+    ``vars(cls)`` for one card, which reads the class's own ``__dict__``
+    alone — so a drawing door contributed by a *base* class is simply not in
+    the set. Cycle 2 drove exactly that: a mixin ahead of ``ContentStream``
+    carrying a ``hatch`` method, the class's own surface left at sixteen, and
+    a ``stream.hatch`` grid walk **ADMITTED** with both guard cells green and
+    :data:`_UNCLASSIFIED_DOORS` empty.
+
+    It was left for a later card on purpose, and the reason constrains how it
+    lands: **it changes the guard's own derivation, and a merge gate does not
+    mutate** — a version that silently returned *everything* would pass
+    exactly as a correct one would. So it ships with its control in the same
+    commit, as ``TestContentStreamDoors_AnInheritedDoorIsWatched`` below:
+    the shipped class's reading is unmoved at sixteen, an inherited drawing
+    door is watched, and the over-returning version is caught by the live
+    ``_UNCLASSIFIED_DOORS == ()`` cell rather than by inspection.
+
+    ``dir()`` rather than a walk of ``__mro__``: it is the stdlib's own answer
+    to "what can be reached through an instance of this class", which is
+    exactly the question a door guard asks, and it is the authority
+    ADR-0039/R2 wants rather than a second enumeration of inheritance written
+    here. Nothing public comes from ``object`` — its whole surface is
+    dunders — so the leading-underscore filter is what keeps the two readings
+    identical on a class that inherits only ``object``, and that identity is
+    asserted rather than assumed.
+    """
+    return sorted(name for name in dir(cls) if not name.startswith("_"))
 
 
 def _content_stream_doors(cls=ContentStream) -> Tuple[Tuple[str, ...], dict, Tuple[str, ...]]:
@@ -3063,6 +3094,17 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         derivation, and the method is in the watched set — the property the
         hand-listed tuple did not have, and the one that would have caught
         F-297-01 the day ``begin_path`` was added.
+
+        **CARD-298 widened the two readings below, and the widening is the
+        F2-01 fix showing through.** They used to be ``doors == ("zigzag",)``:
+        under ``vars(cls)`` a subclass's reading held its *own* member and
+        nothing it inherited, so this cell measured a one-member class and the
+        eight doors the subclass really exposes were outside it. Since
+        :func:`_public_members` reads ``dir(cls)``, the subclass's doors are
+        the base's eight **plus** ``zigzag`` — which is both a stronger claim
+        and the claim this test meant to make. The assertion is widened, not
+        relaxed: ``zigzag`` is still required to be in the set and still
+        required to be reported unclassified without a probe.
         """
 
         class _WithOneMoreDoor(ContentStream):
@@ -3079,12 +3121,118 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         try:
             _DOOR_PROBE["zigzag"] = (1.0, 2.0)
             doors, emits, unclassified = _content_stream_doors(_WithOneMoreDoor)
-            assert doors == ("zigzag",), doors
+            assert set(doors) == set(_STROKERS) | {"zigzag"}, doors
             assert unclassified == (), unclassified
             assert set(emits["zigzag"]) & _PATH_OPERATORS, emits["zigzag"]
             del _DOOR_PROBE["zigzag"]
             doors, _, unclassified = _content_stream_doors(_WithOneMoreDoor)
-            assert doors == ("zigzag",) and unclassified == ("zigzag",)
+            assert set(doors) == set(_STROKERS) | {"zigzag"}, doors
+            assert unclassified == ("zigzag",), unclassified
+        finally:
+            _DOOR_PROBE.clear()
+            _DOOR_PROBE.update(saved)
+
+    # ----------------------------------------------------------------------
+    # CARD-298 / F2-01 — the derivation sees a door a BASE class contributes
+    # ----------------------------------------------------------------------
+
+    def test_an_inherited_drawing_door_is_watched(self) -> None:
+        """F2-01's own case, rebuilt: a mixin **ahead** of ``ContentStream``.
+
+        CARD-297 review cycle 2 built this and the route was **ADMITTED**:
+        with ``_public_members`` reading ``vars(cls)``, a ``hatch`` method
+        contributed by a base class was not in the class's own ``__dict__``,
+        so the derivation never drove it, never classified it and never
+        reported it — ``_UNCLASSIFIED_DOORS`` was empty and both guard cells
+        were green while a ``stream.hatch`` grid walk went through.
+
+        The mixin is **first** in the bases, which is the half that matters:
+        the class's own surface is left at sixteen exactly as the shipped
+        class's is, so nothing about the class's own ``__dict__`` tells the
+        two apart. The door is found through the MRO or it is not found.
+        """
+
+        class _Hatching:
+            def hatch(self, x: float, y: float, pitch: float) -> None:
+                self.begin_path(x, y)
+                self.line_to(x + pitch, y + pitch)
+                self.paint("stroke")
+
+        class _Mixed(_Hatching, ContentStream):
+            pass
+
+        # The class's own surface is empty, exactly as cycle 2 arranged it:
+        # a reading taken from `vars` alone cannot see this door at all.
+        assert [n for n in vars(_Mixed) if not n.startswith("_")] == []
+        assert "hatch" not in vars(ContentStream)
+        assert "hatch" in _public_members(_Mixed)
+
+        doors, _, unclassified = _content_stream_doors(_Mixed)
+        assert "hatch" in doors, doors
+        # And it is reported, not silently watched: the live guard cell asserts
+        # `_UNCLASSIFIED_DOORS == ()`, so a door nobody has classified reds
+        # there rather than being absorbed.
+        assert unclassified == ("hatch",), unclassified
+
+    def test_the_derivation_is_unmoved_on_the_shipped_class(self) -> None:
+        """And the fix changes **nothing** at HEAD, which is why it is safe.
+
+        ``ContentStream`` inherits only ``object``, whose public surface is
+        empty, so the ``dir()`` reading and the retired ``vars()`` reading are
+        the same sixteen names. Asserted as a set equality rather than as a
+        count, so a member that appeared *and* one that vanished could not
+        cancel.
+        """
+        assert ContentStream.__mro__ == (ContentStream, object)
+        own = sorted(name for name in vars(ContentStream) if not name.startswith("_"))
+        assert _public_members(ContentStream) == own, (
+            _public_members(ContentStream),
+            own,
+        )
+        assert len(own) == 16, own
+        assert len(_STROKERS) == 8, _STROKERS
+
+    def test_the_derivation_is_not_simply_returning_everything(self) -> None:
+        """The control the brief for this fix asked for, in both directions.
+
+        *"A ``dir()``-based version that silently returned everything would
+        pass exactly as a correct one would."* It would not, and this is why
+        rather than a sentence saying so:
+
+        * **no name it returns is private**, so the ~26 dunders ``dir()``
+          itself reports are out — a version that kept them would drive
+          ``__init__``, ``__class__`` and the rest through
+          :func:`_content_stream_doors`, land every one of them in
+          ``unclassified`` (no :data:`_DOOR_PROBE` entry), and red the live
+          ``_UNCLASSIFIED_DOORS == ()`` cell on the shipped class;
+        * **it still discriminates**: an inherited member that paints nothing
+          and has a probe is classified as not-a-door, so the widened
+          derivation is not a set that swallowed its own class.
+
+        The second bullet is the one a "return everything" version passes and
+        a *correct* one has to earn, so it is driven rather than argued.
+        """
+        assert all(not name.startswith("_") for name in _public_members(ContentStream))
+        assert len(dir(ContentStream)) > len(_public_members(ContentStream)) + 20
+
+        class _Describing:
+            def describe(self, width: float) -> float:
+                return self.to_points(width)
+
+        class _Mixed(_Describing, ContentStream):
+            pass
+
+        saved = dict(_DOOR_PROBE)
+        try:
+            _DOOR_PROBE["describe"] = (10.0,)
+            doors, emits, unclassified = _content_stream_doors(_Mixed)
+            assert "describe" in _public_members(_Mixed)
+            assert "describe" not in doors, doors
+            assert emits["describe"] == (), emits["describe"]
+            assert unclassified == (), unclassified
+            # The eight real doors are still exactly the eight, so widening
+            # the surface did not widen the verdict.
+            assert set(doors) == set(_STROKERS), sorted(set(doors) ^ set(_STROKERS))
         finally:
             _DOOR_PROBE.clear()
             _DOOR_PROBE.update(saved)

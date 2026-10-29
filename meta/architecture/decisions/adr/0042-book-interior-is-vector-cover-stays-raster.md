@@ -105,6 +105,22 @@ smaller**, it needs no `pytest.approx`, no `CELL_PITCH_SLACK_MM`, no
 and imports no geometry, so only the right half of the pairing changes, and it
 gets *more* precise by losing `PX_PER_MM` rounding.
 
+<!-- CORRECTED 2026-10-29 (CARD-299 round 1, figures labelled in fix round 1).
+The 4.1x above is real but CONDITIONAL: it assumes the ink arm is DELETED, which
+requires the page to be vector. CARD-299 converted three of this rule's sites
+with all seven page kinds still declared raster, so both arms had to coexist AND
+the stream arm needed its own non-dormancy controls — and the replacement was
+necessarily LARGER. The figures, each labelled by its reading because the same
+diff reads two ways. `git show --numstat eed831ea` reads **261 added / 11
+deleted** for `tests/property/test_book_export_interior.py` and **359 added / 2
+deleted** for `tests/test_book_interior_type_floor.py`; `git show --stat` reads
+**272** and **361** for the same two files, which are added PLUS deleted
+(261+11 and 359+2) and not insertion counts. Round 1's "+272 and +361" quoted
+the `--stat` totals as if they were insertions. The 4.1x becomes available to
+CARD-309, when an arm can
+actually be removed. "No weaker" was demonstrated by mutants and stands. -->
+
+
 **Mixing is permitted per page, and is a stable end state rather than a
 migration artefact.** Each PDF page is its own content stream, so a page that
 turns out not to be worth converting may stay raster — declared, with its reason.
@@ -302,6 +318,35 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   because the exception **expires when CARD-231 lands** — a declaration whose
   reason has gone is itself a defect under R2.
 
+- 2026-10-29: **The medium is now chosen per page, and the declared set is
+  seven rather than two** (CARD-298). `_write_pdf` takes one `PageKind` per
+  planned page and asks `page_medium` — the module's single decision point,
+  held to one place by an AST guard — so the object table is laid out per
+  medium, the face is embedded once per file and only when some page is
+  vector, and a page that arrives in the other medium's representation is
+  refused rather than written. Mixed files work and are measured.
+
+  **What this card could not do, and why it matters to the phase's order.**
+  No interior page ships as operators, because three things block it and all
+  three were measured rather than estimated (R1's note below carries the
+  figures): the test tree's readers require a DCTDecode image on every page of
+  every book PDF, so converting even the blank title page reds 112 cells —
+  that conversion is R6's, owned by CARD-299, which means **R1's card depends
+  on CARD-299 and not the reverse**; `book_puzzle_vector` draws no sheet
+  furniture, so a vector puzzle page would print with no page number;
+  and three of the four vector page writers import `book_pdf_generator`, so
+  the interior's own walk cannot call them. **The 21 book baselines therefore
+  did not move**, which is the opposite of what CARD-298's brief predicted and
+  is recorded here because the next card will predict it again: the baselines
+  move when R6 lands, not when the medium decision does.
+
+  **One gap AC-1 named and this card did not close**: the proof sheet
+  (`book_proof.render_proof_pdf`) writes through `Image.save(save_all=True)`,
+  a second writer with no page kinds behind it, so it is outside the medium
+  decision. Held where it can be seen —
+  `tests/test_book_pdf.py::test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision`
+  asserts both halves, so the note cannot go stale.
+
 ## Rules
 
 ```yaml
@@ -314,34 +359,118 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     raster exceptions and are governed by R2.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
   check: {kind: review-lens}
-  # PLANNED TEST, owed by the phase's first card:
+  # The test now EXISTS and is green:
   #   tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject
-  # Flip this check to `kind: test` with that ref when the card lands, on
-  # CON-020's precedent (2026-10-06, "was `kind: review-lens` ... CARD-184 wrote
-  # it"). Held as a lens until then because a `kind: test` ref naming a test that
-  # does not exist is read as mechanically checked by system_rules.py and
-  # forge:review Step 8h: a card violating R1 would draw NO flag, which is
-  # strictly worse than a lens, which at least makes a human look.
+  # **CARD-298 deliberately did NOT flip this check, and the reason is a
+  # measurement.** That test asserts the equivalence "every page is the medium
+  # its kind declares", page by page over the plan, and it is derived and
+  # default-DENY. It is NOT the statement above: as of CARD-298 every interior
+  # page kind is a DECLARED raster exception (see R2 and
+  # `book_pdf_generator._RASTER_DECLARATIONS`), so the sentence "puzzle pages,
+  # answer pages, the table of contents and the guide are written as PDF
+  # content-stream operators" is false of every book this product ships.
+  # Flipping the check would mark a rule as mechanically checked by a test that
+  # passes while the rule is violated — the exact defect repaired in `c12c33ce`
+  # and again in ADR-0032/R3, arrived at from the other direction.
+  #
+  # Three blockers, each measured by CARD-298, and the first is the one that
+  # fixes the ordering:
+  #
+  #   1. **The readers.** `tests/helpers/pdf_pages.py` asserts "a book page is
+  #      exactly one image" and requires a DCTDecode XObject on EVERY page of
+  #      every book PDF; 60 call sites across 14 test modules read a book
+  #      interior through it. Converting the single cheapest page kind — the
+  #      blank title page, whose two media draw the same page by construction —
+  #      reds **59 failures and 53 errors, 112 cells**, in the impact-scoped set
+  #      alone (measured 2026-10-29 on this branch, `KeyError: b'XObject'` and
+  #      `'ContentStream' object has no attribute 'tobytes'`). That conversion
+  #      is R6's, owned by CARD-299. **So R1's own card depends on CARD-299 and
+  #      not the other way round**, which is the opposite of the order the
+  #      kanban cut them in.
+  #   2. **The puzzle page's furniture.** `book_puzzle_vector` draws no sheet
+  #      furniture at all — no folio, no frame rules, no grid-size label, no QR
+  #      block — which that module's own docstring raises as a gap "not drawn by
+  #      any card in the ADR-0042 phase". A vector puzzle page today prints with
+  #      no page number on it.
+  #   3. **The layering.** `book_guide_vector`, `book_toc_vector` and
+  #      `book_answer_vector` all import `book_pdf_generator` at module level,
+  #      so the interior's own page walk — which lives in that module — cannot
+  #      call three of the four vector page writers. The assembly point for a
+  #      vector interior is downstream of all of them and does not exist yet.
+  #
+  # Flip this check when the statement is true of a shipped interior, i.e. when
+  # the five temporary entries in `_RASTER_DECLARATIONS` are gone.
   severity: mandatory
 - id: ADR-0042/R2
   statement: >-
-    A page may be raster only where this ADR or a successor declares it with
-    a reason. Two are declared: the COVER, because it is a photograph; and
-    the SECTION DIVIDERS, because CARD-231 redesigns that page and the new
-    design should be born vector rather than the old one converted. Per-page
-    mixing is a sanctioned end state, not a migration artefact — each PDF
-    page is its own content stream. A page that is raster without a
-    declaration is a defect, and so is a declaration whose reason has expired:
-    once CARD-231 lands, the divider's exception goes with it.
+    A page may be raster only where it is declared with a reason, on a named
+    authority, and with the card that removes it. The declarations are
+    `nonogram.admin.book_pdf_generator._RASTER_DECLARATIONS` — that mapping is
+    the authority, and this rule's business is that every bitmap page in a
+    written file matches a live entry in it. Two entries are this ADR's own:
+    the COVER, because it is a photograph, permanently; and the SECTION
+    DIVIDERS, because CARD-231 redesigns that page and the new design should be
+    born vector rather than the old one converted. Per-page mixing is a
+    sanctioned end state, not a migration artefact — each PDF page is its own
+    content stream. A page that is raster without a declaration is a defect,
+    and so is a declaration whose reason has expired: once CARD-231 lands, the
+    divider's exception goes with it.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
-  check: {kind: review-lens}
-  # PLANNED TEST, owed by the phase's first card (see R1's note on why this is a
-  # lens and not a dead `kind: test` ref):
+  check: {kind: test, ref: test_every_raster_page_is_declared_with_its_reason}
+  # FLIPPED FROM review-lens 2026-10-29 by CARD-298, in CARD-298's own feature
+  # commit — the precedent R5 sets in this same file (CARD-294, `0c63a328`) and
+  # CARD-227's ADR-0037/R2 flip in `7d86a869`. Both flipped in the commit that
+  # wrote the test; neither waited for a merge. The ref is written as the BARE
+  # test name for the reason R5's note measures at length: the validators'
+  # `split_check_ref` splits on COMMAS only, so a `file::name` ref is handed to
+  # `git grep -lw` as one literal symbol and resolves to nothing. Re-measured
+  # on this very edit, on this branch, with the validator's own pathspec:
+  #   git grep -lw "tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason" \
+  #     -- . ":(exclude)meta/architecture" ":(exclude)*.md"   -> rc=1, 0 files
+  #   git grep -lw "test_every_raster_page_is_declared_with_its_reason" \
+  #     -- . ":(exclude)meta/architecture" ":(exclude)*.md"   -> tests/test_book_pdf.py
+  # and end to end through the validator of record: the node-id spelling took
+  # this tree from 107 warnings to 108, the added one being "ADR-0042/R2 ...
+  # DEAD check ref"; the bare name leaves the warning SET byte-identical at 107.
+  # So the node-id spelling would have flipped the lens into something strictly
+  # worse than a lens, and this spelling is the honest one.
+  #
+  # The test EXISTS and is green, derived and default-DENY per ADR-0039/R2
+  # (a page whose medium it cannot classify is a FAILURE, never a silent pass).
+  # The three node ids, spelled here in the COMMENT where no search reads them:
   #   tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason
-  # Per ADR-0039/R2 that test must be DERIVED and default-DENY: a page whose
-  # medium it cannot classify is a FAILURE, never a silent pass. The declared set
-  # it checks against is {cover, section dividers} and shrinks to {cover} when
-  # CARD-231 lands — the expiry in the statement above is the test's business.
+  # with the expiry clause as its own criterion —
+  #   tests/test_book_pdf.py::test_a_declaration_whose_reason_expired_is_a_defect
+  # and swept over a seeded corpus by
+  #   tests/test_book_pdf.py::test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages
+  # This ref resolves and the test checks exactly this statement, so unlike R1's
+  # the flip is honest.
+  #
+  # What the ref does NOT reach, stated because the rule's own clause depends on
+  # it: the guard sees a declaration go stale in TWO directions, and they were
+  # closed by two different cards. The CONVERSION direction (a page became
+  # vector while its declaration stayed) is `test_a_declaration_whose_reason_
+  # expired_is_a_defect`, CARD-298's original work. The LANDING direction — this
+  # statement's own wording, "once CARD-231 lands, the divider's exception goes
+  # with it" — was UNGUARDED at CARD-298 review cycle 1 and is closed by
+  #   tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it
+  # with its control over a synthetic board at
+  #   tests/test_book_pdf.py::test_a_declaration_outliving_its_done_card_is_a_defect
+  # which read the expiry card's `**Status:**` out of meta/kanban/cards/. What
+  # that reads is that the CARD is done, not that the CONVERSION happened: a card
+  # closed without converting its page still reds (which is the mis-attribution
+  # cycle 1 found), and a page converted by a card that is still open is caught
+  # by the conversion direction instead. Between them the two directions are
+  # total over the ways an entry can go stale; neither alone is.
+  #
+  # **The statement was amended by CARD-298, and the amendment is the finding.**
+  # It used to read "Two are declared"; the registry holds SEVEN. The five
+  # additions are the interior kinds this ADR means to be vector and which
+  # measurably cannot be yet — see R1's note for the three blockers, each of
+  # which is named in the reason of every entry it blocks. The count is
+  # deliberately not restated as a number in this statement: the registry is
+  # the authority, the entries carry their own reasons and owners, and a count
+  # in prose beside a mapping in code is the drift CARD-261 found twice.
   severity: mandatory
 - id: ADR-0042/R3
   statement: >-
@@ -457,6 +586,86 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     not be used to recover a width the generator stated.
   scope: {code: ["tests/**"]}
   check: {kind: review-lens}
+  # CARD-299 (2026-10-29) was dispatched to flip this check to the planned test
+  # named below and DID NOT, and the refusal is four measurements rather than
+  # caution. CARD-298 refused R1's flip for the same class of reason and was
+  # right; this is the same refusal one rule along.
+  #
+  #   1. **Two of the six sites this comment names are not interior PDF
+  #      readings at all.** `tests/property/test_book_layout.py:364` renders
+  #      through `nonogram.export.png.render_image`, and
+  #      `tests/property/test_book_two_up.py:682` builds a bare `PIL.Image` and
+  #      calls `png._draw_grid` / `png._draw_clues` directly. Neither writes a
+  #      PDF, so neither has a content stream to be asserted against, and both
+  #      are COMP-007's drawing surface — which CARD-299's own G-4 and CON-019
+  #      put outside ADR-0042's reach. A guard built from this enumeration
+  #      would be built from a wrong set.
+  #   2. **The enumeration disagrees with the census by 50x.** Re-derived with
+  #      `meta/profiling/adr-0042-migration-census.md`'s own two regexes on
+  #      main at `4ce84c30`: **34 files, 321 sites**. This comment names 6.
+  #      Both are cited as this rule's authority and they are not the same set.
+  #   3. **The census is stale in the direction that matters.** It records
+  #      **32 files / 315 sites** at `c12c33ce` (2026-10-25); the same
+  #      derivation reads **34 / 321** at `4ce84c30` four days later. The
+  #      migration surface GREW by 2 files and 6 sites during the phase that
+  #      exists to shrink it.
+  #   4. **An idiom count cannot measure "the set is empty".** CARD-299's own
+  #      correct conversion of this comment's three real sites RAISED
+  #      `tests/property/test_book_export_interior.py` from **8 to 13** idiom
+  #      occurrences — the medium-gated helpers and their non-dormancy controls
+  #      are themselves matches — while making the assertions exact. So the
+  #      census idiom count moves the wrong way on a conversion, and a guard
+  #      ratcheting it would red on the work it exists to encourage.
+  #
+  # What CARD-299 landed instead, and why it is the instrument this rule wants:
+  # the three real sites are now read in the medium `page_medium` declares for
+  # the page's kind (bitmap arm = today's assertion, stream arm = R6's exact
+  # one), with a page the classifier cannot classify a FAILURE per ADR-0039/R2,
+  # and with the stream arm proved non-dormant on a real vector page written by
+  # production's own writer. The same shape landed on CON-020's floor check.
+  # That is a RUNTIME property — "this claim was read in the medium its page
+  # was written in" — and it is why a static enumeration over `tests/**` is the
+  # wrong instrument: which page a `getpixel` lands on is not an AST fact.
+  #
+  # Flip this check when a card owns the guard as its subject. **That card is
+  # CARD-312** (cut 2026-10-29 on owner decision, inheriting CARD-299's AC-3
+  # and AC-4 together with the enumeration correction above): a 321-site
+  # surface, a per-site disposition, and the conclusion-keyed device-fact
+  # discriminator below (the `==`-against-a-declared-width versus bracketing
+  # distinction, which is decidable but is a static-analysis card of its own)
+  # are not a sub-item of a reader conversion. CARD-299's G-9 was INVERTED on
+  # the same decision: this lens MUST survive CARD-299, so a later round
+  # "restoring" the flip here is a defect, not a fix.
+  #
+  # TWO THINGS CARD-299 RAISED THAT THIS RULE'S OWN READERS NEED, both
+  # measured, and both wider than round 1 wrote them (review cycle 1, F-001
+  # and F-002):
+  #
+  #   * **CON-020's clue-digit exemption has no counterpart in a content
+  #     stream, on TWO page kinds and not one.** The exemption is keyed on the
+  #     function that draws and a stream records no provenance. Joining every
+  #     exempt face in the spy recording to its page's `PageKind`, the exempt
+  #     sub-floor faces are ('answer', 8.64 pt): **258** and
+  #     ('puzzle', 8.64 pt): **204** — the larger share on the ANSWER page,
+  #     drawn 322x per book through `book_pdf_generator._write_clues`, and
+  #     `book_answer_vector.py:403` calls `draw_clue_digits` so the vector
+  #     answer writer draws them too. So a stream-read floor on either kind
+  #     would report false CON-020 violations, and CON-020's reading refuses
+  #     both kinds — the set DERIVED from `src/` per ADR-0039/R2, not listed.
+  #     The `src/` change that lets the stream mark its clue digits is
+  #     **CARD-314's**, and its scope covers both kinds.
+  #   * **A medium-agnostic READING is not a medium-agnostic reader.** The
+  #     helpers CARD-299 converted take the declarations as they shrink, but
+  #     the modules' own call sites still read an interior through
+  #     `tests/helpers/pdf_pages.py`, which loops every page asserting one
+  #     `DCTDecode` image: measured, lifting one `_RASTER_DECLARATIONS` entry
+  #     makes `pdf_pages` raise `KeyError: b'XObject'`. 12 test modules import
+  #     that reader and CARD-299 converted the readings in 2 of them, so
+  #     **CARD-299 does not finish the reader conversion** — an `expires_with`
+  #     naming it should not be read as saying it does. **CARD-309's AC-3 owns
+  #     the reader surface** ("the 14 modules plus 3 helpers that went through
+  #     `tests/helpers/pdf_pages.py`'s one-image assertion").
+  #
   # PLANNED TEST, owed by the card that converts the last interior pixel reader
   # (see R1's note on why this is a lens and not a dead `kind: test` ref):
   #   tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink

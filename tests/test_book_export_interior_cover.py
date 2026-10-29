@@ -1472,7 +1472,15 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # appearing or vanishing reds here instead of drifting under a floor.
         # CARD-295 added the eighth, `vector_puzzle_pages`' own walk default:
         # the vector twin of `puzzle_pages`, so the walk defaults are three.
-        assert len(sites) == 8, [text for _, _, text in sites]
+        # CARD-298 added the ninth, and it is a *range end* rather than a
+        # position: `interior_stream`'s page-kind list walks the guide over
+        # `range(1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1)`,
+        # which is `produce()`'s own guide range spelled the same way so that
+        # the two walks read as one walk. Spelled as the bare repeat count
+        # `[PageKind.GUIDE] * GUIDE_PAGE_COUNT` it reds the inner assertion
+        # below instead of this count — measured, which is how the range
+        # spelling was chosen.
+        assert len(sites) == 9, [text for _, _, text in sites]
         for line, node, text in sites:
             names = {
                 inner.id for inner in ast.walk(node) if isinstance(inner, ast.Name)
@@ -3219,7 +3227,14 @@ class Generator:
         "puzzle_page",
         "title_page_number",
     )
-    POSITION_SITE_COUNT = 24
+    #: CARD-298: 25, not 24. The one added row is a ``parameter default`` —
+    #: ``vector_title_page(page_number)`` at ``book_pdf_generator.py:4998``,
+    #: :meth:`create_title_page`'s vector twin, whose position argument is the
+    #: raster twin's own. Re-derived from the row list rather than from the
+    #: total: the ``parameter default`` rows go 6 -> 7 and every other
+    #: classification is unmoved, so the delta is attributable to one method
+    #: and not to a drift somewhere in the other 24.
+    POSITION_SITE_COUNT = 25
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -3612,11 +3627,50 @@ class Generator:
     #: the same shape CARD-227 recorded above for the same reason. Three
     #: figures, three independent derivations, one of which predicts *no*
     #: movement: that is what distinguishes a re-measurement from a bump.
+    #: **CARD-298 re-measured the whole sequence, and attributed the delta row
+    #: by row rather than bumping a count.** The steps move +40, +24, +8, +8,
+    #: and every one of those rows is a call this card added, grouped by the
+    #: class that absorbs it:
+    #:
+    #: * **16 builtins** — ``isinstance`` x4 (the writer's two medium/page-type
+    #:   refusals and ``page_medium``'s own kind check), ``TypeError`` x3,
+    #:   ``range`` x3, ``len`` x2, ``type`` x2, ``ValueError``, ``tuple``.
+    #:   These drop at the ``builtins`` step, which is why step 0 moves +40 and
+    #:   step 1 only +24.
+    #: * **16 definitions and imports** — ``RasterDeclaration`` x7 (the
+    #:   registry's seven entries), ``page_medium`` x2, and one each of
+    #:   ``dataclass``, ``page_frame``, ``ContentStream``,
+    #:   ``write_face_objects``, ``write_vector_page``,
+    #:   ``interior_face_bytes``, ``interior_face_metrics``. These drop at the
+    #:   second step, which is why it moves +8 and not +24.
+    #: * **8 attributes of a receiver this module does not define** —
+    #:   ``page_kinds.extend`` x5 and ``pdf.next_object_id`` x3. Nothing
+    #:   absorbs these, which is why the last two steps move by the same +8.
+    #:
+    #: **Independently counted, in a different domain**: the module gains
+    #: **+42** ``ast.Call`` nodes between ``8b307c22`` and this branch
+    #: (**838 → 880**), against this walk's **+40** refusals. The derivation is
+    #: restated here rather than cited: it used to name a census file that
+    #: lived in a session scratchpad at an absolute path *outside* the repo, so
+    #: it resolved nowhere from a checkout and died with the session — a dead
+    #: check ref one level down (CARD-298 review cycle 1, F-004). It is one
+    #: line, which is what made the dangling citation avoidable. From the repo
+    #: root, for either side:
+    #:
+    #:     git show REV:src/nonogram/admin/book_pdf_generator.py | python -c \
+    #:       'import ast,sys; print(sum(isinstance(n, ast.Call) for n in
+    #:        ast.walk(ast.parse(sys.stdin.read()))))'
+    #:
+    #: The residual is exactly two — ``self.page_spec``
+    #: and ``self.vector_title_page`` — which this walk resolves because
+    #: ``self`` is a receiver the module does define, and ``append`` nets zero
+    #: because one site moved from ``image_refs`` to ``page_kinds``. Two
+    #: readings, one reconciliation, no unexplained remainder.
     CALLEE_EXEMPTION_COST = (
-        ((), 776),
-        (("builtins",), 522),
-        (("builtins", "definitions and imports"), 204),
-        (("builtins", "definitions and imports", "parameters"), 202),
+        ((), 816),
+        (("builtins",), 546),
+        (("builtins", "definitions and imports"), 212),
+        (("builtins", "definitions and imports", "parameters"), 210),
         (
             (
                 "builtins",
@@ -5518,7 +5572,13 @@ class Generator:
         # and 17 + 1 = 18 is CARD-206 cycle 2's figure, which counted door-name
         # occurrences in callee-ish position. Under the stated rule 17 is
         # right; CARD-262 cycle 1's review re-derived both independently.
-        assert inside == 17, inside
+        # CARD-298: 18, and the one added call is named rather than counted —
+        # ``self.page_spec(page_number)`` inside ``vector_title_page``, which
+        # takes its sheet from its own position exactly as
+        # ``create_title_page`` does. The door is ``page_spec``; the
+        # definition count is unmoved at one, so 18 + 1 = 19 under cycle 2's
+        # occurrence rule.
+        assert inside == 18, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

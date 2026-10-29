@@ -116,6 +116,8 @@ __all__ = [
     "font_metrics",
     "interior_face_bytes",
     "interior_face_metrics",
+    "write_face_objects",
+    "write_vector_page",
     "write_vector_pdf",
 ]
 
@@ -1060,24 +1062,12 @@ def write_vector_pdf(
     pdf.write_comment(comment)
     pdf.write_catalog()
 
-    _write_face(pdf, face, measured, font_ref, descriptor_ref, file_ref)
+    write_face_objects(pdf, face, measured, font_ref, descriptor_ref, file_ref)
 
     index = 0
     for stream in _exactly(pages, page_count):
-        _, _, width_pt, height_pt = stream.media_box
-        pdf.write_page(
-            page_refs[index],
-            Resources=PdfParser.PdfDict(
-                ProcSet=[PdfParser.PdfName("PDF"), PdfParser.PdfName("Text")],
-                Font=PdfParser.PdfDict(**{FACE_RESOURCE_NAME: font_ref}),
-            ),
-            MediaBox=[0, 0, width_pt, height_pt],
-            Contents=contents_refs[index],
-        )
-        pdf.write_obj(
-            contents_refs[index],
-            stream=zlib.compress(stream.render(), 9),
-            Filter=PdfParser.PdfName("FlateDecode"),
+        write_vector_page(
+            pdf, stream, page_refs[index], contents_refs[index], font_ref
         )
         index += 1
 
@@ -1120,7 +1110,50 @@ def _flate_face(face: bytes) -> bytes:
     return zlib.compress(face, 9)
 
 
-def _write_face(
+def write_vector_page(
+    pdf: PdfParser.PdfParser,
+    stream: ContentStream,
+    page_ref: Any,
+    contents_ref: Any,
+    font_ref: Any,
+) -> None:
+    """Write one vector page's **two** objects into ``pdf``, at its own ids.
+
+    The page and its FlateDecoded operator stream — the body of
+    :func:`write_vector_pdf`'s own loop, named so that a writer which mixes
+    media per page (``BookPDFGenerator._write_pdf``, CARD-298) emits a vector
+    page through **this** definition rather than through a second copy of it.
+    There is therefore exactly one place in the package that decides what a
+    vector page object looks like, which is what lets the mixed interior and
+    the all-vector guide PDF be the same page object kind rather than two
+    that happen to agree today.
+
+    No ``XObject`` is named in the resources at all — not an empty dictionary,
+    which would still be a page that *has* an XObject entry — which is
+    ADR-0042/R1 as a property of this function rather than of each caller.
+
+    ``font_ref`` is the file's one ``/Font``, written once per document by
+    :func:`write_face_objects`; every page names the same object, which is
+    ADR-0042/R5.
+    """
+    _, _, width_pt, height_pt = stream.media_box
+    pdf.write_page(
+        page_ref,
+        Resources=PdfParser.PdfDict(
+            ProcSet=[PdfParser.PdfName("PDF"), PdfParser.PdfName("Text")],
+            Font=PdfParser.PdfDict(**{FACE_RESOURCE_NAME: font_ref}),
+        ),
+        MediaBox=[0, 0, width_pt, height_pt],
+        Contents=contents_ref,
+    )
+    pdf.write_obj(
+        contents_ref,
+        stream=zlib.compress(stream.render(), 9),
+        Filter=PdfParser.PdfName("FlateDecode"),
+    )
+
+
+def write_face_objects(
     pdf: PdfParser.PdfParser,
     face: bytes,
     metrics: FontMetrics,
@@ -1129,6 +1162,13 @@ def _write_face(
     file_ref: Any,
 ) -> None:
     """The three objects that embed the face, once per document.
+
+    Public since CARD-298, for the reason :func:`write_vector_page` is: a
+    writer that mixes media per page has to embed the face itself, and a
+    second transcription of the descriptor below is the one copy this package
+    cannot afford — every value in it is read back and compared against the
+    face by ``TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics``,
+    which would then be controlling one of two writers.
 
     ``Flags=32`` is the non-symbolic bit, which is what PDF 1.7 §9.8.2 says
     a ``/TrueType`` font with ``/WinAnsiEncoding`` sets so that a viewer

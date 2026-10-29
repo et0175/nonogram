@@ -1020,7 +1020,7 @@ class TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics:
     What a control cannot reach from this host is named rather than implied:
     poppler renders and extracts identically with ``Flags=4``, and ``qpdf``,
     ``mutool`` and ``gs`` are not installed, so the *behavioural* claim in
-    ``_write_face``'s docstring — that a viewer needs the non-symbolic bit to
+    ``write_face_objects``'s docstring — that a viewer needs the non-symbolic bit to
     honour ``/WinAnsiEncoding`` — is untested against the viewers it is about
     (Acrobat, a press RIP). What is tested is that the value this writer
     emits is 32 and stays 32.

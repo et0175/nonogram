@@ -1,0 +1,580 @@
+version: 1
+generated_at: "2026-10-29T11:40:00Z"
+target: CARD-298
+cycle: 2
+max_cycles: 3
+min_score: 8
+overall_score: 8.5
+previous_score: 7.0
+delta: "+1.5 — both cycle-1 blockers closed in substance; two new important findings, both in the fix round's own new engineering, neither a false-green"
+risk_level: medium
+review_lane: impact
+reviewer: claude-opus-5
+reviewer_version: cycle2
+scope_gate: "on — not fired: this commit adds nothing to CARD-299's or CARD-309's Touches that commit 283164a9 did not already cover, and the orchestrator already escalated and resolved that at round 1"
+judged_against: "the NARROWED card (main repo, meta/kanban/cards/CARD-298.md, amended 2026-10-29, carrying the cycle-1 record), NOT the worktree's pre-narrowing snapshot"
+base_commit: 8b307c22
+head_commit: 211e2cb7
+validator_of_record: "/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture --phase all (forge_1 copy, NOT the plugin cache)"
+
+verdict: >-
+  CERTIFIES at 8.5. Cycle 1's two blocking findings are closed IN SUBSTANCE,
+  not in text, and I checked the substance of each with a command rather than
+  by reading the fix's own account of itself.
+
+  F-001 is closed. ADR-0042/R2 at :403 now reads
+  `check: {kind: test, ref: test_every_raster_page_is_declared_with_its_reason}`,
+  the bare name resolves under the validator's own pathspec to
+  tests/test_book_pdf.py, and that hit is a REAL `def` at :1793 — not a prose
+  mention. The "CARD-298 leaves the flip to the merge, as this board does"
+  sentence is deleted. R1 is still `check: {kind: review-lens}` at :345, so
+  G-6 holds in both directions. The validator of record reports 0 errors and
+  107 warnings on this branch and NOT ONE of them mentions ADR-0042, so the
+  flip costs nothing and gains a live ref. The round's deviation from the fix
+  brief — bare name instead of the dictated node id — is correct, and I
+  verified the mechanism rather than the aggregate: the resolver is
+  `git grep -lw <name>` (validators/utils.py:237-264) and `split_check_ref`
+  (:268) splits on COMMAS only, so a `path::name` ref reaches grep as one
+  literal symbol and returns rc=1, 0 files. I reproduced both greps.
+
+  F-002 is closed in both halves. The retarget is right this time and I
+  checked it the way cycle 1 checked that CARD-299 was wrong: CARD-309's
+  Touches names src/nonogram/admin/book_pdf_generator.py AND the four vector
+  writers AND tests/fixtures/book_baseline_*.json, so CARD-309 genuinely
+  converts pages; CARD-299 is genuinely the reader conversion every one of the
+  five reasons cites. Naming both, against a brief that said CARD-309 alone,
+  is the better reading and the field's own docstring supports it. The
+  landing-direction guard is real engineering, not a restatement, and its
+  control is genuinely synthetic — which I proved as a by-product of the
+  experiment below: the control PASSES under both board resolutions, so it
+  reads no real card file.
+
+  WHY NOT 9+. Two important findings, both inside the fix round's own new
+  code, and the first is the riskiest thing in the diff.
+
+  (1) `_board_cards()` resolves the board to the MAIN WORKING TREE, and the
+  docstring's defence of that — "In an ordinary checkout it returns the
+  checkout itself, so CI and a fresh clone see no difference" — is TRUE of
+  `main_repo_root`'s mechanics and FALSE of the test's verdict. Under
+  ordinary-checkout semantics the live cell FAILS at
+  tests/test_book_pdf.py:2123 with `Left contains one more item: 'CARD-309'`,
+  because the branch's own `meta/kanban/cards/` is the 304-card cut snapshot
+  and CARD-309 is one of the four files it is missing. The test is green only
+  because a sibling directory this branch does not control happens to hold the
+  file — including that directory's UNCOMMITTED state. It is a false RED, not
+  a false green, it does not block the merge gate (which runs from the main
+  worktree), and this repo has no CI pipeline at all (`ci/` and `.github/`
+  absent on both trees), so the harm is bounded. But a tracked docstring
+  stating a measurably false equivalence is the same class of defect as
+  cycle 1's F-004, and a test whose verdict is not a function of the tree
+  under test is a coupling I would not merge without the sentence corrected.
+
+  (2) The bare-name ref is a SHIM, and on `main` TODAY it is already revived
+  by this card's own cycle-1 review YAML. Measured: on main,
+  `git grep -lw test_every_raster_page_is_declared_with_its_reason` under the
+  validator's pathspec returns exactly one file —
+  meta/review/20261029T073500Z-CARD-298-cycle1.yml, tracked, and not a
+  definition. So the moment this card merges, R2's ref reads alive whether or
+  not the test still exists: the exact R4/FR-046 mechanism, created by this
+  card's own flip plus its own review record. The spelling is still the right
+  LOCAL choice — it is the only one the resolver can resolve — but it should
+  be recorded as a shim on CARD-307, which already owns the mirror image.
+
+  WHAT I CERTIFY POSITIVELY, each from a run: all seven guardrails hold and I
+  re-derived G-5 myself (+25/-0 node ids cut to HEAD, +2/-0 for the fix round,
+  nothing removed or renamed); the four AST pins are UNTOUCHED at 880
+  `ast.Call` (identical at 283164a9 and HEAD, 838 at the cut) and
+  tests/test_book_export_interior_cover.py is green; the two tripwires are out
+  of the diff and 643 tests pass with zero skips; nothing converts (PageKind
+  has exactly seven members and the registry holds all seven, so `page_medium`
+  is RASTER for every kind); and the stated bound IS honestly placed — at the
+  declaration site, in the field docstring a reader meets before the data.
+
+coverage:
+  what_i_ran:
+    - selection: "tests/test_book_pdf.py tests/test_book_export_interior_cover.py tests/test_book_solved_answer_key.py tests/test_book_pdf_memory.py tests/test_book_pdf_vector_primitives.py tests/test_book_puzzle_page_vector.py"
+      command: "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -o addopts='' -p no:randomly -q <sel> -rs"
+      result: "518 passed, 1 skipped, 0 failed, 132.80s"
+      rationale: >-
+        The six test modules the card touches. Scoped rather than wider
+        because the fix round's blast radius is measurably contained: the
+        registry and every one of its reason/authority strings are read by
+        exactly two files in the tree (git grep -ln over src/ and tests/ for
+        `_RASTER_DECLARATIONS` and for the old authority literal returns
+        src/nonogram/admin/book_pdf_generator.py and tests/test_book_pdf.py),
+        and the fix commit's src delta leaves `ast.Call` identical at 880 —
+        it is docstrings plus the expires_with tuples. Cycle 1's own
+        48-module/2365-test gate was green at 283164a9.
+    - selection: "tests/property/test_cli_exports_byte_identity.py tests/test_export_a4_golden.py tests/test_guard_integrity.py tests/test_suite_profile.py"
+      result: "643 passed, 0 skipped, 0 failed, 45.05s"
+      rationale: "G-2's two tripwires plus the two standing guard modules, the same set cycle 1 used."
+  skips_attributed:
+    - node: "tests/test_book_pdf_memory.py:1297"
+      count: 1
+      reason: "setrlimit(RLIMIT_AS) refused by this kernel — pre-existing, present on main, and the module's own message names the two cells that carry AC-2's executed half instead."
+    - note: >-
+        Exactly ONE skip across all three selections, and it is the same one.
+        Zero db_required skips in my scope: none of these modules touches the
+        DB fixture. The 26 db_required skips the brief names on this box live
+        in the modules cycle 1's C-2 enumerated, which round 1 ran separately
+        (142 passed / 4 skipped) and whose src surface this fix round does not
+        reach. No gate test is skipped.
+    - selection: "tests/test_book*.py — all 55 book modules"
+      command: "PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -o addopts='' -p no:randomly -q tests/test_book*.py -rs"
+      result: "2981 passed, 1 skipped, 0 failed, 433.80s"
+      rationale: >-
+        The whole book cluster, run for defensibility rather than necessity —
+        it is the superset of every reader of a book interior, including all
+        14 modules the card's blocker analysis enumerates. Same single
+        attributed skip. No db_required skip appears in this set.
+  what_i_deliberately_did_not_run:
+    - "The full suite — the orchestrator's merge gate, per the brief."
+    - "The four DB-touching modules cycle 1's C-2 named: round 1 ran them (142 passed / 4 skipped) and this fix round's src delta cannot reach them (ast.Call identical at 880, registry strings read by two files)."
+  lock_state: "meta/kanban/.full-suite.lock absent at every check during this cycle. NONOGRAM_IGNORE_FULL_SUITE_LOCK never set. No run was refused."
+
+metrics:
+  diffstat_vs_cut: "10 files, +2315/-80"
+  diffstat_fix_round_only: "4 files, +512/-58 (ADR, book_pdf_generator.py, test_book_pdf.py, test_book_export_interior_cover.py)"
+  meta_files_changed: "1 — only meta/architecture/decisions/adr/0042-*.md. meta/kanban/ and meta/review/: 0 files."
+  fixtures_changed: 0
+  node_ids:
+    method: "ast walk over the six touched test modules at each rev (test functions and methods, parametrize flagged), cross-checked against pytest --collect-only"
+    cut_8b307c22: 398
+    round1_283164a9: 421
+    head_211e2cb7: 423
+    cut_to_head: "+25 / -0 — nothing removed, nothing renamed"
+    fix_round_only: "+2 / -0 — test_no_declaration_outlives_the_cards_that_remove_it, test_a_declaration_outliving_its_done_card_is_a_defect"
+    pytest_collection_over_the_two_modules_the_fix_round_changed: 206
+  ast_call_census:
+    cut_8b307c22: 838
+    round1_283164a9: 880
+    head_211e2cb7: 880
+    verdict: "The four AST pins did NOT move in the fix round. +42 cut-to-HEAD, exactly as the inline derivation at tests/test_book_export_interior_cover.py:3650-3669 claims."
+  validator:
+    branch_211e2cb7: "0 errors, 107 warnings"
+    main_94541a29: "0 errors, 102 warnings"
+    warning_set_difference: "comm -23/-13 over sorted [WARN] lines: 5 only on branch, 0 only on main"
+    difference_attributed_by_name: "FR-046/AC-393, FR-046/AC-394, FR-046/AC-395, FR-046/AC-396, FR-046/EC-051 — all DEAD check refs naming tests/test_approval_guess_gate.py::*"
+    cause: "That file was ADDED by CARD-291's 52fbdcfb (merged 70f8e07e) and does not exist on this branch's cut. The five warnings vanish on merge."
+    adr_0042_warnings_on_branch: 0
+    card_298_contribution: "0 warnings"
+
+guardrails:
+  G-1_convert_no_page:
+    verdict: HOLDS
+    evidence: >-
+      PageKind has exactly seven members (cover, title, guide, toc, divider,
+      puzzle, answer) and _RASTER_DECLARATIONS holds all seven as keys, so
+      page_medium returns RASTER for every kind. No page_medium result and no
+      registry KEY changed in the fix round (only reason, authority and
+      expires_with values).
+  G-2_tripwires:
+    verdict: HOLDS
+    evidence: "tests/property/, test_export_a4_golden.py, test_guard_integrity.py and test_suite_profile.py are all absent from `git diff --name-only 8b307c22 HEAD`; the four modules run 643 passed, 0 skipped."
+  G-3_fixtures:
+    verdict: HOLDS
+    evidence: "`git diff --name-only 8b307c22 HEAD -- tests/fixtures/` is empty. No corpus minimum lowered — the new live cell adds floors (>=2 temporary entries, >=300 cards, >=200 done, >=10 non-done) and lowers none."
+  G-4_export_untouched:
+    verdict: HOLDS
+    evidence: "`git diff --name-only 8b307c22 HEAD -- src/nonogram/export/` is empty."
+  G-5_no_test_lost:
+    verdict: HOLDS
+    evidence: "+25/-0 cut to HEAD, +2/-0 for the fix round; the removed set is empty at both steps. Re-derived independently by ast walk, not taken from the round's report."
+  G-6_R2_flips_R1_survives:
+    verdict: HOLDS — both halves
+    evidence: "R2 at adr/0042-*.md:403 is `check: {kind: test, ref: ...}`; R1 at :345 is still `check: {kind: review-lens}`."
+  G-7_no_probe_under_tests:
+    verdict: HOLDS
+    evidence: "RENDER_HEAVY_SNAPSHOT appears zero times in the diff; the ten changed files add no new file under tests/."
+  ADR_0006_R1_substance:
+    verdict: HOLDS
+    evidence: >-
+      NOT reported as verified by TestDependencyBaseline_IsExactlyPillowAndNumpy
+      (zero definitions in this repo). Substance instead: pyproject.toml is
+      absent from the diff, and the ONLY added import lines in src/ across the
+      whole card are `import enum` (stdlib) and
+      `from nonogram.admin.book_vector import (...)` (internal).
+
+findings:
+  - id: F2-001
+    severity: important
+    confidence: high
+    source: "measured — reproduced on the real test"
+    title: "The landing guard's board root reaches outside the branch, and the docstring's defence of that is measurably false of the test's verdict"
+    where: "tests/test_book_pdf.py:1961-1986 (_board_cards), failing assertion at tests/test_book_pdf.py:2123"
+    node_id: "tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it"
+    what: >-
+      `_board_cards()` returns `full_suite_lock.main_repo_root(<repo>) /
+      "meta" / "kanban" / "cards"`. In a linked worktree that walks back to the
+      main checkout, which is why the cell is green here. In an ORDINARY
+      checkout `.git` is a directory, `main_repo_root` falls through to
+      `return worktree` (tests/full_suite_lock.py:167), and the board read
+      becomes the BRANCH's own 304-card snapshot — which does not contain
+      CARD-309.md, the card all five interior declarations now name. The
+      typo assertion at :2119-2123 then fires on a card that is not a typo.
+    reproduction: >-
+      Instrument proven on the unmutated tree FIRST, so a crash or an empty
+      selection could not be mistaken for a result:
+        PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -o addopts='' -p no:randomly -q \
+          tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it \
+          tests/test_book_pdf.py::test_a_declaration_outliving_its_done_card_is_a_defect
+        -> 2 passed (2 selected, nothing skipped)
+      Then the same two node ids with ordinary-checkout semantics, imposed by
+      an OUT-OF-TREE pytest plugin (no file in the worktree modified, no
+      mutant, blob untouched) whose only act is
+      `full_suite_lock.main_repo_root = lambda worktree: worktree`:
+        PYTHONPATH=<scratchpad> ... -p ci_plugin <same two node ids>
+        -> 1 failed, 1 passed
+        FAILED test_no_declaration_outlives_the_cards_that_remove_it
+        tests/test_book_pdf.py:2123: AssertionError
+          Left contains one more item: 'CARD-309'
+      Independent second reading, re-implementing the two board assertions
+      from scratch against both trees: main board 308 files, named cards all
+      present; this worktree's board 304 files, CARD-309 missing, statuses
+      [(CARD-231, ready), (CARD-299, ready), (CARD-309, None)].
+    the_false_claim: >-
+      `_board_cards`'s docstring and the commit message both say: "In an
+      ordinary checkout it returns the checkout itself, so CI and a fresh
+      clone see no difference." The first clause is true. The conclusion is
+      false: the no-difference case is PRECISELY the case that reds, because
+      the board it then reads is the snapshot the redirection exists to avoid.
+    severity_reasoning: >-
+      Important, not gating. It is a false RED, never a false green. The
+      merge gate runs from the main working tree, so merge is not blocked;
+      after merge, main's tree carries CARD-309.md and a fresh clone of main
+      is green. And this repo has no CI pipeline at all — `ci/` and
+      `.github/` are absent on both main and the branch — so the "CI reds"
+      half is latent rather than live. What keeps it at `important` is the
+      tracked false claim (cycle 1's F-004 class) plus the durable property:
+      the cell's verdict is a function of a sibling WORKING TREE the branch
+      does not control — not of a commit, so it is not reproducible from the
+      commit, and it includes whatever is uncommitted there (this session
+      observed `M meta/kanban/dispatcher.state` in that tree at one point and
+      clean at another, without any commit to this branch in between).
+      Marking CARD-309 `done` on main reds this branch's suite with no commit
+      to this branch.
+    what_is_NOT_wrong_here:
+      - "The coupling itself is sanctioned, not novel. tests/test_suite_profile.py:3581-3588 carries an explicit allowed-negative case for `a card-registry walk, of which this repo invites many`, added by its own review cycle 2 (F-104). test_suite_profile.py is green."
+      - "The import is legitimate and the cited precedent is real. Five tests/ modules import full_suite_lock (conftest.py, kill_matrix.py, test_book_pdf.py, test_full_suite_lock.py, test_kill_matrix.py). main_repo_root specifically is driven in BOTH directions by tests/test_full_suite_lock.py:778-779 (linked -> main, main -> main), so it is not an untested helper."
+      - "No import-direction guard objects. tests/test_cli.py's structural walk is rooted at `_PACKAGE_DIR.rglob(\"*.py\")` (:781) — src/nonogram only — so it never sees tests/ imports."
+      - "The reason the redirection was added is real and I reproduced it: without it, CARD-309 reads as a card the board never heard of, i.e. the typo case, and the live cell would ship red. The round's diagnosis is right; the remedy chosen is what I am objecting to."
+    recommendation: >-
+      Preferred: hoist the LANDING direction out of tests/ into the board's
+      own gate, where the board is the authority and the tree-under-test
+      problem does not arise, leaving tests/ with the conversion direction and
+      the synthetic control (which is the half that carries the real
+      discrimination anyway). Second best: keep `_board_cards()` but split the
+      two clauses — the landing clause strict, the "named card is on the
+      board" clause tolerant of a board snapshot older than the declaration.
+      NOT by a conditional skip: a skipped gate test is an ungated door.
+      Minimum, and non-negotiable before merge: delete the false sentence.
+    cost: "minutes for the docstring; ~1h for the hoist"
+  - id: F2-002
+    severity: important
+    confidence: high
+    source: "measured on main"
+    title: "The bare-name ref is a shim, and on main it is ALREADY text-revived by this card's own cycle-1 review YAML"
+    where: "meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md:403"
+    what: >-
+      The spelling is correct for this validator and I verified why, not just
+      that: `symbol_exists` (validators/utils.py:237-264) is
+      `git grep -lw <name> -- . <excludes>`, and the excludes are built at
+      :336-338 as exactly `[":(exclude)<arch_root>", ":(exclude)*.md"]`.
+      `split_check_ref` (:268) splits on commas only. So a `path::name` ref is
+      one literal symbol that cannot match, and the bare name is the only
+      spelling that resolves — R5's own measured precedent in the same file.
+      BUT the resolver is a pure TEXT search and meta/review/**, meta/kanban/**
+      and meta/profiling/** are NOT excluded. Measured on main today:
+        git grep -lw "test_every_raster_page_is_declared_with_its_reason" \
+          -- . ":(exclude)meta/architecture" ":(exclude)*.md"
+        -> meta/review/20261029T073500Z-CARD-298-cycle1.yml   (rc=0)
+      That file is tracked (`git ls-files meta/review/ | grep CARD-298`) and
+      holds the literal three times. It is not a definition. So after merge,
+      ADR-0042/R2's check reads alive even if the test is deleted or renamed —
+      the exact mechanism of ADR-0042/R4 and FR-046, arrived at from the other
+      side.
+    verdict_asked_for_by_the_brief: >-
+      The bare name is the right END STATE given this resolver, and the round
+      was right to deviate from the brief. It is nevertheless a SHIM against a
+      text resolver, and it should be RECORDED as one rather than left to read
+      as a clean flip.
+    recommendation: >-
+      Record the shim on CARD-307, which already owns R4 — one line beside
+      R4's entry: "R2's bare-name ref resolves correctly today and is already
+      text-revived on main by CARD-298's own review YAMLs; both refs want the
+      same resolver fix (a definition-shaped search, or excluding
+      meta/review/ and meta/kanban/ from the pathspec)." Do NOT change R2's
+      spelling: the alternative is strictly worse (108 warnings, a fresh DEAD
+      check ref, which the round measured and I reproduced the mechanism of).
+    disclosure: "This review YAML adds another reviving hit for the same literal. Unavoidable given the resolver; stated rather than hidden."
+    cost: "minutes (a line on CARD-307)"
+  - id: F2-003
+    severity: minor
+    confidence: high
+    source: "measured"
+    title: "A THIRD direction is uncovered: attribution. Nothing checks that a card named in expires_with is a card that will actually remove the exception"
+    where: "tests/test_book_pdf.py:1619-1624 (format only), :2048 (status only)"
+    what: >-
+      The brief asks whether a third uncovered direction exists. It does, and
+      it is cycle 1's F-002 defect itself. `expires_with` is read in exactly
+      three places, all in tests/test_book_pdf.py and all measured by git grep
+      over src/ and tests/: the finding message (:1612), a
+      `re.fullmatch(r"CARD-\d+")` FORMAT check (:1620), and the new landing
+      walk (:2048). Nothing checks that the named card plausibly owns the
+      conversion. CARD-299 was named for five kinds and converts no page;
+      the retarget to CARD-309 is a HUMAN judgement that happens to be right
+      (I verified CARD-309's Touches names book_pdf_generator.py and the four
+      vector writers), and a future `expires_with=("CARD-231",)` on TITLE
+      would be accepted silently and would merely defer the red.
+      Sub-case: a named card that is `parked` reads cleanly and is not done,
+      so the declaration is never challenged. `parked` is in _BOARD_STATUSES
+      and one card on the board carries it.
+    why_it_is_minor: >-
+      The degradation is graceful in the direction that matters: a mis-named
+      card that closes without converting REDS the landing cell, which is the
+      "come and look" behaviour wanted. So this is a residual bound to state,
+      not a hole to close here — closing it mechanically would mean a test
+      reading another card's Touches, deepening exactly the coupling F2-001
+      objects to.
+    recommendation: >-
+      Name it in the registry comment's "The bound both directions leave"
+      paragraph (src/nonogram/admin/book_pdf_generator.py, the
+      _RASTER_DECLARATIONS block), which today names only the
+      done-vs-converted bound. One sentence: the board is the authority for
+      "done" and for nothing else — that the card named is the card that
+      removes the exception is a human claim, and a parked card holds a
+      declaration indefinitely without challenge.
+    cost: "minutes"
+  - id: F2-004
+    severity: minor
+    confidence: high
+    source: "measured"
+    title: "The status counts in the docstring have already drifted — in the same file whose next comment refuses to restate a count for exactly this reason"
+    where: "tests/test_book_pdf.py:1945-1951"
+    what: >-
+      The docstring records "``done`` 264, ``ready`` 39, ``in progress`` 2,
+      ``blocked`` 2, ``parked`` 1" of 308, measured 2026-10-29. Measured on
+      main today, same day: done 265, ready 39, in progress 1, blocked 2,
+      parked 1, of 308. CARD-291 moved from `in progress` to `done` on its
+      merge (70f8e07e), two cells out within hours. Thirty lines later, at
+      :2098-2102, the same commit writes "A floor, deliberately NOT the
+      count: ... a number restated beside the mapping is the drift CARD-261
+      found twice." The docstring commits the sin its own neighbour names.
+    what_is_NOT_wrong: >-
+      The load-bearing part — the five-spelling SET — is mechanically PINNED,
+      not guessed, which is what the brief asked. The live cell asserts every
+      one of the >=300 cards has a status this file can read
+      (tests/test_book_pdf.py:2111-2114), so a sixth spelling on the board
+      reds. ADR-0039/R2's direction is satisfied.
+    recommendation: "Drop the five counts, or replace them with the floors the test already asserts (>=200 done, >=10 non-done)."
+    cost: "minutes"
+
+answers_to_the_briefs_explicit_questions:
+  1_are_cycle_1s_two_blockers_closed_in_substance:
+    answer: "YES, both."
+    F_001: >-
+      Closed. R2 is `kind: test` with a ref that resolves to a real `def` at
+      tests/test_book_pdf.py:1793 (not a prose mention — I checked the hit, not
+      just the rc). The "leaves the flip to the merge" sentence is gone from
+      the ADR. R1's lens survives at :345. Zero ADR-0042 warnings from the
+      validator of record. The deviation from the brief's dictated node-id
+      spelling was correct and I verified its mechanism independently.
+      Carried forward from F-001's rider, still owed: the card's Trace line is
+      unactionable — meta/architecture/trace.yml carries NO ADR-0042 rule rows
+      at all (two prose mentions only, :1813 and :1853).
+    F_002: >-
+      Closed in both halves. The retarget is substantively right, and I tested
+      it the way cycle 1 falsified CARD-299: CARD-309's Touches names
+      src/nonogram/admin/book_pdf_generator.py plus book_guide_vector,
+      book_toc_vector, book_answer_vector, book_puzzle_vector plus
+      tests/fixtures/book_baseline_*.json — it really does convert pages.
+      Naming CARD-299 alongside is right, not padding: every one of the five
+      reasons cites the reader conversion. The landing-direction guard is real
+      and I confirmed the control is genuinely synthetic (it passes under BOTH
+      board resolutions in my F2-001 experiment, so it touches no real card
+      file) and that every arm the round claims is actually asserted at
+      :2169-2230 — done reds, ready and in-progress green, (done,ready) and
+      (ready,done) both green, (done,done) reds naming both, permanent ()
+      green, all five undeterminable shapes give exactly one finding each,
+      done-beside-undeterminable reports only the undeterminable one, and the
+      three statuses are read as themselves.
+  2_verdict_on_the_tests_to_board_coupling:
+    the_coupling: >-
+      LEGITIMATE and sanctioned. Reading card files from tests/ is anticipated
+      by this tree: tests/test_suite_profile.py:3581-3588 carries an explicit
+      allowed-negative for "a card-registry walk, of which this repo invites
+      many". The import of tests.full_suite_lock is legitimate (five tests/
+      modules do it; main_repo_root is driven in both directions by
+      tests/test_full_suite_lock.py:778-779), and no import-direction guard
+      objects because tests/test_cli.py's walk is rooted at _PACKAGE_DIR
+      (:781) and sees src/nonogram only. test_book_pdf.py is nevertheless the
+      FIRST test in this tree to assert over real card files rather than
+      synthetic ones, so it is the precedent, and it should be set carefully.
+    resolving_the_board_to_the_main_working_tree: >-
+      WRONG as implemented — see F2-001, reproduced on the real test. The
+      round's diagnosis of WHY a naive read fails is correct and I reproduced
+      it (304 vs 308 cards, CARD-309 among the four missing); the remedy makes
+      the cell's verdict a function of a tree the branch does not control, and
+      the docstring's claim that CI and a fresh clone see no difference is
+      false of that verdict. Failure modes: in a fresh clone or any
+      non-worktree checkout of this unmerged branch, the cell reds at :2123 on
+      a card that is not a typo; and at any time, a board edit on main
+      (CARD-309 marked done, renamed or removed) changes this branch's test
+      result with no commit to this branch. In this repo's actual CI the harm
+      is latent only because there is no CI: `ci/` and `.github/` do not exist
+      on main or on the branch.
+  3_is_the_bound_honestly_placed_and_is_there_a_third_direction:
+    placement: >-
+      HONESTLY PLACED. It is stated in three places and the earliest of them
+      is where a reader meets the claim, not after believing it:
+      `RasterDeclaration.expires_with`'s own field docstring (the first thing
+      a reader of the field sees) states the two directions and that neither
+      implies the other; the _RASTER_DECLARATIONS block states them again
+      under an explicit heading "The bound both directions leave"; and
+      ADR-0042/R2's comment states what its ref does NOT reach. The round also
+      genuinely CORRECTED the old claim rather than appending to it — the
+      sentence that AC-3's expiry check "exists to force" the shrink is
+      replaced with the measurement that it forced the conversion direction
+      only. One place still carries the old half-claim: the CARD itself
+      (see amendments 1 and 2).
+    third_direction: "YES — attribution. See F2-003. Not covered by either test, and it is the direction cycle 1's F-002 defect actually lay in."
+  4_are_the_four_AST_pins_still_at_880_untouched:
+    answer: "YES."
+    evidence: >-
+      ast.Call over src/nonogram/admin/book_pdf_generator.py: 838 at
+      8b307c22, 880 at 283164a9, 880 at 211e2cb7 — the fix round moved it by
+      zero. tests/test_book_export_interior_cover.py runs green inside the
+      518-passed selection. CALLEE_EXEMPTION_COST at :3670ff reads
+      816/546/212/210, which are HEAD's figures; cycle 1's 776/522/204/202
+      were the BASE's, as cycle 1 itself said, and 816-776 = +40 reconciles
+      with +42 ast.Call at the declared residual of two. F-004's citation is
+      gone: `git grep "scratchpad/card298" -- tests/ src/ meta/` returns
+      nothing, and the derivation is inline at :3650-3669 with a runnable
+      one-liner, which I ran.
+  5_is_the_bare_name_the_right_end_state_or_a_shim:
+    answer: "A SHIM, and it should be recorded as one. See F2-002, with the measurement."
+  6_card_amendments_still_owed:
+    - id: 1
+      what: >-
+        AC-3 names only `test_a_declaration_whose_reason_expired_is_a_defect`.
+        It must also name `test_no_declaration_outlives_the_cards_that_remove_it`
+        and its control `test_a_declaration_outliving_its_done_card_is_a_defect`,
+        or the whole landing direction ships with no AC behind it and the
+        card's own text keeps asserting the half-claim the fix round corrected
+        everywhere else.
+      severity: important
+    - id: 2
+      what: >-
+        Item 3's CORRECTED comment still reads "TITLE / GUIDE / TOC / ANSWER /
+        PUZZLE (each expiring with CARD-299)". They now expire with
+        ("CARD-299", "CARD-309"), which is the whole of cycle 1's F-002.
+      severity: important
+    - id: 3
+      what: >-
+        The System contract line "ADR-0042/R2 — ... (check: review-lens → this
+        card's AC-2)" is stale: R2 is now `kind: test`.
+      severity: minor
+    - id: 4
+      what: >-
+        The Trace line is still unactionable — trace.yml carries no ADR-0042
+        rule rows at all (prose only at :1813 and :1853). Cycle 1's rider,
+        still owed, and not this commit's fault.
+      severity: minor
+    - id: 5
+      what: >-
+        CARD-309 and CARD-299 should each record that five of ADR-0042/R2's
+        declarations now name them and that
+        test_no_declaration_outlives_the_cards_that_remove_it reds the day the
+        last of them is marked done. CARD-309's body does not mention
+        _RASTER_DECLARATIONS today, so the card that must delete those five
+        entries has no note telling it so.
+      severity: important
+    - id: 6
+      what: "CARD-307 should record R2's bare-name ref as the shim it is, beside R4 (F2-002)."
+      severity: minor
+    - id: 7
+      what: "The cycle-2 result and the G-6 closure are not yet on the card — the orchestrator's own section, noted for completeness."
+      severity: informational
+
+things_in_the_brief_or_the_record_i_measured_to_be_WRONG:
+  - id: W-1
+    what: "The warning-count paragraph is stale and its causal attribution no longer describes the tree."
+    brief_said: "Branch 107, main 106, and 107 is the honest count. The single difference is FR-046/AC-395's dead ref, which main silenced on acquiring CARD-291's cycle-1 review YAML in 93d04a50."
+    i_measured: >-
+      Validator of record, today: branch 107, main 102. `comm` over sorted
+      [WARN] lines gives FIVE differences, all only-on-branch, zero
+      only-on-main: FR-046/AC-393, AC-394, AC-395, AC-396 and EC-051 — all
+      naming tests/test_approval_guess_gate.py::*. The cause is not a review
+      YAML silencing a live ref: that FILE was added by CARD-291's 52fbdcfb
+      (merged 70f8e07e, which the brief itself notes) and simply does not
+      exist on this branch's cut. So main is not "depressed" by a YAML here —
+      it is honest, and the branch is honest about its own older tree. Either
+      way CARD-298 contributes ZERO warnings and zero ADR-0042 warnings, which
+      is the conclusion that matters, reached by a different route than the
+      brief predicted.
+  - id: W-2
+    what: "ADR-0042/R4's text-resolution count."
+    brief_said: "57 tracked files contain that literal string and none is a definition."
+    i_measured: >-
+      79 tracked files on this branch (`git grep -lw` with no pathspec).
+      Everything else about R4 confirmed exactly: none of them is a
+      definition, a real `def test_the_dependency_baseline_is_still_closed`
+      exists at tests/test_export_pdf.py:1249, and under the validator's own
+      pathspec the hits are meta/kanban/backlog-scored.yml, four
+      meta/profiling/*.txt files and ~70 meta/review/*.yml. Mechanism broken,
+      answer right, mirror image of F-001, owned by CARD-307 — confirmed and
+      left alone, as instructed.
+  - id: W-3
+    what: "The fix round's own claim, repeated in the brief's summary of it, that the main-tree redirection is CI-neutral."
+    round_said: "In an ordinary checkout it returns the checkout itself, so CI and a fresh clone see no difference."
+    i_measured: "True of main_repo_root's return value (tests/full_suite_lock.py:167 — confirmed, .git-as-directory falls through to `return worktree`). FALSE of the test's verdict: the no-difference case is exactly the case that reds. F2-001, reproduced on the real node id."
+  - id: W-4
+    what: "The round's status-count docstring."
+    round_said: "done 264, ready 39, in progress 2, blocked 2, parked 1 of 308 (measured 2026-10-29)."
+    i_measured: "done 265, ready 39, in progress 1, blocked 2, parked 1 of 308, on the same day. F2-004."
+  - id: W-5
+    what: "Not a disagreement, a scope difference, recorded so it is not read as a reproduction."
+    detail: >-
+      I did not reproduce round 1's 22-module / 1890-passed figure or its
+      four-DB-module run. My scope is ten modules / 1161 tests, justified by a
+      measured containment argument (the registry and its strings are read by
+      exactly two files in the tree, and the fix round's src delta leaves
+      ast.Call identical at 880). Anyone wanting the wider number should take
+      round 1's or cycle 1's.
+
+positive_verified_do_not_re_review:
+  - "F-001 and F-002 closed in substance — the whole of section 1 above."
+  - "Four AST pins at 880, untouched by the fix round, module green."
+  - "F-004 is a real fix: no `scratchpad/card298` citation anywhere in tests/, src/ or meta/; the derivation is inline and I reproduced both figures (838, 880) with my own script."
+  - "F-005 is accurate, not merely longer: it names the shared predicate (isinstance(entry, DividerPagePlan)), states the real independence (entry.page_number vs enumeration order), keeps the value explicitly as a CONTROL, and names the omitted divergence (production guards the SOLUTIONS divider on `if payloads:`, the test on `generator.divider_pages`)."
+  - "F-006 is exact to the line. ValueError at src/nonogram/admin/book_pdf_generator.py:7738 and :7742; `written = BytesIO()` at :7751; TypeError at :7805 and :7813. The src Raises docstring at :7730-7734 WAS already accurate — it scopes `before the buffer exists` to the two ValueErrors only and says nothing of the sort about TypeError."
+  - "A-7 is recorded at tests/test_book_pdf.py:2410-2417, in the terms cycle 1 asked for: same findings() classmethod, drive-in-both-directions and not corroboration."
+  - "The three non-vacuity checks on the live cell are the right instruments, with one caveat. The >=2 FLOOR on temporary entries is right and the reasoning (CARD-261's drift) is right: a count restated beside the mapping is what drifted twice. It does NOT let the registry empty out silently, because the registry emptying means every kind went vector, which reds `test_every_raster_page_is_declared_with_its_reason` from the other side and, below 2, reds the floor itself. The board floor (>=300) and the every-card-has-a-status assertion are both load-bearing and the second is what pins the status vocabulary."
+  - "page_medium's default is still VECTOR for an unlisted kind, so a new page kind is vector by default — unchanged by the fix round."
+
+mutation:
+  decision: "deferred(cost)"
+  rationale: "Step 8f's ladder: important findings this cycle. I ran no mutant on the derivation; the orchestrator already reproduced the round's M1 and the round's M2 is in the same function."
+  instead: >-
+    I proved F2-001 against the REAL test with an out-of-tree pytest plugin
+    (no tree modification, no blob to restore), and I proved that instrument
+    on the unmutated tree first — the same two node ids selected 2 and passed
+    2 — so a NOT-REACHED could not be read as a survivor. This is the trap the
+    round itself hit at round 1 (zsh not word-splitting an unquoted $CELLS,
+    zero cells selected) and the same discipline answers it.
+  hygiene: "PYTHONDONTWRITEBYTECODE=1 on every run; __pycache__ swept under tests/ before the first selection; no file in the worktree modified by this review except this YAML."
+
+next_cycle:
+  needed: "NO — 8.5 >= min_score 8. Cycle 3 is available and not required."
+  if_the_orchestrator_prefers_a_fix_round_first: >-
+    F2-001's minimum (delete the false sentence from _board_cards's
+    docstring) plus F2-002's one line on CARD-307 plus F2-004's count removal
+    is a sub-hour round and would take this to 9.0. F2-001's preferred remedy
+    (hoist the landing direction out of tests/) is a design change and should
+    be a card, not a fix round — it is the kind of thing that wants its own
+    control in the same commit, which a review loop cannot gate.
+  do_not_spend_cycle_3_on:
+    - "The four AST pins — re-derived at cycle 1 and re-confirmed at 880 here."
+    - "The four default-DENY claims — cycle 1 proved them with its own three-classifier experiment."
+    - "ADR-0042/R4 — confirmed broken, right answer, owned by CARD-307, out of scope."
+    - "The warning sets — attributed by name here; all five differences are CARD-291's merged work and vanish on merge."
