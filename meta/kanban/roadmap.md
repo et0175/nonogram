@@ -1,107 +1,135 @@
 # Product Roadmap
 
-_Generated: 2026-10-17 (after wave 43)_
-_Stage: growth · Methodology: hybrid (RICE for feature, WSJF for enabler/tech-debt/compliance, FIFO for ops)_
-_Config source: defaults — this project has no `meta/.skills.yml`_
+_Generated: 2026-10-30 · mode: `plan` (scoring deliberately NOT run — see "Why 107 ideas were not scored")_
+_Stage: **pre-launch** · Methodology: **WSJF for every scored category**, FIFO for ops_
 
-## The critical path is not a backlog idea
+## Config of record, and a correction
 
-**23 cards are `ready` and 11 of them cannot start.** CARD-222 heads the interior-redesign chain
-(CARD-223 → 224/225 → 226/227/229..233) and is blocked on registry amendments that are one
-`/forge:architect` session, not a card: **CON-018** (margins — outer 0.5 / top 0.55 / bottom 0.47,
-gutter stays at KDP's 0.5 in per the owner's 2026-10-14 decision), **NFR-008** (one cell size per grid
-size, capped 7.5 mm), **INV-013/FR-043** (CARD-206's title page ahead of the guide), and **cancelling**
-CARD-204's pending **FR-032** amendment, which CARD-224 reverses rather than applies.
+`meta/.skills.yml` **does not exist** in this project, so the roadmap skill's defaults
+would apply: `stage=growth`, **RICE for features**, capacity 55/20/15/5/5. **Those
+defaults were not used.** `backlog-scored.yml`'s own `config` block carries the
+project's recorded choices, including an explicit owner decision:
 
-That session has been owed since wave 42 and is logged in two retrospectives as `defer_nfr_adr`.
-No backlog score outranks it, because nothing it competes with can start.
+> `methodology_note: 'owner choice 2026-10-03: RICE reach is meaningless for a
+> single-owner admin tool'`
 
-**Capacity note (owner decision, 2026-10-17):** this wave is planned **unblock-first** rather than by
-the `growth` percentages. The stage defaults (feature 55 / enabler 20 / tech-debt 15 / compliance 5 /
-ops 5) remain the standing default for later waves — they were not changed. Applying them here would
-have scheduled a feature bucket that cannot execute.
+Running the defaults would have silently overturned that and changed the capacity mix.
+**The recorded config governs.** If the stage has genuinely moved (see below), change it
+deliberately — not by letting a missing file decide.
 
-## Wave 1 (next iteration) — unblock, then the cheap measurements
+## THE HEADLINE: the capacity plan no longer describes this project
 
-### Architect station (not a card, not scored)
-1. **One `/forge:architect` session** — CON-018, NFR-008, INV-013/FR-043, cancel FR-032.
-   Releases CARD-222 and the 11 cards behind it. **Do this first.**
+| Category | Plan % | Scored ideas | Verdict |
+|----------|-------:|-------------:|---------|
+| feature | **60** | **3** | plan reserves most of the budget for work that barely exists |
+| enabler | 15 | **0** | nothing to spend it on |
+| tech-debt | **5** | **71** | 93% of the backlog competing for 5% of the budget |
+| compliance | 15 | **0** | nothing to spend it on |
+| ops | 5 | 2 | roughly proportionate |
 
-### tech-debt (WSJF) — ~1d total, all three are one-pointers
-1. **IDEA-109** Re-measure "superseded baselines cost no runtime" (WSJF **19.0**) — **must land before
-   CARD-220 starts.** Measured 2026-10-17: those baselines are loaded at runtime in **12 places** in
-   `tests/test_book_pdf_memory.py`, and CARD-220's premise is that they are inert. CARD-220 is eligible
-   now, so this is the cheapest intervention point on the board.
-2. **IDEA-110** Resolve card `test:`/`check:` names against `tests/` at the decompose station
-   (WSJF **16.0**) — a fabricated name reached four cards in two waves. Done by hand in wave 43 for
-   both cards; not mechanised, so it depends on the orchestrator remembering.
-3. **IDEA-108** Scope `test_web_upload.py`'s temp sweep to the test's own files (WSJF **13.0**) —
-   verified still live (`gettempdir` present), and the board dispatches at concurrency 2, so the
-   collision is the normal case. Cost CARD-211 a false red in wave 37.
+**The plan describes a pre-launch product push. The backlog is 93% tech-debt.** No wave
+allocation computed from these percentages would mean anything: filling the feature
+bucket exhausts the entire feature backlog in one wave, while the tech-debt bucket admits
+roughly one idea per wave against 71 waiting.
 
-### Then, in the same wave if capacity allows
-4. **IDEA-106** ADR-0039's repo-wide guard audit (WSJF 5.8) — **the formula under-ranks this one and
-   the ranking should not be followed blindly.** WSJF divides by job size, so a 5-point mechanism loses
-   to three one-pointers; its raw factors (UBV 8 / TC 8 / RR 13) are the highest on the board. It is
-   the mechanism behind wave 43's single root cause: two cards violated a mandatory rule squarely
-   inside its scope, because R1–R3's checks are point tests over named guards in one file and cannot
-   see a claim written elsewhere. ADR-0039 says this about itself and names the audit as deferred work.
-   Third instance; a fourth would make it the most expensive unpromoted mechanism on the board.
-5. **IDEA-107** Install `pytest-testmon` (WSJF 6.5) — `config.yml` names it as the precondition in its
-   own comment. Wave 43's cost per card rose **2.3×** (1322s → 3098s) purely from running a stable
-   suite three times per card at 100% full-suite share.
+This is the same divergence the waves 63–65 retrospective measured from the other
+direction — **compliance −15pp, feature +10pp** — and it is now large enough that the
+percentages are the thing to fix, not the input to a plan.
 
-## Wave 2
+**Two readings, and they need different actions:**
+1. **The stage moved.** `pre-launch` (60/15/5/15/5) stopped describing reality some waves
+   ago; `mature` (40/15/**25**/10/10) is far closer to what the board actually does. That
+   is a one-line change to a recorded decision — make it explicitly.
+2. **Most of the "tech-debt" is not product work at all** — see the next section. If so,
+   it should not be competing for product capacity under any percentage.
 
-- **CARD-243** (already carded) — the round-mark check sees the greys the book prints. Depends CARD-241 ✓.
-- **IDEA-112** Promote the remaining wave-37 discipline rules into the model (WSJF 5.33, depends
-  IDEA-106) — seven sentences the pipeline keeps re-learning one card at a time.
-- **IDEA-111** Align review-report severity between the markdown and the YAML (WSJF 10.0) — small, but
-  it protects the learning loop's own input, which is otherwise silently lossy.
-- The interior-redesign chain, once the architect session lands: CARD-222 → 223 → 224/225 →
-  226/227/229..233, plus CARD-206..209 and CARD-215/216/220/236.
+Both are probably true. (1) is cheap and (2) is the real cleanup.
 
-## Waiting on the owner (review time, not engineering capacity — not scored)
+## Why 107 ideas were not scored
 
-Six merged cards' renders have never been eyeballed; all are in `~/Documents/nonogram-reviews/`:
+`backlog.md` holds **186 open ideas**; `backlog-scored.yml` represents **79** of them.
+The skill's smart default would score the missing **107**. It was not run, measured:
 
-| Card | What to look at | Merged |
-|------|-----------------|--------|
-| CARD-187 | Progress counter renders | wave 34 |
-| CARD-189 | Click-sequence renders + the help line | wave 34 |
-| CARD-190 | Review-page longest-side renders | wave 34 |
-| CARD-191 | Sort-by-size button, confirm text, before/after | wave 34 |
-| CARD-192 | Band filter, left/over renders | wave 35 |
-| CARD-196 | Clue-number renders | wave 36 |
+| What the 107 are about | Count |
+|---|---:|
+| process / discipline only | 34 |
+| process **and** code (mostly a lesson that names a file) | 71 |
+| **code only** | **2** |
 
-Deliberately outside the capacity buckets: scoring them as work would double-count your time as
-engineering capacity. They are, however, the only record that those renders were never checked.
+**Two of 107 are about the product.** The rest are review-cycle findings — several
+beginning literally *"Promote to a standing rule:"*. Scoring a discipline lesson with
+WSJF's `user_business_value` is meaningless: it has none by construction.
 
-## Deferred by owner decision (V1 scope, 2026-10-13 — blockers already named)
+`backlog.md` has become the overflow bin for review findings, and the right home for that
+material already exists and was exercised today — **finding-family promotion into ADR
+rules** (ADR-0039's R1–R4 are exactly this). Routing them through a prioritised *product*
+queue converts a standing rule into a ticket that never gets picked.
 
-| Idea | Revival trigger |
-|------|-----------------|
-| A public online solver | the public phase opens (blocks CARD-210) |
-| A stable per-puzzle URL namespace | decided once, before any book ships printed codes (blocks CARD-210) |
-| "Generate your own puzzle" second QR | the public generator surface exists |
-| Persist user-generated puzzles | the public phase, plus a user/ownership notion and a retention rule |
+## The scored backlog, ranked (ranking unchanged by the ×1.87 recalibration)
 
-## Ledger state
+A uniform factor rescales absolute job sizes; it reorders nothing.
 
-- 112 ideas: **28 done** (+9 this run: 8 by authoritative `Idea:` backlink, 1 verified in source),
-  69 backlog, 7 screened, 1 rejected, **0 stale `in_kanban`**
-- No fuzzy ship candidates above 0.62 similarity — no backlog idea quietly shipped under a
-  differently-titled card
-- Calibration applied: none needed. `python-pro` ran 0.80× this wave (within band); the cross-project
-  entry for python-pro/tech-debt now reads 1.18× over 10 cards
+### feature — WSJF, 3 ideas
+| Score | ID | job_size | Depends | Idea |
+|------:|----|---------:|---------|------|
+| 6.92 | IDEA-105 | 1.3 | — | Finalise guide preview needs changes after the owner look |
+| 0.62 | IDEA-058 | 6.5 | IDEA-064 | Keyboard marking of player cells |
+| 0.61 | IDEA-075 | 26.2 | — | Online solver public phase: hosting, QR URLs, no solution |
 
-## Not available for this project
+### tech-debt — WSJF, 71 ideas (top 6)
+| Score | ID | job_size | Idea |
+|------:|----|---------:|------|
+| 14.62 | IDEA-109 | 1.3 | Re-measure "superseded baselines cost no runtime" |
+| 12.31 | IDEA-110 | 1.3 | Resolve every card's backticked `test:`/`check:` name against the test tree |
+| 10.00 | IDEA-108 | 1.3 | `test_web_upload.py` sweeps the machine-wide temp dir |
+| 7.69 | IDEA-111 | 1.3 | Review reports disagree with themselves on severity |
+| 6.15 | IDEA-007 | 2.6 | Validator ERROR: ADR-0025 ↔ ADR-0031 circular supersession |
+| 5.38 | IDEA-082 | 2.6 | Five hollow e2e tests post the dead `images` field |
 
-- **Velocity forecast** — no `waves.duration` configured, so no sprint cadence to forecast against
-- **Capacity drift** — no `meta/.skills.yml`, so no plan to measure actual spend against
-- **Risk register, business ledger, intents/weights** — absent, so the constraint, interest-weight,
-  unvalidated-assumption and value-calibration screens do not apply
+### ops — FIFO, 2 ideas
+IDEA-065 (CI `playwright install chromium`), IDEA-080 (fill `render.md` TODO(owner) rows).
 
-## Next step
+**The top of the tech-debt list and today's retrospective converged independently.**
+IDEA-110 is CARD-319's family (a ref resolved by mention, not definition) and IDEA-109 is
+ADR-0039/R4's family (a figure whose instrument is unproven). The two highest-scoring
+tech-debt ideas on the board are the two families that cost waves 63–66 the most — and
+**both already have cards**: CARD-319 (blocked, code outside this repo) and CARD-304
+(stamped into wave 67 today). IDEA-007's validator ERROR is the ADR-0025 regex artefact
+already known to be a false positive in the plugin-cache copy.
 
-Run `/forge:architect` for the four owed amendments. It is the only item that unblocks other work.
+## Signals consulted
+
+- **⚑ Historical drift**: compliance **−15pp** under plan, feature **+10pp** over
+  (waves 63–65). Consistent with the headline above.
+- **⚑ Tech-debt aging — the signal is BROKEN and must not be used.** 29 cards tracked,
+  21 open, and **every one reads `Deferred waves: 0`**, including CARD-220 created in wave
+  37 and still `ready` at wave 66. The retro's Step 4c increments only cards *in the
+  current wave scope*, so a card never scheduled never ages. Its `estimated_interest_d:
+  1.0d` is an artefact of a stuck counter; **real open tech-debt is ~19d across 21 cards**.
+- Effort calibration: python-pro/feature avg **2.05×** (4 cards) — `confidence: low`, so
+  not surfaced per-idea; and the entry carries `bimodal: true` because the mean is true of
+  no card in the sample.
+- No risk register, no `intents.md`, no `weights.md`, no `constraints.md`, no research
+  synthesis → no risk, interest-weight, constraint or anti-positioning screens ran.
+  `assumptions.md` exists but no idea binds to an ASM.
+
+## No Wave 1 allocation is published, and that is deliberate
+
+There is no `waves.duration` or `waves.capacity_d` configured, so there is no wave budget
+in days or person-weeks to fill — and with the category mix above, percentages of an
+unknown budget would be a fabricated number. **More decisively: throughput is not
+backlog-constrained.** The board carries **49 open cards**, of which **14 claim
+`src/nonogram/admin/book_pdf_generator.py`**, and the card that would end that contention
+(CARD-273) `Depends on:` 21 others. Adding scored ideas to the front of that queue changes
+nothing downstream.
+
+## Next step — triage, not architect
+
+`/forge:architect` is the skill's usual next step and it is **not** the right one here:
+the top-ranked items are tech-debt with cards already cut, and the feature list is three
+items one of which is an owner-look follow-up.
+
+What would actually move: **(1)** decide the stage/capacity question above; **(2)** triage
+the 107 — route the ~105 process findings out of the product backlog into rule promotions
+or card amendments, and score the genuine remainder; **(3)** resolve CARD-273's ordering,
+which is the actual throughput constraint.

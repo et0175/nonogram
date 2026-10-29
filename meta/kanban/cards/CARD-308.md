@@ -886,3 +886,158 @@ by name, none a gate.
   fence"* — but the gate should know it exists.
 - The seventh `both-agree` baseline is still unpinned, and the `path`-form class is still
   size 1.
+
+---
+
+## Merge gate 1 — RED at `d7eec7e7`, and the red is a REPAIR this card detected
+
+**5 failed, 9760 passed, 27 skipped, 1 xfailed** in 1375.04 s (22:55). All five failures
+are in this card's **own** module, and all five are **one event**.
+
+### What happened
+
+**CARD-285 merged into `main`** and gave real `def`s in `tests/test_public_player_pages.py`
+to the three tests that were, until that merge, resolved **only** by a synced review YAML
+and **defined nowhere** — FR-045/AC-390, AC-391 and AC-392's node-id refs. Four class pins
+moved, and the arithmetic reconciles exactly as those three refs changing class:
+
+| pin | baseline | measured | delta |
+|---|---|---|---|
+| `BOOKKEEPING_ONLY` | `(15, '50e897ff86ef7c3d')` | `(12, '16acfad2b066a66d')` | **−3** |
+| `FALSELY_ALIVE` | `(166, '34194ced6ad4c11e')` | `(163, '755f56056ce50a09')` | **−3** |
+| `DEFINED` | `(386, 'af36d65a4d2020be')` | `(389, '44af24f9281c7a97')` | **+3** |
+| `SAME_FILE_PROSE` | `(16, '5539b351de2562fb')` | `(19, 'e899a08818a9c4be')` | **+3** |
+
+They left bookkeeping-only and falsely-alive, entered defined, and became same-file-prose
+— definition and prose mention now in one file. **−3, −3, +3, +3.**
+
+**This is the card's instrument working exactly as specified.** It detected the movement,
+**refused to auto-update**, named every affected ref with its declaration sites, its
+resolvers and `defined at (nowhere)`, and told the operator to re-derive each against a
+`def`/`class` **before** touching the baseline. A guard that had quietly re-pinned itself
+would have reported nothing and this repair would have been invisible.
+
+### The fifth failure is a design finding, not a baseline bump
+
+`test_the_node_id_eroded_instance_is_detected` pins **a live instance** of the erosion
+hazard — `…::test_no_homegrown_tracking` — and CARD-285 **repaired that instance**, so the
+cell died with its own subject. **An instance pin is self-destroying.** The hazard itself
+is untouched: ADR-0006/R1's ref still has zero definitions and ~110 text resolvers, and
+the class still holds 12 members. Only the example was fixed.
+
+A detector test whose fixture is the production board's current defect list cannot survive
+those defects being fixed — which is the wrong incentive to build in. **Fix round 4 is
+dispatched to re-derive the four baselines with the repair attribution recorded, and to
+re-shape that cell so it proves the detector rather than the board's current state.**
+
+### A process error of the orchestrator's, recorded with the figures it taints
+
+**This gate ran at load 17.61** (`uptime` at start), because the orchestrator was running
+the waves 63–65 retrospective and the roadmap pass **on the same box at the same time**.
+`tests/README.md` is explicit: *"a contended run tells you nothing at all"*, and even two
+quiet-host runs of near-identical suites differ by ~19%.
+
+What that does and does not invalidate, stated rather than waved past: the **five failures
+are deterministic assertion failures on exact counts and digests**, so they are unaffected
+— and they are independently corroborated by the arithmetic reconciling to exactly three
+refs. The **1375.04 s duration is contaminated** and must not be compared with any other
+gate on this board. And a timing-sensitive test was at avoidable risk for 23 minutes for
+no reason. The next gate on this card runs with nothing else of the orchestrator's on the
+box.
+
+---
+
+## Fix round 4 — `d7eec7e7` → `e93fec34`, one file, +306/−27
+
+**Both gate-1 items closed, and the round did the step that separates a repair from a
+repair-plus-a-silent-regression.**
+
+### Item 1 — the movement verified per ref, then per class membership
+
+Each of the three refs was resolved **individually against a `def`**, at both commits.
+The round **hit the `\b` trap itself** — its first probe used `\b` in a `git grep -E`
+pattern, returned zero hits at *both* commits, and it recognised the shape and rewrote
+the probe. Every figure it reports comes from the corrected one.
+
+All three: **0 def/class lines at `bb7da562`, exactly 1 at `d7eec7e7`**, each in the
+module its own node id names, all three collected by pytest. The cause is pinned
+**tighter than the brief had it**: at `f13e8d85^1` (main) all three have zero; at
+`f13e8d85^2` (CARD-285's branch) all three have one — so the merge is the event, and the
+same merge added the AC-390/391/392 rows to that module's docstring table, which is why
+the three entered same-file-prose simultaneously.
+
+**Then the part that mattered**: it ran the module's own code at **both** commits from a
+throwaway worktree — the module file is byte-identical at both, so the tree is the only
+variable — and diffed **class membership**, not counts. All nine pinned classes
+re-measured at `bb7da562` match their stored baselines exactly, so the baselines were
+honest at the cut. And the symmetric difference is **exactly the three refs** in each of
+the four moving classes, **empty in every other class**. Nothing else moved in either
+direction. A count moving by 3 is not evidence that the 3 are the ones named; this is.
+
+The four baselines carry the date, the cause with its merge commit, the three refs by
+bare name, that the movement was verified **against a `def`/`class` and not a text
+search** (naming the `\b` trap), that membership was **diffed rather than inferred from
+the delta**, and that this is the **repair** direction of the card's standing
+repair-or-signal-loss rule. The header also records which five classes did **not** move
+and that each was measured with an **empty symmetric difference** rather than an
+unchanged count.
+
+### The per-member digest path met a real repair for the first time
+
+Given the stored 15 and the derived 12, `_refuse_unexplained_departures` recovered **all
+three refs by name from the digests alone** — by re-hashing the 580-ref population —
+judged each **REPAIR (gained a def)** with its definition's file and line, returned
+without raising, and issued **no** withdrawal warning. `stored − departed == surviving`
+was checked as a set identity and the 12 digests were not retyped.
+
+**Both directions proved on the same unmutated tree**: handed the real class minus a
+surviving member it reds with *"left WITHOUT gaining a def/class … That is SIGNAL LOSS"*
+naming the ref; handed a digest matching no declared ref it still warns about a
+withdrawal. The green direction is reachable and the red one still is.
+
+### Item 2 — design (a), the synthetic instance, with the reason measured
+
+The eroded-instance cell now builds its shape against a `tmp_path` authority set. The
+round's reason is better than the brief's: **the cell has been killed twice by repairs** —
+CARD-291's merge took the ref it was drafted against, CARD-285's took its replacement —
+and *"a detector whose fixture is the board's current defect list rewards the board for
+staying broken."* Option (b) was rejected for depending on board state one step later: if
+the class ever legitimately empties, "non-empty eroded set" dies the same death. (b) is
+present anyway, because Item 1 pins the live class exactly.
+
+Only the two searches' **domain** is synthetic. The authority derivation, `Declared.form`,
+the trie (so loose hits use `git grep -lw`'s own word boundaries, not `in`), the strict
+resolver, every `Verdict` predicate and `_class_of` are all real. Cache cleared on entry
+and exit, and **order-independence proved** by running the synthetic cell before three
+live class pins in one process. The cell carries its own control — a second synthetic ref
+of the same form and authority, one `def` apart, which the detector must **not** report —
+plus an instrument proof that the synthetic population derived at all.
+
+A companion cell, `test_the_repaired_node_id_instance_stays_repaired`, pins the real ref
+in **the one direction that cannot destroy itself**: a repair staying a repair. A `def`
+does not vanish because a review YAML was synced, so only a regression reds it.
+
+**Eight mutants, all red where they should be**, harness proved on the unmutated copy
+first in both tables, all out of tree with no stash and no tracked write.
+
+### Three corrections to the orchestrator's brief
+
+- **The "five other classes" list was wrong.** `both-agree` is **unpinned**, and the
+  fifth *pinned* class the brief omitted is `resolved-from-afar` (which did not move).
+  The unpinned both-agree class **did** move, 373 → 376, by the same three refs.
+- **The G-5 node-id figure was a pre-merge number.** 9786 is `bb7da562`; the branch is
+  **9793** after CARD-285's merge (which added **7** cells in that module — the three
+  named plus four more) and **9794** after this round's one addition. In-module 22 → 23.
+- **"Expect 11 skips" does not reconcile with the gate's 27**, and the round said so
+  rather than quietly matching one of them. The 11 is the **impact-scope** subset; the 27
+  is the **full-suite** baseline. The brief conflated two populations, and the round
+  declined to attribute the other 16 because it did not run the full suite. That is R4's
+  domain clause — *a figure's population is part of the figure* — applied to the brief.
+
+### A forward-looking check the brief did not ask for
+
+`main` had advanced past `d7eec7e7` to `845797dc`, whose only in-domain addition is 59
+lines in `dispatcher.state`. The round ran the **trie over those added lines** and found
+**0 declared refs**, so a re-merge of `main` before the re-gate moves no class through
+that path. That is the right way to answer "will the base move my pins" — measured, not
+assumed.
