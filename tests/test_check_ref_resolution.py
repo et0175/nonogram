@@ -741,16 +741,24 @@ def test_a_node_id_ref_resolved_only_from_outside_its_own_module_is_pinned() -> 
         and verdict.ref.partition("::")[0] not in verdict.loose
     )
     _assert_class("resolved-from-afar", RESOLVED_FROM_AFAR, members)
-    # The sharp half: for at least one of them NOTHING but review YAMLs
-    # resolves the ref. That is the case a reader will not believe without it
-    # being asserted, and it is the one CARD-307 exists for.
+    # The sharp half: for some of them NOTHING but review YAMLs resolves the
+    # ref. That is the case a reader will not believe without it being
+    # asserted, and it is the one CARD-307 exists for.
+    #
+    # The figure is TWO, and it is worth saying why it is not three. This
+    # module's first draft asserted three, on the reading that all three of
+    # ``tests/test_player_bundle.py``'s refs were review-only. The assertion
+    # red: the third is ALSO named by ``tests/test_public_player.py``'s own
+    # docstring node-id table, so a second module's shim is carrying it. The
+    # overstatement was mine and the control caught it, which is the whole
+    # argument of ADR-0039/R1 arriving on this card's own work.
     review_only = [
         verdict.ref
         for verdict in members
         if verdict.loose and all(hit.startswith("meta/review/") for hit in verdict.loose)
     ]
-    assert len(review_only) >= 3, (
-        f"expected at least three node-id refs resolved by review reports alone; "
+    assert len(review_only) == 2, (
+        f"expected exactly two node-id refs resolved by review reports alone; "
         f"found {review_only}"
     )
 

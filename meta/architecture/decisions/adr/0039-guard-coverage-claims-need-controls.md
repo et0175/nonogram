@@ -302,10 +302,15 @@ now resolve. So the validator reports exactly **2** dead node-id refs, not 30.
 **A third shape this turned up, and it is the one CARD-307 should actually be scoped on.**
 Four node-id refs are defined in the module they name while that module does **not** spell
 the `path::name` string — so the loose resolution rests entirely on files that are about a
-card rather than about the code. Three of them are `tests/test_player_bundle.py`'s, and
-they are resolved by **exactly two CARD-218 review YAMLs and nothing else**: the tests
-exist and pass, and pruning two files under `meta/review/` would turn all three refs DEAD
-without a line of code changing. The fourth, ADR-0042/R4's
+card rather than about the code. Three of them are `tests/test_player_bundle.py`'s, a
+module that spells **zero** of its own node ids (against 7, 6 and 5 for the three modules
+that carry a table). **Two** of those three are resolved by **exactly two CARD-218 review
+YAMLs and nothing else**: the tests exist and pass, and pruning two files under
+`meta/review/` would turn both refs DEAD without a line of code changing. The third is
+additionally named by `tests/test_public_player.py`'s table, so another module's shim is
+carrying it — a first draft of this section said all three were review-only and the
+detector's own assertion refuted it, which is R1 landing on this card's work. The fourth,
+ADR-0042/R4's
 `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, has **57**
 resolvers — 51 `meta/review`, 4 `meta/profiling`, 1 `meta/kanban/backlog-scored.yml`, and
 one `tests/` file that is *not* the module holding its `def`
