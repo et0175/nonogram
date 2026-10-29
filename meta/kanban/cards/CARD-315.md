@@ -152,7 +152,7 @@ and two have real costs:
 - **G-5: no test deleted, renamed, skipped or merged** — `parametrize` ids included.
   (**gate**: node-id set difference with `-o addopts=''`.)
 - **G-6: a skip-related control attaches its marks by ASSIGNING `pytestmark`, never by
-  decorator** — `_conditional_silences` (in `tests/test_guard_integrity.py`) reports a
+  decorator** — `_conditional_silences` (defined at **`tests/test_suite_profile.py:2743`** — *not* `test_guard_integrity.py`, which only mentions it in prose at `:1518`; the orchestrator mis-propagated a correction that was about the sibling functions `_module_scope_silences` and `_check_log_invocations`) reports a
   `skipif` whatever it is keyed on. Verify `== []` for any file you touch.
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)

@@ -68,7 +68,7 @@ FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
   the console (test: tests/test_public_player_pages.py::
   test_pages_work_with_analytics_blocked).
 - AC-392: Given the assembled site, when its files are scanned, then no code in
-  it reads, stores, or transmits a visitor IP, and the only analytics endpoint
+  it reads, stores, or transmits a visitor IP, and the only analytics endpoint <!-- SUPERSEDED 2026-10-29: fix round 1 reworded AC-392 in `requirements.yml`, because "the only analytics endpoint" is SINGULAR and the integration is two origins, plus a pre-existing non-analytics `$schema` reference. The live wording is the registry's: no reference names a visitor IP or per-visitor identifier; every external reference is one `docs/deploy/player.md` declares, in its runtime allow-list for what a browser fetches or its non-runtime allow-list for what nothing fetches at page load; AND A REFERENCE SHAPE THE SCAN CANNOT CLASSIFY IS A FAILURE. That last clause is the one F-002, F-005 and F-006 each broke, and an AC that does not say it cannot notice. The sentence below is the retired one. -->
   referenced is the one named in docs/deploy/player.md (test:
   tests/test_public_player_pages.py::test_no_homegrown_tracking).
 
@@ -81,7 +81,7 @@ FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
   integration is one script tag, not a package (test: tests/test_export_pdf.py::
   test_the_dependency_baseline_is_still_closed).
 - G-3: No raw IP, user-agent fingerprint, or per-visitor identifier is stored
-  by anything this card ships (spec "Usage tracking"; behavioral — AC-3 is its
+  by anything this card ships (spec "Usage tracking"; behavioral — **AC-392** is its <!-- CORRECTED 2026-10-29, fix round 1's F-009: this named "AC-3", which FR-045 does not have -- stale from the 2026-10-23 renumbering. Confirmed: no copy of the stale name exists in any file this card owns. -->
   evidence).
 - G-4: Out of scope — the write API (scores/leaderboard/daily puzzle, deferred
   to December), custom domains/DNS automation, and flipping CARD-210 to ready
@@ -203,8 +203,13 @@ the **unstripped** text so a full URL parked in a comment is still a finding.
 A third correction worth recording: Chromium's text for an aborted subresource is
 `"Failed to load resource: net::ERR_FAILED"` and **names no URL**, so a text-only
 exemption would also have absorbed a failed load of a *page* asset — the one thing
-AC-391 must not excuse. The handler records `(text, location.url)` and exempts by the
-located URL.
+AC-391 must not excuse. The handler records `(text, location.url)` and exempts by
+matching an allow-listed **host** against **text OR reported location**.
+<!-- CORRECTED 2026-10-29, fix round 1's F-007: this paragraph said "exempts by the
+located URL", and so did the orchestrator's brief and the round's own docstring. The
+predicate is `host in entry[0] or host in entry[1]`. The property survives — the
+mutant was killed — but three documents described a mechanism the code does not have,
+which is how a reader comes to trust the wrong half. -->
 
 ### Where it disagrees with the card, measured
 
@@ -386,3 +391,77 @@ opposite** (F-008).
   scratch worktree at the cut, `src/` 0 lines, `pyproject.toml` absent.
 
 **Hygiene for cycle 2: until F-003 is fixed, no report may quote either endpoint.**
+
+## [Fix round 1 — all three gating findings closed, plus F-004…F-008, 2026-10-29]
+
+`af160fd5` → **`79ecafcb`**, two commits. This round **3 files, +328/−39**; whole card
+vs the cut **7 files, +1873/−26**, with `src/` and `pyproject.toml` **absent from the
+diff entirely** — verified at 0 files. Nothing under `meta/kanban/` or `meta/review/`.
+
+**All three gating fixes verified independently by the orchestrator:** `page.route`
+now appears **twice** (AC-390 has one), the lookbehind at `:2019` is
+``(?<![:"'`])//[^\n]*``, the pathspec at `:3042` is
+`["git","grep","-l","--fixed-strings",url,"--",":!meta"]`, and AC-392's new wording
+round-trips through `yaml.safe_load` with the **default-deny clause present**.
+
+- **F-001** — the suite no longer reaches the vendor. Tape with the interceptor
+  toggled: **3 foreign HTTP 200s before, 0 after and 3 aborts instead**, reproducing
+  cycle 1's 19-request tape exactly. AC-390's own assertions unchanged; two added so
+  an interceptor that caught nothing cannot pass. Mutant killed at `:2571`.
+- **F-002** — both silent passes are now failures, measured pre/post on the same
+  minimal tree in a throwaway worktree, and **the real tree stays clean**. Mutant
+  killed at `:2816`.
+- **F-003** — the mine is defused and the defusal is driven: with a probe YAML staged,
+  no-pathspec fails and `:!meta` is green; the mutant reds with exactly the landmine's
+  output. **`:!meta` is argued rather than assumed**: what must not hold a second copy
+  is a file the site or tooling *reads*, and `meta/` is bookkeeping that quotes an
+  endpoint while describing it — and it is the board's own sync path.
+- **F-004…F-008** all taken: the comment-stripping exemption now has its
+  both-directions control; `Worker`/`SharedWorker` and a `_PROPERTY_SINK` close the
+  unreadable-sink hole; the two allow-list blocks are **no longer a flat union**, with
+  a second control showing the static block's member is what permits `vercel.json`'s
+  own `$schema`; and the bound is now stated in the deploy page's *Usage counting*
+  section **immediately after the R6 claim**, with drift step 4 extended to say the
+  "do not count locally" rule **binds the test suite too** — the record F-001 was
+  owed, so the finding cannot come back when only code changes.
+
+**7 of 7 mutants killed, no survivors**, all in a throwaway detached worktree with
+blob and tree hashes asserted back after every one and the worktree removed
+afterwards. **Node ids 9748 → 9755, +7/−0 — this fix round added and removed no
+node**: every new control went inside an existing test. Zero skips in every run; no
+Chromium skip; `db_required` 26 by collection.
+
+### The correction worth carrying into the next brief
+
+**A probe whose value another pattern already reads measures the other pattern.** The
+round's first `Worker` control was `new Worker("//evil.example/w.js")`, and the mutant
+that drops `Worker` from `URL_CALLS` **SURVIVED** it — because `_URL_LITERAL` reads any
+quoted `//host/…` whatever call surrounds it. The probe was a control over the wrong
+line. It is now the unreadable form, `new Worker(spec)`, which only the call name can
+reach, and the survival is recorded in the test's own comment. That is commit
+`79ecafcb`, and it is ADR-0039/R1 landing on the fix round's own work.
+
+### Card-side corrections the round reported and the orchestrator owed
+
+Applied above: **F-007**'s mechanism (`host in entry[0] or host in entry[1]` — text OR
+reported location, which **three** documents described wrongly), **F-009**'s G-3
+naming a non-existent AC-3, and a superseded note on the card's own AC-392 sentence.
+
+### Four corrections to the orchestrator's brief, one of which is the third instance of a pattern
+
+1. **`_conditional_silences` is defined at `tests/test_suite_profile.py:2743`, not
+   `test_guard_integrity.py`** — which only mentions it in prose at `:1518`. **The
+   orchestrator had this right first**, then accepted a correct report that
+   `_module_scope_silences` (`:1511`) and `_check_log_invocations` (`:577`) live in
+   `test_guard_integrity.py` — **two sibling functions, not that one** — generalised
+   it to the third, and wrote the wrong location into two fix briefs **and into
+   CARD-315's G-6, which had already shipped to `main`.** Corrected there.
+2. The Chromium `pytest.fail(` is at **`:551`**, not `:550` (`:550` is the
+   `if not Path(...).exists():` guard). The second site, `:676`, was exact.
+3. **F-001 is not "two lines"** — it is four plus two assertions, because an
+   interceptor whose non-empty set is not asserted passes a run in which nothing was
+   blocked. The orchestrator carried "two lines" from cycle 1 without pricing it.
+4. **The hygiene rule can be lifted.** With `:!meta` the `git grep` cannot see `meta/`
+   at all, so neither the card record at `:212` nor a cycle-2 report can red the
+   suite. Kept regardless for this round: neither full endpoint appears in either
+   commit message or in the report.
