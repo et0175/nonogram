@@ -16,8 +16,8 @@
 **Created wave:** 65
 **Deferred waves:** 0
 **Depends on:** CARD-298, CARD-299
-**Touches:** src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/book_vector.py, tests/test_book_puzzle_page_vector.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** —
+**Touches:** src/nonogram/admin/book_sheet_vector.py (new, +489), src/nonogram/admin/book_pdf_generator.py (+194/−28, incl. a **raster**-path split of `_draw_two_up_qr_groups`), src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/book_vector.py, tests/test_book_puzzle_page_vector.py, tests/test_book_grid_rules.py, tests/test_book_export_interior_cover.py, tests/test_book_interior_type_floor.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+**Review score:** 8.5 (cycle 1/3) — 0 gating findings, certifies: true; fix round 1 running on F-301/302/303/304/305
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -151,7 +151,7 @@ adopted rather than re-litigated.
 
 ---
 
-## Implementation — `560d7e09` → `77b6998d`, 5 commits, 9 files, +2275/−75
+## Implementation — `560d7e09` → `77b6998d`, 5 commits, 9 files, +2283/−83
 
 **It built `src/nonogram/admin/book_sheet_vector.py` for EVERY interior page kind, not
 just this one** — importing only `book_vector`, `book_vector_draw` and `export.layout`,
@@ -179,9 +179,22 @@ because of M5 below — **no numeric literal reaches any drawing call as an argu
 
 **M5 is numerically identical on a book page**, so no reading of the page can see it — and
 `2` *has* to be on the value allowlist (the chequer's parity, a centred string's halving).
-It left all 61 tests green. **The round found a blind spot in its own guard and closed
-it** with the call-argument arm; M5 now reds two cells. That is ADR-0039/R1 applied by a
-round to its own work, unprompted.
+It left all 61 tests green. **The round found a blind spot in its own guard and narrowed
+it by one notch** with the call-argument arm; M5 now reds two cells. Looking for its own
+blind spot unprompted is ADR-0039/R1 applied by a round to its own work — but the notch is
+**not** closed, and the card said it was.
+
+> **AMENDED by review cycle 1, F-301 (high).** The call-argument arm catches only a bare
+> `ast.Constant` in an argument position. The reviewer planted `_QR_BORDER_PX = 2` at module
+> level and used it as `to_points(_QR_BORDER_PX)` — the raster placeholder's own border
+> weight, **one hop out, the exact transcription M5 was** — and **all three AC-3 cells
+> passed**. Fourteen shapes are silent on both arms: local variable, module constant, tuple,
+> list, starred tuple, dict value, f-string, default argument, `f(1+1)` — and **`f(-2)`,
+> which is `UnaryOp(USub, Constant)` and not even one notch out**. The escape set is
+> `{0, 1, 2, 0.0, 2.0}` through any expression that is not a bare `Constant`, **and it
+> contains the one value the closure exists for**. Fix round 1 owns the choice: widen the
+> guard over an enumerable set of shapes, or narrow the claim to what it checks and name the
+> escapes. Leaving the wording as it stood was the one option not available.
 
 **The all-or-nothing coupling** is one branch of one `if` on `footer_is_clear`, using
 `_draw_page_frame`'s own expression on the same two figures, and a request carrying QR
@@ -230,8 +243,16 @@ claims are struck above; the correction is recorded in ADR-0042's History at `67
   stream by CARD-299, so this card's rules must satisfy the re-expressed versions."* Both
   are **still pixel readings** of the **raster** page's grid area — unaffected by vector
   furniture, both green. **There was no re-expressed version to satisfy.**
-- **G-1's "21 book baselines" is not a named artefact.** The nearest is
-  `book_corpus.BASELINE_PAGE_COUNT = 14`, and G-1 was discharged against what exists.
+- ~~**G-1's "21 book baselines" is not a named artefact.** The nearest is
+  `book_corpus.BASELINE_PAGE_COUNT = 14`, and G-1 was discharged against what exists.~~
+  **STRUCK by review cycle 1 — this correction was itself wrong, and it was the
+  orchestrator's.** `ls tests/fixtures/book_baseline_card*.json | wc -l` is **exactly 21**,
+  and the phrase is used in `handoff.md:7` and in **`ADR-0042:389`, the ADR this card
+  edited**. `BASELINE_PAGE_COUNT = 14` is the page count of the one live baseline, a
+  different quantity. G-1 holds either way — all 21 fixture files are byte-unchanged — but it
+  was discharged against a population the round had told itself did not exist. The pattern is
+  the day's own: a figure declared absent **by searching for the wrong artefact kind**, where
+  the instrument's blindness and the quantity's absence read the same.
 
 ### A new instrument trap, same family as the day's others
 
@@ -265,3 +286,69 @@ frame, which is the converting card's work.
 
 **CARD-309's prerequisite is discharged**: it can now convert the puzzle page without
 shipping pages that have no number, and `vector_two_up_page` is covered too.
+
+---
+
+## Review cycle 1 — **8.5**, risk low, **0 gating findings**, certifies: true
+
+`meta/review/20261029T210440Z-CARD-306-cycle1.yml`. Passes `min_score: 8` on cycle 1 of 3.
+Impact set re-derived to 16 files: **774 passed, 0 failed, 0 skipped**, 3–4 min. Node ids
+re-derived from two `git archive` trees with `${=MODS}`: **236 → 259, 23 added, 0 removed, 0
+renamed** — matches the card. One skip in the blast radius, attributed by name:
+`test_book_pdf_memory.py::…::test_the_same_pair_under_an_address_space_cap_the_kernel_enforces`
+(macOS `setrlimit(RLIMIT_AS)`; that file is 0 lines changed by this card).
+
+**Reproduced from scratch, not taken on the card's word:**
+- **G-1's instrument.** All 14 raster interior pages byte-identical base vs head; shifting the
+  centred folio 1 px at `book_pdf_generator.py:2453` in the **base** tree moves **exactly 3 of
+  14** digests (pages 05, 07, 09). Also all **21** `book_baseline_card*.json` byte-unchanged.
+- **The 47/13 footer split**, re-derived from COMP-007 independently of the test, then widened
+  to an independent **240-page sweep (162/78)**. Both arms exercised, not hoped for.
+- **The ADR-0037/R2 correction is exactly right.** ADR-0037:290 verbatim holds page furniture to
+  the 2-device-pixel dropout floor and says it "must not claim" an exemption; 3 px (header,
+  0.6 pt) and 2 px (hairline, 0.4 pt) at 300 DPI reproduce. **The vacuous-exemption precedent
+  CARD-222 set is not repeated.**
+- **`book_puzzle_vector` is AST-identical ignoring docstrings** — its re-pointed class is a
+  genuinely narrowed claim with an in-test control, not a claim relocated to stay true.
+- **The refusal is unreachable from production and the code says so.** Over all 300 pages,
+  `qr_slot` non-None and footer-blocked **never co-occur**; `draw_sheet_furniture`'s docstring
+  states that unreachability rather than implying coverage. Honest, not a finding.
+- **The owner render supports "visually indistinguishable."** All four PNGs viewed against their
+  raster twins; the only visible difference is the typed link a hair lower — the declared
+  0.76 mm, visible in a full-res A/B and not at reading distance.
+
+**Findings** (none gating): **F-301 high** — M5's closure is one notch narrower than claimed
+(see the AMENDED block above). **F-302/F-303/F-304 medium** — a docstring states the link
+residual as **35 px** where the test asserts and the reviewer re-measured **9**, and the
+sentence is unfinished; the 2-px floor is attributed in **four places** (including ADR-0042's
+new History entry) to `_pt_to_px_at_least`, which applies a **ceiling** —
+`_pt_to_px_at_least(0.2) == 1` — so the floor is held by **the chosen point constants**, which
+makes this card's new EC *more* load-bearing, not less; and `_XOBJECT_PAINT`'s `[ \t]` class
+covers **2 of PDF's 6** whitespace characters, so `"q\n/Im0 Do\nQ"` escapes, while
+`(Scan Do now) Tj` **false-fires** — latent on a line **CARD-210 is scheduled to edit**.
+**F-305 low** — the one AC-3 cell that reddened under the plant failed on its own
+`assert planted != source`, its verbatim needle having vanished: it reads like a catch and is
+not one. **F-306/F-307 low** — the Touches drift above, and a class name that now names a claim
+false of the shipped page.
+
+**Also measured wrong on the record:** the card's `+2275/−75` is **+2283/−83**; the "21
+baselines" strike above; and ADR-0006/R1's named check
+`TestDependencyBaseline_IsExactlyPillowAndNumpy` has **zero class definitions in the repo**. R1
+holds in substance anyway (`pyproject.toml` diff empty; the only new import is stdlib `re`).
+**That ref is not a new finding and is already owned by CARD-317**, which records it more
+precisely than the review did: the rule *is* tested, at `tests/test_export_pdf.py:1249`, so this
+is a phantom **pointer**, not an unverified rule, and twelve cards carry a hand-written
+`**DEAD REF**` note about it. Re-verified here: the only `.py` occurrences are one comment at
+`test_export_pdf.py:622` and two docstrings (`test_export_pdf.py:1250`,
+`test_puzzle_editor_ui.py:1021`); the nearest real class is
+`TestDependencyBaseline_SqlalchemyIsNotCapped` (`test_db_url_driver.py:332`), a different claim.
+And the ref is a live demonstration of the mechanism this board has measured before:
+`symbol_exists()` is a **text** search whose domain includes `meta/review/**`, where **over a
+hundred** YAMLs name this symbol — so it resolves alive, raises no warning, and **would resolve
+falsely even if ADR rule refs were checked, which they are not** (CARD-319).
+
+- [Review 1/3] Score: 8.5 ✓ threshold reached (0 gating findings, certifies: true)
+- [Fix 1] Dispatched on F-301, F-302, F-303, F-304, F-305 — four of the five are a refuted
+  figure, a wrong mechanism attribution in four places including an ADR History entry, a
+  pattern narrower than its own domain, or a control that reds for the wrong reason. The score
+  cleared; ADR-0039/R4 still obliges the retraction.

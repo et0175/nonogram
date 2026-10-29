@@ -1,0 +1,862 @@
+version: 1
+generated_at: "2026-10-29T21:04:40Z"
+target: "card/306-vector-puzzle-page-furniture @ 77b6998d (cycle 1/3; 5 commits on the cut 560d7e09, 9 files +2283/-83 — re-derived with `git diff --shortstat`, the card says +2275/-75)"
+card: CARD-306
+cycle: 1
+mode: implementation_review
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+certifies: true
+
+verdict: >-
+  The work is strong and most of the round's load-bearing claims reproduce
+  exactly. G-1's instrument is real and I rebuilt it from scratch: all 14 raster
+  interior pages are byte-identical between 560d7e09 and 77b6998d, and shifting
+  the centred folio one pixel in the base tree moves **exactly 3 of 14** digests
+  (pages 05, 07, 09) — the 3-of-14 proof is what was actually run. The 47/13
+  footer split is not hoped for: I re-derived it from COMP-007 independently of
+  the test (47 clear, 13 blocked of 60) and widened it to an independent
+  240-page sweep (162/78), so both arms of the all-or-nothing verdict are
+  exercised. The ADR-0037/R2 correction is **exactly right** — ADR-0037:290 says
+  furniture "needs no exemption from R2 and must not claim one" and holds it to
+  the 2-device-pixel dropout floor directly, which is what the round did, and
+  the vacuous-exemption precedent is not repeated. `book_puzzle_vector` is
+  AST-identical ignoring docstrings, so its claim is genuinely narrowed, not
+  quietly preserved: the re-pointed class says so in prose *and* carries an
+  in-test control that the composed page shows more. Node ids re-derived 236 →
+  259, 23 added, 0 removed. 774 impact tests pass, 0 skipped.
+
+  **The headline claim does not survive.** M5's closure is one notch narrower
+  than the card says. I planted `_QR_BORDER_PX = 2` at module level and used it
+  as `to_points(_QR_BORDER_PX)` — the raster placeholder's own literal border
+  weight, the exact transcription M5 was, one hop out — and **all three AC-3
+  guard cells passed**, `test_no_number_is_handed_to_a_drawing_call` included.
+  The only cell that reddened did so because its own `source.replace` needle had
+  vanished, which reads like a catch and is not one. The two arms are each
+  default-DENY on their own axis, but their intersection leaves open exactly
+  {0, 1, 2, 0.0, 2.0} reached through any expression that is not a bare
+  `ast.Constant` in an argument position — and that set contains the one number
+  the whole closure exists for. Three smaller things are measurably off: a
+  production docstring states the link residual as **35 px** where the test
+  asserts and I re-measured **9 px**; the dropout floor is attributed in four
+  places to `_pt_to_px_at_least`, which applies a ceiling and not a floor
+  (`_pt_to_px_at_least(0.2) == 1`); and the `Do` pattern's `[ \t]` class is both
+  narrower than PDF whitespace (a newline-separated `Do` escapes) and wider than
+  its own control admits (a text literal containing `" Do "` fires). None is a
+  shipped defect. No gating finding.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-306.md on main in full (268 lines) — ACs, guardrails, the implementation record and the four struck ADR-0037/R2 claims"
+    - "the whole diff 560d7e09..77b6998d by --stat and per file"
+    - "src/nonogram/admin/book_sheet_vector.py at HEAD in full (489 lines)"
+    - "src/nonogram/admin/book_vector.py: the CARD-306 delta (_XOBJECT_PAINT :1114-:1121, write_vector_page's refusal), ContentStream.text (:913-:940), ContentStream.operators (:945), render (:948-:962)"
+    - "src/nonogram/admin/book_pdf_generator.py: the whole CARD-306 delta — _RASTER_DECLARATIONS PUZZLE entry (:676-:692), vector_puzzle_page, _sheet_furniture, _vector_qr_group, vector_two_up_page, _vector_two_up_qr_groups, _two_up_qr_insets, _draw_two_up_qr_groups"
+    - "src/nonogram/admin/book_puzzle_vector.py: the docstring delta (the only change)"
+    - "src/nonogram/export/layout.py: INTERIOR_HEADER_RULE_PT (:1979), INTERIOR_FOOTER_RULE_PT (:2010), _pt_to_px_at_least (:2223-:2225), _mm_to_px_at_least (:2632)"
+    - "tests/test_book_puzzle_page_vector.py at HEAD: the whole CARD-306 block (:2274-:3250) and the re-pointed TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture (:1921-:1977); _furniture_of (:244), Case.furniture/.puzzle_marks/.furniture_marks (:709-:741), _corpus (:823), _case (:850), twin (:988)"
+    - "tests/test_book_grid_rules.py: Drawn.__init__ delta, furniture_widths, stated_widths"
+    - "tests/helpers/book_corpus.py: BASELINE_PAGE_COUNT (:597), BASELINE_FIXTURE (:570), baseline_puzzles (:689), page_digest (:757)"
+    - "meta/architecture/decisions/adr/0037-*.md: R2's rule block (:280-:300) and its History entries at 2026-10-17 (:183-:186) and 2026-10-25 (:137-:183)"
+    - "meta/architecture/decisions/adr/0042-*.md: the new CARD-306 History entry (:283-:333) and the CARD-298 entry it sits above (:384-:393)"
+    - "~/Documents/nonogram-reviews/CARD-306/: render.py and all four PNGs, vector and raster, single and two-up, compared by eye"
+  not_reached:
+    - "the full suite — the orchestrator's merge gate, deliberately not run; the lock at /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock did not exist at any point in this cycle (checked by absolute path)"
+    - "the 20 superseded baseline fixtures — `git diff --stat 560d7e09..77b6998d -- tests/fixtures/` is empty, so all 21 files are byte-unchanged, and only book_baseline_card206.json is live (book_corpus.BASELINE_FIXTURE)"
+    - "the raster two-up ink helpers (tests/helpers/two_up_ink.py) beyond what test_book_pdf_two_up.py exercised in the impact run"
+    - "a 1200-DPI run of the furniture — every residual figure here is stated at the book's 300 DPI only, which is where the book prints"
+  confidence: high
+
+impact_scope_derivation: >-
+  Derived. `git diff --name-status 560d7e09..77b6998d` is 8 M entries and 1 A
+  (src/nonogram/admin/book_sheet_vector.py); 0 files under tests/fixtures/, 0
+  under meta/kanban/, pyproject.toml absent. The four test files the diff
+  touches are the spine. `grep -rln` for the four changed/added src modules over
+  tests/ returns 52 files, which is the whole book surface and larger than
+  `review.test_scope: impact` asks for, so the run was the 4 changed test files
+  plus the 12 that read the frame, the QR slot, the page numbers, the vector
+  primitives, the two-up page and the three property modules that read drawn
+  book geometry. tests/test_book_pdf_memory.py and
+  tests/test_book_solved_answer_key.py were run separately because they are the
+  two live consumers of book_corpus.BASELINE_FIXTURE (G-1's artefact).
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest"
+  flags: "-o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  full_suite: "NOT RUN (orchestrator's gate). The lock path was checked absolutely at /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock and did not exist; no holder to check for liveness."
+  impact:
+    command: >-
+      pytest -q -rs tests/test_book_puzzle_page_vector.py tests/test_book_grid_rules.py
+      tests/test_book_interior_type_floor.py tests/test_book_export_interior_cover.py
+      tests/test_book_page_frame.py tests/test_book_qr_slot.py tests/test_book_pdf.py
+      tests/test_book_pdf_two_up.py tests/test_book_pdf_vector_primitives.py
+      tests/test_book_page_numbers.py tests/test_book_puzzle_frame.py
+      tests/test_book_guide_page_vector.py tests/property/test_book_two_up.py
+      tests/property/test_book_layout.py tests/property/test_book_export_interior.py
+      tests/property/test_book_pdf_geometry.py
+    result: "774 passed, 0 failed, 0 skipped"
+    runtime: "3-4 minutes (210.5 s wall on this box; a quiet box will differ)"
+  baseline_consumers:
+    - "tests/test_book_pdf_memory.py — 54 passed, 1 skipped, ~15-20 s"
+    - "tests/test_book_solved_answer_key.py — 151 passed, ~5-7 s"
+  skips_attributed:
+    - name: "tests/test_book_pdf_memory.py::TestBookPdfMemory_...::test_the_same_pair_under_an_address_space_cap_the_kernel_enforces (def at :1274, pytest.skip at :1297)"
+      reason: "platform. setrlimit(RLIMIT_AS) raises ValueError: current limit exceeds maximum limit on this macOS kernel. The file is 0 lines changed by this card; the skip is pre-existing and is NOT this card's."
+    - name: "none in the impact run"
+      reason: "the 774-test impact run reported 0 skips under -rs. Every other file in the blast radius that was run reported none."
+
+node_ids:
+  method: >-
+    `git archive` of 560d7e09 and of 77b6998d into two out-of-tree directories,
+    then `pytest --collect-only -q` in each over the four changed test files,
+    sorted and `comm`-diffed. Re-derived, not carried from the card. The
+    zsh word-split trap the card flags was avoided with `${=MODS}`; the base and
+    head collections both returned non-zero counts, so the "0 tests, 0 removed,
+    0 added" failure shape did not occur.
+  base: 236
+  head: 259
+  added: 23
+  removed: 0
+  renamed: 0
+  parametrize_ids_moved: 0
+  g3_verdict: "HOLDS — matches the card exactly."
+  added_classes:
+    - "TestSheetFurniture_TheProductionPageCarriesTheFurniture (3)"
+    - "TestSheetFurniture_TheFooterIsAllOrNothing (5)"
+    - "TestSheetFurniture_OneDefinitionNotTwo (6)"
+    - "TestSheetFurniture_TheQrBlockIsOperatorsAndTheWriterRefusesAnXObject (4)"
+    - "TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor (3)"
+    - "TestSheetFurniture_TheTwoUpPageCarriesItToo (2)"
+
+guardrails:
+  G-1: >-
+    HOLDS, and the instrument reproduces. I rebuilt it out of tree rather than
+    reading the round's: an `interior_pages(baseline_puzzles())` walk over
+    corpus_book() in each of the two archived trees, digesting
+    `Image.tobytes()` per page. 14 pages each side, all 14 sha256 identical.
+    **Positive control**: `draw.text((centred_x, bottom), ...)` at
+    book_pdf_generator.py:2453 shifted to `centred_x + 1` in the BASE tree moves
+    exactly 3 of the 14 digests — pages 05, 07, 09 — which is the round's
+    3-of-14 and is what was actually run. **Negative control**: the base-vs-head
+    identity above, on the same reading. The probe lives in the scratchpad, not
+    in tests/ (G-5). Separately, `git diff --stat -- tests/fixtures/` is empty:
+    all 21 `book_baseline_card*.json` are byte-unchanged, and the live one
+    (card206, 14 pages, via book_corpus.BASELINE_FIXTURE) is green in both its
+    consumers. This matters because the diff refactors the RASTER
+    `_draw_two_up_qr_groups` into `_two_up_qr_insets` — a raster-path change the
+    card's Touches list does not mention (F-306) and which this reading is
+    exactly what covers.
+  G-2: >-
+    HOLDS as to every coordinate; see F-301 for the narrow value window the
+    guard does not close. No row, no column, no point size and no weight is
+    written in book_sheet_vector.py: its numeric constants are exactly
+    {0, 1, 2, 0.0, 2.0} and the module imports nothing that could measure a
+    frame (asserted by set equality over the module's own imports).
+  G-3: "HOLDS. 236 -> 259, 23 added, 0 removed, 0 renamed, 0 parametrize id moved. Re-derived above."
+  G-4: >-
+    HOLDS. ADR-0042/R1 is not flipped: all seven page kinds remain in
+    `_RASTER_DECLARATIONS`, the PUZZLE entry's `expires_with` is untouched
+    ("CARD-299", "CARD-309"), and the new ADR History entry says in terms that
+    R1's flip is CARD-309's. Only the PUZZLE entry's *reason* changed, which was
+    the right repair: the old reason asserted a hole this card closed, and a
+    declaration whose reason has expired is the defect that registry gates on.
+  G-5: >-
+    HOLDS. The owner render's driver is
+    ~/Documents/nonogram-reviews/CARD-306/render.py, outside tests/; nothing was
+    added to `RENDER_HEAVY_SNAPSHOT` (tests/test_suite_profile.py:474 is
+    unchanged by this diff). My own probes were written to the session
+    scratchpad and the worktree is clean (`git status --short` empty).
+
+acceptance_criteria:
+  AC-1:
+    verdict: MET
+    evidence: >-
+      TestSheetFurniture_TheProductionPageCarriesTheFurniture reads the
+      production page's own operators (through `BookPDFGenerator.vector_puzzle_page`,
+      written into a PDF and parsed back), not a bitmap, and names each of the
+      four pieces. `test_the_reading_sees_each_piece_go_missing` is its control.
+      The round's M1 (centred folio draw deleted) is corroborated by my M-B
+      below on the two-up arm.
+  AC-2:
+    verdict: MET
+    evidence: >-
+      Both directions are asserted directly and both have a mutant. The edge
+      cell `test_the_one_pixel_either_side_of_the_verdict_decides_it` moves
+      `content_bottom` across `footer_rule.y` and asserts the rule count goes
+      2 -> 1, which is ADR-0039/R1's edge mutant in-suite. The corpus arm
+      asserts the two counts equal AND asserts the split (47 / 13), so the
+      equality cannot hold trivially. I re-derived that split independently of
+      the test (see engineering_constraints) and it is right.
+  AC-3:
+    verdict: MET WITH A GAP
+    evidence: >-
+      Three readings, all default-DENY (set equality on the literal set, `== []`
+      on the call-argument walk, set equality on the import set), plus the QR
+      border held against the hairline's own width on a real book page. No
+      coordinate is transcribed and nothing re-derives a position. The gap is
+      F-301: the two numeric arms do not intersect to cover an allowlisted value
+      bound one hop, and AC-3's own words ("a second transcription is a
+      FAILURE") are what that gap is measured against.
+  AC-4:
+    verdict: MET WITH A GAP
+    evidence: >-
+      The medium is decided as operators, argued in the module header and
+      recorded in ADR-0042's History, and the alternative is a refusal rather
+      than an omission — `write_vector_page` raises ContentStreamError on a
+      stream carrying `Do`. Positive control and negative control both exist and
+      both pass. The gap is F-304: the pattern's whitespace class is `[ \t]`,
+      so a `Do` separated by a newline inside one appended operator escapes, and
+      a text literal containing `" Do "` falsely fires.
+  AC-5:
+    verdict: MET
+    evidence: >-
+      ~/Documents/nonogram-reviews/CARD-306/ holds vector-single, vector-two-up
+      and both raster twins as PDF and PNG, plus the driver. I looked at all
+      four. See owner_render below for what the comparison supports.
+
+engineering_constraints:
+  EC_furniture_dropout_floor:
+    verdict: MET
+    evidence: >-
+      TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor reads
+      the `w` operand each rule was stroked at, converts back to device pixels
+      and asserts >= 2. Minimum case count asserted inside the test
+      (MIN_CASES = 54 over 60 cases, >= 3 trims) and the reading's own
+      non-vacuity floor asserted as `seen == 107` — which is 47*2 + 13*1 and so
+      cross-checks the footer split from the other side. Its control plants a
+      1-px frame and watches the reading fall below the floor. **The authority
+      is right** (see system_contract/ADR-0037) and **the attribution of where
+      the floor is applied is not** (F-303).
+  EC_all_or_nothing_footer:
+    verdict: MET
+    evidence: >-
+      Asserted over the same corpus from the stream, not from the writer's
+      returned verdict. **Re-derived independently**: I computed
+      `interior_frame(spec).footer_rule.y` against `layout.page.drawing_bottom`
+      for all 60 corpus cases without touching the test's helpers and got
+      **47 clear / 13 blocked**, and over an independent 240-case sweep on the
+      same three trims **162 clear / 78 blocked**. Both arms are genuinely
+      exercised; the 13 are page-fit-bound grids whose drawing reaches past the
+      footer rule, which is the branch CARD-200's corner folio exists for.
+  refusal_reachability:
+    verdict: "UNREACHABLE FROM PRODUCTION, AND THE CODE SAYS SO"
+    evidence: >-
+      `draw_sheet_furniture` raises SheetFurnitureError when it is handed QR
+      groups for a page whose footer is not clear. I measured whether any
+      production composer can produce that: over the 60-case corpus and the
+      independent 240-case sweep, `qr_slot(layout) is not None` and
+      `content_bottom > footer_rule.y` never co-occur — **0 reachable refusals
+      in 300 pages**. So the refusal fires only when provoked (which
+      `test_a_footer_that_is_not_there_cannot_carry_a_qr_group` does, by
+      `dataclasses.replace`), and it is a guard against a future caller that
+      measured the icon on a different extent — the CARD-248 defect. The
+      function's own docstring states exactly this, so the claim is honest, not
+      overstated. Not a finding; recorded because the brief asked.
+
+mutants:
+  - id: M-A
+    name: "the one-hop transcription — M5 one notch out"
+    plant: >-
+      In an out-of-tree copy of 77b6998d: `_QR_BORDER_PX = 2` added at module
+      level in book_sheet_vector.py and `_draw_qr_group`'s
+      `stream.stroke_width(stream.to_points(furniture.frame.footer_rule.width))`
+      replaced by `stream.stroke_width(stream.to_points(_QR_BORDER_PX))`.
+      Numerically identical on a book page, exactly as M5 was.
+    result: >-
+      **62 passed, 1 failed.** The one failure is
+      `test_the_call_argument_walk_sees_the_numerically_identical_plant`, and it
+      fails on `assert planted != source` — its own `source.replace` needle no
+      longer exists in the file. The three cells that are the actual guard —
+      `test_the_module_writes_no_coordinate_of_its_own`,
+      `test_no_number_is_handed_to_a_drawing_call` and
+      `test_the_icons_border_is_the_hairlines_own_weight` — all **PASS** (run
+      alone: 3 passed). So the closure does not catch it.
+    reads_as: F-301
+  - id: M-A2
+    name: "the same, as a local variable instead of a module constant"
+    plant: "`border_px = 2` immediately before the same call, and `to_points(border_px)`."
+    result: "5 passed, 1 failed — the same needle-dependent cell, same reason. The real arm green."
+  - id: M-B
+    name: "the two-up page loses its furniture"
+    plant: >-
+      `vector_two_up_page`'s whole `draw_sheet_furniture(...)` block deleted in a
+      second out-of-tree copy, leaving `return stream`.
+    result: >-
+      **2 failed** — `TestSheetFurniture_TheTwoUpPageCarriesItToo`'s both cells.
+      The two-up wiring is guarded, not merely written.
+  - id: M-C
+    name: "G-1's own positive control, re-run"
+    plant: "`centred_x` -> `centred_x + 1` at book_pdf_generator.py:2453 in the BASE tree."
+    result: "exactly 3 of 14 page digests move (05, 07, 09). The card's figure reproduces."
+  - id: M-D
+    name: "M5 itself, direct"
+    plant: "`to_points(furniture.frame.footer_rule.width)` -> `to_points(2)`."
+    result: "2 failed in the guard class, including `test_no_number_is_handed_to_a_drawing_call`. The direct form IS caught — the arm works at zero hops."
+
+controls_proved_on_unmutated_tree:
+    - "TestSheetFurniture_OneDefinitionNotTwo on the pristine archive of 77b6998d: 6 passed."
+    - "tests/test_book_puzzle_page_vector.py on the pristine archive: 63 passed, 0 failed."
+    - "G-1 digest reading on the pristine base and head: 14 pages each, all identical — the negative control for M-C."
+
+answers_to_the_brief:
+  m5_closure_covers_every_path: >-
+    **NO.** The call-argument arm collects `ast.Constant` nodes that sit
+    directly in a `Call`'s `args` or a keyword's `value`. I enumerated the paths
+    a number can take and measured each against both arms with the allowlisted
+    value 2: direct literal — call-arm RISES; **local variable one hop —
+    both silent**; **module constant — both silent**; **tuple literal argument
+    — both silent**; **list literal argument — both silent**; **starred tuple —
+    both silent**; **dict value — both silent**; **f-string — both silent**;
+    **default argument — both silent**; **unary minus `f(-2)` — both silent**
+    (it parses as `UnaryOp(USub, Constant)`, so it escapes even at ZERO hops);
+    **arithmetic in the argument `f(1 + 1)` — both silent**. Nested call `f(g(2))`,
+    an attribute constant `f(C.w)` and a comprehension-built argument do rise,
+    but only because a bare Constant still sits in some call's argument list.
+    The escape set is precisely: any value in {0, 1, 2, 0.0, 2.0} reaching a
+    call through any expression that is not a bare `ast.Constant` argument — and
+    `2` is the QR border weight the whole closure exists for. M-A confirms it on
+    the real module. **This is M5 one notch out, which is what the brief
+    suspected.** Note that `f(-2)` is not even one notch out: it is the direct
+    form the arm claims to catch.
+  corpus_exercises_both_arms_and_refusal_reachable: >-
+    **Both arms yes, refusal no (by design, and said so).** 47/13 re-derived
+    independently of the test and confirmed on a wider 240-case sweep (162/78);
+    `seen == 107` cross-checks it from the rule count. The refusal is
+    unreachable from every production composer — 0 reachable in 300 pages —
+    because `qr_slot` answers None on exactly the figure `footer_is_clear`
+    reads. It fires when provoked, and `draw_sheet_furniture`'s docstring states
+    the unreachability rather than implying coverage. Honest.
+  g1_3_of_14_reproduces: >-
+    **YES, exactly.** Rebuilt from scratch out of tree; 14/14 byte-identical
+    base vs head, and the 1-px centred-folio shift in the base tree moves 3 of
+    14 (pages 05, 07, 09). The instrument is the right shape and is what was
+    run. One caveat worth carrying: 3 of 14 is the sensitivity of *that* plant —
+    only three interior pages carry a centred footer folio — so the reading's
+    reach over the other 11 pages rests on the frame rules and the QR block,
+    which this plant does not move.
+  all_kinds_module_right_boundary: >-
+    **YES — right-sized, not scope creep.** The module is kind-agnostic in the
+    only sense that matters: it takes a `SheetFurniture` value object and
+    contains no per-kind code, so "built for all kinds" costs nothing beyond
+    "built for one". Its import set is the minimum that breaks the cycle
+    (`book_vector`, `book_vector_draw`, `export.layout` — asserted by set
+    equality), and I verified the asymmetry it is built around: book_guide_vector:103,
+    book_toc_vector:60 and book_answer_vector:62 each import book_pdf_generator
+    at module level, so they cannot be called from its page walk. Wiring only
+    the two reachable kinds is the correct stop. The one scope fact the card
+    hides is the RASTER refactor of `_draw_two_up_qr_groups` into
+    `_two_up_qr_insets` (F-306).
+  book_puzzle_vector_claim_still_true: >-
+    **TRUE, relocated honestly, with a naming debt.** The module is
+    **AST-identical ignoring docstrings** between 560d7e09 and 77b6998d — I
+    checked by stripping docstrings from both parses and comparing `ast.dump`.
+    So "draws no sheet furniture" is still literally true *of that module*. The
+    re-point is not a claim rescued by moving the goalposts quietly: the
+    docstring says in terms what moved and what did not, and the test adds a
+    control — `assert len(composed) > len(shown)` — proving the composed
+    production page really does carry more, so the narrowed reading is a
+    statement about the module and not about a page nobody draws on. The debt is
+    the class NAME (F-307): `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`
+    now reads, to anyone scanning node ids, as a false claim about the shipped
+    puzzle page. Kept for G-3.
+  do_refusal_pattern_survives_its_controls_gaps: >-
+    **PARTLY.** Measured, per row, with `_XOBJECT_PAINT.search`:
+    `"/Im0 Do"` FIRES; `"Do"` alone (start AND end of row) FIRES; tab-separated
+    FIRES; hex string `<446F>` silent (**correct** — that is text); `"/Im0Do"`
+    silent (**correct**); `"(Done. Do) Tj"` silent (the control). **Misses**:
+    `"q\n/Im0 Do\nQ"` as one appended operator is **silent**, and so is a
+    CR-separated one — PDF treats CR, LF, FF and NUL as whitespace and the class
+    is only `[ \t]`. Since the ONLY way to reach the refusal is to append an
+    operator by hand, appending a multi-line `q … Q` block is at least as likely
+    as a single-line one, so the miss is on the live path. **False positive**:
+    `"… Td (Scan Do now) Tj ET"` **FIRES** — a text literal containing `" Do "`
+    is refused as an XObject paint. The docstring's claim that a token match
+    means "a literal string's (…Do…) body … is not mistaken for one" is true
+    only for the two bodies the control chose. No live footer string contains
+    `" Do "` today ("Solve it online", "Puzzle N · Solve it online",
+    "nonogram.example/p/NNN", "20 x 25", digits), so nothing ships broken —
+    but CARD-210 edits that link line.
+  residuals_accurately_costed: >-
+    **Two of three yes; one is contradicted inside the production module.**
+    (1) The QR link's 9 device px / 0.76 mm: the TEST asserts `offset == 9` and
+    9/300 in = 0.762 mm, and I re-measured the face — 42 px at the footer size,
+    ascent/descent (39, 10), so 9 is a real ink descent bounded by the declared
+    descent, exactly as the test's second assertion says. The card is right.
+    **But book_sheet_vector.py's `_set_at_baseline` docstring says "35 px at the
+    book's 300 DPI…"** — 2.96 mm, nearly four times the truth, no figure in this
+    system, and the sentence trails off unfinished. F-302.
+    (2) The chequer's 1 device px: Pillow's inclusive `rectangle` vs a PDF `re`
+    is right, 1/300 in = 0.0847 mm matches the module's own "0.085 mm", and the
+    test genuinely compares **boxes** (via a spy on the production
+    `_draw_qr_placeholder`) and disclaims ink equality in terms. Accurate.
+    (3) guide/toc/answer carry no frame: true, and necessarily so — they cannot
+    be called from the generator's page walk at all, so this is a statement
+    about unreachable code and the converting card's work. Accurate.
+  dropout_floor_authority_correct: >-
+    **YES on the authority; NO on where it is applied.** ADR-0037:290 reads, in
+    the rule block itself: "R2 binds the **puzzle grid's** rules and nothing
+    else. Page furniture — the interior header rule, the footer hairline, a
+    divider — is NOT a grid rule and never was … Furniture that must not drop
+    out on press is held to the same 2-device-pixel floor, but for the dropout
+    reason directly and not through R2, so it needs no exemption from R2 and
+    must not claim one." That is verbatim what the round did, and its History at
+    :183-:186 confirms the entry exists because CARD-222's review read it the
+    other way and wrote an exemption measured vacuous. **The vacuous-exemption
+    precedent is NOT repeated.** The figures reproduce: `_pt_to_px_at_least(0.6)
+    == 3` (header) and `_pt_to_px_at_least(0.4) == 2` (hairline) at DPI 300.
+    The error is in four places (the card, `FURNITURE_FLOOR_PX`'s comment,
+    `draw_page_rule`'s docstring and the new ADR-0042 History entry): they say
+    the 2-device-pixel floor is "applied inside `interior_frame` by
+    `_pt_to_px_at_least`". It is not — that function is a **ceiling**:
+    `_pt_to_px_at_least(0.2) == 1`, below the floor. The floor holds because the
+    two point constants were chosen so it does, and layout.py:1987 says exactly
+    that ("Two device pixels is the floor, and this rule sits on it"). F-303.
+
+system_contract:
+  - rule: "ADR-0042/R1 — interior pages are operators"
+    verdict: "NOT FLIPPED, correctly. All seven kinds still declared raster; the ADR History says R1's flip is CARD-309's."
+    check: "review-lens"
+  - rule: "ADR-0042/R2 — a raster page is declared with a reason; an expired declaration is a defect"
+    verdict: >-
+      HOLDS and was actively repaired. The PUZZLE entry's reason asserted a hole
+      this card closed that morning; the round rewrote the reason to name the
+      reader conversion and left `expires_with = ("CARD-299", "CARD-309")`
+      alone. That is the right half to change.
+    check: "CARD-298's derived guard (green in the impact run)"
+  - rule: "ADR-0042/R3 — the writer consumes positions and derives none"
+    verdict: "HOLDS. Every position arrives on InteriorFrame/QrSlot/QrCaption; the import set is asserted closed."
+    check: "review-lens"
+  - rule: "ADR-0037/R2 + FR-033 — stroke weights"
+    verdict: >-
+      CORRECTLY DISCLAIMED. The four struck claims on the card are right to be
+      struck; see answers_to_the_brief/dropout_floor_authority_correct. The card
+      is also right that CARD-299 re-expressed neither
+      tests/property/test_book_layout.py nor tests/property/test_book_two_up.py
+      — both are green in the impact run and both read the raster page's grid
+      area, which vector furniture does not touch.
+    check: "review-lens (re-derived against ADR-0037:280-:300 and its History)"
+  - rule: "ADR-0039/R1 — a claim needs a control that CAN fail; two mutants, one at the claim's edge"
+    verdict: >-
+      HOLDS, and this round applied it to its own guard unprompted (M5). Every
+      new claim here carries a control; the edge mutant is
+      `test_the_one_pixel_either_side_of_the_verdict_decides_it`. The one
+      control that is weaker than it looks is F-305.
+    check: "review-lens"
+  - rule: "ADR-0039/R2 — a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE"
+    verdict: >-
+      HOLDS per arm, GAPS between arms. Both numeric arms are set-equality /
+      empty-list default-DENY, and the import arm is set equality. But a value
+      expression that is not a bare Constant argument is an *unanalysable shape*
+      to the call-argument arm, and that arm treats it as absent rather than as
+      a failure. F-301.
+    check: "review-lens"
+  - rule: "CON-020 — the 10 pt interior type floor"
+    verdict: "HOLDS. tests/test_book_interior_type_floor.py green; all three furniture type sizes come from 10 pt constants through type_px."
+    check: "CARD-299's test (green)"
+  - rule: "ADR-0006/R1 — the dependency baseline is exactly stdlib + Pillow + NumPy"
+    verdict: >-
+      HOLDS in SUBSTANCE, verified by hand because the named check is a dead
+      ref. `git diff -- pyproject.toml` between the cut and HEAD is EMPTY, and
+      the only import this card adds to src/ beyond the package's own modules is
+      `re` (stdlib), in book_vector.py. The declared check
+      `TestDependencyBaseline_IsExactlyPillowAndNumpy` has **zero class
+      definitions** in this repository — confirmed by grepping for
+      `class TestDependencyBaseline_IsExactlyPillowAndNumpy` across tests/ and
+      src/ (0 hits; the 269 textual hits are all prose in meta/ and card bodies,
+      which is precisely the revival mechanism the board has measured). CARD-307
+      owns the flip.
+    check: "DEAD REF — verified by substance"
+
+dead_ref_hygiene: >-
+  Every `path::name` this file spells was checked against the collected node-id
+  set of 77b6998d (the `--collect-only` listing captured for the G-3 diff), not
+  against a grep of the source. The five test ids named in findings and
+  answers — `TestSheetFurniture_OneDefinitionNotTwo::test_no_number_is_handed_to_a_drawing_call`,
+  `TestSheetFurniture_TheFooterIsAllOrNothing::test_the_corpus_counts_folios_and_frames_equal`,
+  `TestSheetFurniture_TheQrBlockIsOperatorsAndTheWriterRefusesAnXObject::test_the_refusal_does_not_fire_on_a_near_miss`,
+  `TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor::test_every_frame_rule_meets_the_floor`
+  and `TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_footer_lines_sit_where_the_raster_page_sets_them`
+  — each resolved LIVE in that listing. Function and class names in src/ that
+  this file names (`draw_sheet_furniture`, `_draw_qr_group`, `_set_at_baseline`,
+  `qr_module_boxes`, `draw_page_rule`, `_XOBJECT_PAINT`, `write_vector_page`,
+  `_sheet_furniture`, `_vector_qr_group`, `_vector_two_up_qr_groups`,
+  `_two_up_qr_insets`, `_pt_to_px_at_least`, `_mm_to_px_at_least`) were each
+  read at a real `def`/assignment line in the file named, with the line number
+  taken from that read and not from the brief. `TestDependencyBaseline_IsExactlyPillowAndNumpy`
+  is named here **only** as a dead ref, which is itself a text occurrence in
+  meta/review/** — flagged deliberately, because this file is inside the
+  validator's ref resolver and this name must not start reading as alive on
+  account of this line.
+
+owner_render: >-
+  **The comparison supports the round's claim, with one visible and declared
+  difference.** I viewed vector-single-1.png against raster-single-1.png and
+  vector-two-up-1.png against raster-two-up-1.png. Single page: band, header
+  rule, grid, clue digits, footer hairline, centred folio "6", right-hand
+  "10 x 10" label, chequer icon, "Solve it online" and
+  "nonogram.example/p/001" are in the same places, at the same sizes, to the eye
+  at full-page scale. Two-up: one centred folio "4", two named invitations
+  ("Puzzle 1 · Solve it online", "Puzzle 2 · Solve it online"), two links, two
+  chequers, **no grid-size label** — correct for a page with two sizes — and the
+  pair matches the raster twin. The one difference I can see is the typed link
+  sitting a hair lower in the vector pages relative to its invitation line,
+  which is precisely the 9 px / 0.76 mm baseline-vs-ink-box residual the round
+  declared and the test pins. It is visible in an A/B at full resolution and not
+  at reading distance. "Visually indistinguishable" is a fair summary; "one
+  declared 0.76 mm descent on the link line" is the precise one.
+
+root_causes:
+  - cluster: "an AST guard is written against the shape the author just wrote, not against the shapes the value could take"
+    findings: [F-301, F-305]
+    note: >-
+      Both arms and the control were authored from the M5 plant's own text. The
+      value arm enumerates values and the call arm enumerates one syntactic
+      position; neither enumerates *bindings*. The control then hard-codes the
+      plant's source needle, so the instrument's apparent reach is the plant's
+      reach. The repair is the same for both: express the arm over the module's
+      numeric constants by their PARENT NODE (which positions a justified
+      literal may occupy) rather than by value or by argument position, and
+      build the control by mutating the tree rather than the text.
+  - cluster: "a figure stated in prose is not held by anything that runs"
+    findings: [F-302, F-303]
+    note: >-
+      The 35 px and the "_pt_to_px_at_least applies the floor" claims both sit
+      in docstrings and an ADR entry where no assertion reaches them. The tests
+      beside them assert 9 and assert >= 2, so the code is right and only the
+      prose is wrong — which is the class CARD-269 escalated this wave and the
+      class this round itself repaired in `_RASTER_DECLARATIONS`.
+
+findings:
+  - id: F-301
+    severity: high
+    category: test-quality
+    type: issue
+    gating: false
+    file: tests/test_book_puzzle_page_vector.py
+    line: 2795
+    title: "M5's closure catches the literal but not the binding: an allowlisted value one hop out passes every AC-3 cell"
+    description: |
+      `test_no_number_is_handed_to_a_drawing_call` collects `ast.Constant`
+      nodes that sit directly in a `Call`'s `args` or a keyword's `value`, and
+      asserts the list is empty. `test_the_module_writes_no_coordinate_of_its_own`
+      asserts the module's numeric constants are exactly
+      `SHEET_VECTOR_LITERALS = {0, 1, 2, 0.0, 2.0}` (:2750). Together they are
+      default-DENY on two axes — but their intersection leaves a window, and the
+      window contains the exact transcription M5 was.
+
+      **Measured, on the real module, out of tree.** I added `_QR_BORDER_PX = 2`
+      at module level in `book_sheet_vector.py` and replaced `_draw_qr_group`'s
+      `stream.stroke_width(stream.to_points(furniture.frame.footer_rule.width))`
+      with `stream.stroke_width(stream.to_points(_QR_BORDER_PX))` — the raster
+      placeholder's own literal border weight, numerically identical on a book
+      page, which is what made M5 invisible to every page reading. Result:
+      `test_the_module_writes_no_coordinate_of_its_own` PASSES (2 is on the
+      allowlist), `test_no_number_is_handed_to_a_drawing_call` PASSES (the
+      argument is a `Name`, not a `Constant`), `test_the_icons_border_is_the_hairlines_own_weight`
+      PASSES (2 == 2), and all 61 behaviour cells pass. Run alone: **3 passed.**
+      The same holds for a local variable (`border_px = 2`).
+
+      The escape set is exactly: a value in {0, 1, 2, 0.0, 2.0} reaching a call
+      through anything that is not a bare `Constant` argument. I enumerated the
+      shapes against both arms with the value 2: local variable, module
+      constant, tuple literal, list literal, starred tuple, dict value,
+      f-string, default argument, `f(1 + 1)` — **all silent on both arms**. And
+      `f(-2)` is silent too, which is not even one hop out: `-2` parses as
+      `UnaryOp(USub, Constant(2))`, so the arm's claim to catch the direct
+      literal is itself qualified.
+
+      The card says "the round found a blind spot in its own guard and closed
+      it". It narrowed it by one notch. AC-3's own words are "a second
+      transcription is a FAILURE", and the second transcription most likely to
+      be written here — the QR border weight — still passes. ADR-0039/R2 asks
+      for a set derived from an enumerable authority and treats an unanalysable
+      shape as a FAILURE; the call-argument arm treats a non-Constant argument
+      as *absent* instead.
+    recommendation: |
+      Express the arm over **positions a justified literal may occupy** rather
+      than over values or over one argument slot. Concretely: walk the module's
+      `ast.Constant` numeric nodes with parents attached and assert each one's
+      parent node type against a small enumerated allowlist — `Compare`
+      (`modules <= 0`), `BinOp` with `Mod` (the parity), `BinOp` with `Div` (the
+      halving), `AnnAssign`/`arguments.defaults` on the dataclass (the type-size
+      defaults) — and FAIL on any other parent, which closes `Assign` and
+      `Call` in one stroke and does not depend on the value at all. A cheaper
+      stopgap that still closes the measured hole: assert the module has no
+      module-level numeric assignment and no numeric `Assign` inside a function
+      whose name reaches a stream call.
+    confidence: certain
+    source: "measured — mutant M-A and M-A2, plus a 14-shape AST enumeration"
+
+  - id: F-302
+    severity: medium
+    category: correctness
+    type: issue
+    gating: false
+    file: src/nonogram/admin/book_sheet_vector.py
+    line: 333
+    title: "`_set_at_baseline`'s docstring states the link residual as 35 px where the test asserts 9, and the sentence is unfinished"
+    description: |
+      The docstring says the typed link "sets its ink one descender lower here
+      than the raster page sets it: 35 px at the book's 300 DPI…" — with a
+      trailing ellipsis, an unfinished sentence — and then points the reader at
+      `test_the_footer_lines_sit_where_the_raster_page_sets_them`, which asserts
+      `offset == 9`.
+
+      35 px at 300 DPI is 2.963 mm; 9 px is 0.762 mm. The card declares 0.76 mm
+      and is right. I re-measured the bundled face at the footer's own size:
+      `type_px(INTERIOR_FOOTER_LINE_PT, DPI)` is 42 px and
+      `face.getmetrics()` is `(39, 10)` — so the declared descent is 10 px and
+      the measured ink offset is 9, bounded by it exactly as the test's second
+      assertion says. **35 is not any figure in this system.**
+
+      This is the class the round itself repaired two commits later in
+      `_RASTER_DECLARATIONS` ("a declaration whose reason has expired is
+      precisely what that registry's own `_landing_findings` has a class for"),
+      and the class CARD-269 escalated this wave: a production docstring
+      teaching a falsehood, with nothing that runs holding it.
+    recommendation: >-
+      Replace "35 px at the book's 300 DPI…" with "9 device px (0.76 mm) at the
+      book's 300 DPI", finish the sentence, and consider whether 35 was a
+      mis-transcription of something else worth keeping.
+    confidence: certain
+    source: "measured — re-ran the face metrics and read the assertion"
+
+  - id: F-303
+    severity: medium
+    category: documentation
+    type: issue
+    gating: false
+    file: tests/test_book_puzzle_page_vector.py
+    line: 3094
+    title: "The 2-device-pixel floor is attributed to `_pt_to_px_at_least` in four places; that function applies a ceiling, not a floor"
+    description: |
+      `FURNITURE_FLOOR_PX`'s comment says the floor is "applied inside
+      `interior_frame` by `_pt_to_px_at_least`". The same sentence appears in
+      `draw_page_rule`'s docstring (book_sheet_vector.py:256), in the card's
+      correction block, and in the new ADR-0042 History entry.
+
+      `_pt_to_px_at_least` (src/nonogram/export/layout.py:2223) is
+      `_mm_to_px_at_least(points * MM_PER_POINT)` — the fewest whole pixels that
+      measure **at least** the stated weight. It is a ceiling on the conversion,
+      not a minimum of 2. Measured:
+      `_pt_to_px_at_least(0.6) == 3`, `_pt_to_px_at_least(0.4) == 2` (both
+      figures the round states, correct), but **`_pt_to_px_at_least(0.2) == 1`**
+      — below the claimed floor. Nothing enforces 2 px anywhere.
+
+      The floor holds because `INTERIOR_HEADER_RULE_PT = 0.6` and
+      `INTERIOR_FOOTER_RULE_PT = 0.4` were chosen so that the ceiling lands on
+      >= 2, which layout.py:1987 says in terms ("Two device pixels is the floor,
+      and this rule sits on it — no exemption is claimed or needed").
+
+      This makes the card's new EC **more** load-bearing than its own prose
+      claims, not less: `test_every_frame_rule_meets_the_floor` is the only
+      thing in the tree that would catch a future point constant chosen below
+      0.24 pt. Worth correcting precisely because this very ADR entry is the
+      correction of an earlier misattribution.
+    recommendation: >-
+      In all four places, say "held by the two point constants, whose
+      `_pt_to_px_at_least` conversion lands at 3 px and 2 px at 300 DPI, and
+      guarded by `TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor`"
+      rather than "applied by `_pt_to_px_at_least`".
+    confidence: certain
+    source: "measured — called the function on 0.6, 0.4, 0.2 and 0.1"
+
+  - id: F-304
+    severity: medium
+    category: correctness
+    type: issue
+    gating: false
+    file: src/nonogram/admin/book_vector.py
+    line: 1118
+    title: "`_XOBJECT_PAINT`'s `[ \\t]` class is narrower than PDF whitespace and wider than its control admits"
+    description: |
+      `_XOBJECT_PAINT = re.compile(r"(?:^|[ \t])Do(?:[ \t]|$)")`, searched per
+      row of `stream.operators`. Avoiding `\b` is right and the board's trap
+      list is honoured. The class is the problem, in both directions. Measured
+      per row:
+
+      * `"/Im0 Do"` FIRES, `"Do"` alone FIRES (start and end both covered, since
+        each operator is its own list entry and `^`/`$` are string anchors),
+        tab-separated FIRES, `<446F>` (the hex encoding of "Do") silent and
+        `"/Im0Do"` silent — all correct.
+      * **`"q\n/Im0 Do\nQ"` appended as ONE operator is SILENT.** So is a
+        CR-separated one. PDF's own whitespace set is space, tab, CR, LF, FF and
+        NUL; the class is two of the six. The docstring argues the only way to
+        reach this refusal is to append the operator by hand — and a hand-written
+        `q … Q` block appended as one entry is at least as natural as a bare
+        single-line `Do`. The miss is on the only live path.
+      * **`"0 g BT /F1 10 Tf 10 10 Td (Scan Do now) Tj ET"` FIRES** — a text
+        literal containing `" Do "` is refused as an XObject paint, with a
+        message about the page painting one. The negative control chose
+        `"Done. Do"` and `"Dodo"`, which both happen not to match because the
+        character after `Do` is `)`. The docstring's claim that the token match
+        means "a literal string's (…Do…) body … is not mistaken for one" is
+        true of those two bodies and false in general.
+
+      No live string trips it today — "Solve it online", "Puzzle N · Solve it
+      online", "nonogram.example/p/NNN", "20 x 25" and the folio digits are the
+      whole set — so nothing ships broken. But CARD-210 is the card that edits
+      the link line, and a false refusal here fails the whole book write.
+    recommendation: >-
+      Widen the class to PDF's whitespace (`[ \t\r\n\f\x00]`) so a multi-line
+      appended operator cannot slip through, and either split each row on PDF
+      whitespace and compare tokens outside `(…)`/`<…>` delimiters, or state
+      plainly in the docstring that the check is token-ish over a row and that a
+      literal containing a space-delimited `Do` would be refused. Add
+      `"Scan Do now"` and a newline-separated `q\n/Im0 Do\nQ` to the controls.
+    confidence: certain
+    source: "measured — ten shapes run through the compiled pattern"
+
+  - id: F-305
+    severity: low
+    category: test-quality
+    type: issue
+    gating: false
+    file: tests/test_book_puzzle_page_vector.py
+    line: 2833
+    title: "The call-argument arm's control is keyed on a verbatim source needle, so it reds for the wrong reason on the mutant it exists to catch"
+    description: |
+      `test_the_call_argument_walk_sees_the_numerically_identical_plant` builds
+      its plant with
+      `source.replace("stream.to_points(furniture.frame.footer_rule.width)", "stream.to_points(2)")`
+      and then `assert planted != source`.
+
+      Under F-301's mutant the needle no longer exists, so that assertion fails
+      — the cell reds while the arm it is the control for stays green. A
+      reviewer who ran the mutant and saw "1 failed" would conclude the guard
+      caught the transcription. It did not; I had to run the three guard cells
+      alone to see it (3 passed). The same red fires on any legitimate refactor
+      that touches that one line.
+    recommendation: >-
+      Build the plant by mutating the parsed tree (swap the `Call`'s argument
+      node for `ast.Constant(2)`) rather than by string replacement, or at
+      minimum assert the needle's presence as its own named check so a missing
+      needle reports "the control's anchor moved" and not "the plant was
+      detected".
+    confidence: certain
+    source: "measured — observed under M-A and M-A2"
+
+  - id: F-306
+    severity: low
+    category: process
+    type: issue
+    gating: false
+    file: meta/kanban/cards/CARD-306.md
+    line: 19
+    title: "The card's Touches list omits the new module and the raster-path refactor it actually made"
+    description: |
+      **Touches** names `book_puzzle_vector.py`, `book_vector.py`,
+      `test_book_puzzle_page_vector.py`, `test_book_pdf.py` and ADR-0042. The
+      diff is 9 files: it ADDS `src/nonogram/admin/book_sheet_vector.py` (489
+      lines, the card's centre of gravity), changes
+      `src/nonogram/admin/book_pdf_generator.py` by +222 — including extracting
+      `_two_up_qr_insets` out of the **raster** `_draw_two_up_qr_groups` — and
+      changes `tests/test_book_grid_rules.py`, `tests/test_book_interior_type_floor.py`
+      and `tests/test_book_export_interior_cover.py`. `tests/test_book_pdf.py`,
+      which Touches names, is **not** in the diff at all.
+
+      The raster extraction is the piece worth surfacing: it is a change to the
+      path G-1 forbids moving. It is clean (I verified 14/14 byte-identical
+      pages), and the one-definition motive is right, but a reader of the card
+      cannot tell that a raster method was restructured.
+    recommendation: >-
+      Restate Touches from the diff, and say in the implementation record that
+      `_draw_two_up_qr_groups` was split so the two media read one placement,
+      with G-1's bitmap identity as the evidence that the split is behaviour-free.
+    confidence: certain
+    source: "measured — `git diff --stat 560d7e09..77b6998d`"
+
+  - id: F-307
+    severity: low
+    category: maintainability
+    type: issue
+    gating: false
+    file: tests/test_book_puzzle_page_vector.py
+    line: 1921
+    title: "`TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` now names a claim that is false of the shipped page"
+    description: |
+      The class was re-pointed from the composed production page to
+      `book_puzzle_vector.puzzle_page_stream`'s own output, which is correct and
+      is argued at length in the docstring, with a real control
+      (`assert len(composed) > len(shown)`). The NAME was kept so the node ids
+      would not move (G-3), and it now reads — in a node-id listing, in a
+      failure line, in a check-ref — as "the puzzle page draws no sheet
+      furniture", which since this card is false of the page the book ships.
+
+      This is a genuine conflict between G-3 and naming honesty and the round
+      resolved it the way the guardrail required. Recording it so the rename
+      happens at a point where node-id churn is already licensed.
+    recommendation: >-
+      Owe the rename to CARD-309 (which converts the page and will move these
+      ids anyway): `TestPuzzlePageStream_DrawsTheDrawingAndTheBandAndNoSheetFurniture`,
+      or `..._TheDrawerDrawsNoSheetFurniture`.
+    confidence: high
+    source: "reading — the class name against the composed page's behaviour"
+
+corrections_to_the_record:
+  - claim: "G-1's '21 book baselines' is not a named artefact; the nearest is `BASELINE_PAGE_COUNT = 14`."
+    verdict: WRONG, though G-1 is discharged anyway
+    measured: >-
+      `ls tests/fixtures/book_baseline_card*.json | wc -l` is **exactly 21**.
+      "The 21 book baselines" is the count of baseline fixture FILES, and the
+      phrase is used in `meta/architecture/handoff.md:7` and in ADR-0042:389 —
+      an entry in the very ADR this card edited. So there IS something countable
+      behind the phrase, and the card's correction overstates. G-1 holds
+      regardless, on a stronger reading than either figure: `git diff --stat
+      560d7e09..77b6998d -- tests/fixtures/` is EMPTY (all 21 files
+      byte-unchanged), the live one is `book_baseline_card206.json` (14 pages,
+      via `book_corpus.BASELINE_FIXTURE`), its two consumers are green, and I
+      re-rendered those 14 pages in both trees and got identical digests. The
+      round's 14 and the card's 21 are the same guardrail counted at two
+      granularities — pages of the live baseline, and baseline files — and both
+      are satisfied.
+  - claim: "9 files +2275/-75."
+    verdict: OFF BY 8 EACH WAY
+    measured: "`git diff --shortstat 560d7e09..77b6998d` is 9 files changed, **2283** insertions(+), **83** deletions(-)."
+  - claim: "the card's `_set_at_baseline` residual, stated on the card as 9 device px (0.76 mm)."
+    verdict: RIGHT ON THE CARD, WRONG IN THE MODULE
+    measured: "See F-302. The card is correct; book_sheet_vector.py:333 says 35 px."
+  - claim: "CARD-299 re-expressed neither named property test."
+    verdict: CONFIRMED
+    measured: >-
+      `tests/property/test_book_layout.py` and `tests/property/test_book_two_up.py`
+      are both in the impact run and both green; neither appears in this card's
+      diff, and both read the raster page's grid area, which vector furniture
+      does not touch. The card's struck clause was right to be struck.
+  - claim: "One skip in the blast radius and it is not this card's."
+    verdict: CONFIRMED, now attributed by name
+    measured: >-
+      `tests/test_book_pdf_memory.py::...::test_the_same_pair_under_an_address_space_cap_the_kernel_enforces`
+      (def at :1274, `pytest.skip` at :1297), platform-conditional on
+      `setrlimit(RLIMIT_AS)` raising on this macOS kernel. That file is 0 lines
+      changed by this card. The 774-test impact run reported 0 skips.
+  - claim: "the zsh `pytest $MODS` trap is a recurrence rather than a discovery."
+    verdict: CONFIRMED AS A LIVE TRAP
+    measured: >-
+      Avoided here with `${=MODS}`; both the base and head collections returned
+      non-zero counts (236 and 259), so the "0 tests, 0 removed, 0 added"
+      failure shape did not occur. Worth keeping in every brief.
+
+card_amendments_owed:
+  - "Replace 'The round found a blind spot in its own guard and closed it' with 'narrowed it by one notch; an allowlisted value bound one hop still passes' — F-301, with the M-A result."
+  - "Correct `book_sheet_vector.py:333`'s 35 px to 9 device px / 0.76 mm and finish the sentence — F-302."
+  - "Correct the dropout-floor attribution in all four places: the floor is held by the point constants, not applied by `_pt_to_px_at_least` — F-303, including in ADR-0042's new History entry."
+  - "Restate Touches from the diff and surface the raster `_draw_two_up_qr_groups` split — F-306."
+  - "Strike 'G-1's 21 book baselines is not a named artefact': there are exactly 21 baseline fixture files, all byte-unchanged — see corrections_to_the_record."
+  - "Correct '+2275/-75' to '+2283/-83'."
+
+deferred:
+  - "A 1200-DPI reading of the furniture. Every residual here is stated at 300 DPI, which is where the book prints; the `Tf` operand is DPI-invariant by construction (book_vector.ContentStream.text) but the 9 px descent and the 1 px chequer edge are device figures and would need re-measuring if the book ever printed at another device resolution. Not this card's."
+  - "Whether the other three interior kinds can reach `book_sheet_vector` without first breaking their own `book_pdf_generator` import. Verified that the asymmetry is real (guide:103, toc:60, answer:62) but not that the new module is sufficient for them. CARD-309's or its successor's."
+
+meta_guard_run: >-
+  No validator was run for this cycle: this file is the only addition under
+  meta/, the card itself is unmodified in the worktree, and the worktree is
+  clean (`git status --short` empty at the start and at the end of the cycle).
+  Nothing was pushed, merged, rebased or committed. All mutants were planted in
+  `git archive` copies outside the repository and the copies were deleted;
+  `__pycache__` was swept under every scratch tree before deletion; no
+  `git stash` was used at any point.
