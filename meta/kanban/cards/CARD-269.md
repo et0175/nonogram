@@ -1,6 +1,6 @@
 # CARD-269: Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,10 +9,10 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/269-hint-ladder
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-269
 **Source:** quick — owner decision 2026-10-22 (player-convenience session: "propose more sophisticated hint" → ladder proposal approved); no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
 **Review score:** —
@@ -311,3 +311,126 @@ never as passing before they exist:
   dispatcher's overlap prediction will serialize whatever lands in one wave.
   The follow-up this card defers — the exhausted-state hint suggesting a
   probe cell — becomes draftable only after CARD-268 merges.
+
+---
+
+## Implementation — `560d7e09` → `abebc70b`, 8 files, +1895/−65
+
+**The ladder wraps CARD-183's reveal rather than replacing it.** `hintCell`, `lineForced`
+and `hintStroke` are untouched (G-4). The pure half in `solver_state.js` is a **frozen
+transition table** — `nextRung(rung, event)` raises `RangeError` on an unknown rung or
+event rather than falling through — plus `knownLine()` built from **correct marks only**,
+so rungs 1–2 cannot drift from the cell rung 3 reveals. `hintLine()` returns **null in
+exactly one case**: the hint is not a *deduced* cell. **That null is the exhausted state**,
+and it is the whole mechanism by which the fallback stops lying.
+
+### How the wrong lesson stops being taught, with the measurement
+
+When `hintLine` is null, rungs 1 and 2 highlight **nothing** and say *"no single row or
+column decides a cell right now."* Rung 3 is CARD-183's reveal with its shipped
+*"(from the solution)"* wording, byte for byte.
+
+**Two separate claims, two separate assertions**: the sentence, **and**
+`_lined(page) == {cells: [], rowClues: [], colClues: []}` — because a reworded sentence
+with a highlighted line still under it would be pointing at a deduction that does not
+exist. **Mutant M5 is the proof that pair is load-bearing**: it makes rungs 1–2 claim a
+row on the exhausted board — the precise falsehood this card exists to remove — and reds
+**only** that one cell while its two siblings stay green.
+
+**Nine mutants, all deletion-or-one-line**, needle asserted unique, blob sha printed
+before/mutated/restored (all restored OK), `__pycache__` swept both ways, every instrument
+green on the unmutated tree first. Each AC-level class also carries its **own in-test
+negative control** — a deducible board that *does* get a line, two presses with nothing
+between them that *do* climb, rung 3 that *does* change the save.
+
+**29 node ids added, 0 removed, 0 renamed, 0 merged. Zero skips** (`-rs` printed nothing
+across a 545-test selection). Runtime as ranges: the two card files 41–43 s, the 11-file
+affected selection 346–365 s.
+
+### It caught a blind instrument of its own
+
+Its first captures were taken **the instant after the press — mid-fade** — so the tint read
+as barely there, and it deepened the colour on that reading. **The instrument was wrong,
+not the colour**: with `getAnimations()` settled, the design-system token
+`--color-accent-tint` reads clearly. It reverted to the token, kept both sets for the owner
+to compare, and **wrote the trap into the `admin.css` comment** so the next eyeball of that
+colour waits for the animation. That is the day's dominant failure family — a reading taken
+before the quantity existed — caught by the round on itself.
+
+### Three corrections to this card
+
+- **The card's "unedited" list is wrong for four classes.** `TestSolverHint_IgnoresWrongMarks`,
+  `_IsOneUndoableStroke`, `_CanSolveAndThenLocks` and `_TheHighlightSurvivesARedraw` all
+  press Hint once and expect a reveal, so **all four fail under the ladder**. Adapted
+  mechanically through one `_reveal()` helper, no assertion weakened. **The superseded set
+  is seven classes, not three.**
+- **G-5's blast radius is wrong** — two further existing files had to change
+  (`test_puzzle_solver_maybe.py`, `test_puzzle_solver_percent.py`), both marked in place as
+  unforeseen by the card.
+- **The "both halves" claim about the runs-complete precondition is over-stated**: the
+  second half cannot fail on its own, because once a placement exists and the marks total
+  the clue, every placement fills exactly the marked cells. The check was kept — the
+  sentence says it, so the code saying it should check it — with an honest note instead of
+  a comment implying two independent guards.
+
+### Divergences chosen and recorded, not hidden
+
+Pure ladder tests went in a **sibling class** rather than extending
+`TestSolverHintModule`, so each class docstring stays true about which card it covers. A
+ladder press and a Check press now clear `lastClick` — they are *inputs*, the rule the
+reset confirmation already follows — which is semantically right **and** keeps
+`test_puzzle_solver_marking.py` untouched.
+
+**And one player-visible gap is owed as a follow-up**: the on-page usage paragraph does not
+mention the ladder, because `test_the_page_copy_describes_the_new_click` pins it by exact
+equality and the card forbids editing that file. The round **reverted its own copy
+addition** rather than edit a forbidden file. A one-sentence on-page copy change is owed.
+
+### CARD-263's path, clarified — report only
+
+`nextRung(rung, event)` takes the rung as an argument rather than reading a global, and
+`HINT_RUNGS`/`RUNG_EVENTS` are an enumerable authority the announce table is checked
+against — so CARD-263 slots in as **a second ladder on Check**, reusing `nextRung`
+unchanged and `firstWrongRow` as its rung-2 scan. **The one thing CARD-263 must decide,
+which this card did not**: `Errors: N` is a live `role="status"` region updated on every
+mark, so making the count cost a press means **hiding or freezing that counter** — a change
+to CARD-162's shipped behaviour that needs an owner decision, not just a rung. `errorCount`
+and the counter were not touched.
+
+### TWO ITEMS ESCALATED TO THE OWNER — see the board entry
+
+1. **A visible layout change at 1280 px.** 2. **AC-333 is now false under a strict reading.**
+
+### OWNER DECISIONS 2026-10-30
+
+**1. The taller toolbar at 1280 px is ACCEPTED.** Measured: the counters need **268 px**
+on one line and Check leaves them **186** — short by **exactly Check's own 82 px** — so the
+Progress group wraps onto its own row at 1280 and the toolbar goes 187 px → **223 px**.
+1440 px still fits all three. This is the pre-CARD-194 arrangement returning at a common
+width, and the owner had accepted the current one, which is why the round escalated it
+instead of letting it pass as incidental.
+
+The round asserted the layout **as it now is** and added a **1440 px control**, so the
+test proves a *threshold moved* rather than a layout broke — the distinction that keeps
+this from reading as a regression later. The captures at both widths are in
+`~/Documents/nonogram-reviews/CARD-269/`, including an A/B of a deeper tint that was
+**tried and rejected**.
+
+**2. AC-333 is amended to name Check**, applied on this branch at `bcd136b5`. The retired
+clause read *"Hint is the last control of the History group, after Reset"*, and Check's
+arrival made it false under a strict reading. The owner chose to let the **requirement
+follow the design decision** the card's own Design context already specified, rather than
+relocate the button. The counter half is deliberately untouched: the 1280 threshold moved,
+but `"Hints: N"` still follows `"Errors: N"` on one row.
+
+**The `test:` ref was checked rather than assumed, and it is NOT dead** — it names the
+*class* `TestSolverHint_PlacesTheButtonAndTheCounter`, which survives at
+`tests/test_puzzle_solver_hint.py:777`; only its internal method names changed
+(`hintIsLastChild` → `checkIsLastChild` + `checkFollowsHint`). A renamed ref that still
+reads alive is the defect class CARD-308 and CARD-319 exist for, so the check was made
+before the amendment rather than after.
+
+**Still owed as a follow-up, and not this card's to take:** the on-page usage paragraph
+does not mention the ladder, because `test_the_page_copy_describes_the_new_click` pins it
+by exact equality and this card forbids editing that file. The round **reverted its own
+copy addition** rather than edit a forbidden file. One sentence, player-visible, owed.
