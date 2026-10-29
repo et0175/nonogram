@@ -176,3 +176,66 @@ validator at all.
   the CARD-301 case where **both** gates were blind at once: pytest never opened
   `tests/bench_generate.py` because of `python_files` defaults, while the ref check
   was satisfied by that file's own comment banner about itself.
+
+## [SECOND MEASURED INSTANCE — 2026-10-29, caught during CARD-291's own review sync]
+
+The defect fired again **hours after this card was cut**, during mandatory
+bookkeeping, and this instance is stronger evidence than the one above because
+**the report's author was actively defending against the mechanism and tripped it
+anyway.**
+
+CARD-291's cycle-1 reviewer knew about the hazard and guarded for it: it wrote
+`TestDependencyBaseline_IsExactlyPillowAndNumpy` into its YAML **split into two
+pieces** and verified `git grep -lw` did not match its own report. That worked —
+**0** occurrences of the whole token in the synced file.
+
+It made no difference, because **a review report's most-quoted refs are its own
+card's**, and on `main` those were the dead ones:
+
+```
+main, before the sync                      0 errors, 107 warnings
+main, with the cycle-1 YAML synced         0 errors, 106 warnings
+```
+
+The warning that disappeared, and the only thing resolving it:
+
+```
+[WARN ] FR-046/AC-395  check names test
+        'tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed'
+        but no definition was found in the code
+
+git grep -l 'tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed' \
+    -- . ':(exclude)meta/architecture' ':(exclude)*.md'
+→ meta/review/20261029T000000Z-CARD-291-cycle1.yml        # and nothing else
+```
+
+On `main` at that moment **the test did not exist** — it is on
+`card/291-approval-guess-gate`, unmerged. The YAML spelled the whole
+`path::name` three times while *discussing* the ref, and that was the definition
+the validator accepted.
+
+**Three things this sharpens for this card's round:**
+
+1. **Author discipline cannot fix this, so do not propose it as the remedy.** A
+   reviewer who knows the rule, names it in their report, and splits one token to
+   avoid it will still revive the refs their own card is about. Any guard that
+   depends on a report being written carefully is not a guard. AC-2's detector is
+   the right shape precisely because it does not rely on the author.
+2. **A warning count falling across a card's own pipeline is doubly
+   untrustworthy** — the sync of that card's review report mechanically retires
+   the warnings about that card's refs. **A card's gate must not credit its own
+   warning delta without re-deriving each cleared warning against a
+   `def`/`class`.** CARD-291's branch figure (102) was measured *before* this sync
+   and `main` then moved to 106, so even the baseline shifted underneath the
+   comparison. Both numbers are honest; comparing them naively is not.
+3. **It is self-healing in this one case and that is not a defence.** AC-395's
+   ref becomes a real definition when CARD-291 merges, so the silenced warning
+   was about to become correct anyway. The mechanism does not know that. The same
+   sync on a card whose test never lands leaves a permanently false reading, which
+   is exactly the `TestGenerate_50x50_RespectsTimeoutBound` case above.
+
+**AC-4 is amended by this**: pin **both** instances — AC-038's
+`TestGenerate_50x50_RespectsTimeoutBound` (a ref that never landed) and this one
+(a ref that landed later) — because they are the two halves of the behaviour, and
+a detector that only catches the permanent case will read as working while the
+transient case erodes every wave.

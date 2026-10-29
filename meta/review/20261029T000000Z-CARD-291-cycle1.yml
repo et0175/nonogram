@@ -1,0 +1,601 @@
+version: 1
+generated_at: "2026-10-29T00:00:00Z"
+target: CARD-291
+cycle: 1
+max_cycles: 3
+min_score: 8
+overall_score: 9.0
+previous_score: null
+delta: "n/a (first cycle)"
+risk_level: low
+review_lane: impact
+reviewer: claude-opus-5
+reviewer_version: cycle1
+scope_gate: on
+verdict: >-
+  CERTIFIES at 9.0. Every claim below comes from a run in the card worktree, and
+  the two claims the dispatch asked me to probe rather than accept both survive
+  probing.
+
+  (1) The five FR-046 check refs and ADR-0032/R3 are now HONESTLY mechanically
+  checked, and the docstring table is not a dressed-up version of the defect. I
+  confirmed the mechanism by measurement, not by reading: the whole
+  `path::name` string occurs in the test module at exactly five places, all of
+  them lines 16-20 of the module docstring (`grep -n
+  'test_approval_guess_gate.py::' tests/test_approval_guess_gate.py` -> 16,17,
+  18,19,20 and one prose mention at 1979; the `def` lines do NOT contain the
+  `path::` prefix and so match nothing). So the table really is what the
+  validator reads. What makes it honest rather than decorative is that
+  `test_the_registrys_check_refs_for_this_card_all_resolve` asserts the two
+  facts SEPARATELY and derives the set from the registry: the refs are parsed
+  out of requirements.yml with a regex (not restated), each must resolve to a
+  module-level callable whose `__module__ == __name__`, and each must then
+  appear in `__doc__`. A ref therefore cannot be green in pytest and dead in
+  the model, nor alive in the model with no test. I probed the count half,
+  which the orchestrator had not: inserting a sixth
+  `tests/test_approval_guess_gate.py::...` ref into FR-046's block in
+  requirements.yml reds it at line 2021 with `assert 6 == 5`, and the blob
+  restored clean. One residual remains and it is F-001 below.
+
+  (2) EC-051's derivation is a real measurement with a stated bound, NOT a
+  catalogue that reads broader than it is, and it is emphatically not a
+  deny-everything guard. Measured on the real tree: 67 files, 1113 function
+  symbols, and exactly SIX candidates -- 0.5 % of the symbols. Five of the six
+  reach the gate on the call graph; the sixth is the one machine-checked
+  exemption. Axis B's direct writer set is three symbols (`_set_status`,
+  `save_edited_grid`, `set_batch_status`); `add_puzzle` is correctly NOT a
+  candidate because it writes a provably non-approved constant. A guard that
+  flagged everything would pass every writer probe; this one classifies 1107 of
+  1113 symbols as writing nothing, which is what makes the five read probes
+  load-bearing rather than ornamental.
+
+  (3) The gate's per-door controls are real. I executed five deletion mutants,
+  one per gate site, and every one of them is killed by the AC test that owns
+  that door -- ADR-0039/R1's "missed WITHOUT it" half, which the card asks for
+  and which no in-suite test can assert about itself. Both halves of the
+  exemption list bite: a sixth entry reds the size pin, and a REAL door moved
+  onto the list reds `test_every_exemption_is_still_unable_to_approve`
+  independently of the size pin.
+
+  (4) The out-of-scope edits were forced, measured both ways. Replacing
+  `needs_guessing` with a different token on EITHER side of the
+  `EDIT_REFUSAL_REASONS` / `REFUSALS_THAT_NEVER_WRITE` seam reds
+  `TestPuzzleEditor_Guardrails::test_the_refusal_vocabulary_is_load_bearing_on_both_sides`
+  (app.py side at test_puzzle_editor_ui.py:985, client side at :989) AND
+  `::test_every_refusal_carries_a_reason_the_editor_branches_on`. Card item 5
+  genuinely cannot be implemented inside the declared `Touches`.
+
+  Four MINOR findings and three informational notes. None is a
+  product-correctness defect, none is gating, and none of the four would
+  survive as a defect if the card's text were amended to match what was built.
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-291.md (full, including the 2026-10-25 AMENDED block)
+    - "tests/test_approval_guess_gate.py (all 2056 lines)"
+    - "src/nonogram/admin/puzzle_review.py (the whole diff, plus strategies_for/_is_strategies_list:805-840 and _row_an_edit_may_touch/_an_edit_may_touch:1054-1100 unchanged)"
+    - "src/nonogram/admin/app.py (the whole diff, plus the approve and edit routes around it)"
+    - src/nonogram/admin/static/puzzle_edit.js (the diff and REFUSALS_THAT_NEVER_WRITE)
+    - "tests/test_puzzle_editor_ui.py (the diff, plus test_the_refusal_vocabulary_is_load_bearing_on_both_sides:940-990)"
+    - meta/architecture/decisions/adr/adr-0032 R3 block (the flip, both sides of the diff)
+    - "meta/architecture/requirements.yml FR-046 block (lines 5294-5392)"
+    - "meta/architecture/trace.yml FR-046 row (lines 2386-2410)"
+    - /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validators/trace.py:55-80 (the source of the surviving partial warning)
+  not_run:
+    - the full suite (review.test_scope=impact; the suite is the orchestrator's merge gate and takes meta/kanban/.full-suite.lock)
+    - the forge plugin-cache copy of the validator (reports a spurious ADR-0025 circular-supersession ERROR; the honest error count on this board is 0 and comes from the forge_1 copy)
+
+metrics:
+  diff:
+    files: 6
+    added: 2372
+    removed: 20
+    commits_on_top_of_main: 3
+    working_tree: clean
+    deleted_lines_in_tests: 0
+    deleted_def_or_class_lines_anywhere: 0
+    note: >-
+      `git diff 8b307c22..HEAD -- tests/ | grep -E '^-[^-]'` is EMPTY: not one
+      line was removed from any test file on this branch. `git diff | grep -E
+      '^-.*(def |class )'` is empty too. No existing test was weakened,
+      renamed, deleted or skipped to make room, which is the G-4 question asked
+      as a measurement.
+  test_gate:
+    scope: impact
+    files: 32
+    file_list_is_my_own: true
+    derivation: >-
+      Two passes. First, every tests/ module naming any symbol this card writes
+      or whose contract it grows: `grep -rln
+      'approve_puzzle|set_batch_status|save_edited_grid|approve-all|/approve|_bulk_report|BulkOutcome|EDIT_REFUSAL_REASONS|REFUSALS_THAT_NEVER_WRITE|puzzle_edit.js|_set_status|PuzzleStatus.APPROVED|approvability|GridNotApprovable'
+      tests/` -> 27 modules (the two .md hits dropped). A plain grep for
+      `create_app` would have pulled in ~150 modules and measured the panel,
+      not the card. Second, four modules added by hand for the structural and
+      premise guards this change can break without naming their symbols:
+      tests/test_collected_names.py (default-deny over test names -- 37 new
+      names land in it), tests/test_cli.py (the ast import-direction walk over
+      src/nonogram/**), tests/test_admin_import_consistency.py, and
+      tests/test_admin_regrade.py (it owns the OTHER copy of GUESS_GRID, whose
+      premise this file's fixture duplicates on purpose).
+    result: "1377 passed, 0 failed, 4 skipped, 79.61s, exit 0"
+    command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest <the 32 files> -o addopts='' -p no:randomly -q -rs"
+    passed: 1377
+    failed: 0
+    skipped: 4
+    errors: 0
+    collected: 1381
+  the_cards_own_file:
+    result: "37 passed, 0 skipped, 1.18s"
+    command: "pytest tests/test_approval_guess_gate.py -o addopts='' -p no:randomly -p no:warnings -q --durations=6"
+    skip_markers_in_file: 0
+    note: >-
+      `grep -n 'skip|xfail|db_required' tests/test_approval_guess_gate.py`
+      returns only prose in the docstring and the unrelated local variable
+      `skip = _name_slots(nodes)`. No marker. Confirms the module's own claim
+      that no gate test here can skip green.
+    the_five_refs:
+      result: "5 passed, 0 skipped"
+      def_lines: {AC-393: 326, AC-394: 505, AC-395: 649, AC-396: 801, EC-051: 1548}
+      note: reproduces the orchestrator's line numbers exactly
+  skips:
+    count: 4
+    agrees_with_metrics_block: true
+    all_four_are_the_same_cause: true
+    cause: "tests/conftest.py:207 -- 'Database not reachable: DATABASE_URL is not set' (db_required)"
+    entries:
+      - "tests/test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase::test_an_edit_posted_over_http_lands_in_the_database"
+      - "tests/test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase::test_a_refused_edit_changes_no_row_in_the_database"
+      - "tests/test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase::test_a_booked_puzzle_is_refused_on_the_real_engine"
+      - "tests/test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase::test_the_column_is_really_in_the_migrated_schema"
+    moved_versus_main: false
+    main_baseline: >-
+      The same four skip on main, measured: `pytest tests/test_puzzle_edit_routes.py`
+      in /Users/omelnikova/PycharmProjects/PythonProject4 -> 73 passed, 4
+      skipped, same conftest.py:207 reason. No skip count moved and no test
+      this card touches became a skip.
+    disagreement_with_the_round: >-
+      The round reports 10 DB skips inside ITS impact scope; I measure 4 inside
+      MINE. This is a scope difference, not a moved number -- the round's file
+      list is not mine and neither report lists the other's. Both report 0
+      skips inside tests/test_approval_guess_gate.py, which is the number that
+      matters for "a skipped gate test is an ungated door".
+  architecture_validator:
+    binary: /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+    command: "--root meta/architecture --phase all"
+    main: {errors: 0, warnings: 107}
+    branch: {errors: 0, warnings: 102}
+    warning_set_diff: "exactly the five FR-046 dead-check-ref warnings removed (AC-393, AC-394, AC-395, AC-396, EC-051); comm -13 is EMPTY, so 0 added"
+    note: >-
+      Reproduced independently of the orchestrator, both sides, full warning
+      lists diffed with `comm`. 0 ERRORS on BOTH sides from THIS binary. The
+      forge plugin-cache copy's ADR-0025 circular-supersession error is a regex
+      defect in that copy (it counts "supersedes" and "superseded by" as two
+      edges) and was not run here.
+    surviving_fr046_warnings_on_branch: 2
+    surviving_detail:
+      - "FR-046/AC-394 'then' bundles several outcomes -- pre-existing on main, unchanged by this card"
+      - "FR-046 requirement has no tests yet (status: partial) -- see F-005; NOT this card's to clear, confirmed by measurement"
+  guardrails:
+    G-1:
+      verdict: holds
+      measurement: >-
+        Not asserted from the docstring. I deep-copied the stored row, drove a
+        refused approval down BOTH verdict paths, and diffed every key:
+        re-solve path (stored list ["line_logic"], the path that enters the
+        solver) -> row delta NONE; unverifiable path (grid overwritten to "not
+        a grid") -> row delta NONE. No grade, score, tier or strategies_used
+        moved. Nothing demotes an existing row: the gate fires only on a
+        transition TO APPROVED, and `test_reject_and_restore_stay_ungated`
+        drives both directions out in both store modes.
+    G-2:
+      verdict: holds
+      measurement: "`git diff --name-only 8b307c22..HEAD | grep -E 'difficulty|solver/|orchestrator|pyproject'` -> no match. The 6-file diff contains none of them."
+    G-3:
+      verdict: holds
+      measurement: >-
+        `git diff 8b307c22..HEAD -- src/ | grep -E '^\\+ *(import |from )'` is
+        EMPTY -- this card adds no import statement to src at all (the two new
+        names in app.py join an existing `from nonogram.admin.puzzle_review
+        import (...)` block). pyproject.toml is not in the diff. The test
+        module's own imports are stdlib (ast, pathlib, uuid, warnings,
+        dataclasses, typing) plus pytest plus repo modules.
+      do_not_credit: >-
+        ADR-0006/R1's check ref names a class spelled
+        TestDependencyBaseline + _IsExactlyPillowAndNumpy (deliberately written
+        here in two pieces so this report cannot revive it). THAT REF IS DEAD:
+        `git grep -nE '(class|def)[[:space:]]+<that name>'` returns ZERO
+        definitions anywhere in this repo. It reads alive to the validator only
+        because 223 tracked files spell the bare token -- ~220 meta/review
+        YAMLs, backlog-scored.yml, dispatcher.state, 118 cards, and two tests/
+        prose mentions. The baseline above is verified by SUBSTANCE, never by
+        that test. The round got this right.
+    G-4:
+      verdict: holds, with ZERO fixture edits
+      measurement: >-
+        tests/test_puzzle_review.py and tests/test_bulk_operations.py are
+        declared in `Touches` and were NOT edited (not in the 6-file diff), and
+        both are green inside the 1377. Their approve fixtures use 2x2 and
+        10x10 solid grids, which line logic settles, so they pass the gate
+        untouched. `BulkOutcome`'s two new fields are APPENDED, pinned as the
+        dataclass's own field order by
+        `test_the_outcome_grew_without_moving_what_was_there` -- which matters
+        because the store builds BulkOutcome positionally in two places.
+  analyse_cost:
+    wall: "0.441s first call, 0.366s second"
+    cached: true
+    fixture: "@pytest.fixture(scope='module') def analysis()"
+    consumers: 6
+    measured_in_suite: "0.38s as setup of test_every_approved_writer_passes_the_gate; whole 37-test module 1.18s"
+    verdict: acceptable
+  ec_051_derivation:
+    files_walked: 67
+    function_symbols: 1113
+    candidates: 6
+    candidate_share: "0.5%"
+    axis_b_direct_writers: 3
+    refusal_constructors_derived: 5
+    status_vocabulary_modules: ["src/nonogram/admin/__init__.py", "src/nonogram/admin/app.py", "src/nonogram/admin/puzzle_review.py"]
+    exemptions: 1
+    ungated: []
+    candidate_list:
+      - "src/nonogram/admin/app.py:create_app.approve_batch_puzzles -> reaches the gate"
+      - "src/nonogram/admin/app.py:create_app.select_puzzles_for_book -> EXEMPT (machine-checked)"
+      - "src/nonogram/admin/puzzle_review.py:PuzzleReviewService._set_status -> reaches the gate"
+      - "src/nonogram/admin/puzzle_review.py:PuzzleReviewService.approve_puzzle -> reaches the gate"
+      - "src/nonogram/admin/puzzle_review.py:PuzzleReviewService.save_edited_grid -> reaches the gate"
+      - "src/nonogram/admin/puzzle_review.py:PuzzleReviewService.set_batch_status -> reaches the gate"
+    bound_is_honestly_stated: true
+    bound_check: >-
+      The declared blindness (reflection, a status written inside a
+      third-party helper, axis B scoped to the modules that name PuzzleStatus)
+      is stated in `_status_writes`'s own docstring and measured by
+      `test_the_modules_in_the_status_vocabulary_are_measured`, which also
+      plants a probe proving axis A still sees the enum member OUTSIDE the
+      vocabulary -- so the scoping is a narrowing, not a hole. I checked the
+      narrowing against the tree: every `.status =` / `["status"] =` /
+      `status=` site in src/nonogram outside puzzle_review.py and app.py writes
+      BookStatus or BatchStatus on the books/batches tables
+      (book_manager.py:671,714,835,848,1537,1583,1682,1731,2321,2354;
+      batch_generator.py:162,177,280,296,300,313,840). There is no puzzle-row
+      status write outside the vocabulary today.
+    reachability_not_ordering:
+      claim_checked: true
+      note: >-
+        The guard proves reachability; ordering (the gate in FRONT of the write)
+        is pinned behaviourally. I checked that this is true of ALL FOUR ACs,
+        not three: AC-393 reads `store.status(branching)` back after the
+        refusal; AC-394 reads every held-back row's status back and re-reads
+        them on a second pass; AC-395 reads the status back on all three
+        unknown cases and on the bulk path; AC-396 reads the stored grid, the
+        stored strategies_used AND manually_edited_at back. The round's claim
+        holds for four of four.
+
+mutation_check:
+  executed: true
+  ladder_note: >-
+    Step 8f's cost ladder says to emit deferred(cost) when the cycle finds
+    critical or important findings. This cycle's findings are all MINOR or
+    process/informational, so the ladder does not defer -- and the mutants
+    below are the only way to measure ADR-0039/R1's "missed WITHOUT it" half,
+    which no in-suite test can assert about itself. They were executed before
+    the findings were ranked; I am declaring the results rather than
+    suppressing paid-for evidence.
+  protocol:
+    style: "disable-in-place, LINE-COUNT-PRESERVING (the deleted slot gets a never-matching value, so no lineno shifts)"
+    blob_assertion: "every mutant asserts `git hash-object <path>` == `git rev-parse HEAD:<path>` BEFORE mutating and again after `git checkout --`; a mismatch aborts"
+    bytecode: "PYTHONDONTWRITEBYTECODE=1, and `find -name __pycache__ -prune -exec rm -rf` swept before and after every mutant"
+    instrument_proof: >-
+      The dispatch warned that a crashing instrument reports NOT-REACHED
+      indistinguishably from a survivor. Proved on the UNMUTATED tree first: a
+      no-op mutator through the same harness ran
+      test_the_registrys_check_refs_for_this_card_all_resolve -> "1 passed in
+      0.04s / RESTORED-OK". Every mutant below therefore reports a real pytest
+      outcome, and each one printed RESTORED-OK. Final `git status --short` in
+      the worktree carries only this report file.
+  mutants: 10
+  killed: 9
+  survivors: 1
+  detail:
+    - id: M-1
+      site: "src/nonogram/admin/puzzle_review.py _set_status, in-memory branch: `if status is PuzzleStatus.APPROVED and ...` -> `if False and ...`"
+      outcome: KILLED
+      killed_by: "test_approve_refuses_a_branching_puzzle, test_unknown_verdict_fails_closed, test_edit_refuses_a_branching_grid_behind_the_approved_door, test_the_happy_path_does_not_enter_the_solver (4 failed, 33 passed)"
+      first_finding: "[memory/draft] a draft carrying a branching grid could be approved"
+    - id: M-2
+      site: "same method, _session_factory branch"
+      outcome: KILLED
+      killed_by: "the same three AC tests (3 failed, 34 passed)"
+      first_finding: "[sqlite/draft] a draft carrying a branching grid could be approved"
+    - id: M-3
+      site: "set_batch_status: `gating = status is PuzzleStatus.APPROVED` -> `gating = False`"
+      outcome: KILLED
+      killed_by: "test_batch_approve_holds_back_branching_puzzles, test_the_bulk_outcome_fields_are_not_double_counted, test_unknown_verdict_fails_closed"
+      first_finding: "[memory/bulk] approved: got 2, want 1; the unverifiable row's status: got 'approved', want 'draft'"
+    - id: M-4
+      site: "save_edited_grid: the `_refuse_a_grid_the_approval_door_would_not(row, derived['strategies_used'])` call deleted"
+      outcome: KILLED
+      killed_by: "test_edit_refuses_a_branching_grid_behind_the_approved_door, test_the_edit_route_says_which_refusal_it_is, AND BOTH static tests -- test_every_approved_writer_passes_the_gate plus test_the_four_doors_are_candidates_and_reach_the_gate (`doors that do not reach the gate: ['...save_edited_grid']`)"
+      note: "the one mutant that proves the static half and the behavioural half are not substitutes: it reds both, for different reasons"
+    - id: M-5
+      site: "src/nonogram/admin/app.py approve route: the `elif (verdict := approvability_of(...))` arm disabled"
+      outcome: KILLED
+      killed_by: "test_approve_refuses_a_branching_puzzle, test_unknown_verdict_fails_closed"
+      first_finding: "[route] the status code: got 404, want 409"
+    - id: M-6
+      site: "_is_strategies_list -> always False (the stored list is never believed)"
+      outcome: KILLED
+      killed_by: "test_the_happy_path_does_not_enter_the_solver, test_the_edit_seam_leaves_the_stored_list_in_step_with_the_grid"
+      note: "this is the probe that proves ARM 1 of the happy-path claim is not vacuous -- the `assert entries == []` side"
+    - id: M-7
+      site: "meta/architecture/requirements.yml: a sixth tests/test_approval_guess_gate.py:: ref added to FR-046"
+      outcome: KILLED
+      killed_by: "test_the_registrys_check_refs_for_this_card_all_resolve at :2021, `assert 6 == 5`"
+      note: "answers the dispatch's question 3: the count is PARSED from requirements.yml, not restated"
+    - id: M-8
+      site: "APPROVES_NOTHING grows a sixth entry (a non-door)"
+      outcome: KILLED
+      killed_by: "test_the_exemption_list_holds_only_what_it_has_to (`assert 2 == 1`)"
+    - id: M-9
+      site: "APPROVES_NOTHING grows a REAL door (PuzzleReviewService.set_batch_status)"
+      outcome: KILLED
+      killed_by: "test_every_exemption_is_still_unable_to_approve AND test_the_exemption_list_holds_only_what_it_has_to"
+      correction_to_the_dispatch: >-
+        `test_no_real_door_could_be_excused_by_listing_it` did NOT red on this
+        mutant, and cannot: it asserts a standing property of the five doors
+        (`_cannot_approve(door, analysis)` is non-empty) and never reads
+        APPROVES_NOTHING. The protection against listing a real door is real
+        and it bit -- but it is `test_every_exemption_is_still_unable_to_approve`
+        that does the biting, independently of the size pin. The naming invites
+        the opposite reading.
+    - id: M-10
+      site: "tests/test_approval_guess_gate.py: `@pytest.mark.skip('probe')` added above test_unknown_verdict_fails_closed (AC-395)"
+      outcome: SURVIVED
+      result: "36 passed, 1 skipped -- test_the_registrys_check_refs_for_this_card_all_resolve stays GREEN"
+      finding: F-001
+  also_probed_outside_the_card:
+    - site: "src/nonogram/admin/app.py EDIT_REFUSAL_REASONS: 'needs_guessing' -> 'needs_guessing_PROBE' (app.py side only)"
+      outcome: KILLED
+      killed_by: "test_puzzle_editor_ui.py:985 test_the_refusal_vocabulary_is_load_bearing_on_both_sides + test_every_refusal_carries_a_reason_the_editor_branches_on"
+    - site: "src/nonogram/admin/static/puzzle_edit.js REFUSALS_THAT_NEVER_WRITE: same token change (client side only)"
+      outcome: KILLED
+      killed_by: "test_puzzle_editor_ui.py:989 + the same companion test"
+      conclusion: "the seam is held as an EQUALITY on both sides; card item 5 cannot be implemented inside the declared Touches"
+    - site: "@pytest.mark.parametrize added to test_unknown_verdict_fails_closed"
+      outcome: "not a hole"
+      note: >-
+        I expected the bare node id to stop collecting. It does not: pytest
+        matches node-id prefixes, so
+        `pytest 'tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed'`
+        collects both `[1]` and `[2]`. The module docstring's stated reason for
+        keeping the five unparametrized is still sound as a readability and
+        ref-hygiene rule, but it is not load-bearing for collection.
+
+findings:
+  - id: F-001
+    severity: minor
+    confidence: high
+    title: "the ref-resolution test accepts a ref whose test is SKIPPED -- a green ref over an ungated door"
+    where: "tests/test_approval_guess_gate.py:2023-2036 (test_the_registrys_check_refs_for_this_card_all_resolve)"
+    measured: >-
+      Mutant M-10. Adding `@pytest.mark.skip("probe")` above
+      `def test_unknown_verdict_fails_closed` (AC-395's ref) gives "36 passed,
+      1 skipped" and `test_the_registrys_check_refs_for_this_card_all_resolve`
+      still PASSES. The check is `name in globals() and callable(value) and
+      value.__module__ == __name__` -- which is "a module-level function of
+      this name exists", not "it runs and asserts". A `skip`/`skipif` mark
+      satisfies all three.
+    why_it_matters: >-
+      This is the exact hazard this board has a standing rule about: a skipped
+      gate test is an ungated door, and this module's whole purpose is that a
+      ref cannot read as mechanically checked while nothing backs it. The
+      module makes the no-skip claim in PROSE (docstring lines 36-39, "There is
+      no db_required marker anywhere in this file and so no test here can skip
+      green") and asserts nothing. The claim is true at HEAD -- I measured 0
+      skip markers in the file and 0 skips in its 37 tests -- so this is a
+      durability gap in the mechanism, not an open hole today.
+    fix: >-
+      One assertion beside the two that are already there: for each of the five
+      refs, require the resolved function to carry no skip/skipif mark (e.g.
+      `not any(m.name in {"skip", "skipif"} for m in getattr(fn,
+      "pytestmark", []))`), and the same for the module's own `pytestmark`.
+    answers_dispatch_question: "2 -- yes, there is one remaining way for that test to pass with a ref that does not run, and it is a skip mark, not the __module__ filter"
+  - id: F-002
+    severity: minor
+    confidence: high
+    title: "the approve ROUTE pays the verdict twice -- 2 solver entries where the service pays 1 -- and the cost test does not drive the route"
+    where: "src/nonogram/admin/app.py the approve route (`elif (verdict := puzzle_review.approvability_of(puzzle_id))` followed by `elif puzzle_review.approve_puzzle(puzzle_id)`), against tests/test_approval_guess_gate.py:463 test_the_happy_path_does_not_enter_the_solver"
+    measured: >-
+      I monkeypatched `nonogram.admin.puzzle_review.solve` with a counter and
+      drove the real route through app.test_client(). Results: believed stored
+      list -> 0 solves, HTTP 200. UNBELIEVED stored list (["line_logic"]) ->
+      **2 solves**, HTTP 200. Refusal with an unbelieved list -> 1 solve, HTTP
+      409 (the route short-circuits, correctly). The service path for the same
+      row -> 1 solve. The route asks `approvability_of` and then
+      `approve_puzzle` re-asks `_approvability` inside `_set_status`.
+    why_it_matters: >-
+      The card's cost note and `_approvability`'s docstring both say the gate
+      enters the solver "not at all" on the happy path. That claim HOLDS for
+      the normal population -- 0 solves measured, because generation and the
+      two-phase edit both write a solver-written list, and `add_puzzle` fills
+      an empty one in from its own proving solve (puzzle_review.py:946-949, so
+      `strategies_used=[]` really is NOT a re-solve trigger -- the round's
+      correction is right and I confirmed it). The doubling hits only rows
+      whose stored list no solver wrote: legacy `[]` rows and invented names.
+      For such a row near limits.MAX_SIZE it is two budgeted searches of wall
+      clock on one button press. `test_the_happy_path_does_not_enter_the_solver`
+      drives only `store.service.approve_puzzle`, so the route's cost is
+      unmeasured and this doubling is invisible to the suite. Bulk is NOT
+      affected: `set_batch_status` asks `_approvability` once per row (measured
+      via M-3's counts).
+    fix: >-
+      Either let the route reuse the verdict it already holds (pass it into
+      `_set_status`, or have the route approve only when `verdict is
+      Approvability.OK` and keep `_set_status`'s own check as the store-level
+      backstop it is), or -- at minimum -- add a route arm to
+      test_the_happy_path_does_not_enter_the_solver so the number is measured
+      wherever the owner actually meets it.
+  - id: F-003
+    severity: minor
+    confidence: high
+    title: "the card's Touches list is wrong in both directions and is owed an amendment"
+    where: "meta/kanban/cards/CARD-291.md:17"
+    measured: >-
+      Declared: puzzle_review.py, app.py, tests/test_approval_guess_gate.py,
+      tests/test_puzzle_review.py, tests/test_bulk_operations.py. Actual
+      6-file diff: the first three, plus
+      src/nonogram/admin/static/puzzle_edit.js (+3),
+      tests/test_puzzle_editor_ui.py (+16) and
+      meta/architecture/decisions/adr/0032-admin-storage-guarantees.md. The last
+      two declared test modules were NOT edited at all.
+    judgement_against_scope_gate: >-
+      The growth is JUSTIFIED and I measured the forcing rather than accepting
+      it. The two one-sided token mutants (above) show
+      `TestPuzzleEditor_Guardrails::test_the_refusal_vocabulary_is_load_bearing_on_both_sides`
+      holds app.py's EDIT_REFUSAL_REASONS and the client's
+      REFUSALS_THAT_NEVER_WRITE as an EQUALITY, so card item 5 -- which gives
+      the edit route a new refusal reason -- cannot be implemented inside the
+      declared Touches. The ADR is the R3 flip the card explicitly owes and
+      meta/architecture/ is permitted. The two unedited declared modules are
+      G-4's own subject and are green untouched. Net: zero unjustified growth,
+      but the card's Touches line as written would have mis-scoped the next
+      reviewer and the next concurrency check (app.py is a declared HOTSPOT).
+    fix: "amend Touches to add src/nonogram/admin/static/puzzle_edit.js, tests/test_puzzle_editor_ui.py and the ADR path, and record that test_puzzle_review.py / test_bulk_operations.py needed no edit (G-4 holds with zero fixture edits) rather than silently dropping them"
+  - id: F-004
+    severity: minor
+    confidence: high
+    title: "the predicate name diverges from the card: approvability_of(...) -> Approvability | None, not needs_guessing(...) -> bool"
+    where: "meta/kanban/cards/CARD-291.md:69 vs src/nonogram/admin/puzzle_review.py approvability_of"
+    judgement: "justified, NOT scope drift -- but the card text must be amended so a later reader does not 'restore' the literal name"
+    measured_reasons: >-
+      Three, and two of them are measurements rather than taste. (a) AC-395
+      requires a THIRD outcome with its own distinct message; a bool cannot
+      carry it, and `test_the_two_refusals_are_worded_apart` plus the route's
+      own assertion (`Approvability.UNVERIFIABLE.value in message` AND
+      `Approvability.NEEDS_GUESSING.value not in message`) are what hold the
+      two sentences apart. (b) Two booleans would mean two `strategies_for`
+      calls, i.e. TWO budgeted re-solves on the unbelieved path -- I measured
+      `_approvability` at exactly 1 solve per call, so the enum halves a cost
+      the two-predicate shape would have doubled (and F-002 shows what one
+      extra call already costs). (c) `GridNotApprovable.verdict` is the SAME
+      enum member, asserted by AC-396 (`refused.value.verdict ==
+      Approvability.NEEDS_GUESSING`), so the edit refusal and the approve
+      refusal cannot drift into two vocabularies.
+    fix: "amend card item 2 to name approvability_of / Approvability and state the three-outcome and one-solve reasons in one line"
+  - id: F-005
+    severity: informational
+    confidence: high
+    title: "the surviving `FR-046 requirement has no tests yet (status: partial)` warning is NOT this card's to clear -- the round is right, and now measured"
+    where: "meta/architecture/trace.yml FR-046 row, `status: partial`; emitted at forge_1 .../validators/trace.py:73"
+    measured: >-
+      The warning fires on `status: partial` ALONE. Read the validator: trace.py
+      lines 71-73 emit it with no reference to the entry's `tests:` list --
+      which for FR-046 already holds all five node ids. There is no `status:
+      partial` string anywhere in requirements.yml (grep -c -> 0) and FR-046
+      has no `status` key there at all; the warning comes from trace.yml only.
+      Board-wide: 43 of 75 trace rows are `partial` and 32 are `covered`; 40 of
+      the 43 list no tests at all, and the three that DO are NFR-001 (1 test),
+      **FR-045 (15 tests)** and FR-046 (5 tests). FR-045 is the precedent the
+      card itself cites, and its row is still `partial` with 15 live tests.
+    conclusion: >-
+      Flipping FR-046 alone to `covered` would be an inconsistent, board-wide
+      convention change made by one card, and the card's named precedent did
+      not do it. The card's claim at line 112 ("FR-046's planned-test warnings
+      ... are this card's job to clear") is satisfied for 5 of the 6 FR-046
+      warnings; the sixth belongs to a separate board-level card, together with
+      the standing hazard the owner's own memory records about this warning
+      being misread as a missing `tests:` key.
+    fix: "amend the card to say 5-of-6 and name the sixth as out of scope by the FR-045 precedent; file the convention flip as its own card"
+  - id: F-006
+    severity: informational
+    confidence: medium
+    title: "EC-051's vocabulary scoping is a measured narrowing today, and a durability gap tomorrow"
+    where: "tests/test_approval_guess_gate.py analyse() `vocabulary` + _status_writes's docstring"
+    measured: >-
+      Axis B is scoped to the three modules that name `PuzzleStatus`; axis A
+      (the literal word / enum member / subscript spelling) is tree-wide. A
+      module that is NOT in the vocabulary and writes a PUZZLE row's `status`
+      from a non-literal (`row.status = request.form["status"]`) is invisible
+      to both axes. No such site exists today -- I enumerated every `.status =`
+      / `["status"] =` / `status=` in src/nonogram outside the two gated
+      modules and all 17 of them write BookStatus or BatchStatus on the
+      books/batches tables.
+    conclusion: >-
+      The bound is honestly stated in the right place (the guard's own
+      docstring) and it is MEASURED, not claimed, by
+      `test_the_modules_in_the_status_vocabulary_are_measured`, which also
+      plants a probe proving axis A still catches the enum member outside the
+      store module. I record this as a shape of the catalogue, not a defect,
+      and I decline to inflate it into a finding against the card.
+  - id: F-007
+    severity: informational
+    confidence: high
+    title: "the edit refusal is slightly broader than AC-396's wording: a truthy book_id puts a row behind the door whatever its status"
+    where: "src/nonogram/admin/puzzle_review.py _refuse_a_grid_the_approval_door_would_not, `... or PuzzleReviewService._holds_a_book(puzzle.get('book_id'), status)`"
+    note: >-
+      AC-396 says "an approved or in-book puzzle"; the implementation also
+      refuses a row whose `book_id` is truthy under any status. Conservative,
+      consistent with FR-046's intent (a row a book is built on is behind the
+      door), and near-unreachable in practice because `assign_to_book` sets the
+      status too. Recorded so a later reader does not mistake it for a bug, not
+      as a change request.
+
+disagreements_with_the_card:
+  - subject: "card item 2's predicate name"
+    position: "the card is wrong and the implementation is right; see F-004, with the one-solve measurement"
+  - subject: "card line 112, 'FR-046's planned-test warnings ... are this card's job to clear'"
+    position: "overstated by one warning; see F-005, with the 43/75 board-wide count and the FR-045 precedent measured"
+  - subject: "card line 17, Touches"
+    position: "wrong in both directions; see F-003, with the forcing of the js/UI edit measured in both directions"
+
+orchestrator_verification_audit:
+  reproduced_and_agreed:
+    - "3 commits on 8b307c22, working tree clean, diffstat 6 files +2372/-20"
+    - "the five refs at module-level def lines 326/505/649/801/1548; 5 passed 0 skipped; whole file 37 passed 0 skipped"
+    - "forge_1 validator: main 0 errors/107 warnings -> branch 0 errors/102 warnings; exactly the five FR-046 dead-ref warnings removed; comm -13 EMPTY (0 added)"
+    - "ADR-0006/R1's check ref has ZERO class/def definitions in the repo; it lives only in meta/review YAMLs, cards, backlog-scored.yml, dispatcher.state and two tests/ prose mentions (223 files)"
+    - "writing the tests did NOT revive the refs: the whole path::name string occurs in the test file ONLY at docstring lines 16-20"
+    - "the docstring-table mechanism is honest, for the reason the orchestrator gave -- the resolve test asserts the definitions and the table SEPARATELY, and derives the ref set from requirements.yml"
+    - "strategies_used=[] is NOT a re-solve trigger (add_puzzle fills it in at puzzle_review.py:946-949); the test's 're-solved' arm correctly uses ['line_logic'] instead"
+    - "AC-396's in-book arm assigns a real book_id via assign_to_book, clearing the _an_edit_may_touch floor, and states the hard-tier seeding reason in the test rather than assuming it"
+    - "the read probes are load-bearing: 6 candidates out of 1113 symbols, so this is not a deny-everything guard"
+  corrections:
+    - subject: "'test_no_real_door_could_be_excused_by_listing_it and test_the_exemption_list_holds_only_what_it_has_to claim to prevent that in both directions'"
+      correction: >-
+        Measured (M-9): moving a real door onto APPROVES_NOTHING reds
+        `test_every_exemption_is_still_unable_to_approve` and the size pin. It
+        does NOT red `test_no_real_door_could_be_excused_by_listing_it`, which
+        never reads the list -- it asserts a standing property of the five
+        doors. The protection is real and bit; the test that does the biting is
+        not the one whose name says so.
+    - subject: "the parametrize concern behind 'the node id a ref resolves to is the node id that runs'"
+      correction: >-
+        Measured: pytest matches node-id prefixes, so a parametrized
+        `test_unknown_verdict_fails_closed` still collects under its bare node
+        id. Parametrizing one of the five would not kill the ref. The real
+        residual is a skip mark (F-001), which the dispatch's question 2 asked
+        about and which neither the round nor the orchestrator had measured.
+  nothing_else_found_wrong: true
+
+score_rationale: >-
+  9.0. Five gate sites, five biting controls, measured by me as deletion
+  mutants rather than inferred -- including one (M-4) that reds the static and
+  the behavioural half for different reasons, which is the cleanest possible
+  demonstration that neither stands in for the other. The EC-051 derivation is
+  a real measurement (6 candidates from 1113 symbols, 0.5 %), its exemption
+  list is machine-checked and bites in both directions, and its bound is stated
+  in the guard's own docstring and measured by a test that plants a probe to
+  prove the scoping narrows rather than holes. The registry/docstring binding
+  closes the exact defect this card arrived with, and I proved the mechanism is
+  the docstring table by locating every occurrence of the grepped string. G-1
+  verified as a literal byte-for-byte row no-op on both verdict paths rather
+  than read off a docstring; G-2/G-3 verified as an absence in the diff; G-4
+  verified with ZERO deleted lines anywhere in tests/ and zero new skips.
+  Deducted 1.0 for the four minor findings, weighted toward F-001 (the one
+  mechanism-durability hole, in the mechanism this card exists to build) and
+  F-002 (a doubled solve at the route, in the one place the cost claim is not
+  measured). Both are one-line-to-small fixes and neither is a correctness
+  defect. Above min_score 8; no gating finding.
+
+recommendation: CERTIFY
+gating_findings: []
+card_amendments_owed: [F-003, F-004, F-005]
