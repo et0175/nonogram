@@ -3013,10 +3013,14 @@ class TestSheetFurniture_TheQrBlockIsOperatorsAndTheWriterRefusesAnXObject:
         where the import *is* legal: the same ``QrSlot``, the same module
         count, and the dark squares' own boxes compared edge for edge.
 
-        The one documented difference is Pillow's inclusive rectangle: a
-        raster module is one device pixel wider and taller than the path's,
-        which is 0.085 mm at 300 DPI and is asserted as exactly one pixel
-        rather than waved at.
+        What is compared is the **boxes**, which are equal edge for edge. What
+        is *not* compared, and is named rather than implied: Pillow paints a
+        rectangle **inclusively** at both ends while a PDF ``re`` does not, so
+        the raster module's ink is one device pixel wider and taller than the
+        path's — 0.085 mm at the book's 300 DPI. That is a property of the two
+        painters, not of this tiling, and nothing here measures it; it is
+        recorded so a later reader does not take the box equality below for an
+        ink equality.
         """
         from nonogram.admin.book_pdf_generator import (
             _QR_PLACEHOLDER_MODULES,
