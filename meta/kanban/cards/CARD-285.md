@@ -465,3 +465,108 @@ naming a non-existent AC-3, and a superseded note on the card's own AC-392 sente
    at all, so neither the card record at `:212` nor a cycle-2 report can red the
    suite. Kept regardless for this round: neither full endpoint appears in either
    commit message or in the report.
+
+---
+
+## Fix round 2, 2026-10-29 — `76cfba58` → `6caccb65`, 3 commits, 4 files +436/−82
+
+**Cycle 2's gating finding is closed, and the fix is not the one that was asked
+for.** The brief and the review both framed F-101 as a lookbehind problem on the
+two DOTALL block forms. The round took the lookbehinds **and** then took the
+comment stripper **off the egress path entirely**, on cycle 2's own reasoning that
+fixing only the reported instance is the pattern this board keeps repeating:
+
+- **RAW text** (comments included) is now read by every pattern whose miss could
+  be a channel — `_ABSOLUTE_TARGET`, the new `_HOST_LITERAL`, `_ATTR_TARGET`/
+  `_CSS_TARGET`, `_PROPERTY_SINK`, the `URL_CALLS` loop, and `IDENTIFIER_SHAPES`.
+- **STRIPPED text** is read by only two — `_IMPORT_TARGET` and the new
+  `_ROOTED_LITERAL` — which are precisely the two patterns both *measured* false
+  positives came from, and the only two whose misses cannot be egress: a module
+  specifier or a rooted path resolving to nothing is a lost `unclassifiable`,
+  never a lost `foreign`.
+
+`_URL_LITERAL` was one pattern doing both jobs, which is why it is split.
+
+**Nine swallow plants, each asserted four ways** (the shipped scan reports it; the
+**pre-fix** stripper destroys it, so the plant really is the swallow shape; the
+**shipped** stripper does not; and the scan reports it with the pre-fix stripper
+patched back in, so the split is what carries the fix). **12 of 12 mutants killed,
+no survivors.**
+
+**The round's own first pass found two of its own raw reads uncontrolled** — moving
+`_ATTR_TARGET`/`_CSS_TARGET` and `_PROPERTY_SINK` back to stripped text **survived**,
+because a quoted `//host` is read by `_HOST_LITERAL` whatever surrounds it (fix round
+1's `Worker` lesson again). So three of cycle 2's four plants were controls over the
+wrong line. Five new plants exist as shapes **no other pattern can read**. That
+survival is recorded in the test's own comment rather than quietly repaired, because
+it is the same defect class as the finding.
+
+**The honesty is restored rather than narrowed.** `_without_comments`' docstring now
+states the residual that *can* still hide a finding — a delimiter is recognised by
+the single character in front of it, so an opener after an unguarded character still
+blanks a region, and the block forms cross lines — and then states what bounds it.
+The same paragraph is in `docs/deploy/player.md`. Fix round 1's "the safe direction"
+sentence is kept but is no longer the only thing declared.
+
+**F-102 taken (6 lines) — and it closes the measured instance of CARD-308's hazard
+that lived in this very module.** The guard now collects every whole
+`tests/<this file>::(\w+)` the module docstring spells and holds that set to the
+`def`s in the file, so **a ref whose authority is an ADR is held for the first time**.
+Mutant M10 — cycle 2's survivor, a one-character rename of ADR-0041/R2's exemption
+node — now **kills**. The docstring's claim that "the defining module is the one
+place that cannot lose it unnoticed" is true as held for the first time.
+
+**F-103 taken by inverting the flag, not by prose.** `--no-analytics` is now
+**`--analytics`**: counting is opt-in, the default tree is the uncounted one every
+fixture assembles, and "do not count locally" is the shape of the command rather than
+something to remember. A new hold derives the flags the deploy page backticks from
+the helper's own `--help` and asserts argparse accepts them — nothing held those two
+to each other before. **⚠ This changes the documented deploy procedure: the publish
+command now needs `--analytics`. OWNER DECISION PENDING — see below.**
+
+F-104, F-105, F-106 and F-107 all taken. F-106 closes a probe asked for in three
+consecutive cycles.
+
+### Three refusals, each with a measurement
+
+1. **Cycle 2's recommended F-104 assertion is tautological** — `hosts` is *defined*
+   as the expression the assertion compares it to, two lines above, so it cannot fail
+   under any mutation. A non-tautological equality derived from `REQUIRED_RUNTIME`
+   went in instead, driven by M11.
+2. **Cycle 2's "stronger and simpler alternative" for F-101 reds the real tree.**
+   Applied exactly as recommended in a throwaway worktree, the scan **fails on the
+   clean counted site** on the documented panel path sitting inside a `//` comment —
+   one of the two measured false positives the stripper exists for, and the exact
+   shape the round's own control asserts must be missed.
+3. **`/` was not added to the `//` form's lookbehind.** `\\` alone closes the
+   regex-literal shape (M9 measures it); `/` would widen the guard with no plant
+   behind it.
+
+### Node ids, and a correction to the orchestrator's brief
+
+**9748 → 9771, +23/−0** against the cut. Of the 23, **7 are this card's** — the same
+seven cycle 1 lists — and **16 arrived from `main`** through the merge taken before
+this round. The round's own delta is **+0/−0**: every new control went inside an
+existing test. **The brief's "9748 → 9755" was the pre-merge number and 9755 no longer
+exists on this branch.**
+
+### What the orchestrator got wrong, and it cost the round a run
+
+**The brief's F-101 table row said the regex-literal plant swallowed a *following*
+`fetch(...)`.** The `//` form's strip ends at the newline, so a `fetch` on the **next**
+line survives the pre-fix stripper — the round's first plant put it there and its own
+control correctly refused it as "not the swallow shape". Cycle 2's plant has both on
+**one** line and its measurement stands; the orchestrator's paraphrase of it did not.
+
+Also narrower than the brief implied: cycle 2's "the block forms have no guard at all"
+is right about line-crossing, but **three of the four silent passes are block forms and
+the fourth is the `//` form cycle 1 "fixed"** — the regex-literal miss is a `//`-form
+miss.
+
+### The residual, declared
+
+A comment delimiter opened from an unguarded character still blanks a region for
+`_IMPORT_TARGET` and `_ROOTED_LITERAL`. **Cost: a lost `unclassifiable` — a dangling
+internal reference — never a lost `foreign`.** Not closable without re-admitting the
+two measured false positives, which refusal 2 measures. Declared in the stripper's
+docstring and in `docs/deploy/player.md`.

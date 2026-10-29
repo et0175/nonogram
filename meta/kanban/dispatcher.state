@@ -2661,3 +2661,66 @@ active:
   phase: review cycle 2 scored 7.5, fix round 2 dispatched (cycle 3 is the LAST)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-285 fix round 2 landed 6caccb65, 2026-10-29 late night ---
+# 12 of 12 mutants killed, no survivors; cycle 2's lone survivor now dies too.
+#   The gating finding is closed, and NOT by the fix that was asked for: the
+#   brief and the review both framed it as a lookbehind problem, and the round
+#   took the lookbehinds AND then moved the comment stripper off the egress path
+#   entirely -- every pattern whose miss could be a channel now reads the raw
+#   text, and only the two patterns whose misses can only be a dangling internal
+#   reference read the stripped text. Those two are exactly where both MEASURED
+#   false positives came from.
+#   Nine plants, each asserted four ways, five of them shapes no other pattern
+#   can read -- which exist because the round's OWN first mutation pass found
+#   two of its own raw reads uncontrolled, so three of the review's four plants
+#   were controls over the wrong line. Recorded in the test's comment rather
+#   than quietly repaired, being the same defect class as the finding.
+#
+# IT CLOSED THE MEASURED INSTANCE OF CARD-308'S HAZARD THAT LIVED IN ITS OWN
+#   MODULE, in six lines: the docstring ref table is now held to the definitions
+#   in the file, so a ref whose authority is an ADR is held for the first time.
+#   The instance is closed; the CLASS is not, because the repair is per-module
+#   and hand-written -- which is what a predicate fix would make unnecessary.
+#
+# THREE REFUSALS, each measured, and one of them refutes the review:
+#   the review's recommended assertion for one finding is TAUTOLOGICAL (the
+#   value is defined as the expression it is compared to, two lines above), and
+#   its "stronger and simpler alternative" for the gating finding REDS THE REAL
+#   TREE -- applied as recommended it fails on the clean site, on a documented
+#   path sitting inside a comment, which is one of the two measured false
+#   positives the stripper exists for and the exact shape the round's own
+#   control asserts must be missed.
+#
+# AND THE ROUND CAUGHT A WORDING ERROR OF MINE THAT COST IT A RUN: my brief's
+#   table said the regex-literal plant swallowed a FOLLOWING call. The
+#   single-line comment form's strip ends at the newline, so a call on the next
+#   line survives the pre-fix stripper and the round's own control correctly
+#   refused the plant as "not the swallow shape". The review's plant has both on
+#   ONE line and its measurement stands; my paraphrase of it did not. A
+#   paraphrase of a measurement is not the measurement.
+#
+# ONE OWNER DECISION IS PENDING AND NOTHING SHOULD MERGE UNTIL IT IS ANSWERED:
+#   the round inverted the helper's opt-out flag into an opt-in one, so counting
+#   is now off unless asked for. That is the right default and it was taken for
+#   a measured reason, but it CHANGES THE DOCUMENTED DEPLOY PROCEDURE -- the
+#   publish command now needs the new flag. Owner-visible, so the owner decides.
+#
+# Node ids 9748 -> 9771, +23/-0 against the cut: 7 are the card's (unchanged)
+#   and 16 arrived from main through the pre-round merge. The round's own delta
+#   is +0/-0 -- every new control went inside an existing test. My brief's
+#   "9748 -> 9755" was the pre-merge figure and 9755 no longer exists here.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: fix round 2 running
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: fix round 2 landed 6caccb65, ready for review cycle 3 (the LAST) once the owner rules on the deploy-flag inversion
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []
