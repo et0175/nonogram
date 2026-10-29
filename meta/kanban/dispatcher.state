@@ -1737,8 +1737,29 @@ active:
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
   implementation_head: 02a24694
 - id: CARD-298
-  phase: held at scope gate (decompose escalation, awaiting owner)
+  phase: review cycle 1 (against the NARROWED card)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
   implementation_head: 283164a9
-  escalation: "scope_gate clause 2: covers 3 of ready sibling CARD-299's 8 Touches; CARD-299 declares Depends on CARD-298 while this card's R1 half depends on CARD-299"
+  escalation: "scope_gate clause 2: covered 3 of ready sibling CARD-299's 8 Touches; CARD-299 declares Depends on CARD-298 while this card's R1 half depended on CARD-299 -- a cycle"
+  escalation_resolved: "owner decision 2026-10-29: NARROW to the mechanism card. 13 amendments, each marked, implementation untouched -- the slice was wrong, not the work. ADR-0042/R1's flip and the 21 baselines move out; AC-1 is now the medium-agreement statement and says so; AC-5 inverts to 0 baselines move; the declared set is recorded as SEVEN with its derivation; G-3's fixtures exception withdrawn; G-6 now requires R1's lens to SURVIVE. The cycle is broken because CARD-298 no longer needs CARD-299. Reviewer reads the card from the MAIN repo -- the worktree copy predates the narrowing, since /commit excludes meta/."
+cards_cut:
+  at: 2026-10-29
+  on: owner decision
+  cards:
+  - id: CARD-306
+    wave: 67
+    why: "the vector puzzle page draws NO sheet furniture -- no folio, frame rules, grid-size label or QR block. book_puzzle_vector's own docstring raises it while naming CARD-298; CARD-295 did the same. Attributed TWICE to a card that does not own it. Depends on CARD-298 + CARD-299, because furniture written before the readers convert is unreachable drawing code."
+  - id: CARD-307
+    wave: 66
+    why: "a `path::nodeid` check ref is STRUCTURALLY unresolvable -- symbol_exists() greps the whole path::name string and a node id is never a code identifier. 30 such refs on main, 25 belonging to no current card. CARD-291 paid a third commit discovering this."
+  - id: CARD-308
+    wave: 66
+    why: "the sync protocol erodes the detector (a review YAML was measured silencing a live main warning, 108 -> 107, nothing repaired) AND the board records no validator of record, which both wave-65 rounds fell into by quoting the plugin cache's phantom ADR-0025 error."
+findings_recorded_on_other_cards:
+  CARD-299: "it is TEST-SIDE ONLY, so (a) ADR-0042/R1's flip is not its either, (b) the 21 baselines do not move in it, and (c) the five expires_with: CARD-299 declarations CARD-298 shipped NAME THE WRONG CARD -- no card on the board converts the interior pages at all. Its Depends on: CARD-298 is now correct and the graph is acyclic. Its readers must be medium-agnostic, driven off page_medium, which is the only order that works."
+board_regenerated:
+  at: 2026-10-29
+  from: all 307 card files
+  tallies: "264 done, 38 ready, 2 in progress, 1 parked, 0 review, 2 blocked = 307"
+  ready_column_bullets_counted: 38
 queued: []
