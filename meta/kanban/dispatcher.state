@@ -2100,3 +2100,74 @@ board_tallies_set_checked:
   at: 2026-10-29
   derived: "266 done, 41 ready, 3 in progress, 1 parked, 2 blocked = 313"
   method: "every column asserted board_set == files_set per column; no count carried forward"
+
+# ---- CARD-308 to REVIEW CYCLE 1 (2026-10-29) ----
+# Branch 19bc968b, 4 commits off f64112f2, 2 files +1249: an ADR-0039 section
+# and tests/test_check_ref_resolution.py. Nothing under meta/kanban on the
+# branch, which is correct -- AC-1's config key could not land there because
+# /commit excludes meta/, so the orchestrator applied `architecture_validator`
+# to main on the round's behalf after re-verifying its claims (validate.py
+# byte-identical between the two validator copies; validators/adr_integrity.py
+# the only differing SOURCE file). The reviewer is told AC-1 is closed
+# off-branch so it is not reported as unmet.
+#
+# THE HAZARD THIS CARD IS ABOUT APPLIES TO ITS OWN REVIEWER, and the brief
+# leads with that: meta/review is not excluded from the resolver, so a review
+# report that spells a whole path::name revives that ref -- measured four times
+# now, by four routes, one of them this file and one of them the round's own
+# report. The reviewer is instructed not to spell a dead ref's whole string, to
+# use a device that the loose search cannot match, and to SAY IN THE YAML which
+# device it used. A report that revives a ref while reviewing the card about
+# refs being revived is the defect eating its own reviewer.
+#
+# WHERE THE BUDGET IS POINTED, in order:
+#   1. the self-check cell that must prove the module revives nothing -- the
+#      subtlest property here. The round got it right only after finding that
+#      routing the check through the tracked-file pass made it pass VACUOUSLY on
+#      a new file, because git ls-files cannot see an untracked one. Its
+#      truncation device is also to be verified against git grep itself rather
+#      than reasoned about, specifically against a prefix collision.
+#   2. whether count+digest pinning is a measurement or a tripwire that will be
+#      bumped, and whether repair-vs-signal-loss is ENFORCED or only written
+#      down.
+#   3. the loose resolver's prefix bug -- its trie bound `?` to one character and
+#      SILENTLY emptied three refs' hit sets, found only by diffing against a
+#      second implementation. A loose resolver that under-reports makes every
+#      class figure wrong in the safe-looking direction, so the control for it is
+#      the most important thing in the diff.
+#   4. AC-3's edge mutant, which first SURVIVED VACUOUSLY because the mutated ref
+#      dropped out of its own set -- and whether any other cell can still pass
+#      that way, which is a shape rather than a one-off.
+#
+# CENSUS DISAGREEMENT TO RECONCILE: the round derives 576 distinct refs from the
+#   four authorities; the orchestrator, deriving independently, got 580. Both
+#   agree on the shape and on 23 node-id refs. Whichever is wrong, the partition
+#   counts inherit it, so the reviewer is asked to find the parsing difference.
+#
+# CREDITED RATHER THAN RE-FOUND: the round caught its own overstatement with its
+#   own assertion -- it claimed three refs were review-resolved and nothing else,
+#   asserted >= 3, and it RED AT 2 because a third module's table carries one.
+#   Commit 19bc968b is that correction. ADR-0039/R1 landing on the card's own
+#   work. It also flagged one unreproduced kill_matrix LeakedPatch rather than
+#   burying it.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  implementation_head: 19bc968b
+  ac_1_closed_off_branch: "architecture_validator applied to main by the orchestrator; /commit excludes meta/kanban from card branches"
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
