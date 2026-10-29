@@ -2792,6 +2792,87 @@ class TestSheetFurniture_OneDefinitionNotTwo:
             found.symmetric_difference(SHEET_VECTOR_LITERALS), key=repr
         )
 
+    def test_no_number_is_handed_to_a_drawing_call(self) -> None:
+        """The arm the value allowlist alone does **not** have, measured.
+
+        ``2`` is on the allowlist for the chequer's parity and for halving a
+        centred string, so a transcription that happens to be ``2`` passes
+        it — and the one transcription most likely to be written here is
+        exactly that: ``stroke_width(to_points(2))``, the raster
+        placeholder's own literal border weight, which on a book page is
+        **numerically identical** to the hairline the writer is supposed to
+        read off the frame. Mutant M5 planted it and every other guard in
+        this module stayed green.
+
+        So the second arm is structural rather than numeric: **no numeric
+        literal reaches any call as an argument.** A number may be compared
+        (``modules <= 0``), may be a modulus (``% 2``), may be a divisor
+        (``/ 2.0``) and may be a field default — none of those is a figure
+        being handed to something that draws. One that is handed to a call is
+        either a coordinate, a weight or a size, and all three belong to the
+        caller.
+        """
+        import ast
+
+        tree, _source = self._tree()
+        # ``bool`` is an ``int``, and ``@dataclass(frozen=True, slots=True)``
+        # hands two of them to a call on every dataclass in the module. A
+        # ``True`` is not a figure, so it is excluded by type and not by value.
+        handed = [
+            (node.lineno, argument.value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            for argument in [*node.args, *(kw.value for kw in node.keywords)]
+            if isinstance(argument, ast.Constant)
+            and isinstance(argument.value, (int, float))
+            and not isinstance(argument.value, bool)
+        ]
+
+        assert handed == [], handed
+
+    def test_the_call_argument_walk_sees_the_numerically_identical_plant(self) -> None:
+        """Its control, which is mutant M5 run in-suite.
+
+        The plant is the border weight the raster page really does write as a
+        literal, and it draws the **same line** this module draws today — so
+        a reading of the page cannot tell it apart and only this walk can.
+        The negative half: the same number in a modulus is not a figure handed
+        to a call, and the walk stays silent on it.
+        """
+        import ast
+
+        _tree, source = self._tree()
+
+        planted = source.replace(
+            "stream.to_points(furniture.frame.footer_rule.width)",
+            "stream.to_points(2)",
+        )
+        assert planted != source
+        found = [
+            argument.value
+            for node in ast.walk(ast.parse(planted))
+            if isinstance(node, ast.Call)
+            for argument in [*node.args, *(kw.value for kw in node.keywords)]
+            if isinstance(argument, ast.Constant)
+            and isinstance(argument.value, (int, float))
+            and not isinstance(argument.value, bool)
+        ]
+        assert found == [2], found
+
+        # The near miss: ``% 2`` is the chequer's own parity, not a figure
+        # handed to anything, and the walk does not rise on it.
+        assert "(row + column) % 2 != 0" in source
+        quiet = [
+            argument.value
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call)
+            for argument in [*node.args, *(kw.value for kw in node.keywords)]
+            if isinstance(argument, ast.Constant)
+            and isinstance(argument.value, (int, float))
+            and not isinstance(argument.value, bool)
+        ]
+        assert quiet == [], quiet
+
     def test_the_walk_sees_a_planted_coordinate(self, tmp_path) -> None:
         """The instrument's positive control, and its negative (ADR-0039/R4).
 
