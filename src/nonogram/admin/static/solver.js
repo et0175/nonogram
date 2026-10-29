@@ -236,8 +236,11 @@
 //             (the same .is-hint-line) and names it, or says there are none.
 //             It changes no cell, records no stroke and moves no counter, so
 //             it is free; it resets the hint ladder. aria-disabled="true"
-//             while the board is locked. Like Hint it is absent from the
-//             manual editor's page (CARD-246).
+//             while the board is locked OR a gesture is in progress — the
+//             same two conditions Hint reports above (CARD-269 review F-10;
+//             the handler always returned early mid-drag, only the attribute
+//             did not say so). Like Hint it is absent from the manual
+//             editor's page (CARD-246).
 //
 // PROGRESS (CARD-162, FR-044 AC-312..AC-321). After every recorded stroke,
 // undo, redo, reset and setBoard, start() re-derives both from the current
