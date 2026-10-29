@@ -67,6 +67,7 @@ from nonogram.admin.book_pdf_generator import (
     TOC_GROUP_GAP_PT,
     TITLE_PAGE_COUNT,
     TOC_SOLUTIONS_LABEL,
+    TOC_TITLE,
     BookPDFGenerator,
     DividerPagePlan,
     PuzzlePagePlan,
@@ -2525,3 +2526,233 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
 
         assert not _same_page(pages[solutions.page - 2], expected)
         assert not _same_page(pages[solutions.page], expected)
+
+
+# ==========================================================================
+# CARD-297 — AC-4: the table of contents as PDF operators (ADR-0042/R1)
+#
+# **Read from the written PDF's content stream and compared against the page
+# plan — never against a rendered bitmap.** CARD-219 moved this file's
+# positional assertions onto the plan (seven tests converted; page bitmaps
+# 2712 -> 556) and left :func:`test_the_drawn_tie_is_still_carried_here` as the
+# fence so a later card cannot quietly undo that. This block is written to the
+# fence rather than around it: it adds **no** render, it touches none of
+# :data:`DRAWN_TIE_CARRIERS`, and the rows it compares against come from
+# :func:`_planned_rows` — the same plan reading the converted tests use, with
+# no page drawn at all.
+#
+# What is new is the *other* side of the comparison. CARD-219's converted
+# tests could only ask the builder what it decided; a content stream is the
+# first artefact in this project that says what the TOC page actually
+# **prints**, in a form that is text rather than pixels. So the tie the fence
+# protects is not weakened and is not replaced: the plan is still read from the
+# plan, and the drawing is now read from the drawing.
+# ==========================================================================
+
+import re as _re
+
+from nonogram.admin import book_toc_vector as _book_toc_vector
+from nonogram.admin.book_vector import write_vector_pdf as _write_vector_pdf
+from tests.helpers import pdf_vector as _pdf_vector
+
+_TOC_SHOW = _re.compile(
+    r"/\S+ (" + _pdf_vector.NUMBER + r") Tf \S+ \S+ Td \((.*?)\) Tj"
+)
+
+
+def _toc_strings(stream_text: str) -> List[str]:
+    """Every string a TOC page's stream sets, in the order it sets them."""
+    return [text for _, text in _TOC_SHOW.findall(stream_text)]
+
+
+def _vector_toc_streams(
+    generator: BookPDFGenerator, rows: List[TocEntry]
+) -> List[str]:
+    """``rows`` as the content streams of the TOC pages that would print them.
+
+    Split by the production split — ``_toc_entries_per_page`` on the same
+    frame ``interior_stream`` measures it on — so this helper re-decides
+    nothing (the TOC's own page break stays one source of truth, G-1).
+    """
+    first = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+    streams = list(
+        _book_toc_vector.toc_pages(rows, generator.page_spec, generator.dpi, first)
+    )
+    data = _write_vector_pdf(streams, len(streams)).getvalue()
+    return _pdf_vector.content_streams(data)
+
+
+class TestToc_EveryRowMatchesThePagePlan:
+    """AC-4 (CARD-297): the printed rows are the planned rows, read as operators.
+
+    Three things per row — its **name**, its **number**, and the page's own
+    **folio** — each compared against :func:`_planned_rows`' own answer. The
+    rows arrive in print order in the stream, so the comparison is of two
+    ordered lists and not of two sets: a TOC that listed the right rows in the
+    wrong order would red.
+    """
+
+    PUZZLES = (6, 4, 2)
+
+    @staticmethod
+    def _generator() -> BookPDFGenerator:
+        return BookPDFGenerator(_book("card-297-toc"))
+
+    def _rows(self) -> List[TocEntry]:
+        return _planned_rows(self._generator(), _puzzles(easy=6, medium=4, hard=2))
+
+    def test_every_rows_name_and_number_is_printed_in_plan_order(self) -> None:
+        generator = self._generator()
+        rows = self._rows()
+        assert rows, "the plan listed no rows"
+        shown = [
+            text
+            for stream_text in _vector_toc_streams(generator, rows)
+            for text in _toc_strings(stream_text)
+        ]
+        # The title repeats on every TOC page and the folio closes each one;
+        # the leader dots are a run of full stops. What is left, in order, is
+        # the rows.
+        pages = len(_vector_toc_streams(generator, rows))
+        content = [
+            text
+            for text in shown
+            if text != TOC_TITLE and set(text) != {"."}
+        ]
+        folios = content[-pages:] if pages else []
+        content = content[: len(content) - pages]
+        printed: List[Tuple[str, Optional[str]]] = []
+        index = 0
+        while index < len(content):
+            label = content[index]
+            index += 1
+            if index < len(content) and content[index].isdigit():
+                printed.append((label, content[index]))
+                index += 1
+            else:
+                printed.append((label, None))
+        expected = [
+            (row.label, None if row.page is None else str(row.page)) for row in rows
+        ]
+        assert printed == expected
+        assert folios == [
+            str(1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + offset)
+            for offset in range(pages)
+        ]
+
+    def test_only_the_heading_rows_print_without_a_number(self) -> None:
+        rows = self._rows()
+        headings = [row.label for row in rows if row.page is None]
+        assert headings == [tier.label for tier in TIERS]
+        shown = [
+            text
+            for stream_text in _vector_toc_streams(self._generator(), rows)
+            for text in _toc_strings(stream_text)
+        ]
+        for label in headings:
+            position = shown.index(label)
+            assert set(shown[position + 1]) != {"."}, (
+                f"{label!r} is a heading and must lead to no number, so it "
+                "gets no leader dots either"
+            )
+
+    def test_every_numbered_row_leads_to_its_number_with_dots(self) -> None:
+        rows = self._rows()
+        shown = [
+            text
+            for stream_text in _vector_toc_streams(self._generator(), rows)
+            for text in _toc_strings(stream_text)
+        ]
+        for row in rows:
+            if row.page is None:
+                continue
+            position = shown.index(row.label)
+            assert shown[position + 1] == str(row.page)
+            assert set(shown[position + 2]) == {"."}, shown[position : position + 3]
+
+    def test_the_comparison_would_have_caught_a_one_page_drift(self) -> None:
+        """The control (ADR-0039/R1): a row pointed one page off is seen.
+
+        The same shape ``test_the_comparison_would_have_caught_a_one_page_drift``
+        makes for the drawn pages, in the stream instead of in the pixels.
+        """
+        generator = self._generator()
+        rows = self._rows()
+        drifted = [
+            TocEntry(
+                row.label,
+                None if row.page is None else row.page + 1,
+                starts_group=row.starts_group,
+            )
+            for row in rows
+        ]
+        one = _vector_toc_streams(generator, rows)
+        two = _vector_toc_streams(generator, drifted)
+        assert [_toc_strings(text) for text in one] != [
+            _toc_strings(text) for text in two
+        ]
+
+    def test_the_page_carries_no_image_xobject(self) -> None:
+        """AC-1's TOC half, read where the rows were read (ADR-0042/R1)."""
+        generator = self._generator()
+        rows = self._rows()
+        streams = list(
+            _book_toc_vector.toc_pages(rows, generator.page_spec, generator.dpi, 4)
+        )
+        data = _write_vector_pdf(streams, len(streams)).getvalue()
+        for keys in _pdf_vector.page_resource_keys(data):
+            assert "XObject" not in keys, keys
+
+    def test_no_page_bitmap_was_built_to_make_any_of_this(self) -> None:
+        """The fence's own property, restated for this class (CARD-219).
+
+        Every cell above reads the plan and a content stream. Asserted
+        structurally rather than claimed: no method of this class names any of
+        the three idioms by which a test in this file reaches a drawn page
+        (:data:`DRAWN_PAGE_IDIOMS`).
+        """
+        source = inspect.getsource(TestToc_EveryRowMatchesThePagePlan)
+        assert [idiom for idiom in DRAWN_PAGE_IDIOMS if idiom in source] == []
+
+
+class TestToc_TheFolioYieldsToARowThatReachesItsLine:
+    """The folio's omit-rather-than-collide rule, in the new medium.
+
+    ``_draw_folio``'s room check — "the folio yields, the content wins"
+    (CARD-200) — is carried into the vector writer, and this is the cell that
+    makes it load-bearing: handed more rows than its own frame has room for,
+    the page prints its rows and **no** page number, rather than setting one
+    into a row's glyphs.
+
+    The over-long list is reached deliberately rather than built: production
+    never hands a page more rows than ``_toc_entries_per_page`` measured for
+    it (``interior_stream`` does the split), so the guard's live case has to be
+    driven here. The row count is taken **from that same measurement**, so the
+    case cannot drift away from the capacity it is twice.
+    """
+
+    def test_a_page_given_twice_its_rows_prints_no_folio(self) -> None:
+        generator = BookPDFGenerator(_book("card-297-folio"))
+        frame = page_frame(generator.page_spec(7))
+        capacity = _toc_entries_per_page(frame, generator.dpi)
+        rows = [TocEntry(f"Section {index}", index + 1) for index in range(capacity * 2)]
+        stream = _book_toc_vector.toc_page_stream(rows, frame, generator.dpi, 7)
+        (text,) = _pdf_vector.content_streams(
+            _write_vector_pdf([stream], 1).getvalue()
+        )
+        shown = _toc_strings(text)
+        assert shown[0] == TOC_TITLE
+        assert shown[-1] != "7", shown[-4:]
+        assert "Section 0" in shown
+
+    def test_the_same_page_within_its_capacity_does_print_it(self) -> None:
+        """The negative control: the omission is the room check, not the writer."""
+        generator = BookPDFGenerator(_book("card-297-folio"))
+        frame = page_frame(generator.page_spec(7))
+        capacity = _toc_entries_per_page(frame, generator.dpi)
+        rows = [TocEntry(f"Section {index}", index + 1) for index in range(capacity)]
+        stream = _book_toc_vector.toc_page_stream(rows, frame, generator.dpi, 7)
+        (text,) = _pdf_vector.content_streams(
+            _write_vector_pdf([stream], 1).getvalue()
+        )
+        assert _toc_strings(text)[-1] == "7"
