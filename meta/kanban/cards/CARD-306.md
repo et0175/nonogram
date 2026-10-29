@@ -1,6 +1,6 @@
 # CARD-306: The vector puzzle page grows its sheet furniture — folio, frame rules, grid-size label and QR block — because a page with no number cannot ship
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-298, CARD-299
 **Touches:** src/nonogram/admin/book_sheet_vector.py (new, +489), src/nonogram/admin/book_pdf_generator.py (+194/−28, incl. a **raster**-path split of `_draw_two_up_qr_groups`), src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/book_vector.py, tests/test_book_puzzle_page_vector.py, tests/test_book_grid_rules.py, tests/test_book_export_interior_cover.py, tests/test_book_interior_type_floor.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** 8.5 (cycle 1/3) — 0 gating findings, certifies: true; fix round 1 running on F-301/302/303/304/305
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.5 (cycle 1/3) — 0 gating findings, certifies: true; fix round 1 closed all five non-process findings
+**Started:** 2026-10-29T19:33:56Z (wave 67 opened)
+**Closed:** 2026-10-29T21:57:25Z
+**Actual:** 0.3d — **2h 24m wall clock**, dispatch to merge, which is the instrument: 5 implementation commits (22:05–22:19 local), review cycle 1, fix round 1 (23:29), merge gate (21:34–21:56 UTC). Against a 1d estimate that is **0.3×**, the first card today to come in UNDER estimate — and the comparison is only sound against other cards measured the same way (CARD-308's 3.0× was wall clock too).
+**Merge commit:** `8c81e00f` (gated tree `fca2fea1`)
 **Blocked by:** —
 
 ## Why this card exists
@@ -474,3 +474,53 @@ Recorded there.
 - [Gate] Merge gate next. The round's verdict, which I accept: a cycle 2 would re-review prose
   that is now instrumented, and what it would **not** reach is the full suite, which is the
   gate's job.
+
+---
+
+## Merge gate — **GREEN**, merged `8c81e00f`
+
+Gated commit **`fca2fea1`** (`main` merged into the branch; **clean, no conflict**). Lock taken
+at the absolute main-checkout path with an absolute `worktree:` line, released on completion.
+
+| arm | result |
+|---|---|
+| full suite | **9791 passed · 27 skipped · 1 xfailed · 0 failed** in **22:03** |
+| AC/EC by node id (the six furniture classes) | **25 passed · 0 skipped** |
+| coverage proof | `src` + `tests` **byte-identical** to the gated commit, both before the merge and on `main` after it |
+
+**All 27 skips carry their reason in the log this time**, because the gate ran with `-rs` rather
+than recovering them afterwards from the marker population: **26 `DATABASE_URL is not set`** plus
+**1 `setrlimit(RLIMIT_AS)` the kernel refuses**. That matches the population derived on CARD-308's
+gate exactly, and this is the first gate today where the figure is *read* rather than
+reconstructed.
+
+### The gate measured the card next door's thesis, live
+
+Step 3's rival-pytest census read **4** processes matching `-m pytest`. Exactly **one** is a real
+run (pid 25440). The other three are **CARD-304's review cycle 2 harness**: its `zsh -c` mutant
+wrapper, and a `sleep 30 | grep -- '…Python -m pytest'` pipeline *with its grep* — the probe shape
+whose argv carries the pattern. So the naive count **overstates by 3 against a ground truth of
+1**, in my own gate, from a sibling worktree, while cycle 2 was reviewing the very instrument
+that distinguishes them. CARD-304's corpus did not need another entry; it got one anyway.
+
+### Two instrument defects of my own, in the gate harness
+
+1. **The first gate run failed at step 1 and reported exit 0.** The merge aborted — the worktree
+   held an untracked copy of the cycle-1 review YAML that `main` had since started tracking — and
+   the script's `exit 1` was **masked because I piped it to `tail`**, so the pipeline returned
+   `tail`'s status. The log is what caught it; the exit code said the gate passed. Same family as
+   the day's other blind readings, this time in the harness built to measure with. Re-run with the
+   status unmasked.
+2. Before removing the worktree's copy I verified it **byte-identical** to `main`'s tracked one
+   (sha256 `2740267f…`, 54676 bytes both) rather than assuming the duplicate was redundant.
+
+### Closing figures
+
+Cumulative `560d7e09..5d95abc3`: **9 files, +2718/−83**, one new module. **Node ids 236 → 261**
+across the round and the fix (+25, 0 removed, 0 renamed). `Touches` was restated from the diff at
+review time and held through the fix round — same file set.
+
+**Not closed here, by design:** ADR-0042/R1 stays unflipped (G-4 — this card converts one piece of
+one kind), guide/TOC/answer still carry no frame, and **F-307's class-name debt is recorded on
+CARD-309**, which converts the page. **CARD-309's prerequisite is now discharged**: it can convert
+the puzzle page without shipping pages that have no number.
