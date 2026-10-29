@@ -186,6 +186,12 @@ assemble.py's` out of a comment — and it is why a protocol-relative target is 
 where a quote says the value is one. A `///path` is not in that gap: it has an empty
 authority and resolves to this site's own `/path`.
 
+The relaxation costs something in the other direction and it is named here too: a quoted
+value that merely *begins* `//` — a comment parked in a string — is now reported, where
+the narrower pattern said nothing. That is a false positive rather than a silent pass, so
+it is the direction this scan is built to fail in; the served tree holds no such literal
+today, and a finding is a sentence someone reads.
+
 So what a bad strip can still cost is one reading of the two patterns that do read the
 stripped text — an `import … from` specifier, or a quoted path genuinely rooted at the
 site: a dangling *internal* reference going unreported. That is a defect worth knowing

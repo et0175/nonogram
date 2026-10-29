@@ -2079,6 +2079,16 @@ ALLOW_RUNTIME, ALLOW_STATIC = driver.allow_list(REPO_ROOT)
 #: an UNQUOTED ``//authority``, because a bare ``//`` is a comment far more
 #: often than a reference.
 #:
+#: **The cost of the relaxation, declared, because it is a real one.** The
+#: narrower pattern was also narrower in the harmless direction: a quoted
+#: value that merely BEGINS ``//`` — a comment parked in a string, ``"//
+#: TODO"`` — is now a ``foreign`` finding where it used to be nothing. That
+#: is a false positive, not a silent pass, so it is the direction this guard
+#: has to fail in, and it is a sentence a reviewer reads rather than a
+#: tracker nobody sees. Measured: ``player/**`` holds no quoted value
+#: beginning ``//`` at all, and the real counted site scans clean in all
+#: three buckets with this pattern in place.
+#:
 #: :data:`_URL_LITERAL` was one pattern doing both jobs and is split for
 #: exactly this reason: the quoted ``//authority`` half is egress and reads
 #: raw, the quoted rooted half is internal and reads stripped.
