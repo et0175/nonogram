@@ -355,9 +355,14 @@ CARD-285): one output directory that *is* the static site a host serves.
 ```bash
 ./.venv/bin/python scripts/assemble_player_site.py \
     --bundle build/player-bundle --out build/site
-./.venv/bin/python scripts/assemble_player_site.py --out build/site --no-analytics
+./.venv/bin/python scripts/assemble_player_site.py --out build/site --analytics
 ./.venv/bin/python scripts/assemble_player_site.py --print-only
 ```
+
+The first line is the **uncounted** tree and that is the default: counting is
+opt-in, so only a run that passes `--analytics` writes the GoatCounter snippet.
+`docs/deploy/player.md`'s drift rule is "do not count locally", and the default
+is what keeps it rather than a flag somebody remembers.
 
 **It is a driver, not an assembler.** Every byte of the tree is written by
 `player/assemble.py`; this script writes no file and copies nothing. The one

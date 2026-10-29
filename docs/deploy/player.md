@@ -96,14 +96,15 @@ explicit owner action and never a side effect of finalising a book or exporting 
 
    ```bash
    ./.venv/bin/python scripts/assemble_player_site.py \
-       --bundle build/player-bundle --out build/site
+       --bundle build/player-bundle --out build/site --analytics
    ```
 
    The helper is a thin driver: it reads the analytics endpoints and nothing else out of
    *this page*, then delegates every byte of the assembling to `player/assemble.py`.
-   Pass `--no-analytics` for a tree with no counting snippet (what a local run and the
-   test fixtures use), and `--print-only` to see the delegated command line without
-   running it.
+   **`--analytics` is the flag that makes this a counted tree, and it is opt-in**: a bare
+   run writes no snippet at all, which is what a local run and every test fixture want
+   (see drift step 4 — the safe side is the default, not a flag to remember). Pass
+   `--print-only` to see the delegated command line without running it.
 3. Deploy `build/site` with the Vercel CLI (`vercel deploy --prebuilt`) or let the
    dashboard's Output Directory point at it. `TODO(owner): record which of the two the
    project actually does.`
@@ -145,8 +146,24 @@ three controls beside it). The static scan is the first half and it has a stated
 it is lexical, single-file and one-hop, it is default-deny **within** the reference
 shapes it knows — a shape it finds and cannot place is a failure, never a silent pass —
 and it is silent about a sink shape that is not in its set at all, such as a fetch
-reached through an alias or markup assembled by `document.write`. Its vocabulary for
-"this names a visitor" is also declared rather than derived, and is a trip-wire for new
+reached through an alias or markup assembled by `document.write`.
+
+One residual inside that bound is worth naming, because it was measured rather than
+imagined and because a narrowed admission reads as a bounded risk. The scan blanks
+comments before two of its patterns read a file, and it recognises a comment delimiter by
+the single character in front of it — so a `/*`, `<!--` or `//` opened from inside a
+string literal, a CSS value, an attribute value or a regex literal can still make it
+blank a region. Cycle 2 of CARD-285's review measured four such shapes swallowing a live
+external reference and scanning **clean**. They do not any more, and the reason is not a
+better guess about delimiters: everything that could hide egress — every absolute URL,
+every quoted `//host`, every fetching position (`src=`, `href=`, a CSS `url()`, a network
+call, a `.src =` assignment) and the identifier vocabulary — is read from the file **as
+written**, comments included. What a bad strip can still cost is one reading of the two
+patterns that do read the stripped text, an `import … from` specifier and a quoted rooted
+path: a dangling *internal* reference going unreported. That is a defect worth knowing
+about and it is not a channel anything can leave by.
+
+The scan's vocabulary for "this names a visitor" is also declared rather than derived, and is a trip-wire for new
 code rather than a proof: the set of spellings for an IP is not enumerable (CARD-282
 measured a denylist of that shape missing 7 of 7 planted encodings). So the scan's job
 is to make a new egress impossible to add quietly; the browser tests are what observe
@@ -189,6 +206,17 @@ vercel_schema = https://openapi.vercel.sh/vercel.json
 ```
 <!-- END non-runtime-allow-list -->
 
+**An endpoint written here has four shapes it may not have**, and each one is a
+`ValueError` from `player/assemble.py`'s `with_analytics` rather than a silent
+pass-through, because each is a way for a deployed page to count somewhere this list does
+not name. A value must start with `https://` — a self-hosted counter on `http://` is
+refused here, not downgraded; it must be a bare URL, with no quote, no `<` and no
+whitespace in it; the document being counted must not already carry the
+`data-goatcounter` attribute; and it must have exactly one `</head>`. A page with none or
+two cannot be counted exactly once, and the assembler says so instead of guessing which
+head to use. (Cycle 1 of CARD-285's review raised these as undeclared and the fix round
+closed a renumbered item instead; this is the sentence it owed.)
+
 `vercel.json`'s `$schema` is an editor hint. It is served because `vercel.json` is served
 (the host reads it), and no page references it — which is an assertion and not a
 reassurance: a page that fetched this URL would red `test_no_homegrown_tracking` even
@@ -209,8 +237,10 @@ setting.
 3. **The QR base vs. what is printed.** A book already printed carries the base it was
    printed with. Changing the base means the old QR codes need a redirect, which is a
    decision and not a deploy step.
-4. **Do not count locally.** The helper's `--no-analytics` is what a local run uses, so
-   development traffic is not in the owner's numbers. **This rule binds the test suite
+4. **Do not count locally.** Counting is opt-in: the helper writes a snippet only with
+   `--analytics`, so a bare local run cannot put development traffic in the owner's
+   numbers. The rule is the default rather than a flag to remember — which is the same
+   standard this page holds the scan to. **This rule binds the test suite
    too.** The two browser tests that drive the *counted* tree
    (`test_assembled_site_is_self_contained`, `test_pages_work_with_analytics_blocked`)
    both abort the hosts in the runtime block at the network layer, with the pattern

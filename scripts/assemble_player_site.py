@@ -2,7 +2,7 @@
 """Assemble the public player's deployable site, end to end (CARD-285, item 1).
 
     ./.venv/bin/python scripts/assemble_player_site.py \
-        --bundle build/player-bundle --out build/site
+        --bundle build/player-bundle --out build/site --analytics
 
 **This is a driver and not an assembler.** Every byte of the output tree is
 written by ``player/assemble.py`` — the player pages, the exported bundle's
@@ -29,10 +29,16 @@ worth one sentence: the assembler is the deployable artefact's producer and has
 to run against a bare ``player/`` directory; this driver is a repository
 convenience and may read the repository.
 
-``--no-analytics`` assembles the tree with no snippet at all, which is what a
-local run and every test fixture use, so development traffic is not in the
-owner's numbers. ``--print-only`` prints the delegated command line and stops,
-for a reader who wants to see what was driven without writing anything.
+**Counting is opt-IN: ``--analytics``.** A bare run assembles the tree with no
+snippet at all, which is what a local run and every test fixture want, so
+development traffic cannot reach the owner's numbers. Cycle 2 of this card's
+review measured the opposite default here and was right to call it a defect:
+``docs/deploy/player.md``'s drift rule is "do not count locally", and a rule
+whose safe side needs a remembered flag is not a rule — which is the same
+argument this card makes about a control that cannot fail (ADR-0039/R2). The
+deploy step is the explicit one now, and it is explicit in the page's own
+command. ``--print-only`` prints the delegated command line and stops, for a
+reader who wants to see what was driven without writing anything.
 """
 
 from __future__ import annotations
@@ -205,9 +211,12 @@ def main(argv: list[str] | None = None) -> int:
         help="erase --out even when no previous run wrote it",
     )
     parser.add_argument(
-        "--no-analytics",
+        "--analytics",
         action="store_true",
-        help="assemble with no counting snippet (local runs and test fixtures)",
+        help=(
+            "inject the counting snippet, with the endpoints read from "
+            f"{DEPLOY_DOC} (the deploy does this; a local run must not)"
+        ),
     )
     parser.add_argument(
         "--print-only",
@@ -216,8 +225,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # Opt-in, so the default is the uncounted tree and "do not count
+    # locally" is the shape of the command rather than something to
+    # remember.
     analytics: tuple[str, str] | None = None
-    if not args.no_analytics:
+    if args.analytics:
         runtime, _ = allow_list()
         analytics = (runtime["count"], runtime["script"])
 
@@ -226,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"driving player/assemble.py {' '.join(delegated)}")
     if analytics is None:
-        print(f"  no counting snippet (--no-analytics); {DEPLOY_DOC} not read")
+        print(f"  no counting snippet (no --analytics); {DEPLOY_DOC} not read")
     else:
         print(f"  counting endpoints from {DEPLOY_DOC}: {analytics[0]}")
     if args.print_only:
