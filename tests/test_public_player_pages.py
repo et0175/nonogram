@@ -2768,7 +2768,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         encoding="utf-8",
     )
     (probed / "probe-worker.js").write_text(
-        'const worker = new Worker("//evil.example/w.js");\n',
+        "const spec = window.name;\nconst worker = new Worker(spec);\n",
         encoding="utf-8",
     )
     (probed / "probe-sink.js").write_text(
@@ -2822,7 +2822,15 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     # 6 — the two runtime sinks the pattern set did not reach (F-005):
     # `new Worker(...)` reads its target like any other URL call, and a
     # `.src =` whose value is computed is unreadable and therefore a failure.
-    assert [hit for hit in planted["foreign"] if "probe-worker.js" in hit], planted
+    # Both probes are deliberately the UNREADABLE form. A `new Worker(
+    # "//host/x")` probe was written first and measured SURVIVING the mutant
+    # that drops `Worker` from `URL_CALLS`: a quoted protocol-relative value
+    # is read by `_URL_LITERAL` whatever the call around it is, so that probe
+    # was a control over the wrong line. A target the scan cannot read is
+    # reachable only through the call name itself.
+    assert [
+        hit for hit in planted["unclassifiable"] if "probe-worker.js" in hit
+    ], planted
     assert [
         hit for hit in planted["unclassifiable"] if "probe-sink.js" in hit
     ], planted
