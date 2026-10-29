@@ -5407,11 +5407,33 @@ non_functional:
       interactive time for common sizes (the intake requirements document's NFR-1).
     acceptance:
       - id: AC-037
+        # KNOWN MISSED, not merely unverified — recorded here 2026-10-29 by
+        # CARD-301 because the only previous record of it was a pytest marker
+        # in a file pytest never opened, so this registry showed a `test:`
+        # beside the criterion and nothing to say the bound is not met.
+        # MEASURED on CARD-301's branch (Mac15,6 / Apple M3 Pro, Python
+        # 3.14.3), the benchmark's own 20-request corpus with the early exit
+        # disabled: 6 of 20 requests over the 5s cap where at most 1 may be,
+        # nearest-rank p95 = 5.001s (each over-cap sample is censored at the
+        # cap, so that figure is a lower bound). The gate named below
+        # therefore carries `xfail(strict=True)`: GREEN while the cap is
+        # missed, RED the day the solver meets it, which is what forces the
+        # marker's removal instead of letting it rot. Closing the gap is
+        # CARD-018's scope and ADR-0001 reaffirms the 5s number — the
+        # shortfall is an implementation gap in the solver's search strength,
+        # not a wrong requirement, so this criterion's wording is unchanged.
+        #
+        # The previous `test:` was `BenchGenerate_20x20_p95Under5s`, which
+        # resolved to no class, no function and no node id — only to two prose
+        # lines in tests/bench_generate.py, a file a bare `pytest` run never
+        # opened (measured: 9,570 tests collected, 0 of them there). It is
+        # replaced by the node id the suite actually collects.
+        status: unmet
         given: a 20x20 random-grid generation request under typical hardware
         when: generation runs, including any regenerate retries
         then: p95 completion time <= 5s
         kind: boundary
-        test: BenchGenerate_20x20_p95Under5s
+        test: tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s
       - id: AC-038
         # SUPERSEDED 2026-08-30 by AC-084 (CON-011). At MAX_SIZE=30 a 50x50
         # request is no longer merely large, it is INVALID: it fails with a
