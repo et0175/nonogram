@@ -501,10 +501,16 @@ def test_the_registry_names_this_module_and_every_ref_resolves() -> None:
     """AC-5, first half: AC-037's ``test:`` is a node id that resolves.
 
     It used to be the ``BenchGenerate…`` label :data:`RETIRED_LABEL` assembles,
-    a string that existed in exactly one file — ``tests/bench_generate.py``, at
-    ``:3`` and ``:139`` — and in both places as prose. No class, no function,
-    no node id: a criterion that read as mechanically checked and was not,
-    which is the family this board has a standing rule about.
+    a string that existed in exactly one **code** file —
+    ``tests/bench_generate.py``, at ``:3`` and ``:139`` — and in both places as
+    prose. No class, no function, no node id: a criterion that read as
+    mechanically checked and was not, which is the family this board has a
+    standing rule about. ("Code file" rather than "file", narrowed here after
+    measuring it: through the validator's own pathspec on main the label also
+    resolved in ``meta/kanban/dispatcher.state`` and in CARD-301's own cycle-1
+    review YAML, neither of which this card may edit and neither of which is a
+    definition — which is the board's standing point about review YAMLs, that
+    they can revive a dead ref and never kill one.)
 
     Both directions, derived from the registry rather than from a list kept
     here, exactly as ``tests/test_public_player.py``'s own ref test does:
@@ -597,10 +603,31 @@ def test_the_trace_matrix_names_this_modules_gate_for_nfr001() -> None:
        **latent**, so nothing in forge reads this today and nothing in forge
        would have caught the line this test repairs;
     #. the retired label appears nowhere in the matrix at all, not merely
-       nowhere in this entry. Gate 3's ``cs.exists()`` is a text search, so on
-       the day a card flips NFR-001 to ``covered`` a dead label in the list is
-       accepted *silently* while gate 2 ERRORs loudly about something else —
-       the quiet half is the one that needs a control.
+       nowhere in this entry. Gate 3's ``cs.exists()`` is ``git grep -lw``, a
+       text search, so whatever code file spells the label out is what makes a
+       dead one look defined.
+
+    **All of that was driven through the validator rather than read off its
+    source, and the drive corrected the review that asked for this test.**
+    Door: ``validate.py --root meta/architecture`` from the repo root,
+    captured ``> file 2>&1``, counted from the validator's own summary line.
+
+    * latency, as claimed: put the retired label back at ``trace.yml:539`` and
+      the output is **0 errors / 108 warnings / 0 info**, byte-identical to the
+      unmutated branch. Nothing reads it while NFR-001 is ``partial``;
+    * the camouflage, as claimed, and this is the half worth the control: with
+      NFR-001 flipped to ``covered`` *and* the label in the list, the first cut
+      of this card (``6f721e57``, whose module spelled the label out in prose)
+      read **1 error** — the label accepted in silence, the one error being
+      AC-038's unrelated dead label. The same flip at this commit reads **2
+      errors**: the retired label is now loud. The camouflage is removed, not
+      relocated;
+    * and the correction: the AC-linkage gate is a **WARN**, not an ERROR
+      (``Severity.WARN`` in ``_check_covered_tests``; only an empty ``tests:``
+      on a covered FR and a dead listed test are ERRORs). So the loud half of
+      the pair is gate 3 — the half the camouflage silenced — and the review's
+      "gate 2 ERRORs loudly" overstated it. Both readings are in the measured
+      output above.
     """
     trace = TRACE.read_text(encoding="utf-8")
     registry = REGISTRY.read_text(encoding="utf-8")

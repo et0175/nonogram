@@ -42,9 +42,14 @@ for them.
 AC-037 gate is a thin wrapper around :func:`gate_verdict` below. The corpus,
 the cap, the statistic, the timing and the verdict text all stay here; that
 module adds the marker, the fixtures and the assertions. CARD-301 measured why
-the split is this way round rather than renaming this file: four documents and
-two architecture artefacts name ``tests/bench_generate.py`` as where the
-benchmark lives, and this way they stay true.
+the split is this way round rather than renaming this file: **eight committed
+references** name ``tests/bench_generate.py`` as where the benchmark lives —
+four pages under ``docs/how-it-works/``, three architecture artefacts
+(ADR-0001, ADR-0029, ``handoff.md``) and one comment in
+``src/nonogram/orchestrator.py``, the tree CARD-301's G-1 forbids it to touch
+— and this way they stay true. (Recounted over the whole tracked tree by
+CARD-301's review cycle 1; this line said "four documents and two architecture
+artefacts" and had undercounted both halves.)
 
 Determinism (the card's "keep it runnable and deterministic enough to be a gate")
 -------------------------------------------------------------------------------
