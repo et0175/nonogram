@@ -1411,7 +1411,7 @@ active:
     check, strictly stronger than git grep -lw -- and the rename mutant kills it.
     Verified directly at tests/test_nfr001_generation_time.py:412-420.
 - id: CARD-297
-  phase: review cycle 2 of 3 (fix round 1 closed all five, and widened one)
+  phase: CERTIFIED 8.5 cycle 2/3 — awaiting its merge gate (serialized behind CARD-301's)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
   branch_head: 85414ac7
   implementation: "5 files +3210/-0; hotspot untouched; G-6 exact; ZERO pixel sites converted"
@@ -1443,9 +1443,29 @@ active:
     hand-made discrimination under a derived set, which admitted a grid walked as thin
     filled rectangles. Cycle 1's six survivors all killed, plus the answer-side clip
     edge; M8b no longer a survivor.
-  clip_divergence_is_real: >-
-    Cycle 1 called it hypothetical; it is already shipping. On the 10x10 trim the raster
-    page sets "Puzzle 2 - Owl in a P..." and the vector page "Puzzle 2 - Owl in a ...".
+  cycle_2: >-
+    8.5 CERTIFIED (+1.5), 3 minor findings, none blocking, no cycle 3 needed. Door count
+    settled by a FOURTH independent derivation through a different door (dir() not
+    vars(), its own tokeniser, the full 19-operator path alphabet): same 8 of 16, so
+    cycle 1's "six" counted paint and round_mark as finishers. The paint="fill" widening
+    is JUSTIFIED and proved the only way that counts -- cycle 2 BUILT the third grid walk
+    (22 `re f` operators, zero m, zero l) and ran the PRE-FIX guard out of 85414ac7
+    against it: ADMITTED. Post-fix: 2 violations. 26 mutants, 23 killed, 26/26
+    named-cell-is-the-cell; all six of cycle 1's survivors dead; M8b dead; one survivor
+    is a null control proving no spurious reds. The absent recording pass was judged
+    ADEQUATE by measurement, not argument: cycle 2 built one, proved it on a bare assert
+    first, and got 95/95 REACHED. Its 17-file gate: 1164 passed / 0 failed / 1 skipped,
+    with skips and metrics AGREEING at 1, carrying the orchestrator's correction.
+  orchestrator_corrected_by_cycle_2: >-
+    The clip divergence is NOT "already in a shipped book" -- the orchestrator relayed
+    the fix round's overstatement. Verified: the two new writers have ZERO call sites
+    anywhere in src/, book_pdf_generator.py imports neither module, and only the two test
+    files import them, so no artefact a reader receives holds a vector TOC or answer
+    page. The divergence is real and exact BETWEEN THE WRITERS, and LATENT until CARD-298
+    wires the vector interior in -- which is also the card the limit names as owner.
+  clip_divergence_measured: >-
+    On the 10x10 trim the raster writer sets "Puzzle 2 - Owl in a P..." and the vector
+    writer "Puzzle 2 - Owl in a ...".
     Both clip against the SAME 492px measure; Pillow's getlength reads the longer string
     at 491.98 and keeps it, the /Widths sum reads 492.87 and runs one more step. 0.89px
     across 492px, on an integer boundary. Declared rather than fixed, on the argument
@@ -1479,6 +1499,7 @@ owed_at_merge:
   - "src/nonogram/orchestrator.py:338 names the path tests/bench_generate.py (present identically on main). G-1 forbids this card to touch src/, so route 2 leaves it true; recorded because the round's seven-reference count could not see it (F-5)."
   - "AC-4's figures are now transcribed onto the card -- that gate reads 'the measurement on the card' and had nothing to read, because the dispatch brief wrongly told the round not to commit under meta/."
   CARD-297:
+  - "F2-01 (cycle 2, minor): the AC-3 guard's derivation reads vars(cls), so a drawing door inherited from a BASE CLASS is invisible -- cycle 2 built it and a stream.hatch grid walk was ADMITTED with both guard cells green. NOT live at HEAD (the class inherits only object; dir() and vars() agree on its 16), so a durability gap, not an open route. OWED TO CARD-298, which already owns the named limit on this mechanism. Deliberately not taken on the last cycle: it changes the guard's own derivation and the merge gate does not mutate, so a dir() version that silently returned everything would pass exactly as a correct one would."
   - "_draw_difficulty_dots is genuinely dead in src/ -- zero references of any kind, deliberate and pre-existing (CARD-228 x3 cycles, CARD-241 G-4, CARD-296 pre-gate). THREE separate cards have now independently re-measured this zero and each paid a round for it. Candidate for a standing rule rather than a fourth re-measurement; NOT CARD-297's to fix."
   resolved_into_the_card:
   - "trace.yml:539 -- moved from owed_at_merge into fix round 1 as cycle 1's F-3, and trace.yml added to this card's Touches."

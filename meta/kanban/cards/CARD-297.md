@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
-**Review score:** 7.0 cycle 1/3 → fix round 1 closed all five; cycle 2/3 running
+**Review score:** 7.0 → **8.5 cycle 2/3 CERTIFIED** (3 minor, none blocking, no cycle 3)
 **Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
@@ -398,10 +398,19 @@ now a parametrized control, and the exemption set is down to
 `{"draw_answer_cells", "draw_solved_joins"}` — both exempt for the one reason the
 exemption encodes.
 
-### The clip divergence is real, in a shipped book — and it is declared, not fixed
+### The clip divergence is real between the two writers — and it is LATENT, not shipping
+
+**Correction, 2026-10-29, cycle 2 — the orchestrator overstated this and so did
+the fix round.** It is *not* "already in a shipped book". Measured: the two new
+writers have **zero call sites anywhere in `src/`**, `book_pdf_generator.py`
+imports neither module, and only the two test files import them — so **no
+artefact a reader receives contains a vector TOC or answer page**, and nothing
+shipped is internally inconsistent. The divergence is real and measured between
+the two *writers*; it becomes reachable when **CARD-298** wires the vector
+interior in, which is also the card the limit names as owner.
 
 Cycle 1 called this hypothetical ("the vector clip can land one character off").
-It already does. On the 10×10 cm trim the raster page sets
+It is not hypothetical — it is measured and exact — but it is latent. On the 10×10 cm trim the raster page sets
 `Puzzle 2 — Owl in a P…` and the vector page `Puzzle 2 — Owl in a …`. Both clip
 against the **same** 492 px measure (COMP-007's `caption_slot`, not either
 renderer's); Pillow's `getlength` measures the longer string at **491.98** and
@@ -460,6 +469,121 @@ pathspec it does **not** resolve, because `code_search()` excludes `*.md`, so th
 card can never revive a ref for the validator; a plain `git grep -w` by a human
 or an agent will still land here, which is the audit trail doing its job, the
 same way CARD-301 deliberately keeps its retired spelling in a live docstring.
+
+## [Review cycle 2 — 8.5, CERTIFIED. Three minor findings, none blocking, no cycle 3]
+
+Report: `meta/review/20261029T042112Z-CARD-297-cycle2.yml`. Delta **+1.5** on
+cycle 1's 7.0. All eight of cycle 1's findings closed (01, 02, 04, 05, 06, 07) or
+**closed-but-differently** (03 declared rather than fixed; 08 three of four
+figures exact, the census row mislabelled — F2-02 below).
+
+**The door count is now settled by four independent derivations.** Cycle 2's was
+deliberately a *different door*: `dir(cls)` rather than `vars(cls)`, its own
+tokeniser rather than the project's `operator_tokens`, and the **full 19-operator
+PDF path alphabet** rather than the fix round's 8-member set. Same eight doors.
+Cycle 1's "six" counted `paint` and `round_mark` as finishers rather than doors;
+**8 of 16 is right.**
+
+### The `paint="fill"` widening was justified, and cycle 2 proved it the only way that counts
+
+It **built the third grid walk**: 22 `re f` operators at the layout's own
+positions and its own thick/thin widths, with **zero `m` and zero `l`** — so even
+AC-3's drive half could not have seen it. Then it loaded the **pre-fix guard out
+of `85414ac7`** and ran it against that artefact: **`[]` — ADMITTED**. Post-fix:
+2 violations. So the route the fix round widened to close was real, not a decoy,
+and the exemption set is genuinely derived (the guard consults only the
+`grid`-parameter predicate and no longer `paint`). Mutant L1 — an unused `grid=`
+with a planted `.line`, cycle 1's own laundering route — reds the two-name
+equality, so the change-detector is load-bearing.
+
+### Declaring the clip divergence is right
+
+Same rule, each medium measuring with the engine its own reader uses; `/Widths`
+is what a PDF viewer sums. Both "fixes" are worse, and the raster loop lives in
+the hotspot blob this card correctly never opened. It is **latent** (see the
+correction above) and now **visible**: deleting the declaration reds 2 cells,
+staling it by one character reds 4, and D1 — the edge mutant that survived 596
+cells in cycle 1 — reds 3.
+
+### The methodological gaps are closed by measurement, not by argument
+
+**Both declared survivors are legitimate.** S15's trim loop fires **0 times in
+both domains**; N9's `clipped == 0` is a *measurement*, and tightening it to
+`== 1` reds, with a second cover from the `printed >= 18` floor.
+
+**The absent recording pass is adequate — and cycle 2 did not take that on
+trust.** It built one (outside `tests/`, re-raising so propagation survives),
+**proved it on a bare `assert x == y` first**, and measured **95 of 95 asserts
+REACHED, 0 NOT-REACHED** across the four classes carrying the certified claims.
+
+**26 mutants, 23 killed, 3 survived, and 26/26 named-cell-is-the-cell-that-reds.**
+All six of cycle 1's survivors are dead, each mapping to the cell the fix round
+named. D10 plants F-297-01's hole in the *shipped* module and reds 14 cells.
+M8b is dead (D13). Of the three survivors, two are the declared pair and the
+third is a **null control** proving the harness makes no spurious reds. Eleven
+non-deletion mutants were re-fired in genuine deletion form and behave
+identically, so **no claim is left uncertified by the mutation kind**.
+
+### Reproduced to the digit, in fresh domains
+
+Clip strings and widths **491.9844 vs 492.8700**, Δ **0.8856**, with the
+straddled integer **unique at 492** = COMP-007's `caption_slot`. Identity
+failures **56 of 200, first at n=9, twelve inside 120–153** with the exact list.
+Reachability **0 trim / 0 grow over 1,003,001 cases** — twice the fix round's
+domain — and **888 grow** on the synthetic sums, error **2.200e-16**. Thresholds
+**72.888 vs 73**, no integer between, **0 disagreements over slacks 0–3999**.
+Operators TOC 6 / answer 13 / union 13, `{B,c,h}` absent on both profiles.
+Collection **9570 → 9674, +104 / −0**, `comm -23` empty.
+
+A note on that last one worth keeping, because it is this board's trap in a new
+place: cycle 2's **first** pass read 9572/9676, two higher at both ends, because
+it counted two `src/` **doctest** rows; filtering to lines containing `::` gives
+the round's figures exactly. The figure was right and the domain was wider.
+
+### Cycle 1's three disagreements: all three upheld, against the primary record
+
+Cycle 2 read **CARD-296's own review record** rather than the account of it:
+cycle 2 there found a disc as a fan of 32 three-point triangles and one as a
+staircase of 24 filled `re` bands both passing 264/264 — *"the bound has ZERO
+headroom"* — and cycle 3 concluded *"CARD-298 is the only honest option left once
+the bound is shown to have zero effect"*. So cycle 1's F-297-04 remediation did
+prescribe a mechanism two cycles had retired, and the fix round correctly took
+cycle 1's *other* route, the one cycle 1 itself called "better still".
+
+### Three minor findings, none blocking
+
+- **F2-01** — the rebuilt derivation's domain is `vars(cls)`, so a drawing door
+  inherited from a **base class** would be invisible. Cycle 2 built it (a mixin
+  ahead of `ContentStream`, own surface left at 16): doors still 8,
+  `_UNCLASSIFIED_DOORS` empty, both guard cells **green**, and a `stream.hatch`
+  grid walk **admitted**. **Not live at HEAD** — today's class inherits only
+  `object` and `dir()`/`vars()` agree on its 16 — so a durability gap, not an
+  open route. **Owed to CARD-298**, which already owns the named limit on this
+  mechanism, and explicitly *not* to be taken on the last cycle: it changes the
+  guard's own derivation, and the merge gate does not mutate, so a `dir()`
+  version that silently returned everything would pass exactly as a correct one
+  would. It must ship with its control in the same commit.
+- **F2-02** — the assert census's HEAD row is mislabelled: **277/212 is
+  `193329ed`; at HEAD `f9681797` it is 282/212**, because `f9681797` adds the
+  threshold cell's five asserts. One figure of four not reproducible as
+  labelled — the same defect class the fix round was closing.
+- **F2-03** — the declaration's *"not achievable without one medium measuring
+  with the other's engine"* is stronger than what backs it: a **shared 1 px
+  tolerance** closes the 0.8856 px divergence with neither engine crossing over.
+  Cycle 2 does not prescribe it (the raster loop is in the untouchable blob); the
+  finding is the docstring's stated **impossibility**.
+
+### Cycle 2 declared its own false positive rather than hiding it
+
+Its first recording run reported `:2461` NOT-REACHED on AC-2's non-vacuity
+control. Cause: its own driver passed `"book-1"` where the fixture's param is
+`"book1"`, so `_recorded`'s else-branch handed it min-trim twice. Corrected to
+20/20 and recorded in full — the exact hazard the brief named, caught in its own
+instrument.
+
+**Rebase is a no-op for content**: `git merge-tree` against current main is
+clean, and main has changed **none** of this card's five paths since the
+merge-base. `family_regression` does not fire.
 
 ## Worktree notes
 

@@ -1,0 +1,867 @@
+version: 1
+generated_at: "2026-10-29T04:21:12Z"
+target: CARD-297
+cycle: 2
+max_cycles: 3
+min_score: 8
+overall_score: 8.5
+previous_score: 7.0
+delta: "+1.5"
+min_improvement: "off"
+risk_level: low
+review_lane: impact
+reviewer: claude-opus-5
+reviewer_version: cycle2
+verdict: >-
+  CERTIFIES this cycle at 8.5. All five of cycle 1's blocking findings are
+  closed, re-derived by me rather than relayed, and the fix round's central
+  numbers reproduce to the digit in independent domains: the door count (8 of
+  16, my own tokeniser and a wider path alphabet), the clip divergence (491.9844
+  vs 492.8700 px, delta 0.8856, a UNIQUE straddling integer measure of 492), the
+  leader-dot identity failures (56 of the first 200, first at n=9, twelve inside
+  120-153, the exact list), the reachability sweep (0 firings over 1,003,001
+  reachable cases, 888 grow firings on the synthetic sums, worst relative error
+  2.200e-16), the threshold pair (72.888 vs 73, no integer between them), the
+  operator alphabet (TOC 6, answer 13, union 13, B/c/h absent on both profiles)
+  and the collection gate (9570 -> 9674, +104/-0, comm -23 empty).
+
+  All SIX of cycle 1's surviving mutants are dead, and in every case the cell
+  the fix round named is the cell that reds. The widening beyond the finding is
+  justified on measurement, not taste: I built the thin-filled-rectangles grid,
+  confirmed it draws the identical 11+11 rules as 22 ``re f`` operators with
+  ZERO m and ZERO l, loaded the PRE-fix guard out of 85414ac7 and watched it
+  ADMIT that walk, and watched the post-fix guard deny it. The declared clip
+  divergence is the right call for this card and is machine-checked in both
+  directions, including a stale-entry tripwire. Both declared survivors are
+  legitimate. My own recording pass found 95 of 95 asserts reached across the
+  four classes carrying the certified claims, so the absence of a recording pass
+  hid nothing that mattered.
+
+  Three MINOR findings remain, none of them product-correctness, none blocking.
+  The sharpest is a residual hole in the very mechanism this cycle rebuilt: the
+  derivation's domain is ``vars(cls)``, so a drawing door on a BASE class of
+  ``ContentStream`` is invisible to it and a grid walk through that door is
+  admitted with every guard cell green. It is NOT live at HEAD -- today's class
+  inherits only ``object`` and ``dir()`` and ``vars()`` agree on its sixteen
+  members -- so it is a durability gap in the derivation, not an open route, and
+  I decline to inflate it into a blocker on the second-to-last cycle.
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-297.md (full, including every AMENDED/CORRECTED comment)
+    - meta/review/20261029T030250Z-CARD-297-cycle1.yml (all 8 findings, metrics, mutation_check)
+    - meta/review/20261026T070454Z-CARD-296-cycle2.yml and ...-cycle3.yml (the vertex-bound record, for disagreement 1)
+    - git log -1 --format=%B 193329ed and f9681797 (the fix round's own account)
+    - src/nonogram/admin/book_vector.py (ContentStream's full public surface, FontMetrics.advance)
+    - src/nonogram/admin/book_answer_vector.py (_clipped_to_measure, draw_answer_caption, draw_answer_slot)
+    - src/nonogram/admin/book_toc_vector.py (clipped_to, leader_dots and its whole docstring)
+    - src/nonogram/admin/book_vector_draw.py (draw_folio, set_right_from_top, advance_px)
+    - src/nonogram/admin/book_pdf_generator.py (_clipped_to:3134, the answer-caption site:5840-5875 -- READ ONLY, blob unchanged)
+    - tests/test_book_solved_answer_key.py (2130-2660 and 2655-3350 and 3560-3935: the guard, the alphabet, the clip work, the EC corpus)
+    - tests/test_book_toc.py (2763-3350: the leader-run class and TestVectorAnchors_*)
+  measured_in_worktrees:
+    - armBase (detached 6b0dfa30, control)
+    - armHead (detached f9681797, the impact gate and the pre/post-fix guard comparison)
+    - armMut  (detached f9681797, the ONLY mutation host)
+    - armRec  (detached f9681797, the recording pass)
+    - note: >-
+        A sibling card's reviewer is live. Every mutation and every pytest run in
+        this review was made in a private detached worktree under my own
+        scratchpad; nothing was written to the shared root and nothing was
+        written to PythonProject4-card-297 except this report. All four arms
+        verified 0 dirty lines at the end, and the card worktree carries no
+        change but this file.
+  not_run:
+    - the full suite (review.test_scope=impact; a sibling card is live, the suite is serialized on meta/kanban/.full-suite.lock and the merge gate owns it)
+
+metrics:
+  diff:
+    files: 5
+    added: 4427
+    removed: 0
+    existing_lines_modified: 0
+    note: "every deletion inside the two fix-round commits is a line this card itself added; the branch still modifies no pre-existing line anywhere"
+  rebase_risk:
+    main_at_review: 53d5e08c
+    merge_base: 6b0dfa30
+    main_changed_any_of_this_cards_five_paths_since_merge_base: false
+    git_merge_tree_main_vs_branch: "CLEAN, no conflict"
+    verdict: "the merge-base figures below are valid against current main unchanged; the rebase is a no-op for this card's content"
+  test_gate:
+    scope: impact
+    files: 17
+    file_list_is_my_own: true
+    note: >-
+      The fix round calls cycle 1's 17-file set a reconstruction, and cycle 1's
+      report does not list its files, so this is MY list, derived rather than
+      inherited: the closure of tests importing the three src modules this card
+      writes or extends (book_answer_vector, book_toc_vector, book_vector_draw,
+      and book_vector/pdf_vector beneath them) UNION the card's own `Touches:`
+      line UNION the files its guardrails name. My count differs from the fix
+      round's 1448 because the file sets differ, not because a figure moved.
+    files_measured:
+      - tests/test_book_solved_answer_key.py
+      - tests/test_book_toc.py
+      - tests/test_book_pdf_vector_primitives.py
+      - tests/test_book_difficulty_dots.py
+      - tests/test_book_grid_rules.py
+      - tests/test_book_puzzle_page_vector.py
+      - tests/test_book_guide_page_vector.py
+      - tests/test_book_pdf.py
+      - tests/test_book_answer_key.py
+      - tests/test_book_qr_slot.py
+      - tests/test_layout_answer_tiles.py
+      - tests/test_book_interior_type_floor.py
+      - tests/test_book_export_interior_cover.py
+      - tests/test_book_pdf_memory.py
+      - tests/test_book_solved_page.py
+      - tests/test_book_divider_pages_option.py
+      - tests/test_book_page_numbers.py
+    result: "1164 passed, 0 failed, 1 skipped, 156.25s, exit 0"
+    command: "pytest -o addopts='' -p no:randomly -rsx <the 17 files above>"
+    passed: 1164
+    failed: 0
+    skipped: 1
+    errors: 0
+  skips:
+    count: 1
+    agrees_with_metrics_block: true
+    note: >-
+      Attributed by name, and this block and the `skipped: 1` above are the same
+      number ON PURPOSE. Cycle 1's report named this skip in its skips section
+      and recorded zero in its metrics block; the two halves of one report
+      disagreed on exactly the axis this board has a standing rule about
+      (green-with-skips reports the same collected count and the same exit 0 as
+      fully verified -- only `passed` separates them). Carrying that correction.
+    entries:
+      - node: "tests/test_book_pdf_memory.py:1296"
+        reason: >-
+          setrlimit(RLIMIT_AS) cannot bound a process on this platform -- the
+          kernel refuses it: setrlimit(RLIMIT_AS, 807840000) raised ValueError:
+          current limit exceeds maximum limit.
+        attribution: >-
+          PRE-EXISTING and platform-bound, in a file this card does not touch
+          (the diff's five paths do not include it). Not this card's, and it
+          skips identically on main.
+  collection_gate_G6:
+    merge_base_6b0dfa30: 9570
+    head_f9681797: 9674
+    added: 104
+    removed: 0
+    arithmetic: "9570 + 104 - 0 = 9674"
+    split: {tests/test_book_solved_answer_key.py: 81, tests/test_book_toc.py: 23}
+    method: >-
+      --collect-only -q with -o addopts='' in armBase and armHead, node-id sets
+      sorted, comm -13 / comm -23. My first pass read 9572/9676 because my grep
+      also caught two src/ doctest-collection rows (src/nonogram/db/models.py:22
+      and src/nonogram/sourcing/templates/dog_in_house.py:6); filtering to rows
+      containing '::' gives the fix round's figures exactly.
+    comm_23_empty: true
+    renames: 0
+    verdict: >-
+      G-6 HOLDS EXACTLY, and no rename term is needed: comm -23 is empty at the
+      merge-base baseline, so no node id disappeared. The fix round's 9570 ->
+      9674 / +104 / -0 reproduces to the digit.
+  assert_census:
+    method: "ast.Assert count over `git show <rev>:<path>`, so the worktree cannot contaminate it"
+    rows:
+      6b0dfa30: {test_book_solved_answer_key.py: 136, test_book_toc.py: 149}
+      1a42e8d7: {test_book_solved_answer_key.py: 225, test_book_toc.py: 163}
+      85414ac7: {test_book_solved_answer_key.py: 233, test_book_toc.py: 169}
+      193329ed: {test_book_solved_answer_key.py: 277, test_book_toc.py: 212}
+      f9681797: {test_book_solved_answer_key.py: 282, test_book_toc.py: 212}
+    verdict: >-
+      Three of the four revisions reproduce exactly. The figure the fix round
+      labels "its HEAD" -- 277/212 -- is the figure at 193329ed; at HEAD
+      f9681797 it is 282/212. See F2-02.
+  hotspots:
+    - path: src/nonogram/admin/book_pdf_generator.py
+      declared_as_hotspot: true
+      touched: false
+      evidence: >-
+        blob 7a515eea815157af08ffe7b917c7d34727c3f16b on 6b0dfa30, on HEAD
+        f9681797 AND on current main 53d5e08c (git rev-parse <rev>:<path>). The
+        declared conflict.hotspot was never opened, which is also why G-1/G-2/
+        G-3/G-4 hold on the src side without further argument.
+  max_fan_in:
+    symbol: nonogram.admin.book_vector_draw.draw_folio
+    callers: 3
+    note: "new symbol this card; no existing caller's contract changed"
+  cochange_missing: []
+
+door_count_fourth_derivation:
+  answer: "8 of 16 -- the fix round's figure is RIGHT"
+  independence: >-
+    Deliberately a different door from the fix round's. It does NOT use the
+    project's own pdf_vector.operator_tokens: I enumerate the public surface with
+    dir(cls) rather than vars(cls), tokenise each member's `operators` with my
+    own regex (string literals stripped first, then every 1-3 character
+    alphabetic token taken), and classify against the FULL PDF path alphabet --
+    19 operators, m l re c v y h S s f F f* B B* b b* n W W* -- rather than the
+    fix round's eight-member {m,l,re,c,h,S,f,B}. A wider alphabet and a wider
+    enumeration, and the answer is the same set.
+  members_included_and_why:
+    - "begin_path -> emits `m`. A moveto starts a path; the grid walk cycle 1 drove went through it."
+    - "line_to -> emits `l`. A lineto IS a ruled line."
+    - "close_path -> emits `h`. Closes a subpath, so it is part of constructing one."
+    - "curve -> emits `c`. A Bezier can approximate any rule."
+    - "line -> emits `m l S`. The obvious door."
+    - "rectangle -> emits `re S`. The second obvious door, and with paint='fill' the thin-rectangle grid."
+    - "paint -> emits `S` ALONE. This is the member cycle 1's six omitted, and it is a door: S/f/B are the painting operators, and an unpainted path puts no ink on a page, so paint is the member that makes every constructed path real."
+    - "round_mark -> emits `m c c c c h f`. The other member cycle 1's six omitted; a disc is a path like any other."
+  members_excluded_and_why:
+    - "to_points -> emits nothing (a unit conversion)"
+    - "render -> emits nothing (encodes what was already recorded)"
+    - "media_box -> a property, emits nothing"
+    - "operators -> a property, emits nothing"
+    - "stroke_grey -> emits `G` only (a colour-space state setter)"
+    - "fill_grey -> emits `g` only (a colour-space state setter)"
+    - "stroke_width -> emits `w` only (a line-width state setter)"
+    - "text -> emits `g BT Tf Td Tj ET` and no path operator. Worth stating explicitly because it is the one genuinely arguable exclusion: a rule set as a run of underscore glyphs, or a disc set as a round dingbat, really does put a mark on a page without a path operator. It is excluded here because the guard is a PATH guard, and because that route is round_mark's own docstring's NAMED LIMIT with CARD-298 as owner -- declared open, not claimed shut. I agree with that disposition."
+  three_circulated_counts_reconciled: >-
+    Cycle 1's report body said six and listed line/rectangle/curve plus the
+    begin_path/line_to/close_path trio "finished by paint()", treating paint as
+    the finisher rather than a door and mentioning round_mark separately; the
+    card's own quotation of cycle 1 already says eight and names all eight. So
+    the 6 and the 8 are the same measurement with paint and round_mark counted
+    differently, and 8 is the correct count. It is now load-bearing for AC-3 and
+    the shipped cell commits to the eight names as an equality.
+
+cycle_1_findings:
+  - id: F-297-01
+    status: CLOSED
+    rederived_by_me: >-
+      _STROKERS is now ('begin_path','close_path','curve','line','line_to',
+      'paint','rectangle','round_mark'), derived by driving the class. Cycle 1's
+      own three-line artefact -- a loop over tile.vertical_lines through
+      begin_path/line_to finished by paint -- now returns THREE violations where
+      it returned []. All four routes cycle 1 named are denied: begin_path/
+      line_to/paint, curve, round_mark, and (new) a paint='fill' rectangle. The
+      hole planted in the SHIPPED module (mutant D10: a stream.begin_path inside
+      draw_answer_caption, which takes no grid) reds 14 cells including
+      test_neither_writer_rules_a_line_outside_the_exemption. Deleting
+      doors.append (D5) reds 20 cells; emptying _PATH_OPERATORS (D7) reds 20.
+      The laundering route cycle 1 flagged -- an UNUSED grid= parameter -- is
+      closed by the backstop: mutant L1 reds
+      test_the_only_exempt_stroker_is_the_solution_dependent_one.
+      Residual: see F2-01, minor and not live at HEAD.
+  - id: F-297-02
+    status: CLOSED
+    rederived_by_me: >-
+      The declared bound is now TRUE and is the one asserted. Through the cell's
+      own door (type_px(TOC_ENTRY_PT, DPI) = 42 px, dot 13.356 px, and I
+      re-derived the dot a second way from face.widths_1000['.'] = 318 directly)
+      the exact identity fails at 56 of the first 200 counts, first at n=9, at
+      twelve counts inside 120-153, and the twelve are exactly
+      [120,123,127,130,134,137,140,141,144,147,148,152]. Reachability in MY
+      instrument -- an independent second implementation of both loops with
+      explicit firing counters, over integer runs 0..3000 (wider than the round's
+      0..2550) plus 1,000,000 seeded fractional runs (twice its 500,000): 0 trim
+      firings, 0 grow firings, 0 disagreements with the shipped function across
+      1,003,001 cases. Synthetic n-indexed exact sums k=0..2000: 0 trim, 888
+      grow -- the round's 888 to the digit. Worst relative error 2.200e-16,
+      matching the docstring. M8b is dead: mutant D13 (the grow loop DELETED)
+      reds exactly one cell, test_the_synthetic_input_that_does_fire_the_grow_loop.
+      M8/S15 survives and is legitimately declared.
+  - id: F-297-03
+    status: CLOSED-BUT-DIFFERENTLY
+    rederived_by_me: >-
+      Declared rather than fixed, and I come down on DECLARED being right -- see
+      verdicts.declared_clip_divergence. Closed in the sense that matters: the
+      edge mutant that survived 596 cells in cycle 1 (D1, clipped[:-2] ->
+      clipped[:-3] in the answer writer) now reds 3 cells including
+      test_the_two_media_clip_the_same_captions_to_the_same_string[min-trim];
+      the whole loop deleted (D2) reds 4; the TOC twin's edge (X2) and its whole
+      loop (MX1) each now red test_the_loop_does_clip_a_label_that_does_not_fit,
+      which cycle 1 recorded as an UNDECLARED survivor on a path the docstring
+      called inert. Cycle 1's literal remediation would red at HEAD, which the
+      fix round is right about and which I verified by measuring the two strings.
+  - id: F-297-04
+    status: CLOSED
+    rederived_by_me: >-
+      The alphabet cell is an equality now, not a subset. My own tokeniser over
+      both profiles: TOC emits 6, the answer pages 13, the union 13 and identical
+      on book1 and min-trim, exactly the committed `emitted` literal, with
+      {B,c,h} absent on both. Mutant N5 (a `c` injected into what the pages are
+      measured to emit) reds the cell on both profiles, so the equality is tight
+      in the direction that matters. The round's route (b) -- the derived
+      equality, which cycle 1 itself called "better still" -- is the one taken,
+      and that is the right half of cycle 1's remediation; the other half named a
+      retired mechanism (see disagreements).
+  - id: F-297-05
+    status: CLOSED
+    rederived_by_me: >-
+      The card's EC(ADR-0042/R3) now names the prefixed spelling, and the class
+      really collects: 6 node ids under
+      TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry with -o addopts=''.
+      The file's docstring (test_book_solved_answer_key.py:3985-3997) states the
+      prefix rule WITHOUT restating the dead token, which is what stops prose
+      from reviving the dead ref -- and this report does not write it either.
+  - id: F-297-06
+    status: CLOSED
+    rederived_by_me: >-
+      All four card contradictions carry AMENDED/CORRECTED comments naming the
+      finding and the measurement: item 2's "SOLUTIONS divider's text" struck in
+      favour of G-2, AC-2's "each solution tile's header" -> "a solution's
+      caption wherever the trim leaves room", AC-5's three-users claim struck in
+      both its false parts, "header" -> "band" throughout.
+  - id: F-297-07
+    status: CLOSED
+    rederived_by_me: >-
+      All four of cycle 1's folio/anchor survivors are dead and each reds the
+      cell the fix round named: X3 (x = left) ->
+      test_a_right_hand_folio_ends_at_the_fore_edge_and_a_left_hand_one_starts_at_it;
+      X5 (right-hand clearance reads content_left) ->
+      test_the_right_hand_clearance_reads_the_content_s_right_edge; MX3 (left-hand
+      arm clear = True) -> test_the_left_hand_clearance_is_a_decision_too AND
+      test_a_caller_with_no_horizontal_figure_keeps_the_conservative_rule; X7
+      (set_right_from_top's alignment dropped) ->
+      test_a_row_s_page_number_ends_exactly_at_the_measure_s_far_edge. Exactly
+      one named cell per decision, no misattribution.
+  - id: F-297-08
+    status: CLOSED-BUT-DIFFERENTLY
+    rederived_by_me: >-
+      Three of the four corrected figures reproduce exactly (the min-trim census
+      1 whole / 1 clipped / 2 omitted, measured in my own raster instrument
+      hooking ImageDraw.text; the threshold pair 72.888 vs 73; the mutation-kind
+      breakdown, which I confirm is not all deletions). The fourth -- the assert
+      census -- is right for three revisions and mislabelled for the fourth; see
+      F2-02. One framing note, not a finding: the min-trim census is committed as
+      three partial pins (one clip in each medium, the declared pair exactly, the
+      full pages omitting entirely) rather than as a single 1/1/2 census cell.
+      Each component is pinned and I reproduced each one, so the coverage is
+      there; the phrase "now a committed cell" is slightly more than the code says.
+
+verdicts:
+  paint_fill_widening:
+    decision: "JUSTIFIED -- it closed a real route, and the new exemption set is genuinely derived"
+    rederived_by_me: >-
+      I built the shape and tried it, as asked. A grid walked as thin filled
+      rectangles over a real layout's 11 vertical and 11 horizontal GridLines
+      emits 22 `re f` operators at the layout's own positions and its own
+      thick_rule/thin_rule widths (1.92 px and 0.96 px) -- the identical grid,
+      with ZERO m and ZERO l, so AC-3's drive half (which reads m/l pairs) would
+      not see it either. I then loaded the PRE-fix stroke_violations out of
+      85414ac7 as its own module and ran it on that walk: [] -- ADMITTED. The
+      post-fix guard returns two violations. So the paint='fill' exception was
+      admitting a complete third grid walk, which is precisely what AC-3 exists
+      to prevent, and dropping it was not scope creep but the same finding one
+      layer down.
+    is_the_new_exemption_set_derived: >-
+      YES, and the shape is right. The GUARD consults only the derived predicate
+      (a function is exempt exactly when it takes a parameter named `grid`) and
+      no longer consults what a call paints. The two-name equality in
+      test_the_only_exempt_stroker_is_the_solution_dependent_one is not a
+      substitute for that derivation -- it is a change-detector over which
+      functions actually USE the exemption, read off the module by _strokers_of,
+      which now reads all eight derived doors. And it is load-bearing in exactly
+      the way cycle 1 predicted it would need to be: mutant L1 gives a
+      non-exempt function an UNUSED grid= parameter and plants a stream.line
+      inside it -- the laundering route -- and that cell reds. draw_answer_cells
+      belongs in the set for the one reason the exemption encodes: its filled
+      cells' EXISTENCE is a function of the solution, which no routine without
+      the grid could place. The controls are shapes the detector was not written
+      from (module level, nesting, name binding, a class method, a bare
+      close_path, a curve, a round mark, a paint decided elsewhere, and the
+      thin-fill grid itself as a parametrized control with a one-parameter
+      sibling that is denied).
+  declared_clip_divergence:
+    decision: "DECLARING IS RIGHT for this card -- exactly right, not a defect being documented"
+    rederived_by_me: >-
+      Both strings and both widths, independently. My own raster instrument
+      (hooking PIL.ImageDraw.ImageDraw.text over a real min-trim interior walk)
+      shows the raster page setting 'Puzzle 2 - Owl in a P...' with the ellipsis,
+      alongside 'Puzzle 1 - Snowflake' whole and the two full answer pages'
+      captions absent: 1 whole, 1 clipped, 2 omitted. The measures, at the
+      caption's own 42 px: FreeTypeFont.getlength('Puzzle 2 - Owl in a P<ell>') =
+      491.9844 and the /Widths sum = 492.8700, a delta of 0.8856 px across a 492
+      px string. The whole caption measures 514.9688 / 515.0040. And the
+      straddling integer measure is UNIQUE: exactly one integer in 1..515 makes
+      the raster loop produce the raster string and the vector loop the vector
+      string, and it is 492 -- COMP-007's caption_slot figure, so the cell's
+      straddle search lands on the production boundary rather than on a
+      convenient one.
+    why_right: >-
+      /Widths is what a PDF viewer sums, so the vector page's clip is correct for
+      its reader; FreeType is what rasterises the bitmap, so the raster page's
+      clip is correct for its. Both loops are the SAME rule -- clipped[:-2] +
+      ellipsis while the width exceeds the measure -- applied with each medium's
+      own correct measure. Neither writer invented a discrimination. The two
+      alternatives that would force agreement are both worse: make the vector
+      writer measure with getlength and its page overflows its declared slot in
+      a real viewer; make the raster writer sum /Widths and it clips a character
+      it has room for -- and that loop lives in book_pdf_generator.py, the
+      declared hotspot whose blob this card correctly never opened.
+      Three further facts carry the decision. (1) It is LATENT, not printed:
+      _write_pdf chooses no medium per page until CARD-298, so no shipped book
+      contains both pages today, and CARD-298 is the named owner. (2) It is now
+      VISIBLE where before the fix round a one-character clip move passed 596
+      cells: mutant D3 (the declaration deleted) reds 2 cells, so the divergence
+      is real and the declaration load-bearing; mutant D4 (the declared raster
+      string moved one character) reds 4 cells, so a STALE entry reds rather
+      than going quiet. (3) The reason is machine-checked, not told: both
+      readings are clips of the same caption, exactly one loop step apart, and
+      the two engines' widths of the raster string straddle an integer measure
+      by under one pixel.
+    one_qualification: "see F2-03 -- the declaration's stated impossibility is stronger than what is established"
+  declared_survivors:
+    - id: S15
+      what: "leader_dots' trim loop (cycle 1's M8)"
+      decision: "LEGITIMATELY DECLARED"
+      rederived_by_me: >-
+        Mutant D12 deletes the trim loop outright: SURVIVED, 225 cells. And it
+        deserves to -- in my own independent reimplementation with firing
+        counters the trim loop fires 0 times over 1,003,001 reachable cases AND
+        0 times over the synthetic n-indexed exact sums k=0..2000, which is the
+        domain where the grow loop fires 888 times. So this loop is dead in both
+        domains, the declaration's bound is now TRUE rather than false, the cell
+        asserts the bound rather than the identity, and G-1 is the right reason
+        to keep the code.
+    - id: N9
+      what: "the EC corpus's `clipped` bucket"
+      decision: "LEGITIMATELY DECLARED, and better than a bare declaration"
+      rederived_by_me: >-
+        Mutant N9 deletes the `clipped += 1` increment: SURVIVED, 273 cells --
+        unreachable on this corpus, as declared (measured printed + omitted +
+        clipped == 24 with clipped == 0). What makes it legitimate rather than
+        merely admitted is that the figure is PINNED and the pin is a
+        measurement: mutant N9c tightens `clipped == 0` to `clipped == 1` and
+        reds test_the_title_prints_only_on_answer_pages_across_a_corpus, so the
+        zero is measured and a corpus that starts clipping reds on that figure
+        instead of inflating `omitted`. It is also double-covered: a clip
+        mis-sorted into `omitted` would push `printed` below its own 18 floor and
+        red there too. One observation, not a finding: the elif predicate that
+        recognises a clip here is a second, independent implementation of the one
+        in _caption_reading and is never executed truthily on this corpus, so it
+        is unverified code -- but every way it could be wrong reds some cell.
+        (For completeness: my N9b, loosening `clipped == 0` to `>= 0`, survived,
+        which is uninformative by construction -- loosening a true assertion can
+        never red. Recorded so the row is not read as a finding.)
+  absence_of_any_recording_pass:
+    decision: "ADEQUATE for the claims this round certifies -- and I measured that rather than reasoned it"
+    rederived_by_me: >-
+      I built a recording instrument (outside tests/, per G-8) that rewrites
+      every ast.Assert at any depth into a try/except keyed on its own lineno and
+      RE-RAISES, so it keeps propagation as well as attribution. Per the standing
+      rule I proved it on a bare `assert x == y` BEFORE trusting any zero: it
+      reports ok 1 / fail 0 when holding, ok 0 / fail 1 when failing, re-raises
+      with the empty message that broke a sibling card's rewriter, and reports a
+      genuinely unexecuted assert as absent. Applied to the four classes carrying
+      the certified claims -- TestAnswerTiles_ReuseTheGridRoutine (35 asserts),
+      TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted (20),
+      TestVectorAnchors_ThePositionsAndNotOnlyTheStrings (26) and
+      TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace (14): 95 of 95 asserts
+      REACHED, 0 NOT-REACHED. So no subsumed arm is hiding behind a plain-pass
+      cell count in the cells that matter.
+    my_own_false_positive_declared: >-
+      My first run reported one NOT-REACHED assert at
+      test_book_solved_answer_key.py:2461 (the `if profile == "book1"` control
+      that AC-2's non-vacuity rests on). That was MY artefact: my driver passed
+      the profile as "book-1" while the fixture's param is "book1", so
+      _recorded's else-branch handed me the min-trim book twice and the Book 1
+      arm never ran. Corrected, the class is 20 of 20. Recorded in full because
+      it is the exact hazard the brief names -- a mis-driven recording instrument
+      reports NOT-REACHED, which is indistinguishable from a survivor -- and
+      because a reviewer who hid it would be making the same mistake the round
+      under review is being judged for.
+    judgement: >-
+      Where a recording pass would have been load-bearing, it is not needed here
+      for a reason worth stating: plain-pass tracebacks already give
+      first-failing-assert attribution for free, and the fix round's structure
+      splits its claims across one-assert-per-decision cells rather than piling
+      arms into one cell -- which is why 24 of my 26 mutants red a cell set of
+      1-4 and the two broad ones (20 and 36 cells) are mutants of the shared
+      derivation, where a wide blast radius is the correct signal. The round was
+      right to declare the gap rather than hide it, and wrong only in implying
+      it could not be closed cheaply.
+
+mutation_check:
+  step_8f: >-
+    OWED THIS CYCLE and run. Cycle 1 deferred the full campaign under the cost
+    ladder because it had important findings; this cycle has none, so the
+    campaign was run: 26 mutants fired in a private detached worktree, plus one
+    in-process probe of the derivation's own boundary.
+  harness:
+    location: "outside tests/ (G-8), in my own scratchpad"
+    discipline:
+      - "PYTHONDONTWRITEBYTECODE=1 for every run"
+      - "__pycache__ swept BEFORE and AFTER every mutant -- the byte-length-preserving same-second .pyc hazard"
+      - "blob asserted == `git show HEAD:<path>` BEFORE each mutant and AFTER each restore; all 26 pairs verified"
+      - "each `old` string asserted to occur exactly once; line count asserted preserved"
+      - "restore by `git show HEAD:<path> > <path>` then `git checkout -- <path>` -- never `git checkout <rev> -- <path>`, which stages"
+      - "-o addopts='' with exactly ONE -q so the count line prints, plus -rfsxX so FAILED node ids print"
+      - "collected counts non-zero in every run (224-426), so no run was a -k that selected nothing"
+    null_control: "D14 (a type annotation changed, no behaviour) SURVIVED -- the harness produces no spurious reds"
+  totals:
+    fired: 26
+    killed: 23
+    survived: 3
+    survived_breakdown: "2 declared (S15/D12 and N9) + 1 null control (D14). N9b is a loosening and cannot red by construction; not counted as a survivor."
+    undeclared_routes_found: 1
+    undeclared_route: "F2-01, found by in-process probe rather than by file mutant (see findings)"
+    named_cell_is_the_cell_that_reds: "26 of 26 -- no misattribution anywhere"
+  deletion_coverage:
+    note: >-
+      The fix round narrowed its own claim honestly: of its 26, nine were
+      disablements, seven neutralising substitutions, six data substitutions,
+      three value replacements and one `clear = True`. The board's rule is that a
+      claim is certified by DELETING the mechanism it names. So I re-fired the
+      ones that matter in deletion form.
+    genuine_deletions_i_fired: 11
+    which: "MX1, D2, D3, D5, D6, D7, D8, D9, D12, D13, N9"
+    verdict: >-
+      NO CLAIM IS LEFT UNCERTIFIED BY THE NON-DELETION MUTANTS. Every mechanism
+      the round certified with a `False and ...` disablement or a substitution
+      behaves identically under outright deletion: the door record (D5, 20
+      cells), the unclassified report (D6, 1), the path alphabet (D7, 20), each
+      excluded member's reason (D8/D9, 1 each), the whole clip loop in both
+      writers (D2/MX1), the declaration itself (D3), the grow loop (D13, killed)
+      and the trim loop (D12, the declared survivor).
+  table:
+    - {id: X3, target: "book_vector_draw.draw_folio -- which corner", kind: value-replacement, verdict: KILLED, cells: 1, red: "TestVectorAnchors::test_a_right_hand_folio_ends_at_the_fore_edge_and_a_left_hand_one_starts_at_it", note: "cycle 1 survivor; fix round's S3"}
+    - {id: X5, target: "draw_folio -- right-hand clearance", kind: substitution, verdict: KILLED, cells: 1, red: "TestVectorAnchors::test_the_right_hand_clearance_reads_the_content_s_right_edge", note: "cycle 1 survivor; S4"}
+    - {id: MX3, target: "draw_folio -- left-hand clearance", kind: neutralising, verdict: KILLED, cells: 2, red: "TestVectorAnchors::test_the_left_hand_clearance_is_a_decision_too + ::test_a_caller_with_no_horizontal_figure_keeps_the_conservative_rule", note: "cycle 1 survivor; S5/S7"}
+    - {id: X7, target: "set_right_from_top -- right alignment", kind: deletion, verdict: KILLED, cells: 1, red: "TestVectorAnchors::test_a_row_s_page_number_ends_exactly_at_the_measure_s_far_edge", note: "cycle 1 survivor; S8"}
+    - {id: X2, target: "book_toc_vector.clipped_to -- edge [:-2]->[:-3]", kind: edge, verdict: KILLED, cells: 1, red: "TestToc_TheRowClipHasTheBoundItsDocstringPromises::test_the_loop_does_clip_a_label_that_does_not_fit", note: "cycle 1 survivor"}
+    - {id: MX1, target: "book_toc_vector.clipped_to -- whole loop", kind: DELETION, verdict: KILLED, cells: 1, red: "same cell", note: "cycle 1's UNDECLARED survivor, now closed"}
+    - {id: D1, target: "book_answer_vector._clipped_to_measure -- edge", kind: edge, verdict: KILLED, cells: 3, red: "TestAnswerPages_CaptionHoldsTheFloorInTheStream::test_the_two_media_clip_the_same_captions_to_the_same_string[min-trim] + ::test_the_min_trim_really_does_clip_one_caption_in_each_medium + ::test_the_declared_clip_divergence_is_one_step_of_the_same_loop", note: "F-297-03's own mutant; survived 596 cells in cycle 1"}
+    - {id: D2, target: "_clipped_to_measure -- whole loop", kind: DELETION, verdict: KILLED, cells: 4}
+    - {id: D3, target: "_DECLARED_CLIP_DIVERGENCE -- the declaration", kind: DELETION, verdict: KILLED, cells: 2, red: "::test_the_two_media_clip_the_same_captions_to_the_same_string[min-trim] + ::test_the_clip_comparison_can_fail", note: "the divergence is REAL and the declaration load-bearing"}
+    - {id: D4, target: "the declared raster string, moved one character", kind: substitution, verdict: KILLED, cells: 4, note: "a STALE declaration reds"}
+    - {id: D5, target: "_content_stream_doors -- doors.append", kind: DELETION, verdict: KILLED, cells: 20, note: "deletion form of the round's N1"}
+    - {id: D6, target: "_content_stream_doors -- unclassified.append", kind: DELETION, verdict: KILLED, cells: 1, red: "::test_a_member_added_to_the_class_is_watched_without_being_listed", note: "deletion form of N2"}
+    - {id: D7, target: "_PATH_OPERATORS emptied", kind: DELETION, verdict: KILLED, cells: 20, note: "deletion form of N3"}
+    - {id: D8, target: "a _NOT_A_DOOR_BECAUSE reason stops naming its operator", kind: DELETION, verdict: KILLED, cells: 1, red: "::test_every_unwatched_member_is_excluded_by_its_own_measurement", note: "deletion form of N4"}
+    - {id: D9, target: "the 'emits no operator at all' phrase dropped", kind: DELETION, verdict: KILLED, cells: 1, red: "same cell", note: "the other half of the reason check"}
+    - {id: D10, target: "F-297-01's hole planted in the SHIPPED module: stream.begin_path inside draw_answer_caption", kind: substitution, verdict: KILLED, cells: 14, red: "::test_neither_writer_rules_a_line_outside_the_exemption + ::test_the_only_exempt_stroker_is_the_solution_dependent_one (+12)", note: "the route cycle 1 drove, now denied in the real module"}
+    - {id: D11, target: "an exempt function renamed", kind: rename, verdict: KILLED, cells: 36}
+    - {id: D12, target: "leader_dots -- the TRIM loop", kind: DELETION, verdict: SURVIVED, cells: 0, note: "= S15 / cycle 1's M8. DECLARED, and the declaration's bound is now true"}
+    - {id: D13, target: "leader_dots -- the GROW loop", kind: DELETION, verdict: KILLED, cells: 1, red: "TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace::test_the_synthetic_input_that_does_fire_the_grow_loop", note: "cycle 1's M8b is no longer a survivor -- confirmed"}
+    - {id: D14, target: "AnswerTypeSpec.gap_px annotation only", kind: type, verdict: SURVIVED, cells: 0, note: "NULL CONTROL -- the harness produces no spurious reds"}
+    - {id: N5, target: "a `c` injected into the measured operator set", kind: addition, verdict: KILLED, cells: 2, red: "TestAnswerAndTocPages_CarryNoImageXObject::test_the_operator_alphabet_is_closed_at_what_these_pages_draw[both profiles]"}
+    - {id: N9, target: "the EC corpus's `clipped += 1`", kind: DELETION, verdict: SURVIVED, cells: 0, note: "DECLARED -- unreachable on this corpus"}
+    - {id: N9b, target: "`clipped == 0` loosened to `>= 0`", kind: loosening, verdict: SURVIVED, cells: 0, note: "uninformative by construction; recorded so the row is not read as a finding"}
+    - {id: N9c, target: "`clipped == 0` tightened to `== 1`", kind: tightening, verdict: KILLED, cells: 1, red: "::test_the_title_prints_only_on_answer_pages_across_a_corpus", note: "the zero is a MEASUREMENT, not an assumption"}
+    - {id: L1, target: "the laundering route: an UNUSED grid= parameter plus a planted stream.line in draw_answer_caption", kind: two-edit, verdict: KILLED, cells: 17, red: "::test_the_only_exempt_stroker_is_the_solution_dependent_one (+16)", note: "the one weakness of the exemption predicate is caught by its backstop"}
+    - {id: PROBE-A, target: "a drawing door on a BASE class of ContentStream, its own surface left at 16", kind: in-process, verdict: "SURVIVED -- every guard cell GREEN and the grid walk ADMITTED", cells: 0, note: "F2-01, my one new route. NOT live at HEAD."}
+  did_not_reproduce:
+    swept_cache_before_and_after: true
+    list:
+      - claim: "the assert census at HEAD is 277/212"
+        reproduces: false
+        measured: "282/212 at f9681797; 277/212 is the figure at 193329ed"
+        is_cache_artefact: false
+        note: "re-measured from `git show <rev>:<path>` in two separate runs, so nothing of the worktree or of any .pyc is in it. See F2-02."
+    everything_else: >-
+      Every other figure the fix round reported reproduced, several of them in a
+      deliberately different domain: the door count (8/16), the operator sets
+      (6/13/13 and B/c/h absent), the two clip strings and the two widths
+      (491.9844 / 492.8700 / straddle == [492] uniquely), the identity failures
+      (56/200, first n=9, the twelve names inside 120-153), the reachability
+      sweep (0 / 0) and the grow count (888), the error bound (2.200e-16), the
+      threshold pair (72.888 vs 73 with no integer between), the collection gate
+      (9570 -> 9674, +104/-0, comm -23 empty), the min-trim census (1 whole, 1
+      clipped, 2 omitted), the 25 green cells in the guard class, and the
+      existence of test_review_cycle_1s_own_artefact_is_now_a_violation at
+      tests/test_book_solved_answer_key.py:3192.
+
+disagreements_with_cycle_1:
+  - id: 1
+    about: "cycle 1's F-297-04 remediation named a mechanism CARD-296's own review retired"
+    adjudication: "UPHELD IN THE FIX ROUND'S FAVOUR -- and I checked the primary record, not its account"
+    evidence: >-
+      meta/review/20261026T070454Z-CARD-296-cycle2.yml says a disc "built as a
+      fan of 32 THREE-point triangles passes 264/264, and so does one built as a
+      staircase of 24 filled `re` bands. The bound has ZERO headroom", and its
+      structural reason: an arrow head needs 3 points and a triangle needs 3, so
+      a per-subpath vertex bound cannot separate them.
+      meta/review/20261026T074944Z-CARD-296-cycle3.yml concludes "CARD-298 is the
+      only honest option left once the bound is shown to have zero effect" and
+      records the straight-segment approximation as a NAMED LIMIT owned by
+      CARD-298. So cycle 1's "adopt CARD-296's settled fix -- the vertex bound"
+      prescribed a mechanism two review cycles had already measured as having no
+      effect. The fix round took cycle 1's OTHER route -- the derived equality,
+      which cycle 1 itself called "better still" -- and named CARD-298 as owner
+      of the residue. Correct on both halves.
+  - id: 2
+    about: "cycle 1's F-297-03 remediation as literally written would red at HEAD"
+    adjudication: "UPHELD, and the fix round's framing of it as SHARPENING rather than contradicting is the honest one"
+    evidence: >-
+      "Assert the two lists are equal element for element" is not satisfiable
+      today: I measured the two strings the two media really set on the 10x10
+      trim and they differ by one character, for the reason above -- two font
+      engines straddling one integer measure by 0.8856 px. Element-for-element
+      equality PLUS one declared, machine-checked divergence is the only form
+      that is both green and true, and the fix round shipped exactly that:
+      _unexplained_clip_divergences compares per caption element for element and
+      only the declared pair is excused, with mutant D3 proving the declaration
+      load-bearing and D4 proving a stale entry reds.
+  - id: 3
+    about: "the hole was one layer deeper than F-297-01 names"
+    adjudication: "UPHELD, on measurement"
+    evidence: >-
+      F-297-01 named the hand-listed stroker VOCABULARY. Underneath it sat a
+      second hand-made discrimination -- a call admitted by its paint='fill'
+      argument -- and I confirmed it admitted a complete third grid walk: the
+      pre-fix guard, loaded out of 85414ac7, returns [] on a grid walked as thin
+      filled rectangles, and that walk really draws the same 11+11 rules (22
+      `re f` operators at the layout's own positions and widths, zero m, zero l).
+      Fixing only what the finding named would have left that route open.
+
+system_contract:
+  rules_checked: 10
+  holds: 10
+  violated: 0
+  weakened: 0
+  verdicts:
+    - "ADR-0042/R1 (interior pages are operators; no image XObject) OK HOLDS -- AC-1's cells read /Resources off the written file on both profiles with a raster positive control that really does name an XObject, and the operator alphabet is now an EQUALITY with the measured 13 rather than a 16-member subset."
+    - "ADR-0042/R2 OK not engaged -- no page changed medium; _write_pdf still chooses per book (CARD-298's)."
+    - "ADR-0042/R3 OK HOLDS -- TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry collects 6 node ids by node id (the prefix trap avoided) and the case count is asserted inside."
+    - "ADR-0036/R2 OK HOLDS -- compute_layout / compute_packed_solved_layout / caption_slot / header_band remain the only sources of a coordinate; the 492 px clip measure is caption_slot's and not either renderer's, which I verified is the unique integer at which the two shipped clip loops produce the two declared strings."
+    - "ADR-0037/R1 OK HOLDS, and the WEAKENING cycle 1 recorded is REPAIRED -- the readings now admit clipped strings (_caption_reading), a clip is counted as its own outcome in the EC corpus, and a one-character clip move reds (D1)."
+    - "CON-020 OK HOLDS -- Tf sizes read off the stream, conditional on profile exactly as tests/test_book_interior_type_floor.py:369 is; the divider face is still recorded on BOTH profiles (required = {guide, divider, band} at :363, 23 cells green) and book_pdf_generator.py's blob is byte-identical to main, so the :355 sibling G-2 protects is untouched."
+    - "INV-013 OK not engaged."
+    - "ADR-0039/R1 (a claim needs a control that CAN fail) OK HOLDS -- the two exceptions cycle 1 recorded are closed: the leader-run claim's control now fires (D13 reds it) and the clipping claim now has three (D1/D3/D4 each red)."
+    - "ADR-0039/R2 (a guard's set is derived and default-DENY) OK HOLDS -- the WATCHED set is derived by driving the class, the EXEMPTION set by a structural predicate, every exclusion carries a reason machine-checked against the measurement in both directions, an unclassified member is watched AND reported, and the controls are shapes the detector was not written from. One residual, recorded as a minor rather than a weakening because it is not live at HEAD: see F2-01."
+    - "ADR-0006/R1 OK HOLDS -- no import added, no pyproject change, no hypothesis; the corpora are stdlib random.Random with asserted floors."
+
+guardrails:
+  - {id: G-1, holds: true, evidence: "no existing line modified anywhere (4427/0 and git diff --numstat); book_pdf_generator.py blob 7a515eea on merge-base, HEAD and current main. Neither page's design changed -- CARD-232's 2x2 tiles, CARD-233's band and CARD-209's packing are all untouched. leader_dots' dead loops kept rather than pruned, which is G-1 applied correctly."}
+  - {id: G-2, holds: true, evidence: "the divider's text path is in book_pdf_generator.py, whose blob is unchanged; `divider` is still in the required kind set at tests/test_book_interior_type_floor.py:363 and 23 cells green on both profiles."}
+  - {id: G-3, holds: true, evidence: "no cover file touched; the diff's five paths contain none."}
+  - {id: G-4, holds: true, evidence: "zero case-insensitive 'qr' hits in the whole diff. The QR slot was not made scannable and was not drawn either -- these page kinds reserve none."}
+  - {id: G-5, holds: true, evidence: "tests/test_book_export_interior_cover.py untouched (git diff --stat empty). Only this card's two page-kind test files changed."}
+  - {id: G-6, holds: true, evidence: "9570 -> 9674, 104 added / 0 removed, comm -23 EMPTY at the merge-base baseline, split 81 + 23. No test deleted, renamed, skipped or merged, parametrize ids included -- the fix round's claim of NO renames at all is confirmed. test_a_fill_is_not_a_rule_and_is_admitted keeps its node id with a docstring saying what admits it changed, which is the right way to honour G-6."}
+  - {id: G-7, holds: true, evidence: "tests/fixtures/** unregenerated (git diff --stat empty for that path). No corpus minimum lowered: the floors in the diff are `printed >= 18`, `omitted >= 6`, `clipped == 0`, `cases >= 40`, `cases >= 140` and `len({pages}) >= 6` -- all added, none reduced."}
+  - {id: G-8, holds: true, evidence: "tests/test_suite_profile.py 410 passed, so RENDER_HEAVY_SNAPSHOT's 33-entry set equality still holds with test_book_toc.py's 23 new cells in it. Every instrument in THIS review -- the mutation harness, the recording rewriter, the tokeniser, the reachability sweep -- lives in my scratchpad, never in tests/."}
+
+findings:
+  - id: F2-01
+    severity: minor
+    confidence: high
+    source: measured
+    category: test-quality
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 2718
+    blocking: false
+    title: >-
+      The rebuilt derivation's domain is ``vars(cls)``, so a drawing door on a
+      BASE class of ContentStream is invisible to it and a grid walk through that
+      door is admitted with every guard cell green -- the same route one refactor
+      removed, though NOT live at HEAD
+    description: >-
+      ``_public_members`` reads ``vars(cls)`` -- the class's own ``__dict__`` --
+      rather than ``dir(cls)``. Against today's ``ContentStream`` that is
+      complete and I verified it independently: the class inherits only
+      ``object``, and my own ``dir()``-based enumeration returns exactly the same
+      sixteen names, so the shipped 8-of-16 is right and the guard has no hole
+      today.
+
+      Built and measured, not reasoned. I constructed the one refactor the
+      committed change-detectors cannot see: a mixin carrying one drawing method
+      (``hatch``, which walks begin_path/line_to/paint), mixed in ahead of
+      ``ContentStream``, with the class's own sixteen public members left intact.
+      ``_content_stream_doors`` returns the same eight doors and an empty
+      ``_UNCLASSIFIED_DOORS``; ``_public_members`` returns sixteen;
+      ``test_the_watched_set_is_derived_from_the_class_and_not_listed`` and
+      ``test_every_unwatched_member_is_excluded_by_its_own_measurement`` are both
+      GREEN; and ``stroke_violations`` on a loop that rules the grid through
+      ``stream.hatch`` returns ``[]``.
+
+      The committed cells DO catch the likely variants, which is why this is
+      minor and not important. Moving an existing door onto a base class trips
+      ``len(members) == 16``; adding a new door to ``ContentStream`` itself trips
+      ``_UNCLASSIFIED_DOORS == ()`` (mutant D6 confirms that cell is
+      load-bearing) and ``len(members) == 16`` as well. Only the specific
+      combination -- a NEW door on a NEW base class, own surface unchanged --
+      slips through.
+
+      The ``vars()`` choice is deliberate rather than careless: it is what makes
+      ``test_a_member_added_to_the_class_is_watched_without_being_listed``'s
+      ``doors == ("zigzag",)`` work on a subclass. That is the one line the fix
+      would also have to change.
+    failure_scenario: >-
+      A later card factors ``ContentStream``'s path construction into a
+      ``_Paths`` mixin so a second stream class can share it, and adds one method
+      there -- a polyline helper, or a hatch. CARD-233 then rules a solution
+      tile's grid through it. Every cell in the AC-3 guard class stays green, and
+      the third grid walk AC-3 exists to prevent lands with the suite passing,
+      exactly as it would have before this cycle's fix.
+    mutation: >-
+      In-process, not a file mutant, because adding a base class cannot be made
+      line-count-preserving. Reproduce by mixing a drawing method in ahead of
+      ContentStream while re-binding its own sixteen members, then calling
+      _content_stream_doors and the two guard cells against the result:
+      doors unchanged at 8, unclassified (), both cells GREEN,
+      stroke_violations on a `stream.hatch` grid walk -> [].
+    remediation: >-
+      Two lines. (1) ``_public_members`` iterates ``dir(cls)`` instead of
+      ``vars(cls)``, filtering to names that are not private -- then an inherited
+      door is driven and watched like any other. (2)
+      ``test_a_member_added_to_the_class_is_watched_without_being_listed`` asserts
+      ``"zigzag" in doors`` rather than ``doors == ("zigzag",)``, since the
+      subclass will now also report the inherited eight, and gains one case
+      planting the door on a BASE class rather than on the subclass -- which is
+      the shape the derivation was not written from.
+
+  - id: F2-02
+    severity: minor
+    confidence: high
+    source: measured
+    category: documentation
+    type: false-claim
+    file: meta/kanban/cards/CARD-297.md
+    line: 0
+    blocking: false
+    title: >-
+      The assert census the fix round ships as a CORRECTED figure is itself
+      labelled with the wrong revision -- 277/212 is 193329ed, not HEAD, which is
+      282/212 -- repeating one commit later the exact defect class it was closing
+    description: >-
+      Cycle 1's F-297-08 item 7 found the round's "225/163 asserts instrumented"
+      to be PRE-FIX figures, HEAD being 233/169. The fix round corrected that and
+      shipped a four-revision census counted, correctly, from
+      ``git show <rev>:<path>`` so the worktree cannot contaminate it.
+
+      Three of the four rows reproduce exactly in my own count: 6b0dfa30
+      136/149, 1a42e8d7 225/163, 85414ac7 233/169. The fourth does not. 277/212
+      is the count at ``193329ed``; at HEAD ``f9681797`` it is **282/212** --
+      ``f9681797`` adds the threshold cell
+      ``test_the_two_media_omit_at_the_same_slack_for_every_integer``, whose five
+      asserts the census does not include.
+
+      So the census was taken before the round's own last commit and then
+      labelled "its HEAD" -- a figure-with-the-wrong-revision, which is precisely
+      the shape of the finding it was correcting. Nothing downstream depends on
+      the number; what makes it worth a row is that it is the one figure of the
+      four that is not reproducible as labelled, in a card whose cycle-1 score
+      was driven entirely by claims-layer accuracy.
+    failure_scenario: >-
+      A cycle 3 or a merge gate re-derives the census to check the trend, gets
+      282/212, and cannot tell whether five asserts were added after the round
+      reported or whether the round's instrument differed from theirs -- the same
+      five minutes cycle 1 spent on the 225/163 version.
+    mutation: "n/a -- a figure, and its control is recomputation, which is what this is: ast.Assert counts over `git show <rev>:<path>` for all four revisions plus 193329ed."
+    remediation: >-
+      One edit to the hand-back/worktree notes: label the census row 193329ed
+      and add the HEAD row as 282/212, or re-take it at f9681797. Worth a line in
+      the notes saying the count moved because f9681797 is itself a test commit,
+      which is the useful fact rather than an embarrassing one.
+
+  - id: F2-03
+    severity: minor
+    confidence: medium
+    source: measured
+    category: documentation
+    type: overclaim
+    file: tests/test_book_solved_answer_key.py
+    line: 3584
+    blocking: false
+    title: >-
+      The clip declaration's stated impossibility is stronger than what is
+      established -- a shared sub-pixel tolerance would make the two media agree
+      without either measuring with the other's engine, and it is not considered
+    description: >-
+      The declaration says exact agreement "is **not** achievable without one
+      medium measuring with the other's engine". That is the sentence carrying
+      the whole weight of declaring rather than fixing, and as written it is not
+      established.
+
+      A third option exists and is not mentioned: both loops clip on
+      ``width > measure``, so clipping instead on ``width > measure + 1.0`` --
+      one device pixel of tolerance, shared, with each engine still measuring
+      with itself -- makes the vector writer keep ``'Puzzle 2 - Owl in a P...'``
+      at 492.8700 against a 492 px measure, which is what the raster page
+      already keeps. Measured: the two differ by 0.8856 px, so a one-pixel
+      tolerance closes this divergence with no engine crossing over.
+
+      I am NOT prescribing that change, and the decision to declare stands --
+      see verdicts.declared_clip_divergence. The raster loop lives in
+      ``book_pdf_generator.py``, whose blob this card correctly never opened, and
+      putting a tolerance on the vector side alone would be a new one-sided
+      discrimination, which is the defect class this very fix round removed one
+      layer up. The finding is about the DOCSTRING: it states an impossibility
+      where the true argument is "not achievable within this card's scope, and
+      the alternative belongs to whoever owns both loops".
+    failure_scenario: >-
+      CARD-298, which the declaration names as owner, reads "not achievable" as
+      settled, keeps both clip rules as they are, and ships a book whose answer
+      key reads differently in the two media for want of considering a tolerance
+      the record told it did not exist.
+    mutation: "n/a -- a prose claim. The counter-measurement is the 0.8856 px delta against a 1 px tolerance, computed from the two shipped measure functions at the caption's own 42 px."
+    remediation: >-
+      Soften one clause: "exact agreement is not achievable without either one
+      medium measuring with the other's engine or a shared tolerance on both clip
+      loops, and the raster loop is in book_pdf_generator.py, which this card
+      does not open -- so it belongs to CARD-298 with the rest of the per-page
+      medium decision."
+
+family_regression:
+  setting: warn
+  fires: false
+  reason: >-
+    No gating finding of mine is attributable to the fix round's edits -- all
+    three are minor and none blocks. For the record, two of the three sit in
+    tests/test_book_solved_answer_key.py (F2-01 in _public_members, F2-03 in the
+    declaration's docstring), which would be one file family if either were
+    gating; F2-02 is card bookkeeping and in no file. No [Family] note is owed.
+
+prescribed_edits:
+  decision: "NONE PRESCRIBED AS A CONDITION OF CERTIFICATION"
+  rationale: >-
+    This card certifies at 8.5 against min_score 8. All three remaining findings
+    are minor, none is a product-correctness defect, and none of them is a route
+    that is open at HEAD. Prescribing them would spend the card's last cycle on
+    claims-layer polish and -- per the board's standing rule -- would leave the
+    edits themselves uncertified, since a card that spends all three cycles has
+    no cycle left to certify the edit it makes on the way out.
+  what_the_merge_gate_alone_would_establish_if_any_are_taken:
+    F2-02: >-
+      FULLY CARRIED. It is a figure in the card's prose with no code behind it,
+      so there is nothing to mutate and nothing to collect. The merge gate's
+      recomputation of the census IS its control, and I have supplied the right
+      numbers above (193329ed 277/212, f9681797 282/212). Safe to take on the way
+      out.
+    F2-03: >-
+      FULLY CARRIED. A docstring clause. The merge gate would establish that the
+      file still parses, still collects the same node ids (G-6) and that the
+      suite is green -- which is everything a prose edit can be wrong about,
+      since no cell reads that sentence. Safe to take on the way out.
+    F2-01: >-
+      NOT FULLY CARRIED, and this is the one to be careful with. Changing
+      ``_public_members`` from ``vars`` to ``dir`` changes the guard's own
+      derivation, and the merge gate runs the suite once -- it does not mutate.
+      So the gate would establish only that the edit collects, that no node id
+      disappeared, and that 9674 cells still pass. It would NOT establish that
+      the widened derivation is load-bearing, nor that the subclass cell still
+      distinguishes a watched door from an absorbed one, nor that the new
+      base-class case can fail -- and a ``dir()``-based derivation that silently
+      returned everything would pass the gate exactly as a correct one would.
+      If it is taken, it must ship WITH its control in the same commit (the
+      subclass cell reading ``"zigzag" in doors`` plus one case planting the door
+      on a base class), and the gate would then at least establish that both
+      cells collect and pass. My recommendation is to leave it to the card that
+      actually refactors ContentStream -- CARD-298 is the natural owner, since it
+      already owns the named limit on this same mechanism -- rather than to spend
+      an uncertified last-mile edit on a route no shipped class can reach.
+
+recommendation:
+  decision: "certify and merge (cycle 2 of 3; no cycle 3 needed)"
+  score: 8.5
+  delta_against_cycle_1: "+1.5"
+  blocking_for_certification: []
+  card_amendments_owed: [F2-02]
+  optional_before_merge: [F2-03]
+  defer_to_a_named_card: {F2-01: CARD-298}
+  notes: >-
+    Set the card's Review score to 8.5 cycle 2/3 (certified). The merge gate
+    still owns the full suite and the rebase; I confirmed the rebase is a no-op
+    for this card's content (git merge-tree against current main is clean and
+    main has changed none of the five paths since the merge-base), and that
+    book_pdf_generator.py's blob 7a515eea is identical on the merge-base, on HEAD
+    and on main. One carried correction for whoever reads the two reports
+    together: cycle 1's "0 skipped" impact figure does not reproduce --
+    tests/test_book_pdf_memory.py:1296 skips on this kernel, pre-existing and in
+    a file this card does not touch -- and this report's skips section and
+    metrics block agree on 1.
