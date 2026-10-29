@@ -121,7 +121,14 @@ round trip greys a rule's edges.
   node id ADR-0042/R6's comment names, so **CARD-312's** flip lands on a real test.
   **Two mutants**: reintroduce an ink scan on an interior page — it reds; and
   hand it a test shape it cannot classify — it **fails** rather than passing.)
-- **AC-4** (the exemptions did not swallow the subject): *Given* the guard's
+- **AC-4** — **MOVED TO CARD-312 2026-10-29 with AC-3**, not met here and not owed
+  here. <!-- Review cycle 1's F-005: AC-4 is a control over **the ink guard's**
+  exemption list, and the ink guard is AC-3's subject -- which was already re-homed
+  to CARD-312. Its named test `TestInkGuard_NoExemptionAbsorbsAnInteriorClaim` has
+  **no definition in the tree**, so the AC was unachievable here the moment AC-3
+  left. An AC whose subject has moved is not a gap, it is a mis-filing. Original
+  text kept below for CARD-312 to inherit alongside AC-3. -->
+  *Given* the guard's
   exemption list, *then* a control shows each exemption does **not** absorb what
   it must not — the cover's readings stay asserted, the dividers' stay asserted,
   `Sheet`'s oracle role stays intact and compared against, **and the
@@ -451,3 +458,132 @@ orchestrator's error.
    Item 1's prose reads as if no stream-side floor check existed.
 4. **The ADR's History says "the baselines move when R6 lands"; they cannot** — R6
    is test-side. They move when a **page** converts. Measured: 0 of 21 moved here.
+
+## [Review cycle 1 — 7.5, DOES NOT CERTIFY, 2026-10-29]
+
+`min_score: 8`, cycle 1 of 3. **Two gating findings, both cheap, and the first is
+this card's own standard turned on its own work.** Items 1–2 are really delivered and
+the refusals are honestly recorded. Report synced.
+
+Runs: the two changed modules **34 passed**; the floor module alone **28** (cut: 23 —
+the round's 23 → 28 reproduced); the eight other `pdf_vector` consumers **640
+passed**; the six meta-guards **835 passed**. Exactly **one** skip, by name:
+`tests/test_book_pdf_memory.py:1297`.
+
+### F-001, GATING — the clue-digit refusal is keyed on ONE page kind and the exempt faces live on TWO
+
+Verified by the orchestrator. `tests/test_book_interior_type_floor.py:429` is
+`assert kind.value != "puzzle"`. But joining every exempt face in the spy recording
+to its page's `PageKind`:
+
+```
+exempt faces by (page kind, pt):   ('answer',10.56):64   ('answer',8.64):258
+                                   ('puzzle',13.20):118  ('puzzle',8.64):204
+sub-floor AND exempt:              ('answer',8.64):258   ('puzzle',8.64):204
+```
+
+**258 of the 462 exempt sub-floor faces are on ANSWER pages — more than the puzzle
+page's 204** — drawn 322× per book through `book_pdf_generator._write_clues`, an
+`EXEMPT_CALLER`. And the vector answer writer draws them too:
+**`src/nonogram/admin/book_answer_vector.py:403` calls `draw_clue_digits(...)`**.
+
+So the day `PageKind.ANSWER`'s declaration lifts, `stream_faces` does **not** refuse
+— it reads the page and reports **258 false CON-020 violations**, the exact failure
+the puzzle refusal exists to prevent. `StreamFace` has no exemption concept at all,
+and its docstring points at a `:meth:`exempt`` that does not exist (F-007) — given
+F-001, that absent member is the load-bearing one.
+
+**The understatement propagated.** The finding was written as "a vector puzzle page"
+in this card, in `requirements.yml` and in the ADR — and **CARD-314 was cut from it
+with a one-kind brief.** CARD-314's scope is corrected on its own card with the
+figures above; the fix round corrects the other three places.
+
+### F-002, GATING — the converted module's own call site cannot survive the medium change
+
+`tests/property/test_book_export_interior.py:807` does
+`interior = pdf_pages(interior_bytes)`, and `tests/helpers/pdf_pages.py:34-40` loops
+**every** page asserting one `DCTDecode` image. So with one real vector page the
+property test dies at `:807` with `KeyError: b'XObject'` **before any gated helper
+runs**, and the stream arms are reachable only by calling the helpers directly with
+`pages=None`.
+
+**That falsifies the diff's own central claim**, verbatim at `:425-427`:
+
+> *"The declarations shrink underneath these helpers without the call sites changing,
+> which is the only order that works…"*
+
+Loud rather than silent, so not a correctness hole today — but **the prose is wrong
+and CARD-309 will read it as a promise.** Scale, re-derived by the orchestrator:
+**18 files read an interior through `pdf_pages`** (14 test modules + 4 helpers) and
+**this card converted 2 of them**, one of which still routes through it.
+
+### What survived, and is worth not re-reviewing
+
+- **The `pages=None` discriminator is genuine** — the reviewer forced
+  `page_media → [RASTER]` and called `_title_page_is_blank(data, None, …)`: it raises
+  `TypeError`, because the bitmap arm's first act is `pages[0].convert("L")`.
+- **The two arms cannot disagree destructively**: `below_floor_in_its_medium` is a
+  **union**, so neither arm going quiet removes a face.
+- **`_UNCLASSIFIABLE` is a real third branch, driven on real PDFs** at
+  `tests/test_book_pdf.py:2318-2319`.
+- **The refusal is a guard, not a gap** — it is an `assert` inside `stream_faces`, so
+  the page does not drop out; CON-020's two verifying cells *error* with a message
+  naming what the stream owes. And refusing by **kind** is the right default:
+  exempting 8.64 pt by value would exempt a body face.
+- **Item 4's refusal is justified**, with **three of its four measurements
+  re-derived** by the reviewer using the census's own regexes: `c12c33ce` → **32
+  files / 315 sites, exactly the census's recorded figures**; main and the cut →
+  **34 / 321**; and `test_book_export_interior.py` **8 → 13**, accounting for the
+  whole move. Item 3's premise independently re-derived: `grep -c BookPDFGenerator`
+  is **0** in both probe modules.
+- **Node ids byte-identical**: 172 → 180, **0 removals**, +8 all named, both
+  parametrised ids character-for-character in both sets. `trace.yml` not in the diff,
+  CON-020's seven listed tests all still resolve — **the ERROR-level gate-3 hazard
+  was never armed, and the round was right to follow the card against the brief.**
+- **The band survivor is pre-existing and narrower than declared** — the identical
+  mutant at the cut gives the same verdict, and in *both* trees the failing cell is
+  `TestInteriorType_DifficultyDotsAreNotText::test_the_spy_does_see_the_word_beside_them`.
+  So the module is **not** blind to the band. The reviewer's judgement, which the
+  orchestrator accepts: **acceptable, not a finding.**
+- **G-6 is stronger than stated**: stripping `^\s*#` from both registry files gives a
+  **zero-line diff**, and `yaml.safe_load(requirements.yml)` is `==` across the cut
+  and HEAD — the registry is **semantically identical**.
+
+### Non-gating findings
+
+- **F-003 (medium)** — `LETTERING_KINDS` is a hand-written 5-string frozenset with no
+  test tying it to `PageKind`, and `planned = LETTERING_KINDS & set(...)` makes an
+  **unlisted** lettering kind a silent pass. Complete today by accident (7 enum
+  members; COVER is not interior, TITLE is blank), not by derivation — so **not
+  complete in ADR-0039/R2's sense.**
+- **F-004 (medium)** — `test_dropping_a_page_kind_reds_the_medium_independent_assertion`
+  is **pure set algebra**: `assert not planned <= (covered - {dropped})` for
+  `dropped in planned` is true for any P, C and any d ∈ P. It contains **no call into
+  the module under test** and passes on every possible implementation. AC-1's second
+  mutant is not lost — the footer-label mutant is the real control — but one of its
+  two advertised demonstrations is **empty**.
+- **F-006 (low)** — `_no_interior_page_is_the_cover`'s vector arm restates its own
+  branch condition and cannot fail; driven with `object()` as the cover, it passes.
+  And **two of the three vector arms are driven by no test**, while the stream arm of
+  `below_floor_in_its_medium` is never exercised with a non-empty list. The halves
+  are each proven; the composition is not.
+
+### Corrections to the orchestrator, and one to a correction of mine
+
+- **My brief's "34 files / 321 sites at HEAD" is mislabelled** — 321 is the figure at
+  the cut and on `main`; the branch's own HEAD is **34 / 326**. The round's ADR
+  comment was right to say "on main at `4ce84c30`".
+- **The `setrlimit` skip is `:1297`.** My brief has now had this wrong **three
+  times**.
+- **My unconditional quote of the sibling set was wrong** — at HEAD `:566-572`
+  requires `{guide,divider,band}` and adds the other two only when
+  `book != "min-trim"`.
+- **My "FINDING 3 RESOLVED — nothing to re-point" is itself now inaccurate.** The five
+  `expires_with=("CARD-299","CARD-309")` declarations name this card for a **reader**
+  conversion that is **2 of 18 readers done**. Naming CARD-299 as an expiry implies it
+  finishes the reader conversion, and it does not. **This is a correction to my own
+  correction** and the fix round owes the right answer.
+- AC-5's "+272/+361" are the `--stat` bars; `--numstat` reads 261/11 and 359/2 — same
+  diff, two readings, and the card should say which.
+- The Trace line still says the trace row "is re-stamped in this card"; **no re-stamp
+  happened and none was needed.**

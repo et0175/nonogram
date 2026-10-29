@@ -85,6 +85,16 @@ flips it.**
   `tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink` — the node
   id R6's comment names. **Two mutants**: reintroduce an ink scan on an interior page
   — it reds; and an exemption's control must fail with the exemption removed.)
+- **AC-1b** (inherited from CARD-299's AC-4, which travels with AC-3): *Given* the
+  guard's exemption list, *then* a control shows each exemption does **not** absorb
+  what it must not — the cover's readings stay asserted, the dividers' stay
+  asserted, `Sheet`'s oracle role stays intact and compared against, **and the
+  device-fact exemption does not admit a test that reads a STATED width off a
+  render**. (test: `TestInkGuard_NoExemptionAbsorbsAnInteriorClaim` — ADR-0039/R3.
+  **It has no definition in the tree today; this card writes it.** The device-fact
+  arm is the one with a live mutant available, and it is the same discriminator
+  item 3 calls decidable: an `==` against a declared `*_PT` width is
+  reconstruction, a bracket or an ordering is a device fact.)
 - **AC-2** (the count is not the measure): *Given* a **correct** conversion that
   raises an idiom count, *then* the guard stays **green** — demonstrated with
   CARD-299's own 8 → 13 case as the control. **This is the AC that stops the guard

@@ -24,14 +24,44 @@
 **Merge commit:** —
 **Blocked by:** —
 
-## Why this card exists — CON-020 goes unverifiable the day the puzzle page converts
+## [SCOPE CORRECTED 2026-10-29, before dispatch — this is TWO page kinds, not one]
+
+**CARD-299's review cycle 1 found that this card was cut with a one-kind brief, and
+it was right.** The finding it inherited named only the vector *puzzle* page. Measured
+by that review, joining every exempt face in the spy recording to its page's
+`PageKind`:
+
+```
+exempt faces by (page kind, pt):   ('answer',10.56):64   ('answer',8.64):258
+                                   ('puzzle',13.20):118  ('puzzle',8.64):204
+sub-floor AND exempt:              ('answer',8.64):258   ('puzzle',8.64):204
+```
+
+**258 of the 462 exempt sub-floor faces are on ANSWER pages** — more than the puzzle
+page's 204 — drawn 322× per book through `book_pdf_generator._write_clues`, which is
+an `EXEMPT_CALLER`. And the orchestrator confirmed the vector answer writer draws
+them too: **`src/nonogram/admin/book_answer_vector.py:403` calls
+`draw_clue_digits(...)`**.
+
+So CARD-299's guard, whose refusal is `assert kind.value != "puzzle"`, **does not
+refuse an answer page** — the day `PageKind.ANSWER`'s declaration lifts it reads the
+page and reports **258 false CON-020 violations**, which is the exact failure the
+puzzle refusal exists to prevent.
+
+**This card therefore covers the PUZZLE page and the ANSWER page**, and every AC
+below should be read as "a vector page that draws clue digits" rather than "a vector
+puzzle page". The raised finding was understated in three places — CARD-299's card,
+`requirements.yml` and the ADR — and CARD-299's fix round is correcting all three.
+
+## Why this card exists — CON-020 goes unverifiable the day a clue-digit page converts
 
 **CON-020** is the 10 pt reader-facing interior type floor. Its exemption is **clue
 digits inside clue cells**, whose size follows the cell (CON-018 / INV-006), and the
 exemption is keyed on **the drawing function** — `png._draw_clues` / `_write_clues`.
 
 CARD-299's round measured a real vector puzzle page, written by
-`BookPDFGenerator.vector_puzzle_page`:
+`BookPDFGenerator.vector_puzzle_page` — **and its review then measured that the
+answer page carries MORE of them** (see the scope correction above):
 
 ```
 Tf operators:        205
