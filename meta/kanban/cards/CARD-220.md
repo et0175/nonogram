@@ -12,11 +12,11 @@
 **Worktree:** —
 **Source:** owner request 2026-10-13 ("make cards for tests curation") — the deletion half, deliberately cut last and narrowest of the four
 **Idea:** —
-**Wave:** —
+**Wave:** 68 <!-- STAMPED 2026-10-30: owner sequenced this AFTER CARD-304. Encoded as a later wave rather than a `Depends on: CARD-304` edge, because there is no technical dependency -- 220 needs only CARD-217 (done). A sequencing preference written as a dependency would pollute the graph the dispatcher reasons over. -->
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** CARD-217
-**Touches:** tests/**
+**Touches:** tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/ <!-- NARROWED 2026-10-30 on owner decision, from `tests/**`. Two reasons, both measured. (1) `tests/**` overlaps essentially every open card, so under `dispatcher.max_overlap: 0.3` this card could only ever run ALONE and would block its whole wave. (2) The narrowing matches the card's OWN method: step 1 already restricts candidates to tests that are 'both expensive (in the top-50 list or a top-20 file) and suspected subsumed', so a repo-wide footprint was always wider than the work. The paths named here are where the measured cost actually is -- `test_book_export_interior_cover.py` alone is 29.8% of the suite's wall clock (90 -> 127 tests, 344.29s -> 467.30s standalone). THIS IS A FOOTPRINT NARROWING, NOT A SCOPE CUT: the deletion rule, the three never-touch classes and the per-pair mutation proof are untouched. If a proven-subsumed pair turns up outside these paths, widen the field with the reason -- do not delete outside the declared footprint silently. -->
 **Review score:** —
 **Started:** —
 **Closed:** —

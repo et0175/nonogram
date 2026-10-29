@@ -1,6 +1,6 @@
 # CARD-304: ADR-0039/R4 has no executing check — a figure's instrument is held by a lens, not by the tree
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/304-an-executing-check-for-figures
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-304
 **Source:** wave 62's retrospective (2026-10-28), which promoted the wave's dominant finding family into **ADR-0039/R4**. The rule ships with `check: {kind: review-lens}` and this card owes the flip to an executing check — an ADR check ref that names a planned test reads as mechanically checked while checking nothing.
 **Idea:** —
 **Wave:** 67
 **Created wave:** 62
 **Deferred waves:** 3 <!-- CORRECTED 2026-10-30 by the waves 63-65 retrospective. It read 0. This card was created in wave 62 BY wave 62's own retrospective, which promoted the figures family into ADR-0039/R4 and left R4's flip to an executing check owed here. It then sat unscheduled through waves 63, 64 and 65 while that same family produced EIGHT more gating findings across five cards. The counter never moved because cmd-retrospective Step 4c increments only tech-debt cards IN THE CURRENT WAVE SCOPE, and this card is Category: enabler and was in no wave's scope - so it aged invisibly by construction. Stamped into wave 67 on owner decision. -->
 **Depends on:** —
-**Touches:** tests/test_suite_profile.py, meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+**Touches:** tests/test_suite_profile.py, meta/kanban/config.yml, meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md <!-- CORRECTED 2026-10-30: `meta/kanban/config.yml` was MISSING from the declaration while AC-1 and AC-2 are ABOUT it -- AC-1 executes every shell command config.yml prescribes for a host cell, AC-2 turns its five-case truth table into machine-readable data. The implementation round is editing it, correctly. Caught by inspecting the worktree, not by the card. Third footprint-declaration defect of the day: CARD-220 over-broad (`tests/**`), CARD-308 over-broad (`tests/**` + `adr/**`), this one under-declared. The pattern belongs in the retrospective's touches-drift calibration rather than being fixed one card at a time. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -128,194 +128,209 @@ The three shapes the wave actually produced, in descending tractability:
   `MEASURED_SILENCES_ELSEWHERE` guard that resolves the tree through `git ls-files`.
   This check belongs beside them, not in a new file.
 
-## Worktree notes — CARD-304's implementation round (2026-10-29)
+---
 
-### What was built, and where
+## Implementation — `ca7c8c56` → `e7af05d1`
 
-- **`meta/kanban/config.yml`** gains `review.host_cells:` — a **JSON document
-  inside a YAML block scalar**. JSON because PyYAML is *not* in ADR-0006/R1's
-  dependency baseline (nothing in `pyproject.toml` declares it; it is in this
-  venv incidentally), so a test that imported it would gate the whole check on
-  a package a bare checkout lacks, and a hand-rolled YAML reader would be one
-  more unproven instrument inside the file about unproven instruments. The
-  block carries the three host cells, the rival-pytest truth table's seven
-  cases with what each one claims and how to create it, and the six rejected
-  instruments with their verdicts.
-- **`tests/test_suite_profile.py`** gains
-  `TestHostCells_ThePrescribedInstrumentsExecuteAndRespond` beside the existing
-  census guards, as the card's Worktree notes asked. Fifteen test methods,
-  twenty-seven collected node ids.
-- **`ADR-0039/R4`**'s `check:` flips from `{kind: review-lens}` to
-  `{kind: test, ref: ...}` naming three of those methods, with a REACH comment
-  in R1's shape. The hunk is confined to the `check:` line and its comment,
-  because CARD-308 is editing the same file's commentary concurrently.
+**`config.yml` gains `review.host_cells:`** — a **JSON document inside a YAML block
+scalar**, and the reason is this card's own subject: **PyYAML is not in ADR-0006/R1's
+baseline** (nothing in `pyproject.toml` declares it; it is in the venv incidentally), so
+importing it would gate the check on a package a bare checkout lacks — and a hand-rolled
+YAML reader would be *"one more unproven instrument inside the file about unproven
+instruments."* It carries 3 host cells, the rival-pytest truth table's **7** cases with
+what each claims and how to create it, and the **6 rejected instruments** with verdicts.
+The prose no longer restates any command; it points at the data.
 
-### The prose the data replaced, and the two figures in it that were wrong
+**`tests/test_suite_profile.py`** gains `TestHostCells_ThePrescribedInstrumentsExecuteAndRespond`
+— 16 methods, **29 node ids**, beside the existing census guards as the card asked.
 
-The commands were restated in the prose at the top of the host-cell section.
-They are now written **once**, in `host_cells:`, and
-`test_each_prescribed_command_is_written_in_one_place` reds if either is
-restated — which is the only corner of R4's "retracted everywhere it was
-written" clause a tree can check.
+### Two harnesses, because R4 is about the difference between them
 
-Re-measuring the prose to write the data turned up two wrong figures in it,
-both of the exact family R4 was promoted for:
+AC-1 asks **executability** (`set -o pipefail`, judge the exit status); AC-2 asks
+**responsiveness** (no pipefail, judge the reading). **One harness would red a blind form
+for the wrong reason** — *"it exited 1"* instead of *"it did not rise while a real pytest
+was alive."* And `pipefail` is what makes AC-1 mean anything: `pgrep -fc` was prescribed
+*inside* `| wc -l`, and without it the pipeline exits 0 while the cell comes back empty.
+The cost is declared as a bound in the data: a grep/pgrep prescription exits 1 on a
+legitimate empty match, so it cannot be stored as a host cell at all without conflating
+"blind" with "quiet" — which is *why* the awk form, exiting 0 on no match, is the storable
+one.
 
-1. **The truth table's own prescribed row had a wrong cell.** Row 6
-   (`ps|awk first-token-is-python`) recorded **(b) = 1** — a real pytest
-   started through `.venv/bin/pytest`. Measured 2026-10-29 against a live
-   console-script run: it is **0**. The awk keys on ` -m pytest` and that
-   run's argv is `.../MacOS/Python .../.venv/bin/pytest …`, which never holds
-   the substring. This is the **same mechanism the table already records three
-   rows up** for `pgrep -f 'm pytest'`, transcribed wrong into the row that
-   replaced it. The summary sentence under the table inherited it: *"ONLY THE
-   LAST ROW PASSES ALL FIVE"* — it passes four.
-2. **A declared bound outlived the instrument it was about.** The paragraph
-   beginning "DECLARED BOUND" said the working pattern keys on the
-   framework-python re-exec path and would be blind on a non-framework venv.
-   That is true of `pgrep -f 'MacOS/Python.*pytest'`, which case (d3)
-   **retired**, and false of the `ps|awk` form that replaced it:
-   `$1 ~ /[Pp]ython[0-9.]*$/` matches a plain `.venv/bin/python` as readily as
-   the framework re-exec, so a non-framework venv is the one host shape this
-   instrument is *not* bound by. Both are corrected in place with the
-   correction stated, not silently.
+Readings are **deltas** against a baseline taken before and re-taken after each probe; a
+baseline that moved is a **refusal to judge** (retried up to 4×), and the failure prints
+the process lines the instrument matched, **derived from the prescription by dropping its
+counting stage** so the diagnostic cannot describe a different query from the number.
 
-The card's own Worktree notes were stale in the same way: they say `config.yml`
-"currently prescribes `pgrep -f 'MacOS/Python.*pytest' | wc -l`". At `ca7c8c56`
-it prescribes the `ps -eo command= | awk …` form; the pgrep form was retired by
-case (d3) one revision earlier.
+### The planted reds
 
-### Two traps this round measured, both of which make a control vacuous
+**AC-1**, both restored with the blob hash verified identical, needle unique, no `git stash`:
+`pgrep -fc 'python.* -m pytest'` planted → exit 2, empty stdout, two cells red; and the
+brief's second instance `pgrep -f … | wc -l` → **exit 1**, cause measured independently —
+`-f` is case-sensitive and a live run's `argv[0]` is `…/MacOS/Python`, with **no lowercase
+`python` anywhere in it.**
 
-- **A negative control that does not exist.** Written the obvious way —
-  `zsh -c ': <text mentioning pytest>; sleep N'` — the wrapper **is not in
-  `ps`** by the time anything looks: zsh execs its last command and the
-  process's argv becomes `sleep N`. Measured: argv `'sleep 20'` for that
-  shape, and the full `/bin/zsh -c : … -m pytest …` for
-  `': <text>; sleep N & wait'`, which forks. A flat reading against an absent
-  near-miss is a vacuous pass wearing a control's clothes, so every negative
-  here is judged only after `test_each_near_miss_probe_is_visible_to_ps`
-  asserts the probe's own argv.
-- **A fourth false-positive source: the act of measuring.** A search tool
-  (`grep`, `ugrep`, `rg`) carries the pattern in its own argv, so a probe that
-  excludes only shells still counts one. It is case **(e)**, new here. The
-  prescribed `ps|awk` form is immune because `$1` is then `/usr/bin/grep`, and
-  that immunity is now asserted rather than reasoned.
+**AC-2**, and its second plant is the strongest single result on this card.
+The blind form planted *inside* the executable harness → the positive case red:
+*"a real pytest was alive and the prescribed cell read 0 against a baseline of 0."*
+Then the **vacuity control**: reverting the near-miss wrapper to `': <text>; sleep N'`
+made the visibility cells red (`argv ''`) **while the three negatives passed vacuously
+beside them** — because **`zsh` execs its last command, so the near-miss does not exist in
+`ps` at all, and "did not rise" proves nothing.** Every negative is now judged *only after*
+visibility is asserted. That is a vacuity this card found in its own controls.
 
-### Why two harnesses and not one
+### AC-3's residue, AC-4's flip, AC-5's census
 
-Executability and responsiveness are different findings and R4's whole point is
-that they are. So AC-1 runs a prescription with `set -o pipefail` and judges
-the **exit status**; AC-2 runs the instrument **without** pipefail and judges
-the **reading**. One harness would red a blind form for the wrong reason — "it
-exited 1" instead of "it did not rise while a real pytest was alive".
+Nine residue items, each with why it is **unreachable rather than deferred** — a figure in
+prose generally (no machine-readable link from a number to the command that made it); a
+ratio whose halves came from different runs; a point estimate for a spread quantity
+(syntactically identical to a correct one); a figure stale at another revision; a refuted
+figure surviving elsewhere; a **mis-stated instrument warning** (no artefact in the tree at
+all); one-off shell commands that are not prescriptions; **any host but this one** (BSD
+spellings asserted *unconditionally*, no `skipif`, so a foreign host reds — AC-1's intent
+and equally its bound).
 
-`pipefail` is also what makes AC-1's criterion mean anything: the rejected
-`pgrep -fc` form was prescribed *inside* a `| wc -l` pipeline, and without
-pipefail the pipeline exits 0 while the cell comes back empty — exit 0 with an
-empty cell being precisely the defect. Its cost, stated as a bound in the data:
-a grep- or pgrep-based prescription exits 1 on a legitimate empty match, so it
-cannot be stored as a host cell at all without conflating "blind" with "quiet".
-The awk form exits 0 when it matches nothing, which is **why** it is the
-storable one.
+R4's `check:` flipped to three bare names in R1's shape, all verified to resolve, with
+`--verify-refs` reporting `dead_check_ref: []` post-commit. **R4's statement is untouched**
+(G-1). Census **410 → 439, 0 lost**, all 29 additions named. **Zero skips**, confirmed with
+`-rs` printing nothing. Validator 0 errors / 100 warnings.
 
-Readings are **deltas**, never absolutes. An absolute rival-pytest count is
-host state — this board runs up to five cards concurrently and a sibling
-worktree's gate counts, which is exactly what happened mid-measurement during
-this round and produced a (d3) and (e) reading of 1 that belonged to CARD-308.
-Each case is judged against a baseline taken immediately before it and re-taken
-after it; a baseline that moved is a **refusal to judge**, retried up to four
-times, and the failure that ends it prints the process lines the instrument
-actually matched — which is the only thing that settles such an argument.
+## It answered the orchestrator's question by refuting the orchestrator's answer
 
-## AC-3 — the residue, each shape with the reason it is unreachable
+The brief asked whether the `ps`/`pgrep` prescription can be made correct at all, or
+belongs in AC-3's residue. **Answer: it already is correct, for the board's own runs.**
+Measured with the near-miss proved present each time, the prescribed **awk** form rises by
+exactly 1 for a real `python -m pytest` and is flat on **all four** near-misses — including
+the framework-path wrapper that retired its predecessor and the search tool that *the act
+of measuring spawns*. One measured blindness (a run via `.venv/bin/pytest`) is now a
+declared bound asserted in **both** directions, tolerable only because `review.test_command`
+starts pytest as `-m pytest`, which a new cell asserts.
 
-A check that claimed the whole of R4 would be R4's own defect. These are the
-shapes AC-1 and AC-2 do **not** reach. They stay with the lens (decompose 6c4,
-`forge:review` Step 8h), and R4's comment names them.
+**And it declined to widen the instrument to `/pytest/`** — which does see that case —
+because *"widening without the control for the direction you widened into is how this cell
+got its last two defects."*
 
-1. **A figure in prose — the general case.** A number in a card, a retro, an
-   ADR or a docstring has no machine-readable link to the command that produced
-   it. `config.yml` is reachable *only* because it prescribes commands rather
-   than reporting results; nothing generalises from that. **Unreachable, not
-   deferred.**
-2. **A ratio whose halves came from different instruments, runs or baselines.**
-   (CARD-292's 9.9× — profiled numerator over unprofiled denominator; 8.0×
-   through the other door.) The defect is in how the two numbers were
-   *obtained*; the committed text retains nothing of their provenance, so there
-   is no artefact to check. **Unreachable from the text.**
-3. **A point estimate published for a quantity with run-to-run spread.**
-   (22.0 % / 21.2 % / 21.30–21.86 %; and a 7.9–16.4 s band that two later
-   rounds exceeded at 18.47 s and 22.84 s on the same machine within hours.) A
-   single number is syntactically indistinguishable from a correct one;
-   deciding it needs the spread, which is not recorded beside it.
-   **Unreachable without re-running the measurement.**
-4. **A figure correct at one revision and stale at another** — R4's DOMAIN
-   clause. (An ADR occurrence count, right at one revision, wrong at the next.)
-   Nothing records which revision a number was taken over, so staleness is
-   undecidable from the figure. The nearest reachable thing is a *derived*
-   census asserted as an equality, which is what `RENDER_HEAVY_SNAPSHOT` and
-   `CLIFF_EDGE_SNAPSHOT` already do for their own sets — and that only works
-   where an authority can re-derive the number.
-5. **A refuted figure surviving in a second place.** Reachable **only** for a
-   prescribed *command* inside one file, which
-   `test_each_prescribed_command_is_written_in_one_place` now does. Not
-   reachable for the figures those commands produce: four docstrings carrying a
-   306 KB figure the same round struck out were a genuine instance and no check
-   here would find them.
-6. **A mis-stated instrument warning.** A brief claiming `grep -c '\[WARN'`
-   returns no matches, when it returns 100 at exit 0 — the real failure being a
-   `^` anchor in the claimant's own pattern. A wrong *warning* about an
-   instrument costs verifications just as a wrong reading does, and there is no
-   artefact in the tree for it at all.
-7. **Instruments that are not shell commands.** `\b` inside a `git grep -E`
-   pattern (undefined in POSIX ERE, silently matches nothing); `grep -cE
-   "^\[WARN"` against output that indents its warnings; macOS having no
-   `timeout`, whose `exit 127` reads as a clean `0/0`; a bare-name `git grep`
-   handed a `path::name` node id. Each is a one-off command typed into a shell
-   by an agent, not a prescription in a tracked file, so there is nothing to
-   extract. The *only* reason the rival-pytest cell is reachable is that
-   somebody wrote it down as a convention.
-8. **Any host but this one.** The cells are BSD spellings (`ps -eo`,
-   `sysctl -n vm.loadavg`), and the check asserts them **unconditionally** —
-   there is no `skipif`, by construction: this module's
-   `test_nothing_in_this_module_goes_quiet_on_a_condition` asserts it has none.
-   So on a host lacking them the suite reds, which is AC-1's intent and equally
-   its bound: the prescription is verified where the suite is green and nowhere
-   else.
-9. **The live-log sandbox comparison does not cover this class.** It is
-   deselected there (`SANDBOX_DESELECTED`, with the reason stated beside it):
-   the sandbox mirrors `tests/` and `meta/profiling/` only, so `config.yml` is
-   absent in it, and the comparison asserts every sandboxed test PASSES. This
-   class therefore carries its structural defence (its own planted controls)
-   and not the behavioural one — the only guard in this module with one defence
-   rather than two.
+**So the orchestrator's conclusion was wrong.** After measuring five probe variants at one
+instant and getting 0, 3, 2, 0, 2 against a ground truth of one, it concluded *"no
+one-liner gets this right, so the gate scripts record the PID list instead."* **It had
+tested five forms it invented and never the one `config.yml` already prescribed.** The PID
+list is the right **diagnostic** — and is now what these failure messages print — but *"a
+gate row needs a figure, and a figure needs an instrument with controls,"* which is what
+this card gives it. A generalisation drawn from five self-authored samples while the
+documented instrument sat unexamined is the same sampling error as every other figure
+corrected on this board today.
 
-## Can the `ps`/`pgrep` prescription be made correct at all?
+## Six more corrections it measured, two of them the orchestrator's briefs
 
-**Yes, and it already is — for the board's own runs, which is the whole of what
-the cell is for.** Measured on this host 2026-10-29 with the near-miss proved
-present each time, the prescribed `ps -eo command= | awk '$1 ~
-/[Pp]ython[0-9.]*$/ && /-m pytest/' | wc -l` rises by exactly 1 for a real
-`python -m pytest` and is flat for all four near-misses, including the
-framework-path wrapper that retired its predecessor and the search tool that
-the act of measuring spawns.
+- **`pgrep -fc` does not read 0** — the brief's table says it does. It produces **no
+  reading at all**: exit 2, empty stdout. Sharper, and the distinction AC-1 turns on.
+- **The lock must be checked in the MAIN checkout.** `ls meta/kanban/.full-suite.lock`
+  *inside a card worktree never sees it* — the round did that first, got "No such file",
+  and then had a run refused naming the main checkout's path. **The orchestrator wrote
+  that worktree-relative check into roughly six briefs today**, telling agents to run a
+  blind instrument for exactly R4's reason.
+- **`config.yml`'s truth table had a wrong cell and the summary sentence inherited it** —
+  row 6 recorded (b) = 1; measured, it is **0**, by the same mechanism the table records
+  three rows above. *"ONLY THE LAST ROW PASSES ALL FIVE"* → it passes four. Corrected in
+  place with the correction stated.
+- **A declared bound outlived its instrument** — the "DECLARED BOUND" paragraph is true of
+  the *retired* pgrep form and **false** of the awk form in the file.
+- **The card's own Worktree notes were stale**, naming a prescription retired one revision
+  earlier — and the card's strongest argument rested on the retired form.
+- **The truth table is 7 cases, not the 5 the ACs and the brief both say.**
+- **The module docstring's cost figure is ~2× stale** (16.5–16.7 s, 2026-10-16, against
+  30.4–34.0 s now *without* the new class). Re-measurement added **with its domain** rather
+  than replacing theirs, because two cards were sized against the old one.
 
-It has **one** measured blindness — a pytest started through the
-`.venv/bin/pytest` console script — and that is a declared bound, asserted in
-both directions so it cannot drift, and tolerable only because
-`review.test_command` starts pytest as `-m pytest`, which
-`test_the_board_starts_pytest_in_the_form_the_cell_can_see` now asserts. It was
-**not** widened to `/pytest/` (which does see case (b)) because that counts any
-python process whose argv merely mentions pytest and no control for that
-direction has been measured — widening an instrument without the control for
-the direction you widened into is how this cell got its last two defects.
+---
 
-So it belongs in AC-1/AC-2's executing coverage, not in AC-3's residue. What
-does belong in the residue is the orchestrator's conclusion that "no one-liner
-gets the count right on this host, so record the PID list instead": the PID
-list is the right **diagnostic** and it is now what the failure messages print,
-derived from the prescription by dropping its counting stage so the diagnostic
-cannot describe a different query from the number. But a PID list is not a
-cell: a gate row needs a figure, and a figure needs an instrument with
-controls, which is what this card gives it.
+## Review cycle 1 — **8.0, PASSES `min_score: 8`** — but one finding falsifies a committed ADR sentence
+
+Eleven findings. The reviewer answered all seven brief questions **with witnesses it built
+itself**, two of which the implementation round did not have.
+
+### The split is necessary, proved orthogonal in both directions
+
+- `ps -Ao comm= | awk '/pytest$/' | wc -l` — **executable, exit 0, well-shaped integer,
+  and totally blind** (`comm` is `Python` here). Planted: 28 passed, **only AC-2's positive
+  control red**. So AC-2 is not redundant.
+- The prescribed awk with `| grep -c .` — **reads correctly in every truth-table case** yet
+  exits 1 on a quiet host. AC-1 reds it, AC-2 passes it entirely. So AC-1 is not redundant.
+- **A stronger argument than the round's own**: planting `pgrep -fc` reds `…_exits_zero`
+  but leaves `…_prints_its_declared_shape` **GREEN**, because `wc` prints `0`. **Pipefail
+  is the only thing between that cell and an empty figure.**
+
+### F-001 (high) — the vacuity fix is parametrized over all four negatives but substantively covers three
+
+`test_each_near_miss_probe_is_visible_to_ps` **is** parametrized over d, d2, d3, e, b. But
+for **(e)** the assertion reads `_argv_of(proc.pid)` — the `zsh` that owns the pipeline —
+and **the wrapper's own argv carries the pattern**, so it is satisfied whether or not a
+search tool exists. Mutant: give the grep an unknown flag so it dies on arrival → **29/29
+pass with no search tool on the host.** A second mutant with `grep -q` behaves the same.
+
+**Two tracked sentences are therefore false**: `config.yml`'s *"that immunity is now
+asserted rather than reasoned"*, and **ADR-0039/R4's REACH comment** — *"Each near-miss is
+asserted VISIBLE in `ps`."* The underlying claim is **true** (the reviewer's own harness
+proved the grep child present and the cell flat); the tree simply does not assert it.
+**Three-line fix** — the grep row is already enumerable via `ps -eo pid=,ppid=,command=`.
+
+**This is the card's own subject landing on the card**: a claim that reads true while being
+false, committed into the very ADR comment the card exists to make executable.
+
+### F-004 — "every probe IS killed" is false, and it pollutes the host for other cards
+
+After a clean 29-passed run: **four orphan `sleep 30` and one orphan `grep … -m pytest`**,
+all reparented to pid 1. `proc.kill()` signals the wrapper only. **On a board at
+concurrency 5 this injects case (e)'s own false-positive shape into the host for 30 s per
+run** — so this card's probes can corrupt a *sibling card's* rival-pytest reading. Fix:
+`start_new_session=True` + `os.killpg`.
+
+### F-005 — the hang guard can turn a broken control into no verdict at all
+
+The whole matrix builds inside the **first** node that requests it, and `hang_guard.py`
+arms 120 s in `pytest_runtest_protocol` — which wraps setup — with `exit=True`. Three
+invisible negatives cost **93.30 s** on that one node; with five visibility cases the
+ceiling is **150 s**, past the guard. A broken negative control would then present as **no
+summary line** rather than three named reds — which `config.yml` itself calls *"a
+MEASUREMENT defect, never a tree verdict."* Realized need is ~15× smaller.
+
+### The rest
+
+- **F-002** the visibility assertion has no *standing* control; its sibling new instrument
+  in the same card ships exactly that control, so the asymmetry is internal.
+- **F-006** the sandbox deselect is **over-broad by 18 of 29 node ids** — narrowed to the
+  four matrix-dependent methods, the comparison stayed green. The symlink buys collection
+  and nothing else.
+- **F-007** `config.yml` names five test functions and **nothing asserts any resolves** —
+  the selector keys on the *presence* of a field, never its value, so a rename leaves a
+  silently dead reference. **The first of the three shapes this card exists to catch,
+  inside the file it just made machine-readable.**
+- **F-008** AC-1's declared cost is overstated: `<form> || [ $? -eq 1 ]` exits 0 on a
+  legitimate empty match **and still reds `pgrep -fc`**, whose usage failure is exit **2**.
+  The strong argument was already in the file — grep's *readings* are wrong (the normalized
+  form read **2** with no pytest running) — not that its exit status is unstorable.
+- **F-003 / F-011** the new cost band is already exceeded (35.22 s, 37.85 s against a
+  declared 30.4–34.0), and a wall-clock class figure sits beside session-time module
+  totals. Residue item 3's own shape, on this card.
+- **F-009 / F-010** a test name carries no scope while its docstring does, and three
+  byte-identical copies of the prescription exist in the tree; one residue heading
+  contradicts its body.
+
+### Two answers that corrected the brief's premises
+
+**The unconditional BSD assertions are a FEATURE**, and my question presupposed otherwise:
+**there is no CI in this repo at all** — neither `.github/workflows/` nor `ci/` exists — so
+"cannot pass on Linux CI" is hypothetical, a `skipif` would make "verified here"
+unfalsifiable (R4's exact defect), and the module already forbids one globally. Worth
+naming in whatever brief first proposes a Linux runner.
+
+**The awk form behaves exactly as reported**, reproduced with a second implementation that
+never imports the module under review: **+1** on a real `-m pytest`, **flat on (b), (d),
+(d2), (d3), (e)**, each probe's presence proved by a process-tree walk. *"The
+orchestrator's 'no one-liner gets this right' is correctly refuted."*
+
+### And it declined to transcribe the prescription into its own report
+
+Because two prior review YAMLs do, which is F-009's subject. It also flagged inside its own
+YAML that the ~14 test names it spells — every one verified against a real `def` — **will
+make those names read as alive after a future rename**, because `meta/review/**` sits inside
+the resolver's text search. The hazard declared by the report that creates it.

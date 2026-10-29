@@ -1,6 +1,6 @@
 # CARD-306: The vector puzzle page grows its sheet furniture — folio, frame rules, grid-size label and QR block — because a page with no number cannot ship
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/306-vector-puzzle-page-furniture
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-306
 **Source:** `src/nonogram/admin/book_puzzle_vector.py`'s own module docstring, which raises the gap and names CARD-298 for it; CARD-295's handoff; confirmed by CARD-298's implementation round, 2026-10-29. Cut by the orchestrator on owner decision after CARD-298 hit the scope gate.
 **Idea:** —
 **Wave:** 67
@@ -55,7 +55,7 @@ adopted rather than re-litigated.
    reads — do **not** transcribe coordinates. `_draw_page_frame`'s footer is
    all-or-nothing, so the vector version must be too: a page with a frame and no
    number, or a number and no frame, is a defect, not a degraded state.
-2. **The frame rules**, at the stroke weights ADR-0037/R2 and FR-033 pin. These
+2. **The frame rules**, at the **2-device-pixel dropout floor** (NOT ADR-0037/R2 — see the correction below). These
    already have property tests reading drawn ink
    (`tests/property/test_book_layout.py:364`,
    `tests/property/test_book_two_up.py:682`) which CARD-299 re-expresses against
@@ -98,7 +98,7 @@ adopted rather than re-litigated.
 
 ## Engineering constraints
 
-- **EC(ADR-0037/R2, FR-033):** across a seeded corpus spanning trims, page counts
+- **EC(furniture dropout floor):** across a seeded corpus spanning trims, page counts
   and tier mixes, every frame rule on a vector puzzle page meets the stroke-weight
   floor read from the stream, with a minimum case count asserted inside the test.
 - **EC(all-or-nothing footer):** across the same corpus, the count of pages
@@ -124,7 +124,7 @@ adopted rather than re-litigated.
 - ADR-0042/R1 — interior pages are operators (check: review-lens — NOT this card's to flip)
 - ADR-0042/R2 — a raster page is declared with a reason; an expired declaration is a defect (check: CARD-298's derived guard)
 - ADR-0042/R3 — the writer consumes positions and derives none (check: review-lens)
-- ADR-0037/R2, FR-033 — stroke weights (check: CARD-299's re-expressed stream readings)
+- ~~ADR-0037/R2, FR-033 — stroke weights (check: CARD-299's re-expressed stream readings)~~ — **BOTH HALVES WRONG, see the correction below**: R2 does not bind page furniture, and CARD-299 re-expressed neither named test.
 - ADR-0039/R1 — a claim needs a control that CAN fail; two mutants, one at the claim's edge (check: review-lens)
 - ADR-0039/R2 — a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE (check: review-lens)
 - CON-020 — the 10 pt interior type floor (check: CARD-299's re-expressed test)
@@ -134,7 +134,7 @@ adopted rather than re-litigated.
 
 - **FR:** FR-033, FR-043, FR-030
 - **NFR:** NFR-008
-- **ADR:** ADR-0042 (R1, R2, R3), ADR-0037/R2, ADR-0039/R1-R2
+- **ADR:** ADR-0042 (R1, R2, R3), ADR-0039/R1-R2 — **ADR-0037/R2 removed**, see the correction below
 - **Components:** COMP-009
 - **Trace:** no row is re-stamped here; R1's flip is a later card's.
 
@@ -147,3 +147,121 @@ adopted rather than re-litigated.
   page walk without a cycle. That asymmetry is why the puzzle page is first and
   why the other three need a different assembly point — a fact worth carrying into
   whichever card converts them.
+
+
+---
+
+## Implementation — `560d7e09` → `77b6998d`, 5 commits, 9 files, +2275/−75
+
+**It built `src/nonogram/admin/book_sheet_vector.py` for EVERY interior page kind, not
+just this one** — importing only `book_vector`, `book_vector_draw` and `export.layout`,
+so `book_pdf_generator` can import it exactly as it already imports `book_puzzle_vector`,
+**without the module-level cycle that keeps guide/toc/answer out of that generator's page
+walk.** It wired it to the puzzle page and the two-up page only; the other three kinds
+still carry no frame, and it says so — *"that is the card that converts those three kinds,
+not this one."* `book_puzzle_vector` is **unchanged as a drawer**, and the class asserting
+it draws no sheet furniture stayed true by being re-pointed at its own stream output
+rather than the composed page, so its node ids stayed put.
+
+**No coordinate is written in the module**, held two ways over its own AST, both
+default-DENY: a set equality against a 5-literal allowlist each with its reason, and —
+because of M5 below — **no numeric literal reaches any drawing call as an argument.**
+
+### M5 is the result to read
+
+| mutant | result |
+|---|---|
+| M1 delete the centred folio's draw | 8 failed |
+| M2 footer rule unconditional — *a frame with no number* | 6 failed |
+| M3 centred folio unconditional — *a number with no frame* | 4 failed |
+| M4 transcribe `frame.folio_x` → `1275` | 5 failed |
+| **M5** `to_points(footer_rule.width)` → `to_points(2)` | **first run: 0 failed** |
+
+**M5 is numerically identical on a book page**, so no reading of the page can see it — and
+`2` *has* to be on the value allowlist (the chequer's parity, a centred string's halving).
+It left all 61 tests green. **The round found a blind spot in its own guard and closed
+it** with the call-argument arm; M5 now reds two cells. That is ADR-0039/R1 applied by a
+round to its own work, unprompted.
+
+**The all-or-nothing coupling** is one branch of one `if` on `footer_is_clear`, using
+`_draw_page_frame`'s own expression on the same two figures, and a request carrying QR
+groups for a page with no footer is **refused**, not half-drawn. The corpus exercises
+**both** arms rather than hoping to: **47 of 60 pages carry a footer, 13 do not.**
+
+**G-1 measured, not assumed, and the instrument proved**: PDF bytes are useless because
+`_write_pdf` stamps two timestamps, so it compared **page bitmaps** — all 14 raster
+interior pages byte-identical — and proved the reading discriminates by shifting a centred
+folio 1 px in the base worktree and watching **exactly 3 of 14** digests move.
+
+**AC-4 decided the QR's medium as operators**, and made the other half a **refusal**:
+`write_vector_page` now raises on a stream carrying a `Do` operator, because leaving
+`/XObject` out of the resources only makes an image unreachable to a *viewer* — it does not
+stop the operator being written. Pattern written as an explicit character class, **not
+`\b`**, with a negative control.
+
+**Renders at `~/Documents/nonogram-reviews/CARD-306/`** — vector single and two-up **with
+their raster twins beside them** for direct comparison; the round looked at all four and
+reports them visually indistinguishable. **Node ids 236 → 259: 23 added, 0 removed, 0
+renamed, 0 skipped.** One skip in the blast radius and it is not this card's.
+
+## THE CARD AND THE ORCHESTRATOR'S BRIEF WERE BOTH WRONG ABOUT ADR-0037/R2
+
+The card claimed `ADR-0037/R2` in **four** places and the orchestrator's brief repeated it
+(*"stroke weights are pinned by ADR-0037/R2 and FR-033 — use the pins"*). **ADR-0037's own
+History settles the opposite**, at `0037-…md:290`:
+
+> *R2 binds the **puzzle grid's** rules and nothing else. Page furniture — the interior
+> header rule, the footer hairline, a divider — is NOT a grid rule and never was … so it
+> needs no exemption from R2 and **must not claim one**.*
+
+**And that History entry exists because CARD-222 read it exactly the way this card did**
+(*"SCOPE, clarified 2026-10-17 after CARD-222's review read it the other way"*) and then
+wrote a formal exemption that was **measured vacuous.** So the card, and the brief, walked
+into the precedent the ADR was amended to prevent — and the round refused the pins,
+holding its EC against the **real** authority instead: the 2-device-pixel dropout floor
+applied inside `interior_frame` by `_pt_to_px_at_least`, measured at **3 px** (header,
+0.6 pt) and **2 px** (hairline, 0.4 pt) at 300 DPI, claiming **no R2 exemption**. The four
+claims are struck above; the correction is recorded in ADR-0042's History at `67633853`.
+
+### Two more card figures measured wrong
+
+- **CARD-299 re-expressed neither named property test.** The card says
+  `test_book_layout.py:364` and `test_book_two_up.py:682` are *"re-expressed against the
+  stream by CARD-299, so this card's rules must satisfy the re-expressed versions."* Both
+  are **still pixel readings** of the **raster** page's grid area — unaffected by vector
+  furniture, both green. **There was no re-expressed version to satisfy.**
+- **G-1's "21 book baselines" is not a named artefact.** The nearest is
+  `book_corpus.BASELINE_PAGE_COUNT = 14`, and G-1 was discharged against what exists.
+
+### A new instrument trap, same family as the day's others
+
+`MODS="a.py b.py"; pytest $MODS` — **zsh does not word-split an unquoted variable**, so it
+becomes ONE argument naming a file that does not exist; pytest exits 4 with *"no tests
+collected"*, and a node-id diff computed from it reads **"0 tests, 0 removed, 0 added."**
+The round's first delta came back `base=0 head=0` for exactly that. **This board has hit
+this before** — an earlier fix round used `${=MODS}` for the same reason — so it is a
+recurrence, not a discovery, and belongs beside `\b`, the `^`-anchor, macOS `timeout` and
+`-q` stacking in every brief.
+
+### It also repaired an expired declaration reason
+
+`_RASTER_DECLARATIONS` is untouched (CARD-309's and CARD-231's), **but the PUZZLE entry's
+reason** said *"book_puzzle_vector draws no sheet furniture at all … so a vector puzzle
+page would print with no page number on it"* — true this morning, **false now.** The round
+corrected the reason to name the reader conversion as what remains, leaving `expires_with`
+alone, on the ground that *"a declaration whose reason has expired is precisely what that
+registry's own `_landing_findings` has a class for."*
+
+### Three residuals declared, each measured
+
+The typed QR link sits **9 device px (0.76 mm)** lower in vector than raster — Pillow's
+`"lb"` anchor is the *ink box's* bottom where this package's vector convention takes the
+row as the **baseline**; identical to the pixel for the folio and the two labels, only the
+link descends, and the property that matters (ink lands inside the footer strip, clear of
+the margin) is asserted instead. Pillow paints rectangles **inclusively** and a PDF `re`
+does not, so a raster chequer module's ink is 1 device px wider — the test compares module
+**boxes** and explicitly does not claim ink equality. And guide/toc/answer still carry no
+frame, which is the converting card's work.
+
+**CARD-309's prerequisite is discharged**: it can now convert the puzzle page without
+shipping pages that have no number, and `vector_two_up_page` is covered too.
