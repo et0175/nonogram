@@ -322,8 +322,15 @@ renamed** — matches the card. One skip in the blast radius, attributed by name
 residual as **35 px** where the test asserts and the reviewer re-measured **9**, and the
 sentence is unfinished; the 2-px floor is attributed in **four places** (including ADR-0042's
 new History entry) to `_pt_to_px_at_least`, which applies a **ceiling** —
-`_pt_to_px_at_least(0.2) == 1` — so the floor is held by **the chosen point constants**, which
-makes this card's new EC *more* load-bearing, not less; and `_XOBJECT_PAINT`'s `[ \t]` class
+`_pt_to_px_at_least(0.2) == 1` — so the floor is held by **the chosen point constants**.
+**CORRECTED by fix round 1:** the review went one step further and said this card's new EC is
+*the only thing in the tree* that would catch a future point constant below the floor, and
+**that is wrong — measured.** Planting `INTERIOR_FOOTER_RULE_PT = 0.2` out of tree reds **four**
+cells, two raster and two vector, one of them a pre-existing property test. The EC is the
+**vector medium's** reading of a floor no function applies, not the only reading. The round had
+already written the review's stronger wording into three sites **before** measuring it, and then
+corrected all three — the day's own defect family, caught one layer in. The sub-floor band is
+also *"at or below 0.24 pt"*, not *"below"*: `_pt_to_px_at_least(0.24) == 1` while `(0.2401) == 2`; and `_XOBJECT_PAINT`'s `[ \t]` class
 covers **2 of PDF's 6** whitespace characters, so `"q\n/Im0 Do\nQ"` escapes, while
 `(Scan Do now) Tj` **false-fires** — latent on a line **CARD-210 is scheduled to edit**.
 **F-305 low** — the one AC-3 cell that reddened under the plant failed on its own
@@ -348,7 +355,122 @@ hundred** YAMLs name this symbol — so it resolves alive, raises no warning, an
 falsely even if ADR rule refs were checked, which they are not** (CARD-319).
 
 - [Review 1/3] Score: 8.5 ✓ threshold reached (0 gating findings, certifies: true)
-- [Fix 1] Dispatched on F-301, F-302, F-303, F-304, F-305 — four of the five are a refuted
+- [Fix 1] `5d95abc3` — see below. Dispatched on F-301, F-302, F-303, F-304, F-305 — four of the five are a refuted
   figure, a wrong mechanism attribution in four places including an ADR History entry, a
   pattern narrower than its own domain, or a control that reds for the wrong reason. The score
   cleared; ADR-0039/R4 still obliges the retraction.
+
+---
+
+## Fix round 1 — `77b6998d` → `5d95abc3`, 4 files, +510/−75
+
+Cumulative `560d7e09..5d95abc3`: **9 files, +2718/−83** — same file set, so `Touches` above still
+holds. Nothing pushed, rebased or stashed; `meta/kanban/cards/` untouched. The lock was checked
+by absolute path three times and absent each time.
+
+### F-301 — it widened the guard rather than narrowing the claim, and the choice is the right one
+
+**2 of 14 shapes caught → 14 of 14.** The reason given for choosing option 1 is the one that
+decides it: narrowing the claim would have satisfied honesty while leaving **the one value the
+closure exists for** reachable by a one-line edit, and **AC-3's own words are "a second
+transcription is a FAILURE"** — a narrowed claim does not satisfy that AC. Option 2's escape set
+was enumerable but unbounded in practice; option 1's is two named shapes.
+
+The cell keeps its name (G-3) and is now **two** default-DENY conditions: a **position** arm
+(every numeric literal occupies one of a named position set — a zero field default, a comparison
+against zero, an operand of `%`/`/`/`+` whose other side is not a literal; **`Assign` and
+non-zero `AnnAssign` are not positions, which is what closes the binding**) and a **reach** arm
+(no numeric literal inside a **method** call's arguments at any depth through any expression —
+every mark the module makes is a method on `stream`, so this is the test's own name read
+*transitively* rather than at one syntactic slot). **R2 is satisfiable in the form R2 asks for**:
+the authority is the module's own census — **nine** literals in **three** position kinds, a
+census the round *ran* rather than took from the review — and any other position is reported as
+a failure naming the parent node instead of read as an absence.
+
+Caught after the fix where they were missed before: module constant, local variable, tuple, list,
+starred tuple, dict value, f-string, default argument, `f(1+1)`, `f(-2)`, class attribute,
+comprehension. The **value** arm never rises on any of them, which is the point. **End-to-end
+positive control**: the review's own plant now reds with
+`[(229, 2, 'UNJUSTIFIED: inside Assign.value', None)]`. **Residual escape set is stated in the
+cell's docstring** — a `0`/`0.0` field default later read as a coordinate, and an arithmetic
+operand over a frame-read value whose result never passes a method call. Neither is a
+transcription of a measured figure, and a *nudge* (`to_points(footer_rule.width + 2)`) is
+measured **caught**.
+
+### F-305 — and the review's own framing hid something
+
+The plant is now an **AST** mutation and the anchor is located **structurally**, asserted as its
+own named check. Measured both ways: with the binding planted and the anchor intact, the guard
+cell reds on detection **and** the control cell reds on its own near-miss assertion — both real;
+with the anchor replaced, the control cell reds **saying the anchor moved**, which is no longer
+readable as a catch. That is precisely the fix: before, that red was the *only* one and it read
+as a catch. **The anchor had to be narrowed because there are two `to_points(<…>.width)` calls in
+the module** — `draw_page_rule`'s `rule.width` as well — which the review's single-needle framing
+hid.
+
+### F-304 — all six whitespace characters, and the string body handled rather than documented
+
+`_XOBJECT_PAINT` now builds its boundary class from named `_PDF_WHITESPACE` (6 chars,
+ISO 32000-1 §7.2.2) and `_PDF_DELIMITERS`, over a row whose string bodies have been blanked.
+**18 shapes, 0 mismatches**; the per-character sweep fires on all six (was 2 of 6), including the
+appended `q\n/Im0 Do\nQ` the old class missed. Silent on `/Im0Do`, `<446F>`, `(Done. Do) Tj`,
+`(Dodo) Tj`, `(Do) Tj`, the escaped-delimiter form, and **`(Scan Do now) Tj`** — the false
+positive. The round chose to **handle** the string-body case rather than caveat it, ~30 lines,
+*"makes the docstring's existing sentence true instead of needing a caveat"*. Two limits are
+stated in code rather than left implicit: a `%` comment is deliberately not interpreted (this
+vocabulary writes none, and treating one as a comment would let a `Do` inside it pass), and a row
+with an unterminated literal is refused outright if it contains `Do` at all.
+
+**This also discharges the latent risk F-304 named**: CARD-210 edits the footer link line, and
+`(Scan Do now)` is measured silent.
+
+### F-302 / F-303 — the figures, and a third correction the review did not list
+
+**F-302**: the unfinished *"35 px at the book's 300 DPI…"* is now *"9 device px, 0.76 mm, at the
+book's 300 DPI — the face's own ink descent at the footer's size, 42 px of type whose declared
+ascent/descent is (39, 10)"*, re-measured independently of the test with its own Pillow render
+(`lb` vs `ls` ink rows): offset 0 for `001`, `20 x 25` and `Solve it online`, **offset 9** for the
+typed link; 9/300 in = 0.762 mm. **And the review was wrong that 35 is not any figure in this
+system** — `type_px(8.5, 300) == 35`, the interior clue type size, named in two places. The fix
+names that provenance rather than calling 35 unattributable.
+
+**F-303**: fixed in **three** code sites plus ADR-0042's History entry; the fourth place was the
+card body and is corrected above.
+
+**A third review claim measured wrong, and this one is the interesting one.** F-301's shape list
+asserts that an attribute constant and a comprehension-built argument *do* rise under the old
+guard. Both **MISSED**. The only thing that made any shape rise was a bare `Constant` sitting in
+some call's args — so the old guard's reach was **narrower** than the review's own enumeration
+implied, not wider. The review's enumeration was itself a claim about an instrument, made without
+running it.
+
+### Numbers
+
+**Node ids 259 → 261**, +2, 0 removed, 0 renamed, no parametrize id moved — re-derived from a
+`git archive` tree with `${=MODS}`, **both sides returning non-zero counts**, so the "0 tests, 0
+removed, 0 added" shape did not occur. The two additions are the six-character sweep with its
+five string-body negatives, and `test_the_writer_refuses_a_multi_line_appended_paint` — the row
+the old class missed, end to end through the writer. **That second one is the cell that would
+have been green before the fix, so it is what makes the widening load-bearing.**
+
+Runs: impact at **18** modules (the review's 16 plus the two other `book_vector` consumers the
+`Do` change reaches) → **1008 passed, 0 failed, 0 skipped**, 3–4 min; baseline consumers plus
+touched modules → **366 passed, 1 skipped**, 25–35 s; `tests/test_cli.py`, the structural
+layering and component-map guard → **135 passed**; the card's own module → **65 passed**.
+**One skip, attributed by name** — `test_book_pdf_memory.py`'s
+`test_the_same_pair_under_an_address_space_cap_the_kernel_enforces`, macOS `setrlimit(RLIMIT_AS)`,
+that file 0 lines changed. **No load figure.** Mutants in copies outside the repository, each
+deleted, `__pycache__` swept, no `.pyc` written in the worktree, **no `git stash`**.
+
+### Owed, and not to this card
+
+**F-307** — `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` now names a claim that
+is false of the shipped page. The class body is honest and controlled; the **name** is the debt,
+and it belongs to **CARD-309**, which converts the page and will delete or re-point the class.
+Recorded there.
+
+- [Fix 1] `5d95abc3` — all five in-scope findings closed with measurement on both sides; the
+  round re-measured and corrected its own prose once, and corrected the review three times.
+- [Gate] Merge gate next. The round's verdict, which I accept: a cycle 2 would re-review prose
+  that is now instrumented, and what it would **not** reach is the full suite, which is the
+  gate's job.
