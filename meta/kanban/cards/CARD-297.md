@@ -1,6 +1,6 @@
 # CARD-297: The table of contents and the answer pages as operators — the solution tiles, their headers, and the QR slot
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/297-toc-and-answer-pages-as-operators
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-297
+**Worktree:** — (removed at merge)
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 (the non-puzzle pages, less the guide — CARD-296 — and less the dividers, which the owner left raster). Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 64
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
-**Review score:** 7.0 → **8.5 cycle 2/3 CERTIFIED** (3 minor, none blocking, no cycle 3)
+**Review score:** 7.0 → **8.5 cycle 2/3 CERTIFIED** (3 minor, none blocking; merged on cycle 2)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-29
+**Actual:** 1d (estimate 1d — on estimate)
+**Merge commit:** `73fa5cb2`
 **Blocked by:** —
 
 ## What to implement
@@ -584,6 +584,56 @@ instrument.
 **Rebase is a no-op for content**: `git merge-tree` against current main is
 clean, and main has changed **none** of this card's five paths since the
 merge-base. `family_regression` does not fire.
+
+## [Post-merge — merged `73fa5cb2`, wave 64 closed]
+
+**Merge gate (green):** 9657 passed / 27 skipped / 1 xfailed / **0 failed, 0
+errors**, exit 0, **1096.66 s (18:16)**, `rival-pytest 0 → 0`, load 5.62 → 3.30.
+Collection **9685 = 9657 + 27 + 1**, and **9685 = main's 9581 + 104** — this
+card's own addition, reconciling exactly at both ends. Skips attributed: 26 ×
+`DATABASE_URL is not set`, 1 × `setrlimit(RLIMIT_AS)`, both pre-existing.
+
+**AC/EC/G gate:** **84 passed / 0 skipped / 0 failed** by node id across all nine
+classes the ACs, ECs and system contract name. Deferral scan 0. ADR-0006/R1's
+substance was checked another way, because its own ref is dead (below):
+`pyproject.toml` **0 diff lines**, and every one of the 16 import lines the branch
+adds under `src/` is intra-project or stdlib/Pillow/NumPy.
+
+**Wave 64's smoke test is satisfied by IDENTITY, not skipped.** Main's tree at
+the merge is `18132001…`, **byte-identical** to the gated tree, and the gated
+tree already contained CARD-301's merge `46e74741` as an ancestor. So the full
+suite on the merged target branch holding both of the wave's cards *is* the gate
+that ran. The only change since is `meta/architecture/trace.yml`; its **one
+actual reader** — `tests/test_nfr001_generation_time.py`, CARD-301's new trace
+control — was re-run with three other registry readers: **226 passed, 1 xfailed,
+0 skipped**. The other nineteen files that mention `trace.yml` only name it in
+prose (attribute by test, not by file).
+
+**Trace write-back:** +10 tests across FR-033 (+1), FR-040 (+2), FR-041 (+2),
+FR-042 (+4), FR-043 (+1). Every added name was verified to resolve as a
+**definition** rather than prose before being written — the discipline this
+wave's own findings exist to enforce. All five rows keep `status: partial`:
+other open cards name them, CARD-298 and CARD-299 among them.
+
+### Recorded as NOT closed, so the merge is not misread
+
+- **This card ships no reader-visible change.** Both writers are wired to
+  nothing: zero call sites in `src/`, and `book_pdf_generator.py` byte-identical
+  to main. **CARD-298** is what makes these pages reach a book.
+- **The clip divergence is declared, not fixed**, and is latent until that
+  happens.
+- **F2-01 is owed to CARD-298**: the AC-3 guard derives its door set from
+  `vars(cls)`, so a drawing door inherited from a base class would be invisible —
+  cycle 2 built that case and a `stream.hatch` grid walk was admitted with both
+  guard cells green. Not live at HEAD. It must ship with its control in the same
+  commit, which is why it was not taken on a last cycle.
+- **ADR-0006/R1's check ref is dead, and that is this card's gate telling the
+  board something.** `TestDependencyBaseline_IsExactlyPillowAndNumpy` has **zero
+  definitions anywhere** and is text-resolved by **110+ files** — the scored
+  backlog, ~107 review YAMLs from CARD-030 to CARD-251, and two prose mentions in
+  `tests/`. The dependency baseline has read as mechanically checked for months
+  on a test that never existed. Pre-existing and not this card's; recorded
+  because this card's AC/EC gate is where it finally surfaced.
 
 ## Worktree notes
 

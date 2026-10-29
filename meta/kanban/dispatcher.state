@@ -1411,7 +1411,7 @@ active:
     check, strictly stronger than git grep -lw -- and the rename mutant kills it.
     Verified directly at tests/test_nfr001_generation_time.py:412-420.
 - id: CARD-297
-  phase: CERTIFIED 8.5 cycle 2/3 — awaiting its merge gate (serialized behind CARD-301's)
+  phase: MERGED 73fa5cb2 — done, worktree and branch removed
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
   branch_head: 85414ac7
   implementation: "5 files +3210/-0; hotspot untouched; G-6 exact; ZERO pixel sites converted"
@@ -1526,3 +1526,74 @@ owed_at_merge:
   - "_draw_difficulty_dots is genuinely dead in src/ -- zero references of any kind, deliberate and pre-existing (CARD-228 x3 cycles, CARD-241 G-4, CARD-296 pre-gate). THREE separate cards have now independently re-measured this zero and each paid a round for it. Candidate for a standing rule rather than a fourth re-measurement; NOT CARD-297's to fix."
   resolved_into_the_card:
   - "trace.yml:539 -- moved from owed_at_merge into fix round 1 as cycle 1's F-3, and trace.yml added to this card's Touches."
+
+# ── 2026-10-29, WAVE 64 CLOSED ───────────────────────────────────────────────
+# Both cards certified on cycle 2 of 3 and merged on green gates, within the day.
+# Merges ran SEQUENTIALLY, never with concurrent full suites, and each gate
+# recorded rival-pytest 0 -> 0.
+wave: 64
+mode: interactive
+max_concurrent_override: 2
+wave_64_complete:
+  cards: [CARD-301, CARD-297]
+  at: 2026-10-29
+  merges: {CARD-301: 46e74741, CARD-297: 73fa5cb2}
+  gates: >-
+    CARD-301: 9553 passed / 27 skipped / 1 xfailed / 0 failed, 1103.62s, collection
+    9581 = 9553+27+1. CARD-297: 9657 / 27 / 1 xfailed / 0 failed, 1096.66s, collection
+    9685 = 9657+27+1 AND = main's 9581+104. Both reconcile at both ends.
+  smoke: >-
+    Satisfied BY IDENTITY, not skipped: main's tree 18132001 is byte-identical to
+    CARD-297's gated tree f3b8be78, which already held CARD-301's merge 46e74741 as an
+    ancestor -- so the full suite on the merged branch holding both of the wave's cards
+    IS the gate that ran. The only change since is meta/architecture/trace.yml's
+    write-back; its ONE actual reader (tests/test_nfr001_generation_time.py, CARD-301's
+    own new trace control) was re-run with three other registry readers: 226 passed,
+    1 xfailed, 0 skipped. The other 19 files that mention trace.yml name it only in prose.
+  validator: "0 errors, 107 warnings through forge_1, unchanged by either merge or the trace write-back"
+  trace_write_back: "CARD-297: +10 tests across FR-033 (+1), FR-040 (+2), FR-041 (+2), FR-042 (+4), FR-043 (+1); every added name verified to resolve as a DEFINITION before writing; all five rows keep status: partial"
+  board: "264 done / 37 ready / 0 in progress / 1 parked / 0 review / 2 blocked = 304, re-derived from all 304 Status: fields; the Ready column's rendered bullets also count 37"
+findings_that_outlive_the_wave:
+- >-
+  A review YAML was measured SILENCING A LIVE WARNING on main. AC-038's dead check ref
+  TestGenerate_50x50_RespectsTimeoutBound resolved nowhere at c2a45cf6 (validator 0/108);
+  after the CARD SYNC PROTOCOL copied CARD-301's cycle-1 report in, it resolves inside
+  that report and the warning is gone (0/107) -- with nothing repaired and the test still
+  nonexistent. The sync protocol therefore erodes dead-ref detection over time, and a
+  falling warning count is not evidence of repair.
+- >-
+  ADR-0006/R1's check ref TestDependencyBaseline_IsExactlyPillowAndNumpy has ZERO
+  definitions anywhere and is text-resolved by 110+ files: backlog-scored.yml, ~107 review
+  YAMLs spanning CARD-030 to CARD-251, and two prose mentions in tests/. The dependency
+  baseline -- the rule CLAUDE.md singles out as needing the decision revisited -- has read
+  as mechanically checked for months. The limit case: the two tests/ mentions alone defeat
+  any meta/review exclusion, so the only repair is resolving refs against a definition.
+- >-
+  A byte-length-preserving mutant restored within the SAME SECOND leaves a __pycache__
+  entry that still validates (timestamp .pyc stores source mtime at 1-second resolution
+  plus size), so the next run imports the MUTANT'S bytecode off a tree git status calls
+  clean. Cost: a baseline recording pass printed two FAILs against an unmutated tree while
+  every blob hash checked out. Fix: PYTHONDONTWRITEBYTECODE=1 plus a cache sweep around
+  every mutant.
+- >-
+  The orchestrator's own two instrument defects, both caught before they corrupted a
+  figure: a merge-gate lock written as PROSE rather than key: value lines, which CARD-255's
+  foreign-holder guard correctly refused in 1 second (exit 4, no summary line -- the shape
+  that reads like a red suite); and a verdict nearly read off a 0-BYTE validator output
+  file before the process had written anything.
+- >-
+  The orchestrator corrected itself in the WRONG direction on a stale memory, announcing it
+  had "been running the wrong validator all session" when forge_1 was right all along. The
+  plugin cache's ADR-0025 error is a regex bug (it counts "supersedes" and "superseded by"
+  as two edges); the honest error count is 0. Root cause was already in backlog.md from
+  CARD-284's fix round 2. Memory reversed; forge_1 is the validator of record.
+active: []
+closed_last:
+- id: CARD-297
+  phase: merged 73fa5cb2
+  note: >-
+    Ships NO reader-visible change -- both writers are wired to nothing (zero call sites in
+    src/, book_pdf_generator.py byte-identical to main). CARD-298 is what makes these pages
+    reach a book, and it also owes F2-01, the base-class hole in AC-3's door derivation.
+queued:
+- CARD-298   # wave 65, P2, architectural; depends on CARD-295/296/297 -- all now done
