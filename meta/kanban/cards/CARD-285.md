@@ -1,6 +1,6 @@
 # CARD-285: Hosting and counting — the player goes public without storing anyone's IP
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/285-player-hosting-analytics
-**Worktree:** —
+**Branch:** card/285-player-hosting-and-counting
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture "Usage tracking" + the static-hosting decision (owner, 2026-10-23, commit 8b0ca0e2); backlog.md "A public online solver" ("the work is hosting + the public surface, not the game")
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-283, CARD-284
 **Touches:** player/**, docs/deploy/player.md, scripts/**, tests/test_public_player_pages.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

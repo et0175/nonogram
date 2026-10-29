@@ -1982,3 +1982,58 @@ card_307_rescope:
   live_scope_refs: 7
   census: "580 distinct refs over four authorities; 23 node-id form; 20 of those resolve"
   superseded_figures: "469 refs / 33 node-id form -- both wrong; trace.yml's tests: lists were omitted entirely"
+
+# ---- ACTIVE LIST CORRECTED + CARD-285 DISPATCHED (2026-10-29) ----
+# BOOKKEEPING ERROR, the orchestrator's: when CARD-299 was dispatched its card
+# file and board.md were updated but THIS FILE'S `active` list was not, so the
+# live state said one card in flight when two were. Found while checking slots
+# for CARD-285. Both are restated below.
+#
+# SLOT CAP DELIBERATELY EXCEEDED, on the owner's instruction "dispatch 285":
+# this is THREE cards in flight against max_concurrent_override 2. Recorded as a
+# decision rather than an accident. What makes it tolerable:
+#   - CARD-285's Touches intersect BOTH in-flight cards EMPTILY (player/**,
+#     scripts/**, docs/deploy/player.md, tests/test_public_player_pages.py vs
+#     adr/0042 + requirements.yml + six book modules, and adr/0039 + one new
+#     test module). No shared path, no shared hotspot.
+#   - it is 0.5d, the smallest card in flight.
+# What it costs, stated because it is real: the full-suite lock is SCOPE-BLIND,
+#   so whichever card reaches a merge gate first stalls the other two for ~20
+#   minutes, and tests that spawn a nested pytest FAIL rather than wait (nine
+#   did during CARD-298's gate). Three concurrent rounds also mean more load on
+#   an 11-core box already running at 7-11.
+#
+# WHY THIS CARD, now: the owner asked whether the player could be deployed
+# independently. Measured answer: yes -- player/assemble.py is a standard-library
+# -only site assembler that emits a self-contained tree including its host's
+# rewrites, and no admin route serves the player. BUT the three acceptance
+# criteria that would PROVE it (self-contained output, pages working with
+# analytics blocked, no visitor IP touched) are the three with no test at all --
+# two honestly dead, one alive only through review reports. CARD-285 closes
+# exactly those three, writes docs/deploy/player.md (absent today; only the
+# admin panel's render.md exists), and delivers the URL base CARD-210 is blocked
+# on. Note the limit: creating the Vercel account and domain is the OWNER's
+# action, so this card delivers the artifact, the script, the doc and the tests
+# -- not a live site.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: implementation complete, awaiting review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  branch: card/308-the-sync-erodes-dead-ref-detection
+- id: CARD-299
+  wave: 66
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  branch: card/299-interior-claims-read-the-stream
+- id: CARD-285
+  wave: unscheduled
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+  branch: card/285-player-hosting-and-counting
+  estimate: 0.5d
+queued: [CARD-307]
