@@ -367,3 +367,40 @@ the ambiguous cases, not work.
 these five buckets (honest gap · false-alive-no-test · false-alive-test-exists ·
 guarded-shim · reported-dead-test-exists), because "dead or alive" is the
 distinction that hid the problem.
+
+## [Added 2026-10-29 after CARD-298's review cycle 2 — ADR-0042/R2's new ref is a shim, and it is already revived]
+
+The partition above gains a live member, and it was created **by this board's own
+pipeline within the day**.
+
+CARD-298 flipped ADR-0042/R2 from `review-lens` to
+`check: {kind: test, ref: test_every_raster_page_is_declared_with_its_reason}` — a
+**bare name**, correctly, because the node-id spelling measures as a dead ref.
+Measured on `main` the same day, under the validator's own pathspec:
+
+```
+git grep -lw "test_every_raster_page_is_declared_with_its_reason" \
+    -- . ':(exclude)meta/architecture' ':(exclude)*.md'
+→ meta/review/20261029T073500Z-CARD-298-cycle1.yml     # CARD-298's OWN cycle-1 review report
+
+git grep -lE "^[[:space:]]*(def|class)[[:space:]]+test_every_raster_page_…" -- tests/
+→ nothing on main — the test lives on CARD-298's branch
+```
+
+So **right now R2's ref reads alive on `main` with no test behind it at all**, and
+the sole resolver is the review report the orchestrator synced. Once CARD-298
+merges the test arrives and the answer becomes right — but the **mechanism stays
+prose**, exactly as with ADR-0042/R4: delete or rename the test later and R2 keeps
+reporting alive off the review YAML.
+
+The excludes are built at `validators/utils.py:336-338` as exactly
+`[":(exclude)<arch_root>", ":(exclude)*.md"]`, so `meta/review/**`,
+`meta/kanban/**` and `meta/profiling/**` are all in domain.
+
+**Do not "fix" this by changing the spelling.** The alternative is strictly worse —
+a fresh DEAD ref, measured at 107 → 108. R2 belongs in the **bare-name-respelling**
+partition as an *already-done* instance whose resolution is nonetheless prose, and
+this card's enumeration should report it that way rather than as repaired. It is
+the clearest available example of why the repair is forge-side: a correctly-spelled
+bare-name ref, a real test, and a resolution that still does not look at the
+definition.

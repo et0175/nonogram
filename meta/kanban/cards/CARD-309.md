@@ -165,3 +165,39 @@ as the one that removes them.
 - **The incremental path exists only because CARD-298's refusal is default-DENY.**
   Without it, converting one kind would mean converting all five in one commit to
   keep the suite green. Do not trade that away for convenience (G-6).
+
+## [Added 2026-10-29 after CARD-298's review cycle 2 — five declarations name this card, and a cell reds the day it closes]
+
+Review cycle 2's amendment 3: this card's body never mentioned
+`_RASTER_DECLARATIONS`, yet **five of ADR-0042/R2's raster declarations name
+CARD-309 in their `expires_with`** — TITLE, GUIDE, TOC, ANSWER and PUZZLE, each
+paired with CARD-299.
+
+**So there is a test that reds the day this card is marked `done`.**
+`tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it`
+walks the board's card files and fails when **every** card named in an entry's
+`expires_with` has reached `done` while the entry is still present. CARD-299 and
+CARD-309 are the pair; the cell fires when the **last** of them closes.
+
+Two consequences for this card's round, neither optional:
+
+1. **Removing a kind's declaration is part of converting it, not a follow-up.**
+   Item 1 already says each removal must be complete; this is the mechanical
+   consequence — close this card with any of the five entries still in the registry
+   and that cell reds on `main`. The paired refusal in `_write_pdf` is what makes
+   the removal safe to do one kind at a time.
+2. **If this card converts only some kinds, it must not be marked `done`** — or it
+   must re-point the surviving entries at whatever card finishes the job, in the
+   same commit. Say which, explicitly. An `expires_with` is a claim about who
+   removes the exception, and cycle 1 of CARD-298 was gated for getting exactly
+   that claim wrong.
+
+**And one thing this card inherits rather than discovers.** The landing check's
+verdict is a function of the **main working tree's** card directory, not of a
+commit (CARD-298's F2-001, measured: imposing ordinary-checkout semantics reds it
+with *"Left contains one more item: 'CARD-309'"*). That is a false RED and never a
+false green, and CARD-298 states the bound honestly in the docstring. **The
+direction worth taking — hoisting the check into the board's own gate, where the
+board is the subject rather than a neighbour — is NOT this card's**, and a
+conditional skip would be an ungated door. If it has been carded by the time this
+runs, that card is the owner; if not, raise it rather than absorb it.
