@@ -344,3 +344,34 @@ without opening it:
 The full suite still runs at the merge gate. This is a per-cycle gate only, and
 it is not the definition of done.
 
+
+---
+
+## `assemble_player_site.py` — the public player's deployable site
+
+Not an admin-panel script either. It assembles the **public player** (COMP-011,
+CARD-285): one output directory that *is* the static site a host serves.
+
+```bash
+./.venv/bin/python scripts/assemble_player_site.py \
+    --bundle build/player-bundle --out build/site
+./.venv/bin/python scripts/assemble_player_site.py --out build/site --analytics
+./.venv/bin/python scripts/assemble_player_site.py --print-only
+```
+
+The first line is the **uncounted** tree and that is the default: counting is
+opt-in, so only a run that passes `--analytics` writes the GoatCounter snippet.
+`docs/deploy/player.md`'s drift rule is "do not count locally", and the default
+is what keeps it rather than a flag somebody remembers.
+
+**It is a driver, not an assembler.** Every byte of the tree is written by
+`player/assemble.py`; this script writes no file and copies nothing. The one
+thing it adds is reading the GoatCounter endpoints out of
+`docs/deploy/player.md` and passing them on the command line — those values are
+owner-managed, that page is the allow-list `tests/test_public_player_pages.py`
+scans the assembled site against, and `player/assemble.py` stays
+standard-library-only and knows nothing about `docs/`.
+
+Read `docs/deploy/player.md` before deploying: it has the owner steps, the QR
+URL base and the three URL shapes, and what is owner-managed rather than
+repo-managed.

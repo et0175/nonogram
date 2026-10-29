@@ -12,6 +12,12 @@ library and nothing else (ADR-0006/R1 untouched).
 
     python player/assemble.py --bundle build/player-bundle --out build/site
 
+``scripts/assemble_player_site.py`` is the end-to-end driver a deploy uses
+(CARD-285): it reads the counting endpoints out of ``docs/deploy/player.md``
+and delegates everything else here. It writes no file of its own, because a
+second assembler would be a second place for :data:`COPIED_FROM_ADMIN`'s
+byte-identical copies to drift.
+
 What it produces
 ----------------
 ::
@@ -29,6 +35,12 @@ What it produces
     puzzle/<key>.json   one REBUILT file per bundle puzzle (see below)
     index.json          the REBUILT library index        (see "The two listings")
     book/<slug>.json    one REBUILT file per bundle book (see "The two listings")
+
+Each published ``.html`` also carries ONE counting snippet
+(:data:`ANALYTICS_SNIPPET`), and only when ``--analytics-count`` /
+``--analytics-script`` are given. Default: no snippet, which is what every
+fixture and every local run assembles, so the pages render with it absent as
+the ordinary case rather than as a case written for a test (CARD-285, AC-391).
 
 The two copies are copies and not forks: ADR-0041/R3 requires the board-state
 module to be reused from ``src/nonogram/admin/static/solver_state.js`` by
@@ -264,6 +276,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 __all__ = [
+    "ANALYTICS_MARKER",
+    "ANALYTICS_SNIPPET",
     "COPIED_FROM_ADMIN",
     "CAPACITY_CEILING_BITS",
     "DETERMINED_BY_CLUES",
@@ -299,6 +313,7 @@ __all__ = [
     "served_puzzle",
     "tier_narrowed",
     "title_narrowed",
+    "with_analytics",
 ]
 
 #: This file's directory (``player/``) and the repository root above it. Used
@@ -367,6 +382,77 @@ COPIED_FROM_ADMIN: dict[str, str] = {
     "src/nonogram/admin/static/solver_state.js": "solver_state.js",
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
+
+# --------------------------------------------------------------------------
+# Counting (CARD-285, DEC-046/ADR-0041): one script tag, injected once
+# --------------------------------------------------------------------------
+
+#: The counting snippet — GoatCounter's, and **the only copy of it anywhere in
+#: the repository** (card item 3: "include-once across all player pages").
+#:
+#: It is injected here rather than written into the three ``player/*.html``
+#: documents, and the reason is a measurement rather than taste. Three hand-
+#: written copies are three things to keep in step, and the two holes below
+#: are *owner-managed values* (a GoatCounter site code the owner registers),
+#: which a repo file is the wrong place for: ``docs/deploy/player.md`` holds
+#: them, ``scripts/assemble_player_site.py`` reads them out of that page, and
+#: this module never learns where they came from. One definition, one place
+#: that holds the value, and a page that carries the tag exactly once —
+#: :func:`with_analytics` refuses a document that already has it.
+#:
+#: Nothing on the pages waits for it: the tag is ``async`` and no player code
+#: reads ``window.goatcounter``, which is what makes "the pages render fine
+#: with it blocked or absent" a property of the markup rather than a hope
+#: (AC-391). ``async`` also means the browser never blocks parsing on an
+#: endpoint it cannot reach.
+#:
+#: It is a script TAG and not a package: the runtime dependency baseline
+#: (ADR-0006/R1) is untouched, which is G-2, and no npm artefact appears in
+#: ``player/`` (``tests/test_public_player.py::test_the_player_tree_is_static
+#: _and_adds_nothing_to_the_package``).
+ANALYTICS_SNIPPET = '<script data-goatcounter="{count}" async src="{script}"></script>'
+
+#: What :func:`with_analytics` recognises an already-counted document by. The
+#: attribute rather than a URL, because the URLs are supplied per run and a
+#: marker that varied with them could not detect a second injection with a
+#: different endpoint — which is the shape "include-once" actually forbids.
+ANALYTICS_MARKER = "data-goatcounter"
+
+#: Where the tag goes. Exactly one occurrence is required in every document
+#: the injection touches, so a page that lost its head, or grew a second one
+#: in a comment, is a failure here rather than a page counted twice.
+ANALYTICS_ANCHOR = "</head>"
+
+
+def with_analytics(html: str, *, count: str, script: str) -> str:
+    """``html`` with one :data:`ANALYTICS_SNIPPET` before ``</head>``.
+
+    Both endpoints must be absolute ``https`` URLs with no quote in them, and
+    the document must not already carry the tag. Each of those is a
+    :class:`ValueError` rather than a silent pass-through, because every one
+    of them is a way for the deployed site to end up counting somewhere the
+    allow-list in ``docs/deploy/player.md`` does not name — which is AC-392's
+    subject, and a scan after the fact is a worse place to catch it than the
+    one line that writes it.
+    """
+    for name, url in (("count", count), ("script", script)):
+        if not url.startswith("https://"):
+            raise ValueError(f"the analytics {name} endpoint is not an https URL: {url!r}")
+        if '"' in url or "'" in url or "<" in url or any(c.isspace() for c in url):
+            raise ValueError(f"the analytics {name} endpoint is not a bare URL: {url!r}")
+    if ANALYTICS_MARKER in html:
+        raise ValueError(
+            f"this document already carries {ANALYTICS_MARKER}, so injecting "
+            "would count the page twice"
+        )
+    if html.count(ANALYTICS_ANCHOR) != 1:
+        raise ValueError(
+            f"a document with {html.count(ANALYTICS_ANCHOR)} {ANALYTICS_ANCHOR} "
+            "cannot be counted exactly once"
+        )
+    tag = ANALYTICS_SNIPPET.format(count=count, script=script)
+    return html.replace(ANALYTICS_ANCHOR, f"{tag}\n{ANALYTICS_ANCHOR}", 1)
+
 
 #: Where the rebuilt puzzle files go.
 SITE_PUZZLE_DIR = "puzzle"
@@ -1168,12 +1254,21 @@ class AssembleReport:
     number as the bundle's books: two finalized books with identical
     membership are one public slug (ADR-0041/R7), and a book file the schema
     refuses is in ``refused`` instead.
+
+    ``counted`` is every published page the counting snippet was injected
+    into, and it is empty for a run with no ``--analytics-count``. It is in
+    the report rather than inferred from the flag so that "which pages are
+    counted" is a fact the run states: the snippet goes into every published
+    ``.html``, so a page added to :data:`PLAYER_FILES` and not counted shows
+    up as a difference here rather than as an endpoint nobody notices is
+    missing.
     """
 
     site_dir: Path
     puzzle_count: int
     capacity_bits: float
     book_count: int = 0
+    counted: tuple[str, ...] = ()
     dropped: tuple[tuple[str, str], ...] = ()
     narrowed: tuple[tuple[str, str], ...] = ()
     refused: tuple[tuple[str, str], ...] = ()
@@ -1291,7 +1386,11 @@ def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
 
 
 def assemble(
-    bundle_dir: Path | str | None, out_dir: Path | str, *, force: bool = False
+    bundle_dir: Path | str | None,
+    out_dir: Path | str,
+    *,
+    force: bool = False,
+    analytics: tuple[str, str] | None = None,
 ) -> AssembleReport:
     """Write the deployable site into ``out_dir``. Read-only against the input.
 
@@ -1301,6 +1400,15 @@ def assemble(
     input and nothing a previous run left behind survives into a deploy — but
     only once :func:`check_out_dir` has agreed that the directory is one a
     previous run wrote (or ``force`` says to go ahead anyway).
+
+    ``analytics`` is ``(count endpoint, script URL)`` or ``None`` (CARD-285).
+    ``None`` is the default and is what every fixture and every local run
+    uses, so the counted tree is the one the deploy doc's command produces and
+    nothing else — the pages "render fine with it absent" because absent is
+    the ordinary case, not a case written for a test. The two values are not
+    defaulted here on purpose: they are owner-managed, they live in
+    ``docs/deploy/player.md``, and a default in this file would be a second
+    place that holds them.
     """
     capacity = check_capacity()
     check_listing_capacity()
@@ -1316,8 +1424,16 @@ def assemble(
     _write(site / SITE_MARKER_FILE, SITE_MARKER_TEXT)
 
     copied: list[str] = []
+    counted: list[str] = []
     for source, published in PLAYER_FILES.items():
-        _write(site / published, (PLAYER_DIR / source).read_text(encoding="utf-8"))
+        text = (PLAYER_DIR / source).read_text(encoding="utf-8")
+        # Every published .html, derived from the table rather than listed:
+        # a page added to PLAYER_FILES is counted by being added, not by
+        # somebody remembering this loop (ADR-0039/R2).
+        if analytics is not None and published.endswith(".html"):
+            text = with_analytics(text, count=analytics[0], script=analytics[1])
+            counted.append(published)
+        _write(site / published, text)
         copied.append(published)
     for source, published in COPIED_FROM_ADMIN.items():
         origin = REPO_ROOT / source
@@ -1404,6 +1520,7 @@ def assemble(
         puzzle_count=count,
         capacity_bits=capacity,
         book_count=books,
+        counted=tuple(sorted(counted)),
         dropped=tuple(sorted(dropped)),
         narrowed=tuple(sorted(narrowed)),
         refused=tuple(sorted(refused)),
@@ -1429,7 +1546,27 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="erase --out even when it is not a directory a previous run wrote",
     )
+    parser.add_argument(
+        "--analytics-count",
+        default=None,
+        help="the GoatCounter count endpoint; docs/deploy/player.md holds it",
+    )
+    parser.add_argument(
+        "--analytics-script",
+        default=None,
+        help="the GoatCounter script URL; docs/deploy/player.md holds it",
+    )
     args = parser.parse_args(argv)
+    # Both or neither: a run given one of the two would otherwise write a tag
+    # pointing at half an endpoint, and a typo in one flag name would silently
+    # assemble an uncounted site.
+    if (args.analytics_count is None) != (args.analytics_script is None):
+        parser.error("--analytics-count and --analytics-script go together")
+    analytics = (
+        None
+        if args.analytics_count is None
+        else (args.analytics_count, args.analytics_script)
+    )
     if args.capacity:
         print(
             f"{free_capacity_bits():.2f} bits of free capacity in the "
@@ -1476,9 +1613,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.out is None:
         parser.error("--out is required unless --capacity is given")
-    report = assemble(args.bundle, args.out, force=args.force)
+    report = assemble(args.bundle, args.out, force=args.force, analytics=analytics)
     print(f"{report.puzzle_count} puzzles into {report.site_dir}")
     print(f"  {report.book_count} book landings")
+    if report.counted:
+        print(f"  counted ({args.analytics_count}): {', '.join(report.counted)}")
+    else:
+        print("  not counted: no --analytics-count, so no snippet was injected")
     for listing, key in report.unresolved:
         print(f"  unresolved {key}: {listing} names it and no puzzle file was served")
     if report.unlisted:
