@@ -597,9 +597,29 @@ All 580 digests collision-free, measured. **Replayed against the real live event
 the cut's 30-member honest-dead set against today's 28 — it raises and names **both**
 departed refs as SIGNAL LOSS, each with its single resolver and `defined at (nowhere)`.
 Deliberately **not** extended to the four large classes, with the reason measured: no
-single mechanical question exists for them, and their closure is the partition
-arithmetic, verified to close — **373 + 166 + 13 + 28 = 580**, and **386 = 13 + 373**.
+single mechanical question exists for them. ~~and their closure is the partition
+arithmetic, verified to close — **373 + 166 + 13 + 28 = 580**, and **386 = 13 + 373**~~
+— **that half is WITHDRAWN, see cycle 3 below.**
 G-2 holds: a digest is not a ref, and the module's trie over its own bytes returns `[]`.
+
+<!-- WITHDRAWN 2026-10-30 by the orchestrator, which wrote it. The retired clause called
+the partition arithmetic a "closure, verified to close". Cycle 3 measured it a
+**TAUTOLOGY** — over 2000 random synthetic populations the two identities were violated
+**0 times**, because the four predicates partition on `(bool(loose), bool(strict))` and
+`defined` is the union of two cells. **Neither sum can ever red.** "Verified to close" was
+true and meaningless: I verified that an identity holds, and reported it as if a control
+had passed.
+
+The DECISION it was defending is right, for a reason cycle 3 supplied and I had not: a
+**count-preserving swap** leaves `FALSELY_ALIVE` at 166 and **moves its digest**, so
+detection is closed for all four classes **by the digests**, and only *naming* is not.
+Fix round 3 replaced the argument in the module itself and labelled the sums a
+consistency check rather than a mechanism.
+
+This correction is the card's own subject turned on the card: a figure stated as a
+measurement when nothing could have refuted it. ADR-0039/R4 covers exactly this and
+executes nothing — which is why **CARD-304** now carries R4's flip to an executing check,
+stamped into wave 67 by the waves 63-65 retrospective. -->
 
 ### The five pins that red against main — re-derived against a def/class
 
@@ -763,3 +783,106 @@ reporting a pre-existing xfail the way pytest prints it would have made that rep
 tracked resolver for it. The bare name is not a ref, so that is what the report writes.
 **Caught by the self-check, not by care** — this card's thesis, on its third reviewer
 running.
+
+---
+
+## Fix round 3 — under the owner's decision, no cycle behind it — `3fab6828` → `bb7da562`
+
+One commit, two files (`tests/test_check_ref_resolution.py`, ADR-0039), +362/−54.
+**Every mutant and region probe ran out of tree** in a separate `python -I` process
+rebinding the authority paths — **no tracked file was modified and no stash was taken**
+(`git stash list`'s newest entry is still 2026-09-23), so **CARD-315's plant window was
+never opened**. That is the discipline fix round 2 failed and this round kept.
+
+It also **confirmed the lock holder was alive** (CARD-285's gate pytest at 29m42s) rather
+than assuming a stale lock, did all reading and editing first, and ran nothing until the
+lock cleared — so **no figure here is lock collateral**.
+
+### Item 1 — the region notion is total, and each of the four shapes is a row that reds
+
+Three patterns changed (`_DECLARATION_KEY`, `_BLOCK_SCALAR`, `_FENCE`); the region helper
+now tracks the fence's **marker character** and takes a `label` so it can refuse by name.
+
+| shape | after | mutant that reds its row |
+|---|---|---|
+| commented block-scalar opener | opener recognised, body is prose — nothing collected, nothing raised | drop `(?:#.*)?` → *"INVENTED a ref … 5 refs derived instead of 4"* |
+| `~~~` fence | candidate inside it **raises**, naming file and line | `_FENCE` back to backticks only → *"was SILENTLY SKIPPED instead of raising"* |
+| unclosed fence | fails naming **the fence** — *"this ``` code fence is never closed"* | neuter that raise → the refusal names the prose line instead |
+| quoted key | candidate claimed by nothing → **raises**, naming file and line | drop the quote group → reds as a silent skip |
+
+**Two deliberate shape decisions, both recorded rather than silent.** The invention row is
+the only one asserting *the opposite of a raise* — nothing raised **and** nothing collected
+— because the default-deny structurally cannot reach the inventing direction. And the
+quoted key was made a **candidate** rather than taught to the five narrow patterns, which
+is a **declared deviation from the brief**: the brief asked for the quote allowed in each
+narrow pattern; the round widened only the declaration key, on the module's own rule
+*"do not widen a narrow pattern until it swallows the shape without reading it"*, because
+the brief's shape would have added **four latent, live-untested collection paths**. R2
+permits "classified or raising", and raising is the safe half.
+
+**Every pass cycle 3 verified was re-driven, not reasoned about** — and the live
+`0042:153` prose line still does not raise, measured precisely: `_DECLARATION_KEY` **does**
+match that line, and it is not a candidate **because it is outside every fence**. Region
+figures re-derived exact: **68** anchored candidates inside fences across the ADRs, **432**
+in `requirements.yml` (421 `test:` + 11 `check:`), **75** in `trace.yml` (64 block + 11
+inline). All four shapes **re-measured latent by the round itself**: 0 commented openers,
+0 `~~~` fences, 0 quoted keys, every ADR's fence parity even, all 46 fence lines exactly
+three backticks.
+
+### Items 2–4
+
+**Item 2**: `Declared.sources` carries `<authority>:<line>` on **all four** authorities;
+all **6** form-route refusals name a line and **26 of 26** rows assert it. The control
+weakness is closed properly — `want` is derived **independently**, by reading the written
+file back off disk and locating the probe line **with a uniqueness assertion**, and both
+halves were shown load-bearing by isolating which control catches each mutant.
+
+**Item 3**: the argument is replaced in the module, with the sums kept as a consistency
+check **explicitly labelled as not a mechanism**. (The card's own copy of the withdrawn
+claim is corrected above — the round was forbidden to touch `meta/kanban/` and said so.)
+
+**Item 4**: the withdrawal count is now emitted **unconditionally** via `warnings.warn`
+where it is computed, instead of only inside an assertion message that renders when
+`losses` is non-empty. Mutant `if withdrawn:` → `if False:` reds it. The green half runs
+under an `"ignore"` filter so the suite's warning count is unmoved — which is why 980 is
+unchanged.
+
+### Nothing moved that was not meant to
+
+All nine pins, the census **580**, forms **bare 556 / nodeid 23 / path 1**, both stored
+per-member sets (**15**, **28**), 580 digests collision-free, G-2's trie `[]`, validator
+**0 errors / 100 warnings / 23 no-definition** — every one re-derived **exact**. **Node
+ids +0/−0** (9786, module 22): the four region rows are data rows inside the existing
+matrix cell and item 4's control is inside the existing case-4 cell, which is exactly what
+cycle 3 scoped. Impact scope 36 modules: **3459 passed, 11 skipped, 1 xfailed, 0 failed**
+— identical to cycle 3 on the same 36. All 11 skips `DATABASE_URL is not set`, enumerated
+by name, none a gate.
+
+### Three corrections it made, and one is to a trap the orchestrator invented
+
+- **Cycle 3's `--base` explanation was right about the number and wrong about the reason.**
+  It said `--base 3fab6828` yields 0 *"because it is HEAD"*. Measured: the 0 depends on the
+  **tree being clean** — with fix round 3 uncommitted, `--base 3fab6828` yielded **31**.
+  Honest form: *a base equal to HEAD with no uncommitted changes yields 0.*
+- **Cycle 3's runtime band is already stale**: 16.07–22.84 s against its 10.80–18.47 s, on
+  the same machine within the hour, with CARD-285's gate overlapping part of it.
+- **The orchestrator's `grep -c '\[WARN'` trap DID NOT FIRE, for the second round running** —
+  it returns **100, exit 0**, agreeing with the validator's own summary. The trap as the
+  briefs stated it is **wrong**: the failure was the `^` **anchor** in the orchestrator's own
+  pattern (`grep -cE "^\[WARN"`) against output that indents its warnings, not the pattern
+  `\[WARN` itself. A mis-stated trap propagated into three briefs and cost two rounds a
+  verification each. Retired.
+
+### Residuals it found and deliberately did NOT fix, scope being closed
+
+- **`_FENCE` compares the marker character but not its length** — CommonMark requires the
+  closing fence to be at least as long as the opener, so a 4-backtick opener closed by 3
+  closes here and should not. Latent: all 46 fence lines are exactly three backticks.
+- **`_BLOCK_SCALAR` accepts `key: >-#x`** with no space before the `#`, which YAML does not
+  treat as a comment. It errs toward treating prose *as* prose — the non-inventing
+  direction — and cannot swallow a declaration key, because the key test runs first.
+- **A new way for an ADR edit to red the suite**: any ADR leaving a fence unclosed now
+  fails the derivation. Fail-closed, and the message names the fence and says *"Close the
+  fence"* — but the gate should know it exists.
+- The seventh `both-agree` baseline is still unpinned, and the `path`-form class is still
+  size 1.
