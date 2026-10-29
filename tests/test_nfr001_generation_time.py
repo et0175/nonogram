@@ -35,19 +35,22 @@ Measured on CARD-301's branch (Mac15,6 / Apple M3 Pro, Python 3.14.3, pytest
 9.1.1), with ``-o addopts=''`` throughout so the stacked ``-q`` could not
 swallow a count:
 
-* the gate costs **13.98 s** of call time (``--durations=0`` on this module
-  at HEAD). Four readings, because a timing is a claim and its control is
-  recomputation: 13.85 s measured through pytest before the move, 13.97 s
-  driven directly with no pytest in the picture, 13.98 s through pytest here,
-  14.22 s as the standalone ``-m`` door including interpreter start. The
-  spread is the solver's own noise;
-* every other name in this module costs **0.02 s** or **0.00 s**, so the nine
-  collected tests add **14.00 s** (setup + call + teardown, summed from the
-  rows) to every full-suite run — against a suite of 1433.47 s on the board's
-  last committed profile (``meta/profiling/suite-durations-20261023.txt``),
-  **0.98 %**, and inside the run-to-run spread CARD-218 measured as "tens of
-  seconds". Fourteen tests in that profile are individually slower than this
-  gate, the slowest at 81.03 s;
+* the gate costs **14.0 s** of call time (``--durations=0`` on this module at
+  HEAD). Five readings, because a timing is a claim and its control is
+  recomputation: 13.85 s through pytest before the move, 13.97 s driven
+  directly with no pytest in the picture, 13.98 s and 14.00 s through pytest
+  here, 14.22 s as the standalone ``-m`` door including interpreter start.
+  The 0.4 s spread is the solver's own noise, which is why this is carried to
+  one decimal;
+* every other name in this module costs **0.02 s** or less, so the ten
+  collected tests add **14.03 s** — every setup, call and teardown row of the
+  module summed, 30 rows over 10 tests, counted from the rows and not from
+  the summary line — to every full-suite run. Against a suite of 1433.47 s on
+  the board's last committed profile
+  (``meta/profiling/suite-durations-20261023.txt``) that is **0.98 %**, and
+  inside the run-to-run spread CARD-218 measured as "tens of seconds".
+  Fourteen tests in that profile are individually slower than this gate, the
+  slowest at 81.03 s;
 * the gate settles after 6 of 20 samples. The same corpus with the early exit
   disabled costs **40.79 s** and puts 6 of 20 over the cap at p95 = 5.001 s,
   which is what this gate will cost on the day the margin narrows enough to
@@ -269,6 +272,35 @@ def test_the_gate_carries_card_018s_strict_xfail_marker_unweakened() -> None:
     assert "do not remove it on partial data" in reason
     assert "35/38/40%" in reason
     assert "CARD-018" in reason
+
+
+def test_the_benchmarks_own_instrument_still_measures_a_request() -> None:
+    """The one hole a strict xfail cannot cover: a broken benchmark reads green.
+
+    **Measured, not reasoned** — CARD-301's mutant M7 renamed
+    ``gate_verdict`` out of the benchmark, so the gate raised
+    ``AttributeError``; ``xfail`` absorbs any exception, so the gate reported
+    XFAIL, exactly as it does for a missed cap. A strict xfail therefore
+    cannot witness its own instrument, and ``xfail`` is G-5's to keep rather
+    than this card's to reshape. So the instrument is driven here instead,
+    outside the marker: one request at the corpus's cheapest point (density
+    60, measured 0.008 s), through the same
+    :func:`tests.bench_generate._time_one_request` the gate times every sample
+    with.
+
+    What is asserted is the shape the gate's arithmetic depends on — a
+    positive elapsed time and an outcome from the three the function's
+    docstring names — and ``"unique"`` specifically, which is a statement
+    about the pipeline and not only about the timer: ADR-0015 makes this
+    request deterministic and it finishes three orders of magnitude inside
+    the default budget, so neither the abandoned nor the timeout branch is
+    reachable here.
+    """
+    elapsed, outcome = bench_generate._time_one_request(60, bench_generate.SEEDS[0])
+
+    assert elapsed > 0.0, elapsed
+    assert outcome in {"unique", "abandoned", "timeout"}, outcome
+    assert outcome == "unique", (elapsed, outcome)
 
 
 def test_the_benchmark_module_declares_no_name_pytest_would_have_to_collect(
