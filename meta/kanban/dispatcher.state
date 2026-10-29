@@ -1733,13 +1733,29 @@ wave_65_opened:
 #   AWAITING OWNER: the slice decision. Options recorded in the user-facing report.
 active:
 - id: CARD-291
-  phase: review cycle 1
+  phase: merge gate (full suite, holds the lock)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
   implementation_head: 02a24694
+  cycle_1: "9.0 CERTIFIED, no gating findings, 4 minor + 3 informational"
+  fix_after_certification: "F-001 taken anyway, commit 2eb93c2a -- a ref resolving to a SKIPPED function is not a checked one. Measured: @pytest.mark.skip above any of the five left the resolve test GREEN and the file at '36 passed, 1 skipped'. Both directions of the fix proved to bite by the orchestrator (skip mark -> reds :2066; _silenced -> return [] -> reds the control :2128). General form folded into CARD-307, whose AC-3 now needs three mutants not two."
+  ac_ec_g_gate: "AC-393..396 + EC-051 by node id: 5 passed, 0 skipped, 0 failed. G-1..G-5 verified structurally; G-4 with ZERO fixture edits; node ids +38/-0."
+  rebased_onto: 6761c899
+  gate_head: 34e62d5d
 - id: CARD-298
-  phase: review cycle 1 (against the NARROWED card)
+  phase: fix round 1 (after cycle 1 scored 7.0)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
   implementation_head: 283164a9
+  cycle_1: "7.0, DOES NOT CERTIFY against min_score 8. Two blocking findings, both verified independently before the fix round was dispatched."
+  cycle_1_blocking:
+  - "F-001 GATING: ADR-0042/R2's check is still review-lens at adr/0042:403, with a comment directly beneath saying 'The test now EXISTS and is green' and naming three node ids. The round justified it as leaving the flip to the merge 'as this board does' -- that convention DOES NOT EXIST: CARD-227 flipped in 7d86a869 feat(book) and CARD-294 in 0c63a328 feat(book-export), both in their own feature commit, measured by git log -S."
+  - "F-002: the five expires_with name CARD-299, which converts NO page (its Touches names no file under src/). AND the guard cannot notice: _declaration_findings fires the expiry finding only on `declaration is not None and _RASTER not in media`, i.e. only when a medium actually CHANGED. expires_with is read in exactly two places -- a message string and a re.fullmatch(CARD-\\d+) FORMAT check -- and nothing reads a card's status. So a declaration goes silently stale on the day its own expiry card lands, and R2's own CARD-231 clause is unguarded in the landing direction."
+  cycle_1_survived: "All four default-DENY claims real (both two-branch spellings misclassify both _UNCLASSIFIABLE probes). All four AST pins RE-DERIVED not bumped, by running each instrument on the BASE source as well as HEAD's. The widened zigzag assertion is a widening -- still an equality, over nine names instead of one, with unclassified == ('zigzag',) verbatim; and no metaclass leakage in CPython 3.14, so F2-01 is a true no-op at HEAD."
+  orchestrator_residues_fixed: "Cycle 1 caught three stale spots the narrowing pass left: item 4 still said 'Record the new baselines', the worktree note still demanded the WITHDRAWN fixtures exception be enumerated, and AC-5's size/time readings sat under a re-record heading. All three corrected in place with the reason marked. Round 1 did take the figures, so AC-5 is discharged."
+  correction_to_the_reviewer: "It said scratchpad/card298/ast_delta.py 'exists nowhere'. It EXISTS, in this session's scratchpad at an absolute path outside the repo -- but tests/test_book_export_interior_cover.py:3651 cites it RELATIVELY, so it resolves nowhere from the repo and dies with the session. Finding stands, wording does not."
+  owner_decisions_2026_10_29:
+  - "expires_with: CUT THE CONVERTING CARD and point the five at it -> CARD-309, committed 59f84f16."
+  - "landing-direction gap: CLOSE IT in fix round 1. The guard reads card status from meta/kanban/cards/, a new tests->board coupling, built deliberately: a missing or unreadable card FAILS (ADR-0039/R2), with its own control over SYNTHETIC card files in tmp_path because at HEAD no declaration is stale."
+
   escalation: "scope_gate clause 2: covered 3 of ready sibling CARD-299's 8 Touches; CARD-299 declares Depends on CARD-298 while this card's R1 half depended on CARD-299 -- a cycle"
   escalation_resolved: "owner decision 2026-10-29: NARROW to the mechanism card. 13 amendments, each marked, implementation untouched -- the slice was wrong, not the work. ADR-0042/R1's flip and the 21 baselines move out; AC-1 is now the medium-agreement statement and says so; AC-5 inverts to 0 baselines move; the declared set is recorded as SEVEN with its derivation; G-3's fixtures exception withdrawn; G-6 now requires R1's lens to SURVIVE. The cycle is broken because CARD-298 no longer needs CARD-299. Reviewer reads the card from the MAIN repo -- the worktree copy predates the narrowing, since /commit excludes meta/."
 cards_cut:
@@ -1757,6 +1773,15 @@ cards_cut:
     why: "the sync protocol erodes the detector (a review YAML was measured silencing a live main warning, 108 -> 107, nothing repaired) AND the board records no validator of record, which both wave-65 rounds fell into by quoting the plugin cache's phantom ADR-0025 error."
 findings_recorded_on_other_cards:
   CARD-299: "it is TEST-SIDE ONLY, so (a) ADR-0042/R1's flip is not its either, (b) the 21 baselines do not move in it, and (c) the five expires_with: CARD-299 declarations CARD-298 shipped NAME THE WRONG CARD -- no card on the board converts the interior pages at all. Its Depends on: CARD-298 is now correct and the graph is acyclic. Its readers must be medium-agnostic, driven off page_medium, which is the only order that works."
+instrument_finding_third_instance:
+  what: "CARD-298's cycle 1 measured main 106 / branch 107 and reached the right conclusion: 107 is the HONEST count and main's 106 is the DEPRESSED one."
+  why: "The extra warning is NOT CARD-298's. It is FR-046/AC-395's dead check ref, which main SILENCED when it acquired CARD-291's cycle-1 review YAML in 93d04a50, and which CARD-298's branch (cut earlier) still correctly reports."
+  significance: "THIRD measured instance of CARD-308's mechanism, and the FIRST where a card branch reads WORSE than main because of it. A naive branch-vs-main warning comparison at CARD-298's merge gate would read as 'CARD-298 adds a warning', which is false. Compare warning SETS and attribute every difference by name."
+cards_cut_later_same_day:
+- id: CARD-309
+  wave: 68
+  commit: 59f84f16
+  why: "CARD-298's cycle 1 found the hole by asking who discharges five expires_with entries, and the answer was NOBODY. ADR-0042/R1 says the four interior kinds ARE operators; four cards built the writers and every one still has zero real call sites in src/. CARD-298 was the wiring card until narrowed; CARD-299 is test-side only. So the phase had a medium decision point, five writers, readers about to convert, a declaration registry -- and nobody who turns a page into operators. Nothing shipped to a reader across the whole phase. CARD-309 owns R1's flip (with the LAST conversion, not before), the 21 baselines, and the decision on CARD-297's declared clip divergence. Incremental only because CARD-298's representation refusal is default-DENY, which its G-6 protects."
 board_regenerated:
   at: 2026-10-29
   from: all 307 card files
