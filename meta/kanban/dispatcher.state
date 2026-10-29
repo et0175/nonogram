@@ -2326,3 +2326,83 @@ active:
   phase: fix round 1 (cycle 1 scored 7.0, three gating)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: [CARD-307]
+
+# ---- ALL THREE FIX ROUNDS LANDED (2026-10-29) ----
+# CARD-299 f0304cb9 | CARD-308 3f3012a4 | CARD-285 79ecafcb. Every gating finding
+# across all three is closed. All three are ready for review cycle 2.
+#
+# MAIN IS TWO WARNINGS QUIETER THAN HONEST, AND I AM THE CAUSE. Measured: main
+#   reads 100, FR-045/AC-390 and AC-391 have NO def on main, and the SOLE
+#   resolver for each is meta/review/20261029T130000Z-CARD-285-cycle1.yml --
+#   the file I synced. I checked it for CARD-285's own endpoint landmine and
+#   never for CARD-308's dead-ref hazard: the wrong hazard on the right file,
+#   after I had written the rule warning about exactly this.
+#   OPERATIONAL CONSEQUENCE, and it binds the next three gates: comparing a
+#   branch's warning count to main's is UNSOUND unless the review YAMLs are held
+#   equal. A branch cut before the sync reads LOUDER and looks like it added
+#   warnings -- which is precisely what CARD-299's branch does at 102 against
+#   main's 100. It self-heals when CARD-285 merges, because its fix round has
+#   the two defs.
+#   The sync itself stays mandatory (CARD-308/G-3). What changes is the check
+#   before it: every path::name a YAML spells, resolved against a def/class.
+#
+# WHAT THE THREE ROUNDS EACH DID THAT IS WORTH REMEMBERING:
+#   CARD-299 made its refusal set DERIVED by reading src/ with ast over Call
+#     nodes, and the reason is measured: book_guide_vector DISCUSSES the clue
+#     drawer at length in its own comments without calling it, so a text search
+#     would have exempted the guide page -- the one interior lettering CON-020
+#     does not exempt. Its control is a second reading off the live spy
+#     recording, different medium, no shared code.
+#   CARD-308 reported the one count that MOVED (defined 382 -> 385) as a finding
+#     rather than pasting a digest over it -- its own repair-vs-signal-loss rule
+#     demonstrated on itself -- and refused to call the six unchanged baselines
+#     design: "the fix removes the silence, not the luck."
+#   CARD-285 found that its own first Worker probe measured the wrong pattern:
+#     the mutant that drops Worker SURVIVED it, because the URL-literal pattern
+#     reads any quoted host whatever call surrounds it. A probe whose value
+#     another pattern already reads measures the other pattern.
+#
+# FIVE FIGURES OF MINE CORRECTED BY THE ROUNDS, and the pattern across them is
+# one failure, not five:
+#   - "18 files read pdf_pages" -> 12. 18 MENTION the string; one matched only
+#     because three of its node ids end in _pdf_pages. A mention count is not a
+#     reader count -- and the bad figure had already reached CARD-309's AC-3,
+#     now corrected there.
+#   - ADR-inline refs 44 -> 43 distinct from 45 occurrences. Same error class.
+#   - the clue-digit finding was never in the ADR, so "the understatement
+#     propagated there" was wrong; the round ADDED it in corrected form.
+#   - _conditional_silences is in test_suite_profile.py, which I had right
+#     before mis-propagating a correction about two sibling functions.
+#   - PyYAML is absent from pyproject.toml entirely, so a test-side import is a
+#     collection error on a bare checkout -- my brief called it tolerable.
+#   THE PATTERN: four of the five are a figure or a location carried from a
+#   report into a brief without being re-derived. The rule now in memory: no
+#   file:line and no count passes into a brief without a fresh measurement, and
+#   a correction about a neighbour is not a correction about the thing.
+#
+# ALSO LEARNED, worth not rediscovering: validating a git archive COPY is
+#   invalid -- 77 warnings against the worktree's 102, because the copy has no
+#   .git and the staleness and drift checks fall silent. Isolate a meta delta by
+#   swapping files in the worktree instead, which is what CARD-299's round did.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: fix round 1 landed f0304cb9, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: fix round 1 landed 3f3012a4, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: fix round 1 landed 79ecafcb, ready for review cycle 2
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+main_warning_count_is_depressed:
+  measured: "main 100, honest 102"
+  cause: "a review YAML the orchestrator synced is the sole resolver for two dead refs"
+  binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"

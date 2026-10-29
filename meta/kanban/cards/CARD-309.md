@@ -90,9 +90,16 @@ as the one that removes them.
   the edge: the last kind converted, and a kind converted while its declaration is
   left behind.)
 - **AC-3** (the readers survive): *Given* the converted interior, *then* every test
-  module that reads a book interior passes — the 14 modules plus 3 helpers that
-  went through `tests/helpers/pdf_pages.py`'s one-image assertion before CARD-299
-  converted them. A module that needs a further edit here is a **finding about
+  module that reads a book interior passes — the **12 test modules** that import
+  `tests/helpers/pdf_pages.py`'s one-image reader. <!-- CORRECTED 2026-10-29 by
+  CARD-299's fix round: this said "14 modules plus 3 helpers", which was the
+  orchestrator's figure and does not reproduce. Measured: 18 files MENTION the
+  string, 14 import something from the helper, and only 12 import the one-image
+  reader itself -- `tests/helpers/book_corpus.py` imports only `pdf_page_count`
+  (which asserts nothing about images), `tests/test_book_toc.py` only `same_page`,
+  and `tests/property/test_book_pdf_geometry.py` imports it ZERO times, matching a
+  grep only because THREE OF ITS NODE IDS END IN `_pdf_pages`. A mention count is
+  not a reader count. --> A module that needs a further edit here is a **finding about
   CARD-299's completeness**, to be raised, not absorbed.
 - **AC-4** (the baselines move once, enumerated): *Given* the branch, *then* the
   re-recorded baselines are listed file by file in the card, the count is stated,

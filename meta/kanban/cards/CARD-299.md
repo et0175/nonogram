@@ -595,3 +595,107 @@ and CARD-309 will read it as a promise.** Scale, re-derived by the orchestrator:
   diff, two readings, and the card should say which.
 - The Trace line still says the trace row "is re-stamped in this card"; **no re-stamp
   happened and none was needed.**
+
+## [Fix round 1 — both gating findings taken, and the refusal set is DERIVED, 2026-10-29]
+
+`eed831ea` → **`f0304cb9`**, one commit, 4 files **+558/−54**. `src/` **0 files**,
+`tests/fixtures/` **0 files** across both commits; `meta/kanban/` and `meta/review/`
+untouched. Validator at HEAD: **0 errors, 102 warnings**, and the round **isolated its
+own meta delta** by swapping the two meta files back in the worktree and re-running —
+also 102, warning set byte-identical under `comm -3`, so its change has **zero**
+validator delta.
+
+### F-001 — taken, and the set is derived rather than listed
+
+The brief's figures reproduce exactly, including on `min-trim`. `assert kind.value !=
+"puzzle"` is replaced by **two** derived assertions: a VECTOR page of a kind with **no
+vector writer in `src/`** is a FAILURE naming what it owes (ADR-0039/R2), and
+`kind.value not in CLUE_DIGIT_KINDS`.
+
+**The derivation reads `src/` with `ast` over `Call` nodes, not with a text search —
+and the reason is measured**: `book_guide_vector` *discusses* `_write_clues` at length
+in its own comments (`:235-245`) without calling it, and the guide's worked example is
+precisely the lettering CON-020 does **not** exempt. **A text search would have
+exempted the guide page.** Derived output: `CLUE_DIGIT_KINDS = ['answer', 'puzzle']`.
+
+**Its control is an independent second reading** off the **live spy recording**, keyed
+on CON-020's own `EXEMPT_CALLERS` — different medium, different mechanism, no shared
+code — asserting both say `{answer, puzzle}`. So a renamed drawer empties the AST
+reading and **reds there** instead of quietly refusing nothing. Plus an ADR-0039/R3
+non-absorption control and the R2 arm driven on `divider`.
+
+**M1** (revert to `!= "puzzle"`) reds `test_a_vector_answer_page_refuses_too`; **M4**
+(delete `book_answer_vector.py:403`'s `draw_clue_digits` call) reds **two** cells — the
+derivation control *and* the answer refusal — proving the derivation really reads
+`src/`.
+
+**A consequence to carry forward, and it is CARD-231's:** a vector **divider** page
+will now fail with *"no vector writer for that kind"*. `divider` has no
+`book_divider_vector.py` and no `vector_divider_page`. That is R2 behaving as
+specified, and CARD-231 — which makes the divider **born vector** — must either add
+the writer or declare the kind.
+
+### F-002 — taken, prose corrected, CARD-309 named
+
+The finding reproduces (lift TITLE's declaration, export, `pdf_pages(data)` →
+`KeyError: b'XObject'`). The claim at `:425-427` is replaced with the honest version:
+the **helpers** are medium-agnostic, **this module's call site is not**, and the file
+now states explicitly that **CARD-299 does not finish the reader conversion and no
+`expires_with` naming it should be read as saying so** — same correction in the ADR.
+
+### The cheap findings, all taken, each with a control that reds on the round-1 tree
+
+- **F-003** — `LETTERING_KINDS` keeps its hand-written form and the round **says plainly
+  it is not derived**, because there is no authority to derive "letters something" from.
+  It gains `NON_LETTERING_KINDS` and a **partition** control over `PageKind`, so an
+  unlisted kind is a failure. **M2** (`"toc"` deleted) reds 2 cells on the fix tree and
+  **28 passed — a silent pass — on the round-1 tree.**
+- **F-004** — the test now **drives the module**: the drop goes into the reading and
+  `kinds_covered_in_their_medium` is asked again. **M3** reds 1 cell on the fix tree and
+  **28 passed on the round-1 tree.** The set-algebra finding was right.
+- **F-006**, all three parts — the cover arm now reads the premise it argues from (the
+  cover's `RasterDeclaration` with `expires_with == ()`), so it reds if the cover gains
+  an expiry, **and it reds under its own mutant**; the two undriven vector arms have
+  tests; and the floor's stream arm is exercised with a **non-empty** list.
+- **F-007** — `StreamFace`'s docstring no longer points at a nonexistent `exempt`; the
+  absence is now the point, because a content stream carries no provenance to key one on.
+
+**Node ids 172 → 188, removals 0**, the two parametrised ids byte-identical, `trace.yml`
+not in the diff — **no re-stamp, no rename, the ERROR-level gate-3 hazard still never
+armed.** Runs: the two changed modules **42 passed / 0 skipped**; nine other
+`pdf_vector` consumers **653**; five meta-guards **743**; the G-4 tripwire plus
+COMP-007's surface **177 / 0 skipped**. One skip across everything, named:
+`tests/test_book_pdf_memory.py:1297` at `f0304cb9` — consistent with the withdrawn
+over-correction.
+
+### Five corrections to the orchestrator, and two of them land outside this card
+
+1. **`_conditional_silences` is in `tests/test_suite_profile.py:2743`** — my brief
+   asserted the reverse. **Fifth report to say so**; already corrected on CARD-315 and
+   in memory.
+2. **"18 files read an interior through `pdf_pages`" does not reproduce — it is 12.**
+   Verified: 18 files **mention** the string, 14 import *something* from the helper, and
+   only **12** import the one-image reader. `book_corpus.py` takes only
+   `pdf_page_count`, `test_book_toc.py` only `same_page`, and
+   `test_book_pdf_geometry.py` imports it **zero** times — it matched because **three of
+   its node ids end in `_pdf_pages`**. **A mention count is not a reader count**, and
+   the bad figure had already reached **CARD-309's AC-3**, which is corrected there.
+3. **"The understatement propagated … in the ADR" does not reproduce** — the clue-digit
+   finding was never in `0042-…md`. The round therefore **added** it in corrected
+   two-kind form rather than correcting something absent. My claim was wrong and the
+   outcome is what the finding wanted.
+4. **`main` is now 100 warnings and the branch 102, and main is the dishonest one.**
+   Verified by the orchestrator: `FR-045/AC-390` and `AC-391` have **no `def` on main**,
+   and their **sole** resolver is `meta/review/20261029T130000Z-CARD-285-cycle1.yml` —
+   **the file the orchestrator synced**, after checking it for CARD-285's endpoint
+   landmine and **not** for CARD-308's dead-ref hazard. The wrong hazard on the right
+   file. **So comparing a branch's warning count to main's is unsound unless the review
+   YAMLs are held equal**, and a branch cut before a sync reads *louder* and looks like
+   it added warnings. It self-heals when CARD-285 merges, since its fix round has the
+   two `def`s.
+5. **Validating a `git archive` copy is invalid** — 77 warnings against the worktree's
+   102, because the copy has no `.git` and the staleness and drift checks fall silent.
+   Worth knowing before another round tries it.
+
+AC-5's `--stat`/`--numstat` labelling, the `:1297` skip line, the 258/204 figures and
+`book_answer_vector.py:403` all checked out.
