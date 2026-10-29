@@ -260,11 +260,17 @@ with review cycle 1, not prejudged here.
   `if entry.get("status") != "covered": continue`, and NFR-001 is
   `status: partial` — so the label is **latent, not live**, and nothing reads it
   today. Cycle 1 caught the overstatement and supplied the second edge that
-  makes it worth fixing anyway: the day NFR-001 flips to `covered`, gate 2
-  **ERRORs** loudly on the missing AC-037 linkage while gate 3 **silently
-  accepts** the dead label, because `cs.exists()` is `git grep -lw` and this
-  card's own new module now text-matches that retired string at `:388` and
-  `:441`. The card relocated the camouflage into its own new file.
+  makes it worth fixing anyway. **Severity corrected 2026-10-29 by fix round 1,
+  and verified in `validators/trace.py::_check_covered_tests`: the orchestrator
+  and cycle 1 both had it backwards.** An AC's declared test missing from a
+  covered entry's `tests:` (gate 2) is `Severity.WARN`, not ERROR; the **ERROR**
+  is gate 3, a *listed test with no definition found* — and gate 3 is **exactly
+  the gate the camouflage silenced**, because `cs.exists()` is `git grep -lw` and
+  this card's own new module text-matched the retired string at `:388` and
+  `:441`. So the finding is **stronger** than it was written: the fix restores a
+  loud signal rather than adding a quiet one. The fix round caught this after it
+  had already copied the orchestrator's wrong version into a docstring, by
+  reading the validator and then **driving** it rather than citing it.
 - `meta/architecture/decisions/adr/0001-...md:23` cites the old path as a node
   id (prose — that ADR has no `check:` key, verified)
 
@@ -289,7 +295,7 @@ are given, and the spread is the honest precision of the figure.
 | figure | round | cycle 1 re-derived |
 |---|---|---|
 | gate call time | 14.0 s (13.85–14.22, five readings) | **13.91 s, 14.12 s** |
-| the module's whole cost | 14.03 s over **30** setup/call/teardown rows | **14.15 s / 30** |
+| the module's whole cost | 14.03 s over **30** rows / 10 tests (at `6f721e57`) | **14.15 s / 30**; at fix-round HEAD **14.03–14.05 s over 33 rows / 11 tests** |
 | share of a full suite | 0.98 % | **0.99 %** |
 | tests in that profile individually slower | 14, slowest 81.03 s | **14, 81.03 s** |
 | full corpus, early exit disabled, 5 s budget | 40.79 s, 6/20 over cap, p95 5.001 s | **41.61 s, 6/20, p95 5.001 s** |
@@ -369,6 +375,74 @@ sound, attribution off.
 **Mutants: 15 fired, 13 killed at the named cell, 2 survived.** Step 8f's full
 campaign is `deferred(cost)` under the cost ladder — three important findings
 all touch tests the fix round will change.
+
+## [Fix round 1 — 2026-10-29, all six findings closed, and it corrected the orchestrator twice]
+
+Two commits: **`d6544012`** (the six findings) and **`af18ad8d`** (an F-1 *class*
+audit over both files). Branch is main + 5 commits, 5 paths, `src/` **0**.
+**Verified by the orchestrator at this HEAD rather than relayed:**
+
+- **F-1 is closed and load-bearing.** Cycle 1's mutant
+  `DENSITIES = (30,40,50,60)` → `(50,60,70,80)` now gives **2 failed, 9 passed**
+  with `test_the_corpus_is_fixed_…` among the failures — pre-fix it was 1 failed
+  / 9 passed with that test *passing*. The fix pins `DENSITIES`, `SEEDS` and the
+  twenty requests **written out literally**, one row per seed: a second
+  independent spelling rather than re-running the benchmark's own comprehension,
+  which is `CLAUDE.md`'s stated preference and also pins the seed-major order the
+  early-exit cost argument depends on. Its own deletion mutant reconstructs cycle
+  1's hole exactly, so the pin is load-bearing rather than decoration.
+- **The camouflage is removed, not relocated.**
+  `git grep -lw BenchGenerate_20x20_p95Under5s` over the validator's pathspec now
+  **exits 1**. The new control spells the retired label as
+  `"BenchGenerate" + "_20x20_p95Under5s"`, **assembled at import**, so the
+  control is not itself a text-resolver — the trap this card exists to close,
+  avoided in the very test that closes it.
+- collection **9581**, `bench_generate` ids **0**; impact gate **600 passed, 1
+  xfailed, 0 skipped** (zero `SKIPPED` lines under `-rs`); the pin renamed to
+  `test_the_file_pytest_never_opens_is_the_one_known_one`, asserting one entry.
+
+**It corrected the orchestrator twice, and both corrections stand.** The gate
+severities above — gate 2 is WARN and gate 3 is the ERROR, so the loud half is
+the half the camouflage silenced. And F-3's evidence: through the validator's
+pathspec at `main` the retired label resolved in **three** files, not two — the
+third being this card's own cycle-1 review YAML, committed to main after the
+orchestrator's run. Both extras are outside this card's reach and neither is a
+definition; harmless *because* F-3 is applied, since no ref in the model names
+the label any more and there is nothing left for the text to revive.
+
+**It declined one widening with a measurement**, which is the right shape: a
+sentence-pattern rule over `pytest`/`suite` + a collection verb would **red on
+arrival**, because the live docstring legitimately carries "suite" and
+"collected" in one sentence. Written into the comment so the next round does not
+re-derive it. **Two declared survivors**, both stated in advance: M6edge's
+coexistence case (the positive statement closes the *replacement* case only, and
+the structural pin is what reaches the general case), and F-9's edit having no
+in-suite control.
+
+**It also found a measurement hazard that will bite any future mutation campaign
+on this board**, now in the standing brief rules: a **byte-length-preserving**
+mutant restored **within the same second** leaves a `__pycache__` entry that
+still validates — timestamp `.pyc` files record source mtime at 1-second
+resolution plus size, and a tuple swap changes neither — so the next run imports
+**the mutant's bytecode** off a tree `git status` calls clean. It cost a baseline
+recording pass **two FAILs against an unmutated tree**, which reads exactly like
+two real survivors; every blob hash checked out, because the blob *was* right and
+the bytecode was not. Fix: `PYTHONDONTWRITEBYTECODE=1` plus a `__pycache__` sweep
+before and after every mutant. Separately, its recording instrument first crashed
+with `IndexError` on a bare `assert x == y` — and **a crashing instrument reports
+NOT-REACHED, identical to a survivor** — the fifth distinct way that instrument
+has been found to lie.
+
+**Three claims narrowed beyond the brief**, each a figure that did not back its
+claim: "the retired label existed in exactly one file" → three (narrowed to
+"exactly one **code** file"); "four documents and two architecture artefacts"
+name the bench path → **eight** references over the tree, the eighth being
+`src/nonogram/orchestrator.py:338` which G-1 forbids touching; and its own new
+docstring's relayed overclaim, caught before hand-back.
+
+Review cycle 2 is open and owes Step 8f's full campaign — cycle 1 deferred it
+under the cost ladder because the tests it would certify were about to change,
+and they are now stable.
 
 ## Worktree notes
 

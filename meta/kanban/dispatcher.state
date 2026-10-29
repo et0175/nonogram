@@ -1351,10 +1351,33 @@ wave_64_opened:
 #     The card body's item 2 contradicts its own G-2; the round followed G-2.
 active:
 - id: CARD-301
-  phase: fix round 1 (after review cycle 1 = 7.0, not certified)
+  phase: review cycle 2 of 3 (fix round 1 closed all six findings)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
   branch_head: 6f721e57
   implementation: "route 2; 4 paths; collection +10 reconciling exactly; 599/1 xfail/0 skip"
+  fix_round_1: >-
+    d6544012 + af18ad8d. All six findings closed; branch is main + 5 commits, 5 paths,
+    src/ 0. Verified at HEAD by the orchestrator: cycle 1's DENSITIES mutant now gives
+    2 failed / 9 passed with the corpus guard itself among the failures (pre-fix 1/9
+    with it passing), so F-1 is load-bearing; the retired label no longer text-resolves
+    (git grep -lw exits 1), so the camouflage is removed rather than relocated -- and
+    the new control spells it as "BenchGenerate" + "_20x20_p95Under5s" ASSEMBLED AT
+    IMPORT so the control is not itself a resolver; collection 9581 with 0 bench ids;
+    impact gate 600 passed / 1 xfailed / 0 skipped. Two declared survivors stated in
+    advance; one widening DECLINED with a measurement (a sentence-pattern rule would red
+    on arrival because the live docstring legitimately carries "suite" and "collected"
+    in one sentence). Three claims narrowed beyond the brief.
+  new_measurement_hazard_found: >-
+    A byte-length-preserving mutant restored within the SAME SECOND leaves a __pycache__
+    entry that still validates -- timestamp .pyc records source mtime at 1-second
+    resolution plus size, and a tuple swap changes neither -- so the next run imports the
+    MUTANT'S bytecode off a tree git status calls clean. Cost: a baseline recording pass
+    printed two FAILs against an unmutated tree, reading exactly like two survivors,
+    while every blob hash checked out. Fix: PYTHONDONTWRITEBYTECODE=1 plus a __pycache__
+    sweep before and after every mutant. Now in the standing brief rules. Also: a
+    recording instrument that CRASHES reports NOT-REACHED, identical to a survivor (its
+    rewriter raised IndexError on a bare `assert x == y`) -- the fifth distinct way that
+    instrument has been found to lie.
   cycle_1: >-
     7.0, 10 findings, 3 important and all a few lines. F-1 is the real one and the
     orchestrator reproduced it: the card's own newly-added G-5 guard pins the corpus
@@ -1368,10 +1391,20 @@ active:
   - >-
     "trace.yml's tests: list is mechanically read" was WRONG -- all three gates in
     validators/trace.py::_check_covered_tests are guarded on status == covered, and
-    NFR-001 is status: partial. The label is latent, not live. The second edge cycle 1
-    supplied is why it is still worth fixing: when NFR-001 flips to covered, gate 2
-    ERRORs on the missing AC-037 linkage while gate 3 SILENTLY accepts the dead label,
-    because this card's own new module text-matches the retired string.
+    NFR-001 is status: partial. The label is latent, not live.
+  - >-
+    SECOND correction, by fix round 1 and verified: the orchestrator AND cycle 1 both
+    had the gate severities backwards. Gate 2 (an AC's declared test missing from a
+    covered entry's tests:) is Severity.WARN, not ERROR. The ERROR is gate 3, a listed
+    test with no definition found -- and gate 3 is EXACTLY the gate the camouflage
+    silenced. So F-3 is STRONGER than it was written: the fix restores a loud signal
+    rather than adding a quiet one. The fix round caught it after copying the wrong
+    version into a docstring, by reading the validator and then DRIVING it.
+  - >-
+    THIRD, minor: through the validator's pathspec at main the retired label resolved in
+    three files, not two -- the third being this card's own cycle-1 review YAML,
+    committed to main after the orchestrator's measurement. Harmless because F-3 is
+    applied: no ref in the model names the label, so nothing is left for text to revive.
   - >-
     The suspicion that AC-5's control shares the validator's text-search blindness was
     WRONG: it resolves refs against globals() filtered by callable -- a real definition
