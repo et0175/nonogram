@@ -338,6 +338,30 @@ general:
   invents a ref out of prose corrupts the census in the direction nothing else here checks.
   It was found by a synthetic authority set in the new control, not by reading the code.
 
+**And a region notion is only worth its edges — review cycle 3 measured four shapes off them,
+two of which fail silently.** Once both halves of the derivation rest on one region, the
+region's own *totality* becomes the load-bearing property, and it was not total. A
+block-scalar opener carrying a trailing YAML comment (`rationale: >- # a note`, legal YAML)
+was not recognised as an opener, so a body line beginning `test: ` whose text is a valid
+identifier was **collected as a declared ref** — the invent-a-ref failure above, reproduced
+one notch out, and structurally outside the default-deny's reach: that refusal fires only
+where no narrow pattern claims, and invention happens exactly where one does, so the repair
+has to be in the region and cannot be in the refusal. A `~~~` fence was not a fence, so the
+ADR refusal was **silently skipped** inside one (no ref is dropped there — ADR collection is
+document-wide — so it loses the refusal, not a ref). A **quoted** declaration key
+(`"tests": [X]`) matched neither the loose key pattern nor any narrow one, so it was invisible
+to collection *and* to refusal. And an **unclosed** fence flipped the region for the whole
+remainder of a document, which turns the one live out-of-fence prose line above into a
+candidate and reds the guard on English. All four were measured **latent** on the real
+authorities — 0 commented openers in either YAML authority or the ADR set, 0 `~~~` fences,
+0 quoted declaration keys, every ADR's fence parity even and all 46 fence lines exactly three
+backticks — and latency was the *only* thing holding them, because nothing asserted any of
+those four invariants. Each is now classified or raising with its own row in the control's
+matrix, and an unclosed fence is refused **by the fence** rather than by the innocent
+sentence. The general rule, which belongs to R2 and not to this card: when a default-deny and
+its collector are made to share a region, the region's edges inherit the entire rule, so every
+edge needs a control that can fail.
+
 **A sub-shape of the `tests/`-prose limit case that nothing on this board had named.** A guard
 written to assert that some tests do **not** exist yet, holding their names as string
 literals, would — if the model declared those refs in **bare** form — make the validator read
