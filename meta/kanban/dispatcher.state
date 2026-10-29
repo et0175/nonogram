@@ -2171,3 +2171,81 @@ active:
   phase: implementation
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: [CARD-307]
+
+# ---- CARD-285 to REVIEW CYCLE 1 (2026-10-29) ----
+# Branch af160fd5, 3 commits off 464ae377, 6 files +1583/-25. All THREE cards in
+# flight are now at review cycle 1 or past it; nothing is at implementation.
+#
+# HOST CONDITION recorded because it affects how the report should be read:
+#   load 22.25 on 11 cores with two other review cycles running. The brief tells
+#   the reviewer that a slow test is probably contention, not the card, and that
+#   hang_guard's 120s per-test ceiling _exit()s the session -- so re-measure
+#   before attributing. No lock was held at dispatch.
+#
+# WHAT THE ROUND DELIVERED, and the decision it was forced into: the card's
+#   counting item collides with CARD-283/284's own controls. Verified by the
+#   orchestrator -- FOUR shipped browser tests assert every request the page
+#   issues is same-origin, three by the literal startswith(url + "/"). A
+#   GoatCounter tag hard-written into the pages is cross-origin and would have
+#   red all four, making AC-390's load-bearing "unchanged" false by the round's
+#   own hand. So the snippet is injected at ASSEMBLY TIME, DEFAULT-OFF, and the
+#   residual is declared rather than hidden: the no-egress controls now measure
+#   the UNCOUNTED tree, with AC-390 asserting the byte difference between the
+#   counted and uncounted trees is exactly the snippet line in exactly the pages
+#   the report names.
+#
+# THE THREE REFS ARE CLOSED. Re-measured under the validator's own pathspec at
+#   the cut: AC-390 and AC-391 had ZERO resolvers, AC-392 had THREE and all three
+#   were review YAMLs -- the board's one true false alive. All three now resolve
+#   to real def lines. This also closes two of CARD-307's three honest gaps
+#   without CARD-307 being touched.
+#
+# WHERE THE REVIEW BUDGET IS POINTED:
+#   1. whether the counted-vs-uncounted byte assertion genuinely CONSTRAINS, and
+#      whether "the deployed tree is never the tested tree" is adequately covered
+#      or is itself a finding -- no browser test loads the counted tree with
+#      counting on except AC-390's own;
+#   2. the ONE existing test the round had to edit -- CARD-284's ref-bookkeeping
+#      test, which asserted the three refs were ABSENT and could not survive the
+#      card landing. The question is whether the edit KEPT ITS TEETH: can it still
+#      catch a fourth undefined ref, or was it narrowed into silence;
+#   3. the scanner's declared/derived split -- 22 declared identifier regexes as a
+#      trip-wire, with the DERIVED half being a closed egress set. Whether that
+#      satisfies ADR-0039/R2 or is a denylist wearing a derivation's clothes, and
+#      whether the bound is stated where a reader meets the claim;
+#   4. the comment-stripping asymmetry: a full URL in a comment is caught, a
+#      rooted path in a comment is not.
+#
+# MEASURED, AND IT CONSTRAINS THE GATE: scripts/impact_set.py --base 464ae377
+#   returns FULL, because player/ is not in its KNOWN_ROOTS and an unmodelled
+#   path fails closed by design. So this card has no derivable narrow impact set
+#   and the merge gate is the only full reading.
+#
+# ONE FIGURE OF MINE THE ROUND GOT WRONG, and one it got right: the 57-file
+#   figure for ADR-0006/R1's ref reproduces exactly under the validator's
+#   pathspec (all tracked 80, pathspec 57, *.py 1) and the round's 53 does not --
+#   but its sharper point stands, that the single .py hit is prose and not the
+#   definition. And it is right that the setrlimit skip is at :1297; my brief has
+#   now had that wrong twice.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  implementation_head: 19bc968b
+- id: CARD-299
+  wave: 66
+  phase: review cycle 1 (against the NARROWED card)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+  implementation_head: eed831ea
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 1
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+  implementation_head: af160fd5
+  impact_set: "FULL -- player/ is not in impact_set.py's KNOWN_ROOTS, so the merge gate is the only full reading"
+queued: [CARD-307]
