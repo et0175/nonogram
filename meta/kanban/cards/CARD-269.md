@@ -400,3 +400,37 @@ and the counter were not touched.
 ### TWO ITEMS ESCALATED TO THE OWNER — see the board entry
 
 1. **A visible layout change at 1280 px.** 2. **AC-333 is now false under a strict reading.**
+
+### OWNER DECISIONS 2026-10-30
+
+**1. The taller toolbar at 1280 px is ACCEPTED.** Measured: the counters need **268 px**
+on one line and Check leaves them **186** — short by **exactly Check's own 82 px** — so the
+Progress group wraps onto its own row at 1280 and the toolbar goes 187 px → **223 px**.
+1440 px still fits all three. This is the pre-CARD-194 arrangement returning at a common
+width, and the owner had accepted the current one, which is why the round escalated it
+instead of letting it pass as incidental.
+
+The round asserted the layout **as it now is** and added a **1440 px control**, so the
+test proves a *threshold moved* rather than a layout broke — the distinction that keeps
+this from reading as a regression later. The captures at both widths are in
+`~/Documents/nonogram-reviews/CARD-269/`, including an A/B of a deeper tint that was
+**tried and rejected**.
+
+**2. AC-333 is amended to name Check**, applied on this branch at `bcd136b5`. The retired
+clause read *"Hint is the last control of the History group, after Reset"*, and Check's
+arrival made it false under a strict reading. The owner chose to let the **requirement
+follow the design decision** the card's own Design context already specified, rather than
+relocate the button. The counter half is deliberately untouched: the 1280 threshold moved,
+but `"Hints: N"` still follows `"Errors: N"` on one row.
+
+**The `test:` ref was checked rather than assumed, and it is NOT dead** — it names the
+*class* `TestSolverHint_PlacesTheButtonAndTheCounter`, which survives at
+`tests/test_puzzle_solver_hint.py:777`; only its internal method names changed
+(`hintIsLastChild` → `checkIsLastChild` + `checkFollowsHint`). A renamed ref that still
+reads alive is the defect class CARD-308 and CARD-319 exist for, so the check was made
+before the amendment rather than after.
+
+**Still owed as a follow-up, and not this card's to take:** the on-page usage paragraph
+does not mention the ladder, because `test_the_page_copy_describes_the_new_click` pins it
+by exact equality and this card forbids editing that file. The round **reverted its own
+copy addition** rather than edit a forbidden file. One sentence, player-visible, owed.
