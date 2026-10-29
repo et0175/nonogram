@@ -465,3 +465,310 @@ naming a non-existent AC-3, and a superseded note on the card's own AC-392 sente
    at all, so neither the card record at `:212` nor a cycle-2 report can red the
    suite. Kept regardless for this round: neither full endpoint appears in either
    commit message or in the report.
+
+---
+
+## Fix round 2, 2026-10-29 — `76cfba58` → `6caccb65`, 3 commits, 4 files +436/−82
+
+**Cycle 2's gating finding is closed, and the fix is not the one that was asked
+for.** The brief and the review both framed F-101 as a lookbehind problem on the
+two DOTALL block forms. The round took the lookbehinds **and** then took the
+comment stripper **off the egress path entirely**, on cycle 2's own reasoning that
+fixing only the reported instance is the pattern this board keeps repeating:
+
+- **RAW text** (comments included) is now read by every pattern whose miss could
+  be a channel — `_ABSOLUTE_TARGET`, the new `_HOST_LITERAL`, `_ATTR_TARGET`/
+  `_CSS_TARGET`, `_PROPERTY_SINK`, the `URL_CALLS` loop, and `IDENTIFIER_SHAPES`.
+- **STRIPPED text** is read by only two — `_IMPORT_TARGET` and the new
+  `_ROOTED_LITERAL` — which are precisely the two patterns both *measured* false
+  positives came from, and the only two whose misses cannot be egress: a module
+  specifier or a rooted path resolving to nothing is a lost `unclassifiable`,
+  never a lost `foreign`.
+
+`_URL_LITERAL` was one pattern doing both jobs, which is why it is split.
+
+**Nine swallow plants, each asserted four ways** (the shipped scan reports it; the
+**pre-fix** stripper destroys it, so the plant really is the swallow shape; the
+**shipped** stripper does not; and the scan reports it with the pre-fix stripper
+patched back in, so the split is what carries the fix). **12 of 12 mutants killed,
+no survivors.**
+
+**The round's own first pass found two of its own raw reads uncontrolled** — moving
+`_ATTR_TARGET`/`_CSS_TARGET` and `_PROPERTY_SINK` back to stripped text **survived**,
+because a quoted `//host` is read by `_HOST_LITERAL` whatever surrounds it (fix round
+1's `Worker` lesson again). So three of cycle 2's four plants were controls over the
+wrong line. Five new plants exist as shapes **no other pattern can read**. That
+survival is recorded in the test's own comment rather than quietly repaired, because
+it is the same defect class as the finding.
+
+**The honesty is restored rather than narrowed.** `_without_comments`' docstring now
+states the residual that *can* still hide a finding — a delimiter is recognised by
+the single character in front of it, so an opener after an unguarded character still
+blanks a region, and the block forms cross lines — and then states what bounds it.
+The same paragraph is in `docs/deploy/player.md`. Fix round 1's "the safe direction"
+sentence is kept but is no longer the only thing declared.
+
+**F-102 taken (6 lines) — and it closes the measured instance of CARD-308's hazard
+that lived in this very module.** The guard now collects every whole
+`tests/<this file>::(\w+)` the module docstring spells and holds that set to the
+`def`s in the file, so **a ref whose authority is an ADR is held for the first time**.
+Mutant M10 — cycle 2's survivor, a one-character rename of ADR-0041/R2's exemption
+node — now **kills**. The docstring's claim that "the defining module is the one
+place that cannot lose it unnoticed" is true as held for the first time.
+
+**F-103 taken by inverting the flag, not by prose.** `--no-analytics` is now
+**`--analytics`**: counting is opt-in, the default tree is the uncounted one every
+fixture assembles, and "do not count locally" is the shape of the command rather than
+something to remember. A new hold derives the flags the deploy page backticks from
+the helper's own `--help` and asserts argparse accepts them — nothing held those two
+to each other before. **⚠ This changes the documented deploy procedure: the publish
+command now needs `--analytics`. OWNER DECISION PENDING — see below.**
+
+F-104, F-105, F-106 and F-107 all taken. F-106 closes a probe asked for in three
+consecutive cycles.
+
+### Three refusals, each with a measurement
+
+1. **Cycle 2's recommended F-104 assertion is tautological** — `hosts` is *defined*
+   as the expression the assertion compares it to, two lines above, so it cannot fail
+   under any mutation. A non-tautological equality derived from `REQUIRED_RUNTIME`
+   went in instead, driven by M11.
+2. **Cycle 2's "stronger and simpler alternative" for F-101 reds the real tree.**
+   Applied exactly as recommended in a throwaway worktree, the scan **fails on the
+   clean counted site** on the documented panel path sitting inside a `//` comment —
+   one of the two measured false positives the stripper exists for, and the exact
+   shape the round's own control asserts must be missed.
+3. **`/` was not added to the `//` form's lookbehind.** `\\` alone closes the
+   regex-literal shape (M9 measures it); `/` would widen the guard with no plant
+   behind it.
+
+### Node ids, and a correction to the orchestrator's brief
+
+**9748 → 9771, +23/−0** against the cut. Of the 23, **7 are this card's** — the same
+seven cycle 1 lists — and **16 arrived from `main`** through the merge taken before
+this round. The round's own delta is **+0/−0**: every new control went inside an
+existing test. **The brief's "9748 → 9755" was the pre-merge number and 9755 no longer
+exists on this branch.**
+
+### What the orchestrator got wrong, and it cost the round a run
+
+**The brief's F-101 table row said the regex-literal plant swallowed a *following*
+`fetch(...)`.** The `//` form's strip ends at the newline, so a `fetch` on the **next**
+line survives the pre-fix stripper — the round's first plant put it there and its own
+control correctly refused it as "not the swallow shape". Cycle 2's plant has both on
+**one** line and its measurement stands; the orchestrator's paraphrase of it did not.
+
+Also narrower than the brief implied: cycle 2's "the block forms have no guard at all"
+is right about line-crossing, but **three of the four silent passes are block forms and
+the fourth is the `//` form cycle 1 "fixed"** — the regex-literal miss is a `//`-form
+miss.
+
+### The residual, declared
+
+A comment delimiter opened from an unguarded character still blanks a region for
+`_IMPORT_TARGET` and `_ROOTED_LITERAL`. **Cost: a lost `unclassifiable` — a dangling
+internal reference — never a lost `foreign`.** Not closable without re-admitting the
+two measured false positives, which refusal 2 measures. Declared in the stripper's
+docstring and in `docs/deploy/player.md`.
+
+### OWNER DECISION 2026-10-29: the flag inversion is KEPT
+
+`--analytics` (opt-in, counting **off** by default) stands, and the publish command
+in `docs/deploy/player.md` carries the flag. The reason it was taken is the reason it
+is kept: the card claimed *"default-off… every local run, no tag is written"* and that
+claim was **false** while the flag was opt-out, so the inversion makes the claim true
+structurally rather than by remembering a flag.
+
+**The cost is accepted and named**: a real publish can now go out **uncounted** if the
+flag is forgotten, where before it could go out **counted by accident**. The owner
+chose the direction that fails toward not-counting, which is the direction that cannot
+put a visitor in a log nobody intended. The hold added by fix round 2 — the deploy
+page's backticked flags derived from the helper's own `--help` and asserted to be
+options argparse accepts — is what stops the documented command and the helper from
+drifting apart again, and it is mutation-driven (M12).
+
+Review cycle 3 dispatched on this decision, so the reviewer judges the tree the owner
+chose rather than one it might replace.
+
+---
+
+## Review cycle 3 — the LAST — 7.5, DOES NOT CERTIFY
+
+Cycle 1 → 7.0, cycle 2 → 7.5, cycle 3 → **7.5** against `min_score: 8`.
+`max_cycles: 3` is spent. **One gating finding, and it is a measured silent pass of
+an egress reference.**
+
+### F-201 (GATING) — the load-bearing claim is false in the under-claim direction
+
+Fix round 2's whole design rests on *"the two patterns reading stripped text are the
+only two whose misses cannot be egress — a lost `unclassifiable`, never a lost
+`foreign`."* **Measured false**, by a route no cycle had looked at:
+
+- **`_ROOTED_LITERAL` is not an internal-only reader.** It matches any quoted value
+  whose first character is `/`, **including one beginning `//`**, and `classify()`
+  routes every target beginning `//` down the **absolute branch → `foreign`**.
+- **`_HOST_LITERAL`, the raw reader of that form, requires the authority's last label
+  to be 2+ ASCII letters.** So for an authority that is **not** a dotted letter-TLD
+  name, the only reader outside a markup/CSS/sink/call position is the **stripped** one.
+
+Combine that with the round's own declared residual — an opener after an unguarded
+character still blanks a region — and **four `foreign` references pass silently**, each
+planted alone with the baseline asserted empty in the same run: an `import` of a
+`//`-prefixed **IPv4** host behind `const open = "x/*"`; a bare CSS `@import` of one
+behind `a{content:"x/*"}`; a **single-label** host (`//intranet/…`); and a **bracketed
+IPv6** host. Controls in the same run isolate the cause to *both* ingredients — the same
+references with **no comment** are caught; the same residual with a **dotted letter-TLD**
+host is caught; the IPv4 host in a `src=` behind the same residual is caught.
+
+**The fix is ONE LINE and the reviewer measured it**: relax `_HOST_LITERAL` to
+`(["'`])(//[^/"'`\n][^"'`\n]*)\1`, still reading raw. The real counted site stays clean
+in all three buckets, all four passes become `foreign`, both player modules **66 passed**
+— and it makes the claim true as written.
+
+**So the residual's cost statement is understated in two places** — the stripper's
+docstring and `docs/deploy/player.md`, whose *"every quoted `//host` … is read from the
+file as written"* is true only for dotted letter-TLD authorities. **A declared residual
+with an understated cost is worse than an undeclared one.**
+
+### F-202 (medium) — the owner's accepted cost has a SURVIVING mutant
+
+The owner kept the flag inversion with one condition in mind: the new hold stops the
+documented command and the helper from drifting apart. **It only half does.** The hold
+holds the page's **backticked prose** to argparse's option set — renaming the option
+**kills** it — but the publish command sits in an **indented block**, so its flags never
+enter `page_flags`, and `--analytics` is satisfied by two *prose* mentions.
+**Deleting ` --analytics` from the documented publish command leaves both player modules
+at 66 passed — SURVIVED.** That is exactly the drift the decision was conditioned on.
+~3 lines.
+
+### Everything the cycle verified
+
+Both of fix round 2's refutations of cycle 2 **reproduce**, and refutation 2 is the
+strongest argument on the card: recompiling the scan with the rooted read on raw text
+**fails on the clean counted site** on a documented panel path inside a comment, and
+dropping the stripper entirely brings the second measured false positive back. **The
+stripper genuinely cannot be removed.** Refutation 1 confirmed: cycle 2's recommended
+assertion is True by construction, and the replacement can fail.
+
+**All five new plants are genuine one-line controls** — each disabled raw read loses
+exactly one plant and only its own. **F-102's guard catches the docstring-only
+direction**: a phantom whole `path::name` inserted into the table, defined nowhere, is
+killed, and the "arm is reached" control is non-vacuous. F-105, F-106, F-107 all confirmed.
+
+### Three corrections, one of them the orchestrator's
+
+- **"Nine plants, each asserted four ways" is three** (F-204): assertion (a) is
+  **subsumed** by (d), because the shipped stripper blanks a subset so shipped findings
+  ⊇ pre-fix findings. Worse, (a) matches on **filename**, and three plants open with a
+  decoy that `_ROOTED_LITERAL` itself reports as `unclassifiable` in that same file — so
+  for the two plants whose declared bucket *is* `unclassifiable`, (a) is satisfied by
+  their own decoy with the controlled read entirely removed. **The controls survive; the
+  count was one high.**
+- **AC-391's own comment describes a mechanism the code lacks** (F-205) — with the two
+  endpoints collapsed, *both* assertions pass, and the case is harmless anyway because
+  the route pattern is host-keyed so one pattern aborts both. **The fourth document on
+  this card to describe behaviour that is not there.**
+- **The orchestrator's brief cited stale line numbers for F-107's two arms** — they are
+  cycle 2's numbers at `79ecafcb`, not this HEAD's. Carried, not measured, again.
+
+### What ships UNREVIEWED, stated because the cycles are spent
+
+**The full suite — never run in three cycles.** The merge gate is the only full reading
+this card will get, and **16 node ids that arrived from `main` were never run by it**.
+Also: everything the pre-round merge brought; the rest of `docs/deploy/player.md`;
+`player/play.html` (+24) and `scripts/README.md` (+31) read but not driven; authority
+shapes beyond the four planted (percent/unicode-encoded, userinfo, port-only — the
+measured one-line fix covers them by construction but they are unmeasured); and AC-390's
+counted-tree request-**set** closure.
+
+---
+
+## Fix round 3 — under the owner's decision, no cycle behind it — `6caccb65` → `9140739f`
+
+Two commits, two files (`tests/test_public_player_pages.py`, `docs/deploy/player.md`).
+`git diff --name-only 464ae377..HEAD -- src/ pyproject.toml` → **0 lines across the whole
+card**. Scope held: no new finding of substance was fixed, and the ones found are reported
+below instead.
+
+### F-201 closed — and the three "covered by construction" shapes are now MEASURED
+
+The one-line change, `_HOST_LITERAL` → `(["'`])(//[^/"'`\n][^"'`\n]*)\1`, **still read
+raw**. The real counted site stays clean in all three buckets, proven twice by two
+independent equalities over two independent copies of the assembled tree.
+
+**Seven authority shapes, each planted ALONE** into a copy whose baseline is asserted empty
+in the same run, each asserted three ways — the shipped stripper really does blank the
+region (so the plant is the declared residual, not a reference with a comment nearby), the
+shipped scan reports it `foreign` **matched by needle rather than filename**, and the narrow
+pattern patched back in makes it a **silent pass in every bucket**: IPv4 in an `import`,
+bare CSS `@import`, single-label authority, bracketed IPv6, **percent-encoded**,
+**userinfo**, and **port-only**. The last three are exactly what cycle 3 could only call
+*"covered by construction"* — the narrow pattern misses all three because `[A-Za-z0-9.-]+`
+cannot cross `%`, `@` or `:`, checked by hand as well as by run.
+
+The **three isolating controls** are each asserted caught **under the narrow pattern too**,
+which is what keeps the cause attributed to *both* ingredients rather than either alone.
+
+**The false claim lived in FOUR places, not the two the orchestrator's brief named.**
+Besides the pattern block, the stripper's docstring and the deploy page, **`scan_site`'s own
+docstring carried the same proposition in shorter words** — *"the two whose misses are
+internal"* — and **no report or brief mentioned it**. All four corrected, and the deploy
+page states the correction rather than quietly rewriting it.
+
+**What remains unread, stated in both documents:** an **unquoted** `//authority`, refused on
+purpose with the argument already on the module (a bare `//` is a comment far more often
+than a reference). `///path` is **not** in that gap — empty authority, resolves to the
+serving origin — which is why the fix requires a non-slash, said where the pattern is defined.
+
+### F-202 closed — the owner's condition now has teeth
+
+The hold reads the publish **command**: it finds every line mentioning the helper, glues
+backslash continuations, asserts the page documents an invocation, asserts the command's
+flags are a subset of argparse's options, and asserts the opt-in flag is on it.
+**Cycle 3's surviving mutant is killed**: deleting ` --analytics` from the documented
+command now gives **1 failed / 65 passed** where cycle 3 measured **66 passed**. The
+argparse direction got stronger too — a one-character rename reds **two** nodes.
+
+### The three corrections, landed in code rather than in a report
+
+- **F-204**: now stated as **four assertions, three independent**. (d) was kept with a
+  reason — the plant is reported on the tree that *ships*, not only under a patched stripper
+  — and **both (c) and (d) now match by needle as well as filename**, which closes the decoy
+  self-satisfaction. Proved: with the CSS read disabled, (d) now reds where cycle 3 measured
+  it passing with the controlled read entirely removed.
+- **F-205**: AC-391's comment now says what the assertion buys, and records that the
+  scenario it used to name is passed by both assertions and harmless anyway, because the
+  route pattern is host-keyed so one pattern aborts both endpoints.
+- **F-203**: `IDENTIFIER_SHAPES` is off the "can hide EGRESS" list in **both** places that
+  carried it, with its real reason stated.
+
+### It declared a cost of its OWN fix rather than leaving it to be found
+
+The relaxation is stricter as well as broader: a quoted value that merely *begins* `//` —
+`"// TODO"` parked in a string — is now a `foreign` finding where the narrow pattern said
+nothing. **A false positive, not a silent pass**, so it fails in the direction this guard is
+built to fail — but an undeclared cost is the defect class this card has been punished for
+three times, and the first commit corrected two understated cost statements while
+introducing one. The second commit declares it in both places, with the measurement:
+**`player/**` holds no quoted value beginning `//` at all**, and the counted site scans clean.
+
+### Two things it found that no report had
+
+- **The code and fix round 2's record disagreed with each other about the plant count, and
+  cycle 3 only measured the record.** The record said "four ways"; the *code comment* said
+  "asserted three ways" while the code makes four assertions. The module was already wrong
+  in the **opposite** direction from the record. Both now agree.
+- **Cycle 3's F-204 recommendation does not add up** — "three assertions plus two
+  text-level checks" is five items for four assertions. The structure was implemented, not
+  the phrasing.
+
+### Node ids, skips, and the two honest reservations
+
+**+0/−0 this round** (9771 unchanged; every addition went inside two existing test bodies).
+**Zero skips in every run**; a grep for `pytestmark|skipif|pytest.skip|xfail|importorskip`
+across both player modules and both scripts returns **no hits at all**. Four mutants, all
+killed, all in throwaway worktrees with blobs asserted back.
+
+**Its own reservations, which are the right ones:** the **full suite has not been run by any
+cycle of this card**, and the branch carries **16 node ids from `main` that no cycle has
+exercised**. The merge gate is the right place for both.

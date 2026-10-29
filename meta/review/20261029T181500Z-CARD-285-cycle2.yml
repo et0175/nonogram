@@ -1,0 +1,810 @@
+version: 1
+generated_at: "2026-10-29T18:15:00Z"
+target: "card/285-player-hosting-and-counting @ 79ecafcb (cycle 2/3; 5 commits on the cut 464ae377, 7 files, +1873/-26, tracked tree clean)"
+card: CARD-285
+cycle: 2
+mode: fix-verification
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  The fix round did what it said for five of its six claims, and I drove each
+  one rather than reading the report. F-001 is genuinely closed: removing
+  AC-390's route line reds the test, and a request tape over the same journey
+  with the route in place shows 19 requests, one non-same-origin target, ZERO
+  foreign responses and three aborts -- the same 19-request journey cycle 1
+  taped with three HTTP 200s. F-003 is closed and the defusal is driven with
+  three staged probes: `:!meta` hides meta/review/ AND meta/kanban/ while a
+  second copy in docs/ still reds. F-002's two measured silent passes, F-005's
+  two unreadable sinks and F-006's block split each have a control that dies
+  when I mutate the line it names -- four mutants, four different assertion
+  lines. F-008 is closed well: the bound now sits in the deploy page beside
+  the R6 claim, and drift step 4 records that the "do not count locally" rule
+  binds the suite. AC-392's rewording is cycle 1's wanted wording verbatim,
+  it is NOT an AC weakened to match a weaker test -- it is strictly stronger
+  than what it replaced -- and it adds no validator warning.
+
+  The score is held below min_score by ONE gating finding, and it is the
+  SAME defect class as cycle 1's F-002, one level up. The `//` form got a
+  lookbehind; the two DOTALL block forms at :2017-:2018 did not, and they have
+  no guard at all. Measured on a copy of the clean counted site: a `/* */`
+  pair whose delimiters sit inside string literals swallows a live
+  `s.src = "//host/x"` (JS) and a live `url("//host/x")` (CSS); an
+  `<!-- -->` pair whose delimiters sit inside attribute values swallows a live
+  `<script src="//host/x">`; and a `//` inside a regex literal swallows a
+  following `fetch("/gone.json")`. All four are SILENT PASSES. That is exactly
+  the clause this round promoted into AC-392's own `then:` -- "a reference
+  shape the scan cannot classify is a failure" -- so the AC is right and the
+  test does not keep it. And the round REMOVED the one sentence that used to
+  admit the hazard: af160fd5's `_without_comments` declared "a string whose
+  content held a bare `//` would be truncated"; 79ecafcb declares only the
+  quote-led residual and calls it "the safe direction".
+
+  Two things in the brief are measurably wrong and one of them is the
+  correction the orchestrator told me to carry. See corrections_to_the_record
+  -- the short version is that the validator greps the WHOLE `path::name`, the
+  guard's bare-name sets resolve nothing, and main IS two warnings quieter
+  than honest. Commit b440b490's original record was right.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-285.md on main, in full (468 lines) -- round 1, cycle 1's summary, and the fix round's record"
+    - "meta/review/20261029T130000Z-CARD-285-cycle1.yml in full, every finding re-derived from the tree rather than taken"
+    - "the whole diff af160fd5..79ecafcb (3 files, +328/-39) and the whole-card diff 464ae377..79ecafcb (7 files)"
+    - "tests/test_public_player_pages.py at HEAD: the module docstring's ref table (:76-:106), the inverted registry guard (:1870-:1930), the scanner pattern block (:1976-:2143), scan_site/classify (:2145-:2320), and all three AC bodies"
+    - "scripts/assemble_player_site.py in full -- allow_list, REQUIRED_RUNTIME, delegated_argv, main()'s flag set"
+    - "player/assemble.py's ANALYTICS_SNIPPET/MARKER/ANCHOR and with_analytics' four refusals (:432-:452)"
+    - "docs/deploy/player.md in full (222 lines), both allow-list blocks, the new bound paragraph and drift step 4"
+    - "meta/architecture/requirements.yml FR-045/AC-392 through yaml.safe_load; ADR-0041/R2's check: block (:324)"
+    - "the validator of record's resolver: validators/requirements.py:838-868, utils.split_check_ref, utils.symbol_exists:237-264, utils.code_search:328-341"
+  not_reached:
+    - "the full suite -- the orchestrator's merge gate, deliberately not run; scripts/impact_set.py returns FULL for this card (cycle 1 reproduced it; not re-run here)"
+    - "the live Vercel / vendor dashboards -- outside the repository; every such value in the deploy page is TODO(owner)"
+    - "any database -- no db_required node was run or collected into a run. See skips_attributed."
+    - "an eyeballed render -- no image-pipeline change in this diff"
+  confidence: high
+
+method_note: >-
+  Every mutant and every planted probe ran in a THROWAWAY detached worktree
+  (`git worktree add --detach <scratch> 79ecafcb`, and a second at the cut
+  464ae377), never in the card worktree. Both scratch worktrees ran with
+  PYTHONPATH=<copy>/src and `nonogram.__file__` asserted to lie under the copy
+  BEFORE any measurement (printed: <copy>/src/nonogram/__init__.py), because
+  the venv's editable install otherwise resolves `import nonogram` to the main
+  repo. `__pycache__` was swept before every run. The blob hash of every
+  mutated file was asserted back to its HEAD value after every mutant
+  (tests/test_public_player_pages.py -> 6bb15ab0..., requirements.yml ->
+  507db3a6..., docs/deploy/player.md -> 7f33c6ca...). Both scratch worktrees
+  were removed at the end and `git worktree list` confirms. The card worktree
+  was `git status --porcelain` clean apart from cycle 1's own untracked YAML,
+  before and after, at 79ecafcb.
+
+  Deviation from deletion-only, declared: two of the brief's questions ("does
+  the subset arm red when a name is RENAMED", "does the set arm red when a
+  SEVENTH ref is added") cannot be asked by deletion. Those four are
+  rename/insert mutants and are marked as such; every other mutant is a
+  line-count-preserving deletion (a line blanked, or one alternation removed).
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock absent for the whole cycle; no run was refused; NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set"
+  results:
+    - "card worktree: tests/test_public_player_pages.py tests/test_public_player.py -> 66 passed, 0 skipped (10.52s)"
+    - "the same pair with -m browser -rs -> 22 passed, 44 deselected (7.39s), ZERO skip lines"
+    - "scratch worktree at 79ecafcb, unmutated: tests/test_public_player_pages.py -> 33 passed, 0 skipped (6.13s) -- the instrument proof every mutant below is measured against"
+    - "--collect-only -q at 79ecafcb -> 9755; at the cut 464ae377 (second scratch worktree) -> 9748"
+    - "-m db_required --collect-only -q -> 26/9755 collected, 9729 deselected"
+    - "validator of record, card worktree: /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture --phase all -> 0 error(s), 100 warning(s), 0 info. NO comparison to main's figure is drawn: the two trees differ in meta/, which the brief is right to call unsound. The one delta I do claim was isolated inside ONE worktree -- see corrections_to_the_record."
+  skips_attributed:
+    - "ZERO skips in every run of this cycle. grep -nE 'pytestmark|skipif|pytest.skip|xfail|pytest.importorskip' over tests/test_public_player_pages.py, player/assemble.py and scripts/assemble_player_site.py -> no hits; and no `pytestmark` ASSIGNMENT in tests/test_public_player.py, tests/test_puzzle_solver_page.py or tests/conftest.py either, which is the form a decorator-keyed detector would miss."
+    - "NO Chromium skip is possible: tests/test_puzzle_solver_page.py:551 is `pytest.fail(..., pytrace=False)` on a missing executable and :676 is `pytest.fail` on a missing pytest_playwright. A browser that cannot launch is RED, not an ungated door. (:551, not :550 -- :550 is the `if not Path(...).exists():` guard; the fix round's correction of the brief is right.)"
+    - "db_required: 26 nodes by collection, in 6 modules -- test_admin_binding.py (9), test_db_e2e_smoke.py (6), test_puzzle_edit_routes.py (4), test_db_isolation.py (3), test_card_156_db_fixture.py (2), test_db_engine_lifecycle.py (2). NONE is in this card's touched files (grep of the collected ids for 'test_public_player' -> 0), so NONE is a gate for this card, and none was run. No database was contacted at any point in this cycle."
+
+node_ids:
+  method: "--collect-only -q | grep '^tests/' | sort, at 79ecafcb (card worktree) and at 464ae377 (scratch detached worktree), compared with comm"
+  base: 9748
+  head: 9755
+  removed: 0
+  added: 7
+  verdict: "G-5 HOLDS, re-derived rather than carried: comm -23 is EMPTY and the 7 added ids are exactly the ones cycle 1 lists. The fix round added and removed no node -- every new control went inside an existing test."
+
+guardrails:
+  G-1: "HOLDS. `git diff --name-only 464ae377..HEAD -- src/` -> 0 lines. pyproject.toml absent from the whole-card diff. No render.yaml, no admin-service file."
+  G-2: "HOLDS. The analytics integration is one `<script>` tag in a Python string constant (player/assemble.py:413) -- no package. pyproject.toml is not in the diff."
+  G-3: >-
+    HOLDS ON THE SHIPPED TREE, and I checked it with an instrument of my own
+    rather than with the card's: a grep over player/*.{js,html,css,json} and
+    player/assemble.py for ip / ipv4 / ipv6 / remote_?addr / remoteAddress /
+    x-forwarded / clientIP / geoip / cf-connecting / true-client /
+    navigator.(userAgent|platform|hardwareConcurrency|deviceMemory|language) /
+    canvas / webgl / AudioContext / RTCPeerConnection / document.cookie /
+    visitorId / uuid / crypto.randomUUID / sessionId / _ga / fbp returns ONE
+    hit, a prose comment in pages.js that names a specification document.
+    Nothing we ship reads, stores or transmits an IP or a per-visitor
+    identifier. The residual is inherent and declared rather than hidden: any
+    third-party subresource discloses the visitor's IP to that vendor at the
+    transport layer, which is DEC-046's premise and is sourced in the deploy
+    page. What does NOT hold is the full strength of the guard that is meant
+    to keep G-3 holding -- see F-101.
+  G-4: "HOLDS. No write API, no score/leaderboard surface, no DNS automation. CARD-210 not flipped; the base URL is still TODO(owner), NOT observed."
+  G-5: "HOLDS -- see node_ids, re-derived."
+  ADR-0038/R7-R8: "HOLDS. Both browser tests carry @pytest.mark.browser and take the existing fixtures; no new Playwright dependency. A missing browser fails rather than skips (see skips_attributed)."
+  ADR-0039/R1: "HOLDS for every control I drove: M1-M4 below each kill the probe that names the line they remove."
+  ADR-0039/R2: >-
+    The derived half is real and the hand-written half is held. The guard's
+    `card_284` / `card_285` partition is hand-written, which R2 disfavours, but
+    both directions are pinned against a DERIVED set (`refs`, read out of
+    requirements.yml at runtime): a seventh ref nothing defines reds :1919 and
+    a seventh ref something defines reds :1920 -- both reproduced. So the
+    partition cannot drift silently. The default-deny CONDITION, however, is
+    still not met in scan_site -- four measured silent passes, F-101.
+  ADR-0039/R3: >-
+    SATISFIED for the comment-stripping exemption, newly. The round's pair is
+    real and I drove both halves: probe-exempt-comment.js is missed WITH
+    `_COMMENTS` in place and caught WITHOUT it (the test monkeypatches
+    `_COMMENTS` to `()` and asserts the catch), and probe-trailing-comment.js
+    shows a live reference that merely shares a line with a comment survives.
+    The sharper half of the same exemption -- "a full URL in a comment is
+    still reported, because `_ABSOLUTE_TARGET` runs unstripped" -- is true (I
+    planted both a `//` and a `/* */` comment carrying an absolute URL and both
+    were CAUGHT as foreign) but still has no planted control. See F-106.
+
+judgements_requested:
+  "1_the_registry_guard":
+    flip_complete: >-
+      YES, and both arms the brief asked about have teeth. The three refs are
+      really defined -- AC-390 at :2397, AC-391 at :2577, AC-392 at :2679 (all
+      three re-derived at 79ecafcb; the card's round-1 table's :2299/:2454/:2548
+      were right at af160fd5 and are stale at HEAD, which is the commit-dependence
+      lesson, not an error).
+    mutant_rename: >-
+      REPRODUCED. Renaming the `def` of AC-392's node by one character (M-R1,
+      line-count preserving) reds
+      `tests/test_public_player_pages.py::test_the_registrys_refs_for_this_file_resolve_or_are_card_285s`
+      at :1918 -- `assert card_285 <= defined` -> AssertionError naming the
+      missing name. The subset arm is not decorative.
+    mutant_table: >-
+      REPRODUCED. Blanking the AC-392 bullet in the module docstring's ref table
+      (M-R2, the whole `path::name` removed, line count preserved) reds the
+      per-name loop at :1929 (the brief's ":1928" is the `for`; the assert is the
+      next line). So "the table is complete" is a measurement.
+    empty_set_assertion: >-
+      NOT VACUOUS, and the docstring's own claim about it is FALSE. I isolated
+      the two arms with a seventh registry ref for this file:
+      * naming a node nothing defines (M-R3a) -> reds at :1919 ONLY
+        (`refs - defined == set()`);
+      * naming a node this file already defines (M-R3b) -> reds at :1920 ONLY
+        (`refs & defined == card_284 | card_285`).
+      They are COMPLEMENTARY: :1919 is the only arm that catches a newly planted
+      DEAD ref for this file, which is the precise defect the test exists for.
+      The docstring at :1884 says "the half that used to carry the obligation
+      (`refs - defined`) carries nothing" and "The half with teeth is the other
+      one". Measured false in the direction that matters most. See F-107.
+    literal_set_silencer: >-
+      YES, ONE REMAINS, and it is not the one the brief suspected. `card_284`
+      and `card_285` hold BARE names; the validator resolves an AC/EC `test:`
+      by `git grep -lw` of the WHOLE `path::name` string, so those sets silence
+      nothing (measured -- see corrections_to_the_record). What DOES silence is
+      the module docstring's ref TABLE, which spells seven whole `path::name`
+      strings as tracked code. Six of the seven are held: `card_284 | card_285
+      <= defined` plus the per-name loop. The SEVENTH is not. It is
+      ADR-0041/R2's own check ref (the book-title exemption node, CARD-284's,
+      whose flip was applied at 8492b63c). The guard reads only
+      requirements.yml, so an ADR rule's check ref is outside `refs`.
+      MUTANT M-R4, and it SURVIVED: rename that `def` by one character and
+      tests/test_public_player_pages.py is 33 passed / 0 skipped, there is no
+      `def` for the name anywhere in the repository, and the whole `path::name`
+      still resolves from FOUR tracked non-Markdown files -- this module's own
+      docstring table, player/assemble.py, tests/test_public_player.py and a
+      CARD-284 review YAML. A mandatory ADR rule would read as mechanically
+      checked with zero definitions. The docstring's claim that "the defining
+      module is the one place that cannot [lose the sentence unnoticed]" is
+      measurably false as the table is held today. This is CARD-308's hazard,
+      arriving by the route the brief suspected but through the table rather
+      than through the bare-name sets, and CARD-285 should say so for CARD-308.
+      See F-102.
+  "2_playwright_interceptor_proven_to_fire": >-
+    PROVEN, three ways, and F-001 is genuinely closed.
+    (a) Mutant I-c: blank AC-390's `page.route(...)` line (:2556) -- the route
+        itself removed -- and the test reds at :2572,
+        "nothing was intercepted, so the counted pages asked for nothing".
+        That is the request-counting control the brief asked for, not merely a
+        test that passes with the route present.
+    (b) Mutants I-a / I-b: blank the single recording line in each interceptor
+        (AC-390's at :2553, AC-391's at :2617) and each test reds at its own
+        non-vacuity assertion (:2572 and :2654). Neither `assert aborted` nor
+        `assert blocked` is decorative.
+    (c) A request tape over AC-390's journey WITH the route in place, taken in
+        the scratch worktree: TOTAL REQUESTS 19, exactly one non-same-origin
+        target (the script host), FOREIGN RESPONSES [], FOREIGN FAILURES
+        [that one], 3 aborts from 1 distinct URL. Cycle 1's tape was the same
+        19 requests with three HTTP 200s. The suite no longer reaches the
+        vendor, and the number that changed is the response count, not the
+        request count -- which is what an abort at the network layer looks
+        like.
+    One residual, unchanged from cycle 1 and still fair: AC-391's
+    `assert len(hosts) >= 1` at :2613 is weaker than the derivation supports
+    (`REQUIRED_RUNTIME` at scripts/assemble_player_site.py:71 guarantees both
+    `count` and `script`). F-104.
+  "3_comment_regex_completeness": >-
+    THE FIX IS REAL FOR THE SHAPE IT NAMES AND INCOMPLETE FOR THE SET THE
+    BRIEF LISTED. Measured by planting each shape into a copy of the clean
+    counted site inside the module's own fixture and running the real
+    `scan_site` with the real allow-list (baseline asserted clean in the same
+    run; each plant removed before the next):
+
+      /* */ block, delimiters inside STRING literals, swallowing
+          `s.src = "//host/x"` (JS)                         *** SILENT PASS ***
+      /* */ block, delimiters inside CSS string values,
+          swallowing `url("//host/f.woff2")`                *** SILENT PASS ***
+      <!-- --> block, delimiters inside ATTRIBUTE values,
+          swallowing `<script src="//host/x">`              *** SILENT PASS ***
+      // inside a REGEX literal (`/\/\//`), swallowing a
+          following `fetch("/gone-from-this-tree.json")`    *** SILENT PASS ***
+      // inside a TEMPLATE literal after a `${}` hole       CAUGHT (unclassifiable)
+      URL inside a SINGLE-QUOTED attribute                  CAUGHT (foreign)
+      // immediately after an ESCAPED quote                 CAUGHT (foreign)
+      plain protocol-relative `src="//host/x"` (control)    CAUGHT (foreign)
+      absolute URL in a `//` comment                        CAUGHT (foreign)
+      absolute URL in a `/* */` comment                     CAUGHT (foreign)
+
+    So of the brief's five: single-quoted attribute, template literal and
+    escaped quote are clean; `/* */` blocks and the regex literal are MISSES.
+    The two block forms at :2017-:2018 are `.*?` with `re.DOTALL` and NO
+    lookbehind at all -- strictly more destructive than the `//` form the
+    round fixed, because they cross lines. F-101, gating.
+  "4_is_meta_the_right_width": >-
+    YES, AND THE CARD ARGUES IT RATHER THAN ASSUMING IT. The test's docstring
+    states the exclusion as part of the assertion and gives the rule ("what
+    must not hold a second copy is a file the site or the tooling READS"),
+    which is the error it prefers: it would rather miss a second copy inside
+    meta/ than red on the board's own bookkeeping. Driven with three staged
+    probes in a scratch worktree, each holding a runtime endpoint:
+      * meta/review/<probe>.yml   -> invisible to the shipped pathspec
+      * meta/kanban/<probe>/notes.md -> invisible too (so `:!meta` is the whole
+        meta/ subtree, not just meta/review)
+      * docs/<probe>/probe.md     -> STILL REDS, at :3049,
+        "Left contains one more item: 'docs/probe285/probe.md'"
+    and the no-pathspec form lists all three, reproducing cycle 1's landmine.
+    THE LANDMINE IS DEAD everywhere I could find it: docs/, player/, scripts/,
+    tests/ are all still scanned, untracked paths (scratchpad/) were never
+    scanned because `git grep` without --untracked reads the index, and no
+    tracked file under meta/ is read as configuration by the site or the
+    assembler -- the assembler's only authority is docs/deploy/player.md, and
+    removing a line from its allow-list block fails the module at COLLECTION
+    (`ValueError: docs/deploy/player.md's analytics-allow-list does not name
+    script`), which I drove. The doc is load-bearing and proven so.
+    The hygiene rule can be lifted, and the fix round is right that it can.
+    I have still spelled no endpoint anywhere in this report.
+  "5_is_reworded_ac_392_what_the_test_enforces": >-
+    THE AC IS RIGHT AND THE TEST DOES NOT FULLY KEEP IT -- which is the
+    opposite of the failure mode the brief feared. The new `then:` is cycle 1's
+    wanted wording verbatim, round-trips through yaml.safe_load with the
+    default-deny clause present, and is STRICTLY STRONGER than the sentence it
+    replaced: "the only analytics endpoint" (unsatisfiable, singular, and it
+    would have red on a file CARD-283 shipped) became "every external reference
+    ... is one docs/deploy/player.md declares", with the two blocks named and
+    not counted. It adds no validator warning -- FR-045's four warnings at
+    79ecafcb are AC-380, AC-383 and AC-391 bundling outcomes plus the
+    status:partial one, and AC-392 is in none of them.
+    Clause by clause:
+      1. "no reference names a visitor IP or a per-visitor identifier" --
+         enforced by the `identifiers` bucket, and the compound-vocabulary
+         control is real.
+      2. "every external reference is one the deploy page declares, runtime or
+         non-runtime" -- enforced, and the two blocks are no longer a flat
+         union: mutant M3 (re-union them) kills the probe at :2841, and the
+         `scan_site(site, ALLOW_RUNTIME, {})` control shows the static member
+         is what permits vercel.json's own $schema.
+      3. "a reference shape the scan cannot classify is a failure" -- NOT
+         fully enforced. This is F-101: four reference shapes the scan's own
+         pattern set would read are destroyed by the comment stripper before
+         any pass reads them, and nothing is reported. The AC now says the
+         thing the test does not do, which is the honest direction to fail in
+         but is still a gap, and it is gating because this AC is the
+         security-shaped one.
+  "6_skips_by_name": "see runs.skips_attributed -- zero skips, zero possible Chromium skip, and none of the 26 db_required nodes is in this card's files or was run."
+  "7_measured_wrong": "see corrections_to_the_record"
+
+mutation:
+  instrument_proof: >-
+    Proved on an UNMUTATED tree first, in the scratch worktree at 79ecafcb and
+    before any mutant: tests/test_public_player_pages.py -> 33 passed, 0
+    skipped, with `nonogram.__file__` printed and asserted under the copy. Each
+    mutant below was applied by a needle whose occurrence count was asserted to
+    be exactly 1 (or by an asserted line content at a fixed index), and the
+    file's blob hash was asserted back to its HEAD value afterwards.
+  mutants:
+    - id: M-R1
+      kind: rename (declared deviation)
+      subject: "the `def` of AC-392's node, renamed by one character"
+      result: "KILLED at :1918 -- `assert card_285 <= defined`."
+    - id: M-R2
+      kind: deletion
+      subject: "the AC-392 line of the module docstring's ref table, blanked"
+      result: "KILLED at :1929 -- the per-name `in table` loop."
+    - id: M-R3a
+      kind: insert (declared deviation)
+      subject: "a seventh requirements.yml ref for this file naming a node nothing defines"
+      result: "KILLED at :1919 ONLY -- `refs - defined == set()` is the arm with these teeth."
+    - id: M-R3b
+      kind: insert (declared deviation)
+      subject: "a seventh requirements.yml ref for this file naming a node it already defines"
+      result: "KILLED at :1920 ONLY -- the intersection arm."
+    - id: M-R4
+      kind: rename (declared deviation)
+      subject: "the `def` of ADR-0041/R2's check-ref node (the book-title exemption), renamed by one character"
+      result: "*** SURVIVED *** -- 33 passed, 0 skipped. No `def` for the name exists afterwards, and the whole `path::name` still resolves from four tracked non-Markdown files. F-102."
+    - id: I-a
+      kind: deletion
+      subject: "AC-390's `aborted.append(route.request.url)` (:2553), blanked"
+      result: "KILLED at :2572 -- `assert aborted`."
+    - id: I-b
+      kind: deletion
+      subject: "AC-391's `blocked.append(route.request.url)` (:2617), blanked"
+      result: "KILLED at :2654 -- `assert blocked`."
+    - id: I-c
+      kind: deletion
+      subject: "AC-390's `page.route(...)` line (:2556), blanked -- the interceptor itself removed"
+      result: "KILLED at :2572. This is the control the brief asked for."
+    - id: M1
+      kind: deletion
+      subject: "`\"Worker\",` removed from URL_CALLS"
+      result: "KILLED at :2830 -- the probe-worker unreadable-target control. F-005's fix is held by the line it names."
+    - id: M2
+      kind: deletion
+      subject: "`src|srcset|srcdoc|` removed from _PROPERTY_SINK's group"
+      result: "KILLED at :2834 -- the probe-sink control."
+    - id: M3
+      kind: deletion
+      subject: "`fetching`-conditional removed from `allowed = fetchable if fetching else permitted` -- the two allow-list blocks re-unioned"
+      result: "KILLED at :2841 -- the non-runtime-fetched control. F-006's fix is mechanical, not documentary."
+    - id: M4
+      kind: deletion
+      subject: "the comment lookbehind reverted to `(?<![:])`"
+      result: "KILLED at :2816 -- the protocol-relative controls. F-002's fix is held."
+    - id: D1
+      kind: deletion
+      subject: "the `script` entry blanked from docs/deploy/player.md's runtime allow-list block"
+      result: "KILLED at COLLECTION -- ValueError from scripts/assemble_player_site.py:127. The doc is load-bearing code and the suite says so loudly."
+  survivors: "M-R4 only. Eleven of twelve killed; the twelfth is F-102."
+
+findings:
+  - id: F-101
+    severity: high
+    category: correctness
+    type: gap
+    gating: true
+    file: tests/test_public_player_pages.py
+    line: 2017
+    title: "The two DOTALL block comment forms have no lookbehind at all, so a `/* */` or `<!-- -->` pair whose delimiters sit inside string literals SWALLOWS a live external reference -- four measured silent passes, and the round deleted the sentence that used to admit the hazard"
+    description: |
+      Cycle 1's F-002 was gating because `_COMMENTS`' `//` form ate a
+      protocol-relative reference a quote had already introduced. The fix round
+      gave that form a lookbehind (:2019) and I confirmed it works (mutant M4
+      kills the control). It left the other two forms alone:
+
+          :2017  re.compile(r"/\*.*?\*/", re.DOTALL)
+          :2018  re.compile(r"<!--.*?-->", re.DOTALL)
+
+      Neither has any guard, and both cross lines. `_without_comments` runs
+      them over the WHOLE file before `_ATTR_TARGET`, `_IMPORT_TARGET`,
+      `_CSS_TARGET`, `_URL_LITERAL` and `_PROPERTY_SINK` read it, so a
+      delimiter pair anywhere -- including inside string literals and
+      attribute values -- blanks everything between and takes live references
+      with it. `_ABSOLUTE_TARGET` runs on the unstripped text and catches a
+      full `https://` URL, so the evasion is exactly the protocol-relative
+      form: the one cycle 1 called "the single cheapest way to add a tracker
+      to a static site".
+
+      MEASURED, each planted alone into a copy of the clean counted site
+      inside the module's own `counted_site` fixture, scanned with the real
+      `scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)`, baseline asserted
+      clean in the same run:
+
+        zz-a-block-swallow.js      *** SILENT PASS ***
+            const open = "/*";
+            const s = document.createElement("script");
+            s.src = "//evil.example/t.js";
+            const close = "*/";
+            stripped = 'const open = "\n\n\n";\n'
+
+        zz-j-css-block-swallow.css *** SILENT PASS ***
+            a{content:"/*"}
+            @font-face{src:url("//evil.example/f.woff2")}
+            b{content:"*/"}
+            stripped = 'a{content:"\n\n"}\n'
+
+        zz-b-html-swallow.html     *** SILENT PASS ***
+            <p data-x="<!--"></p>
+            <script src="//evil.example/t.js"></script>
+            <p data-y="-->"></p>
+            stripped = '...<p data-x="\n\n"></p>\n'
+
+        zz-d-regex-literal.js      *** SILENT PASS ***
+            const re = /\/\//; fetch("/not-in-this-tree.json");
+            stripped = 'const re = /\\/\\\n'
+
+      Each of those references is a shape the scanner's own pattern set reads
+      perfectly well when it survives: the same `src="//evil.example/t.js"`
+      planted without the delimiters is CAUGHT as `foreign`, which is the
+      round's own probe-protocol-relative control.
+
+      Why it is gating and not a note:
+      (a) it falsifies AC-392's `then:` as this round rewrote it -- "a
+          reference shape the scan cannot classify is a failure" -- in a
+          security-shaped AC, and the AC/EC gate reads the AC;
+      (b) it falsifies `scan_site`'s own qualified claim, which is careful
+          about sinks "not in its set at all" and silent about references the
+          stripper destroys: these ARE in the set;
+      (c) it falsifies docs/deploy/player.md's allow-list sentence, "fails on
+          every external reference it finds that is not here", for the same
+          four shapes;
+      (d) it is the same defect class that gated cycle 1, one level up, so
+          fixing only the reported instance is the pattern the board keeps
+          repeating.
+
+      AND THE ROUND MADE THE RECORD WORSE WHILE FIXING THE CODE. At af160fd5
+      `_without_comments` declared the unsafe residual: "a string whose content
+      held a bare `//` would be truncated. Nothing in the served tree has one,
+      and the cost of a false strip is a missed reference inside a string". At
+      79ecafcb that sentence is gone; what is declared instead is only the
+      quote-led case, labelled "the safe direction (a comment that is read as
+      code can only produce a finding, never hide one)". The residual that can
+      hide a finding is no longer written anywhere, and it still exists
+      (zz-d). A reader of the current docstring would conclude the only
+      residual is harmless.
+    reproduction: >-
+      Scratch detached worktree at 79ecafcb with PYTHONPATH=<copy>/src and
+      nonogram.__file__ asserted under the copy. A probe test appended to the
+      module (so it can take `counted_site`) that copytrees `report.site_dir`,
+      asserts the baseline scan clean, then writes each plant above into the
+      copy one at a time, prints `scan_site(probed, ALLOW_RUNTIME,
+      ALLOW_STATIC)` filtered to the plant's own filename plus
+      `_without_comments(body)`, and unlinks it. Output above. The file's blob
+      hash was asserted back to 6bb15ab0... afterwards.
+    recommendation: >-
+      Do not let a block form start where a quote has already opened a string.
+      The cheapest shape that matches the `//` fix is a lookbehind on each
+      block opener -- `(?<![:"'`])/\*` and `(?<![:"'`])<!--` -- which is one
+      character class each and kills three of the four plants; the regex-literal
+      case wants the `//` form's lookbehind extended with `\\` and `/`. A
+      stronger and simpler alternative is to stop trusting the stripper for
+      this: run `_URL_LITERAL` and `_ATTR_TARGET` over the UNSTRIPPED text the
+      way `_ABSOLUTE_TARGET` already is, and keep the strip only for
+      `_IMPORT_TARGET` and `_CSS_TARGET`, which are the two patterns the
+      measured false positives came from (player.css's English prose and
+      solver_state.js:6's documented panel path). Either way: add each of the
+      four plants to `test_no_homegrown_tracking`'s control set, so the fix
+      has a control the way F-002's did, and restore a declaration of the
+      residual that CAN hide a finding to `_without_comments`' docstring and
+      to the deploy page's bound paragraph.
+    confidence: high
+    source: measured
+
+  - id: F-102
+    severity: medium
+    category: maintainability
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 92
+    title: "The module docstring's ref table is a literal-set silencer for ADR-0041/R2's check ref, and the rewritten guard does not hold that line -- mutant SURVIVED"
+    description: |
+      The guard reads `refs` out of requirements.yml only. ADR rule check refs
+      and trace entries are not in it. The module docstring's table carries
+      SEVEN whole `path::name` strings; six are held both ways by
+      `card_284 | card_285 <= defined` and the per-name `in table` loop. The
+      seventh -- ADR-0041/R2's own check ref, the book-title exemption node
+      CARD-284 flipped live at 8492b63c -- is held by nothing.
+
+      MUTANT M-R4, and it SURVIVED: rename that `def` by one character and
+        * tests/test_public_player_pages.py -> 33 passed, 0 skipped;
+        * `grep -c "def <name>("` -> 0, and no definition exists anywhere;
+        * `git grep -lw "<the whole path::name>" -- . ':(exclude)meta/architecture' ':(exclude)*.md'`
+          still returns FOUR tracked files: this module's own docstring table,
+          player/assemble.py, tests/test_public_player.py, and a CARD-284
+          review YAML.
+      So a MANDATORY ADR rule -- R2, the no-answers rule -- would read as
+      mechanically checked with zero definitions, and nothing in the suite
+      says so.
+
+      The docstring argues the opposite in its own words: the table line exists
+      "so that the string is greppable from code the moment the flip happens",
+      because the prior resolvers were "two files that could lose a sentence
+      without anybody noticing the ref had died with it. The defining module is
+      the one place that cannot." Measured: as the table is held today, it can.
+      The line was written before the flip, when the ref was deliberately
+      un-named; after the flip nothing extended the hold to it.
+
+      This is precisely CARD-308's subject arriving by an unlisted route, and
+      CARD-285 is where it is visible. It is NOT, however, the route the brief
+      named: `card_284` and `card_285` hold BARE names, and the validator
+      resolves an AC `test:` by the whole `path::name`, so those sets silence
+      nothing (see corrections_to_the_record).
+    reproduction: "Scratch worktree at 79ecafcb; `sed -i ''` rename of the one `def` line (needle count asserted 1), then the git grep above and the module run; blob restored to 6bb15ab0..."
+    recommendation: >-
+      Hold the table to what it spells rather than to a hand-written subset:
+      collect every `tests/<this file>::(\w+)` string out of `__doc__` and
+      assert that set is a subset of `defined`. Four lines, it covers all seven
+      today and every one added later, and it makes the docstring's "the
+      defining module is the one place that cannot" true as written. Then say
+      in the card that the hazard was found here and what shape it has, so
+      CARD-308 inherits a measured instance rather than a theory.
+    confidence: high
+    source: measured
+
+  - id: F-103
+    severity: medium
+    category: correctness
+    type: inaccuracy
+    gating: false
+    file: scripts/assemble_player_site.py
+    line: 208
+    title: "The deploy helper COUNTS BY DEFAULT, so \"Do not count locally\" is a rule with no mechanism -- and the card's record says the default is the other way"
+    description: |
+      Two layers, opposite defaults, and only one of them is written down:
+        * player/assemble.py takes `analytics=None` by default -- the card's
+          "default-off" is true here, and every fixture goes through it;
+        * scripts/assemble_player_site.py, the documented entry point, is
+          OPT-OUT: `--no-analytics` at :208, and `if not args.no_analytics:` at
+          :220 reads the deploy page and injects the tag. A bare
+          `python scripts/assemble_player_site.py` produces a COUNTED tree.
+
+      The card's round-1 record says: "the snippet is injected at assembly
+      time, default-off ... With no flags -- every fixture, every local run --
+      no tag is written." The second half is false for the helper, which is
+      what a human runs. docs/deploy/player.md's drift step 4 then makes "Do
+      not count locally" a rule enforced by remembering a flag, in a card whose
+      whole subject is that a control which cannot fail is not a control
+      (ADR-0039/R2's own framing, which this round promoted into AC-392).
+
+      Not gating: the owner's numbers are the only thing at risk, the vendor is
+      documented as skipping a 127.0.0.1 host (unasserted, as cycle 1 noted),
+      and the suite never goes through the helper's main(). But it is the one
+      place in this card where the safe path is the one you have to remember.
+    reproduction: "Read of scripts/assemble_player_site.py:188-231 at 79ecafcb, against the card's round-1 'Resolution' paragraph and docs/deploy/player.md drift step 4."
+    recommendation: >-
+      Either invert it -- make counting opt-IN (`--analytics`) so the default
+      obeys the documented rule and the deploy step is the one that is
+      explicit -- or, if the helper must stay deploy-shaped, say so in the same
+      breath as drift step 4 ("the helper counts unless told not to") and
+      correct the card's 'every local run' sentence. The flag names in the doc
+      and in argparse agree today; nothing holds them to each other, which is
+      a second, cheaper thing to add.
+    confidence: high
+    source: measured
+
+  - id: F-104
+    severity: low
+    category: testing
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2613
+    title: "\"F-004…F-008 all taken\" is not accurate: F-007's code half was not taken, and `assert len(hosts) >= 1` is still the weak floor"
+    description: |
+      The fix round's record says "**F-004…F-008** all taken" and then
+      enumerates four fixes: the comment-stripping control (F-004), the
+      Worker/_PROPERTY_SINK sinks (F-005), the two-block split (F-006), and
+      the deploy-page bound (F-008). F-007 is inside that range and is not in
+      the list.
+
+      What F-007 asked for, and what happened:
+        * "exempt by the located URL alone, drop `host in entry[0] or`" --
+          NOT done, and defensibly so: the predicate at :2659 is still the
+          disjunction, and AC-391's docstring now ARGUES for it ("the
+          disjunction is what keeps the exemption from depending on which of
+          the two Chromium happens to fill in"). That is a legitimate refusal,
+          and M-D's property survives either way. The three documents that
+          described the mechanism wrongly are corrected. Fine.
+        * "make the floor an equality" -- NOT done. :2613 is still
+          `assert len(hosts) >= 1, hosts`, while
+          scripts/assemble_player_site.py:71's `REQUIRED_RUNTIME = ("count",
+          "script")` guarantees both entries exist. Two endpoints collapsing
+          onto one host would halve what the interceptor blocks and pass
+          unnoticed.
+      So the accurate sentence is "F-004, F-005, F-006 and F-008 taken; F-007
+      answered in the record and refused in the code, with one half
+      outstanding". A round report that rolls a refusal into "all taken" is how
+      a finding stops being tracked.
+    reproduction: "grep -n 'assert len(hosts)' -> one hit, :2613; grep -n 'REQUIRED_RUNTIME' scripts/assemble_player_site.py -> :71, :125; read of :2655-:2662."
+    recommendation: "Make it `assert sorted(hosts) == sorted({v.split('/')[2] for v in ALLOW_RUNTIME.values()})`, derived rather than typed, and record F-007 as part-refused rather than taken."
+    confidence: high
+    source: measured
+
+  - id: F-105
+    severity: low
+    category: documentation
+    type: gap
+    gating: false
+    file: docs/deploy/player.md
+    line: 170
+    title: "Cycle 1's real F-009 was never addressed -- the card renumbered F-009 onto the G-3/AC-3 item and the round fixed that instead"
+    description: |
+      Cycle 1's YAML numbers its findings F-001..F-010. Its F-009 is
+      "`with_analytics`'s https-only, no-quote and single-`</head>` refusals
+      are undeclared constraints" (player/assemble.py). The AC-3 cross-
+      reference in G-3 appears in that YAML only under
+      `corrections_to_the_record` and `card_amendments_owed`; it carries no
+      F-number.
+
+      The card's own "[Review cycle 1]" section then lists, under Non-gating:
+      "**F-009** G-3 names 'AC-3'". The fix round took that and reports
+      "F-009's G-3 naming a non-existent AC-3" as applied. G-3 is indeed fixed.
+      The YAML's actual F-009 is not: player/assemble.py:439-450 still raises
+      ValueError on a non-`https://` endpoint, on an endpoint containing a
+      quote / `<` / whitespace, on an already-marked document and on any count
+      of `</head>` other than one, and docs/deploy/player.md states none of
+      the four. An owner registering a self-hosted counter on `http://` meets a
+      ValueError from a line nothing told them about.
+
+      The defect worth naming is the renumbering, not the missing sentence: a
+      finding that changes number between the YAML and the card can be closed
+      by fixing something else.
+    reproduction: "Diff of cycle 1's YAML `findings[].id` against the card's Non-gating list; `grep -niE 'https|quote|whitespace|absolute' docs/deploy/player.md` returns only the two allow-list value lines."
+    recommendation: "One line in the deploy page's allow-list section naming the four refusals, and a note on the card that F-009 is the assemble.py item so the number stops moving."
+    confidence: high
+    source: measured
+
+  - id: F-106
+    severity: low
+    category: testing
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2806
+    title: "The comment-stripping asymmetry's load-bearing half -- \"a full URL in a comment is still reported\" -- still has no planted control"
+    description: |
+      ADR-0039/R3 is satisfied: control 8 holds the exemption both ways
+      (probe-exempt-comment.js missed WITH `_COMMENTS` and caught WITHOUT it,
+      via `monkeypatch.setattr(sys.modules[__name__], "_COMMENTS", ())`, which
+      I confirmed is effective because `_without_comments` reads the module
+      global at call time). That is the pair R3 asks for.
+
+      The sharper claim the design rests on is narrower and still untested:
+      `_ABSOLUTE_TARGET` runs on the UNSTRIPPED text, "so a full URL in a
+      comment is still reported" -- i.e. a second endpoint parked in a comment
+      is a finding. None of the planted probes is an absolute URL in a comment.
+      Cycle 1's F-004 recommended exactly that probe (its c1/c3/c4) and the
+      round added a different pair instead.
+
+      I measured the claim TRUE: `// see https://evil.example/t.js for why` and
+      `/* https://evil.example/t.js */` are both CAUGHT as `foreign`. So this
+      is a missing control, not a defect -- and it is where F-101's four plants
+      belong too.
+    recommendation: "Add one of the two plants above to the control set, asserting the hit lands in `foreign`. Two lines, and it makes the asymmetry a measurement."
+    confidence: high
+    source: measured
+
+  - id: F-107
+    severity: info
+    category: documentation
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 1884
+    title: "The guard's new docstring says `refs - defined` \"carries nothing\" -- measured false; it is the only arm that catches a newly planted dead ref"
+    description: |
+      :1880-:1886 reads: "CARD-285 wrote them, so the same assertion is now an
+      equality against the empty set, and the half that used to carry the
+      obligation (`refs - defined`) carries nothing. The half with teeth is the
+      other one."
+
+      Isolated by two insert mutants, each adding one seventh requirements.yml
+      ref for this file:
+        * naming a node nothing defines -> reds at :1919 ONLY;
+        * naming a node this file defines -> reds at :1920 ONLY.
+      :1919 is therefore the one arm that catches a newly planted DEAD ref for
+      this file -- the exact defect the test's own first paragraph says it
+      exists for -- and :1920 is the one arm that catches a newly planted LIVE
+      one. Complementary, not one-with-teeth-and-one-without.
+
+      A docstring that tells the next reader an assertion is inert is how an
+      assertion gets deleted in a later tidy-up. Cycle 1's M-A measured the
+      same thing; the round wrote the opposite into the code.
+    recommendation: "Re-word to what the two arms do: together they pin `refs == card_284 | card_285` exactly, :1919 against a dead seventh ref and :1920 against a live one. Three words, and it is the sentence a future reader needs."
+    confidence: high
+    source: measured
+
+corrections_to_the_record:
+  - target: "the orchestrator's brief, §'THE REGISTRY GUARD', and the correction it says it owes me"
+    claim: >-
+      "Two tracked files do it: the synced CARD-285 cycle-1 review YAML, and
+      tests/test_public_player_pages.py itself, whose card_285 string-literal
+      set ... thereby makes the validator read them as defined" -- and the
+      consequent correction, "Both halves are wrong: the guard's string set
+      resolves them too, so deleting the YAML would not raise main's count. Do
+      not carry that claim."
+    measured: >-
+      BOTH OF THOSE ARE WRONG, and commit b440b490's original record was RIGHT.
+      The validator resolves an AC/EC `test:` by the WHOLE `path::name` string,
+      not by the bare name: validators/requirements.py:859-861 passes
+      `entry["test"]` through `utils.split_check_ref` (which only splits on
+      commas) into `utils.symbol_exists`:256,
+      `git grep -lw <whole ref> -- . :(exclude)meta/architecture :(exclude)*.md`
+      (the exclude list is built at utils.code_search:336-339).
+      On main today, `git grep -lw "tests/test_public_player_pages.py::test_assembled_site_is_self_contained"`
+      under that exact pathspec returns ONE file -- the synced cycle-1 YAML.
+      The bare-name grep returns the test module as well, which is the hit the
+      brief saw, but the bare name is not what the validator asks for.
+      SOUNDLY ISOLATED, inside ONE worktree, holding everything equal but the
+      one meta file (never by comparing two trees): a scratch detached worktree
+      at the cut 464ae377, validator of record, twice --
+        A, cycle-1 YAML ABSENT: two DEAD-check-ref warnings, FR-045/AC-390 and
+           FR-045/AC-391 (AC-392 is not among them: three earlier review YAMLs
+           already resolve it);
+        B, the SAME worktree with only `git show main:<that YAML>` written in
+           and `git add`ed: both warnings GONE.
+      So the synced CARD-285 cycle-1 YAML IS the sole resolver for AC-390 and
+      AC-391, deleting it WOULD raise main's count, and main is exactly two
+      warnings quieter than honest.
+  - target: "the orchestrator's brief, §'THE REGISTRY GUARD'"
+    claim: "'does the per-name loop at :1928 red'"
+    measured: "The loop header is :1928; the assertion that reds is :1929. Reproduced -- the failure prints `tests/test_public_player_pages.py:1929: AssertionError`."
+  - target: "the fix round's own record"
+    claim: "'F-004…F-008 all taken'"
+    measured: "F-007 is in that range and is not in the enumeration that follows it. Its documentary half was taken; its code half (`assert len(hosts) >= 1` -> an equality) was not. See F-104."
+  - target: "the card's '[Review cycle 1]' section, Non-gating list"
+    claim: "'**F-009** G-3 names \"AC-3\"'"
+    measured: "Cycle 1's YAML F-009 is the `with_analytics` undeclared-constraints finding at player/assemble.py; the AC-3 item carries no F-number there. The round fixed the renumbered item and the real F-009 is untouched. See F-105."
+  - target: "the card's round-1 record, 'The decision the whole card turned on'"
+    claim: "'default-off ... With no flags — every fixture, every local run — no tag is written'"
+    measured: "True of player/assemble.py, false of scripts/assemble_player_site.py, which is the documented entry point and is opt-OUT (`--no-analytics`, :208/:220). See F-103."
+  - target: "tests/test_public_player_pages.py's own docstrings"
+    claim: "':1884 `refs - defined` carries nothing' and ':104 the defining module is the one place that cannot [lose the ref unnoticed]'"
+    measured: "Both false, each by its own mutant -- M-R3a and M-R4. See F-107 and F-102."
+  - target: "the fix round's record and the brief"
+    claim: "'the lookbehind at :2019', 'the pathspec at :3042', '`page.route` now appears 2 times', 'the three are defined at :2397, :2577, :2679'"
+    measured: "ALL FOUR CONFIRMED at 79ecafcb, re-derived rather than carried. `page.route` at :2556 (AC-390) and :2620 (AC-391)."
+  - target: "the fix round's record"
+    claim: "'Node ids 9748 -> 9755, +7/-0', '22 passed, 44 deselected', '66 passed 0 skipped', 'db_required 26 by collection', 'no Chromium skip'"
+    measured: "EVERY ONE REPRODUCED independently, including the cut's 9748 from a scratch worktree at 464ae377 and an empty `comm -23`."
+  - target: "the brief's §'DO NOT COMPARE…' and §'How to measure'"
+    claim: "the warning-count comparison is unsound; a git archive copy under-reports; a load figure does not belong in a report"
+    measured: "Followed. No count comparison between trees is drawn anywhere above; the one delta claimed was isolated inside a single worktree. No git archive was used -- both scratch trees are real worktrees with a .git link, and `nonogram.__file__` was asserted under each before measuring. No load figure appears in this report."
+
+deferred:
+  - "the full suite -- the merge gate's; scripts/impact_set.py returns FULL for this card, so no narrowed reading exists"
+  - "mutation beyond the twelve above -- Step 8f's ladder, deferred(cost): one gating finding this cycle"
+  - "a counted-tree request-SET closure control (cycle 1's F-010) -- still not owed; the tape I took is the measurement it would automate"
+  - "timings -- three cards in flight on this box"
+
+dead_ref_hygiene: >-
+  This report syncs into main, where the check-ref search is a TEXT search over
+  tracked non-Markdown files and meta/review/** is NOT excluded from it, so a
+  whole `path::name` spelled here reads as a definition. Device used: every
+  `path::name` string in this file was extracted by regex and checked against a
+  real `^\s*(def|class)\s+<name>\b` at that path in the card worktree at
+  79ecafcb. Exactly three whole `path::name` strings appear in this file and
+  all three resolve to a real `def`:
+  tests/test_public_player_pages.py::test_assembled_site_is_self_contained
+  (`def` at :2397),
+  tests/test_public_player_pages.py::test_the_registrys_refs_for_this_file_resolve_or_are_card_285s
+  (:1870), and
+  tests/test_public_player_pages.py::test_the_deploy_page_is_the_only_place_that_holds_an_endpoint
+  (:3015). AC-391's and AC-392's nodes are referred to by AC id or by bare
+  name only -- both are defined (:2577 and :2679, collected in this cycle), so
+  spelling them would have been honest; they are simply not needed in full.
+  NAMES DELIBERATELY NOT SPELLED AS `path::name`: the four mutants that rename
+  a definition away are described rather than named, and ADR-0041/R2's
+  book-title exemption node (F-102's subject) is referred to by description
+  only -- spelling it here would add a FIFTH resolver to the very silencer the
+  finding is about. For the same reason this file spells no truncated prefix of
+  it either.
+  SEPARATELY: NEITHER ANALYTICS ENDPOINT IS SPELLED ANYWHERE IN THIS REPORT, by
+  URL or by host. That is belt-and-braces -- I verified with three staged probes
+  that `tests/test_public_player_pages.py::test_the_deploy_page_is_the_only_place_that_holds_an_endpoint`'s
+  `:!meta` pathspec hides meta/review/ and meta/kanban/ entirely, so cycle 1's
+  landmine cannot be re-armed from here. Cycle 1's hygiene rule is lifted and
+  this report keeps it anyway.
+
+next_cycle_entry_conditions:
+  - "F-101 fixed and CONTROLLED: all four plants (JS block swallow, CSS block swallow, HTML comment swallow, regex-literal swallow) added to test_no_homegrown_tracking's probe set, each asserted into `foreign` or `unclassifiable`; or the clause struck from AC-392 and from scan_site's docstring, which would be the honest refusal but weakens the AC this round strengthened."
+  - "The residual that CAN hide a finding restored to `_without_comments`' docstring and to the deploy page's bound paragraph -- whatever remains after the fix."
+  - "F-102: the docstring table held to `defined` by what it spells rather than by a hand-written subset, and the measured instance written into the card for CARD-308."
+  - "F-103, F-104, F-105, F-106 are four one-to-four-line edits in four different files; none needs a decision."
+  - "Cycle 3 is the last. If F-101's fix lands with its controls, nothing else here is worth another cycle."
