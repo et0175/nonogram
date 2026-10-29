@@ -727,8 +727,8 @@ export const RUNG_EVENTS = Object.freeze(["press", "change"]);
 //: real 3 -> 1 step is commit()'s own nextRung(rung, "change") — rung 3's
 //: stroke IS a recorded change, so it drops the ladder like any other.
 //: `nextRung(RUNG_REVEAL, "press")` is therefore unreachable from the UI;
-//: it is reached only by the derived-table test, which drives every (rung,
-//: event) pair rather than the five production uses.
+//: it is reached only by the derived-table test, which drives all six (rung,
+//: event) pairs rather than the five that production can reach.
 const RUNG_AFTER_PRESS = Object.freeze(Object.fromEntries(
   HINT_RUNGS.map((rung, i) => [rung, HINT_RUNGS[(i + 1) % HINT_RUNGS.length]])));
 
