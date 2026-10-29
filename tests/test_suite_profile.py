@@ -40,9 +40,11 @@ stdlib construction probe adding a call per surface spelling and no
 subprocess.
 
 Re-measured 2026-10-29 by CARD-304 on a different host (arm64 Darwin 25.6),
-and the band it published was exceeded within a day. What the measurements
-say, with the domain each was taken in, because that domain is part of the
-figure:
+and every band published since has been exceeded within a day of publishing
+it -- three times now, which is the observation the class figure below is
+restated on. What the measurements say, with the domain each was taken in,
+because that domain is part of the figure, and each with its node-id count,
+because the node-id count is the other half of it:
 
 * **30.4-34.0s over four runs** (2026-10-29, CARD-304's implementation round,
   410 then 439 node ids, two runs each way interleaved: 30.37/33.98 without
@@ -54,15 +56,47 @@ figure:
   and the board runs up to five cards at once, which the original domain did
   not mention;
 * **37.6-39.0s over six runs** (2026-10-30, fix round 1, same host, 445 node
-  ids, a sibling card's gate live on the host for part of it).
+  ids, a sibling card's gate live on the host for part of it) -- and this one
+  was ALSO exceeded at both ends within a day: review cycle 2 measured
+  37.28-40.30s over four runs at the same 445 node ids;
+* **43.4-43.8s over three runs** (2026-10-30, fix round 2, same host, 450
+  node ids: 43.42 / 43.42 / 43.82 session, 44.51 / 44.54 / 44.79 wall. One
+  sibling card's pytest alive for two of the three and none for the third,
+  and the three readings are indistinguishable -- so the ~4s above fix round
+  1 is the five node ids this round adds, not contention. The dominant new
+  term is the fifth visibility-control row, which is an INVISIBLE one and
+  therefore spends its whole VISIBILITY_CONTROL_TIMEOUT by construction).
 
 All of those are **pytest-reported session time**, which is the reading every
-module total in this docstring uses. The host-cells class alone costs
-**5.3-5.8s session over five runs** (6.2-6.7s WALL -- a second of interpreter
-start-up, and the two readings are named because CARD-304 first published the
-class's wall figure next to the module's session figures without saying so).
-The class is inside the module total's spread between any two of the three
-domains above, so no delta for it is claimable from that total: a difference
+module total in this docstring uses.
+
+The host-cells class alone is **not published as a band any more**, and the
+reason is the only honest conclusion left after three rounds of exceeding
+one. Review cycle 1 (F-003) found the module band exceeded; the fix gave the
+module figures their domains; review cycle 2 (F-006/F-011) then found the
+class band -- 5.3-5.8s session, 6.2-6.7s wall, five runs -- exceeded in BOTH
+directions within a day, which is not a band that needs widening but a
+quantity whose spread is not bounded by the number of runs anyone is willing
+to do. So what is recorded is the observed spread with its conditions, and
+the conditions are named because they do not order the quantity the way a
+reader would guess:
+
+* **7 runs, 2026-10-30, this host, fix round 2, 40 node ids** (the class
+  gained 5 ids this round: 4 new tests and a fifth visibility-control row);
+* with one sibling card's pytest alive throughout: 6.51 / 6.66 / 6.69 /
+  6.75s session, 7.30 / 7.64 / 7.70 / 7.73s wall;
+* with none alive: 7.00 / 7.03 / 7.22s session, 7.86 / 8.08 / 8.31s wall.
+
+The quiet domain is the SLOWER one here, by about half a second, which is
+the point: host contention is not the variable that orders this reading, so a
+range whose domain says "quiet" or "contended" would have been a figure whose
+stated domain did not explain its own spread. Both readings are named --
+session and wall -- because CARD-304 first published the class's wall figure
+next to the module's session figures without saying so (review cycle 1,
+F-011).
+
+The class is inside the module total's spread between any two of the domains
+above, so no delta for it is claimable from that total: a difference
 smaller than the quantity's run-to-run spread is not a difference. The 2026-10-16 figures
 above are kept rather than replaced, with their domain (that host, that date)
 now explicit, because they are what two cards were sized against.
@@ -5681,6 +5715,153 @@ def _matched_lines() -> str:
     return _run_prescribed(command.rstrip().removesuffix(suffix)).stdout
 
 
+def _prescribed_filter() -> str:
+    """The prescription's middle stage: the judgement, without ps or the count.
+
+    The prescribed cell is three stages -- enumerate, judge, count -- and the
+    judgement is the only one :func:`_is_a_real_pytest_run` reimplements. It
+    is sliced out of the live prescription rather than written here again,
+    which is the whole point: a copy written out would drift with the
+    prescription silently, and drifting silently is what the cross-check
+    exists to stop.
+
+    Measured narrowness, declared because the slicing is naive: the split is
+    on ``|``, so a future prescription whose awk program contained a pipe
+    would come back as more than three stages and this **reds** rather than
+    handing back a fragment. No prescribed command carries one today.
+    """
+    command = _instrument()
+    stages = [stage.strip() for stage in command.split("|")]
+    assert len(stages) == 3, (
+        f"the prescribed cell is {command!r}, which does not slice into "
+        "enumerate | judge | count. The judgement stage below would be a "
+        "fragment, so this refuses instead."
+    )
+    assert stages[0].startswith("ps "), command
+    assert stages[1].startswith("awk "), command
+    assert stages[2] == "wc -l", command
+    return stages[1]
+
+
+#: argv strings the prescribed judgement stage and its native
+#: reimplementation must agree on, as ``(argv, is a real pytest run)``.
+#:
+#: Review cycle 2 (F-102): :func:`_is_a_real_pytest_run` had no control at
+#: all -- neutered to ``return False`` the entire class still passed, because
+#: its only caller asserts ``not counted`` and a blind predicate makes that
+#: trivially true. A predicate whose narrowing is a silent pass is
+#: ADR-0039/R2's named prohibition, and it was in the card about exactly
+#: that.
+#:
+#: The verdicts are what the PRESCRIPTION does, not what would be nice.
+#: Four rows record shapes where both sides are deliberately over-inclusive
+#: and agree about it, and they are written as True rather than as the
+#: verdict one might prefer: the claim under test is *agreement with the
+#: prescription*, so an aspirational verdict here would turn a cross-check
+#: into a wish. Each is annotated with why it reads the way it does, because
+#: three of them read that way for a reason a reader would otherwise call a
+#: typo.
+PYTEST_ARGV_CORPUS: tuple[tuple[str, bool], ...] = (
+    # The shape this harness actually produces: the framework re-exec path.
+    (
+        "/Library/Frameworks/Python.framework/Versions/3.14/Resources/"
+        "Python.app/Contents/MacOS/Python -m pytest tests/test_x.py",
+        True,
+    ),
+    ("/usr/bin/python3.12 -m pytest -q", True),
+    ("/a/b/python -m pytest", True),
+    ("python -m pytest", True),
+    ("/a/python3.14.0 -m pytest", True),
+    # Shared over-inclusions, measured 2026-10-30 and agreed by both sides:
+    #   * `-m pytest` inside a -c string is a substring like any other;
+    #   * `-m pytestqa` CONTAINS `-m pytest`, so the literal matches;
+    #   * neither `[Pp]ython[0-9.]*$` nor its Python twin is anchored at the
+    #     start of $1, so `xpython` and `python.` both satisfy it.
+    ("/a/python -c 'print(\"-m pytest\")'", True),
+    ("/a/b/python -m pytestqa", True),
+    ("/a/xpython -m pytest", True),
+    ("/a/python. -m pytest", True),
+    # argv[0] is a python and the argv does not carry the module flag.
+    ("/a/b/python -mpytest", False),
+    ("/a/b/python - m pytest", False),
+    # case (b)'s declared bound: a real pytest the cell cannot see.
+    ("/a/b/bin/pytest tests/test_x.py", False),
+    # argv[0] is not a python, however much the rest of the argv says pytest.
+    # The second is case (e)'s own false-positive shape and the first is
+    # case (d)'s, so these two rows are the truth table's near-misses judged
+    # by the same predicate, without a process.
+    ("/bin/zsh -c : python -m pytest tests/foo.py", False),
+    ("/usr/bin/grep -- python.* -m pytest", False),
+    ("/a/jython -m pytest", False),
+    ("/a/pythonw -m pytest", False),
+    ("/a/PYTHON -m pytest", False),
+    ("sleep 30", False),
+)
+
+#: Floors on the corpus above, one per direction. A corpus that lost all its
+#: True rows would agree with a blind predicate, and one that lost all its
+#: False rows would agree with a predicate that counts everything; either way
+#: the agreement would be vacuous. Asserted rather than assumed, which is
+#: this module's standing habit. Nine and nine today.
+PYTEST_ARGV_CORPUS_RISING_AT_LEAST = 6
+PYTEST_ARGV_CORPUS_FLAT_AT_LEAST = 6
+
+#: The flag that makes a ``pgrep`` able to see the process asking.
+#:
+#: ``man pgrep``: "-a  Include process ancestors in the match list. By
+#: default, the current pgrep or pkill process and all of its ancestors are
+#: excluded (unless -v is used)." Review cycle 2 (F-101) found that this
+#: default is what hollowed out the refutation check: the test re-executing a
+#: rejected ``pgrep`` form always runs under a real ``-m pytest`` -- its own
+#: runner, which the prescribed cell *does* count -- and that runner is the
+#: ancestor of the ``zsh -c pgrep`` the test spawns, so every pgrep form in
+#: the rejected list was structurally blind to the one real run guaranteed to
+#: be there. The row was therefore informative only while a SIBLING card
+#: happened to be mid-gate, which is the inverse of what a gate should do.
+PGREP_ANCESTOR_FLAG = "-a"
+
+
+def _re_executed(instrument: str) -> str:
+    """A rejected instrument as this module RUNS it, which is not as it is spelt.
+
+    ``config.yml``'s ``rejected`` list is a **record of what was rejected**,
+    so its spelling is historical and must not be edited to suit the checker
+    -- a rejection re-spelt is a rejection whose verdict no longer refers to
+    anything that was measured. The adjustment therefore lives here, at the
+    point of re-execution, and only for the ``pgrep`` family:
+    :data:`PGREP_ANCESTOR_FLAG` is inserted so the invoking process and its
+    ancestors are in the match list.
+
+    Idempotent, and a no-op for every non-``pgrep`` form: a bundle that
+    already carries ``a`` (``-fa``) is left alone, and an instrument whose
+    program is not ``pgrep`` comes back unchanged.
+    ``test_the_re_execution_can_see_the_run_it_is_inside`` is the control --
+    it asserts, on this host and from inside the run, that the untouched form
+    cannot see the runner and the adjusted form can.
+    """
+    fields = instrument.split()
+    if not fields or Path(fields[0]).name != "pgrep":
+        return instrument
+    flag = PGREP_ANCESTOR_FLAG.lstrip("-")
+    for field in fields[1:]:
+        if field.startswith("-") and flag in field.lstrip("-"):
+            return instrument
+    return " ".join([fields[0], PGREP_ANCESTOR_FLAG, *fields[1:]])
+
+
+#: ``(as config.yml spells it, as this module runs it)`` -- the control on
+#: :func:`_re_executed`, held as data for the reason
+#: :data:`NOT_A_HOST_CELLS_BLOCK` is. Two rows must change and two must not,
+#: so a transformation that became a no-op, or one that started rewriting
+#: everything, both red.
+RE_EXECUTION_REWRITES: tuple[tuple[str, str], ...] = (
+    ("pgrep -f 'python.* -m pytest'", "pgrep -a -f 'python.* -m pytest'"),
+    ("pgrep -fc 'python.* -m pytest'", "pgrep -a -fc 'python.* -m pytest'"),
+    ("pgrep -fa 'x'", "pgrep -fa 'x'"),
+    ("ps -Ao command= | grep -c '[m] pytest'", "ps -Ao command= | grep -c '[m] pytest'"),
+)
+
+
 def _argv_of(pid: int) -> str:
     return _run_prescribed(f"ps -o command= -p {pid}").stdout.strip()
 
@@ -5788,6 +5969,53 @@ def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
     raise AssertionError(f"case {case['id']} names no probe shape: {shape!r}")
 
 
+#: This host's enumerable authority for "what is a shell": the file
+#: ``chpass(1)`` reads, which is the only list on the machine that *declares*
+#: shells rather than being guessed from a name.
+SHELL_AUTHORITY = Path("/etc/shells")
+
+#: The smallest number of names the authority must yield for the predicate
+#: below to be analysing anything. Seven entries on this host (2026-10-30);
+#: the floor is five rather than seven so that a host with a shorter
+#: ``/etc/shells`` is still judged, and it exists because an authority that
+#: came back empty would make :func:`_is_a_shell` answer "not a shell" for
+#: every process -- which is the permissive direction and exactly the shape
+#: review cycle 2 (F-103) measured to be uncontrolled.
+SHELL_NAMES_AT_LEAST = 5
+
+
+def _derived_shell_names() -> frozenset[str]:
+    """The shell program names, read off the authority instead of listed here.
+
+    ADR-0039/R2 applies to this module (``tests/**`` is in its scope) and the
+    rule is that a guard's set must be derived from something checkable. The
+    predicate this feeds used to be ``name.endswith("sh")`` -- a bare suffix
+    with nothing behind it -- and review cycle 2 raised it as the one new
+    instrument on this card whose set was hand-written.
+
+    Measured 2026-10-30, and it is *not* the "changes no present answer"
+    swap review cycle 2 expected: over the 486 distinct executables live on
+    this host at one instant, the derived set and the suffix rule disagree on
+    **two**, and the suffix rule is wrong on both --
+    ``/System/Library/CoreServices/ReportCrash`` and ``ssh`` both end in
+    ``sh`` and neither is a shell. The derivation is therefore a correction
+    and not only a provenance improvement.
+
+    ``config.yml``'s own ``shell`` key is unioned in, because that is the
+    value :func:`_spawn` actually passes to ``Popen``: a board that declared
+    a shell the host's authority does not list must still have it recognised.
+    """
+    names = {Path(_shell()).name}
+    for line in SHELL_AUTHORITY.read_text(encoding="utf-8").splitlines():
+        entry = line.split("#", 1)[0].strip()
+        if entry:
+            names.add(Path(entry).name)
+    return frozenset(names)
+
+
+SHELL_NAMES = _derived_shell_names()
+
+
 def _is_a_shell(argv: str) -> bool:
     """Whether ``argv``'s executable is a shell, by the only field that says so.
 
@@ -5796,9 +6024,73 @@ def _is_a_shell(argv: str) -> bool:
     carrying ``-m pytest`` in its argv is not counted because ``$1`` is
     ``/usr/bin/grep``. So the same field decides here whether the process the
     visibility check found is the search tool or the shell that owns it.
+
+    The set comes from :data:`SHELL_NAMES`, i.e. from
+    :data:`SHELL_AUTHORITY`, for the reason ADR-0039/R2 gives. Three argv
+    shapes the raw set does not cover, handled here and measured rather than
+    reasoned about:
+
+    * a **login** shell's ``argv[0]`` is ``-zsh`` (present on this host at
+      every instant). The leading ``-`` is stripped, because otherwise the
+      derived set would *lose* a shape the old suffix rule got right;
+    * a **versioned** name (``bash-5.2``) is taken up to its first ``-``. No
+      such binary exists on this host, so this arm is a declared allowance
+      and not a measured need;
+    * ``env zsh``, ``/usr/bin/env sh`` and a shebang ``#!/bin/sh`` wrapper
+      are **not** the false negatives review cycle 2 reported them to be,
+      and the reason is that none of them is a shape ``ps`` ever produces:
+      ``env`` *execs* rather than forks, so a live ``/usr/bin/env zsh -c ...``
+      shows up as ``zsh -c ...``; and the kernel execs the interpreter named
+      in a shebang, so a live ``#!/bin/sh`` wrapper shows up as
+      ``/bin/sh /path/to/wrapper``. All three were re-measured on 2026-10-30
+      as live processes and all three read True. They misclassify only as
+      hand-written strings, which is not an input this predicate has.
+
+    **Default when the argv cannot be analysed: DENY**, i.e. "treat it as a
+    shell". R2 requires that a shape the guard cannot judge be a failure and
+    never a silent pass, and the caller's test is ``not _is_a_shell(child)``
+    -- so returning False on an unparseable argv would *accept* it as the
+    search tool, which is the direction review cycle 1's F-001 was about.
+    Note the asymmetry this does **not** reach: an unrecognised *name* is
+    still False, because it has to be (``/usr/bin/grep`` is the search tool
+    this branch exists to find). What is denied is an argv with no
+    executable field at all.
     """
-    executable = argv.split(maxsplit=1)[0] if argv.split() else ""
-    return executable == _shell() or Path(executable).name.endswith("sh")
+    fields = argv.split(maxsplit=1)
+    if not fields:
+        return True
+    name = Path(fields[0]).name.lstrip("-")
+    if not name:
+        return True
+    return name in SHELL_NAMES or name.split("-", 1)[0] in SHELL_NAMES
+
+
+#: How long :func:`_kill_group` waits for a ``SIGKILL``\ ed group leader to
+#: be reaped, in seconds.
+#:
+#: 5.0 and not 60.0, and the 60 is the figure review cycle 2 (F-104)
+#: measured back into ``hang_guard``'s lap. ``rival_matrix`` builds up to
+#: ``len(REALIZABLE_CASES)`` x :data:`BASELINE_ATTEMPTS` spawns inside ONE
+#: node, so a per-spawn wait is multiplied by up to 24 on the node
+#: ``tests/hang_guard.py`` arms its 120 s ``exit=True`` timer around. At 60 s
+#: a single broken spawn shape cost 65 s of that budget and all six cost the
+#: whole of it: measured 2026-10-29/30, 15 dots and NO summary line, which is
+#: ``meta/kanban/config.yml``'s "a MEASUREMENT defect, never a tree verdict"
+#: -- the exact mode review cycle 1's F-005 was raised to remove, re-entered
+#: through the fix for F-004.
+#:
+#: A group that has just been SIGKILLed does not need 60 s; it needs the
+#: scheduler. What needed 60 s was a group that was never signalled at all,
+#: and that shape is now a named failure below rather than a long wait.
+KILL_GROUP_WAIT_SECONDS = 5.0
+
+#: How long ``test_a_probe_leaves_no_orphan_behind`` gives a killed group to
+#: actually vanish, in seconds. Generous on purpose: the figure that has to
+#: be small is not this one but the elapsed time of the kill, which is
+#: compared against :data:`PROBE_LIFETIME_SECONDS` rather than against a
+#: measured duration -- see that test for why a ratio to the probe's own
+#: lifetime is the discriminator and a cost band is not.
+ORPHAN_SWEEP_SECONDS = 2.0
 
 
 def _kill_group(proc: subprocess.Popen) -> None:
@@ -5810,16 +6102,46 @@ def _kill_group(proc: subprocess.Popen) -> None:
     group id and one ``killpg`` reaches the backgrounded ``sleep`` and the
     pipeline's ``grep`` as well.
 
-    ``ProcessLookupError`` is tolerated and nothing else is: the group being
-    gone already is the normal race (a probe that exited on its own), while
-    any other error is a failure to clean up and must not be swallowed inside
-    a ``finally``.
+    **The leadership is checked before the signal, not assumed.** Review
+    cycle 2 (F-104) measured what the unchecked form did: with
+    ``start_new_session`` dropped on one spawn site, ``proc.pid`` is not a
+    process-group id, ``os.killpg`` raises ``ProcessLookupError``, the
+    tolerant arm below swallows it, and the children then die of old age
+    inside a 60 s wait -- 35 passed, in 65 s. So the two cases the old
+    ``ProcessLookupError`` arm could not tell apart are separated here:
+
+    * ``getpgid`` raises -- the leader is already gone and reaped-pending.
+      That is the normal race (a probe that exited on its own) and is
+      tolerated;
+    * ``getpgid`` answers a group id that is **not** ``proc.pid`` -- there
+      was never a group with that id, the probe is sharing *this* process's
+      group, and ``killpg`` would reach nothing of the probe (or, worse,
+      something that is not the probe). That is a harness defect, it is
+      distinguishable, and it is raised. Raising from inside a ``finally``
+      is the lesser evil: the alternative is the silent pass that was
+      measured.
     """
+    try:
+        group = os.getpgid(proc.pid)
+    except ProcessLookupError:
+        group = proc.pid
+    if group != proc.pid:
+        proc.kill()
+        proc.wait(timeout=KILL_GROUP_WAIT_SECONDS)
+        raise AssertionError(
+            f"probe {proc.pid} is in process group {group}, so it is not its "
+            "own group leader and os.killpg would not reach its children. "
+            "Every spawn here passes start_new_session=True for exactly this "
+            "reason; without it the probe's `sleep` and `grep` are reparented "
+            "to pid 1 and live out PROBE_LIFETIME_SECONDS on a shared host, "
+            "and the orphan check passes on children that expired rather than "
+            "on a kill."
+        )
     try:
         os.killpg(proc.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
-    proc.wait(timeout=60)
+    proc.wait(timeout=KILL_GROUP_WAIT_SECONDS)
 
 
 def _is_a_real_pytest_run(argv: str) -> bool:
@@ -5829,6 +6151,19 @@ def _is_a_real_pytest_run(argv: str) -> bool:
     ``-m pytest`` -- the two halves of the prescribed awk, reimplemented here
     rather than shelled out to, because what this is used for is deciding
     whether a REJECTED instrument found a run the prescribed one would count.
+
+    CLAUDE.md's precedent for reimplementing rather than importing is
+    ``solver/propagate.py``'s ``mask_runs``, and the half of that precedent
+    that makes it safe is the cross-check from the test tree against the
+    thing it mirrors. Review cycle 2 (F-102) found this copy had the
+    reimplementation without the cross-check: the awk is read out of
+    ``config.yml`` at run time by :func:`_instrument` while these two halves
+    are frozen in Python, and nothing compared them -- so the body could be
+    replaced with ``return False`` and the whole class still passed.
+    :data:`PYTEST_ARGV_CORPUS` and
+    ``test_the_native_predicate_and_the_prescribed_filter_agree`` are that
+    cross-check: same argv strings, both implementations, every row asserted
+    against a declared verdict *and* against the other side.
     """
     fields = argv.split()
     if not fields:
@@ -5925,7 +6260,19 @@ VISIBILITY_CONTROL_TIMEOUT = 1.0
 #:   review cycle 1's F-001 mutant, standing. The invisible row's wrapper argv
 #:   still carries the pattern, so this row reds the day the (e) branch goes
 #:   back to looking at ``proc.pid``; the visible row reds if requiring a
-#:   non-shell child is wrong on this host.
+#:   non-shell child is wrong on this host;
+#: * a pipeline stage that is **only ever a shell** -- review cycle 2's
+#:   F-103. The other four rows leave :func:`_is_a_shell` controlled in one
+#:   direction only: ``return True`` reds three of them, and ``return False``
+#:   -- the PERMISSIVE direction, the one that reinstates F-001's vacuity --
+#:   was measured to red nothing at all. This row's only pattern-carrying
+#:   child is a live ``{shell} -c ...``, so a predicate that stops
+#:   recognising shells accepts it as the search tool and the row's
+#:   ``seen == ""`` assertion fails. It is also the one row that EXERCISES
+#:   the shell clause: review cycle 2 polled a real case-(e) probe 30 times
+#:   across 12 trials and the child set was constant at ``sleep`` plus
+#:   ``grep``, so zsh's pre-exec window never appears on this host and
+#:   nothing else here ever reaches the filter.
 #:
 #: Held as a constant, like :data:`NOT_A_HOST_CELLS_BLOCK` and
 #: :data:`REINTRODUCTIONS`, rather than written inline in the test.
@@ -5952,6 +6299,12 @@ VISIBILITY_CONTROL_PROBES: tuple[tuple[str, str, str, bool], ...] = (
         "a search tool that dies on arrival",
         "search-tool",
         "sleep {lifetime} | /usr/bin/grep --not-a-real-flag -- '{mentioned}'",
+        False,
+    ),
+    (
+        "a pipeline stage that is only ever a shell",
+        "search-tool",
+        "sleep {lifetime} | {shell} -c ': {mentioned}; sleep {lifetime} & wait'",
         False,
     ),
 )
@@ -6181,9 +6534,29 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
 
         Declared bound: ``config.yml`` names tests in **this module** only,
         today, and a name defined elsewhere would red here and have to be
-        restated rather than quietly allowed. That is the narrow direction.
-        The precedent for the shape is ``CLIFF_EDGE_SNAPSHOT``, which asserts
-        its frozen node ids are still collected.
+        restated rather than quietly allowed. That is the narrow direction,
+        and review cycle 2 (F-109) was right that it is the expensive one for
+        a file every card edits -- the failure direction is "a live test
+        reported dead" -- so the failure message now says what to do about it
+        rather than leaving a reader to guess. The precedent for the shape is
+        ``CLIFF_EDGE_SNAPSHOT``, which asserts its frozen node ids are still
+        collected.
+
+        **A board-level sibling of this check is switched off, and it is
+        worth knowing here.** The model's own ref resolver matches on text
+        over the whole tree, and ``meta/review/**`` is inside its domain --
+        so a name spelled in a timestamped review report reads as alive even
+        after the definition is gone. Review cycle 2 measured that end to
+        end on this card's own deliberate rename: with the orphaned name
+        planted into ADR-0039/R4's ``check:`` list, ``--verify-refs``
+        reported no dead ref while the cycle-1 report was present, and
+        reported it the moment that one file was moved aside. The resolver
+        here cannot be fooled that way -- it requires a ``def`` and reads one
+        file -- which is the asymmetry to keep in mind when the two disagree.
+        CARD-319 owns the board-level fix; nothing is owed by this card
+        beyond this paragraph, and the orphaned name is deliberately not
+        spelled anywhere in this module, because spelling it is what revives
+        it.
 
         :data:`NOT_TEST_NAMES_IN_KANBAN_CONFIG` is the negative control: the
         file's ``test_command`` and ``test_scope`` keys are name-shaped and
@@ -6200,9 +6573,18 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         # one real dead reference it was written to find. A lookbehind on
         # `[\w.]` drops the hook-name halves; a lookahead on the same drops
         # `...profile.py`, because a file is not a test.
+        #
+        # `A-Z` in the class, added 2026-10-30 (review cycle 2, F-109): with
+        # `[a-z0-9_]` only, a name carrying an uppercase letter produced NO
+        # match at all -- the lookahead on `[\w.]` rejects the lowercase
+        # prefix -- so such a name would have been silently UNSEEN rather
+        # than loudly dead, which is the failure direction this check exists
+        # to remove. Re-derived both ways on the live file: the spelled set
+        # is byte-identical (6 names, 4 after the exemptions), so the
+        # widening changes no present answer and closes the shape.
         spelled = {
             match.group(0)
-            for match in re.finditer(r"(?<![\w.])test_[a-z0-9_]{3,}(?![\w.])", text)
+            for match in re.finditer(r"(?<![\w.])test_[A-Za-z0-9_]{3,}(?![\w.])", text)
         }
         named = sorted(spelled - set(NOT_TEST_NAMES_IN_KANBAN_CONFIG))
         assert len(named) >= NAMED_TESTS_IN_KANBAN_CONFIG_AT_LEAST, (
@@ -6221,7 +6603,12 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
             f"{Path(__file__).name}. A convention file that names an "
             "instrument it does not have is the first shape ADR-0039/R4 "
             "exists for -- rename the reference with the test, or move the "
-            "name into the data where RE_EXECUTED_REJECTS can carry it."
+            "name into the data where RE_EXECUTED_REJECTS can carry it. If "
+            "the name IS alive and is defined in another module, that is "
+            "this check's declared bound rather than a dead reference: move "
+            "the name into the data, or widen the resolver to the tracked "
+            "test modules and keep the `def` requirement -- do not relax it "
+            "to a mention, which is the distinction CARD-308 recorded."
         )
         alive = [name for name in NOT_TEST_NAMES_IN_KANBAN_CONFIG if defines(name)]
         assert not alive, (
@@ -6287,17 +6674,22 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         ``host_cells`` reader, which ships
         :data:`NOT_A_HOST_CELLS_BLOCK`) and not to this one.
 
-        So: four planted probes at one shared budget, two visible and two not,
-        one pair per branch. The two invisible rows are the two real vacuities
-        measured on this card -- the tail form ``zsh`` execs away, and a
-        search tool that dies on arrival while its wrapper's argv still
-        carries the pattern. The second is review cycle 1's F-001 mutant kept
-        standing: it reds the day the (e) branch goes back to asserting on
-        ``proc.pid``.
+        So: five planted probes at one shared budget, two visible and three
+        not, at least one pair per branch. The invisible rows are the real
+        vacuities measured on this card -- the tail form ``zsh`` execs away,
+        a search tool that dies on arrival while its wrapper's argv still
+        carries the pattern, and (review cycle 2, F-103) a pipeline stage
+        that is only ever a shell. The second is review cycle 1's F-001
+        mutant kept standing: it reds the day the (e) branch goes back to
+        asserting on ``proc.pid``. The third is the control in the
+        PERMISSIVE direction, which the first four rows did not have: with
+        :func:`_is_a_shell` neutered to ``return False`` the whole class
+        passed, and that is the direction F-001 was about.
         """
         rendered = command.format(
             mentioned=VISIBILITY_CONTROL_TEXT,
             lifetime=VISIBILITY_CONTROL_LIFETIME,
+            shell=_shell(),
         )
         proc = subprocess.Popen(
             [_shell(), "-c", rendered], start_new_session=True
@@ -6318,7 +6710,19 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
                 "that waits on this function is about to pass for the wrong "
                 "reason"
             )
-            assert not _is_a_shell(seen) or shape == "shell-wrapper", seen
+            if shape == "search-tool":
+                # Scoped to the branch it is about, because review cycle 2
+                # measured the old `not _is_a_shell(seen) or shape ==
+                # "shell-wrapper"` form to short-circuit on the wrapper rows
+                # and to be satisfied on the others by a predicate that had
+                # no control. The wrapper rows are *expected* to be the
+                # shell -- the wrapper IS the near-miss -- so asserting
+                # anything about them here was never the claim.
+                assert not _is_a_shell(seen), (
+                    f"the (e) branch accepted {seen!r} as the search tool and "
+                    "its $1 is a shell, which is the field the prescribed "
+                    "instrument's immunity to case (e) turns on"
+                )
         else:
             assert seen == "", (
                 f"a probe planted as {rendered!r} is deliberately invisible "
@@ -6344,27 +6748,259 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         to be gone. Non-vacuous by construction -- it fails if there were
         fewer than two children to begin with, which is what a probe that
         never started would look like.
+
+        **It measures a kill and not a wait, corrected 2026-10-30.** Review
+        cycle 2 (F-104) measured that it did not: with ``start_new_session``
+        dropped on the search-tool spawn, ``os.killpg`` reached nothing, the
+        children were gone by the time the assertion looked because they had
+        *expired*, and the test passed -- in 65 s instead of 5. "Every pid
+        that was there is gone" is satisfied by waiting
+        :data:`PROBE_LIFETIME_SECONDS`, so the kill has to be timed as well
+        as checked. Two things changed, and neither is a cost band:
+
+        * the probe is asserted to be its own process-group leader *before*
+          the signal, so a ``killpg`` that cannot reach the group is a named
+          failure rather than a long wait (:func:`_kill_group` carries the
+          same check, which is what makes the fixture's 24 spawns safe);
+        * the elapsed time of kill-plus-disappearance is compared against
+          :data:`PROBE_LIFETIME_SECONDS`, not against a measured duration.
+          That ratio is the discriminator and it needs no domain: children
+          that were killed are gone in milliseconds, children that aged out
+          take 30 s by construction, and half the lifetime separates the two
+          by an order of magnitude on any host. A cost band here would be
+          the shape this module keeps having to re-measure.
         """
         case = next(c for c in REALIZABLE_CASES if c["probe"] == "search-tool")
         proc = _spawn(case, tmp_path, tmp_path / "ready")
+        killed = False
         try:
             argv = _wait_until_visible(case, proc, tmp_path / "ready")
             assert argv, "the probe never became observable; nothing to measure"
             children = _children_of(proc.pid)
-        finally:
+            assert len(children) >= 2, (
+                "a search-tool probe should own both a `sleep` and the `grep`; "
+                f"found {children!r}, so this test is not measuring a kill"
+            )
+            assert os.getpgid(proc.pid) == proc.pid, (
+                f"probe {proc.pid} is in process group {os.getpgid(proc.pid)}, "
+                "so os.killpg below would not reach its children and this "
+                "test would pass on children that expired of old age. That is "
+                "the shape review cycle 2 measured: 35 passed, in 65 s."
+            )
+            started = time.monotonic()
             _kill_group(proc)
-        assert len(children) >= 2, (
-            "a search-tool probe should own both a `sleep` and the `grep`; "
-            f"found {children!r}, so this test is not measuring a kill"
-        )
-        survivors = [
-            (pid, argv) for pid, argv in children if _argv_of(pid) != ""
-        ]
+            killed = True
+            deadline = time.monotonic() + ORPHAN_SWEEP_SECONDS
+            survivors = [
+                (pid, child) for pid, child in children if _argv_of(pid) != ""
+            ]
+            while survivors and time.monotonic() < deadline:
+                time.sleep(0.05)
+                survivors = [
+                    (pid, child) for pid, child in children if _argv_of(pid) != ""
+                ]
+            elapsed = time.monotonic() - started
+        finally:
+            if not killed:
+                _kill_group(proc)
         assert not survivors, (
-            f"killing the probe left {survivors!r} behind, reparented to pid 1 "
-            "for the rest of PROBE_LIFETIME_SECONDS. One of these shapes is "
-            "case (e)'s own false-positive, and this board runs 5 cards at "
-            "once."
+            f"killing the probe left {survivors!r} behind after "
+            f"{ORPHAN_SWEEP_SECONDS}s, reparented to pid 1 for the rest of "
+            "PROBE_LIFETIME_SECONDS. One of these shapes is case (e)'s own "
+            "false-positive, and this board runs 5 cards at once."
+        )
+        assert elapsed < PROBE_LIFETIME_SECONDS / 2, (
+            f"the probe's children took {elapsed:.2f}s to disappear after the "
+            f"kill, which is most of PROBE_LIFETIME_SECONDS "
+            f"({PROBE_LIFETIME_SECONDS}s) rather than the milliseconds a "
+            "SIGKILLed group needs. They expired; they were not killed, and "
+            "this test is about the kill."
+        )
+
+    def test_the_shell_authority_is_enumerable_and_not_hand_written(self) -> None:
+        """Review cycle 2's F-103: ADR-0039/R2 applied to this card's own guard.
+
+        :func:`_is_a_shell` decides, for case (e), whether the process the
+        visibility check found is the search tool or the shell that owns it
+        -- the same ``$1`` field the prescribed instrument's immunity turns
+        on. Its set used to be ``name.endswith("sh")``: a bare suffix with no
+        authority, which R2 forbids for a guard in ``tests/**``.
+
+        So the set is derived from :data:`SHELL_AUTHORITY`, and this asserts
+        the derivation rather than the result: the names are read off the
+        file at import, the count has a floor (an authority that came back
+        empty would make every process read as "not a shell", which is the
+        permissive direction), and the module's source is checked so the set
+        cannot be hand-written back in. That last clause is the shape
+        ``test_the_guard_sets_are_derived_and_not_hand_written`` uses for the
+        five directory-surface sets.
+
+        The negative half, and it is the reason this is a correction and not
+        only a provenance improvement: ``ssh`` must NOT read as a shell. It
+        ends in ``sh``, it is live on this host, and the suffix rule said it
+        was one.
+        """
+        assert len(SHELL_NAMES) >= SHELL_NAMES_AT_LEAST, (
+            f"{SHELL_AUTHORITY} yielded {sorted(SHELL_NAMES)}, fewer than the "
+            f"{SHELL_NAMES_AT_LEAST} names this guard was written against. An "
+            "authority that comes back short makes _is_a_shell answer 'not a "
+            "shell' for shapes it used to recognise, and the caller's test is "
+            "`not _is_a_shell(child)` -- so a short set is a SILENT PASS in "
+            "the direction review cycle 1's F-001 was about."
+        )
+        tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+        assigned = {
+            node.targets[0].id: ast.unparse(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "SHELL_NAMES"
+        }
+        assert assigned == {"SHELL_NAMES": "_derived_shell_names()"}, (
+            "SHELL_NAMES is no longer the authority's projection, so nothing "
+            f"can police what is in it: {assigned}"
+        )
+        assert _is_a_shell(f"{_shell()} -c :"), _shell()
+        assert _is_a_shell("-zsh"), "a login shell's argv[0] carries a leading -"
+        assert not _is_a_shell("/usr/bin/ssh host"), (
+            "`ssh` ends in `sh` and is not a shell. The suffix rule this "
+            "replaced said it was, and so did it for "
+            "/System/Library/CoreServices/ReportCrash -- both live on this "
+            "host, both measured 2026-10-30."
+        )
+        assert not _is_a_shell("/usr/bin/grep -- pattern"), (
+            "the search tool the (e) branch exists to find must not read as "
+            "the shell that owns it"
+        )
+        assert _is_a_shell(""), (
+            "an argv with no executable field cannot be analysed, and R2 "
+            "requires that to be a refusal rather than a pass. The caller "
+            "accepts whatever is NOT a shell, so 'cannot analyse' has to deny."
+        )
+
+    def test_the_native_predicate_and_the_prescribed_filter_agree(self) -> None:
+        """Review cycle 2's F-102: the ``mask_runs`` half that was missing.
+
+        :func:`_is_a_real_pytest_run` reimplements the prescribed cell's
+        judgement stage in Python rather than shelling out to it, which
+        CLAUDE.md endorses -- and the precedent it names
+        (``solver/propagate.py``'s ``mask_runs``) is cross-checked from the
+        test tree against the thing it mirrors. This copy had no cross-check
+        and no control of any kind: neutered to ``return False`` the whole
+        class passed, because its only caller asserts ``not counted`` and a
+        blind predicate makes that trivially true.
+
+        So both implementations judge the same argv strings: the native one
+        in process, and the prescription's own awk -- sliced live out of
+        ``config.yml`` by :func:`_prescribed_filter`, never copied -- as a
+        subprocess over the same strings on stdin. Every row is asserted
+        against its declared verdict *and* against the other side, so this
+        reds on blindness, on drift in the Python copy, and on an edit to the
+        prescription that the copy did not follow.
+
+        What it cannot cover, stated: a blank or whitespace-only argv. awk
+        echoes a blank line as a blank line and set membership cannot tell
+        that from an absent one, so those two shapes are asserted against the
+        native predicate alone, below. ``ps`` does not emit a command column
+        with no executable in it, and :func:`_children_of` drops short rows
+        before they reach here.
+        """
+        rising = [argv for argv, expected in PYTEST_ARGV_CORPUS if expected]
+        flat = [argv for argv, expected in PYTEST_ARGV_CORPUS if not expected]
+        assert len(rising) >= PYTEST_ARGV_CORPUS_RISING_AT_LEAST, rising
+        assert len(flat) >= PYTEST_ARGV_CORPUS_FLAT_AT_LEAST, flat
+        assert all(argv.strip() for argv, _ in PYTEST_ARGV_CORPUS), (
+            "a blank row cannot be compared against awk; see the docstring"
+        )
+
+        rows = [argv for argv, _ in PYTEST_ARGV_CORPUS]
+        assert len(set(rows)) == len(rows), "the corpus has a duplicate row"
+        done = subprocess.run(
+            [_shell(), "-c", _prescribed_filter()],
+            input="\n".join(rows) + "\n",
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        assert done.returncode == 0, done.stderr[-2000:]
+        kept = set(done.stdout.splitlines())
+
+        wrong = [
+            (argv, expected, _is_a_real_pytest_run(argv), argv in kept)
+            for argv, expected in PYTEST_ARGV_CORPUS
+            if (_is_a_real_pytest_run(argv), argv in kept) != (expected, expected)
+        ]
+        assert wrong == [], (
+            "the native predicate and the prescription's own judgement stage "
+            f"no longer agree with each other or with the corpus: {wrong!r} "
+            "as (argv, declared, native, awk). The awk is read out of "
+            "config.yml at run time and the Python is frozen in this file, so "
+            "a prescription edited without this copy following it drifts "
+            "silently -- which is what this exists to stop."
+        )
+        assert not _is_a_real_pytest_run(""), "an empty argv is not a pytest run"
+        assert not _is_a_real_pytest_run("   "), "nor is a whitespace one"
+
+    def test_the_re_execution_rewrites_only_the_pgrep_family(self) -> None:
+        """The control on :func:`_re_executed`, as data.
+
+        Two rows must change and two must not. A transformation that became a
+        no-op would put the refutation check back to the state review cycle 2
+        measured -- half (2) blind to the only real ``-m pytest`` guaranteed
+        to be alive -- and one that started rewriting everything would run
+        instruments nobody rejected.
+        """
+        rewritten = [
+            (spelt, _re_executed(spelt))
+            for spelt, _ in RE_EXECUTION_REWRITES
+        ]
+        assert rewritten == [
+            (spelt, run) for spelt, run in RE_EXECUTION_REWRITES
+        ], rewritten
+        changed = [spelt for spelt, run in RE_EXECUTION_REWRITES if spelt != run]
+        assert len(changed) >= 2, changed
+        for entry in RE_EXECUTED_REJECTS:
+            assert _re_executed(entry["instrument"]) != entry["instrument"], (
+                f"{entry['instrument']!r} is re-executed exactly as spelt, so "
+                "it is re-executed blind to the run it is inside. Every "
+                "re-executed rejection today is a pgrep form; a non-pgrep one "
+                "arriving here needs its own visibility argument, not this "
+                "function's silence."
+            )
+
+    def test_the_re_execution_can_see_the_run_it_is_inside(self) -> None:
+        """Why :data:`PGREP_ANCESTOR_FLAG` exists, measured from inside a run.
+
+        Review cycle 2's F-101, as the two-directional control the mechanism
+        never had. BSD ``pgrep`` excludes the invoking process and all its
+        ancestors by default, and this test's own runner is a real
+        ``-m pytest`` that the prescribed cell counts -- so a rejected pgrep
+        form re-executed as spelt could not see the one real run that is
+        certain to be there, and
+        ``test_a_rejected_instrument_is_still_refuted_on_this_host``'s second
+        half was strong only while a SIBLING card happened to be mid-gate.
+
+        Asserted on this process's own pid rather than on a count, which is
+        what makes it independent of what else the board is running: the
+        unadjusted form must not return it, the adjusted form must.
+        """
+        mine = str(os.getpid())
+        spelt = "pgrep -f ' -m pytest'"
+        assert _re_executed(spelt) != spelt, spelt
+        as_spelt = _run_prescribed(spelt).stdout.split()
+        as_run = _run_prescribed(_re_executed(spelt)).stdout.split()
+        assert mine not in as_spelt, (
+            f"pgrep as spelt returned this runner ({mine}), so the default "
+            "ancestor exclusion `man pgrep` documents no longer holds and "
+            f"{PGREP_ANCESTOR_FLAG} is no longer needed: {as_spelt!r}"
+        )
+        assert mine in as_run, (
+            f"pgrep with {PGREP_ANCESTOR_FLAG} did not return this runner "
+            f"({mine}), whose argv is {_argv_of(os.getpid())!r}. The flag is "
+            "what makes the refutation check's second half able to see a real "
+            f"`-m pytest` at all: {as_run!r}"
         )
 
     @pytest.mark.parametrize("case_id", [case["id"] for case in RISING_CASES])
@@ -6514,26 +7150,58 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
         a working ``-c`` that agrees with the prescribed cell, this reds.
         Second, nothing the instrument matched is a run the prescribed cell
         would count, which is the ``BLIND here`` verdict re-executed
-        literally. Declared bound: the second half is strong while a real
-        ``-m pytest`` is alive and weak while none is, because then there is
-        nothing to be blind to; the first half carries the row either way.
+        literally.
+
+        **Which half carries which row, corrected 2026-10-30 (review cycle
+        2, F-101).** The previous sentence here said the second half is
+        strong only while a real ``-m pytest`` is alive and that "the first
+        half carries the row either way". Both clauses were wrong, and the
+        measurements are these:
+
+        * half (1) is real for the ``pgrep -fc`` row and for that row only.
+          There the cell produces no reading at all, and the day ``pgrep``
+          grows a working ``-c`` that agrees with the prescribed cell it
+          reds -- proved by substituting the prescribed awk for that entry's
+          instrument, which makes half (1) fail on its own;
+        * half (1) is **structurally incapable** of failing on the
+          ``pgrep -f`` row. That form can only print a PID LIST, and
+          :func:`_reading` turns a PID list into a pid -- never equal to a
+          one-digit process count -- or into ``None`` when more than one pid
+          prints. The inequality is a guaranteed pass there, whatever
+          happens to pgrep;
+        * half (2) therefore carries the ``-f`` row, and it could not. A
+          real ``-m pytest`` is ALWAYS alive during this test -- the runner,
+          which the prescribed cell counts -- but BSD ``pgrep`` excludes the
+          invoking process and all of its ancestors by default, and the
+          runner is the ancestor of the ``zsh -c pgrep`` this spawns. So the
+          row was informative only while a sibling card happened to be
+          mid-gate: green on a solo board for a reason that is not about the
+          rejection. :func:`_re_executed` inserts
+          :data:`PGREP_ANCESTOR_FLAG` at the point of re-execution -- never
+          into ``config.yml``, whose ``rejected`` list is a record of what
+          was measured and must keep its spelling -- and
+          ``test_the_re_execution_can_see_the_run_it_is_inside`` asserts on
+          this host that the untouched form cannot see the runner and the
+          adjusted one can.
+
+        Neither half carries both rows, and the row is read as the
+        conjunction it is.
         """
+        ran = _re_executed(instrument)
         prescribed = _reading(_instrument())
         assert prescribed is not None, (
             "the prescribed cell produced no reading, so there is nothing to "
             "refute this rejection against"
         )
-        assert _reading(instrument) != prescribed, (
-            f"{instrument!r} now reads {_reading(instrument)!r} on this host, "
-            f"which is what the prescribed cell reads ({prescribed}). "
-            "config.yml rejects it as unusable; if it has started producing "
-            "the right number the rejection is stale and must be restated "
-            "rather than left standing."
+        assert _reading(ran) != prescribed, (
+            f"{ran!r} now reads {_reading(ran)!r} on this host, which is what "
+            f"the prescribed cell reads ({prescribed}). config.yml rejects "
+            f"{instrument!r} as unusable; if it has started producing the "
+            "right number the rejection is stale and must be restated rather "
+            "than left standing."
         )
         matched = [
-            pid
-            for pid in _run_prescribed(instrument).stdout.split()
-            if pid.isdigit()
+            pid for pid in _run_prescribed(ran).stdout.split() if pid.isdigit()
         ]
         counted = [
             (pid, _argv_of(int(pid)))
@@ -6541,10 +7209,10 @@ class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
             if _is_a_real_pytest_run(_argv_of(int(pid)))
         ]
         assert not counted, (
-            f"{instrument!r} matched {counted!r}, which the prescribed cell "
-            "counts as a real `-m pytest` run. config.yml rejects this "
-            "instrument as BLIND to exactly those, so the rejection is stale "
-            "and must be restated rather than left standing."
+            f"{ran!r} matched {counted!r}, which the prescribed cell counts as "
+            f"a real `-m pytest` run. config.yml rejects {instrument!r} as "
+            "BLIND to exactly those, so the rejection is stale and must be "
+            "restated rather than left standing."
         )
 
     def test_the_pytest_probe_runs_outside_this_repository(
