@@ -248,3 +248,68 @@ separate card would have to re-derive the same census:
 **AC-1 is widened** accordingly: the derived enumeration covers both shapes — a
 `check:`/`tests:` ref with nothing behind it, **and** a row whose status claims more
 than its content supports.
+
+## [Amended 2026-10-29 by CARD-298's fix round — the cheap repair this card was about to miss]
+
+**A dead node-id ref is usually fixable by RESPELLING IT AS A BARE NAME, not by
+writing a docstring table.** CARD-298's fix round found this by refusing the
+orchestrator's brief, which had dictated the node-id spelling for ADR-0042/R2's
+flip. Measured on that branch, same tree, same binary (the validator of record):
+
+| spelling of R2's `check:` ref | errors | warnings |
+|---|---|---|
+| `review-lens` (before) | 0 | 107 |
+| `tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason` | 0 | **108** — a fresh `DEAD check ref` |
+| `test_every_raster_page_is_declared_with_its_reason` | 0 | **107**, warning sets byte-identical |
+
+Reproduced by the orchestrator under the validator's own pathspec:
+
+```
+git grep -lw "tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason" \
+    -- . ':(exclude)meta/architecture' ':(exclude)*.md'     ->  nothing
+git grep -lw "test_every_raster_page_is_declared_with_its_reason" \
+    -- . ':(exclude)meta/architecture' ':(exclude)*.md'     ->  tests/test_book_pdf.py
+git grep -nE "^def test_every_raster_page_is_declared_with_its_reason" -- tests/
+    ->  tests/test_book_pdf.py:1793        # a REAL definition
+```
+
+**Why: `git grep -lw <bare identifier>` matches the `def` line itself.** The node-id
+form can only ever match prose that happens to quote it. So the bare name is the
+**only spelling of a `kind: test` ref that this validator can resolve honestly** —
+and ADR-0042/R5's own comment already said so in the same file (*"Every other live
+`kind: test` ref in this model is a bare name for the same reason"*).
+
+**What this changes for item 3.** The per-module docstring table is **not** the
+default repair. CARD-291 needed one because its five refs live in
+`requirements.yml` **as node ids** and that file is excluded from the search, so
+nothing in code could ever spell them — but even there, respelling them as bare
+names would have resolved them without a table. Thirty tables is far more work
+than thirty respellings, and a table is one more thing to drift.
+
+**So partition the repair, not just the refs:**
+
+- **bare-name respelling** where the test's name is **unique in the tree** — the
+  cheap, no-new-machinery fix. Verify uniqueness; do not assume it.
+- **docstring table** only where a bare name would be **ambiguous** (two tests
+  sharing a name across files) or where the file/location is itself load-bearing to
+  the rule. Then the table plus CARD-291's two-direction guard is right, and the
+  skip-mark clause above applies.
+- State the loss honestly either way: **a bare name drops the file**, so a ref no
+  longer says where its test lives, and a rename to a colliding name becomes
+  possible. That is a real cost of the validator's design, not of this choice.
+
+## And the mirror image: a node-id ref that reads ALIVE on prose alone
+
+**ADR-0042/R4** names `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`.
+Measured: **57 tracked files** contain that literal string under the validator's
+pathspec — review YAMLs, the scored backlog, profiling logs — and **not one is a
+definition**. A real `def` does exist, at `tests/test_export_pdf.py:1249`, so R4's
+answer is currently *correct*; its **mechanism is not**. Delete or rename that test
+and R4 keeps reporting alive off the 57 prose hits.
+
+That is the same shape as ADR-0006/R1 (zero definitions, 110+ prose resolvers)
+except the answer happens to be right, which makes it harder to find and no less
+broken. **Both belong in this card's class (c)/false-alive partition**, and R4 is
+one more reason AC-1's enumeration must classify by **whether the resolving hit is a
+definition**, never by whether `git grep` exits 0. ADR-0042/R5's comment already
+flags R4 "for whoever next touches R4"; this card is that owner.
