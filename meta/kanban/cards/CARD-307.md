@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 1d
+**Estimate:** 0.5d <!-- RE-SCOPED 2026-10-29 from 1d, after the third premise re-measurement. 1d was priced against "30 refs the validator cannot resolve". Measured over all four authorities: 580 refs, 23 in node-id form, and 20 of the 23 already resolve through docstring tables CARD-284/291/294 landed incidentally. The live work is FOUR table entries across two files (tests/test_player_bundle.py, which spells zero of its own three node ids, and tests/test_export_pdf.py) plus THREE refs to decide -- two honestly dead, one the board's only true false-alive. Within sizing.min_estimate 0.25d. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
