@@ -84,6 +84,14 @@ different card, by excluding or rewording one resolver:
    `tests/test_public_player.py`, and a CARD-284 review YAML. **A mandatory ADR rule
    would read as mechanically checked with zero definitions behind it.**
 
+**Route 8's instance was closed the same day, by the card that owned the module.**
+CARD-285's fix round 2 took it in **6 lines**: the guard now collects every whole
+`path::name` its own docstring spells and holds that set to the `def`s in the file, so
+a ref whose authority is an **ADR** is held for the first time. The one-character
+rename that survived as cycle 2's M-R4 now **kills**. That closes the instance and
+**not the class** — the repair is per-module and hand-written, which is exactly what a
+predicate fix would make unnecessary.
+
 Route 8 is the one that should settle it, and it is the clearest evidence that the two
 defects **compound rather than stack**: the ref is invisible to defect 2's gate because
 it is an ADR rule, and it resolves falsely under defect 1 because four files mention

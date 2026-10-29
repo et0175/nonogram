@@ -1,0 +1,1003 @@
+version: 1
+generated_at: "2026-10-29T16:30:00Z"
+target: "card/308-the-sync-erodes-dead-ref-detection @ 3f3012a4 (cycle 2/3; 5 commits on cut f64112f2; 2 files, +1613/-0 vs the cut)"
+card: CARD-308
+cycle: 2
+mode: gating
+overall_score: 7.5
+min_score: 8
+verdict: >-
+  BELOW THRESHOLD — one gating finding (F-001c2). Cycle 1's F-001 is genuinely
+  closed and every figure the fix round claimed for it re-derived exact; the
+  gating finding is the SAME rule (ADR-0039/R2) violated one layer UP, in the
+  dispatch that decides whether _tests_block is entered at all. Fix round 2,
+  then cycle 3.
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+# =====================================================================
+# G-2 COMPLIANCE OF THIS REPORT ITSELF
+# Stated because the card's hazard applies to its reviewer and has now
+# been measured SEVEN times — the seventh during this very cycle, and
+# the orchestrator's correction about it was itself wrong (see F-003c2).
+# =====================================================================
+g2_device:
+  rule: >-
+    symbol_exists() is `git grep -lw <ref> -- . ':(exclude)meta/architecture'
+    ':(exclude)*.md'`. meta/review/** is NOT excluded and the CARD SYNC
+    PROTOCOL copies this file into main, so any whole path::name or bare ref
+    spelled here becomes a tracked resolver for it.
+  device_used: >-
+    TRUNCATION with `…` (U+2026) on every model-declared ref this report
+    names, matching cycle 1's device — including refs that resolve to a real
+    def/class, so that no judgement about which ones are safe has to be right.
+  why_the_device_is_not_the_safety_property: >-
+    Re-measured independently this cycle, in a fresh throwaway git repo
+    containing exactly one line `alpha ZZPrefix<U+2026>Tail here`:
+      real `git grep -lw ZZPrefix`     -> probe.txt, exit 0  (MATCHES)
+      real `git grep -lw ZZPrefixTail` -> exit 1             (no match)
+    So `…` TERMINATES the token and exposes every prefix. The safety property
+    is the module's self-check, not the ellipsis. See called_out.7 for the
+    crux, which I verified on the same bytes.
+  verification_two_ways_after_writing:
+    way_1_the_modules_own_trie: >-
+      _trie_pattern over the derived set of all 579 refs, applied to this
+      file's bytes -> see self_check.trie_over_the_full_579.
+    way_2_real_git_grep: >-
+      real `git grep -lw` for every ref this file could plausibly carry,
+      restricted to this file -> see self_check.git_grep_lw_over_this_file.
+  prefix_check: >-
+    Every truncation in this file was additionally checked: no truncated
+    token's prefix is itself a declared ref. This is the class the ellipsis
+    does NOT protect and the self-check DOES.
+  names_spelled_in_full_deliberately: >-
+    The 19 node ids of tests/test_check_ref_resolution.py, and the names of
+    this module's own helpers (_tests_block, _trace_tests_refs_by_backward_scan,
+    _declared_refs, _assert_class, _trie_pattern, _MAPPING_KEY). Measured: NONE
+    of them is a model-declared ref — verified by set intersection against the
+    derived 579 — so spelling them resolves nothing.
+
+self_check:
+  run_after_writing_this_file: true
+  trie_over_the_full_579: >-
+    [] — CLEAN. _trie_pattern built over the full derived set of 579 refs
+    (NOT a subset, and not the pre-fix 576: the whole point of cycle 1's F-001
+    was that a derivation short of the census makes this check blind to exactly
+    the refs it drops), applied to this file's own bytes.
+  git_grep_lw_over_this_file: >-
+    0 hits. EXHAUSTIVE, not a sample: real `git grep -lw -F <ref>` for every one
+    of the 579 refs, restricted to this single path, 29.6 s. Run with
+    --no-index because this file is untracked at review time; the matching
+    semantics (-w word boundaries, -F fixed string) are the validator's.
+  truncations: "8 `…`-tokens — 6 ref/node-id truncations plus ZZPrefix…Tail (the synthetic boundary probe) and three elided hash prefixes"
+  prefix_collision_check: >-
+    NONE. Every truncation's prefix was checked against the derived 579: no
+    truncated token's prefix is itself a declared ref. This is the class the
+    ellipsis does NOT protect — see called_out.7 — so it is checked rather
+    than assumed.
+  yaml_parses: true
+  no_tracked_file_was_modified: "confirmed at the end: `git status --porcelain` lists only untracked meta/review/*.yml"
+
+# =====================================================================
+# HOW EVERYTHING BELOW WAS MEASURED
+# =====================================================================
+instruments:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest"
+  pytest_flags: "-o addopts='' -p no:randomly; PYTHONDONTWRITEBYTECODE=1; __pycache__ swept before each run"
+  validator_of_record: >-
+    /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+    --root meta/architecture --phase all  (G-4: EVERY validator figure in this
+    report is from THIS binary and says so)
+  plugin_cache_copy_for_contrast: "/Users/omelnikova/.claude/plugins/cache/adverax/forge/2026.8.17/skills/architect-validate/scripts/validate.py"
+  validated_in_the_worktree_not_an_archive: >-
+    Required by the brief and honoured: every validator run was executed with
+    cwd = the worktree, which has a .git, so the staleness and drift checks
+    ran. No `git archive` copy was created or validated.
+  full_suite_lock: >-
+    meta/kanban/.full-suite.lock absent at every check (start, before each
+    pytest invocation, end). No run was refused, so no result here is lock
+    collateral. NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set.
+  worktree_state: >-
+    HEAD 3f3012a4 throughout. NO tracked file was modified at any point in this
+    review: every mutant in this report was driven OUT OF TREE (monkeypatched
+    module globals, or a planted copy of trace.yml in the scratchpad), which is
+    stronger than plant-and-restore and closes CARD-315's window entirely for
+    this cycle. `git status --porcelain` lists only the untracked
+    meta/review/*.yml review reports.
+
+instrument_proof_on_an_unmutated_tree:
+  required_by: "the brief — prove any instrument on an unmutated tree first and state the proof"
+  run: "tests/test_check_ref_resolution.py, blob 885f9792402dca8d0040d38311bc079917620816 (= git rev-parse HEAD:<path>)"
+  result: "19 passed in 13.09s, exit 0"
+  note_on_the_rounds_own_proof_line: >-
+    The brief quotes the round's proof as `SHIPPED blob=10da93464ef4adce exit=0
+    :: 19 passed`. The 19-passed half reproduces exactly. The blob half is NOT
+    re-derivable: the file's git blob at HEAD is 885f9792…, its sha256 is
+    7f6539d2…, its md5 f4eb1c38… — none begins 10da9346, and `tests/kill_matrix.py`
+    contains no occurrence of the string `blob`, so the figure is not that
+    instrument's output either. Recorded as unverifiable rather than wrong; my
+    own proof uses `git rev-parse HEAD:<path>`, which anyone can repeat.
+
+runtime_band:
+  measured_this_cycle: "three readings of the module, 13.09 / 8.89 / 13.05 s — inside the round's declared band of 7.9–16.4 s"
+  independent_corroboration_of_the_load_diagnosis: >-
+    The same exhaustive instrument, run three times on the same bytes doing the
+    same work (all 579 refs, one pathspec, real `git grep -lw`), took 42.1 s,
+    29.6 s and 17.1 s depending on what else was in flight. The work did not
+    change; the machine did. That is direct evidence for the round's diagnosis
+    and the reason F-006c2 treats 10.7 s as a point estimate rather than a cost.
+  judgement: >-
+    The round's band of 7.9–16.4 s is honest and my reading sits inside it. The
+    round's diagnosis — concurrent load, not the test — is corroborated: the
+    module's own cost is dominated by ~29 real `git grep -lw` subprocesses and
+    one `git grep -nE` over the whole tree, all of which contend. No point
+    estimate is quoted anywhere in this report.
+
+# =====================================================================
+# THE GATING FINDING
+# =====================================================================
+findings:
+
+  - id: F-001c2
+    severity: gating
+    confidence: high
+    title: >-
+      ADR-0039/R2 is still violated one layer up — a `tests:` KEY whose shape
+      the derivation cannot read is silently skipped, not raised, and two of
+      those shapes are invisible to BOTH readings
+    rule: "ADR-0039/R2 (mandatory): a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE"
+    where:
+      - "tests/test_check_ref_resolution.py:360-367 — the trace.yml loop inside _declared_refs(): `inline = _TESTS_INLINE.match(line)` / `elif _TESTS_BLOCK.match(line)` and NO else"
+      - "tests/test_check_ref_resolution.py:249-251 — the claim this breaks: 'The shapes are deliberately matched narrowly: an unrecognised one raises rather than being skipped (ADR-0039/R2), and test_every_declared_check_is_classified is the control for that.'"
+    what_the_fix_round_hardened_and_what_it_did_not: >-
+      _tests_block (:374) is now total for lines INSIDE a block sequence, and I
+      confirmed that: fourteen shapes driven at it, every one either collected
+      or raised, none silently skipped (see called_out.1 for the table). The
+      hole is the layer that decides whether _tests_block is entered. A
+      `tests:` key is handled only if it is a complete single-line flow
+      sequence (_TESTS_INLINE) or a bare key with nothing after the colon
+      (_TESTS_BLOCK). Every other YAML-legal shape of the same key falls
+      through both branches and contributes NOTHING, with no exception and
+      nothing to read — which is F-001's defect verbatim, moved up one frame.
+    the_shapes_measured:
+      - "`tests: [A,` (a multi-line flow sequence) -> SILENTLY SKIPPED by the forward dispatch"
+      - "`tests: >-` or `tests: |` (a block scalar) -> SILENTLY SKIPPED"
+      - "`tests: SomeRefName` (a scalar value) -> SILENTLY SKIPPED"
+      - "`tests: # note` (a comment after the key) -> SILENTLY SKIPPED"
+      - "`tests: [A] # note` (a trailing comment on an inline list) -> SILENTLY SKIPPED"
+      - "`tests: &anchor` -> SILENTLY SKIPPED"
+    and_two_of_them_fool_the_NEW_WITNESS_TOO: >-
+      This is the part that makes it gating rather than a hardening note. The
+      round's answer to F-001 was a second, genuinely independent reading
+      (_trace_tests_refs_by_backward_scan, :442). I drove each shape at BOTH
+      readings, out of tree, by pointing the module's TRACE global at a planted
+      copy of trace.yml in the scratchpad:
+
+        shape                      forward   backward   agree?   caught?
+        ------------------------   -------   --------   ------   -------
+        baseline (unplanted)         510       510       YES      n/a
+        tests: <scalar>              510       510       YES      NO
+        tests: >- then the ref       510       510       YES      NO
+        tests: [A,\n  B]             510       511       NO       YES
+        tests: [A] # note            510       511       NO       YES
+        comment inside a block list  510       510       YES      n/a (the F-001 fix works — no drop)
+
+      For `tests: <scalar>` and `tests: >-` the planted ref is invisible to the
+      forward scan AND to the backward scan, because both recognise only a flow
+      sequence (a value starting `[`) or a block sequence (`- item`) and neither
+      raises on anything else. So the cross-reading agrees — and both are wrong.
+    the_false_green_reproduced_not_argued: >-
+      With `tests: ZZPlanted_ScalarRefName` planted in the copy:
+        the copy DOES declare the ref under a tests: key
+        _declared_refs sees it?                     False   (census still 579)
+        backward (independent) reading sees it?     False   (trace still 510)
+        cells that red:                             NONE — all green
+        CENSUS / TRACE_TESTS pins:                  unmoved, so neither reds
+        the G-2 self-check's trie, built FROM the derived set, run over a text
+        that spells the ref in full:                [] -> reports CLEAN
+      That last line is the same false green cycle 1 made gating: the trie
+      cannot contain a ref the derivation never saw, so the module can become a
+      tracked resolver for a model-declared ref while its own self-check reports
+      clean. Identical mechanism, different entry point.
+    why_the_pins_do_not_cover_it: >-
+      Derived, not assumed. CENSUS pins what IS derived, not what is missed. A
+      CONVERSION of an existing block list into an unreadable shape would drop
+      refs and red CENSUS; an ADDITION of a new ref in an unreadable shape is
+      silently absent and CENSUS stays at 579 — measured above. That is exactly
+      the asymmetry that let F-001 sit baselined at 576 for a whole cycle.
+    and_the_named_control_cannot_witness_it: >-
+      :249-251 names test_every_declared_check_is_classified as the control for
+      the raise-not-skip claim. That cell iterates refs the derivation ALREADY
+      produced and checks each one's FORM. It cannot see a key whose shape was
+      never read. A claim whose named control cannot fail in the direction the
+      claim is about is ADR-0039/R1's own subject, and this card is the card
+      about that.
+    mitigation_stated_honestly: >-
+      No ref is lost on this board TODAY and I measured it rather than hoping:
+      of trace.yml's 75 `tests:` keys, 0 have an unhandled shape; of
+      requirements.yml's 421 `test:`/`tests:` keys, 0 are unmatched by _TEST_KEY.
+      I also checked the other two authorities for the same class of hole and
+      found none in use: 0 ADRs use a block-form `check:` (the module reads only
+      inline) and requirements.yml has 0 inline `check: {…}` (the module reads
+      only block form) and 0 `tests:` keys. So the hole is latent, which is
+      weaker than cycle 1's F-001 (which was dropping 16 refs at the time) and
+      is why this is one gating finding rather than a downgrade of the round.
+    repair: >-
+      The same shape as the repair the round already applied, one frame up: in
+      _declared_refs()'s trace.yml loop, add an `else` on a line matching
+      `^[ \t]*tests:` that neither branch accepted, and raise
+      RefShapeNotClassifiable naming the file, line and text. Do the same for a
+      `test:`/`tests:` key in requirements.yml and for a block-form `check:` in
+      an ADR, so all four authorities fail closed rather than three. Then
+      re-derive CENSUS and TRACE_TESTS, which I expect NOT to move (0 unhandled
+      shapes today — measured). ~6 lines. And narrow :249-251 to what it
+      measures, or name a control that can fail.
+    reproduce: >-
+      `python -I` with sys.path at the worktree; import
+      tests.test_check_ref_resolution as M; set M.TRACE to a copy of trace.yml
+      with `  tests: ZZPlanted_ScalarRefName` inserted beside any existing
+      block-form `tests:` key; then compare
+      {d.ref for d in M._declared_refs()} and M._trace_tests_refs_by_backward_scan()
+      — neither contains the planted ref, and
+      M.test_the_trace_tests_lists_agree_with_an_independent_reading() is green.
+
+  - id: F-002c2
+    severity: non-gating
+    confidence: high
+    title: >-
+      The repair-vs-signal-loss refusal is NOT airtight — a per-member digest
+      set identifies the departed ref by name while reviving nothing, and I
+      built it
+    the_rounds_argument: >-
+      "Enforcement needs the departed refs; a stored ref list is exactly what
+      G-2 forbids because it would revive them; and a digest cannot say who
+      left. The property that makes the guard safe is the property that makes
+      the response unenforceable."
+    where_it_is_true: >-
+      It is true of ONE digest over the whole class, which is what the module
+      stores. A single SHA-256 of the sorted class genuinely cannot name a
+      member. That half is correct and well argued.
+    where_it_fails: >-
+      It does not follow that no artefact can. The missing step is that the ref
+      population is DERIVABLE AT RUN TIME, so the stored artefact never has to
+      be resolvable — it only has to be matchable against a set the guard
+      re-derives. Store a set of PER-MEMBER digests instead of one digest over
+      the class and the response becomes enforceable.
+    built_and_measured_this_cycle: >-
+      Prototyped against the real BOOKKEEPING_ONLY class (13 members):
+        stored artefact        : 13 per-member 12-hex digests, e.g. '080555bfe5ee'
+        is that a declared ref : False — and `git grep -lw 080555bfe5ee` cannot
+                                 match any ref string, so it revives nothing
+        simulated a shrink     : 13 -> 12
+        missing digest         : exactly one, '5dffd6a19d09'
+        recovered BY NAME      : re-derived the 579-ref population, hashed each,
+                                 matched the missing digest -> exactly 1 ref,
+                                 and it is precisely the member I removed
+        the enforceable question then asked: _strict_resolution(that ref) -> ()
+                                 => SIGNAL LOSS, and assertable
+      So "a class shrank because a review report was synced in" can be turned
+      from English in a failure message into an assertion: on a shrink, name the
+      departed member from the derived population and require that it gained a
+      def/class.
+    the_one_honest_residual: >-
+      If the departed ref ALSO left the model (its declaration was deleted), no
+      current ref hashes to the missing digest and it cannot be named. That case
+      is distinguishable and already covered: it moves CENSUS, which is pinned
+      exactly, so it reds there instead. The enforceable case is exactly the case
+      the card is about — the resolver pruned or added, the declaration intact.
+    cost: "~15 lines: baselines become (count, frozenset-of-12-hex), plus the recovery-and-assert branch in _assert_class."
+    severity_rationale: >-
+      Non-gating because the detector is enforced and proven, and because this
+      is a strengthening the round explicitly reasoned about rather than
+      overlooked. But the round's sentence is its sharpest claim and it is
+      false as written, and this card is the card about claims that are
+      stronger than their measurement.
+    and_it_is_about_to_matter: "see F-004c2 — the response path is about to be exercised for real, with nothing but the paste-ready line in the way"
+
+  - id: F-003c2
+    severity: non-gating
+    confidence: high
+    title: >-
+      The seventh instance, measured — and the mid-cycle correction about it is
+      wrong on both halves; the original brief was right
+    what_the_correction_said: >-
+      That the synced meta/review/20261029T130000Z-CARD-285-cycle1.yml is NOT
+      the sole resolver for FR-045/AC-390 and AC-391, that both resolve on main
+      through TWO tracked non-excluded files (the second being a set of string
+      literals named `card_285` in tests/test_public_player_pages.py at
+      :1886-1890), and that the 2-warning gap is therefore unexplained.
+    measured_half_one_the_second_resolver_does_not_exist: >-
+      `card_285` spells the three names in BARE form
+      ("test_assembled_site_is_self…contained" etc.). The model declares all
+      three in NODE-ID form — requirements.yml:5233, :5239, :5245 carry
+      `test: tests/test_public_player_pages.py::<name>`. `git grep -lw` on a
+      `path::name` pattern cannot match a bare name, so that file is not a
+      resolver of any of the three. Measured per ref on main:
+        AC-390's ref -> exactly 1 resolver: meta/review/20261029T130000Z-CARD-285-cycle1.yml
+        AC-391's ref -> exactly 1 resolver: the same file
+        AC-392's ref -> 4 resolvers, all under meta/review/ (CARD-218 x2, CARD-284, CARD-285)
+      and `git grep -nE '^[[:space:]]*(def|class)[[:space:]]+<name>'` finds no
+      definition for any of them. So the sole-resolver claim in the original
+      brief is CORRECT.
+    measured_half_two_the_gap_is_explained_not_unexplained: >-
+      Validator of record, both trees, with the binary named:
+        branch worktree, HEAD 3f3012a4 : 0 errors, 102 warnings
+        main, HEAD bcf861f6            : 0 errors, 100 warnings
+      SET difference over the sorted warning lines, not a count comparison:
+        branch-only : exactly 2 — FR-045/AC-390 and FR-045/AC-391, both the
+                      "DEAD check ref … no definition was found in the code"
+                      warning
+        main-only   : EMPTY
+      So the 2-warning gap is exactly those two warnings, and the cause is
+      measured: on main the synced CARD-285 cycle-1 YAML resolves both refs; in
+      this worktree (cut at f64112f2) that file is not tracked, so both read
+      dead and the validator warns. main is the depressed tree, by precisely the
+      mechanism this card exists to document.
+    what_is_nevertheless_right_in_the_correction: >-
+      The SHAPE it describes is real and general — a tracked, non-.md,
+      non-meta/architecture file spelling a declared ref it does not define —
+      and it is worth one line in ADR-0039, because the sub-shape is sharper
+      than the "comment and docstring" prose the ADR currently describes: a
+      guard written to assert that three tests do NOT yet exist would, if the
+      model declared them in bare form, make the validator read all three as
+      checked. A test that tracks not-yet-written tests silencing the warnings
+      it tracks is the most self-defeating instance of the family, and nothing
+      on the board names it. It is not operative here only because the board
+      migrated FR-045 to node-id refs — which is an argument FOR that migration
+      and belongs in the ADR beside the rest.
+    does_the_cards_framing_already_cover_the_route: >-
+      YES for the general route, by construction. CODE_ROOTS includes "tests/",
+      so such a ref is falsely_alive but NOT bookkeeping_only — it is excluded
+      from the gate deliberately and caught instead by FALSELY_ALIVE's exact
+      pin, and the module's docstring says so in terms ("prose inside tests/
+      itself", the ADR-0006/R1 limit case) and AC-5's widened set names it. The
+      module does NOT assume a name's presence under tests/ implies a
+      definition; _strict_resolution asks for a def/class and nothing else.
+      So no change to the census or the authority list is owed — only the one
+      ADR sentence above.
+    this_is_instance_seven: "and it arrived, again, through mandatory bookkeeping, with no author's mistake involved"
+
+  - id: F-004c2
+    severity: non-gating
+    confidence: high
+    title: >-
+      Five of the eight pinned baselines red against MAIN, so this module cannot
+      merge green — and the round's "identical to main" is already stale
+    measured: >-
+      The module's REPO_ROOT and the three authority paths were retargeted at
+      the main checkout (bcf861f6) with every cache cleared, and all eight
+      classes re-derived:
+
+        class                baseline (at the cut)        main (bcf861f6)           verdict
+        BOOKKEEPING_ONLY     (13,  f10ea23d3f456cba)      (15,  50e897ff86ef7c3d)   WOULD RED
+        FALSELY_ALIVE        (164, 47dac2b0c321ceeb)      (166, 34194ced6ad4c11e)   WOULD RED
+        HONEST_DEAD          (30,  cc5207403de4ae67)      (28,  87d4c53c6c34b01b)   WOULD RED
+        CENSUS               (579, b0469543ee0ae4a8)      (580, 18c0c85ab5ae4317)   WOULD RED
+        DEFINED              (385, 48510317eab24a12)      (386, af36d65a4d2020be)   WOULD RED
+        FALSELY_DEAD         (13,  2943a2e06c8d35ff)      (13,  2943a2e06c8d35ff)   OK
+        RESOLVED_FROM_AFAR   (4,   358bfdc4de982d83)      (4,   358bfdc4de982d83)   OK
+        SAME_FILE_PROSE      (16,  5539b351de2562fb)      (16,  5539b351de2562fb)   OK
+    the_movement_is_the_card_itself_firing: >-
+      +2 bookkeeping-only, +2 falsely-alive, -2 honest-dead is one event: the two
+      FR-045 refs of F-003c2 had NO resolver at the cut (honest-dead) and are
+      resolved on main by the synced CARD-285 cycle-1 YAML alone (falsely-alive,
+      and bookkeeping-only because nothing under a code root names them). That
+      is signal loss, not repair — the ref count of genuinely-dead pointers the
+      board can SEE fell by 2 while nothing was written. CENSUS 579->580 and
+      DEFINED 385->386 are a separate, honest event: one new ref declared on main
+      since the cut, with a real definition.
+    so_this_is_the_instrument_WORKING: >-
+      Said plainly, because a reader meeting five red cells will reach for the
+      paste-ready line. Nothing is wrong with the branch: the baselines are
+      honest at f64112f2 and I re-derived all eight there exactly. The reds are
+      the detector detecting the card's own headline mechanism on live data,
+      unprompted, between the fix round and this review.
+    what_is_owed: >-
+      (a) Re-derive the five moved baselines at merge AGAINST A DEF/CLASS, and
+      record in the card that the honest-dead -> bookkeeping-only transition of
+      two FR-045 refs is a review-YAML sync and therefore signal loss, not a
+      repair — which is the first real exercise of the response path F-002c2 is
+      about, and there is nothing but English in the way of a paste.
+      (b) Retract the fix round's "Validator at HEAD: 0 errors, 102 warnings,
+      identical to main, adding and silencing nothing." The first half is
+      re-verified exact; "identical to main" is now false (main is 100) and the
+      difference is this card's own defect. It was true when written, which is
+      the point: this card is about figures that read as checked after they stop
+      being true.
+    severity_rationale: "non-gating — no defect in the diff; a merge-time obligation plus one stale sentence to retract."
+
+  - id: F-005c2
+    severity: non-gating
+    confidence: high
+    title: >-
+      Declaring M2's survival is honest but it is not the only option — an AST
+      cell detects the collapse, and the repo already has the precedent
+    the_rounds_reasoning: >-
+      "An instrument that agrees with itself looks exactly like one that agrees
+      with something else — so the independence, not the assertion, is what
+      carries the claim." I reproduced M2 out of tree and confirm the survival:
+      with _trace_tests_refs_by_backward_scan replaced by the forward set, the
+      cross-reading cell is GREEN on a clean tree.
+    where_the_reasoning_is_right: >-
+      Entirely, about the VALUE comparison. No assertion over two equal sets can
+      tell whether they came from one algorithm or two. The round is right that
+      the claim rests on the independence.
+    where_the_conclusion_overshoots: >-
+      Independence is a property of the SOURCE, and a source property is
+      assertable. Measured: an AST walk of the cross-reading cell's own
+      FunctionDef, collecting ast.Name ids, yields
+      _trace_tests_refs_by_backward_scan on the clean tree and does NOT yield it
+      after the M2 rewrite — so a cell asserting "the second reader is called
+      here" is GREEN on the clean tree and RED under M2. It detects exactly the
+      collapse the round declared undetectable.
+    the_precedent_is_already_in_this_repo: >-
+      tests/test_guard_integrity.py AST-walks guard sources throughout —
+      _bound_keys (:378), _names_within (:402), _executed_names (:480) — and at
+      :2157 it ast.parses its own __file__. So this is the house pattern, not a
+      new idea, and it is G-2-safe: it names a helper, never a model ref.
+    what_i_would_accept_instead: >-
+      A second tooth that does not need AST: make _trace_tests_refs_by_backward_scan
+      take `lines` as a parameter and add a cell that feeds BOTH readers a
+      synthetic document on which they must differ unless one is a copy of the
+      other — the multi-line-flow shape of F-001c2 is exactly such a document
+      (forward 0, backward 1). Either closes it; the AST cell is 6 lines.
+    severity_rationale: "non-gating — the independence IS real and I verified it two ways (see called_out.2). This is a missing tooth, not a missing property."
+
+  - id: F-006c2
+    severity: low
+    confidence: high
+    title: "Figures I measured to be wrong, in the brief, the card and the fix round's own ADR text"
+    note: >-
+      Listed because this is the card about stated figures needing instruments,
+      and because the brief asked for exactly this.
+    items:
+      - claim: "'43 distinct from 45 ADR occurrences' — in the brief, on the card, and WRITTEN INTO the ADR at 0039-…md:282 as '43 distinct, from **45 occurrences**'"
+        measured: >-
+          44 occurrences, not 45. Derived twice: (a) `grep -rE
+          '^[ \t]*check:[ \t]*\{kind:[ \t]*test' meta/architecture/decisions/adr/*.md
+          | wc -l` -> 44, with the per-file breakdown summing to 44; (b) the
+          module's own _ADR_CHECK regex over the same files -> 44. The path from
+          occurrences to distinct is also not "minus two re-declarations": there
+          are 46 ref-MENTIONS (one occurrence declares two comma-separated refs),
+          of which one ref is mentioned 3 times and one twice, giving 43 distinct.
+          The 580-was-occurrences-as-refs explanation still holds arithmetically
+          (579 - 43 + 44 = 580); only the stated occurrence count is wrong.
+        why_it_matters_here: >-
+          The ADR's own new table says, two rows above, that "an unmeasured row
+          in this table is the same phantom as an unmeasured check ref". This is
+          a MIS-measured row in the same table, and nothing checks it: CENSUS
+          pins 579 but not its decomposition. That is ADR-0006/R1's failure mode
+          reproduced inside the ADR that documents ADR-0006/R1's failure mode.
+      - claim: "the same table's `requirements.yml test: keys and block-form check: refs` row carries an em-dash — no figure at all"
+        measured: >-
+          404 distinct (401 from `test:` keys, 10 from block-form `check:` refs,
+          union 404). An explicitly unmeasured row, two lines after the row that
+          condemns unmeasured rows.
+      - claim: "G-2's exhaustive git grep cost: 'all 579 refs restricted to this file -> 0 hits in 10.7 s', '~18 ms/ref with a single pathspec'"
+        measured: >-
+          The RESULT reproduces exactly — 0 hits for all 579 refs. The COST does
+          not: 42.1 s, 73 ms/ref, on this machine with two sibling cards in
+          flight. The conclusion (exhaustive and affordable, so cycle 1's "not
+          affordable" does not apply to the self-check) stands either way, but
+          10.7 s is a point estimate for a load-dependent quantity, which is the
+          clause cycle 1 applied to the round's own 8.4 s.
+      - claim: "module docstring: 'today 0 of the 5 truncations here has a declared ref as its prefix'"
+        measured: >-
+          6 `…`-tokens in the file, of which 5 are truncations of real refs and
+          one is ZZPrefix…Tail, the synthetic example the fix round added. Under
+          the reading "truncations of refs" the 5 is right; under "tokens
+          containing …" it is 6. 0 of all 6 has a declared-ref prefix either way,
+          so the SAFETY claim is intact — recorded as a precision note, not an
+          error, because both readings are defensible. Worth one word ("of the
+          five ref truncations") so the next reviewer does not re-measure it.
+      - claim: "'Validator at HEAD: 0 errors, 102 warnings, identical to main'"
+        measured: "102 on the branch confirmed; main is 100. See F-004c2."
+      - claim: "the brief's `SHIPPED blob=10da93464ef4adce`"
+        measured: "not re-derivable from the git blob, sha256 or md5 of the file; see instrument_proof_on_an_unmutated_tree."
+
+  - id: F-007c2
+    severity: informational
+    confidence: high
+    title: "Brief claims I re-derived and found CORRECT — recorded so they are not re-measured a third time"
+    items:
+      - "the three pins: CENSUS (579, b0469543ee0ae4a8), TRACE_TESTS (510, 0ad7bd1af729a4bf), DEFINED (385, 48510317eab24a12) — all three exact; see called_out.4"
+      - "the six class baselines unchanged by the fix: BOOKKEEPING_ONLY 13, FALSELY_ALIVE 164, FALSELY_DEAD 13, HONEST_DEAD 30, RESOLVED_FROM_AFAR 4, SAME_FILE_PROSE 16 — all re-derived exact at the cut"
+      - "ADR-0006/R1's ref: ZERO definitions anywhere and exactly 109 resolvers — both exact; see called_out.6"
+      - "the rule IS tested: tests/test_export_pdf.py:1249 `def test_the_dependency_baseline_is_still_closed` asserts `packages == {'pillow','numpy'}` on the whole runtime list, and its docstring says ADR-0006's revision is what makes it the rule's check; ADR-0006-…md:170 carries the dead `check:` ref and :172 names the real node id in a `#` comment inside the excluded meta/architecture/**"
+      - "backlog-scored.yml resolves 6 model refs, 4 undefined — exact. waves.yml 3 and 1 — exact. dispatcher.state 2, both undefined — exact. Exactly 1 ref has meta/profiling/ as its only resolver — exact."
+      - "25 of the branch's 102 warnings are DEAD check ref warnings — exact (grep 'no definition was found')"
+      - "the plugin cache copy: 1 error, 102 warnings, the error being `[ERROR] ADR-0025 circular supersession: ADR-0025 -> ADR-0031 -> ADR-0025 -> ADR-0025`. AC-1's stated reason is substantively true."
+      - "G-5: 9742 node ids on the branch, 19 in the new module, and `git diff --name-status f64112f2..HEAD -- tests/` is exactly `A tests/test_check_ref_resolution.py` — purely additive, so no existing node id can have moved. 9742 - 19 = 9723 at the cut, +19/-0. Confirms the brief exactly."
+      - "impact set: `scripts/impact_set.py --base f64112f2` -> 31 modules, exact"
+      - "the setrlimit skip: `pytest.skip(` is at tests/test_book_pdf_memory.py:1296 on this branch (3f3012a4), :1297 being the first line of its message; that module carries two further pytest.skip sites at :1041 and :1055, and is outside the impact set either way"
+      - "the carried correction the brief flagged: _module_scope_silences IS at tests/test_guard_integrity.py:1511 and _check_log_invocations at :577, the module cites _conditional_silences, and that is correctly at tests/test_suite_profile.py:2743. The module never claimed otherwise — the brief is right that the correction was not owed."
+      - "PyYAML is absent from pyproject.toml entirely (not even a dev extra), so a test-side import would be a collection error on a bare checkout. The round's choice of a second implementation over a parser is correct, and its proof against yaml.safe_load was run OUT OF TREE."
+
+# =====================================================================
+# THE SEVEN THINGS THE BRIEF ASKED TO BE CALLED OUT EXPLICITLY
+# =====================================================================
+called_out:
+
+  1_is_the_classifier_total:
+    short_answer: >-
+      _tests_block IS total. The DISPATCH that decides whether to enter it is
+      NOT, and that is F-001c2, gating.
+    shapes_driven_at_tests_block_fourteen_of_them: >-
+      Every one either collected or raised; none silently skipped:
+        quoted item `- "Alpha_One"`           -> COLLECTED (quotes stripped by _split)
+        item with a trailing `# retired`      -> COLLECTED as 'Alpha_One  # retired',
+                                                 which then RAISES in Declared.form
+        nested list `- - Alpha_One`           -> COLLECTED as '- Alpha_One' -> RAISES in form
+        item is a mapping `- ref: Alpha_One`  -> COLLECTED as 'ref: Alpha_One' -> RAISES in form
+        anchor/alias item `- *alpha`          -> COLLECTED as '*alpha' -> RAISES in form
+        empty block, next line is a key       -> COLLECTED ()   (correct: YAML null)
+        empty block at EOF                    -> COLLECTED ()   (correct)
+        tab-indented item                     -> COLLECTED (expandtabs(8) throughout)
+        document separator `---` at col 0     -> ends the list (dedent) — correct
+        document separator indented `  ---`   -> COLLECTED as '--' -> RAISES in form
+        `  ---` as the only line              -> COLLECTED as '--' -> RAISES in form
+        comment at col 0 between two items    -> both items COLLECTED  (F-001's shape, fixed)
+        deeper mapping key inside the list    -> RAISES
+        key with no space after the colon     -> RAISES
+    the_judgement: >-
+      Six of these terminate in a raise one frame later, in Declared.form, not
+      in _tests_block — so the message names the ref shape rather than the YAML
+      line. That is acceptable under R2 (collected or raised, never skipped) and
+      fails closed, but the line number is lost; a reader gets "'Alpha_One  #
+      retired' is neither a bare name, a node id nor a tracked script path"
+      without being told which trace.yml line produced it. Worth a `source`
+      hint, non-gating.
+    the_hole: "see F-001c2 — six `tests:` KEY shapes fall through both dispatch branches with no else"
+
+  2_is_the_second_reading_genuinely_independent_and_would_any_bug_fool_both:
+    is_it_independent:
+      answer: "YES — a real second algorithm, and I proved it two ways rather than reading it."
+      way_1_it_catches_what_the_forward_scan_cannot: >-
+        Replaying F-001 out of tree (monkeypatching _tests_block to the
+        break-on-non-item version): forward 494, backward 510, census 576 —
+        reproducing cycle 1's figures exactly — and the cross-reading cell goes
+        RED naming the disagreement. On a clean tree both read 510 and it is
+        green. A restatement could not do that.
+      way_2_it_catches_two_dispatch_shapes_the_forward_scan_misses: >-
+        For `tests: [A,` and `tests: [A] # note` the backward scan returns 511
+        where the forward scan returns 510, so the cell reds. The backward
+        reading is strictly stronger than the forward one on two shapes — the
+        clearest possible evidence that it is not a copy.
+      the_layering_the_round_described_is_exact: >-
+        M1 alone -> RED on the cross-reading (the cause). M1+M2 together -> still
+        RED, now on the TRACE_TESTS pin (494 vs 510 — the consequence). M2 alone
+        -> GREEN. All four measured out of tree. "The cross-reading catches the
+        cause, the pinned counts catch the consequence, and neither alone is the
+        witness" is accurate.
+    would_any_bug_fool_both:
+      answer: "YES, and I found it and reproduced it: F-001c2."
+      the_shared_assumption: >-
+        Both readings assume a `tests:` key's refs live either in a flow
+        sequence whose value starts `[` or in a block sequence of `- item`
+        lines. Neither raises on a `tests:` key of any other shape. So
+        `tests: <scalar>` and `tests: >-` are invisible to both, both report
+        510, they AGREE, and both are wrong. That is the "two readings of the
+        same file format share an assumption" risk the brief asked about,
+        instantiated and measured.
+      why_the_cross_reading_cannot_be_the_whole_answer: >-
+        Because it compares two readings of the same ASSUMPTION about where refs
+        live. The only thing that closes that class is a default-deny on the key
+        itself — the repair in F-001c2.
+    was_the_out_of_tree_yaml_proof_real_and_out_of_tree:
+      verified: >-
+        PyYAML's absence is confirmed: it is in no section of pyproject.toml, no
+        test imports it, and it is present only as a transitive install. So a
+        test-side import WOULD be a collection error on a bare checkout, which
+        CLAUDE.md guarantees must work, and the round is right that the brief's
+        "test-side only, which it already is" understated it. The round's proof
+        against yaml.safe_load was therefore correctly kept out of tree, and the
+        module's docstring at :459-462 states exactly that reasoning.
+      i_did_not_rely_on_it: >-
+        Rather than re-run the round's yaml.safe_load proof, I wrote a THIRD
+        reading — an indentation-stack walker of my own, neither forward-scan nor
+        backward-scan shaped — and it returns the same 510 refs, ref for ref,
+        with both set differences empty. So trace.yml's contribution is now
+        agreed by three independent implementations.
+
+  3_is_declaring_M2s_survival_the_right_response:
+    answer: >-
+      The reasoning is right and the response is not the only one available.
+      Something CAN detect the collapse, I built it, and the repo already uses
+      the pattern. See F-005c2.
+    the_detector: >-
+      An AST walk of the cross-reading cell's own FunctionDef asserting
+      _trace_tests_refs_by_backward_scan appears among its ast.Name ids: GREEN on
+      the clean tree, RED under M2's rewrite. 6 lines, G-2-safe (it names a
+      helper, not a ref), and precedented at tests/test_guard_integrity.py:378,
+      :402, :480 and :2157.
+    what_should_be_kept_from_the_rounds_answer: >-
+      The insight itself, verbatim, in the docstring. It is the correct account
+      of why the ASSERTION cannot carry the claim, and it should stay even once
+      the AST cell exists — because the AST cell proves the call site, not the
+      algorithm's independence, and a future author could satisfy it with a
+      second function that is a copy. The honest layering is: the docstring
+      explains why independence is the property, the AST cell stops the call
+      site being silently removed, and the three-way agreement on 510 (two in
+      tree, one out) is the evidence the algorithms really differ.
+
+  4_the_three_pins_re_derived_and_whether_the_non_movement_can_be_design:
+    pins_re_derived_independently:
+      CENSUS: >-
+        (579, 'b0469543ee0ae4a8') — EXACT. Derived three ways: the module's own
+        derivation; my own union of (my third-implementation trace reading 510)
+        ∪ (requirements.yml test: keys 401) ∪ (block-form check: refs 10) ∪ (ADR
+        inline distinct 43) = 579, with both set differences against the module
+        EMPTY; and the partition arithmetic below.
+      TRACE_TESTS: >-
+        (510, '0ad7bd1af729a4bf') — EXACT. Three independent readings agree at
+        510 ref for ref: the module's forward scan, the module's backward scan,
+        and my indentation-stack walker.
+      DEFINED: >-
+        (385, '48510317eab24a12') — EXACT, and the 382 -> 385 move is confirmed
+        as exactly the 3 refs the F-001 drop was removing: replaying the bug out
+        of tree returns census 576, and the 3 missing refs all carry a real
+        `class` in tests/test_book_puzzle_frame.py.
+      and_the_other_five: "BOOKKEEPING_ONLY 13, FALSELY_ALIVE 164, FALSELY_DEAD 13, HONEST_DEAD 30, RESOLVED_FROM_AFAR 4, SAME_FILE_PROSE 16 — every count and every digest exact at the cut"
+    can_the_non_movement_be_made_design:
+      answer: >-
+        It largely ALREADY IS, and the round under-claims its own work. "The fix
+        removes the silence, not the luck" is honest but it undersells what
+        pinning CENSUS bought.
+      the_arithmetic_measured: >-
+        census 579 = both-agree 372 + falsely-alive 164 + falsely-dead 13 +
+        honest-dead 30, and DEFINED 385 = falsely-dead 13 + both-agree 372. The
+        partition is closed. With CENSUS, FALSELY_ALIVE, FALSELY_DEAD,
+        HONEST_DEAD and DEFINED all pinned EXACT, the unpinned "both resolvers
+        agree" class is DETERMINED at 579-164-13-30 = 372. So no ref can enter
+        or leave the population, in any class, without reddening at least one
+        pin. Before this fix round CENSUS was unpinned prose at 576, which is
+        precisely why F-001 was invisible.
+      so_what_remains_luck: >-
+        Only WHICH class a newly-visible ref lands in — a fact about data that
+        nobody claimed otherwise about. The honest statement is stronger than
+        the round's: after this round, a population change cannot be silent, and
+        the non-movement of the six is a derivable consequence of the three
+        recovered refs being both-agree members, not a coincidence that happened
+        to hold.
+      and_it_retires_one_of_cycle_1s_sub_findings: >-
+        Cycle 1 called test_every_declared_ref_lands_in_exactly_one_class
+        self-referential because it compares against len(_verdicts()). With
+        CENSUS pinned exact, that denominator is anchored, so the cell is no
+        longer self-referential in effect. Worth saying, because the next reader
+        will otherwise re-find it.
+      what_would_close_the_last_gap_visibly: >-
+        Pin the both-agree class explicitly as a seventh baseline. It adds no
+        detection power (the arithmetic already determines it) but it makes the
+        closure READABLE instead of requiring a reader to do the subtraction —
+        and the card's whole subject is figures a reader cannot check. 2 lines.
+
+  5_is_the_repair_vs_signal_loss_refusal_airtight:
+    answer: "NO. It is airtight for a single class digest and false for a per-member digest set. See F-002c2 — built, run, and the departed ref recovered by name."
+    the_three_shapes_the_brief_asked_about:
+      a_hash_of_each_ref: >-
+        WORKS, and this is the one. A set of per-member 12-hex digests revives
+        nothing (`git grep -lw <digest>` cannot match a ref) and names the
+        departed member exactly, by re-deriving the 579-ref population at run
+        time and matching the missing digest. Demonstrated: shrink 13 -> 12,
+        one missing digest, exactly one recovered ref, and _strict_resolution
+        then answers the enforceable question (no def -> signal loss).
+      a_count_per_authority: >-
+        WEAKER but real and almost free. It localises a move to the authority
+        that declared the departed ref, which separates "requirements.yml
+        changed" from "a review report was synced in" without naming anything.
+        Not sufficient alone; a useful second coordinate.
+      a_shape_class: >-
+        WEAKEST. Partitioning by form (bare 555 / nodeid 23 / path 1 — measured)
+        barely discriminates on this board, since 96 % of refs are bare.
+      so_the_refusal_is_premature: >-
+        Not wrong in its reasoning about digests — right, and well argued — but
+        premature as a conclusion, because it treats "the stored artefact must
+        name the ref" as a requirement when the population is derivable at run
+        time. The sentence "the property that makes the guard safe is the
+        property that makes the response unenforceable" should be narrowed to
+        the single-digest case it is true of.
+    and_the_timing: "F-004c2 — five pins red against main right now, so this response path is about to be walked for real with nothing but the paste-ready line in the way"
+
+  6_the_census_579_and_the_43_of_45_re_derived:
+    census_579: "EXACT, three ways — see called_out.4"
+    the_decomposition_as_the_ADR_states_it:
+      trace_yml: "510 — exact"
+      requirements_yml: "the ADR leaves this row BLANK (an em-dash). Measured: 404 distinct (401 test: keys + 10 block-form check: refs)."
+      adr_inline: >-
+        43 distinct — exact. From **44** occurrences, NOT 45: measured twice,
+        by grep and by the module's own regex, with the per-file breakdown
+        summing to 44. There are 46 ref-mentions (one occurrence declares two
+        comma-separated refs); one ref is mentioned 3 times
+        (`test_every_import_in_the_package…inward`) and one twice
+        (`tests/test_player_bundle.py::test_bundle_tree_and_clues…encoder`).
+      the_580_explanation_survives: "579 - 43 + 44 = 580, so 'occurrences counted as refs' is still the right account of the 580; only the stated occurrence count is off by one."
+    forms: "bare 555 / nodeid 23 / path 1 = 579 — exact, matching the ADR"
+    adr_0006_r1_and_whether_the_distinction_is_where_a_reader_meets_it:
+      the_claim_verified: >-
+        Zero definitions anywhere (no `def` and no `class`, by both the module's
+        strict resolver and a direct `git grep -nE`) and exactly 109 resolvers —
+        both exact. And the rule IS tested: tests/test_export_pdf.py:1249's
+        `def test_the_dependency_baseline_is_still_closed` asserts
+        `packages == {"pillow","numpy"}` on the whole runtime list, with the
+        docstring sentence the round quotes. ADR-0006-…md:170 carries the dead
+        `check:` ref; :172 names the real node id in a `#` comment inside the
+        excluded meta/architecture/**.
+      a_detail_worth_recording: >-
+        That test's own docstring spells the dead ref IN FULL on its second
+        line. So tests/test_export_pdf.py is itself one of the 109 resolvers —
+        the tests/-prose limit case, sitting in the very module that holds the
+        real assertion. The limit case is not hypothetical and it is not
+        removable: deleting that docstring line would be deleting the only
+        human-readable link between the rule and its test.
+      is_the_distinction_stated_where_a_reader_meets_it:
+        answer: "PARTLY — and the gap is the one place it matters most."
+        where_it_IS_stated: >-
+          ADR-0039's new section (strongly, and calling the overstatement the
+          more dangerous of the two errors, which is the right call) and the
+          module docstring's "What a report here does NOT claim" at :130-141.
+          Both are good and both are new this round.
+        where_it_is_NOT: >-
+          ADR-0006 ITSELF. A reader who meets this defect meets it as a
+          validator warning naming ADR-0006/R1, and goes to 0006-…md. There,
+          :170 shows a dead `check:` ref and :172's comment says the ref "went
+          LIVE 2026-09-01" and names the real test — which reads as a
+          reassurance that the pointer works, not as a record that it does not
+          resolve. Nothing in 0006-…md says the pointer is dead while the rule
+          is tested. One sentence there, or pointing R1's `check:` at the node
+          id, closes it — and the second is CARD-307's one-line repair, which
+          this card is right not to attempt.
+
+  7_the_ellipsis_crux_verified:
+    the_crux_as_the_docstring_states_it: >-
+      "_trie_pattern reproduces -w's boundaries, so a truncation whose prefix is
+      a declared ref matches there exactly as it matches under real git grep -lw."
+    verified_on_the_same_bytes_not_reasoned: >-
+      One throwaway git repo, one committed line
+      `alpha ZZPrefix<U+2026>Tail here`, four measurements:
+        real git grep -lw ZZPrefix      -> probe.txt, exit 0   MATCH
+        _trie_pattern(('ZZPrefix',))    -> ['ZZPrefix']        MATCH
+        real git grep -lw ZZPrefixTail  -> exit 1              no match
+        _trie_pattern(('ZZPrefixTail',))-> []                  no match
+      Both instruments agree in both directions on the identical text. U+2026 is
+      a non-word character to both, and _trie_pattern's lookaround
+      (?<![A-Za-z0-9_])…(?![A-Za-z0-9_]) is `-w` exactly, over the same
+      [A-Za-z0-9_] class the module names as WORD. So the self-check CAN catch
+      what the ellipsis exposes, which is what makes the corrected docstring's
+      safety argument true.
+    and_the_state_of_the_board: >-
+      6 `…`-tokens in the module (5 ref truncations + the synthetic
+      ZZPrefix…Tail the round added as the counter-example). NONE has a prefix
+      that is a declared ref — measured against the full 579. So the module is
+      safe today by mechanism; see F-006c2 for the count precision note.
+
+# =====================================================================
+# GUARDRAILS
+# =====================================================================
+guardrails:
+  G1_forge_untouched:
+    verdict: PASS
+    evidence: >-
+      `git diff --name-status f64112f2..HEAD` is exactly `M
+      meta/architecture/decisions/adr/0039-…md` and `A
+      tests/test_check_ref_resolution.py` — both in this repo. Nothing under
+      /Users/omelnikova/MyProjects/forge_1/ was written; validate.py there was
+      only EXECUTED (twice: once per tree).
+  G2_guard_does_not_revive:
+    verdict: "PASS for the module as it stands; the general claim is still short by the F-001c2 class"
+    evidence: >-
+      Re-verified EXHAUSTIVELY, both ways. (a) _trie_pattern over all 579
+      derived refs applied to the module's own bytes -> []. (b) real
+      `git grep -lw`, every one of the 579 refs, restricted to that single path
+      -> 0 hits (42.1 s, 73 ms/ref — exhaustive, not a sample). So the module
+      resolves nothing today. The residual is F-001c2: a ref the derivation
+      never sees cannot be in the trie, so the self-check's claim to cover
+      "every ref in the model" is conditional on the derivation being total,
+      and it is not for six `tests:` key shapes.
+    and_the_partition_stays_count_plus_digest: >-
+      Confirmed by reading every baseline: six class pins plus CENSUS,
+      TRACE_TESTS and DEFINED, all (int, hex-digest). No ref list anywhere in
+      the module. The two refs AC-4 pins are still spelled in pieces joined at
+      run time (:1011, :1019) and test_the_two_pinned_refs_are_spelled_in_pieces
+      still asserts it.
+  G3_sync_not_retired:
+    verdict: PASS
+    evidence: >-
+      The diff touches nothing under meta/review/. Both the ADR section and the
+      module docstring state the sync is load-bearing for forge:fix /
+      forge:commit / forge:retrospective and must stay. F-003c2 and F-004c2
+      measure the sync doing its damage and neither proposes retiring it.
+  G4_no_warning_count_without_a_binary:
+    verdict: PASS
+    evidence: >-
+      Every validator figure in this report names forge_1's validate.py, with
+      the plugin cache's contrasting 1 error quoted for AC-1's substance. The
+      card's ADR section does the same.
+  G5_no_test_deleted_renamed_skipped_merged:
+    verdict: PASS
+    method: >-
+      Derived, not taken on trust. `git diff --name-status f64112f2..HEAD --
+      tests/` is exactly `A tests/test_check_ref_resolution.py`, so the change
+      is purely additive and no existing node id can have moved. --collect-only
+      on the branch: 9742 node ids; --collect-only on the new module alone: 19.
+      9742 - 19 = 9723.
+    figure: "9723 -> 9742, +19 / -0 — confirms the brief exactly"
+    no_conditionals_in_the_new_module: >-
+      Re-verified: the module declares no pytestmark, has no skipif, no xfail,
+      no pytest.skip and no early return out of a test body. The only
+      occurrences of 'skip' in it are docstring prose. 19 collected, 19 passed,
+      0 skipped.
+
+# =====================================================================
+# ACCEPTANCE CRITERIA
+# =====================================================================
+acceptance_criteria:
+  AC-1:
+    verdict: "MET (off-branch, verified — NOT reported as unmet, per the brief)"
+    where: "meta/kanban/config.yml:37-45 on main, applied in main commit 7c68a7b1"
+    substance_re_verified: >-
+      The reason's three factual claims hold: the plugin cache reports exactly
+      one error, `[ERROR] ADR-0025 circular supersession: ADR-0025 -> ADR-0031
+      -> ADR-0025 -> ADR-0025`, against forge_1's 0 errors on the identical
+      tree; both copies report the same 102 warnings; and the honest error count
+      on this board is 0.
+  AC-2:
+    verdict: MET
+    node: "tests/test_check_ref_resolution.py::test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping"
+    evidence: >-
+      Pinned (13, f10ea23d3f456cba), re-derived exact at the cut, with the
+      `strays` assertion still load-bearing. The class is measured at 15 on main
+      (F-004c2), i.e. the gate reds on two newly-eroded refs — the detector
+      detecting the real mechanism on live data between the fix round and this
+      review, which is the strongest evidence this AC is met that the card has.
+  AC-3:
+    verdict: MET (both halves)
+    nodes:
+      - "tests/test_check_ref_resolution.py::test_a_ref_with_a_real_definition_is_not_reported"
+      - "tests/test_check_ref_resolution.py::test_a_ref_whose_only_prose_hit_shares_its_definitions_file_stays_green"
+    cycle_1s_F_005_is_closed: >-
+      The `assert len(defined) > 300` floor against a measured 382 is gone,
+      replaced by DEFINED = (385, 48510317eab24a12), an exact pin which I
+      re-derived. That was the one unpinned quantity left in the module and it
+      is now pinned.
+  AC-4:
+    verdict: MET, and cycle 1's F-008 is closed
+    evidence: >-
+      Both pins stand (the module still spells them in pieces, verified). The
+      sentence cycle 1 said was owed is now at :994-1004: it states that a
+      transient instance cannot be pinned stably BY CONSTRUCTION, that the
+      generic half covers it (a transient member reds the gate arriving and
+      again leaving), and why the named pins are for the permanent case.
+  AC-5:
+    verdict: MET
+    evidence: >-
+      All five in-domain resolver families are named in the ADR table with a
+      measured figure beside each (and I confirmed every figure — see F-007c2),
+      the tests/-prose limit case is stated as the reason a pathspec narrowing
+      cannot work, and both the ADR and the module docstring's first sentence
+      label the work a DETECTOR, not a repair.
+    one_sentence_owed: "the sub-shape in F-003c2 — a guard asserting a test does not exist thereby making the validator read it as existing — is not named anywhere and belongs in this table's prose."
+  EC:
+    verdict: MET
+    node: "tests/test_check_ref_resolution.py::test_the_two_directions_of_disagreement_are_exactly_the_measured_ones"
+    evidence: "both directions pinned separately (164 / 13) plus honest-dead 30, all re-derived exact; neither folded into the other, neither dropped; derived from the four authorities at run time."
+
+# =====================================================================
+# SCOPE AND SKIPS
+# =====================================================================
+impact_scope:
+  derived_how: >-
+    The repository's own cycle-gate selector, not grep:
+    `scripts/impact_set.py --base f64112f2` -> 31 modules, confirmed exactly.
+    Plus the same 5 cycle 1 added for comparability
+    (test_browser_fixture_scope, test_nfr001_generation_time, test_kill_matrix,
+    test_export_pdf, test_naming). Union = 36.
+  modules_run: 36
+  result: "3456 passed, 11 skipped, 1 xfailed, 0 failed in 474.10s"
+  a_brief_figure_corrected: >-
+    The brief states this run as "3554 passed, 11 skipped, 0 failed". Measured:
+    3456 passed, and there is 1 xfailed the brief does not mention. 3456 is
+    cycle 1's 3454 plus exactly the 2 cells the fix round added, which is the
+    arithmetic the brief's own +19/-0 node-id figure predicts for the module
+    (17 -> 19). 3554 is 98 high and does not reconcile with any figure on the
+    card. Another carried number.
+
+skips:
+  total: 11
+  all_one_cause: "tests/conftest.py:207 — `Database not reachable: DATABASE_URL is not set` (the db_required gate; the standing `db-tests-skip-silently` condition, not a new one)"
+  attributed_by_name:
+    tests/test_admin_binding.py:
+      count: 9
+      all_in_class: "TestUndefinedTableReport_NamesWhatTheFailingConnectionWasTalkingTo"
+      nodes:
+        - test_the_report_carries_the_four_groups
+        - test_the_report_names_the_database_the_failing_connection_was_on
+        - test_the_report_names_the_engine_its_pool_and_the_reset_count
+        - test_the_report_names_the_process_the_thread_and_the_werkzeug_question
+        - test_the_capture_answers_while_the_failing_connection_cannot
+        - test_the_original_traceback_is_intact_and_the_control_can_fail
+        - test_a_connection_on_the_wrong_database_is_a_one_line_proof
+        - test_the_verdict_does_not_call_a_correctly_bound_connection_a_mismatch
+        - test_the_report_survives_the_suites_own_quiet_option
+    tests/test_db_engine_lifecycle.py:
+      count: 2
+      nodes:
+        - "TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema::test_no_engine_pool_or_backend_predating_the_rebuild_survives_it"
+        - "TestEngineLifecycle_WhyTheHazardCannotBeForced::test_no_server_side_prepared_statement_is_ever_created"
+      confirmed_by: "re-running just those two modules: 64 passed / 9 skipped and 18 passed / 2 skipped, 82 passed / 11 skipped together — so all 11 of the 36-module run's skips are accounted for in these two files"
+  g2_note_on_spelling_them: >-
+    Checked before writing them out: none of the 11 node ids, and no segment of
+    one, is a model-declared ref (set intersection against the derived 579), so
+    naming them resolves nothing. Confirmed again by this file's own self-check.
+  is_any_of_them_a_gate_for_this_card: >-
+    NO — derived, not assumed. All 11 are Postgres-binding / engine-lifecycle
+    tests. None reads requirements.yml, trace.yml, the ADR set or the tests
+    tree, so none can witness anything about ref resolution. The card's ACs are
+    all carried by tests/test_check_ref_resolution.py, which has zero
+    conditional constructs and skipped nothing (19 collected, 19 passed).
+  xfail:
+    count: 1
+    node: "tests/test_nfr001_generation_time.py::test_20x20_p95_is_…_5s (truncated)"
+    status: "strict xfail, pre-existing (AC-037 unmet), unchanged by this branch and outside this card's ACs"
+  setrlimit_skip:
+    where: "tests/test_book_pdf_memory.py:1296 on this branch (commit 3f3012a4); :1297 is the first line of its message"
+    note: "commit-dependent as the brief warns; quoted with the commit. That module also carries pytest.skip at :1041 and :1055. It is outside the impact set either way, so none of these is a skip of this card's scope."
+
+# =====================================================================
+# COVERAGE
+# =====================================================================
+coverage:
+  read:
+    - "tests/test_check_ref_resolution.py in full (1457 lines)"
+    - "the fix commit's full diff: 3f3012a4 over both files"
+    - "meta/architecture/decisions/adr/0039-…md, the whole CARD-308 section"
+    - "meta/architecture/decisions/adr/0006-dependency-baseline.md:144-180"
+    - "meta/kanban/cards/CARD-308.md on main in full, including cycle 1's record and the fix round's"
+    - "meta/review/20261029T143000Z-CARD-308-cycle1.yml in full — unlike cycle 1, which could not reach its predecessor"
+    - "tests/test_export_pdf.py:1249-1273; tests/test_public_player_pages.py:1870-1905 (both trees)"
+    - "tests/kill_matrix.py (the Edit/apply_edit surface and the plant/restore path)"
+    - "meta/architecture/trace.yml and requirements.yml, scanned programmatically for every tests:/test:/check: shape"
+  not_reached:
+    - "the full suite (instructed); 36 impact modules were run"
+    - "the forge-side repair in validators/utils.py — G-1, out of scope"
+    - "CARD-307's and CARD-315's own branches"
+  confidence: high
+
+score_rationale: >-
+  7.5. Cycle 1's F-001 is genuinely and completely closed, and I verified that
+  rather than accepting it: the comment-in-list shape no longer drops anything,
+  the new witness reds when the bug is replayed and the TRACE_TESTS pin reds
+  when the witness is also collapsed, all three pins re-derive exact, the census
+  579 reproduces under a third independent implementation of my own, G-2 holds
+  exhaustively against all 579 refs by two instruments, and the ellipsis crux is
+  true on the same bytes under both git and the trie. The round also corrected
+  its own brief three times and was right each time. That is a strong round.
+  It is held below 8 by one finding, not by a tally. F-001c2 is the same
+  mandatory rule the fix round was cut to satisfy — ADR-0039/R2 — violated one
+  frame above the frame it repaired: six YAML-legal `tests:` key shapes fall
+  through the dispatch with no else, no raise and no record, and two of them are
+  invisible to the NEW independent witness as well, so the round's answer to
+  F-001 does not reach them. I reproduced the consequence rather than arguing
+  it: with such a ref planted, the derivation misses it, both readings agree at
+  510, every cell is green, and the G-2 self-check's trie — built from the
+  derived set — reports CLEAN on a text spelling the ref in full. That is cycle
+  1's false green at a different door. It is less severe than cycle 1's F-001
+  (0 refs lost today against 16) and the repair is the same ~6 lines one frame
+  up, which is why the score did not fall further.
+  Two of the round's own conclusions are also over-claims with a mechanism
+  behind them, and both are small: an AST cell DOES detect M2's collapse
+  (F-005c2), and a per-member digest set DOES make the signal-loss response
+  enforceable without reviving anything (F-002c2) — I built and ran both. The
+  rest is figures: 44 ADR occurrences not 45, written into the new ADR table
+  beside a blank row and a line condemning blank rows; and five pins that red
+  against main because the card's own defect fired on live data while this card
+  was in flight (F-004c2), which is the instrument working and a merge-time
+  obligation, not a defect.
+
+next_cycle_focus:
+  - "F-001c2's repair: a default-deny `else` on every authority's key shapes, not just on lines inside a block; and whether CENSUS/TRACE_TESTS moved (they should not — 0 unhandled shapes measured today)"
+  - "whether :249-251's claim was narrowed to what its control can witness"
+  - "F-002c2's per-member digests, if adopted — and whether the five baselines that red against main were re-derived against a def/class or pasted"
+  - "the ADR table: 44 not 45, and the blank requirements.yml row (404)"
+  - "the one sentence owed in ADR-0039 for F-003c2's sub-shape, and the one owed in ADR-0006 itself for the dead-pointer/tested-rule distinction"

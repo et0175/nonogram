@@ -12,9 +12,9 @@
 **Worktree:** —
 **Source:** wave 62's retrospective (2026-10-28), which promoted the wave's dominant finding family into **ADR-0039/R4**. The rule ships with `check: {kind: review-lens}` and this card owes the flip to an executing check — an ADR check ref that names a planned test reads as mechanically checked while checking nothing.
 **Idea:** —
-**Wave:** unscheduled
+**Wave:** 67
 **Created wave:** 62
-**Deferred waves:** 0
+**Deferred waves:** 3 <!-- CORRECTED 2026-10-30 by the waves 63-65 retrospective. It read 0. This card was created in wave 62 BY wave 62's own retrospective, which promoted the figures family into ADR-0039/R4 and left R4's flip to an executing check owed here. It then sat unscheduled through waves 63, 64 and 65 while that same family produced EIGHT more gating findings across five cards. The counter never moved because cmd-retrospective Step 4c increments only tech-debt cards IN THE CURRENT WAVE SCOPE, and this card is Category: enabler and was in no wave's scope - so it aged invisibly by construction. Stamped into wave 67 on owner decision. -->
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
 **Review score:** —

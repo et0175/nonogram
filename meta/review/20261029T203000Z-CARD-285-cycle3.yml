@@ -1,0 +1,817 @@
+version: 1
+generated_at: "2026-10-29T20:30:00Z"
+target: "card/285-player-hosting-and-counting @ 6caccb65 (cycle 3/3, LAST CYCLE; cut 464ae377; the card's own files are 6, +2221/-26; tracked tree clean)"
+card: CARD-285
+cycle: 3
+mode: fix-verification + final-disposition
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  Fix round 2 is the strongest round this card has had and most of its claims
+  hold under measurement. I drove every one rather than reading the report.
+  The registry guard's new arms work in BOTH directions, including the
+  docstring-only direction the brief asked about. Cycle 2's F-107 reproduces
+  exactly and the docstring now says what the arms do. Both of the round's
+  refutations of cycle 2 REPRODUCE on the real tree, and one of them is the
+  strongest argument on the card. The five new plants are each a control over
+  exactly one raw read. Node ids, guardrails, skips and the flag hold's
+  argparse direction all reproduce.
+
+  The score stays below min_score for ONE gating reason, and it is the same
+  defect class for the THIRD consecutive cycle, one level deeper. The round's
+  load-bearing proposition -- "the two patterns reading stripped text are the
+  only two whose misses cannot be egress: a lost `unclassifiable`, never a
+  lost `foreign`" -- is MEASURABLY FALSE. The quoted-rooted pattern also reads
+  a quoted value that BEGINS `//`, and classify() routes anything beginning
+  `//` to the absolute/foreign branch. The quoted-host pattern, which reads
+  raw, requires the authority's last label to be two or more ASCII letters.
+  So for any authority that is not a dotted letter-TLD name -- an IPv4
+  literal, a bracketed IPv6 literal, a single-label host -- the ONLY pattern
+  that sees an egress-capable protocol-relative reference is the one that
+  reads STRIPPED text. Combine that with the residual the round declares (an
+  opener after an unguarded character still blanks a region) and four
+  measured SILENT PASSES of a `foreign` follow, each with its no-comment
+  control CAUGHT in the same run. So the declared residual's cost sentence is
+  understated in the stripper's docstring AND in the deploy page, and
+  AC-392's `then:` clause is falsified again -- in the security-shaped AC.
+  Finding F-201, gating.
+
+  Second, non-gating but it bears directly on the OWNER'S accepted cost. The
+  owner kept the flag inversion on the strength of the new hold stopping the
+  documented command and the helper from separating again. Measured: that
+  hold holds the page's BACKTICKED PROSE to argparse's option set, and
+  argparse renaming the option reds it. It does NOT hold the documented
+  publish COMMAND to carrying the flag. Deleting ` --analytics` from the
+  publish command line in the deploy page leaves both player modules at 66
+  passed -- a SURVIVING mutant on the exact drift the decision was made
+  against. F-202.
+
+  One figure in the brief is stale and I re-derived it: F-107's two arms are
+  at :1954 and :1955 at this HEAD, not :1919/:1920 (those were cycle 2's
+  numbers at 79ecafcb). The brief's node-id figures are right.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-285.md on main in full, including fix round 2's record and the owner's decision"
+    - "meta/review/20261029T181500Z-CARD-285-cycle2.yml in full; every finding re-derived rather than taken"
+    - "tests/test_public_player_pages.py at 6caccb65: the module docstring's ref table, the registry guard and its new arms (:1882-:1977), the whole pattern block and the stripper (:2004-:2254), scan_site and classify (:2256-:2445), the AC-391 body, the whole control set of the AC-392 body (:2816-:3180), the helper-driver test and its flag hold (:3206-:3319)"
+    - "player/assemble.py's snippet/marker/anchor constants and with_analytics' four refusals"
+    - "scripts/assemble_player_site.py: the argparse option set, REQUIRED_RUNTIME, delegated_argv, allow_list"
+    - "docs/deploy/player.md in full: the publish command, the bound/residual paragraph, both sentinel-delimited allow-list blocks, the four-refusals paragraph, drift step 4"
+    - "meta/architecture/requirements.yml: the six refs naming this card's test module"
+  not_reached:
+    - "the full suite -- the merge gate's; not run, per the brief. scripts/impact_set.py returns FULL for this card (cycle 1 measured it; not re-run)"
+    - "the live hosting and vendor dashboards -- outside the repository; every such value in the deploy page is TODO(owner)"
+    - "any database -- no db_required node was run or collected into a run. See skips_attributed"
+    - "an eyeballed render -- no image-pipeline change in this diff"
+  confidence: high
+
+method_note: >-
+  Two THROWAWAY detached worktrees, never the card worktree: one at 6caccb65
+  and one at the cut 464ae377, both created with `git worktree add --detach`.
+  Each ran with PYTHONPATH=<copy>/src and `nonogram.__file__` printed and
+  ASSERTED to lie under that copy BEFORE any measurement, because the venv's
+  editable install otherwise resolves `import nonogram` to the main repo.
+  `__pycache__` was swept before every run. Instrument proof FIRST, on the
+  unmutated tree at 6caccb65: the card's test module -> 33 passed, 0 skipped.
+  Every mutant was applied by a needle whose occurrence count was asserted
+  (printed where it mattered), and every mutated file's blob hash was
+  asserted back to its HEAD value afterwards and the assertion printed --
+  tests/test_public_player_pages.py -> 945cfb1f..., requirements.yml ->
+  f381acaf..., docs/deploy/player.md -> 453bfff6..., scripts/assemble_player_site.py
+  -> b817b17b.... Both scratch worktrees were `git status --porcelain` clean
+  before removal and `git worktree list` confirms they are gone. The card
+  worktree is clean apart from cycle 2's untracked YAML, before and after.
+
+  Instrument note, stated because the brief asks for it: the pattern-read
+  probes work by monkeypatching the module global a pattern lives in to a
+  never-matching regex (or an empty tuple), which is sound here because
+  scan_site reads those globals at CALL time -- verified by the baseline
+  probe, in which every plant is reported before any knob is turned, and by
+  the site-wide non-plant hit list being EMPTY in the same run. Two probes
+  needed a changed text SOURCE rather than a changed pattern; those recompile
+  scan_site's own source with one `finditer(raw)`/`finditer(text)` swapped,
+  and are declared as such below.
+
+  Deviation from deletion-only, declared: four mutants are renames or inserts
+  because the questions ("does a RENAMED def red", "does a ref ADDED to the
+  docstring table red", "does a SEVENTH registry ref red") cannot be asked by
+  deletion. Every other mutant is a deletion or a line-count-preserving edit.
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock absent for the whole cycle; no run was refused; NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set"
+  results:
+    - "card worktree, both player modules -> 66 passed, 0 skipped"
+    - "the same pair with -m browser -rs -> 22 passed, 44 deselected, ZERO skip lines"
+    - "scratch worktree at 6caccb65, unmutated, the card's test module -> 33 passed, 0 skipped (the instrument proof every mutant is measured against)"
+    - "--collect-only -q at 6caccb65 -> 9771; at the cut 464ae377 (second scratch worktree) -> 9748"
+    - "-m db_required --collect-only -q -> 26/9771 collected, 9745 deselected"
+  skips_attributed:
+    - "ZERO skips in every run of this cycle. grep -nE 'pytestmark|skipif|pytest.skip|xfail|importorskip' over the card's test module, the other player test module, player/assemble.py and scripts/assemble_player_site.py -> no hits at all."
+    - "NO Chromium skip is possible: tests/test_puzzle_solver_page.py:551 is pytest.fail(..., pytrace=False) on a missing executable and :676 is pytest.fail on a missing pytest_playwright. A browser that cannot launch is RED. (:551, not :550 -- :550 is the `if not Path(...).exists():` guard. Re-derived, third cycle running.)"
+    - "db_required: 26 nodes by collection at 6caccb65. A grep of the collected ids for 'test_public_player' returns 0, so NONE is in this card's files, none is a gate for it, and none was run. No database was contacted at any point in this cycle."
+
+node_ids:
+  method: "--collect-only -q | grep '^tests/' | sort in each of the two scratch worktrees, compared with comm; added ids grouped by file to attribute them"
+  base: 9748
+  head: 9771
+  removed: 0
+  added: 23
+  attribution:
+    - "7 in the card's own test module -- exactly the seven cycle 1 lists"
+    - "11 in tests/test_book_interior_type_floor.py and 5 in tests/property/test_book_export_interior.py -- 16, arrived from main through the pre-round merge, not this card's"
+  verdict: "G-5 HOLDS, re-derived. comm -23 is EMPTY. The brief's 9748 -> 9771, +23/-0 with 7/16 attribution is CORRECT and reproduces; any 9755 figure is pre-merge."
+
+guardrails:
+  G-1: "HOLDS. git diff --name-only 464ae377..HEAD -- src/ pyproject.toml -> 0 lines. No render.yaml, no admin-service file."
+  G-2: "HOLDS. The analytics integration is one <script> tag in a Python string constant in player/assemble.py; no package. pyproject.toml is absent from the whole-card diff."
+  G-3: >-
+    HOLDS ON THE SHIPPED TREE. Nothing the card ships reads, stores or
+    transmits an IP or a per-visitor identifier; the identifier vocabulary is
+    clean on the counted site and the scan's egress bucket is empty on it (I
+    re-ran the real scan against the real counted tree in the scratch
+    worktree: all three buckets empty). What does NOT fully hold is the guard
+    meant to keep G-3 holding: see F-201. The inherent residual -- a
+    third-party subresource discloses the visitor's IP to that vendor at the
+    transport layer -- is DEC-046's premise and is sourced in the deploy page,
+    declared rather than hidden.
+  G-4: "HOLDS. No write API, no score or leaderboard surface, no DNS automation. CARD-210 not flipped; the QR base is still TODO(owner), NOT observed."
+  G-5: "HOLDS -- see node_ids, re-derived."
+  ADR-0038/R7-R8: "HOLDS. Browser tests carry the browser marker and the existing fixtures; no new Playwright dependency; a missing browser fails rather than skips."
+  ADR-0039/R1: >-
+    HOLDS for every control I drove, and the round earned this one: each of
+    the five new plants reds when, and only when, the single raw read it names
+    is removed -- measured plant-by-plant, see mutation.plant_control_matrix.
+    One qualification: the per-plant verdict is carried by the THIRD of the
+    four assertions (the scan with the pre-fix stripper patched back in), not
+    by the first. See F-204.
+  ADR-0039/R2: >-
+    The derived half is real -- the permitted set comes out of the deploy page
+    through the same parser the assembly helper calls, the routes out of the
+    tree's own vercel.json, nothing a literal in the test -- and the declared
+    half (the identifier vocabulary) says so in its own words and says why.
+    The default-deny CONDITION is still not met: four measured silent passes
+    of an egress-capable reference, F-201. Narrower than cycle 2's four, and
+    in a shape nobody has reported before, but the same condition and the same
+    clause of the same AC.
+  ADR-0039/R3: >-
+    SATISFIED for the comment-stripping exemption, and the sharper half now
+    has its planted control too. I drove the sharper half: moving the absolute
+    pattern's read from raw to stripped text makes the url-in-comment plant a
+    SILENT PASS, and nothing else catches it -- so that plant (asked for in
+    three consecutive cycles) is a real control over exactly one line. See
+    judgements_requested.6.
+
+judgements_requested:
+  "1_does_the_raw_stripped_split_hold_in_BOTH_directions": >-
+    NO on the under-claim direction, and that is the gating finding. YES with
+    one named exception on the over-claim direction.
+
+    UNDER-CLAIM (gating). The claim is that a miss by the two stripped-text
+    patterns can only cost an `unclassifiable`. It can cost a `foreign`. The
+    quoted-rooted pattern matches any quoted value whose first character is
+    `/`, so it also matches a quoted value beginning `//`, and classify()
+    sends anything beginning `//` down the absolute branch -> `foreign`. The
+    quoted-host pattern, which does read raw, is shaped
+    `//[A-Za-z0-9.-]+\.[A-Za-z]{2,}...`, so it cannot read an authority whose
+    last label is not two-or-more ASCII letters. For such an authority the
+    quoted-rooted pattern (STRIPPED) is the only reader outside a markup, CSS,
+    sink or call position. Four shapes measured as SILENT PASSES on a copy of
+    the clean counted site, each planted alone, each with its no-comment
+    control CAUGHT as `foreign` in the same run -- see F-201 for the plants
+    and the outputs.
+
+    OVER-CLAIM. Of the raw-read list, the absolute pattern, the quoted-host
+    pattern, the two markup/CSS patterns and the sink pattern each have a
+    miss that CAN be egress, and I verified each is uniquely reachable (the
+    plant matrix). The markup/CSS/sink reads earn raw text for a specific
+    measured reason and not for symmetry: they are the reads that carry
+    `fetching=True`, which is what makes a non-runtime-allow-listed URL in a
+    fetching position a finding, and for a non-letter-TLD authority the
+    markup read is the ONLY raw reader (I measured that too -- the same
+    IP-literal host in a `src=` behind the same residual is CAUGHT). The ONE
+    exception is the identifier vocabulary: its miss cannot be egress at all.
+    It serves AC-392's identifier clause, not its reference clause, and its
+    plant's hit lands in the `identifiers` bucket with no external reference
+    anywhere in the plant. The pattern block lists it among "the patterns
+    that can hide EGRESS", which is an unearned word. Reading it raw is
+    defensible on its own terms -- an identifier read parked in a comment is
+    still worth seeing -- so this is a wording defect, not a hole. F-203.
+  "2_is_each_of_the_five_new_plants_a_control_over_ONE_line": >-
+    YES, all five, measured plant-by-plant by disabling each pattern in turn
+    and asking which plants lose their declared bucket. Each disabled read
+    loses exactly ONE plant and only its own. The full matrix is in
+    mutation.plant_control_matrix.
+
+    But the verdict is carried by only one of the four assertions, and the
+    "four ways" overstates the control by one. The first assertion (the
+    shipped scan reports the plant) is SUBSUMED by the fourth (the scan
+    reports it with the pre-fix stripper patched back in): the shipped
+    stripper blanks a subset of what the pre-fix stripper blanks, so the
+    shipped scan's findings are a superset. Measured, not argued: with the
+    CSS read or the sink read disabled under the SHIPPED stripper, NO plant
+    loses its bucket -- only the pre-fix-stripper pass reds. Two reasons
+    compound it: the first assertion matches by FILENAME rather than by
+    needle, and three plants contain a decoy that produces a hit in their own
+    declared bucket -- the `const open = "/*"` / `a{content:"/*"}` literal is
+    itself read as a quoted rooted path `/*` and reported `unclassifiable` in
+    the same file. For the two plants whose declared bucket IS
+    `unclassifiable`, that decoy satisfies their own first assertion with the
+    read they exist to control fully removed. F-204, low, non-gating -- the
+    control survives, it is just one assertion narrower than the record says.
+  "3_is_the_declared_residuals_never_a_lost_foreign_true": >-
+    NO. It is false, and this is the gating finding. The residual is declared
+    accurately as a MECHANISM -- an opener after an unguarded character does
+    still blank a region, and the block forms do cross lines -- and the
+    mechanism is what I used. What is false is the stated COST. Measured, each
+    planted alone into a copy of the clean counted site, baseline asserted
+    empty in the same run:
+
+      const open = "x/*";                             *** SILENT PASS ***
+      import t from "//203.0.113.9/t.js";
+      const close = "*/";
+
+      a{content:"x/*"}                                *** SILENT PASS ***
+      @import "//203.0.113.9/x.css";
+      b{content:"*/"}
+
+      ...the same with //intranet/t.js                *** SILENT PASS ***
+      ...the same with //[2001:db8::1]/t.js           *** SILENT PASS ***
+
+    and the controls, in the same run:
+
+      the same reference with NO comment               CAUGHT (foreign)
+      the same residual with a dotted letter-TLD host  CAUGHT (foreign)
+      the same host in a `src=` behind the residual    CAUGHT (foreign)
+
+    So the loss is specifically a `foreign`, the sentence in the stripper's
+    docstring and the matching paragraph in the deploy page are both
+    understated, and the deploy page's "every quoted `//host` ... is read from
+    the file as written" is true only for dotted letter-TLD authorities.
+  "4_does_F_102s_guard_catch_the_docstring_only_direction": >-
+    YES, and the non-vacuity control is genuine. Three mutants, each with the
+    blob restored and asserted afterwards:
+      * the ADR-authority node's `def` renamed by one character (the round's
+        M10, cycle 2's survivor) -> KILLED at :1972, the assertion that every
+        whole path::name the table spells is defined in the file;
+      * a phantom whole path::name INSERTED into the module docstring's table,
+        defined nowhere -> KILLED at the same assertion. This is the direction
+        the brief asked about and it is covered;
+      * the ADR line DELETED from the table -> KILLED at :1976, the control
+        asserting the table spells at least one ref neither hand-written set
+        holds. So the "the arm is reached" control is not vacuous: it reds the
+        moment the table stops carrying a name outside those two sets.
+    The guard is now genuinely both-ways on what the table spells, whatever
+    registry or ADR a ref belongs to, and the docstring's claim that the
+    defining module is the one place that cannot lose a ref unnoticed is true
+    as held for the first time.
+  "5_do_the_rounds_two_refutations_of_cycle_2_reproduce": >-
+    BOTH REPRODUCE, and the first is the strongest argument on the card.
+
+    (a) Cycle 2's "stronger and simpler alternative" REDS THE REAL TREE.
+    Applied as recommended -- the quoted-literal read moved to unstripped
+    text, which at this HEAD means the quoted-ROOTED half reads raw -- the
+    scan on the CLEAN COUNTED SITE returns
+    `unclassifiable: ["solver_state.js: '/static/solver_state.js' resolves to
+    no file, directory or rewrite"]`. That is one of the two measured false
+    positives the stripper exists for, the documented admin-panel path sitting
+    inside a `//` comment, and it is the exact shape the round's own
+    exempt-comment control asserts must be MISSED. Dropping the stripper
+    entirely brings back the second measured false positive as well
+    (`player.css: 'not yet decided'`, through the import specifier). So both
+    measured false positives are real at HEAD, the stripper earns its place
+    for exactly the two patterns that still read it, and cycle 2's
+    recommendation would have traded a gating finding for a red suite. The
+    round was right to refuse it and right about why.
+
+    (b) Cycle 2's F-104 recommendation IS tautological. The recommended
+    assertion compares `hosts` to the expression `hosts` is defined as two
+    lines above; evaluated, it is True by construction and cannot fail under
+    any mutation. Refusal confirmed.
+
+    The replacement is genuinely non-tautological -- I evaluated its two
+    assertions against three fabricated allow-lists: a third runtime entry on
+    a new host makes the equality FALSE. It does, however, guard a DIFFERENT
+    risk from the one its own comment names, and that comment is wrong. See
+    F-205.
+  "6_the_remaining_fix_round_items": >-
+    F-105 ACCURATE. The deploy page's new paragraph names four refusals and
+    the code enforces exactly those four, in order: an endpoint that does not
+    start with `https://`; an endpoint that is not bare (a quote, a `<`, or
+    whitespace); a document that already carries the marker attribute (the
+    marker constant IS that attribute string); and a document whose count of
+    the anchor is not exactly one (the anchor constant IS `</head>`). Nothing
+    is claimed that the code does not do and nothing enforced is left out.
+    And the paragraph sits BETWEEN and OUTSIDE both sentinel-delimited blocks
+    (the two blocks end at :194 and :207; the paragraph is :208-:218), so the
+    collection-time parse of those two fenced blocks is untouched -- which the
+    suite confirms by collecting and passing at all, since a damaged block is
+    a collection-time ValueError.
+
+    F-106 HELD, and by exactly one line. The url-in-comment plant is reported
+    `foreign` by the shipped scan; recompiling scan_site with the absolute
+    pattern's read moved from raw to stripped text makes it a SILENT PASS with
+    no other bucket catching it. Asked for in three consecutive cycles, now
+    present and mutation-held.
+
+    F-107 REPRODUCES, and the correction landed in the code. Two insert
+    mutants, each adding one seventh registry ref for this module: naming a
+    node nothing defines reds at :1954 ONLY; naming a node the file defines
+    reds at :1955 ONLY. Complementary, and the docstring now says so instead
+    of calling one arm inert. NOTE: the brief's :1919/:1920 are cycle 2's
+    numbers at 79ecafcb; at this HEAD the arms are :1954 and :1955.
+
+    F-104's refusal and replacement: see judgement 5 and F-205.
+  "7_the_flag_hold_the_owner_decision_rests_on": >-
+    HALF HELD. The hold derives the option set from the helper's own `--help`
+    (returncode asserted 0), collects every backticked `--flag` from the
+    deploy page, and asserts page_flags is a subset of the options, that the
+    opt-in flag and the print-only flag are both backticked somewhere in the
+    page, and that the opt-out flag appears in neither place.
+      * argparse renaming the option while the page keeps the old name ->
+        KILLED. That direction works.
+      * ` --analytics` DELETED from the documented publish command ->
+        *** SURVIVED ***, both player modules 66 passed. The command sits in
+        an indented block, so its flags are not backticked and are not in
+        page_flags at all; the two required flags are satisfied by PROSE
+        mentions elsewhere in the page. So the documented command can lose
+        the flag silently, which is the drift the owner's accepted cost was
+        accepted against. F-202.
+  "8_measured_wrong": "see corrections_to_the_record"
+
+mutation:
+  instrument_proof: >-
+    Proved on an UNMUTATED tree first, in the scratch worktree at 6caccb65 and
+    before any mutant: the card's test module -> 33 passed, 0 skipped, with
+    nonogram.__file__ printed and asserted under the copy. The pattern-read
+    probe additionally proved itself: in the same run, every plant is reported
+    in its declared bucket before any knob is turned, and the site-wide
+    non-plant hit list is EMPTY -- so a later empty result is a loss, not an
+    empty selection.
+  plant_control_matrix: >-
+    Each row: the raw read disabled (module global replaced by a
+    never-matching pattern, or by an empty tuple), then which of the nine
+    plants lose their declared bucket. Run twice, once under the SHIPPED
+    stripper and once with the pre-fix stripper patched in -- the two
+    assertions the test actually makes.
+
+      disabled read        shipped stripper          pre-fix stripper
+      quoted-host          (none)                    bare-host plant
+      markup target        attr plant                attr plant
+      CSS target           (none)                    css plant
+      sink                 (none)                    sink plant
+      identifier set       identifier plant          identifier plant
+      call set             (none)                    regex-literal plant
+      quoted-rooted        (none)                    (none)
+      import specifier     (none)                    (none)
+      absolute             (none)                    (none)
+
+    Verdict: every one of the five new plants reds for exactly one disabled
+    read and no other plant reds with it -- so each IS a control over one
+    line. Three of them (CSS, sink, quoted-host) are carried ONLY by the
+    pre-fix-stripper assertion, because under the shipped stripper the
+    quoted-rooted pattern reads the same value or the plant's own `"/*"`
+    decoy produces a hit in the same file and bucket. F-204.
+  mutants:
+    - id: C3-M1
+      kind: insert (declared deviation)
+      subject: "the declared residual exercised: an unguarded-character comment opener blanking a region that holds a protocol-relative reference to an IPv4-literal authority, in an import specifier"
+      result: "*** SILENT PASS *** -- no bucket reports it. Control in the same run: the identical reference with no comment is CAUGHT as `foreign`. F-201."
+    - id: C3-M2
+      kind: insert (declared deviation)
+      subject: "the same, as a bare CSS @import (no url() wrapper)"
+      result: "*** SILENT PASS ***; no-comment control CAUGHT as `foreign`."
+    - id: C3-M3
+      kind: insert (declared deviation)
+      subject: "the same, with a single-label authority, and again with a bracketed IPv6 literal"
+      result: "*** SILENT PASS *** both; the single-label no-comment control CAUGHT as `foreign`."
+    - id: C3-M4
+      kind: insert (control for C3-M1..M3)
+      subject: "the same residual with a dotted letter-TLD authority, and the IPv4 authority in a `src=` position behind the same residual"
+      result: "BOTH CAUGHT as `foreign`. This is what isolates the cause to the quoted-host pattern's authority shape plus the stripped read, and not to the residual alone."
+    - id: C3-FIX
+      kind: candidate fix, measured
+      subject: "the quoted-host pattern relaxed from a dotted letter-TLD authority to any quoted `//` followed by a non-slash character, still read RAW -- one line"
+      result: "the REAL counted site stays clean in all three buckets; all four silent passes become `foreign`; both player modules 66 passed. The recommendation is costed, not argued."
+    - id: C3-M5
+      kind: rename (declared deviation)
+      subject: "the ADR-authority node's `def` renamed by one character (the round's M10)"
+      result: "KILLED at :1972 -- the spelled-table-is-defined arm. Cycle 2's survivor is dead."
+    - id: C3-M6
+      kind: insert (declared deviation)
+      subject: "a phantom whole path::name added to the module docstring's ref table, defined nowhere"
+      result: "KILLED at :1972. The docstring-only direction IS caught."
+    - id: C3-M7
+      kind: deletion
+      subject: "the ADR line blanked from the module docstring's ref table (occurrence count printed as 1)"
+      result: "KILLED at :1976 -- the non-vacuity control. The arm is reached by a name outside both hand-written sets."
+    - id: C3-M8
+      kind: insert (declared deviation)
+      subject: "a seventh registry ref for this module naming a node nothing defines"
+      result: "KILLED at :1954 ONLY."
+    - id: C3-M9
+      kind: insert (declared deviation)
+      subject: "a seventh registry ref for this module naming a node it already defines"
+      result: "KILLED at :1955 ONLY. Complementary with C3-M8; F-107 reproduces."
+    - id: C3-M10
+      kind: source-recompile (declared)
+      subject: "scan_site recompiled with the absolute pattern reading the stripped text instead of the raw text"
+      result: "KILLED -- the url-in-comment plant becomes a SILENT PASS in every bucket. F-106's probe is a control over one line."
+    - id: C3-M11
+      kind: source-recompile (declared)
+      subject: "scan_site recompiled with the quoted-rooted pattern reading RAW -- cycle 2's recommended alternative, applied"
+      result: "REDS THE REAL TREE: one `unclassifiable` on the clean counted site, the documented panel path inside a `//` comment. The round's refusal 2 reproduces."
+    - id: C3-M12
+      kind: deletion
+      subject: "the opt-in flag deleted from the DOCUMENTED PUBLISH COMMAND in the deploy page"
+      result: "*** SURVIVED *** -- both player modules 66 passed. F-202."
+    - id: C3-M13
+      kind: rename (declared deviation)
+      subject: "the opt-in option renamed by one character in the helper's argparse (occurrence count asserted 1)"
+      result: "KILLED -- the flag hold's argparse direction works."
+  survivors: "C3-M12 only, plus the four silent passes of C3-M1..M3 which are not mutants of the tree but plants the shipped scan fails to report."
+
+findings:
+  - id: F-201
+    severity: high
+    category: security
+    type: gap
+    gating: true
+    file: tests/test_public_player_pages.py
+    line: 2057
+    title: "The raw/stripped split's load-bearing claim is false: the quoted-rooted pattern also reads a quoted `//authority` and routes it to `foreign`, while the raw quoted-host pattern cannot read an authority without a letter-TLD -- so a comment-delimiter swallow still hides an egress reference. Four measured silent passes, and the declared residual's cost statement is understated in two documents"
+    description: |
+      The whole design of fix round 2 rests on one proposition, stated in the
+      pattern block, in the stripper's docstring and in the deploy page: the
+      two patterns that read stripped text are the only two whose misses
+      cannot be egress, so what a bad strip costs is a module specifier or a
+      rooted path resolving to nothing -- "an `unclassifiable` lost, never a
+      `foreign` one".
+
+      It is false, for a reason neither document notices. The quoted-rooted
+      pattern matches any quoted value whose first character is `/`. A quoted
+      value beginning `//` satisfies it, and classify() sends every target
+      beginning `//` down the absolute branch, where it becomes `foreign`.
+      So that pattern is not an internal-only reader; it is a second reader
+      of the protocol-relative form.
+
+      The raw reader of that form -- the quoted-host pattern -- is shaped
+      `//[A-Za-z0-9.-]+\.[A-Za-z]{2,}[^"'`\n]*` and therefore cannot read an
+      authority whose final label is not two or more ASCII letters. For such
+      an authority, outside a markup, CSS, sink or call position, the ONLY
+      reader is the stripped one. Combine that with the residual the round
+      itself declares -- an opener after an unguarded character still blanks
+      a region, and the block forms cross lines -- and a live egress
+      reference disappears with no finding.
+
+      MEASURED, each planted alone into a copy of the clean counted site in a
+      scratch worktree, the real scan with the real allow-list, the baseline
+      asserted empty in the same run:
+
+        const open = "x/*";                            *** SILENT PASS ***
+        import t from "//203.0.113.9/t.js";
+        const close = "*/";
+          stripped = 'const open = "x\n\n";\n'
+
+        a{content:"x/*"}                               *** SILENT PASS ***
+        @import "//203.0.113.9/x.css";
+        b{content:"*/"}
+          stripped = 'a{content:"x\n\n"}\n'
+
+        ...with //intranet/t.js (single-label)         *** SILENT PASS ***
+        ...with //[2001:db8::1]/t.js (bracketed v6)    *** SILENT PASS ***
+
+      And the controls, in the same run, which is what isolates the cause:
+
+        import t from "//203.0.113.9/t.js"  (no comment)      CAUGHT foreign
+        @import "//203.0.113.9/x.css"       (no comment)      CAUGHT foreign
+        import t from "//intranet/t.js"     (no comment)      CAUGHT foreign
+        the same residual, dotted letter-TLD authority        CAUGHT foreign
+        the IPv4 authority in a `src=` behind the residual    CAUGHT foreign
+
+      So it is not the residual alone and not the authority shape alone: it
+      is the two together, and the second ingredient is a shape nothing in
+      three cycles has looked at.
+
+      Why gating on the last cycle:
+      (a) it falsifies AC-392's `then:` -- "a reference shape the scan cannot
+          classify is a failure" -- in the security-shaped AC, for the third
+          consecutive cycle and by the same class of cause;
+      (b) it falsifies the sentence the round added to the stripper's
+          docstring ("an `unclassifiable` lost, never a `foreign` one") and
+          the matching paragraph in the deploy page, which is the DECLARED
+          residual the owner's risk picture rests on. A declared residual
+          whose cost is understated is worse than an undeclared one, because
+          a reader stops looking;
+      (c) it falsifies the deploy page's "every quoted `//host` ... is read
+          from the file as written": only a dotted letter-TLD one is;
+      (d) a bare CSS `@import "//host/x.css"` needs no exotic trick at all --
+          it is a real stylesheet fetch, it is not wrapped in `url()`, so the
+          CSS pattern never sees it, and the quoted-host pattern misses it
+          whenever the authority is an IP literal.
+
+      What it does NOT falsify, and should be said plainly: the raw reads the
+      round moved are real and each is uniquely reachable (plant matrix), the
+      stripper genuinely cannot be removed (both false positives reproduce,
+      C3-M11), and the shipped tree is clean.
+    reproduction: >-
+      Scratch detached worktree at 6caccb65, PYTHONPATH=<copy>/src with
+      nonogram.__file__ asserted under the copy; a probe test appended to the
+      module so it can take the counted-site fixture, which copytrees the
+      assembled site, asserts the baseline scan empty, then writes each plant
+      above into the copy one at a time, prints the real scan filtered to the
+      plant's filename plus the stripper's output, and unlinks it. Outputs
+      above verbatim. The module's blob hash was asserted back to 945cfb1f...
+      afterwards and the worktree removed.
+    recommendation: >-
+      One line, and I measured it: relax the quoted-host pattern from a
+      dotted letter-TLD authority to any quoted `//` followed by a non-slash
+      character -- `(["'`])(//[^/"'`\n][^"'`\n]*)\1` -- keeping it on the RAW
+      read. Measured (C3-FIX): the real counted site stays clean in all three
+      buckets, all four silent passes become `foreign`, and both player
+      modules stay at 66 passed. It also makes the load-bearing claim TRUE as
+      written, because the protocol-relative form then has a raw reader for
+      every authority shape and the quoted-rooted pattern's misses really are
+      internal. Then add the four plants to the control set, and correct the
+      two documents: the cost of a bad strip is an `unclassifiable` only
+      BECAUSE the `//` form is read raw for every authority -- which is the
+      sentence that was missing.
+    confidence: high
+    source: measured
+
+  - id: F-202
+    severity: medium
+    category: correctness
+    type: gap
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 3311
+    title: "The hold the owner's accepted cost rests on does not hold the documented publish COMMAND to the flag -- deleting the flag from that command line leaves both player modules green"
+    description: |
+      The owner kept the flag inversion knowing a real publish can now go out
+      uncounted if the flag is forgotten, and named the new hold as what stops
+      the documented command and the helper from separating again.
+
+      What the hold actually does: it runs the helper's `--help` (returncode
+      asserted 0), collects every `--flag` the deploy page writes inside
+      backticks, and asserts (i) the page's set is a subset of argparse's
+      options, (ii) the opt-in flag and the print-only flag are each
+      backticked somewhere in the page, (iii) the opt-out flag is in neither
+      place. The first direction is real: renaming the option in argparse
+      while the page keeps the old name KILLS (C3-M13).
+
+      What it does not do: the documented publish command lives in an
+      indented command block, so its flags are not backticked and never enter
+      the page's set. The opt-in flag is backticked twice in PROSE elsewhere
+      in the page. So assertion (ii) is satisfied by prose, not by the
+      command.
+
+      MEASURED (C3-M12): delete ` --analytics` from the publish command line
+      and both player modules are 66 passed. The documented command silently
+      becomes the uncounted one while every assertion about the flag still
+      holds.
+
+      Not gating: nothing ships broken, the shipped command carries the flag
+      today, and the direction of failure is the safe one the owner chose
+      (not counting). It is listed at medium because the owner's acceptance of
+      the cost was explicitly conditioned on this hold, and the hold does not
+      cover the drift the condition names.
+    reproduction: >-
+      Scratch worktree at 6caccb65; the publish command's line edited by
+      index with its flag occurrence count asserted first; the helper-driver
+      node and then both player modules run; the deploy page's blob hash
+      asserted back to 453bfff6... Then the argparse-rename mutant for
+      contrast, with the helper script's blob asserted back to b817b17b...
+    recommendation: >-
+      Hold the COMMAND, not the prose: parse the publish command block the
+      page already delimits (or find the line that invokes the helper) and
+      assert the flag is on it, in addition to the subset check that already
+      works. Two or three lines in the same test, and it makes the sentence
+      the owner's decision rests on a measurement.
+    confidence: high
+    source: measured
+
+  - id: F-203
+    severity: low
+    category: documentation
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2036
+    title: "The identifier vocabulary is listed among \"the patterns that can hide EGRESS\" -- its miss cannot be egress, which is the over-claim half of the split"
+    description: |
+      The brief asked for a pattern on the raw list whose miss could not be
+      egress -- one moved for symmetry rather than for a measured reason.
+      There is exactly one, and it is the identifier vocabulary.
+
+      Its plant's hit lands in the `identifiers` bucket and the plant holds no
+      external reference at all; nothing it could miss is a channel. It serves
+      AC-392's first clause (no reference names a visitor IP or per-visitor
+      identifier), not the reference clause. Reading it raw is defensible on
+      its own terms -- an identifier read parked in a comment is still worth a
+      reviewer's eye, and the plant does control the line -- so this is a
+      wording defect and not a hole.
+
+      The other four raw reads each earn it: I verified the markup, CSS and
+      sink reads are uniquely reachable (plant matrix) and that the markup
+      read is the only raw reader of a non-letter-TLD authority in a fetching
+      position (F-201's control set), and the absolute and quoted-host reads
+      are egress by construction.
+
+      Worth one sentence rather than a cycle, but it is the third unearned
+      claim this card has shipped and the pattern is what matters.
+    recommendation: "Say what is true: the raw list is everything that can hide egress PLUS the identifier vocabulary, which reads raw so a comment is not a hiding place for an identifier read either."
+    confidence: high
+    source: measured
+
+  - id: F-204
+    severity: low
+    category: testing
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 3128
+    title: "The \"asserted four ways\" per plant is three: the shipped-scan assertion is subsumed by the pre-fix-stripper assertion, and three plants satisfy it with their own `\"/*\"` decoy"
+    description: |
+      The record says each of the nine plants is asserted four ways. Measured,
+      one of the four is subsumed and for three plants it is additionally
+      self-satisfied.
+
+      Subsumption: the shipped stripper blanks a subset of what the pre-fix
+      stripper blanks, so the shipped scan's findings are a superset of the
+      pre-fix scan's. The fourth assertion (the scan reports the plant with
+      the pre-fix stripper patched in) therefore implies the first (the
+      shipped scan reports it). Driven: with the CSS read or the sink read
+      disabled under the SHIPPED stripper, NO plant loses its bucket -- only
+      the pre-fix pass reds. So the first assertion alone would not catch
+      removing those raw reads.
+
+      Self-satisfaction: the first assertion matches by FILENAME, and three
+      plants open with `const open = "/*";` or `a{content:"/*"}`, which the
+      quoted-rooted pattern reads as the rooted path `/*` and reports
+      `unclassifiable` in that same file. For the two plants whose declared
+      bucket IS `unclassifiable`, that decoy satisfies their own first
+      assertion with the read they exist to control entirely removed.
+
+      The control survives -- every one of the five is still a control over
+      exactly one line -- so this is an accuracy finding about the count, in
+      a card whose own subject is that an assertion which cannot fail is not
+      an assertion.
+    recommendation: "Match by needle as well as by filename in the first and fourth assertions (the needle is already in the tuple), and call it three assertions plus two text-level checks."
+    confidence: high
+    source: measured
+
+  - id: F-205
+    severity: low
+    category: documentation
+    type: inaccuracy
+    gating: false
+    file: tests/test_public_player_pages.py
+    line: 2742
+    title: "F-104's replacement is non-tautological but its own comment names a scenario it does not catch and which is not a risk -- the fourth document on this card to describe a mechanism the code does not have"
+    description: |
+      The refusal is right: cycle 2's recommended assertion compares `hosts`
+      to the expression `hosts` is defined as two lines above, so it is True
+      by construction. Confirmed by evaluation.
+
+      The replacement can fail, so it is a real assertion: evaluated against
+      three fabricated allow-lists, a third runtime entry on a NEW HOST makes
+      the derived equality False. Good.
+
+      But its comment says it replaces a floor that "passed a run in which
+      the two endpoints had collapsed onto one host and half of what should
+      be blocked was not". Evaluated with the two required endpoints
+      collapsed onto one host: BOTH new assertions still pass. And they
+      should, because the interceptor's route pattern is keyed on HOSTS, so
+      one host pattern aborts both endpoints -- nothing would go unblocked.
+      The scenario the comment names is neither caught by the assertion nor a
+      risk; what the assertion actually guards is a runtime allow-list that
+      grows a host beyond the required set, which is a different and real
+      thing.
+
+      Same shape as this card's earlier "exempts by the located URL" and
+      "`refs - defined` carries nothing": a true property with a false
+      explanation beside it, which is how a reader comes to trust the wrong
+      half.
+    reproduction: "The two assertions evaluated directly against three fabricated allow-lists in the scratch worktree: shipped (pass/pass), a third entry on a new host (pass/FAIL), the two required endpoints collapsed onto one host (pass/pass)."
+    recommendation: "Say what it guards: the runtime block's host set equals the host set of the required endpoints, so a counted page cannot be permitted a host this interceptor does not abort. Drop the collapsed-onto-one-host story, or note that case is harmless because the route pattern is host-keyed."
+    confidence: high
+    source: measured
+
+corrections_to_the_record:
+  - target: "the orchestrator's brief, F-107 item"
+    claim: "'Re-verify with cycle 2's device that `:1919` and `:1920` red independently'"
+    measured: >-
+      The property reproduces exactly, but the lines do not. At 6caccb65 the
+      two arms are :1954 (a seventh registry ref naming a node nothing
+      defines) and :1955 (one naming a node the file defines), each reding
+      alone. :1919/:1920 were cycle 2's numbers at 79ecafcb and the brief
+      carried them. The commit-dependence lesson, third instance on this card.
+  - target: "the orchestrator's brief, F-102 item"
+    claim: "'is its `:1976` \"the arm is reached\" control genuinely non-vacuous?'"
+    measured: "The line is right at this HEAD and the control is non-vacuous: deleting the ADR line from the docstring table reds exactly :1976 and nothing else."
+  - target: "the orchestrator's brief, node ids and the attribution"
+    claim: "'9748 -> 9771, +23/-0, of which 7 are the card's and 16 arrived from main'"
+    measured: "ALL CORRECT, re-derived from two scratch worktrees with comm: 9748 -> 9771, comm -23 empty, and the 23 added ids group as 7 in the card's test module (exactly cycle 1's seven) and 16 in two book-export modules that came in with the merge."
+  - target: "fix round 2's record, the residual paragraph; the stripper's docstring; docs/deploy/player.md's bound paragraph"
+    claim: "'Cost: a lost `unclassifiable` -- a dangling internal reference -- never a lost `foreign`' and 'every quoted `//host` ... is read from the file as written'"
+    measured: "Both false. Four silent passes of a `foreign`, with their no-comment controls caught in the same run. The quoted `//host` form is read as written only when the authority's last label is two or more ASCII letters. F-201."
+  - target: "fix round 2's record"
+    claim: "'Nine swallow plants, each asserted four ways'"
+    measured: "Three ways that bear on the control, plus two text-level checks: the shipped-scan assertion is subsumed by the pre-fix-stripper one, and three plants satisfy it with a decoy of their own. F-204."
+  - target: "fix round 2's record and the owner's decision note"
+    claim: "'The hold added by fix round 2 ... is what stops the documented command and the helper from drifting apart again'"
+    measured: "It stops an argparse rename (killed) and a bogus backticked flag in the page. It does NOT stop the documented publish command losing the flag: that mutant SURVIVES both player modules at 66 passed. F-202."
+  - target: "tests/test_public_player_pages.py's AC-391 comment on the F-104 replacement"
+    claim: "'`>= 1` passed a run in which the two endpoints had collapsed onto one host and half of what should be blocked was not'"
+    measured: "The replacement does not catch that case (both assertions pass), and the case is not a risk: the route pattern is host-keyed, so one host pattern aborts both endpoints. F-205."
+  - target: "fix round 2's three refusals"
+    claim: "refusal 1 (cycle 2's F-104 recommendation is tautological) and refusal 2 (cycle 2's stronger-and-simpler alternative reds the real tree)"
+    measured: "BOTH REPRODUCE. Refusal 1 by evaluation; refusal 2 by recompiling scan_site as recommended and scanning the clean counted site, which returns one `unclassifiable` on the documented panel path inside a `//` comment -- the exact shape the round's own control asserts must be missed. Dropping the stripper entirely brings the second measured false positive back too."
+  - target: "fix round 2's record"
+    claim: "'12 of 12 mutants killed, no survivors', 'M10 now kills', 'F-106 closes a probe asked for in three consecutive cycles'"
+    measured: "M10 reproduces as a kill at :1972; F-106's probe is a control over exactly one line (moving the absolute read to stripped text makes it a silent pass). The 12/12 is not contradicted -- but the set does not cover the documented-command direction (F-202) nor the authority shape (F-201)."
+  - target: "the brief's standing figures"
+    claim: "'db_required is 26 nodes, none in this card's files', 'Chromium cannot skip here', 'zero skips'"
+    measured: "ALL REPRODUCED at 6caccb65: 26/9771 by collection with 0 matching this card's module; the two pytest.fail sites are :551 and :676; zero skips in every run and no skip construct anywhere in this card's files."
+
+verified_vs_declared_vs_unreviewed:
+  verified:
+    - "The three ACs have real, mutation-resistant definitions, and AC-392's false alive is gone. All six registry refs naming this module resolve to real defs."
+    - "F-102 fully closed, in BOTH directions: the docstring table is held to what it spells, a phantom table entry reds, a renamed ADR-authority def reds, and the non-vacuity control reds when the ADR line leaves the table."
+    - "F-107 closed: the two arms are complementary, measured independently, and the docstring now says so."
+    - "F-105 closed and accurate: the four refusals the deploy page names are exactly the four the code raises, and the paragraph is outside both sentinel blocks, so the collection-time parse is untouched."
+    - "F-106 closed and held by one line: the url-in-comment plant is a control over the absolute pattern's raw read and nothing else catches it."
+    - "Both of fix round 2's refutations of cycle 2 reproduce; the stripper genuinely cannot be removed, because both measured false positives come back."
+    - "Each of the five new plants is a control over exactly one raw read -- no plant reds for two disabled reads and none reds for another plant's."
+    - "The flag hold's argparse direction: renaming the option reds."
+    - "G-1..G-5 and ADR-0038/R7-R8; node ids 9748 -> 9771, +23/-0 with 7/16 attribution; zero skips; no database contacted."
+    - "The shipped tree is clean: the real scan over the real counted site returns three empty buckets, and the counted/uncounted byte assertion still constrains."
+  ships_declared:
+    - "The scan is lexical, single-file and one-hop, and is silent about a sink shape not in its set at all -- a fetch through an alias, markup from document.write. Stated in scan_site's docstring and in the deploy page; what closes ADR-0041/R6 is this scan PLUS the browser-observed request closure CARD-283/284 hold."
+    - "The identifier vocabulary is declared, not derived, with the reason (no enumerable authority for 'names that denote a visitor IP') and with what carries the rule instead. Stated in the pattern block and in the deploy page."
+    - "The comment stripper's residual MECHANISM is declared accurately -- a delimiter is recognised by the single character in front of it, and the block forms cross lines. What ships declared is the mechanism; its stated COST does not ship accurate (F-201), and the corrected cost is: with the authority shape as shipped, a bad strip can lose a `foreign`."
+    - "The vendor script's own behaviour is DEC-046's premise and untestable offline; the suite aborts both allow-listed hosts and never reaches the vendor (cycle 2 taped that and it is unchanged)."
+    - "A real publish can go out UNCOUNTED if the flag is forgotten -- the owner's accepted cost, named on the card. The hold covering it is partial (F-202)."
+    - "The QR base URL is TODO(owner), NOT observed. CARD-210 stays blocked on one owner action."
+    - "No narrowed impact set exists for this card: scripts/impact_set.py returns FULL because player/ is not in its known roots. Fail-closed, measured in cycle 1, not re-measured here."
+  ships_unreviewed:
+    - "The full suite. Not run in any of the three cycles by instruction; the merge gate is the only full reading of this branch, and the branch carries 16 nodes from main that no cycle of this card has run."
+    - "Everything the pre-round merge brought in: tests/test_book_interior_type_floor.py (+11 nodes) and tests/property/test_book_export_interior.py (+5), plus main's board-status fix. Not this card's work and not reviewed here."
+    - "The 251 lines of docs/deploy/player.md outside the four passages named above (the publish command, the bound/residual paragraph, the two allow-list blocks and the four-refusals paragraph) -- read, not driven."
+    - "player/play.html's 24 changed lines and scripts/README.md's 31 -- read, not driven."
+    - "The authority-shape class behind F-201 beyond the four I planted: percent- or unicode-encoded authorities, userinfo forms, and a port-only authority were not planted. The fix I measured covers them by construction, but they are not measured."
+    - "AC-390's counted-tree request-SET closure (cycle 1's F-010) -- still not owed, still not present."
+
+deferred:
+  - "the full suite -- the merge gate's"
+  - "mutation beyond the thirteen above -- last cycle, one gating finding"
+  - "timings and load figures -- excluded by instruction and by the lesson recorded on this card"
+
+dead_ref_hygiene: >-
+  This report syncs into main, where the check-ref search is a TEXT search over
+  tracked non-Markdown files and meta/review/** is NOT excluded from it, so a
+  whole `path::name` spelled here would read as a definition -- and F-102 is a
+  measured instance of exactly that hazard in this card's own module. Device
+  used: this file was grepped for the `::` form before writing it out, and
+  EXACTLY ZERO whole `path::name` strings appear in it. Every node is named by
+  AC id, by bare function name, or by description. The four mutants that rename
+  a definition away are described rather than named. The ADR-0041/R2 exemption
+  node -- F-102's subject, and the node whose resolvers are the point -- is
+  referred to only as "the ADR-authority node", so this report adds no resolver
+  to the silencer the finding is about, and no truncated prefix of it appears
+  either.
+  SEPARATELY: NEITHER ANALYTICS ENDPOINT IS SPELLED ANYWHERE IN THIS REPORT, by
+  URL or by host, and neither is the non-runtime one. Cycle 1's hygiene rule is
+  technically liftable (cycle 2 proved the `:!meta` pathspec hides meta/ whole)
+  and is kept anyway. Every host in this report -- `evil.example`,
+  `203.0.113.9`, `[2001:db8::1]`, `intranet`, `one.example`, `third.example` --
+  is a documentation-reserved or invented name used in a plant.
+
+disposition: >-
+  DOES NOT CERTIFY at 7.5 against min_score 8, and cycle 3 is the last cycle,
+  so this is the final word rather than a request for another round.
+
+  The card does what it was for and the tree is strictly stronger than at
+  cycle 2: three ACs that had no definitions have mutation-held tests, a false
+  alive is gone, a measured instance of CARD-308's hazard is closed in the
+  module where it lived, and the stripper is off the egress path for every
+  pattern the round examined. If this ships as is, what ships is a guard that
+  is default-deny for every reference shape anybody has planted EXCEPT a
+  protocol-relative reference to an authority without a letter-TLD sitting
+  behind a comment delimiter opened from an unguarded character -- and a
+  declared residual whose cost statement, in two documents, is understated in
+  exactly that case.
+
+  The one thing worth spending a fix on, if any time exists at all, is the
+  single line of F-201's recommendation, because I measured it: the real tree
+  stays clean, all four silent passes become `foreign`, both player modules
+  stay green, and the sentence in the stripper's docstring and the deploy page
+  becomes true as written instead of understated. F-202 is three lines and it
+  is the hold the owner's own accepted cost was conditioned on. F-203, F-204
+  and F-205 are one sentence each and nothing depends on them.
