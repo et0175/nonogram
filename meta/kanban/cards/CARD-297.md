@@ -145,6 +145,86 @@ one.
 - **Components:** COMP-009; COMP-007's layout consumed
 - **Trace:** meta/architecture/trace.yml
 
+## [Implementation round 2026-10-29 — it converts ZERO pixel sites, and says so]
+
+Branch `card/297-toc-and-answer-pages-as-operators`, 2 commits (`1a42e8d7`,
+`85414ac7`), worktree clean. **Verified by the orchestrator rather than
+relayed:**
+
+- diffstat exactly **5 files, 3210 insertions, 0 deletions** — no existing line
+  modified anywhere. Two new `src/` modules (`book_toc_vector.py` 334,
+  `book_answer_vector.py` 657), `book_vector_draw.py` +214 additive,
+  `tests/test_book_solved_answer_key.py` +1697, `tests/test_book_toc.py` +308
+- **`src/nonogram/admin/book_pdf_generator.py` is byte-identical to main** (blob
+  `7a515eea` on both sides) — the declared `conflict.hotspot` was not touched
+- **G-6 holds exactly**: main **9570** → HEAD **9641**, `comm` giving **71
+  added / 0 removed**, split 60 + 11 across the two test files.
+  `9570 + 71 − 0 = 9641`
+
+**The headline, and it is the round's own words rather than a gloss: this card
+converts zero pixel-reading sites and its net is a cost, not a saving** — +70
+page bitmaps and +298 Mpx in the answer-key file, against 0 → 0 bitmaps on the
+TOC file's 11 new cells. Its argument is G-5's own reasoning: `_write_pdf`
+chooses no medium per page until **CARD-298**, so the raster answer pages are
+still what ships, and converting their assertions would drop the control on
+what ships for a control on what does not. It attributes the +70 — **68 (97 %)**
+to the two `_Recorded` raster-interior walks that AC-2's "over the whole
+interior" half requires, **2** to AC-1's positive control, everything else zero.
+Whether that is right sequencing or a different card delivered is with review
+cycle 1 and ultimately the owner; it is **not** prejudged here.
+
+### Three measured disagreements with this card, two of them with their supporting enumeration off
+
+Checked independently with an `ast` call-census over `src/`:
+
+1. **The QR conclusion holds; its enumeration does not.** None of
+   `create_toc_page`, `_draw_solved_slot`, `solved_puzzle_page` or
+   `_packed_answer_page` references `qr_slot`, `_draw_qr_placeholder` or
+   `_draw_qr_caption` — so **item 3 of this card has nothing to port on these
+   page kinds** and G-4 is honoured trivially. But the round said those
+   functions are "reached only from `_blank_page` and `_draw_two_up_qr_groups`",
+   and `qr_slot` in fact has **6** call sites, including `qr_caption()` and
+   `qr_group_insets()` in `export/layout.py` and `render_image()` in
+   `export/png.py`.
+2. **AC-5's premise is false, and the truth is sharper than the round argued.**
+   It reported the chain `difficulty_dots ← _draw_difficulty_dots ←
+   _draw_difficulty_legend ← create_guide_page`. Measured: `difficulty_dots` has
+   **1** call site ✓, `round_mark` has **0** in `src/` ✓ — but
+   **`_draw_difficulty_dots` has ZERO callers**, its only mentions in `src/`
+   being its own `def` at `book_pdf_generator.py:1739` and a docstring
+   cross-reference. It looks like **dead code**, which strengthens the
+   conclusion (no answer tile prints dots today — a tile header prints the
+   difficulty as a word) while breaking the stated chain at one link.
+3. **This card's body contradicts its own G-2.** Item 2 includes "the SOLUTIONS
+   divider's text"; G-2 says to leave that path drawing as it does because
+   CON-020's `:355` sibling requires it to keep being recorded. The round
+   followed **G-2**. That is the AC-vs-body cross-check the drafting rules
+   require and this card did not get.
+
+### The EC's `test:` name does not match the class that exists
+
+The EC(ADR-0042/R3) names `PropertyTest_AnswerAndToc_WriterDerivesNoGeometry`;
+the shipped class is `TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry`.
+**The rename is correct** — `pyproject.toml` sets no `python_classes`, so a bare
+`PropertyTest_…` class holds tests pytest silently never collects — and the
+round stated it rather than hiding it. What is worth recording: `git grep -lw`
+for the card's name exits **0**, and the only thing making it do so is a
+docstring line the round itself wrote at `test_book_solved_answer_key.py:3281`.
+The ref is not in `meta/architecture/`, so the validator never reads it today —
+but it is the same prose-revives-a-dead-ref mechanism measured on CARD-301 this
+same day, in a file written an hour later.
+
+### Also reported, for review to settle
+
+AC-2's first half is substituted by **cross-medium agreement** because on a
+square trim a full-page answer has **0 px** of slack and the title prints
+nowhere (EC corpus: 18 print / 6 omit, both floors asserted). Both writers were
+restructured **downstream of `book_pdf_generator`** after the generator-method
+shape was measured to red two figures in `tests/test_book_export_interior_cover.py`
+— a file G-5 forbids this card to touch. M4 survived its first round and the
+hole was real (a tone reading could not see *which* boundaries were drawn);
+M8/M8b are declared survivors with an argued unreachability proof.
+
 ## Worktree notes
 
 - **CARD-219's work is the precedent to copy, not just respect.** It converted

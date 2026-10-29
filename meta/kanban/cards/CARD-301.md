@@ -180,6 +180,93 @@ one.
   marker. (test: the collect-only assertion of AC-1 extended to assert the ref
   string resolves; **gate**: the ref re-grepped at merge.)
 
+## [Implementation round 2026-10-29 — route 2, and the hole was invisible to BOTH gates]
+
+Branch `card/301-the-bench-file-pytest-never-opens`, 3 commits (`575436f7`,
+`a7f0945b`, `6f721e57`), worktree clean. **Verified by the orchestrator rather
+than relayed**, all with `-o addopts=''`:
+
+- footprint exactly 4 paths; `git diff --name-only main...HEAD -- src/` **empty**
+  (G-1); `pyproject.toml` **0** diff lines (G-2); all four blobs match HEAD
+- a bare `--collect-only` collects **9580** against main's **9570** — **+10
+  reconciling exactly** to the ten new node ids — and `grep -c bench_generate`
+  is **0**. The card's central claim is true by the only instrument that can
+  see it
+- the card's named tests by node id: **599 passed, 1 xfailed, 0 skipped**
+  (48.41 s), `-rs` printing no SKIPPED section. The xfail is AC-037's gate, by
+  design
+- the pin shrank to one entry (`tests/test_collected_names.py:488`); AC-037's
+  ref is now a real node id with `status: unmet` beside it
+
+**Route 2**: AC-037's wrapper moved to `tests/test_nfr001_generation_time.py`;
+the corpus, cap, statistic and timing stayed in `bench_generate.py`, which
+becomes an honest standalone with a `__main__` door. G-5 held — AC-037 was not
+made green.
+
+### The finding the card did not anticipate: both gates were blind, and each one's blind spot was the other's premise
+
+Chasing a figure that did not reproduce (the round reported the validator at
+"56 warnings"; both arms actually read **0 errors / 108 warnings** and the two
+outputs are **byte-identical**, so its conclusion was right and only its number
+wrong) turned up something nobody had checked: **the validator never flagged
+AC-037's dead ref at all.** `BenchGenerate_20x20_p95Under5s` has no `def` and no
+`class` anywhere in the repo, yet the validator's own search reads it as ALIVE:
+
+```
+git grep -lw BenchGenerate_20x20_p95Under5s -- . ':(exclude)meta/architecture' ':(exclude)*.md'
+→ tests/bench_generate.py   exit=0
+```
+
+Both matches are prose in that one file — a docstring line at `:3` and a
+`# AC-037 — …` banner at `:139`. `validators/utils.symbol_exists()` is
+`git grep -lw`: a **text** search. Its own docstring claims `-w` resolves a name
+"to its `def test_x` definition", which is false — `-w` only enforces word
+boundaries. AC-038's genuinely absent ref right beside it **is** flagged, so the
+instrument works; here it was satisfied by the file's own comment about itself.
+
+**So this hole survived because it was invisible to both gates at once:** pytest
+never opened the file (`python_files` defaults), so the test could not run; and
+the ref check reads `tests/` as text, so the file's prose kept the ref looking
+alive. `meta/review` and `meta/profiling` can be excluded from that search;
+**`tests/` cannot**, because it is the only place the search must look.
+
+**The residue outlives the fix.** The round keeps one prose line naming the new
+node id in `tests/bench_generate.py:3`. Measured: exclude the whole module
+holding the `def` and `git grep -lw test_20x20_p95_is_under_5s` **still exits
+0** on that line. Whether AC-5's own control inherits the blindness — it asserts
+the registry names the right *string*, not that the string is a definition — is
+with review cycle 1, not prejudged here.
+
+### Two further results from the round, worth keeping
+
+- **A strict xfail cannot witness its own instrument.** Mutant M7 renamed
+  `gate_verdict` out of the benchmark; the gate raised `AttributeError`, `xfail`
+  absorbed it exactly as it absorbs a missed cap, and the gate reported
+  **XFAIL — green**. So "the verifier is collected and runs" does not establish
+  that the measurement happened. A control outside the marker was added
+  (`test_the_benchmarks_own_instrument_still_measures_a_request`). Residual
+  named rather than left implied: nothing cheap catches a correct-looking but
+  wrong timing.
+- **AC-037 is further from met than the censored gate can say.** Uncensored
+  under a production-shaped 30 s budget, p95 reads **24.881 s**; the gate can
+  only ever report "≥ 5.001 s". Sizing information for CARD-018.
+
+### Owed at merge, outside this card's Touches
+
+- `meta/architecture/trace.yml:539` still carries the retired label
+  `BenchGenerate_20x20_p95Under5s` in a **mechanically-read** `tests:` list
+- `meta/architecture/decisions/adr/0001-...md:23` cites the old path as a node
+  id (prose — that ADR has no `check:` key, verified)
+
+### One brief line of the orchestrator's was wrong
+
+The dispatch brief said not to commit under `meta/`. The round committed
+`meta/architecture/requirements.yml`, which is in this card's `Touches` and
+without which AC-5 cannot be satisfied, and it measured three card-branch
+precedents carrying that same file (`d579f491`, `daaa2f2f`, `7d86a869`) — all
+three verified. The exclusion is about `meta/kanban` and `meta/review`. **The
+round was right and the brief was over-broad.**
+
 ## Worktree notes
 
 —

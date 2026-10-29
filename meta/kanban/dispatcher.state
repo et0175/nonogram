@@ -1323,11 +1323,45 @@ wave_64_opened:
     estimate: 1d
     branch: card/297-toc-and-answer-pages-as-operators
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
+# ── 2026-10-29, both implementation rounds handed back; review cycle 1 open on
+# both, concurrently. Orchestrator verification of each round, measured rather
+# than relayed:
+#   CARD-301: 4 paths, src/ diff EMPTY, pyproject 0 diff lines, blobs at HEAD.
+#     Bare --collect-only 9570 -> 9580, +10 reconciling exactly to the ten new
+#     node ids, grep -c bench_generate = 0. Named tests by node id:
+#     599 passed / 1 xfailed / 0 skipped. Pin shrank to one entry. Route 2.
+#     ONE FIGURE DID NOT REPRODUCE (validator "56 warnings"; both arms read
+#     0 errors / 108 warnings and are byte-identical, so the conclusion was
+#     right and only the number wrong) -- and chasing it found that the
+#     validator NEVER flagged AC-037's dead ref: symbol_exists() is
+#     `git grep -lw`, a TEXT search, satisfied by the file's own docstring and
+#     comment. The hole was invisible to BOTH gates, each one's blind spot being
+#     the other's premise. Residue outlives the fix: one kept prose line still
+#     revives the new ref with its test deleted.
+#   CARD-297: 5 files / +3210 / -0, no existing line modified;
+#     book_pdf_generator.py BYTE-IDENTICAL to main (blob 7a515eea) so the
+#     declared hotspot was untouched; G-6 exact at 9570 + 71 - 0 = 9641.
+#     It converts ZERO pixel sites and its net is a COST (+70 page bitmaps),
+#     stated by the round rather than dressed up -- sequencing argument is
+#     G-5's own, and the judgment is review's and then the owner's.
+#     Three measured disagreements with the card, two with their supporting
+#     enumeration off (the QR caller list; the AC-5 call chain, where
+#     _draw_difficulty_dots turns out to have ZERO callers in src/ -- dead
+#     code, which strengthens the conclusion and breaks the stated chain).
+#     The card body's item 2 contradicts its own G-2; the round followed G-2.
 active:
 - id: CARD-301
-  phase: implementation
+  phase: review cycle 1 of 3
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-301
+  branch_head: 6f721e57
+  implementation: "route 2; 4 paths; collection +10 reconciling exactly; 599/1 xfail/0 skip"
 - id: CARD-297
-  phase: implementation
+  phase: review cycle 1 of 3
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
+  branch_head: 85414ac7
+  implementation: "5 files +3210/-0; hotspot untouched; G-6 exact; ZERO pixel sites converted"
 queued: []
+owed_at_merge:
+  CARD-301:
+  - "meta/architecture/trace.yml:539 still carries the retired label BenchGenerate_20x20_p95Under5s in a mechanically-read tests: list"
+  - "meta/architecture/decisions/adr/0001-...md:23 cites the old path as a node id (prose; that ADR has no check: key)"
