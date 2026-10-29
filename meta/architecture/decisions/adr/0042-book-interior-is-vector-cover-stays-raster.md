@@ -570,6 +570,53 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     not be used to recover a width the generator stated.
   scope: {code: ["tests/**"]}
   check: {kind: review-lens}
+  # CARD-299 (2026-10-29) was dispatched to flip this check to the planned test
+  # named below and DID NOT, and the refusal is four measurements rather than
+  # caution. CARD-298 refused R1's flip for the same class of reason and was
+  # right; this is the same refusal one rule along.
+  #
+  #   1. **Two of the six sites this comment names are not interior PDF
+  #      readings at all.** `tests/property/test_book_layout.py:364` renders
+  #      through `nonogram.export.png.render_image`, and
+  #      `tests/property/test_book_two_up.py:682` builds a bare `PIL.Image` and
+  #      calls `png._draw_grid` / `png._draw_clues` directly. Neither writes a
+  #      PDF, so neither has a content stream to be asserted against, and both
+  #      are COMP-007's drawing surface — which CARD-299's own G-4 and CON-019
+  #      put outside ADR-0042's reach. A guard built from this enumeration
+  #      would be built from a wrong set.
+  #   2. **The enumeration disagrees with the census by 50x.** Re-derived with
+  #      `meta/profiling/adr-0042-migration-census.md`'s own two regexes on
+  #      main at `4ce84c30`: **34 files, 321 sites**. This comment names 6.
+  #      Both are cited as this rule's authority and they are not the same set.
+  #   3. **The census is stale in the direction that matters.** It records
+  #      **32 files / 315 sites** at `c12c33ce` (2026-10-25); the same
+  #      derivation reads **34 / 321** at `4ce84c30` four days later. The
+  #      migration surface GREW by 2 files and 6 sites during the phase that
+  #      exists to shrink it.
+  #   4. **An idiom count cannot measure "the set is empty".** CARD-299's own
+  #      correct conversion of this comment's three real sites RAISED
+  #      `tests/property/test_book_export_interior.py` from **8 to 13** idiom
+  #      occurrences — the medium-gated helpers and their non-dormancy controls
+  #      are themselves matches — while making the assertions exact. So the
+  #      census idiom count moves the wrong way on a conversion, and a guard
+  #      ratcheting it would red on the work it exists to encourage.
+  #
+  # What CARD-299 landed instead, and why it is the instrument this rule wants:
+  # the three real sites are now read in the medium `page_medium` declares for
+  # the page's kind (bitmap arm = today's assertion, stream arm = R6's exact
+  # one), with a page the classifier cannot classify a FAILURE per ADR-0039/R2,
+  # and with the stream arm proved non-dormant on a real vector page written by
+  # production's own writer. The same shape landed on CON-020's floor check.
+  # That is a RUNTIME property — "this claim was read in the medium its page
+  # was written in" — and it is why a static enumeration over `tests/**` is the
+  # wrong instrument: which page a `getpixel` lands on is not an AST fact.
+  #
+  # Flip this check when a card owns the guard as its subject. It is its own
+  # card: a 321-site surface, a per-site disposition, and the conclusion-keyed
+  # device-fact discriminator below (the `==`-against-a-declared-width versus
+  # bracketing distinction, which is decidable but is a static-analysis card of
+  # its own) are not a sub-item of a reader conversion.
+  #
   # PLANNED TEST, owed by the card that converts the last interior pixel reader
   # (see R1's note on why this is a lens and not a dead `kind: test` ref):
   #   tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink

@@ -1527,9 +1527,16 @@ def test_the_face_check_above_can_fail() -> None:
 #: ``/Resources``. :data:`_UNCLASSIFIABLE` is the third value and it is the
 #: whole of ADR-0039/R2 in this file: a page that is neither is a **failure**,
 #: not a page quietly counted as whichever the walk reached first.
-_RASTER = "raster"
-_VECTOR = "vector"
-_UNCLASSIFIABLE = "unclassifiable"
+#:
+#: CARD-299 moved the three values and the classification itself into
+#: ``tests/helpers/pdf_vector``, because ADR-0042/R6's readers live in several
+#: modules and all of them have to ask one file the same question. These names
+#: are kept pointing at them rather than retired: this module spells
+#: ``_RASTER`` in a dozen assertions, and a rename would be a diff about
+#: spelling in the middle of a card about readers.
+_RASTER = pdf_vector.RASTER
+_VECTOR = pdf_vector.VECTOR
+_UNCLASSIFIABLE = pdf_vector.UNCLASSIFIABLE
 
 
 def _page_media(data: bytes) -> list[str]:
@@ -1555,18 +1562,15 @@ def _page_media(data: bytes) -> list[str]:
     unclassifiable. That is measured by
     ``test_a_vector_page_with_no_operators_is_still_classified_vector``, not
     assumed.
+
+    **CARD-299 moved the body to**
+    :func:`tests.helpers.pdf_vector.page_media` **and left this call here.**
+    Not an indirection for its own sake: ADR-0042/R6's conversion gives the
+    same question to readers in three other modules, and this classification
+    is the one place "what medium is this page" is answered — a second copy is
+    how two readers of one file would come to disagree about it.
     """
-    media = []
-    for keys in pdf_vector.page_resource_keys(data):
-        has_image = "XObject" in keys
-        has_face = "Font" in keys
-        if has_image and not has_face:
-            media.append(_RASTER)
-        elif has_face and not has_image:
-            media.append(_VECTOR)
-        else:
-            media.append(_UNCLASSIFIABLE)
-    return media
+    return pdf_vector.page_media(data)
 
 
 def _declaration_findings(media_by_kind) -> list[str]:

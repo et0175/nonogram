@@ -89,6 +89,51 @@ def page_resource_keys(data: bytes) -> list[set[str]]:
         parser.close()
 
 
+#: The three values :func:`page_media` returns. ``UNCLASSIFIABLE`` is a value
+#: and not an exception because the caller is the one that has to fail on it
+#: (ADR-0039/R2), and a reader that raised would not let a caller *count* how
+#: many pages it could not classify.
+RASTER = "raster"
+VECTOR = "vector"
+UNCLASSIFIABLE = "unclassifiable"
+
+
+def page_media(data: bytes) -> list[str]:
+    """Each page of ``data``, classified by medium — default-DENY.
+
+    A page is :data:`RASTER` iff its resources name an ``/XObject`` and no
+    ``/Font``, and :data:`VECTOR` iff they name a ``/Font`` and no
+    ``/XObject``. **Both, or neither, is :data:`UNCLASSIFIABLE`** — there is no
+    third medium in this project and no fallback: a page shaped like nothing
+    this writer emits is a page nobody has classified, which ADR-0039/R2 makes
+    a failure rather than a pass.
+
+    **CARD-299 moved this here from ``tests/test_book_pdf.py``, where it was
+    ``_page_media``, and that module now calls it** — ADR-0042/R6's readers
+    live in several modules and each one of them has to ask the same question
+    of the same file, so a second copy of this classification is the one thing
+    that would let two readers disagree about what medium a page is. That
+    module's ``_declaration_findings`` docstring already insists on "the one
+    implementation"; this is where it now is.
+
+    A **vector page with no ink at all still names the face** — every page
+    :func:`~nonogram.admin.book_vector.write_vector_page` writes does — so the
+    blank title page's vector twin classifies as :data:`VECTOR` and not as
+    unclassifiable.
+    """
+    media = []
+    for keys in page_resource_keys(data):
+        has_image = "XObject" in keys
+        has_face = "Font" in keys
+        if has_image and not has_face:
+            media.append(RASTER)
+        elif has_face and not has_image:
+            media.append(VECTOR)
+        else:
+            media.append(UNCLASSIFIABLE)
+    return media
+
+
 def _objects(data: bytes):
     parser = PdfParser.PdfParser(buf=data)
     try:
