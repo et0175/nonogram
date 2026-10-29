@@ -2345,15 +2345,37 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         page kind should emit — a transformation, a clip, an inline image
         (``BI``) — fails here rather than being absent from a list nobody
         updated.
+
+        **An equality, not a subset, since review cycle 2.** F-297-04 measured
+        the allow-list at 16 members against 13 emitted, and the three surplus
+        ones — ``B``, ``c`` and ``h`` — were exactly
+        :meth:`ContentStream.round_mark`'s own vocabulary, so the cell carried
+        slack precisely where
+        :meth:`TestAnswerTileHeader_DifficultyDotsAreRound.test_no_answer_page_draws_a_round_mark_today`
+        needs it tight, and the two cells disagreed about whether ``c`` was
+        allowed. The reading is now the measured set itself, over both page
+        kinds together, which closes the slack in both directions: a new
+        operator reds, and an operator these pages *stop* emitting reds too.
+        Measured identical on both profiles (13 members; the TOC alone emits 6
+        of them and the answer pages all 13).
         """
-        allowed = {
-            "g", "G", "w", "m", "l", "S", "re", "f", "c", "h", "B",
+        emitted = {
+            "g", "G", "w", "m", "l", "S", "re", "f",
             "BT", "ET", "Tf", "Td", "Tj",
         }
+        seen: set = set()
         for stream_text in pdf_vector.content_streams(
             _written(recorded.toc_streams() + recorded.answer_streams())
         ):
-            assert set(pdf_vector.operator_tokens(stream_text)) <= allowed
+            tokens = set(pdf_vector.operator_tokens(stream_text))
+            assert tokens <= emitted, sorted(tokens - emitted)
+            seen |= tokens
+        assert seen == emitted, (sorted(seen - emitted), sorted(emitted - seen))
+        # The three members F-297-04 found surplus are a round mark's, and a
+        # round shape on these pages is CARD-233's signal rather than this
+        # card's licence. Stated here as well as in the limit cell so the two
+        # cannot drift apart again.
+        assert not ({"B", "c", "h"} & seen), sorted({"B", "c", "h"} & seen)
 
     def test_the_raster_twin_of_the_same_page_does_carry_one(self, recorded) -> None:
         """The control. The same answer page as a bitmap references an image."""
@@ -2438,6 +2460,42 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         if profile == "book1":
             assert vector == set(_TITLES), sorted(vector)
 
+    def test_a_clipped_title_is_counted_as_printed_in_both_media(
+        self, recorded
+    ) -> None:
+        """F-297-03's half of AC-2: a clip is not an omission.
+
+        The cell above reads whole titles, which is the right reading for "is
+        the name on the page". It is also blind to a *clipped* name on both
+        sides at once — the 10 x 10 cm trim prints ``'Puzzle 2 — Owl in a …'``
+        today — so this adds the reading that is not: the set of titles each
+        medium printed **something** for, clips included, must agree, and the
+        caption cells' element-for-element comparison then pins the string
+        itself.
+        """
+        wanted = set(self._captions_for(recorded))
+        vector = {
+            _caption_behind(reading, wanted)
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for _, text in _shows(stream_text)
+            if (reading := _caption_reading(text, wanted)) is not None
+        }
+        raster = {
+            _caption_behind(reading, wanted)
+            for _, text, names in recorded.text
+            if "_draw_solved_slot" in names
+            and (reading := _caption_reading(text, wanted)) is not None
+        }
+        assert vector == raster, (sorted(vector), sorted(raster))
+        assert vector, "no answer page carried a name at all"
+
+    @staticmethod
+    def _captions_for(recorded: _Recorded) -> List[str]:
+        """The whole caption lines this book's answer key would print."""
+        return TestAnswerPages_CaptionHoldsTheFloorInTheStream._captions(recorded)
+
     def test_the_only_raster_calls_carrying_a_title_are_answer_captions(
         self, recorded
     ) -> None:
@@ -2494,6 +2552,7 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         cases = 0
         printed = 0
         omitted = 0
+        clipped = 0
         # Four of the trims CON-018 stocks, three of them portrait KDP sizes
         # and the fourth the 10 x 10 cm square minimum — which is in the
         # corpus precisely because a square trim leaves a full-page answer no
@@ -2547,6 +2606,21 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                     # a caption.
                     if picked[index] in shown:
                         printed += 1
+                    elif any(
+                        len(piece) > 1
+                        and piece.endswith("…")
+                        and picked[index].startswith(piece.split(" — ")[-1][:-1])
+                        for piece in _strings(text)
+                    ):
+                        # CLIPPED, which is neither printed nor omitted. Counted
+                        # as its own outcome since review cycle 2 (F-297-03):
+                        # the old reading swept a clipped name into `omitted`
+                        # and then asserted the name was absent, so a clip that
+                        # kept part of the name would have failed here for the
+                        # wrong reason — or, worse, a future clip that dropped
+                        # the whole stem would have silently inflated the
+                        # omission floor.
+                        clipped += 1
                     else:
                         omitted += 1
                         for name in set(picked):
@@ -2569,16 +2643,129 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         # ``else`` arm above is live. A corpus where every caption printed
         # would make it dead.
         assert omitted >= 6, omitted
+        # And no case in this corpus clips, so the two floors above are an
+        # equality over 24 answer pages rather than three buckets with slack.
+        # Pinned because a clip is what F-297-03 showed the old reading could
+        # not see: if a corpus name starts clipping, that shows up here as a
+        # changed figure instead of as a quietly larger omission count.
+        assert clipped == 0, clipped
+        assert printed + omitted + clipped == 24, (printed, omitted, clipped)
 
 
 # --------------------------------------------------------------------------
 # AC-3 — the tiles are the grid routine, not a third copy
 # --------------------------------------------------------------------------
 
-#: The two ``ContentStream`` methods that put a **ruled line** on a page. A
-#: grid is lines, so a module that draws one without CARD-295's routine has to
-#: reach one of these — directly, or by binding it to a name first.
-_STROKERS = ("line", "rectangle")
+#: The PDF operators that put a path or a mark on a page, as against the ones
+#: that only set state (``g``/``G``/``w``) or set type
+#: (``BT``/``Tf``/``Td``/``Tj``/``ET``). A grid is a path, so anything that
+#: emits one of these is a door a second grid walk could be driven through.
+_PATH_OPERATORS = frozenset({"m", "l", "re", "c", "h", "S", "f", "B"})
+
+#: One call per public ``ContentStream`` member, so :func:`_content_stream_doors`
+#: can **drive** each one and read what comes out rather than being told. The
+#: arguments only have to be valid — what is measured is which operators are
+#: emitted, not where they land.
+#:
+#: A member with no entry here is **watched anyway** (that is the default-DENY)
+#: *and* reported through :data:`_UNCLASSIFIED_DOORS`, so a method added to
+#: ``ContentStream`` cannot become an unwatched door by nobody noticing it.
+_DOOR_PROBE = {
+    "to_points": (10.0,),
+    "stroke_grey": (0.0,),
+    "fill_grey": (0.0,),
+    "stroke_width": (1.0,),
+    "line": (1.0, 2.0, 3.0, 4.0),
+    "rectangle": (1.0, 2.0, 3.0, 4.0),
+    "curve": (1.0, 2.0, 3.0, 4.0, 5.0, 6.0),
+    "begin_path": (1.0, 2.0),
+    "line_to": (1.0, 2.0),
+    "close_path": (),
+    "paint": (),
+    "round_mark": (50.0, 50.0, 10.0),
+    "text": ("x", 1.0, 2.0, 10.0),
+    "render": (),
+}
+
+#: Why each public ``ContentStream`` member the guard does **not** watch is not
+#: watched — one entry per exclusion, machine-checked by
+#: ``test_every_unwatched_member_is_excluded_by_its_own_measurement``: the
+#: member really emits no path operator, and every operator it *does* emit is
+#: named in its own reason. An exclusion is therefore a statement about a
+#: measurement rather than an absence from a list (ADR-0039/R2).
+#:
+#: ``text`` is the entry worth reading twice. It emits no path, so it is not a
+#: path door; a *rule* set as a run of underscore glyphs, or a disc set as a
+#: round dingbat, is the **named limit**
+#: :meth:`~nonogram.admin.book_vector.ContentStream.round_mark`'s own docstring
+#: records with **CARD-298** as its owner — ADR-0042/R1's derived
+#: per-page-kind check, measured as ink. Nothing here claims it shut.
+_NOT_A_DOOR_BECAUSE = {
+    "to_points": "converts pixels to points and emits no operator at all",
+    "media_box": "a property reading the page box; it emits no operator at all",
+    "operators": "a property reading the record back; it emits no operator at all",
+    "render": "encodes what was already recorded; it emits no operator at all",
+    "stroke_grey": "sets the stroke tone (G) and constructs no path",
+    "fill_grey": "sets the fill tone (g) and constructs no path",
+    "stroke_width": "sets the stroke width (w) and constructs no path",
+    "text": (
+        "sets type (g BT Tf Td Tj ET) and constructs no path; a rule set as "
+        "glyphs is round_mark's named limit, owned by CARD-298"
+    ),
+}
+
+
+def _public_members(cls) -> List[str]:
+    """``cls``'s own public names, in a stable order."""
+    return sorted(name for name in vars(cls) if not name.startswith("_"))
+
+
+def _content_stream_doors(cls=ContentStream) -> Tuple[Tuple[str, ...], dict, Tuple[str, ...]]:
+    """``cls``'s drawing doors, **derived by driving every member**.
+
+    Returns ``(doors, emitted, unclassified)`` — the public members whose own
+    output carries a path operator, what each member emitted, and the ones
+    :data:`_DOOR_PROBE` does not know how to call.
+
+    This is the half of AC-3's guard review cycle 1 found hand-listed
+    (F-297-01). ``_STROKERS`` named ``line`` and ``rectangle``, and a complete
+    grid walk written as ``begin_path``/``line_to``/``paint`` reached the page
+    through three doors nothing watched. The set is now a **measurement of the
+    class**: a door added to ``ContentStream`` is watched because it paints,
+    not because somebody remembered to list it, and a member left unwatched is
+    left unwatched by :data:`_NOT_A_DOOR_BECAUSE` and the measurement behind
+    it.
+    """
+    doors: List[str] = []
+    emitted: dict = {}
+    unclassified: List[str] = []
+    for name in _public_members(cls):
+        member = getattr(cls, name)
+        stream = cls(width_px=1000.0, height_px=1000.0, dpi=300)
+        if isinstance(member, property):
+            getattr(stream, name)
+        elif name in _DOOR_PROBE:
+            getattr(stream, name)(*_DOOR_PROBE[name])
+        else:
+            # Unknown: watched, and reported. Default-DENY is what happens to
+            # a member nobody has classified yet; it is not a reason to skip.
+            unclassified.append(name)
+            doors.append(name)
+            emitted[name] = ()
+            continue
+        tokens = tuple(pdf_vector.operator_tokens("\n".join(stream.operators)))
+        emitted[name] = tokens
+        if set(tokens) & _PATH_OPERATORS:
+            doors.append(name)
+    return tuple(doors), emitted, tuple(unclassified)
+
+
+#: Everything in ``ContentStream`` that can put a path on a page, derived
+#: above. Eight of sixteen public members, on the measurement this file makes:
+#: ``begin_path``, ``close_path``, ``curve``, ``line``, ``line_to``, ``paint``,
+#: ``rectangle``, ``round_mark``. The other eight are
+#: :data:`_NOT_A_DOOR_BECAUSE`'s.
+_STROKERS, _DOOR_EMITS, _UNCLASSIFIED_DOORS = _content_stream_doors()
 
 #: The modules AC-3's guard governs: this card's two page writers. The
 #: shared routines they draw through live in ``book_vector_draw``, which is
@@ -2622,10 +2809,19 @@ def _parameters(function) -> set:
 def _fills(call: _ast.Call) -> bool:
     """Whether ``call`` paints a **fill** — stated as a literal, or not at all.
 
-    A ``paint`` handed in as a name or an expression is not a fill this guard
-    can read, so it is treated as a stroke: a call whose paint is decided
-    elsewhere is exactly how a grid walk would be laundered past a reader of
-    this function.
+    **Read, no longer acted on.** Until review cycle 2 this function was an
+    exception inside :func:`stroke_violations`: a ``rectangle`` whose ``paint``
+    was the literal ``"fill"`` was admitted without the exemption. That was a
+    second discrimination the guard made by *hand* underneath a set that read
+    as derived — F-297-01's own defect class — and it left a grid walk written
+    as a row of thin filled rectangles admitted on every path. The guard is now
+    default-DENY over every door whatever it paints, and a fill reaches a page
+    only through the one derived exemption like any other mark.
+
+    It is kept because ``test_a_fill_is_not_a_rule_and_is_admitted`` and this
+    docstring are the record of which reading changed, and because a reader
+    asking "does this guard still treat a fill specially?" should find the
+    answer written down rather than inferred from an absence.
     """
     for keyword in call.keywords:
         if keyword.arg == "paint":
@@ -2639,13 +2835,28 @@ def _fills(call: _ast.Call) -> bool:
 def stroke_violations(source: str) -> List[str]:
     """Every place ``source`` rules a line outside the derived exemption.
 
-    **Default-DENY** (ADR-0039/R2). Everything that can put a ruled line on a
-    page is collected first — a call to one of :data:`_STROKERS` on any
-    object, and any *reference* to one of them that is not a call, which is
-    how such a method would be bound to a name and called under another one —
-    and each is then admitted only if its innermost enclosing function is in
-    the exemption set. An expression at module level has no enclosing
-    function and is therefore denied, not skipped.
+    **Default-DENY** (ADR-0039/R2). Everything that can put a path on a page is
+    collected first — a call to one of :data:`_STROKERS` on any object, and any
+    *reference* to one of them that is not a call, which is how such a method
+    would be bound to a name and called under another one — and each is then
+    admitted only if its innermost enclosing function is in the exemption set.
+    An expression at module level has no enclosing function and is therefore
+    denied, not skipped.
+
+    **:data:`_STROKERS` is a measurement of ``ContentStream``, not a list.**
+    :func:`_content_stream_doors` drives every public member of that class and
+    watches the ones whose own output carries a path operator — eight of
+    sixteen — so a door added there is watched because it paints. Review cycle
+    1 (F-297-01) found this set hand-listed at ``("line", "rectangle")`` and
+    drove a complete grid walk past it through ``begin_path``/``line_to``/
+    ``paint``; that artefact is now
+    ``test_the_guard_catches_a_grid_walk_in_each_of_these_shapes``'s
+    ``polyline-through-begin-path-and-paint`` case.
+
+    **What a call paints is no longer consulted.** A fill is watched like a
+    stroke, because a grid can be walked with thin filled rectangles as well as
+    with lines, and admitting one by its ``paint`` argument was a second
+    hand-made discrimination under a derived set (see :func:`_fills`).
 
     **The exemption set is derived, not listed**: a function is exempt exactly
     when it takes a parameter named ``grid``. That is the structural
@@ -2677,8 +2888,6 @@ def stroke_violations(source: str) -> List[str]:
             and node.func.attr in _STROKERS
         ):
             called.add(id(node.func))
-            if node.func.attr == "rectangle" and _fills(node):
-                continue
             function = owner[id(node)]
             where = "module level" if function is None else function.name
             if function is None or id(function) not in exempt:
@@ -2765,18 +2974,120 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         )
 
     def test_the_only_exempt_stroker_is_the_solution_dependent_one(self) -> None:
-        """Which function actually uses its exemption, read off the module.
+        """Which functions actually use their exemption, read off the module.
 
-        The exemption *set* is derived; this records which of its members is
-        load-bearing, so a later card that adds a second stroking exemption
-        has to change this cell and say why.
+        The exemption *set* is derived; this records which of its members are
+        load-bearing, so a later card that adds a third exemption has to change
+        this cell and say why.
+
+        **Two names, not one, since review cycle 2.** The reading used to be
+        the same two-name ``_STROKERS`` tuple the guard used, with a fill
+        admitted by its ``paint`` argument, so it saw only the join. It now
+        reads all eight derived doors and consults no ``paint``, which brings
+        ``draw_answer_cells``' filled cells into view beside
+        ``draw_solved_joins``' lines. Both are exempt for the one reason the
+        exemption encodes — each is a mark whose *existence* is a function of
+        the solution, which no routine that does not take the grid could place
+        — so the widening records the same property over a wider vocabulary.
+        The cell's name predates it and G-6 forbids renaming a test.
         """
         strokes = {
             owner.name
             for node, owner in _strokers_of(_source_of(book_answer_vector))
             if owner is not None
         }
-        assert strokes == {"draw_solved_joins"}
+        assert strokes == {"draw_answer_cells", "draw_solved_joins"}
+        # Both hold the grid, which is what makes them exempt rather than
+        # tolerated: the set above is a subset of the derivation's own.
+        assert strokes <= set(exempt_functions(_source_of(book_answer_vector)))
+
+    def test_the_watched_set_is_derived_from_the_class_and_not_listed(self) -> None:
+        """F-297-01: the stroker vocabulary is a measurement of ``ContentStream``.
+
+        Three readings, and the third is the one that matters. The set is
+        exactly the public members whose own output carries a path operator,
+        it is a **strict** subset of that class's public surface (so the
+        derivation is not "everything"), and every door review cycle 1 drove a
+        grid walk through is in it.
+        """
+        members = set(_public_members(ContentStream))
+        assert set(_STROKERS) < members, sorted(members - set(_STROKERS))
+        assert _UNCLASSIFIED_DOORS == (), _UNCLASSIFIED_DOORS
+        # The eight this file measures, named so a change to the class shows
+        # up here as a diff rather than as a silently wider or narrower guard.
+        assert set(_STROKERS) == {
+            "begin_path",
+            "close_path",
+            "curve",
+            "line",
+            "line_to",
+            "paint",
+            "rectangle",
+            "round_mark",
+        }, sorted(_STROKERS)
+        assert len(members) == 16, sorted(members)
+        for name in _STROKERS:
+            assert set(_DOOR_EMITS[name]) & _PATH_OPERATORS, (name, _DOOR_EMITS[name])
+
+    def test_every_unwatched_member_is_excluded_by_its_own_measurement(self) -> None:
+        """An exclusion is a statement with a reason, not an absence.
+
+        For each public member the guard does not watch: it is named in
+        :data:`_NOT_A_DOOR_BECAUSE`, it really emitted no path operator when
+        driven, and every operator it *did* emit is named in its own reason —
+        so a reason cannot drift away from the measurement it stands on.
+        """
+        unwatched = set(_public_members(ContentStream)) - set(_STROKERS)
+        assert set(_NOT_A_DOOR_BECAUSE) == unwatched, (
+            sorted(unwatched - set(_NOT_A_DOOR_BECAUSE)),
+            sorted(set(_NOT_A_DOOR_BECAUSE) - unwatched),
+        )
+        assert len(unwatched) == 8, sorted(unwatched)
+        for name, reason in _NOT_A_DOOR_BECAUSE.items():
+            emitted = _DOOR_EMITS[name]
+            assert not (set(emitted) & _PATH_OPERATORS), (name, emitted)
+            assert reason.strip(), name
+            if emitted:
+                words = _re.findall(r"[A-Za-z*]+", reason)
+                for operator in set(emitted):
+                    assert operator in words, (name, operator, reason)
+            else:
+                assert "emits no operator at all" in reason, (name, reason)
+
+    def test_a_member_added_to_the_class_is_watched_without_being_listed(
+        self,
+    ) -> None:
+        """The default-DENY, driven: a new door needs no edit to be watched.
+
+        A subclass carrying one more drawing method is handed to the same
+        derivation, and the method is in the watched set — the property the
+        hand-listed tuple did not have, and the one that would have caught
+        F-297-01 the day ``begin_path`` was added.
+        """
+
+        class _WithOneMoreDoor(ContentStream):
+            def zigzag(self, x: float, y: float) -> None:
+                self.begin_path(x, y)
+                self.line_to(x + 1, y + 1)
+                self.paint("stroke")
+
+        # Driven through the shipped derivation, not a copy of it: with a probe
+        # entry the new door is classified by what it emits, and WITHOUT one it
+        # is watched anyway and reported as unclassified. Both halves are the
+        # default-DENY.
+        saved = dict(_DOOR_PROBE)
+        try:
+            _DOOR_PROBE["zigzag"] = (1.0, 2.0)
+            doors, emits, unclassified = _content_stream_doors(_WithOneMoreDoor)
+            assert doors == ("zigzag",), doors
+            assert unclassified == (), unclassified
+            assert set(emits["zigzag"]) & _PATH_OPERATORS, emits["zigzag"]
+            del _DOOR_PROBE["zigzag"]
+            doors, _, unclassified = _content_stream_doors(_WithOneMoreDoor)
+            assert doors == ("zigzag",) and unclassified == ("zigzag",)
+        finally:
+            _DOOR_PROBE.clear()
+            _DOOR_PROBE.update(saved)
 
     @pytest.mark.parametrize(
         "planted,expected",
@@ -2814,6 +3125,61 @@ class TestAnswerTiles_ReuseTheGridRoutine:
                 "stroke rules a line",
                 id="stroke-inside-a-class",
             ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.begin_path(line.position, line.start)\n",
+                "draw rules a begin_path",
+                id="a-path-started-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.line_to(line.position, line.end)\n",
+                "draw rules a line_to",
+                id="a-path-extended-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.paint('stroke')\n",
+                "draw rules a paint",
+                id="a-path-painted-without-the-grid",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    for line in tile.vertical_lines:\n"
+                "        stream.rectangle(\n"
+                "            line.position, line.start, line.position + 1,\n"
+                "            line.end, paint='fill',\n"
+                "        )\n",
+                "draw rules a rectangle",
+                id="grid-walked-as-thin-filled-rectangles",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.curve(1, 2, 3, 4, 5, 6)\n",
+                "draw rules a curve",
+                id="a-curve-is-a-path-too",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.round_mark(1, 2, 3)\n",
+                "draw rules a round_mark",
+                id="a-round-mark-is-a-path-too",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    stream.close_path()\n",
+                "draw rules a close_path",
+                id="a-bare-close-path",
+            ),
+            pytest.param(
+                "def draw(stream, tile):\n"
+                "    paint = stream.paint\n"
+                "    paint('stroke')\n",
+                "draw binds .paint to a name",
+                id="a-new-door-bound-to-a-name",
+            ),
         ],
     )
     def test_the_guard_catches_a_grid_walk_in_each_of_these_shapes(
@@ -2823,8 +3189,67 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         assert len(found) == 1, found
         assert found[0].endswith(expected), found
 
+    def test_review_cycle_1s_own_artefact_is_now_a_violation(self) -> None:
+        """F-297-01's demonstration, re-fired as a cell.
+
+        Cycle 1 built a complete grid walk through ``begin_path``/``line_to``/
+        ``paint`` and the guard returned ``[]`` for it, then fed the same code
+        a real :class:`ContentStream` and read back three ruled lines
+        (``'24 228 m'``, ``'24 12 l'`` …) — a whole grid on a page with zero
+        violations reported. Both halves are asserted here: the source is now
+        refused, *and* the page it draws really does carry the stroked lines
+        that made it a hole rather than a curiosity.
+        """
+        source = (
+            "def draw(stream, tile):\n"
+            "    for line in tile.vertical_lines:\n"
+            "        stream.begin_path(line.position, line.start)\n"
+            "        stream.line_to(line.position, line.end)\n"
+            "    stream.paint('stroke')\n"
+        )
+        found = stroke_violations(source)
+        assert found, "cycle 1's grid walk is admitted again"
+        assert [place.split(": ")[1] for place in found] == [
+            "draw rules a begin_path",
+            "draw rules a line_to",
+            "draw rules a paint",
+        ], found
+
+        # The same code, run. Three ruled lines and one S, through doors the
+        # hand-listed tuple did not watch.
+        stream = ContentStream(width_px=100.0, height_px=240.0, dpi=72)
+        namespace: dict = {}
+        exec(compile(source, "<cycle1-artefact>", "exec"), namespace)
+
+        class _Line:
+            def __init__(self, position: float) -> None:
+                self.position, self.start, self.end = position, 12.0, 228.0
+
+        class _Tile:
+            vertical_lines = (_Line(24.0), _Line(48.0), _Line(72.0))
+
+        namespace["draw"](stream, _Tile())
+        assert stream.operators == (
+            "24 228 m",
+            "24 12 l",
+            "48 228 m",
+            "48 12 l",
+            "72 228 m",
+            "72 12 l",
+            "S",
+        ), stream.operators
+
     def test_a_fill_is_not_a_rule_and_is_admitted(self) -> None:
-        """The negative control: the guard is not "no rectangle anywhere"."""
+        """The negative control: the guard is not "no rectangle anywhere".
+
+        **What admits this one changed in review cycle 2.** It used to be the
+        ``paint="fill"`` literal — an exception the guard made by hand under a
+        set that read as derived, which left a grid walked as thin filled
+        rectangles admitted everywhere (now a case of
+        ``test_the_guard_catches_a_grid_walk_in_each_of_these_shapes``). What
+        admits it now is the one derived exemption: the function holds the
+        grid. The companion below is the half that would have been missing.
+        """
         assert (
             stroke_violations(
                 'def cells(stream, grid):\n'
@@ -2832,6 +3257,21 @@ class TestAnswerTiles_ReuseTheGridRoutine:
             )
             == []
         )
+
+    def test_the_same_fill_without_the_grid_is_denied(self) -> None:
+        """The exemption is what admits a fill, not the word "fill".
+
+        One character of difference from the cell above — the parameter the
+        exemption is derived from — and the same filled rectangle is refused.
+        That is the pair that makes the admission a reading of the exemption
+        rather than a blanket pass for fills.
+        """
+        found = stroke_violations(
+            'def cells(stream, tile):\n'
+            '    stream.rectangle(1, 2, 3, 4, paint="fill")\n'
+        )
+        assert len(found) == 1, found
+        assert found[0].endswith("cells rules a rectangle"), found
 
     def test_the_routine_draws_a_real_answer_tile_that_is_not_a_layout(self) -> None:
         """The drive. An ``AnswerTile`` is not a ``Layout``, and this is it."""
@@ -2904,7 +3344,14 @@ class TestAnswerTiles_ReuseTheGridRoutine:
 
 
 def _strokers_of(source: str) -> List[Tuple[object, object]]:
-    """Every stroking call in ``source`` with its innermost enclosing function."""
+    """Every call through a drawing door in ``source``, with its owner.
+
+    The same vocabulary :func:`stroke_violations` denies from — eight derived
+    doors, no exception for what a call paints — so the two halves of AC-3's
+    structural claim can no longer disagree about what counts as a mark. They
+    shared a two-name tuple until review cycle 2; F-297-01 is that both halves
+    were blind to the same shapes, not that one was.
+    """
     tree = _ast.parse(source)
     owner = _enclosing(tree)
     out = []
@@ -2913,7 +3360,6 @@ def _strokers_of(source: str) -> List[Tuple[object, object]]:
             isinstance(node, _ast.Call)
             and isinstance(node.func, _ast.Attribute)
             and node.func.attr in _STROKERS
-            and not (node.func.attr == "rectangle" and _fills(node))
         ):
             out.append((node, owner[id(node)]))
     return out
@@ -3114,6 +3560,89 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
 #: CON-020's floor for reader-facing interior text, in points.
 _FLOOR_PT = 10.0
 
+#: Where the two media's answer captions differ, and **why** — one entry per
+#: divergence, as ``{whole caption: (what the raster page set, what the vector
+#: page sets)}``.
+#:
+#: Review cycle 1's F-297-03: every title and caption reading in this card
+#: filtered by membership in the set of **unclipped** strings, so a clipped
+#: caption landed in the "omitted" bucket on both sides and a one-character
+#: clip difference passed 596 cells. Measured once the readings admit clipped
+#: strings, the two media **already** differ — today, on the 10 x 10 cm minimum
+#: trim, in a shipped book:
+#:
+#: * both clip against the **same** measure, 492 px, which is COMP-007's
+#:   ``caption_slot`` figure and not either renderer's;
+#: * the raster page measures ``'Puzzle 2 — Owl in a P…'`` with
+#:   ``FreeTypeFont.getlength`` at 491.98 px and keeps it;
+#: * the vector page measures the same string as a sum of the embedded face's
+#:   ``/Widths`` at 492.87 px and runs the loop one more step.
+#:
+#: 0.89 px across a 492 px string — the "fraction of a dot's advance" this
+#: card's own TOC header admits the two engines agree to, landing on an integer
+#: boundary. **Neither medium is wrong**: ``/Widths`` is what a PDF viewer sums,
+#: so each page clips by the measure its own reader will use, which is the port
+#: being faithful rather than broken. It is recorded here because it is a
+#: product fact no cell stated, and exact agreement is **not** achievable
+#: without one medium measuring with the other's engine.
+_DECLARED_CLIP_DIVERGENCE = {
+    "Puzzle 2 — Owl in a Pine": (
+        "Puzzle 2 — Owl in a P…",
+        "Puzzle 2 — Owl in a …",
+    ),
+}
+
+
+def _caption_reading(text: str, wanted) -> Optional[str]:
+    """``text`` as the caption it is a reading of — whole or clipped — or ``None``.
+
+    The clip loop both media run is ``clipped[:-2] + "…"`` applied until the
+    string fits, so every clipped reading is ``caption[:k] + "…"``. Admitting
+    those is the whole of F-297-03's fix: a reading that is not in the set of
+    unclipped captions is a *clip*, not an omission, and the two are different
+    facts about a printed book.
+    """
+    if text in wanted:
+        return text
+    if text.endswith("…") and len(text) > 1:
+        stem = text[:-1]
+        if any(caption.startswith(stem) and caption != stem for caption in wanted):
+            return text
+    return None
+
+
+def _caption_behind(reading: str, wanted) -> str:
+    """The whole caption ``reading`` is a reading of."""
+    if reading in wanted:
+        return reading
+    stem = reading[:-1]
+    matches = sorted(
+        caption for caption in wanted if caption.startswith(stem) and caption != stem
+    )
+    assert len(matches) == 1, (reading, matches)
+    return matches[0]
+
+
+def _unexplained_clip_divergences(vector, raster, wanted) -> List[Tuple[str, ...]]:
+    """Captions whose two media disagree **outside** the declared table.
+
+    Both arguments are the readings each medium actually set, clips included.
+    Grouped by the caption behind each reading, so "both omitted it" and "both
+    printed it clipped to the same string" are both agreement and anything else
+    is reported.
+    """
+    out: List[Tuple[str, ...]] = []
+    for caption in sorted(wanted):
+        mine = sorted(r for r in vector if _caption_behind(r, wanted) == caption)
+        theirs = sorted(r for r in raster if _caption_behind(r, wanted) == caption)
+        if mine == theirs:
+            continue
+        declared = _DECLARED_CLIP_DIVERGENCE.get(caption)
+        if declared is not None and theirs == [declared[0]] and mine == [declared[1]]:
+            continue
+        out.append((caption, tuple(theirs), tuple(mine)))
+    return out
+
 
 class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
     """AC-6 (CON-020): the answer caption's ``Tf`` size is at or above 10 pt.
@@ -3169,23 +3698,151 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
                 "is the writer failing to set them, not CARD-197's omission"
             )
 
-    def test_the_two_media_omit_the_same_captions(self, recorded) -> None:
-        """The omission is the raster page's own verdict, not a profile name."""
-        wanted = set(self._captions(recorded))
-        vector = {
-            text
+    @staticmethod
+    def _readings(recorded: _Recorded, wanted) -> Tuple[List[str], List[str]]:
+        """What each medium actually set, **clips included** (F-297-03).
+
+        The filter is :func:`_caption_reading`, not membership in ``wanted``:
+        until review cycle 2 every caption reading in this card tested
+        ``text in wanted``, so a clipped caption was absent from both sides'
+        sets and counted as an omission in both media. That is the blindness
+        F-297-03 names — the clip point is the one axis the two media are known
+        to measure differently.
+        """
+        vector = [
+            reading
             for stream_text in pdf_vector.content_streams(
                 _written(recorded.answer_streams())
             )
             for _, text in _shows(stream_text)
-            if text in wanted
-        }
-        raster = {
-            text
+            if (reading := _caption_reading(text, wanted)) is not None
+        ]
+        raster = [
+            reading
             for _, text, names in recorded.text
-            if "_draw_solved_slot" in names and text in wanted
-        }
-        assert vector == raster, (sorted(vector), sorted(raster))
+            if "_draw_solved_slot" in names
+            and (reading := _caption_reading(text, wanted)) is not None
+        ]
+        return vector, raster
+
+    def test_the_two_media_omit_the_same_captions(self, recorded) -> None:
+        """The omission is the raster page's own verdict, not a profile name.
+
+        **About omission, and no longer blind to clipping.** The two sides are
+        compared as the set of *captions* each medium printed something for, a
+        clipped reading counting as printed — so a medium that omitted a
+        caption the other clipped now reds here, where before cycle 2 both
+        would have read as omissions and agreed.
+        """
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        mine = {_caption_behind(reading, wanted) for reading in vector}
+        theirs = {_caption_behind(reading, wanted) for reading in raster}
+        assert mine == theirs, (sorted(mine), sorted(theirs))
+
+    def test_the_two_media_clip_the_same_captions_to_the_same_string(
+        self, recorded, profile
+    ) -> None:
+        """F-297-03: the caption **string**, not its presence in a set.
+
+        Per caption, the readings the two media set are compared element for
+        element, so the three outcomes a slot really has — printed whole,
+        clipped to a particular string, omitted — are distinguishable instead
+        of collapsing into two. Any disagreement outside
+        :data:`_DECLARED_CLIP_DIVERGENCE` fails here, which is what makes a
+        clip that moves by one character red.
+        """
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        assert vector or profile == "min-trim", "the vector pages set no caption"
+        assert (
+            _unexplained_clip_divergences(vector, raster, wanted) == []
+        ), _unexplained_clip_divergences(vector, raster, wanted)
+
+    def test_the_min_trim_really_does_clip_one_caption_in_each_medium(self) -> None:
+        """Non-vacuity: the comparison above has a clip to compare.
+
+        Without this the element-for-element cell could pass on two media that
+        never clip anything, which is how F-297-03's reading survived. Measured
+        on the 10 x 10 cm trim, where a packed page prints one caption whole and
+        clips the next.
+        """
+        recorded = _recorded("min-trim")
+        wanted = set(self._captions(recorded))
+        vector, raster = self._readings(recorded, wanted)
+        assert [r for r in vector if r.endswith("…")], vector
+        assert [r for r in raster if r.endswith("…")], raster
+        # And the declared table is the pair this profile really sets, so an
+        # entry that stops being true reds here rather than going stale.
+        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
+            assert [
+                r for r in raster if _caption_behind(r, wanted) == caption
+            ] == [raster_text], raster
+            assert [
+                r for r in vector if _caption_behind(r, wanted) == caption
+            ] == [vector_text], vector
+
+    def test_the_declared_clip_divergence_is_one_step_of_the_same_loop(self) -> None:
+        """The reason behind the declaration, machine-checked rather than told.
+
+        For each declared pair: both readings are clips of the same caption,
+        the vector's is exactly **one step** of the shared ``[:-2] + "…"`` loop
+        shorter (two source characters off, one ellipsis on), there is an integer measure at which the two shipped clip
+        functions really produce exactly those two strings, and at such a
+        measure the two engines' widths of the raster string **straddle** it by
+        under one pixel. So the divergence is one rounding boundary between two
+        font engines and not a second clip rule.
+        """
+        from nonogram.admin.book_pdf_generator import _clipped_to, _guide_face
+
+        face = interior_face_metrics()
+        size = book_answer_vector.answer_type(300).caption_size_px
+        font = _guide_face(int(size))
+        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
+            assert raster_text.endswith("…") and vector_text.endswith("…")
+            assert caption.startswith(raster_text[:-1]), (caption, raster_text)
+            assert caption.startswith(vector_text[:-1]), (caption, vector_text)
+            # One step of ``clipped[:-2] + "…"`` drops two characters and adds
+            # one, so exactly one step is one character of length.
+            assert len(raster_text) - len(vector_text) == 1, (raster_text, vector_text)
+            whole = book_vector_draw.advance_px(caption, size, face)
+            straddle = [
+                measure
+                for measure in range(1, int(whole) + 2)
+                if _clipped_to(caption, font, measure) == raster_text
+                and book_answer_vector._clipped_to_measure(
+                    caption, size, face, measure
+                )
+                == vector_text
+            ]
+            assert straddle, (caption, raster_text, vector_text)
+            measure = straddle[0]
+            raster_width = font.getlength(raster_text)
+            vector_width = book_vector_draw.advance_px(raster_text, size, face)
+            assert raster_width <= measure < vector_width, (
+                measure,
+                raster_width,
+                vector_width,
+            )
+            assert vector_width - raster_width < 1.0, vector_width - raster_width
+
+    def test_the_clip_comparison_can_fail(self) -> None:
+        """The control (ADR-0039/R1): one character, and it reds.
+
+        The same comparison over a vector reading clipped one step further than
+        the page really clips it — which is exactly the
+        ``clipped[:-2] -> clipped[:-3]`` mutant that survived 596 cells in
+        review cycle 1.
+        """
+        wanted = {"Puzzle 2 — Owl in a Pine"}
+        raster = ["Puzzle 2 — Owl in a P…"]
+        assert _unexplained_clip_divergences(
+            ["Puzzle 2 — Owl in a …"], raster, wanted
+        ) == []
+        for moved in ("Puzzle 2 — Owl in …", "Puzzle 2 — Owl in a Pine"):
+            assert _unexplained_clip_divergences([moved], raster, wanted) != [], moved
+        # And a caption one medium omits entirely is not agreement either.
+        assert _unexplained_clip_divergences([], raster, wanted) != []
 
     def test_the_minimum_trim_omits_its_captions_rather_than_shrinking_them(
         self,
@@ -3278,9 +3935,17 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
     **The class name carries the ``Test`` prefix deliberately.** ``pytest``
     matches ``python_classes`` by ``str.startswith``, not by glob, so a class
     named ``PropertyTest_…`` holds tests it silently never runs — no skip, no
-    error. The card names this property ``PropertyTest_AnswerAndToc_WriterDerivesNoGeometry``;
-    it is spelled with the prefix so that it is actually collected, and the
-    node ids are reported with the hand-back.
+    error. The card named this property with the prefix dropped; it is spelled
+    **with** the prefix here so that it is actually collected, and the node ids
+    are reported with the hand-back.
+
+    The dead spelling is deliberately **not written out** anywhere in this
+    file. Review cycle 1's F-297-05: the project's ref resolver is
+    ``git grep -lw``, a text search, so a sentence quoting a name that has no
+    definition makes that name read as alive — and the one thing keeping the
+    card's own spelling resolvable was this very docstring. The card's ref is
+    corrected to the collected spelling; stating the rule without restating
+    the token is what stops the correction from being undone by prose.
 
     **No ``hypothesis``** (it is not in the dependency baseline): the corpus is
     built by hand with ``random.Random`` over the book profiles CON-018 stocks

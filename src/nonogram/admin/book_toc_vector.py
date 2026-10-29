@@ -164,19 +164,37 @@ def leader_dots(run: float, size_px: float, metrics: FontMetrics) -> str:
     The raster page's own three steps — the division, then a trim while the
     string overruns the gap, then a growth while another dot would still fit.
 
-    **Neither correction can fire in this medium, and that is measured rather
-    than reasoned.** The raster page corrects in both directions because
-    ``FreeTypeFont.getlength`` need not be linear in a repeated glyph (a
-    kerning pair for ``..``, or float drift at this size), and that was a real
-    difference between two faces before CARD-221. Here the measure is
-    :meth:`~nonogram.admin.book_vector.FontMetrics.advance`, which **sums
-    per-glyph ``/Widths``** and divides once, so ``n`` dots measure exactly
-    ``n`` times one dot — tested to 150, longer than the longest run any trim
-    CON-018 stocks prints — and ``int(run // dot)`` is therefore already both
-    the largest count that fits and not one short of it. Both loops are dead
-    here: ``TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace`` proves the
-    linearity they would correct for, and two deletion mutants on them survive
-    every cell of this card — **declared in advance, not discovered**.
+    **Neither correction can fire for any run a page can hand this, and that
+    is measured rather than reasoned.** The raster page corrects in both
+    directions because ``FreeTypeFont.getlength`` need not be linear in a
+    repeated glyph (a kerning pair for ``..``, or float drift at this size),
+    and that was a real difference between two faces before CARD-221.
+
+    **The reason this one needs no correction is smallness, not exactness** —
+    review cycle 2 corrected that (F-297-02), and the distinction is the whole
+    of the declaration's honesty. This paragraph used to argue that
+    :meth:`~nonogram.admin.book_vector.FontMetrics.advance` **sums per-glyph
+    ``/Widths``** and divides once, so ``n`` dots measure *exactly* ``n`` times
+    one dot. Summing then dividing once computes ``(W·n)/1000``, which is
+    precisely **not** ``n·(W/1000)`` in binary floating point: at
+    ``TOC_ENTRY_PT`` on this face the two differ at 56 of the first 200 counts,
+    first at nine, twelve of them inside the 120–153 range a real Book 1 row
+    prints. What *is* true is that they differ by at most ~2.2e-16
+    **relative** — orders of magnitude too small to move ``int(run // dot)``
+    across an integer boundary — so the division is already both the largest
+    count that fits and not one short of it, for every run inside a stocked
+    trim's usable width.
+
+    Both loops are therefore dead here, and
+    ``TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace`` asserts that bound
+    rather than the identity: one cell sweeps every integer run up to the
+    widest trim's usable width plus 20,000 seeded fractional ones and finds the
+    returned count equal to the division's every time, a second records that
+    exact equality **fails**, and a third fires the grow loop on the synthetic
+    ``n``-indexed sums to show which of the two arguments is the live one. Two
+    deletion mutants on these loops survive every cell of this card —
+    **declared in advance, not discovered**, and now declared on a bound that
+    is true.
 
     The same cell records that ``create_toc_page``'s own two loops are inert
     too, at this size on this face. Nothing is pruned there: this card ports

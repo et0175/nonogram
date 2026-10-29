@@ -2550,7 +2550,9 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
 # ==========================================================================
 
 import re as _re
+from random import Random as _Random
 
+from nonogram.admin.book_pdf_generator import FOLIO_PT as _FOLIO_PT
 from nonogram.admin import book_toc_vector as _book_toc_vector
 from nonogram.admin.book_vector import write_vector_pdf as _write_vector_pdf
 from tests.helpers import pdf_vector as _pdf_vector
@@ -2763,11 +2765,38 @@ class TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace:
 
     They are the raster page's, kept by G-1, and **two deletion mutants on
     them survive every cell of this card**. That is declared rather than
-    discovered, and this class is the proof of why: the vector measure is a
-    sum of the face's own ``/Widths``, so it is exactly linear in a repeated
-    glyph, and a linear measure makes ``int(run // dot)`` both the largest
-    count that fits and not one short of it. The raster page corrects because
-    ``FreeTypeFont.getlength`` carries no such guarantee.
+    discovered, and this class is the proof of why — **corrected in review
+    cycle 2, because the proof it first gave was false** (F-297-02).
+
+    What it used to say: ``FontMetrics.advance`` sums the face's own
+    ``/Widths`` and divides once, so ``n`` dots measure *exactly* ``n`` times
+    one dot, and an exactly linear measure makes ``int(run // dot)`` both the
+    largest count that fits and not one short of it. That mechanism is
+    self-refuting on its own terms — summing then dividing once computes
+    ``(W·n)/1000``, which is precisely **not** ``n·(W/1000)`` in binary
+    floating point, so "divides once" is the reason the two differ rather than
+    the reason they agree. Measured at this class's own size
+    (``type_px(TOC_ENTRY_PT, DPI)`` = 42 px, dot 13.356 px), exact equality
+    fails at **56 of the first 200 counts, first at n = 9**, and at **twelve
+    counts inside the 120–153 range** the old docstring named as the
+    production one. The five counts it sampled all fall in the ~72 % that
+    happen to hold, so the control passed by sample selection.
+
+    What holds instead is **reachability, not exactness**: the relative error
+    is at most ~2.2e-16, orders of magnitude too small to move
+    ``int(run // dot)`` across an integer boundary, so neither loop can fire
+    for any run a page can hand it. That is asserted over the reachable domain
+    below rather than over hand-picked counts. The inputs that *do* break the
+    identity are the exact ``n``-indexed sums themselves, and those are
+    synthetic: a real run is ``dot_right - dot_left``, a difference of two page
+    coordinates. Fed the sums instead, the grow loop fires on hundreds of
+    counts — which is what makes it the exactness argument that fails and not
+    the smallness one.
+
+    The raster page corrects because ``FreeTypeFont.getlength`` carries no
+    guarantee either; that it happens to be exactly linear at this size is
+    :meth:`test_the_raster_measure_is_linear_at_this_size_too`'s own finding,
+    a different claim about a different engine.
     """
 
     @staticmethod
@@ -2776,29 +2805,115 @@ class TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace:
 
         return interior_face_metrics()
 
-    def test_the_measure_is_linear_in_a_repeated_dot(self) -> None:
-        """Exactly, up to the counts a page uses; then float accumulation.
+    @staticmethod
+    def _reachable_ceiling() -> int:
+        """The widest leader run any trim CON-018 stocks can hold, in pixels.
 
-        ``FontMetrics.advance`` sums ``/Widths`` and divides once, so the sum
-        of ``n`` dots and ``n`` times one dot are the same number — **exactly**
-        to 150 dots, which is already longer than the longest run a TOC row
-        prints on any trim CON-018 stocks (measured on Book 1: 120 to 153).
-        At 400 they differ by 9e-13 relative, which is float accumulation and
-        not kerning; it is recorded here rather than rounded away, because it
-        is the one thing that could in principle make the correction loops
-        fire, and it is three orders of magnitude below the 0.001 pt the
-        stream rounds its own numbers to.
+        Derived rather than quoted: a run is a span inside one TOC page's own
+        usable area, so the widest trim's usable width bounds every run every
+        trim can produce. Book 1 (8.5 x 11 in) is the widest CON-018 stocks.
+        """
+        generator = BookPDFGenerator(_book("card-297-leader"))
+        frame = page_frame(generator.page_spec(7))
+        return int(frame.right - frame.left) + 1
+
+    def test_the_measure_is_linear_in_a_repeated_dot(self) -> None:
+        """It is **not** exactly linear, and the bound is the error, not equality.
+
+        Three readings, and the first replaces a false claim rather than
+        widening a true one.
+
+        * exact equality between ``advance(n dots)`` and ``n * advance(dot)``
+          **fails**, and the failures are counted rather than hidden — so no
+          later reader can inherit "n dots measure exactly n times one dot" as
+          a structural property of summing ``/Widths``;
+        * the **relative** error is bounded well below 1e-15 across every count
+          past the longest run a page prints, which is the quantity the two
+          loops' survival actually rests on;
+        * and one dot's advance is a whole thousandth of the em, so what is
+          measured above is accumulation in the product rather than kerning.
         """
         from nonogram.admin.book_vector_draw import advance_px
 
         face = self._face()
         size = type_px(TOC_ENTRY_PT, DPI)
         one = advance_px(".", size, face)
-        for count in (1, 2, 3, 17, 150):
-            assert advance_px("." * count, size, face) == count * one, count
-        assert advance_px("." * 400, size, face) == pytest.approx(
-            400 * one, rel=1e-11
+        counts = range(1, 601)
+        broken = [n for n in counts if advance_px("." * n, size, face) != n * one]
+        assert broken, (
+            "exact equality now holds everywhere, so this class's stated "
+            "reason is no longer the one its loops survive on"
         )
+        assert broken[0] <= 20, broken[:5]
+        worst = max(
+            abs(advance_px("." * n, size, face) - n * one) / (n * one) for n in counts
+        )
+        assert 0 < worst < 1e-15, worst
+        assert face.advance(".") * 1000 == int(face.advance(".") * 1000)
+
+    def test_neither_correction_fires_for_any_run_a_page_can_hold(self) -> None:
+        """The bound the two declared survivors really stand on (F-297-02).
+
+        ``leader_dots`` runs a division and then two corrections. Neither
+        correction can change the division's answer for any run a page can
+        produce, and that is asserted as exactly that: the returned count
+        **equals** ``int(run // dot)`` for every run swept, so a loop that
+        fired would have to change it and would red here.
+
+        Two sweeps over the **reachable** domain rather than over dot counts:
+        every integer run from zero to the widest trim's own usable width, and
+        a seeded fractional corpus over the same span (stdlib
+        ``random.Random`` — no ``hypothesis``, it is not in the dependency
+        baseline), with the case count asserted inside so the corpus cannot
+        silently shrink (G-7).
+        """
+        from nonogram.admin.book_vector_draw import advance_px
+
+        face = self._face()
+        size = type_px(TOC_ENTRY_PT, DPI)
+        one = advance_px(".", size, face)
+        ceiling = self._reachable_ceiling()
+        assert ceiling > 2000, ceiling
+
+        cases = 0
+        for run in range(0, ceiling):
+            dots = _book_toc_vector.leader_dots(float(run), size, face)
+            assert len(dots) == int(run // one), (run, len(dots))
+            cases += 1
+        choose = _Random(297)
+        for _ in range(20_000):
+            run = choose.uniform(0.0, float(ceiling))
+            dots = _book_toc_vector.leader_dots(run, size, face)
+            assert len(dots) == int(run // one), (run, len(dots))
+            cases += 1
+        assert cases >= 22_000, cases
+
+    def test_the_synthetic_input_that_does_fire_the_grow_loop(self) -> None:
+        """The control, and the reason the *exactness* reading was wrong.
+
+        Handed the exact ``n``-indexed sums — the inputs the old docstring's
+        mechanism was about — the grow loop *does* fire, on hundreds of counts.
+        So the loops are not dead because the measure is exact; they are dead
+        because a page cannot hand them an input of that shape. This cell is
+        what makes the two arguments distinguishable, which the five sampled
+        counts it replaces could not do.
+        """
+        from nonogram.admin.book_vector_draw import advance_px
+
+        face = self._face()
+        size = type_px(TOC_ENTRY_PT, DPI)
+        one = advance_px(".", size, face)
+        fired = []
+        for count in range(0, 2001):
+            run = advance_px("." * count, size, face)
+            if len(_book_toc_vector.leader_dots(run, size, face)) != int(run // one):
+                fired.append(count)
+        assert len(fired) > 500, len(fired)
+        # Every firing grows rather than trims: the exact sum of n dots is
+        # never *over* the run it is, so nothing is ever cut.
+        for count in fired:
+            run = advance_px("." * count, size, face)
+            assert len(_book_toc_vector.leader_dots(run, size, face)) > int(run // one)
 
     def test_the_division_alone_is_therefore_the_answer(self) -> None:
         from nonogram.admin.book_vector_draw import advance_px
@@ -2833,3 +2948,374 @@ class TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace:
         one = font.getlength(".")
         for count in (2, 3, 17, 150):
             assert font.getlength("." * count) == count * one, count
+
+
+class TestToc_TheRowClipHasTheBoundItsDocstringPromises:
+    """:func:`book_toc_vector.clipped_to`'s stated bound, as a test.
+
+    Review cycle 1's F-297-03, second half: the TOC writer's copy of the clip
+    loop is the one undeclared survivor of this card — deleting the whole
+    ellipsis loop passed every cell — while its docstring promises a bound
+    ("it cannot fire for any row the structural list builds on any trim
+    CON-018 stocks"). A stated bound with no cell proving it is the same family
+    as F-297-02, so the bound is asserted here and the loop is driven directly
+    so it is also covered at the unit level.
+
+    **The asymmetry with the answer writer's copy is deliberate and stays**:
+    that one is live (the 10 x 10 cm trim clips a caption today) and covered by
+    the cross-medium comparison; this one is dead in production and bounded.
+    Which is exactly why the two copies were not shared — a single routine
+    would have had to carry both stories.
+    """
+
+    #: Trims CON-018 stocks, narrowest first — the 10 x 10 cm square minimum
+    #: is the one that bounds this, since a narrower measure is what would make
+    #: a label clip.
+    TRIMS = ((10.0, 10.0), (13.97, 21.59), (15.24, 22.86), (21.59, 27.94))
+
+    @staticmethod
+    def _face():
+        from nonogram.admin.book_vector import interior_face_metrics
+
+        return interior_face_metrics()
+
+    def _book_on(self, trim: Tuple[float, float]) -> Book:
+        return Book(
+            book_id=f"card-297-clip-{trim[0]}x{trim[1]}",
+            metadata=BookMetadata(
+                title="Winter Pictures",
+                description="CARD-297's TOC clip bound.",
+                theme="generic",
+                target_audience="adults",
+                size="",
+                page_count=0,
+            ),
+            trim_width_cm=f"{trim[0]:.2f}",
+            trim_height_cm=f"{trim[1]:.2f}",
+            gutter_margin_cm=_book().gutter_margin_cm,
+            outside_margin_cm=_book().outside_margin_cm,
+        )
+
+    def test_no_structural_row_clips_on_any_trim_con_018_stocks(self) -> None:
+        """The bound. Every label fits its own measure, so the loop is inert.
+
+        Read off the **production builder's** rows rather than hand-made ones,
+        and against the measure the writer really gives each row — the usable
+        width less the page number and two gaps, which is the narrower of the
+        two measures ``toc_page_stream`` computes.
+        """
+        from nonogram.admin.book_vector_draw import advance_px
+
+        face = self._face()
+        cases = 0
+        for trim in self.TRIMS:
+            generator = BookPDFGenerator(self._book_on(trim))
+            frame = page_frame(generator.page_spec(7))
+            spec = _book_toc_vector.toc_type(generator.dpi)
+            size_px = spec.entry_size_px
+            measure = float(frame.right - frame.left)
+            rows = _structural_shape(
+                ("Easy", "Puzzles 1–8", 11),
+                ("Medium", "Puzzles 9–16", 29),
+                ("Hard", "Puzzles 17–24", 47),
+                solutions_page=65,
+            )
+            for row in rows:
+                room = measure
+                if row.page is not None:
+                    room -= advance_px(str(row.page), size_px, face)
+                    room -= 2 * spec.entry_gap_px
+                assert (
+                    _book_toc_vector.clipped_to(row.label, size_px, face, room)
+                    == row.label
+                ), (trim, row.label, room)
+                assert advance_px(row.label, size_px, face) <= room, (trim, row.label)
+                cases += 1
+        # The corpus cannot silently shrink (G-7): four trims times the rows a
+        # three-level structural list builds.
+        assert cases >= 32, cases
+
+    def test_the_loop_does_clip_a_label_that_does_not_fit(self) -> None:
+        """The drive, so the bound above is a bound and not an absence.
+
+        The loop is dead in production and alive here: a label wider than its
+        room comes back ellipsised and short enough to fit, and a label is never
+        clipped away entirely however little room there is.
+
+        **The expected string comes from an independent second implementation**
+        of the step rather than from the function under test: the candidates
+        the ``[:-2] + "…"`` rule can produce are generated here, and the answer
+        must be the **first** of them that fits. A step that took one character
+        more or fewer off therefore lands on a different candidate and reds —
+        which is the edge mutant that survived 596 cells in review cycle 1.
+        """
+        from nonogram.admin.book_vector_draw import advance_px
+
+        def candidates(text: str) -> List[str]:
+            """Every string the rule can produce, longest first."""
+            out = [text]
+            while len(out[-1]) > 1:
+                out.append(out[-1][:-2] + "…")
+            return out
+
+        face = self._face()
+        size_px = _book_toc_vector.toc_type(DPI).entry_size_px
+        label = "A section whose name runs the whole width of the page and more"
+        for room in (120.0, 300.0, 600.0, 1200.0):
+            clipped = _book_toc_vector.clipped_to(label, size_px, face, room)
+            assert clipped != label, room
+            assert clipped.endswith("…"), clipped
+            assert label.startswith(clipped[:-1]), clipped
+            assert advance_px(clipped, size_px, face) <= room, (room, clipped)
+            fitting = [
+                candidate
+                for candidate in candidates(label)
+                if advance_px(candidate, size_px, face) <= room
+            ]
+            assert clipped == fitting[0], (room, clipped, fitting[0])
+        # Nothing is clipped away entirely, however little room there is.
+        assert len(_book_toc_vector.clipped_to(label, size_px, face, 0.0)) == 1
+
+
+# --------------------------------------------------------------------------
+# F-297-07 — the new anchors' and the folio's *positions*, not just their
+# strings. AC-4 reads every TOC row's number, name and folio as VALUES against
+# the page plan, which is what it asks for; nothing read any of them as a
+# POSITION, so review cycle 1 could delete draw_folio's outer-corner choice
+# (`x = right - advance if right_hand else left` -> `x = left`, the folio at
+# the gutter on every right-hand page) and set_right_from_top's right
+# alignment (a page number running off into the trim margin) with 596 cells
+# still green. These cells read the ``Td`` operand.
+# --------------------------------------------------------------------------
+
+
+def _set_at(stream) -> List[Tuple[float, float, str]]:
+    """Every ``(x, y, text)`` a stream set, in points, from its own operators."""
+    pattern = _re.compile(
+        r"/\S+ " + _pdf_vector.NUMBER + r" Tf ("
+        + _pdf_vector.NUMBER + r") (" + _pdf_vector.NUMBER + r") Td \((.*?)\) Tj"
+    )
+    out: List[Tuple[float, float, str]] = []
+    for line in stream.operators:
+        found = pattern.search(line)
+        if found is not None:
+            out.append((float(found.group(1)), float(found.group(2)), found.group(3)))
+    return out
+
+
+class TestVectorAnchors_ThePositionsAndNotOnlyTheStrings:
+    """Review cycle 1's F-297-07: one control per decision these routines make.
+
+    Of ``draw_folio``'s four decisions — omit or not, which corner, the
+    right-hand clearance, the left-hand clearance — exactly one (omit or not)
+    had a control before this class. Each cell below deletes one decision by
+    construction rather than by mutation: it builds the case where the two
+    answers differ and asserts which one comes out, so a routine that stopped
+    making the decision reds.
+    """
+
+    FRAME = (100.0, 50.0, 700.0, 900.0)  # left, top, right, bottom
+
+    @staticmethod
+    def _face():
+        from nonogram.admin.book_vector import interior_face_metrics
+
+        return interior_face_metrics()
+
+    def _stream(self):
+        from nonogram.admin.book_vector import ContentStream
+
+        return ContentStream(width_px=800.0, height_px=1000.0, dpi=300)
+
+    def test_a_right_hand_folio_ends_at_the_fore_edge_and_a_left_hand_one_starts_at_it(
+        self,
+    ) -> None:
+        """Which corner, read off ``Td`` (FR-043: bottom-**outer**).
+
+        The mutant this closes is ``x = left`` on both parities, which prints
+        every right-hand folio at the gutter. The two parities are asserted
+        against each other as well as against their own figures, so a routine
+        that put both at the same x reds whatever that x is.
+        """
+        from nonogram.admin.book_vector_draw import advance_px, draw_folio
+
+        left, top, right, bottom = self.FRAME
+        face = self._face()
+        size_px = type_px(_FOLIO_PT, DPI)
+        width = advance_px("7", size_px, face)
+        placed = {}
+        for right_hand in (True, False):
+            stream = self._stream()
+            assert draw_folio(
+                stream, left, top, right, bottom, "7", size_px, face,
+                right_hand=right_hand,
+            )
+            ((x, _, text),) = _set_at(stream)
+            assert text == "7"
+            placed[right_hand] = x
+        assert placed[True] == pytest.approx(
+            stream.to_points(right - width), abs=0.002
+        ), placed
+        assert placed[False] == pytest.approx(stream.to_points(left), abs=0.002), placed
+        assert placed[True] != placed[False]
+
+    def test_the_right_hand_clearance_reads_the_content_s_right_edge(self) -> None:
+        """The third decision, and *which* operand it reads.
+
+        Both cases are built so that reading ``content_left`` instead of
+        ``content_right`` flips the answer — the mutant that survived 596
+        cells in review cycle 1.
+        """
+        from nonogram.admin.book_vector_draw import draw_folio
+
+        left, top, right, bottom = self.FRAME
+        face = self._face()
+        size_px = type_px(_FOLIO_PT, DPI)
+        # No vertical room, so the horizontal rule decides.
+        assert draw_folio(
+            self._stream(), left, top, right, bottom, "7", size_px, face,
+            right_hand=True, content_bottom=bottom,
+            content_right=left, content_left=right,
+        ), "content stopping at the gutter leaves the fore-edge corner clear"
+        assert not draw_folio(
+            self._stream(), left, top, right, bottom, "7", size_px, face,
+            right_hand=True, content_bottom=bottom,
+            content_right=right, content_left=left,
+        ), "content reaching the fore edge must take the folio with it"
+
+    def test_the_left_hand_clearance_is_a_decision_too(self) -> None:
+        """The fourth decision — the arm review cycle 1 replaced with ``pass``.
+
+        A left-hand page's folio sits at the gutter-side corner, so what has to
+        be clear is the content's **left** edge. Replacing this arm with an
+        unconditional "clear" leaves the second case printing a folio into a
+        row's glyphs, and nothing in the tree noticed.
+        """
+        from nonogram.admin.book_vector_draw import draw_folio
+
+        left, top, right, bottom = self.FRAME
+        face = self._face()
+        size_px = type_px(_FOLIO_PT, DPI)
+        assert draw_folio(
+            self._stream(), left, top, right, bottom, "7", size_px, face,
+            right_hand=False, content_bottom=bottom,
+            content_left=right, content_right=right,
+        ), "content starting past the folio leaves its corner clear"
+        assert not draw_folio(
+            self._stream(), left, top, right, bottom, "7", size_px, face,
+            right_hand=False, content_bottom=bottom,
+            content_left=left, content_right=right,
+        ), "content reaching the gutter edge must take the folio with it"
+
+    def test_a_caller_with_no_horizontal_figure_keeps_the_conservative_rule(
+        self,
+    ) -> None:
+        """The default both arms share: no figure, no exemption.
+
+        ``content_right``/``content_left`` default to ``None``, and the
+        docstring says a caller with no horizontal figure keeps the more
+        conservative rule. Asserted on both parities, so neither arm can be
+        the one that quietly admits a missing figure.
+        """
+        from nonogram.admin.book_vector_draw import draw_folio
+
+        left, top, right, bottom = self.FRAME
+        face = self._face()
+        size_px = type_px(_FOLIO_PT, DPI)
+        for right_hand in (True, False):
+            assert not draw_folio(
+                self._stream(), left, top, right, bottom, "7", size_px, face,
+                right_hand=right_hand, content_bottom=bottom,
+            ), right_hand
+
+    def test_the_vertical_room_check_is_what_opens_the_horizontal_one(self) -> None:
+        """The first decision, kept honest from the other side.
+
+        With room below the content, no horizontal figure is consulted at all —
+        so the clearance arms cannot be what prints a folio, and the omission
+        above is the room check rather than a missing default.
+        """
+        from nonogram.admin.book_vector_draw import draw_folio, line_height_px
+
+        left, top, right, bottom = self.FRAME
+        face = self._face()
+        size_px = type_px(_FOLIO_PT, DPI)
+        room = line_height_px(size_px, face)
+        assert room > 0
+        assert draw_folio(
+            self._stream(), left, top, right, bottom, "7", size_px, face,
+            right_hand=True, content_bottom=bottom - room - 1,
+            content_right=right, content_left=left,
+        )
+
+    def test_a_row_s_page_number_ends_exactly_at_the_measure_s_far_edge(self) -> None:
+        """``set_right_from_top``'s right alignment, read off ``Td``.
+
+        The mutant this closes dropped the alignment and set the number
+        left-aligned *at* ``right``, i.e. running into the trim margin. The
+        assertion is on the string's own far edge — ``x + advance`` — so it
+        fails whether the alignment is dropped or merely wrong.
+        """
+        from nonogram.admin.book_vector_draw import advance_px, set_right_from_top
+
+        face = self._face()
+        size_px = type_px(TOC_ENTRY_PT, DPI)
+        stream = self._stream()
+        set_right_from_top(stream, "123", 700.0, 50.0, size_px, face)
+        ((x, _, text),) = _set_at(stream)
+        assert text == "123"
+        far = x + stream.to_points(advance_px("123", size_px, face))
+        assert far == pytest.approx(stream.to_points(700.0), abs=0.002), (x, far)
+        assert x < stream.to_points(700.0)
+
+    def test_the_default_anchor_sets_from_the_left_edge_and_the_ascender(self) -> None:
+        """``set_from_top``'s two halves, which nothing read as positions.
+
+        Pillow's ``"la"``: the left edge is the ``x`` given, and the baseline is
+        the ascender *below* the ``y`` given. Both asserted against the face's
+        own figures, which is what makes the conversion checkable rather than
+        plausible.
+        """
+        from nonogram.admin.book_vector_draw import ascent_px, set_from_top
+
+        face = self._face()
+        size_px = type_px(TOC_ENTRY_PT, DPI)
+        stream = self._stream()
+        set_from_top(stream, "Easy", 120.0, 240.0, size_px, face)
+        ((x, y, text),) = _set_at(stream)
+        assert text == "Easy"
+        assert x == pytest.approx(stream.to_points(120.0), abs=0.002)
+        baseline = 240.0 + ascent_px(size_px, face)
+        assert y == pytest.approx(
+            stream.to_points(stream.height_px - baseline), abs=0.002
+        ), (y, baseline)
+        assert ascent_px(size_px, face) > 0
+
+    def test_the_face_measurements_are_the_faces_own_and_not_estimates(self) -> None:
+        """``advance_px``, ``ascent_px``, ``descent_px``, ``line_height_px``.
+
+        Four new face measurements arrived in this card's ``+214`` with no cell
+        of their own reading the numbers back. Each is asserted against the
+        ``/Widths`` and ``FontDescriptor`` figures it is a scaling of — a
+        second expression of the same quantity, so a dropped divisor or a lost
+        sign reds — and the descender's flip is asserted as a *sign* change,
+        which is the one thing that conversion exists to do.
+        """
+        from nonogram.admin.book_vector_draw import (
+            advance_px,
+            ascent_px,
+            descent_px,
+            line_height_px,
+        )
+
+        face = self._face()
+        size = 42.0
+        assert advance_px("Easy", size, face) == face.advance("Easy") * size
+        assert advance_px("", size, face) == 0.0
+        assert ascent_px(size, face) == face.ascent / 1000.0 * size
+        assert face.descent < 0, face.descent
+        assert descent_px(size, face) == -face.descent / 1000.0 * size
+        assert descent_px(size, face) > 0
+        assert line_height_px(size, face) == pytest.approx(
+            ascent_px(size, face) + descent_px(size, face)
+        )
