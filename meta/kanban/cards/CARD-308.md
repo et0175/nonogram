@@ -1,6 +1,6 @@
 # CARD-308: The card sync protocol erodes dead-ref detection — a review report that quotes a dead ref silences the warning about it, and the board has no record of which binary is the validator
 
-**Status:** in progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -16,12 +16,12 @@
 **Created wave:** 65
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** meta/kanban/config.yml, meta/kanban/README.md, tests/** (one guard), meta/architecture/decisions/adr/**
-**Review score:** —
+**Touches:** meta/kanban/config.yml, tests/test_check_ref_resolution.py, meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- NARROWED 2026-10-30 at the merge, against the delivered diff rather than the plan. The retired declaration was `meta/kanban/config.yml, meta/kanban/README.md, tests/** (one guard), meta/architecture/decisions/adr/**`, and those two globs made this card a UNIVERSAL BLOCKER on paper: measured glob-aware, it overlapped CARD-304 at 1.00, CARD-306 at 0.75, CARD-220 at 0.75 and CARD-309 at 0.75 -- so nothing on the board could legitimately run beside it, while its ACTUAL authored footprint was one test module and three ADRs. `meta/kanban/README.md` was never touched. The orchestrator dispatched CARD-304 into that 1.00 overlap because it checked the card's dependencies and subject and never consulted the conflict graph the declaration feeds. Narrowed here so the record is what shipped. -->
+**Review score:** 8.0 (cycle 3 of 3, CERTIFIED **at threshold**; the reviewer recorded that under the orchestrator's own gating rule it would have been 7.5, and left the call to the owner — who took the fix)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-30
+**Actual:** 1.5d against a 0.5d estimate (**3.0x**) — 3 review cycles, 4 fix rounds, 2 merge gates
+**Merge commit:** 4545911a
 **Blocked by:** —
 
 ## Why this card exists — two findings with one root: nothing on this board records what the instrument is
@@ -1041,3 +1041,67 @@ lines in `dispatcher.state`. The round ran the **trie over those added lines** a
 **0 declared refs**, so a re-merge of `main` before the re-gate moves no class through
 that path. That is the right way to answer "will the base move my pins" — measured, not
 assumed.
+
+
+---
+
+## Closed 2026-10-30 — merged `4545911a`, and the estimate missed by 3x
+
+**Re-gate GREEN at `eb9e7c9c`: 9766 passed, 27 skipped, 1 xfailed, 0 failed, 0 errors**
+in 1345.13 s (22:25). **[AC/EC check] All criteria/constraints ✓** — the card's module run
+by node id on the merged tree: **23 passed, 0 skipped**. AC-1 was met off-branch at
+`config.yml:37-45`.
+
+**The gate's coverage of the merged tree is proved, not argued**: `src/` and `tests/` tree
+hashes in the merge commit are byte-identical to the gated commit (`9522b60e9197`,
+`eea38e5d0ae1`).
+
+**All 27 skips attributed, derived rather than guessed** — the gate ran without `-rs`, so
+the reasons were not in its log, and they were recovered from the marker population
+instead: **26 `db_required` nodes across six modules** (`test_admin_binding` 9,
+`test_db_e2e_smoke` 6, `test_puzzle_edit_routes` 4, `test_db_isolation` 3,
+`test_card_156_db_fixture` 2, `test_db_engine_lifecycle` 2) **plus one `setrlimit`** the
+kernel refuses = **27**. That also closes the gap fix round 4 correctly refused to guess
+at: the impact scope holds only two of those six DB modules (9 + 2 = **11**), and the
+other four plus the setrlimit are the missing **16**. **11 + 16 = 27.**
+
+### The estimate, and the retrospective's prediction landing on the next card
+
+**0.5d estimated, ~1.5d actual — 3.0x.** The waves 63–65 retrospective, run hours before
+this card closed, found the estimate miss concentrated **in the 0.5d bucket specifically**:
+every card estimated at 0.5d came in at 1.4–1.7d, every 1d card at 1.0–2.0d, and it
+recommended re-pricing that bucket rather than scaling the skill. **This card is the next
+0.5d card to close and it came in at 3.0x.** The ×1.87 factor applied to the backlog would
+not have caught it; the bucket finding would.
+
+### Gate 1 was red, and the red was a repair
+
+Five failures, all in this card's own module, all one event: **CARD-285's merge defined
+three cells that had been resolved only by a synced review report and defined nowhere.**
+The instrument detected the movement, **refused to auto-update**, named every affected ref
+with its declaration sites and `defined at (nowhere)`, and demanded re-derivation against
+a `def`/`class` first. Fix round 4 then diffed **class membership rather than counts** and
+showed the symmetric difference was **exactly those three refs** in each of the four moving
+classes and **empty in every other** — the step that separates a repair from a repair plus
+a silent regression.
+
+**The card's thesis was demonstrated on the card, four times**: by the orchestrator's own
+retracted "sole resolver" claim, by its retracted "102 warnings identical to main"
+comparison, by its withdrawn partition-arithmetic "closure", and finally by this gate.
+
+### What the orchestrator got wrong on this card, collected
+
+- A **mid-cycle "correction"** that was itself wrong (bare-name grep where the resolver
+  takes a node id) — caught by cycle 2's reviewer measuring independently.
+- **"0 errors, 102 warnings, identical to main"** — the figure right, the comparison
+  unsound for this card's own reason. Retracted.
+- **The partition arithmetic called a "closure, verified to close"** — measured a
+  tautology over 2000 populations. Withdrawn.
+- A **`grep -c '\[WARN'` trap invented and propagated into three briefs** — two rounds
+  measured it returning 100, exit 0. The failure was the `^` anchor in the orchestrator's
+  own pattern. Retired.
+- **"Expect 11 skips"** quoted as a full-suite figure when it is the impact-scope subset —
+  two populations conflated, which is R4's domain clause turned on the brief. Now
+  reconciled above.
+- **CARD-304 dispatched into a 1.00 declared overlap** with this card, because the
+  conflict graph was never consulted. The declaration is narrowed above.
