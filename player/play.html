@@ -13,13 +13,23 @@
   see play.js's isClueSolved. There is therefore no error count and no hint
   button here, unlike the admin player: both need the answer (CARD-283 G-4).
 
-  There is no analytics script tag either, and its absence is deliberate
-  rather than forgotten. ADR-0041/R6 puts one on the player pages, but
-  AC-385's control asserts that playing issues no network request beyond this
-  page's own static assets; a third-party counting beacon is such a request.
-  The tag belongs with the pages and the test R6's own check ref names
-  (tests/test_public_player_pages.py, CARD-285), which is where the two rules
-  have to be reconciled.
+  There is no analytics script tag in THIS FILE, and CARD-285 reconciled the
+  two rules by deciding where the tag lives rather than whether it exists.
+  ADR-0041/R6 puts one on the player pages; AC-385's control asserts that
+  playing issues no network request beyond this page's own static assets, and
+  a third-party counting beacon is such a request. The reconciliation: the
+  snippet is INJECTED at assembly time, once per published page, from the one
+  definition in player/assemble.py (ANALYTICS_SNIPPET), and only when the
+  deploy command supplies the endpoints. So the counted site is the one
+  docs/deploy/player.md's command produces, an uncounted tree is what a local
+  run and every fixture get, and the two endpoints — owner-managed values —
+  live in that page and in no repository source. Which page is counted is
+  derived from the published table, not written here, so this comment cannot
+  go stale against it.
+
+  The endpoints are not named in this file on purpose: docs/deploy/player.md
+  is the allow-list AC-392 scans the assembled site against, and a URL here
+  would be a second place that holds one.
 
   The header says "Puzzle W x H" and the tier — never the puzzle's name. Two
   reasons, and the first is not about leaks: the picture's name IS the answer,

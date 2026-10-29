@@ -65,9 +65,13 @@ today's constants (``assemble.py``'s ``EXEMPT_LISTING_FIELDS``,
 ``book_title_residual_bits``).
 
 AC-390, AC-391 and AC-392 name node ids in this module and belong to
-**CARD-285** (hosting and counting). They are not written here, and
-``test_the_registrys_refs_for_this_file_resolve_or_are_card_285s`` holds that
-split in both directions so the three cannot be forgotten or quietly claimed.
+**CARD-285** (hosting and counting). **They are written here as of CARD-285,
+and until then none of the three had a definition at all** — AC-390's and
+AC-391's refs resolved to nothing, and AC-392's resolved only through review
+YAMLs, which is a false alive rather than an honest gap. What they measure is
+in "Hosting and counting" below;
+``test_the_registrys_refs_for_this_file_resolve_or_are_card_285s`` holds the
+registry to the definitions in both directions.
 
 ==============================
 Tests, by node id (FR-045)
@@ -80,6 +84,10 @@ each ref across two lines in its own body (CARD-283's F-1):
 * AC-387 — ``tests/test_public_player_pages.py::test_book_landing_lists_and_links``
 * AC-388 — ``tests/test_public_player_pages.py::test_unknown_slug_lands_softly``
 * AC-389 — ``tests/test_public_player_pages.py::test_library_filters_the_index``
+* AC-390 — ``tests/test_public_player_pages.py::test_assembled_site_is_self_contained``
+* AC-391 — ``tests/test_public_player_pages.py::test_pages_work_with_analytics_blocked``
+* AC-392 — ``tests/test_public_player_pages.py::test_no_homegrown_tracking``
+* ADR-0041/R6 — the same node as AC-392, which is the rule's own ``check:``
 * ADR-0041/R2's 2026-10-28 exemption —
   ``tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
 
@@ -103,7 +111,11 @@ import ast
 import json
 import math
 import re
+import importlib.util
+import shutil
 import socketserver
+import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -120,6 +132,8 @@ from tests.test_public_player import (  # noqa: F401 — fixtures used by name
     _bundle_payload,
     _leaky_title,
     _public_key,
+    _state,
+    _tap,
     assembler,
     browser_page,
     browser_type,
@@ -1860,12 +1874,24 @@ def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
     resolves a check ref by ``git grep -lw`` of the whole ``path::name``
     string, so a ref whose string appears nowhere in tracked code reads as
     verified at planning time and is not. Six refs name this file. Three are
-    AC-387..389 and are defined here; three (AC-390..392) are CARD-285's and
-    are deliberately absent.
+    AC-387..389, CARD-284's; three are AC-390..392, CARD-285's.
+
+    **All six are defined here now, and until CARD-285 three of them were
+    not.** This test used to assert ``refs - defined == card_285`` — the three
+    were deliberately absent, and the assertion held the absence so it could
+    not be forgotten. CARD-285 wrote them, so the same assertion is now an
+    equality against the empty set, and the half that used to carry the
+    obligation (``refs - defined``) carries nothing. The half with teeth is
+    the other one: every ref the registry names for this file is defined
+    here, and every one of the six is spelled in the module docstring's table
+    as the whole ``path::name`` string — the only form the validator resolves.
+    AC-392 is the reason the second half matters more than it looks: before
+    this card its node id read ALIVE through three review YAMLs and nothing
+    else, which is a false alive rather than an honest gap.
 
     Both directions, so neither half can rot: a ref this file does not define
-    must be one of the three named below, and a ref that IS defined here must
-    be in the registry.
+    is a failure naming it, and a ref that IS defined here must be in the
+    registry.
     """
     registry = (REPO_ROOT / "meta/architecture/requirements.yml").read_text(encoding="utf-8")
     here = Path(__file__).name
@@ -1878,7 +1904,7 @@ def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
         for node in ast.parse(source).body
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     }
-    mine = {
+    card_284 = {
         "test_book_landing_lists_and_links",
         "test_unknown_slug_lands_softly",
         "test_library_filters_the_index",
@@ -1888,12 +1914,896 @@ def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
         "test_pages_work_with_analytics_blocked",
         "test_no_homegrown_tracking",
     }
-    assert mine <= defined, sorted(mine - defined)
-    assert refs - defined == card_285, sorted(refs - defined)
-    assert refs & defined == mine, sorted(refs & defined)
+    assert card_284 <= defined, sorted(card_284 - defined)
+    assert card_285 <= defined, sorted(card_285 - defined)
+    assert refs - defined == set(), sorted(refs - defined)
+    assert refs & defined == card_284 | card_285, sorted(refs & defined)
 
-    # And the docstring's table carries each of mine as the whole path::name
-    # string on one line, which is the only form the validator resolves.
+    # And the docstring's table carries each of the six as the whole
+    # path::name string on one line, which is the only form the validator
+    # resolves. The control: a name nothing defines is not in the table
+    # either, so "the table is complete" is not satisfied by a table that
+    # simply names everything.
     table = __doc__ or ""
-    for name in sorted(mine):
+    for name in sorted(card_284 | card_285):
         assert f"tests/{here}::{name}" in table, name
+    assert f"tests/{here}::test_no_such_node" not in table
+
+
+# ==========================================================================
+# Hosting and counting (CARD-285, FR-045 AC-390..392, ADR-0041/R6)
+# ==========================================================================
+
+
+def _load_driver():
+    """``scripts/assemble_player_site.py``, loaded by path.
+
+    ``scripts/`` is not a package and is not on ``sys.path``; the suite
+    already loads ``scripts/impact_set.py`` this way
+    (``tests/test_impact_set.py``). Registered under a module name of its own
+    rather than the assembler's: the driver loads the assembler too, and a
+    shared ``sys.modules`` name would let the two replace each other
+    depending on import order.
+    """
+    path = REPO_ROOT / "scripts" / "assemble_player_site.py"
+    spec = importlib.util.spec_from_file_location("player_site_driver", path)
+    assert spec is not None and spec.loader is not None, path
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+driver = _load_driver()
+
+#: The analytics allow-list, parsed out of ``docs/deploy/player.md`` by the
+#: driver's own parser rather than by a second one written here. That is
+#: ADR-0039/R2 for this guard's one derived half: the deploy page is the
+#: authority AC-392 names, and the script that writes the endpoints into the
+#: site and the scan that holds the site to them have to be reading the same
+#: bytes of the same file, or the scan measures its own copy.
+ALLOW_RUNTIME, ALLOW_STATIC = driver.allow_list(REPO_ROOT)
+
+#: Where a reference may appear in a served file. Every pattern reads a
+#: QUOTED value, and that is the limit which makes the scan precise instead
+#: of noisy: a bare ``//`` is a JavaScript comment far more often than a
+#: protocol-relative URL, and any host pattern loose enough to read
+#: ``//gc.zgo.at/count.js`` also reads ``// assemble.py's`` out of a comment
+#: (``.py`` is a two-letter TLD as far as a regex is concerned). So a
+#: protocol-relative target is read only where a quote says the value is one.
+#: An absolute ``https://`` target is read anywhere, quoted or not, which is
+#: what makes a URL hidden in a comment a finding rather than a blind spot.
+_ATTR_TARGET = re.compile(r"""(?:src|href)\s*=\s*(["'`])([^"'`\n]*)\1""")
+_IMPORT_TARGET = re.compile(r"""\bfrom\s+(["'])([^"'\n]*)\1""")
+_CSS_TARGET = re.compile(r"""url\(\s*(["']?)([^"')\n]*)\1\s*\)""")
+_ABSOLUTE_TARGET = re.compile(r"""\bhttps?://[^\s"'`)<>\\]+""")
+_URL_LITERAL = re.compile(
+    r"""(["'`])((?:/|https?://|//[A-Za-z0-9.-]+\.[A-Za-z]{2,})[^"'`\n]*)\1"""
+)
+
+#: Comment forms, blanked before the quoted shapes are read. Declared with
+#: the two false positives that put them here, both MEASURED on the real
+#: assembled tree rather than imagined:
+#:
+#: * ``player.css``'s prose ``reads differently from`` + newline +
+#:   ``"not yet decided"`` satisfied :data:`_IMPORT_TARGET` exactly — the
+#:   word ``from``, whitespace across a newline, a quoted value — and
+#:   reported an English phrase as a module specifier. Anchoring that
+#:   pattern to one line is not the fix: ``play.js``'s only real import is
+#:   spread over six lines, so the anchor would have lost it;
+#: * ``solver_state.js``'s line 6 documents the admin panel's own path as
+#:   ``await import('/static/solver_state.js')`` inside a ``//`` comment, and
+#:   a rooted path that exists in the panel but not in this tree is exactly
+#:   what "resolves to nothing" is for.
+#:
+#: :data:`_ABSOLUTE_TARGET` is deliberately run on the UNSTRIPPED text, so a
+#: full URL in a comment is still reported. That is the stricter reading and
+#: the real tree is clean of it: a second analytics endpoint parked in a
+#: comment is something a reviewer should see, and an endpoint is never prose.
+_COMMENTS = (
+    re.compile(r"/\*.*?\*/", re.DOTALL),
+    re.compile(r"<!--.*?-->", re.DOTALL),
+    re.compile(r"(?<!:)//[^\n]*"),
+)
+
+
+def _without_comments(text: str) -> str:
+    """``text`` with the :data:`_COMMENTS` forms blanked, newlines preserved.
+
+    A heuristic, declared as one: the ``//`` form keeps ``://`` out with a
+    lookbehind, so an absolute URL inside a string survives, but a string
+    whose content held a bare ``//`` would be truncated. Nothing in the
+    served tree has one, and the cost of a false strip is a missed reference
+    inside a string — which the unstripped absolute pass still reads.
+    """
+    for pattern in _COMMENTS:
+        text = pattern.sub(lambda match: "\n" * match.group(0).count("\n"), text)
+    return text
+
+
+#: A call whose first argument is a request target. Each occurrence must have
+#: a target this scanner can READ — a literal, or an identifier every
+#: assignment of which in the same file is a literal (:func:`_assignments`).
+#: One hop and one file is the whole of the resolution, deliberately: a
+#: target the scanner cannot read is a FAILURE, so the resolution only has to
+#: be sound, not complete, and ``test_no_homegrown_tracking``'s third control
+#: is a ``fetch`` whose target it cannot read.
+URL_CALLS = ("fetch", "importScripts", "sendBeacon", "WebSocket", "EventSource")
+
+#: Shapes that mean the site handles — or reaches for — a visitor's IP or a
+#: per-visitor identifier (ADR-0041/R6, G-3).
+#:
+#: **This set is DECLARED, not derived, and that is this guard's one honest
+#: gap against ADR-0039/R2.** It is stated rather than papered over, with the
+#: reason and with what carries the rule instead:
+#:
+#: * there is no authority a runtime can enumerate for "names that denote a
+#:   visitor IP". It is the same class of problem CARD-282 measured on
+#:   ``player/assemble.py``'s free-text channel — the set of spellings is not
+#:   enumerable, and that card's denylist missed 7 of 7 planted encodings —
+#:   so a lexical set here can only ever be a trip-wire;
+#: * what carries R6 is therefore the OTHER half of this scan, which IS
+#:   derived: the site's external references are a closed set held to the
+#:   deploy page's allow-list, so there is no egress a visitor identifier
+#:   could leave by, and the identifier shapes below are the trip-wire that
+#:   fires when somebody adds code. The browser-side closure is held
+#:   separately and already was before this card
+#:   (``tests/test_public_player.py::test_no_write_request_for_any_interaction``,
+#:   every request held to method, origin AND path).
+#:
+#: Every entry is COMPOUND on purpose. A bare ``fingerprint`` was the first
+#: draft and it reds on the real tree: ``solver_state.js`` has
+#: ``gridFingerprint`` and ``play.js``'s comment says a save "fingerprints
+#: payload.solution" — a GRID fingerprint, which is the game's integrity
+#: check and the opposite of a visitor's. Measured with
+#: ``grep -rioE 'fingerprint' <site>``: 7 hits, all of them grids.
+IDENTIFIER_SHAPES = (
+    r"remote[_-]?addr",
+    r"x[_-]forwarded[_-]for",
+    r"\bclient[_-]?ip\b",
+    r"\bvisitor[_-]?ip\b",
+    r"\buser[_-]?ip\b",
+    r"\bip[_-]?addr(?:ess)?\b",
+    r"\bipify\b",
+    r"\bipinfo\b",
+    r"\bipapi\b",
+    r"whatismyip",
+    r"\bgeoip\b",
+    r"(?:visitor|browser|device|canvas|audio|user)[_-]?fingerprint",
+    r"\bvisitor[_-]?id\b",
+    r"\bdevice[_-]?id\b",
+    r"document\s*\.\s*cookie",
+    r"\bindexedDB\b",
+    r"\bsessionStorage\b",
+    r"\bsendBeacon\b",
+    r"\bRTCPeerConnection\b",
+    r"\bXMLHttpRequest\b",
+    r"navigator\s*\.\s*userAgent",
+    r"crypto\s*\.\s*randomUUID",
+)
+
+
+def _assignments(text: str, name: str) -> tuple[list[str], int]:
+    """``(literal values assigned to name, how many assignments there are)``.
+
+    Used for the one hop :data:`URL_CALLS` resolves. The count is what makes
+    it sound: a target is read only when EVERY assignment is a literal, so an
+    identifier set from anything the scanner cannot read reports as
+    unclassifiable rather than as whichever literal it also happened to get.
+    ``=(?![=>])`` keeps ``==``, ``===`` and ``=>`` out of the count.
+    """
+    assign = rf"\b{re.escape(name)}\s*=(?![=>])"
+    total = len(re.findall(assign, text))
+    literals = [
+        match.group(2)
+        for match in re.finditer(rf"""{assign}\s*(["'`])([^"'`\n]*)\1""", text)
+    ]
+    return literals, total
+
+
+def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
+    """AC-392's scan of an assembled site. Three buckets, all of them failures.
+
+    ``foreign`` is an external reference ``allow`` does not name.
+    ``identifiers`` is an :data:`IDENTIFIER_SHAPES` hit. ``unclassifiable``
+    is the bucket that makes the other two mean anything: a reference shape
+    this scanner found and could not place — a relative path, an empty
+    target, a rooted path that resolves to nothing in the tree and to no
+    rewrite, or a network call whose target it cannot read. **A shape the
+    scanner cannot classify is a FAILURE, never a silent pass**, which is the
+    one property a denylist-shaped guard cannot have and this one is built
+    around.
+
+    ``allow`` is passed in rather than read here so that a control can REMOVE
+    a member and watch the scan catch what the member was permitting
+    (ADR-0039/R1): caught without it, missed with it.
+
+    The rewrites come from the tree's own ``vercel.json`` (ADR-0039/R2), so
+    ``/play/<key>`` resolves for the same reason the deployed host resolves
+    it and not because this function knows the route.
+    """
+    permitted = tuple(sorted(allow.values()))
+    files = {
+        path.relative_to(site_dir).as_posix()
+        for path in site_dir.rglob("*")
+        if path.is_file()
+    }
+    assert files, f"nothing to scan under {site_dir}"
+    dirs = {
+        path.relative_to(site_dir).as_posix()
+        for path in site_dir.rglob("*")
+        if path.is_dir()
+    }
+    routes = rewrites(site_dir)
+
+    found: dict[str, list[str]] = {"foreign": [], "identifiers": [], "unclassifiable": []}
+
+    def classify(where: str, raw: str) -> None:
+        target = raw.strip()
+        if not target:
+            found["unclassifiable"].append(f"{where}: an empty reference")
+            return
+        if target.startswith("#"):
+            return
+        if target.startswith(("http://", "https://", "//")):
+            absolute = target if not target.startswith("//") else f"https:{target}"
+            if not any(absolute.startswith(url) for url in permitted):
+                found["foreign"].append(f"{where}: {target}")
+            return
+        if not target.startswith("/"):
+            found["unclassifiable"].append(
+                f"{where}: {target!r} is neither absolute nor rooted at the site"
+            )
+            return
+        # A template hole is the one thing a static reference may leave open:
+        # /puzzle/${key}.json is a real reference to a directory that has to
+        # exist, and `*` is what is left of the hole.
+        path = re.sub(r"\$\{[^}]*\}", "*", target.split("?", 1)[0].split("#", 1)[0])
+        inside = path.lstrip("/")
+        if inside == "" or inside in files or inside in dirs:
+            return
+        if any(pattern.match(path) for pattern, _ in routes):
+            return
+        if "*" in inside:
+            prefix = inside.split("*", 1)[0].rsplit("/", 1)[0]
+            if prefix in dirs:
+                return
+        found["unclassifiable"].append(
+            f"{where}: {target!r} resolves to no file, directory or rewrite"
+        )
+
+    for relative in sorted(files):
+        raw = (site_dir / relative).read_text(encoding="utf-8", errors="replace")
+        text = _without_comments(raw)
+        for shape in IDENTIFIER_SHAPES:
+            for hit in re.finditer(shape, text, re.IGNORECASE):
+                found["identifiers"].append(f"{relative}: {hit.group(0)!r} ({shape})")
+        for match in _ABSOLUTE_TARGET.finditer(raw):
+            classify(relative, match.group(0))
+        for pattern in (_ATTR_TARGET, _IMPORT_TARGET, _CSS_TARGET, _URL_LITERAL):
+            for match in pattern.finditer(text):
+                classify(relative, match.group(2))
+        for name in URL_CALLS:
+            for match in re.finditer(rf"\b{name}\s*\(\s*", text):
+                rest = text[match.end() :]
+                if rest[:1] in ('"', "'", "`"):
+                    end = rest.find(rest[0], 1)
+                    if end == -1:
+                        found["unclassifiable"].append(
+                            f"{relative}: {name}( opens a literal that does not close"
+                        )
+                    else:
+                        classify(f"{relative} [{name}]", rest[1:end])
+                    continue
+                word = re.match(r"([A-Za-z_$][A-Za-z0-9_$]*)\s*[,)]", rest)
+                if word is None:
+                    found["unclassifiable"].append(
+                        f"{relative}: {name}( has a target this scan cannot read: "
+                        f"{rest[:40]!r}"
+                    )
+                    continue
+                literals, total = _assignments(text, word.group(1))
+                if not literals or len(literals) != total:
+                    found["unclassifiable"].append(
+                        f"{relative}: {name}({word.group(1)}) — "
+                        f"{len(literals)} of {total} assignments are literals"
+                    )
+                    continue
+                for value in literals:
+                    classify(f"{relative} [{name} via {word.group(1)}]", value)
+
+    # Deduplicated: one reference is read by more than one pattern on
+    # purpose — a counting tag is both an absolute URL in the raw text and a
+    # quoted `src=` value — and a bucket whose length depended on how many
+    # patterns happened to see a hit would be a count of the scanner rather
+    # than of the site. Sorted so a verdict is stable.
+    return {bucket: sorted(set(hits)) for bucket, hits in found.items()}
+
+
+@pytest.fixture
+def counted_site(pages_bundle, tmp_path):
+    """The site **as deployed**: assembled with the counting snippet.
+
+    The endpoints come from the deploy page through the driver's parser, so
+    this fixture serves the tree ``docs/deploy/player.md``'s own command
+    produces and not a tree written for a test. That matters for AC-391: a
+    page whose tag was deleted, or whose endpoint was invented here, is a
+    different page from the one that ships.
+    """
+    root, keys, slug = pages_bundle
+    report = assembler.assemble(
+        root,
+        tmp_path / "counted",
+        analytics=(ALLOW_RUNTIME["count"], ALLOW_RUNTIME["script"]),
+    )
+    assert report.puzzle_count == len(keys), report
+    assert report.counted, "nothing was counted, so this fixture is the uncounted tree"
+    return report, keys, slug
+
+
+def _serve(site_dir: Path):
+    """CARD-283's loopback host over ``site_dir``. Yields ``(url, stop)``.
+
+    The same ``_Host`` and the same ``rewrites`` the two existing fixtures
+    use — imported, not rewritten, for the reason the module docstring gives.
+    Factored out only because this card serves a second tree beside
+    ``pages_host``'s, and ``pages_host`` is CARD-284's and is left alone.
+    """
+
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    handler = type("Handler", (_Host,), {})
+    server = Server(("127.0.0.1", 0), lambda *a: handler(*a, directory=str(site_dir)))
+    server.rewrites = rewrites(site_dir)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+
+    def stop():
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+    return f"http://127.0.0.1:{server.server_address[1]}", stop
+
+
+@pytest.fixture
+def counted_host(counted_site):
+    """The counted site on 127.0.0.1, routed by the shipped ``vercel.json``."""
+    report, keys, slug = counted_site
+    url, stop = _serve(report.site_dir)
+    try:
+        yield url, report, keys, slug
+    finally:
+        stop()
+
+
+def _open_play(page, url: str, key: str) -> None:
+    """``/play/<key>`` on a tree this card assembled, bounded like the rest.
+
+    ``tests/test_public_player.py``'s ``_open`` is the same two calls with
+    Playwright's 30 s default on both, and this module's own
+    :data:`PAGES_SETTLE_MS` exists because that default cost one measured
+    62.63 s run. Same constant here, for the same reason, and
+    ``test_both_waits_in_open_pages_carry_the_explicit_timeout`` is the
+    precedent for holding it to the shape.
+    """
+    page.goto(f"{url}/play/{key}", timeout=PAGES_SETTLE_MS)
+    page.wait_for_function("() => window.publicPlayer !== undefined", timeout=PAGES_SETTLE_MS)
+
+
+@pytest.mark.browser
+def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) -> None:
+    """AC-390 — the helper's output directory IS the site, and nothing else is.
+
+    Four statements, and the order matters because each one is what lets the
+    next be read as being about the deployed artefact:
+
+    #. the ``scripts/`` helper runs end to end as a subprocess and exits 0
+       (a subprocess rather than an in-process call on purpose: the helper
+       loads the assembler into ``sys.modules``, and this module already
+       holds one there under ``tests/test_public_player.py``'s name);
+    #. its tree is **byte-identical** to ``assembler.assemble``'s for the
+       same bundle and the same endpoints. That is what makes the helper a
+       driver rather than a second assembler, and it is the equality the card
+       asks for in place of "do not fork ``assemble.py``" as a promise:
+       ``COPIED_FROM_ADMIN``'s byte-identical copies cannot drift through a
+       script that writes no file;
+    #. **and byte-identical with ``--no-analytics`` to the tree every
+       existing fixture assembles.** This is where AC-390's "passes
+       CARD-283/284's Playwright suites unchanged" is actually carried:
+       ``pages_site`` and ``tests/test_public_player.py``'s ``site`` already
+       call ``assembler.assemble`` and already serve the result with a plain
+       file server, so the suites run against the assembled directory as
+       shipped. The equality here says the helper's tree is that tree. The
+       only difference the counting flag makes is also measured — one
+       snippet line in each published page and nothing else — so the
+       divergence between "what the suites test" and "what deploys" is one
+       asserted set rather than a silence;
+    #. completeness and self-containment, both derived from the copy tables
+       and the bundle rather than written out (ADR-0039/R2), and then the
+       three doors driven in Chromium against the helper's own tree over the
+       plain file server.
+
+    What this test does NOT do is run the other suites. A nested pytest from
+    a foreign worktree is refused by the full-suite lock and FAILS rather
+    than waiting, which is a measured property of this board; "unchanged" is
+    established by the equality above plus the suites' own green run, and
+    that run is the merge gate's.
+    """
+    page = browser_page
+    root, keys, slug = pages_bundle
+    out = tmp_path / "helper-site"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
+            "--bundle",
+            str(root),
+            "--out",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "driving player/assemble.py" in result.stdout, result.stdout
+    assert ALLOW_RUNTIME["count"] in result.stdout, result.stdout
+
+    def tree(root_dir: Path) -> dict[str, bytes]:
+        return {
+            path.relative_to(root_dir).as_posix(): path.read_bytes()
+            for path in sorted(root_dir.rglob("*"))
+            if path.is_file()
+        }
+
+    # (2) the driver writes exactly what the assembler writes.
+    direct = assembler.assemble(
+        root,
+        tmp_path / "direct",
+        analytics=(ALLOW_RUNTIME["count"], ALLOW_RUNTIME["script"]),
+    )
+    assert tree(out) == tree(direct.site_dir)
+
+    # (3) and with no snippet it writes exactly what every fixture assembles.
+    plain_out = tmp_path / "helper-plain"
+    plain = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
+            "--bundle",
+            str(root),
+            "--out",
+            str(plain_out),
+            "--no-analytics",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert plain.returncode == 0, plain.stderr
+    fixtureish = assembler.assemble(root, tmp_path / "fixtureish")
+    assert tree(plain_out) == tree(fixtureish.site_dir)
+    assert fixtureish.counted == (), fixtureish.counted
+
+    # The whole of the counting flag's effect, named rather than assumed.
+    counted, uncounted = tree(out), tree(plain_out)
+    assert set(counted) == set(uncounted)
+    differs = sorted(name for name in counted if counted[name] != uncounted[name])
+    assert differs == sorted(direct.counted), (differs, direct.counted)
+    snippet = assembler.ANALYTICS_SNIPPET.format(
+        count=ALLOW_RUNTIME["count"], script=ALLOW_RUNTIME["script"]
+    ).encode()
+    for name in differs:
+        assert counted[name] == uncounted[name].replace(
+            b"</head>", snippet + b"\n</head>", 1
+        ), name
+        assert counted[name].count(b"data-goatcounter") == 1, name
+
+    # (4a) completeness: everything the site serves is in the one directory.
+    served = set(tree(out))
+    expected = {
+        *assembler.PLAYER_FILES.values(),
+        *assembler.COPIED_FROM_ADMIN.values(),
+        assembler.SITE_MARKER_FILE,
+        assembler.SITE_INDEX_FILE,
+        f"{assembler.SITE_BOOK_DIR}/{slug}.json",
+        *(f"{assembler.SITE_PUZZLE_DIR}/{key}.json" for key in keys.values()),
+    }
+    assert served == expected, sorted(served ^ expected)
+    assert len(served) >= len(assembler.PLAYER_FILES) + len(keys) + 4, sorted(served)
+
+    # (4b) self-containment: every reference resolves inside the tree, or is
+    # on the deploy page's allow-list, or the scan fails.
+    found = scan_site(out, {**ALLOW_RUNTIME, **ALLOW_STATIC})
+    assert found == {"foreign": [], "identifiers": [], "unclassifiable": []}, found
+    # The instrument is reached: a tree with a dangling reference is caught,
+    # so "no dangling reference" is a measurement and not an empty scan.
+    (out / "b" / "index.html").write_text(
+        (out / "b" / "index.html").read_text(encoding="utf-8").replace(
+            'href="/tokens.css"', 'href="/no-such-file.css"'
+        ),
+        encoding="utf-8",
+    )
+    assert scan_site(out, {**ALLOW_RUNTIME, **ALLOW_STATIC})["unclassifiable"], (
+        "a reference to a file the tree does not hold was not noticed"
+    )
+
+    # (4c) a plain file server over the helper's tree, and the three doors.
+    # The counted tree is the one served, so these are the deployed pages.
+    url, stop = _serve(direct.site_dir)
+    try:
+        _open_pages(page, url, f"/b/{slug}")
+        assert _tiles(page) == [keys[name] for name in BOOK_ORDER]
+        _open_pages(page, url, "/library")
+        assert sorted(_tiles(page)) == sorted(keys.values())
+        _open_play(page, url, keys["e10"])
+        _tap(page, 0, 0)
+        assert _state(page, 0, 0) == "filled"
+    finally:
+        stop()
+
+
+@pytest.mark.browser
+def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_site) -> None:
+    """AC-391 — the counted pages play and navigate with the script dead.
+
+    **Blocked at the network layer, not deleted from the page.** The tag is
+    on the document the deploy produces (``counted_host``), the two
+    allow-listed hosts are aborted by a route interceptor derived from the
+    deploy page's own endpoints, and the journey below is the one a QR scan
+    takes: ``/b/<slug>``, a tile, ``/play/<key>``, a mark. Deleting the tag
+    would have tested a different page — the uncounted one, which every
+    other test in this family already covers.
+
+    Both halves of the AC, because either alone passes for the wrong reason:
+    the game and the navigation WORK, and no uncaught error reaches the
+    console. The second half is held to ``pageerror`` — an uncaught
+    exception — plus a console-error set that must be empty of anything but
+    the blocked requests themselves. A blocked ``<script src>`` does make
+    Chromium log a resource failure, and calling that "an uncaught error"
+    would make the assertion unkeepable, so the exemption is exactly the
+    aborted URLs and is checked against them rather than waved at.
+
+    The interceptor is also proved: a run in which nothing was blocked would
+    satisfy every assertion below while measuring the ordinary page, so the
+    aborted set is asserted non-empty and asserted to be the analytics hosts.
+    """
+    page = browser_page
+    url, report, keys, slug = counted_host
+
+    hosts = sorted({value.split("/")[2] for value in ALLOW_RUNTIME.values()})
+    assert len(hosts) >= 1, hosts
+    blocked: list[str] = []
+
+    def kill(route):
+        blocked.append(route.request.url)
+        route.abort()
+
+    page.route(re.compile("|".join(re.escape(host) for host in hosts)), kill)
+
+    errors: list[str] = []
+    console: list[tuple[str, str]] = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+
+    def note(message):
+        # Text AND location. Chromium's text for an aborted subresource is
+        # "Failed to load resource: net::ERR_FAILED" and names no URL at all
+        # (measured: the first run of this test), so a text-only exemption
+        # would have had to be the literal string — which would also absorb a
+        # failed load of a page asset, the one thing this test must not
+        # excuse. The location carries the URL that failed.
+        if message.type == "error":
+            console.append((message.text, (message.location or {}).get("url", "")))
+
+    page.on("console", note)
+
+    # The QR journey: landing, a tile, the game.
+    _open_pages(page, url, f"/b/{slug}")
+    assert _tiles(page) == [keys[name] for name in BOOK_ORDER]
+    page.click(f'.tile[data-key="{keys["h24"]}"]')
+    page.wait_for_function("() => window.publicPlayer !== undefined", timeout=PAGES_SETTLE_MS)
+    assert page.url.endswith(f"/play/{keys['h24']}")
+    _tap(page, 0, 0)
+    _tap(page, 1, 2)
+    assert [_state(page, 0, 0), _state(page, 1, 2)] == ["filled", "filled"]
+
+    # The other door, and its filtering, which is the navigation half.
+    _open_pages(page, url, "/library")
+    assert sorted(_tiles(page)) == sorted(keys.values())
+    page.locator("select[data-pages-filter='tier']").select_option("easy")
+    assert sorted(_tiles(page)) == sorted(keys[name] for name in ("e10", "e23"))
+
+    assert blocked, "nothing was intercepted, so this measured the ordinary page"
+    assert all(any(host in request for host in hosts) for request in blocked), blocked
+    assert errors == [], errors
+    unexplained = [
+        entry
+        for entry in console
+        if not any(host in entry[0] or host in entry[1] for host in hosts)
+    ]
+    assert unexplained == [], unexplained
+    # And the exemption is reached rather than vacuous: the blocked script
+    # really did produce a console error, so "no uncaught error" is a verdict
+    # about a page whose analytics load failed.
+    assert console, "the blocked load produced no console error, so nothing was excused"
+
+    # And "or absent": the tree with no snippet carries no trace of one, so
+    # the absent case is the ordinary tree rather than a case written for it.
+    plain, _, _ = pages_site
+    for path in sorted(plain.site_dir.rglob("*")):
+        if path.is_file():
+            assert assembler.ANALYTICS_MARKER not in path.read_text(
+                encoding="utf-8", errors="replace"
+            ), path
+    assert plain.counted == (), plain.counted
+
+
+def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
+    """AC-392 / ADR-0041/R6 — the scan, and the controls that can fail it.
+
+    The scan is :func:`scan_site`, and what it is derived from matters more
+    than what it finds (ADR-0039/R2): the external set comes out of the
+    assembled tree, the permitted set comes out of ``docs/deploy/player.md``
+    through the same parser the assembly helper uses, and the routes come out
+    of the tree's own ``vercel.json``. Nothing in the comparison is a literal
+    written here. The one half that IS declared rather than derived is
+    :data:`IDENTIFIER_SHAPES`, which says so in its own comment and says why,
+    and the ``foreign`` bucket is what actually closes R6: there is no egress
+    a visitor identifier could leave by.
+
+    An unclassifiable shape is a FAILURE. The third and fourth controls below
+    are the two ways to produce one — a ``fetch`` target the scan cannot read,
+    and a rooted reference that resolves to nothing — because a guard whose
+    unknown bucket is unreachable is a guard with a silent pass in it.
+
+    ADR-0039/R1 asks for a control that can fail, caught WITH the set member
+    and missed WITHOUT it. The first control below is exactly that shape
+    against the allow-list, and it is the one with teeth: it shows that the
+    site's analytics reference is clean *because the deploy page names it*
+    and not because the scan cannot see it.
+    """
+    report, keys, slug = counted_site
+    site = report.site_dir
+    allow = {**ALLOW_RUNTIME, **ALLOW_STATIC}
+
+    assert scan_site(site, allow) == {
+        "foreign": [],
+        "identifiers": [],
+        "unclassifiable": [],
+    }
+
+    # The scan is reached: the site really does reference the endpoints, so
+    # "clean" is a verdict about a counted tree and not about an empty one.
+    referenced = sum(
+        path.read_text(encoding="utf-8", errors="replace").count(ALLOW_RUNTIME["count"])
+        for path in site.rglob("*")
+        if path.is_file()
+    )
+    assert referenced == len(report.counted) >= 3, (referenced, report.counted)
+
+    # Control 1 (ADR-0039/R1): the allow-list member is what permits it.
+    without = {name: url for name, url in allow.items() if name != "count"}
+    caught = scan_site(site, without)
+    assert len(caught["foreign"]) == len(report.counted), caught["foreign"]
+    assert all(ALLOW_RUNTIME["count"] in hit for hit in caught["foreign"]), caught
+    assert sorted(hit.split(":", 1)[0] for hit in caught["foreign"]) == sorted(
+        report.counted
+    ), caught["foreign"]
+    assert caught["identifiers"] == [] and caught["unclassifiable"] == [], caught
+
+    # Controls 2-4: planted probes in a copy of the site. A copy, so the
+    # clean verdict above is not a verdict about a tree this test edited.
+    probed = tmp_path / "probed"
+    shutil.copytree(site, probed)
+    (probed / "probe-second-endpoint.html").write_text(
+        '<!doctype html><html><head><title>p</title>'
+        '<script src="https://stats.example.net/t.js"></script>'
+        "</head><body></body></html>\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-ip-read.js").write_text(
+        'const response = await fetch("https://api.ipify.org?format=json");\n'
+        'const seen = await response.json();\n'
+        'window.localStorage.setItem("visitor_ip", seen.ip);\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-unreadable.js").write_text(
+        "const where = window.name;\nawait fetch(where);\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-dangling.html").write_text(
+        '<!doctype html><html><head><title>p</title>'
+        '<link rel="stylesheet" href="/not-in-this-tree.css">'
+        "</head><body></body></html>\n",
+        encoding="utf-8",
+    )
+    planted = scan_site(probed, allow)
+
+    # 2 — a second analytics endpoint, which is AC-392's own wording.
+    assert [hit for hit in planted["foreign"] if "stats.example.net" in hit], planted
+    # 3 — a page that reads an IP-like field, caught by BOTH halves: the
+    # endpoint it asks and the name it stores it under. The overlap is the
+    # point: the declared vocabulary is a trip-wire, the closed egress set is
+    # the guarantee, and neither is the only net.
+    assert [hit for hit in planted["foreign"] if "ipify" in hit], planted
+    assert [hit for hit in planted["identifiers"] if "visitor_ip" in hit], planted
+    assert [hit for hit in planted["identifiers"] if "ipify" in hit.lower()], planted
+    # 4 — the two unclassifiable shapes, each named.
+    assert [hit for hit in planted["unclassifiable"] if "probe-unreadable.js" in hit], planted
+    assert [hit for hit in planted["unclassifiable"] if "probe-dangling.html" in hit], planted
+
+    # And the vocabulary is compound rather than bare, which is a measured
+    # requirement and not a style: the tree's own grid fingerprints would
+    # make a bare `fingerprint` entry red on a clean site.
+    grid_words = sum(
+        len(re.findall(r"fingerprint", path.read_text(encoding="utf-8", errors="replace"), re.I))
+        for path in site.rglob("*")
+        if path.is_file()
+    )
+    assert grid_words >= 5, grid_words
+    assert [shape for shape in IDENTIFIER_SHAPES if shape == r"fingerprint"] == []
+
+
+def test_the_qr_url_shapes_here_are_the_shipped_routes() -> None:
+    """Card item 4 — the QR base and shapes CARD-210 consumes, held to the host.
+
+    CARD-210 is blocked on one fact: a stable public URL base. It is recorded
+    in ``docs/deploy/player.md``'s own block rather than in a comment, so the
+    tooling and the card read the same bytes — and the three PATH shapes are
+    held to ``vercel.json``'s rewrite sources, which is the authority a host
+    actually routes by (ADR-0039/R2). A shape that drifted from the deployed
+    route would be a QR code printed in a book pointing at nothing, and a
+    printed book cannot be fixed by a redeploy.
+
+    The base itself is the owner's and is not asserted to be any value: this
+    test holds that it is declared, absolute and single, which is all the
+    repository can know. ``docs/deploy/render.md``'s rule applies —
+    ``TODO(owner)`` beside it, and no claim that it was observed.
+    """
+    shapes = driver.qr_shapes(REPO_ROOT)
+    assert sorted(shapes) == ["base", "book", "library", "play"], sorted(shapes)
+    assert shapes["base"].startswith("https://") and shapes["base"].count("/") == 2
+    for name in ("book", "play", "library"):
+        assert shapes[name].startswith("{base}/"), shapes[name]
+
+    config = json.loads((PLAYER_DIR / "vercel.json").read_text(encoding="utf-8"))
+    sources = sorted(rule["source"] for rule in config["rewrites"])
+    # The doc's shapes, reduced to the route each one is: a named hole
+    # becomes vercel's `:name` and the base falls away.
+    documented = sorted(
+        re.sub(r"\{(\w+)\}", r":\1", shapes[name].removeprefix("{base}"))
+        for name in ("book", "play", "library")
+    )
+    assert documented == sources, (documented, sources)
+
+    doc = (REPO_ROOT / driver.DEPLOY_DOC).read_text(encoding="utf-8")
+    assert "TODO(owner): copy the production domain" in doc
+    assert shapes["base"] in doc
+
+
+def test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself() -> None:
+    """Card item 1 — the ``scripts/`` helper is a driver, and that is checkable.
+
+    The card's instruction is "do not fork or re-implement ``assemble.py``",
+    and the reason is a measured one: ``COPIED_FROM_ADMIN``'s equality is
+    asserted at assembly time *and* from the test tree so the two copies
+    cannot drift, and a second assembler would be a second place to drift in.
+    ``test_assembled_site_is_self_contained`` holds the OUTPUT equal; this
+    holds the helper's source to the only shape that keeps it so — it writes
+    no file, copies nothing, and names no published path.
+
+    Derived from the assembler's own tables rather than from a list here: a
+    published path the helper mentioned would red, whichever path it was.
+    """
+    source = (REPO_ROOT / "scripts" / "assemble_player_site.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    calls = {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    for forbidden in ("write_text", "write_bytes", "copy", "copy2", "copytree", "rmtree", "mkdir"):
+        assert forbidden not in calls, forbidden
+    for forbidden in ("shutil", "os"):
+        imported = {
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        }
+        assert forbidden not in imported, forbidden
+
+    # Over the CODE, not over the prose. The docstring above names
+    # solver_state.js, tokens.css and vercel.json on purpose — explaining
+    # which copies must not be forked is the whole point of the paragraph —
+    # and a plain `in source` reported all three (measured: the first run of
+    # this test). What must hold is that no published path is a value this
+    # script computes with, so the search is over the string literals the
+    # module evaluates, docstrings excluded.
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    literals = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+    ]
+    assert literals, "no string literal was read, so this proves nothing"
+    published = {*assembler.PLAYER_FILES, *assembler.PLAYER_FILES.values()}
+    published |= {*assembler.COPIED_FROM_ADMIN, *assembler.COPIED_FROM_ADMIN.values()}
+    named = sorted(path for path in published if any(path in text for text in literals))
+    assert named == [], named
+    # The control: the scan reads literals at all, so `named == []` is not an
+    # empty search. "player" and "assemble.py" ARE literals here, and neither
+    # is a published path, which is exactly the distinction being drawn.
+    assert [text for text in literals if text == "assemble.py"], literals
+
+    # What it DOES contribute, and the whole of it: the two endpoints and the
+    # command line. The argv is asserted rather than the prose.
+    assert driver.delegated_argv(
+        bundle="b", out="o", force=False, analytics=("https://c/count", "https://s.js")
+    ) == [
+        "--out",
+        "o",
+        "--bundle",
+        "b",
+        "--analytics-count",
+        "https://c/count",
+        "--analytics-script",
+        "https://s.js",
+    ]
+    assert driver.delegated_argv(bundle=None, out="o", force=True, analytics=None) == [
+        "--out",
+        "o",
+        "--force",
+    ]
+
+
+def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:
+    """AC-392 makes ``docs/deploy/player.md`` the allow-list, so it is the only one.
+
+    An allow-list with a second copy is not an allow-list: the scan would
+    hold the site to one of them while a deploy used the other. The two
+    endpoints therefore appear in exactly one tracked file, and the search is
+    ``git grep`` over the whole tracked tree rather than over a directory
+    somebody remembered to include.
+
+    The counted site is where they appear next, and that tree is not tracked
+    — which is the shape this card wanted: the pages in ``player/`` carry no
+    URL, the assembler carries the snippet with two holes in it, and the
+    values are read from the page at assembly time.
+    """
+    for name, url in sorted(ALLOW_RUNTIME.items()):
+        found = subprocess.run(
+            ["git", "grep", "-l", "--fixed-strings", url],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            check=False,
+        )
+        files = sorted(line for line in found.stdout.splitlines() if line)
+        assert files == [driver.DEPLOY_DOC.as_posix()], (name, files)
+
+    # The snippet itself is one definition with two holes, and no player
+    # document carries a URL of its own.
+    assert "{count}" in assembler.ANALYTICS_SNIPPET
+    assert "{script}" in assembler.ANALYTICS_SNIPPET
+    assert "goatcounter.com" not in assembler.ANALYTICS_SNIPPET
+    for source in sorted(assembler.PLAYER_FILES):
+        text = (PLAYER_DIR / source).read_text(encoding="utf-8")
+        assert assembler.ANALYTICS_MARKER not in text, source
