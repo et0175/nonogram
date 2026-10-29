@@ -2974,6 +2974,32 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         'const close = "*/";\n',
         encoding="utf-8",
     )
+    # The last three are deliberately shapes NO OTHER pattern can read, so
+    # each one is a control over exactly one raw read. A quoted `//host` is
+    # read by `_HOST_LITERAL` whatever surrounds it — the lesson fix round 1
+    # recorded about its first `Worker` probe — so a probe whose value is
+    # also a host would be a control over the wrong line. A RELATIVE target
+    # is reachable only through the markup, CSS or sink shape that holds it.
+    (probed / "probe-attr-swallow.html").write_text(
+        "<!doctype html><html><head><title>p</title></head><body>"
+        '<p data-x="<!--"></p>'
+        '<script src="nope-relative.js"></script>'
+        '<p data-y="-->"></p>'
+        "</body></html>\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-css-swallow.css").write_text(
+        'a{content:"/*"}\n'
+        "@font-face{font-family:z;src:url(nope-relative.woff2)}\n"
+        'b{content:"*/"}\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-sink-swallow.js").write_text(
+        'const open = "/*";\n'
+        'el.src = atob("aHR0cHM6Ly9ldmlsLmV4YW1wbGUvdC5qcw==");\n'
+        'const close = "*/";\n',
+        encoding="utf-8",
+    )
     # 10 (ADR-0039/R3, cycle 1's F-004, asked for three cycles running): the
     # sharper half of the comment-stripping exemption. `_ABSOLUTE_TARGET`
     # reads the raw text, so a full URL parked in a comment is a FINDING and
@@ -3091,6 +3117,9 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         ("probe-regex-swallow.js", "also-gone-from-this-tree", "unclassifiable"),
         ("probe-bare-host-swallow.js", "evil.example", "foreign"),
         ("probe-identifier-swallow.js", "device_id", "identifiers"),
+        ("probe-attr-swallow.html", "nope-relative.js", "unclassifiable"),
+        ("probe-css-swallow.css", "nope-relative.woff2", "unclassifiable"),
+        ("probe-sink-swallow.js", "aHR0cHM6", "unclassifiable"),
     )
     destructive = (
         re.compile(r"/\*.*?\*/", re.DOTALL),
