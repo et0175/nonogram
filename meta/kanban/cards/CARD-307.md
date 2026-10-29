@@ -202,3 +202,49 @@ control.
 (reds `missing`), delete a docstring table line (reds `unnamed`), and **skip-mark a
 named test** (reds `silenced`). A module whose guard passes all three is honestly
 checked; one that passes the first two is where this card started.
+
+## [Amended 2026-10-29 at CARD-291's merge — the inverse direction, measured]
+
+While writing back FR-046's trace row the orchestrator counted `trace.yml` over all
+75 links, and found a defect pointing the **other** way from this card's subject:
+
+```
+32 covered, 43 partial
+of the 43 partial rows, 42 LIST tests (only CON-017 lists none) -- 409 test refs in all
+the largest partial row is FR-044 with EIGHTY-FIVE tests
+of the 32 COVERED rows, NINE list no tests at all
+```
+
+Two things follow, and the second is new work for this card.
+
+**1. `status: partial` carries almost no information about whether a requirement has
+tests**, so the `[WARN] requirement has no tests yet (status: partial)` warning it
+drives is noise on 42 rows. (This also corrects CARD-291 cycle 1's figures, which
+reported "40 partial rows with no tests and three that list tests" — that does not
+reproduce. The conclusion was right; the numbers were not.)
+
+**2. Nine rows say `covered` and list nothing.** That is the mirror of this card's
+defect: a row whose status asserts it is checked, with an empty `tests:` list — and
+unlike the partial rows, **these are the ones `validators/trace.py` actually
+reads**, because all three of its checks are gated on `status == "covered"`. So
+whatever those nine assert is asserted against nothing, by the one code path that
+was supposed to be the mechanical half.
+
+**Add to this card's scope**, since it is the same question in the same file and a
+separate card would have to re-derive the same census:
+
+- **enumerate the nine** `covered`-with-no-tests rows, derived from `trace.yml`
+  rather than listed here, and partition them like the check refs: a row verified by
+  something the `tests:` key cannot express (a golden file, a byte-identity
+  tripwire, a review lens) is a **documentation** fix — say what verifies it; a row
+  verified by nothing is a **status** fix — it is not covered;
+- **and decide what `partial` is for**, because a status that 42 rows carry while
+  holding 409 test refs is not a signal. Either it means "some ACs lack tests" and
+  the rows are wrong, or it means nothing and the warning should go. Do not flip
+  rows one at a time: CARD-291 deliberately left FR-046 `partial` rather than make a
+  board-wide convention change from inside one card, and that restraint is the
+  reason this is here.
+
+**AC-1 is widened** accordingly: the derived enumeration covers both shapes — a
+`check:`/`tests:` ref with nothing behind it, **and** a row whose status claims more
+than its content supports.

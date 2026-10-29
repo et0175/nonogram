@@ -1,6 +1,6 @@
 # CARD-291: Approval refuses a puzzle whose solve needed guessing — the human-solvability gate
 
-**Status:** in progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/291-approval-guess-gate
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-291
+**Worktree:** — (removed at merge)
 **Source:** owner session 2026-10-24 (the Christmas-ornament report); memory `guess-puzzles-in-book-c1`
 **Idea:** —
 **Wave:** 65 <!-- assigned 2026-10-28. HARD contention: CARD-291 declares src/nonogram/admin/app.py, which meta/kanban/config.yml names as a conflict HOTSPOT (CARD-131/132/139/140/142) precisely so it serializes intentionally rather than by arithmetic accident -- and CARD-305 at wave 67 declares app.py too (measured intersection: exactly that path). They must not run concurrently; wave 65 satisfies that with room. CARD-298 (w65) intersects CARD-291 EMPTY. If only ONE of 291/301 can have a slot, this is the one to take: CARD-301 is a verification hole, while CARD-291 prevents a defect that ALREADY REACHED A BOOK -- seven guess-requiring puzzles were pulled from book c1 and production was regraded across 311 rows. Adjacent waves make the 64/65 ordering nearly free, so both are scheduled; reversing them is defensible if the owner weights that owner-facing risk above cost. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_approval_guess_gate.py, tests/test_puzzle_review.py, tests/test_bulk_operations.py <!-- AMENDED 2026-10-29 after review cycle 1 (F-003). Growth is FULLY JUSTIFIED and measured, but as written the line would mis-scope the next reviewer and the next concurrency check -- and `app.py` is a declared HOTSPOT. ADDED, both forced: `src/nonogram/admin/static/puzzle_edit.js` (+3) and `tests/test_puzzle_editor_ui.py` (+16), because the edit route's refusal vocabulary is a default-deny seam held as an EQUALITY on both sides -- `TestPuzzleEditor_Guardrails::test_the_refusal_vocabulary_is_load_bearing_on_both_sides` reds the moment the route emits a `reason` absent from `app.py`'s `EDIT_REFUSAL_REASONS` or the client's `REFUSALS_THAT_NEVER_WRITE`. Measured both ways by the reviewer: changing the token on EITHER side reds it (:985 app side, :989 client side). So CARD ITEM 5 CANNOT BE IMPLEMENTED INSIDE THE DECLARED TOUCHES. Also added `meta/architecture/decisions/adr/0032-admin-storage-guarantees.md` (the R3 flip the card owes). KEPT, and recorded rather than silently dropped: `tests/test_puzzle_review.py` and `tests/test_bulk_operations.py` were declared but needed NO EDIT -- their fixtures approve 2x2 and 10x10 solid grids, which pass the gate, and `BulkOutcome`'s new fields are appended. G-4 holds with ZERO fixture edits, verified: `git diff -- tests/` removes not one line. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 1 of 3, CERTIFIED, no gating findings)
 **Started:** 2026-10-29
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-29
+**Actual:** 1d (estimate 1d)
+**Merge commit:** 70f8e07e
 **Blocked by:** — (was: the architect delta — resolved 2026-10-24 the same day: DEC-047 recorded resolved, ADR-0032 revised with R3, FR-046/AC-393..396/EC-051/US-029 minted, trace + CAP-004 rows added, validators 0 errors)
 
 ## [Premise RE-MEASURED at dispatch — 2026-10-29, orchestrator] the remediation already happened; the GATE has not
@@ -384,3 +384,86 @@ this note as the answer.
 - **G-4** holds with **zero** fixture edits: both named files unedited and green
   (37 passed), and `git diff -- tests/` removes not one line.
 - **G-5** holds: node ids **+38 / −0**, no deleted `def`/`class` in `tests/`.
+
+## [MERGED `70f8e07e` — 2026-10-29]
+
+Fast-forward onto `main`, five commits. **Merge gate attempt 2 green:**
+
+```
+9695 passed, 27 skipped, 1 xfailed, 0 failed     1197.28s (19:57)
+skips: 26 × DATABASE_URL unset + 1 × setrlimit   — the baseline exactly, both named
+hang dumps: 0     real rival pytest: 0 at both ends     load 5.35 → 10.03
+```
+
+Collection reconciles exactly: 9695 + 27 + 1 = **9723**, against main's 9685 — the
+**+38 / −0** measured on the branch, every one in this card's own file.
+
+**Attempt 1 was RED and the defect was the orchestrator's**, which is the part of
+this card worth keeping. The control written for F-001 used
+`@pytest.mark.skipif(True, reason="probe")` on an inner function, and CARD-238's
+`_conditional_silences` AST-walks **every guarded source** for a `skipif` and
+reports it **whatever it is keyed on** — width its own docstring calls deliberate.
+So the probe registered as a new host-state silence anywhere in the tree:
+`test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones` red, with
+`test_the_outcomes_are_identical_with_and_without_the_log` as the cascade (2
+failed, 9693 passed, 27 skipped, 1 xfailed).
+
+**The guard was right and stricter than the test, so the decorator went, not the
+guard.** Adding the probe to `MEASURED_SILENCES_ELSEWHERE` would have asserted the
+silence depends on the host, which it does not — and that list's own comment says
+the baseline must be *"a record of what it reports, not of what a sentence here
+wishes it reported"*. The marks are now attached by assigning `pytestmark`, the
+way pytest itself stores a decorator's result; they are still real `Mark` objects,
+so the control would still fail if `_silenced` read the wrong attribute. Verified
+four ways: `_conditional_silences` reports `[]` for the file, both reddened tests
+pass, the file is 38 passed / 0 skipped, and **both controls still bite**.
+
+**Why no review round saw it:** the F-001 fix was written **after** cycle 1
+certified, and the reviewer's impact scope never reached
+`tests/test_suite_profile.py`. The merge gate was the only thing that ran that
+guard against the change — the argument for re-running the impact set *extended by
+the meta-guards* after a post-certification fix, rather than treating the earlier
+score as evidence about the newer commit.
+
+**Re-based twice and re-measured, not assumed.** The gate ran against base
+`6761c899`; `main` then gained four kanban-only commits. Twelve files reference
+`meta/kanban` or `meta/review`, so that delta was a real risk surface rather than
+inert text: the branch was rebased onto `ccb612c9` and the nine **collected**
+modules among those twelve run **939 passed, 1 xfailed, 0 failed, 0 skipped**.
+
+### Post-merge, and it confirms CARD-308's mechanism arithmetically
+
+Validator on `main` after the merge: **0 errors, 102 warnings**, and all five refs
+resolve to real `def` lines (326 / 505 / 649 / 801 / 1548). No FR-046 dead-ref
+warning remains.
+
+```
+honest pre-merge main   107    (106 observed + 1 falsely silenced by this card's own review YAML)
+after the merge         102    = 107 − 5 refs repaired
+observed drop           106 → 102 = −4
+```
+
+So the **depressed baseline would have under-reported this card's repair by one**.
+That is the clean confirmation of the sync-erosion defect: the warning the YAML
+silenced was AC-395's, one of this card's own five.
+
+### A correction to review cycle 1's figures, measured off the file
+
+Cycle 1 argued the `status: partial` warning is not this card's to clear, and **the
+conclusion is right while its numbers are wrong**. It reported *"43 partial, 40
+with no tests at all, and three that list tests — NFR-001 (1), FR-045 (15),
+FR-046 (5)"*. Counted over all 75 links: **32 covered, 43 partial, and 42 of the
+43 partial rows LIST tests** (only `CON-017` lists none), carrying **409** test
+refs between them. The largest is **FR-044 with 85 tests, still partial**; FR-045
+has **19**, not 15. The conclusion is stronger than cycle 1 made it: `status:
+partial` carries almost no information about whether a requirement has tests.
+
+**And the inverse direction is a finding nobody has raised: 9 of the 32 `covered`
+rows list no tests at all** — rows whose status says checked and whose test list
+is empty, while `validators/trace.py` gates all three of its checks on `status ==
+"covered"`. Recorded on CARD-307.
+
+`trace.yml`'s FR-046 row needed **no new test names** — all five were already
+listed as planned refs and are now real definitions. Its notes are updated and the
+status is **deliberately left `partial`**, because flipping one row would be a
+board-wide convention change.

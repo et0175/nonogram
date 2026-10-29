@@ -2407,6 +2407,34 @@ links:
     test names, no code yet). The 2026-10-24 stock remediation (regrade
     all rows, remove the guess-level ones from book c1 and production)
     was the owner's one-time operation, outside this row.
+
+    SHIPPED 2026-10-29, merged 70f8e07e at review cycle 1's 9.0 CERTIFIED.
+    The five names above are no longer planned: each resolves to a real
+    module-level definition in tests/test_approval_guess_gate.py (lines 326,
+    505, 649, 801, 1548), all five collect as plain node ids with no param
+    suffix, and they run 5 passed / 0 skipped. The sentence above about
+    planned names with no code yet is history, kept rather than deleted
+    because it records what the row claimed while the card was open.
+
+    STATUS DELIBERATELY LEFT partial, and not because nothing changed.
+    Flipping this row alone would be a board-wide convention change, and the
+    figures are the orchestrator's own count off this file -- review cycle 1
+    reported "40 partial rows with no tests at all and three that list
+    tests", which does not reproduce. Measured 2026-10-29 over all 75 links:
+    32 covered, 43 partial, and of the 43 partial rows FORTY-TWO list tests
+    (only CON-017 lists none), carrying 409 test refs between them. The
+    largest is FR-044 with EIGHTY-FIVE tests, still partial. FR-045 -- the
+    precedent this row's own notes cite -- has 19 and is still partial.
+
+    So `status: partial` carries almost no information about whether a
+    requirement has tests, and the `[WARN] requirement has no tests yet
+    (status: partial)` warning it drives is not this card's to clear: it
+    fires on the status field alone, and validators/trace.py gates all three
+    of its checks on status == "covered", so this tests: list is read by
+    nothing while the row is partial. The inverse is also true and worth a
+    card rather than a note: NINE of the 32 covered rows list no tests at
+    all. The convention decision is filed separately, not smuggled in by one
+    card.
   status: partial
 
 - req: NFR-008
