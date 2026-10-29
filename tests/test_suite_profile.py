@@ -38,6 +38,15 @@ what resolves outside it is 0.1s. The earlier figures -- 16.5-19.8s at load
 comparable across loads. CARD-239 measured 16.1-17.2s at load 2-4, with the
 stdlib construction probe adding a call per surface spelling and no
 subprocess.
+
+Re-measured 2026-10-29 by CARD-304 on a different host (arm64 Darwin 25.6):
+**30.4-34.0s over four runs**, and that is the figure WITHOUT CARD-304's own
+class as much as with it -- two runs each way, interleaved, 30.37/33.98 against
+31.76/33.10. The class costs 3.74-4.03s run alone, which is inside that spread,
+so no delta for it is claimed from the module total: a difference smaller than
+the quantity's run-to-run spread is not a difference. The 2026-10-16 figures
+above are kept rather than replaced, with their domain (that host, that date)
+now explicit, because they are what two cards were sized against.
 Review cycle 5's added tests are the stdlib-surface audit and the controls
 generated from the sets it audits; they add no subprocess and no second
 scan, and the two scans' own costs came out at 1.3s each, inside cycle 4's
@@ -63,12 +72,15 @@ import collections
 import glob
 import hashlib
 import importlib.util
+import json
 import os
 import pathlib
 import random
 import re
 import subprocess
 import sys
+import textwrap
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -4867,9 +4879,20 @@ SANDBOX_CROSS_MODULE_NODEID = (
 # runs in there, which is the point of review cycle 1's widening -- including
 # the tree-walking guards, which see a full tree because _build_sandbox
 # mirrors `tests/`.
+#
+# CARD-304 adds the second, and the reason is different: the sandbox mirrors
+# `tests/` and `meta/profiling/` only, so `meta/kanban/config.yml` -- the file
+# that class executes the prescriptions of -- is absent in there, and every
+# assertion would error for want of the convention rather than for want of a
+# log. It is also the one class in this module that is *supposed* to depend on
+# the host: it probes it. Deselected with that stated, and recorded as
+# CARD-304 residue: this class carries the structural half of its defence only
+# (its own planted controls), not the behavioural comparison's.
 SANDBOX_DESELECTED = (
     f"tests/{Path(__file__).name}::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog"
     "::test_the_outcomes_are_identical_with_and_without_the_log",
+    f"tests/{Path(__file__).name}"
+    "::TestHostCells_ThePrescribedInstrumentsExecuteAndRespond",
 )
 
 
@@ -4926,6 +4949,22 @@ def _build_sandbox(root: Path, log: str | None) -> None:
     mirrored_names = _files_under_guard()
     assert len(mirrored_names) > 100, mirrored_names
     (root / "meta" / "kanban").mkdir(parents=True)
+    # CARD-304: the mirror has to carry the kanban convention file as well.
+    # A mirrored module now reads it AT IMPORT TIME -- the host-cell
+    # prescriptions are the parametrize data for
+    # TestHostCells_ThePrescribedInstrumentsExecuteAndRespond -- so without it
+    # the copy fails to COLLECT, which no `--deselect` can reach: the
+    # comparison then sees an empty outcome dict rather than a verdict.
+    # Measured that way before it was added.
+    #
+    # A symlink, like every other data entry here, so
+    # test_what_resolves_outside_the_sandbox_is_exactly_the_data_links stays an
+    # equality (it is not a `*.py` and not a directory, which is what that
+    # assertion cares about). It therefore resolves to the REAL file, which is
+    # the second reason that class is deselected in here and not merely the
+    # cost one: judging the real convention from inside the sandbox is exactly
+    # the vacuity this layout exists to prevent.
+    (root / "meta" / "kanban" / KANBAN_CONFIG.name).symlink_to(KANBAN_CONFIG)
     for name in mirrored_names:
         source = REPO_ROOT / name
         mirrored = root / name
@@ -5277,4 +5316,777 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         assert missing == [], (
             "a frozen cliff-edge node id is no longer collected, so this list "
             f"is about a test that has been renamed or removed: {missing}"
+        )
+
+
+# ==========================================================================
+# CARD-304 -- ADR-0039/R4's executing half: the host cells `config.yml`
+# prescribes are run, and the instrument among them is run against controls.
+# ==========================================================================
+#
+# R4 says a figure names its instrument, that the instrument must be
+# executable on the host that recorded the figure, and that it must be shown
+# to respond -- a positive control that it rises and a negative that it does
+# not rise on a near-miss. R4 shipped with `check: {kind: review-lens}`
+# because nothing in a tree can decide whether a number in prose names a live
+# command. This section is the part that *can* be decided, and it is narrow by
+# construction: `meta/kanban/config.yml` does not merely report figures, it
+# **prescribes the commands that produce them**, and a prescription is a
+# string a test can execute.
+#
+# What it reaches and what it does not is stated in R4's own comment and in
+# CARD-304's notes rather than implied here. The three things worth saying at
+# the top:
+#
+#   * two questions, two harnesses. Executability is asked with
+#     `set -o pipefail` and judged on exit status; responsiveness is asked
+#     WITHOUT pipefail and judged on the reading. A single harness would red a
+#     blind instrument for the wrong reason -- "it exited 1" rather than "it
+#     did not rise while a real pytest was alive" -- and the whole point of R4
+#     is that those two are different findings;
+#   * readings are DELTAS. An absolute rival-pytest count is host state: this
+#     board runs up to five cards concurrently and a sibling worktree's gate
+#     counts. Each case is judged against a baseline taken immediately before
+#     it and re-taken after it, and a baseline that moved is a refusal to
+#     judge rather than a verdict;
+#   * a negative control has to prove it exists. Measured 2026-10-29: the
+#     obvious shape for a "a shell whose argv merely mentions pytest" probe,
+#     `zsh -c ': <text>; sleep N'`, leaves no such process behind at all --
+#     zsh execs its last command and the argv becomes `sleep N`. The
+#     instrument then reads "did not rise" because the near-miss was never
+#     there, which is a vacuous pass wearing a negative control's clothes.
+#     Hence `test_each_near_miss_probe_is_visible_to_ps`.
+
+#: The convention file whose host-cell prescriptions this section executes.
+#: Read as text and parsed as JSON: see :func:`_host_cells_block` for why the
+#: data is JSON inside a YAML block scalar rather than YAML.
+KANBAN_CONFIG = REPO_ROOT / "meta" / "kanban" / "config.yml"
+
+#: The key whose block scalar holds those prescriptions.
+HOST_CELLS_KEY = "host_cells"
+
+#: How long a probe process lives if nothing kills it. Every probe IS killed
+#: as soon as the instrument has been read, so this is a ceiling for an
+#: orphan, not a cost.
+PROBE_LIFETIME_SECONDS = 30
+
+#: How long to wait for a probe to become observable, in seconds.
+PROBE_VISIBLE_TIMEOUT = 30.0
+
+#: How many times one case may be re-run when the baseline moved under it. A
+#: sibling card's gate starting or finishing mid-case moves the reading by
+#: one, and that is contention rather than a verdict. Bounded, because a retry
+#: loop with no end is a hang; the failure that ends it prints the processes
+#: the instrument actually matched, which is the only thing that settles such
+#: an argument (five hand-written variants of this instrument, measured at one
+#: instant on 2026-10-29, returned five different answers; what settled it was
+#: printing the list).
+BASELINE_ATTEMPTS = 4
+
+
+def _host_cells_block(text: str) -> str:
+    """The JSON document held in ``config.yml``'s ``host_cells:`` block scalar.
+
+    JSON inside a YAML block scalar, rather than YAML, for one reason that is
+    not aesthetic: PyYAML is **not** in ADR-0006/R1's dependency baseline (it
+    is in this venv incidentally, as nothing in ``pyproject.toml`` declares
+    it), so a test that imported it would gate this check on a package a bare
+    checkout does not have. The alternative -- a hand-rolled YAML reader --
+    would be one more unproven instrument inside the section about unproven
+    instruments.
+
+    So the reader is this: find the key, require the block-scalar marker,
+    take the lines indented deeper than the key, dedent, and hand the result
+    to :mod:`json`. Every near-miss of that shape raises rather than returning
+    something plausible, and :data:`NOT_A_HOST_CELLS_BLOCK` is the control for
+    each one -- a reader that quietly returns ``{}`` when the key is renamed
+    would make every assertion below pass vacuously, which is this card's
+    subject rather than an acceptable failure mode.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().split(":", 1)[0] != HOST_CELLS_KEY:
+            continue
+        marker = line.strip().split(":", 1)[1].strip()
+        if marker not in {"|", "|-", "|+"}:
+            raise AssertionError(
+                f"{HOST_CELLS_KEY}: is not a block scalar ({marker!r}); the "
+                "reader below would hand json.loads a fragment"
+            )
+        indent = len(line) - len(line.lstrip())
+        body: list[str] = []
+        for following in lines[index + 1:]:
+            if not following.strip():
+                body.append("")
+                continue
+            if len(following) - len(following.lstrip()) <= indent:
+                break
+            body.append(following)
+        if not any(entry.strip() for entry in body):
+            raise AssertionError(f"{HOST_CELLS_KEY}: has an empty block")
+        return textwrap.dedent("\n".join(body))
+    raise AssertionError(f"no {HOST_CELLS_KEY}: key in {KANBAN_CONFIG}")
+
+
+def _host_cells(text: str | None = None) -> dict:
+    if text is None:
+        text = KANBAN_CONFIG.read_text(encoding="utf-8")
+    return json.loads(_host_cells_block(text))
+
+
+#: Near-misses of the block the reader must refuse rather than read. Held as a
+#: constant for the reason :data:`REINTRODUCTIONS` is: a fabricated source
+#: passed inline would make this module its own first offender.
+NOT_A_HOST_CELLS_BLOCK: tuple[tuple[str, str], ...] = (
+    (
+        "the key renamed",
+        "review:\n  host_cell: |\n    {\"cells\": []}\n",
+    ),
+    (
+        "a flow mapping instead of a block scalar",
+        "review:\n  host_cells: {}\n",
+    ),
+    (
+        "the block present but empty",
+        "review:\n  host_cells: |\n  test_scope: impact\n",
+    ),
+    (
+        "the key absent entirely",
+        "review:\n  test_scope: impact\n",
+    ),
+)
+
+#: The prescribed commands, by cell id, as the live file declares them.
+HOST_CELLS = _host_cells()
+
+#: Cell ids that prescribe a command, and the one that declares why it cannot.
+COMMANDED_CELLS: tuple[str, ...] = tuple(
+    cell["id"] for cell in HOST_CELLS["cells"] if cell.get("command")
+)
+UNCOMMANDED_CELLS: tuple[str, ...] = tuple(
+    cell["id"] for cell in HOST_CELLS["cells"] if not cell.get("command")
+)
+
+#: The rival-pytest truth table, and the cases split by what each one claims.
+RIVAL = HOST_CELLS["rival_pytest"]
+RIVAL_CASES: tuple[dict, ...] = tuple(RIVAL["cases"])
+REALIZABLE_CASES: tuple[dict, ...] = tuple(
+    case for case in RIVAL_CASES if case.get("probe")
+)
+RISING_CASES: tuple[dict, ...] = tuple(
+    case for case in REALIZABLE_CASES if case["expect"] == "rises"
+)
+#: The near-misses: flat, realizable, and NOT a real pytest. Case (b) is flat
+#: and realizable and is a real pytest, so it is a declared bound rather than
+#: a near-miss, and it gets its own test instead of being folded in here --
+#: folding it in would read as a claim that a console-script run is a
+#: near-miss, which is the opposite of what was measured.
+NEAR_MISS_CASES: tuple[dict, ...] = tuple(
+    case
+    for case in REALIZABLE_CASES
+    if case["expect"] == "flat" and not case.get("declared_bound")
+)
+BOUNDED_CASES: tuple[dict, ...] = tuple(
+    case for case in REALIZABLE_CASES if case.get("declared_bound")
+)
+UNREALIZABLE_CASES: tuple[dict, ...] = tuple(
+    case for case in RIVAL_CASES if not case.get("probe")
+)
+#: The rejected instruments the table says are refuted on this host AND names
+#: a test for. Re-executed rather than remembered: a comment saying a flag
+#: does not exist cannot go red the day it starts existing.
+RE_EXECUTED_REJECTS: tuple[dict, ...] = tuple(
+    entry for entry in RIVAL["rejected"] if entry.get("re_executed_by")
+)
+
+#: The module a pytest probe is pointed at. It signals readiness and then
+#: sleeps **at import time**, so a bare ``--collect-only`` is enough to put a
+#: real pytest on the host (CARD-304's G-5: cheap, and it must not take the
+#: board's lock). Written into a ``tmp_path_factory`` directory, never into
+#: ``tests/`` or ``meta/profiling/`` (G-3), which also keeps the probe's
+#: pytest outside this repository entirely: its rootdir is the temporary
+#: directory, no ``conftest.py`` is above it, and so CARD-255's foreign-holder
+#: guard is never imported and the full-suite lock is never consulted.
+#: ``test_the_pytest_probe_runs_outside_this_repository`` measures that rather
+#: than asserting it in prose.
+PROBE_MODULE = '''\
+import pathlib
+import time
+
+pathlib.Path({ready!r}).write_text("x", encoding="utf-8")
+time.sleep({lifetime!r})
+
+
+def test_the_probe_was_only_ever_here_to_exist() -> None:
+    pass
+'''
+PROBE_MODULE_NAME = "test_card304_probe.py"
+
+
+def _shell() -> str:
+    return HOST_CELLS["shell"]
+
+
+def _run_prescribed(command: str) -> subprocess.CompletedProcess[str]:
+    """Run a prescribed command the way AC-1 judges it: pipefail, exit 0.
+
+    ``pipefail`` is what makes the exit status mean anything at all here. The
+    rejected ``pgrep -fc`` form was prescribed *inside* a ``| wc -l``
+    pipeline, and without ``pipefail`` the pipeline's status is ``wc``'s --
+    zero -- while ``pgrep``'s usage error goes to stderr and the cell comes
+    back empty. Exit 0 with an empty cell is the defect AC-1 exists to catch,
+    so the status has to carry the first failing stage.
+    """
+    return subprocess.run(
+        [_shell(), "-c", "set -o pipefail\n" + command],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+
+
+def _reading(command: str) -> int | None:
+    """The instrument's reading, or ``None`` when it did not produce a number.
+
+    Deliberately **without** ``pipefail`` and without asserting the exit
+    status: this is the responsiveness question, and a form that exits
+    non-zero while printing a usable count is still answering it. ``None``
+    means the cell came back as something other than a count -- which is a
+    distinct finding from "zero", and the distinction R4's sentence is about.
+    """
+    done = subprocess.run(
+        [_shell(), "-c", command],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    printed = done.stdout.strip()
+    return int(printed) if printed.isdigit() else None
+
+
+def _instrument() -> str:
+    """The prescribed rival-pytest command, resolved through the table's ref."""
+    wanted = RIVAL["instrument_cell"]
+    for cell in HOST_CELLS["cells"]:
+        if cell["id"] == wanted:
+            return cell["command"]
+    raise AssertionError(f"{wanted} names no cell in {KANBAN_CONFIG}")
+
+
+def _matched_lines() -> str:
+    """What the instrument actually matched, for a failure message to carry.
+
+    Derived from the prescription by dropping its counting stage rather than
+    written out again, so this diagnostic cannot describe a different query
+    from the one that produced the number -- and it keeps ``$1`` the
+    executable, which is the trap ``config.yml`` records for a ``pid,command``
+    column pair.
+    """
+    command = _instrument()
+    suffix = "| wc -l"
+    assert command.rstrip().endswith(suffix), command
+    return _run_prescribed(command.rstrip().removesuffix(suffix)).stdout
+
+
+def _argv_of(pid: int) -> str:
+    return _run_prescribed(f"ps -o command= -p {pid}").stdout.strip()
+
+
+def _substituted(text: str) -> str:
+    """A case's ``argv_mentions`` with the table's placeholders resolved.
+
+    ``{argv0}`` is read out of a child process rather than assumed: this
+    venv's interpreter is a macOS framework build that re-execs through
+    ``Python.app``, so the argv a live run shows is not ``sys.executable``,
+    and the whole (d3) case exists because that difference was missed once.
+    """
+    child = subprocess.run(
+        [sys.executable, "-c", "import sys; print(sys.orig_argv[0])"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=120,
+    )
+    return text.format_map(
+        {"argv0": child.stdout.strip(), "venv_python": sys.executable}
+    )
+
+
+def _spawn(case: dict, workdir: Path, ready: Path) -> subprocess.Popen:
+    """Put this case's condition on the host and return the process to kill."""
+    shape = case["probe"]
+    if shape == "shell-wrapper":
+        # `& wait` and not a trailing `sleep`: zsh execs its last command, so
+        # the tail form's argv becomes `sleep N` and the near-miss this case
+        # is about never exists. Measured 2026-10-29, both shapes.
+        mentioned = _substituted(case["argv_mentions"])
+        return subprocess.Popen(
+            [_shell(), "-c", f": {mentioned}; sleep {PROBE_LIFETIME_SECONDS} & wait"]
+        )
+    if shape == "search-tool":
+        mentioned = _substituted(case["argv_mentions"])
+        return subprocess.Popen(
+            [
+                _shell(),
+                "-c",
+                f"sleep {PROBE_LIFETIME_SECONDS} | /usr/bin/grep -- '{mentioned}'",
+            ]
+        )
+    if shape in {"pytest-module", "pytest-console-script"}:
+        ready.unlink(missing_ok=True)
+        launcher = (
+            [sys.executable, "-m", "pytest"]
+            if shape == "pytest-module"
+            else [str(Path(sys.executable).with_name("pytest"))]
+        )
+        return subprocess.Popen(
+            [
+                *launcher,
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:randomly",
+                "-p",
+                "no:cacheprovider",
+                "-o",
+                "addopts=",
+                PROBE_MODULE_NAME,
+            ],
+            cwd=workdir,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": ""},
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    raise AssertionError(f"case {case['id']} names no probe shape: {shape!r}")
+
+
+def _wait_until_visible(case: dict, proc: subprocess.Popen, ready: Path) -> str:
+    """Block until the probe is observable, and return the argv that proves it.
+
+    Two different proofs for two different probe shapes, and neither is "it
+    was spawned": for a pytest probe, the module it imports writes ``ready``
+    *before* it sleeps, so the file is the interpreter's own signal that it is
+    past start-up; for a wrapper or a search tool, the proof is that ``ps``
+    shows a process whose argv carries the text the case is about.
+
+    Returns "" if the probe never became observable, which every caller turns
+    into a failure. A negative control that cannot be seen is not a control.
+    """
+    deadline = time.monotonic() + PROBE_VISIBLE_TIMEOUT
+    while time.monotonic() < deadline:
+        if case["probe"].startswith("pytest"):
+            if ready.is_file():
+                return _argv_of(proc.pid)
+        else:
+            argv = _argv_of(proc.pid)
+            if "pytest" in argv:
+                return argv
+        time.sleep(0.05)
+    return ""
+
+
+@pytest.fixture(scope="module")
+def rival_matrix(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
+    """Run every realizable case of the truth table once; return the readings.
+
+    One spawn per case rather than one per assertion, because the probes are
+    processes and the assertions are many. Each case records ``before``,
+    ``during`` and ``after`` readings and the argv that proved the probe was
+    there, so the tests below assert on measurements rather than taking them.
+
+    A case whose baseline moved between ``before`` and ``after`` is re-run up
+    to :data:`BASELINE_ATTEMPTS` times; this board runs cards concurrently and
+    a sibling gate's start is a genuine ±1. What it is *not* is a verdict, so
+    the last attempt's reading is kept with ``stable`` false and the tests
+    fail on it naming the processes the instrument matched.
+    """
+    workdir = tmp_path_factory.mktemp("card304-probe")
+    ready = workdir / "ready"
+    (workdir / PROBE_MODULE_NAME).write_text(
+        PROBE_MODULE.format(ready=str(ready), lifetime=PROBE_LIFETIME_SECONDS),
+        encoding="utf-8",
+    )
+    instrument = _instrument()
+    measured: dict[str, dict] = {}
+    for case in REALIZABLE_CASES:
+        for attempt in range(1, BASELINE_ATTEMPTS + 1):
+            before = _reading(instrument)
+            proc = _spawn(case, workdir, ready)
+            try:
+                argv = _wait_until_visible(case, proc, ready)
+                during = _reading(instrument)
+                matched = _matched_lines()
+            finally:
+                proc.kill()
+                proc.wait(timeout=60)
+            after = _reading(instrument)
+            measured[case["id"]] = {
+                "before": before,
+                "during": during,
+                "after": after,
+                "argv": argv,
+                "matched": matched,
+                "attempts": attempt,
+                "stable": before == after and before is not None,
+            }
+            if measured[case["id"]]["stable"]:
+                break
+    return measured
+
+
+class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond:
+    """CARD-304: ADR-0039/R4's executing half, over ``meta/kanban/config.yml``.
+
+    AC-1 runs every shell command the file prescribes for a host cell and
+    requires exit 0 **and** the output shape the cell declares. AC-2 turns the
+    rival-pytest truth table into data and runs the prescribed instrument
+    against it: it must rise while a real pytest is alive and must not rise on
+    a near-miss, with the near-miss proved to exist first.
+
+    **What this class does not reach**, stated here and in R4's comment rather
+    than left to be inferred:
+
+    * a figure in prose. ``config.yml`` is reachable because it *prescribes
+      commands*; a number in a card, a retro or a docstring has no
+      machine-readable link to the command that produced it, and inventing one
+      would be a claim this check could not keep;
+    * a ratio whose halves came from different instruments, runs or baselines,
+      and a point estimate published for a quantity with run-to-run spread.
+      Both are properties of how two numbers were *obtained*, and the text
+      retains nothing of that;
+    * the live-log sandbox comparison does not cover this class -- it is
+      deselected there, because the sandbox mirrors ``tests/`` and
+      ``meta/profiling/`` only, so ``config.yml`` is absent in it, and because
+      a cell whose job is to probe the host is declaredly host-coupled rather
+      than accidentally so.
+    """
+
+    def test_the_host_cells_block_is_data_this_test_can_parse(self) -> None:
+        data = _host_cells()
+        assert [cell["id"] for cell in data["cells"]], data
+        assert data["rival_pytest"]["cases"], data
+
+    @pytest.mark.parametrize(
+        "source",
+        [source for _, source in NOT_A_HOST_CELLS_BLOCK],
+        ids=[name for name, _ in NOT_A_HOST_CELLS_BLOCK],
+    )
+    def test_the_host_cells_reader_refuses_a_near_miss(self, source: str) -> None:
+        """The negative control for the reader itself.
+
+        R4's own prescription applied to this check's first instrument: a
+        reader that returned ``{}`` for a renamed key would make every
+        assertion in this class pass while measuring nothing.
+        """
+        with pytest.raises((AssertionError, ValueError)):
+            _host_cells(source)
+
+    @pytest.mark.parametrize("cell_id", COMMANDED_CELLS)
+    def test_every_prescribed_host_cell_command_exits_zero(self, cell_id: str) -> None:
+        """AC-1. A flag this platform does not have reds the suite.
+
+        This is the assertion ``pgrep -fc`` fails: BSD pgrep has no ``-c``, so
+        it exits 2 with a usage line, and inside a ``$(...)`` cell that is an
+        empty host cell rather than a count. It is also the assertion the
+        second instance fails -- ``pgrep -f`` is case-sensitive and this
+        venv's live ``argv[0]`` is ``.../MacOS/Python``, so the form finds
+        nothing and exits 1 even while a run is live.
+        """
+        cell = next(c for c in HOST_CELLS["cells"] if c["id"] == cell_id)
+        done = _run_prescribed(cell["command"])
+        assert done.returncode == 0, (
+            f"the {cell_id} cell's prescribed command is not executable on "
+            f"this host: exit {done.returncode}, stderr {done.stderr[-400:]!r}. "
+            "A gate that records this cell would write an empty figure and "
+            "read it as a quiet host."
+        )
+
+    @pytest.mark.parametrize("cell_id", COMMANDED_CELLS)
+    def test_every_prescribed_host_cell_command_prints_its_declared_shape(
+        self, cell_id: str
+    ) -> None:
+        """AC-1's other half: exit 0 is not the same as a usable figure.
+
+        A command can exit 0 and print nothing, or print a usage line, and the
+        cell would then carry something that is not the quantity. The declared
+        shape is the smallest thing that can tell those apart.
+        """
+        cell = next(c for c in HOST_CELLS["cells"] if c["id"] == cell_id)
+        done = _run_prescribed(cell["command"])
+        assert re.match(cell["stdout"], done.stdout.strip()), (
+            f"the {cell_id} cell printed {done.stdout.strip()!r}, which is not "
+            f"the shape it declares ({cell['stdout']!r})"
+        )
+
+    @pytest.mark.parametrize("cell_id", UNCOMMANDED_CELLS)
+    def test_a_host_cell_with_no_command_says_why(self, cell_id: str) -> None:
+        """Default-deny on the cell list, so AC-1's set cannot shrink quietly.
+
+        Not every host cell is a shell command -- the per-test ceiling is read
+        off the run's own durations -- but "no command" has to be a stated
+        reason rather than an omission, or a cell could be exempted from AC-1
+        by deleting its command.
+        """
+        cell = next(c for c in HOST_CELLS["cells"] if c["id"] == cell_id)
+        assert cell.get("no_command_because"), cell
+
+    @pytest.mark.parametrize("cell_id", COMMANDED_CELLS)
+    def test_each_prescribed_command_is_written_in_one_place(
+        self, cell_id: str
+    ) -> None:
+        """R4's last clause, in the one form a tree can check.
+
+        *A figure recomputed and refuted is retracted everywhere it was
+        written.* Nothing can find every copy of a number, but a prescription
+        that exists twice in the file that prescribes it is exactly how a
+        correction survives in one place and not the other -- which this file
+        has done: a bound written for ``pgrep -f 'MacOS/Python.*pytest'``
+        outlived that instrument by one revision and read as a bound on its
+        replacement.
+
+        Measured narrowness, stated because planting a mutant found it: the
+        comparison is between the **decoded** command and the raw file text,
+        so a prescription whose JSON needs an escape (a ``\\`` in a regex,
+        say) counts zero occurrences and reds. That is a loud refusal rather
+        than a silent pass -- the equality is ``== 1`` -- and no prescribed
+        command carries one today, but a future one would have to be stored
+        without an escape or this test restated.
+        """
+        cell = next(c for c in HOST_CELLS["cells"] if c["id"] == cell_id)
+        text = KANBAN_CONFIG.read_text(encoding="utf-8")
+        assert text.count(cell["command"]) == 1, (
+            f"the {cell_id} cell's command appears {text.count(cell['command'])} "
+            "times in config.yml. A second copy is a prescription that can be "
+            "corrected in one place and left wrong in the other."
+        )
+
+    def test_the_truth_table_carries_a_control_in_each_direction(self) -> None:
+        """AC-2's shape, before any of it is run.
+
+        A table of negatives alone cannot tell a working instrument from a
+        dead one, and a table of positives alone cannot tell it from one that
+        counts everything. R4 asks for both, so the data has to carry both and
+        both have to be realizable -- a case that cannot be created is
+        declared, not counted.
+        """
+        assert RISING_CASES, RIVAL_CASES
+        assert NEAR_MISS_CASES, RIVAL_CASES
+
+    @pytest.mark.parametrize("case_id", [case["id"] for case in UNREALIZABLE_CASES])
+    def test_an_unrealizable_case_says_why(self, case_id: str) -> None:
+        case = next(c for c in RIVAL_CASES if c["id"] == case_id)
+        assert case.get("not_realizable_because"), case
+
+    @pytest.mark.parametrize(
+        "case_id", [case["id"] for case in NEAR_MISS_CASES + BOUNDED_CASES]
+    )
+    def test_each_near_miss_probe_is_visible_to_ps(
+        self, case_id: str, rival_matrix: dict[str, dict]
+    ) -> None:
+        """The control on the controls, and it is not theoretical.
+
+        Measured 2026-10-29: written as ``zsh -c ': <text>; sleep N'`` -- the
+        obvious shape, and the one the table's prose describes -- the wrapper
+        does not exist by the time anything looks. zsh execs its last command
+        and the process's argv is ``sleep N``; the text the case is about is
+        gone, and the instrument reads "did not rise" for the one reason that
+        proves nothing. Every negative below is judged only after this.
+        """
+        seen = rival_matrix[case_id]
+        assert "pytest" in seen["argv"], (
+            f"case {case_id}'s probe never became observable, so a flat "
+            f"reading proves nothing about the instrument: argv {seen['argv']!r}"
+        )
+
+    @pytest.mark.parametrize("case_id", [case["id"] for case in RISING_CASES])
+    def test_the_instrument_rises_on_a_real_pytest(
+        self, case_id: str, rival_matrix: dict[str, dict]
+    ) -> None:
+        """AC-2's POSITIVE control: the cell can tell a live run from a quiet box.
+
+        This is the assertion both historical blind forms fail, and it fails
+        them for the right reason -- not "it errored" but "a real pytest was
+        alive and the number did not move".
+        """
+        seen = rival_matrix[case_id]
+        assert seen["stable"], (
+            f"case {case_id}: the baseline moved from {seen['before']} to "
+            f"{seen['after']} across {seen['attempts']} attempts, so this is a "
+            "contended host rather than a verdict. The processes the "
+            f"instrument matched:\n{seen['matched']}"
+        )
+        # The positive control's own vacuity guard: a probe that never started
+        # gives a flat reading for a reason that is not about the instrument,
+        # and the message below would then name the wrong defect.
+        assert "pytest" in seen["argv"], (
+            f"case {case_id}'s pytest probe never became observable, so a flat "
+            f"reading says nothing about the cell: argv {seen['argv']!r}"
+        )
+        assert seen["during"] == seen["before"] + 1, (
+            f"case {case_id}: a real pytest was alive and the prescribed cell "
+            f"read {seen['during']} against a baseline of {seen['before']}. A "
+            "cell that cannot rise cannot distinguish a quiet host from a "
+            f"blind command.\nthe probe: {seen['argv']!r}\nwhat the "
+            f"instrument matched:\n{seen['matched']}"
+        )
+
+    @pytest.mark.parametrize("case_id", [case["id"] for case in NEAR_MISS_CASES])
+    def test_the_instrument_does_not_rise_on_a_near_miss(
+        self, case_id: str, rival_matrix: dict[str, dict]
+    ) -> None:
+        """AC-2's NEGATIVE controls, one per near-miss the table declares.
+
+        Three shapes, and the third was added by this card: a shell whose argv
+        merely spells a pytest command (in three spellings, the last naming
+        the framework re-exec path that retired the previous instrument), and
+        a **search tool** whose own argv carries the pattern -- a process the
+        act of measuring spawns, and one that a probe excluding only shells
+        still counts.
+        """
+        seen = rival_matrix[case_id]
+        assert seen["stable"], (
+            f"case {case_id}: the baseline moved from {seen['before']} to "
+            f"{seen['after']} across {seen['attempts']} attempts. The "
+            f"processes the instrument matched:\n{seen['matched']}"
+        )
+        assert seen["during"] == seen["before"], (
+            f"case {case_id}: the prescribed cell rose to {seen['during']} from "
+            f"{seen['before']} for a process that is not a pytest run.\nthe "
+            f"probe: {seen['argv']!r}\nwhat the instrument matched:\n"
+            f"{seen['matched']}"
+        )
+
+    @pytest.mark.parametrize("case_id", [case["id"] for case in BOUNDED_CASES])
+    def test_a_declared_bound_is_still_exactly_as_blind_as_declared(
+        self, case_id: str, rival_matrix: dict[str, dict]
+    ) -> None:
+        """The bound asserted in both directions, so it cannot drift silently.
+
+        Case (b) -- a real pytest started through the venv's ``bin/pytest``
+        console script -- is one the instrument does **not** see, because the
+        argv holds ``bin/pytest`` and never ``-m pytest``. The table recorded
+        it as a 1 until 2026-10-29 and it is a 0; the same awk keyed on
+        ``/pytest/`` reads 0 -> 1.
+
+        Asserting the blindness rather than hiding it means two things go red:
+        widening the instrument (which would need its own negative control,
+        and has none measured), and the day the console script's argv changes
+        shape. G-1: the bound is narrowed, never the rule.
+        """
+        seen = rival_matrix[case_id]
+        assert seen["stable"], (
+            f"case {case_id}: the baseline moved from {seen['before']} to "
+            f"{seen['after']}. Matched:\n{seen['matched']}"
+        )
+        assert "pytest" in seen["argv"], seen
+        assert seen["during"] == seen["before"], (
+            f"case {case_id} is declared BLIND and it rose to {seen['during']} "
+            f"from {seen['before']}. If the instrument now sees a "
+            "console-script run, the declared bound in config.yml has been "
+            "overtaken and must be struck rather than kept."
+        )
+
+    def test_the_board_starts_pytest_in_the_form_the_cell_can_see(self) -> None:
+        """What makes case (b)'s blindness tolerable, and it is checkable.
+
+        The instrument is blind to a console-script run, and the board's own
+        ``review.test_command`` starts pytest as ``-m pytest``. That is the
+        whole argument for tolerating the bound, so it is asserted rather than
+        asserted-in-prose: change ``test_command`` to the console script and
+        the gate's rival-pytest cell goes blind to the board's own runs, and
+        this test says so first.
+        """
+        text = KANBAN_CONFIG.read_text(encoding="utf-8")
+        declared = re.search(r'^\s*test_command:\s*"(?P<value>[^"]*)"', text, re.M)
+        assert declared is not None, "review.test_command is not in config.yml"
+        assert "-m pytest" in declared["value"], (
+            f"review.test_command is {declared['value']!r}, which the "
+            "rival-pytest cell cannot see: it keys on ' -m pytest' and a "
+            "console-script run's argv never holds it. The declared bound on "
+            "case (b) rested on this and no longer holds."
+        )
+
+    @pytest.mark.parametrize(
+        "instrument",
+        [entry["instrument"] for entry in RE_EXECUTED_REJECTS],
+        ids=[entry["instrument"].split("'")[0].strip() for entry in RE_EXECUTED_REJECTS],
+    )
+    def test_a_rejected_instrument_is_still_refuted_on_this_host(
+        self, instrument: str
+    ) -> None:
+        """A rejection is a claim too, and this one is re-executed each run.
+
+        ``config.yml`` records six instruments as rejected. Two of them are
+        rejected for a reason a command can demonstrate without any pytest
+        being alive -- a flag that does not exist, and a pattern that cannot
+        match this host's ``argv[0]`` -- and those two are re-run here. A
+        comment saying ``pgrep`` has no ``-c`` cannot go red the day it grows
+        one; this can.
+
+        The other four are rejected for blindness or false-positives against a
+        live process, which is the truth table's job above and not a
+        standalone command's.
+        """
+        done = _run_prescribed(instrument)
+        assert done.returncode != 0 or not done.stdout.strip().isdigit(), (
+            f"{instrument!r} now exits 0 and prints "
+            f"{done.stdout.strip()!r} on this host. config.yml rejects it as "
+            "unusable; if that is no longer true the rejection is stale and "
+            "must be restated rather than left standing."
+        )
+
+    def test_the_pytest_probe_runs_outside_this_repository(
+        self, tmp_path: Path
+    ) -> None:
+        """CARD-304's G-5: the probe must not touch the board's full-suite lock.
+
+        It cannot, and the reason is structural rather than a flag: the probe's
+        pytest is pointed at a module in a temporary directory, so its rootdir
+        is that directory, no ``conftest.py`` sits above it, and the hook that
+        reads the lock is never imported. Measured by running the same
+        invocation to completion and reading the rootdir it reports, because
+        "no conftest is above it" is the kind of claim that stops being true
+        after a refactor and says nothing when it does.
+        """
+        module = tmp_path / PROBE_MODULE_NAME
+        module.write_text(
+            PROBE_MODULE.format(ready=str(tmp_path / "ready"), lifetime=0),
+            encoding="utf-8",
+        )
+        done = subprocess.run(
+            [
+                sys.executable, "-m", "pytest", "--collect-only", "-q",
+                "-p", "no:randomly", "-p", "no:cacheprovider",
+                "-o", "addopts=", PROBE_MODULE_NAME,
+            ],
+            cwd=tmp_path,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": ""},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
+        assert "1 test collected" in done.stdout, done.stdout[-2000:]
+        reported = subprocess.run(
+            [
+                sys.executable, "-m", "pytest", "--collect-only",
+                "-p", "no:randomly", "-p", "no:cacheprovider",
+                "-o", "addopts=", PROBE_MODULE_NAME,
+            ],
+            cwd=tmp_path,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": ""},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        rootdir = re.search(r"^rootdir: (?P<path>.+)$", reported.stdout, re.M)
+        assert rootdir is not None, reported.stdout[-2000:]
+        assert Path(rootdir["path"]).resolve() == tmp_path.resolve(), (
+            "the probe's pytest resolved a rootdir outside its temporary "
+            f"directory ({rootdir['path']}), so this repository's conftest -- "
+            "and with it the full-suite lock guard -- is on its path after all"
         )

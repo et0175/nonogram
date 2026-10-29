@@ -271,13 +271,51 @@ than a clause.
     different runs or different baselines is not a ratio. A figure recomputed and
     refuted is retracted everywhere it was written.
   scope: {code: ["tests/**", "src/nonogram/**", "meta/profiling/**", "meta/kanban/**"]}
-  check: {kind: review-lens}
-  # NO EXECUTING CHECK TODAY, stated rather than implied: nothing in the tree can
-  # decide whether a committed number names a live instrument, so a test ref here
-  # would read as mechanically checked while checking nothing. The lens carries it
-  # (decompose 6c4 writes it into a card's System contract; forge:review Step 8h
-  # holds the diff to it) and **CARD-304 owes the flip** to an executing check over
-  # the artefact directories. The scope is WIDER than R1–R3 on purpose: wave 62
-  # measured 4 of its 7 gating findings OUTSIDE `tests/**` + `src/nonogram/**`.
+  check: {kind: test, ref: "test_every_prescribed_host_cell_command_exits_zero, test_the_instrument_rises_on_a_real_pytest, test_the_instrument_does_not_rise_on_a_near_miss"}
+  # tests/test_suite_profile.py, class
+  # TestHostCells_ThePrescribedInstrumentsExecuteAndRespond (CARD-304, flipped
+  # 2026-10-29 from {kind: review-lens}). REACH, stated rather than implied —
+  # and deliberately narrower than the rule above, which is unchanged:
+  #
+  # WHAT THESE REFS EXECUTE. meta/kanban/config.yml does not merely report
+  # figures, it PRESCRIBES the commands that produce them, and a prescription
+  # is a string a test can run. So: every shell command that file prescribes
+  # for a host cell is extracted and run, and must exit 0 under pipefail AND
+  # print the output shape the cell declares — `pgrep -fc` (no such flag on
+  # BSD; exit 2 and an EMPTY cell) and a case-sensitive `pgrep -f` against
+  # this host's capital-P `Python` argv[0] both red it. And the rival-pytest
+  # truth table is machine-readable data whose cases are RUN: the prescribed
+  # instrument must rise while a real pytest is alive (the positive control)
+  # and must not rise on a near-miss — a `zsh -c` whose argv merely spells a
+  # pytest command, in three spellings including the framework re-exec path,
+  # and a search tool whose own argv carries the pattern. Each near-miss is
+  # asserted VISIBLE in `ps` before its flatness is believed, because the
+  # obvious probe shape leaves no such process behind. The two rejected
+  # instruments a bare command can refute are re-executed every run, and each
+  # prescribed command is asserted to be written in exactly ONE place, which
+  # is the only mechanically checkable corner of R4's last clause.
+  #
+  # WHAT THEY DO NOT REACH, and why each is unreachable rather than deferred:
+  #   * a figure in prose — a number in a card, a retro, an ADR or a docstring
+  #     has no machine-readable link to the command that produced it. A check
+  #     claiming otherwise would be this rule's own defect;
+  #   * a ratio whose halves came from different instruments, runs or
+  #     baselines, and a point estimate published for a quantity with
+  #     run-to-run spread: both are properties of how two numbers were
+  #     OBTAINED, and the committed text retains nothing of that;
+  #   * a figure correct at one revision and stale at another — the domain
+  #     clause — since nothing records which revision a number was taken over;
+  #   * a refuted figure surviving somewhere else: reachable only for a
+  #     prescribed COMMAND inside config.yml, never for the figures it
+  #     produced;
+  #   * any host but this one. The cells are BSD spellings; the check asserts
+  #     them unconditionally and so reds on a host that lacks them, which is
+  #     AC-1's intent and equally its bound.
+  # Everything in that second list is carried by the lens exactly as before
+  # (decompose 6c4 writes R4 into a card's System contract; forge:review Step
+  # 8h holds the diff to it), and `meta/kanban/cards/CARD-304.md` records each
+  # shape with its reason. The scope stays WIDER than R1–R3 on purpose: wave
+  # 62 measured 4 of its 7 gating findings OUTSIDE `tests/**` +
+  # `src/nonogram/**`, and these refs reach one file in `meta/kanban/**`.
   severity: mandatory
 ```

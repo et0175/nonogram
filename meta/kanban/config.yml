@@ -78,10 +78,18 @@ review:
   # cells, written into the gate's own output file BEFORE the first test runs
   # and again after the last:
   #
-  #   load-start / load-end   `sysctl -n vm.loadavg`, both ends.
-  #   rival-pytest            `ps -eo command= | awk '$1 ~ /[Pp]ython[0-9.]*$/
-  #                           && /-m pytest/' | wc -l`, both
-  #                           ends. > 0 means a rival run. THIS CELL HAS NOW
+  #   load-start / load-end   the `load` cell of `host_cells:` below, at both
+  #                           ends.
+  #   rival-pytest            the `rival-pytest` cell of `host_cells:` below,
+  #                           at both ends. The commands are written THERE AND
+  #                           NOWHERE ELSE, including not here: CARD-304's
+  #                           `test_each_prescribed_command_is_written_in_one_place`
+  #                           reds if one of them is restated in this prose,
+  #                           because a prescription corrected in one copy
+  #                           survives in the other -- ADR-0039/R4's last
+  #                           clause, which is the only part of R4 the
+  #                           executing check reaches.
+  #                           > 0 means a rival run. THIS CELL HAS NOW
   #                           BEEN WRONG TWICE, so it carries the truth table
   #                           that earned it (measured 2026-10-27, four cases,
   #                           a real venv pytest launched both ways):
@@ -92,7 +100,26 @@ review:
   #                             pgrep -f 'm pytest'              0   1   1    1   0
   #                             pgrep -f 'bin/python -m pytest'  0   0   1    0   0
   #                             pgrep -f 'MacOS/Python.*pytest'  0   0   0    1   1
-  #                             ps|awk first-token-is-python      0   0   0    1   1
+  #                             ps|awk first-token-is-python      0   0   0    1   0
+  #
+  #                           THE LAST ROW'S (b) CELL READ 1 UNTIL 2026-10-29,
+  #                           AND IT IS 0. CARD-304 re-measured it against a
+  #                           live console-script run: the awk keys on
+  #                           ` -m pytest`, and (b)'s argv is
+  #                           `.../MacOS/Python .../.venv/bin/pytest ...`,
+  #                           which never holds that substring -- the SAME
+  #                           mechanism this table already records three rows
+  #                           up for `pgrep -f 'm pytest'`, transcribed wrong
+  #                           into the row that replaced it. The same awk
+  #                           keyed on /pytest/ instead of /-m pytest/ reads
+  #                           0 -> 1 on (b), so the blindness is in the
+  #                           pattern and not in `ps`. Kept rather than
+  #                           widened, because /pytest/ counts any python
+  #                           process whose argv merely mentions pytest and no
+  #                           control for THAT direction has been measured;
+  #                           it is a declared bound in `host_cells:` below,
+  #                           tolerated only because `test_command` above
+  #                           starts pytest as `-m pytest`, which is asserted.
   #
   #                           A SIXTH CASE, FOUND 2026-10-28 DURING WAVE 63, AND
   #                           IT RETIRES ROW 5. (d3) a `zsh -c` wrapper whose argv
@@ -131,6 +158,32 @@ review:
   #                               correct. Hence `ps -eo command=` with no pid
   #                               column, so $1 really is the executable.
   #
+  #                           A THIRD TRAP, MEASURED 2026-10-29 BY CARD-304, AND
+  #                           IT MAKES A NEGATIVE CONTROL VACUOUS RATHER THAN
+  #                           WRONG: a synthetic (d)/(d2)/(d3) wrapper written as
+  #                           `zsh -c ': <text>; sleep N'` DOES NOT EXIST in `ps`
+  #                           by the time anything looks. zsh execs its last
+  #                           command, so the process's argv is replaced by
+  #                           `sleep N` and the text the control is about is gone
+  #                           -- the instrument then reads "did not rise" because
+  #                           the near-miss was never there. Measured: argv
+  #                           `'sleep 20'` for the tail form, and the full
+  #                           `/bin/zsh -c : ... -m pytest ...` for
+  #                           `zsh -c ': <text>; sleep N & wait'`, which forks.
+  #                           A negative control therefore has to assert its own
+  #                           probe is VISIBLE before it concludes anything, and
+  #                           CARD-304's check does
+  #                           (`test_each_near_miss_probe_is_visible_to_ps`).
+  #
+  #                           A FOURTH FALSE-POSITIVE SOURCE, same date, same
+  #                           card: a SEARCH TOOL spawned by the act of
+  #                           measuring. `grep`/`ugrep`/`rg` carry the pattern in
+  #                           their own argv, so a probe that excludes only
+  #                           shells still counts one. It is case (e) in
+  #                           `host_cells:` below. The prescribed `ps|awk` form
+  #                           is immune because $1 is then `/usr/bin/grep`, and
+  #                           that immunity is now asserted rather than reasoned.
+  #
   #                           (a) pytest via `python -m pytest`; (b) via the
   #                           `.venv/bin/pytest` console script; (c) nothing
   #                           running. The last two are THE CONTROLS, and both
@@ -142,7 +195,13 @@ review:
   #                           *python* -- it depends on the wrapper's wording,
   #                           which is itself the disqualification.
   #
-  #                           ONLY THE LAST ROW PASSES ALL FIVE. Read row 4:
+  #                           THE LAST ROW PASSES FOUR OF THE FIVE AND IS THE
+  #                           ONLY ROW THAT PASSES MORE THAN THREE; its (b) is
+  #                           the declared bound recorded above. This sentence
+  #                           read "ONLY THE LAST ROW PASSES ALL FIVE" while the
+  #                           row's own (b) cell was a transcription error --
+  #                           a summary of a table, inheriting the table's
+  #                           wrong cell. Read row 4:
   #                           the form this convention prescribed between
   #                           d61f0be1 and e4d33dfa is 1 when nothing runs and
   #                           0 when something does -- wrong in BOTH
@@ -178,12 +237,29 @@ review:
   #                               and it was WORSE than what it replaced: the
   #                               first failed loudly, this one silently.
   #
-  #                           DECLARED BOUND: the working pattern keys on the
+  #                           DECLARED BOUND, RESTATED 2026-10-29 BY CARD-304
+  #                           BECAUSE IT WAS ABOUT THE RETIRED FORM: this
+  #                           paragraph read "the working pattern keys on the
   #                           framework-python re-exec path, so on a venv built
-  #                           from a NON-framework python it would read 0 and
-  #                           be blind again. It is verified on this box only.
-  #                           Re-run the four cases before trusting it
-  #                           elsewhere -- and note the lesson that actually
+  #                           from a NON-framework python it would read 0 and be
+  #                           blind again". That is true of
+  #                           `pgrep -f 'MacOS/Python.*pytest'`, which the (d3)
+  #                           case above RETIRED, and false of the form that
+  #                           replaced it: `$1 ~ /[Pp]ython[0-9.]*$/` matches a
+  #                           plain `.venv/bin/python` as readily as the
+  #                           framework re-exec, so a non-framework venv is the
+  #                           one host shape this instrument is NOT bound by. A
+  #                           bound written for an instrument outliving that
+  #                           instrument is ADR-0039/R4's last clause again, in
+  #                           the same cell, one paragraph down.
+  #                           The bounds that are real: the cell is verified on
+  #                           arm64 Darwin 25.6 only; `ps -eo`/`sysctl` are BSD
+  #                           spellings and neither is POSIX-portable; and the
+  #                           (b) blindness above. Re-run the cases before
+  #                           trusting it elsewhere -- CARD-304's check runs
+  #                           them on every suite run on THIS host, which is
+  #                           what makes "verified here" a test rather than a
+  #                           sentence -- and note the lesson that actually
   #                           generalises: an instrument needs a POSITIVE
   #                           control (it must rise) AND a NEGATIVE one (it
   #                           must not rise on case (d)). A cell reading 0
@@ -223,6 +299,146 @@ review:
   # longer than two minutes must pass an explicit timeout (600 s is this
   # harness's maximum for a foreground call) or run in the background. A gate
   # row with no summary line is a MEASUREMENT defect, never a tree verdict.
+
+  # THE SAME CONVENTION AS DATA (CARD-304, AC-1 and AC-2). Everything above is
+  # prose, and prose carried this cell's defect three times: a flag that does
+  # not exist on this platform, a pattern that cannot match, and a bound
+  # written for a retired instrument. So the part a machine can act on lives
+  # here, and `tests/test_suite_profile.py`'s
+  # `TestHostCells_ThePrescribedInstrumentsExecuteAndRespond` executes it:
+  # every `command` is run and must exit 0 with stdout matching `stdout`, and
+  # the `rival_pytest` truth table is run case by case against live probes.
+  #
+  # It is a JSON document inside a YAML block scalar on purpose. YAML is what
+  # reads this file, and JSON is what the test can parse with the stdlib --
+  # PyYAML is NOT in ADR-0006/R1's dependency baseline (it is in this venv
+  # only incidentally), and a hand-rolled YAML reader in a test would be one
+  # more unproven instrument in the file about unproven instruments.
+  #
+  # Readings are DELTAS, never absolutes: a sibling worktree's gate counts in
+  # the rival-pytest cell, so the only stable quantity is the change a probe
+  # makes. A baseline that moved between the two readings around a probe is a
+  # refusal to judge, not a verdict.
+  host_cells: |
+    {
+      "shell": "/bin/zsh",
+      "exit_check": "set -o pipefail, then exit 0 required",
+      "measured_on": "2026-10-29, CARD-304, arm64 Darwin 25.6, venv python 3.14 (framework build)",
+      "placeholders": {
+        "{venv_python}": "the venv interpreter as the board spells it, sys.executable",
+        "{argv0}": "argv[0] a LIVE venv run actually shows, i.e. the framework re-exec path; read from a child's sys.orig_argv[0] rather than assumed"
+      },
+      "cells": [
+        {
+          "id": "load",
+          "recorded_at": ["start", "end"],
+          "command": "sysctl -n vm.loadavg",
+          "stdout": "^\\{ +[0-9.]+ +[0-9.]+ +[0-9.]+ +\\}$",
+          "role": "context only; it does not decide whether a run was quiet"
+        },
+        {
+          "id": "rival-pytest",
+          "recorded_at": ["start", "end"],
+          "command": "ps -eo command= | awk '$1 ~ /[Pp]ython[0-9.]*$/ && /-m pytest/' | wc -l",
+          "stdout": "^ *[0-9]+$",
+          "role": "the cell that decides whether the run was quiet; > 0 is a rival run",
+          "controls": "rival_pytest",
+          "why_this_shape_is_storable_at_all": "awk exits 0 when it matches nothing, so the pipeline's exit status carries executability and not emptiness. A pgrep- or grep-based prescription exits 1 on a legitimate empty match, so under pipefail it cannot be stored here without conflating 'blind' with 'quiet' -- which is the AC-1 criterion's own bound."
+        },
+        {
+          "id": "per-test-ceiling",
+          "recorded_at": ["end"],
+          "command": null,
+          "no_command_because": "it is read off the run's own --durations output against tests/hang_guard.py's HANG_SECONDS, not off the host. There is no shell command to execute, so AC-1 has nothing to run; the cell is listed so that a future cell cannot acquire a null command silently."
+        }
+      ],
+      "rival_pytest": {
+        "instrument_cell": "rival-pytest",
+        "reading_harness": "WITHOUT pipefail, unlike the exit_check above, and deliberately: these cases ask whether the instrument RESPONDS, and a harness that reds on exit status would red a blind form for the wrong reason -- 'it exited 1' instead of 'it did not rise while a real pytest was alive'. Executability is AC-1's question and is asked with pipefail; responsiveness is this table's and is asked on the reading. Two questions, two harnesses, stated so neither is mistaken for the other.",
+        "cases": [
+          {
+            "id": "a",
+            "expect": "rises",
+            "probe": "pytest-module",
+            "what": "a real pytest alive, started as `{venv_python} -m pytest`",
+            "role": "THE POSITIVE CONTROL"
+          },
+          {
+            "id": "b",
+            "expect": "flat",
+            "probe": "pytest-console-script",
+            "what": "a real pytest alive, started through the venv's bin/pytest console script",
+            "declared_bound": "the instrument is BLIND to this one. The console script's argv is `.../MacOS/Python .../.venv/bin/pytest ...` and never holds ` -m pytest`. Measured 2026-10-29 both ways: 0 -> 0 for this cell, 0 -> 1 for the same awk keyed on /pytest/. Tolerated, not fixed: /pytest/ would count any python process merely mentioning pytest and no control for that direction is measured. It is tolerable only while review.test_command starts pytest as `-m pytest`, which test_the_board_starts_pytest_in_the_form_the_cell_can_see asserts.",
+            "role": "a bound asserted in BOTH directions, so it cannot drift silently"
+          },
+          {
+            "id": "c",
+            "expect": "flat",
+            "probe": null,
+            "what": "nothing running at all",
+            "not_realizable_because": "a test cannot make a shared desktop quiet -- sibling card worktrees run their own gates, and this board's concurrency is 5. The per-case baseline, re-read after the probe exits, stands in for it; a baseline that moved is a refusal to judge."
+          },
+          {
+            "id": "d",
+            "expect": "flat",
+            "probe": "shell-wrapper",
+            "argv_mentions": "python -m pytest tests/foo.py",
+            "what": "a `zsh -c` with no pytest running whose own argv merely spells one",
+            "role": "THE NEGATIVE CONTROL"
+          },
+          {
+            "id": "d2",
+            "expect": "flat",
+            "probe": "shell-wrapper",
+            "argv_mentions": "{venv_python} -m pytest tests/",
+            "what": "the same wrapper naming the venv interpreter by absolute path"
+          },
+          {
+            "id": "d3",
+            "expect": "flat",
+            "probe": "shell-wrapper",
+            "argv_mentions": "{argv0} -m pytest tests/",
+            "what": "the same wrapper naming the FRAMEWORK re-exec path, which is what this harness actually produces -- the case that retired `pgrep -f 'MacOS/Python.*pytest'`"
+          },
+          {
+            "id": "e",
+            "expect": "flat",
+            "probe": "search-tool",
+            "argv_mentions": "{argv0} -m pytest",
+            "what": "a search tool (grep) whose OWN argv carries the pattern -- a process the act of measuring spawns",
+            "added": "2026-10-29. A probe that excludes only shells still counts this one, and five hand-written variants measured at a single instant on 2026-10-29 returned five different answers partly because of it."
+          }
+        ],
+        "rejected": [
+          {
+            "instrument": "pgrep -fc 'python.* -m pytest'",
+            "verdict": "NOT EXECUTABLE here. BSD/macOS pgrep has no -c: exit 2, usage on stderr, and an EMPTY cell inside $(...) rather than a count.",
+            "re_executed_by": "test_a_rejected_instrument_is_still_refuted_on_this_host"
+          },
+          {
+            "instrument": "pgrep -f 'python.* -m pytest'",
+            "verdict": "BLIND here, and for a second reason independent of -c: -f is case-sensitive and a live run's argv[0] is .../MacOS/Python with a capital P, so no lowercase `python` appears anywhere in it. Measured 2026-10-29 against a live pytest: 0 -> 0. The -fi form reads 1 with nothing running at all.",
+            "re_executed_by": "test_a_rejected_instrument_is_still_refuted_on_this_host"
+          },
+          {
+            "instrument": "pgrep -f 'bin/python -m pytest'",
+            "verdict": "BLIND: the framework re-exec means `bin/python` never appears in a live run's argv. It never errors and always looks fine."
+          },
+          {
+            "instrument": "pgrep -f 'MacOS/Python.*pytest'",
+            "verdict": "FALSE-POSITIVE on case d3, the wrapper this harness actually produces."
+          },
+          {
+            "instrument": "ps -Ao comm= | grep -c 'pytest$'",
+            "verdict": "CANNOT MATCH: comm is the executable name, which for this venv is `Python`, and macOS truncates it to 16 chars besides. Reads 0 whatever the host is doing, and was reported as a quiet-host figure on CARD-299 before being retracted."
+          },
+          {
+            "instrument": "ps -Ao command= | grep -c '[m] pytest'",
+            "verdict": "counts the measuring agent's own `zsh -c` wrapper lines. Three readings within an hour gave 1, 2 and 3 with no pytest running."
+          }
+        ]
+      }
+    }
 
   # IMPACT, owner decision 2026-10-22. The reason is NOT that the suite became
   # the bottleneck -- it is that `full` is unreachable at this board's
