@@ -254,3 +254,135 @@ Playwright suite body was touched.
 is the **base**, explicitly marked `TODO(owner), NOT observed`. CARD-210's remaining
 blocker is one owner action: create the Vercel project and write the domain into that
 one line. **CARD-210 was not flipped** (G-4).
+
+## [Review cycle 1 — 7.0, DOES NOT CERTIFY, 2026-10-29]
+
+`min_score: 8`, cycle 1 of 3. **Three gating findings, all verified by the
+orchestrator, none larger than two lines** — and **two of the three hit the exact half
+of the argument the round says carries ADR-0041/R6: "the egress set is closed". It is
+not closed.** The card does what it was for; three ACs that had no definitions now
+have mutation-resistant tests and AC-392's false alive is gone.
+
+### F-001, GATING — AC-390 makes the suite phone home
+
+`test_assembled_site_is_self_contained` serves the **counted** tree and drives
+Chromium with **no route interceptor**. Verified: `page.route` appears **exactly once
+in the whole file, at `:2489`, inside AC-391** — AC-390 has none. The reviewer taped
+that journey at HEAD:
+
+```
+TOTAL REQUESTS 19   NON-SAME-ORIGIN: [<the script host>/count.js]
+FOREIGN RESPONSES: three HTTP 200s, every run
+```
+
+So a test makes **live third-party requests**, contradicts `docs/deploy/player.md`'s
+own drift step 4 (*"Do not count locally"*), depends silently on a vendor's
+availability, and **re-introduces from the test side the exact shape CARD-283/284's
+four same-origin controls forbid**. Fix: the two lines AC-391 already has. Verified
+green at 33 passed.
+
+### F-002, GATING — the comment stripper eats protocol-relative URLs
+
+`_COMMENTS`' `re.compile(r"(?<!:)//[^\n]*")` at `:2006` guards only `://`, so in
+`src="//host/x"` the **quote** precedes the `//` and the whole reference is blanked;
+`_ABSOLUTE_TARGET` needs `https?://` and misses it too. So `classify()`'s entire `//`
+branch and `_URL_LITERAL`'s protocol-relative alternative are **unreachable dead
+code**, and both of these are **silent passes** on a copy of the clean counted site:
+
+```
+<script src="//evil.example/t.js">              -> SILENT PASS
+@font-face{src:url("//evil.example/f.woff2")}   -> SILENT PASS
+```
+
+That falsifies `scan_site`'s own docstring (*"never a silent pass … the one property a
+denylist-shaped guard cannot have"*), the deploy page's equivalent claim, **and
+ADR-0039/R2's default-deny *condition*** — which is the escape clause the whole
+hand-written-set exemption depends on. Fix: one character class,
+``(?<![:"'`])//[^\n]*``.
+
+### F-003, GATING — a landmine aimed at this board's own sync
+
+`test_the_deploy_page_is_the_only_place_that_holds_an_endpoint` runs
+`["git", "grep", "-l", "--fixed-strings", url]` — verified, **no pathspec, no `--`** —
+and asserts `files == [DEPLOY_DOC]`. **Review YAMLs sync into `main`, so cycle 2's own
+report would break the suite the moment it quoted the URL.** Fix: `[… url, "--",
+":!meta"]`, verified green with a probe staged.
+
+**The reviewer deliberately spelled neither endpoint, and the orchestrator verified
+its YAML before syncing: 0 occurrences of either.** Also measured: **0 tracked files
+on `main` hold either full endpoint**, so the mine is not armed today.
+
+**But the orchestrator came within one path segment of arming it.** This card's own
+round record at `:212` names the script host as a bare host while recording the
+two-origin finding. The test greps the **full** URL with `--fixed-strings`, so a bare
+host does not match — margin of one path segment, in a tracked card file, written
+while documenting the very hazard. Same shape as `dispatcher.state` resolving phantom
+refs: **the file that records a trap is inside the trap's domain.**
+
+### The strongest thing in the card, driven rather than argued
+
+**The counted-vs-uncounted byte assertion genuinely constrains.** Three widening
+mutants, each killed at a **different** line: a `<link rel=preconnect>` → `:2404`; a
+page counted but omitted from `report.counted` → `:2399` **and** AC-392 at `:2589`; a
+non-html file changed by counting → `:2399`. A second tag cannot even be built.
+
+**And my "the deployed tree is never the tested tree" is FALSE as stated.** The
+counted tree is browser-driven by **both** new tests. The real residual is narrower —
+no browser-observed request-**set** closure on the counted tree — and the reviewer
+judges it adequately covered by composition. The genuinely uncovered part is the
+vendor script's own behaviour, which is DEC-046's premise and untestable offline **and
+which F-001 means the suite currently exercises for real while asserting nothing.**
+
+### The edited bookkeeping test kept its teeth, and gained some
+
+A fourth undefined ref reds it at `:1919`. The pre-edit form also caught a fourth, so
+**nothing was lost**, and `refs & defined == card_284 | card_285` now pins the
+intersection exactly. The one direction neither version covers is the docstring's own
+wording — pre-existing, a wording fix, not a finding. **No Playwright suite body was
+edited**: `tests/` has exactly one file in the diff.
+
+### The declared/derived split — not a denylist in derivation's clothes, but R2 is unsatisfied
+
+The derivation is **real**: references from the tree, the permitted set via the *same*
+`driver.allow_list` the deploy command calls, routes via CARD-283's `rewrites()`, and
+nothing a literal in the test. The unenumerable-set argument is correct and
+well-evidenced (the 7 grid fingerprints reproduce exactly, 5 in `solver_state.js` + 2
+in `play.js`). **But R2's escape clause is conditional on default-deny, and that is
+where it fails** — four measured silent passes between F-002 and F-005. **And the
+bound is not stated where a reader meets the claim: the deploy page states the
+opposite** (F-008).
+
+### Non-gating, worth the fix round
+
+- **F-004** the comment-stripping exemption has **no control** for what it must not
+  absorb (ADR-0039/R3; the claim is true, untested, 4 lines).
+- **F-005** shapes the scanner never looks for are silent passes:
+  `el.src = atob(…)`, `new Worker(…)`, `new Image().src = …` — same R2 breach by a
+  different route.
+- **F-006** the two allow-list blocks are a **flat union**, so "non-runtime, nothing
+  fetches it" is documentary only — a live `<script src="…/vercel.json">` planted in
+  the site scans **clean**.
+- **F-009** G-3 names "AC-3", which **FR-045 does not have** — stale from the
+  2026-10-23 renumbering; it should be AC-392.
+
+### Corrections, including two to the orchestrator and one that is nobody's error
+
+- **The "exempts by the located URL" claim is wrong in BOTH my brief and the round's
+  record.** The predicate is `host in entry[0] or host in entry[1]` — **text OR url**.
+  The property survives (the mutant was killed), but the mechanism is not what either
+  document says.
+- **The brief's load figure of 22.25 was stale rather than wrong.** The reviewer
+  measured 6.59/13.31/11.00 and nothing was slow. Load is time-varying: mine was real
+  at dispatch with two cycles running, theirs real later. **The lesson is that a load
+  figure does not belong in a brief at all** — by the time it is read it describes a
+  different machine. Same shape as the `setrlimit` line number: a measurement without
+  its moment attached is not a fact.
+- **`setrlimit` is `:1297` and the brief was right this time** — consistent with the
+  commit-dependence established on CARD-299.
+- ADR-0006/R1's ref: **80 tracked / 57 non-md / 1 `.py`, and that one is prose** in a
+  docstring at `tests/test_admin_serving.py:134`. **My 57 confirmed a third time.**
+- Everything else reproduced: 66/0, 22+44, no Chromium skip, `db_required` 26 by
+  collection, `impact_set` → FULL, node ids **9748 → 9755, +7/−0** re-derived from a
+  scratch worktree at the cut, `src/` 0 lines, `pyproject.toml` absent.
+
+**Hygiene for cycle 2: until F-003 is fixed, no report may quote either endpoint.**
