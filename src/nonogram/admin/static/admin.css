@@ -883,15 +883,33 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    CARD-194's one trigger left enough room that 1280 px fitted everything on
    the buttons' row too, same as 1440 px — and CARD-269's Check button spends
    that room again, so 1280 px is back in the narrower-still case (the pair
-   alone on the buttons' row, Progress wrapped below it). Measured: at 1280 px
-   the counters need 268 px on one line and Check leaves them 186, short by
-   its own 82 px, so the threshold between the two cases moved above 1280
-   rather than the layout breaking. 1440 px still fits all three. The cost in
-   HEIGHT, and it is a height and not an offset (CARD-269 review F-5, which
-   found the two numbers written as heights elsewhere were bottom-edge
-   coordinates): #puzzle-player-controls is 75 px high at 1280 px with Check
-   against 39 px without it, exactly 36 px more, one wrapped counter line;
-   at 1440 px it is 39 px either way. Both cases
+   alone on the buttons' row, Progress wrapped below it).
+
+   MEASURED, with getAnimations() settled and #puzzle-player-announce in its
+   shipped 1 x 1 clipped state. One line of .player-counters needs 263.66 px:
+   the errors/hints pair 146.52 + "Progress: N%" 101.14 + this rule's own
+   16 px column-gap. That need is the same at every width. Check costs the
+   toolbar 81.36 px -- its own 73.36 px button box plus the history group's
+   8 px gap -- so .player-history goes 359.22 -> 440.58 px and the share left
+   to .player-counters goes 267.59 -> 186.23 px at 1280 and 427.59 -> 346.23
+   at 1440, the same 81.36 either way. 267.59 >= 263.66, so 1280 fitted one
+   line before Check; 186.23 < 263.66 by 77.43 px, so Progress now wraps
+   there; 346.23 >= 263.66, so 1440 still fits all three. The THRESHOLD moved
+   above 1280; the layout did not break.
+
+   Beware the rounded figures: CARD-269's card and its cycle-1 review both
+   state the cost as 82 px and the need as 268 px. 268 is the width the
+   counters WERE GIVEN at 1280, not what they need, and 82 is what you get by
+   rounding 267.59 and 186.23 to 268 and 186 before subtracting -- the
+   difference is 81.36. The review's "confirmed two ways" (359 -> 441 = +82)
+   is the same rounding applied to the history group, not an independent
+   derivation.
+
+   The cost in HEIGHT, and it is a height and not an offset (review F-5,
+   which found two numbers written as heights elsewhere were bottom-edge
+   coordinates): #puzzle-player-controls is 74.80 px high at 1280 px with
+   Check against 38.80 px without it, exactly 36.00 px more, one wrapped
+   counter line; at 1440 px it is 38.80 px either way. Both cases
    are asserted in tests/test_puzzle_solver_percent.py,
    TestSolverPercent_SitsNextToTheCounters. The toolbar's items align to the top
    of their row, so the buttons stay at the toolbar's top; the pair is as

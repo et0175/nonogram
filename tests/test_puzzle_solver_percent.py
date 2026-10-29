@@ -447,19 +447,32 @@ class TestSolverPercent_SitsNextToTheCounters:
         too little room there and Progress wrapped, and one trigger instead of
         four freed enough for the buttons, the pair and Progress to share one
         row, same as 1440 px. CARD-269's Check button spends that room again —
-        exactly, and measurably: at 1280 px the counters need 268 px on one
-        line and Check leaves them 186, short by its own 82 px width, so there
-        is no slack to reclaim without shrinking a value another card pins.
-        1440 px still fits all three (test_same_row_left_of_errors_at_1440),
-        so what moved is the THRESHOLD between the two cases, not the cases.
+        exactly, and measurably: one line of .player-counters needs 263.66 px
+        (the pair 146.52 + Progress 101.14 + the 16 px column-gap, the same at
+        every width), Check costs 81.36 px (its 73.36 px box plus the history
+        group's 8 px gap), and that takes the counters' share at 1280 px from
+        267.59 px — which fitted — to 186.23 px, short of the need by
+        77.43 px. There is no slack to reclaim without shrinking a value
+        another card pins. At 1440 px the share is 346.23 px and all three
+        still share the row (test_same_row_left_of_errors_at_1440), so what
+        moved is the THRESHOLD between the two cases, not the cases.
+
+        Those are not the figures this card and its cycle-1 review state. Both
+        say the counters "need 268 px" and Check costs "82 px". 268 px is the
+        width the counters WERE GIVEN at 1280 px without Check, not what one
+        line of them needs; and 82 is 268 − 186, the difference of two ROUNDED
+        widths, where the real difference is 267.59 − 186.23 = 81.36. The
+        review's second derivation (the history group 359 → 441 = +82) is the
+        same rounding applied to another pair of widths, so it confirms the
+        first rather than checking it. Re-measured here in fix round 1.
 
         Asserted as the layout now is, with the claims that did not change
         kept: the buttons keep the row's top, the pair is still centred on
         their row, Progress is still drawn above the board and left-aligned
         under the pair rather than beside it. The board does not move
         horizontally; the toolbar is one row taller — #puzzle-player-controls
-        is 75 px HIGH at 1280 px with Check against 39 px without it, a
-        difference of exactly 36 px, one wrapped counter line.
+        is 74.80 px HIGH at 1280 px with Check against 38.80 px without it, a
+        difference of exactly 36.00 px, one wrapped counter line.
 
         CARD-269 review F-5: this sentence used to read "223 px against 187",
         which are not heights at all but the BOTTOM-EDGE coordinates of a
@@ -468,9 +481,11 @@ class TestSolverPercent_SitsNextToTheCounters:
         toolbar and is not a property of the toolbar, so it would not
         reproduce for whoever checks it next. Re-measured for this correction
         with getAnimations() settled and #puzzle-player-announce in its
-        shipped 1x1 clipped state: 74.797 px with Check and 38.797 px without
-        (and 38.797 px at 1440 px either way, which is the negative control
-        that the instrument is not merely reporting "a button was added").
+        shipped 1x1 clipped state, at 1280x900 and at this test's own
+        1280x720: 74.797 px with Check and 38.797 px without, identical at
+        both viewport heights (and 38.797 px at 1440 px either way, which is
+        the negative control that the instrument is not merely reporting
+        "a button was added").
         The element screenshots in ~/Documents/nonogram-reviews/CARD-269/
         agree by a second instrument: the toolbar crop is 980 x 75 at 1280 px
         and 1140 x 39 at 1440 px.
