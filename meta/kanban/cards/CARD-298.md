@@ -1,4 +1,6 @@
-# CARD-298: `_write_pdf` chooses a medium per page, the two raster exceptions are declared and guarded, and the book baselines are re-recorded once
+# CARD-298: `_write_pdf` chooses a medium per page at one named decision point, and the raster exceptions are declared, derived and default-DENY
+
+<!-- NARROWED 2026-10-29 by owner decision after implementation round 1 hit the scope gate. This card was cut expecting to ALSO convert interior pages to vector (ADR-0042/R1) and re-record the 21 baselines. Both belong to CARD-299: `tests/helpers/pdf_pages.py:34-40` asserts one image XObject per page for EVERY page, so a single vector page breaks all 14 test modules that read a book interior, and that reader conversion is ADR-0042/R6 = CARD-299 — which declares `Depends on: CARD-298`. The slice, not the implementation, was wrong. This card is now the MECHANISM card; R1's flip and the baselines move to CARD-299, which breaks the cycle because CARD-298 no longer needs it. -->
 
 **Status:** in progress
 **Priority:** P2
@@ -16,7 +18,7 @@
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** CARD-295, CARD-296, CARD-297, CARD-227
-**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- CORRECTED 2026-10-29 at dispatch: the declared path was `tests/fixtures/book_baselines/**`, and **no such directory exists**. The real layout is FLAT, in `tests/fixtures/` itself: **21 `book_baseline_*.json` files** (~1.0 MB with their companions), plus **2 `book_baseline_card200_guide_page{1,2}.jpg`** which are card200’s guide-page images, not JSON baselines. So the card body’s and AC-5’s figure of **21 is CORRECT** — the orchestrator first counted 23 by including those two jpgs, which is the wider domain, not a discrepancy. AC-5 says "exactly the 21": if a re-record also moves either jpg, that is a finding to raise, not a number to adjust. -->
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_vector.py, tests/test_book_pdf.py, tests/test_book_solved_answer_key.py, tests/test_book_export_interior_cover.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py, tests/test_book_pdf_vector_primitives.py, tests/helpers/book_corpus.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- AMENDED 2026-10-29 on narrowing: `tests/fixtures/book_baseline_*.json` REMOVED — zero baselines move here (see AC-5). Added the eight files round 1 was forced into: `book_vector.py` (so the mixed writer emits a vector page and its font objects through ONE definition rather than a second transcription of the /FontDescriptor), the four `_write_pdf` call sites the required `kinds=` keyword forced, `test_book_solved_answer_key.py` (F2-01, explicitly owed to this card), `test_book_export_interior_cover.py` (four CARD-206/262 AST pins re-derived row by row), and one docstring rename. --> <!-- CORRECTED 2026-10-29 at dispatch: the declared path was `tests/fixtures/book_baselines/**`, and **no such directory exists**. The real layout is FLAT, in `tests/fixtures/` itself: **21 `book_baseline_*.json` files** (~1.0 MB with their companions), plus **2 `book_baseline_card200_guide_page{1,2}.jpg`** which are card200’s guide-page images, not JSON baselines. So the card body’s and AC-5’s figure of **21 is CORRECT** — the orchestrator first counted 23 by including those two jpgs, which is the wider domain, not a discrepancy. AC-5 says "exactly the 21": if a re-record also moves either jpg, that is a finding to raise, not a number to adjust. -->
 **Review score:** —
 **Started:** 2026-10-29
 **Closed:** —
@@ -36,26 +38,45 @@ re-records the baselines the change moves.
    stream, so **per-page mixing is a sanctioned end state, not a migration
    artefact** (ADR-0042/R2's own words). Make the choice of medium a named,
    single decision point rather than a condition scattered across the page loop.
-2. **ADR-0042/R1's derived guard** — no interior page references an image
-   XObject. Write
-   `tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject` and
-   **flip R1's check from `review-lens` to that node id** in the same change.
+2. **The medium-agreement guard** — every page is the medium its kind
+   declares, in **both** directions: a bitmap handed in where operators were
+   declared is refused, and a content stream under a raster declaration is
+   refused. Write
+   `tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject`.
+   **ADR-0042/R1's flip does NOT happen here** <!-- NARROWED 2026-10-29: R1
+   states that *puzzle pages, answer pages, the TOC and the guide are written as
+   content-stream operators*. While all four are declared raster exceptions, a
+   test asserting "every page is the medium its kind declares" passes **while R1
+   is violated** — marking a rule mechanically checked by a test that cannot see
+   its breach, the exact defect repaired in `c12c33ce` and again in ADR-0032/R3.
+   R1 stays a `review-lens` until CARD-299 converts the readers and the pages.
+   Round 1 refused this flip on its own initiative; that judgement is adopted. -->
 3. **ADR-0042/R2's derived guard** — every raster page is declared with a
    reason. Write
    `tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason`
    and flip R2's check likewise. **Per ADR-0039/R2 this test is DERIVED and
    default-DENY: a page whose medium it cannot classify is a FAILURE, never a
-   silent pass.** The declared set is exactly `{cover, section dividers}`, and
-   it shrinks to `{cover}` when CARD-231 lands — so the test must read the
-   declaration rather than hard-code the pair, and **a declaration whose reason
+   silent pass.** The declared set is **seven**, not two <!-- CORRECTED
+   2026-10-29: the card predicted `{cover, section dividers}`. Measured, it is the
+   two ADR entries plus the five interior kinds that cannot convert until
+   CARD-299: COVER (permanent), DIVIDER (expires with CARD-231), and TITLE /
+   GUIDE / TOC / ANSWER / PUZZLE (each expiring with CARD-299). Every entry
+   carries a reason, an authority and an `expires_with`, so the set shrinks by
+   deletion as each converting card lands — which is precisely what AC-3's expiry
+   check exists to force. The figure was NOT adjusted to fit the implementation:
+   the guard reads the registry rather than any pair, as item 3 itself requires,
+   and seven is what the repo's own blockers produce. --> — so the test must read
+   the declaration rather than hard-code any set, and **a declaration whose reason
    has expired must fail too** (R2's clause: *"once CARD-231 lands, the divider's
    exception goes with it"*).
-4. **Re-record the book baselines, once.** State the scope precisely, because
-   this was overstated earlier in the phase's own history and the correction
-   matters:
-   - **The 21 book baselines move.** That is the whole of the byte-identity cost,
-     and it is the board's most-rehearsed move — the baselines have been
-     superseded **20 times already**.
+4. **The book baselines do NOT move, and that must be demonstrated rather
+   than assumed.** <!-- NARROWED 2026-10-29: the card predicted all 21 would be
+   re-recorded. They do not move here, because nothing converts here — the
+   prediction was about CARD-299's conversion and now belongs to it. -->
+   - **Exactly 0 of the 21 `tests/fixtures/book_baseline_*.json` are
+     re-recorded**, and neither of the two `book_baseline_card200_guide_page*.jpg`
+     files moves. `tests/fixtures/**` is touched not at all, so this card needs
+     **no exception to the standing never-regenerate rule**.
    - **CON-019 does NOT break.** Its property —
      `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` — holds
      COMP-007's **CLI and web** exports byte-identical, and ADR-0042 does not
@@ -68,9 +89,20 @@ re-records the baselines the change moves.
 
 ## Acceptance criteria
 
-- **AC-1** (no interior page is a bitmap, derived over every page kind): *Given*
-  any interior PDF on any export path — the interior, the proof sheet, any
-  future one — *then* no page of a vector kind references an image XObject.
+- **AC-1** (every page is the medium its kind declares, derived over every page
+  kind): *Given* any interior PDF the medium decision governs, *then* no page of a
+  **vector** kind references an image XObject and no page of a **raster** kind is
+  a content stream — both directions, refused before the buffer exists. <!--
+  NARROWED 2026-10-29: this is NOT ADR-0042/R1's statement, and the card must not
+  read as though it were. R1 says the four interior kinds ARE operators; this AC
+  says each page matches whatever its kind declares, which is satisfiable (and
+  satisfied) while all five interior kinds are declared raster. R1 is CARD-299's.
+  Also measured: "any export path" does **not** reach the proof sheet —
+  `book_proof.render_proof_pdf` writes through `Image.save(format="PDF",
+  save_all=True)`, a second writer with no page kinds behind it, pinned by
+  `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision`, which asserts
+  it by AST because both writers stamp the same `% created by Pillow PDF driver`
+  comment. -->
   (test: `tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject`
   — the exact node id ADR-0042/R1's comment names, so item 2's flip lands on a
   real test. **Derived**: it enumerates the interior's pages from the page plan,
@@ -94,12 +126,18 @@ re-records the baselines the change moves.
   module's AST and default-DENY. (test:
   `TestWritePdf_TheMediumIsChosenInOnePlace` — per ADR-0039/R2; a branch it
   cannot classify is a failure.)
-- **AC-5** (the baselines move once, and nothing else does): *Given* this card's
-  branch, *then* exactly the 21 book baselines are re-recorded, **CON-019's
-  property test and the A4 golden are untouched and green**, and the before/after
-  interior size and generation time are recorded. (**gate**: the baseline diff
-  enumerated; `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` and
-  the A4 golden run and pass; figures recorded with the load average at both ends.)
+- **AC-5** (nothing moves, and that is measured in two domains): *Given* this
+  card's branch, *then* **exactly 0** of the 21 book baselines and 0 of the 2
+  guide-page jpgs are re-recorded, `tests/fixtures/**` shows a 0-file diff,
+  **CON-019's property test and the A4 golden are untouched and green**, and the
+  before/after interior size and generation time are recorded with the load
+  average at both ends. (**gate**: `git diff --name-only <cut>..HEAD --
+  tests/fixtures/` is empty; every baseline-reading module runs green — a per-page
+  digest set and a whole-file hash are **different domains**, so both readings are
+  required; `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` and the
+  A4 golden pass.) <!-- NARROWED 2026-10-29: was "exactly the 21 baselines are
+  re-recorded". The baselines move in CARD-299. Note the gate's direction is now
+  the inverse: a baseline that DOES move is a finding. -->
 
 ## Engineering constraints
 
@@ -113,8 +151,11 @@ re-records the baselines the change moves.
 
 ## Guardrails
 
-- **G-1: do not convert the cover or the dividers.** They are the two declared
-  exceptions this card exists to *declare*, not to remove. Converting them would
+- **G-1: convert no page at all — not the cover, not the dividers, and not the
+  five interior kinds.** They are the declared exceptions this card exists to
+  *declare*, not to remove; the conversions belong to CARD-231 (dividers) and
+  CARD-299 (the five interior kinds), and each declaration's `expires_with` names
+  its owner. <!-- NARROWED 2026-10-29: was "the cover or the dividers". --> Converting them would
   make the guard vacuous and pre-empt both ADR-0042/R2's expiry clause and the
   owner's 2026-10-25 decision on divider design.
 - **G-2: do not touch `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`
@@ -122,22 +163,26 @@ re-records the baselines the change moves.
   updated it" on a byte-identity tripwire is how a real regression gets absorbed.
   If either reds, that is a **finding to raise**, not a baseline to refresh.
 - **G-3: do not lower a corpus minimum, and do not regenerate
-  `tests/fixtures/**` beyond the 21 book baselines named in item 4.** The
-  standing rule is that `tests/fixtures/**` is never regenerated; this card holds
-  the one scoped, enumerated exception, and it must be enumerated in the card.
+  `tests/fixtures/**` at all.** <!-- NARROWED 2026-10-29: the scoped exception for
+  21 baselines is withdrawn — nothing converts here, so nothing may be
+  re-recorded. The standing never-regenerate rule applies without exception, and a
+  baseline that reds is a finding to raise. The exception moves to CARD-299. -->
 - **G-4: do not edit `src/nonogram/export/**`.**
 - **G-5: no test deleted, renamed, skipped or merged — `parametrize` ids
   included.** (**gate**: node-id set difference with `-o addopts=''`.)
-- **G-6: ADR-0042/R1's and R2's lenses must not survive this card.** Both flips
-  are part of the card. Merging with either still `review-lens` ships a rule
-  whose delivery card is closed and whose check is a placeholder — the exact
-  defect repaired in commit `c12c33ce` and again in ADR-0032/R3.
+- **G-6: ADR-0042/R2's lens must not survive this card — and R1's MUST.** <!--
+  NARROWED 2026-10-29: was "R1's and R2's". R2's derived guard is real here and
+  its ref resolves, so R2 flips. R1 does NOT: flipping it would mark a rule
+  mechanically checked by a test that passes while the rule is violated, which is
+  the very defect `c12c33ce` and ADR-0032/R3 repaired. R1's flip is CARD-299's,
+  and a round that flips it here is to be reverted, not praised. The reason is
+  written into R1's own note in the ADR. -->
 - **G-7: probes stay OUT of `tests/`** (`RENDER_HEAVY_SNAPSHOT`, see
   `meta/profiling/rank_durations.py:45`).
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
-- ADR-0042/R1 — interior pages are operators; no image XObject, on any export path (check: review-lens → this card's AC-1)
+- ADR-0042/R1 — interior pages are operators; no image XObject, on any export path (check: review-lens → **CARD-299's**, NOT this card's; AC-1 here is the weaker medium-agreement statement and must not be mistaken for it)
 - ADR-0042/R2 — a raster page is declared with a reason; an expired declaration is a defect (check: review-lens → this card's AC-2)
 - ADR-0042/R3 — the writer consumes positions and derives none (check: review-lens)
 - ADR-0042/R5 — the face is embedded whole, once per file (check: tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face)
@@ -153,9 +198,9 @@ re-records the baselines the change moves.
 
 - **FR:** FR-043 (the interior without the cover), FR-030, FR-032
 - **NFR:** NFR-008
-- **ADR:** **ADR-0042** (R1, R2, R3, R5 — this card lands two of its three outstanding checks), ADR-0036/R1-R2, ADR-0039/R1-R2
+- **ADR:** **ADR-0042** (R2 lands here; R1 and R6 land in CARD-299; R3 and R7 stay lenses by design), ADR-0036/R1-R2, ADR-0039/R1-R2
 - **Components:** COMP-009
-- **Trace:** meta/architecture/trace.yml — R1's and R2's checks become live test refs here, so the trace rows for them are re-stamped in this card.
+- **Trace:** meta/architecture/trace.yml — **R2's** check becomes a live test ref here, so only its trace row is re-stamped in this card. R1's row stays as it is until CARD-299.
 
 ## [Premise RE-MEASURED at dispatch — 2026-10-29, orchestrator]
 

@@ -229,3 +229,68 @@ round trip greys a rule's edges.
   attributed two `getpixel` probes to four ECs that never read ink. Co-location is
   not ownership. When this card decides which claim a converted assertion
   belongs to, read the enclosing test, not the enclosing file.
+
+## [Dependency order RESOLVED — 2026-10-29, orchestrator, after CARD-298 round 1]
+
+CARD-298's round hit the scope gate and the owner narrowed CARD-298 to the
+**mechanism** card. Three facts about this card fall out, and the third is a
+finding this card's round must resolve rather than inherit.
+
+**1. `Depends on: CARD-298` is now correct and the graph is acyclic.** It was
+briefly a cycle: CARD-298 was cut to wire the vector writers into the interior,
+and wiring even one page breaks every reader, because
+`tests/helpers/pdf_pages.py:34-40` loops **every** page and asserts
+`len(xobjects) == 1, "a book page is exactly one image"` plus `Filter ==
+DCTDecode`. 14 test modules and 3 helpers (`book_corpus`, `page_ink`,
+`pdf_vector`) read an interior through it. CARD-298 now converts nothing, so this
+card is unblocked by it rather than blocked on it.
+
+**2. This card's readers must be MEDIUM-AGNOSTIC, driven off CARD-298's
+`page_medium(kind)`, not off an assumption that the interior is vector.** Item 1
+already commits to this for one kind — *"`divider` stays raster, so the rewritten
+recording is deliberately mixed-source"* — and the measured state is that **all
+seven kinds are raster at CARD-298's HEAD**, including the five this card's prose
+treats as vector. So the generalisation is: read each page by the medium
+`page_medium` declares for its kind, and let the declaration shrink underneath you
+without the test changing. Written that way this card lands **before** any page
+converts, which is the only order that works.
+
+**3. FINDING — five raster declarations name this card as their expiry, and this
+card cannot discharge them.** CARD-298 shipped
+`_RASTER_DECLARATIONS` with `expires_with=('CARD-299',)` on **TITLE, GUIDE, TOC,
+ANSWER and PUZZLE**. But this card is **test-side only**: items 1–5 convert
+assertions and readers, and nothing here writes a page. The pages themselves are
+still written by `book_pdf_generator`, and **no card on the board converts them**
+— CARD-295/296/297 built `book_guide_vector`, `book_toc_vector`,
+`book_answer_vector` and `book_puzzle_vector`, all of which still have **zero real
+call sites in `src/`**, and CARD-298 was the wiring card until it was narrowed.
+So either those five `expires_with` values are wrong, or this card's scope is. Do
+not quietly adopt either reading: **re-point them at the cards that actually
+convert each kind, and raise the fact that those cards are not cut.** AC-3's
+expiry check is exactly the mechanism that will red if this is left wrong, which
+is the one piece of good news.
+
+**What this card does NOT inherit, stated so a round does not take it on:**
+
+- **ADR-0042/R1's flip is not this card's either.** R1 says puzzle pages, answer
+  pages, the TOC and the guide **are** operators. That is true only once all four
+  convert, which happens in cards not yet cut. CARD-298 correctly refused the flip
+  (its AC-1 is the weaker medium-agreement statement); refusing it here is equally
+  correct. R1 stays a `review-lens` until the last conversion lands. R6's flip,
+  item 4, **is** this card's.
+- **The 21 book baselines do not move here.** They move when a page's **bytes**
+  change, i.e. in the conversion cards. CARD-298 measured 0 of 21 moving and
+  `tests/fixtures/**` untouched; the same should hold here, and a baseline that
+  moves on a test-side card is a **finding**, not a re-record. The scoped
+  never-regenerate exception stays withdrawn.
+- **CARD-297's declared clip divergence** (`_DECLARED_CLIP_DIVERGENCE`) is still
+  unreached — `page_medium(ANSWER)` is RASTER and `book_answer_vector` has no real
+  call sites. Round 1's position, recorded for whoever converts the answer page:
+  once that page is vector there is **one** answer-page writer, and the book clips
+  by `/Widths`, the measure the reader's own viewer uses — so the declaration
+  becomes a statement about a page nobody prints and **should be deleted by the
+  converting card**, not inherited. Not this card's to act on.
+
+**Also owed to the phase, now cut as its own card:** the vector puzzle page draws
+no folio, frame rules, grid-size label or QR block — see **CARD-306**. A vector
+puzzle page cannot ship without it, and CARD-295 wrongly named CARD-298 for it.
