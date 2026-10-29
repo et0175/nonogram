@@ -313,3 +313,57 @@ broken. **Both belong in this card's class (c)/false-alive partition**, and R4 i
 one more reason AC-1's enumeration must classify by **whether the resolving hit is a
 definition**, never by whether `git grep` exits 0. ADR-0042/R5's comment already
 flags R4 "for whoever next touches R4"; this card is that owner.
+
+## [PREMISE RE-MEASURED at wave-66 opening — 2026-10-29, orchestrator. The card's own figures were wrong.]
+
+This card was cut from a round's report and said *"30 of them read as mechanically
+checked"* with *"25 not from this week's cards"*. **Derived from the files instead
+— and the characterisation, not just the count, was wrong.**
+
+Method: walk every `check: {kind: test, ref: …}` in `meta/architecture/decisions/adr/**`
+and every `test:` key in `requirements.yml`; for each ref, run the validator's own
+`git grep -lw <whole string>` under its real pathspec, and separately look for a
+`def`/`class` definition. (Note for whoever repeats this: **do not put `\b` in the
+definition regex** — it is undefined in POSIX ERE, which `git grep` uses, so it
+silently matches nothing. That bug produced a first census claiming every ref was
+undefined, including ones verified by hand minutes earlier.)
+
+```
+verifying refs in the model        469      (47 `check:` + 422 `test:`)
+  bare-name form                   436      <- the board's overwhelming norm
+  node-id form                      33      <- the anomaly this card is about
+
+of the 33 node-id refs:
+   2   reported DEAD and no test exists        <- the HONEST state; nothing to fix
+   2   falsely ALIVE on prose, NO test at all  <- the worst class
+  29   falsely ALIVE on prose, a test exists   <- mechanism broken, answer right
+   0   reported dead while a test exists
+```
+
+**So the defect is almost never a dead ref — it is a FALSE ALIVE.** 31 of 33 read as
+mechanically checked, and only 2 are reported dead at all. The card's framing had it
+backwards, and the inverted framing matters: a round told to "repair 30 dead refs"
+would look for warnings and find two.
+
+**The two with nothing behind them** are `test_no_homegrown_tracking` (ADR-0041/R6
+and its `requirements.yml` twin — 4 prose resolvers, no definition anywhere) and,
+reported honestly dead, `test_assembled_site_is_self_contained` and
+`test_pages_work_with_analytics_blocked`. Those four are the real gaps; the other 29
+are a spelling problem.
+
+**And 436 refs already use the bare name**, which the validator resolves to the
+`def` line itself. That is the strongest argument for the respelling repair above:
+the node-id refs are not a convention, they are 7 % of the model deviating from it.
+
+**A third category this card must not flatten.** CARD-291's five are in the
+"falsely alive, test exists" bucket by the mechanical test, but their resolver is a
+**deliberate docstring node-id table paired with a two-direction guard** that
+asserts each ref resolves to a real definition *and* appears in the table. That is a
+shim with a control, not an accident — and `tests/test_public_player.py` carries the
+same pattern. **Partition those out and leave them alone**; they are the model for
+the ambiguous cases, not work.
+
+**AC-1 is amended again**: the enumeration must classify every node-id ref into
+these five buckets (honest gap · false-alive-no-test · false-alive-test-exists ·
+guarded-shim · reported-dead-test-exists), because "dead or alive" is the
+distinction that hid the problem.

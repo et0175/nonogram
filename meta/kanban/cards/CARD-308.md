@@ -1,6 +1,6 @@
 # CARD-308: The card sync protocol erodes dead-ref detection — a review report that quotes a dead ref silences the warning about it, and the board has no record of which binary is the validator
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/308-the-sync-erodes-dead-ref-detection
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-308
 **Source:** Caught in the act 2026-10-29 while gating CARD-301; the validator-of-record half reversed the same day after CARD-284's fix round 2. Both measured by the orchestrator. Cut on owner decision.
 **Idea:** —
 **Wave:** 66
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** meta/kanban/config.yml, meta/kanban/README.md, tests/** (one guard), meta/architecture/decisions/adr/**
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -239,3 +239,47 @@ the validator accepted.
 (a ref that landed later) — because they are the two halves of the behaviour, and
 a detector that only catches the permanent case will read as working while the
 transient case erodes every wave.
+
+## [FOURTH INSTANCE, and this one is the orchestrator's own bookkeeping — 2026-10-29]
+
+AC-4 names a ref whose premise is **confirmed and worse than written**. The test it
+names has **no `def` and no `class` anywhere in the repo**, and under the
+validator's pathspec it has exactly **two** resolvers:
+
+```
+meta/review/20261029T025000Z-CARD-301-cycle1.yml      <- the sync protocol (instance 1)
+meta/kanban/dispatcher.state                          <- the orchestrator's own state log
+```
+
+**`meta/kanban/dispatcher.state` has no `.md` extension, so it is INSIDE
+`code_search`'s domain.** `board.md` is excluded; the state log is not. So every
+test or ref name written into the state log revives that ref — and this session
+wrote one in while *recording this very defect*. **By documenting the erosion the
+orchestrator became one of its two load-bearing resolvers.**
+
+Measured across the whole state log: of the test-like names in it, two are refs with
+no definition — the one AC-4 names (2 resolvers, one of them the state log) and
+ADR-0006/R1's (109 resolvers, one of them the state log). The remaining matches were
+**module stems** (`test_book_pdf`, `test_web_server`, …), not refs, and are not part
+of this finding — said plainly because an inflated count here would be the same
+failure as the one being reported.
+
+**The immediate mitigation needs no code and is adopted from now on:** ref and test
+names go in **card files**, which are `.md` and excluded, and **never** in
+`dispatcher.state`. Cleaning the existing two out does not restore either warning
+(the review YAML and the other 108 files still resolve them), so this is hygiene
+plus a rule, not a repair — say so rather than claiming a fix.
+
+**What it adds to this card's argument.** G-2 already warned that a guard holding a
+list of dead refs revives them. This is broader and worse: **ordinary pipeline
+bookkeeping in any tracked non-Markdown file does it**, with no guard and no test
+involved. Two independent mandatory processes — the review-YAML sync and the
+dispatcher state log — both feed the resolver, which is why author discipline cannot
+be the remedy and why AC-2's detector must derive its verdict from whether the hit
+is a **definition**.
+
+**AC-5 is widened**: the recorded argument must name the full set of in-domain
+resolvers it has to survive — `meta/review/**`, `meta/profiling/**`,
+`meta/kanban/dispatcher.state`, `meta/kanban/backlog-scored.yml`, and prose inside
+`tests/` itself — and state that only the last cannot be excluded, which is why a
+pathspec narrowing is insufficient.

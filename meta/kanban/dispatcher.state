@@ -1795,3 +1795,77 @@ board_regenerated:
   tallies: "264 done, 38 ready, 2 in progress, 1 parked, 0 review, 2 blocked = 307"
   ready_column_bullets_counted: 38
 queued: []
+
+# ---- WAVE 66 OPENED (2026-10-29) while WAVE 65 IS STILL OPEN ----
+# Appended as a fresh block at the END, because this file is an append-only log
+# with REPEATED top-level keys (5x wave, 4x active, 3x queued) and YAML's
+# last-key-wins means only the final occurrence of each is live. An earlier edit
+# of mine targeted the FIRST `queued: []` and the yaml guard caught that it
+# changed nothing. So a new state block must restate `active` in full.
+#
+# Membership re-derived by sweeping all 308 card files, not read off the board:
+#   CARD-299, CARD-307, CARD-308.
+# CARD-298 is at review cycle 2 and holds one of two slots -> ONE slot free.
+#
+# DEPENDENCIES: CARD-299 declares CARD-298 + CARD-276. CARD-276 is done;
+#   CARD-298 is in progress, so CARD-299 is BLOCKED. 307 and 308 declare none.
+# CONFLICT GRAPH: no card names any config hotspot, but every PAIR shares
+#   `adr/**` and `tests/**` -> overlap 2/min(4,4) = 0.500 against max_overlap
+#   0.3, so all three SERIALIZE regardless of slots. Academic at one slot, and
+#   the reason no second card is queued to start concurrently later.
+# DISPATCHED CARD-308 (0.5d), held CARD-307. Reasons in order of weight:
+#   1. it names the VALIDATOR OF RECORD, which every later gate depends on --
+#      both wave-65 implementation rounds quoted the plugin cache's phantom
+#      ADR-0025 error as fact;
+#   2. 0.5d clears the single slot sooner than CARD-307's 1d;
+#   3. CARD-307's own G-1 says a falling warning count is not evidence AND
+#      CITES CARD-308, so 307 verifies better once the detector exists;
+#   4. CARD-307's premise was rewritten at this opening, so its round should
+#      start from the corrected card.
+#
+# PREMISE CORRECTIONS AT THIS OPENING, both measured off the files and both
+# recorded on the cards themselves rather than here (see the rule below):
+#   CARD-307's figures were wrong -- the characterisation more than the count.
+#     It said "30 refs read as mechanically checked". Derived: 469 verifying
+#     refs in the model (47 check: + 422 test:), only 33 in node-id form and
+#     436 already bare names, so the node-id spelling is 7% of the model
+#     deviating from its own norm. Of the 33: two reported dead with no test
+#     (the honest state), two falsely ALIVE with no test at all, 29 falsely
+#     alive with a test that does exist, and ZERO reported dead while a test
+#     exists. The defect is a FALSE ALIVE, almost never a dead ref -- a round
+#     told to "repair 30 dead refs" would look for warnings and find two.
+#   METHOD WARNING: do NOT put a word-boundary escape in the definition regex.
+#     It is undefined in POSIX ERE, which git grep uses, so it silently matches
+#     nothing. It produced a first census claiming every ref was undefined,
+#     including ones verified by hand minutes earlier. Second time that exact
+#     bug bit this session.
+#   CARD-308's AC-4 premise CONFIRMED and worse: the ref it names has no
+#     definition anywhere and exactly TWO resolvers -- a synced review YAML and
+#     THIS STATE LOG. This file has no .md extension, so unlike board.md it is
+#     INSIDE the validator's search domain, and naming a ref here while
+#     recording the defect made the orchestrator one of its two load-bearing
+#     resolvers. RULE ADOPTED: ref and test names go in CARD FILES (.md,
+#     excluded) and never in this file -- which is why the corrections above
+#     name no test. Hygiene plus a rule, not a repair: removing the two
+#     existing names restores no warning, because the review YAML and 108 other
+#     files still resolve them.
+wave: 66
+wave_65_still_open: "CARD-298 at review cycle 2 on 211e2cb7; wave 65 cannot close until it merges or is abandoned"
+mode: interactive
+max_concurrent_override: 2
+active:
+- id: CARD-298
+  wave: 65
+  phase: review cycle 2 (fix round 1 landed 211e2cb7)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
+  branch: card/298-per-page-medium-and-the-raster-declaration
+- id: CARD-308
+  wave: 66
+  phase: implementation
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+  branch: card/308-the-sync-erodes-dead-ref-detection
+  base: f64112f2
+  estimate: 0.5d
+queued: [CARD-307]
+blocked_in_wave_66: [CARD-299]
+done_in_wave_65: [CARD-291]
