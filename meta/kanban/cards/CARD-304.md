@@ -240,3 +240,97 @@ corrected on this board today.
 - **The module docstring's cost figure is ~2× stale** (16.5–16.7 s, 2026-10-16, against
   30.4–34.0 s now *without* the new class). Re-measurement added **with its domain** rather
   than replacing theirs, because two cards were sized against the old one.
+
+---
+
+## Review cycle 1 — **8.0, PASSES `min_score: 8`** — but one finding falsifies a committed ADR sentence
+
+Eleven findings. The reviewer answered all seven brief questions **with witnesses it built
+itself**, two of which the implementation round did not have.
+
+### The split is necessary, proved orthogonal in both directions
+
+- `ps -Ao comm= | awk '/pytest$/' | wc -l` — **executable, exit 0, well-shaped integer,
+  and totally blind** (`comm` is `Python` here). Planted: 28 passed, **only AC-2's positive
+  control red**. So AC-2 is not redundant.
+- The prescribed awk with `| grep -c .` — **reads correctly in every truth-table case** yet
+  exits 1 on a quiet host. AC-1 reds it, AC-2 passes it entirely. So AC-1 is not redundant.
+- **A stronger argument than the round's own**: planting `pgrep -fc` reds `…_exits_zero`
+  but leaves `…_prints_its_declared_shape` **GREEN**, because `wc` prints `0`. **Pipefail
+  is the only thing between that cell and an empty figure.**
+
+### F-001 (high) — the vacuity fix is parametrized over all four negatives but substantively covers three
+
+`test_each_near_miss_probe_is_visible_to_ps` **is** parametrized over d, d2, d3, e, b. But
+for **(e)** the assertion reads `_argv_of(proc.pid)` — the `zsh` that owns the pipeline —
+and **the wrapper's own argv carries the pattern**, so it is satisfied whether or not a
+search tool exists. Mutant: give the grep an unknown flag so it dies on arrival → **29/29
+pass with no search tool on the host.** A second mutant with `grep -q` behaves the same.
+
+**Two tracked sentences are therefore false**: `config.yml`'s *"that immunity is now
+asserted rather than reasoned"*, and **ADR-0039/R4's REACH comment** — *"Each near-miss is
+asserted VISIBLE in `ps`."* The underlying claim is **true** (the reviewer's own harness
+proved the grep child present and the cell flat); the tree simply does not assert it.
+**Three-line fix** — the grep row is already enumerable via `ps -eo pid=,ppid=,command=`.
+
+**This is the card's own subject landing on the card**: a claim that reads true while being
+false, committed into the very ADR comment the card exists to make executable.
+
+### F-004 — "every probe IS killed" is false, and it pollutes the host for other cards
+
+After a clean 29-passed run: **four orphan `sleep 30` and one orphan `grep … -m pytest`**,
+all reparented to pid 1. `proc.kill()` signals the wrapper only. **On a board at
+concurrency 5 this injects case (e)'s own false-positive shape into the host for 30 s per
+run** — so this card's probes can corrupt a *sibling card's* rival-pytest reading. Fix:
+`start_new_session=True` + `os.killpg`.
+
+### F-005 — the hang guard can turn a broken control into no verdict at all
+
+The whole matrix builds inside the **first** node that requests it, and `hang_guard.py`
+arms 120 s in `pytest_runtest_protocol` — which wraps setup — with `exit=True`. Three
+invisible negatives cost **93.30 s** on that one node; with five visibility cases the
+ceiling is **150 s**, past the guard. A broken negative control would then present as **no
+summary line** rather than three named reds — which `config.yml` itself calls *"a
+MEASUREMENT defect, never a tree verdict."* Realized need is ~15× smaller.
+
+### The rest
+
+- **F-002** the visibility assertion has no *standing* control; its sibling new instrument
+  in the same card ships exactly that control, so the asymmetry is internal.
+- **F-006** the sandbox deselect is **over-broad by 18 of 29 node ids** — narrowed to the
+  four matrix-dependent methods, the comparison stayed green. The symlink buys collection
+  and nothing else.
+- **F-007** `config.yml` names five test functions and **nothing asserts any resolves** —
+  the selector keys on the *presence* of a field, never its value, so a rename leaves a
+  silently dead reference. **The first of the three shapes this card exists to catch,
+  inside the file it just made machine-readable.**
+- **F-008** AC-1's declared cost is overstated: `<form> || [ $? -eq 1 ]` exits 0 on a
+  legitimate empty match **and still reds `pgrep -fc`**, whose usage failure is exit **2**.
+  The strong argument was already in the file — grep's *readings* are wrong (the normalized
+  form read **2** with no pytest running) — not that its exit status is unstorable.
+- **F-003 / F-011** the new cost band is already exceeded (35.22 s, 37.85 s against a
+  declared 30.4–34.0), and a wall-clock class figure sits beside session-time module
+  totals. Residue item 3's own shape, on this card.
+- **F-009 / F-010** a test name carries no scope while its docstring does, and three
+  byte-identical copies of the prescription exist in the tree; one residue heading
+  contradicts its body.
+
+### Two answers that corrected the brief's premises
+
+**The unconditional BSD assertions are a FEATURE**, and my question presupposed otherwise:
+**there is no CI in this repo at all** — neither `.github/workflows/` nor `ci/` exists — so
+"cannot pass on Linux CI" is hypothetical, a `skipif` would make "verified here"
+unfalsifiable (R4's exact defect), and the module already forbids one globally. Worth
+naming in whatever brief first proposes a Linux runner.
+
+**The awk form behaves exactly as reported**, reproduced with a second implementation that
+never imports the module under review: **+1** on a real `-m pytest`, **flat on (b), (d),
+(d2), (d3), (e)**, each probe's presence proved by a process-tree walk. *"The
+orchestrator's 'no one-liner gets this right' is correctly refuted."*
+
+### And it declined to transcribe the prescription into its own report
+
+Because two prior review YAMLs do, which is F-009's subject. It also flagged inside its own
+YAML that the ~14 test names it spells — every one verified against a real `def` — **will
+make those names read as alive after a future rename**, because `meta/review/**` sits inside
+the resolver's text search. The hazard declared by the report that creates it.
