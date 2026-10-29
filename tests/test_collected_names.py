@@ -57,9 +57,27 @@ What it does **not** reach, named rather than left to look covered
   :func:`non_collected_test_files` is the second half of that sentence: it
   reports the files under ``testpaths`` that *do* declare module-level
   ``test_*`` functions and are *not* collected, and
-  ``test_the_files_pytest_never_opens_are_the_two_known_ones`` holds that set
-  to the two it is measured to be, with a reason each. One of the two is a
-  defect of exactly F-1's family and is owed elsewhere — see that test.
+  ``test_the_file_pytest_never_opens_is_the_one_known_one`` holds that set
+  to the **one** it is now measured to be, with its reason. It held two until
+  CARD-301 resolved the second — ``tests/bench_generate.py``, which carried
+  NFR-001/AC-037's 5 s p95 gate and never ran it — and the pin shrank in the
+  same commit as the fix, because a pin outliving its hole is the
+  declaration-outliving-its-hole defect.
+
+  That test was **renamed from
+  ``test_the_files_pytest_never_opens_are_the_two_known_ones``** by CARD-301,
+  which resolved the second file; this line is here so a ``git grep`` for the
+  retired spelling still lands in the live module. CARD-301's first cut kept
+  the old name for that ref stability and gave the wrong reason for it, which
+  review cycle 1 measured: forge's ``validators/utils.code_search()`` builds
+  ``[':(exclude)meta/architecture', ':(exclude)*.md']``, so ``meta/review`` is
+  inside the validator's **haystack** and is never a source of ``check:``/
+  ``test:`` refs — a review YAML can make a dead ref look alive, but it cannot
+  produce a finding when a name it quotes goes away, and neither validator arm
+  named this test at all. Nothing mechanical read the name; what read it was a
+  reader, to whom "two" over an assertion holding one is the same
+  claim-wider-than-its-control defect this whole module exists for. The count
+  lives in the assertion, which is where it can be checked.
 * **A module silenced above its tests** (a module-scope ``pytest.skip``).
   That is a different defect with its own pair of guards already:
   ``tests/test_guard_integrity.py`` and ``tests/test_suite_profile.py`` watch
@@ -452,27 +470,33 @@ class TestCollectedNames_EveryTestDeclaringNameIsCollectible:
         # already followed it.
         assert not rule.collects_class("PropertyTest_Anything")
 
-    def test_the_files_pytest_never_opens_are_the_two_known_ones(self, pytestconfig):
+    def test_the_file_pytest_never_opens_is_the_one_known_one(self, pytestconfig):
         """The scope statement above, as an assertion rather than as prose.
 
-        Both files declare module-level ``test_*`` functions that a plain
-        ``pytest`` run never collects, and they are not the same thing:
+        **One file now, and the name says so.** It held two when CARD-294
+        wrote it as
+        ``test_the_files_pytest_never_opens_are_the_two_known_ones``; CARD-301
+        resolved the second and shrank the pin in the same commit, and review
+        cycle 1 established that nothing mechanical read the old spelling, so
+        the name follows the assertion instead of the history — see the module
+        docstring, which records the retired spelling for ``git grep``.
 
         * ``tests/integration_tests.py`` is a standalone script with its own
           report harness — its ``test_*`` functions take no fixtures and are
           called by its own runner. Not collected, and not meant to be.
-        * ``tests/bench_generate.py`` **is** meant to be. Its own docstring
-          says "it runs inside ``pytest -q`` with the rest of the suite", and
-          its three functions include AC-037's NFR-001 5 s p95 gate.
-          Measured 2026-10-25: a bare ``pytest --collect-only`` from the repo
-          root collects 9,224 tests and none is in that file — the name
-          matches no ``python_files`` pattern, and pytest only collected it in
-          cycle 1 because it was named on the command line. That is F-1's
-          defect family in another file, found by this guard on the day it was
-          written, and it is **not** CARD-294's to fix: it belongs to AC-037's
-          card, and renaming the file touches the frozen render-set snapshot
-          this card's G-7 is about. It is pinned here so it cannot be
-          forgotten and so a *third* one reds.
+        * ``tests/bench_generate.py`` **was** meant to be, and was not: its
+          own docstring claimed it ran "inside ``pytest -q`` with the rest of
+          the suite" while its three functions, AC-037's NFR-001 5 s p95 gate
+          among them, collected nothing. Measured 2026-10-25 and again
+          2026-10-29: a bare ``pytest --collect-only`` from the repo root
+          collects 9,224 and then 9,570 tests and none was in that file.
+          CARD-301 moved the gate to
+          ``tests/test_nfr001_generation_time.py``, which the suite does
+          open, and left the benchmark as an honest standalone that declares
+          no name beginning ``test`` — so it is no longer a file whose names
+          claim to run. It is out of this pin because the hole is closed, not
+          because the pin was relaxed: a *second* such file still reds here,
+          which is this test's standing job.
         """
         found = non_collected_test_files(collection_roots(pytestconfig), rules(pytestconfig))
-        assert found == ["tests/bench_generate.py", "tests/integration_tests.py"], found
+        assert found == ["tests/integration_tests.py"], found

@@ -1,19 +1,55 @@
-"""AC-037 — the NFR-001 generation-time benchmark (ADR-0001's 5s p95 cap).
+"""AC-037's measurement — NFR-001's generation-time benchmark (ADR-0001's 5s p95 cap).
 
-    AC-037  BenchGenerate_20x20_p95Under5s  ->  test_20x20_p95_is_under_5s
+    AC-037  tests/test_nfr001_generation_time.py  (the gate; node id named there)
 
 *given* a 20x20 random-grid generation request under typical hardware, *when*
 generation runs, including any regenerate retries, *then* p95 completion time
 is <= 5s.
 
-This is a gate, not a report: it runs inside ``pytest -q`` with the rest of the
-suite (see ``tests/conftest.py`` for why a file named ``bench_generate.py`` is
-collected at all), and it fails when the cap is missed. ADR-0001's own
-"Negative" section anticipates exactly that — "neither number is validated
-against actual solver performance yet; if profiling ... shows the solver
-routinely takes longer than 5s at 20x20 ... this ADR will need to be revisited"
-— and CARD-006 is explicit that a missed p95 is the deliverable, not something
-to be tuned away by loosening the threshold or by picking a friendlier corpus.
+**pytest does not collect this file, and since CARD-301 that is deliberate
+rather than accidental.** The basename matches neither of pytest's default
+``python_files`` patterns (``test_*.py``, ``*_test.py``) and nothing in this
+repository sets ``python_files`` — ``pyproject.toml``'s
+``[tool.pytest.ini_options]`` sets ``minversion``, ``testpaths``, ``addopts``,
+``pythonpath`` and ``markers``, and that is the whole list. Measured on main
+``6b0dfa30`` with ``-o addopts=''`` so the stacked ``-q`` could not swallow the
+output: a bare run collects 9,570 tests and 0 of them are here. So this module
+declares no name beginning ``test``: everything in it is a function a caller
+calls, which is what it has always actually been.
+
+Three claims CARD-301 deleted from this docstring, because each was false and
+the first read as load-bearing:
+
+1. that the suite ran it with the rest of the tests — it collected nothing,
+   in two independent measurements;
+2. that ``tests/conftest.py`` explained its collection — that file says
+   nothing about this one. Its only near-match is a ``performance`` marker
+   registration at ``:110``, and a marker is not a collection rule;
+3. that a missed cap is what makes it fail — inverted by the
+   ``xfail(strict=True)`` the gate has carried since CARD-006. The gate fails
+   when the cap is **MET**, which is the point: AC-037 is *known missed*, and
+   a strict xfail is what forces the marker's removal on the day the solver
+   closes the gap instead of letting it rot.
+
+The three retired spellings are frozen in
+``tests/test_nfr001_generation_time.py`` and this file is scanned for them, so
+none of them can come back; the exact wording of each is there rather than
+here, because a file that quoted its own retired claims could not be scanned
+for them.
+
+**Where the pytest-visible gate is.** ``tests/test_nfr001_generation_time.py``
+— a file the suite does open — carries the three collected names, and its
+AC-037 gate is a thin wrapper around :func:`gate_verdict` below. The corpus,
+the cap, the statistic, the timing and the verdict text all stay here; that
+module adds the marker, the fixtures and the assertions. CARD-301 measured why
+the split is this way round rather than renaming this file: **eight committed
+references** name ``tests/bench_generate.py`` as where the benchmark lives —
+four pages under ``docs/how-it-works/``, three architecture artefacts
+(ADR-0001, ADR-0029, ``handoff.md``) and one comment in
+``src/nonogram/orchestrator.py``, the tree CARD-301's G-1 forbids it to touch
+— and this way they stay true. (Recounted over the whole tracked tree by
+CARD-301's review cycle 1; this line said "four documents and two architecture
+artefacts" and had undercounted both halves.)
 
 Determinism (the card's "keep it runnable and deterministic enough to be a gate")
 -------------------------------------------------------------------------------
@@ -31,14 +67,25 @@ uniqueness check and *every regenerate retry* — as AC-037 requires. A request
 that ends in ``GenerationAbandoned`` (20 candidates, none unique) or in
 ``SolverTimeout`` is timed like any other: what the criterion bounds is how
 long a user waits for the tool to finish, not how long a successful run takes.
+
+Running it by hand
+------------------
+Both doors below were driven on CARD-301's branch, not only written down::
+
+    ./.venv/bin/python -m tests.bench_generate          # the gate's verdict
+    ./.venv/bin/python -m tests.bench_generate --full   # the uncensored sweep
+
+``--full`` is :func:`report` — every sample timed under a 30s budget, no early
+exit — and is the one to reach for when the question is "how far off is it?".
+The bare form is :func:`gate_verdict`, the same early-exiting measurement the
+collected gate makes.
 """
 
 from __future__ import annotations
 
 import math
+import sys
 import time
-
-import pytest
 
 from nonogram import orchestrator
 from nonogram.errors import GenerationAbandoned, SolverTimeout
@@ -79,6 +126,39 @@ _P95_RANK = math.ceil(0.95 * len(CORPUS))
 #: How many samples may exceed the cap and still leave p95 <= cap.
 _ALLOWED_OVER_CAP = len(CORPUS) - _P95_RANK
 
+#: The strict-xfail reason the collected gate carries, moved here **verbatim**
+#: by CARD-301 so that the marker's text lives beside the corpus it describes
+#: and the wrapper cannot paraphrase it. Byte-identical to the string the
+#: decorator held on main ``6b0dfa30``, and the marker is built from this
+#: constant rather than from a copy of it —
+#: ``test_the_gate_carries_card_018s_strict_xfail_marker_unweakened`` is what
+#: holds both halves of that. Its own last sentence is a standing instruction:
+#: this marker goes when the whole density range is under the cap, not on
+#: partial data.
+XFAIL_REASON = (
+    "AC-037 still unmet, but in a much narrower band than when CARD-006 "
+    "marked this. Measured on this branch against its merge base — 20x20, "
+    "seeds 0-4, every request capped at the 5s budget, so an over-cap "
+    "sample is a censored lower bound: densities 20/25/30 went from 2-of-5, "
+    "4-of-5 and 5-of-5 requests over the cap to 0-of-5, 45% from 3-of-5 to "
+    "1-of-5, and 32% from 5-of-5 to 2-of-5. Still over on every seed at "
+    "35/38/40%, and 4-of-5 at 42%, which is why this corpus's density-40 "
+    "column keeps the gate red. Density 10 is the one point the first cut "
+    "of CARD-018 got wrong and this one corrects: it never timed out "
+    "before the card (0.34-0.38s, the fastest point on the whole sweep), "
+    "unconditional probing made it 1.6-2.5s, and the non-probing round 0 "
+    "now runs it in 0.26-0.29s. Read the sub-cap timings with care: every "
+    "request at 10-32% ends in GenerationAbandoned (20 candidates, none "
+    "unique), so they measure how fast the pipeline gives up rather than "
+    "how fast it produces a puzzle, and 32% at 1.3-4.1s sits inside noise "
+    "of the 5s threshold rather than comfortably under it. The residual is "
+    "dominated by individual candidate grids that are hard in themselves "
+    "rather than hard for one heuristic — see CARD-018's worktree notes "
+    "for the evidence and the full 10-90% sweep. Removing this marker "
+    "needs the whole density range under the cap, not this corpus alone: "
+    "do not remove it on partial data."
+)
+
 
 def _time_one_request(density: int, seed: int) -> tuple[float, str]:
     """Run one generation request and time it end to end.
@@ -110,11 +190,11 @@ def _time_one_request(density: int, seed: int) -> tuple[float, str]:
 def measure() -> list[tuple[int, int, float, str]]:
     """Time the whole corpus, without any early exit.
 
-    Not what the gate calls — see :func:`test_20x20_p95_is_under_5s` for why —
-    but the honest, uncensored measurement to reach for when the question is
-    "how far off is it?" rather than "does it pass?"::
+    Not what the gate calls — see :func:`gate_verdict` for why — but the
+    honest, uncensored measurement to reach for when the question is "how far
+    off is it?" rather than "does it pass?"::
 
-        python -c "from tests.bench_generate import report; report()"
+        ./.venv/bin/python -m tests.bench_generate --full
     """
     return [
         (density, seed, *_time_one_request(density, seed)) for density, seed in CORPUS
@@ -136,40 +216,16 @@ def report(budget_seconds: float = 30.0) -> None:  # pragma: no cover - develope
 
 
 # --------------------------------------------------------------------------
-# AC-037 — BenchGenerate_20x20_p95Under5s
+# AC-037 — the measurement the collected gate makes
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason=(
-        "AC-037 still unmet, but in a much narrower band than when CARD-006 "
-        "marked this. Measured on this branch against its merge base — 20x20, "
-        "seeds 0-4, every request capped at the 5s budget, so an over-cap "
-        "sample is a censored lower bound: densities 20/25/30 went from 2-of-5, "
-        "4-of-5 and 5-of-5 requests over the cap to 0-of-5, 45% from 3-of-5 to "
-        "1-of-5, and 32% from 5-of-5 to 2-of-5. Still over on every seed at "
-        "35/38/40%, and 4-of-5 at 42%, which is why this corpus's density-40 "
-        "column keeps the gate red. Density 10 is the one point the first cut "
-        "of CARD-018 got wrong and this one corrects: it never timed out "
-        "before the card (0.34-0.38s, the fastest point on the whole sweep), "
-        "unconditional probing made it 1.6-2.5s, and the non-probing round 0 "
-        "now runs it in 0.26-0.29s. Read the sub-cap timings with care: every "
-        "request at 10-32% ends in GenerationAbandoned (20 candidates, none "
-        "unique), so they measure how fast the pipeline gives up rather than "
-        "how fast it produces a puzzle, and 32% at 1.3-4.1s sits inside noise "
-        "of the 5s threshold rather than comfortably under it. The residual is "
-        "dominated by individual candidate grids that are hard in themselves "
-        "rather than hard for one heuristic — see CARD-018's worktree notes "
-        "for the evidence and the full 10-90% sweep. Removing this marker "
-        "needs the whole density range under the cap, not this corpus alone: "
-        "do not remove it on partial data."
-    ),
-    strict=True,
-)
-def test_20x20_p95_is_under_5s(monkeypatch: pytest.MonkeyPatch) -> None:
-    """AC-037: p95 completion for a 20x20 request, retries included, <= 5s.
+def gate_verdict(budget_seconds: float = P95_CAP_SECONDS) -> tuple[int, float, str]:
+    """Time the corpus until AC-037's verdict is settled, and report it.
 
-    Two things keep this affordable to run on every ``pytest -q`` without
+    The whole of the gate except the marker and the two assertions, which
+    belong to pytest and live in ``tests/test_nfr001_generation_time.py``.
+    Two things keep it affordable to run on every ``pytest -q`` without
     weakening it.
 
     *The per-request budget is the cap itself.* ADR-0011's deadline is set to
@@ -184,30 +240,40 @@ def test_20x20_p95_is_under_5s(monkeypatch: pytest.MonkeyPatch) -> None:
     one does, p95 > cap is proven and the remaining requests cannot change it.
     So a failing run costs about two cap-lengths instead of twenty, and a
     passing run has to time every sample, which is exactly the asymmetry a gate
-    wants.
+    wants. **Measured both ways on CARD-301's branch**, Mac15,6 / M3 Pro,
+    Python 3.14.3: the early exit settles after 6 of 20 samples in 13.97 s (the
+    density-40 requests at seeds 0 and 1 are the two over-cap ones), while the
+    same corpus with the early exit disabled costs 40.79 s and puts 6 of 20
+    over the cap at p95 = 5.001 s.
 
-    Neither shortcut touches the threshold or the corpus. If this fails, the
-    finding is real: per CARD-006 and ADR-0009's "performance tuning at the
-    upper end is our problem", the fix belongs in the solver's propagation
-    strength, not here.
+    Neither shortcut touches the threshold or the corpus. If this reports a
+    miss, the finding is real: per CARD-006 and ADR-0009's "performance tuning
+    at the upper end is our problem", the fix belongs in the solver's
+    propagation strength, not here.
+
+    Returns:
+        ``(over_cap, measured_p95, verdict)`` — how many timed requests
+        exceeded the cap, the nearest-rank p95 over the samples actually run,
+        and the full per-sample report to print when the verdict is a miss.
     """
-    monkeypatch.setattr(orchestrator, "GENERATION_BUDGET_SECONDS", P95_CAP_SECONDS)
-
+    original = orchestrator.GENERATION_BUDGET_SECONDS
+    orchestrator.GENERATION_BUDGET_SECONDS = budget_seconds
     samples: list[tuple[int, int, float, str]] = []
     over_cap = 0
-    for density, seed in CORPUS:
-        elapsed, outcome = _time_one_request(density, seed)
-        samples.append((density, seed, elapsed, outcome))
-        if outcome == "timeout" or elapsed > P95_CAP_SECONDS:
-            over_cap += 1
-            if over_cap > _ALLOWED_OVER_CAP:
-                break
+    try:
+        for density, seed in CORPUS:
+            elapsed, outcome = _time_one_request(density, seed)
+            samples.append((density, seed, elapsed, outcome))
+            if outcome == "timeout" or elapsed > P95_CAP_SECONDS:
+                over_cap += 1
+                if over_cap > _ALLOWED_OVER_CAP:
+                    break
+    finally:
+        orchestrator.GENERATION_BUDGET_SECONDS = original
 
     ordered = sorted(elapsed for _, _, elapsed, _ in samples)
     measured_p95 = ordered[min(_P95_RANK, len(ordered)) - 1]
-
-    assert over_cap <= _ALLOWED_OVER_CAP, _verdict(samples, over_cap, measured_p95)
-    assert measured_p95 <= P95_CAP_SECONDS, _verdict(samples, over_cap, measured_p95)
+    return over_cap, measured_p95, _verdict(samples, over_cap, measured_p95)
 
 
 def _verdict(
@@ -232,45 +298,27 @@ def _verdict(
     return "\n".join(lines)
 
 
-# --------------------------------------------------------------------------
-# The benchmark's own contract — a gate that cannot fail is not a gate
-# --------------------------------------------------------------------------
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover - developer tool
+    """The standalone door, so this module is runnable and not only importable.
 
-
-def test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty() -> None:
-    """Pins determinism and the statistic, so neither can drift silently.
-
-    Sample count, rank and tolerance are what turn "p95 <= 5s" into a decidable
-    proposition; if a later change grew the corpus without revisiting the rank,
-    the gate would quietly start measuring something else.
+    ``--full`` prints the uncensored sweep (:func:`report`); the bare form
+    prints the gate's own early-exiting verdict, and exits 1 when AC-037 is
+    missed — which is what makes this usable from a shell as well as readable.
     """
-    assert len(CORPUS) == 20
-    assert len(set(CORPUS)) == len(CORPUS)
-    assert _P95_RANK == 19
-    assert _ALLOWED_OVER_CAP == 1
-    assert P95_CAP_SECONDS == 5.0
-
-
-def test_the_same_corpus_entry_replays_the_same_run(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """ADR-0015 determinism, checked on the benchmark's own inputs.
-
-    A benchmark whose corpus drew fresh randomness each run would measure a
-    different puzzle every time and could not gate anything. Timing is not
-    compared here — only the *work*: same seed, same discarded candidates, same
-    final grid.
-    """
-    monkeypatch.setattr(orchestrator, "GENERATION_BUDGET_SECONDS", P95_CAP_SECONDS)
-    density, seed = 60, SEEDS[0]
-
-    first = orchestrator.generate(
-        GenerationRequest(mode="random", width=SIZE, height=SIZE, density=density, seed=seed)
+    arguments = sys.argv[1:] if argv is None else argv
+    if "--full" in arguments:
+        report()
+        return 0
+    over_cap, measured_p95, verdict = gate_verdict()
+    if over_cap > _ALLOWED_OVER_CAP or measured_p95 > P95_CAP_SECONDS:
+        print(verdict)
+        return 1
+    print(
+        f"AC-037 met: {over_cap} of {len(CORPUS)} over the {P95_CAP_SECONDS}s cap "
+        f"(at most {_ALLOWED_OVER_CAP} may), p95 = {measured_p95:.3f}s."
     )
-    second = orchestrator.generate(
-        GenerationRequest(mode="random", width=SIZE, height=SIZE, density=density, seed=seed)
-    )
+    return 0
 
-    assert first.grid == second.grid
-    assert first.regenerate.attempts == second.regenerate.attempts
-    assert first.solution_count == second.solution_count
+
+if __name__ == "__main__":  # pragma: no cover - developer tool
+    raise SystemExit(main())
