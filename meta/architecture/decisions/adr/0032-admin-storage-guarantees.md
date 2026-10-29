@@ -177,17 +177,19 @@ nobody has a reason to open.
 - id: ADR-0032/R3
   statement: A puzzle reaches the approved status, and a stored grid replaces an approved or in-book puzzle's, only when its verifying solve needed no branching (branch_nodes == 0). Every path that writes PuzzleStatus.APPROVED — the per-puzzle action, the bulk batch action, either store mode — and the edit store onto an approved or in-book puzzle refuses a branching puzzle with a message naming the reason; a verdict that cannot be obtained (unreadable grid, non-unique, or a solve not concluded in budget) refuses with its own distinct message rather than approving. The verdict comes from the stored solver-written strategies list when one exists, else one budgeted re-solve. Nothing demotes an already-approved or in-book puzzle automatically.
   scope: {code: ["src/nonogram/admin/**"]}
-  check: {kind: review-lens}
-  # PLANNED TEST, owed by CARD-291 (the delivery card for FR-046 / EC-051):
-  #   tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate
-  # Flip this check to `kind: test` with that ref when CARD-291 lands, on
-  # CON-020's precedent (2026-10-06, "was `kind: review-lens` ... CARD-184 wrote
-  # it"). Held as a lens until then: the file does not exist, and a `kind: test`
-  # ref naming a test that does not exist is read as mechanically checked by
-  # system_rules.py and forge:review Step 8h. That matters here more than most,
-  # because CARD-291 is the card whose review would be told R3 is already
-  # guarded while it is the card writing the guard. Repaired 2026-10-25,
-  # alongside the same defect in ADR-0042's four planned refs.
+  check: {kind: test, ref: tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate}
+  # FLIPPED 2026-10-29 by CARD-291, the card that owed it. Was
+  # `kind: review-lens` with this same ref in a comment beside it from
+  # 2026-10-25, on CON-020's precedent, because the file did not exist and a
+  # `kind: test` ref naming a test that does not exist is read as mechanically
+  # checked by system_rules.py and forge:review Step 8h — which would have
+  # told CARD-291's own review that R3 was already guarded while CARD-291 was
+  # the card writing the guard. The test now exists as a collected definition
+  # (`git grep -nE '(class|def)[[:space:]]+test_every_approved_writer_passes_the_gate'`
+  # resolves, and so does `--collect-only` on that node id), so the lens is
+  # spent and the ref is live. It walks src/nonogram/** with `ast`, is
+  # default-DENY on a writer it does not recognise, and carries ten writer
+  # shapes and five read shapes as controls.
   severity: mandatory
 ```
 
