@@ -1,6 +1,6 @@
 """AC-037's measurement — NFR-001's generation-time benchmark (ADR-0001's 5s p95 cap).
 
-    AC-037  tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s
+    AC-037  tests/test_nfr001_generation_time.py  (the gate; node id named there)
 
 *given* a 20x20 random-grid generation request under typical hardware, *when*
 generation runs, including any regenerate retries, *then* p95 completion time

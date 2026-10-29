@@ -8,14 +8,24 @@ executed once**: measured twice independently, a bare ``pytest`` run collects
 ``pytest -q`` with the rest of the suite". A performance requirement read as
 verified for as long as its gate was invisible.
 
-The node ids this module owns, written out because a check ref is only alive
-if a ``git grep`` finds it in a code file (the lesson of
+The three node ids **moved here from the uncollected file** — not the whole
+module, which declares eleven. They are written out in full because a check
+ref is only alive if a ``git grep`` finds it in a code file (the lesson of
 ``tests/test_public_player.py``'s AC-383..AC-386 refs, which named node ids in
-a file that did not exist):
+a file that did not exist), and the first of the three is the one the
+architecture model points at from two places
+(``requirements.yml``'s AC-037 ``test:`` and ``trace.yml``'s NFR-001
+``tests:``), which is the ref
+:func:`test_the_registry_names_this_module_and_every_ref_resolves` holds to
+this list:
 
 * ``tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s``
 * ``tests/test_nfr001_generation_time.py::test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty``
 * ``tests/test_nfr001_generation_time.py::test_the_same_corpus_entry_replays_the_same_run``
+
+The other eight names are CARD-301's own controls, enumerable with
+``pytest -o addopts='' --collect-only -q`` and not listed here, because a list
+of them kept in prose is the very thing this module exists to stop trusting.
 
 What this module does **not** claim
 -----------------------------------
@@ -42,11 +52,14 @@ swallow a count:
   here, 14.22 s as the standalone ``-m`` door including interpreter start.
   The 0.4 s spread is the solver's own noise, which is why this is carried to
   one decimal;
-* every other name in this module costs **0.02 s** or less, so the ten
-  collected tests add **14.03 s** — every setup, call and teardown row of the
-  module summed, 30 rows over 10 tests, counted from the rows and not from
-  the summary line — to every full-suite run. Against a suite of 1433.47 s on
-  the board's last committed profile
+* every other name in this module costs **0.02 s** or less, so the eleven
+  collected tests add **14.03-14.05 s** — every setup, call and teardown row
+  of the module summed, 33 rows over 11 tests, counted from the rows and not
+  from the summary line, two readings — to every full-suite run. (Ten tests
+  and 30 rows at 14.03-14.15 s before review cycle 1's fixes added
+  :func:`test_the_trace_matrix_names_this_modules_gate_for_nfr001`, whose own
+  three rows are 0.00 s: the eleventh test reads two files and asserts on
+  text.) Against a suite of 1433.47 s on the board's last committed profile
   (``meta/profiling/suite-durations-20261023.txt``) that is **0.98 %**, and
   inside the run-to-run spread CARD-218 measured as "tens of seconds".
   Fourteen tests in that profile are individually slower than this gate, the
@@ -57,7 +70,16 @@ swallow a count:
   stop the early exit. The ceiling is ``tests/hang_guard.py``'s 120 s per
   test (CARD-292), and the gate cannot reach it: every request is capped at
   ``P95_CAP_SECONDS``, 20 of them bound the test at ~100 s — measured
-  overshoot on a capped request was ≤ 2 ms;
+  overshoot on a capped request was ≤ 2 ms. **State the headroom as a number,
+  because crossing it is not a red test but ``_exit()`` of the whole
+  session:** 20 x 5.0 s = 100.0 s against 120 s is **20 s of margin**, and
+  100.0 s is a floor rather than a ceiling (it excludes per-request overhead
+  outside the cooperative deadline). So ``P95_CAP_SECONDS`` and
+  ``len(CORPUS)`` cannot both grow, and a card that raises the cap toward
+  ADR-0001's 30 s hard timeout has to shrink the corpus in the same change —
+  which is a second reason
+  :func:`test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty`
+  pins both;
 * **the uncensored sweep must stay out of the suite**, and that is measured
   rather than asserted: ``python -m tests.bench_generate --full`` — the same
   corpus under the production-shaped 30 s budget — took **122.04 s** and read
@@ -76,13 +98,20 @@ ADR-0001 (as a node id, ``::test_20x20_p95_is_under_5s``), ADR-0029 and
 ``meta/architecture/handoff.md``, and four pages under
 ``docs/how-it-works/``; counted by ``git grep`` over ``docs`` and ``meta``
 with ``meta/kanban`` and the ``meta/review`` snapshots excluded. Three of the
-seven are in artefacts this card is not to rewrite. Moving the gate's pytest
-wrapper here keeps six of the seven true as they stand — the corpus, the cap,
-the statistic and the timing all stay in ``tests/bench_generate.py``, which is
-now an honest standalone with a ``__main__`` door and no name beginning
-``test``. The seventh, ADR-0001's node id, is the one reference this card
-necessarily invalidates: the gate function cannot both leave that file and
-stay in it, and it has to leave for the pin over "files pytest never opens" to
+seven are in artefacts this card is not to rewrite. **Eight over the whole
+tracked tree**, and the eighth is the stronger half of the argument rather
+than a correction to it: ``src/nonogram/orchestrator.py:338`` names the path
+in a comment, in the one tree CARD-301's G-1 forbids this card to touch —
+present identically on main, so it is a reference the ``docs``/``meta``
+pathspec hid rather than declined. It stays true for the same reason the other
+seven do: the benchmark itself does not move. Moving the gate's pytest
+wrapper here keeps seven of the eight true as they stand — the corpus, the
+cap, the statistic and the timing all stay in ``tests/bench_generate.py``,
+which is now an honest standalone with a ``__main__`` door and no name
+beginning ``test``. The one exception, ADR-0001's node id, is the reference
+this card necessarily invalidates: the gate function cannot both leave that
+file and stay in it, and it must leave for the pin over "files pytest never
+opens" to
 shrink. It is reported as owed rather than edited here, since
 ``decisions/adr/`` is outside this card's declared ``Touches``.
 """
@@ -100,14 +129,53 @@ from tests import bench_generate
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BENCHMARK = REPO_ROOT / "tests" / "bench_generate.py"
 REGISTRY = REPO_ROOT / "meta" / "architecture" / "requirements.yml"
+TRACE = REPO_ROOT / "meta" / "architecture" / "trace.yml"
 THIS_MODULE = Path(__file__).relative_to(REPO_ROOT).as_posix()
+
+#: The label AC-037 and NFR-001 carried as a ``test:`` ref before CARD-301 — a
+#: string that resolved to no class, no function and no node id.
+#:
+#: **Assembled from two fragments on purpose, and that is load-bearing rather
+#: than fussy.** forge's ``validators/utils.symbol_exists()`` is
+#: ``git grep -lw <ref> -- . ':(exclude)meta/architecture' ':(exclude)*.md'`` —
+#: a text search — so whichever *code* file writes the whole token out
+#: contiguously is the file that makes the dead label read ALIVE to the
+#: validator. On main ``6b0dfa30`` that file was ``tests/bench_generate.py``
+#: (prose, at ``:3`` and ``:139``); CARD-301 review cycle 1 measured that this
+#: module had inherited the job, which is the camouflage relocated rather than
+#: removed. Concatenating at import means the token appears in no source line
+#: here, so :func:`test_the_trace_matrix_names_this_modules_gate_for_nfr001`
+#: can assert the label's absence without becoming the reason a future
+#: re-introduction of it would look resolvable.
+RETIRED_LABEL = "BenchGenerate" + "_20x20_p95Under5s"
 
 #: The three claims ``tests/bench_generate.py``'s docstring made about its own
 #: execution, each false and each measured false by CARD-301. Frozen as the
-#: exact spellings that shipped, and that is the width of the rule: a
-#: *reworded* execution claim is not caught here, which is why
+#: exact spellings that shipped, and that is the whole width of the rule:
+#: **exact spellings only.** A *reworded* execution claim is not caught here,
+#: and — narrowed by review cycle 1, which measured it rather than taking the
+#: first cut's word for it — it is not caught by the positive
+#: :data:`NON_COLLECTION_STATEMENT` requirement either. That requirement closes
+#: the *replacement* case (delete the "pytest does not collect this file"
+#: sentence and
 #: :func:`test_the_benchmark_prose_claims_no_execution_context_it_does_not_have`
-#: also requires the positive statement in :data:`NON_COLLECTION_STATEMENT`.
+#: reds) and does nothing about the *coexistence* case, which is the case a
+#: reworded claim actually takes: cycle 1's edge mutant added "The suite does
+#: execute every function below on each ``pytest -q`` run" two lines under the
+#: retained positive statement and three prose tests passed. A new sentence
+#: gets added; the old one is rarely deleted.
+#:
+#: What does reach the general case is structural rather than textual, and it
+#: is worth naming here because it is the reason the residue is tolerable:
+#: :func:`test_the_benchmark_module_declares_no_name_pytest_would_have_to_collect`
+#: pins both halves of the file being uncollected — no ``python_files``-matching
+#: basename and no ``python_functions``-matching module-level name — so prose
+#: claiming the suite runs this file is false *and cannot become true by
+#: accident*. Catching the prose itself in arbitrary wording would need a
+#: pattern rule over sentences, and the live docstring legitimately contains
+#: both "suite" and "collected" in one sentence (about the other module), so
+#: such a rule would red on arrival. Declared, not hidden.
+#:
 #: Whitespace is normalised before matching, because every one of the three
 #: was wrapped across source lines.
 RETIRED_CLAIMS: tuple[str, ...] = (
@@ -118,9 +186,10 @@ RETIRED_CLAIMS: tuple[str, ...] = (
 )
 
 #: The other half of that rule: the benchmark must say plainly that it is not
-#: collected. A docstring that went back to claiming the suite runs it would
-#: have to delete this sentence, which reds — and that is what the frozen list
-#: above cannot do on its own.
+#: collected. What this catches, exactly, is a docstring rewrite that *removes*
+#: the statement — not one that contradicts it in a new sentence while leaving
+#: it standing (see :data:`RETIRED_CLAIMS` for the mutant that establishes the
+#: difference).
 NON_COLLECTION_STATEMENT = "pytest does not collect this file"
 
 
@@ -182,16 +251,47 @@ def test_20x20_p95_is_under_5s() -> None:
 
 
 def test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty() -> None:
-    """Pins determinism and the statistic, so neither can drift silently.
+    """Pins the corpus's *content*, the statistic and the tolerance.
 
     Sample count, rank and tolerance are what turn "p95 <= 5s" into a decidable
     proposition; if a later change grew the corpus without revisiting the rank,
     the gate would quietly start measuring something else. Moved here by
     CARD-301 from the uncollected file, where it pinned nothing because it
-    never ran — and it is now also the mechanism behind that card's G-5: a
-    round that reshaped ``CORPUS``, ``_P95_RANK``, ``_ALLOWED_OVER_CAP`` or the
-    cap to make AC-037 green reds here.
+    never ran — and it is the mechanism behind that card's G-5: a round that
+    reshaped ``CORPUS``, ``DENSITIES``, ``SEEDS``, ``_P95_RANK``,
+    ``_ALLOWED_OVER_CAP`` or the cap to make AC-037 green reds here.
+
+    **The content pin is not decoration, and the shape pin on its own was not
+    enough.** CARD-301 review cycle 1 measured the hole: with only
+    ``len(CORPUS) == 20`` plus uniqueness asserted, swapping one line in the
+    benchmark — ``DENSITIES = (30, 40, 50, 60)`` to ``(50, 60, 70, 80)`` —
+    left this test *passing* (the band is still twenty unique pairs) and made
+    the module's only red the gate's ``[XPASS(strict)]``, which under
+    :data:`tests.bench_generate.XFAIL_REASON`'s own standing instruction reads
+    as "the solver met the cap, remove the marker". It would not have been a
+    hypothetical reshape: the same cycle's uncensored sweep times density 50 at
+    0.008-0.041 s and density 60 at 0.004-0.011 s against density 40 at
+    7.5-30.0 s, so the fast end of the supported band clears the 5 s cap by
+    three orders of magnitude and a band swap is the cheapest possible way to
+    fake AC-037.
+
+    So the twenty requests are written out here, one row per seed, rather than
+    rebuilt from ``DENSITIES``/``SEEDS`` with the benchmark's own comprehension:
+    a second, independent spelling of the corpus is what CLAUDE.md asks for in
+    place of re-deriving a value with the code under test, and writing it out
+    also pins the **seed-major order** the early exit's cost argument depends
+    on (interleaved densities, so the first six samples are a cross-section of
+    the corpus and not one density's corner).
     """
+    assert bench_generate.DENSITIES == (30, 40, 50, 60)
+    assert bench_generate.SEEDS == (0, 1, 2, 3, 4)
+    assert bench_generate.CORPUS == (
+        (30, 0), (40, 0), (50, 0), (60, 0),
+        (30, 1), (40, 1), (50, 1), (60, 1),
+        (30, 2), (40, 2), (50, 2), (60, 2),
+        (30, 3), (40, 3), (50, 3), (60, 3),
+        (30, 4), (40, 4), (50, 4), (60, 4),
+    ), bench_generate.CORPUS
     assert len(bench_generate.CORPUS) == 20
     assert len(set(bench_generate.CORPUS)) == len(bench_generate.CORPUS)
     assert bench_generate._P95_RANK == 19
@@ -288,6 +388,19 @@ def test_the_benchmarks_own_instrument_still_measures_a_request() -> None:
     :func:`tests.bench_generate._time_one_request` the gate times every sample
     with.
 
+    **Which mutant this test kills, corrected by review cycle 1 — M13, not
+    M7.** Under M7 this test *passes*: it calls ``_time_one_request``, which
+    renaming ``gate_verdict`` does not touch. M7 is the mutant that produced
+    the insight (a strict xfail absorbs an ``AttributeError`` exactly as it
+    absorbs a missed cap), and the cell that reds for it is
+    :func:`test_the_benchmark_module_declares_no_name_pytest_would_have_to_collect`'s
+    ``{"gate_verdict", "measure", "report", "main"} <= set(declared)``
+    assertion. The mutant **this** cell is the only red for is M13 — deleting
+    ``_time_one_request``'s body — where the gate still XFAILs green and
+    ``test_the_same_corpus_entry_replays_the_same_run`` still passes (it calls
+    ``orchestrator.generate``, not the timer). Both re-measured on the fix
+    round's own harness.
+
     What is asserted is the shape the gate's arithmetic depends on — a
     positive elapsed time and an outcome from the three the function's
     docstring names — and ``"unique"`` specifically, which is a statement
@@ -353,7 +466,9 @@ def test_the_benchmark_prose_claims_no_execution_context_it_does_not_have() -> N
     :data:`RETIRED_CLAIMS` plus the positive
     :data:`NON_COLLECTION_STATEMENT`, and
     :func:`test_the_prose_rule_catches_each_retired_claim` is what says the
-    negative half can fail.
+    negative half can fail. :data:`RETIRED_CLAIMS` states the width of this
+    rule and what it does not reach; read it before trusting this test to
+    catch a claim in words it has not seen.
     """
     source = BENCHMARK.read_text(encoding="utf-8")
 
@@ -385,11 +500,11 @@ def test_the_prose_rule_catches_each_retired_claim() -> None:
 def test_the_registry_names_this_module_and_every_ref_resolves() -> None:
     """AC-5, first half: AC-037's ``test:`` is a node id that resolves.
 
-    It used to be ``BenchGenerate_20x20_p95Under5s``, a string that existed in
-    exactly one file — ``tests/bench_generate.py``, at ``:3`` and ``:139`` —
-    and in both places as prose. No class, no function, no node id: a criterion
-    that read as mechanically checked and was not, which is the family this
-    board has a standing rule about.
+    It used to be the ``BenchGenerate…`` label :data:`RETIRED_LABEL` assembles,
+    a string that existed in exactly one file — ``tests/bench_generate.py``, at
+    ``:3`` and ``:139`` — and in both places as prose. No class, no function,
+    no node id: a criterion that read as mechanically checked and was not,
+    which is the family this board has a standing rule about.
 
     Both directions, derived from the registry rather than from a list kept
     here, exactly as ``tests/test_public_player.py``'s own ref test does:
@@ -437,11 +552,8 @@ def test_the_registry_records_ac037_as_known_missed() -> None:
 
     Read as text for the same reason as above, and keyed on AC-037's own block
     rather than on the file, so a statement sitting beside a different
-    criterion cannot satisfy it. ``trace.yml`` still carries the retired
-    ``BenchGenerate_20x20_p95Under5s`` label at ``:539`` — outside this card's
-    declared ``Touches`` and reported as owed rather than asserted here, since
-    a test that asserted the state it wants would be red on arrival and a test
-    that asserted the state it has would pin the defect.
+    criterion cannot satisfy it. ``trace.yml``'s half of the same repair is
+    :func:`test_the_trace_matrix_names_this_modules_gate_for_nfr001`.
     """
     registry = REGISTRY.read_text(encoding="utf-8")
     start = registry.index("- id: AC-037")
@@ -455,3 +567,51 @@ def test_the_registry_records_ac037_as_known_missed() -> None:
     # records what it resolved to; what must not come back is its use as a
     # `test:` value, which is the shape that read as a live check ref.
     assert "test: BenchGenerate" not in block, block
+
+
+def test_the_trace_matrix_names_this_modules_gate_for_nfr001() -> None:
+    """AC-5's repair, one registry over: ``trace.yml``'s NFR-001 entry.
+
+    ``requirements.yml`` and ``trace.yml`` are two halves of the same model and
+    carried the same dead ref. CARD-301's first cut replaced it in one of them,
+    which left the review cycle able to measure something sharper than a stale
+    line: the branch had *relocated the camouflage*. On main the only file
+    making :data:`RETIRED_LABEL` resolve to forge's ``git grep -lw`` was
+    ``tests/bench_generate.py``'s own prose; on the branch it was this module's
+    prose. So the label the card retired from one file was kept alive, for the
+    validator's door, by the file the card added to close that family.
+
+    Three things asserted, and the first two are the reason the third is not
+    enough on its own:
+
+    #. NFR-001's ``tests:`` list names this module's gate **by node id**, so a
+       reader of the trace matrix looking for NFR-001's verifier finds
+       something that resolves;
+    #. the ref in that list is the *same string* AC-037 declares in
+       ``requirements.yml``, read out of the registry rather than written twice
+       here. That is ``validators/trace.py::_check_covered_tests`` gate 2's own
+       rule ("every ``test:`` on the requirement's acceptance criteria must
+       appear in the entry's ``tests:``") as a local control, which matters
+       because all three of that validator's gates are conditioned on
+       ``status: covered`` and NFR-001 is ``status: partial`` — the gate is
+       **latent**, so nothing in forge reads this today and nothing in forge
+       would have caught the line this test repairs;
+    #. the retired label appears nowhere in the matrix at all, not merely
+       nowhere in this entry. Gate 3's ``cs.exists()`` is a text search, so on
+       the day a card flips NFR-001 to ``covered`` a dead label in the list is
+       accepted *silently* while gate 2 ERRORs loudly about something else —
+       the quiet half is the one that needs a control.
+    """
+    trace = TRACE.read_text(encoding="utf-8")
+    registry = REGISTRY.read_text(encoding="utf-8")
+
+    nfr001 = trace.index("- req: NFR-001")
+    entry = trace[nfr001 : trace.index("- req: NFR-002", nfr001)]
+
+    ac037 = registry.index("- id: AC-037")
+    block = registry[ac037 : registry.index("- id: AC-038", ac037)]
+    declared = re.findall(r"^\s*test: (\S+)$", block, flags=re.MULTILINE)
+    assert declared == [f"{THIS_MODULE}::test_20x20_p95_is_under_5s"], declared
+
+    assert f"- {declared[0]}" in entry, entry
+    assert RETIRED_LABEL not in trace, RETIRED_LABEL

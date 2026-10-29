@@ -536,7 +536,7 @@ links:
   components: [COMP-002, COMP-005, COMP-003]
   adrs: [ADR-0001, ADR-0009, ADR-0011, ADR-0012]
   tests:
-  - BenchGenerate_20x20_p95Under5s
+  - tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s
   - TestGenerate_50x50_RespectsTimeoutBound
   - TestGenerate_30x30_RespectsTimeoutBound
   notes: >-
