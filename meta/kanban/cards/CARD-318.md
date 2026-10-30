@@ -191,7 +191,9 @@ not deleted, because it is a record of what was true when the FR was written.
 The brief and this card both say **ten**. Measured, it is **eleven**: AC-135's
 ref `TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve` is equally absent
 from `tests/`, and does not warn only because the validator's check is a text
-search and the name occurs in 8 review YAMLs and 10 kanban cards. Two of those
+search and the name occurs in **9** review YAMLs and **79** kanban cards (counted
+from `grep -rl`, not from a truncated listing — the first pass of this very note
+said "8 and 10", read off a `head -20`). Two of those
 YAMLs state it "exists and passes" (`20260924T104859Z-CARD-145-cycle3.yml`,
 `20260930T123942Z-CARD-139-cycle1.yml`). This is the masking the memory note
 "Review YAMLs revive dead check refs" predicts, now measured on a second ref.
@@ -395,8 +397,9 @@ error. EC-017/EC-018 are therefore named `TestPropertySolveStrategies_*` and
 
 ### Belongs to another card
 
-1. **~40 `PropertyTest_*` refs across `requirements.yml` resolve only by
-   docstring text.** Measured: `grep -rn "^class PropertyTest_\|^def PropertyTest_" tests/`
+1. **The `PropertyTest_*` refs across `requirements.yml` resolve only by
+   docstring text.** Counted from the rows: **38** `test:`/`ref:` lines carry a
+   `PropertyTest_*` value, over **45** distinct such names in the file. Measured: `grep -rn "^class PropertyTest_\|^def PropertyTest_" tests/`
    returns **zero** definitions, yet most of those refs do not warn — including
    FR-006's mandatory `PropertyTest_Solver_NeverFalsePositiveUniqueness`, which
    the validator resolves against line 3 of `tests/property/test_solver_uniqueness.py`'s
@@ -412,6 +415,16 @@ error. EC-017/EC-018 are therefore named `TestPropertySolveStrategies_*` and
 3. **FR-029's `delivery: CARD-072` and its `evidence:` block** disagree with the
    code by a whole card. Commented in place here; a sweep for other FRs whose
    intake evidence outlived its intake belongs elsewhere.
+
+### `trace.yml`
+
+FR-029's row lists the same eleven names. The two property names are renamed to
+match, and a dated note records that the row's prose is the 2026-09-12 intake
+state and is now wrong in detail — it still lists `cross_line` as a rung (ADR-0029
+dropped it), still describes the `[]` writes and the hardcoded sample, and still
+says an unknown filter value is "refused", which never shipped. The file is
+marked auto-generated (`/forge:architect-synthesis --trace-only`), so the prose
+is flagged rather than rewritten by hand.
 
 ### Shared-file etiquette
 

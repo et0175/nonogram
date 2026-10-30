@@ -1531,9 +1531,21 @@ links:
   - TestPuzzleReview_FiltersListByStrategy
   - TestPuzzleReview_RejectsUnknownStrategyFilter
   - TestPuzzleReview_DetailShowsStrategiesInOrder
-  - PropertyTest_SolveStrategies_GuessIffSearchBranched
-  - PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
+  - TestPropertySolveStrategies_GuessIffSearchBranched
+  - TestPropertySolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
   notes: >-
+    CARD-318 2026-10-30: the eleven names above were DEAD until this card —
+    no definition of any of them existed under tests/. They now resolve to
+    tests/test_solver_strategies.py and tests/property/test_solve_strategies.py,
+    EXCEPT TestPuzzleReview_RejectsUnknownStrategyFilter (AC-142), which is
+    held open on an owner decision: the shipped route IGNORES an unknown
+    strategy and lists everything, which is the opposite of what AC-142 says.
+    The two property names were also renamed off the `PropertyTest_` prefix,
+    which pytest's default `python_classes = Test*` never collects. NOTE the
+    notes below are the 2026-09-12 intake state and are now WRONG in detail:
+    `cross_line` was dropped from the ladder, the `[]` writes at
+    batch_generator.py:346 / app.py:476 and the hardcoded sample at
+    puzzle_review.py:730 are all gone, and `unknown refused` never shipped.
     Stories US-008, US-010. Delivery CARD-072. Refines FR-009 and FR-026;
     surfaces no DEC of its own but its enum was PROVISIONAL until DEC-030/
     DEC-031 resolved — now fixed by ADR-0029: the list IS the ordered set of
