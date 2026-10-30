@@ -216,15 +216,40 @@
 //             board as it is, because undo/redo with an empty stack and a
 //             reset of a blank board return the history unchanged.
 //             Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes.
-//   hint      [data-player-action="hint"] (CARD-183) records hintStroke for
-//             solver_state.js hintCell (which start() computes from the
-//             recorded board and the payload's clues and solution) through
-//             the same commit as every stroke. aria-disabled="true", and
-//             pressing it does nothing, while hintCell is null, the board is
-//             locked, or a gesture is in progress. The hinted cell carries
-//             .is-hinted until the next commit; #puzzle-player-announce says
-//             which cell it revealed, and says when it came from the
-//             solution rather than from one line.
+//   hint      [data-player-action="hint"] (CARD-183, a LADDER since CARD-269
+//             — see LADDER below) answers the same situation three ways, one
+//             rung per press: rung 1 highlights the line to look at
+//             (.is-hint-line on its cells and clue boxes) and records
+//             nothing, rung 2 adds the checked reason and records nothing,
+//             rung 3 is CARD-183's reveal — hintStroke for solver_state.js
+//             hintCell (which start() computes from the recorded board and
+//             the payload's clues and solution) through the same commit as
+//             every stroke. Any recorded change, and Check, put the ladder
+//             back on rung 1. aria-disabled="true", and pressing it does
+//             nothing, while hintCell is null, the board is locked, or a
+//             gesture is in progress. The hinted cell carries .is-hinted
+//             until the next commit; #puzzle-player-announce says which line
+//             to look at, then why, then which cell was revealed — and says
+//             when that cell came from the solution rather than from one line.
+//             Since the owner's decision of 2026-10-30 each of those
+//             sentences is ALSO written to #puzzle-player-explain, the
+//             visible line beside the puzzle's title, so every rung
+//             changes something a sighted player can see (review F-2 had
+//             measured rung 2's board and toolbar byte-identical to rung
+//             1's). See showExplain below.
+//   check     [data-player-action="check"] (CARD-269) answers "is one of my
+//             marks wrong?": it highlights the ROW of the first wrong mark
+//             (the same .is-hint-line) and names it, or says there are none —
+//             and, since 2026-10-30, says it in the visible line too, which
+//             is what makes "no wrong marks" on a clean board something other
+//             than a dead press. It changes no cell, records no stroke and
+//             moves no counter, so it is free; it resets the hint ladder.
+//             aria-disabled="true"
+//             while the board is locked OR a gesture is in progress — the
+//             same two conditions Hint reports above (CARD-269 review F-10;
+//             the handler always returned early mid-drag, only the attribute
+//             did not say so). Like Hint it is absent from the manual
+//             editor's page (CARD-246).
 //
 // PROGRESS (CARD-162, FR-044 AC-312..AC-321). After every recorded stroke,
 // undo, redo, reset and setBoard, start() re-derives both from the current
@@ -447,6 +472,14 @@ import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom } from "./solve
 // above. The flag's transitions and the "does this drag paint?" rule are
 // pure (ADR-0038/R4); the button that shows the flag is this file's.
 import { gesturePaints, nextRegion } from "./solver_state.js";
+// The hint ladder (CARD-269): see LADDER below. The rung transitions, the
+// rung-1/2 line choice, the rung-2 classifier and Check's first-wrong-row
+// scan are all pure (ADR-0038/R4); the three announcements, the line
+// highlight and the two buttons are this file's.
+import {
+  HINT_REASONS, RUNG_EXPLAIN, RUNG_POINT, RUNG_REVEAL, firstWrongRow, hintLine, hintReason,
+  nextRung,
+} from "./solver_state.js";
 // Edit mode (CARD-246): see EDIT MODE above. Both are pure board arithmetic
 // (ADR-0038/R4); answerOfBoard is imported by static/puzzle_edit.js, not by
 // this file, which never asks a board for its answer.
@@ -833,7 +866,16 @@ function start() {
     if (progressOut.textContent !== percent) progressOut.textContent = percent;
     const now = isSolved(history.board, payload.solution);
     if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
-    else if (hint) announce.textContent = hintText(hint);
+    else if (hint) {
+      // Rung 3 (CARD-269 review F-2): the reveal's sentence goes to BOTH
+      // channels, the same way say() writes rungs 1-2 and Check. commit()
+      // cleared the visible line a moment ago, so this is what replaces
+      // rung 2's explanation with the answer rather than leaving the
+      // explanation standing over a cell that is now revealed.
+      const said = hintText(hint);
+      announce.textContent = said;
+      showExplain(said);
+    }
     solved = now;
     banner.hidden = !solved;
     toolbar.classList.toggle("is-solved", solved);
@@ -966,6 +1008,11 @@ function start() {
     // back to the stored grid. The editor's page ships no Hint button and
     // this answers null for the guards that ask anyway.
     nextHint: () => (editing ? null : hintCell(history.board, payload.rows, payload.columns, payload.solution)),
+    // CARD-269: the line rungs 1 and 2 point at for a nextHint() result, and
+    // the row Check names — both read the RECORDED board and the payload, so
+    // they are asked here, beside nextHint, rather than from wireMarking.
+    hintLine: (hint) => hintLine(history.board, payload.rows, payload.columns, payload.solution, hint),
+    wrongRow: () => firstWrongRow(history.board, payload.solution),
     show(next) {
       board = next;
       paint(cellElements, board);
@@ -1177,6 +1224,154 @@ function hintText({ row, col, state, deduced }) {
     : `Hint: no cell follows from a single line yet; ${cell} (from the solution).`;
 }
 
+// ---------------------------------------------------------------------------
+// LADDER (CARD-269) — the three things one Hint press can say, and Check
+//
+// The rung arithmetic is solver_state.js's (nextRung, hintLine, hintReason,
+// firstWrongRow — see the ladder block there). What lives here is the four
+// pieces of rendering: the SENTENCES below, the `.is-hint-line` highlight on
+// a line's cells and clue boxes (wireMarking's setLadderLine), the rung's
+// value beside Region's flag, and the two buttons.
+//
+// Rungs 1 and 2 record nothing: no stroke, no cell change, no counter move,
+// no save. "Hints: N" therefore keeps meaning exactly what CARD-183 made it
+// mean — cells the player did not deduce themselves — because hintCount
+// still counts only `hint: true` strokes and only rung 3 records one.
+//
+// Every sentence is written through `say` below, into BOTH channels at once:
+// #puzzle-player-announce, the one live region this page has (the solved
+// banner and rung 3's hintText write it too; whichever wrote last wins), and
+// #puzzle-player-explain, the visible answer line the owner's decision of
+// 2026-10-30 added — see showExplain below for the measurement that forced
+// it and for the accessibility-tree choice.
+// A press that repeats its own answer REASSIGNS that sentence. CARD-269
+// review F-9 measured this with a MutationObserver on the shipped page: the
+// textContent setter runs the DOM's "string replace all", which removes the
+// existing text node and inserts a new one, so an identical assignment still
+// produces a mutation record. This file's earlier claim that it is "a no-op
+// in the DOM" was simply false. Whether assistive technology re-reads the
+// repeated sentence is therefore the AT's choice, not a platform rule, and
+// nothing here suppresses the write: the live region always holds the answer
+// to the last press, which is what a player returning to it needs. Nothing
+// is skipped and there is no state to keep in step.
+
+//: Rung 1: where to look, and nothing more. `axis` is a hintLine axis, so it
+//: is already the word to say out loud ("row" / "column").
+function ladderPointText(axis, index) {
+  return `Hint: look at ${axis} ${index + 1}.`;
+}
+
+//: Rung 2's reason clause, one sentence per HINT_REASONS name. Each is
+//: ALWAYS TRUE of the line hintReason just checked it on — "generic" by
+//: lineForced's own definition of a forced cell, the other two because
+//: hintReason verified their precondition and returns the name only then.
+//: Keyed by the pure module's names so a reason and its sentence cannot
+//: drift apart: a name with no sentence here is a RangeError at the press,
+//: never an announcement reading "undefined".
+//:
+//: EXPORTED so that claim is a test and not a comment (ADR-0039/R2; CARD-269
+//: review F-6, which measured that it was module-private and therefore that
+//: no test could read these keys at all — a missing sentence was caught by
+//: the RangeError at a driven press, but an EXTRA key was dead and
+//: undetected). TestSolverHintLadder_ThePureModule now asserts
+//: Object.keys(LADDER_REASON) IS HINT_REASONS, both directions.
+export const LADDER_REASON = Object.freeze({
+  "runs-complete": (axis) => `every run in this ${axis} is placed; the rest is white.`,
+  overlap: (axis, run) => `the ${run}-run must overlap in the middle whatever its position.`,
+  generic: (axis) => `every placement of this ${axis}'s clues agrees on at least one cell.`,
+});
+
+//: Rung 2: rung 1's sentence with the checked reason added.
+function ladderExplainText(line) {
+  const { reason, run } = hintReason(line.clue, line.cells, line.at);
+  const sentence = LADDER_REASON[reason];
+  if (sentence === undefined) {
+    throw new RangeError(`"${reason}" is not a hint reason (${HINT_REASONS.join(", ")})`);
+  }
+  return `Hint: look at ${line.axis} ${line.index + 1} — ${sentence(line.axis, run)}`;
+}
+
+//: The exhausted state (card rule 6): undecided cells remain but no single
+//: line decides one, so hintLine answers null. THIS SENTENCE IS THE CARD.
+//: Rungs 1 and 2 highlight nothing and say what is actually the case, in
+//: place of CARD-183's "no cell follows from a single line yet" arriving
+//: fused to a revealed cell — which read as "you missed a line deduction"
+//: when there was none to miss. Rung 3 is still that fallback reveal, with
+//: its shipped "(from the solution)" wording (hintText above), so the
+//: expensive answer is still available; it is no longer the only one, and
+//: the two cheap rungs no longer teach a falsehood to get to it.
+const LADDER_EXHAUSTED = "Hint: no single row or column decides a cell right now.";
+
+//: Which sentence a press on each rung says about a line it DID find, keyed
+//: by the rung the press was made ON. EXPORTED and keyed by HINT_RUNGS'
+//: values, so the suite asserts these keys ARE the rungs that announce a
+//: line — every rung in HINT_RUNGS except RUNG_REVEAL, which reveals instead
+//: of announcing and is handled before the handler ever gets here.
+//:
+//: CARD-269 review F-6: the dispatch used to be a two-way ternary over a
+//: three-valued rung, derived from no authority at all, so a fourth rung
+//: added to HINT_RUNGS would have silently rendered rung 2's explain text.
+//: A rung with no entry here is now a RangeError at the press, exactly as an
+//: unknown event already is in nextRung and an unknown reason is in
+//: ladderExplainText.
+export const LADDER_SAY = Object.freeze({
+  [RUNG_POINT]: (line) => ladderPointText(line.axis, line.index),
+  [RUNG_EXPLAIN]: (line) => ladderExplainText(line),
+});
+
+//: Check (card rule 7): the ROW of the first wrong mark, never the cell —
+//: Hint's rung 1 for a mistake. "no wrong marks" is the honest answer to the
+//: question CARD-183's Hint silently danced around: hintCell ignores wrong
+//: marks (AC-328) and never said so, so a player whose board was wrong got
+//: hints that could not help and no word about why.
+function checkText(row) {
+  return row === null ? "Check: no wrong marks." : `Check: a mark in row ${row + 1} is wrong.`;
+}
+
+//: The SEEN half of every sentence above (CARD-269 review F-2, owner decision
+//: 2026-10-30). #puzzle-player-announce is 1 x 1 and clipped, so until this
+//: existed the ladder's whole output went only to a screen reader, and cycle 1
+//: measured the consequence rather than argued it: rung 2's board and toolbar
+//: were indistinguishable from rung 1's by SHA-256 of element screenshots with
+//: getAnimations() settled. The rung whose job is "explain the deduction"
+//: changed nothing a sighted player could see, and on an exhausted board rungs
+//: 1 and 2 — and Check on a clean board — were presses indistinguishable from
+//: a dead button. (The review said BYTE-identical. Fix round 2 re-measured:
+//: the board reproduces as byte-identical, the toolbar does not once this line
+//: exists — the announce write invalidates a tile and 6 pixels come back one
+//: level apart in two button corners. The test's _pixel_delta carries that
+//: correction and bounds the claim by LEVEL instead.)
+//:
+//: #puzzle-player-explain is a plain <p> in the page-head row, beside the
+//: puzzle's title and directly above the toolbar — the only place on this page
+//: that holds a line of text at zero vertical cost, which is why it is not in
+//: the toolbar-to-board gap where it reads most naturally (admin.css has the
+//: arithmetic, the two placements that were tried, and the residual). It
+//: carries aria-hidden="true": the live region stays
+//: THE assistive-technology channel and stays unchanged, so a screen reader
+//: meets each sentence once as an announcement instead of twice.
+//:
+//: Optional, like the Hint button itself: puzzle_edit.html (CARD-246) loads
+//: this same file with no Hint, no Check and no explain line, and there this
+//: is a no-op rather than a mode flag of its own.
+function showExplain(text) {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line !== null) line.textContent = text;
+}
+
+// The elements `.is-hint-line` goes on for one line: every cell of it and
+// every clue box of it. Keyed on the AXIS plus data-line exactly as
+// crossedParts above is, and for the same reason — on a CARD-212 doubled
+// axis BOTH clue twins carry data-line, and a selector that read DOM order
+// would reach one twin and miss the other.
+function linedParts(table, axis, index) {
+  const cells = axis === "row" ? `td.player-cell[data-row="${index}"]`
+    : `td.player-cell[data-col="${index}"]`;
+  const clues = axis === "row" ? `th.player-clue.is-row[data-line="${index}"]`
+    : `th.player-clue.is-col[data-line="${index}"]`;
+  return [...table.querySelectorAll(cells), ...table.querySelectorAll(clues)];
+}
+
 // The [row, col] of the board cell under the viewport point (x, y), or null.
 // `container` only needs to contain the live table — see wireMarking.
 function cellUnder(container, x, y) {
@@ -1339,6 +1534,16 @@ function wireMarking(container, player) {
   const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
   let region = false; // armed? (see "region" above) — never a cell state, never saved
+  // The hint ladder (CARD-269, see LADDER above). `rung` is the rung the
+  // NEXT Hint press will show, 1..3, and `ladderLine` is the line currently
+  // carrying `.is-hint-line` — a {axis, index} VALUE and not the elements
+  // showing it, for showHint's and the crosshair's reason: a redraw replaces
+  // every element, and refresh() (which redraw() calls last) paints the line
+  // back onto the new table. Both are UI state of Region's kind: never a
+  // cell state, never recorded, never saved, so a load starts on rung 1 with
+  // nothing highlighted (AC-9).
+  let rung = RUNG_POINT;
+  let ladderLine = null;
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
 
@@ -1493,6 +1698,40 @@ function wireMarking(container, player) {
     refresh();
   }
 
+  // One line of the live region AND of the visible answer line — the two
+  // channels of every ladder/Check sentence, written together here so the
+  // seen one cannot drift from the spoken one (see LADDER above, and
+  // showExplain there for what the visible one is and why it is hidden from
+  // the accessibility tree). Written straight, with no same-string guard:
+  // review F-9's measurement of what a repeated assignment does is in the
+  // LADDER block.
+  function say(text) {
+    announce.textContent = text;
+    showExplain(text);
+  }
+
+  // Put `.is-hint-line` on (or take it off) every cell and clue box of
+  // `line`. The table is read fresh from the live DOM each time, exactly as
+  // paintCrosshair does, so this also works right after a redraw. A missing
+  // table means nothing to paint, and the direction fails toward NOT
+  // painting rather than toward a half-painted line.
+  function paintLadderLine(line, on) {
+    const table = container.querySelector(".player-board");
+    if (table === null) return;
+    for (const part of linedParts(table, line.axis, line.index)) {
+      part.classList.toggle("is-hint-line", on);
+    }
+  }
+
+  // Move the highlight to `line` (a hintLine value, or {axis, index} for
+  // Check's row), or clear it with null. The old line is unpainted first, so
+  // one ladder never leaves two lines lit.
+  function setLadderLine(line) {
+    if (ladderLine !== null) paintLadderLine(ladderLine, false);
+    ladderLine = line === null ? null : { axis: line.axis, index: line.index };
+    if (ladderLine !== null) paintLadderLine(ladderLine, true);
+  }
+
   function refresh() {
     const { board: current, done, undone } = player.getHistory();
     const locked = player.locked();
@@ -1509,10 +1748,45 @@ function wireMarking(container, player) {
     // EDIT MODE). `?.` rather than a mode flag of its own — this function
     // reads the DOM it was given and nothing about why.
     actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
+    // CARD-269 rule 9: Check is disabled by the LOCK alone. It reads the
+    // board and never changes it, so "nothing to reveal" (which disables
+    // Hint) is not a reason to disable it — on a board with no undecided
+    // cell left, "is one of my marks wrong?" is exactly the question left to
+    // ask. `?.` for Hint's reason: the manual editor's page ships neither
+    // control (CARD-246 — there the solution IS what is being rewritten).
+    // CARD-269 review F-10: the gesture is in the ATTRIBUTE and not only in
+    // the handler. Check's handler has always returned early mid-drag (a
+    // drag is one input; a Check in the middle of it would answer about a
+    // board the player is still painting), but the attribute said
+    // aria-disabled="false" while it did, which is the exact failure mode
+    // aria-disabled exists to prevent and is reachable with a second pointer
+    // on a touch device. Hint already includes `gesture !== null` above;
+    // Check now matches it, and the card's rule 9 reads as the floor it is.
+    actions.check?.setAttribute("aria-disabled", String(locked || gesture !== null));
+    // The redraw that just replaced every element also took the line
+    // highlight off the DOM while `ladderLine` still names it; redraw()
+    // calls this function last, so painting it back here is what keeps a
+    // rung the reader is standing on visible across a resize.
+    if (ladderLine !== null) paintLadderLine(ladderLine, true);
   }
 
   function commit(next, hint = null) {
     lastClick = null; // anything recorded ends a run of repeat clicks
+    // CARD-269: and anything recorded puts the ladder back on rung 1 with
+    // nothing highlighted. THIS is the one choke point every recorded change
+    // goes through — a click, a drag, undo, redo, a confirmed reset,
+    // setBoard, and rung 3's own stroke — which is what makes rungs 1-3 of
+    // one ladder always describe one situation (card rule 5). Done before
+    // player.commit so rung 3's revealed cell is handed a board with no
+    // stale line on it.
+    rung = nextRung(rung, "change");
+    setLadderLine(null);
+    // And the visible answer line goes with the highlight: a sentence about
+    // the board as it was is worse than no sentence (CARD-269 review F-2).
+    // Cleared BEFORE player.commit, so rung 3's own reveal — which arrives
+    // through showProgress's hint branch inside that call — writes its answer
+    // over an empty line rather than racing the clear.
+    showExplain("");
     player.commit(next, hint);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
@@ -1725,12 +1999,58 @@ function wireMarking(container, player) {
     });
   }
 
-  // A hint is one recorded stroke (see MARKING "hint").
+  // The hint ladder (CARD-269, see LADDER above). One button, three
+  // answers to the same situation: rung 1 points at a line, rung 2 adds the
+  // checked reason, rung 3 is CARD-183's reveal unchanged — the same
+  // hintStroke, the same `.is-hinted`, the same hintText, the same counter,
+  // the same one undo step, the same save (G-3). Only rung 3 calls commit,
+  // which is also what puts the ladder back on rung 1.
   actions.hint?.addEventListener("click", () => {
     if (gesture || player.locked()) return;
     const hint = player.nextHint();
     if (hint === null) return;
-    commit(record(player.getHistory(), hintStroke(hint.row, hint.col, hint.state)), hint);
+    // A press is an INPUT, so it ends a run of repeat clicks even on rungs 1
+    // and 2, which record nothing — the same rule the reset confirmation
+    // follows ("opening the confirmation is an input", see MARKING). Without
+    // this a click, a click, a nudge, a click would read as a third repeat
+    // click on that cell, which is pinned by
+    // tests/test_puzzle_solver_marking.py
+    // TestSolverClickFollowsTheBrush::test_anything_between_two_clicks_makes_the_next_a_first_click
+    // and is the behaviour CARD-183's reveal had for free, through commit.
+    lastClick = null;
+    if (rung === RUNG_REVEAL) {
+      commit(record(player.getHistory(), hintStroke(hint.row, hint.col, hint.state)), hint);
+      return;
+    }
+    const showing = rung;
+    rung = nextRung(rung, "press");
+    // null is the exhausted state: no line to point at, so nothing is
+    // highlighted and the sentence says exactly that (see LADDER_EXHAUSTED).
+    const line = player.hintLine(hint);
+    setLadderLine(line);
+    if (line === null) {
+      say(LADDER_EXHAUSTED);
+      return;
+    }
+    const sentence = LADDER_SAY[showing];
+    if (sentence === undefined) {
+      throw new RangeError(`rung ${showing} announces no line (${Object.keys(LADDER_SAY).join(", ")})`);
+    }
+    say(sentence(line));
+  });
+
+  // Check (CARD-269 rule 7): the row of the first wrong mark, or that there
+  // is none. It changes no cell, records no stroke and moves no counter, so
+  // it never calls commit — but it DOES reset the ladder, because it changes
+  // what the player will look at next, and its highlight is rung 1's and
+  // clears the same way (the next recorded change, or the next ladder press).
+  actions.check?.addEventListener("click", () => {
+    if (gesture || player.locked()) return;
+    lastClick = null; // an input, like a ladder press (see the Hint handler)
+    rung = nextRung(rung, "change");
+    const row = player.wrongRow();
+    setLadderLine(row === null ? null : { axis: "row", index: row });
+    say(checkText(row));
   });
 
   // Reset asks first, in the page (see PROGRESS "reset").
@@ -1778,6 +2098,13 @@ function wireMarking(container, player) {
   syncZoom();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;
+  // The visible answer line (CARD-269 review F-2) is shown with the toolbar
+  // and for the toolbar's reason: it is one line box tall even while empty,
+  // and a blank strip beside the title of a board that never got drawn would
+  // be furniture promising a control that is not there. Optional for
+  // puzzle_edit.html's sake, like the Hint and Check buttons.
+  const explainLine = document.getElementById("puzzle-player-explain");
+  if (explainLine !== null) explainLine.hidden = false;
   return { refresh, commit, getZoom: () => zoom };
 }
 

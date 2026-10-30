@@ -126,12 +126,79 @@
   in-page confirmation under it (role=alertdialog) instead of a browser
   confirm().
 
-  Hints (CARD-183): a Hint button closes the history group (its last child,
-  after Reset and the confirmation) and a "Hints: N" counter (its own
-  role=status region) is the element right after the error counter, shown to
-  its right in the same row. Hint comes after Reset in the DOM, so the Tab
-  order of the CARD-161 controls is unchanged (AC-310's order test). The counter's names are .player-hints /
-  data-player-hints: "player-hint" is the usage paragraph below the board.
+  Hints (CARD-183, a LADDER since CARD-269): the Hint button sits after
+  Reset and the confirmation in the history group, and a "Hints: N" counter
+  (its own role=status region) is the element right after the error counter,
+  shown to its right in the same row. Hint comes after Reset in the DOM, so
+  the Tab order of the CARD-161 controls is unchanged (AC-310's order test).
+  The counter's names are .player-hints / data-player-hints: "player-hint"
+  is the usage paragraph below the board.
+
+  One press no longer reveals a cell. Hint is a ladder of three rungs, and
+  pressing it climbs one: rung 1 highlights the line to look at and says so,
+  rung 2 adds WHY that line decides a cell, rung 3 reveals the cell exactly
+  as CARD-183 shipped it (the same stroke, the same counter, the same one
+  undo step). Any recorded change — a mark, a drag, undo, redo, a reset, and
+  rung 3's own stroke — puts the ladder back on rung 1, so a player who only
+  needs a nudge never pays the full answer. Rungs 1 and 2 record nothing at
+  all: no cell changes and "Hints: N" does not move, which is why the
+  counter still means "cells I did not deduce myself".
+
+  Where the clues decide nothing more by themselves, rungs 1 and 2 highlight
+  NOTHING and say so ("no single row or column decides a cell right now").
+  That is the defect CARD-269 exists to close: CARD-183's fallback revealed a
+  cell while saying "no cell follows from a single line yet", which a player
+  read as "you missed a line deduction" when there was none to miss. Rung 3
+  is still that reveal, with its "(from the solution)" wording.
+
+  Check (CARD-269) is the Hint button's neighbour, after it in the history
+  group, and answers the other question: "is one of my marks wrong?" It
+  highlights the ROW of the first wrong mark and names the row — never the
+  cell — or says there are no wrong marks. A "?" is never wrong. Like rungs 1
+  and 2 it changes no cell, records no stroke and moves no counter, and it
+  resets the Hint ladder. Nothing of the ladder or of Check is saved: a
+  reload starts on rung 1 with nothing highlighted.
+
+  Both controls paint .is-hint-line (solver.js) on a line's cells and its
+  clue box(es) — both twins on a CARD-212 doubled axis — and admin.css
+  colours it, visually apart from the hinted cell's accent outline and from
+  the crosshair's tint. No new element on the board, no animation under
+  prefers-reduced-motion.
+
+  Both controls also WRITE WHAT THEY SAY ON THE PAGE, in
+  #puzzle-player-explain (.player-explain) — the third item of the
+  .page-head.player-head row above, beside the puzzle's title and directly
+  above the toolbar. CARD-269's review cycle 1 measured, by SHA-256 of element
+  screenshots with getAnimations() settled, that rung 2's board and toolbar
+  were indistinguishable from rung 1's: the only channel every rung had was
+  #puzzle-player-announce, which is 1 x 1 and clipped, so the rung whose job
+  is to explain the deduction changed nothing a sighted player could see, and
+  on an exhausted board rungs 1 AND 2 — and Check on a clean board — were
+  presses indistinguishable from a dead button. The owner's decision of
+  2026-10-30 was to promote the sentence into a visible line rather than
+  recolour the tint, because the sentence also tells rung 1's highlight apart
+  from Check's, which the one tint could not do alone.
+
+  The announce region is UNCHANGED — still 1 x 1, still clipped, still the
+  live region, still written on every rung. The visible line is an ADDITION,
+  and it carries aria-hidden="true" precisely so a screen reader meets each
+  sentence once, in the live region, rather than a second time as static text
+  while navigating the page. The two are written together (solver.js's say()
+  and showProgress's hint branch), so the hidden channel cannot drift from
+  the seen one.
+
+  The title row was chosen by measurement, and it is the only place on this
+  page that holds a line of text for free: it costs ZERO vertical space at
+  every width, so the toolbar, the page head and the BOARD are all in exactly
+  the boxes they were in before this line existed (#puzzle-player-controls
+  74.797 px at 1280 px / 38.797 px at 1440 px, .page-head 52 px, board top
+  238.797 / 202.797 px — empty and full, measured both ways). admin.css
+  carries the arithmetic and the two placements that were tried and could not
+  be afforded: the page has 4.187 px of vertical slack at 1280 x 720 and a
+  line of this type needs 22.328 px. The cost is paid at narrow widths
+  instead — below about 1270 px the longest sentence is ellipsised, which
+  admin.css declares as the residual and which costs a screen reader nothing,
+  since #puzzle-player-announce still carries every sentence in full.
 
   Zoom (CARD-195): a third toolbar group, after History and before the
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
@@ -176,6 +243,7 @@
 <div class="page-head player-head">
     <h1>Puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
     {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
+    <p class="player-explain" id="puzzle-player-explain" aria-hidden="true" hidden></p>
 </div>
 
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
@@ -209,6 +277,7 @@
             </div>
         </div>
         <button type="button" class="btn btn-outline-secondary" data-player-action="hint" aria-disabled="true">Hint</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="check" aria-disabled="true">Check</button>
     </div>
     <div class="player-zoom" role="group" aria-label="Zoom">
         <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
@@ -231,7 +300,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in the line beside the puzzle's title.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

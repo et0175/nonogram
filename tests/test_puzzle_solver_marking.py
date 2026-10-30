@@ -624,7 +624,19 @@ class TestSolverClickFollowsTheBrush:
         brush's sequence and keeps the drag and Maybe sentences. CARD-194: the
         group now holds one trigger plus a menu of its four brushes and,
         beside it, Region's own toggle (CARD-211 — the menu's fifth item
-        until then), and the hint names the menu and the Region control."""
+        until then), and the hint names the menu and the Region control.
+
+        CARD-269 review F-2, and the owner's decision of 2026-10-30 that
+        unblocked this string: the paragraph now also names the hint LADDER,
+        Check, and the visible line both of them write. Fix round 1 was right
+        to REVERT its own copy addition rather than edit a file the card
+        forbids — this exact equality is what made that the only honest
+        choice — and the owner has since authorised the one sentence,
+        because with ``#puzzle-player-announce`` 1 x 1 and clipped this
+        paragraph was the only remaining channel that could explain two
+        presses with no visible effect. The added sentence is the last one
+        below; nothing else in the paragraph changed.
+        """
         from playwright.sync_api import expect
 
         _open(browser_page, live, live.store(GRID))
@@ -644,7 +656,11 @@ class TestSolverClickFollowsTheBrush:
             "Press Region, beside the brush, to make the next drag along a row or column "
             "mark with the brush; "
             "with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. "
-            "With Maybe, a click marks ? and a second click clears it."
+            "With Maybe, a click marks ? and a second click clears it. "
+            "Hint answers in three presses: the first highlights the row or column to look at, "
+            "the second says why it decides a cell, the third reveals it; "
+            "Check highlights the row of the first wrong mark, "
+            "and each press writes its answer in the line beside the puzzle's title."
         )
 
 

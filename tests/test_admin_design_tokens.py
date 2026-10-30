@@ -537,3 +537,102 @@ def test_the_crosshair_tint_comes_from_tokens() -> None:
             f"{label}: {rule} passed the token predicate, so the rule it is "
             f"supposed to enforce is narrative"
         )
+
+
+#: An ``@keyframes`` name, as the first word of an ``animation`` shorthand.
+#: Named for :data:`_SHADOW_KEYWORD`'s reason and stripped exactly as narrowly:
+#: it is an identifier and not a value, so striking the tokens out of
+#: ``player-hint-line-in calc(…) var(--ease)`` would otherwise leave letters
+#: behind and report a clean rule. Only a ``player-`` prefixed name is
+#: stripped (the panel's own keyframes all carry it) and only at the start, so
+#: a literal duration or easing anywhere after it still faces the token-only
+#: predicate — the control at the end of the test drives both.
+_ANIMATION_NAME = re.compile(r"^player-[a-z0-9-]+\s+")
+
+
+def test_the_hint_line_tint_comes_from_tokens() -> None:
+    """CARD-269 AC-10 / G-6 — the rules that card adds to the board.
+
+    Five of them: the two custom properties the highlight is derived from, the
+    three rules that spend them (a highlighted cell, a highlighted FILLED
+    cell, a highlighted clue box) and the fade the reduced-motion rule
+    suppresses. Collected by what they ARE rather than by the names this test
+    expects, the way :func:`test_the_crosshair_tint_comes_from_tokens` is, so
+    a rule renamed, reformatted across lines or deleted drops out of the
+    collection and reds the equality below instead of silently shrinking the
+    sweep.
+
+    The whole-file hex sweep above would catch ``#e6efec`` here; it would not
+    catch ``rgb()``, a named colour, or a bare length — and "a bit greener
+    than the paper" has no token of its own, which is exactly the kind of
+    value a card reaches for a literal to write.
+
+    The filled rule is asserted to EXIST, not merely to be clean, for the
+    crosshair's reason: a filled cell's ground is ``--grid-ink``, and without
+    a variant of its own the pale tint would repaint it and lose the mark.
+
+    The predicate is a branch nothing executes while these rules are clean
+    (ADR-0039/R1), so the control at the end drives it over the rules broken
+    on purpose — one break per way a literal can get into THESE rules.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = [
+        line.strip()
+        for line in rules_only.splitlines()
+        if "{" in line and line.strip().endswith("}")
+        and ("is-hint-line" in line.split("{")[0] or "--player-hint-line" in line)
+    ]
+    assert [rule.split("{")[0].strip() for rule in rules] == [
+        ".player-stage",
+        ".player-cell.is-hint-line",
+        '.player-cell.is-hint-line[data-state="filled"]',
+        ".player-clue.is-hint-line",
+        ".player-cell.is-hint-line, .player-clue.is-hint-line",
+    ], rules
+    assert any(
+        rule.startswith('.player-cell.is-hint-line[data-state="filled"]') for rule in rules
+    ), "a highlighted FILLED cell has no rule of its own, so the tint repaints it as paper"
+    # The fade exists, and it is the keyframe the reduced-motion block
+    # suppresses — without an animation here, AC-10's "animates nothing under
+    # prefers-reduced-motion" would be a claim about nothing.
+    assert "@keyframes player-hint-line-in" in rules_only
+    for rule in rules:
+        values = [_ANIMATION_NAME.sub("", value) for value in _declared_values(rule)]
+        assert values, rule
+        offenders = _untokenised(values)
+        assert offenders == [], (
+            f"{rule.split('{')[0].strip()}: {offenders} are not design tokens "
+            f"(or token-only calc()/color-mix()); a colour or a length here "
+            f"belongs in tokens.css"
+        )
+
+    # The control. Each is a literal reaching into one of the five rules
+    # above, in a form the whole-file hex sweep would NOT catch; the predicate
+    # has to report every one of them, or it is pinning nothing.
+    broken = {
+        "a colour function": ".player-cell.is-hint-line { background: rgb(230, 239, 236); }",
+        "a named colour": ".player-clue.is-hint-line { background: honeydew; }",
+        "a hex literal": ".player-stage { --player-hint-line: #e6efec; }",
+        "a bare length": ".player-cell.is-hint-line { outline-width: 2px; }",
+        "a literal inside the mix": ".player-stage { --player-hint-line-ink: "
+                                    "color-mix(in srgb, #e6efec 24%, var(--grid-ink)); }",
+        "a bare length inside the calc": '.player-cell.is-hint-line[data-state="filled"] '
+                                         "{ outline-width: calc(1px + var(--border-width)); }",
+        "an inch length, whose unit is also a keyword":
+            '.player-cell.is-hint-line[data-state="filled"] '
+            "{ outline-width: calc(1in + var(--border-width)); }",
+        "a literal duration after the animation name":
+            ".player-cell.is-hint-line { animation: player-hint-line-in 440ms var(--ease); }",
+        "a literal easing after the animation name":
+            ".player-cell.is-hint-line { animation: player-hint-line-in "
+            "calc(2 * var(--duration-base)) ease-in-out; }",
+        "an animation name that is not the panel's, hiding a literal":
+            ".player-cell.is-hint-line { animation: fadein 440ms var(--ease); }",
+    }
+    for label, rule in broken.items():
+        values = [_ANIMATION_NAME.sub("", value) for value in _declared_values(rule)]
+        assert _untokenised(values) != [], (
+            f"{label}: {rule} passed the token predicate, so the rule it is "
+            f"supposed to enforce is narrative"
+        )

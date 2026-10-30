@@ -718,3 +718,88 @@ CARD-283 are blocked on exactly this delta.
   about the furniture, so it keeps today's figures and the question is flagged rather than answered.
   Source: this session.
 # processed: 2026-10-25 → no model change, FLAGGED AND LEFT OPEN by instruction. Recorded on FR-033's comment block as "THE PAGE-FURNITURE FLOOR IS NOT DECIDED HERE" and in _meta.resolved_question's "STILL OPEN" clause: R2 has never bound furniture, its 2026-10-17 scope clarification holds the interior header rule / footer hairline / divider to the 2-device-pixel floor for the dropout reason directly, CARD-222 / CARD-225 / CARD-248 cite that floor directly and keep today's figures, and nobody has asked. No DEC surfaced — the question is not blocking synthesis and the owner has not been asked it; raising it is intake work, not formalisation.
+
+## Delta 2026-10-30 — FR-044's hint ACs, superseded by CARD-269's hint ladder (owner decision 2026-10-22)
+
+- OWNER DECISION (2026-10-22, player-convenience session; delivered as CARD-269): the player page's
+  **Hint is a ladder of three rungs, not a one-press answer machine.** One press climbs one rung:
+  rung 1 highlights the line (row or column) through the cell the existing `hintCell` scan picks and
+  announces *"Hint: look at row N."*; rung 2 keeps that highlight and adds the reason, which may name
+  a case only where its precondition was verified on that very line (*runs complete*, *overlap*,
+  otherwise an always-true generic phrasing); rung 3 is CARD-183's reveal **unchanged** — the same
+  cell, the same `hint: true` stroke, the same `.is-hinted`, the same `hintText`, the counter up by
+  one, one undo step, the same replay and the same save. Any recorded change (a mark, a drag, undo,
+  redo, a reset, and rung 3's own stroke) and any **Check** press put the ladder back on rung 1; a
+  page load starts on rung 1; the rung is never serialized, never recorded and never saved. Where
+  undecided cells remain but no single line decides one, rungs 1 and 2 highlight **nothing** and
+  announce *"Hint: no single row or column decides a cell right now."*, and rung 3 is the shipped
+  fallback reveal with its *"(from the solution)"* wording. A separate **Check** control, after Hint
+  in the History group, highlights and names the ROW of the first wrong mark row-major (never the
+  cell) or announces that there are none; a `"?"` is never wrong; it changes no cell, records no
+  stroke and moves no counter. Source: owner, 2026-10-22; CARD-269, "Declared semantics" rules 1-10.
+
+- **THREE SHIPPED ACs OF FR-044 ARE NOW FALSE OF THE CODE and are owed an amendment** — recorded here
+  because CARD-269's own semantics rule 10 routes the FR-044 delta through this file and forbids the
+  card editing `requirements.yml` for it. Each of the three still reads satisfied **and still carries
+  a live `test:` ref that resolves to a real class now asserting the opposite**, which is the
+  CARD-308 / CARD-319 defect class one level up: the ref is alive, so no dead-ref diagnostic fires,
+  while the requirement states behaviour the code deliberately retired. **The amendments are OWED and
+  are not taken here** (editing the registry is the architect side's, and AC-333's own amendment was
+  an owner decision):
+
+  - **AC-327** (`kind: happy`, `test: TestSolverHint_RevealsOneCell`) reads *"when Hint is pressed by
+    a real click, exactly one cell changes ... the page shows "Hints: 1""*. Shipped: **one** click
+    changes no cell and leaves `"Hints: 0"`; the reveal and the counter move on the **third** press.
+    `TestSolverHint_RevealsOneCell` now presses three times through the suite's `_reveal()` helper and
+    asserts nothing changed after the first and the second, so the class asserts the opposite of its
+    own AC. The amendment owed: the `when` becomes three presses (one ladder), the `then` keeps every
+    figure it has.
+  - **AC-329** (`kind: boundary`, `test: TestSolverHint_FallsBackToTheSolution`) reads *"when Hint is
+    pressed, the first undecided cell row-major takes its solution state and the page's announcement
+    says the hint came from the solution"*. Shipped: the first press takes no cell and announces that
+    no single row or column decides a cell; the fallback reveal is the third press, with the
+    announcement unchanged. **This is the clause the card exists to retire**: the old pairing handed
+    over a cell while saying "no cell follows from a single line yet", which a player read as "you
+    missed a line deduction" when there was none to miss. The amendment owed: the `then` splits into
+    the two cheap rungs' truthful silence and the third press's fallback reveal.
+  - **AC-334** (`kind: negative`, `test: TestSolverHint_KeyboardAndNoRequest`) reads *"when Hint is
+    reached by Tab and operated by Enter and by Space, three times in all, each press reveals one
+    cell"*. Shipped: three presses are **one** ladder and **one** reveal. The accessible-name and
+    no-network-request halves are unchanged and still hold, and the class now drives Check by
+    keyboard under the same request watch. The amendment owed: `each press reveals one cell` becomes
+    `the three presses are one ladder and reveal one cell`.
+
+  Source: this session (CARD-269 fix round 1, review cycle 1 F-3), measured against the shipped code
+  at `card/269-hint-ladder`.
+
+- **AC-335 needs EXTENDING, not retiring.** Its `then` reads *"no CSS animation or transition runs on
+  the hinted cell or the toolbar"*. CARD-269 adds a second animated element — the line highlight
+  `.is-hint-line` fades its background in — and the card states the rule extends to it. The shipped
+  test (`TestSolverHint_ReducedMotion`) already asserts the line highlight's animation count is zero
+  under `prefers-reduced-motion`, with a non-reduced run as the control that it does animate. So the
+  requirement is narrower than the code and narrower than its own test. The extension owed: name the
+  highlighted line's cells and clue boxes beside the hinted cell and the toolbar. Source: this
+  session; CARD-269 semantics rule 10's last sentence.
+
+- **AC-328 is unchanged in substance and is now structurally guaranteed.** Its *"the revealed cell is
+  the one deduced with the wrong marks ignored"* must hold at **every** rung, not only at the reveal,
+  or rungs 1-2 would point at a line the reveal does not use. CARD-269 review F-7 measured that this
+  rested on a hand-duplicated projection — `knownLine` reproduced `hintCell`'s wrong-mark-to-unknown
+  mapping line for line, and breaking one of the two copies left every page test green. The fix round
+  made `hintCell` project through `knownLine` itself, so the two cannot drift and AC-328's page-level
+  class is the control. No amendment owed; recorded so the next reader knows the guarantee is
+  structural. Source: this session.
+
+- **NOT in this delta, and deliberately: AC-333.** Its "Hint is the last control of the History
+  group" clause was the fourth casualty, it was escalated during cycle 1 rather than decided quietly,
+  and the **owner amended it in `requirements.yml` directly** on 2026-10-30 to name Check as the
+  group's last control. That one amendment is therefore already landed and is the shape the three
+  above should follow; CARD-269's "this card does not edit `requirements.yml`" is true of everything
+  except that owner-decided line. Source: owner, 2026-10-30; the AMENDED comment block at AC-333.
+
+- **NOT in this delta either: the three new controls' own ACs.** CARD-269 is a quick card, so its ten
+  ACs (the three rungs, the reset, the exhausted state, Check's two arms, the honesty property, the
+  nothing-persists property and the a11y/tokens/no-request property) are the **card-local** statement
+  the gate holds onto, not registry ids — the quick-card rule. Whether FR-044 should grow registry
+  ACs for the ladder and for Check is a formalisation question for the architect side, not a decision
+  this delta takes. Source: CARD-269, "Architecture context".
