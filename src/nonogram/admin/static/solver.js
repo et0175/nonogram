@@ -31,9 +31,16 @@
 // of one picture drift). The editor's page serves exactly the payload above
 // with "mode": "edit" added, and this file reads that one flag. Anything else
 // in `mode`, the key being absent included, is the player, unchanged.
-// What the flag changes — FIVE reads of `editing`, and nothing else
+// What the flag changes — SIX reads of `editing`, and nothing else
 // (CARD-246 review cycle 1, F-009: the list said three and the code read it
-// four times, which is how a contract stops being one):
+// four times, which is how a contract stops being one. CARD-268 added the
+// sixth and the count moved WITH it, in the same commit, because the count
+// is the control — `tests/test_puzzle_editor_ui.py`'s
+// `test_the_edit_mode_contract_counts_its_own_branches` reads this very
+// sentence AND counts the reads, so a read added without amending the
+// sentence reds. It did: that guard was the only cell in the tree that saw
+// CARD-268's sixth read, and it caught it at the MERGE gate — no
+// impact-scoped run touches the editor's file):
 //   * the board STARTS on payload.solution (solver_state.js boardOfGrid:
 //     FILLED/EMPTY, never UNKNOWN) rather than blank — the owner opens the
 //     stored picture and paints on it;
@@ -57,7 +64,14 @@
 //     Hint button added to an edit page must not be able to undo an edit;
 //   * the recorded board announces itself. In edit mode, and only there,
 //     commit() dispatches BOARD_CHANGE on `document` — see BOARD CHANGE
-//     below.
+//     below;
+//   * `solves` answers false (CARD-268). It is the probe's auto-commit gate:
+//     rule 7 says a probe that reaches the solved state was correct, so it
+//     commits. In edit mode the board STARTS equal to payload.solution —
+//     the first bullet above — so without this read `solves` would be true
+//     before the first stroke and opening the editor with a probe open would
+//     commit it instantly. Same reasoning as the counters and the lock three
+//     bullets up, applied to the one consumer those predate.
 //
 // BOARD CHANGE (CARD-246 review cycle 1, F-002/F-004). The editor's save bar
 // offers Approve for ONE grid: the grid whose grade is on screen, captured

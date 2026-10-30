@@ -796,8 +796,14 @@ class TestPuzzleEditor_Guardrails:
         # Every mention but the `const editing = ...` that declares it.
         reads = len(re.findall(r"\bediting\b", code)) - 1
 
-        assert "FIVE reads of `editing`" in solver
-        assert reads == 5, reads
+        # CARD-268 made it six: `solves` answers false in edit mode, because
+        # the editor's board starts equal to payload.solution, so the probe's
+        # rule-7 auto-commit would otherwise fire before the first stroke.
+        # The count moves WITH the read, in the same commit, which is what
+        # makes this cell a control and not a tally — it reded CARD-268's
+        # merge gate as the only cell in the tree that saw the sixth read.
+        assert "SIX reads of `editing`" in solver
+        assert reads == 6, reads
 
     def test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other(
         self, admin_app
