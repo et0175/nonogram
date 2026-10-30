@@ -216,7 +216,7 @@ two tests, and the EC) against 47 passed unmutated.
 |---|---|---|
 | **missing mark fails closed** (AC-3) | the mark assertion short-circuited | **2 failed, 45 passed** |
 | **over-applied, wrong page** (AC-4) | the negative assertion short-circuited | **1 failed, 46 passed** |
-| **over-applied, wrong code** (AC-4) | a second emitter planted in the frame drawer | **2 failed, 45 passed** |
+| **over-applied, wrong code** (AC-4) | a second emitter planted in the frame drawer | **2 failed, 45 passed** — **SITE-DEPENDENT, see below** |
 
 A missing mark **fails, never exempts** (ADR-0039/R2), and an unbalanced bracket raises out of the
 reader *and* the writer refuses to write such a page — so it cannot ship and then be found.
@@ -255,6 +255,21 @@ is exactly what AC-6 exists to confirm.
 CON-020's row gains three classes and a dated amendment note. **All 10 listed tests resolve to a
 `class` line, 0 dead refs** — which matters because **gate 3 there is `Severity.ERROR`**, so a
 listed test with no definition breaks the build rather than warning. `requirements.yml` untouched.
+
+### M4's figure is site-dependent, and that is the correction it needed
+
+**CORRECTED 2026-10-30, by the orchestrator, because the figure is card-resident.** The AC-4
+over-application row reports **2 failed / 45 passed** for *"a second emitter planted in the frame
+drawer"* — **without naming a plant line**, and cycle 1's reviewer got **4 failed / 43 passed**
+from a **folio-drawer** plant of the same shape. Both readings are real; **the split is a function
+of where the second emitter goes**, because a plant that brackets nothing leaves AC-3's refusal
+unable to fire — which is the same mechanism fix round 1 measured under F-006.
+
+Fix round 2 searched `tests/`, `src/` and `docs/` for every spelling of this figure and found
+**none**: it exists only on this card. **So the figure is restated here as what it is** — a
+site-dependent split whose plant line was never recorded — rather than as a reproducible
+measurement. **A mutant split without its plant site is not independently checkable**, which is
+this card's own subject applied to its own record.
 
 ### Six things measured wrong in the card or my brief
 
@@ -455,7 +470,14 @@ their line numbers reported, 0 dead** — which matters because **gate 3 there i
 **G-5: all 21 baselines unmoved**, `git status --porcelain tests/fixtures/` empty. **G-6**: nothing
 deleted, renamed, skipped or merged. **Node ids over the three touched modules: 179 → 183, raw +4 /
 0 removed / 0 renamed, net +4** — all four new `def`s, none parametrised; radius 733 → 737.
-**Skips: 0** in the 737-test radius under both conditions. Runtime as ranges with conditions, ±15%
+**Skips: 0** in that radius under both conditions. **CORRECTED by fix round 2: the 733/737 radius
+figure does not reproduce.** No import-derived file set reproduces it — the nine test modules naming
+the stream modules or the vector reader collect **716** (712 before round 1's +4), and adding the
+interior-cover module gives 849, with no single further book module supplying the missing 21. Round
+2 therefore **states its radius explicitly rather than quoting an inherited one**. **Round 1's
+delta is unaffected** — `+4 raw / 0 removed / net +4` re-derives, because a delta survives a
+mis-stated denominator. This is the day's dominant family once more: a figure carried without its
+domain, inside the card that exists to stop exactly that. Runtime as ranges with conditions, ±15%
 host spread, **no load figure**. Mutants out of tree, needle uniqueness asserted, blob shas restored
 and asserted back, `diff -rq` against a pristine extract empty, **no `git stash`**.
 
@@ -482,3 +504,77 @@ removed** until now, and a rename is **2 removed and 2 added, not zero** — net
 defect this board corrected twice today on other cards.
 
 - [Fix 2] Dispatched on the rename alone, with the trace row re-stamped and every reference derived.
+
+---
+
+## Fix round 2 — `d5a5affc` → `8d6ce8f7`, 1 file, +54/−23. **F-004 discharged under the owner's override.**
+
+**No `src/` file touched at all**, so no byte of any page moves, **the 21 baselines are unmoved** and
+**no render is owed**. `requirements.yml` byte-unchanged (G-1). Lock absent before every run; no run
+collapsed to 0 collected.
+
+### The two renames, with the reasoning for each name
+
+Both in `TestInteriorType_TheStreamArmIsReached`:
+
+1. `…_refuses_rather_than_reading_its_clue_digits` → **`…_with_no_clue_digit_mark_is_refused`**.
+   The body drops the mark at its one chokepoint and asserts the reader raises, so the **new name
+   names the helper the body actually uses** — condition and name become the same fact. The old
+   clause *"rather than reading its clue digits"* was **the pre-card contract CARD-299 shipped and
+   this card reversed**: the page it ships **is** read.
+2. `…_answer_page_refuses_too` → **`…_answer_page_with_no_clue_digit_mark_is_refused_too`**. `_too`
+   is kept deliberately, because the test's reason for existing is **kind coverage** — 258 of book
+   1's 462 exempt sub-floor faces are on answer pages against the puzzle page's 204 — but the name
+   **no longer implies the shipped answer page is refused.**
+
+### The delta, stated the way the owner's override required
+
+**Raw: 2 removed, 2 added. Net: 0** (radius 716 → 716). **Not netted away**: the card stood at 0
+removed until now, and **two node ids a reader may hold a reference to no longer exist.** No
+`parametrize` id moved — the delta listing is exactly those four lines.
+
+### References derived, and one that was already broken
+
+Every tree-wide hit for each old name was resolved. **In-tree code: one, and it was dead before this
+round** — the puzzle test's own docstring cross-referenced a `:meth:` **that has never existed**,
+shipped by the implementation commit. Fixed in passing.
+
+**`trace.yml` carries CLASS names only, so neither old name appears and the re-stamp was not owed** —
+the file is byte-unchanged against both `d5a5affc` and `main`. And the round **declined cycle 1's
+fallback suggestion** of writing method names into that file's note, for the right reason: *"the
+check-ref search is a text search, so a method name written into trace.yml prose is exactly the
+mechanism that revives a dead ref later."* **All ten CON-020 refs re-resolved by `class` line, 0
+dead**, each with its line reported; gate 3's `Severity.ERROR` is not at risk.
+
+Past cycles' review YAMLs and CARD-299's card keep the old names **as historical records** —
+*"rewriting a past cycle's measurement would falsify what was measured under which name."*
+
+### Both renamed tests shown red on their missing-mark mutant, with a near-miss that must not rise
+
+- **Harness negative control**, unmutated extract: **51 passed** — it does not red on its own.
+- **Positive**: `exempt` read off the **size** instead of the mark — *literally the "exempt 8.64 pt
+  by its value" wrong answer the reader's own message names* — **7 failed / 44 passed, both renamed
+  tests among the risers**, one on its anti-vacuity guard and one on `DID NOT RAISE`.
+- **Near miss**: the same wrong answer at a threshold **no face on these pages reaches** — **10
+  failed / 41 passed and neither renamed test rises.** So the pair is keyed on the exemption
+  actually appearing on a mark-less page, **not on the reader merely being touched.**
+
+### Four things it measured wrong, two of them mine
+
+1. **The stale-note attribution was mine.** My brief said fix round 1 left the note; `git blame` puts
+   it on **the implementation commit**. **Round 1 is clean here** and never touched these two tests,
+   exactly as it reported.
+2. **A dead `:meth:` cross-reference shipped by the implementation commit** — fixed in passing.
+3. **Round 1's 733/737 radius does not reproduce** — corrected above.
+4. **Cycle 1's riser count for the size-keyed mutant has moved from 5 to 7, for a named reason**: fix
+   round 1 added two tests that rise on it. **A figure that moved because the tree grew, with the
+   growth named** — which is the honest form.
+
+**Skips: none** — 0 in the 716-test radius and 0 in all three extract conditions. Runtime as ranges
+with conditions, ±15% host spread, no load figure. Mutants out of tree, blob recorded and **asserted
+back**, needle unique, `__pycache__` swept, **no `git stash`**.
+
+- [Fix 2] `8d6ce8f7` — **eleven of cycle 1's twelve findings discharged in-tree**; the twelfth was the
+  card-resident M4 figure, corrected above by the orchestrator.
+- [Gate] Merge gate next, held only until CARD-269's review cycle 2 reports — the gate takes the
+  scope-blind lock and would collapse that review's runs to 0 collected.
