@@ -104,8 +104,11 @@ findings:
     source: static
     violates: ADR-0042/R2
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1 — the _RASTER_DECLARATIONS comment now states that the card built the assembly point, converted nothing and re-pointed five entries at CARD-322, and removed no entry; the no-count policy is kept but no longer justified by a removal. Shipped with a control: tests/test_book_pdf.py::TestRasterDeclarations_TheCommentAgreesWithTheRegistry (4 cells), which holds the comment to the registry in both directions. Mutated: MF-1..MF-6, 0 survivors.
     dismissed_reason: null
     learned_pattern: null
 
@@ -152,8 +155,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1, record only. CARD-322's named G-5 exception was granted at the decompose station on main (not by this card, and CARD-322.md is untouched by this branch). CARD-309's own sentence now says it DECLINED the rename under G-5 and ROUTED it to CARD-322, where the exception was subsequently granted.
     dismissed_reason: null
     learned_pattern: null
 
@@ -194,8 +200,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1 — the scratchpad split the review decided is implemented. census-converted.txt and impact.txt stay on the branch; the 11 .py probes and every untracked file moved to ~/Documents/nonogram-reviews/CARD-309/. The 'all three runs are kept' sentence is replaced by what is true: the middle run's substance is committed as census-converted.txt, and the raw logs are cited at .../runs/.
     dismissed_reason: null
     learned_pattern: null
 
@@ -235,8 +244,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1 — the _BOARD_STATUSES comment no longer claims the widening is this diff's edit (main's set is a strict superset and the diff touches the frozenset 0 times) and no longer writes a vocabulary list. Re-derived today from the main working tree, one **Status:** line per card file: 330 files, done 275 / ready 48 / blocked 3 / review 2 / skipped 1 / parked 1, in_progress ZERO — recorded in the card, deliberately not pasted into the comment.
     dismissed_reason: null
     learned_pattern: null
 
@@ -278,8 +290,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1 — M5, M6 and M11 re-fired and the record corrected from the rows. See the card's '[Fix round 1, 2026-10-30]' section for the corrected mutant table and what each correction was derived from.
     dismissed_reason: null
     learned_pattern: null
 
@@ -316,8 +331,11 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: routed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      routed, not fixed — recorded in CARD-309's AC-6 as a render-resolution artefact (the stream emits 0.3/0.8/1.3 w on p06) and routed to CARD-322 / CARD-330 and to the owner's eye. Not this card's to chase.
     dismissed_reason: null
     learned_pattern: null
 
@@ -351,8 +369,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 180b64f0
+    fix_round: 1
+    fix_note: |
+      fixed in CARD-309 fix round 1, record only — AC-6 now says the committed probe renders pages 2/4/6/9 and that the p12 pair came from a run with page 12 added, so the committed script is not the script that made the whole set. The probe moved to ~/Documents/nonogram-reviews/CARD-309/probes/ beside the renders it made, and was deliberately NOT edited: editing it would make the copy beside the renders no longer the thing that produced them.
     dismissed_reason: null
     learned_pattern: null
 

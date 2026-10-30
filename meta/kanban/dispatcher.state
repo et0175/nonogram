@@ -44,27 +44,18 @@ max_concurrent_override: 2
 # while NOT touching tokens.css, which its Touches predicted.
 active:
 - id: CARD-268
-  phase: fix
+  phase: review
+  review_cycle: 2   # of review.max_cycles: 3 -- cycle 1 scored 7.5, fix round 1 complete
   review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
-  fix_round: 1
   build_fix_rounds: 1
   score_history: [7.5]
-  gating_open: 2    # F-001 the tint at dE 2.55 (a SHIPPED MISS, T1 survives);
-                    # F-002 rule 6 decided silently, AND THE ORACLE SHARES IT.
-                    # Both decided by the owner 2026-10-30 and recorded on the
-                    # branch at e057b89d: a different channel, and fix the rule.
+  gating_open: 0   # both cycle-1 findings closed; cycle 2 asks what the fix weakened
 - id: CARD-309
-  phase: fix
+  phase: review
+  review_cycle: 2   # of review.max_cycles: 3 -- cycle 1 scored 7.5, fix round 1 complete
   review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
-  fix_round: 1
   score_history: [7.5]
-  gating_open: 2    # F-001 a FALSE CLAIM IN SHIPPED src/ (the registry comment
-                    # claims a removal that did not happen, justified by
-                    # CARD-261's drift precedent while committing that drift);
-                    # F-002 the F-307 rename was owed by CARD-322, which had
-                    # zero mentions of it -- ALREADY FIXED on main by the
-                    # orchestrator at the decompose station, since a guardrail
-                    # is weakened there and nowhere else.
+  gating_open: 0   # both cycle-1 findings closed; cycle 2 asks what the fix weakened
   branch: card/309-assembly-point-and-puzzle-operators
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
   note: >-
@@ -133,7 +124,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T18:27:33Z'
+last_updated: '2026-10-30T19:01:29Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
