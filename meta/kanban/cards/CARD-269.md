@@ -668,7 +668,7 @@ reds exactly that test; the stale docstring no longer says AC-333's clause is un
 
 ### Figures
 
-**Node ids: base 109 → HEAD 138 over the five changed files, +29 added, 0 removed/renamed/merged** —
+**Node ids: base 109 → HEAD 138 over the five changed files, +29 added, 0 removed/renamed/merged** — **CORRECTED by fix round 3: the implementation's share is 28, not 29.** Measured per-commit against the merge base and cross-checked per id with `git log -S`: **28 from the implementation + 7 from fix round 2 = 35** added to the browser family. —
 and **this round added 0 and removed 0**, `comm` empty both directions. The card's 94 → 123 over four
 files plus resume.py's constant 15 gives the same +29/−0. **Skips: none, and `-rs` printed no skip
 section in any of the four whole-set runs.** Runtime **28.9–29.9 s** for the card's two files on an
@@ -940,3 +940,82 @@ all `db_required` methods of one class, file untouched by the branch. No load fi
 - [Gate] Merge gate next. **F-12 and F-13 go to a successor card**, per the reviewer's own
   recommendation — they are player-facing at widths this card never claimed, not defects in what it
   shipped.
+
+---
+
+## Merge gate round 1 — **RED on one test**, and fix round 3 paid the bookkeeping
+
+Gate at `414c6b4b`: **1 failed, 9883 passed, 27 skipped, 1 xfailed** in 23:59. AC/EC by node id
+**88 passed, 0 skipped**; `src`+`tests` clean against the gated commit.
+
+The single failure was
+`test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+— **35 node ids added to the browser family and never registered.** `ADDED_SINCE_BEFORE` maps node id
+→ (card, reason), and its own comment states the design: *"Adding a browser test therefore means
+adding its node id here with a card and a reason… **Neither is free, and that is the point.**"*
+
+**No review cycle could have caught it** — that module is outside this card's impact radius. **The
+merge gate is what did**, for the second time in an hour on this board, after CARD-314 hit the same
+shape against a different frozen registry.
+
+### Fix round 3 — `414c6b4b` → `88570da3`, one file, +331/−0
+
+**Derived, not transcribed from the gate log.** Base `8762beed` = `git merge-base main HEAD`, chosen
+because it is also the **main-side parent of the gate's merge**, so no unrelated commit can leak in —
+`main`'s tip was one kanban commit further on and was deliberately not used. The family was globbed
+**the way the guard's own `_family_files()` globs it**, in both trees, and collected with the same
+`--collect-only` the guard's child run uses.
+
+| | family ids | `test_puzzle_solver_hint.py` |
+|---|---|---|
+| base `8762beed` | 505 | 25 |
+| HEAD `414c6b4b` | 540 | 60 |
+
+**35 added, 0 removed, 0 renamed** — so nothing belongs in the renames table and no deletion decision
+arises. The other four files the branch touched **changed content, not coverage**.
+
+**Proved both ways**, out of tree: one of the 35 made uncollectable, needle asserted unique first. The
+derivation then answers **34**, dropping exactly that id, **with removed still 0** — so it saw "one of
+the 35 is gone", not "a base test disappeared". *"A count would not have told those trees apart; this
+does."*
+
+### The register was written as a register, not as 35 rows of boilerplate
+
+**118 entries now, 118 distinct reasons, shortest 9 words.** Nine of the 35 are recorded explicitly as
+**another test's control**, which is the register's own precedent. Grouped by AC with two provenance
+comments, including one marking fix round 2's seven and **why they are phrased against the visible
+sentence rather than the live region.**
+
+The reasons carry real content — one records that a parametrized case *"asserts the highlight is not
+the ladder's old one rather than that it is empty, which is the one of the six that cannot be written
+like the others"*; another records the instrument's both-directions proof and **why** it is needed
+(*"so a difference reported below is the page and not the element screenshot scrolling its target into
+view"*); another states the exhausted-board residual **and what a future card changing it would
+break.** The module's own
+`test_every_allowlist_entry_is_attributed_and_not_already_recorded` is the cell that would have caught
+boilerplate, and it is green.
+
+**Checked independently of the suite**: importing the edited module and set-comparing its CARD-269 keys
+against the derived file gives **35 == 35, none extra, none missing.**
+
+### Every sibling census in that module reported, which is the CARD-314 lesson applied
+
+**30 passed, 0 failed, 0 skipped** over the whole file — all six censuses green, including the five
+that were never red: the profiling census, the poll-interval pair, the four other cells of the
+`NoTestAddedOrRemoved` class (its both-directions baseline test, the attribution cell, and both rename
+cells), the order-independence set, the per-file isolation set, the alone-and-record pair, and the
+no-cascade cell.
+
+### Two figures it measured wrong, both mine
+
+1. **The card's "+29 from the implementation" is one too many.** Measured per-commit, and cross-checked
+   per id with `git log -S`: **28 from the implementation, 7 from fix round 2 = 35.** Corrected below.
+2. **The "4 skips, all `db_required`" does not belong to this round, and my brief applied it as if it
+   did.** The round measured that **none of the 12 files the branch changed contains a `db_required`
+   reference** — the 4 are real in the *review's* 18-file run set, which included an untouched file
+   that carries them. **0 is the honest number for everything this round ran**, and the two figures
+   are about different scopes rather than disagreeing.
+
+**Node-id delta for the round: 0 added, 0 removed, raw and net**, proved three ways — the module
+collects 30 before and after, the diff contains no added or removed `def test`/`class`/`parametrize`
+line, and it is 331 insertions with 0 deletions.
