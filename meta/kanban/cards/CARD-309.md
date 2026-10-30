@@ -1222,7 +1222,18 @@ module **outside** this round's set and does not appear in it.
 
 **G-5 re-measured over the WHOLE tree, not asserted.**
 `-o addopts='' -p no:randomly --collect-only -q tests/`, run on a clean `main` checkout and on
-this working tree, node ids compared as sets: **main 9956, branch 9971, 0 REMOVED, 15 ADDED.**
+this working tree, node ids compared as sets: **branch 9971, 0 REMOVED, 15 ADDED** against a
+main that read **9956 at the merge-base**. <!-- CORRECTED 2026-10-30 at cycle 3, and it is the
+F-6 pattern one level up: 9956 was written as a fact about `main` when it was a DATED READING
+of main at this branch's merge-base. Main has since moved -- 9995 today -- because CARD-268
+merged and brought 39 node ids with it (35 in test_puzzle_solver_probe.py, 2 in
+test_puzzle_solver_resume.py, 1 each in test_admin_design_tokens.py and
+test_browser_fixture_scope.py), NONE of which is in this card's Touches. The branch did not
+move; main did. The figure is now written so the claim is the DELTA -- which is what G-5
+asserts -- and main's total is dated context rather than a standing fact that goes stale every
+time any other card merges. -->
+**The claim is the delta, not main's total**: no test was deleted, renamed, skipped or merged,
+and the 15 added are accounted for one by one below.
 The 15 are the 11 the review measured (the ten assembly-point cells plus
 `test_no_declaration_names_the_card_that_is_closing`) **plus exactly** the four cells of
 `TestRasterDeclarations_TheCommentAgreesWithTheRegistry`. So no test was deleted, renamed,
