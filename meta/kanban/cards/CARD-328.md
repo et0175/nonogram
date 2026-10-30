@@ -499,3 +499,308 @@ which reaches for `--color-text-secondary` as a text colour and is not a
 compared fact. **No merge conflict is expected, and the guard is line-number-free
 by construction** — every fact is found by selector, keyframes name or what the
 rule does, never by a line number, precisely so a +129 above it cannot move it.
+
+### Fix round 1 (2026-10-30, review cycle 1 — score 8, IMP-1 open)
+
+Cycle 1 scored 8 and did **not** certify: the threshold was met but one
+important finding was open. Five findings, all closed or declined with a
+reason. **Nothing under `src/` changed** (SHA check at the end), `player/` is
+untouched this round, and the only tracked file edited is
+`tests/test_public_player_agreement.py`.
+
+#### IMP-1 (important, gating) — an exemption is now over a stated DIFFERENCE, not over a fact
+
+The table exempted three facts **by key**, and nothing constrained what could
+differ *inside* an exempted key. The reviewer fired four mutants into the
+exempted content and all four survived at `23 passed`, each proved to have
+been *read* by the guard. **Closed by constraining the residue, not the key.**
+
+`DECLARED_DIVERGENCES` is now `{key: Divergence(reason, difference, residue)}`:
+
+- `reason` — the sentence, floor unchanged at 120 chars;
+- `difference` — what is normalised away, in a phrase;
+- `residue` — `(this side's value, this side's own sweep selector) -> what is
+  left`, held to **equality across the two sheets** by
+  `residue_disagreements()`.
+
+Per exemption, re-derived from the files (not quoted — printed from
+`residues()` on the live tree):
+
+| Declared divergence | what the exemption exempts | residue, both sides |
+|---|---|---|
+| `sweep.selector` | the leading page-state hook (and **only one hook's worth**: a selector that is not `<hook> <target>` is unreadable) | `.player-cell[data-state="filled"]` |
+| `sweep.animation.delay` | the `, 0` inside `var(--player-wave, 0)`; a delay that no longer reads `--player-wave` is unreadable | `calc(var(--player-wave) * 12ms)` |
+| `reduced-motion.coverage` | the selector **lists** (5 vs 2) and `!important`; the block is searched for that sheet's own sweep selector **exactly, hook included** | `.player-cell[data-state="filled"] { animation: none }` |
+
+Three things make that a shape rather than three special cases:
+
+- **the residue arms are total over the table** —
+  `test_every_declared_divergence_agrees_on_the_residue_it_leaves` and
+  `test_every_declared_divergence_names_the_difference_it_normalises_away`
+  iterate `DECLARED_DIVERGENCES`, so a fourth entry is held the moment it is
+  added;
+- **a floor under the equality** —
+  `test_no_declared_divergence_has_an_unreadable_residue`, because two
+  *absences* are equal: if **both** sheets stopped quieting the sweep the
+  residues would agree at `!! …` and the equality alone would pass. This is
+  the same vacuity `DOT_PROPERTIES` and `WAVE_EXPRESSION` guard for the facts
+  that agree outright;
+- **`RESIDUE_CONTROLS` held to the table by set equality** —
+  `test_every_declared_divergence_carries_a_control_of_its_own`. Six plants
+  (one per exemption **per sheet**, because a residue computed from one tree
+  twice would pass half of them), each planting real drift inside one
+  exemption on the real sheet text and asserting, **in order**, that (1) the
+  key-level table still absorbs it — which is *why* the matching cycle-1 probe
+  survived — and (2) the residue reports it anyway.
+
+#### MIN-1 — the sub-assertion that could not fail
+
+`test_the_comparison_is_over_declarations_and_not_over_rule_text` squeezed the
+admin operand and left the public one raw, so the two could essentially never
+be equal. **Both operands are now raw** (like against like) and the docstring
+claims only what the arm holds: that the two texts differ *today*, with a
+message telling the next reader to restate the premise rather than leave the
+arm asserting it. The claim the arm could not carry — "the comparison is over
+declarations, not text" — moved to a new arm that **can** fail on its own,
+`test_reformatting_a_dot_rule_moves_no_declaration`: collapsing the public
+rule onto one line moves no pixel and must move no compared fact.
+Controls: **P1** (the reviewer's own experiment — the public dot collapsed
+byte-identical to the admin's) now **KILLS**; **P2** (the claim's edge — a
+whitespace-only reindent that leaves the texts different) **SURVIVES**, so the
+arm is not formatting police.
+
+#### MIN-2 — parse-failure attribution, improved, with what was NOT traded stated
+
+`compared_surface()` now reads every fact through `_measured(fact, read)`,
+which re-raises a collapsed parse with the **fact's name** (`sweep.selector
+(admin.css) did not parse: …`) instead of the bare helper message, and a new
+fixture-free arm `test_the_compared_surface_parses_fact_by_fact` turns any
+collapse into **one named FAILED cell** carrying that name.
+
+**What was deliberately not done:** the fixture-scoped ERRORs remain (V1/V3/V4
+still show 5 errors each). Removing them means handing the arms a surface with
+sentinels where a fact should be, which would make "not found" something other
+than a failure — a weaker control, which the brief says to decline and say so.
+So: attribution improved, not completed, and the reason is recorded.
+
+#### NIT-2 — the reduced-motion opener, tightened
+
+`REDUCED_MOTION = "@media (prefers-reduced-motion: reduce"`, used by
+`reduced_motion_blocks()`, `sweep_rule()` and the coverage plant. Controls:
+**Q1** (the reduce query renamed to `: no-preference`) now **KILLS** on the
+block count; **Q2** (the claim's edge — an unrelated `: no-preference` block
+added to the public sheet, which the old loose opener *would* have counted)
+**SURVIVES**.
+
+#### NIT-1 — declined, with a reason
+
+Bookkeeping, and not this round's. The branch is 4 commits behind `main` and
+the only contested path is this card file; the fix brief forbids a rebase or
+merge and the orchestrator resolves it at merge time.
+
+#### The mutant table — 28 mutants, 28 at expectation, 0 crashed
+
+Harness: `scratchpad/fix328/mutate.py` (scoped to `scratchpad/fix328/`, never
+the shared scratchpad root). Per mutant: snapshot the pre-mutant bytes and
+their SHA-256 → for every file outside `tests/`, assert that SHA equals
+`git show HEAD:<path>` → sweep `*.pyc`/`__pycache__` → substitute, asserting
+each edit applied exactly the expected number of times → run with
+`PYTHONDONTWRITEBYTECODE=1 -o addopts='' -q -rfE -p no:randomly` → restore
+from the snapshot → re-assert the SHA → sweep again. A crashed instrument is
+recorded `CRASHED`, never as a survivor; an empty verdict map raises. Raw
+verdicts: `scratchpad/fix328/mutants.json`. **All verdicts and failing-cell
+sets reproduced identically across two independent runs with cache sweeps
+between them.**
+
+Class prefix below is `TestPlayerLooksAgree_`; `ADiv…` is
+`ADivergenceMustBeDeclared`, `TheDot…` is
+`TheDotIsDeclarationForDeclarationTheSame`, `TheSweep…` is
+`TheSweepSharesItsKeyframesAndItsStep`, `BothPlayers…` is
+`BothPlayersSetTheSameWave`.
+
+**The four cycle-1 survivors — all four now DIE.**
+
+| # | File | Change | Cycle 1 | Now | Count line | Cells that red |
+|---|---|---|---|---|---|---|
+| N1 | `admin.css` | sweep selector `[data-state="filled"]` → `"empty"` (the panel flashes the wrong cells) | **SURVIVED** `23 passed` | **KILLED** | `5 failed, 30 passed` | `ADiv…::test_every_declared_divergence_agrees_on_the_residue_it_leaves`, `ADiv…::test_no_declared_divergence_has_an_unreadable_residue`, `ADiv…::test_real_drift…[sweep.selector::the panel flashes the empty cells]`, `…[sweep.selector::the public page flashes the empty cells]`, `…[reduced-motion.coverage::the panel stops quieting its sweep]` |
+| N2 | `admin.css` | delay → `calc(3 * var(--player-wave) * 12ms)` (3× slower panel sweep) | **SURVIVED** `23 passed` | **KILLED** | `2 failed, 33 passed` | `ADiv…::test_every_declared_divergence_agrees_on_the_residue_it_leaves`, `ADiv…::test_real_drift…[sweep.animation.delay::the public sweep is three times slower]` |
+| N3 | `admin.css` | the reduced-motion block no longer names the sweep | **SURVIVED** `23 passed` | **KILLED** | `3 failed, 32 passed` | `…agrees_on_the_residue_it_leaves`, `…no_declared_divergence_has_an_unreadable_residue`, `…test_real_drift…[reduced-motion.coverage::the panel stops quieting its sweep]` |
+| N4 | `player.css` | the reduced-motion block no longer names the sweep | **SURVIVED** `23 passed` | **KILLED** | `3 failed, 32 passed` | `…agrees_on_the_residue_it_leaves`, `…has_an_unreadable_residue`, `…test_real_drift…[reduced-motion.coverage::the public page stops quieting its sweep]` |
+
+**Why N2 reds the *public* delay control and not the panel one.** With the
+panel's delay already 3× under the mutant, the public-side plant makes the
+public delay 3× too, the two residues become equal, and the control's second
+assert — "the residue reports it" — fails because the plant accidentally
+restored agreement. The panel-side plant stacks to 9× and stays green. Both
+readings are correct for a drifted tree; the kill is attributable either way.
+
+**Found while fixing — a fifth real drift inside the same exemption.**
+
+| # | File | Change | Status | Count line | Cells that red |
+|---|---|---|---|---|---|
+| N5 | `admin.css` | the sweep's **hook** renamed `.is-solved` → `.is-done` in the sweep rule **only**, leaving the reduced-motion block quieting a selector that no longer exists | **KILLED** | `3 failed, 32 passed` | `…agrees_on_the_residue_it_leaves`, `…has_an_unreadable_residue`, `…test_real_drift…[reduced-motion.coverage::the panel stops quieting its sweep]` |
+
+This is why the coverage residue matches the sheet's own sweep selector
+**exactly, hook included** rather than by its tail: a block that quiets
+`.player-board.is-solved .player-cell[…]` while the sweep hangs on another
+hook quiets nothing. E1 below is the same rename done **consistently** and it
+SURVIVES, which is the pair that separates the exempted difference from the
+drift.
+
+**The card's own eight — all eight still DIE.**
+
+| # | File | Change | AC | Status | Count line | Cells that red (beyond the six residue controls, see the note) |
+|---|---|---|---|---|---|---|
+| M1 | `admin.css` | dot `width: 28%` → `31%` (line-scoped to the `.player-cell` rule) | AC-5 | **KILLED** | `10 failed, 25 passed` | `TheDot…::test_the_two_declaration_sets_are_equal`, `TheDot…::test_the_comparison_is_over_declarations_and_not_over_rule_text`, `ADiv…::test_the_disagreements_are_exactly_the_declared_ones`, `ADiv…::test_a_fourth_divergence_in_the_compared_surface_is_reported` |
+| M2 | `player.css` | dot `width: 28%` → `31%` | AC-5 | **KILLED** | `10 failed, 25 passed` | the same four |
+| M3 | `admin.css` | dot `background` → `var(--color-text)` | AC-5 | **KILLED** | `9 failed, 26 passed` | the same, less `…a_fourth_divergence…` (see the cycle-1 note: that control's precision assertion still holds) |
+| M4 | `player.css` | dot `background` → `var(--color-text)` | AC-5 | **KILLED** | `9 failed, 26 passed` | the same three |
+| M5 | `admin.css` | sweep step `* 12ms` → `* 13ms` | AC-6 | **KILLED** | `10 failed, 25 passed` | `TheSweep…::test_the_per_cell_step_agrees`, `ADiv…::test_the_disagreements_are_exactly_the_declared_ones`, `ADiv…::test_a_fourth_divergence…`, `ADiv…::test_every_declared_divergence_agrees_on_the_residue_it_leaves` |
+| M6 | `player.css` | sweep step `* 12ms` → `* 13ms` | AC-6 | **KILLED** | `10 failed, 25 passed` | the same four |
+| M7 | `solver.js` | `--player-wave` `row + col` → `row` | AC-6 | **KILLED** | `10 failed, 25 passed` | `BothPlayers…::test_both_players_set_the_wave_to_the_same_expression`, `BothPlayers…::test_the_wave_is_the_cells_row_plus_its_column`, `ADiv…::test_the_disagreements_are_exactly_the_declared_ones`, `ADiv…::test_a_fourth_divergence…` |
+| M8 | `play.js` | `String(row + col)` → `String(row)` | AC-6 | **KILLED** | `10 failed, 25 passed` | the same four |
+
+**Note on M1–M8's larger failure counts.** They were 3–4 cells in cycle 1 and
+are 9–10 now. The extra cells are the six new `test_real_drift…` controls,
+redding on their **first** assert — the one that says the key-level table must
+still absorb the plant. Under M1–M8 the live tree *itself* disagrees outside
+the exemption table, so that premise is false and the controls say so; the
+message names the surplus key and points at
+`test_the_disagreements_are_exactly_the_declared_ones`. That is a premise
+assert doing its job, not a mis-attributed kill — and it is why the message
+was rewritten this round to name both directions of the set difference.
+
+**The claims' edges — what the exemptions and the new arms still allow.**
+
+| # | File | Change | Expected | Status | Count line |
+|---|---|---|---|---|---|
+| E1 | `admin.css` | the sweep's hook renamed `.is-solved` → `.is-done` **consistently** in the sweep rule *and* the reduced-motion block | SURVIVES (the hook is the declared difference) | **SURVIVED** | `35 passed` |
+| E2 | `player.css` | the delay's fallback `var(--player-wave, 0)` → `, 1` | SURVIVES (the fallback is the declared difference) | **SURVIVED** | `35 passed` |
+| E3 | `admin.css` | the reduced-motion block drops a chrome selector (`.player-stage *`) | SURVIVES (the lists are the declared difference) | **SURVIVED** | `35 passed` |
+| P1 | `player.css` | the dot rule collapsed onto one line, byte-identical to the admin's — a pure reformat, zero pixels moved | KILLS (MIN-1: it SURVIVED in cycle 1) | **KILLED** | `1 failed, 34 passed` — `TheDot…::test_the_comparison_is_over_declarations_and_not_over_rule_text` |
+| P2 | `player.css` | the dot rule reindented but still not the admin's text | SURVIVES (the arm is not formatting police) | **SURVIVED** | `35 passed` |
+| Q1 | `admin.css` | the reduce query renamed `: no-preference` | KILLS | **KILLED** | `10 failed, 25 passed` |
+| Q2 | `player.css` | an unrelated `: no-preference` block added (the old loose opener would have counted it) | SURVIVES | **SURVIVED** | `35 passed` |
+
+**Anti-vacuity, re-fired — the guard is still not hollow.**
+
+| # | Change | Status | Count line | First cell |
+|---|---|---|---|---|
+| V1 | `_RULE` never matches | **KILLED** | `20 failed, 10 passed, 5 errors` | `TheDot…::test_the_rule_is_declared_once_in_each_sheet` |
+| V2 | `_WAVE_SETTER` never matches | **KILLED** | `2 failed, 33 passed` | `BothPlayers…::test_each_player_sets_the_wave_exactly_once` |
+| V3 | `_blocks_at_depth_one` returns nothing | **KILLED** | `12 failed, 18 passed, 5 errors` | `TheSweep…::test_the_banner_keyframes_agree` |
+| V4 | `declarations()` always `{}` | **KILLED** | `17 failed, 13 passed, 5 errors` | `TheDot…::test_the_admin_sheet_declares_the_seven_properties` |
+| V5 | `compared_surface()` returns `{}` | **KILLED** | `13 failed, 22 passed` | `ADiv…::test_the_compared_surface_is_not_empty_and_names_both_looks` |
+| V6 | the step regex never matches | **KILLED** | `1 failed, 34 passed` | `TheSweep…::test_the_per_cell_step_agrees` |
+
+**The shape itself — a FOURTH exemption cannot slip through.**
+
+| # | Change to the guard | Status | Count line | The cell that makes the point |
+|---|---|---|---|---|
+| S1 | one exemption declared as a bare reason string again, as all three were in cycle 1 | **KILLED** | `10 failed, 25 passed` | `ADiv…::test_every_declared_divergence_names_the_difference_it_normalises_away` (with `…carries_a_reason` and both residue arms) |
+| S2 | a fourth exemption added **with** a difference and a residue but **no control** | **KILLED** | `9 failed, 26 passed` | `ADiv…::test_every_declared_divergence_carries_a_control_of_its_own` |
+
+Counted from the rows: **28 mutants — 23 expected to kill and 23 KILLED, 5
+expected to survive and 5 SURVIVED, 0 crashed, 0 off expectation.** Admin-side
+mutants: 15 of the 28 (N1, N2, N3, N5, M1, M3, M5, M7, E1, E3, Q1 and, on the
+admin half of their plants, the three residue controls) — a guard reading
+`player.css`/`play.js` on both sides of every comparison would survive them.
+
+#### Does a fourth exemption inherit the constraint?
+
+**Yes, structurally, and it was measured rather than asserted (S1, S2).** A
+fourth entry:
+
+- **cannot be declared without a difference and a residue** — the table's
+  value type is `Divergence`, and
+  `test_every_declared_divergence_names_the_difference_it_normalises_away`
+  reds on a bare string (S1);
+- **is held to residue equality and to the unreadable-residue floor for free**
+  — both arms iterate the table;
+- **cannot ship without its own control** —
+  `test_every_declared_divergence_carries_a_control_of_its_own` compares
+  `RESIDUE_CONTROLS` to `DECLARED_DIVERGENCES` by set **equality**, so a
+  fourth exemption reds until it brings a plant (S2), and a control left
+  behind by a removed exemption reds too.
+
+What it does **not** inherit is the *content* of its residue: the function that
+normalises its particular difference away has to be written, and that is the
+irreducible part — a residue nobody wrote is a difference nobody stated. This
+matters for CARD-325, whose crosshair agreement check is scheduled to join
+this file: it will meet the constrained pattern rather than the licence.
+
+#### The gate
+
+`tests/test_public_player.py` + `tests/test_public_player_pages.py` +
+`tests/test_admin_design_tokens.py` + this file, with
+`-o addopts='' -rs -p no:randomly`: **115 passed, 0 skipped, 0 failed, exit
+0** (13.57s). Split 34 + 33 + 13 + **35**; the two shipped files' **67** still
+reproduces the card's declared figure.
+
+**Skip attribution: the set of skips is EMPTY, and that is a measurement.**
+`-rs` printed no skip section and the count line carries no `skipped` term, so
+there is no skip to attribute by name — which is what ADR-0038/R8 wants here.
+Chromium is present in this worktree and the `browser`-marked tests ran.
+
+Also re-run, because a test file can red a tree-scanner by its own text:
+`tests/test_collected_names.py`, `tests/test_guard_integrity.py`,
+`tests/test_suite_profile.py`, `tests/test_impact_set.py` — **664 passed, 0
+skipped**. **The full suite was not run:** CARD-268 is live in a parallel
+worktree in its own fix round, the flock on `meta/kanban/.full-suite.lock` was
+not taken, and the merge gate is the only full run.
+
+#### G-6: no test deleted, renamed, skipped or merged
+
+Node-id set difference under `-o addopts=''`, before vs after:
+**23 → 35, removals EMPTY, 12 additions** (`scratchpad/fix328/nodeids.{before,after}.txt`).
+Cross-checked against the AST: 30 declared methods, one of them carrying 6
+`parametrize` ids → 35 collected, and 35 collected. Class split, counted from
+the node ids: `TheDot…` 6, `TheSweep…` 8, `BothPlayers…` 3, `ADiv…` 18 — 35.
+No arm was deleted; `test_the_comparison_is_over_declarations_and_not_over_rule_text`
+was **re-expressed**, which G-6 allows, and P1/P2 are its control pair.
+
+#### Per-assertion measurement, for the multi-arm controls
+
+The new `test_real_drift_inside_a_declared_divergence_is_reported` carries two
+asserts in a fixed order, and a test short-circuits at the first, so each was
+measured separately:
+
+- **assert 1** (the key-level table still absorbs the plant) is the one that
+  reds under M1–M8 and Q1 — i.e. under pre-existing drift — and it is green
+  under N1–N5, which is exactly the statement "the cycle-1 probe survived";
+- **assert 2** (the residue reports it) is the one that reds under N1–N5 and
+  under S1/S2, and it is **reached** there because assert 1 passed. Verified
+  from the failing-cell sets, not inferred: N1 reds
+  `[sweep.selector::…]` and `[reduced-motion.coverage::the panel…]` while the
+  other four cases stay green, which is only possible if assert 1 passed in
+  all six.
+
+`test_every_declared_divergence_names_the_difference_it_normalises_away` has
+three asserts inside one loop (type, difference, residue); S1 reds it on the
+`isinstance` arm. `test_every_declared_divergence_carries_a_control_of_its_own`
+has two (set equality, no empty tuple); S2 reds it on the set equality.
+`test_no_declared_divergence_has_an_unreadable_residue` is a single
+dict-comprehension assert and names every offending `(key, sheet)` pair in its
+message rather than stopping at the first.
+
+#### Guardrails
+
+- **G-1 nothing under `src/`.** `admin.css` and `solver.js` were mutated and
+  restored under the harness's SHA discipline; after the final run both are
+  byte-identical to HEAD —
+  `03a7de8d1f5f1066f4c9e3400d65393144cafffb5d2609e35734b5cc527a381d  admin.css`,
+  `7a3b4aeb59fbc91ae146f2d523716b77c13c00be9b8f9687e1a673ed37d2fbe5  solver.js`
+  — equal to `git show HEAD:<path>`.
+- **G-2 `2400501b`'s tests unmodified.** `git diff --name-only HEAD -- tests/`
+  is exactly `tests/test_public_player_agreement.py`; no other test file is
+  touched, so `getAnimations` is still only the docstring and the
+  `background-image: none` arm is intact.
+- **G-3 no rendered pixel changes.** `player/player.css` and `player/play.js`
+  are byte-identical to HEAD (`db675981…5ebc`, `5c21e097…a526`): this round's
+  diff is `tests/` only, so the `player/` diff is still comments only.
+- **G-4** `COPIED_FROM_ADMIN` untouched, ADR-0041/R3 not weakened.
+- **G-5** this is the finding closed above, now holding **per exemption** and
+  not just at the table.
+- **G-6** additions only, measured above.
+- **G-7** no CSS value added — no CSS file is in this round's diff at all.
+- **Not rebased, not merged.** The branch is still 4 commits behind `main`.

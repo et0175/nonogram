@@ -52,6 +52,24 @@ sheet text in **both** directions (a planted fourth divergence must be
 reported; a declared divergence removed must be reported) so the set equality
 is not the only thing holding the claim up.
 
+**And an exemption is over a stated DIFFERENCE, not over a fact.** The first
+cut of this file exempted three facts by *key*, and nothing constrained what
+could differ inside one; review cycle 1 fired four mutants into the exempted
+content and all four survived at ``23 passed`` — the panel flashing the
+*empty* cells while this page flashed the filled ones, a panel sweep crossing
+the board three times slower, and either sheet dropping the sweep from its
+``prefers-reduced-motion`` block. That is the CARD-255 shape one level down:
+the table had a shape constraint, the individual exemptions did not. So each
+entry of :data:`DECLARED_DIVERGENCES` is a :class:`Divergence` that names the
+difference, normalises it away, and leaves a **residue** that is held to
+equality like any other fact (:func:`residue_disagreements`) — with a floor
+that rejects an unreadable residue on either side, because two absences are
+equal, and with one :data:`RESIDUE_CONTROLS` plant per exemption **per sheet**
+held to the table by set equality. A fourth exemption added later inherits
+all of that: it cannot be declared without a difference and a residue, the
+residue arms are total over the table, and it reds until it ships a control
+that plants real drift inside it.
+
 What this module does **not** do
 --------------------------------
 It changes no rendered pixel, and it is not allowed to. If it ever finds a
@@ -78,7 +96,10 @@ exists to catch.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 import pytest
 
@@ -106,6 +127,14 @@ _CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
 #: keeps it flat: an ``@media`` block's own braces never match, so the scan
 #: yields the rules *inside* it keyed by their own selector text.
 _RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+
+#: The media query the reveal's no-motion half lives in, spelled out as far as
+#: ``: reduce``. The bare ``@media (prefers-reduced-motion`` opener this used
+#: to carry would also match a future ``: no-preference`` block and count it as
+#: a reduce block (CARD-328 cycle 1, NIT-2) — harmless today but a fact read
+#: off the wrong rule. Tightened, a sheet that renames its query reds on the
+#: block count rather than silently measuring the other query.
+REDUCED_MOTION = "@media (prefers-reduced-motion: reduce"
 
 
 def _squeezed(text: str) -> str:
@@ -207,7 +236,7 @@ def reduced_motion_blocks(text: str) -> list[str]:
     """The normalised inner text of each ``prefers-reduced-motion`` block."""
     return [
         _squeezed(block)
-        for block in _blocks_at_depth_one(_css_code(text), "@media (prefers-reduced-motion")
+        for block in _blocks_at_depth_one(_css_code(text), REDUCED_MOTION)
     ]
 
 
@@ -239,6 +268,42 @@ def _top_level_tokens(value: str) -> list[str]:
     return tokens
 
 
+def _selector_tail(selector: str) -> str:
+    """The last compound of a descendant selector — *which* elements it hits.
+
+    ``.player-board.is-solved .player-cell[data-state="filled"]`` and
+    ``body[data-solved="true"] .player-cell[data-state="filled"]`` have the
+    same tail and different leading hooks, which is the whole of the
+    ``sweep.selector`` divergence: the hook is each page's own, the **target**
+    is the thing the two players must agree about.
+    """
+    tokens = selector.split()
+    return tokens[-1] if tokens else ""
+
+
+def _selector_hook(selector: str) -> str:
+    """Everything before :func:`_selector_tail` — the page-state hook."""
+    return " ".join(selector.split()[:-1])
+
+
+#: ``var(--x, <fallback>)`` — one custom property with a fallback argument.
+#: Only a flat fallback (no nested parens), which is all either sheet writes;
+#: a nested one would leave the text unnormalised and therefore *unequal*,
+#: which reds rather than passes.
+_VAR_FALLBACK = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*,[^()]*\)")
+
+
+def without_var_fallbacks(value: str) -> str:
+    """``value`` with every ``var(--x, y)`` rewritten to ``var(--x)``.
+
+    The normalisation behind the ``sweep.animation.delay`` declaration: the
+    public sheet's ``, 0`` is the declared difference, so it is normalised
+    *away* and what is left must be **equal**. Nothing else about the delay is
+    exempted by it.
+    """
+    return _squeezed(_VAR_FALLBACK.sub(r"var(\1)", value))
+
+
 #: The keyframes the diagonal flash plays. The sweep rule is found by *this*
 #: — by what it does — and never by its selector, because the selector is a
 #: DECLARED divergence: a guard that looked the rule up by the admin's
@@ -257,7 +322,7 @@ def sweep_rule(text: str) -> tuple[str, str]:
     animation *off* and are compared separately, as their own fact.
     """
     code = _css_code(text)
-    for block in _blocks_at_depth_one(code, "@media (prefers-reduced-motion"):
+    for block in _blocks_at_depth_one(code, REDUCED_MOTION):
         code = code.replace(block, "")
     found = [
         (_squeezed(selector), _squeezed(declarations(body)["animation"]))
@@ -336,6 +401,31 @@ DOT_PROPERTIES = frozenset(
 WAVE_EXPRESSION = "row + col"
 
 
+#: What :func:`_measured` is reading — one fact of the compared surface.
+_Fact = TypeVar("_Fact")
+
+
+def _measured(fact: str, read: Callable[[], _Fact]) -> _Fact:
+    """``read()``, with ``fact`` named if its parse collapses.
+
+    MIN-2 of CARD-328's cycle 1: :func:`keyframes_body`, :func:`sweep_rule`
+    and :func:`sweep_animation` raise inside themselves and the module-scoped
+    ``surface`` fixture calls :func:`compared_surface`, so one broken parse
+    reports as a fixture ERROR for every arm that wanted the surface. The
+    ERRORs remain — handing the arms a sentinel surface instead would make
+    "not found" something other than a failure, and that is a control this
+    file will not trade — but the message now names the **fact** that stopped
+    parsing instead of the fixture, and
+    :meth:`TestPlayerLooksAgree_ADivergenceMustBeDeclared.test_the_compared_surface_parses_fact_by_fact`
+    turns the same breakage into one named FAILED cell that says which fact it
+    was.
+    """
+    try:
+        return read()
+    except (AssertionError, KeyError) as broke:
+        raise AssertionError(f"{fact} did not parse: {broke}") from broke
+
+
 def compared_surface(
     admin_css: str, public_css: str, admin_js_waves: list[str], public_js_waves: list[str]
 ) -> dict[str, tuple[str, str]]:
@@ -349,24 +439,42 @@ def compared_surface(
     that the controls can feed it synthetic sheets — a planted divergence is
     then a string substitution, never a file written into the tree.
     """
-    admin_sweep_selector, admin_sweep_value = sweep_rule(admin_css)
-    public_sweep_selector, public_sweep_value = sweep_rule(public_css)
-    admin_sweep = sweep_animation(admin_sweep_value)
-    public_sweep = sweep_animation(public_sweep_value)
+    admin_sweep_selector, admin_sweep_value = _measured(
+        "sweep.selector (admin.css)", lambda: sweep_rule(admin_css)
+    )
+    public_sweep_selector, public_sweep_value = _measured(
+        "sweep.selector (player.css)", lambda: sweep_rule(public_css)
+    )
+    admin_sweep = _measured(
+        "sweep.animation (admin.css)", lambda: sweep_animation(admin_sweep_value)
+    )
+    public_sweep = _measured(
+        "sweep.animation (player.css)", lambda: sweep_animation(public_sweep_value)
+    )
 
-    def dot(text: str) -> str:
-        found = declarations(rules(text)[DOT])
+    def dot(label: str, text: str) -> str:
+        found = _measured(
+            f"dot.declarations ({label})", lambda: declarations(rules(text)[DOT])
+        )
         return "; ".join(f"{name}: {found[name]}" for name in sorted(found))
 
     surface: dict[str, tuple[str, str]] = {
-        "dot.declarations": (dot(admin_css), dot(public_css)),
+        "dot.declarations": (dot("admin.css", admin_css), dot("player.css", public_css)),
         f"keyframes.{SETTLE}": (
-            keyframes_body(admin_css, SETTLE),
-            keyframes_body(public_css, SETTLE),
+            _measured(
+                f"keyframes.{SETTLE} (admin.css)", lambda: keyframes_body(admin_css, SETTLE)
+            ),
+            _measured(
+                f"keyframes.{SETTLE} (player.css)", lambda: keyframes_body(public_css, SETTLE)
+            ),
         ),
         f"keyframes.{FLASH}": (
-            keyframes_body(admin_css, FLASH),
-            keyframes_body(public_css, FLASH),
+            _measured(
+                f"keyframes.{FLASH} (admin.css)", lambda: keyframes_body(admin_css, FLASH)
+            ),
+            _measured(
+                f"keyframes.{FLASH} (player.css)", lambda: keyframes_body(public_css, FLASH)
+            ),
         ),
         "sweep.selector": (admin_sweep_selector, public_sweep_selector),
         "reduced-motion.block-count": (
@@ -392,45 +500,282 @@ def disagreements(surface: dict[str, tuple[str, str]]) -> dict[str, tuple[str, s
     return {key: pair for key, pair in surface.items() if pair[0] != pair[1]}
 
 
-#: The divergences that are allowed, each with the reason it is one.
+# --------------------------------------------------------------------------
+# The declaration — and what each declared difference has to leave standing.
+#
+# Cycle 1's IMP-1: this table used to exempt by KEY, and nothing constrained
+# what could differ *within* an exempted key. Four mutants fired inside the
+# three exempted facts all survived at 23 passed: the panel flashing the EMPTY
+# cells while this page flashed the filled ones (the exact defect 2400501b
+# existed to fix), a panel sweep crossing the board three times slower, and
+# either sheet dropping the sweep from its prefers-reduced-motion block (an
+# accessibility regression against this card's own Design-context standard).
+# That is G-5's defect shape one level down — the table had a shape constraint,
+# the individual exemptions did not.
+#
+# So an exemption does not name a fact. It names the DIFFERENCE, normalises it
+# away, and what is LEFT — the residue — is compared like any other fact.
+# --------------------------------------------------------------------------
+
+#: A residue that could not be read, prefixed so either side carrying it is a
+#: failure. Two unreadable residues are *equal*, so equality alone would let
+#: "neither sheet does this any more" pass as agreement;
+#: ``test_no_declared_divergence_has_an_unreadable_residue`` is the floor that
+#: closes it.
+UNREADABLE = "!!"
+
+
+def _sweep_target(selector: str, _own_sweep_selector: str) -> str:
+    """``sweep.selector``'s residue: **which cells** the sweep flashes.
+
+    The declared difference is the leading page-state hook, so only the hook
+    is normalised away — and only one hook's worth of it: a selector that is
+    not ``<hook> <target>`` is unreadable rather than quietly truncated.
+    """
+    if len(selector.split()) != 2:
+        return f"{UNREADABLE} not a `<page-state hook> <target>` selector: {selector!r}"
+    return _selector_tail(selector)
+
+
+def _delay_without_its_fallback(delay: str, _own_sweep_selector: str) -> str:
+    """``sweep.animation.delay``'s residue: the delay, fallback normalised off.
+
+    The ``, 0`` is the declared difference and nothing else about the delay
+    is. A delay that no longer reads ``--player-wave`` at all is unreadable:
+    the exemption is over a fallback, not over the diagonal.
+    """
+    normalised = without_var_fallbacks(delay)
+    if "var(--player-wave)" not in normalised:
+        return f"{UNREADABLE} the delay does not read --player-wave: {delay!r}"
+    return normalised
+
+
+def _how_the_sweep_is_quieted(coverage: str, own_sweep_selector: str) -> str:
+    """``reduced-motion.coverage``'s residue: how this sheet quiets its OWN sweep.
+
+    The two blocks legitimately cover different surfaces — the panel has
+    toolbar and stage chrome to quiet and this page has none of it — so the
+    selector *lists* are not comparable and never will be. What must agree is
+    the invariant underneath: **each sheet's reduced-motion block names that
+    sheet's own sweep selector, with the animation switched off**.
+
+    The block is searched for the sheet's own sweep selector *exactly*, hook
+    included — a block that quiets ``.player-board.is-solved .player-cell[…]``
+    while the sweep has moved to another hook quiets nothing, which is a real
+    regression and not a formatting difference. Only the value returned is
+    normalised to the selector's tail, so the two sheets' residues are
+    comparable at all; ``!important`` is normalised off because that is panel
+    specificity, not a different switch.
+    """
+    target = _selector_tail(own_sweep_selector)
+    for selector, body in _RULE.findall(coverage):
+        group = [_squeezed(part) for part in selector.split(",") if part.strip()]
+        if _squeezed(own_sweep_selector) not in group:
+            continue
+        animation = _squeezed(
+            declarations(body).get("animation", "").replace("!important", "")
+        )
+        if animation != "none":
+            return (
+                f"{UNREADABLE} {target} is named but its animation is not "
+                f"switched off: {animation!r}"
+            )
+        return f"{target} {{ animation: none }}"
+    return (
+        f"{UNREADABLE} {own_sweep_selector!r} is not named in this sheet's "
+        f"reduced-motion block, so its sweep ({target}) is not quieted there"
+    )
+
+
+@dataclass(frozen=True)
+class Divergence:
+    """One declared divergence: what differs, why, and what must still agree.
+
+    * ``reason`` — the sentence. The key says *what* differs; only the
+      sentence says whether anyone decided it.
+    * ``difference`` — the thing being normalised away, in a phrase.
+    * ``residue`` — ``(this side's value, this side's sweep selector) -> what
+      is left``. :func:`residue_disagreements` holds the two residues to
+      **equality**, which is what turns an exemption from a licence over a
+      fact into a licence over a stated difference.
+
+    A fourth exemption added later cannot skip any of the three: the table's
+    value type requires them, ``test_every_declared_divergence_…`` arms are
+    total over the table, and :data:`RESIDUE_CONTROLS` is held to it by set
+    **equality**, so a fourth entry reds until it ships a control that plants
+    real drift inside it.
+    """
+
+    reason: str
+    difference: str
+    residue: Callable[[str, str], str]
+
+
+#: The divergences that are allowed, each with the reason it is one and the
+#: residue it still has to leave in agreement.
 #:
 #: This is the half of AC-4 a naive guard gets wrong, and the half CARD-255
 #: teaches to constrain. It is not a licence to differ: it is a **frozen
 #: declaration over keys that** :func:`compared_surface` **produces**, and
-#: :class:`TestPlayerLooksAgree_ADivergenceMustBeDeclared` holds it from both
-#: sides — an undeclared disagreement reds, and a declared key that no longer
-#: disagrees reds as a stale exemption.
-DECLARED_DIVERGENCES: dict[str, str] = {
-    "sweep.selector": (
-        "Different DOM hooks, for a stated reason. The panel keys the reveal "
-        "on `.player-board.is-solved`, a class solver.js adds; the public page "
-        "keys it on `body[data-solved=\"true\"]`, because play.js already "
-        "writes that attribute on every render — so the reveal fires on the "
-        "transition into solved and does not re-trigger while it stays solved, "
-        "which is the same once-only reveal the class gives the panel. The "
-        "LOOK is what agrees here; the hook it hangs on is each page's own."
+#: :class:`TestPlayerLooksAgree_ADivergenceMustBeDeclared` holds it from three
+#: sides — an undeclared disagreement reds, a declared key that no longer
+#: disagrees reds as a stale exemption, and a declared key whose residue stops
+#: agreeing reds as drift *inside* the exemption.
+DECLARED_DIVERGENCES: dict[str, Divergence] = {
+    "sweep.selector": Divergence(
+        reason=(
+            "Different DOM hooks, for a stated reason. The panel keys the reveal "
+            "on `.player-board.is-solved`, a class solver.js adds; the public page "
+            "keys it on `body[data-solved=\"true\"]`, because play.js already "
+            "writes that attribute on every render — so the reveal fires on the "
+            "transition into solved and does not re-trigger while it stays solved, "
+            "which is the same once-only reveal the class gives the panel. The "
+            "LOOK is what agrees here; the hook it hangs on is each page's own. "
+            "Only the hook is exempted: the residue — WHICH cells the sweep "
+            "flashes — is compared, so a state-name refactor that aims one "
+            "player's sweep at the empty cells reds instead of being absorbed."
+        ),
+        difference="the leading page-state hook, `.player-board.is-solved` vs `body[data-solved=\"true\"]`",
+        residue=_sweep_target,
     ),
-    "sweep.animation.delay": (
-        "The public sheet writes `var(--player-wave, 0)` where the panel "
-        "writes `var(--player-wave)`. A fallback, not a different delay: the "
-        "public page's board is drawn by play.js, which sets the property on "
-        "every cell, and the `, 0` keeps the calc() valid rather than invalid "
-        "if a cell is ever reached before it is set. The step itself is "
-        "compared separately as `sweep.animation.step` and must agree, so this "
-        "exemption cannot hide a changed step."
+    "sweep.animation.delay": Divergence(
+        reason=(
+            "The public sheet writes `var(--player-wave, 0)` where the panel "
+            "writes `var(--player-wave)`. A fallback, not a different delay: the "
+            "public page's board is drawn by play.js, which sets the property on "
+            "every cell, and the `, 0` keeps the calc() valid rather than invalid "
+            "if a cell is ever reached before it is set. The step itself is "
+            "compared separately as `sweep.animation.step` and must agree, so this "
+            "exemption cannot hide a changed step. The fallback is also all that "
+            "is exempted: the residue is the delay with every var() fallback "
+            "normalised away, compared for equality, so a delay the step cannot "
+            "see — a factor in front of the wave, say — reds."
+        ),
+        difference="the `, 0` fallback inside `var(--player-wave, 0)`",
+        residue=_delay_without_its_fallback,
     ),
-    "reduced-motion.coverage": (
-        "The panel's reduced-motion block blankets the whole player — "
-        "`.player-toolbar`, `.player-stage`, their descendants and the sweep — "
-        "with `animation: none !important; transition: none !important`, "
-        "because the panel has toolbar and stage chrome that animates. The "
-        "public page has none of that chrome, so its block names only the two "
-        "things that animate there: the banner and the sweep. Both switch the "
-        "same reveal off; the surface each has to switch off differs. The "
-        "block COUNT is compared separately as "
-        "`reduced-motion.block-count` and must agree."
+    "reduced-motion.coverage": Divergence(
+        reason=(
+            "The panel's reduced-motion block blankets the whole player — "
+            "`.player-toolbar`, `.player-stage`, their descendants and the sweep — "
+            "with `animation: none !important; transition: none !important`, "
+            "because the panel has toolbar and stage chrome that animates. The "
+            "public page has none of that chrome, so its block names only the two "
+            "things that animate there: the banner and the sweep. Both switch the "
+            "same reveal off; the surface each has to switch off differs. The "
+            "block COUNT is compared separately as "
+            "`reduced-motion.block-count` and must agree. The *lists* are what is "
+            "exempted, and only them: the residue is each sheet's own sweep "
+            "selector quieted in its own block, so either sheet dropping the "
+            "sweep from its reduced-motion block reds instead of reading as "
+            "chrome the other page does not have."
+        ),
+        difference="the selector lists (5 in the panel, 2 here) and `!important`",
+        residue=_how_the_sweep_is_quieted,
     ),
 }
+
+
+def residues(surface: dict[str, tuple[str, str]]) -> dict[str, tuple[str, str]]:
+    """``{declared key: (admin residue, public residue)}``.
+
+    Each side's residue is read against **that side's own** sweep selector,
+    taken from the surface rather than written down, because a sheet's
+    reduced-motion block has to be read against the hook that sheet uses.
+    A declared key the surface does not carry is skipped here and caught by
+    ``test_every_declared_divergence_is_a_fact_the_guard_measures`` instead,
+    so a missing key cannot masquerade as an unreadable residue.
+    """
+    admin_sweep_selector, public_sweep_selector = surface["sweep.selector"]
+    return {
+        key: (
+            declared.residue(surface[key][0], admin_sweep_selector),
+            declared.residue(surface[key][1], public_sweep_selector),
+        )
+        for key, declared in DECLARED_DIVERGENCES.items()
+        if key in surface
+    }
+
+
+def residue_disagreements(surface: dict[str, tuple[str, str]]) -> dict[str, tuple[str, str]]:
+    """Declared divergences whose **residue** does not agree — real drift
+    inside an exemption, which is what IMP-1's four surviving mutants were."""
+    return {key: pair for key, pair in residues(surface).items() if pair[0] != pair[1]}
+
+
+# --------------------------------------------------------------------------
+# The controls. One per declared divergence is not enough — a control is
+# measured per exemption AND per sheet, because a residue computed from one
+# tree twice would pass half of these. They plant on the real text, so a
+# control cannot drift away from the file it is about, and they are the four
+# cycle-1 probes (N1–N4) made executable.
+# --------------------------------------------------------------------------
+
+
+def _retarget_the_sweep(css: str) -> str:
+    """``css`` with its sweep aimed at the EMPTY cells, not the filled ones.
+
+    N1's shape: a state-name refactor in one sheet, and the two players
+    disagree about what solving looks like.
+    """
+    selector, _ = sweep_rule(css)
+    opener = f"{selector} {{"
+    assert opener in css, f"the plant did not apply — no {opener!r} in this sheet"
+    return css.replace(opener, f'{selector.replace("filled", "empty")} {{', 1)
+
+
+def _slow_the_sweep(css: str) -> str:
+    """``css`` with its sweep crossing the board three times slower (N2)."""
+    _, value = sweep_rule(css)
+    delay = sweep_animation(value)["delay"]
+    assert delay in css, f"the plant did not apply — no {delay!r} in this sheet"
+    return css.replace(delay, delay.replace("calc(", "calc(3 * ", 1), 1)
+
+
+def _unquiet_the_sweep(css: str) -> str:
+    """``css`` with the sweep dropped from its reduced-motion block (N3/N4)."""
+    selector, _ = sweep_rule(css)
+    blocks = _blocks_at_depth_one(css, REDUCED_MOTION)
+    assert len(blocks) == 1, f"the plant did not apply — {len(blocks)} reduced-motion blocks"
+    stripped = re.sub(rf",?\s*{re.escape(selector)}", "", blocks[0], count=1)
+    assert stripped != blocks[0], "the plant did not apply — the block does not name the sweep"
+    return css.replace(blocks[0], stripped, 1)
+
+
+def _on_admin(mutate: Callable[[str], str]) -> Callable[[str, str], tuple[str, str]]:
+    return lambda admin_css, public_css: (mutate(admin_css), public_css)
+
+
+def _on_public(mutate: Callable[[str], str]) -> Callable[[str, str], tuple[str, str]]:
+    return lambda admin_css, public_css: (admin_css, mutate(public_css))
+
+
+#: ``{declared key: ((name, plant), …)}`` — per exemption, the drift it must
+#: not be able to absorb. Held to :data:`DECLARED_DIVERGENCES` by set
+#: **equality**, so a fourth exemption reds until it brings its own.
+RESIDUE_CONTROLS: dict[str, tuple[tuple[str, Callable[[str, str], tuple[str, str]]], ...]] = {
+    "sweep.selector": (
+        ("the panel flashes the empty cells", _on_admin(_retarget_the_sweep)),
+        ("the public page flashes the empty cells", _on_public(_retarget_the_sweep)),
+    ),
+    "sweep.animation.delay": (
+        ("the panel's sweep is three times slower", _on_admin(_slow_the_sweep)),
+        ("the public sweep is three times slower", _on_public(_slow_the_sweep)),
+    ),
+    "reduced-motion.coverage": (
+        ("the panel stops quieting its sweep", _on_admin(_unquiet_the_sweep)),
+        ("the public page stops quieting its sweep", _on_public(_unquiet_the_sweep)),
+    ),
+}
+
+#: One case per (exemption, sheet). Flattened at module scope so each is its
+#: own node id: a control bundled into one arm would short-circuit at the
+#: first failing plant and say nothing about the rest.
+_RESIDUE_CONTROL_CASES = [
+    pytest.param(key, plant, id=f"{key}::{name}")
+    for key, controls in RESIDUE_CONTROLS.items()
+    for name, plant in controls
+]
 
 #: The shortest a reason may be. A reason is the entire value an exemption
 #: buys: the key says what differs, and only the sentence says whether anyone
@@ -492,16 +837,46 @@ class TestPlayerLooksAgree_TheDotIsDeclarationForDeclarationTheSame:
     def test_the_comparison_is_over_declarations_and_not_over_rule_text(
         self, admin_css: str, public_css: str
     ) -> None:
-        """And it has to be: the two rules' TEXT differs and always will.
+        """And it has to be: the two rules' TEXT differs today.
 
         ``admin.css`` writes the dot on one line, ``player.css`` over nine. A
         string comparison of the rules would fail on code style while the look
-        agreed, which is why AC-1 asks for parsed declarations. This arm is
-        what stops a later simplification turning the parse into
-        ``admin_rule == public_rule``.
+        agreed, which is why AC-1 asks for parsed declarations — and this arm
+        is the premise of that reasoning, so it is stated where it can fail.
+
+        **Like against like** (MIN-1 of cycle 1). This used to squeeze the
+        admin operand and leave the public one raw, and a raw declaration body
+        always begins with the whitespace after ``{`` while ``_squeezed``
+        strips it — so the two could essentially never be equal and the arm
+        could not fail. It was shown surviving a pure reformat of
+        ``player.css``'s dot onto one line byte-identical to the admin's.
+        Both operands are now raw: that reformat reds here, and the claim this
+        arm carries is **only** that the two texts differ today, not that they
+        must forever.
         """
-        assert _squeezed(rules(admin_css)[DOT]) != rules(public_css)[DOT]
-        assert declarations(rules(admin_css)[DOT]) == declarations(rules(public_css)[DOT])
+        admin_text = rules(admin_css)[DOT]
+        public_text = rules(public_css)[DOT]
+        assert admin_text != public_text, (
+            "the two dot rules are now byte-identical in text. Nothing is broken, "
+            "but the premise of the parsed-declaration comparison is gone: say so "
+            "rather than leaving this arm asserting it."
+        )
+        assert declarations(admin_text) == declarations(public_text)
+
+    def test_reformatting_a_dot_rule_moves_no_declaration(self, public_css: str) -> None:
+        """The claim the arm above cannot carry, held where it CAN fail.
+
+        "The comparison is over declarations, not text" is a property of
+        :func:`declarations`, not of how the two sheets happen to be laid out
+        today: collapsing the public rule onto one line moves no pixel, and it
+        must move no compared fact either. A text comparison would red on this
+        reformat; the parse must not.
+        """
+        text = rules(public_css)[DOT]
+        reformatted = _squeezed(text)
+        assert reformatted != text, "the reformat did not apply — this control measures nothing"
+        assert declarations(reformatted) == declarations(text)
+        assert set(declarations(reformatted)) == DOT_PROPERTIES
 
 
 class TestPlayerLooksAgree_TheSweepSharesItsKeyframesAndItsStep:
@@ -631,8 +1006,8 @@ class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
     def test_every_declared_divergence_carries_a_reason(self) -> None:
         thin = sorted(
             key
-            for key, reason in DECLARED_DIVERGENCES.items()
-            if len(reason.strip()) < _REASON_FLOOR
+            for key, declared in DECLARED_DIVERGENCES.items()
+            if len(declared.reason.strip()) < _REASON_FLOOR
         )
         assert thin == [], f"an exemption without a stated reason: {thin}"
 
@@ -651,6 +1026,146 @@ class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
         assert set(found) == set(DECLARED_DIVERGENCES), {
             "undeclared": {key: found[key] for key in sorted(set(found) - set(DECLARED_DIVERGENCES))},
             "declared but no longer diverging": sorted(set(DECLARED_DIVERGENCES) - set(found)),
+        }
+
+    def test_the_compared_surface_parses_fact_by_fact(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """One named cell for a collapsed parse (MIN-2 of cycle 1).
+
+        The helpers raise inside themselves and the ``surface`` fixture calls
+        :func:`compared_surface`, so a broken regex reports as a fixture ERROR
+        for every arm that wanted the surface. That stays — a surface handed
+        out with sentinels where a fact should be would make "not found"
+        something other than a failure. This arm does not depend on the
+        fixture, so a collapsed parse always produces **one FAILED cell whose
+        message names the fact**, and :func:`_measured` is what puts the fact's
+        name in it.
+        """
+        try:
+            compared_surface(
+                admin_css, public_css, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+            )
+        except AssertionError as broke:  # pragma: no cover - the red path
+            pytest.fail(f"the compared surface did not parse — {broke}", pytrace=False)
+
+    def test_every_declared_divergence_names_the_difference_it_normalises_away(
+        self,
+    ) -> None:
+        """An exemption is over a stated DIFFERENCE, never over a fact.
+
+        The shape constraint IMP-1 was missing: every entry carries the phrase
+        naming what is normalised away and the callable that normalises it, so
+        a fourth exemption cannot be declared as a bare reason the way these
+        three were.
+        """
+        for key, declared in DECLARED_DIVERGENCES.items():
+            assert isinstance(declared, Divergence), f"{key}: {type(declared).__name__}"
+            assert declared.difference.strip(), f"{key}: no difference named"
+            assert callable(declared.residue), f"{key}: no residue to compare"
+
+    def test_every_declared_divergence_agrees_on_the_residue_it_leaves(
+        self, surface: dict[str, tuple[str, str]]
+    ) -> None:
+        """The claim IMP-1 asked for: the exemptions are over differences.
+
+        Normalise each declared difference away and what is **left** must
+        agree. This is the arm the four cycle-1 probes survived for want of:
+        the panel flashing the empty cells (``sweep.selector``'s residue is
+        *which* cells), a three-times-slower panel sweep
+        (``sweep.animation.delay``'s residue is the delay with the fallback
+        gone) and either sheet dropping the sweep from its reduced-motion
+        block (``reduced-motion.coverage``'s residue is that sheet's own sweep,
+        quieted). Total over the table, so a fourth exemption is held to it
+        the moment it is added.
+        """
+        found = residue_disagreements(surface)
+        assert found == {}, {
+            "drift inside a declared divergence": found,
+            "what each exemption exempts": {
+                key: DECLARED_DIVERGENCES[key].difference for key in found
+            },
+        }
+
+    def test_no_declared_divergence_has_an_unreadable_residue(
+        self, surface: dict[str, tuple[str, str]]
+    ) -> None:
+        """The floor under the equality above. Two absences are equal.
+
+        If both sheets stopped quieting the sweep, both residues would read
+        ``!! …`` and the equality would hold — agreement about nothing, the
+        same vacuity ``DOT_PROPERTIES`` and ``WAVE_EXPRESSION`` guard against
+        for the facts that agree outright.
+        """
+        unreadable = {
+            f"{key} ({side})": value
+            for key, pair in residues(surface).items()
+            for side, value in (("admin.css", pair[0]), ("player.css", pair[1]))
+            if value.startswith(UNREADABLE) or not value.strip()
+        }
+        assert unreadable == {}, unreadable
+
+    def test_every_declared_divergence_carries_a_control_of_its_own(self) -> None:
+        """Set **equality**, so a fourth exemption brings its own control.
+
+        G-5 asks an exemption for a shape constraint *and* a control. The
+        residue is the shape constraint; :data:`RESIDUE_CONTROLS` is the
+        control, and holding the two tables to each other by equality is what
+        makes the pairing structural rather than a habit three entries happen
+        to follow.
+        """
+        assert set(RESIDUE_CONTROLS) == set(DECLARED_DIVERGENCES), {
+            "declared with no control": sorted(set(DECLARED_DIVERGENCES) - set(RESIDUE_CONTROLS)),
+            "a control for nothing declared": sorted(
+                set(RESIDUE_CONTROLS) - set(DECLARED_DIVERGENCES)
+            ),
+        }
+        empty = sorted(key for key, controls in RESIDUE_CONTROLS.items() if not controls)
+        assert empty == [], f"an exemption whose control plants nothing: {empty}"
+
+    @pytest.mark.parametrize(("key", "plant"), _RESIDUE_CONTROL_CASES)
+    def test_real_drift_inside_a_declared_divergence_is_reported(
+        self,
+        admin_css: str,
+        public_css: str,
+        key: str,
+        plant: Callable[[str, str], tuple[str, str]],
+    ) -> None:
+        """Per exemption, per sheet: the drift the exemption must not absorb.
+
+        Each case plants real drift **inside** one declared divergence on one
+        sheet's real text, then asserts two things in order:
+
+        1. the key-level table still absorbs it — the disagreement set is
+           still exactly the declared one, which is *why* the matching cycle-1
+           probe survived at ``23 passed``;
+        2. the residue reports it anyway.
+
+        Assert 1 is not decoration: without it a plant that reds the key-level
+        equality would pass this arm while proving nothing about the residue.
+        """
+        planted_admin, planted_public = plant(admin_css, public_css)
+        assert (planted_admin, planted_public) != (admin_css, public_css), (
+            "the plant did not apply — this control measures nothing"
+        )
+        planted = compared_surface(
+            planted_admin, planted_public, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+        )
+        absorbed = set(disagreements(planted))
+        assert absorbed == set(DECLARED_DIVERGENCES), {
+            "why this assert is here": (
+                "the key-level table must still absorb this plant — that is WHY the "
+                "matching cycle-1 probe survived at 23 passed. Red here means either "
+                "the plant is not inside an exemption, or the live sheets have drifted "
+                "already: read test_the_disagreements_are_exactly_the_declared_ones first."
+            ),
+            "disagreeing but not declared": sorted(absorbed - set(DECLARED_DIVERGENCES)),
+            "declared but no longer disagreeing": sorted(set(DECLARED_DIVERGENCES) - absorbed),
+        }
+        found = residue_disagreements(planted)
+        assert key in found, {
+            "the exemption absorbed real drift": key,
+            "residues": residues(planted),
         }
 
     def test_a_fourth_divergence_in_the_compared_surface_is_reported(
