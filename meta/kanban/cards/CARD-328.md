@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_public_player_agreement.py, player/player.css, player/play.js
-**Review score:** —
+**Review score:** **8.0 (cycle 1/3) — does NOT certify.** Threshold met (`min_score: 8`) but **one open important finding**, and the rule is score >= 8 AND no open critical/important. IMP-1: each declared divergence exempts the WHOLE FACT, so real drift inside an exempted key is invisible — the reviewer fired four mutants into exempted content and **all four survived**, dumping the exempted fact's value under each to prove the guard had READ the change and stayed green. Independently re-fired by the orchestrator: changing the admin sweep to flash **empty** cells instead of filled ones left the guard at **23 passed in 0.10s**. Zero critical. MIN-1 (a tautological arm), MIN-2 (parse failures bundle attribution), NIT-1/2.
 **Started:** 2026-10-30T14:36:59Z
 **Closed:** —
 **Actual:** —

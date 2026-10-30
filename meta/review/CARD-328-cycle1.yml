@@ -1,0 +1,609 @@
+card: CARD-328
+cycle: 1
+of_max: 3
+reviewer: forge:review
+date: "2026-10-30"
+commit_under_review: e17229a4
+parent: ef04286a
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
+branch: card/328-player-looks-agree
+min_score: 8
+
+score: 8
+certifies: false
+certifies_rationale: >-
+  Score meets the threshold of 8, but one IMPORTANT finding is open, and the
+  rule is "score >= 8 AND no open critical/important". The quality of what was
+  built is genuinely 8-level: the mutant table reproduced arm-for-arm, the
+  anti-vacuity arms are real (six injected empty parses all red), and every
+  guardrail holds. The open finding is a tightening of the three declared
+  exemptions, not a defect in what shipped; it is cheap to close in cycle 2.
+
+diff_scope_note: >-
+  `git diff main..e17229a4` is misleading: the branch is 4 commits BEHIND main,
+  so that diff shows main's later kanban commits as deletions (CARD-329/330/331,
+  board.md, CARD-309). The card's actual change is `ef04286a..e17229a4`:
+  4 files -- meta/kanban/cards/CARD-328.md, player/play.js (+1 comment),
+  player/player.css (+1 comment, +1 blank), tests/test_public_player_agreement.py
+  (new, 709 lines). Zero files under src/.
+
+acceptance_criteria:
+  AC-1:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      5 node ids collected under
+      TestPlayerLooksAgree_TheDotIsDeclarationForDeclarationTheSame (counted from
+      `--collect-only -q -o addopts=''`, not quoted). The comparison really is
+      over parsed declarations: `declarations()` splits on ';'/':' and squeezes
+      values, so it is order- and format-insensitive by construction. I re-fired
+      M1 (admin side) and M4 (public side): both KILLED, and the kill is
+      attributable -- `test_the_two_declaration_sets_are_equal` reds in both.
+      Anti-vacuity verified by injection: V1 (_RULE regex never matches) and V4
+      (declarations() always empty) both red, 12 and 9 arms respectively.
+    reservation: >-
+      One sub-assertion inside
+      test_the_comparison_is_over_declarations_and_not_over_rule_text is vacuous
+      -- see finding MIN-1. The AC's substance is unaffected.
+  AC-2:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      8 node ids collected. The "found by behaviour, not by selector" claim is
+      true in code (sweep_rule filters rules by `FLASH in declarations(body)
+      ["animation"]`, with reduced-motion blocks stripped first) AND empirically:
+      under my N1 mutant the admin sweep's selector changed and the guard still
+      located the rule and read back the new selector. M5 (admin `* 12ms` ->
+      `* 13ms`) re-fired KILLED at `test_the_per_cell_step_agrees`. V3 (brace walk
+      returns nothing) and V6 (step regex never matches) both red; V6 reds exactly
+      the one arm the card names.
+  AC-3:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      3 node ids. M7 (solver.js `row + col` -> `row`) re-fired KILLED at
+      `test_both_players_set_the_wave_to_the_same_expression` and
+      `test_the_wave_is_the_cells_row_plus_its_column`. V2 (wave regex never
+      matches) reds `test_each_player_sets_the_wave_exactly_once` and
+      `test_the_wave_is_the_cells_row_plus_its_column` but NOT the equality arm
+      ([] == []) -- which is precisely why the shape constraint and the
+      independently written WAVE_EXPRESSION are both needed. They are both
+      present. The pointer comment added to play.js is a whole-line `//` comment
+      and is correctly skipped by `_js_code_lines`, so it cannot be parsed as a
+      second setter.
+  AC-4:
+    verdict: met_with_reservation
+    evidence_derived_by_reviewer: >-
+      Re-derived independently by importing the module and calling
+      compared_surface(): 12 facts, 9 agree, 3 diverge, and the 3 that diverge
+      are EXACTLY DECLARED_DIVERGENCES (set equality True). disagreements() is
+      total over the surface by construction (a dict comprehension over
+      surface.items()), so a fact that starts to differ must be declared or
+      reported -- verified in code, not from the docstring. 7 node ids. The
+      shape constraint and both planted controls exist and are real: V5
+      (compared_surface returns {}) reds 5 arms including the set equality.
+      A fourth divergence does red: M1, M5 and M7 each red
+      `test_a_fourth_divergence_in_the_compared_surface_is_reported` and
+      `test_the_disagreements_are_exactly_the_declared_ones`.
+    reservation: >-
+      The literal AC is met. What is NOT caught is drift INSIDE an
+      already-declared divergence -- see finding IMP-1. The card body's claim
+      "a change to either kind is visible instead of silent" is false for the
+      declared kind.
+  AC-5:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      Re-fired 2 of the 4 (M1 admin-side, M4 public-side). Both KILLED, with the
+      failed-arm sets matching the card's table exactly: M1 -> 4 arms, M4 -> 3
+      arms. The card's note explaining why M3/M4 red three rather than four is
+      correct and I verified the mechanism: with the public dot already
+      diverging on colour, the planted-fourth control's precision assertion
+      `disagreements - declared == {"dot.declarations"}` still holds, so that
+      arm legitimately stays green. I also independently confirmed the card's
+      line-scoping rationale: admin.css:781 `.player-swatch[data-state="empty"]
+      ::after` genuinely shares `width: 28%` and `var(--color-text-secondary)`,
+      so a whole-file substitution would have mutated two rules and the kill
+      would not have been attributable. The two-per-side design is load-bearing:
+      a guard reading player.css on both sides would survive the admin-side half.
+  AC-6:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      Re-fired 2 of the 4 (M5 admin sweep step, M7 admin solver.js wave). Both
+      KILLED at the arms the card names; failure counts 3 and 4 match the table.
+      I additionally dumped the guard's computed surface under each mutant to
+      prove the mutation was visible to the guard rather than merely applied:
+      M5 surfaces `sweep.animation.step` as undeclared, M7 surfaces
+      `wave.expression` as undeclared.
+  AC-7:
+    verdict: met
+    evidence_derived_by_reviewer: >-
+      Impact set run with `-o addopts='' -rs -p no:randomly`:
+      103 passed, 0 skipped, 0 failed, exit 0 (13.86s). Per-file split
+      23 + 34 + 33 + 13, so the two shipped files' 67 reproduces the card's
+      declared figure. Skip attribution: the skip SET IS EMPTY -- `-rs` printed
+      no skip section and the count line carries no `skipped` term, so there is
+      no skip to name; the browser-marked tests ran rather than skipping
+      (ADR-0038/R8 satisfied, Chromium present). `2400501b`'s own
+      `test_the_empty_mark_is_a_dot_and_solving_is_revealed` re-run alone by
+      explicit node id: 1 passed. Tree-scanning guards
+      (test_collected_names, test_guard_integrity, test_suite_profile,
+      test_impact_set): 664 passed, 0 skipped. The full suite was NOT run.
+      Nothing rendered can have changed: the only player/ edits are 3 added
+      lines, two comments and one blank.
+
+guardrails:
+  G-1:
+    held: true
+    re_derived_by_sha: true
+    evidence: >-
+      admin.css = 03a7de8d1f5f1066f4c9e3400d65393144cafffb5d2609e35734b5cc527a381d
+      and solver.js = 7a3b4aeb59fbc91ae146f2d523716b77c13c00be9b8f9687e1a673ed37d2fbe5,
+      IDENTICAL across all three of `git show main:<p>`, `git show e17229a4:<p>`
+      and the working tree, before and after my own mutation run.
+      `git diff --name-only ef04286a..e17229a4 -- src/` is empty (0 files).
+      `git status --porcelain` shows only `?? scratchpad/`. The card's quoted
+      SHAs are correct.
+  G-2:
+    held: true
+    evidence: >-
+      `git diff --name-status ef04286a..e17229a4` touches tests/ only as `A` on
+      the new file, so no existing test can have been edited. Both protected
+      calls verified present and unchanged: `getAnimations` occurs in
+      tests/test_public_player.py only at line 2051, inside the docstring that
+      explains why the reveal is NOT asserted through it; the
+      `background-image` arm is intact -- `cellBackgroundImage` captured at
+      2085 and asserted `== "none"` at 2098.
+  G-3:
+    held: true
+    evidence: >-
+      The entire player/ diff is 3 added lines: one `//` comment in play.js, one
+      `/* */` comment in player.css, one blank line. No declaration, no value,
+      no statement. Both comments are stripped by the guard's own
+      `_css_code`/`_js_code_lines`, so they cannot perturb the parse either.
+  G-4:
+    held: true
+    evidence: >-
+      player/assemble.py is untouched (0 lines in the commit diff).
+      COPIED_FROM_ADMIN is not widened; the guard READS admin.css/solver.js from
+      the test tree and copies neither. ADR-0041/R3 is not weakened -- the card
+      argues for the guard precisely because R3 does not cover these two looks.
+  G-5:
+    held: partially
+    evidence: >-
+      Held at the TABLE level and that half is good: a declared key must be a
+      key compared_surface actually produces
+      (test_every_declared_divergence_is_a_fact_the_guard_measures), must
+      actually diverge (set EQUALITY, so a stale exemption reds), must carry a
+      reason of at least 120 chars, and two synthetic controls exercise both
+      directions without writing to the tree. NOT held at the per-exemption
+      level: nothing constrains WHAT may differ inside an exempted fact. See
+      IMP-1 -- four real drifts survive inside the three exemptions.
+  G-6:
+    held: true
+    evidence: >-
+      No existing test file is touched, so no node id can have moved; the node-id
+      set difference is additions only. 23 test defs declared (AST/grep) and 23
+      collected via `--collect-only -q -o addopts=''`, both differences empty --
+      so no silently-uncollected class (no `PropertyTest_*` prefix trap) and no
+      helper named `test*`. Per-class split counted from the collected ids:
+      5 / 8 / 3 / 7, matching the card's own figures. No parametrize, no skipif,
+      no module-scope silencer.
+  G-7:
+    held: true
+    evidence: No CSS value added -- the player.css change is one comment line.
+
+mutants_refired:
+  policy: >-
+    Re-fired 4 of the card's 8 (both AC families, both trees), plus 6
+    anti-vacuity injections into the guard itself, plus 4 reviewer probes of
+    the declared exemptions. Harness scoped to scratchpad/review328/, never the
+    shared scratchpad root. Per mutant: SHA-256 equality against
+    `git show HEAD:<path>` before, __pycache__/*.pyc sweep before AND after,
+    PYTHONDONTWRITEBYTECODE=1, substitution asserted to apply exactly once,
+    restore from pre-mutant bytes, SHA re-asserted after. All results
+    reproduced across two independent runs with cache sweeps between.
+  card_table_refires:
+    - id: M1
+      file: src/nonogram/admin/static/admin.css
+      change: "dot width: 28% -> 31% (line-scoped to the .player-cell rule)"
+      verdict: KILLED
+      count_line: "4 failed, 19 passed"
+      cells_that_red:
+        - test_the_two_declaration_sets_are_equal
+        - test_the_comparison_is_over_declarations_and_not_over_rule_text
+        - test_the_disagreements_are_exactly_the_declared_ones
+        - test_a_fourth_divergence_in_the_compared_surface_is_reported
+      guard_saw: "UNDECLARED = ['dot.declarations']"
+      matches_card_claim: true
+    - id: M4
+      file: player/player.css
+      change: "dot background: var(--color-text-secondary) -> var(--color-text)"
+      verdict: KILLED
+      count_line: "3 failed, 20 passed"
+      cells_that_red:
+        - test_the_two_declaration_sets_are_equal
+        - test_the_comparison_is_over_declarations_and_not_over_rule_text
+        - test_the_disagreements_are_exactly_the_declared_ones
+      guard_saw: "UNDECLARED = ['dot.declarations']"
+      matches_card_claim: true
+    - id: M5
+      file: src/nonogram/admin/static/admin.css
+      change: "sweep step * 12ms -> * 13ms"
+      verdict: KILLED
+      count_line: "3 failed, 20 passed"
+      cells_that_red:
+        - test_the_per_cell_step_agrees
+        - test_the_disagreements_are_exactly_the_declared_ones
+        - test_a_fourth_divergence_in_the_compared_surface_is_reported
+      guard_saw: "UNDECLARED = ['sweep.animation.step']"
+      matches_card_claim: true
+    - id: M7
+      file: src/nonogram/admin/static/solver.js
+      change: 'setProperty("--player-wave", row + col) -> row'
+      verdict: KILLED
+      count_line: "4 failed, 19 passed"
+      cells_that_red:
+        - test_both_players_set_the_wave_to_the_same_expression
+        - test_the_wave_is_the_cells_row_plus_its_column
+        - test_the_disagreements_are_exactly_the_declared_ones
+        - test_a_fourth_divergence_in_the_compared_surface_is_reported
+      guard_saw: "UNDECLARED = ['wave.expression']"
+      matches_card_claim: true
+  anti_vacuity_injections:
+    note: >-
+      The brief's claim 4 -- "verify by making a parse return empty and
+      confirming the suite reds". All six KILLED; the guard is not hollow.
+    mutants:
+    - id: V1
+      change: _RULE regex mutated so it never matches
+      verdict: KILLED
+      count_line: "12 failed, 8 passed, 3 errors"
+      first_cell: test_the_rule_is_declared_once_in_each_sheet
+    - id: V2
+      change: _WAVE_SETTER regex mutated so it never matches
+      verdict: KILLED
+      count_line: "2 failed, 21 passed"
+      first_cell: test_each_player_sets_the_wave_exactly_once
+      note: >-
+        test_both_players_set_the_wave_to_the_same_expression stays GREEN here
+        ([] == []). The shape-constraint arm and the independent WAVE_EXPRESSION
+        arm are what kill it -- both are present, so the design is sound.
+    - id: V3
+      change: _blocks_at_depth_one returns nothing (keyframes + media parse empty)
+      verdict: KILLED
+      count_line: "5 failed, 15 passed, 3 errors"
+      first_cell: test_the_banner_keyframes_agree
+    - id: V4
+      change: declarations() always returns {}
+      verdict: KILLED
+      count_line: "9 failed, 11 passed, 3 errors"
+      first_cell: test_the_admin_sheet_declares_the_seven_properties
+    - id: V5
+      change: compared_surface() returns {}
+      verdict: KILLED
+      count_line: "5 failed, 18 passed"
+      first_cell: test_the_compared_surface_is_not_empty_and_names_both_looks
+    - id: V6
+      change: step regex mutated so it never matches (both steps become "")
+      verdict: KILLED
+      count_line: "1 failed, 22 passed"
+      first_cell: test_the_per_cell_step_agrees
+  reviewer_probes_of_the_exemptions:
+    note: >-
+      These are mine, not the card's. All four SURVIVED. Each was proved to have
+      been seen by the guard by dumping the exempted fact's value under the
+      mutant -- so these are absorbed exemptions, not failed substitutions.
+    mutants:
+    mutants:
+    - id: N1
+      file: src/nonogram/admin/static/admin.css
+      change: >-
+        sweep selector .player-board.is-solved .player-cell[data-state="filled"]
+        -> [data-state="empty"]
+      real_effect: the admin panel flashes the EMPTY cells instead of the filled ones
+      verdict: SURVIVED
+      count_line: "23 passed"
+      guard_saw: >-
+        sweep.selector ADMIN read back as
+        .player-board.is-solved .player-cell[data-state="empty"];
+        disagreement set unchanged; UNDECLARED = []
+      absorbed_by: sweep.selector
+    - id: N2
+      file: src/nonogram/admin/static/admin.css
+      change: "delay calc(var(--player-wave) * 12ms) -> calc(3 * var(--player-wave) * 12ms)"
+      real_effect: the admin sweep crosses the board 3x slower than the public one
+      verdict: SURVIVED
+      count_line: "23 passed"
+      guard_saw: "sweep.animation.step still '12ms' on both sides; UNDECLARED = []"
+      absorbed_by: sweep.animation.delay
+    - id: N3
+      file: src/nonogram/admin/static/admin.css
+      change: the reduced-motion block no longer names the sweep's selector
+      real_effect: >-
+        the diagonal flash keeps animating under prefers-reduced-motion in the
+        panel -- an accessibility regression, and contrary to the card's own
+        Design-context standard
+      verdict: SURVIVED
+      count_line: "23 passed"
+      guard_saw: >-
+        reduced-motion.coverage ADMIN read back without the sweep selector;
+        reduced-motion.block-count still 1 = 1; UNDECLARED = []
+      absorbed_by: reduced-motion.coverage
+    - id: N4
+      file: player/player.css
+      change: the public reduced-motion block no longer names the sweep's selector
+      real_effect: same regression on the public page
+      verdict: SURVIVED
+      count_line: "23 passed"
+      absorbed_by: reduced-motion.coverage
+  restore_verification:
+    verified_by_sha: true
+    evidence: >-
+      After every run, all five touched files equal `git show HEAD:<path>`:
+      admin.css 03a7de8d..., solver.js 7a3b4aeb...,
+      player.css db67598101a53e03256fbc85decf5ccbbba50c09a5c66a08e9fd762605495ebc,
+      play.js 5c21e09717e988a3442e3c15683471f390a950e9bf006d9e94e29234c9a8a526,
+      test_public_player_agreement.py
+      011329ff57c0212d178214f5893db731d0a73fe3f9a649cc4f490acda1db79af.
+      `git status --porcelain` shows only `?? scratchpad/`.
+
+claims_verified:
+  twelve_facts_and_totality:
+    verdict: confirmed
+    how: >-
+      Imported the module and counted the dict compared_surface() returns:
+      len == 12, keys exactly dot.declarations,
+      keyframes.player-solved-in, keyframes.player-solved-flash,
+      sweep.selector, sweep.animation.{name,duration,easing,delay,step},
+      reduced-motion.block-count, reduced-motion.coverage, wave.expression.
+      disagreements() is a comprehension over surface.items() -- total over the
+      keys by construction, read from the code and not the docstring. A fact in
+      the surface therefore cannot be silently dropped. The `len(surface) >= 12`
+      floor stops the surface shrinking.
+  nine_agree_three_diverge:
+    verdict: confirmed
+    how: >-
+      Re-derived from the rows, not quoted: 9 agree
+      (dot.declarations, both keyframes, reduced-motion.block-count,
+      sweep.animation.name/duration/easing/step, wave.expression), 3 diverge
+      (sweep.selector, sweep.animation.delay, reduced-motion.coverage), and
+      set(disagreements) == set(DECLARED_DIVERGENCES) is True.
+  three_divergences_legitimate:
+    verdict: legitimate_as_divergences_but_under_constrained
+    how: >-
+      All three are real design differences, not drift: the public page has no
+      panel chrome, play.js genuinely writes data-solved on every render, and
+      the `, 0` is a fallback. Each reason is substantive and well over the
+      120-char floor. But a future REAL drift inside any of the three is
+      indistinguishable from the declared one -- see IMP-1.
+  found_by_behaviour_not_selector:
+    verdict: confirmed
+    how: >-
+      Confirmed twice. In code: sweep_rule filters on
+      `FLASH in declarations(body).get("animation", "")` after stripping
+      reduced-motion blocks, and asserts exactly one match. Empirically: under
+      N1 the admin selector changed and the rule was still found and reported.
+  no_line_numbers:
+    verdict: confirmed
+    how: >-
+      grep for `<file>.css:NNN`, `line NNN` and bare 3+ digit literals across the
+      709 lines returns only card ids (328, 255, 294), ADR ids (0041, 0039,
+      0038), the commit id 2400501b, the year 2026 and the 120-char reason
+      floor. No file line number anywhere, so a +129-line insertion above the
+      surface cannot move a fact.
+  reduced_motion_correction:
+    verdict: confirmed_independently
+    how: >-
+      `grep -c 'prefers-reduced-motion'` = 4 in admin.css and 1 in player.css,
+      but `grep -c '@media (prefers-reduced-motion'` = 1 and 1. admin.css lines
+      872, 1059 and 1259 are prose comments; only 1061 opens a block. So BOTH
+      sheets have exactly one block, the orchestrator's correction is right, and
+      the card's original "4 vs 1" was a string count read as a block count.
+      Coverage confirmed at 5 selectors (.player-toolbar, .player-toolbar *,
+      .player-stage, .player-stage *, the sweep) vs 2 (the banner, the sweep).
+      The guard correctly declares the COVERAGE and compares the COUNT
+      separately, leaving the count undeclared because it agrees at 1 = 1 --
+      declaring it would have been the stale exemption the same AC forbids.
+  per_assertion_measurement:
+    verdict: confirmed
+    how: >-
+      The AC-1 and AC-2 families really are split one arm per claim (5 and 8
+      separate node ids, each collected and named). Every mutant's kill is
+      attributable to a named arm, which I verified by capturing `FAILED
+      <nodeid>` lines with `-v -rf -o addopts=''` rather than reading a total.
+      The arm sets I measured match the card's table exactly for all four
+      re-fired mutants.
+
+findings:
+  critical: []
+  important:
+    - id: IMP-1
+      title: >-
+        Each declared divergence exempts the WHOLE fact, so real drift inside
+        one is invisible -- four reviewer mutants survived
+      ac_refs: [AC-4]
+      guardrail_refs: [G-5]
+      system_contract_refs: ["ADR-0039/R1", "ADR-0039/R2"]
+      files:
+        - tests/test_public_player_agreement.py
+      confidence: high
+      source: mutation
+      detail: >-
+        DECLARED_DIVERGENCES exempts three facts by KEY, and nothing constrains
+        what may differ within an exempted key. The card's Worktree notes claim
+        per-exemption mitigations, and they are weaker than they read:
+        sweep.animation.delay is backstopped only by the trailing step LITERAL,
+        reduced-motion.coverage only by the block COUNT, and sweep.selector by
+        nothing at all. I fired four mutants into the exempted content; all four
+        survived with 23 passed and exit 0, and in each case I dumped the
+        exempted fact's value under the mutant to prove the guard had READ the
+        change and stayed green.
+      failure_scenario: >-
+        A future card edits admin.css's sweep selector from
+        `.player-cell[data-state="filled"]` to `[data-state="empty"]` -- perhaps
+        while refactoring state names. The admin panel now flashes the empty
+        cells and the public page flashes the filled ones: the two players
+        disagree about what solving looks like, which is the exact defect
+        2400501b existed to fix and the exact drift this card was written to
+        catch. tests/test_public_player_agreement.py stays green, because
+        sweep.selector is a declared divergence and "it differs" is all the
+        guard ever asks. The same shape hides a 3x-slower admin sweep (N2) and,
+        more seriously, hides either sheet dropping the sweep from its
+        prefers-reduced-motion block (N3/N4) -- an accessibility regression that
+        also contradicts this card's own Design-context standard, "the reveal
+        must keep working under prefers-reduced-motion exactly as 2400501b
+        shipped it".
+      why_important_not_minor: >-
+        This is a claim card; the guard IS the deliverable and mutation is the
+        agreed discipline for judging it. The card body promises "a change to
+        either kind is visible instead of silent", and for the declared kind
+        that is false. G-5 asks each exemption for a shape constraint; the table
+        has one, the individual exemptions do not, which is the CARD-255 shape
+        one level down -- a licence over a whole fact rather than over a stated
+        difference.
+      suggested_direction_report_only: >-
+        Constrain the residue rather than the key: normalise the declared
+        difference away and assert what is left agrees. For sweep.selector,
+        assert both selectors end with the same
+        `.player-cell[data-state="filled"]` key and differ only in the leading
+        hook. For sweep.animation.delay, rewrite `var(--player-wave, 0)` to
+        `var(--player-wave)` and then assert delay equality. For
+        reduced-motion.coverage, assert each sheet's block names that sheet's
+        own sweep selector with animation switched off. Each would have killed
+        the corresponding probe. Not fixed here -- reported, per the brief.
+  minor:
+    - id: MIN-1
+      title: >-
+        The "the texts differ" half of
+        test_the_comparison_is_over_declarations_and_not_over_rule_text cannot fail
+      ac_refs: [AC-1]
+      system_contract_refs: ["ADR-0039/R1"]
+      files: [tests/test_public_player_agreement.py]
+      confidence: high
+      source: static-analysis+experiment
+      detail: >-
+        The arm asserts `_squeezed(rules(admin_css)[DOT]) != rules(public_css)[DOT]`
+        -- it squeezes the admin operand and leaves the public one RAW. A raw CSS
+        declaration body always begins with the whitespace following `{` (' ' in
+        admin.css, '\n' in player.css) while _squeezed strips leading and
+        trailing whitespace, so the two can essentially never be equal. I tested
+        it by collapsing player.css's dot rule onto one line byte-identical to
+        admin.css's -- a pure reformat, zero pixels moved -- and the arm still
+        passed (23 passed). So the sub-assertion the card credits with
+        "stopping a later simplification into admin_rule == public_rule" is a
+        tautology.
+      failure_scenario: >-
+        A later card "simplifies" the dot comparison to a text comparison. The
+        reviewer looks for the arm that is supposed to catch that, sees it green,
+        and concludes the protection is live. It never was: only the second
+        assert in that method (declarations equal) carries weight, and that one
+        would be deleted by the very simplification in question.
+      impact_on_mutant_table: >-
+        None. M1-M4 kill this arm through its SECOND assert, so the card's table
+        is unaffected and remains accurate.
+      suggested_direction_report_only: >-
+        Squeeze both operands, or assert the specific property that must hold
+        (e.g. the admin rule is one line and the public rule is more than one),
+        so the arm can fail when its premise stops being true.
+    - id: MIN-2
+      title: A parse failure inside a helper surfaces as a fixture ERROR, bundling attribution
+      ac_refs: [AC-4]
+      files: [tests/test_public_player_agreement.py]
+      confidence: medium
+      source: mutation
+      detail: >-
+        keyframes_body, sweep_rule and sweep_animation raise AssertionError
+        inside themselves, and the module-scoped `surface` fixture calls
+        compared_surface. When a parse collapses, the fixture raises and every
+        arm depending on it reports ERROR in one block rather than each failing
+        on its own named assert -- visible in V1 (12 failed + 3 errors), V3 and
+        V4 (3 errors each). The outcome is still red, so no claim is hollow, but
+        the per-assertion attribution the card rightly prizes degrades exactly
+        when the parse breaks, which is when attribution is most useful.
+      failure_scenario: >-
+        A future regex rot reds the suite with three ERRORs whose message points
+        at the fixture, not at the fact that stopped parsing; the next reader
+        spends the diagnosis budget on the fixture rather than on the selector
+        that moved.
+  nit:
+    - id: NIT-1
+      title: The branch is 4 commits behind main and will conflict on CARD-328.md
+      files: [meta/kanban/cards/CARD-328.md]
+      confidence: high
+      source: git
+      detail: >-
+        e17229a4..main is 4 commits (2775c44a, 7dad4a9a, 53e066e8, e4cbddcb).
+        The only path edited on BOTH sides is meta/kanban/cards/CARD-328.md
+        (main's 53e066e8 is the orchestrator's figure correction). No code file
+        is contested. Expect one bookkeeping conflict on rebase; `git diff
+        main..e17229a4` should not be used to review this card because it shows
+        main's later kanban commits as deletions.
+    - id: NIT-2
+      title: reduced_motion_blocks matches any prefers-reduced-motion media query
+      files: [tests/test_public_player_agreement.py]
+      confidence: medium
+      source: static-analysis
+      detail: >-
+        _blocks_at_depth_one is called with the opener
+        "@media (prefers-reduced-motion", so a future
+        `@media (prefers-reduced-motion: no-preference)` block would be counted
+        as a reduce block and would move reduced-motion.block-count. Harmless
+        today (one block per sheet, both `: reduce`), and it would red rather
+        than pass silently, so it fails safe.
+
+cross_card_findings:
+  - card: CARD-268
+    relation: live in admin.css, solver.js, solver_state.js, tokens.css, puzzle_solve.html
+    finding: >-
+      The card's merge-safety claim HOLDS, and I re-derived it one step further
+      than the card did. The card checked the sibling at 9c88b723; the sibling
+      worktree is now at bc43eda5 (+129 admin.css, +196 solver.js). I ran this
+      card's compared_surface() against the SIBLING's admin.css and solver.js:
+      still 12 facts, still exactly the 3 declared disagreements, 0 undeclared.
+      So CARD-268's current work does not move this card's surface and the guard
+      will not red when the two land in either order. No action for either card.
+  - card: CARD-325
+    relation: its AC-6 (the crosshair's two implementations agree) is scheduled to join this file
+    finding: >-
+      Not in scope for this cycle and correctly absent from the diff. Worth
+      carrying IMP-1's resolution forward: if the crosshair check lands before
+      IMP-1 is closed, it will copy the same whole-fact exemption pattern into a
+      fourth place. Closing IMP-1 first makes the pattern it copies the right one.
+  - card: none
+    relation: the card's own self-correction
+    finding: >-
+      The card's FINDING block ("the third divergence was a mention count, not a
+      block count") is accurate and I confirmed it independently. Both the
+      correction and the decision to compare the block count separately while
+      leaving it undeclared are right. Credit where due: the implementation found
+      and corrected an error in its own brief rather than coding to it.
+
+gates_observed:
+  addopts_override: Every measuring run used `-o addopts=''`; no run relied on a -q count line.
+  node_id_selection: >-
+    No -k used anywhere. Selection was by explicit node id or explicit file
+    path, and the collected count was checked on each run.
+  skips: >-
+    Zero skipped across all runs (103 impact-set, 664 tree-scanning guards).
+    Verified with -rs, which printed no skip section.
+  prefix_vs_glob_trap: >-
+    Checked: the four classes all begin with `TestPlayerLooksAgree_`, matching
+    python_classes = Test*; no PropertyTest_* class. 23 declared == 23 collected.
+  full_suite: Not run. CARD-268 is live in a parallel worktree; the flock was not taken.
+  temp_dir_contention: tests/test_web_upload.py was not run, so no cross-worktree temp sweep was triggered.
+
+summary: >-
+  A strong, honest claim card. Every figure the card states that I could
+  re-derive, I re-derived and it held: the 12 facts, the 9/3 split, the exact
+  identity of the three divergences, the 1 = 1 reduced-motion block count and
+  the prose-comment explanation for the old "4 vs 1", the 23/23 node ids, the
+  5/8/3/7 class split, the 103-pass impact set with an empty skip set, the 664
+  tree-scanning passes, and the two G-1 SHAs. The mutant table is not just
+  directionally right -- all four mutants I re-fired killed with the exact arm
+  sets the table names, including the subtle three-not-four note for M3/M4. The
+  anti-vacuity arms are real, which I established by injection rather than by
+  reading: six separate ways of making a parse return empty, six kills. The
+  guard carries no line numbers and finds the sweep by behaviour, both verified.
+  The one substantive gap is that the three declared divergences are exemptions
+  over whole facts: inside them, real drift -- including the admin flashing the
+  wrong cells, and either sheet losing its reduced-motion suppression -- is
+  invisible, which I demonstrated with four surviving mutants. That is a
+  tightening of the deliverable the card describes rather than a defect in what
+  it built, and it is cheap to close. Score 8; certification waits on IMP-1.

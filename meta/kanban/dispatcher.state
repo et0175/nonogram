@@ -64,8 +64,11 @@ active:
     box-shadow rule added anywhere in the card. Cause not yet known; the fix
     round diagnoses before fixing.
 - id: CARD-328
-  phase: review
-  review_cycle: 1   # of review.max_cycles: 3
+  phase: fix
+  review_cycle: 1   # of review.max_cycles: 3 -- cycle 1 scored 8.0, did NOT certify
+  fix_round: 1
+  score_history: [8.0]
+  gating_open: 1    # IMP-1, important; zero critical
   branch: card/328-player-looks-agree
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
   started: '2026-10-30T14:36:59Z'
@@ -112,7 +115,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T15:07:52Z'
+last_updated: '2026-10-30T15:18:45Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
