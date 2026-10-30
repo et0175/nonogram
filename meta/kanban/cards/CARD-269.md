@@ -1,6 +1,6 @@
 # CARD-269: Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
-**Review score:** **5.5 (cycle 1/3) — NOT CERTIFIED**, 3 gating. Fix round 1 `ef5e03af` closed F-1 and F-3 (**branch green, 540 passed**) and every should-fix; **fix round 2 running on F-2 with the owner's decision in hand**.
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** **8.5 (cycle 2/3) — CERTIFIED**; cycle 1 5.5, cycle 2 8.5, **delta +3.0** against `min_improvement: 0.5`, 0 gating open. Two fix rounds.
+**Started:** 2026-10-29T19:33:56Z (wave 67 opened)
+**Closed:** 2026-10-30T09:37:00Z
+**Actual:** 1.7d — **~14h wall clock**, wave open to merge, which is the instrument: implementation, two review cycles, three fix rounds, four owner decisions and two gate runs. Against a 1d estimate that is **1.7×**. The overrun is almost entirely F-2: the feature was built, reviewed, found not to reach the player at all, and then rebuilt around a property nobody had written down.
+**Merge commit:** `9f917b9d` (gated tree `234c88fb`)
 **Blocked by:** —
 
 ## Why a ladder
@@ -668,7 +668,7 @@ reds exactly that test; the stale docstring no longer says AC-333's clause is un
 
 ### Figures
 
-**Node ids: base 109 → HEAD 138 over the five changed files, +29 added, 0 removed/renamed/merged** —
+**Node ids: base 109 → HEAD 138 over the five changed files, +29 added, 0 removed/renamed/merged** — **CORRECTED by fix round 3: the implementation's share is 28, not 29.** Measured per-commit against the merge base and cross-checked per id with `git log -S`: **28 from the implementation + 7 from fix round 2 = 35** added to the browser family. —
 and **this round added 0 and removed 0**, `comm` empty both directions. The card's 94 → 123 over four
 files plus resume.py's constant 15 gives the same +29/−0. **Skips: none, and `-rs` printed no skip
 section in any of the four whole-set runs.** Runtime **28.9–29.9 s** for the card's two files on an
@@ -707,3 +707,379 @@ chose to look at the thing they had accepted, since the artefact cited for it ha
 - [Fix 2] Dispatched on F-2 with decision 3 in hand. **The property to assert is "every press changes
   something a sighted player can see", not "the live region says…"** — all ten ACs are phrased the
   latter way, which is exactly why they passed while the feature did not reach the player.
+
+---
+
+## Fix round 2 — `ef5e03af` → `d22f1de0`. **F-2 closed; all three gating findings are closed.**
+
+**746 passed / 0 failed / 4 skipped** over a derived **18-file** set. Nothing pushed or rebased;
+`meta/kanban/cards/` and `requirements.yml` untouched.
+
+### Where the line went was decided by measurement, and the first two answers were wrong
+
+**The obvious reading of the owner's words cannot be afforded.** At 1280×720 — this suite's default
+viewport — the 15×15 board's bottom edge is at **715.813 px in a 720 px viewport**. The page has
+**4.187 px of vertical slack**; a line of that size needs **22.328 px**, of which only the toolbar's
+own 16 px margin is reclaimable: **+6.328 px minimum against 4.187 px available.**
+
+Spending it anyway pushes the board out of the viewport, Playwright scrolls to reach a cell, and any
+test comparing a **viewport-relative** box across an action starts comparing two scroll positions.
+Measured rather than predicted:
+
+| board shift | reds |
+|---|---|
+| +38.312 px | 5 |
+| +22.328 px | 4 |
+| +10.328 px | 4 |
+| **+6.328 px** | **2** — one whose drag re-measures the centre *between* its own mouse moves, so the board slides out from under a pointer path already computed; one whose solving click scrolls 2 px |
+| **0 px — the page-head row** | **0** |
+
+So the line is the third item of the `.page-head` row, which holds a line of text at **zero vertical
+cost by construction**: `flex: 1 1 0` + `min-width: 0` means it can never force that row to wrap nor
+widen it, and `nowrap` means it is always exactly one line, shorter than the `<h1>` that sets the
+row's height. **The CSS comment carries the whole derivation, both rejected placements, and the note
+that a future card wanting room there should fix the drag helper rather than buy it from this
+margin.**
+
+### The property, asserted as a property
+
+`TestSolverHintLadder_EveryPressChangesSomethingSeen`, 7 tests, phrased against the **visible**
+sentence — **deliberately not "the live region says…", which is how all ten card ACs passed while
+the feature did not reach the player.** The headline test walks three presses and asserts three
+visibly different pages, **and keeps F-2's own measurement alive as a live assertion**: between rung
+1 and rung 2 the board and toolbar are still indistinguishable, **so the visible line is the entire
+reason that press is visible.**
+
+**The instrument was proved in both directions before anything was claimed with it.** Positive:
+blank → rung 1 differs on board and line. Negative: **the same state measured twice, nothing
+between, is byte-identical on all three regions** — so a reported difference is in the page, not the
+instrument, which is the obvious way element screenshots could have read noise. **And the separation
+was measured, not chosen**: repaint noise is **1–2 levels**, every real change **≥20** (a focus ring
+20, a highlighted row 25, a revealed cell or an appearing sentence 204–227). The comparison is
+**componentwise** — a tuple compare *"would have let 9 levels through on 6 pixels"*.
+
+### The two dead-button cases are now visible, and a third is declared rather than hidden
+
+The exhausted board's first press and Check on a clean board both change the line while the **board
+digest is unchanged**, so the line is demonstrably carrying each alone — with the wrong-marks board
+as the in-test control that the same instrument *does* see a board change when there is one.
+
+**Declared residual, asserted in a test rather than left as prose:** the card's own rule fixes
+**one** sentence for both exhausted rungs, so **the second press on an exhausted board still changes
+nothing seen.** Giving it its own sentence changes declared semantics and is the owner's call; the
+round did not invent copy.
+
+### The accessibility choice, proved against Chromium's real tree
+
+`aria-hidden="true"` on the visible copy, the announce region unchanged as the AT channel — because
+that region is already the page's single `role="status"` announcement channel, and a second
+non-live copy would make a screen reader meet each sentence **twice**. **Proved via CDP
+`Accessibility.getFullAXTree`, not by asserting an attribute's spelling**: as shipped every node
+carrying the sentence is un-ignored and from the announce region; removing `aria-hidden` raises the
+count; restoring it returns the tree **exactly**. The announce region is asserted in its shipped 1×1
+clipped state **on a real press, not only at load.**
+
+### The owner-authorised copy sentence, and the tint
+
+The usage paragraph and its exact-equality pin both gain one sentence describing the three presses
+and Check, naming where each answer appears. **Nothing else in that file changed.** The tint is
+**not** recoloured: re-measured at **1.1526:1** against WCAG 1.4.11's 3:1, with the ratio function
+proved first (black on white 21.0000, a colour on itself 1.0000). Accepted as a residual because the
+sentence now carries the meaning — **and the sentence is also what tells rung 1's highlight from
+Check's, the job one tint could never do.**
+
+### The owner's accepted 1280 px toolbar is exactly where it was
+
+Every toolbar and board figure is **identical at base and at HEAD, line empty and line full**, at
+both 1280 and 1440 — and **frozen on a press**, verified at 390 / 820 / 821 / 1024 / 1280. **Fix
+round 1's five corrected figures all re-derive exactly** (263.656 need, 267.594 and 186.234 given,
+81.359 cost, 77.422 shortfall, 74.797/38.797 heights), confirming the review's 268/186/82 were the
+rounding artefacts it said they were.
+
+**Two further residuals declared:** the line **ellipsises between about 820 px and 1270 px**; and
+**inline at 390 px the title and badge would leave it 5.859 px**, which *"would have put F-2 straight
+back for phone players"* — so a narrow-width rule gives it its own row at a constant +38.328 px,
+where the board still fits. A phone/mid-width design for this line is a follow-up.
+
+### Nine things it measured wrong — including three of its own
+
+1. **Cycle 1's "byte-identical" is not a reproducible instrument.** The **board** does reproduce at 0
+   differing pixels; the **toolbar does not**, once a visible line exists — the announce write
+   invalidates a tile and Chromium re-rasters, returning **6 of 73,500 pixels** one level apart on
+   the deducible board and **23** on the exhausted one. Cycle 1's own digest still reproduces
+   exactly, **so its measurement was sound and the claim's FORM was not**; the test now bounds the
+   per-channel level instead, because the pixel count tracks how big a region Chromium chose to
+   re-raster.
+2. **`meta/architecture/requirements.yml:4733` still states the retired figures** — *"268 px needed
+   against 186 px left, short by exactly Check's own 82 px"*. Fix round 1's correction reached
+   `admin.css` and the test docstring but **not that site**. **Owed**, and out of both rounds' scope.
+3. **The lock did not stay free**: CARD-304's merge gate took it mid-run. The round's chained base
+   runs **aborted cleanly on the guard**, CARD-304's gate was untouched, and **the clean lock-free
+   re-run is the one carrying the verdict** — a 15 s tail overlap with 750 collected, not 0.
+4. **Its own first instrument was wrong and its own test caught it**: a `min-height` computed
+   **22.32 px** while the line box an actual sentence makes is **22.328125 px** — Chromium rounds a
+   used line-height to 1/64 px and a min-height to the raw value — **so the board moved 0.015625 px
+   on a press.** Replaced with a zero-width-space `::before`: *a line box reserves a line box
+   exactly.*
+5. **Its own second instrument was wrong**: the first draft asserted the a11y duplication by DOM text
+   count and got 2 — **the right count of DOM copies and the wrong count of anything a screen reader
+   meets.**
+6. **It corrupted one of its own runs and discarded it** — it edited source files while a browser run
+   was in flight, since the live server serves them from disk. Killed, re-run clean, **not reported
+   as a result.**
+7. **The orchestrator's framing of the layout risk was milder than the truth**: the brief warned about
+   disturbing the 1280 px threshold *if* the line went in the toolbar row. **The measured truth is
+   that the toolbar-to-board gap cannot take the line at all.**
+8. Confirmed wrong as cycle 1 and fix round 1 both said: `grep -rln '"Hint"' tests/` returns **6**
+   files, one of which is the editor file.
+9. Confirmed **correct**, having re-derived them: the 138 node baseline, the 77.422 px shortfall, all
+   five corrected toolbar figures, the heights, and 1.15:1 for the tint.
+
+**Node ids 138 → 145: +7 added, 0 removed, 0 renamed, 0 merged.** **Skips: 4, identical at base and
+HEAD**, all `db_required` methods of one class, `DATABASE_URL is not set` — environmental,
+base-invariant, and this round touches no Python and no DB code. Runtime **~384 s quiet, 425–440 s
+with anything else on the box**. No load figure.
+
+- [Fix 2] `d22f1de0` — F-2 closed; all three gating findings closed; three residuals declared and
+  measured rather than discovered later.
+- [Review 2/3] Dispatched.
+
+---
+
+## Review cycle 2 — **8.5 / 10, CERTIFIED**. 5.5 → 8.5, **delta +3.0**, 0 gating open.
+
+`meta/review/20261030T093000Z-CARD-269-cycle2.yml`. Recommendation: **land it**; its two should-fix
+findings belong to a successor, not another cycle.
+
+### All three gating findings closed, and F-2 is the best-evidenced work on the card
+
+- **F-1** — resume is **15/15 at HEAD**, inside the reviewer's **own independently derived 20-file
+  impact set**, wider than either round's: **911 collected, 907 passed, 0 failed, 4 skipped.**
+- **F-2** — measured on the live page: rung 1 → rung 2 moves the line **1,915 px at 217 levels while
+  the board is byte-identical**; the exhausted first press **1,771 px at 217**; Check on a clean
+  board **768 px at 217** — both with the board byte-identical. **All three dead-button cases now
+  change something seen, two of them carried by the line alone.**
+- **F-3** — exactly **85 added / 0 removed** lines naming AC-327/329/334, and `requirements.yml`
+  carries only the owner's AC-333 amendment, one `then:` line, no other id.
+
+### The instrument's three proofs reproduce, and the reviewer went looking for the gap
+
+Negative: same state twice, **byte-identical on all three regions, six repeats across two states.**
+Separation: **noise ≤ 2 levels, smallest real change 20** — the focus ring, re-measured at exactly 20.
+
+**"Nothing lands in 4–20" was tested rather than assumed.** The reviewer reached the gap the only way
+it is reachable: **darkening the tint by 4 levels over 10,524 board pixels still reads
+indistinguishable; 5 is caught.** That is a property of bounding **magnitude rather than area**, and
+it is **documented in the docstring — known rather than overlooked.** The componentwise claim checks
+out arithmetically: a count bound of ≤6 admits a 9-level change on 6 px; the level bound rejects it.
+
+**Ruling on cycle 1's byte-identity claim: fix round 2 is right, and more right than it knew.** The
+board half reproduces exactly at 0 differing pixels. The toolbar half does not — **and the
+reviewer's own numbers differ from fix round 2's** (16 px at 2 levels against its 6 at 1; 20 against
+its 23). **That disagreement is the best possible evidence for fix round 2's thesis**: the
+measurement was sound, the claim's *form* was not.
+
+### Placement re-derives to the digit, and the reviewer found a stronger test than the shipped one
+
+715.813 / 4.187 / 22.328 all exact; the toolbar margin is exactly 16 px; the computed style is
+exactly `flex-grow 1 / flex-shrink 1 / flex-basis 0px / min-width 0px / nowrap`. **Stronger than the
+shipped test**: removing the element from the live page leaves head, board, toolbar, counters and
+progress at **identical boxes at 1280×720, 1280×900 and 1440×900.** The **1280 threshold is
+untouched**, identical empty, full, and with the line gone.
+
+**Seven mutants, all bite.** `say()` reds **7/7**; the clear reds exactly the right one; removing
+`aria-hidden` reds the a11y test; the zero-width space reds **6**; and `_INVISIBLE_LEVEL` is **pinned
+between two live failures in opposite directions** (4→250 reds 3, 4→0 reds 2) — **genuinely derived,
+not chosen.**
+
+### The asked judgements
+
+- **The exhausted second press is a correctly scoped residual, not F-2 surviving.** The repeated
+  sentence is **true and complete** — the rule says one thing *because there is nothing more to say*
+  until CARD-268. **Inventing copy would have been wrong; asserting it in a test was right**, and it
+  is a real assertion with the pixel delta in its failure message.
+- **The a11y choice is right, and the brief's worry does not hold.** The announce region is visually
+  clipped but **present and un-ignored in the tree**, so a sighted screen-reader user **can** still
+  reach the sentence as static text — it is only not co-located. Reproduced in all three directions
+  (2 un-ignored shipped → 4 exposed → exactly 2 restored). One visible `role="status"` line would be
+  the cleaner end state; **changing the shipped live region inside a gating fix round was not.**
+- **The null-impossibility has a real control on the same board**: a hand-built deduced hint throws,
+  while the real path on that same board, clues and solution still returns the exhausted null.
+- **Legible at 1280/1440** — the sentence reads cleanly beside the title, the tint is perceptible,
+  the usage paragraph names the ladder. Caveats: **typographically subordinate and far from the
+  button**, and the captures cover **only the two deducible rungs** — none of the exhausted board, of
+  Check, or of any narrow width.
+
+### Nine things measured wrong — including one of the reviewer's own suspicions
+
+1. **F-12: the phone IS in the ellipsis band.** The 5.859 px inline figure re-derives and the own-row
+   rule is a real improvement, **but at 358 px every rung-2 sentence (508–594 px) and the exhausted
+   rung-3 reveal are ellipsised at 390 px.** Only rung 1, the exhausted sentence (350.984 px, 7 px
+   spare) and Check fit. **And there is no phone capture — F-4's shape, one band over.**
+2. **F-13: the own-row rule pushes the board out of a 900 px viewport around 700–820 px wide** —
+   917.297 px bottom against 878.969 without. **That is the exact failure mode the gap placement was
+   rejected for**, and it was checked at 390×844 only.
+3. The +6.328 row's named test is **wrong and unstable** — the count reproduces but the name does not,
+   and it is 3 under a narrower selection.
+4. **"the whole page has 4.187 px of vertical slack"** — the page already scrolls 178 px at
+   1280×720; **the 4.187 belongs to the board's bottom edge**, not the page.
+5. **"6 of 73,500 px at 1 level / 23"** does not reproduce (16 at 2, and 20); the region size is exact.
+6. **The 22.32 px near-miss does not reproduce in the shipped placement** — it describes a placement
+   no longer in the tree.
+7. The node-id set is called "the five changed files"; **it is six.**
+8. **The 18-file set and its 750 collected are not reproducible** — the files were never named; the
+   reviewer's own derivations collect 845 and 911. **Its skip attribution is nonetheless exactly
+   right.**
+9. **The reviewer's own suspicion was wrong and the round was right**: the longest-sentence figure
+   re-derives at 593.875 and really is the longest the page can produce.
+
+**Node ids 138 → 145, +7/0/0**, re-derived once the set is identified. **Skips: 4, verified by name**,
+all `db_required` methods of one class, file untouched by the branch. No load figure.
+
+- [Review 2/3] Score: 8.5 ✓ certified, +3.0 improvement, 0 gating
+- [Gate] Merge gate next. **F-12 and F-13 go to a successor card**, per the reviewer's own
+  recommendation — they are player-facing at widths this card never claimed, not defects in what it
+  shipped.
+
+---
+
+## Merge gate round 1 — **RED on one test**, and fix round 3 paid the bookkeeping
+
+Gate at `414c6b4b`: **1 failed, 9883 passed, 27 skipped, 1 xfailed** in 23:59. AC/EC by node id
+**88 passed, 0 skipped**; `src`+`tests` clean against the gated commit.
+
+The single failure was
+`test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+— **35 node ids added to the browser family and never registered.** `ADDED_SINCE_BEFORE` maps node id
+→ (card, reason), and its own comment states the design: *"Adding a browser test therefore means
+adding its node id here with a card and a reason… **Neither is free, and that is the point.**"*
+
+**No review cycle could have caught it** — that module is outside this card's impact radius. **The
+merge gate is what did**, for the second time in an hour on this board, after CARD-314 hit the same
+shape against a different frozen registry.
+
+### Fix round 3 — `414c6b4b` → `88570da3`, one file, +331/−0
+
+**Derived, not transcribed from the gate log.** Base `8762beed` = `git merge-base main HEAD`, chosen
+because it is also the **main-side parent of the gate's merge**, so no unrelated commit can leak in —
+`main`'s tip was one kanban commit further on and was deliberately not used. The family was globbed
+**the way the guard's own `_family_files()` globs it**, in both trees, and collected with the same
+`--collect-only` the guard's child run uses.
+
+| | family ids | `test_puzzle_solver_hint.py` |
+|---|---|---|
+| base `8762beed` | 505 | 25 |
+| HEAD `414c6b4b` | 540 | 60 |
+
+**35 added, 0 removed, 0 renamed** — so nothing belongs in the renames table and no deletion decision
+arises. The other four files the branch touched **changed content, not coverage**.
+
+**Proved both ways**, out of tree: one of the 35 made uncollectable, needle asserted unique first. The
+derivation then answers **34**, dropping exactly that id, **with removed still 0** — so it saw "one of
+the 35 is gone", not "a base test disappeared". *"A count would not have told those trees apart; this
+does."*
+
+### The register was written as a register, not as 35 rows of boilerplate
+
+**118 entries now, 118 distinct reasons, shortest 9 words.** Nine of the 35 are recorded explicitly as
+**another test's control**, which is the register's own precedent. Grouped by AC with two provenance
+comments, including one marking fix round 2's seven and **why they are phrased against the visible
+sentence rather than the live region.**
+
+The reasons carry real content — one records that a parametrized case *"asserts the highlight is not
+the ladder's old one rather than that it is empty, which is the one of the six that cannot be written
+like the others"*; another records the instrument's both-directions proof and **why** it is needed
+(*"so a difference reported below is the page and not the element screenshot scrolling its target into
+view"*); another states the exhausted-board residual **and what a future card changing it would
+break.** The module's own
+`test_every_allowlist_entry_is_attributed_and_not_already_recorded` is the cell that would have caught
+boilerplate, and it is green.
+
+**Checked independently of the suite**: importing the edited module and set-comparing its CARD-269 keys
+against the derived file gives **35 == 35, none extra, none missing.**
+
+### Every sibling census in that module reported, which is the CARD-314 lesson applied
+
+**30 passed, 0 failed, 0 skipped** over the whole file — all six censuses green, including the five
+that were never red: the profiling census, the poll-interval pair, the four other cells of the
+`NoTestAddedOrRemoved` class (its both-directions baseline test, the attribution cell, and both rename
+cells), the order-independence set, the per-file isolation set, the alone-and-record pair, and the
+no-cascade cell.
+
+### Two figures it measured wrong, both mine
+
+1. **The card's "+29 from the implementation" is one too many.** Measured per-commit, and cross-checked
+   per id with `git log -S`: **28 from the implementation, 7 from fix round 2 = 35.** Corrected below.
+2. **The "4 skips, all `db_required`" does not belong to this round, and my brief applied it as if it
+   did.** The round measured that **none of the 12 files the branch changed contains a `db_required`
+   reference** — the 4 are real in the *review's* 18-file run set, which included an untouched file
+   that carries them. **0 is the honest number for everything this round ran**, and the two figures
+   are about different scopes rather than disagreeing.
+
+**Node-id delta for the round: 0 added, 0 removed, raw and net**, proved three ways — the module
+collects 30 before and after, the diff contains no added or removed `def test`/`class`/`parametrize`
+line, and it is 331 insertions with 0 deletions.
+
+---
+
+## Merge gate round 2 — **GREEN**, merged `9f917b9d`
+
+Gated commit **`234c88fb`**. **9884 passed · 27 skipped · 1 xfailed · 0 failed** in **24:07**; AC/EC
+by node id **88 passed · 0 skipped**; `src`+`tests` **byte-identical** to the gated commit, before the
+merge and on `main` after. All 27 skips read from the log.
+
+### What this card ends up having been
+
+It was cut to replace a one-shot answer machine with a ladder, and the honest summary is that
+**the card's stated purpose was achieved by its implementation and its actual purpose was not**.
+
+The implementation removed the falsehood it set out to remove: the row-major fallback stopped
+teaching the player they had missed a line deduction when no line decides a cell. **That part was
+right from the first commit**, and `hintLine()`'s null — the exhausted state — is the whole mechanism.
+
+Then cycle 1 measured, by SHA-256 of element screenshots with animations settled, that **rung 2 — the
+rung whose job is "explain the deduction", half the card's title — changed nothing a sighted player
+could see.** The announce region is 1×1 and clipped. **All ten ACs were phrased "the live region
+says…", so every one of them passed while the feature did not reach the player.** That is the sharpest
+single finding of the whole wave, and it is a finding about **how the acceptance criteria were
+written**, not about the code.
+
+The owner chose a visible sentence; fix round 2 then measured that **the obvious placement could not
+be afforded** — 4.187 px of slack against a line needing 22.328 — and found the one row on the page
+that costs **zero vertical by construction**. The property is now asserted as a property, against the
+**visible** sentence, with an instrument proved in both directions and a separation **measured rather
+than chosen**.
+
+### Four owner decisions, and what each cost
+
+1. **The taller 1280 px toolbar accepted** — and later **re-confirmed on real captures**, because the
+   evidence originally cited for it **did not exist**: all 20 captures were 1280 px and the file
+   stated the toolbar shown was not the shipped layout. The figures were right; the artefact was not.
+2. **AC-333 amended** to name Check, letting the requirement follow the design decision.
+3. **Rung 2 gets a visible sentence** — the decision that closed F-2.
+4. **The on-page copy sentence authorised**, unblocking what fix round 1 had correctly refused to take.
+
+### Three gate-relevant lessons this card paid for
+
+- **A frozen cross-card registry is invisible to `test_scope: impact` and red at the gate.** 35
+  browser tests went unregistered; fix round 3 paid it, deriving rather than transcribing, and
+  **wrote 118 distinct reasons where boilerplate would have satisfied the assertion and destroyed the
+  artefact.**
+- **Three of the round's own instruments were wrong and its own tests caught two of them** — a
+  `min-height` 0.008 px short of a real line box, an a11y assertion counting DOM copies rather than
+  accessibility nodes, and a run corrupted by editing source while a browser run was in flight, which
+  it **discarded rather than reported.**
+- **Cycle 1's byte-identity claim was sound as a measurement and wrong as a claim.** Cycle 2 confirmed
+  it by **disagreeing with fix round 2's numbers while confirming its thesis** — the strongest
+  evidence available for it.
+
+### Owed onward
+
+**CARD-321** carries the two deferred findings: the phone is inside the ellipsis band, so the
+explanation rung is **truncated at 390 px**; and the narrow-width rule pushes the board out of a 900 px
+viewport between roughly 700 and 820 px — **the exact failure mode the gap placement was rejected
+for**, one band over. Neither is a defect at the widths this card measured.
+
+**Not this card's and recorded as such:** the second press on an exhausted board still changes nothing
+seen, because the card's own rule fixes one sentence for both exhausted rungs — asserted in a test
+rather than left as prose, and a card that gives it its own copy changes that assertion on purpose.

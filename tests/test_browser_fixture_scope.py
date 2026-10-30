@@ -1415,6 +1415,337 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "player and writes nothing to the live region, read element by "
         "element over the whole player in document order",
     ),
+    # CARD-269 put the hint behind a three-rung ladder and added Check, which
+    # is 28 node ids from the implementation; the seven
+    # TestSolverHintLadder_EveryPressChangesSomethingSeen ids below it come
+    # from the card's fix round 2, where review F-2's finding — every
+    # sentence went only to the 1 x 1 clipped live region, so rung 2 changed
+    # nothing a sighted player could see — was closed by promoting the
+    # announcement into a visible line.
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_ThePureModule::test_the_ladder": (
+        "CARD-269",
+        "the ladder's pure half driven straight through solver_state.js: the "
+        "four frozen authorities, the WHOLE rung x event transition table "
+        "rather than a sample of it, the RangeErrors that make an unknown "
+        "rung, an unknown event and a drifted cell loud instead of silent, "
+        "the axis choice, hintReason on both near misses of each named case, "
+        "and firstWrongRow's scan",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_FirstPressPointsAtALine::"
+    "test_the_first_press_highlights_the_line_and_says_so": (
+        "CARD-269",
+        "AC-1: one press points at the line the next deduction lives on and "
+        "does nothing else — no cell changes, Hints stays 0, nothing is "
+        "recorded — with WHICH line that is taken from the Python line "
+        "oracle in the test tree and not from solver_state.js, so the wrong "
+        "line or the right line's wrong axis reds it",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_FirstPressPointsAtALine::"
+    "test_the_cell_the_third_press_will_reveal_is_on_that_line": (
+        "CARD-269",
+        "card rule 5 (coherence) measured at rung 1 instead of inferred from "
+        "the reset rule: the line this press highlights CONTAINS the cell the "
+        "ladder will reveal two presses later",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_FirstPressPointsAtALine::"
+    "test_the_highlight_survives_a_redraw": (
+        "CARD-269",
+        "AC-1's durability: a one-pixel resize replaces every cell and every "
+        "clue box, so a highlight held as those ELEMENTS would vanish under "
+        "the player still standing on the rung they pressed for (CARD-212's "
+        "defect in the hinted outline); the board also doubles the row axis, "
+        "so this covers the twin rule that both clue boxes carry the tint",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_SecondPressExplains::"
+    "test_each_reason_is_announced_on_a_board_where_it_holds": (
+        "CARD-269",
+        "AC-2: rung 2 adds WHY on the same line and still records nothing, "
+        "driven once per reason the pure module declares on a board where "
+        "that precondition genuinely holds — and the set driven is asserted "
+        "to BE the module's HINT_REASONS, so a reason added there without a "
+        "board or without a sentence reds this rather than going untested "
+        "(ADR-0039/R2)",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_ThirdPressRevealsTheSameSituation::"
+    "test_the_third_press_reveals_the_cell_of_that_line": (
+        "CARD-269",
+        "AC-3: rung 3 is CARD-183's reveal unchanged, of a cell ON the line "
+        "rungs 1 and 2 pointed at, announced in the shipped wording and "
+        "still ONE undo step — one Undo takes the cell and the counter back "
+        "together",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_ThirdPressRevealsTheSameSituation::"
+    "test_the_ladder_is_back_on_rung_one": (
+        "CARD-269",
+        "AC-3's wrap, from the page: the press after a reveal points at a "
+        "line again instead of revealing a second cell, which is nextRung's "
+        "wrap where the player meets it",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[mark]": (
+        "CARD-269",
+        "AC-4 by a real click: a mark made while standing on rung 2 puts the "
+        "next press back on rung 1 and takes the old highlight off the board",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[drag]": (
+        "CARD-269",
+        "AC-4 by a real drag, which commits a multi-cell stroke — its own "
+        "case because 'every route goes through one place' is the claim being "
+        "measured here, not the assumption the cases rest on",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[undo]": (
+        "CARD-269",
+        "AC-4 via Undo: a change that arrives from the history rather than "
+        "from the pointer still drops the rung and clears the line",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[redo]": (
+        "CARD-269",
+        "AC-4 via Redo, the route a single 'a mark resets it' case would have "
+        "left resting on the Undo half of the same history",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[reset]": (
+        "CARD-269",
+        "AC-4 via a confirmed Reset of the whole board — the change that is "
+        "not an edit of one cell and goes through its own dialog",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_next_press_is_rung_one_again[check]": (
+        "CARD-269",
+        "AC-4 via Check, which resets the ladder while putting its OWN line "
+        "up — so this case asserts the highlight is not the ladder's old one "
+        "rather than that it is empty, which is the one of the six that "
+        "cannot be written like the others",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_AnyChangeResetsTheLadder::"
+    "test_the_control_two_presses_with_no_change_between_them_do_climb": (
+        "CARD-269",
+        "the negative control for all six reset cases (ADR-0039/R4): with "
+        "nothing happening between the presses the second DOES climb to rung "
+        "2, so a ladder stuck on rung 1 for ever could not pass them",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_TheReasonIsNeverALie::"
+    "test_every_named_reason_claimed_only_where_it_holds": (
+        "CARD-269",
+        "AC-8 over a seeded corpus of 1800 lines: a named reason is claimed "
+        "only where its own precondition holds, with BOTH near misses "
+        "counted and not merely present — an overlap window that still "
+        "covers the cell but holds a known mark, and a line one run short of "
+        "its clue — and the run named re-checked by enumeration rather than "
+        "by the arithmetic under test",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_TheReasonIsNeverALie::"
+    "test_the_page_never_says_a_reason_it_did_not_check": (
+        "CARD-269",
+        "AC-8 where the player meets it: on each reason's own board the "
+        "announced sentence carries that reason's words and NEITHER of the "
+        "other named case's words, both directions once per board",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_NeitherRungNorCheckIsSaved::"
+    "test_the_save_is_byte_identical_and_a_reload_starts_at_rung_one": (
+        "CARD-269",
+        "AC-9 / G-7 / CON-021: the save written with the ladder on rung 2 and "
+        "Check pressed is byte-for-byte the save of the same marks without "
+        "either, and a reload brings the marks back but not the rung — the "
+        "first press after it points at a line",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_NeitherRungNorCheckIsSaved::"
+    "test_the_control_rung_three_does_change_the_save": (
+        "CARD-269",
+        "the control for that byte-identity (ADR-0039/R4): the SAME "
+        "instrument read around a rung-3 press shows a different save, so "
+        "'equal' is a measurement and not the only thing the comparison can "
+        "say",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_NamesTheFirstWrongRow::"
+    "test_check_highlights_and_names_the_row": (
+        "CARD-269",
+        "AC-6: Check names the ROW of the first wrong mark, row-major, and "
+        "nothing else — no cell changes, no stroke recorded, neither counter "
+        "moves, and the sentence names no column at all; this is the control "
+        "that says out loud what AC-328's wrong-mark blindness left Hint "
+        "silently dancing around",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_NamesTheFirstWrongRow::"
+    "test_the_row_is_the_first_one_row_major": (
+        "CARD-269",
+        "AC-6's ordering control: three wrong marks in row 12 against one in "
+        "row 3, and row 3 is the row named — which reds a scan that ran the "
+        "other way round or that counted errors per row",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_NamesTheFirstWrongRow::"
+    "test_check_does_not_move_the_hinted_cell": (
+        "CARD-269",
+        "AC-6 / ADR-0038/R6 — Check is a reader: it leaves the revealed "
+        "cell's own highlight and the Hints counter exactly where they were "
+        "and records nothing over them",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_CleanLockedAndEditMode::"
+    "test_a_clean_board_with_question_marks": (
+        "CARD-269",
+        "AC-7: Check on a board with no wrong marks says so, highlights "
+        "nothing and leaves the cells and both counters alone, with question "
+        "marks on the board while it does",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_CleanLockedAndEditMode::"
+    "test_a_question_mark_over_a_filled_cell_is_not_wrong": (
+        "CARD-269",
+        "AC-7's sharper half of CARD-186's 'a ? is never wrong': a question "
+        "mark sitting on a cell the solution FILLS, which a scan comparing "
+        "raw states would have reported as an error",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_CleanLockedAndEditMode::"
+    "test_a_locked_board_disables_check": (
+        "CARD-269",
+        "AC-7: a solved and locked board disables Check, proved with a real "
+        "forced click on the disabled control — which writes nothing and "
+        "leaves the Solved announcement standing",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverCheck_CleanLockedAndEditMode::"
+    "test_the_editor_page_has_no_check": (
+        "CARD-269",
+        "AC-7: edit mode ships neither Check nor Hint — the solution there is "
+        "the grid being rewritten — asserted as ABSENT on the real editor "
+        "page, with the player page as the control that the same locators do "
+        "find both",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHint_FallsBackToTheSolution::"
+    "test_the_first_two_presses_say_no_line_decides_and_point_at_nothing": (
+        "CARD-269",
+        "AC-5 and the defect at the card's centre: on an exhausted board the "
+        "two cheap rungs change no cell, count nothing and highlight NOTHING "
+        "while saying so — where CARD-183 revealed a cell announcing 'no cell "
+        "follows from a single line yet', which a player reads as a line "
+        "deduction they missed when there was none to miss",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHint_FallsBackToTheSolution::"
+    "test_the_control_a_deducible_board_does_get_a_line": (
+        "CARD-269",
+        "the negative control for both halves of that claim (ADR-0039/R4): "
+        "the same two instruments, on a board where a line DOES decide a "
+        "cell, read a highlighted line and a 'look at' sentence — so neither "
+        "zero above is an instrument that could only ever read empty",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHint_ReducedMotion::"
+    "test_without_reduced_motion_the_line_highlight_animates[chromium]": (
+        "CARD-269",
+        "AC-10's second control: rung 1's line fades its tint in on the cells "
+        "AND on the clue box, so the reduced-motion zero measured beside it "
+        "is a real suppression and not a highlight that never animates "
+        "anywhere (ADR-0039/R4)",
+    ),
+    # Fix round 2 — review cycle 1's F-2, closed by the owner's decision of
+    # 2026-10-30 to promote the announcement into a visible line. These seven
+    # are phrased the other way round from the card's ten ACs: they assert the
+    # VISIBLE sentence and the visible difference, which is why they catch
+    # what "the live region says ..." could not.
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_the_instrument_rises_and_does_not_rise": (
+        "CARD-269",
+        "the instrument's own proof in BOTH directions before anything is "
+        "claimed with it (ADR-0039/R4): a blank board and a board after one "
+        "press give different screenshot digests on the board and on the line "
+        "region, and the same page measured twice with nothing between gives "
+        "identical ones — so a difference reported below is the page and not "
+        "the element screenshot scrolling its target into view",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_three_presses_are_three_visibly_different_pages": (
+        "CARD-269",
+        "F-2's gating property as a property: each of the three presses "
+        "changes something seen, and rung 2 — the press F-2 measured as "
+        "byte-identical on the board and the toolbar — now differs on the "
+        "visible line; F-2's own measurement is kept alive as a bound rather "
+        "than as byte-identity, with rung 3 as the in-test control that the "
+        "same bound does report a real change",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_the_next_recorded_change_clears_the_line": (
+        "CARD-269",
+        "AC-4's reset rule in the new visible channel: a recorded change "
+        "empties the line, because a sentence about the board as it used to "
+        "be is worse than no sentence, and the next press starts the ladder "
+        "again visibly",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_the_exhausted_board_shows_the_sentence_it_used_to_only_speak": (
+        "CARD-269",
+        "F-2's second dead-button case, and the card's DECLARED RESIDUAL "
+        "asserted instead of left as prose: card rule 6 fixes one sentence "
+        "for both exhausted rungs, so the first press is now visible through "
+        "the line alone while the board stays indistinguishable, and the "
+        "SECOND press there still changes nothing seen — a card that gives it "
+        "its own copy changes these last assertions on purpose",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_check_on_a_clean_board_shows_the_sentence": (
+        "CARD-269",
+        "F-2's third dead-button case, the one a recoloured tint could never "
+        "have answered: 'Check: no wrong marks.' highlights nothing, so the "
+        "visible sentence carries the whole press — with the wrong-marks "
+        "board as the control that the same instrument does see a board "
+        "change when Check paints a row",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_the_announce_region_did_not_regress_and_the_visible_copy_is_out_of_the_tree": (
+        "CARD-269",
+        "the visible line is an ADDITION and not a replacement: the live "
+        "region keeps its shipped 1 x 1 clipped geometry, its role and its "
+        "aria-atomic and is still written on a real press, while the visible "
+        "copy is aria-hidden so assistive technology meets each sentence "
+        "once — read off Chromium's real accessibility tree through CDP "
+        "(get_by_text counts DOM copies and knows nothing of aria-hidden), "
+        "with the attribute taken off and put back as the both-directions "
+        "control",
+    ),
+    f"{FAMILY_PREFIX}_hint.py::"
+    "TestSolverHintLadder_EveryPressChangesSomethingSeen::"
+    "test_the_line_moves_neither_the_toolbar_nor_the_board[chromium]": (
+        "CARD-269",
+        "the test that CHOSE the placement, and the owner's guarantee that "
+        "fix round 1's captured toolbar is still the shipped one: every box "
+        "of the head, board, toolbar, counters and progress is identical "
+        "empty versus full at 1280 and at 1440, the empty line is already one "
+        "line box tall, and scrollWidth against clientWidth refuses a "
+        "silently ellipsised sentence",
+    ),
 }
 
 

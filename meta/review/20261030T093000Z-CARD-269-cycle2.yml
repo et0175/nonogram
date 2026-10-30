@@ -1,0 +1,753 @@
+version: 1
+generated_at: "2026-10-30T09:30:00Z"
+target: >-
+  card/269-hint-ladder @ d22f1de0 (cycle 2/3; cycle 1 scored 5.5 @ bcd136b5;
+  fix round 1 ef5e03af, fix round 2 d22f1de0 = 5 files +720/-11 over fix round
+  1, re-derived exact; branch vs base 560d7e09 = 12 files +2971/-80).
+  Tracked tree clean before and after this review; HEAD unchanged at
+  d22f1de0; the only untracked file in the worktree is cycle 1's own report.
+  The full-suite lock was absent for the whole round, checked before every
+  run; no 0-collected run was banked.
+card: CARD-269
+cycle: 2
+mode: gating-review
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  CERTIFIED. All three gating findings of cycle 1 are genuinely closed, and the
+  closure of the hardest one (F-2) is the best-evidenced piece of work this card
+  has produced. The screenshot instrument's three proofs reproduce exactly --
+  the negative control is byte-identical on all three regions over six repeats,
+  the positive control rises, and the measured separation (noise <= 2 levels,
+  smallest real change 20) holds. Every placement figure re-derives to the
+  digit, and removing the visible line from the live page moves nothing at
+  1280x720, 1280x900 or 1440x900, which is a stronger proof of the zero-cost
+  claim than the shipped test makes. The owner's 1280 px toolbar threshold is
+  untouched. The accessibility choice reproduces against Chromium's real tree in
+  all three directions and is the right call. The null-impossibility has a real
+  control on the same board. Seven mutants all bite, the threshold constant
+  being load-bearing in BOTH directions (3 reds raised, 2 reds lowered).
+  What keeps this off a 9: the narrow-width residual is the one thing in this
+  round that is stated wrongly rather than conservatively. Measured, the phone
+  IS in the ellipsis band the round says it was deliberately kept out of -- at
+  390 px every rung-2 sentence is truncated at 358 px against 508-594 px of
+  text -- and the own-row rule that was introduced to keep it out costs
+  38.328 px of vertical space, which pushes the board out of a 900 px viewport
+  between roughly 700 and 820 px wide, the exact failure mode for which the
+  toolbar-to-board placement was rejected. Neither is a shipped defect on the
+  paths the card is about, both are should-fix. The exhausted second press is a
+  genuine, correctly scoped residual and not F-2 surviving.
+
+score_components:
+  requirements_and_ac: 8.0
+  engineering_constraints: 9.0
+  test_quality: 9.0
+  evidence_discipline: 8.0
+  accessibility: 8.0
+  honesty_of_residuals: 7.5
+
+min_improvement_check:
+  previous_cycle: 1
+  previous_score: 5.5
+  this_score: 8.5
+  delta: 3.0
+  min_improvement: 0.5
+  min_score: 8
+  improvement_met: true
+  threshold_met: true
+  gating_open: 0
+  disposition: >-
+    CERTIFIED. 8.5 >= min_score 8, and the improvement of 3.0 is six times
+    min_improvement 0.5. No gating finding remains open. Two should-fix
+    findings (F-12, F-13) are the next card's, not a re-run of this one.
+
+runs:
+  - what: "derived impact set, 20 files, at HEAD d22f1de0"
+    how: >-
+      /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m
+      pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1, lock
+      absent. Set derived, not inherited: every test file that opens the player
+      page, reads solver.js / solver_state.js / admin.css / tokens.css, asserts
+      the player toolbar's layout, or exercises the edit page that loads the
+      same script -- the 14 tests/test_puzzle_solver_*.py files plus
+      test_admin_design_tokens.py, test_player_bundle.py,
+      test_puzzle_editor_ui.py, test_puzzle_edit_routes.py,
+      test_public_player.py and test_public_player_pages.py.
+    result: "911 collected, 907 passed, 0 failed, 4 skipped"
+    runtime: "459.54 s, single run, box quiet apart from this session's own shell"
+  - what: "tests/test_puzzle_solver_resume.py at HEAD (cycle 1 F-1's file)"
+    result: "15/15 passed, inside the 20-file run above"
+    runtime: "not timed separately"
+  - what: "marking + progress, unmutated, inside the 20-file run"
+    result: "0 failed"
+    runtime: "66.9-80.4 s for the two files alone over two mutant runs, box quiet"
+  - what: "two read-only browser probes of my own, run and deleted"
+    result: >-
+      8 passed in 19.50 s and 1 passed in 3.53 s; both files removed and
+      __pycache__ swept, tree clean after.
+    runtime: "19.50 s and 3.53 s, box quiet"
+
+node_ids:
+  baseline: 138
+  head: 145
+  added: 7
+  removed: 0
+  renamed: 0
+  merged: 0
+  derivation: >-
+    RE-DERIVES EXACTLY over the set fix round 1 used, once that set is
+    identified: tests/test_puzzle_solver_hint.py 60 +
+    tests/test_admin_design_tokens.py 13 + tests/test_puzzle_solver_maybe.py 35
+    + tests/test_puzzle_solver_percent.py 22 +
+    tests/test_puzzle_solver_resume.py 15 = 145. At fix round 1 the hint file
+    collected 53, giving 138. The +7 is structural as well as arithmetic: fix
+    round 2's diff adds exactly 7 `def test_` lines, all in
+    TestSolverHintLadder_EveryPressChangesSomethingSeen, and removes none
+    anywhere under tests/.
+  note: >-
+    The card calls that set "the five changed files". It is six --
+    tests/test_puzzle_solver_marking.py also changed at HEAD. Its count is
+    constant at 76, so the delta is unaffected; only the label is wrong.
+
+skips:
+  count: 4
+  identical_at_base_and_head: true
+  attribution: >-
+    All four are db_required methods of ONE class,
+    tests/test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase,
+    skipped by tests/conftest.py with "Database not reachable: DATABASE_URL is
+    not set". By name: test_an_edit_posted_over_http_lands_in_the_database,
+    test_a_refused_edit_changes_no_row_in_the_database,
+    test_a_booked_puzzle_is_refused_on_the_real_engine,
+    test_the_column_is_really_in_the_migrated_schema. Environmental and
+    base-invariant -- that file is untouched by the whole branch, and this
+    round touches no Python and no DB code. The card's figure is correct.
+
+mutation_check:
+  policy: >-
+    Mutants applied one at a time in the worktree, original copied OUT OF TREE
+    first, needle occurrence asserted unique before each edit, blob sha printed
+    before / mutated / restored and asserted back to the original every time,
+    __pycache__ swept both ways, no git stash used, tree verified clean and HEAD
+    verified unchanged afterwards. Every instrument was first proved on the
+    unmutated tree (see instrument_proofs).
+  mutants:
+    - id: M1
+      what: "solver.js say(): delete showExplain(text), leaving the live region written"
+      target: "tests/test_puzzle_solver_hint.py::TestSolverHintLadder_EveryPressChangesSomethingSeen"
+      result: "7 of 7 red"
+    - id: M2
+      what: "solver.js commit(): delete showExplain(\"\") so a recorded change leaves a stale sentence"
+      target: "same class"
+      result: >-
+        1 red, exactly test_the_next_recorded_change_clears_the_line. Precisely
+        targeted.
+    - id: M3
+      what: "puzzle_solve.html: remove aria-hidden=\"true\" from the visible line"
+      target: "same class"
+      result: >-
+        1 red, exactly
+        test_the_announce_region_did_not_regress_and_the_visible_copy_is_out_of_the_tree.
+        The accessibility-tree assertion is load-bearing, not decorative.
+    - id: M4
+      what: "admin.css: .player-explain::before content \\200B -> none, so the empty line collapses"
+      target: "same class"
+      result: >-
+        6 red. Also a signal in its own right: that run took 126 s against 8-17 s
+        green, because a zero-height element makes Playwright's element
+        screenshot retry. The ::before is doing exactly the job its comment
+        claims.
+    - id: M5
+      what: "tests: _INVISIBLE_LEVEL 4 -> 250 (everything reads indistinguishable)"
+      target: "same class"
+      result: "3 red -- every `not _indistinguishable` assertion bites"
+    - id: M6
+      what: "tests: _INVISIBLE_LEVEL 4 -> 0 (nothing reads indistinguishable)"
+      target: "same class"
+      result: >-
+        2 red -- every `_indistinguishable` assertion bites. Taken with M5 this
+        is the point that matters: the constant 4 sits between two live
+        failures in opposite directions, so it is a derived value and not a
+        free one.
+    - id: M7
+      what: >-
+        admin.css: .player-toolbar margin-bottom + 6.328px, reproducing the
+        board shift the rejected toolbar-to-board placement would have cost
+      target: "tests/test_puzzle_solver_marking.py + tests/test_puzzle_solver_progress.py (120 tests)"
+      result: >-
+        2 red of 120 -- the COUNT in the round's table reproduces exactly, and
+        the unmutated control is 0 red. But see F-14: one of the two is not the
+        test the round names.
+
+instrument_proofs:
+  statement: >-
+    Every instrument used below was proved on the unmutated tree first, in both
+    directions, before anything was claimed with it.
+  screenshot_digest:
+    negative: >-
+      REPRODUCES. The same state measured twice with nothing between is
+      byte-identical on all three regions (board, toolbar, visible line): six
+      repeats, three on a blank board and three on rung 1, every one
+      (0 differing pixels, level 0) with equal digests. Element screenshots
+      scroll their element into view, which is the obvious way this could have
+      read noise, and it does not.
+    positive: >-
+      REPRODUCES. blank -> rung 1 is 10,531 differing pixels at 25 levels on the
+      board and 598 pixels at 217 levels on the line.
+    separation: >-
+      REPRODUCES as a conclusion. Noise: <= 2 levels everywhere I measured.
+      Real changes: 20 (the pressed button's focus ring, blank -> rung 1
+      toolbar), 25 (a highlighted board row), 49 (Check's row), 204-227 (a
+      revealed cell, a counter digit, a sentence appearing). 4 therefore sits
+      a factor of 5 above the largest noise and a factor of 5 below the
+      smallest real change.
+  contrast_ratio:
+    proved_first: "black on white 21.0000, a colour on itself 1.0000 -- both exact"
+    measured: >-
+      1.1526:1 for #e6efec on #fffdf8, re-derived independently from the WCAG
+      2.1 relative-luminance formula AND sampled off the live page, where the
+      lit cell computes rgb(230, 239, 236) and its neighbour rgb(255, 253, 248).
+  accessibility_tree:
+    proved_first: >-
+      The tree query is proved by the mutation in both directions rather than by
+      assertion: removing aria-hidden raises the node count from 2 to 4,
+      restoring it returns the tree exactly, and M3 shows a test reds when the
+      attribute goes.
+  componentwise_claim: >-
+    The round's "a tuple compare would have let 9 levels through on 6 pixels"
+    is CORRECT in substance, verified arithmetically: a bound on the pixel COUNT
+    at <= 6 admits a 9-level change affecting 6 pixels, while the per-channel
+    level bound rejects it (9 > 4). Bounding the level and explicitly not the
+    count is the right choice.
+
+gating_closure:
+  F-1:
+    status: CLOSED
+    evidence: >-
+      tests/test_puzzle_solver_resume.py is 15/15 green at HEAD inside the
+      20-file run, and the structural fix is where fix round 1 says it is:
+      three _reveal() call sites, in
+      TestSolverResume_ReloadRestoresBoardCountsAndHistory,
+      TestSolverResume_ResetClearsTheSave and
+      TestSolverResume_SavesEveryChangeWithoutARequest. More to the point, my
+      own 20-file derivation -- wider than either round's and built from the
+      page and the stylesheet rather than from a grep -- is 0 failed. Spot-check
+      only; fix round 1's base figure is taken as given.
+  F-2:
+    status: CLOSED
+    evidence: >-
+      #puzzle-player-explain carries every sentence the ladder and Check
+      produce, written in the same two places the live region is. Measured on
+      the live page: blank -> rung 1 changes the line by 598 pixels at 217
+      levels; rung 1 -> rung 2 changes it by 1,915 pixels at 217 levels while
+      the board is byte-identical and the toolbar moves 16 pixels at 2 levels;
+      the exhausted board's first press changes the line by 1,771 pixels at 217
+      levels with the board byte-identical; Check on a clean board changes the
+      line by 768 pixels at 217 levels with the board byte-identical. All three
+      of F-2's dead-button cases now change something a sighted player can see,
+      and in two of them the visible line is demonstrably carrying it alone. The
+      ACs' phrasing problem is fixed where it matters: the new class asserts the
+      VISIBLE sentence and the visible DIFFERENCE, not "the live region says".
+  F-3:
+    status: CLOSED
+    evidence: >-
+      meta/architecture/inputs/raw-requirements.md gains exactly 85 added lines
+      and 0 removed, naming AC-327, AC-329 and AC-334 one by one, plus AC-328
+      and AC-335. requirements.yml carries only the owner's AC-333 amendment --
+      one `then:` line plus its comment block, touching no other id, confirmed
+      by diffing the branch against 560d7e09. The three amendments remain the
+      owner's, which is correct.
+
+findings:
+  - id: F-12
+    severity: should-fix
+    confidence: certain
+    source: measured
+    title: >-
+      The phone IS in the ellipsis band the round declares it was deliberately
+      kept out of: at 390 px every rung-2 sentence is truncated
+    where: >-
+      src/nonogram/admin/static/admin.css, the .player-explain comment's
+      "THE RESIDUAL" and "The phone is NOT left in that band" paragraphs; the
+      same claim in d22f1de0's commit message and in the card's fix-round-2
+      note; the narrow-width rule @media (max-width: 820px).
+    detail: >-
+      MEASURED at 390 x 844 on the shipped page. The narrow rule does give the
+      line its own row, 358 px wide, and that is a real improvement over the
+      5.859 px it would have inline -- the 5.859 px figure re-derives EXACTLY.
+      But 358 px is not enough for the sentences that matter. Rendered widths
+      in the line's own typography: rung 2 generic 593.875 px, rung 2 overlap
+      564.031 px, rung 2 runs-complete 508.438 px, the exhausted rung-3 reveal
+      581.781 px at 15x15 and 584.438 px at 30x30. Every one of them is
+      ELLIPSISED at 390 px (scrollWidth 508-594 against clientWidth 358). Only
+      rung 1 (157.484 px), the exhausted rungs 1-2 sentence (350.984 px, with
+      7.016 px to spare) and Check's sentences (220.563 px) fit.
+      So on a phone the press IS visible -- F-2 proper does not return -- but
+      rung 2, the rung whose entire job is to explain the deduction and the
+      rung F-2 was about, is readable only up to about two thirds of its words.
+      The declared band "about 820 px to 1270 px" is honest and in fact
+      conservative for the desktop case (the true boundary for the 593.875 px
+      longest sentence is about 1246 px, so the round over-declares the
+      residual, which is the safe direction). It is the phone EXEMPTION that is
+      wrong, and it is wrong in the unsafe direction, because it was offered as
+      the reason the narrow rule was enough.
+      Compounding it: captures 12 and 13 are at 1280 and 1440 only. There is no
+      phone capture of the visible line, so the one width where the residual
+      actually bites is the one width nobody has looked at -- the same shape as
+      cycle 1's F-4, one band over.
+    recommendation: >-
+      Restate the residual honestly (the phone is in the band for rungs 2 and
+      for the exhausted reveal), and take a 390 px capture so the owner can see
+      it. The real fix is a follow-up card: allow the line to wrap to two lines
+      below 820 px, where the board has 41.859 px of slack left after the row
+      (802.141 px bottom in an 844 px viewport), rather than nowrap+ellipsis.
+
+  - id: F-13
+    severity: should-fix
+    confidence: certain
+    source: measured
+    title: >-
+      The narrow-width own-row rule costs 38.328 px of vertical space and pushes
+      the board out of a 900 px viewport between roughly 700 and 820 px wide --
+      the exact failure mode the toolbar-to-board placement was rejected for
+    where: >-
+      src/nonogram/admin/static/admin.css, @media (max-width: 820px)
+      { .player-head .player-explain { flex-basis: 100%; } }
+    detail: >-
+      MEASURED. The .page-head row is 52 px high at every width above 820 px and
+      90.328 px at and below it -- the line's own row costs 38.328 px, which the
+      comment states. The comment then checks that the board still fits at one
+      viewport only, 390 x 844, where it does (802.141 px bottom against 844).
+      At 819 px and 820 px wide by 900 px tall the board's bottom edge is
+      917.297 px in a 900 px viewport. Without the line's row it would be
+      878.969 px and would fit. So in that band the line moves the board out of
+      the viewport, which is precisely the consequence the round measured,
+      wrote up in a five-row table and rejected the gap placement over. No test
+      covers 600-820 px at a tall viewport, so it is green.
+      Scope, honestly: at 600 x 900 the board already overflowed before this
+      card (914.563 px), so the band this introduces is roughly 700-820 px
+      wide, it is an admin tool, and nothing breaks beyond a scroll. It is a
+      should-fix because the round's own standard for this question was
+      measurement at every width it shipped a rule for, and the rule was
+      checked at one.
+    recommendation: >-
+      Measure the board's bottom against the viewport across the narrow band,
+      not at 390 px alone, and declare the result beside the 38.328 px figure.
+
+  - id: F-14
+    severity: minor
+    confidence: certain
+    source: measured
+    title: >-
+      The +6.328 px row of the placement table reproduces as a COUNT and not as
+      the tests it names
+    where: >-
+      src/nonogram/admin/static/admin.css, the "MEASURED consequences of
+      spending it anyway" paragraph; the same list in d22f1de0's commit message
+      and in the card's fix-round-2 table; the docstring of
+      tests/test_puzzle_solver_hint.py::TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_line_moves_neither_the_toolbar_nor_the_board
+    detail: >-
+      MEASURED by planting the shift (mutant M7) rather than by reading the
+      claim. +6.328 px of board shift reds 2 of 120 tests in
+      tests/test_puzzle_solver_marking.py plus
+      tests/test_puzzle_solver_progress.py, and the unmutated control is 0, so
+      the row's count and its conclusion both hold. But the two are
+      TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press
+      in its [Black-Enter] parametrisation and
+      TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move.
+      The second is named correctly. The first is named as the [White-Space]
+      parametrisation, with a mechanism attached to it ("whose _drag re-measures
+      between its own mouse moves"), and that parametrisation passed for me.
+      Worse for the claim's form: narrowing the selection to those two classes
+      alone turns 2 reds into 3, so WHICH parametrisation falls over is
+      selection-dependent. The class is stable; the member is not.
+    recommendation: >-
+      Attribute the row to the class and the mechanism, not to a parametrisation
+      that moves. The decision it supports is unaffected and independently
+      confirmed here.
+
+  - id: F-15
+    severity: minor
+    confidence: certain
+    source: measured
+    title: >-
+      "the whole page has 4.187 px of vertical slack" names the wrong box: the
+      page already scrolls by 178 px at that viewport
+    where: >-
+      src/nonogram/admin/static/admin.css, the "Why nothing cheaper worked"
+      paragraph; the same sentence in d22f1de0's commit message and on the card.
+    detail: >-
+      MEASURED at 1280 x 720. Every number is right: the board's bottom edge is
+      715.813 px, the viewport is 720, the slack is 4.187 px, a line of
+      --text-sm is 22.328 px high, .player-toolbar's margin-bottom is exactly
+      16 px, and 22.328 - 16 = 6.328 > 4.187. The sentence is what is wrong.
+      document.documentElement.scrollHeight is 898 at that viewport and the body
+      bottom is 898.438, so the PAGE has no slack at all and already scrolls by
+      178 px. The quantity that matters -- and the one the whole argument
+      actually rests on -- is the BOARD's bottom edge against the viewport,
+      because that is what decides whether Playwright scrolls to reach a cell.
+      Naming the page instead of the board makes a correct derivation read as a
+      claim anyone who measures scrollHeight will think is false.
+    recommendation: "One word: the board, not the page."
+
+  - id: F-16
+    severity: minor
+    confidence: certain
+    source: measured
+    title: >-
+      "6 of the 73 500 pixels ... differing by 1/255 in one channel" is stated as
+      a measurement in shipped comments and does not reproduce
+    where: >-
+      tests/test_puzzle_solver_hint.py, the _pixel_delta docstring;
+      src/nonogram/admin/static/solver.js, the showExplain comment; the card's
+      fix-round-2 correction 1.
+    detail: >-
+      MEASURED. The region size is exactly right -- the toolbar is 980 x 75 =
+      73,500 px at 1280. The rest is not reproducible. Rung 1 -> rung 2 on the
+      deducible board gives me 16 differing pixels at 2 levels, not 6 at 1; the
+      exhausted first -> second press gives 20, not 23. The board half of the
+      claim DOES reproduce exactly: 0 differing pixels, byte-identical.
+      This does not weaken the round's conclusion -- it strengthens it, because
+      the whole point was that a pixel count across a repaint is not a
+      reproducible instrument, and here is the count varying by 2.7x between two
+      runs of the same comparison. It also confirms the derivation of 4: 2 levels
+      is still inside the stated 1-2 noise band. But the figures are written down
+      as measurements in two shipped comments, where the next reader will take
+      them for constants.
+    recommendation: >-
+      State the noise as a band ("a handful of pixels, 1-2 levels, varying run
+      to run") rather than as two integers, which is what the instrument's own
+      argument says it is.
+
+  - id: F-17
+    severity: minor
+    confidence: certain
+    source: measured
+    title: >-
+      The no-ellipsis assertion runs on one sentence 69 px shorter than the
+      longest, so it does not pin the residual it is cited for
+    where: >-
+      tests/test_puzzle_solver_hint.py::TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_line_moves_neither_the_toolbar_nor_the_board
+    detail: >-
+      The test presses twice on GRID and asserts scrollWidth <= clientWidth,
+      which is the right assertion and the right reason (text-overflow hides an
+      overflow silently). But the sentence it measures is "Hint: look at row 1 --
+      the 3-run must overlap in the middle whatever its position." at 524.609 px,
+      while the residual's claim is about the longest sentence the page can
+      produce. Good news for the round: I measured the whole vocabulary and the
+      claim is CORRECT AND COMPLETE -- "Hint: look at column 15 -- every
+      placement of this column's clues agrees on at least one cell." is
+      593.875 px, re-deriving the declared 593.88 exactly, and it really is the
+      longest; the candidate I expected to beat it, the exhausted rung-3 reveal,
+      is 581.781 px at 15x15 and 584.438 px even at 30x30. So the residual is
+      right and the test simply does not reach it: it has 103 px of slack it is
+      not using at 1280.
+    recommendation: >-
+      Drive the longest sentence into the line directly in that test, or
+      parametrise it over the three reason sentences. One line, and the
+      assertion then pins what its docstring says it pins.
+
+  - id: F-18
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "The new visible channel is asserted cleared on one of AC-4's five reset events"
+    where: >-
+      tests/test_puzzle_solver_hint.py::TestSolverHintLadder_EveryPressChangesSomethingSeen::test_the_next_recorded_change_clears_the_line
+    detail: >-
+      AC-4 names a mark, undo, redo, a confirmed reset and Check. Read in the
+      source, the behaviour is right for all five: undo and redo both call
+      commit(), the reset confirmation's accept calls commit(), and commit()
+      carries the showExplain("") -- one choke point, as the comment claims --
+      while Check writes its own sentence through say() instead of clearing,
+      which is the correct behaviour and not a gap. Only the cell-click path is
+      asserted. Mutant M2 shows the one assertion is load-bearing, so this is a
+      coverage note and not a correctness one.
+    recommendation: "Add undo and the confirmed reset to that test's walk."
+
+  - id: F-19
+    severity: minor
+    confidence: certain
+    source: measured
+    title: >-
+      The level bound is on magnitude only and not on area, so a <= 4-level
+      change over any number of pixels reads as invisible
+    where: >-
+      tests/test_puzzle_solver_hint.py, _INVISIBLE_LEVEL and _indistinguishable
+    detail: >-
+      This is the brief's question answered by measurement. NO change this page
+      can make lands between 4 and 20: the smallest real change is 20 levels
+      (the focus ring) and the largest noise 2, so the derivation holds for
+      everything that ships, and M5/M6 show the constant is load-bearing in both
+      directions. The gap is reachable only one way, and I reached it: darkening
+      --color-accent-tint by 4 levels changes 10,524 board pixels and still
+      reads indistinguishable, while 5 levels is caught. The docstring is
+      explicit that the count is deliberately not bounded, with a correct reason
+      (the count tracks how big a region Chromium chose to re-raster), so this
+      is a known property rather than an oversight -- but as written it means a
+      whole-region colour shift of up to 4 levels is invisible to the
+      instrument, which is a different statement from "nothing visible changed".
+      I could not reproduce the round's other near-miss in the shipped tree: the
+      min-height 22.32 px variant leaves the board at 238.796875 px before and
+      after a press at 1280, because in the page-head placement the h1's 48 px
+      sets the row height. That claim describes a placement that is no longer
+      there; it is not wrong so much as unverifiable now.
+    recommendation: >-
+      One sentence in the docstring: the bound is on magnitude, so a uniform
+      shift of <= 4 levels over any area reads as invisible by design.
+
+  - id: F-20
+    severity: nice-to-have
+    confidence: certain
+    source: measured
+    title: "Two stale pointers, both introduced by this card's own rounds"
+    where: >-
+      meta/architecture/requirements.yml, the AC-333 amendment comment;
+      tests/test_puzzle_solver_hint.py, the
+      TestSolverHintLadder_EveryPressChangesSomethingSeen docstring.
+    detail: >-
+      The AC-333 comment pins TestSolverHint_PlacesTheButtonAndTheCounter to
+      line 777 of the hint test file. The class name resolves -- the comment's
+      own point, and it was right to check it -- but it now sits at line 897,
+      120 lines down after fix rounds 1 and 2. And the headline test's docstring
+      refers to :data:`_INVISIBLE`; the constant is _INVISIBLE_LEVEL.
+    recommendation: "Drop the line number rather than chase it; fix the one name."
+
+  - id: F-21
+    severity: nice-to-have
+    confidence: high
+    source: review-lens
+    title: "The sentence is typographically subordinate and sits nowhere near the button that produces it"
+    where: "src/nonogram/admin/templates/puzzle_solve.html, the .page-head row"
+    detail: >-
+      Judged from the shipped captures. The line is legible -- see legibility
+      below -- but it renders at --text-sm in the title row, after the tier
+      badge, left-aligned with a wide empty gutter to its right, and reads as a
+      caption on the title rather than as the answer to the press the player
+      just made in the toolbar below it. The placement was chosen by
+      measurement and the measurement is sound; this is the cost that
+      measurement could not see.
+    recommendation: >-
+      A follow-up design card: give the line a quiet affordance that ties it to
+      the control (an icon, a rule, or alignment with the History group), without
+      spending vertical space.
+
+judgements_requested:
+  are_the_three_gating_findings_closed: >-
+    YES, all three, and independently checked rather than taken from the card.
+    See gating_closure above. F-2's closure is the strongest of the three: the
+    property is asserted as a property, in a class phrased against what a
+    sighted player sees, and seven mutants against it all bite.
+  do_the_instruments_three_proofs_reproduce: >-
+    ALL THREE, exactly. Negative: byte-identical on all three regions, six
+    repeats, two states. Positive: rises on board and line. Separation: noise
+    <= 2 levels against a smallest real change of 20.
+  does_anything_land_in_the_4_to_20_gap: >-
+    Nothing this page can do. The focus ring, the smallest real change the round
+    names, re-measures at exactly 20 through the click path. A counter digit is
+    217, a highlighted row 25, Check's row 49, a sentence 217. The gap is
+    reachable only by a uniform low-level colour shift -- 4 levels over 10,524
+    pixels reads invisible, 5 is caught -- which is F-19, a property of the
+    instrument rather than a live defect. The componentwise choice is right and
+    its stated justification checks out arithmetically.
+  cycle_1s_byte_identity_claim: >-
+    FIX ROUND 2'S RULING IS CORRECT, and I would put it more strongly in its own
+    favour. The board half of cycle 1's claim reproduces exactly at HEAD: 0
+    differing pixels between rung 1 and rung 2. The toolbar half does not, and
+    my own numbers differ from fix round 2's (16 pixels at 2 levels against its
+    6 at 1), which is the best possible evidence for its thesis -- a pixel count
+    across a repaint is not reproducible even between two reviews of the same
+    comparison. The measurement was sound and the claim's FORM was not; bounding
+    the per-channel level is the right replacement. Its own capture log shows
+    the same thing from the other side: every stored PNG needed two or three
+    attempts to get two consecutive byte-identical reads.
+  do_the_placement_figures_re_derive: >-
+    EVERY ONE, to the digit. Board bottom 715.813 px in a 720 px viewport,
+    4.187 px of slack, line 22.328 px, .player-toolbar margin-bottom exactly
+    16 px, leaving +6.328 px against 4.187 px available. The computed style is
+    exactly what is claimed: flex-grow 1, flex-shrink 1, flex-basis 0px,
+    min-width 0px, white-space nowrap. The h1 is 48 px and the line 22.328 px,
+    so "shorter than the h1 that sets the row's height" is true, and .page-head
+    is 52 px at every width above 820. The zero-cost claim is proved here more
+    strongly than the shipped test proves it: REMOVING the element from the live
+    page leaves head, board, toolbar, counters and progress at identical boxes
+    at 1280x720, 1280x900 and 1440x900. The +6.328 consequence row reproduces as
+    a count (F-14 on its names); the 0 px row reproduces as 0 reds across 907
+    tests.
+  is_the_1280_threshold_untouched: >-
+    YES. #puzzle-player-controls 74.797 px at 1280 and 38.797 px at 1440;
+    .player-counters 186.234 px and 346.234 px; board top 238.797 px and
+    202.797 px; line 627.859 px and 787.859 px. Identical empty and full, and
+    identical with the line removed entirely. The owner is being shown the same
+    toolbar they accepted.
+  are_the_three_residuals_complete_and_honest: >-
+    TWO OF THREE. The ellipsis band is honest and in fact conservative for
+    desktop (the true boundary for the 593.875 px longest sentence is about
+    1246 px, not 1270), and the longest-sentence figure re-derives exactly and
+    really is the longest of the page's whole vocabulary, including at 30x30.
+    The tint residual is honest and correctly reasoned (below). The PHONE
+    exemption is the one that is wrong, and wrong in the direction that matters,
+    because it was the reason given for why the narrow rule sufficed -- F-12 --
+    and the row it introduces has an undeclared vertical cost in a band nobody
+    measured, F-13. A fourth residual is undeclared because it was not looked
+    for: there is no capture at any narrow width.
+  the_exhausted_second_press: >-
+    IT IS A GENUINE RESIDUAL, CORRECTLY SCOPED, AND NOT F-2 SURVIVING. F-2 was
+    "the rung whose job is to explain changes nothing a sighted player can see",
+    as a property of every board. After this round the second press changes
+    something seen on every board where it has something new to say, and on the
+    one board where it does not, the sentence it repeats is TRUE and complete --
+    card rule 6 fixes one sentence for both exhausted rungs precisely because
+    there is nothing further to say until CARD-268's probe exists. The right
+    remedy is copy, which is the owner's, and inventing it in a fix round would
+    have been the wrong call. Asserting it in a test rather than leaving it as
+    prose is exactly right, and the assertion is the one a future card flips --
+    I verified it is a real assertion: every region indistinguishable across that
+    press, measured, with _pixel_delta in the failure message.
+  is_the_a11y_choice_right_and_does_it_reproduce: >-
+    IT REPRODUCES EXACTLY, in all three directions, and the choice is RIGHT.
+    As shipped, two nodes carry the sentence -- InlineTextBox and StaticText,
+    neither ignored. Removing aria-hidden raises that to four; restoring it
+    returns the tree exactly; the announce region is unmoved by a real press and
+    is in its shipped 1x1 clipped state with role status and aria-atomic true.
+    On the brief's question -- does a sighted screen-reader user lose the ability
+    to navigate back to the sentence as static text? NO, and this is the detail
+    that settles the choice. The announce region is visually clipped but it is
+    PRESENT AND UN-IGNORED in the accessibility tree, which my probe shows
+    directly, so a virtual cursor still reaches the sentence as static text. The
+    only cost is that the reachable copy is not co-located with the visible one.
+    A single visible role="status" line with no hidden copy would be the cleaner
+    end state, but it would have meant changing the shipped live region inside a
+    fix round closing a gating finding, which is the thing this card's own
+    regression assertions exist to prevent. Right call; note it as a follow-up,
+    not a defect.
+  does_the_null_impossibility_have_a_control: >-
+    YES, and a real one, on the SAME board. Verified in the source:
+    hintLine(board(2,1,'uu'), [[3]], [[3],[3]], [[true,true]]) with a hand-built
+    {deduced: true} hint throws RangeError, while the same call with the hint
+    hintCell actually answers on that same board, those same clues and that same
+    solution returns null -- the exhausted state. Without the second half the
+    first would also pass if hintLine had started throwing unconditionally, and
+    the test's own comment says so. The structural gap cycle 1 named is closed.
+  is_the_ladder_legible_from_the_captures: >-
+    YES at 1280 and 1440. In 12-visible-answer-line-1280px-rung2-fullpage.png the
+    sentence "Hint: look at row 1 -- the 3-run must overlap in the middle
+    whatever its position." reads cleanly beside the title, the tinted row 1 and
+    its clue box are both perceptible on the paper, and the usage paragraph under
+    the board now names the ladder, Check and the line. A player pressing Hint
+    gets an answer they can read. Two caveats. The line is typographically
+    subordinate and sits in the title row rather than near the button (F-21).
+    And the captures cover the two DEDUCIBLE rungs only: there is no capture of
+    the exhausted board or of Check with the visible line, which were two of
+    F-2's three dead-button cases, and none at any narrow width, which is where
+    F-12 bites.
+
+measured_wrong_in_the_brief_or_the_rounds:
+  - >-
+    THE PHONE IS IN THE BAND. "inline at 390 px the title and badge leave it
+    5.859 px, which would have put F-2 straight back for phone players, so a
+    narrow-width rule gives it its own row" -- the 5.859 px re-derives exactly
+    and the row is a real improvement, but at 358 px every rung-2 sentence and
+    the exhausted rung-3 reveal are still ellipsised. F-12.
+  - >-
+    The +6.328 px table row names TestSolverMarking_KeyboardAndLabels
+    [White-Space] with a mechanism. The count of 2 reproduces; the member does
+    not -- it is [Black-Enter] for me, and 3 under a narrower selection. F-14.
+  - >-
+    "6 of 73,500 pixels one level apart on the deducible board and 23 on the
+    exhausted one" does not reproduce: 16 at 2 levels, and 20. The region size
+    73,500 is exactly right. F-16.
+  - >-
+    "the whole page has 4.187 px of vertical slack" -- the page already scrolls
+    by 178 px at 1280x720; the 4.187 px belongs to the board's bottom edge. F-15.
+  - >-
+    The min-height 22.32 px near-miss does not reproduce in the shipped
+    placement: the board sits at 238.796875 px before and after a press, because
+    the h1's 48 px sets the row height. The claim describes a placement that is
+    no longer in the tree. F-19.
+  - >-
+    The card calls the node-id set "the five changed files"; it is six, the
+    sixth being tests/test_puzzle_solver_marking.py, whose count is constant.
+  - >-
+    The 18-file set and its 750 collected node ids are NOT reproducible from
+    anything written down: the files are not named, and no derivation I built
+    reaches 750 (my 18-file derivation collects 845, my 20-file one 911). The
+    skip attribution it reports is nonetheless exactly right, which I verified
+    by name, so the set certainly contained tests/test_puzzle_edit_routes.py.
+  - >-
+    I expected the exhausted rung-3 reveal to beat the declared longest sentence
+    and it does not: 584.438 px even at 30x30 against 593.875 px. The round's
+    593.88 is exact AND complete. My suspicion was the wrong one.
+
+known_owed_not_findings:
+  - >-
+    meta/architecture/requirements.yml still states the retired toolbar figures
+    in the AC-333 amendment comment -- "268 px needed against 186 px left, short
+    by exactly Check's own 82 px". Confirmed present, read in passing and NOT
+    touched. Out of both fix rounds' scope and owed, as fix round 2 says.
+    The correct figures, which re-derive here, are 263.656 px needed, 186.234 px
+    given and 81.359 px for Check.
+
+positives:
+  - >-
+    The instrument is proved in both directions before anything is claimed with
+    it, the proof is a test rather than a note, and both controls reproduce on a
+    different machine-state six repeats deep. This is the discipline the day has
+    been asking for, written into the suite.
+  - >-
+    The threshold is derived and then shown to be derived: M5 and M6 red in
+    opposite directions, so the constant 4 is pinned between two live failures
+    rather than chosen.
+  - >-
+    The placement was decided by measurement after two wrong answers, the wrong
+    answers are written down with their costs, and the winning answer's
+    zero-cost property is structural (flex 1 1 0, min-width 0, nowrap, shorter
+    than the h1) rather than incidental -- which is why removing the element
+    from the live page moves nothing at three viewports.
+  - >-
+    The round corrected the review it inherited on its own central instrument,
+    and the correction is right: byte-identity is not reproducible across a
+    repaint, and my own numbers diverge from its numbers in exactly the way its
+    argument predicts.
+  - >-
+    The accessibility choice is proved against Chromium's real tree in both
+    directions, after the round caught its own first instrument counting DOM
+    copies instead of tree nodes -- and the mutant shows the assertion bites.
+  - >-
+    The residual nobody would have noticed is asserted rather than narrated: the
+    exhausted second press changes nothing seen, and that is a live assertion
+    with _pixel_delta in its failure message, waiting for the card that takes
+    the owner's decision.
+  - >-
+    The owner-authorised copy sentence went in exactly one file and moved its
+    exact-equality pin with it, after fix round 1 was right to refuse it.
+
+recommendation:
+  disposition: >-
+    CERTIFIED at 8.5 (min_score 8; improvement 5.5 -> 8.5 = +3.0 against
+    min_improvement 0.5). No gating finding remains. Land it.
+  owed_to_a_follow_up:
+    - "F-12: restate the phone residual honestly and take a 390 px capture; then wrap the line below 820 px instead of ellipsising it."
+    - "F-13: measure the board against the viewport across 600-820 px and declare the result."
+    - "F-14, F-15, F-16, F-19, F-20: five comment corrections, all small, all in this card's own prose."
+    - "F-17 and F-18: two one-line test strengthenings."
+    - "The retired 268/186/82 figures in requirements.yml, already owed."
+    - "A visible-channel design pass (F-21), and the exhausted rung-2 sentence, which is the owner's."
+
+refs_verified: >-
+  Every path::name written above was checked against a real def or class line in
+  the worktree at d22f1de0 before this file was written:
+  TestSolverHintLadder_EveryPressChangesSomethingSeen and its seven methods,
+  TestSolverHint_PlacesTheButtonAndTheCounter, TestSolverHintModule,
+  TestSolverResume_ReloadRestoresBoardCountsAndHistory,
+  TestSolverResume_ResetClearsTheSave,
+  TestSolverResume_SavesEveryChangeWithoutARequest,
+  TestSolverMarking_KeyboardAndLabels,
+  TestSolverProgress_SolvedWhenBlacksMatch and its named method, and
+  TestPuzzleEditRoutes_OverTheRealDatabase with its four methods. No file:line
+  pointer is used as a reference anywhere in this file, deliberately: the
+  validator's resolver is a text search, and this file lives inside its scope.

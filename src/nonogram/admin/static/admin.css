@@ -880,12 +880,38 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    CARD-194 (four tool buttons, wider than today's one trigger) this also
    held at 1280 px only down to the buttons' own row — narrower than that,
    the pair dropped to the buttons' row while Progress wrapped below it.
-   CARD-194's one trigger leaves enough room that 1280 px now fits
-   everything on the buttons' row too, same as 1440 px (confirmed in
-   tests/test_puzzle_solver_percent.py, TestSolverPercent_SitsNextToTheCounters);
-   the narrower-still case (the pair alone on the buttons' row, Progress
-   wrapped below it) still holds at some width between there and 390 px,
-   just not at exactly 1280 any more. The toolbar's items align to the top
+   CARD-194's one trigger left enough room that 1280 px fitted everything on
+   the buttons' row too, same as 1440 px — and CARD-269's Check button spends
+   that room again, so 1280 px is back in the narrower-still case (the pair
+   alone on the buttons' row, Progress wrapped below it).
+
+   MEASURED, with getAnimations() settled and #puzzle-player-announce in its
+   shipped 1 x 1 clipped state. One line of .player-counters needs 263.66 px:
+   the errors/hints pair 146.52 + "Progress: N%" 101.14 + this rule's own
+   16 px column-gap. That need is the same at every width. Check costs the
+   toolbar 81.36 px -- its own 73.36 px button box plus the history group's
+   8 px gap -- so .player-history goes 359.22 -> 440.58 px and the share left
+   to .player-counters goes 267.59 -> 186.23 px at 1280 and 427.59 -> 346.23
+   at 1440, the same 81.36 either way. 267.59 >= 263.66, so 1280 fitted one
+   line before Check; 186.23 < 263.66 by 77.43 px, so Progress now wraps
+   there; 346.23 >= 263.66, so 1440 still fits all three. The THRESHOLD moved
+   above 1280; the layout did not break.
+
+   Beware the rounded figures: CARD-269's card and its cycle-1 review both
+   state the cost as 82 px and the need as 268 px. 268 is the width the
+   counters WERE GIVEN at 1280, not what they need, and 82 is what you get by
+   rounding 267.59 and 186.23 to 268 and 186 before subtracting -- the
+   difference is 81.36. The review's "confirmed two ways" (359 -> 441 = +82)
+   is the same rounding applied to the history group, not an independent
+   derivation.
+
+   The cost in HEIGHT, and it is a height and not an offset (review F-5,
+   which found two numbers written as heights elsewhere were bottom-edge
+   coordinates): #puzzle-player-controls is 74.80 px high at 1280 px with
+   Check against 38.80 px without it, exactly 36.00 px more, one wrapped
+   counter line; at 1440 px it is 38.80 px either way. Both cases
+   are asserted in tests/test_puzzle_solver_percent.py,
+   TestSolverPercent_SitsNextToTheCounters. The toolbar's items align to the top
    of their row, so the buttons stay at the toolbar's top; the pair is as
    tall as a toolbar button (.btn: 0.4rem padding above and below, two
    borders, a 1.5 line at 1rem), so its counters are centred on the
@@ -918,6 +944,96 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-solved-box .player-solved { overflow-wrap: anywhere; }
 .player-toolbar.is-solved .player-tools { visibility: hidden; }
 .player-announce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The VISIBLE answer line (CARD-269 review F-2, owner decision 2026-10-30).
+   .player-announce above is 1 x 1 and clipped, so before this rule every
+   sentence the hint ladder and Check produced went only to a screen reader:
+   cycle 1 measured rung 2's board and toolbar INDISTINGUISHABLE from rung
+   1's (SHA-256 of element screenshots, getAnimations() settled, the
+   instrument proved first in both directions; the review said BYTE-identical
+   and fix round 2 re-measured that to a bound on the per-channel level —
+   tests/test_puzzle_solver_hint.py's _pixel_delta carries the correction),
+   and on an exhausted board rungs 1 and 2
+   — and Check on a clean board — showed nothing at all. The owner chose to
+   promote the sentence rather than recolour the tint, because the sentence
+   also tells rung 1's highlight apart from Check's.
+
+   WHERE IT SITS WAS DECIDED BY MEASUREMENT, AND THE FIRST TWO ANSWERS WERE
+   WRONG. It is the third item of .page-head.player-head — beside the puzzle
+   title, directly above the toolbar — because that row is the only place on
+   this page that can hold a line of text for FREE. It costs ZERO vertical
+   space at every width, by construction and not by luck: flex: 1 1 0 with
+   min-width: 0 means it never forces .page-head's wrap and never widens the
+   row, and white-space: nowrap means it is always exactly one line tall,
+   shorter than the h1 that sets the row's 52 px height.
+
+   Why nothing cheaper worked. A <p> in the gap between .player-toolbar and
+   .player-stage is the obvious reading of "a visible line near the toolbar",
+   and it cannot be afforded: at 1280 x 720 — this suite's default viewport —
+   the 15 x 15 board's bottom edge sits at 715.813 px in a 720 px viewport,
+   so the whole page has 4.187 px of vertical slack and a line of --text-sm
+   needs 22.328 px of which only .player-toolbar's own 16 px margin-bottom
+   can be reclaimed: +6.328 px minimum, against 4.187 px available. MEASURED
+   consequences of spending it anyway, both of them the same defect in two
+   files: once the board does not fit the viewport, Playwright scrolls to
+   reach a cell, and a test that compares a VIEWPORT-relative
+   bounding_box() across an action now compares two different scroll
+   positions. At +38.312 px, five tests; at +22.328 px, four; at +6.328 px,
+   TestSolverMarking_KeyboardAndLabels[White-Space] (whose _drag re-measures
+   between its own mouse moves, so the board slides out from under a pointer
+   path already computed) and
+   TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move
+   (the solving click scrolls 2 px, and the board's y reads 243.125 against
+   245.125). A flex child of .player-toolbar was never an option either: it
+   would have spent the toolbar's horizontal room and moved the 1280 px wrap
+   threshold the owner accepted on 2026-10-30 (see .player-counters above).
+
+   What the page-head row buys, MEASURED with getAnimations() settled and
+   #puzzle-player-announce in its shipped 1 x 1 clipped state:
+   #puzzle-player-controls stays 74.797 px high at 1280 px and 38.797 px at
+   1440 px; .player-counters' share stays 186.234 / 346.234 px against the
+   same 263.656 px need; .page-head stays 52 px; and .player-board's top
+   stays 238.797 px at 1280 px and 202.797 px at 1440 px — the same figures
+   as before this line existed, empty and full.
+
+   THE RESIDUAL, declared rather than discovered later: the row has 659.86 px
+   beside the title at 1280 px (980 - h1 234.58 - tier badge 85.56), 643.86
+   after the 16 px gap, and the longest sentence this page can produce is
+   593.88 px ("Hint: look at column 15 - every placement of this column's
+   clues agrees on at least one cell."), so the line is 627.86 px wide at
+   1280 px and 787.86 px at 1440 px and the sentence fits whole at both. Below
+   about 1270 px it is ELLIPSISED, and that band is the residual. Nothing is
+   lost to a screen reader either way: .player-announce above still carries
+   every sentence in full, and the usage paragraph under the board now names
+   the ladder.
+
+   The phone is NOT left in that band, because at 390 px the title and the
+   tier badge leave the line 5.859 px — six pixels of text is not a visible
+   change, and shipping it would have put review F-2's defect straight back
+   for phone players. Below 820 px (CARD-193's own mirror breakpoint, reused
+   rather than invented) the line takes a row of its own in the head: 358 px
+   wide at 390 px, still exactly one nowrap line, so the head's height is
+   constant there too and a press still moves nothing. The board has 80.19 px
+   of slack at 390 x 844 (bottom 763.812 in an 844 px viewport), which is
+   where the row's 38.328 px comes from — the budget 1280 x 720 did not have.
+
+   The ::before zero-width space keeps the element exactly one line box tall
+   even while empty, so its own box never collapses (the suite screenshots
+   it, and a 0 px box cannot be screenshotted). MEASURED rather than assumed,
+   and the first attempt was wrong in a way worth leaving written down:
+   `min-height: calc(var(--text-sm) * var(--leading-base))` computes 22.32 px
+   while the line box an actual sentence makes is 22.328125 px — Chromium
+   rounds a used line-height to 1/64 px and a min-height to the raw value —
+   so a press moved the board 0.015625 px and the test caught it. A line box
+   reserves a line box exactly. The character is in CSS and not in the markup
+   so that the <p>'s textContent stays exactly the sentence (the suite reads
+   it) and an empty line is genuinely empty to a reader.
+
+   It is NOT animated — the fade belongs to the line highlight below, and
+   AC-10's reduced-motion rule has nothing to suppress here. */
+.player-head .player-explain { flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-head .player-explain::before { content: "\200B"; }
+.player-head .player-explain[hidden] { display: none; }
+@media (max-width: 820px) { .player-head .player-explain { flex-basis: 100%; } }
 .player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
 .player-solved[hidden] { display: none; }
 .player-solved .icon { flex: none; color: var(--color-success); }
@@ -1090,6 +1206,73 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell.is-crossed { background: var(--player-cross); }
 .player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
 .player-clue.is-crossed { background: var(--player-cross); }
+
+/* The hint ladder's line (CARD-269): rung 1 and rung 2 highlight the line
+   the next deduction lives on, and Check highlights the row of the first
+   wrong mark. solver.js puts .is-hint-line on every cell of that line and on
+   its clue box(es) — both twins on a CARD-212 doubled axis — and takes it off
+   again on the next recorded change. Four rules and one keyframe; nothing
+   else is added to the board, and no element.
+
+   A BACKGROUND, for the crosshair's reason (see above): the hinted cell's
+   accent outline, CARD-270's inset division, the clue circles' border and
+   the dot/"?" ::after content are all other channels, so a highlighted line
+   keeps every mark and every circle on it.
+
+   VISUALLY APART from the three things it can share a cell with, which is
+   what the card asks for:
+     - .is-hinted (CARD-183) is an accent OUTLINE plus a paper ring. Two
+       channels apart from a ground tint, and the one cell wearing it sits
+       inside the very line this highlights.
+     - .is-crossed (CARD-267) is also a ground tint, so these two are told
+       apart by HUE and not by channel: the crosshair takes the design
+       system's own hover ground (--color-surface-hover, warm paper) and this
+       takes --color-accent-tint (the accent's own pale green, the token for
+       exactly this job — an accent-coloured ground). Both are deliberate:
+       "the pointer is here" is the quieter of the two and keeps the quieter
+       token. The depth was A/B'd on rendered 15 x 15 boards against a
+       deliberately deeper mix (18 % accent into paper) and the token held;
+       both sets are in ~/Documents/nonogram-reviews/CARD-269. Worth one
+       sentence because the first reading of them was WRONG: the captures
+       were taken the instant after the press, which is mid-fade, and the
+       tint read as barely there. The fade is the positive control AC-10's
+       reduced-motion zero needs (above), so any future eyeball of this
+       colour has to wait for getAnimations() to settle first. Where a
+       crossed line and a highlighted line meet,
+       the HIGHLIGHT wins — it is the answer the player pressed a button for,
+       the crosshair only repeats where their pointer already is. That is
+       what the file order below buys: each rule here has the specificity of
+       its .is-crossed twin, so coming later is what settles it, and the
+       filled variant is spelled with the same [data-state="filled"] so it
+       can beat the crossed filled rule rather than losing to it.
+     - CARD-188's circles are a ring on the numeral's ::before, so a
+       highlighted clue box still shows every circle in it.
+
+   A filled cell needs its own rule for the crosshair's reason too: its
+   ground is --grid-ink, so the pale tint would repaint it and lose the mark.
+   It takes the tint MIXED into the ink instead — a different mix, of a
+   different token, from the crossed filled cell's, so a line that is both
+   highlighted and crossed still reads as one line and not as two.
+
+   The tint fades in (AC-335 extends CARD-183's no-animation rule to it): the
+   keyframe drives background-color from transparent, and the
+   prefers-reduced-motion block above already covers .player-stage * with
+   `animation: none !important`, so under reduced motion the same highlight
+   simply appears. The animation is the positive control that the reduced
+   zero is real.
+
+   No token is added to tokens.css, for the crosshair's reason, stated once
+   there: tokens.css is mirrored verbatim from meta/design/tokens.css and a
+   highlight tint is a value DERIVED from design tokens for one component,
+   not a design-system colour. Every value here is a token or a token-only
+   calc()/color-mix(), checked per rule by
+   test_the_hint_line_tint_comes_from_tokens (AC-10). */
+.player-stage { --player-hint-line: var(--color-accent-tint); --player-hint-line-ink: color-mix(in srgb, var(--color-accent-tint) 24%, var(--grid-ink)); }
+.player-cell.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line[data-state="filled"] { background: var(--player-hint-line-ink); }
+.player-clue.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line, .player-clue.is-hint-line { animation: player-hint-line-in calc(2 * var(--duration-base)) var(--ease); }
+@keyframes player-hint-line-in { from { background-color: transparent; } }
 
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the

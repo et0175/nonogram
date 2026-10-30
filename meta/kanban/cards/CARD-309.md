@@ -1,9 +1,9 @@
-# CARD-309: The five interior page kinds become operators — each declaration removed by the card that earns it, and ADR-0042/R1 flips when the last one lands
+# CARD-309: The assembly point, and the puzzle page becomes operators — the half of the conversion that is architecture rather than repetition
 
 **Status:** ready
 **Priority:** P2
 **Category:** enabler
-**Estimate:** 1d
+**Estimate:** 1.5d <!-- RE-ESTIMATED 2026-10-30 at the split. The 1d covered five conversions, an assembly point that does not exist, 21 baselines, R1's flip, CARD-297's divergence and a reader population measured at 12+8 modules. CARD-308 had this shape today -- architectural with a frozen artefact to move -- and came in at 3.0x. This card now carries the assembly point and ONE kind; CARD-322 carries the other four. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -15,7 +15,8 @@
 **Wave:** 68
 **Created wave:** 65
 **Deferred waves:** 0
-**Depends on:** CARD-298, CARD-299, CARD-306
+**Depends on:** CARD-298, CARD-299, CARD-306, CARD-314
+**Split into:** CARD-309 (this card: the assembly point + the puzzle page) and **CARD-322** (the remaining four kinds, R1's flip, CARD-297's divergence)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_toc_vector.py, src/nonogram/admin/book_answer_vector.py, src/nonogram/admin/book_puzzle_vector.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
 **Started:** —
@@ -42,48 +43,74 @@ discharges five `expires_with` entries, and the answer was nobody.
 This card is that work, and the five declarations CARD-298 ships name **this card**
 as the one that removes them.
 
+## [SPLIT 2026-10-30, on owner decision] This card is now the first half
+
+**Why it was split.** The card was estimated **1d** and contained: an assembly point that **does not
+exist**, five kind conversions, 21 baselines, ADR-0042/R1's flip, CARD-297's clip divergence, and a
+reader population measured at **12 modules plus 8 more its own AC-3 cannot see**. CARD-308 had the
+same shape today — architectural, with a frozen artefact to move — and came in at **3.0×**.
+
+**The split follows the card's own design rather than overriding it.** Its item 1 already said *"one
+kind at a time, each removal complete… that refusal is the mechanism CARD-298 built and it is what
+makes this card incremental rather than all-or-nothing."* The seam was already there.
+
+**This card takes the architecture; CARD-322 takes the repetition.** The puzzle page is the only
+writer the interior's walk can already reach, and both of its prerequisites have landed —
+**CARD-306** gave it its sheet furniture, so it no longer ships pages with no folio, and **CARD-314**
+marked its clue digits so CON-020 stays verifiable by the mark rather than by the size.
+
+### THE CONSTRAINT THAT SHAPES THIS CARD — read before planning
+
+`tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it` is **live**, and its
+own docstring says it is *"the cell that reds **the day CARD-309 is marked done**"* if its
+declarations remain. **All five kinds currently name CARD-309 in `expires_with`** — measured:
+TITLE, GUIDE, TOC, ANSWER and PUZZLE each carry `('CARD-299', 'CARD-309')`.
+
+**So this card cannot be marked done while four of those declarations still name it.** That is a
+**shipped-code obligation, not card bookkeeping**, and it is this card's to pay:
+
+- **remove PUZZLE's declaration** (its kind converts here), and
+- **re-point TITLE, GUIDE, TOC and ANSWER to `('CARD-299', 'CARD-322')`**, with a comment saying the
+  conversion was split and why.
+
+**Get this wrong and the merge gate finds it, not the review** — that guard is outside this card's
+impact radius, exactly like the two frozen registries that reddened CARD-314's and CARD-269's gates
+within one hour today.
+
 ## What to implement
 
-1. **One kind at a time, each removal complete.** For each of TITLE, GUIDE, TOC,
-   ANSWER and PUZZLE: wire the vector writer into the interior's page walk, delete
-   that kind's entry from `_RASTER_DECLARATIONS`, and let `_write_pdf`'s
-   representation refusal prove the removal is complete — a kind whose declaration
-   is gone but whose page is still a bitmap is **refused**, not shipped. That
-   refusal is the mechanism CARD-298 built and it is what makes this card
-   incremental rather than all-or-nothing.
-2. **The assembly point the layering currently forbids.** `book_guide_vector`,
-   `book_toc_vector` and `book_answer_vector` **all import `book_pdf_generator` at
-   module level** (`:103`, `:60`, `:62`), while `book_pdf_generator:400` imports
-   `book_puzzle_vector`. So the interior's page walk can call the puzzle writer and
-   **cannot call the other three without a cycle**. Three of the five kinds need an
-   assembly point downstream of all of them, and **it does not exist**. Design it,
-   do not work around it: an import-direction violation is a structural guard
-   failure in `tests/test_cli.py`, not a style question.
-3. **ADR-0042/R1 flips here, and only when the last kind lands.** Not before.
-   CARD-298 and CARD-299 each refused this flip on their own initiative and were
-   each right: a test asserting "every page is the medium its kind declares" passes
-   **while R1 is violated** as long as any interior kind is a declared exception.
-   R1's check becomes a live node id in the same commit as the final conversion.
-4. **The 21 baselines move here — this is the card that owns the byte-identity
-   cost.** It is the scoped, enumerated exception to the standing
-   never-regenerate rule, withdrawn from CARD-298 when that card was narrowed.
-   Enumerate them file by file in the worktree notes so a reviewer can count them
-   without running anything, and record the interior's size and generation time
-   with the load average at both ends (CARD-292's AC-6 convention).
-5. **Delete CARD-297's `_DECLARED_CLIP_DIVERGENCE` when the answer page converts.**
-   Round 1's position, recorded on CARD-298 and CARD-299 and still unchallenged:
-   once the answer page is vector there is **one** answer-page writer, and the book
-   clips by `/Widths` — the measure the reader's own viewer uses — so the
-   declaration becomes a statement about a page nobody prints. **It should be
-   deleted by this card, not inherited.** Verify the argument before acting on it;
-   it has never been tested against a converted page.
+1. **Build the assembly point. This is the card.** `book_guide_vector`, `book_toc_vector` and
+   `book_answer_vector` **all import `book_pdf_generator` at module level**, while
+   `book_pdf_generator` imports `book_puzzle_vector`. So the interior's page walk can call the puzzle
+   writer and **cannot call the other three without a cycle**. Three of five kinds need an assembly
+   point **downstream of all of them, and it does not exist.** **Design it, do not work around it** —
+   an import-direction violation is a structural guard failure in `tests/test_cli.py`, not a style
+   question. **CARD-306 already built `book_sheet_vector.py` kind-agnostic for all five kinds**, with
+   an import set asserted by set equality precisely to avoid this cycle; the furniture is ready and
+   the assembly point is what is missing.
+2. **Convert the puzzle page**, delete PUZZLE's entry from `_RASTER_DECLARATIONS`, and let
+   `_write_pdf`'s representation refusal prove the removal is complete — a kind whose declaration is
+   gone but whose page is still a bitmap is **refused, not shipped**.
+3. **Re-point the other four declarations to CARD-322** (see the constraint above).
+4. **Do NOT flip ADR-0042/R1.** R1 is true only when all four remaining kinds are operators too.
+   CARD-298 and CARD-299 each refused this flip on their own initiative and were each right; so must
+   this card. **R1's flip is CARD-322's, with the last conversion.**
+5. **The readers the puzzle page's conversion reaches.** AC-3's twelve are derived from the import of
+   the one-image reader; **eight further modules reach the same hazard through
+   `.interior()`/`.interior_pages()`** and are invisible to that derivation — see the section below.
+   **Derive which of both populations this kind's conversion actually breaks**, per module, and fix
+   those. Per ADR-0039/R2 a module the walk cannot classify is a **FAILURE**, not a silent pass.
+6. **The baselines this kind moves, enumerated.** Puzzle pages are most of a book, so most of the 21
+   move here. **List them file by file** so a reviewer can count them without running anything, and
+   record the interior's size and generation time at both ends.
 
 ## Acceptance criteria
 
-- **AC-1** (R1 is true and checked): *Given* a written interior, *then* no page of
-  the five converted kinds references an image XObject, `_RASTER_DECLARATIONS`
-  holds only the cover and (until CARD-231) the divider, and **ADR-0042/R1's
-  `check:` is a live node id naming the test that proves it**.
+- **AC-1** (the puzzle page is operators, and the declarations are honest): *Given* a written
+  interior, *then* **no puzzle page references an image XObject**, PUZZLE's entry is **gone** from
+  `_RASTER_DECLARATIONS`, and the four remaining entries **name CARD-322**, not this card — so
+  `test_no_declaration_outlives_the_cards_that_remove_it` is green on the day this card is marked
+  done. **R1's flip is NOT this card's** (see item 4).
 - **AC-2** (each removal is complete, proved by refusal): *Given* a kind whose
   declaration is removed, *then* a bitmap handed in for that kind is **refused by
   the writer**. (**Two mutants per ADR-0039/R1**, one inside the region and one at
@@ -101,13 +128,19 @@ as the one that removes them.
   grep only because THREE OF ITS NODE IDS END IN `_pdf_pages`. A mention count is
   not a reader count. --> A module that needs a further edit here is a **finding about
   CARD-299's completeness**, to be raised, not absorbed.
+  <!-- AC-3's DERIVATION HAS A BLIND SPOT, measured 2026-10-30 — see the section
+  "AC-3 counts readers by an import name" below. The twelve are derived from the
+  IMPORT of the one-image reader, and EIGHT further modules reach the same hazard
+  by a different route: they call `.interior()`/`.interior_pages()` and use the
+  returned pages as images. They are invisible to this AC as written. Read AC-3 as
+  covering both populations. -->
 - **AC-4** (the baselines move once, enumerated): *Given* the branch, *then* the
   re-recorded baselines are listed file by file in the card, the count is stated,
   and **CON-019's property test and the A4 golden are untouched and green**.
-- **AC-5** (the clip divergence is resolved, not inherited): *Given* the converted
-  answer page, *then* `_DECLARED_CLIP_DIVERGENCE` is either deleted with the
-  measurement that justifies it, or **kept with a new argument that names the
-  converted page** — silence is not an option.
+- **AC-5** (the assembly point is real architecture, not a workaround): *Given* the branch, *then*
+  the three downstream writers are reachable from the interior's page walk **with no import-direction
+  violation** — asserted by `tests/test_cli.py`'s structural guard, which must pass **unmodified**.
+  A card that edits that guard to accept its own layering has removed the thing that was checking it.
 - **AC-6** (an owner render exists): *Given* the converted interior, *then* a
   rendered interior is produced under `~/Documents/nonogram-reviews/CARD-309/`.
   **Standing rule: image-pipeline changes need a rendered eyeball, not just green
@@ -269,3 +302,67 @@ Also worth carrying, both measured on CARD-306's branch and relevant here:
   and that is this card's work.
 - Guide, TOC and answer pages currently carry **no frame at all**. CARD-306 declared that a
   residual and named it as this card's.
+
+## [Added 2026-10-30] AC-3 counts readers by an import name, and eight modules arrive by another road
+
+**Raised from an owner question about CARD-288's relevance, and measured rather than assumed.**
+
+AC-3's twelve are derived from *"modules that import `tests/helpers/pdf_pages.py`'s one-image
+reader"*. That derivation is correct about what it measures and **blind to a second population
+that hits the same wall**: modules that never parse a written PDF at all, because they call
+**`BookPDFGenerator.interior()` / `.interior_pages()`** and consume the result directly.
+`interior_pages` is declared `-> List[Image.Image]`. **The day a kind converts, it stops being
+that**, and `_write_pdf`'s own representation refusal already says so in the form these modules
+will meet it: *"… page, but arrived as `<type>`"*.
+
+**Derived 2026-10-30** by walking `tests/**/*.py` for the reader import and for `.interior(` /
+`.interior_pages(` call sites:
+
+| set | count |
+|---|---|
+| **A** — imports the one-image reader (AC-3's derivation) | 14 modules |
+| **B** — calls `.interior()` / `.interior_pages()` | 14 modules |
+| **A ∩ B** | 6 |
+| **B \ A — consume generator page objects and AC-3 cannot see them** | **8** |
+
+| module in B \ A | image-shaped uses of the returned pages | `len(pages)` checks |
+|---|---:|---:|
+| `tests/test_book_puzzle_frame.py` | 35 | 7 |
+| `tests/test_book_pdf_two_up.py` | 22 | 16 |
+| `tests/property/test_book_pdf_geometry.py` | 17 | 2 |
+| `tests/test_book_difficulty_dots.py` | 14 | 1 |
+| `tests/test_book_cell_size.py` | 12 | 0 |
+| `tests/test_book_divider_pages_option.py` | 2 | 1 |
+| `tests/test_book_pdf_levels.py` | 2 | 2 |
+| `tests/property/test_book_pairing.py` | 1 | 3 |
+
+"Image-shaped uses" counts `.size`/`.crop`/`.convert`/`.getpixel`/`.load`/`.resize`/`.getbbox`,
+`np.asarray(...)` and the ink readers. **All eight use the pages as images.**
+
+**What is measured and what is not.** Measured: the eight modules, the two sets, and that every one
+of them treats the returned pages as images. **Not measured: which of them actually breaks.** That
+depends on *which page kinds each one indexes* and whether those kinds convert — a module that only
+reads the cover or the dividers is unaffected, and several take `len(pages)` only. **Deriving that
+per-module is this card's job, and it should be done before the first kind converts, not after the
+first red.** Per ADR-0039/R2, a module the walk cannot classify is a FAILURE, not a silent pass.
+
+**The one worked example, because it is the suite's densest file.**
+`tests/property/test_book_pdf_geometry.py` indexes **puzzle pages specifically**
+(`pages[3 + toc_page_count + index]`) and calls `drawing_of` on them. It imports the one-image
+reader **zero** times — CARD-299's fix round was right to strike it from the count — and it is in
+`B \ A` with 17 image-shaped uses. CARD-314's round measured the shape it will meet: lifting the
+puzzle page's raster declaration gives *"page 6 is a vector puzzle page, but arrived as Image"*.
+
+**Why the oracle does not save it.** ADR-0042/R6 declares *"independent second-implementation
+oracles (`Sheet` and its kind) are unaffected and still compared against — **only the reading of
+the artefact changes**"*. `Sheet` lives in that file at `:124`. So R6 **protects the assertions and
+explicitly requires the reading to change** — which is the work AC-3 is about, for a module AC-3
+cannot see.
+
+**Scheduling consequence for CARD-288**, which is what prompted this. CARD-288 optimises *how those
+four tests obtain their pages* — 3820 drawn to read 1033. **It must run AFTER this card**, or the
+optimisation is designed against a page-obtaining mechanism this card replaces, and the work is
+done twice. CARD-288 is otherwise intact: its subject file is untouched since its 2026-10-24
+census, all four tests are present by name, and its headline figure carries an **independent
+corroboration within 1.7%** — which is exactly what CARD-220's review found the 20261023 rankings
+lack elsewhere (overstated **4.8×–10.3×** as a small selection).

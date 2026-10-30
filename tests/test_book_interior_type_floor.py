@@ -38,8 +38,11 @@ from __future__ import annotations
 
 import ast
 import inspect
+import random
+import re
 import sys
 import textwrap
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,7 +50,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
-from nonogram.admin import book_pdf_generator
+from nonogram.admin import (
+    book_answer_vector,
+    book_guide_vector,
+    book_pdf_generator,
+    book_toc_vector,
+    book_vector,
+    book_vector_draw,
+)
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 
@@ -478,19 +488,30 @@ def draws_clue_digits(kind: str) -> bool:
     )
 
 
-#: The page kinds whose stream a floor **cannot** be read off, **derived**
-#: from ``src/`` rather than listed (review cycle 1's F-001).
+#: The page kinds whose streams **must carry the clue-digit mark**, **derived**
+#: from ``src/`` rather than listed (CARD-299 review cycle 1's F-001).
 #:
-#: Why the set and not just the puzzle page: CON-020's clue-digit exemption is
-#: keyed on the **function that draws** and a content stream records no
-#: provenance, so a stream-read floor cannot tell an exempt clue digit from
-#: body type on any page that draws one. Measured on this branch's baseline
-#: interior, the exempt sub-floor faces live on **two** kinds, and the answer
-#: page holds the larger share: ``('answer', 8.64 pt): 258`` and
-#: ``('puzzle', 8.64 pt): 204``. Round 1's refusal was keyed on ``"puzzle"``
+#: This set was CARD-299's *refusal* list — the kinds whose stream a floor
+#: could not be read off at all, because CON-020's exemption is keyed on the
+#: **function that draws** and a content stream recorded no provenance.
+#: CARD-314 put the provenance in the stream, so the set changed job rather
+#: than contents: it is now the two-sided bound on the mark. A kind **in** it
+#: whose page carries no mark is a failure (the writer's claim is missing,
+#: AC-3); a kind **not** in it whose page carries one is a failure (the mark is
+#: over-applied, AC-4). Both are in :func:`stream_faces`.
+#:
+#: Why the set and not just the puzzle page: the exempt sub-floor faces live on
+#: **two** kinds, and the answer page holds the larger share. Re-derived on
+#: this branch at ``4d164f62``, which is ``main``'s tip with CARD-306 in:
+#: **Book 1** has ``('answer', 8.64 pt): 258`` and ``('puzzle', 8.64 pt): 204``
+#: — 462 in all, which is the figure CARD-299 and CARD-314 both quote — and the
+#: **10 cm minimum trim** adds ``('answer', 3.60 pt): 258``,
+#: ``('answer', 5.52 pt): 64``, ``('puzzle', 3.60 pt): 204``,
+#: ``('puzzle', 5.76 pt): 54`` and ``('puzzle', 8.40 pt): 64``, for 1106 across
+#: the corpus this module walks. CARD-299's refusal was keyed on ``"puzzle"``
 #: alone, so the day ``PageKind.ANSWER``'s declaration lifted it would have
-#: reported 258 false CON-020 violations — the exact failure the refusal
-#: exists to prevent.
+#: reported 258 false CON-020 violations on Book 1 alone — the exact failure
+#: the refusal existed to prevent.
 #:
 #: The derivation is :func:`draws_clue_digits` over :func:`vector_writer_sources`,
 #: and its control is
@@ -513,22 +534,32 @@ class StreamFace:
     ``kind`` here is the page's own :class:`PageKind` value and not one of the
     spy's five semantic kinds.
 
-    **There is no ``exempt`` here, and that absence is the point** — round 1's
-    docstring pointed at a ``:meth:`exempt`` it never wrote, which review
-    cycle 1 raised as F-007. :attr:`TextCall.exempt` can exist because the spy
-    sees the call chain; a content stream carries no provenance at all, so this
-    class has nothing to key an exemption on and does not pretend to. The
-    exemption is therefore honoured one level up, by :func:`stream_faces`
-    **refusing** every page kind that draws clue digits
-    (:data:`CLUE_DIGIT_KINDS`), which is a statement about the page rather
-    than about the face — and refusing by kind rather than by size, because
-    exempting 8.64 pt by its value would exempt a body face that happened to
-    measure 8.64 pt.
+    **This class had no ``exempt`` until CARD-314, and that absence used to be
+    the point.** CARD-299's version said so in as many words: "a content stream
+    carries no provenance at all, so this class has nothing to key an exemption
+    on and does not pretend to", and the exemption was honoured one level up by
+    :func:`stream_faces` **refusing** every page kind that draws clue digits.
+    That was correct and it was a hole with a date on it — the day CARD-309
+    converts such a page, CON-020 has no verifying reading for it.
+
+    CARD-314 closes it by **putting the provenance in the stream**: a vector
+    page's clue digits are written inside a
+    :data:`~nonogram.admin.book_vector.CLUE_DIGIT_TAG` marked-content sequence,
+    emitted by ``book_vector_draw.draw_clue_digits`` and by nothing else, so a
+    reading can recover "this text run is a clue digit" from the shipped file.
+    :attr:`exempt` is that mark and **nothing else** — never the face's size:
+    a body face measuring a clue digit's 8.64 pt arrives here ``exempt=False``
+    and is reported, which is CARD-314's AC-2.
+
+    ``kind`` is still the page's own :class:`PageKind` value and not one of the
+    spy's five semantic kinds — the mark says *clue digit or not*, which is the
+    one distinction CON-020 needs, and does not reconstruct the call chain.
     """
 
     page: int
     kind: str
     points: float
+    exempt: bool = False
 
     def describe(self) -> str:
         return f"page {self.page} {self.kind} (stream): {self.points:.2f} pt"
@@ -541,6 +572,25 @@ def stream_faces(generator: BookPDFGenerator, puzzles) -> List[StreamFace]:
     from the **file**, zipped ``strict=True``, so a plan that does not describe
     the file it wrote is a failure rather than a short walk — the same pairing
     ``tests/test_book_pdf.py::_media_by_kind`` uses, and for the same reason.
+
+    **CARD-314 replaced CARD-299's refusal with a reading** (that card's AC-1).
+    Round 1 asserted ``kind.value not in CLUE_DIGIT_KINDS`` — a default-DENY on
+    every page kind whose writer draws clue digits, because the exemption is
+    keyed on the drawing function and a stream recorded no caller. It now reads
+    those pages, and exempts a face **by the mark its writer emitted**
+    (:func:`~tests.helpers.pdf_vector.marked_type_sizes`) rather than by its
+    size. Three bounds hold that honest, and all three are failures rather than
+    skips (ADR-0039/R2):
+
+    * a kind whose writer draws clue digits whose stream carries **no mark at
+      all** is refused — the writer's claim is missing, so nothing here can
+      tell its exempt digits from body type, and the 8.64 pt residue must not
+      be exempted on a guess *or* reported as ~204 false violations (AC-3);
+    * a face marked on a page whose writer draws **no** clue digits is refused
+      — the mark is over-applied, and the guide's worked example is exactly the
+      clue digit CON-020 does **not** exempt (AC-4);
+    * an unbalanced bracket raises out of ``marked_type_sizes`` — an exemption
+      with no readable extent.
     """
     kinds = generator.interior_stream(puzzles).page_kinds
     data = generator.export_interior(puzzles).getvalue()
@@ -556,34 +606,189 @@ def stream_faces(generator: BookPDFGenerator, puzzles) -> List[StreamFace]:
         )
         if medium != pdf_vector.VECTOR:
             continue
-        assert vector_writer_sources(kind.value), (
-            f"interior page {number} ({kind.value}) is written as operators, "
-            "but no vector writer for that kind exists in src/ — neither "
-            f"book_{kind.value}_vector.py nor "
-            f"BookPDFGenerator.vector_{kind.value}_page. So nothing here can "
-            "say whether its faces are exempt, and an unclassifiable shape is "
-            "a FAILURE and never a silent pass (ADR-0039/R2). The card that "
-            "wrote that page owes this file its writer's name."
-        )
-        assert kind.value not in CLUE_DIGIT_KINDS, (
-            f"interior page {number} is a VECTOR {kind.value} page, whose "
-            "writer draws clue digits, and CON-020's clue-digit exemption has "
-            "no counterpart in a content stream: the exemption is keyed on the "
-            "function that draws (png._draw_clues / _write_clues / "
-            "book_vector_draw.draw_clue_digits) and a stream records no "
-            "provenance. Measured on this branch's baseline interior, the "
-            "exempt sub-floor faces are ('answer', 8.64 pt): 258 and "
-            "('puzzle', 8.64 pt): 204 — so a stream-read floor cannot tell "
-            "them from body type on either kind. The card that converts this "
-            "page owes the stream a way to mark its clue digits (CARD-314); "
-            f"the refused kinds are derived, and today they are "
-            f"{sorted(CLUE_DIGIT_KINDS)}."
-        )
-        faces.extend(
-            StreamFace(number, kind.value, size)
-            for size in pdf_vector.type_sizes(stream)
-        )
+        faces.extend(faces_on_page(number, kind.value, stream))
     return faces
+
+
+def faces_on_page(number: int, kind: str, stream: str) -> List[StreamFace]:
+    """Every face of **one** vector page, exempt by its mark (CARD-314).
+
+    Split out of :func:`stream_faces` so the reading can be exercised on a page
+    production's own writers really emit. ``export_interior`` cannot yet hand
+    one over — every :class:`PageKind` is a declared raster exception and the
+    page conversion is CARD-309's, so lifting ``PageKind.PUZZLE``'s declaration
+    raises ``"page 6 is a vector puzzle page, but arrived as Image"`` out of the
+    generator's own walk (measured on this branch). A test that monkeypatched
+    ``page_media`` into saying VECTOR would instead read a **raster** page's
+    stream, which is ``/image Do`` with no ``Tf`` in it at all: the refusal
+    CARD-299 asserted fired on the page *kind*, before any reading, so it never
+    needed a real stream. The bounds below do, so this is the door they knock
+    on.
+    """
+    assert vector_writer_sources(kind), (
+        f"interior page {number} ({kind}) is written as operators, "
+        "but no vector writer for that kind exists in src/ — neither "
+        f"book_{kind}_vector.py nor "
+        f"BookPDFGenerator.vector_{kind}_page. So nothing here can "
+        "say whether its faces are exempt, and an unclassifiable shape is "
+        "a FAILURE and never a silent pass (ADR-0039/R2). The card that "
+        "wrote that page owes this file its writer's name."
+    )
+    read = pdf_vector.marked_type_sizes(stream)
+    marked = [face for face in read if face.exempt]
+    if kind in CLUE_DIGIT_KINDS:
+        assert marked, (
+            f"interior page {number} is a VECTOR {kind} page, whose "
+            "writer draws clue digits, and its stream carries no "
+            f"/{pdf_vector.CLUE_DIGIT_TAG} mark on any of its "
+            f"{len(read)} face(s). CON-020's clue-digit exemption is keyed "
+            "on the function that draws (png._draw_clues / _write_clues / "
+            "book_vector_draw.draw_clue_digits) and a content stream "
+            "records no caller, so without the mark this reading has only "
+            "two wrong answers available: report every sub-floor digit as "
+            "a violation, or exempt 8.64 pt BY ITS VALUE and with it any "
+            "body face that happens to measure the same. An unanalysable "
+            "shape is a FAILURE (ADR-0039/R2, CARD-314 AC-3). The writer "
+            "owes this page its mark."
+        )
+    else:
+        assert not marked, (
+            f"interior page {number} is a VECTOR {kind} page, and "
+            f"{len(marked)} of its faces are marked "
+            f"/{pdf_vector.CLUE_DIGIT_TAG} — but no vector writer of that "
+            "kind calls a clue-digit drawer (CLUE_DIGIT_KINDS is derived "
+            f"from src/ and is {sorted(CLUE_DIGIT_KINDS)}). The mark is a "
+            "claim about provenance, so a page claiming it without drawing "
+            "one is over-applying it, and an over-applied mark exempts "
+            "body type from CON-020. The guide page's worked example is "
+            "exactly that case: its clue digits are the reader's "
+            "instruction text and are NEVER exempt (CARD-314 AC-4)."
+        )
+    return [
+        StreamFace(number, kind, face.points, face.exempt) for face in read
+    ]
+
+
+def real_vector_stream(kind: str) -> str:
+    """One page of ``kind`` as **production's own vector writer** emits it.
+
+    CARD-314. Every bound in :func:`faces_on_page` is about what a real writer
+    puts in a real stream, so none of them is exercised on a hand-built one:
+    each entry below is the same call ``BookPDFGenerator`` or its page module
+    makes, on this module's own corpus book, and the text is the ``operators``
+    joined exactly as :func:`~nonogram.admin.book_vector.ContentStream.render`
+    would write them.
+
+    Why not ``export_interior``: the page conversion is CARD-309's and is not
+    wired, so lifting a :data:`PageKind`'s raster declaration raises
+    ``"page 6 is a vector puzzle page, but arrived as Image"`` out of the
+    generator's own walk. :func:`faces_on_page`'s docstring has the rest.
+
+    Raises:
+        AssertionError: ``kind`` has no entry. A page kind nobody mapped is a
+            kind nothing here can read, and ADR-0039/R2 makes that a failure
+            rather than a skipped case — which also means a kind a future card
+            teaches to draw clue digits fails this file until it is wired, the
+            same way :data:`CLUE_DIGIT_KINDS` is derived rather than listed.
+    """
+    builder = _REAL_VECTOR_STREAMS.get(kind)
+    assert builder is not None, (
+        f"{kind!r} has no vector-page builder in this module, so CON-020's "
+        f"stream arm cannot be exercised on it. Known: "
+        f"{sorted(_REAL_VECTOR_STREAMS)}"
+    )
+    return "\n".join(builder().operators)
+
+
+def _real_puzzle_stream():
+    generator = BookPDFGenerator(corpus_book())
+    payload = BookPDFGenerator._payload(baseline_puzzles()[0])
+    return generator.vector_puzzle_page(
+        payload, 1, 1, generator.cell_sizes([payload])
+    )
+
+
+def _real_answer_stream():
+    generator = BookPDFGenerator(corpus_book())
+    payload = BookPDFGenerator._payload(baseline_puzzles()[0])
+    page_number = BASELINE_PAGE_COUNT
+    return book_answer_vector.answer_page(
+        generator.page_spec(page_number),
+        generator.dpi,
+        payload,
+        1,
+        page_number,
+        None,
+    )
+
+
+def _real_guide_stream():
+    generator = BookPDFGenerator(corpus_book())
+    pages = book_guide_vector.guide_pages(
+        generator.page_spec,
+        generator.dpi,
+        puzzle_count=len(baseline_puzzles()),
+        easy_count=len(baseline_puzzles()),
+    )
+    return pages[0].stream
+
+
+def _real_toc_stream():
+    generator = BookPDFGenerator(corpus_book())
+    # The rows are not this test's subject — whether a real TOC page carries
+    # the clue-digit mark is — so they are the production row type with
+    # production labels rather than a second derivation of the page plan.
+    rows = [
+        book_pdf_generator.TocEntry(book_pdf_generator.GUIDE_TITLE, 2),
+        book_pdf_generator.TocEntry("Easy", None),
+        book_pdf_generator.TocEntry("Puzzles 1-10", 6),
+        book_pdf_generator.TocEntry(
+            book_pdf_generator.TOC_SOLUTIONS_LABEL, 12, starts_group=True
+        ),
+    ]
+    return next(
+        iter(
+            book_toc_vector.toc_pages(
+                rows, generator.page_spec, generator.dpi, 4
+            )
+        )
+    )
+
+
+#: One builder per page kind this module can read a real operator page of.
+#: Mapped rather than branched so :func:`real_vector_stream` can name what it
+#: does not know (ADR-0039/R2); ``divider`` and ``cover`` are absent because no
+#: vector writer for them exists (CARD-231, ADR-0042/R2) and ``title`` because
+#: AC-283 leaves that page blank, so it sets no face to judge.
+_REAL_VECTOR_STREAMS = {
+    "puzzle": _real_puzzle_stream,
+    "answer": _real_answer_stream,
+    "guide": _real_guide_stream,
+    "toc": _real_toc_stream,
+}
+
+
+@contextmanager
+def _no_clue_digit_mark(monkeypatch):
+    """``draw_clue_digits`` with its mark dropped, and nothing else changed.
+
+    AC-3's mutant, planted at the **one chokepoint** that emits the tag — so
+    what the missing-mark bound is shown on is a real writer's real page minus
+    exactly the claim, rather than a stream assembled to be missing it.
+
+    The emitter is stubbed rather than the drawer rewritten, because
+    ``draw_clue_digits`` is imported by name into both page modules
+    (``from ... import draw_clue_digits``): patching the function would leave
+    those bindings pointing at the original, which is the silent-no-op shape
+    this file is full of warnings about. ``begin_marked``/``end_marked`` are
+    looked up on the instance at call time, so patching the class reaches every
+    caller — and the pair is dropped **together**, so the stream stays balanced
+    and the failure under test is the missing mark and not an imbalance.
+    """
+    with monkeypatch.context() as context:
+        context.setattr(book_vector.ContentStream, "begin_marked", lambda *a: None)
+        context.setattr(book_vector.ContentStream, "end_marked", lambda *a: None)
+        yield
 
 
 _STREAM_FACES: Dict[str, List[StreamFace]] = {}
@@ -604,11 +809,19 @@ def below_floor_in_its_medium(book: str) -> List[str]:
     The union of the two arms, which is what makes the claim whole: a kind
     that converts moves from the left arm to the right one, and neither arm
     going quiet can take a face out of the judgment.
+
+    **Both arms now honour the exemption the same way, and neither honours it
+    by size** (CARD-314). The left arm reads the drawing function off the spy's
+    call chain (:attr:`TextCall.exempt`); the right arm reads the mark the
+    writer put in the stream (:attr:`StreamFace.exempt`). The two are the same
+    statement — *this face was set by a clue-digit drawer* — carried by the two
+    media's different means, which is what lets a page change medium without
+    changing what CON-020 claims about it (G-1).
     """
     return below_floor(recording(book, arial=True)) + [
         face.describe()
         for face in stream_recording(book)
-        if face.points < FLOOR_PT
+        if face.points < FLOOR_PT and not face.exempt
     ]
 
 
@@ -965,20 +1178,34 @@ class TestInteriorType_TheStreamArmIsReached:
 
         The declaration is lifted exactly as ``tests/test_book_pdf.py``'s
         mixed-file test lifts it, so the file walked is the file a converted
-        book will hold. ``type_sizes`` is wrapped rather than asserted *about*,
+        book will hold. The reader is wrapped rather than asserted *about*,
         because the question is whether the arm **called** it: a reader that
         fell through to the spy would leave the wrapper untouched and the
         recorded page list empty.
+
+        **The wrapped reader is ``marked_type_sizes`` since CARD-314**, which
+        is the one this arm now reads with: the exemption is the mark, so a
+        wrapper left on the size-only ``type_sizes`` would sit on a function
+        the arm no longer calls.
+
+        What that would have cost is stated here as it was **measured** rather
+        than as it was first feared (CARD-314 fix round 1, F-007). Reverting
+        the wrapper to ``pdf_vector.type_sizes`` on this branch reds this test
+        — 1 failed — because the assertion below is ``len(asked) == 1`` and an
+        arm that never called the wrapped reader leaves ``asked`` empty. So the
+        hazard was a test going **RED, correctly**, and not a test going
+        silently vacuous; this test is fail-closed in that direction, and the
+        body was updated under the same name.
         """
         monkeypatch.delitem(
             book_pdf_generator._RASTER_DECLARATIONS,
             book_pdf_generator.PageKind.TITLE,
         )
         asked: List[str] = []
-        original = pdf_vector.type_sizes
+        original = pdf_vector.marked_type_sizes
         monkeypatch.setattr(
             pdf_vector,
-            "type_sizes",
+            "marked_type_sizes",
             lambda stream: (asked.append(stream), original(stream))[1],
         )
 
@@ -1016,8 +1243,11 @@ class TestInteriorType_TheStreamArmIsReached:
         exemption is keyed on the drawing function (``png._draw_clues`` /
         ``_write_clues``) and a content stream records no provenance, so this
         floor cannot honour the exemption it must honour. That is why
-        :func:`stream_faces` refuses a vector puzzle page by name instead of
-        reporting 205 false violations or exempting 8.64 pt by its value.
+        CARD-299's :func:`stream_faces` refused a vector puzzle page by name
+        instead of reporting 205 false violations or exempting 8.64 pt by its
+        value — and why **CARD-314 marks the digits in the stream** instead, so
+        that the exemption survives the conversion. The sizes below are
+        unchanged by that: a marked-content bracket sets no type.
         """
         generator = BookPDFGenerator(corpus_book())
         payload = BookPDFGenerator._payload(baseline_puzzles()[0])
@@ -1039,41 +1269,387 @@ class TestInteriorType_TheStreamArmIsReached:
             "card's finding about the clue-digit exemption has no subject"
         )
 
-    def test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits(
+    def test_a_vector_puzzle_page_with_no_clue_digit_mark_is_refused(
         self, monkeypatch
     ):
-        """The default-DENY arm: an unreadable shape FAILS (ADR-0039/R2).
+        """AC-3's default-DENY arm: the MARK is missing, so the page FAILS.
 
-        A page kind whose exemption the stream cannot express is refused by
-        name, naming what it would take to read it. A reading that instead
-        skipped the page, or exempted 8.64 pt because that is what clue digits
-        happen to measure, would be the silent pass the rule forbids — the
-        second would exempt a *body* face that happened to be 8.64 pt.
+        What this test builds is the mutant, not the shipped page. The page
+        CARD-314 ships is **read**, and its clue digits are read as clue digits
+        (:meth:`test_a_marked_vector_page_is_read_and_exempted_by_the_mark`);
+        the page refused here is that same page **with its writer's mark
+        dropped**, which is why the name says ``with_no_clue_digit_mark``.
+        (Renamed in CARD-314 fix round 2 under an owner override of G-6, from
+        ``test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits``
+        — a name that stated the pre-card contract CARD-299 shipped and that
+        this card reversed; cycle 1 F-004. Node ids: 2 removed, 2 added.)
 
-        Only the **puzzle** pages are forced vector here, so the refusal this
-        reaches is the clue-digit one rather than the no-writer one a vector
-        divider would hit first.
+        Why a missing mark must fail rather than fall back: the exemption is
+        keyed on the drawing function and a content stream records no caller,
+        so a reading with no mark to go on has only two wrong answers
+        available — skip the page, or exempt 8.64 pt **because that is what
+        clue digits happen to measure**, which would also exempt a *body* face
+        that happened to be 8.64 pt. Both are the silent pass ADR-0039/R2
+        forbids, so an unanalysable shape is a failure.
+
+        The mark is dropped at its one chokepoint — ``draw_clue_digits``, the
+        only emitter in the package — so what is exercised is a real writer's
+        output minus the claim, not a hand-built stream. The page itself is the
+        real one: :func:`real_vector_stream` calls production's own
+        ``vector_puzzle_page``, which is what ``export_interior`` cannot yet be
+        made to do (see :func:`faces_on_page`).
+
+        Not vacuous, and measured rather than argued: planting the size-keyed
+        exemption this bound exists to refuse (``exempt`` read as
+        ``points < FLOOR_PT`` instead of off the mark, in
+        ``tests/helpers/pdf_vector.py``) reds this test and its answer-page
+        twin, in an out-of-tree extract — and a near-miss threshold no face on
+        these pages reaches (``points < 6.0``) correctly reds neither.
         """
-        self._refuse_only("puzzle", monkeypatch)
+        with _no_clue_digit_mark(monkeypatch):
+            stream = real_vector_stream("puzzle")
+
+        assert pdf_vector.type_sizes(stream), "the page set no type at all"
+        assert not [
+            face for face in pdf_vector.marked_type_sizes(stream) if face.exempt
+        ], "the mark survived being dropped, so this test asserts nothing"
         with pytest.raises(AssertionError, match="VECTOR puzzle page"):
-            stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+            faces_on_page(6, "puzzle", stream)
 
-    def test_a_vector_answer_page_refuses_too(self, monkeypatch):
-        """Review cycle 1's F-001 — the refusal covers BOTH kinds, not one.
+    def test_a_vector_answer_page_with_no_clue_digit_mark_is_refused_too(
+        self, monkeypatch
+    ):
+        """The missing-mark bound covers BOTH clue-digit kinds, not one.
 
-        Round 1 keyed the refusal on ``"puzzle"`` alone. Measured on this
-        branch's baseline interior, **258 of the 462 exempt sub-floor faces are
-        on ANSWER pages** — more than the puzzle page's 204 — drawn through
-        ``book_pdf_generator._write_clues``, and
+        The twin of the test above, for the other kind in
+        :data:`CLUE_DIGIT_KINDS`: an answer page whose writer's mark is dropped
+        is refused as well. (Renamed in CARD-314 fix round 2 under an owner
+        override of G-6, from ``test_a_vector_answer_page_refuses_too`` — the
+        old name said only that the page is refused, which is true of the
+        mutant this test builds and false of the page the card ships; cycle 1
+        F-004. Node ids: 2 removed, 2 added across the pair.)
+
+        Why the second kind is a separate test and not a parametrisation of the
+        first: it is CARD-299 cycle 1's F-001, and the measurement is the
+        argument. CARD-299 round 1 keyed its refusal on ``"puzzle"`` alone.
+        Re-derived on this branch at ``4d164f62``, **258 of Book 1's 462
+        exempt sub-floor faces are on ANSWER pages** — more than the puzzle
+        page's 204 — drawn
+        through ``book_pdf_generator._write_clues``, and
         ``book_answer_vector.draw_clue_digits`` draws them in the vector medium
         too. So the day ``PageKind.ANSWER``'s declaration lifted, the one-kind
         refusal would not have fired: it would have read the page and reported
         258 false CON-020 violations, which is the exact failure the refusal
-        exists to prevent.
+        existed to prevent.
+
+        CARD-314 keeps that two-sidedness where it keeps the refusal: in the
+        missing-mark bound, which is derived over the same
+        :data:`CLUE_DIGIT_KINDS` and so covers the answer page without naming
+        it.
         """
-        self._refuse_only("answer", monkeypatch)
+        with _no_clue_digit_mark(monkeypatch):
+            stream = real_vector_stream("answer")
+
+        assert pdf_vector.type_sizes(stream), "the page set no type at all"
         with pytest.raises(AssertionError, match="VECTOR answer page"):
-            stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+            faces_on_page(12, "answer", stream)
+
+    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    def test_a_marked_vector_page_is_read_and_exempted_by_the_mark(self, kind):
+        """CARD-314's AC-1 — the exemption survives in the stream.
+
+        The pages CARD-299 had to refuse are read, and the 10 pt floor is
+        asserted over their **non-exempt** faces only. Both halves are
+        asserted, because either alone is satisfiable by the wrong
+        implementation: a reading that exempted everything would show no
+        violations and no non-exempt faces either, and a reading that exempted
+        nothing would show the whole sub-floor residue.
+
+        Parametrised over :data:`CLUE_DIGIT_KINDS`, which is **derived** from
+        ``src/`` — so the kind CARD-299's review cycle 1 found missing cannot go
+        missing from the positive direction either, and a kind a future card
+        teaches to draw clue digits joins this claim without an edit.
+        """
+        stream = real_vector_stream(kind)
+
+        faces = faces_on_page(1, kind, stream)
+
+        exempt = [face for face in faces if face.exempt]
+        body = [face for face in faces if not face.exempt]
+        assert exempt, "no face carried the mark, so nothing was exempted"
+        assert body, "every face was exempted, so the floor judges nothing"
+        assert [face.points for face in exempt if face.points >= FLOOR_PT] == [], (
+            "a face at or above the floor is marked exempt, so the mark is "
+            "reaching type the exemption was never about"
+        )
+        assert min(face.points for face in body) >= FLOOR_PT, sorted(
+            {face.points for face in body if face.points < FLOOR_PT}
+        )
+        # And the union judgment is clean: the exempt digits are out of it.
+        assert [
+            face.describe()
+            for face in faces
+            if face.points < FLOOR_PT and not face.exempt
+        ] == []
+
+    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    def test_a_body_face_at_the_clue_digit_size_is_reported(self, kind):
+        """**CARD-314's AC-2, and the card's central control** (G-2).
+
+        *Given a body face that measures the same size as a clue digit, then it
+        is reported as a violation.* A size-keyed exemption — the cheap way to
+        stop refusing, which CARD-299's own docstring named as the thing not to
+        do — passes every other test in this class and fails this one. So this
+        is the test that makes "by the mark, never by the size" shippable
+        rather than merely asserted in a comment. The mutant is recorded in
+        this card's report: replacing :attr:`StreamFace.exempt` with
+        ``points == 8.64`` leaves the rest of the module green and reds here.
+
+        The body face is **appended as a raw operator row** — not written
+        through :meth:`~nonogram.admin.book_vector.ContentStream.text`, which
+        is worth saying because it costs the test one notch: a hand-written row
+        does not also prove the production primitive emits an unmarked face
+        (``test_the_bound_does_not_absorb_the_guide_or_the_toc`` does that, on
+        two real writers' pages). What this plant does hold is the part AC-2 is
+        about: it sits **outside** every marked-content sequence, at **exactly**
+        the size the clue digits on the same page measure — read off that page rather than
+        written as 8.64, so the two cannot drift apart and leave this test
+        planting a size nothing else sets. It carries no mark, so the floor must
+        report it, and the real clue digits beside it must still be exempt:
+        together those two assertions separate "reads the mark" from both
+        "exempts by size" and "exempts nothing".
+        """
+        clean = real_vector_stream(kind)
+        digits = [
+            face.points
+            for face in pdf_vector.marked_type_sizes(clean)
+            if face.exempt and face.points < FLOOR_PT
+        ]
+        assert digits, "this page sets no sub-floor clue digit to impersonate"
+        planted = min(digits)
+
+        stream = f"{clean}\n0 g BT /F1 {planted} Tf 100 100 Td (8) Tj ET"
+
+        faces = faces_on_page(1, kind, stream)
+        at_the_size = [face for face in faces if face.points == planted]
+        assert len(at_the_size) == len(digits) + 1, (len(at_the_size), len(digits))
+        assert any(not face.exempt for face in at_the_size), (
+            "the planted body face at the clue digits' own size came back "
+            "exempt, so the exemption is keyed on the SIZE and not on the mark "
+            "(CARD-314 G-2)"
+        )
+        assert any(face.exempt for face in at_the_size), (
+            f"no face at {planted} pt is exempt, so the real clue digits lost "
+            "their exemption and this test would pass for the wrong reason"
+        )
+        reported = [
+            face.describe()
+            for face in faces
+            if face.points < FLOOR_PT and not face.exempt
+        ]
+        assert len(reported) == 1, reported
+
+    def test_an_over_applied_mark_on_a_page_that_draws_none_is_a_failure(self):
+        """AC-4, direction two — a body face wrongly marked is CAUGHT.
+
+        The guide page is the real case and not a hypothetical: its worked
+        example sets clue digits, and CON-020 holds **those** to the floor
+        because they are the reader's instruction text (``draw_example_line``,
+        this module's :data:`WORKED_EXAMPLE`). No vector guide writer calls a
+        clue-digit drawer, so ``guide`` is outside :data:`CLUE_DIGIT_KINDS`, and
+        a guide page that carried the mark would be exempting exactly the type
+        the constraint exists to protect.
+
+        What reds is :func:`stream_faces`' second bound. The other half of
+        AC-4 — the mark reaching a page kind that *does* draw clue digits, but
+        around the wrong run — is held by
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_only_the_clue_digit_drawer_emits_the_mark`,
+        which walks ``src/`` and is the chokepoint guard.
+        """
+        assert "guide" not in CLUE_DIGIT_KINDS, sorted(CLUE_DIGIT_KINDS)
+        clean = real_vector_stream("guide")
+
+        # The control first: the real guide page is READ, and carries no mark.
+        faces = faces_on_page(3, "guide", clean)
+        assert faces, "the guide page set no type at all"
+        assert not [face for face in faces if face.exempt], "the guide is marked"
+
+        borrowed = (
+            f"{clean}\n/{pdf_vector.CLUE_DIGIT_TAG} BMC\n"
+            "0 g BT /F1 8.64 Tf 100 100 Td (1) Tj ET\nEMC"
+        )
+        with pytest.raises(AssertionError, match="over-applying"):
+            faces_on_page(3, "guide", borrowed)
+
+    def test_an_unbalanced_mark_is_a_failure_not_a_silent_exemption(self):
+        """An exemption with no readable extent FAILS (ADR-0039/R2).
+
+        Two shapes, and each would otherwise be a silent pass in a different
+        direction: a sequence left **open** claims every face after it, and an
+        ``EMC`` closing nothing makes the stack negative and would, on a
+        flag-based reading, leave the rest of the page marked. Both raise, and
+        the writer refuses to write either
+        (:func:`~nonogram.admin.book_vector.write_vector_page`).
+        """
+        with pytest.raises(ValueError, match="open at its end"):
+            pdf_vector.marked_type_sizes(
+                f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\n0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET"
+            )
+        with pytest.raises(ValueError, match="never opened"):
+            pdf_vector.marked_type_sizes(
+                f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\nEMC\nEMC\n"
+                "0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET"
+            )
+        # The control: the balanced spelling of the same stream reads fine, and
+        # reads the one face as exempt — so the two refusals above are about the
+        # brackets and not about the reader rejecting clue digits generally.
+        assert pdf_vector.marked_type_sizes(
+            f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\n"
+            "0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET\nEMC"
+        ) == [pdf_vector.MarkedFace(8.64, True)]
+
+    def test_a_face_inside_another_tags_bracket_is_not_exempt(self):
+        """**The exemption is keyed on THIS tag, never on the bare bracket.**
+
+        CARD-314 fix round 1, F-001. AC-2 above holds that the exemption is not
+        keyed on the **size**; this is that claim's necessary corollary one
+        notch down — it is not keyed on the **presence of a bracket** either.
+        Four docstrings asserted it and nothing could fail on it: measured,
+        replacing :func:`~tests.helpers.pdf_vector.marked_type_sizes`'
+        ``CLUE_DIGIT_TAG in stack`` with ``bool(stack)`` — exempt inside *any*
+        marked-content sequence, whatever its tag — left **all 733 tests** in
+        this branch's import radius green (11 modules, condition: out-of-tree
+        archive of this commit, lock absent). The shipped reading was right and
+        a magic bracket would have replaced a magic number undetected.
+
+        The risk is an idiom, not a hypothetical: ``/Artifact`` is what PDF 1.7
+        §14.8.2.2 reserves for exactly the decorative runs a later interior
+        card will want to bracket, and the day one appears a bracket-keyed
+        reader exempts every face inside it from CON-020.
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_the_tag_the_reader_expects_is_the_tag_the_writer_emits`
+        does not close this: it holds the two *spellings* of the tag equal,
+        which says nothing about whether the reader consults the tag at all.
+
+        Both directions, and the second one through the floor's own reading so
+        the gap is closed where CON-020 is actually judged rather than only in
+        the helper.
+        """
+        other = "Artifact"
+        assert other != pdf_vector.CLUE_DIGIT_TAG, other
+
+        # The reader, directly: the SAME face, the SAME size, the SAME bracket
+        # shape -- only the tag differs, and only the tag may decide.
+        row = "0 g BT /F1 8.64 Tf 0 0 Td (8) Tj ET"
+        assert pdf_vector.marked_type_sizes(f"/{other} BMC\n{row}\nEMC") == [
+            pdf_vector.MarkedFace(8.64, False)
+        ]
+        assert pdf_vector.marked_type_sizes(
+            f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\n{row}\nEMC"
+        ) == [pdf_vector.MarkedFace(8.64, True)]
+
+        # And on a real clue-digit page, through faces_on_page: a sub-floor
+        # face bracketed by some other tag is REPORTED. A bracket-keyed reader
+        # would have exempted it silently, which is the whole of CON-020's
+        # exemption turning into "anything anybody bracketed".
+        clean = real_vector_stream("puzzle")
+        digits = [
+            face.points
+            for face in pdf_vector.marked_type_sizes(clean)
+            if face.exempt and face.points < FLOOR_PT
+        ]
+        assert digits, "this page sets no sub-floor clue digit to measure against"
+        planted = min(digits)
+        stream = (
+            f"{clean}\n/{other} BMC\n"
+            f"0 g BT /F1 {planted} Tf 100 100 Td (8) Tj ET\nEMC"
+        )
+
+        reported = [
+            face.describe()
+            for face in faces_on_page(1, "puzzle", stream)
+            if face.points < FLOOR_PT and not face.exempt
+        ]
+        assert len(reported) == 1, reported
+
+    def test_a_nested_bracket_does_not_end_the_clue_digit_exemption(self):
+        """The reader is a **stack**, and a degenerate flag would pass without this.
+
+        CARD-314 fix round 1, F-002. ``marked_type_sizes``' docstring says
+        marked content nests (PDF 1.7 §14.6) and that the state tracked is
+        therefore a stack rather than a flag; that reading is stated in four
+        places on this branch and was asserted in none. Measured: ``stack.pop()``
+        replaced by ``stack.clear()`` — a flag that cannot nest — left **all
+        733 tests** in this branch's import radius green (same condition as
+        the test above).
+
+        Harmless at this commit, which is the reason to control it now rather
+        than later: there is one emitter and the depth is always 1, held by
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_only_the_clue_digit_drawer_emits_the_mark`.
+        The **writer's** half of the same claim is already controlled — dropping
+        ``marked_content_imbalance``'s nesting depth reds
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_the_writer_refuses_a_page_whose_brackets_do_not_pair`
+        — so this is the reader's.
+        """
+        inner = "Artifact"
+        assert inner != pdf_vector.CLUE_DIGIT_TAG, inner
+
+        stream = "\n".join(
+            (
+                f"/{pdf_vector.CLUE_DIGIT_TAG} BMC",
+                "0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET",
+                f"/{inner} BMC",
+                "0 g BT /F1 7.2 Tf 0 0 Td (2) Tj ET",
+                "EMC",
+                "0 g BT /F1 6.0 Tf 0 0 Td (3) Tj ET",
+                "EMC",
+                "0 g BT /F1 9.0 Tf 0 0 Td (4) Tj ET",
+            )
+        )
+
+        assert pdf_vector.marked_type_sizes(stream) == [
+            # inside the clue-digit sequence
+            pdf_vector.MarkedFace(8.64, True),
+            # inside another tag's sequence nested in it -- still exempt, which
+            # is the reading the operators mean
+            pdf_vector.MarkedFace(7.2, True),
+            # the first EMC closed the INNER sequence only: a flag would have
+            # ended the exemption here, and this is the face that catches it
+            pdf_vector.MarkedFace(6.0, True),
+            # and the outer EMC really does end it
+            pdf_vector.MarkedFace(9.0, False),
+        ]
+
+    def test_the_bound_does_not_absorb_the_guide_or_the_toc(self):
+        """ADR-0039/R3's control — what the bound must NOT swallow.
+
+        An exemption is a claim, so it carries a control for what it must not
+        absorb. The guide and the TOC letter the reader and their writers draw
+        no clue digits, so their streams are exactly the pages this floor must
+        keep reading — and the guide's worked example sets clue digits that
+        CON-020 holds to the floor rather than exempting. A bound that widened
+        to "any page that sets small type", or keyed itself on 8.64 pt, would
+        take these with it.
+
+        Renamed from ``test_the_refusal_does_not_absorb_the_guide_or_the_toc``?
+        **No** — that name is kept below, unchanged, and its test is a separate
+        test, not this one renamed. This is its twin for the direction CARD-314
+        adds: those two pages must carry **no mark**, which is the AC-4 bound
+        read as a property of the shipped writers rather than of a planted one.
+
+        CARD-314's G-6 forbids renaming a test, and the owner's fix-round-2
+        override of it is narrow: it covers exactly the two missing-mark tests
+        in :class:`TestInteriorType_TheStreamArmIsReached` whose names stated
+        the contract this card reversed (cycle 1 F-004), and no other name in
+        this file moved. The pair below is not in that set.
+        """
+        for kind in ("guide", "toc"):
+            assert kind in LETTERING_KINDS, kind
+            assert kind not in CLUE_DIGIT_KINDS, kind
+
+            faces = faces_on_page(1, kind, real_vector_stream(kind))
+
+            assert faces, kind
+            assert not [face for face in faces if face.exempt], kind
 
     def test_the_refusal_does_not_absorb_the_guide_or_the_toc(self):
         """ADR-0039/R3's control — what the refusal must NOT swallow.
@@ -1162,6 +1738,14 @@ class TestInteriorType_TheStreamArmIsReached:
         in :func:`below_floor_in_its_medium` has only ever been asked to add an
         **empty** right-hand side. A sub-floor face is handed to it here and
         has to come out in the verdict; a face at the floor must not.
+
+        **CARD-314 adds the third case, and it is the exemption's own.** The
+        same sub-floor face, marked, must come out of the verdict — because
+        that is what the whole card does to this union, and an arm that
+        reported it anyway would turn a vector puzzle page into 204 false
+        violations. The three cases together pin all three outcomes of
+        ``points < FLOOR_PT and not exempt``, so neither clause can be dropped
+        without one of them reddening.
         """
         monkeypatch.setitem(_STREAM_FACES, "book1", [StreamFace(7, "toc", 9.0)])
 
@@ -1171,6 +1755,14 @@ class TestInteriorType_TheStreamArmIsReached:
 
         monkeypatch.setitem(
             _STREAM_FACES, "book1", [StreamFace(7, "toc", FLOOR_PT)]
+        )
+
+        assert below_floor_in_its_medium("book1") == []
+
+        monkeypatch.setitem(
+            _STREAM_FACES,
+            "book1",
+            [StreamFace(7, "puzzle", 8.64, exempt=True)],
         )
 
         assert below_floor_in_its_medium("book1") == []
@@ -1189,6 +1781,472 @@ class TestInteriorType_TheStreamArmIsReached:
         ]
         assert pdf_vector.VECTOR in media, kind
         monkeypatch.setattr(pdf_vector, "page_media", lambda _data: list(media))
+
+
+# --------------------------------------------------------------------------
+# CARD-314 — the mark is the writer's own, and it is the only thing exempting
+# --------------------------------------------------------------------------
+
+
+#: ``BMC``/``BDC``/``EMC`` as a whole token — the operators that *spell* the
+#: mark, as opposed to the methods that emit it.
+#:
+#: CARD-314 fix round 1, F-006. Written as an explicit boundary class rather
+#: than with ``\b`` so the pattern reads the same way it would have to be
+#: written for a tool that does not have one: inside a PDF content stream an
+#: operator is delimited by whitespace or a delimiter character, and that is
+#: the whole of the rule.
+_MARK_OPERATOR = re.compile(
+    r"(?:(?<=[\s/\[\]<>(){}])|\A)(?:BMC|BDC|EMC)(?=[\s/\[\]<>(){}]|\Z)"
+)
+
+
+class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
+    """The mark is a claim, so this is where the claim's authorship is held.
+
+    CON-020's exemption is keyed on **the function that draws**. The mark is
+    that key carried into a medium that records no caller, which makes it only
+    as trustworthy as the rule about who may emit it: a second emitter is a
+    second author of a provenance claim, and an exemption two places can grant
+    is an exemption nobody checks. So the chokepoint is asserted structurally,
+    over ``src/`` on disk, exactly as this module's layering-style walks do.
+
+    This is the **other** direction of CARD-314's AC-4 (ADR-0039/R1 asks for
+    one mutant per direction):
+    :meth:`TestInteriorType_TheStreamArmIsReached.test_an_over_applied_mark_on_a_page_that_draws_none_is_a_failure`
+    catches a mark that reached the wrong *page*; this catches a mark that
+    reached the wrong *code*, which is how it would reach the wrong page in the
+    first place.
+    """
+
+    #: The one function in the package allowed to emit the clue-digit mark.
+    EMITTER = "draw_clue_digits"
+
+    #: ``src/nonogram/admin``'s own files, where every vector writer lives.
+    #:
+    #: The glob is read off disk rather than listed, so a writer added to this
+    #: package is walked without anyone remembering to add it. The **directory**
+    #: is nonetheless hand-chosen, and that is the one hand-written thing left
+    #: in this guard: ``test_the_walk_reaches_every_file_that_names_the_stream``
+    #: below turns that choice into a measurement by requiring it to cover every
+    #: file under ``src/`` whose text names ``ContentStream`` (0 difference at
+    #: this commit, so it starts green and reds the day a vector writer is
+    #: placed outside this package).
+    SOURCES = sorted(Path(book_pdf_generator.__file__).parent.glob("*.py"))
+
+    #: The root the coverage check above measures ``SOURCES`` against.
+    PACKAGE_ROOT = Path(book_pdf_generator.__file__).parent.parent
+
+    @staticmethod
+    def _enclosing_functions(source: str, names: frozenset) -> set:
+        """Which ``def``s in ``source`` contain a call to any of ``names``.
+
+        By AST, and the enclosing ``def`` is **threaded down the recursion**
+        rather than read off indentation — a call inside a nested ``def`` or a
+        comprehension must be attributed to the function it is really in, and
+        the memory rule this board keeps says to attribute by the enclosing
+        definition and never by proximity.
+        """
+        found = set()
+
+        def walk(node, enclosing):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                enclosing = node.name
+            if isinstance(node, ast.Call):
+                function = node.func
+                called = (
+                    function.id
+                    if isinstance(function, ast.Name)
+                    else getattr(function, "attr", None)
+                )
+                if called in names:
+                    found.add(enclosing)
+            for child in ast.iter_child_nodes(node):
+                walk(child, enclosing)
+
+        walk(ast.parse(source), None)
+        return found
+
+    def test_only_the_clue_digit_drawer_emits_the_mark(self):
+        """AC-4, direction one — one author for the provenance claim.
+
+        Every call to ``begin_marked``/``end_marked`` anywhere under
+        ``src/nonogram/admin`` must sit inside ``draw_clue_digits`` — or inside
+        ``ContentStream`` itself, which *defines* them. A page writer that
+        opened its own sequence would be granting CON-020's exemption from a
+        second place, and nothing downstream could tell the two apart.
+
+        **What this walk checks is a CALL to the emitting method**, and that is
+        narrower than "nothing else emits the mark" (CARD-314 fix round 1,
+        F-006). Measured on this branch: a raw
+        ``stream._operators.append("/ClueDigit BMC")`` planted in
+        ``book_answer_vector`` — a mark emitted with no such call — did **not**
+        red this test. It was caught, by
+        :meth:`TestInteriorType_TheStreamArmIsReached` reading a page whose
+        refusal failed to fire, because AC-3's :func:`_no_clue_digit_mark`
+        stubs the two ``ContentStream`` methods and so cannot suppress a raw
+        append. That is an incidental catch by a different instrument, so the
+        shape is now checked here too, by
+        ``test_no_module_but_the_streams_own_spells_the_mark_operators`` below:
+        between them the two tests cover a call to the method and a literal in
+        the source. Neither covers a mark assembled at runtime from pieces, and
+        ``_operators`` is private, which is what keeps that residue small
+        rather than closed.
+        """
+        emitters: Dict[str, set] = {}
+        for path in self.SOURCES:
+            callers = self._enclosing_functions(
+                path.read_text(encoding="utf-8"),
+                frozenset({"begin_marked", "end_marked"}),
+            )
+            if callers:
+                emitters[path.name] = callers
+
+        assert emitters, (
+            "nothing under src/nonogram/admin calls begin_marked at all, so "
+            "either the mark is gone or this walk no longer finds it — and an "
+            "empty structural reading is the silent pass this file exists to "
+            "refuse (ADR-0039/R2)"
+        )
+        assert emitters == {"book_vector_draw.py": {self.EMITTER}}, emitters
+
+    def test_the_walk_reaches_every_file_that_names_the_stream(self):
+        """:data:`SOURCES`' hand-chosen directory, turned into a measurement.
+
+        CARD-314 fix round 1, F-006, gap (1). The glob is derived from disk but
+        its **directory** is a choice, so a vector writer placed anywhere else
+        under ``src/`` would be outside the chokepoint guard silently. This
+        states the condition under which that cannot happen: every file in the
+        package that so much as names ``ContentStream`` is a file the walk
+        reads. Difference at this commit: **0 files** — so it starts green,
+        and it is the day a stream user appears outside
+        ``src/nonogram/admin`` that it reds and the guard above is widened.
+        """
+        users = {
+            path.resolve()
+            for path in self.PACKAGE_ROOT.rglob("*.py")
+            if "ContentStream" in path.read_text(encoding="utf-8")
+        }
+        assert users, (
+            "no file under src/nonogram names ContentStream, so this check is "
+            "reading nothing and the empty structural reading is the silent "
+            "pass this file refuses (ADR-0039/R2)"
+        )
+        unreached = users - {path.resolve() for path in self.SOURCES}
+        assert unreached == set(), sorted(
+            str(path.relative_to(self.PACKAGE_ROOT)) for path in unreached
+        )
+
+    def test_no_module_but_the_streams_own_spells_the_mark_operators(self):
+        """The raw-append shape the call walk above cannot see.
+
+        CARD-314 fix round 1, F-006, gap (2). ``begin_marked``/``end_marked``
+        are the only place the ``BMC``/``EMC`` operators are **spelled**, so a
+        second author of the mark that bypassed them — the measured forgery was
+        ``stream._operators.append("/ClueDigit BMC")`` — has to write one of
+        those tokens as a string literal somewhere, and here is where that is
+        refused.
+
+        Strings are read off the **AST** and docstrings are excluded, because
+        this file and ``draw_clue_digits`` both discuss ``BMC`` in prose and a
+        text grep would red on the prose instead of on a forgery (the measured
+        trap: a naive text check reds on ``book_vector_draw.py``'s own
+        docstring, where the economy figure is stated). Also note what this
+        does not reach: a token assembled at runtime rather than written. The
+        two halves of the chokepoint are therefore a call to the method and a
+        literal in the source, which is what the guard above now claims.
+        """
+        offenders = {}
+        for path in self.SOURCES:
+            if path.name == "book_vector.py":
+                continue  # the stream itself: this is where they are defined
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            docstrings = {
+                node.body[0].value
+                for node in ast.walk(tree)
+                if isinstance(
+                    node,
+                    (
+                        ast.Module,
+                        ast.ClassDef,
+                        ast.FunctionDef,
+                        ast.AsyncFunctionDef,
+                    ),
+                )
+                and node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            }
+            spelled = {
+                node.value
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node not in docstrings
+                and _MARK_OPERATOR.search(node.value)
+            }
+            if spelled:
+                offenders[path.name] = sorted(spelled)
+
+        assert offenders == {}, offenders
+
+        # The control: the module that IS allowed to spell them really does,
+        # so this check would not pass by finding the operators nowhere.
+        own = ast.parse(
+            Path(book_vector.__file__).read_text(encoding="utf-8")
+        )
+        assert [
+            node.value
+            for node in ast.walk(own)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and _MARK_OPERATOR.search(node.value)
+        ], "book_vector.py spells neither BMC nor EMC, so the mark is gone"
+
+    def test_the_tag_the_reader_expects_is_the_tag_the_writer_emits(self):
+        """The two independent spellings of the tag agree.
+
+        ``tests/helpers/pdf_vector.CLUE_DIGIT_TAG`` states the tag
+        independently, per CLAUDE.md's test style — so that renaming the
+        writer's constant reds here instead of the reader silently following it
+        to a tag nothing emits. This is that agreement, and it is also the
+        reason the reader is not simply importing the writer's name.
+        """
+        assert pdf_vector.CLUE_DIGIT_TAG == book_vector.CLUE_DIGIT_TAG
+        # CARD-314 fix round 1, F-003: a third assertion stood here and was
+        # dead twice over -- `assert <name-set membership> or True`, whose
+        # `or True` made it unconditional and whose left operand tested the
+        # tag's VALUE against book_vector's ATTRIBUTE NAMES and so was always
+        # False. It is deleted rather than repaired: the equality above is the
+        # claim, and the source check below is the other half of it.
+        # And the drawer really reaches for that constant, not a literal.
+        source = Path(book_vector_draw.__file__).read_text(encoding="utf-8")
+        assert "CLUE_DIGIT_TAG" in source, (
+            "book_vector_draw no longer names the tag constant, so the mark it "
+            "emits and the one this reader looks for could differ"
+        )
+
+    def test_the_mark_reaches_the_written_file_and_not_the_rendered_page(self):
+        """AC-1's round trip, and G-5's claim about the bytes.
+
+        The mark is read back out of a **written, FlateDecoded** PDF rather than
+        off ``ContentStream.operators``, because what CON-020's reading gets
+        handed is the file. And the reason a marked-content tag is the right
+        shape is asserted beside it: the page's **marking** operators are
+        unchanged by it, so nothing a reader can see moved.
+        """
+        clean = real_vector_stream("puzzle")
+        data = book_vector.write_vector_pdf(
+            [_real_puzzle_stream()], 1
+        ).getvalue()
+        (written,) = pdf_vector.content_streams(data)
+
+        marked = pdf_vector.marked_type_sizes(written)
+
+        assert [face for face in marked if face.exempt], "the mark did not survive"
+        assert marked == pdf_vector.marked_type_sizes(clean)
+        painting = frozenset({"Tj", "TJ", "S", "s", "f", "F", "f*", "B", "re", "Do"})
+        assert {
+            token
+            for token in pdf_vector.operator_tokens(written)
+            if token in painting
+        } == {"Tj", "S", "re", "f"}, sorted(
+            set(pdf_vector.operator_tokens(written))
+        )
+        # **One pair for the whole clue set, not one per digit** — 2
+        # operators against 408 on this page's 204 clue digits (at most 1800
+        # on a 30x30, whose bound is 900 entries). This is the only assertion
+        # in this file about the mark's *spelling* rather than its meaning, and
+        # it is deliberate: it is the economy ``MARKED_CONTENT_OPERATORS`` in
+        # ``tests/test_book_puzzle_page_vector.py`` is a constant because of.
+        #
+        # **The division, with its domain** (CARD-314 fix round 1, F-005). A
+        # per-digit variant of ``draw_clue_digits`` reds **1 of 47 in this
+        # module** and this is the riser — but across the 733-test import
+        # radius it reds **4 in 2 modules** (729 passed). The other three are
+        # ``test_book_puzzle_page_vector``'s
+        # ``test_the_operator_alphabet_is_closed_at_what_this_page_draws`` and
+        # the two ``MARKED_CONTENT_OPERATORS`` derivations. All four are
+        # operator-ECONOMY or operator-COUNT claims and no AC-bearing test
+        # rises, which is what makes the division right; the figure is 4/733
+        # and 1/47 is the one-module reading of it.
+        assert pdf_vector.operator_tally(written)["BMC"] == 1
+        assert pdf_vector.operator_tally(written)["EMC"] == 1
+
+    def test_the_writer_refuses_a_page_whose_brackets_do_not_pair(self):
+        """ADR-0039/R2 at the writer: an unwritable page is not a written one.
+
+        The reader raises on an imbalance
+        (:meth:`TestInteriorType_TheStreamArmIsReached.test_an_unbalanced_mark_is_a_failure_not_a_silent_exemption`);
+        this is the other end, so such a page cannot be shipped and then found.
+        Both directions, and a control that the same page writes fine once its
+        brackets pair.
+        """
+        clean = _real_puzzle_stream()
+        book_vector.write_vector_pdf([clean], 1)  # the control: it writes
+
+        for extra in ("EMC", f"/{book_vector.CLUE_DIGIT_TAG} BMC"):
+            stream = _real_puzzle_stream()
+            stream._operators.append(extra)
+            with pytest.raises(
+                book_vector.ContentStreamError, match="marked-content brackets pair"
+            ):
+                book_vector.write_vector_pdf([stream], 1)
+
+    def test_a_tag_that_is_not_a_pdf_name_is_refused(self):
+        """The primitive's own guard, with a control that it is not blanket.
+
+        A tag this writer would have to escape is a mark its own reader would
+        not expect, so it is refused rather than escaped. The control is that a
+        legal tag is accepted — otherwise this would pass on a function that
+        refused everything.
+        """
+        stream = book_vector.ContentStream(width_px=10, height_px=10, dpi=300)
+        stream.begin_marked(book_vector.CLUE_DIGIT_TAG)
+        stream.end_marked()
+        assert stream.operators == (f"/{book_vector.CLUE_DIGIT_TAG} BMC", "EMC")
+        for bad in ("Clue Digit", "", "/ClueDigit", "1Clue", "Clue(Digit"):
+            with pytest.raises(book_vector.ContentStreamError, match="plain PDF name"):
+                stream.begin_marked(bad)
+
+
+class TestInteriorType_EveryVectorClueDigitIsExemptByItsMark:
+    """EC(CON-020) — the property, over a corpus built by hand with ``Random``.
+
+    No ``hypothesis`` (it is not in the dependency baseline), so the corpus is
+    seeded and enumerated here, and the **minimum case count is asserted inside
+    the test** so it cannot silently shrink (CLAUDE.md).
+
+    The claim, per page: every **non-exempt** face holds the 10 pt floor, and
+    every clue digit is exempt **by its mark** — which is checked against a
+    second, independent count of how many clue digits the page should have:
+    ``len(layout.clue_entries)``, read off COMP-007's own geometry rather than
+    off the stream this test is reading. That cross-check is what makes "by its
+    mark" a measurement instead of a restatement: an over-applied mark raises
+    the stream's marked count above the layout's, and a missing one lowers it.
+
+    **What the corpus measures, derived on this branch:** 18 pages, 3557 exempt
+    faces at **11 distinct point sizes** — 3.60, 4.08, 5.28, 5.76, 6.72, 7.68,
+    8.64, 10.56, 11.04, 12.96, 13.20 — of which 2629 are below the floor, and
+    67 non-exempt faces. The eleven sizes are the figure that matters: a
+    size-keyed exemption would have to know all of them, and four of them
+    (10.56, 11.04, 12.96, 13.20) are **above** the floor and still exempt,
+    because the exemption is provenance and not smallness. A clue digit does
+    not stop being a clue digit on a larger trim.
+    """
+
+    #: Trims in cm the corpus spans: the stored minimum, A5, and US letter.
+    #: Three, so the cell pitch — which the clue digits' size follows (CON-018)
+    #: — differs across the corpus and a size-keyed exemption has more than one
+    #: value to have to know.
+    TRIMS = (("10.00", "10.00"), ("14.80", "21.00"), ("21.59", "27.94"))
+
+    #: Grid sizes the corpus spans, within ``limits``' supported range.
+    SIZES = (5, 10, 15, 20, 25, 30)
+
+    #: The floor on how many pages this property is asserted over.
+    MINIMUM_CASES = 18
+
+    @staticmethod
+    def _corpus():
+        """``(label, page stream, layout)`` for each case, seeded and ordered."""
+        from nonogram.clues import encode_line
+        from nonogram.export.layout import compute_layout
+
+        rng = random.Random(314)
+        cases = []
+        for width_cm, height_cm in (
+            TestInteriorType_EveryVectorClueDigitIsExemptByItsMark.TRIMS
+        ):
+            book = Book(
+                book_id=f"card-314-{width_cm}x{height_cm}",
+                metadata=BookMetadata(
+                    title="Winter Pictures",
+                    description="The book CARD-314's EC corpus draws.",
+                    theme="generic",
+                    target_audience="adults",
+                    size="",
+                    page_count=0,
+                ),
+                trim_width_cm=width_cm,
+                trim_height_cm=height_cm,
+                gutter_margin_cm=MIN_TRIM_GUTTER_CM,
+                outside_margin_cm=MIN_TRIM_OUTSIDE_CM,
+            )
+            generator = BookPDFGenerator(book)
+            for size in (
+                TestInteriorType_EveryVectorClueDigitIsExemptByItsMark.SIZES
+            ):
+                grid = [
+                    [rng.random() < 0.5 for _ in range(size)] for _ in range(size)
+                ]
+                payload = BookPDFGenerator._payload(
+                    {
+                        "id": f"{width_cm}-{size}",
+                        "grid": grid,
+                        # The clues are ``nonogram.clues``' own encoding of
+                        # the grid, not a second derivation of it — this
+                        # corpus is about the mark, so the puzzle underneath
+                        # it is production's.
+                        "clues_rows": [
+                            list(encode_line(row)) for row in grid
+                        ],
+                        "clues_cols": [
+                            list(encode_line(column)) for column in zip(*grid)
+                        ],
+                        "width": size,
+                        "height": size,
+                        "puzzle_name": f"{size}x{size}",
+                        "difficulty_tier": "medium",
+                    }
+                )
+                sizes = generator.cell_sizes([payload])
+                stream = generator.vector_puzzle_page(payload, 1, 1, sizes)
+                # The same layout call ``vector_puzzle_page`` makes, on the
+                # same spec and the same cell — the independent count of how
+                # many clue digits the page owes comes off COMP-007's
+                # geometry, not off the stream being read.
+                layout = compute_layout(
+                    payload.row_clues,
+                    payload.column_clues,
+                    generator._puzzle_page_spec(
+                        1, sizes.get(generator._grid_size(payload))
+                    ),
+                )
+                cases.append((f"{width_cm}x{height_cm} cm, {size}x{size}", stream, layout))
+        return cases
+
+    def test_every_non_exempt_face_holds_the_floor_and_every_digit_is_marked(self):
+        corpus = self._corpus()
+
+        assert len(corpus) >= self.MINIMUM_CASES, len(corpus)
+        exempt_seen = 0
+        sub_floor_seen = 0
+        for label, stream, layout in corpus:
+            faces = pdf_vector.marked_type_sizes("\n".join(stream.operators))
+            marked = [face for face in faces if face.exempt]
+            body = [face for face in faces if not face.exempt]
+
+            assert len(marked) == len(layout.clue_entries), (
+                label,
+                len(marked),
+                len(layout.clue_entries),
+            )
+            assert body, label
+            assert [face.points for face in body if face.points < FLOOR_PT] == [], (
+                label,
+                sorted({face.points for face in body if face.points < FLOOR_PT}),
+            )
+            exempt_seen += len(marked)
+            sub_floor_seen += sum(1 for face in marked if face.points < FLOOR_PT)
+
+        assert exempt_seen >= 1000, exempt_seen
+        assert sub_floor_seen, (
+            "no clue digit in the whole corpus is below the floor, so the "
+            "exemption this property asserts has no subject and the claim is "
+            "vacuous"
+        )
 
 
 class TestInteriorType_TheNonVacuityFloorCanFail:

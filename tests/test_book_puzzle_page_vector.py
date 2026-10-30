@@ -613,6 +613,17 @@ _PATTERNS = {
     "text": re.compile(
         rf"^({_N}) g BT /(\w+) ({_N}) Tf ({_N}) ({_N}) Td \((.*)\) Tj ET$"
     ),
+    # CARD-314's marked-content brackets, which are neither a mark nor
+    # graphics state: a ``BMC``/``EMC`` pair is a statement ABOUT the operators
+    # between it, carried in the stream and painting nothing (PDF 1.7 §14.6).
+    # Read here so the default-DENY below keeps meaning what it says — "an
+    # operator this module cannot place" — while producing NO :class:`Mark`,
+    # which keeps this module's claim exactly as strong as it was: the page
+    # draws nothing but its grid, its frame, its digits, its band and its
+    # furniture. A bracket that produced a mark would make every ink
+    # comparison here learn to ignore one, which is the quiet weakening
+    # CARD-314's G-4 is about.
+    "marked": re.compile(r"^(?:/\w+ BMC|EMC)$"),
 }
 
 
@@ -650,6 +661,8 @@ def marks_of(stream_text: str) -> list[Mark]:
     for row in stream_text.splitlines():
         if not row.strip():
             continue
+        if _PATTERNS["marked"].match(row):
+            continue  # a statement about the marks, not a mark
         if match := _PATTERNS["grey"].match(row):
             grey = Decimal(match.group(1))
         elif match := _PATTERNS["fill"].match(row):
@@ -1214,6 +1227,13 @@ class TestPuzzlePage_CarriesNoImageXObject:
         frame and each QR icon's border) are ``S - m`` on one side and
         ``re - f`` on the other. Two independent ways of counting the same
         rectangles, which is what makes it a check and not a restatement.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         (written,) = pdf_vector.content_streams(
             write_vector_pdf([hero.stream], 1).getvalue()
@@ -1221,10 +1241,19 @@ class TestPuzzlePage_CarriesNoImageXObject:
         tally = pdf_vector.operator_tally(written)
 
         assert set(tally) == {
-            "G", "w", "m", "l", "S", "re", "f", "g", "BT", "Tf", "Td", "Tj", "ET"
+            "G", "w", "m", "l", "S", "re", "f", "g", "BT", "Tf", "Td", "Tj", "ET",
+            # CARD-314's clue-digit mark. The two members this page gained are
+            # the ONLY two that paint nothing: ``BMC``/``EMC`` bracket the text
+            # runs CON-020 exempts, so the stream records the provenance the
+            # exemption is keyed on (PDF 1.7 §14.6). Nothing a reader sees
+            # moved — asserted beside the alphabet below, and by the owner
+            # render AC-6 asks for.
+            "BMC", "EMC",
         }
         assert tally["m"] == tally["l"]
         assert tally["S"] - tally["m"] == tally["re"] - tally["f"] >= 2
+        # The mark is one pair for the whole clue set, not one per digit.
+        assert tally["BMC"] == tally["EMC"] == 1, (tally["BMC"], tally["EMC"])
 
     def test_the_page_draws_no_bezier(self, hero: Case) -> None:
         """No curve — stated as "no Bézier", which is what can be measured.
@@ -2202,6 +2231,13 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         Operator counts rather than a redraw: a mutation adds or removes
         operators, and sixty redraws to find that out would cost more than the
         whole module does today.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         for case in corpus:
             assert len(case.stream.operators) == len(
@@ -2222,6 +2258,13 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         widths are no longer contiguous after the sort: here the two
         derivations read **21** and **7**, and the stream agrees with the one
         that counts changes.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         case = corpus[0]
         # Stripes the **declared** width, which is what this sheet's writer
@@ -2329,7 +2372,32 @@ def _state_operators(layout: Layout) -> int:
     def changes(values: list[object]) -> int:
         return sum(1 for before, after in zip([None, *values], values) if before != after)
 
-    return changes(widths) + changes(tones) + (2 if layout.frame is not None else 0)
+    return (
+        changes(widths)
+        + changes(tones)
+        + (2 if layout.frame is not None else 0)
+        + MARKED_CONTENT_OPERATORS
+    )
+
+
+#: The ``BMC``/``EMC`` pair CARD-314 brackets a page's clue digits with — two
+#: operators that paint nothing and set no graphics state, counted here because
+#: the counts above are over the page's **whole** operator list.
+#:
+#: **Two, not two-per-clue-digit, and not conditional.**
+#: ``book_vector_draw.draw_clue_digits`` opens one sequence around the whole
+#: clue set — one bracket pair however many digits the page sets, against two
+#: operators per digit, which on this module's baseline page is 2 against
+#: **408** and on a 30×30 is 2 against at most 1800 (the bound: 900 clue
+#: entries; measured 30×30s in this project's corpora set 449–468) — and
+#: :func:`~nonogram.admin.book_puzzle_vector.puzzle_page_stream` calls it
+#: unconditionally, so a layout with no clue entries at all still emits the
+#: pair (and must: a sequence this writer opened and did not close is a page
+#: ``write_vector_page`` refuses outright). That makes this a constant rather
+#: than a term, which is why it is one; a page kind that marked two separate
+#: runs would make it a count, and the derivations above are where it would
+#: have to become one.
+MARKED_CONTENT_OPERATORS = 2
 
 
 # --------------------------------------------------------------------------

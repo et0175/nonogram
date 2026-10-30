@@ -101,6 +101,7 @@ from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
 __all__ = [
     "BASE_14_FACES",
     "BEZIER_CIRCLE_KAPPA",
+    "CLUE_DIGIT_TAG",
     "ContentStream",
     "FontMetrics",
     "POINTS_PER_INCH",
@@ -116,6 +117,7 @@ __all__ = [
     "encode_text",
     "font_metrics",
     "interior_face_bytes",
+    "marked_content_imbalance",
     "interior_face_metrics",
     "write_face_objects",
     "write_vector_page",
@@ -188,6 +190,51 @@ FACE_RESOURCE_NAME = "F1"
 
 #: The PostScript name the embedded face is written under.
 FACE_BASE_FONT = "DejaVuSans"
+
+#: The marked-content tag a clue digit's text run is written inside, so that
+#: **the stream itself records the provenance CON-020's exemption is keyed on**
+#: (CARD-314).
+#:
+#: CON-020 is a 10 pt reader-facing interior type floor whose one exemption is
+#: a clue digit inside a clue cell, whose size follows the cell (CON-018 /
+#: INV-006). That exemption is keyed on **the function that draws** —
+#: ``png._draw_clues``, ``book_pdf_generator._write_clues`` and
+#: :func:`nonogram.admin.book_vector_draw.draw_clue_digits` — and a raster page
+#: lets a reading recover it, because a spy on ``ImageDraw.text`` sees the call
+#: chain. **A PDF content stream records no call chain at all**, which is why
+#: CARD-299's stream-read floor refused a page of this kind by name rather than
+#: reporting the exempt digits as violations or exempting their *size*. This tag
+#: is the provenance put back: ``/ClueDigit BMC`` … ``EMC`` around the text runs
+#: :func:`~nonogram.admin.book_vector_draw.draw_clue_digits` sets, and nothing
+#: else in the package emits it.
+#:
+#: **Why a marked-content tag rather than a second ``Tf`` resource name.** The
+#: other shape that would carry provenance is a second ``/Font`` resource alias
+#: on the same face — ``/FC 8.64 Tf`` — which needs no new operator and would
+#: have cost this card nothing in blast radius. It was rejected: a resource name
+#: names *which face to set in*, and overloading it to also mean *what this text
+#: is for* makes the next card that embeds a second face collide with CON-020's
+#: verification. Marked content is the mechanism PDF has for exactly this
+#: statement (PDF 1.7 §14.6, "Marked Content"), and it is defined to affect
+#: nothing a viewer paints.
+#:
+#: **``BMC`` and not ``BDC``.** ``BDC`` carries a property list, and the only
+#: two things this writer could put in one are an empty dictionary, which says
+#: nothing a bare tag does not, or an ``/MCID`` into a structure tree — and this
+#: interior writes no ``/StructTreeRoot``, so an ``/MCID`` would be a dangling
+#: reference claiming a tagged-PDF conformance the file does not have.
+#:
+#: The tag is **not** a size and must never be read as one (CARD-314's G-2): a
+#: body face that happens to measure a clue digit's 8.64 pt carries no mark and
+#: is reported.
+CLUE_DIGIT_TAG = "ClueDigit"
+
+#: What a PDF name may be spelled with, for the one name this vocabulary lets a
+#: caller choose. PDF 1.7 §7.3.5 admits any byte in a name through ``#xx``
+#: escapes; nothing here needs them, so the admitted set is the plain one and a
+#: tag outside it is refused rather than escaped — an escape this writer emits
+#: and no reader of its own expects is a mark that reads as absent.
+_NAME_CHARS = re.compile(r"\A[A-Za-z][A-Za-z0-9_.-]*\Z")
 
 #: The fourteen faces every PDF viewer carries, which ADR-0042/R5 forbids this
 #: interior from referencing. Written out because the prohibition needs a set
@@ -908,6 +955,46 @@ class ContentStream:
         self.close_path()
         self.paint(paint)
 
+    # -- marked content ---------------------------------------------------
+
+    def begin_marked(self, tag: str) -> None:
+        """Open a marked-content sequence tagged ``tag`` (the ``BMC`` operator).
+
+        **The one operator in this vocabulary that paints nothing and is not
+        graphics state.** PDF 1.7 §14.6 defines a marked-content sequence as a
+        statement *about* the operators between it and its ``EMC``, carried in
+        the stream and affecting nothing a viewer draws — so a page that opens
+        one renders mark for mark identically to the page that does not, which
+        is the whole of CARD-314's G-5 and what AC-6's render confirms.
+
+        What it is for here is the one thing a content stream otherwise cannot
+        do: record **provenance**. CON-020's type floor exempts a clue digit
+        because of the function that drew it, and ``Tf`` operands carry no
+        caller; :data:`CLUE_DIGIT_TAG` is the tag that says so, and that
+        constant's own comment is where the reasoning lives.
+
+        Pairing is the caller's, and :func:`write_vector_page` refuses an
+        unbalanced stream rather than writing one — an ``EMC`` that closes a
+        sequence nobody opened, or a sequence left open at the page's end,
+        makes every operator after it ambiguous, and an unanalysable shape is a
+        FAILURE and not a pass (ADR-0039/R2).
+
+        Raises:
+            ContentStreamError: ``tag`` is not spelled like a plain PDF name
+                (:data:`_NAME_CHARS`).
+        """
+        if not _NAME_CHARS.match(tag):
+            raise ContentStreamError(
+                f"{tag!r} is not a plain PDF name, so it cannot be a "
+                "marked-content tag: a tag is a letter followed by letters, "
+                "digits, '_', '.' or '-'"
+            )
+        self._operators.append(f"/{tag} BMC")
+
+    def end_marked(self) -> None:
+        """Close the innermost marked-content sequence (the ``EMC`` operator)."""
+        self._operators.append("EMC")
+
     # -- text -------------------------------------------------------------
 
     def text(
@@ -1208,6 +1295,61 @@ def _paints_xobject(row: str) -> bool:
     return not balanced and "Do" in row
 
 
+#: A marked-content sequence's two bracket operators, outside every string
+#: body. ``BDC`` is read as well as ``BMC`` even though
+#: :meth:`ContentStream.begin_marked` emits only the second: a hand-appended
+#: row is exactly what :func:`marked_content_imbalance` is here to refuse, and
+#: a reading that saw one bracket but not the other would count it as closing a
+#: sequence nothing opened.
+_MARKED_BRACKETS = re.compile(r"(?:(?<=[\s/\[\]<>(){}])|\A)(BMC|BDC|EMC)(?=[\s/\[\]<>(){}]|\Z)")
+
+
+def marked_content_imbalance(operators: Iterable[str]) -> str | None:
+    """Why ``operators``' marked-content brackets do not pair — or ``None``.
+
+    CARD-314. A marked-content sequence is a statement about the operators
+    inside it (:meth:`ContentStream.begin_marked`), so an unbalanced one makes
+    that statement's extent undefined: an ``EMC`` that closes nothing leaves
+    every operator after it un-attributable, and a sequence left open at the
+    page's end claims the rest of the page. Either is an **unanalysable** shape
+    rather than a wrong one, and ADR-0039/R2 makes such a shape a FAILURE —
+    which is why :func:`write_vector_page` refuses rather than writing a page
+    whose own CON-020 reading could not be taken.
+
+    Read with string bodies blanked, by :func:`_without_string_bodies`'s own
+    definition, so a ``(see EMC) Tj`` caption is text and not a bracket; a row
+    whose literal never closes cannot be read for operators at all and is
+    refused on that ground alone, which is :func:`_paints_xobject`'s
+    conservative side applied to the same rows.
+    """
+    depth = 0
+    for number, row in enumerate(operators, start=1):
+        readable, balanced = _without_string_bodies(row)
+        if not balanced:
+            return (
+                f"operator row {number} carries an unterminated literal "
+                f"string, so its marked-content brackets cannot be read: "
+                f"{row!r}"
+            )
+        for bracket in _MARKED_BRACKETS.findall(readable):
+            if bracket == "EMC":
+                depth -= 1
+                if depth < 0:
+                    return (
+                        f"operator row {number} closes a marked-content "
+                        f"sequence that was never opened: {row!r}"
+                    )
+            else:
+                depth += 1
+    if depth:
+        return (
+            f"{depth} marked-content sequence(s) are still open at the end of "
+            "the stream, so what they are a statement about is the rest of the "
+            "page"
+        )
+    return None
+
+
 def write_vector_page(
     pdf: PdfParser.PdfParser,
     stream: ContentStream,
@@ -1256,7 +1398,11 @@ def write_vector_page(
     ADR-0042/R5.
 
     Raises:
-        ContentStreamError: ``stream`` paints an XObject (a ``Do`` operator).
+        ContentStreamError: ``stream`` paints an XObject (a ``Do`` operator), or
+            its marked-content brackets do not pair
+            (:func:`marked_content_imbalance`) — a page whose own CON-020
+            reading cannot be taken is refused rather than written
+            (ADR-0039/R2, CARD-314).
     """
     painted = [row for row in stream.operators if _paints_xobject(row)]
     if painted:
@@ -1265,6 +1411,13 @@ def write_vector_page(
             f"{len(painted)} Do operator(s), the first being {painted[0]!r}. An "
             "image on an interior page is a declared medium (ADR-0042/R2), not "
             "an operator"
+        )
+    unbalanced = marked_content_imbalance(stream.operators)
+    if unbalanced is not None:
+        raise ContentStreamError(
+            "a vector page's marked-content brackets pair, because what they "
+            "bracket is the provenance CON-020's clue-digit exemption is read "
+            f"from (CARD-314): {unbalanced}"
         )
     _, _, width_pt, height_pt = stream.media_box
     pdf.write_page(

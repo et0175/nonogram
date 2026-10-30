@@ -61,7 +61,7 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
-from nonogram.admin.book_vector import ContentStream, FontMetrics
+from nonogram.admin.book_vector import CLUE_DIGIT_TAG, ContentStream, FontMetrics
 from nonogram.export.layout import ClueEntry, GridLine, Layout, PuzzleFrame
 from nonogram.export.png import INK
 
@@ -527,8 +527,37 @@ def draw_clue_digits(
     which COMP-007 derived from the shared cell. CON-020's 10 pt floor
     excepts clue digits for exactly that reason: their size follows the cell,
     not the reader.
+
+    **And since CARD-314 the digits say so in the stream.** They are set inside
+    a :data:`~nonogram.admin.book_vector.CLUE_DIGIT_TAG` marked-content
+    sequence, which is how the exemption above survives the medium change: it
+    is keyed on *this function*, and a content stream otherwise records no
+    caller, so a stream-read floor could tell an exempt 8.64 pt digit from
+    8.64 pt of body type only by its size — and exempting by size is exempting
+    any body face that happens to measure it. That constant's own comment holds
+    the reasoning; what matters here is that **this is the one place in the
+    package that emits the tag**, because the mark is a claim and a claim with
+    two authors is a claim nobody checks. ``tests/test_book_interior_type_floor.py``
+    holds ``src/`` to that by walking it with :mod:`ast`.
+
+    The pair brackets the whole clue set rather than each digit — one ``BMC``
+    and one ``EMC`` per call rather than one of each **per clue entry**, which
+    on a 30×30 page is **at most 900** of them (2 × 30 lines × ⌈30/2⌉ runs per
+    line, the bound and not an observation; the random 30×30s this project's
+    own corpora build measure 449–468, and the baseline puzzle page the tests
+    render sets 204) — and is
+    closed on every path, including the one where ``layout`` places no clue
+    entries at all: an open sequence is refused by
+    :func:`~nonogram.admin.book_vector.write_vector_page`, so a mark left open
+    here would be a page nobody could write rather than a page read wrong.
     """
-    _set_entries(stream, layout.clue_entries, layout.clue_font_size, metrics, grey)
+    stream.begin_marked(CLUE_DIGIT_TAG)
+    try:
+        _set_entries(
+            stream, layout.clue_entries, layout.clue_font_size, metrics, grey
+        )
+    finally:
+        stream.end_marked()
 
 
 def _set_entries(

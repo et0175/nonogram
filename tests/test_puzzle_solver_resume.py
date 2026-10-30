@@ -428,6 +428,29 @@ def _reload(page):
     page.wait_for_function("window.puzzlePlayer !== undefined")
 
 
+def _reveal(page):
+    """Climb CARD-269's hint ladder to a reveal: three presses, not one.
+
+    CARD-269 made Hint a ladder — rung 1 highlights the line to look at,
+    rung 2 says why that line decides a cell, rung 3 reveals the cell exactly
+    as CARD-183 shipped it (the same ``hint: true`` stroke, the same counter,
+    the same one undo step, the same save). Rungs 1 and 2 record nothing, so
+    the single press this file used to make is no longer a recorded change
+    and the three tests below that assert "the board changed" / "the save
+    changed" after a hint need the whole ladder.
+
+    This edit is one the CARD-269 card did not foresee: its G-5 said only
+    ``tests/test_puzzle_solver_hint.py`` and ``tests/test_admin_design_tokens.py``
+    would change, and the card's own correction named two further files
+    (``test_puzzle_solver_maybe.py``, ``test_puzzle_solver_percent.py``).
+    This is the THIRD, and it is reported as unforeseen by G-5. No assertion
+    here is weakened: each call site below asserts exactly what it asserted
+    before, about exactly the same revealed cell and the same save entry.
+    """
+    for _ in range(3):
+        _button(page, "Hint").click()
+
+
 @pytest.mark.browser
 class TestSolverResume_ReloadRestoresBoardCountsAndHistory:
     """AC-3 / AC-360 — five strokes, a hint, a "?" mark and an undo survive a
@@ -448,7 +471,7 @@ class TestSolverResume_ReloadRestoresBoardCountsAndHistory:
         step(lambda: _cell(browser_page, 2, 2).click())
         step(lambda: (_tool(browser_page, "White"), _drag(browser_page, [(4, 1), (4, 9)])))
         step(lambda: (_tool(browser_page, "Maybe"), _cell(browser_page, 6, 6).click()))
-        step(lambda: _button(browser_page, "Hint").click())
+        step(lambda: _reveal(browser_page))  # CARD-269: one reveal is three presses
         step(lambda: (_tool(browser_page, "Black"), _cell(browser_page, 8, 8).click()))
         step(lambda: _cell(browser_page, 10, 3).click())
         _button(browser_page, "Undo").click()
@@ -520,7 +543,7 @@ class TestSolverResume_ResetClearsTheSave:
         puzzle_id = live.store(GRID)
         _open(browser_page, live, puzzle_id)
         _drag(browser_page, [(1, 0), (1, 8)])
-        _button(browser_page, "Hint").click()
+        _reveal(browser_page)  # CARD-269: one reveal is three presses
         _cell(browser_page, 5, 5).click()
         marks = _states(browser_page)
         assert _saved(browser_page, puzzle_id) is not None
@@ -672,7 +695,7 @@ class TestSolverResume_SavesEveryChangeWithoutARequest:
             changed(lambda k=k: _cell(browser_page, k % SIDE, (k * 4) % SIDE).click())
         changed(lambda: _button(browser_page, "Undo").click())
         changed(lambda: _button(browser_page, "Undo").click())
-        changed(lambda: _button(browser_page, "Hint").click())
+        changed(lambda: _reveal(browser_page))  # CARD-269: one reveal is three presses
         assert requests == []
         board = _states(browser_page)
 

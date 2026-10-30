@@ -1,6 +1,6 @@
 # CARD-304: ADR-0039/R4 has no executing check — a figure's instrument is held by a lens, not by the tree
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -17,11 +17,11 @@
 **Deferred waves:** 3 <!-- CORRECTED 2026-10-30 by the waves 63-65 retrospective. It read 0. This card was created in wave 62 BY wave 62's own retrospective, which promoted the figures family into ADR-0039/R4 and left R4's flip to an executing check owed here. It then sat unscheduled through waves 63, 64 and 65 while that same family produced EIGHT more gating findings across five cards. The counter never moved because cmd-retrospective Step 4c increments only tech-debt cards IN THE CURRENT WAVE SCOPE, and this card is Category: enabler and was in no wave's scope - so it aged invisibly by construction. Stamped into wave 67 on owner decision. -->
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/kanban/config.yml, meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md <!-- CORRECTED 2026-10-30: `meta/kanban/config.yml` was MISSING from the declaration while AC-1 and AC-2 are ABOUT it -- AC-1 executes every shell command config.yml prescribes for a host cell, AC-2 turns its five-case truth table into machine-readable data. The implementation round is editing it, correctly. Caught by inspecting the worktree, not by the card. Third footprint-declaration defect of the day: CARD-220 over-broad (`tests/**`), CARD-308 over-broad (`tests/**` + `adr/**`), this one under-declared. The pattern belongs in the retrospective's touches-drift calibration rather than being fixed one card at a time. -->
-**Review score:** 8.0 (cycle 1/3) — fix round 1 at `2583783b`; **review cycle 2 running**, narrowly scoped to the instruments the fix round added, its rewritten refutation criterion, and its edit to CARD-308's frozen census
+**Review score:** **8.5 (cycle 2/3)** — cycle 1 8.0, cycle 2 8.5, `min_improvement: 0.5` met exactly; two fix rounds
 **Started:** —
-**Closed:** —
+**Closed:** 2026-10-30T06:05:00Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `850eb469` (gated tree `e5eb7e45`)
 **Blocked by:** —
 
 ## Why this exists
@@ -771,3 +771,63 @@ anywhere in the module or the report — spelling it is what revives it.
   **a named failure at 5.8 s**; and the figure that kept being exceeded has stopped being published
   as a band.
 - [Gate] Merge gate next. The override is discharged.
+
+---
+
+## Merge gate — **GREEN**, merged `850eb469`
+
+Gated commit **`e5eb7e45`** (`main` merged into the branch, clean). Lock taken at the absolute
+main-checkout path with an absolute `worktree:` line, released on completion.
+
+| arm | result |
+|---|---|
+| full suite | **9831 passed · 27 skipped · 1 xfailed · 0 failed** in **20:47** |
+| AC/EC by node id (host cells, the sandbox comparison, the ref resolver) | **190 passed · 0 skipped** |
+| coverage proof | `src`+`tests` **byte-identical** to the gated commit, before the merge and on `main` after |
+
+**All 27 skips carry their reason in the log** — 26 `DATABASE_URL is not set` and 1
+`setrlimit(RLIMIT_AS)` the kernel refuses — because the gate ran `-rs` rather than reconstructing
+them afterwards from the marker population. Same population as CARD-306's gate, read rather than
+derived.
+
+**The gate's own rival-pytest census read 1, and the one it found was real** — CARD-269's fix round
+2, running in its own worktree. **This is the first census today that was not inflated by a probe
+shape**, and it is this card's own instrument reporting honestly about the board it runs on, two
+rounds after the version that read 4 against a true 1.
+
+**The gate blocked once before it ran**, exactly as CARD-306's had: the worktree's untracked copy of
+the cycle-2 review YAML, which `main` had started tracking at the sync. Verified **byte-identical**
+(same sha256, 61606 bytes) before removing it. **This is now a known pattern of the sync step, not an
+accident** — the CARD SYNC PROTOCOL copies the YAML into `main` and leaves the worktree's original
+untracked, where it blocks the card's own merge gate. Recorded in the orchestrator's standing notes
+along with the second half of the lesson: **run a gate script unpiped**, because the first CARD-306
+attempt reported exit 0 on a failed gate when its output went through `tail`.
+
+### What this card ends up having been
+
+It was dispatched because **ADR-0039/R4 — the rule that a figure's instrument is part of the
+figure — had a `check:` of `{kind: review-lens}`, which executes nothing.** R4's own comment named
+this card as owing the flip.
+
+Two review cycles and two fix rounds later, the flip is real and the card's subject was demonstrated
+on the card itself **six times**: F-001's assertion that held whether or not a search tool existed;
+the orphans that polluted the host for sibling cards; `_is_a_shell`'s mutant that would not red in
+the permissive direction; `_is_a_real_pytest_run` with no control at all; the orphan test that
+measured a **wait** rather than a kill and re-entered the no-verdict hang the card had just removed;
+and the `[pgrep -f]` row that **could not fail on a quiet board** because BSD `pgrep` hides the
+invoking process and all its ancestors. **Every one of those was an instrument that read true while
+being blind**, which is what R4 exists to stop, found inside the work that was flipping R4.
+
+**Cycle 2 said "land it" and the orchestrator overrode that**, because four of those instruments
+were still blind at the time. That override is discharged: each now carries a mutant that previously
+survived and now reds, plus a near-miss control proving it does not red spuriously.
+
+### Closing figures
+
+**Node ids 439 → 450 cumulative, raw 2 removed / 13 added, net 11 added, 0 lost** — the 2 removed
+being the one rename, which is AC-5's correction above and was the orchestrator's figure to fix.
+**Zero skips from the card's own module** throughout; the suite-wide 27 is confirmed **here at the
+gate**, where the full suite actually runs, and was correctly refused as unconfirmable in every
+round before it. The cost band that kept being exceeded is gone, replaced by a spread with its
+conditions — **the quiet domain measured slower than the contended one**, which is why a band was
+the wrong form.
