@@ -15,7 +15,7 @@
 **Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
-**Review score:** **5.5 (cycle 1/3) — NOT CERTIFIED**, 3 gating. Fix round 1 `ef5e03af` closed F-1 and F-3 (**branch green, 540 passed**) and every should-fix; **fix round 2 running on F-2 with the owner's decision in hand**.
+**Review score:** **8.5 (cycle 2/3) — CERTIFIED**; cycle 1 5.5, cycle 2 8.5, **delta +3.0** against `min_improvement: 0.5`, 0 gating open. Two fix rounds.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -843,3 +843,100 @@ with anything else on the box**. No load figure.
 - [Fix 2] `d22f1de0` — F-2 closed; all three gating findings closed; three residuals declared and
   measured rather than discovered later.
 - [Review 2/3] Dispatched.
+
+---
+
+## Review cycle 2 — **8.5 / 10, CERTIFIED**. 5.5 → 8.5, **delta +3.0**, 0 gating open.
+
+`meta/review/20261030T093000Z-CARD-269-cycle2.yml`. Recommendation: **land it**; its two should-fix
+findings belong to a successor, not another cycle.
+
+### All three gating findings closed, and F-2 is the best-evidenced work on the card
+
+- **F-1** — resume is **15/15 at HEAD**, inside the reviewer's **own independently derived 20-file
+  impact set**, wider than either round's: **911 collected, 907 passed, 0 failed, 4 skipped.**
+- **F-2** — measured on the live page: rung 1 → rung 2 moves the line **1,915 px at 217 levels while
+  the board is byte-identical**; the exhausted first press **1,771 px at 217**; Check on a clean
+  board **768 px at 217** — both with the board byte-identical. **All three dead-button cases now
+  change something seen, two of them carried by the line alone.**
+- **F-3** — exactly **85 added / 0 removed** lines naming AC-327/329/334, and `requirements.yml`
+  carries only the owner's AC-333 amendment, one `then:` line, no other id.
+
+### The instrument's three proofs reproduce, and the reviewer went looking for the gap
+
+Negative: same state twice, **byte-identical on all three regions, six repeats across two states.**
+Separation: **noise ≤ 2 levels, smallest real change 20** — the focus ring, re-measured at exactly 20.
+
+**"Nothing lands in 4–20" was tested rather than assumed.** The reviewer reached the gap the only way
+it is reachable: **darkening the tint by 4 levels over 10,524 board pixels still reads
+indistinguishable; 5 is caught.** That is a property of bounding **magnitude rather than area**, and
+it is **documented in the docstring — known rather than overlooked.** The componentwise claim checks
+out arithmetically: a count bound of ≤6 admits a 9-level change on 6 px; the level bound rejects it.
+
+**Ruling on cycle 1's byte-identity claim: fix round 2 is right, and more right than it knew.** The
+board half reproduces exactly at 0 differing pixels. The toolbar half does not — **and the
+reviewer's own numbers differ from fix round 2's** (16 px at 2 levels against its 6 at 1; 20 against
+its 23). **That disagreement is the best possible evidence for fix round 2's thesis**: the
+measurement was sound, the claim's *form* was not.
+
+### Placement re-derives to the digit, and the reviewer found a stronger test than the shipped one
+
+715.813 / 4.187 / 22.328 all exact; the toolbar margin is exactly 16 px; the computed style is
+exactly `flex-grow 1 / flex-shrink 1 / flex-basis 0px / min-width 0px / nowrap`. **Stronger than the
+shipped test**: removing the element from the live page leaves head, board, toolbar, counters and
+progress at **identical boxes at 1280×720, 1280×900 and 1440×900.** The **1280 threshold is
+untouched**, identical empty, full, and with the line gone.
+
+**Seven mutants, all bite.** `say()` reds **7/7**; the clear reds exactly the right one; removing
+`aria-hidden` reds the a11y test; the zero-width space reds **6**; and `_INVISIBLE_LEVEL` is **pinned
+between two live failures in opposite directions** (4→250 reds 3, 4→0 reds 2) — **genuinely derived,
+not chosen.**
+
+### The asked judgements
+
+- **The exhausted second press is a correctly scoped residual, not F-2 surviving.** The repeated
+  sentence is **true and complete** — the rule says one thing *because there is nothing more to say*
+  until CARD-268. **Inventing copy would have been wrong; asserting it in a test was right**, and it
+  is a real assertion with the pixel delta in its failure message.
+- **The a11y choice is right, and the brief's worry does not hold.** The announce region is visually
+  clipped but **present and un-ignored in the tree**, so a sighted screen-reader user **can** still
+  reach the sentence as static text — it is only not co-located. Reproduced in all three directions
+  (2 un-ignored shipped → 4 exposed → exactly 2 restored). One visible `role="status"` line would be
+  the cleaner end state; **changing the shipped live region inside a gating fix round was not.**
+- **The null-impossibility has a real control on the same board**: a hand-built deduced hint throws,
+  while the real path on that same board, clues and solution still returns the exhausted null.
+- **Legible at 1280/1440** — the sentence reads cleanly beside the title, the tint is perceptible,
+  the usage paragraph names the ladder. Caveats: **typographically subordinate and far from the
+  button**, and the captures cover **only the two deducible rungs** — none of the exhausted board, of
+  Check, or of any narrow width.
+
+### Nine things measured wrong — including one of the reviewer's own suspicions
+
+1. **F-12: the phone IS in the ellipsis band.** The 5.859 px inline figure re-derives and the own-row
+   rule is a real improvement, **but at 358 px every rung-2 sentence (508–594 px) and the exhausted
+   rung-3 reveal are ellipsised at 390 px.** Only rung 1, the exhausted sentence (350.984 px, 7 px
+   spare) and Check fit. **And there is no phone capture — F-4's shape, one band over.**
+2. **F-13: the own-row rule pushes the board out of a 900 px viewport around 700–820 px wide** —
+   917.297 px bottom against 878.969 without. **That is the exact failure mode the gap placement was
+   rejected for**, and it was checked at 390×844 only.
+3. The +6.328 row's named test is **wrong and unstable** — the count reproduces but the name does not,
+   and it is 3 under a narrower selection.
+4. **"the whole page has 4.187 px of vertical slack"** — the page already scrolls 178 px at
+   1280×720; **the 4.187 belongs to the board's bottom edge**, not the page.
+5. **"6 of 73,500 px at 1 level / 23"** does not reproduce (16 at 2, and 20); the region size is exact.
+6. **The 22.32 px near-miss does not reproduce in the shipped placement** — it describes a placement
+   no longer in the tree.
+7. The node-id set is called "the five changed files"; **it is six.**
+8. **The 18-file set and its 750 collected are not reproducible** — the files were never named; the
+   reviewer's own derivations collect 845 and 911. **Its skip attribution is nonetheless exactly
+   right.**
+9. **The reviewer's own suspicion was wrong and the round was right**: the longest-sentence figure
+   re-derives at 593.875 and really is the longest the page can produce.
+
+**Node ids 138 → 145, +7/0/0**, re-derived once the set is identified. **Skips: 4, verified by name**,
+all `db_required` methods of one class, file untouched by the branch. No load figure.
+
+- [Review 2/3] Score: 8.5 ✓ certified, +3.0 improvement, 0 gating
+- [Gate] Merge gate next. **F-12 and F-13 go to a successor card**, per the reviewer's own
+  recommendation — they are player-facing at widths this card never claimed, not defects in what it
+  shipped.
