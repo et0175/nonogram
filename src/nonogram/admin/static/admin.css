@@ -1383,7 +1383,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
        air fixes it for every viewport and zoom rather than for the ones
        measured, because floor(t) > t - 1 for every t: a bar ending one
        whole CSS pixel above the board's top can never reach the capture's
-       first row. Half a pixel cannot say that, and is measured failing.
+       first row. HALF a pixel cannot say it, and the measurement shows why
+       the difference is not pedantry: with half a pixel of air (fix round
+       mutant A2) 1440 x 900 still passes — the board's top fraction there
+       is .797 and floor() happens to absorb the half — while 390 x 844
+       fails, its fraction being .0625. Whether half a pixel is enough is
+       an accident of the viewport. A whole one is not.
        The standing check is
        tests/test_puzzle_solver_probe.py
        TestSolverProbe_TheBarStaysOutOfTheBoardsCapture, which reads the two

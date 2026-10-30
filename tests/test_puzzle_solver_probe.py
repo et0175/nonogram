@@ -1206,9 +1206,15 @@ class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
     The claim is stated as ``barBottom <= floor(boardTop)`` and not as "1 px
     of air", because ``floor(t) > t - 1`` for every ``t``: one whole CSS
     pixel of air keeps the bar out of the capture's first row at every
-    viewport, zoom and device pixel ratio rather than at the ones measured,
-    and half a pixel does not — both measured, as the fix round's A1/A2
-    mutants.
+    viewport, zoom and device pixel ratio rather than at the ones measured.
+    Half a pixel does not, and the fix round's mutants say so precisely
+    rather than loosely: with the air removed (A1) all four cases red here;
+    with HALF a pixel of air (A2) the two phone cases red and the two
+    desktop ones do NOT, because the board's top fraction at 1440 x 900 is
+    .797 and ``floor()`` absorbs the half, where at 390 x 844 it is .0625
+    and it does not. Both viewports are swept for exactly that reason —
+    whether half a pixel is enough is an accident of the viewport, and a
+    one-viewport sweep would have licensed the accident.
 
     Two assertions, and the first is not decoration. A bar that is hidden,
     or that has been folded back onto the toolbar's first row, satisfies the

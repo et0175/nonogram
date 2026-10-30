@@ -122,11 +122,18 @@ with the reason and the test that holds it.
 - **Design context, not a numbered rule: where the controls are.** The card's
   Design context put the Probe toggle and the two actions inside
   `.player-tools`. They ship as a group of their own on the TOOLBAR'S LAST
-  FLEX LINE, and the line's 47 px is paid for by the toolbar's own row gap
-  (8 px), the toolbar's own bottom margin (16 px, the air between it and the
-  board) and 24 px off `.player-stage`'s own `max-height` — never by the cell
-  clamp. **Five measurements decided it**, all written out in `admin.css`
-  beside the rules, and each is one standing test away:
+  FLEX LINE. **The three sentences that stood here about what pays for that
+  line were measured wrong and are corrected by the fix round** (see the fix
+  round's note at the end of this card, and the bullet in `admin.css` that
+  now carries the numbers): the line is **24 px**, not 47; `.player-stage`'s
+  `max-height` pays nothing, because that draft never shipped and no `:has`
+  rule on the stage exists; and the line is paid for by the toolbar's own row
+  gap (8 px) plus all but one pixel of the toolbar's own bottom margin
+  (16 px) — with the **residual 9 px taken out of the 16 px between the page
+  head and the toolbar**, which is what keeps the board's top at today's
+  number. The measurements below are the ALTERNATIVES the implementation
+  round rejected, all written out in `admin.css` beside the rules; (b) is the
+  one it then under-read, and the fix round's note says by how much:
   (a) at 1280 x 720 the toolbar's first row is exactly full (980 px of content
   in a 980 px row; `.player-tools` is itself 208 px of content inside its own
   13rem floor), and `.player-tools > button` / `.player-history > button` are
@@ -150,8 +157,14 @@ with the reason and the test that holds it.
   (e) BELOW the board is worse, not better: a focusable control under the fold
   is reached by the same Tab walk and Chromium scrolls the page 233 px to
   reveal it, reddening the same keyboard test harder (measured: 5 of 8 cases).
-  Net effect of what shipped, measured: the stage's bottom edge 729.6 px
-  against today's 730.6, and that focus scroll 10 px against today's 11.
+  Net effect of what shipped, measured in the fix round at 1280 x 720 (the
+  figures that stood here — stage bottom 729.6 against 730.6, focus scroll 10
+  against 11 — belong to the unshipped `max-height` draft and are struck):
+  the stage's top 238.796875 and its bottom 730.796875, both **today's
+  numbers exactly**, the focus scroll 11 px, today's, the document 898 px
+  tall, today's, the toolbar's top 139 against today's 148, and 1 px of air
+  between the probe bar and the board at 1280 x 720, 1440 x 900 and 390 x 844
+  alike.
 
 ## What to implement
 
@@ -345,3 +358,173 @@ them as written, never as passing before they exist:
   `tokens.css` and the template too; the dispatcher's overlap prediction will
   serialize the pair if they land in one wave. CARD-267 is the smaller card
   and has no `solver_state.js` footprint — either order works.
+
+### Fix round 1 of 2 (build-fix, not a review cycle)
+
+- **[Diagnosed cause — one defect, five red tests]** The gate was red on five
+  browser tests, not the one the round was briefed on, and all five come from
+  the same decision: the probe bar's flex line was paid for out of the
+  toolbar's bottom margin *alone*. That did two things at once.
+  - It left the bar's bottom edge **exactly** on `.player-board`'s top edge —
+    measured, the same number to the 1/64 px at every viewport the suite
+    samples: 246.796875 at 1280 x 720, 210.796875 at 1440 x 900, 502.0625 at
+    390 x 844, air 0 in all three. A Playwright **element** screenshot clips
+    the page raster to the enclosing whole-pixel rect,
+    `[floor(top), ceil(bottom))`, so a board whose top is at `y.797` is
+    captured from `y.0` and **row 0 of every `.player-board` capture held the
+    bottom 0.797 px of the Probe button**. Measured on the failing arm: row 0
+    read `(127,117,95)` across x = 3..54 (the button's bottom border blended
+    with paper) where the same board with the bar hidden reads
+    `(245,240,230)` = `--grid-paper` for the whole row. That is what
+    `test_the_rules_against_paper_are_untouched` reported as "a hairline is
+    reaching cells that are not filled": **no cell had a `box-shadow` at
+    all** — all 400 computed `none` in both of its readings — and the 4
+    differing pixels (x = 1, 2, 55, 56, by 1 per channel) were the button's
+    own antialiased corners. It was not the injected style either: capture A
+    against B with *nothing* injected differs on exactly those 4 pixels,
+    while B vs C and C vs D (shadow off) are byte-identical, so the arm was
+    comparing the first paint of a composited button edge against every
+    later one.
+  - It moved the board **8 px down**, and that reddened the other four:
+    3 of the 8 cases of
+    `tests/test_puzzle_solver_marking.py
+    TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press`
+    (`White-Enter`, `White-Space`, `Clear-Enter`) and
+    `tests/test_puzzle_solver_progress.py
+    TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move`.
+    **Measured identically at 8 px (the implementation round's commit
+    `bc43eda5`) and at 9 px, so they pre-date the fix round's own change.**
+    The keyboard cases fail because `#puzzle-player`'s focus scroll goes
+    11 px -> 19 px, past the half-cell (11.7 px) the card's own `admin.css`
+    bullet names as the tolerance, and the drag then lands a row off. The
+    solved-banner case fails by a **second mechanism nobody had looked for**:
+    the board 8 px lower puts that test's last filled cell under the fold,
+    Playwright scrolls the **page** 5 px to click it, and the test's
+    before/after `bounding_box()` sees the board move 5 px
+    (247.796875 -> 242.796875) across a stroke that changes the toolbar's
+    height not at all — the whole page moved. So the `admin.css` bullet's
+    "4 of the 8 ... with the stage 23 px lower" was true and misleading: it
+    implied 8 px was free. **"The board may not move down" has no slack in
+    it; it is zero.**
+
+- **[What changed]** Two CSS rules and nothing else — no JS, no template, no
+  token, no sibling test.
+  - `.player-toolbar:has(.player-probe) { margin-top: calc(-1 * var(--space-2) - var(--border-width)); }`
+    — the line is paid for ABOVE the toolbar now, out of the 16 px between
+    the page head and the toolbar. `:has` because `puzzle_edit.html`
+    (CARD-246) draws its board under the same `.player-toolbar` and is
+    offered no probe; keyed on the bar's PRESENCE rather than
+    `:not([hidden])` so the pull-up is constant for the page's whole life.
+  - `.player-probe`'s `margin-bottom` goes
+    `calc(-1 * var(--space-4))` -> `calc(-1 * var(--space-4) + var(--border-width))`
+    — one hairline of air, which is sharp for every viewport and zoom rather
+    than for the ones measured, because `floor(t) > t - 1` for every `t`.
+  - The arithmetic is forced, not chosen, and it is written out in
+    `admin.css`: with the bar `h` px tall the board moves `8 + mt + h + mb`
+    and the air below it is `16 + mb`, so `air >= 1` and `movement = 0`
+    together need `mt = 7 - h` — `-17 px` for a 24 px row, which would put
+    the bar 9 px inside the toolbar's first line. There is no third margin on
+    the bar to spend, which is why the toolbar pays.
+  - Result, measured: below the toolbar the page is today's geometry exactly
+    (stage top 238.796875 / 202.796875 / 494.0625, focus scroll 11 px,
+    document 898 px), so nothing downstream had to be re-measured.
+
+- **[Controls added]** Both in this card's own file (G-7 holds: no
+  `test_puzzle_solver_*.py` sibling was edited), seven node ids, all
+  registered in `tests/test_browser_fixture_scope.py`'s `ADDED_SINCE_BEFORE`.
+  - `TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::test_the_bar_ends_above_the_boards_first_capture_row`
+    — 4 cases (desktop/phone x probe closed/open). Assertion 1 is the
+    premise (the bar is visible and is a line of its own below
+    `.player-tools`); assertion 2 is the claim
+    (`barBottom <= floor(boardTop)`).
+  - `TestSolverProbe_TheBarCostsTheBoardNoGround::test_the_probe_line_leaves_the_boards_top_where_it_was`
+    — 3 cases (1280 x 720, 1440 x 900, 390 x 844). Assertion 1 is the premise
+    (the toolbar's margin-top is negative and the bar is visible);
+    assertion 2 compares the board's top with the board's top in a page whose
+    two CARD-268 geometry rules are both switched off. It exists because the
+    two unedited siblings only go red at 8 px, and 1 px is the error a reader
+    of the pull-up rule would make.
+
+- **[Mutant table]** Each applied to `admin.css` at HEAD (clean-tree asserted
+  by `git diff --quiet HEAD` before each), restored with
+  `git checkout HEAD --` and the restore verified by SHA-256 both ways;
+  `PYTHONDONTWRITEBYTECODE=1`, `*.pyc`/`__pycache__` swept before and after
+  each. Harness in `scratchpad/card268fix/` (never the shared scratchpad
+  root). Every row names the ASSERTION that fired, because a test
+  short-circuits at its first failing assert.
+
+  | id | mutation | what died, per assertion |
+  |----|----------|--------------------------|
+  | **A1** | air -> 0 (`margin-bottom: calc(-1 * var(--space-4))`, i.e. exactly what `bc43eda5` shipped) | air class **4/4** red, all on **assertion 2** ("the probe bar's bottom edge (201.796875) is inside the first whole pixel row…"); no-ground class 3/3 red on assertion 2 (board 1 px high); **sibling `test_the_rules_against_paper_are_untouched` red** |
+  | **A2** (edge) | air -> half a pixel (`+ var(--border-width) / 2`) | air class **2/4**: `phone-closed`, `phone-open` red on **assertion 2**; `desktop-closed`, `desktop-open` **SURVIVE** — the board's top fraction at 1440 x 900 is `.797`, so `floor()` absorbs the half, where at 390 x 844 it is `.0625` and it does not. This is why both viewports are swept, and the claim in `admin.css` and in the docstring says exactly this rather than "half a pixel fails". no-ground class 3/3 red on assertion 2 (board 0.5 px high) |
+  | **P1** (premise of the air class) | `.player-probe { flex-basis: 100% }` -> `auto`, so the bar folds onto the toolbar's first row | air class `desktop-closed` red on **assertion 1**, with the premise's own numbers (`barTop 131`, `toolsBottom 177.78`) — so assertion 1 is reached and falsifiable, not decoration; no-ground 1440x900 + 390x844 red on assertion 2 (board 9 px high: the pull-up now over-pays) |
+  | **B1** | the pull-up rule -> `margin-top: 0` | no-ground class **3/3** red on **assertion 1** ("the toolbar's margin-top is 0 …") — premise reached and falsifiable; **siblings red: 4 of the 8 keyboard cases** (`White-Enter`, `White-Space`, `Clear-Enter`, `Clear-Space`) **and the solved-banner test** |
+  | **B2** (edge) | the pull-up -> `-8 px` (`calc(-1 * var(--space-2))`, the one-pixel error) | no-ground class **3/3** red on **assertion 2** (board 1 px low, all three viewports). The two siblings **survive** — which is the whole reason this control exists: they are sharp at 8 px, it is sharp at 1 |
+
+- **[Defect-class audit, not just the sibling named]** The class is *anything
+  painted flush against an element's box edge leaks into that element's
+  element screenshot, because the clip is the enclosing whole-pixel rect*.
+  Four files in the family take screenshots; the audit covers all of them.
+  `tests/test_puzzle_solver_fifth_rule.py` is the only one that takes an
+  element screenshot of `.player-board` and compares two of them byte for
+  byte — that is the one that reddened.
+  `tests/test_puzzle_solver_hint.py`'s `_SEEN_REGIONS` takes element
+  screenshots of `.player-board`, `#puzzle-player-controls` (which
+  **contains** the probe bar, so the bar is legitimately part of that capture
+  and is static across the press it compares) and `#puzzle-player-explain`
+  (in `.page-head`, nowhere near the bar) — measured green at `bc43eda5`
+  already and green now. `tests/test_puzzle_solver_clues.py` takes 3 x 3
+  page-clip samples inside the board, far from its top edge;
+  `tests/test_puzzle_solver_maybe.py` takes full-page shots and thresholds
+  the difference at > 24 per channel, which a 1-per-channel edge artefact
+  cannot reach. Nothing else of this card's is flush with a captured edge:
+  the bar's own TOP is flush with `.player-tools`'s bottom, and no test
+  captures `.player-tools`.
+
+- **[Finding for another card / for review — the comment's figures]** Three
+  claims in the CARD-268 `admin.css` block were measurably wrong and are
+  corrected in place, with the correction labelled: the bullet count ("four"
+  over five bullets), the line's height ("47 px" over a 24 px line), and the
+  tolerance claim that implied 8 px of downward movement was free. A fourth
+  described a rule that **does not exist**: a paragraph said "the stage rule
+  is keyed on `:has(.player-probe)` … so its stage keeps the cap it had",
+  but the only `.player-stage` rule this card adds is the unconditional
+  declaration of the two custom properties — the `max-height` giveback it
+  describes was a draft that never shipped (it is the same draft the card's
+  Divergences block credited with 24 px and a 729.6 px stage bottom). All
+  four are now stated as what the code does.
+
+- **[Finding, not fixed here — a claim with nothing checking it]** The card's
+  Design context requires the probe tint to be **distinct from CARD-267's
+  crosshair tint and CARD-188's circles**. `admin.css` argues it at length
+  (`--color-surface-hover` is the crosshair's, `--color-accent-tint` is the
+  hint line's) and `TestSolverProbe_MarksCarryTheTint` has arms for the
+  crosshair and the hint line *not repainting a probe cell* — but nothing
+  measures the three tints apart as colours. Left as a finding rather than
+  widened into this round, per the fix round's scope.
+
+- **[Finding, not fixed here — `Touches` vs reality]** The card predicted it
+  would touch `tokens.css`; it did not, and the probe tint is derived in
+  `admin.css` from `--color-warning` and `--grid-paper` with `color-mix()`.
+  Defensible (it does not widen the global token surface for a feature-local
+  tint, which is the precedent the crosshair and the hint line set) but it is
+  a deviation from `Touches`. The fix round adds no token either.
+
+- **[Gate, final run on the fix round's tree]**
+  `tests/test_puzzle_solver_*.py` (every file in the family) plus
+  `tests/test_admin_design_tokens.py`: **581 passed, 0 failed, 0 skipped**
+  (414.98 s). `tests/test_browser_fixture_scope.py`: **31 passed, 0 failed,
+  0 skipped** (79.95 s) — which is the meta-test the round was briefed on
+  (`test_the_riskiest_tests_pass_alone[test_puzzle_solver_fifth_rule]`) plus
+  the registry equality that now accounts for all seven new node ids.
+  **Skips attributed: there are none to attribute.** Every file in this gate
+  is a browser file and the browser fixtures `pytest.fail` with the install
+  instruction rather than skipping when Chromium is absent (ADR-0038/R8); the
+  only skips this suite has anywhere are `DATABASE_URL`-gated, and no file in
+  this gate has one. Counts for the record: the round started from
+  `bc43eda5` with **5 failed / 574 passed** over the same set (1 named in the
+  brief + 4 the brief did not know about) and ends with 0 failed.
+  The full suite was NOT run (no flock taken on
+  `meta/kanban/.full-suite.lock`; CARD-328 is under review in a parallel
+  worktree). Every failure in this round was reproduced in isolation first,
+  so none of the five was contention.
