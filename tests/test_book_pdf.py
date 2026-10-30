@@ -1952,9 +1952,48 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
 # ``tests/`` to the kanban board**, built deliberately rather than inherited.
 
 
-#: The board's whole status vocabulary, derived 2026-10-29 by reading every
-#: ``meta/kanban/cards/CARD-*.md`` in the main working tree. Only ``done`` is
-#: terminal. **No per-status counts are written here, and that is deliberate:**
+#: The board's whole status vocabulary: the statuses ``forge:kanban``'s card
+#: format defines, plus ``parked``, which this board uses and the format does
+#: not. Only ``done`` and ``skipped`` are terminal (see
+#: :data:`_TERMINAL_STATUSES`).
+#:
+#: **DERIVED FROM THE FORMAT, NOT FROM A SNAPSHOT OF THE BOARD — and that
+#: correction cost a red ``main``.** This set was first derived on 2026-10-29
+#: "by reading every card in the main working tree", and on that day the board
+#: had **no card in flight** (wave 68 closed with none), so no card file
+#: carried an in-flight status at all. What went in instead was
+#: ``"in progress"`` **with a space** — the spelling of ``board.md``'s
+#: ``## In Progress`` heading, not of any ``**Status:**`` field. The pipeline
+#: writes ``in_progress``. Measured 2026-10-30, the moment wave 69 dispatched
+#: two cards: :func:`test_no_declaration_outlives_the_cards_that_remove_it`
+#: failed on ``main`` with ``['CARD-268', 'CARD-309']``, because
+#: :func:`_card_status` returned the default-DENY ``None`` for a spelling it
+#: had never been given. The guard was right and its vocabulary was wrong.
+#:
+#: Two consequences are now load-bearing and are why this is written out:
+#:
+#: * ``in_progress`` and ``review`` are the two statuses a card holds **while
+#:   a human is waiting for it**, so they are exactly the ones a status set
+#:   derived from an idle board cannot contain. ``review`` has never appeared
+#:   on this board (`board.md`'s Review column says so of the field, not of
+#:   the pipeline) and is included anyway: the next card to reach its review
+#:   phase would otherwise red ``main`` a second time, for the same reason, on
+#:   a different word.
+#: * ``"in progress"`` is **gone**, not kept as an alias. 126 historical cards
+#:   carried it and **none in the live tree does**; keeping a spelling that
+#:   cannot occur is what let the synthetic control below exercise an
+#:   impossible case while the real one went unguarded (see
+#:   ``CARD-90003``).
+#:
+#: ``reverted`` is deliberately **absent**. The format defines it, no card has
+#: ever carried it, and its terminality is a real question (a reverted card's
+#: work is rolled back, so a declaration naming one arguably waits forever —
+#: like ``skipped``). An unanalysable shape is a FAILURE here per ADR-0039/R2,
+#: so the first revert on this board will red this guard rather than be read
+#: as "not done" — which is the correct, loud outcome, and the decision gets
+#: made then with a case in hand instead of now with none.
+#:
+#: **No per-status counts are written here, and that is deliberate:**
 #: the ones this comment first carried were already two cells out within the
 #: day (``done`` and ``ready`` both moved when CARD-291 merged and CARD-308
 #: started), which is the drift :mod:`tests/test_cli.py`'s component map and
@@ -1962,12 +2001,12 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
 #: refuses for the same reason. The **set** is the load-bearing claim and it is
 #: mechanically pinned by
 #: :func:`test_no_declaration_outlives_the_cards_that_remove_it`, which
-#: requires every card on the board to have a readable status, so a sixth
-#: spelling reds rather than drifting. A **sixth** spelling is an unanalysable shape, which
+#: requires every card on the board to have a readable status, so an eighth
+#: spelling reds rather than drifting. An **eighth** spelling is an unanalysable shape, which
 #: ADR-0039/R2 makes a failure here rather than a card quietly read as
 #: not-done — the direction that cannot ship a false green.
 _BOARD_STATUSES = frozenset(
-    {"done", "ready", "in progress", "blocked", "parked", "skipped"}
+    {"done", "ready", "in_progress", "review", "blocked", "parked", "skipped"}
 )
 _DONE = "done"
 
@@ -2062,9 +2101,11 @@ def _card_status(card: str, cards: pathlib.Path) -> str | None:
     #. it cannot be read (permissions, a directory of that name, bad UTF-8);
     #. it carries **no** ``**Status:**`` line;
     #. it carries **more than one**, so which one is the status is a guess;
-    #. its status word is outside :data:`_BOARD_STATUSES` — a sixth spelling
-       on the board reds here instead of being read as "not done", because
-       "not done" is the answer that ships a stale declaration.
+    #. its status word is outside :data:`_BOARD_STATUSES` — an eighth
+       spelling on the board reds here instead of being read as "not done",
+       because "not done" is the answer that ships a stale declaration.
+       Measured 2026-10-30: this is the shape that reds, and the vocabulary
+       was the thing at fault, not the board (see :data:`_BOARD_STATUSES`).
 
     Kept out of the assertions on purpose, so
     :func:`test_a_declaration_outliving_its_done_card_is_a_defect` can drive
@@ -2224,7 +2265,8 @@ def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
     status_card("CARD-90001", "done")
     status_card("CARD-90008", "done")
     status_card("CARD-90002", "ready")
-    status_card("CARD-90003", "in progress")
+    status_card("CARD-90003", "in_progress")  # the spelling the pipeline WRITES
+    status_card("CARD-90010", "review")  # in flight too, and never yet seen live
     status_card("CARD-90009", "skipped")  # terminal, but not "done"
     status_card("CARD-90004", "shipped")  # a status word the board does not use
     card("CARD-90005", "# CARD-90005: a probe\n\nno status line at all\n")
@@ -2240,8 +2282,38 @@ def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
     # ---- and NOT a defect while the card is still open ----
     # This is the half that stops a deny-everything derivation from passing
     # the assertion above.
-    for still_open in ("CARD-90002", "CARD-90003"):
+    for still_open in ("CARD-90002", "CARD-90003", "CARD-90010"):
         assert _landing_findings(declared(still_open), tmp_path) == [], still_open
+
+    # ---- THE TWO IN-FLIGHT STATUSES ARE NOT TERMINAL ----
+    # Added 2026-10-30, after this guard reded `main` the moment wave 69
+    # dispatched two cards: `_BOARD_STATUSES` held "in progress" (the spelling
+    # of board.md's heading) while the pipeline writes `in_progress`, so a card
+    # in flight came back from `_card_status` as the default-DENY None. The
+    # guard was right; its vocabulary was wrong.
+    #
+    # That both words are READ as themselves is asserted with the other
+    # statuses near the end of this test, where a parser returning a constant
+    # is what is being refused. What is asserted HERE is the half that has no
+    # home there and no witness on the real board: neither word is terminal. A
+    # card in flight will reach `done` and can still remove its declaration, so
+    # putting either in `_TERMINAL_STATUSES` would report a live declaration as
+    # outliving its expiry. `review` additionally has never appeared on this
+    # board, so the real board would pass whether the word were in the
+    # vocabulary or not — without a synthetic card carrying it, its membership
+    # is a claim with no control (ADR-0039/R1), and the next card to reach its
+    # review phase would have reded `main` a second time on a different word.
+    assert "in_progress" not in _TERMINAL_STATUSES
+    assert "review" not in _TERMINAL_STATUSES
+
+    # ---- and the dead spelling cannot be read as a status again ----
+    # "in progress" was carried by 126 historical cards and by none in the live
+    # tree. It is out of the vocabulary, so it now takes the same default-DENY
+    # path as any unknown word — which is what stops this control from
+    # exercising an impossible case while the real one goes unguarded, the
+    # exact shape that hid the defect above.
+    status_card("CARD-90011", "in progress")
+    assert _card_status("CARD-90011", tmp_path) is None
 
     # ---- the expiry is the LAST card, not the first ----
     assert _landing_findings(declared("CARD-90001", "CARD-90002"), tmp_path) == []
@@ -2322,7 +2394,8 @@ def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
     # "not done" -- a parser returning a constant would pass the arms above.
     assert _card_status("CARD-90001", tmp_path) == "done"
     assert _card_status("CARD-90002", tmp_path) == "ready"
-    assert _card_status("CARD-90003", tmp_path) == "in progress"
+    assert _card_status("CARD-90003", tmp_path) == "in_progress"
+    assert _card_status("CARD-90010", tmp_path) == "review"
 
 
 def test_a_page_whose_medium_cannot_be_determined_is_a_defect() -> None:
