@@ -42,6 +42,7 @@ board before the hint. Fixtures are CARD-160's, page helpers CARD-161/162's.
 
 from __future__ import annotations
 
+import hashlib
 import random
 import re
 
@@ -495,6 +496,112 @@ def _hints_shown(page):
 
 def _announced(page):
     return " ".join(page.locator("#puzzle-player-announce").text_content().split())
+
+
+def _explained(page):
+    """What the VISIBLE answer line holds (CARD-269 review F-2, owner
+    decision 2026-10-30) — ``#puzzle-player-explain``, as against
+    ``#puzzle-player-announce`` above, which is 1 x 1 and clipped and which a
+    sighted player therefore never meets. Every assertion phrased "the live
+    region says ..." is satisfied by a feature that never reaches the player,
+    which is how all ten of this card's ACs passed while rung 2 changed
+    nothing visible; this reads the channel that does reach them."""
+    return " ".join(page.locator("#puzzle-player-explain").text_content().split())
+
+
+#: Two animation frames, then every animation on the document awaited, then
+#: the COUNT still running returned so a caller can assert it is zero. This
+#: card's own dominant failure family was a reading taken mid-fade (the tint
+#: read as barely there and the colour was deepened on that reading, which is
+#: why admin.css carries the trap in a comment), so a digest taken here is
+#: taken after the quantity exists and the test says so out loud.
+_SETTLED = """async () => {
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
+  return document.getAnimations().filter((a) => a.playState === 'running').length;
+}"""
+
+#: The three regions a sighted player can see change on a Hint or Check press:
+#: the board (the line highlight, a revealed cell), the toolbar (the counters)
+#: and the visible answer line.
+_SEEN_REGIONS = (
+    ("board", ".player-board"),
+    ("toolbar", "#puzzle-player-controls"),
+    ("line", "#puzzle-player-explain"),
+)
+
+
+def _shots(page):
+    """An element screenshot of each region above, animations settled and
+    asserted settled — review cycle 1's own instrument, which is how F-2 was
+    measured rather than argued."""
+    assert page.evaluate(_SETTLED) == 0, "an animation is still running: a reading taken now is not a measurement"
+    return {name: page.locator(selector).screenshot() for name, selector in _SEEN_REGIONS}
+
+
+def _seen(page):
+    """:func:`_shots` as SHA-256 digests. Short: they are only ever compared
+    with each other, and a difference has to be printable in a failure
+    message."""
+    return {name: hashlib.sha256(png).hexdigest()[:16] for name, png in _shots(page).items()}
+
+
+def _digests(shots):
+    return {name: hashlib.sha256(png).hexdigest()[:16] for name, png in shots.items()}
+
+
+def _pixel_delta(before, after):
+    """How far apart two element screenshots are: (pixels that differ at all,
+    the largest per-channel difference among them).
+
+    Needed because **byte-identity is not a reproducible instrument across a
+    repaint**, which fix round 2 measured rather than inherited. Review
+    cycle 1 reported rung 1's and rung 2's toolbars as BYTE-IDENTICAL
+    (caab001602a1 both times, and rung 1's toolbar still hashes
+    caab001602a16dbc here). With the visible line added, the announce text
+    change invalidates a region of the toolbar's tile and Chromium re-rasters
+    it: 6 of the 73 500 pixels come back differing by 1/255 in one channel,
+    in the antialiasing of two button corners. That is not a change a sighted
+    player can see, and asserting byte-identity would have pinned a
+    rasterisation detail. So the claim is made as a BOUND instead.
+    """
+    import io
+
+    from PIL import Image, ImageChops
+
+    left = Image.open(io.BytesIO(before)).convert("RGB")
+    right = Image.open(io.BytesIO(after)).convert("RGB")
+    assert left.size == right.size, (left.size, right.size)
+    red, green, blue = ImageChops.difference(left, right).split()
+    # Per pixel, the largest of its three channel differences — ImageChops
+    # rather than a per-pixel Python loop, and a histogram rather than
+    # getdata(), which Pillow 14 removes.
+    worst = ImageChops.lighter(ImageChops.lighter(red, green), blue).histogram()
+    return sum(worst[1:]), max((level for level, count in enumerate(worst) if count), default=0)
+
+
+#: What "visually indistinguishable" is allowed to mean: a bound on the
+#: LARGEST per-channel difference, and deliberately NOT on the number of
+#: pixels. **Derived from measurement, not chosen.** Across the four presses
+#: of the deducible and the exhausted ladder:
+#:
+#: * repaint noise — the two regions nothing should have changed — is 1 or 2
+#:   levels, over 6 pixels on the deducible board and 23 on the exhausted
+#:   one. The COUNT tracks how big a region Chromium chose to re-raster, so
+#:   it is not the quantity to bound; the LEVEL is.
+#: * every real change is 20 levels or more: 20 for the pressed button's
+#:   focus ring, 25 for a highlighted board row, 204-227 for a revealed cell,
+#:   a changed counter digit and a sentence appearing.
+#:
+#: 4 sits an order of magnitude under the smallest real change and twice the
+#: largest noise. The class below drives both sides of it.
+_INVISIBLE_LEVEL = 4
+
+
+def _indistinguishable(before, after):
+    """Whether two element screenshots are the same picture to an eye, by
+    :data:`_INVISIBLE_LEVEL`."""
+    return _pixel_delta(before, after)[1] <= _INVISIBLE_LEVEL
 
 
 def _hinted(page):
@@ -2228,3 +2335,392 @@ class TestSolverCheck_CleanLockedAndEditMode:
 
         assert _check(browser_page).count() == 1
         assert _hint(browser_page).count() == 1
+
+
+# ==========================================================================
+# Review cycle 1 F-2 (gating) — every press changes something SEEN
+# (owner decision 2026-10-30: promote the announce text into a visible line)
+# ==========================================================================
+
+#: The boxes whose constancy is the layout argument for where the visible
+#: line went: the third item of the .page-head.player-head row, flex: 1 1 0
+#: with min-width: 0 and white-space: nowrap, so it can neither widen that
+#: row nor make it taller — which is how the toolbar, the head and the BOARD
+#: all keep the boxes they had before this line existed.
+_BOXES_AROUND_THE_LINE = """() => {
+  const box = (s) => { const b = document.querySelector(s).getBoundingClientRect();
+    return [b.left, b.top, b.width, b.height]; };
+  return {
+    head: box('.page-head'),
+    board: box('.player-board'),
+    toolbar: box('#puzzle-player-controls'),
+    counters: box('.player-counters'),
+    progress: box('#puzzle-player-progress'),
+    line: box('#puzzle-player-explain'),
+  };
+}"""
+
+def _ax_nodes_saying(page, sentence):
+    """Every node of the page's real accessibility tree whose name carries
+    ``sentence``, as (role, ignored) pairs.
+
+    Chromium's own tree through CDP, because an ``aria-hidden`` element is
+    exactly what ``get_by_text`` cannot see the point of (it matches text
+    content and counts the DOM copies, which is the wrong number), and
+    ``page.accessibility`` is gone from this Playwright. This family is
+    Chromium-only by fixture, so CDP is available.
+    """
+    session = page.context.new_cdp_session(page)
+    session.send("Accessibility.enable")
+    nodes = session.send("Accessibility.getFullAXTree")["nodes"]
+    return sorted(
+        ((node.get("role") or {}).get("value"), bool(node.get("ignored")))
+        for node in nodes
+        if sentence in (((node.get("name") or {}).get("value")) or "")
+    )
+
+
+#: #puzzle-player-announce in its SHIPPED state — the thing the visible line
+#: must not have replaced. Review F-4's defect in miniature: cycle 1's own
+#: captures were taken with this region made visible, so the toolbar in them
+#: was not the shipped toolbar.
+_ANNOUNCE_SHIPPED = """() => {
+  const el = document.getElementById('puzzle-player-announce');
+  const s = getComputedStyle(el), b = el.getBoundingClientRect();
+  return {w: b.width, h: b.height, position: s.position, clip: s.clip,
+          overflow: s.overflow, role: el.getAttribute('role'),
+          atomic: el.getAttribute('aria-atomic'),
+          ariaHidden: el.getAttribute('aria-hidden')};
+}"""
+
+
+@pytest.mark.browser
+class TestSolverHintLadder_EveryPressChangesSomethingSeen:
+    """Review cycle 1 F-2 (gating), closed by the owner's decision of
+    2026-10-30: **every press changes something a sighted player can see.**
+
+    F-2 measured, by SHA-256 of element screenshots with ``getAnimations()``
+    settled, that rung 2's board and toolbar were BYTE-IDENTICAL to rung 1's
+    — the class toggle off and on coalesces in one task, so there is not even
+    a re-fade, and under reduced motion there is no animation at all. Every
+    sentence this card ships went only to ``#puzzle-player-announce``, which
+    is 1 x 1 and clipped. So the rung whose job is "explain the deduction" —
+    half the card's title — changed nothing visible, and on an exhausted
+    board rungs 1 AND 2, and Check on a clean board, were presses
+    indistinguishable from a dead button.
+
+    All ten of this card's ACs are phrased "the live region says ...", which
+    is exactly why they passed while the feature did not reach the player.
+    This class is phrased the other way round: it asserts the VISIBLE
+    sentence and the visible DIFFERENCE, and it uses the review's own
+    instrument with the proof in both directions that the review demanded —
+    a control that does rise, and a control that does not.
+
+    The owner did NOT recolour the tint. The line highlight is still
+    ``--color-accent-tint`` #e6efec on #fffdf8 paper, re-measured here at
+    **1.15:1**, under WCAG 2.1 SC 1.4.11's 3:1 for a graphical object. That
+    is a declared residual rather than a fix: the tint now only reinforces a
+    sentence that carries the meaning, and the sentence is also what tells
+    rung 1's highlight ("deduce here") from Check's ("an error is here"),
+    which is the job one tint could never do. See the card's fix-round-2
+    note.
+    """
+
+    def test_the_instrument_rises_and_does_not_rise(self, browser_page, live) -> None:
+        """The proof of the instrument, before anything is claimed with it
+        (ADR-0039/R4).
+
+        POSITIVE control: a blank board and a board after one Hint press are
+        two different pages, and the digest says so on the board region and
+        on the line region.
+
+        NEGATIVE control: the same page measured twice with nothing between
+        gives byte-identical digests on all three regions — so a difference
+        reported below is a difference in the page and not in the
+        instrument (element screenshots scroll their element into view, which
+        is the obvious way this could have read noise).
+        """
+        _open(browser_page, live, live.store(GRID))
+        blank = _seen(browser_page)
+
+        assert _seen(browser_page) == blank  # measured twice, nothing between
+
+        _hint(browser_page).click()
+        rung1 = _seen(browser_page)
+
+        assert _seen(browser_page) == rung1  # and again on the other state
+        assert rung1["board"] != blank["board"]  # the highlight
+        assert rung1["line"] != blank["line"]  # the sentence
+
+    def test_three_presses_are_three_visibly_different_pages(self, browser_page, live) -> None:
+        """THE property, as a property: each of the three presses changes
+        something seen, and rung 2 — the one F-2 measured as invisible —
+        differs from rung 1.
+
+        The last pair of assertions on rung 2 is F-2's own measurement kept
+        alive rather than left as prose: the BOARD and the TOOLBAR are still
+        visually indistinguishable between rung 1 and rung 2, so the visible
+        line is the entire reason that press is now visible at all. It is
+        asserted as a BOUND (:data:`_INVISIBLE`) and not as byte-identity,
+        because byte-identity is measurably not reproducible across a
+        repaint — see :func:`_pixel_delta`, which is where that correction to
+        the review's wording lives. The rung-3 assertions right below are the
+        in-test control that the same bound DOES report a real change.
+        """
+        _open(browser_page, live, live.store(GRID))
+        before = _states(browser_page)
+        hint = _grid_hint(before)
+        axis, index = _grid_ladder_line(before)
+        reason = _grid_reason(before, axis, index, hint)
+        assert _explained(browser_page) == ""  # a fresh load says nothing
+        blank = _shots(browser_page)
+
+        _hint(browser_page).click()
+        one, said1 = _shots(browser_page), _explained(browser_page)
+
+        assert said1 == _rung_text(1, axis, index)
+        assert said1 == _announced(browser_page)  # both channels, one sentence
+        assert _digests(one) != _digests(blank)
+
+        _hint(browser_page).click()
+        two, said2 = _shots(browser_page), _explained(browser_page)
+
+        assert said2 == _rung_text(2, axis, index, reason)
+        assert said2 == _announced(browser_page)
+        assert said2 != said1
+        assert _digests(two)["line"] != _digests(one)["line"], "rung 2 is invisible again (F-2)"
+        assert not _indistinguishable(one["line"], two["line"])  # and visibly so
+        # F-2's measurement, still true and now harmless:
+        assert _indistinguishable(one["board"], two["board"]), _pixel_delta(one["board"], two["board"])
+        assert _indistinguishable(one["toolbar"], two["toolbar"]), _pixel_delta(one["toolbar"], two["toolbar"])
+
+        _hint(browser_page).click()
+        three, said3 = _shots(browser_page), _explained(browser_page)
+
+        assert said3 == f"Hint: row {hint[0] + 1}, column {hint[1] + 1} is {_color(hint[2])}."
+        assert said3 == _announced(browser_page)
+        assert said3 != said2
+        assert _digests(three)["line"] != _digests(two)["line"]
+        # The control for the bound above: a reveal DOES move both regions
+        # far past it — the cell's outline, and "Hints: 0" becoming "Hints: 1".
+        assert not _indistinguishable(two["board"], three["board"])
+        assert not _indistinguishable(two["toolbar"], three["toolbar"])
+        assert _hints_shown(browser_page) == 1
+
+    def test_the_next_recorded_change_clears_the_line(self, browser_page, live) -> None:
+        """The line resets with the ladder (AC-4's rule, in the new channel):
+        a sentence about the board as it was is worse than no sentence."""
+        _open(browser_page, live, live.store(GRID))
+        _hint(browser_page).click()
+        _hint(browser_page).click()
+        assert _explained(browser_page) != ""
+
+        _cell(browser_page, 0, 0).click()
+
+        assert _explained(browser_page) == ""
+        assert _lined(browser_page) == _NO_LINE
+        # And the next press starts the ladder again, visibly.
+        _hint(browser_page).click()
+        assert _explained(browser_page).startswith("Hint: look at ")
+
+    def test_the_exhausted_board_shows_the_sentence_it_used_to_only_speak(
+        self, browser_page, live
+    ) -> None:
+        """F-2's second dead-button case. On an exhausted board rungs 1 and 2
+        highlight nothing by design (card rule 6 — a highlight here would
+        point at a deduction that does not exist), so before this decision
+        there was nothing visible on either press. The sentence already
+        existed; making it visible is the whole fix, and the BOARD being
+        indistinguishable while the line changes is what says the visible
+        line is carrying it alone.
+
+        **DECLARED RESIDUAL, asserted here rather than left as prose.** Card
+        rule 6 fixes ONE sentence for both rungs, so the SECOND press on an
+        exhausted board still changes nothing seen: every region is
+        indistinguishable across it. Giving exhausted rung 2 its own sentence
+        would change the card's declared semantics and is the owner's to
+        decide (fix round 2 did not invent copy); a card that takes that
+        decision changes the last assertions here on purpose.
+        """
+        grid, board = _fallback_grid()
+        rows, columns = _clues(grid)
+        assert _first_deducible(board, board, rows, columns, grid) is None
+        _open(browser_page, live, live.store(grid))
+        _set(browser_page, board)
+        assert _explained(browser_page) == ""
+        blank = _shots(browser_page)
+
+        _hint(browser_page).click()
+        first, said = _shots(browser_page), _explained(browser_page)
+
+        assert said == "Hint: no single row or column decides a cell right now."
+        assert said == _announced(browser_page)
+        assert _lined(browser_page) == _NO_LINE  # still highlights nothing
+        assert not _indistinguishable(blank["line"], first["line"])  # yet it is visible
+        assert _indistinguishable(blank["board"], first["board"])  # the line, alone
+
+        _hint(browser_page).click()
+        second = _shots(browser_page)
+
+        assert _explained(browser_page) == said  # card rule 6: the same sentence
+        for name in ("board", "toolbar", "line"):  # the declared residual, measured
+            assert _indistinguishable(first[name], second[name]), (name, _pixel_delta(first[name], second[name]))
+
+    def test_check_on_a_clean_board_shows_the_sentence(self, browser_page, live) -> None:
+        """F-2's third dead-button case, and the one the tint could never
+        have answered: "Check: no wrong marks." highlights nothing, so with
+        the sentence hidden the press did nothing visible at all. The
+        wrong-marks board is the control that the same instrument DOES see a
+        board change when there is one.
+        """
+        _open(browser_page, live, live.store(GRID))
+        cells = [U] * (SIDE * SIDE)
+        cells[2 * SIDE + 2] = _right(2, 2)
+        cells[6 * SIDE + 8] = M
+        _set(browser_page, cells)
+        assert _error_count(browser_page) == 0
+        clean = _shots(browser_page)
+
+        _check(browser_page).click()
+        after = _shots(browser_page)
+
+        assert _explained(browser_page) == "Check: no wrong marks."
+        assert _explained(browser_page) == _announced(browser_page)
+        assert _lined(browser_page) == _NO_LINE
+        assert not _indistinguishable(clean["line"], after["line"])
+        assert _indistinguishable(clean["board"], after["board"])
+
+        # The control: a wrong mark, where Check also paints a row.
+        cells[4 * SIDE + 6] = _wrong(4, 6)
+        _set(browser_page, cells)
+        wrong = _shots(browser_page)
+
+        _check(browser_page).click()
+        named = _shots(browser_page)
+
+        assert _explained(browser_page) == "Check: a mark in row 5 is wrong."
+        assert not _indistinguishable(wrong["line"], named["line"])
+        assert not _indistinguishable(wrong["board"], named["board"])
+
+    def test_the_announce_region_did_not_regress_and_the_visible_copy_is_out_of_the_tree(
+        self, browser_page, live
+    ) -> None:
+        """The visible line is an ADDITION, not a replacement (the brief's
+        third condition). The live region keeps its shipped 1 x 1 clipped
+        geometry, its role and its aria-atomic, and keeps being written on
+        every rung — asserted on a real press, not only at load.
+
+        The duplication choice: the visible copy carries
+        ``aria-hidden="true"``, so assistive technology meets each sentence
+        ONCE, as the live announcement it already was, rather than a second
+        time as static text while navigating the page. The announce region
+        remains the AT channel; the visible line is for eyes only.
+        """
+        _open(browser_page, live, live.store(GRID))
+        shipped = browser_page.evaluate(_ANNOUNCE_SHIPPED)
+
+        assert (shipped["w"], shipped["h"]) == (1, 1)
+        assert shipped["position"] == "absolute"
+        assert shipped["clip"] == "rect(0px, 0px, 0px, 0px)"
+        assert shipped["overflow"] == "hidden"
+        assert shipped["role"] == "status"
+        assert shipped["atomic"] == "true"
+        assert shipped["ariaHidden"] is None  # the live region is IN the tree
+
+        line = browser_page.locator("#puzzle-player-explain")
+        assert line.get_attribute("aria-hidden") == "true"
+        assert line.get_attribute("role") is None
+        assert line.get_attribute("aria-live") is None  # not a second live region
+        assert line.is_visible()
+
+        _hint(browser_page).click()
+
+        assert _announced(browser_page) != ""  # still spoken
+        assert _explained(browser_page) == _announced(browser_page)  # and now also seen
+        assert browser_page.evaluate(_ANNOUNCE_SHIPPED) == shipped  # unmoved by the press
+        # The sentence is in the DOM twice ON PURPOSE and in the
+        # accessibility tree once. Asserted against the real tree and not
+        # with get_by_text, which matches text content and does not know what
+        # aria-hidden means — the first draft of this test used it and
+        # counted 2, which is the right count of DOM copies and the wrong
+        # count of anything a screen reader meets.
+        said = _announced(browser_page)
+        assert _explained(browser_page) == said  # the same sentence, twice in the DOM
+        shipped_tree = _ax_nodes_saying(browser_page, said)
+
+        assert shipped_tree  # the live region's copy IS in the tree
+        assert all(not ignored for _, ignored in shipped_tree)  # and none of it is ignored
+
+        # The control, in both directions, for the duplication choice itself:
+        # take aria-hidden off and the tree gains copies, put it back and the
+        # tree is exactly what it was. Without this the claim "the sentence
+        # reaches a screen reader once" would rest on an attribute's spelling
+        # rather than on what the tree does with it.
+        browser_page.evaluate(
+            "() => document.getElementById('puzzle-player-explain').removeAttribute('aria-hidden')")
+        exposed = _ax_nodes_saying(browser_page, said)
+        browser_page.evaluate(
+            "() => document.getElementById('puzzle-player-explain').setAttribute('aria-hidden', 'true')")
+
+        assert len(exposed) > len(shipped_tree), (exposed, shipped_tree)
+        assert _ax_nodes_saying(browser_page, said) == shipped_tree
+
+    def test_the_line_moves_neither_the_toolbar_nor_the_board(self, browser, live) -> None:
+        """The owner is re-confirming the 1280 px toolbar on fix round 1's
+        captures and must not be shown a third different toolbar, so this is
+        the assertion that the line did not touch it — nor the page head, nor
+        the board, at either width, empty or full.
+
+        **This is the test that chose the placement.** The obvious reading of
+        the owner's words, a <p> in the gap between the toolbar and the board,
+        reds it: at 1280 x 720 the 15 x 15 board's bottom edge is 715.813 px
+        in a 720 px viewport, so the page has 4.187 px of vertical slack and a
+        line of --text-sm needs 22.328 px, of which only .player-toolbar's own
+        16 px margin-bottom can be reclaimed. Spending the remaining 6.328 px
+        anyway moves the board out of the viewport, Playwright then scrolls to
+        reach a cell, and two tests elsewhere that compare a VIEWPORT-relative
+        bounding_box() across an action start comparing two scroll positions
+        (TestSolverMarking_KeyboardAndLabels[White-Space] and
+        TestSolverProgress_SolvedWhenBlacksMatch's board-does-not-move). The
+        .page-head row costs nothing vertically at any width, so none of that
+        is in play — and admin.css records the arithmetic and the residual
+        (below about 1270 px the longest sentence is ellipsised).
+
+        Asserted per width: every box identical empty vs full; the line one
+        line box tall even while EMPTY (which is also what makes it
+        screenshottable, so :func:`_shots` has something to hash); and the
+        sentence NOT truncated at these two widths, scrollWidth against
+        clientWidth, because text-overflow hides an overflow silently and a
+        test that did not look would call an ellipsis a pass.
+        """
+        puzzle = live.store(GRID)
+        checked, moved, clipped = 0, [], []
+        for width in (1280, 1440):
+            context = browser.new_context(viewport={"width": width, "height": 900})
+            page = context.new_page()
+            try:
+                _open(page, live, puzzle)
+                assert page.evaluate(_SETTLED) == 0
+                empty = page.evaluate(_BOXES_AROUND_THE_LINE)
+                assert _explained(page) == ""
+                assert empty["line"][3] > 0, width  # one line box tall while EMPTY
+
+                _hint(page).click()
+                _hint(page).click()  # rung 2: the longest sentence of the three
+                assert page.evaluate(_SETTLED) == 0
+                full = page.evaluate(_BOXES_AROUND_THE_LINE)
+                assert " — " in _explained(page), width
+                fit = page.evaluate(
+                    "() => { const e = document.getElementById('puzzle-player-explain');"
+                    " return [e.scrollWidth, e.clientWidth]; }")
+            finally:
+                context.close()
+            checked += 1
+            if fit[0] > fit[1]:
+                clipped.append((width, fit))
+            for name in ("head", "board", "toolbar", "counters", "progress", "line"):
+                if empty[name] != full[name]:
+                    moved.append((width, name, empty[name], full[name]))
+        assert checked == 2
+        assert moved == [], moved
+        assert clipped == [], clipped

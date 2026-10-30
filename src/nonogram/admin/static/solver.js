@@ -231,11 +231,20 @@
 //             until the next commit; #puzzle-player-announce says which line
 //             to look at, then why, then which cell was revealed — and says
 //             when that cell came from the solution rather than from one line.
+//             Since the owner's decision of 2026-10-30 each of those
+//             sentences is ALSO written to #puzzle-player-explain, the
+//             visible line beside the puzzle's title, so every rung
+//             changes something a sighted player can see (review F-2 had
+//             measured rung 2's board and toolbar byte-identical to rung
+//             1's). See showExplain below.
 //   check     [data-player-action="check"] (CARD-269) answers "is one of my
 //             marks wrong?": it highlights the ROW of the first wrong mark
-//             (the same .is-hint-line) and names it, or says there are none.
-//             It changes no cell, records no stroke and moves no counter, so
-//             it is free; it resets the hint ladder. aria-disabled="true"
+//             (the same .is-hint-line) and names it, or says there are none —
+//             and, since 2026-10-30, says it in the visible line too, which
+//             is what makes "no wrong marks" on a clean board something other
+//             than a dead press. It changes no cell, records no stroke and
+//             moves no counter, so it is free; it resets the hint ladder.
+//             aria-disabled="true"
 //             while the board is locked OR a gesture is in progress — the
 //             same two conditions Hint reports above (CARD-269 review F-10;
 //             the handler always returned early mid-drag, only the attribute
@@ -857,7 +866,16 @@ function start() {
     if (progressOut.textContent !== percent) progressOut.textContent = percent;
     const now = isSolved(history.board, payload.solution);
     if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
-    else if (hint) announce.textContent = hintText(hint);
+    else if (hint) {
+      // Rung 3 (CARD-269 review F-2): the reveal's sentence goes to BOTH
+      // channels, the same way say() writes rungs 1-2 and Check. commit()
+      // cleared the visible line a moment ago, so this is what replaces
+      // rung 2's explanation with the answer rather than leaving the
+      // explanation standing over a cell that is now revealed.
+      const said = hintText(hint);
+      announce.textContent = said;
+      showExplain(said);
+    }
     solved = now;
     banner.hidden = !solved;
     toolbar.classList.toggle("is-solved", solved);
@@ -1220,9 +1238,12 @@ function hintText({ row, col, state, deduced }) {
 // mean — cells the player did not deduce themselves — because hintCount
 // still counts only `hint: true` strokes and only rung 3 records one.
 //
-// Every sentence is written through `say` below, straight into
+// Every sentence is written through `say` below, into BOTH channels at once:
 // #puzzle-player-announce, the one live region this page has (the solved
-// banner and rung 3's hintText write it too; whichever wrote last wins).
+// banner and rung 3's hintText write it too; whichever wrote last wins), and
+// #puzzle-player-explain, the visible answer line the owner's decision of
+// 2026-10-30 added — see showExplain below for the measurement that forced
+// it and for the accessibility-tree choice.
 // A press that repeats its own answer REASSIGNS that sentence. CARD-269
 // review F-9 measured this with a MutationObserver on the shipped page: the
 // textContent setter runs the DOM's "string replace all", which removes the
@@ -1305,6 +1326,37 @@ export const LADDER_SAY = Object.freeze({
 //: hints that could not help and no word about why.
 function checkText(row) {
   return row === null ? "Check: no wrong marks." : `Check: a mark in row ${row + 1} is wrong.`;
+}
+
+//: The SEEN half of every sentence above (CARD-269 review F-2, owner decision
+//: 2026-10-30). #puzzle-player-announce is 1 x 1 and clipped, so until this
+//: existed the ladder's whole output went only to a screen reader, and cycle 1
+//: measured the consequence rather than argued it: rung 2's board and toolbar
+//: were indistinguishable from rung 1's by SHA-256 of element screenshots with
+//: getAnimations() settled. The rung whose job is "explain the deduction"
+//: changed nothing a sighted player could see, and on an exhausted board rungs
+//: 1 and 2 — and Check on a clean board — were presses indistinguishable from
+//: a dead button. (The review said BYTE-identical. Fix round 2 re-measured:
+//: the board reproduces as byte-identical, the toolbar does not once this line
+//: exists — the announce write invalidates a tile and 6 pixels come back one
+//: level apart in two button corners. The test's _pixel_delta carries that
+//: correction and bounds the claim by LEVEL instead.)
+//:
+//: #puzzle-player-explain is a plain <p> in the page-head row, beside the
+//: puzzle's title and directly above the toolbar — the only place on this page
+//: that holds a line of text at zero vertical cost, which is why it is not in
+//: the toolbar-to-board gap where it reads most naturally (admin.css has the
+//: arithmetic, the two placements that were tried, and the residual). It
+//: carries aria-hidden="true": the live region stays
+//: THE assistive-technology channel and stays unchanged, so a screen reader
+//: meets each sentence once as an announcement instead of twice.
+//:
+//: Optional, like the Hint button itself: puzzle_edit.html (CARD-246) loads
+//: this same file with no Hint, no Check and no explain line, and there this
+//: is a no-op rather than a mode flag of its own.
+function showExplain(text) {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line !== null) line.textContent = text;
 }
 
 // The elements `.is-hint-line` goes on for one line: every cell of it and
@@ -1646,10 +1698,16 @@ function wireMarking(container, player) {
     refresh();
   }
 
-  // One line of the live region (see LADDER above). Written straight: an
-  // identical string is a DOM no-op, so there is nothing to guard against.
+  // One line of the live region AND of the visible answer line — the two
+  // channels of every ladder/Check sentence, written together here so the
+  // seen one cannot drift from the spoken one (see LADDER above, and
+  // showExplain there for what the visible one is and why it is hidden from
+  // the accessibility tree). Written straight, with no same-string guard:
+  // review F-9's measurement of what a repeated assignment does is in the
+  // LADDER block.
   function say(text) {
     announce.textContent = text;
+    showExplain(text);
   }
 
   // Put `.is-hint-line` on (or take it off) every cell and clue box of
@@ -1723,6 +1781,12 @@ function wireMarking(container, player) {
     // stale line on it.
     rung = nextRung(rung, "change");
     setLadderLine(null);
+    // And the visible answer line goes with the highlight: a sentence about
+    // the board as it was is worse than no sentence (CARD-269 review F-2).
+    // Cleared BEFORE player.commit, so rung 3's own reveal — which arrives
+    // through showProgress's hint branch inside that call — writes its answer
+    // over an empty line rather than racing the clear.
+    showExplain("");
     player.commit(next, hint);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
@@ -2034,6 +2098,13 @@ function wireMarking(container, player) {
   syncZoom();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;
+  // The visible answer line (CARD-269 review F-2) is shown with the toolbar
+  // and for the toolbar's reason: it is one line box tall even while empty,
+  // and a blank strip beside the title of a board that never got drawn would
+  // be furniture promising a control that is not there. Optional for
+  // puzzle_edit.html's sake, like the Hint and Check buttons.
+  const explainLine = document.getElementById("puzzle-player-explain");
+  if (explainLine !== null) explainLine.hidden = false;
   return { refresh, commit, getZoom: () => zoom };
 }
 

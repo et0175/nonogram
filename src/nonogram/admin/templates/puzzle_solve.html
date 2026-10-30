@@ -165,6 +165,41 @@
   the crosshair's tint. No new element on the board, no animation under
   prefers-reduced-motion.
 
+  Both controls also WRITE WHAT THEY SAY ON THE PAGE, in
+  #puzzle-player-explain (.player-explain) — the third item of the
+  .page-head.player-head row above, beside the puzzle's title and directly
+  above the toolbar. CARD-269's review cycle 1 measured, by SHA-256 of element
+  screenshots with getAnimations() settled, that rung 2's board and toolbar
+  were indistinguishable from rung 1's: the only channel every rung had was
+  #puzzle-player-announce, which is 1 x 1 and clipped, so the rung whose job
+  is to explain the deduction changed nothing a sighted player could see, and
+  on an exhausted board rungs 1 AND 2 — and Check on a clean board — were
+  presses indistinguishable from a dead button. The owner's decision of
+  2026-10-30 was to promote the sentence into a visible line rather than
+  recolour the tint, because the sentence also tells rung 1's highlight apart
+  from Check's, which the one tint could not do alone.
+
+  The announce region is UNCHANGED — still 1 x 1, still clipped, still the
+  live region, still written on every rung. The visible line is an ADDITION,
+  and it carries aria-hidden="true" precisely so a screen reader meets each
+  sentence once, in the live region, rather than a second time as static text
+  while navigating the page. The two are written together (solver.js's say()
+  and showProgress's hint branch), so the hidden channel cannot drift from
+  the seen one.
+
+  The title row was chosen by measurement, and it is the only place on this
+  page that holds a line of text for free: it costs ZERO vertical space at
+  every width, so the toolbar, the page head and the BOARD are all in exactly
+  the boxes they were in before this line existed (#puzzle-player-controls
+  74.797 px at 1280 px / 38.797 px at 1440 px, .page-head 52 px, board top
+  238.797 / 202.797 px — empty and full, measured both ways). admin.css
+  carries the arithmetic and the two placements that were tried and could not
+  be afforded: the page has 4.187 px of vertical slack at 1280 x 720 and a
+  line of this type needs 22.328 px. The cost is paid at narrow widths
+  instead — below about 1270 px the longest sentence is ellipsised, which
+  admin.css declares as the residual and which costs a screen reader nothing,
+  since #puzzle-player-announce still carries every sentence in full.
+
   Zoom (CARD-195): a third toolbar group, after History and before the
   counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
   a plain (non-live) "100%" readout and a "Zoom in" button — 100% to 300% in
@@ -208,6 +243,7 @@
 <div class="page-head player-head">
     <h1>Puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
     {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
+    <p class="player-explain" id="puzzle-player-explain" aria-hidden="true" hidden></p>
 </div>
 
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
@@ -264,7 +300,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it. Hint answers in three presses: the first highlights the row or column to look at, the second says why it decides a cell, the third reveals it; Check highlights the row of the first wrong mark, and each press writes its answer in the line beside the puzzle's title.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

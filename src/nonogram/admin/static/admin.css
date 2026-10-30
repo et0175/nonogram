@@ -944,6 +944,96 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-solved-box .player-solved { overflow-wrap: anywhere; }
 .player-toolbar.is-solved .player-tools { visibility: hidden; }
 .player-announce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* The VISIBLE answer line (CARD-269 review F-2, owner decision 2026-10-30).
+   .player-announce above is 1 x 1 and clipped, so before this rule every
+   sentence the hint ladder and Check produced went only to a screen reader:
+   cycle 1 measured rung 2's board and toolbar INDISTINGUISHABLE from rung
+   1's (SHA-256 of element screenshots, getAnimations() settled, the
+   instrument proved first in both directions; the review said BYTE-identical
+   and fix round 2 re-measured that to a bound on the per-channel level —
+   tests/test_puzzle_solver_hint.py's _pixel_delta carries the correction),
+   and on an exhausted board rungs 1 and 2
+   — and Check on a clean board — showed nothing at all. The owner chose to
+   promote the sentence rather than recolour the tint, because the sentence
+   also tells rung 1's highlight apart from Check's.
+
+   WHERE IT SITS WAS DECIDED BY MEASUREMENT, AND THE FIRST TWO ANSWERS WERE
+   WRONG. It is the third item of .page-head.player-head — beside the puzzle
+   title, directly above the toolbar — because that row is the only place on
+   this page that can hold a line of text for FREE. It costs ZERO vertical
+   space at every width, by construction and not by luck: flex: 1 1 0 with
+   min-width: 0 means it never forces .page-head's wrap and never widens the
+   row, and white-space: nowrap means it is always exactly one line tall,
+   shorter than the h1 that sets the row's 52 px height.
+
+   Why nothing cheaper worked. A <p> in the gap between .player-toolbar and
+   .player-stage is the obvious reading of "a visible line near the toolbar",
+   and it cannot be afforded: at 1280 x 720 — this suite's default viewport —
+   the 15 x 15 board's bottom edge sits at 715.813 px in a 720 px viewport,
+   so the whole page has 4.187 px of vertical slack and a line of --text-sm
+   needs 22.328 px of which only .player-toolbar's own 16 px margin-bottom
+   can be reclaimed: +6.328 px minimum, against 4.187 px available. MEASURED
+   consequences of spending it anyway, both of them the same defect in two
+   files: once the board does not fit the viewport, Playwright scrolls to
+   reach a cell, and a test that compares a VIEWPORT-relative
+   bounding_box() across an action now compares two different scroll
+   positions. At +38.312 px, five tests; at +22.328 px, four; at +6.328 px,
+   TestSolverMarking_KeyboardAndLabels[White-Space] (whose _drag re-measures
+   between its own mouse moves, so the board slides out from under a pointer
+   path already computed) and
+   TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move
+   (the solving click scrolls 2 px, and the board's y reads 243.125 against
+   245.125). A flex child of .player-toolbar was never an option either: it
+   would have spent the toolbar's horizontal room and moved the 1280 px wrap
+   threshold the owner accepted on 2026-10-30 (see .player-counters above).
+
+   What the page-head row buys, MEASURED with getAnimations() settled and
+   #puzzle-player-announce in its shipped 1 x 1 clipped state:
+   #puzzle-player-controls stays 74.797 px high at 1280 px and 38.797 px at
+   1440 px; .player-counters' share stays 186.234 / 346.234 px against the
+   same 263.656 px need; .page-head stays 52 px; and .player-board's top
+   stays 238.797 px at 1280 px and 202.797 px at 1440 px — the same figures
+   as before this line existed, empty and full.
+
+   THE RESIDUAL, declared rather than discovered later: the row has 659.86 px
+   beside the title at 1280 px (980 - h1 234.58 - tier badge 85.56), 643.86
+   after the 16 px gap, and the longest sentence this page can produce is
+   593.88 px ("Hint: look at column 15 - every placement of this column's
+   clues agrees on at least one cell."), so the line is 627.86 px wide at
+   1280 px and 787.86 px at 1440 px and the sentence fits whole at both. Below
+   about 1270 px it is ELLIPSISED, and that band is the residual. Nothing is
+   lost to a screen reader either way: .player-announce above still carries
+   every sentence in full, and the usage paragraph under the board now names
+   the ladder.
+
+   The phone is NOT left in that band, because at 390 px the title and the
+   tier badge leave the line 5.859 px — six pixels of text is not a visible
+   change, and shipping it would have put review F-2's defect straight back
+   for phone players. Below 820 px (CARD-193's own mirror breakpoint, reused
+   rather than invented) the line takes a row of its own in the head: 358 px
+   wide at 390 px, still exactly one nowrap line, so the head's height is
+   constant there too and a press still moves nothing. The board has 80.19 px
+   of slack at 390 x 844 (bottom 763.812 in an 844 px viewport), which is
+   where the row's 38.328 px comes from — the budget 1280 x 720 did not have.
+
+   The ::before zero-width space keeps the element exactly one line box tall
+   even while empty, so its own box never collapses (the suite screenshots
+   it, and a 0 px box cannot be screenshotted). MEASURED rather than assumed,
+   and the first attempt was wrong in a way worth leaving written down:
+   `min-height: calc(var(--text-sm) * var(--leading-base))` computes 22.32 px
+   while the line box an actual sentence makes is 22.328125 px — Chromium
+   rounds a used line-height to 1/64 px and a min-height to the raw value —
+   so a press moved the board 0.015625 px and the test caught it. A line box
+   reserves a line box exactly. The character is in CSS and not in the markup
+   so that the <p>'s textContent stays exactly the sentence (the suite reads
+   it) and an empty line is genuinely empty to a reader.
+
+   It is NOT animated — the fade belongs to the line highlight below, and
+   AC-10's reduced-motion rule has nothing to suppress here. */
+.player-head .player-explain { flex: 1 1 0; min-width: 0; margin: 0; font-size: var(--text-sm); line-height: var(--leading-base); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-head .player-explain::before { content: "\200B"; }
+.player-head .player-explain[hidden] { display: none; }
+@media (max-width: 820px) { .player-head .player-explain { flex-basis: 100%; } }
 .player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
 .player-solved[hidden] { display: none; }
 .player-solved .icon { flex: none; color: var(--color-success); }
