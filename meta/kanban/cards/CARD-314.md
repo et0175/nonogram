@@ -378,3 +378,107 @@ round's to settle and not the orchestrator's.
 - [Review 1/3] Score: 8.5 ✓ threshold reached, certifies, 0 defects in shipped behaviour
 - [Fix 1] Dispatched on F-001, F-002, F-003, F-005, F-006, F-007, F-008, F-009, F-010, F-011 and the
   unnamed M4 plant site. **F-004 excluded and escalated.**
+
+---
+
+## Fix round 1 — `7f40f30f` → `d5a5affc`, 4 files, +337/−28
+
+Ten of twelve findings discharged in-tree. **Nothing in shipped behaviour changed**: the only `src/`
+edit is a docstring, the 21 baselines are byte-identical, and the render stands — **no new eyeball
+owed.** Lock checked by absolute path before every one of 18 runs, absent each time; **no run
+collected 0.**
+
+### F-001 — the control exists now, and the mutant that used to survive reds
+
+| tree | mutant | result |
+|---|---|---|
+| `7f40f30f` | the tag test → `bool(stack)` | **733 passed, 0 failed — survives** (reproduced cycle 1 exactly) |
+| fixed | same | **1 failed, 736 passed**, riser = the new test **and only it** |
+
+Two directions in one test: the same face under `/Artifact BMC` against `/ClueDigit BMC`, and — on a
+**real puzzle page** — a sub-floor face inside `/Artifact` comes back **reported, not exempted.**
+The planted size is **read off the page**, not written as a literal.
+
+### F-006 — the review UNDERSTATED this, in the harder direction
+
+**This is the thing fix round 1 found that cycle 1 got wrong.** Cycle 1 said the forgery *"is caught
+in practice, but not by the guard that claims it"*. Measured with a **balanced** plant — the mark
+operator *and* its closer appended as raw rows — on `7f40f30f`:
+
+- floor module alone: **47 passed, 0 failed**
+- whole 733-test radius: **733 passed, 0 failed**
+
+**So the general raw-append forgery was caught by nothing.** Cycle 1's own mutant reddened 2 only
+because its plant left AC-3's refusal unable to fire — **a forgery that brackets nothing is
+invisible.** `7f40f30f` had **three** surviving mutants, not two.
+
+Fixed: **1 failed, 736 passed.** Two new tests, and **the guard's claim narrowed to what it
+performs** (a *call* to the emitting method), naming the literal check beside it and naming what
+neither reaches (a token assembled at runtime — kept small because the operator list is private).
+The scope test measures the hand-chosen directory against **every file under `src/nonogram/` whose
+text names the stream type** — **0 difference at this commit** — with a planted probe file as its
+positive control and the same file naming something else as its negative. **And it reads the AST with
+docstrings excluded, because a text grep reds on the drawer's own prose** — a trap measured, not
+guessed. The operator pattern uses an **explicit delimiter class, not `\b`.**
+
+### F-002 — nesting, documented four times and controlled nowhere
+
+`stack.pop()` → `stack.clear()` **survived all 733**; now reds exactly one new test. The load-bearing
+case is **the face after the inner closer** — still inside the outer sequence, so still exempt,
+which is precisely what a flag gets wrong.
+
+### F-003, and the restated figures each with their domain
+
+F-003's dead assertion is **deleted**, with a comment saying why **both halves** were dead; nothing
+remains to mutate. **F-005**: re-derived at both scopes — floor module **1/46**, whole radius
+**4/729**, risers named — and the economy comment now states **4/733 with 1/47 named as its
+one-module reading**, with each of the three extra risers gaining a docstring line saying a per-digit
+mark reds there **by design** and is an economy claim, not a correctness one. **F-011**: the
+540/1080 figure was measured nowhere; re-derived, the bound on a 30×30 is **at most 900 entries**,
+the EC corpus's three 30×30 pages set **456 / 449 / 468**, and the baseline page sets **204**. Both
+sites now state it as a bound with the measurements beside it. **F-008**, **F-007** (downgraded to
+what was measured — the hazard was a **RED**, not a silent vacuum), **F-010** (narrowed: one of the
+four is a filing decision whose measurement lives in another module, now pointed at by name), and
+**F-009** all corrected.
+
+### Instrument proofs, both ways
+
+Positive: the three mutants above each red **exactly one** new test and nothing else. Negative,
+**all 51 passing in the floor module**: a same-meaning different-spelling rewrite; an equivalent pop;
+and a literal planting the operators as **inner substrings** of longer words, which the boundary rule
+must not match.
+
+### Guardrails and figures
+
+**G-1** `requirements.yml` byte-unchanged. **All ten CON-020 trace refs resolve by `class` line with
+their line numbers reported, 0 dead** — which matters because **gate 3 there is `Severity.ERROR`**.
+**G-5: all 21 baselines unmoved**, `git status --porcelain tests/fixtures/` empty. **G-6**: nothing
+deleted, renamed, skipped or merged. **Node ids over the three touched modules: 179 → 183, raw +4 /
+0 removed / 0 renamed, net +4** — all four new `def`s, none parametrised; radius 733 → 737.
+**Skips: 0** in the 737-test radius under both conditions. Runtime as ranges with conditions, ±15%
+host spread, **no load figure**. Mutants out of tree, needle uniqueness asserted, blob shas restored
+and asserted back, `diff -rq` against a pristine extract empty, **no `git stash`**.
+
+### Open after this round
+
+**F-004** untouched by instruction — now **authorised by the owner** (see below). **F-012** untouched
+and rated a nit, its non-vacuity carried by a companion floor whose margin is real: **3557 exempt
+faces against a 1000 floor.** And **the card's M4 figure is still not independently checkable** — it
+reports 2/45 for "the frame drawer" **without naming a plant line**, while the reviewer's
+folio-drawer plant gives 4/43. That figure is the orchestrator's, on the card.
+
+## OWNER DECISION 2026-10-30 — G-6 overridden for two test names, declared
+
+**The owner has authorised a declared rename of exactly the two tests cycle 1's F-004 names.** G-6
+remains in force for everything else.
+
+The reasoning accepted: **the names are true only of the mutated page the test builds; of the page
+this card ships the opposite is true, and that opposite is the card's headline.** G-6 exists so
+coverage cannot vanish, which a *declared* rename does not do — and CON-020's `covered` trace row is
+exactly where someone resolves which test means what.
+
+**The condition attached:** the node-id delta must be stated **raw and net**. This card has had **0
+removed** until now, and a rename is **2 removed and 2 added, not zero** — netting it away is the
+defect this board corrected twice today on other cards.
+
+- [Fix 2] Dispatched on the rename alone, with the trace row re-stamped and every reference derived.
