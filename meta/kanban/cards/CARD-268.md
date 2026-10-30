@@ -1,6 +1,6 @@
 # CARD-268: Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,7 +15,7 @@
 **Wave:** 69 <!-- STAMPED 2026-10-30 at dispatch. Owner decision: "we agreed before to take 309+268". Its drafting-time conflict note named CARD-267 (crosshair) as the card it would serialize against -- CARD-267 merged `4b4a26e7` in wave 63, so that contention is gone. Against CARD-309 the measured Touches intersection is EMPTY. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_resume.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** — (build-fix round **1 of 2 GREEN**, not a review cycle; cycle 1 running). The gate was red on a real regression and the fix round's diagnosis **contradicted the failing test's own message**: `a hairline is reaching cells that are not filled` was never true — all 400 cells computed `box-shadow: none` in both readings. The probe bar's flex line was paid out of `.player-toolbar`'s bottom margin alone, putting the bar's bottom edge **exactly on** the board's top edge, and a Playwright **element** screenshot clips to `[floor(top), ceil(bottom))` — so row 0 of every `.player-board` capture held the bottom 0.797 px of the Probe button. **The brief's one failure was one of five**: the same 8 px shift reddened three keyboard cases (focus scroll 11 → 19 px) and the solved-banner test by a *second* mechanism nobody had looked for. Fixed with two token-only `calc()` declarations, the arithmetic written out as forced rather than chosen; geometry below the toolbar is main's exactly. Verified by the orchestrator: the gating test passes, its meta-test is 6/6, the four collateral failures are green, and the 7 new control node ids collect.
 **Started:** 2026-10-30T11:58:28Z
 **Closed:** —
 **Actual:** —

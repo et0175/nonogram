@@ -143,33 +143,9 @@ _**⛔ 10 cards in this list are gated** (`Revision pending: true`, set by the 2
 
 ## In Progress
 
-_**Two cards, both wave 69**, at the owner's cap of 2. Re-derived from all 330 card files._
-
-- **CARD-268** P2 · **Probe mode — hypothesis marks in their own tint** ⚠ `implementation complete, AGENT DEAD`
-  `worktree: ../PythonProject4-card-268` · `branch: card/268-player-probe-mode` (`fe8ec27d`, `9c88b723`)
-  `1d est · standard · TDD: true`
-  **Its agent died with the previous session, and it had already finished implementing.** Two
-  commits, **2052 insertions** — 1147 lines of `tests/test_puzzle_solver_probe.py`, 133 in
-  `solver_state.js`, 196 in `solver.js`, 129 in `admin.css` — and the second commit is a
-  **mutant-driven fix round**: *"closes the two gaps its mutants found — Keep's save and rule
-  10's reset"*. So this is a stalled pipeline at the review boundary, **not** a crash
-  mid-build: it needs `review`, not re-implementing. Checked with `pgrep` before saying so —
-  no live process on its worktree (a crashed session's shells can outlive it, so liveness is
-  measured, not inferred). Two loose ends for whoever resumes it:
-  `tests/test_browser_fixture_scope.py` is **committed and then modified again, uncommitted**,
-  and the diff touches **two files outside its `Touches`** — that file (new, +164) and
-  `tests/test_puzzle_solver_page.py` (+6) — while **not** touching `tokens.css`, which its
-  `Touches` predicted. Both are `SCOPE+` facts for its review, and its worktree card copy
-  carries +75 lines of notes the sync protocol has not yet brought back.
-
-  `worktree: ../PythonProject4-card-328` · `branch: card/328-player-looks-agree`
-  `0.75d est · standard · TDD off deliberately`
-  Dispatched 14:36Z. Declares `2400501b` (already on `main`, green at 67 passed / 0 skipped)
-  and guards the duplication it created. **The whole difficulty is that a guard demanding the
-  two sheets match would be FALSE**: the dot's rules are declaration-for-declaration identical,
-  while the sweep's selectors differ for a stated reason — so it asserts the shared parts and
-  **declares** the three divergences, with a fourth reddening. Mutation is the deliverable,
-  **two mutants per sheet**, because a guard reading one sheet passes half of them.
+_(none — no card file carries `Status: in_progress`. CARD-268 left this column for `Review`
+on 2026-10-30 when its build-fix round went green; both live cards are now at the review
+station, which is the cap of 2.)_
 
 ## Review
 
@@ -200,6 +176,29 @@ _**Two cards, both wave 69**, at the owner's cap of 2. Re-derived from all 330 c
   block's **coverage** (5 selectors vs 2), and the **count agrees at 1 = 1** and is
   deliberately left undeclared, since declaring a non-divergence is the stale exemption its
   own AC-4 forbids.
+
+- **CARD-268** P2 · **Probe mode — hypothesis marks in their own tint** · `cycle 1/3 running · build-fix 1/2 GREEN`
+  `worktree: ../PythonProject4-card-268` · `branch: card/268-player-probe-mode` (4 commits)
+  **Its fix round's diagnosis contradicted the failing test's own message.** *"A hairline is
+  reaching cells that are not filled"* was **never true** — all 400 cells computed
+  `box-shadow: none` in both readings. The probe bar's flex line was paid out of
+  `.player-toolbar`'s bottom margin alone, putting the bar's bottom edge **exactly on** the
+  board's top edge; a Playwright **element** screenshot clips to `[floor(top), ceil(bottom))`,
+  so row 0 of every `.player-board` capture held the bottom **0.797 px of the Probe button**,
+  and the differing pixels were its antialiased corners.
+  **And the brief's one failure was one of five.** The same 8 px board shift reddened three
+  `test_puzzle_solver_marking.py` keyboard cases (focus scroll 11 → 19 px, past the half-cell
+  tolerance the card's own comment names) and the solved-banner test by a **second mechanism**
+  nobody had looked for — the board 8 px lower put its last filled cell under the fold, so
+  Playwright scrolled the *page* 5 px to click it and the before/after `bounding_box()` saw the
+  board move across a stroke that changed the toolbar's height not at all.
+  Fixed with **two token-only `calc()` declarations** — pay for the row *above* the toolbar,
+  leave the board one hairline of its own — with the arithmetic written out as **forced, not
+  chosen**. Geometry below the toolbar is main's exactly, so nothing downstream needed
+  re-measuring. Its mutant **A2 partially survives by design** (half a pixel dies on the phone
+  at `.0625` and survives on desktop at `.797`, where `floor()` absorbs it) — and the round
+  **corrected its own comment** after measuring that, having first written it without the
+  viewport qualification.
 
 ## Parked
 - **CARD-300** P2 · The door axis's seventh appearance, **priced before it is attempted** — R9's closure, the surface rule's two unequal halves, and whether this guard should survive the vector interior at all  _(unscheduled, `architectural`, from CARD-276's merge as a declaration 2026-10-25. **Its AC-1 is a recorded decision, not a code change**: close R9, keep the declaration and spend the round on this file's cost, or retire the door axis if the vector phase makes it unverifiable — because a seventh round on the same mechanism in the same file is the shape this board has already paid for. Carries R9's baseline measurements, the surface rule's decorated-method asymmetry with its **4-refusal cost on a defect-free tree**, CARD-276's six unverified AC-5 cells, and the partition-B figure verifiable only as **+22** against a claimed 33. **Sequence it with CARD-287/292/299 on this file** — the ADR-0042 census argues the conversion and the cheapening are one piece of work done once)_
