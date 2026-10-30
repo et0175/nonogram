@@ -1,6 +1,6 @@
 # CARD-314: A vector page's clue digits say so in the stream — CON-020's exemption survives the conversion instead of becoming unverifiable
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 0.5d
@@ -8,11 +8,11 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/314-clue-digits-say-so-in-the-stream
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-314
 **Source:** CARD-299's implementation round 1, 2026-10-29 — its sharpest finding, measured on a real vector puzzle page. Cut on owner decision the same day.
 **Idea:** —
-**Wave:** —
+**Wave:** 68 <!-- STAMPED 2026-10-30 on owner decision, dispatched with CARD-220. This card had NO wave while being P1, 0.5d, and the self-declared prerequisite of CARD-309 -- which is wave 68 and whose `Depends on` lists only 298/299/306, all merged. So 309 read as runnable while its real blocker was invisible to the dispatcher, because the constraint lives in PROSE on 309's card ('raise it rather than proceeding') and not in a field. The owner asked which of 220/309 to take next; the measured answer was neither. -->
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** CARD-299
