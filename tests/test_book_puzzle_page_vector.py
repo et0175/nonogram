@@ -613,6 +613,17 @@ _PATTERNS = {
     "text": re.compile(
         rf"^({_N}) g BT /(\w+) ({_N}) Tf ({_N}) ({_N}) Td \((.*)\) Tj ET$"
     ),
+    # CARD-314's marked-content brackets, which are neither a mark nor
+    # graphics state: a ``BMC``/``EMC`` pair is a statement ABOUT the operators
+    # between it, carried in the stream and painting nothing (PDF 1.7 §14.6).
+    # Read here so the default-DENY below keeps meaning what it says — "an
+    # operator this module cannot place" — while producing NO :class:`Mark`,
+    # which keeps this module's claim exactly as strong as it was: the page
+    # draws nothing but its grid, its frame, its digits, its band and its
+    # furniture. A bracket that produced a mark would make every ink
+    # comparison here learn to ignore one, which is the quiet weakening
+    # CARD-314's G-4 is about.
+    "marked": re.compile(r"^(?:/\w+ BMC|EMC)$"),
 }
 
 
@@ -650,6 +661,8 @@ def marks_of(stream_text: str) -> list[Mark]:
     for row in stream_text.splitlines():
         if not row.strip():
             continue
+        if _PATTERNS["marked"].match(row):
+            continue  # a statement about the marks, not a mark
         if match := _PATTERNS["grey"].match(row):
             grey = Decimal(match.group(1))
         elif match := _PATTERNS["fill"].match(row):
@@ -1221,10 +1234,19 @@ class TestPuzzlePage_CarriesNoImageXObject:
         tally = pdf_vector.operator_tally(written)
 
         assert set(tally) == {
-            "G", "w", "m", "l", "S", "re", "f", "g", "BT", "Tf", "Td", "Tj", "ET"
+            "G", "w", "m", "l", "S", "re", "f", "g", "BT", "Tf", "Td", "Tj", "ET",
+            # CARD-314's clue-digit mark. The two members this page gained are
+            # the ONLY two that paint nothing: ``BMC``/``EMC`` bracket the text
+            # runs CON-020 exempts, so the stream records the provenance the
+            # exemption is keyed on (PDF 1.7 §14.6). Nothing a reader sees
+            # moved — asserted beside the alphabet below, and by the owner
+            # render AC-6 asks for.
+            "BMC", "EMC",
         }
         assert tally["m"] == tally["l"]
         assert tally["S"] - tally["m"] == tally["re"] - tally["f"] >= 2
+        # The mark is one pair for the whole clue set, not one per digit.
+        assert tally["BMC"] == tally["EMC"] == 1, (tally["BMC"], tally["EMC"])
 
     def test_the_page_draws_no_bezier(self, hero: Case) -> None:
         """No curve — stated as "no Bézier", which is what can be measured.
@@ -2329,7 +2351,29 @@ def _state_operators(layout: Layout) -> int:
     def changes(values: list[object]) -> int:
         return sum(1 for before, after in zip([None, *values], values) if before != after)
 
-    return changes(widths) + changes(tones) + (2 if layout.frame is not None else 0)
+    return (
+        changes(widths)
+        + changes(tones)
+        + (2 if layout.frame is not None else 0)
+        + MARKED_CONTENT_OPERATORS
+    )
+
+
+#: The ``BMC``/``EMC`` pair CARD-314 brackets a page's clue digits with — two
+#: operators that paint nothing and set no graphics state, counted here because
+#: the counts above are over the page's **whole** operator list.
+#:
+#: **Two, not two-per-clue-digit, and not conditional.**
+#: ``book_vector_draw.draw_clue_digits`` opens one sequence around the whole
+#: clue set — one bracket pair on a 30×30's 540 digits rather than 1080 — and
+#: :func:`~nonogram.admin.book_puzzle_vector.puzzle_page_stream` calls it
+#: unconditionally, so a layout with no clue entries at all still emits the
+#: pair (and must: a sequence this writer opened and did not close is a page
+#: ``write_vector_page`` refuses outright). That makes this a constant rather
+#: than a term, which is why it is one; a page kind that marked two separate
+#: runs would make it a count, and the derivations above are where it would
+#: have to become one.
+MARKED_CONTENT_OPERATORS = 2
 
 
 # --------------------------------------------------------------------------

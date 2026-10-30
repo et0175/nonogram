@@ -346,6 +346,97 @@ def type_sizes(stream: str) -> list[float]:
     return [float(m) for m in re.findall(rf"/\w+\s+({NUMBER})\s+Tf", stream)]
 
 
+#: The marked-content tag a vector page writes its clue digits inside
+#: (``nonogram.admin.book_vector.CLUE_DIGIT_TAG``), **written out rather than
+#: imported**. CLAUDE.md's test style: the reader of a claim states the claim
+#: independently, so that renaming the writer's constant reds the reading
+#: instead of silently following it to a tag nothing emits. The two spellings
+#: are held equal by
+#: ``tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn``.
+CLUE_DIGIT_TAG = "ClueDigit"
+
+#: One marked-content bracket or one ``Tf``, in the order the stream writes
+#: them. ``BDC`` is read beside ``BMC`` because a hand-appended row is what an
+#: over-application control plants, and a reading blind to one bracket would
+#: count its ``EMC`` as closing a sequence nothing opened.
+_MARKED_OR_TF = re.compile(
+    rf"(?:^|(?<=[\s/\[\]<>(){{}}]))"
+    rf"(?:/(?P<tag>[A-Za-z][\w.-]*)\s+(?P<open>BMC|BDC)"
+    rf"|(?P<close>EMC)"
+    rf"|/(?P<face>\w+)\s+(?P<size>{NUMBER})\s+Tf)"
+    rf"(?=[\s/\[\]<>(){{}}]|$)"
+)
+
+
+class MarkedFace(NamedTuple):
+    """One ``Tf`` size, and whether the stream says it is a clue digit.
+
+    CARD-314. :func:`type_sizes` above answers "what sizes does this page
+    set"; this answers the question CON-020 actually asks, which is "and which
+    of them is the **exempt** kind of mark". The exemption is keyed on the
+    function that drew (``png._draw_clues`` / ``_write_clues`` /
+    ``book_vector_draw.draw_clue_digits``), a content stream records no caller,
+    and so the writer records the provenance itself as a
+    :data:`CLUE_DIGIT_TAG` marked-content sequence.
+
+    ``exempt`` is therefore read off **the mark and never off the size**: a
+    body face that happens to measure a clue digit's 8.64 pt comes back
+    ``exempt=False`` and is reported, which is CARD-314's AC-2 and the whole
+    reason this is not a size test.
+    """
+
+    points: float
+    exempt: bool
+
+
+def marked_type_sizes(stream: str) -> list[MarkedFace]:
+    """Every ``Tf`` of ``stream``, each tagged with the mark it was set inside.
+
+    The stream is scanned once, in order, with literal strings blanked first —
+    so a ``(see EMC) Tj`` caption is text and not a bracket — and a
+    :data:`CLUE_DIGIT_TAG` sequence makes every ``Tf`` inside it exempt. Marked
+    content nests (PDF 1.7 §14.6), so the state tracked is a stack rather than
+    a flag: a clue-digit sequence containing some other tag's sequence still
+    exempts what is inside the inner one, which is the reading the operators
+    mean.
+
+    Raises:
+        ValueError: the brackets do not pair. An ``EMC`` that closes nothing,
+            or a sequence open at the stream's end, leaves the extent of the
+            claim undefined — so what is exempt here is not *wrong* but
+            **unanalysable**, and ADR-0039/R2 makes that a failure. Raising
+            rather than returning a third value is deliberate: unlike
+            :func:`page_media`, where a caller may want to count the pages it
+            could not classify, there is no partial list of faces to count.
+    """
+    without_strings = re.sub(r"\((?:\\.|[^()\\])*\)", " ", stream)
+    stack: list[str] = []
+    faces: list[MarkedFace] = []
+    for match in _MARKED_OR_TF.finditer(without_strings):
+        if match.group("open"):
+            stack.append(match.group("tag"))
+        elif match.group("close"):
+            if not stack:
+                raise ValueError(
+                    "this content stream closes a marked-content sequence that "
+                    f"was never opened, at offset {match.start()}: its "
+                    "clue-digit exemption has no readable extent (ADR-0039/R2)"
+                )
+            stack.pop()
+        else:
+            faces.append(
+                MarkedFace(float(match.group("size")), CLUE_DIGIT_TAG in stack)
+            )
+    if stack:
+        raise ValueError(
+            f"this content stream leaves {stack!r} open at its end, so what "
+            "those marked-content sequences are a statement about is the rest "
+            "of the page: its clue-digit exemption has no readable extent "
+            "(ADR-0039/R2)"
+        )
+    return faces
+
+
 def stroke_widths(stream: str) -> list[float]:
     """Every ``w`` operand, in order — stroke widths in points."""
     return [float(m) for m in re.findall(rf"(?m)^({NUMBER}) w$", stream)]
