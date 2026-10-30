@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/330-edge-offset-is-two-device-pixels
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-330
 **Source:** CARD-309's implementation round, 2026-10-30, as the decisive one of the four causes that blocked its AC-1 — re-measured by the orchestrator at the decompose station, where the framing changed (see below).
 **Idea:** —
 **Wave:** —
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -236,6 +236,249 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
 
 ## Worktree notes
 
+### [Item 1's answer: the card's third branch — the premise is false, and neither medium is off spec]
+
+**Measured 2026-10-31.** Corpus: 24 puzzle pages, hand-built with
+`random.Random(330 + index)`, over three trims (8.5x11, 7.5x9.25, 6x9 in), both
+parities, both arms of FR-032's vertical placement (`ratio` and `footer`), every
+page framed. **96 grid-edge readings**, minimum asserted inside the test
+(`_MIN_EDGE_CASES = 24`, `_MIN_EDGE_READINGS = 96`), so it cannot silently
+shrink. `tests/test_book_pdf.py::TestEdgeOffset_*`, 24 tests, all green.
+
+**Instruments, with their domains** — this is the whole finding:
+
+| instrument | what it reads | at |
+|---|---|---|
+| `_specified_grid_mm` | the page spec's own arithmetic, in exact millimetres; reads no renderer, no `compute_layout`, no `book_page_spec` | — |
+| `_stream_grid_mm` | the written PDF's `m ... l S` operands at 1.3 pt, flipped on the page's **MediaBox** | the file |
+| `page_ink.drawing_of` on `BookPDFGenerator._blank_page` | Pillow's bitmap, the **first inked pixel line** of each rule | 300 DPI |
+| `page_ink.drawing_of` on `pdf_vector.rendered_page` | **poppler**'s raster of the same page, same reading | 300 DPI |
+
+**The three numbers per edge.** Uniform over all 24 cases and all four edges —
+these are set equalities in the tests, not averages:
+
+| reading | where it lands | mm |
+|---|---|---|
+| **specified** (derived) | the boundary | — |
+| **vector**, content stream | the boundary, worst gap **1.0 px** over the corpus | — |
+| raster rule **centreline** (`Layout.position`) | the boundary | — |
+| **raster**, ink (`drawing_of`) | boundary **- 2 px** | -0.1693 |
+| vector, ink (poppler 300 DPI) | boundary **- 3 px** | -0.254 |
+
+and on the drawing's own outer edges — `Drawing.left`/`top`, which is what every
+25.45 mm assertion in `tests/test_book_pdf.py` actually reads:
+
+| reading | where it lands |
+|---|---|
+| **specified** | the margin |
+| **raster**, ink | the margin, within 1.0 px (sub-pixel rounding only) |
+| vector, ink | the margin **- 3 px** = **0.254 mm** |
+
+**Re-derived on CARD-309's own fixture, so the card's own figure is not taken on
+trust:** ink `grid_left/right` **963/1849**, stream **965/1851** — exactly as
+CARD-309 reported. **And the raster page's own `Layout` places those two borders
+at 965 and 1851 too** (heavy rule 6 px). So the raster's rule is centred on 965;
+963 is where its ink begins.
+
+**So: which medium is at the specified margin? BOTH.** The specified boundary,
+the vector stream's operand and the raster's rule centreline are one number. The
+2 px is `drawing_of`'s leading-ink-edge reading of a rule *centred* on that
+boundary, differenced against a path coordinate — an ink extent against a
+coordinate, two instruments with different domains. **There was never a
+convention to hold.** `G-4` is not triggered; no `[BLOCKER]` is raised; the
+vector writer is not placing the grid wrong.
+
+### [The reframing in the brief was half right, and the half that was wrong matters]
+
+The brief (and the card) say the 0.169 mm "is ADR-0037/R2's device floor" and
+that this "is not a coincidence". **Measured, it is a coincidence of two
+different constants.** The offset is `(rule width - 1) // 2`, and the raster
+book border is 6 px because `PageSpec.min_thin_rule_mm = 0.25` mm is 2.95 px
+rounded **up** to 3 and the heavy rule is exactly twice the thin one. R2's floor
+is `RASTER_RULE_FLOOR_PX = 2` — a floor on a rule's *thickness*. One is half a
+rule, the other is a minimum rule. They happen to be the same two pixels.
+
+The control that separates the two readings is in the suite, not in prose: the
+**thin** rule's own ink edge is `(3 - 1) // 2 = 1` px out, so the offset tracks
+the rule's weight. A quantisation of the grid's *position* would not.
+
+The brief's "2 px at 300 dpi is 0.1693 mm" arithmetic is correct and was
+re-derived (`2 * 25.4 / 300 = 0.169333`). What it is the size of is not a
+rounding step.
+
+### [What CARD-322 inherits, read ink against ink]
+
+One oracle, one resolution, one page — the only like-for-like comparison there
+is:
+
+* the grid's four edges: **1 device pixel, 0.0847 mm**, uniform. The two media
+  stroke different widths by design (R2's declared 1.3 pt = 5.4167 px against
+  COMP-007's proportional 6 px). **Inside** `EDGE_TOLERANCE_MM = 0.1`.
+* `Drawing.left` / `Drawing.top`: **3 device pixels, 0.254 mm**, uniform.
+  **Outside** it. Cause: a framed drawing is one stroked `re`, whose outer
+  corner a PDF rasteriser **mitres** half a rule beyond the path, where Pillow
+  strokes four butt-capped lines and the frame's top-side group begins two rows
+  above where its left side starts. Both writers put that side at the same
+  coordinate — it is a corner, not a placement.
+
+**So the figure that will actually red CARD-322's conversion is 3 px / 0.254 mm
+on the drawing's outer edges, not 2 px / 0.169 mm on the grid's.** The fix is an
+oracle that reads a frame rule's **centre** rather than its first inked line —
+still a pixel oracle, so still R6-exempt (G-2) — and it belongs with the
+conversion, not here.
+
+### [Disposition applied: medium-pinned, derived rather than declared]
+
+Per the owner's steer, the raster is not fixed and its expectations are not
+re-tuned. They are **pinned**, and the pin is mechanical so that a conversion
+cannot slip past it: `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`
+walks this module with `ast`, finds every function that names
+`EDGE_TOLERANCE_MM`, and requires each to read its page through `drawing_of` and
+none through a content-stream reader. Default-DENY per ADR-0039/R2. Two named
+exemptions (sites that assert the bound or compare two media rather than
+measuring a page), and a second test asserts every exempted name still exists,
+so the list cannot rot into a blanket exemption. `EDGE_TOLERANCE_MM` itself
+carries the one-line statement of which medium it was measured in and which card
+retires it.
+
+### [`EDGE_TOLERANCE_MM`: unchanged]
+
+`0.1`, untouched. `EDGE_TOLERANCE_EXEMPTIONS` is new, **empty**, and asserted
+empty through `_tolerance_is_declared`, which refuses: a widening without its
+exemption, an exemption without its widening, and a *narrowing* (the third shape
+default-DENY has to cover). The arm AC-4 leaves open — a widening that ships with
+its exemption — is asserted to be admitted, so the predicate is not a constant
+`False`.
+
+### [Mutant table — 8 mutants, 8 killed, 0 survivors]
+
+Protocol: committed at `9100372b` **before** mutating; SHA-256 asserted before
+each mutant and after each `git checkout --` restore; `*.pyc`/`__pycache__`
+swept before and after each; driver `scratchpad/card330/mutate.py`,
+`PYTHONDONTWRITEBYTECODE=1`, `-o addopts=''`. Every anchor asserted unique
+before substitution.
+
+| # | target | mutation | region | verdict | what red |
+|---|---|---|---|---|---|
+| M1 | `tests/test_book_pdf.py` | `EDGE_TOLERANCE_MM` 0.1 -> **0.3** | inside | KILLED | 1 failed |
+| M2 | `tests/test_book_pdf.py` | `EDGE_TOLERANCE_MM` 0.1 -> **0.1001** | edge | KILLED | 1 failed |
+| M3 | `src/nonogram/admin/book_page_spec.py` | `min_thin_rule_mm` 0.25 -> **0.5** (border 12 px, offset 5) | inside | KILLED | 2 failed |
+| M4 | `src/nonogram/admin/book_page_spec.py` | `min_thin_rule_mm` 0.25 -> **0.2541** (3.0012 px, the smallest floor that rounds up to 4) | edge | KILLED | 2 failed |
+| M5 | `tests/test_book_pdf.py` | a new function naming the bound and reading no page | inside | KILLED | 1 failed |
+| M6 | `tests/test_book_pdf.py` | one character off an exempted site's name | edge | KILLED | 2 failed |
+| M7 | `tests/helpers/page_ink.py` | the oracle imports `pdf_vector` | inside | KILLED | 1 failed |
+| M8 | `tests/helpers/page_ink.py` | `drawing_of` builds its own mask instead of `_dark` | edge | KILLED | 1 failed |
+
+Only `mutate.py` is committed under `scratchpad/card330/`. The two exploratory
+probes that preceded the tests were **deleted rather than kept**, and the reason
+is worth one line because it is a trap: both flipped the stream's y against the
+**stored trim** (235 mm) instead of the page's **MediaBox** (2774 px =
+234.86 mm), a 1.6 px error that made the vertical edges of one trim in three
+read 3 px out instead of 2 — an instrument error that looks exactly like a
+medium disagreeing, in the same card that exists because of one. The measurement
+now lives in the tests, where the flip is against the MediaBox and said so in
+`_stream_grid_mm`'s docstring.
+
+M1/M2 are AC-4's named pair. M3/M4 are the pair for the 2 px claim and they are
+the interesting ones: the claim is not "2 px", it is "half the rule", so the
+mutant that moves the rule's width by one pixel has to red it — and does.
+
+### [Runs, and the skip attribution]
+
+All with `-o addopts=''`, `-p no:randomly`, cwd the worktree, and
+`/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python` (this
+worktree has no venv). `meta/kanban/.full-suite.lock` absent throughout; none
+written. **The full suite was not run.**
+
+| run | result | skips |
+|---|---|---|
+| baseline, pre-change: `test_book_pdf` + `test_book_export_interior_cover` + `test_suite_profile` | **671 passed** | **0** |
+| post-change, those three plus `test_book_page_frame`, `test_book_puzzle_page_vector`, `test_book_pdf_two_up` | **834 passed** | **0** |
+| `test_check_ref_resolution` | **23 passed** | **0** |
+| the remaining 16 `page_ink` readers (`tests/property/test_book_export_interior`, `test_book_pairing`, `test_book_pdf_geometry`, `test_book_cell_size`, `test_book_difficulty_dots`, `test_book_divider_pages_option`, `test_book_guide_page`, `test_book_pdf_band`, `test_book_pdf_ink_mode`, `test_book_pdf_memory`, `test_book_proof_pages`, `test_book_puzzle_frame`, `test_book_qr_slot`, `test_book_solved_answer_key`, `test_book_solved_page`, `test_book_grid_rules`) | **1025 passed** | **1** |
+| `test_book_pdf.py` whole module, post-refactor | **112 passed** | **0** |
+
+**Skip attribution — one skip, named, and it is not mine.**
+`tests/test_book_pdf_memory.py:1297`, the `setrlimit(RLIMIT_AS)` cell: *"cannot
+bound a process on this platform — the kernel refuses it"*. A **platform** gate,
+pre-existing, in a module this card touches only through a comment in
+`page_ink`, and its own skip message names the test that carries AC-2's executed
+half instead. **Not** one of the suite's 27 `DATABASE_URL`-gated skips, none of
+which is in this impact set.
+
+`tests/test_book_puzzle_page_vector.py`'s `needs_poppler` marks did **not**
+skip — poppler is installed on this host (`/opt/homebrew/bin/pdftoppm`,
+`pdftotext`) — and CARD-330's own `_needs_poppler` is the same gate, so on a
+host without poppler its 24 tests would skip *and say so* rather than pass
+quietly. That is a real exposure of this card's measurement: on a poppler-less
+host AC-1 and AC-2 do not run, which `-rs` would report by name.
+
+Node-id set difference on `tests/test_book_pdf.py`, `--collect-only -q`:
+**88 -> 112, 0 removed, 24 added** (G-6). The whole diff to that file is
+insertions.
+
+### [ADR-0042: two additions, and the second is a non-decision on purpose]
+
+1. **A note on R6** naming the **content stream** canonical for a placed-edge
+   claim — because its coordinate *is* the specified boundary, not by
+   preference — with the instrument table, the figures above, and why the bound
+   was not widened. CARD-312, CARD-322 and CARD-329 all read this; none needs to
+   re-measure it.
+2. **`## What this does NOT decide` gains "the device floor for interior
+   furniture"**, recorded as **unresolved**. ADR-0037/R2 holds dropout-critical
+   furniture to 2 device pixels; ADR-0042/R7 makes the floor inapplicable to the
+   interior "because a content-stream line has no device pixel to clear".
+   **Measured, R7's premise is true of the stream and false of the device the
+   stream is printed on:** poppler renders the 0.3 pt cell line, at its declared
+   35% grey (grey 89, never diluted by coverage), as
+
+   | resolution | 0.3 pt is | device pixels inked |
+   |---|---|---|
+   | 150 DPI | 0.625 px | **1** |
+   | 300 DPI | 1.25 px | **2** |
+   | 600 DPI | 2.5 px | **2** |
+   | 1200 DPI | 5.0 px | **5** |
+
+   So at the interior's own 300 DPI a vector hairline clears R2's floor
+   *exactly*, by the rasteriser's stroke adjustment and not by anything the
+   writer declared — and fails to clear it at 150. **No floor is invented
+   here.** R7's caveat stands: the owner judged renders, not paper; dot gain and
+   whether 35% grey reads as guidance are measured by nobody; the revisit
+   trigger is the first printed book or proof. The two cards waiting on it
+   (**CARD-208**, **CARD-226**; **CARD-215** postponed) still quote a superseded
+   R2 and still need it re-derived whichever way the owner goes.
+
+No rule flipped, no page converted, `_RASTER_DECLARATIONS` untouched; AC-6's
+evidence is the existing `test_no_declaration_outlives_the_cards_that_remove_it`
+run unmodified, green in the 834-passed run above.
+
+### [Findings for other cards]
+
+* **CARD-322** inherits the pin and the 0.254 mm. The conversion will red
+  `Drawing.left`/`top` assertions, not `grid_*` ones, and the repair is an
+  oracle reading a rule's centre — not a wider tolerance. The pin reds on
+  arrival, by design, so the medium has to be restated deliberately.
+* **CARD-312** owns the per-site disposition of the 321 pixel-reading sites.
+  One datum for it: `page_ink.drawing_of` and `two_up_ink.drawings_of` are not
+  merely "oracles R6 exempts" — their readings are **ink extents**, so a site
+  that differences one against a stream coordinate is measuring half a rule
+  whatever its disposition. That is now stated on `Drawing` itself.
+* **CARD-309's routing was wrong in a third way** nobody had noticed: it
+  compared `page_ink`'s `grid_left` against a stream coordinate, which no
+  tolerance can reconcile because the two are not the same quantity. The
+  existing cross-medium seam in
+  `tests/test_book_puzzle_page_vector.py::test_the_ink_and_the_stream_rule_the_same_grid`
+  already knew this — it asserts the offset is one value and `|offset| * 2 <=
+  heavy`, i.e. *at most half a heavy rule* — and it has been green all along.
+* **`pdf_vector.rendered_page` defaults `out_dir` to the current directory**,
+  so a caller that forgets it writes `vector.pdf` and `page-1.png` into the repo
+  root. This card's first draft did, and `git status` caught it. Measured on the
+  tree: all five existing call sites pass an `out_dir`, and one of them
+  (`tests/test_book_grid_rules.py:210`) passes `self._tmp_path or Path(".")`, so
+  it falls back to the cwd if its own fixture is unset. A default of `None`
+  meaning "the repo root" in a helper used under pytest is worth a line in
+  whichever card next touches that file.
+
 - **[The reframing is the card's main contribution, and it was the orchestrator's,
   not the implementation round's.]** CARD-309's round delivered the measurement
   (963/1849 vs 965/1851) and called it a convention question. At the decompose
@@ -243,6 +486,16 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
   is the interior's own render DPI — which makes the gap exactly one rounding step
   and the two values **not two opinions but a quantisation of one**. Re-derive both
   the measurement and the arithmetic before building on either.
+  - **[RETRACTED 2026-10-31 by the implementation round, which did re-derive
+    both, as this note asked.]** The measurement holds to the pixel
+    (963/1849 vs 965/1851) and the arithmetic holds
+    (`2 * 25.4 / 300 = 0.169333`). **The conclusion does not.** The two values
+    are not a quantisation of one: the raster page's own `Layout` places those
+    borders at **965 and 1851** as well, so both media put the grid at the same
+    pixel, and 963/1849 is where the *ink* of a 6 px rule centred on 965 begins.
+    The 2 px is `(rule width - 1) // 2` — half a rule — which the thin rule's
+    own 1 px offset proves, and it is therefore not a rounding step and not
+    ADR-0037/R2's device floor arriving by another road. See the sections above.
 - **[Why P1 when nothing is broken]** It blocks CARD-322, which blocks the whole
   vector interior phase from reaching a reader, and it is the one of CARD-309's four
   causes that no existing card owned. The other three are CARD-329, CARD-331 and a

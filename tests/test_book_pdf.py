@@ -4163,6 +4163,9 @@ class _EdgeReading:
 
     Attributes:
         label: The case, for a failure message.
+        page: The interior page number this was drawn as — its parity is what
+            mirrors the margins.
+        trim_mm: The trim it was drawn on, ``(width, height)``.
         framed: Whether the raster page's drawing is closed off by a frame,
             read off the page.
         bound: What placed the drawing's top edge — ``"ratio"`` or
@@ -4180,6 +4183,8 @@ class _EdgeReading:
     """
 
     label: str
+    page: int
+    trim_mm: tuple[float, float]
     framed: bool
     bound: str
     specified: dict[str, float]
@@ -4231,6 +4236,8 @@ def _edge_case(index: int, out_dir: pathlib.Path) -> _EdgeReading:
     )
     return _EdgeReading(
         label=f"{columns}x{rows} d{depth} page {page} on {width_mm:.0f}x{height_mm:.0f} mm",
+        page=page,
+        trim_mm=(width_mm, height_mm),
         framed=ink.framed,
         bound=specified["bound"],
         specified={key: specified[key] for key in _GRID_EDGES + _DRAWING_EDGES},
@@ -4292,13 +4299,10 @@ class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
         """The minimum, asserted here so the corpus cannot silently shrink."""
         assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
         assert len(edge_corpus) * len(_GRID_EDGES) >= _MIN_EDGE_READINGS
-        pages = {
-            reading.label.rsplit("page ", 1)[1].split(" ", 1)[0]
-            for reading in edge_corpus
-        }
-        assert len({int(page) % 2 for page in pages}) == 2, pages
-        trims = {reading.label.split(" on ", 1)[1] for reading in edge_corpus}
-        assert len(trims) == len(_EDGE_TRIMS), trims
+        parities = {reading.page % 2 for reading in edge_corpus}
+        assert parities == {0, 1}, parities
+        trims = {reading.trim_mm for reading in edge_corpus}
+        assert trims == set(_EDGE_TRIMS), trims
         # Both arms of FR-032's vertical placement, so the derivation is
         # exercised on the 42 % split *and* on the footer bound.
         assert {reading.bound for reading in edge_corpus} == {"ratio", "footer"}

@@ -164,8 +164,9 @@ So the separation is deliberate and it protects this decision:
 
 ADR-0037/R2 holds page furniture that must not drop out on press to its
 2-device-pixel floor — 0.169 mm at 300 DPI — *"for the dropout reason directly
-and not through R2"*. **R7 above makes that floor inapplicable to the
-interior**, *"because a content-stream line has no device pixel to clear"*.
+and not through R2"* (that ADR's own note on R2). **R7 in this ADR's Rules
+below makes that floor inapplicable to the interior**, *"because a
+content-stream line has no device pixel to clear"*.
 Those two sentences collide on interior furniture, and **the collision is
 unresolved for interior furniture**: nothing on the board owns it, and two
 cards wait on it — **CARD-208** (ruled boxes for clue numbers) and
