@@ -541,7 +541,11 @@ def draw_clue_digits(
     holds ``src/`` to that by walking it with :mod:`ast`.
 
     The pair brackets the whole clue set rather than each digit — one ``BMC``
-    and one ``EMC`` per call instead of 540 of each on a 30×30 page — and is
+    and one ``EMC`` per call rather than one of each **per clue entry**, which
+    on a 30×30 page is **at most 900** of them (2 × 30 lines × ⌈30/2⌉ runs per
+    line, the bound and not an observation; the random 30×30s this project's
+    own corpora build measure 449–468, and the baseline puzzle page the tests
+    render sets 204) — and is
     closed on every path, including the one where ``layout`` places no clue
     entries at all: an open sequence is refused by
     :func:`~nonogram.admin.book_vector.write_vector_page`, so a mark left open

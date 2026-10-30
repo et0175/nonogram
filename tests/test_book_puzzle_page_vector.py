@@ -1227,6 +1227,13 @@ class TestPuzzlePage_CarriesNoImageXObject:
         frame and each QR icon's border) are ``S - m`` on one side and
         ``re - f`` on the other. Two independent ways of counting the same
         rectangles, which is what makes it a check and not a restatement.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         (written,) = pdf_vector.content_streams(
             write_vector_pdf([hero.stream], 1).getvalue()
@@ -2224,6 +2231,13 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         Operator counts rather than a redraw: a mutation adds or removes
         operators, and sixty redraws to find that out would cost more than the
         whole module does today.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         for case in corpus:
             assert len(case.stream.operators) == len(
@@ -2244,6 +2258,13 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         widths are no longer contiguous after the sort: here the two
         derivations read **21** and **7**, and the stream agrees with the one
         that counts changes.
+
+        **A differently-right clue-digit mark reds here by design**
+        (CARD-314 fix round 1, F-005): a ``draw_clue_digits`` that opened one
+        ``BMC``/``EMC`` pair per digit instead of one per clue set is not a
+        correctness defect — it is an economy one, and this is one of the four
+        tests across two modules that say so. The claim here is the operator
+        count, not the page's appearance.
         """
         case = corpus[0]
         # Stripes the **declared** width, which is what this sheet's writer
@@ -2365,7 +2386,10 @@ def _state_operators(layout: Layout) -> int:
 #:
 #: **Two, not two-per-clue-digit, and not conditional.**
 #: ``book_vector_draw.draw_clue_digits`` opens one sequence around the whole
-#: clue set — one bracket pair on a 30×30's 540 digits rather than 1080 — and
+#: clue set — one bracket pair however many digits the page sets, against two
+#: operators per digit, which on this module's baseline page is 2 against
+#: **408** and on a 30×30 is 2 against at most 1800 (the bound: 900 clue
+#: entries; measured 30×30s in this project's corpora set 449–468) — and
 #: :func:`~nonogram.admin.book_puzzle_vector.puzzle_page_stream` calls it
 #: unconditionally, so a layout with no clue entries at all still emits the
 #: pair (and must: a sequence this writer opened and did not close is a page

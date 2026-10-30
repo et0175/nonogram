@@ -39,6 +39,7 @@ from __future__ import annotations
 import ast
 import inspect
 import random
+import re
 import sys
 import textwrap
 from contextlib import contextmanager
@@ -1183,9 +1184,18 @@ class TestInteriorType_TheStreamArmIsReached:
         recorded page list empty.
 
         **The wrapped reader is ``marked_type_sizes`` since CARD-314**, which
-        is the one this arm now reads with — the exemption is the mark, so a
-        wrapper on the size-only ``type_sizes`` would record nothing and this
-        test would claim the arm was never reached.
+        is the one this arm now reads with: the exemption is the mark, so a
+        wrapper left on the size-only ``type_sizes`` would sit on a function
+        the arm no longer calls.
+
+        What that would have cost is stated here as it was **measured** rather
+        than as it was first feared (CARD-314 fix round 1, F-007). Reverting
+        the wrapper to ``pdf_vector.type_sizes`` on this branch reds this test
+        — 1 failed — because the assertion below is ``len(asked) == 1`` and an
+        arm that never called the wrapped reader leaves ``asked`` empty. So the
+        hazard was a test going **RED, correctly**, and not a test going
+        silently vacuous; this test is fail-closed in that direction, and the
+        body was updated under the same name.
         """
         monkeypatch.delitem(
             book_pdf_generator._RASTER_DECLARATIONS,
@@ -1370,10 +1380,14 @@ class TestInteriorType_TheStreamArmIsReached:
         this card's report: replacing :attr:`StreamFace.exempt` with
         ``points == 8.64`` leaves the rest of the module green and reds here.
 
-        The body face is set **outside** every marked-content sequence, through
-        the same :meth:`~nonogram.admin.book_vector.ContentStream.text`
-        primitive the band and the folio use, at **exactly** the size the clue
-        digits on the same page measure — read off that page rather than
+        The body face is **appended as a raw operator row** — not written
+        through :meth:`~nonogram.admin.book_vector.ContentStream.text`, which
+        is worth saying because it costs the test one notch: a hand-written row
+        does not also prove the production primitive emits an unmarked face
+        (``test_the_bound_does_not_absorb_the_guide_or_the_toc`` does that, on
+        two real writers' pages). What this plant does hold is the part AC-2 is
+        about: it sits **outside** every marked-content sequence, at **exactly**
+        the size the clue digits on the same page measure — read off that page rather than
         written as 8.64, so the two cannot drift apart and leave this test
         planting a size nothing else sets. It carries no mark, so the floor must
         report it, and the real clue digits beside it must still be exempt:
@@ -1468,6 +1482,117 @@ class TestInteriorType_TheStreamArmIsReached:
             f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\n"
             "0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET\nEMC"
         ) == [pdf_vector.MarkedFace(8.64, True)]
+
+    def test_a_face_inside_another_tags_bracket_is_not_exempt(self):
+        """**The exemption is keyed on THIS tag, never on the bare bracket.**
+
+        CARD-314 fix round 1, F-001. AC-2 above holds that the exemption is not
+        keyed on the **size**; this is that claim's necessary corollary one
+        notch down — it is not keyed on the **presence of a bracket** either.
+        Four docstrings asserted it and nothing could fail on it: measured,
+        replacing :func:`~tests.helpers.pdf_vector.marked_type_sizes`'
+        ``CLUE_DIGIT_TAG in stack`` with ``bool(stack)`` — exempt inside *any*
+        marked-content sequence, whatever its tag — left **all 733 tests** in
+        this branch's import radius green (11 modules, condition: out-of-tree
+        archive of this commit, lock absent). The shipped reading was right and
+        a magic bracket would have replaced a magic number undetected.
+
+        The risk is an idiom, not a hypothetical: ``/Artifact`` is what PDF 1.7
+        §14.8.2.2 reserves for exactly the decorative runs a later interior
+        card will want to bracket, and the day one appears a bracket-keyed
+        reader exempts every face inside it from CON-020.
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_the_tag_the_reader_expects_is_the_tag_the_writer_emits`
+        does not close this: it holds the two *spellings* of the tag equal,
+        which says nothing about whether the reader consults the tag at all.
+
+        Both directions, and the second one through the floor's own reading so
+        the gap is closed where CON-020 is actually judged rather than only in
+        the helper.
+        """
+        other = "Artifact"
+        assert other != pdf_vector.CLUE_DIGIT_TAG, other
+
+        # The reader, directly: the SAME face, the SAME size, the SAME bracket
+        # shape -- only the tag differs, and only the tag may decide.
+        row = "0 g BT /F1 8.64 Tf 0 0 Td (8) Tj ET"
+        assert pdf_vector.marked_type_sizes(f"/{other} BMC\n{row}\nEMC") == [
+            pdf_vector.MarkedFace(8.64, False)
+        ]
+        assert pdf_vector.marked_type_sizes(
+            f"/{pdf_vector.CLUE_DIGIT_TAG} BMC\n{row}\nEMC"
+        ) == [pdf_vector.MarkedFace(8.64, True)]
+
+        # And on a real clue-digit page, through faces_on_page: a sub-floor
+        # face bracketed by some other tag is REPORTED. A bracket-keyed reader
+        # would have exempted it silently, which is the whole of CON-020's
+        # exemption turning into "anything anybody bracketed".
+        clean = real_vector_stream("puzzle")
+        digits = [
+            face.points
+            for face in pdf_vector.marked_type_sizes(clean)
+            if face.exempt and face.points < FLOOR_PT
+        ]
+        assert digits, "this page sets no sub-floor clue digit to measure against"
+        planted = min(digits)
+        stream = (
+            f"{clean}\n/{other} BMC\n"
+            f"0 g BT /F1 {planted} Tf 100 100 Td (8) Tj ET\nEMC"
+        )
+
+        reported = [
+            face.describe()
+            for face in faces_on_page(1, "puzzle", stream)
+            if face.points < FLOOR_PT and not face.exempt
+        ]
+        assert len(reported) == 1, reported
+
+    def test_a_nested_bracket_does_not_end_the_clue_digit_exemption(self):
+        """The reader is a **stack**, and a degenerate flag would pass without this.
+
+        CARD-314 fix round 1, F-002. ``marked_type_sizes``' docstring says
+        marked content nests (PDF 1.7 §14.6) and that the state tracked is
+        therefore a stack rather than a flag; that reading is stated in four
+        places on this branch and was asserted in none. Measured: ``stack.pop()``
+        replaced by ``stack.clear()`` — a flag that cannot nest — left **all
+        733 tests** in this branch's import radius green (same condition as
+        the test above).
+
+        Harmless at this commit, which is the reason to control it now rather
+        than later: there is one emitter and the depth is always 1, held by
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_only_the_clue_digit_drawer_emits_the_mark`.
+        The **writer's** half of the same claim is already controlled — dropping
+        ``marked_content_imbalance``'s nesting depth reds
+        :meth:`TestInteriorType_TheClueDigitMarkIsTheWritersOwn.test_the_writer_refuses_a_page_whose_brackets_do_not_pair`
+        — so this is the reader's.
+        """
+        inner = "Artifact"
+        assert inner != pdf_vector.CLUE_DIGIT_TAG, inner
+
+        stream = "\n".join(
+            (
+                f"/{pdf_vector.CLUE_DIGIT_TAG} BMC",
+                "0 g BT /F1 8.64 Tf 0 0 Td (1) Tj ET",
+                f"/{inner} BMC",
+                "0 g BT /F1 7.2 Tf 0 0 Td (2) Tj ET",
+                "EMC",
+                "0 g BT /F1 6.0 Tf 0 0 Td (3) Tj ET",
+                "EMC",
+                "0 g BT /F1 9.0 Tf 0 0 Td (4) Tj ET",
+            )
+        )
+
+        assert pdf_vector.marked_type_sizes(stream) == [
+            # inside the clue-digit sequence
+            pdf_vector.MarkedFace(8.64, True),
+            # inside another tag's sequence nested in it -- still exempt, which
+            # is the reading the operators mean
+            pdf_vector.MarkedFace(7.2, True),
+            # the first EMC closed the INNER sequence only: a flag would have
+            # ended the exemption here, and this is the face that catches it
+            pdf_vector.MarkedFace(6.0, True),
+            # and the outer EMC really does end it
+            pdf_vector.MarkedFace(9.0, False),
+        ]
 
     def test_the_bound_does_not_absorb_the_guide_or_the_toc(self):
         """ADR-0039/R3's control — what the bound must NOT swallow.
@@ -1632,6 +1757,19 @@ class TestInteriorType_TheStreamArmIsReached:
 # --------------------------------------------------------------------------
 
 
+#: ``BMC``/``BDC``/``EMC`` as a whole token — the operators that *spell* the
+#: mark, as opposed to the methods that emit it.
+#:
+#: CARD-314 fix round 1, F-006. Written as an explicit boundary class rather
+#: than with ``\b`` so the pattern reads the same way it would have to be
+#: written for a tool that does not have one: inside a PDF content stream an
+#: operator is delimited by whitespace or a delimiter character, and that is
+#: the whole of the rule.
+_MARK_OPERATOR = re.compile(
+    r"(?:(?<=[\s/\[\]<>(){}])|\A)(?:BMC|BDC|EMC)(?=[\s/\[\]<>(){}]|\Z)"
+)
+
+
 class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
     """The mark is a claim, so this is where the claim's authorship is held.
 
@@ -1654,20 +1792,31 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
     EMITTER = "draw_clue_digits"
 
     #: ``src/nonogram/admin``'s own files, where every vector writer lives.
+    #:
+    #: The glob is read off disk rather than listed, so a writer added to this
+    #: package is walked without anyone remembering to add it. The **directory**
+    #: is nonetheless hand-chosen, and that is the one hand-written thing left
+    #: in this guard: ``test_the_walk_reaches_every_file_that_names_the_stream``
+    #: below turns that choice into a measurement by requiring it to cover every
+    #: file under ``src/`` whose text names ``ContentStream`` (0 difference at
+    #: this commit, so it starts green and reds the day a vector writer is
+    #: placed outside this package).
     SOURCES = sorted(Path(book_pdf_generator.__file__).parent.glob("*.py"))
+
+    #: The root the coverage check above measures ``SOURCES`` against.
+    PACKAGE_ROOT = Path(book_pdf_generator.__file__).parent.parent
 
     @staticmethod
     def _enclosing_functions(source: str, names: frozenset) -> set:
         """Which ``def``s in ``source`` contain a call to any of ``names``.
 
-        By AST, and the enclosing ``def`` is resolved by walking the tree with
-        a parent trail rather than by reading indentation — a call inside a
-        nested ``def`` or a comprehension must be attributed to the function it
-        is really in, and the memory rule this board keeps says to attribute by
-        the enclosing definition and never by proximity.
+        By AST, and the enclosing ``def`` is **threaded down the recursion**
+        rather than read off indentation — a call inside a nested ``def`` or a
+        comprehension must be attributed to the function it is really in, and
+        the memory rule this board keeps says to attribute by the enclosing
+        definition and never by proximity.
         """
         found = set()
-        stack: list = []
 
         def walk(node, enclosing):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1685,7 +1834,6 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
                 walk(child, enclosing)
 
         walk(ast.parse(source), None)
-        del stack
         return found
 
     def test_only_the_clue_digit_drawer_emits_the_mark(self):
@@ -1696,6 +1844,23 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         ``ContentStream`` itself, which *defines* them. A page writer that
         opened its own sequence would be granting CON-020's exemption from a
         second place, and nothing downstream could tell the two apart.
+
+        **What this walk checks is a CALL to the emitting method**, and that is
+        narrower than "nothing else emits the mark" (CARD-314 fix round 1,
+        F-006). Measured on this branch: a raw
+        ``stream._operators.append("/ClueDigit BMC")`` planted in
+        ``book_answer_vector`` — a mark emitted with no such call — did **not**
+        red this test. It was caught, by
+        :meth:`TestInteriorType_TheStreamArmIsReached` reading a page whose
+        refusal failed to fire, because AC-3's :func:`_no_clue_digit_mark`
+        stubs the two ``ContentStream`` methods and so cannot suppress a raw
+        append. That is an incidental catch by a different instrument, so the
+        shape is now checked here too, by
+        ``test_no_module_but_the_streams_own_spells_the_mark_operators`` below:
+        between them the two tests cover a call to the method and a literal in
+        the source. Neither covers a mark assembled at runtime from pieces, and
+        ``_operators`` is private, which is what keeps that residue small
+        rather than closed.
         """
         emitters: Dict[str, set] = {}
         for path in self.SOURCES:
@@ -1714,6 +1879,100 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         )
         assert emitters == {"book_vector_draw.py": {self.EMITTER}}, emitters
 
+    def test_the_walk_reaches_every_file_that_names_the_stream(self):
+        """:data:`SOURCES`' hand-chosen directory, turned into a measurement.
+
+        CARD-314 fix round 1, F-006, gap (1). The glob is derived from disk but
+        its **directory** is a choice, so a vector writer placed anywhere else
+        under ``src/`` would be outside the chokepoint guard silently. This
+        states the condition under which that cannot happen: every file in the
+        package that so much as names ``ContentStream`` is a file the walk
+        reads. Difference at this commit: **0 files** — so it starts green,
+        and it is the day a stream user appears outside
+        ``src/nonogram/admin`` that it reds and the guard above is widened.
+        """
+        users = {
+            path.resolve()
+            for path in self.PACKAGE_ROOT.rglob("*.py")
+            if "ContentStream" in path.read_text(encoding="utf-8")
+        }
+        assert users, (
+            "no file under src/nonogram names ContentStream, so this check is "
+            "reading nothing and the empty structural reading is the silent "
+            "pass this file refuses (ADR-0039/R2)"
+        )
+        unreached = users - {path.resolve() for path in self.SOURCES}
+        assert unreached == set(), sorted(
+            str(path.relative_to(self.PACKAGE_ROOT)) for path in unreached
+        )
+
+    def test_no_module_but_the_streams_own_spells_the_mark_operators(self):
+        """The raw-append shape the call walk above cannot see.
+
+        CARD-314 fix round 1, F-006, gap (2). ``begin_marked``/``end_marked``
+        are the only place the ``BMC``/``EMC`` operators are **spelled**, so a
+        second author of the mark that bypassed them — the measured forgery was
+        ``stream._operators.append("/ClueDigit BMC")`` — has to write one of
+        those tokens as a string literal somewhere, and here is where that is
+        refused.
+
+        Strings are read off the **AST** and docstrings are excluded, because
+        this file and ``draw_clue_digits`` both discuss ``BMC`` in prose and a
+        text grep would red on the prose instead of on a forgery (the measured
+        trap: a naive text check reds on ``book_vector_draw.py``'s own
+        docstring, where the economy figure is stated). Also note what this
+        does not reach: a token assembled at runtime rather than written. The
+        two halves of the chokepoint are therefore a call to the method and a
+        literal in the source, which is what the guard above now claims.
+        """
+        offenders = {}
+        for path in self.SOURCES:
+            if path.name == "book_vector.py":
+                continue  # the stream itself: this is where they are defined
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            docstrings = {
+                node.body[0].value
+                for node in ast.walk(tree)
+                if isinstance(
+                    node,
+                    (
+                        ast.Module,
+                        ast.ClassDef,
+                        ast.FunctionDef,
+                        ast.AsyncFunctionDef,
+                    ),
+                )
+                and node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            }
+            spelled = {
+                node.value
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node not in docstrings
+                and _MARK_OPERATOR.search(node.value)
+            }
+            if spelled:
+                offenders[path.name] = sorted(spelled)
+
+        assert offenders == {}, offenders
+
+        # The control: the module that IS allowed to spell them really does,
+        # so this check would not pass by finding the operators nowhere.
+        own = ast.parse(
+            Path(book_vector.__file__).read_text(encoding="utf-8")
+        )
+        assert [
+            node.value
+            for node in ast.walk(own)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and _MARK_OPERATOR.search(node.value)
+        ], "book_vector.py spells neither BMC nor EMC, so the mark is gone"
+
     def test_the_tag_the_reader_expects_is_the_tag_the_writer_emits(self):
         """The two independent spellings of the tag agree.
 
@@ -1724,9 +1983,12 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         reason the reader is not simply importing the writer's name.
         """
         assert pdf_vector.CLUE_DIGIT_TAG == book_vector.CLUE_DIGIT_TAG
-        assert book_vector.CLUE_DIGIT_TAG in frozenset(
-            {name for name in dir(book_vector) if True}
-        ) or True  # the constant exists; the equality above is the claim
+        # CARD-314 fix round 1, F-003: a third assertion stood here and was
+        # dead twice over -- `assert <name-set membership> or True`, whose
+        # `or True` made it unconditional and whose left operand tested the
+        # tag's VALUE against book_vector's ATTRIBUTE NAMES and so was always
+        # False. It is deleted rather than repaired: the equality above is the
+        # claim, and the source check below is the other half of it.
         # And the drawer really reaches for that constant, not a literal.
         source = Path(book_vector_draw.__file__).read_text(encoding="utf-8")
         assert "CLUE_DIGIT_TAG" in source, (
@@ -1761,15 +2023,23 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         } == {"Tj", "S", "re", "f"}, sorted(
             set(pdf_vector.operator_tokens(written))
         )
-        # **One pair for the whole clue set, not one per digit** — 2 operators
-        # on a 30x30 rather than 1080. This is the only assertion in this file
-        # about the mark's *spelling* rather than its meaning, and it is
-        # deliberate: it is the economy ``MARKED_CONTENT_OPERATORS`` in
+        # **One pair for the whole clue set, not one per digit** — 2
+        # operators against 408 on this page's 204 clue digits (at most 1800
+        # on a 30x30, whose bound is 900 entries). This is the only assertion
+        # in this file about the mark's *spelling* rather than its meaning, and
+        # it is deliberate: it is the economy ``MARKED_CONTENT_OPERATORS`` in
         # ``tests/test_book_puzzle_page_vector.py`` is a constant because of.
-        # Measured — a per-digit variant of ``draw_clue_digits`` leaves every
-        # other test in this module green and reds exactly here, which is the
-        # right division: a card that wants to spend the operators changes
-        # this number and nothing else in CON-020's reading.
+        #
+        # **The division, with its domain** (CARD-314 fix round 1, F-005). A
+        # per-digit variant of ``draw_clue_digits`` reds **1 of 47 in this
+        # module** and this is the riser — but across the 733-test import
+        # radius it reds **4 in 2 modules** (729 passed). The other three are
+        # ``test_book_puzzle_page_vector``'s
+        # ``test_the_operator_alphabet_is_closed_at_what_this_page_draws`` and
+        # the two ``MARKED_CONTENT_OPERATORS`` derivations. All four are
+        # operator-ECONOMY or operator-COUNT claims and no AC-bearing test
+        # rises, which is what makes the division right; the figure is 4/733
+        # and 1/47 is the one-module reading of it.
         assert pdf_vector.operator_tally(written)["BMC"] == 1
         assert pdf_vector.operator_tally(written)["EMC"] == 1
 
