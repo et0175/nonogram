@@ -421,8 +421,23 @@ paints.
 **THE CHANNELS ARE CROWDED, and this is the constraint the fix must solve
 rather than discover.** Measured on `admin.css`'s `.player-cell` rules:
 
-- **`background`** — 9 claimants: the four `data-state` looks, `.is-crossed`
-  (CARD-267's crosshair), `.is-hint-line`, and the probe's two.
+- **`background`** — <!-- CORRECTED 2026-10-30 at cycle 2's F-003. The
+  orchestrator wrote "9 claimants: the four `data-state` looks, …" and that was
+  an uncounted tally — the very defect class (figures stated without the rows)
+  this card's F-003 was closing. Counted from the rules by the fix round and
+  re-counted independently by cycle 2's reviewer: **six** `.player-cell` rules
+  declare a background (`admin.css` 529, 647, 1206, 1207, 1271, 1272), because
+  only two of the four `data-state` looks declare one — the empty mark's is an
+  `::after` and is counted on its own line below. Plus the probe's two before
+  this card's fix = 8; after it, back to six. The correction is made HERE, at
+  the claim, rather than only in the fix-round section ~230 lines down, which is
+  what cycle 2 flagged: a stale figure left standing where a reader meets it is
+  still a false claim however well it is corrected elsewhere. -->
+  **six** `.player-cell` rules declared one before this card
+  (`admin.css` 529, 647, 1206, 1207, 1271, 1272 — only two of the four
+  `data-state` looks, since the empty mark's is an `::after`, below), plus the
+  probe's own two while it still used the channel. **The probe's fix takes it
+  back to six**, because the probe now declares no background at all.
 - **`outline`** — taken by `.player-cell.is-hinted` (CARD-183/269).
 - **`box-shadow`** — taken twice: `[data-state="filled"]`'s own division
   (CARD-270) and `.is-hinted`.
