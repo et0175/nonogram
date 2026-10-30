@@ -1,6 +1,6 @@
 # CARD-268: Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** card/268-player-probe-mode
-**Worktree:** —
+**Branch:** `card/268-player-probe-mode`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-268
 **Source:** quick — owner decision 2026-10-22 (player-convenience session, option 2: "for puzzles that need contradiction-probing add another color for probing cells", shaped in the same session into a transaction, not just a color); no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 69 <!-- STAMPED 2026-10-30 at dispatch. Owner decision: "we agreed before to take 309+268". Its drafting-time conflict note named CARD-267 (crosshair) as the card it would serialize against -- CARD-267 merged `4b4a26e7` in wave 63, so that contention is gone. Against CARD-309 the measured Touches intersection is EMPTY. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_resume.py, tests/test_admin_design_tokens.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-30T11:58:28Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -250,6 +250,12 @@ them as written, never as passing before they exist:
 `test_the_probe_tint_comes_from_tokens`.
 
 ## Worktree notes
+
+- **[Env]** forge `2026.8.17` (executing manifest `forge_1/forge/.claude-plugin/plugin.json`).
+  The project declares no `meta/.skills.yml`, so there is no `forge.min_version` to compare
+  against and no `models:` block — the implementation agent inherits the session model rather
+  than resolving a class. Recorded because a later diagnosis needs the version the procedures
+  came from, not because a gate fired.
 
 - **[Semantics first]** The "Declared semantics" block above is the decided
   contract (CARD-262's lesson applied at drafting time rather than mid-card):

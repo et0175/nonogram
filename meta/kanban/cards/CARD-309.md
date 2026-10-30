@@ -1,6 +1,6 @@
 # CARD-309: The assembly point, and the puzzle page becomes operators — the half of the conversion that is architecture rather than repetition
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1.5d <!-- RE-ESTIMATED 2026-10-30 at the split. The 1d covered five conversions, an assembly point that does not exist, 21 baselines, R1's flip, CARD-297's divergence and a reader population measured at 12+8 modules. CARD-308 had this shape today -- architectural with a frozen artefact to move -- and came in at 3.0x. This card now carries the assembly point and ONE kind; CARD-322 carries the other four. -->
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/309-assembly-point-and-puzzle-operators`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-309
 **Source:** CARD-298's review cycle 1, F-002, 2026-10-29 — which measured that **no card on the board converts the interior pages at all**. Cut by the orchestrator on owner decision the same day. The work is what CARD-298 was originally cut to do, minus the mechanism CARD-298 kept.
 **Idea:** —
-**Wave:** 68
+**Wave:** 69 <!-- RE-STAMPED 2026-10-30 at dispatch, 68 -> 69. The field records the wave a card RAN in, and this card never ran in 68: wave 68 closed with CARD-220 (`cb5856dc`) and CARD-314 (`8762beed`) merged while this card sat `ready`. Leaving the old stamp is what made the board read waves 67 and 68 as unclosed. Dispatched with CARD-268; measured Touches intersection with it is EMPTY (overlap 0.0), and the one hotspot this card touches (`book_pdf_generator.py`) is not in CARD-268's set, so no conflict edge. -->
 **Created wave:** 65
 **Deferred waves:** 0
 **Depends on:** CARD-298, CARD-299, CARD-306, CARD-314
 **Split into:** CARD-309 (this card: the assembly point + the puzzle page) and **CARD-322** (the remaining four kinds, R1's flip, CARD-297's divergence)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_toc_vector.py, src/nonogram/admin/book_answer_vector.py, src/nonogram/admin/book_puzzle_vector.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-30T11:58:28Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -196,6 +196,12 @@ within one hour today.
 - **Trace:** `trace.yml` carries **no ADR-0042 rule rows at all** — measured 2026-10-29, only two prose mentions at `:1813` and `:1853`. So no rule row is re-stamped here; the FR rows whose tests move are. Do not write a Trace line promising to re-stamp a row that does not exist, which is the mistake CARD-298 inherited.
 
 ## Worktree notes
+
+- **[Env]** forge `2026.8.17` (executing manifest `forge_1/forge/.claude-plugin/plugin.json`).
+  The project declares no `meta/.skills.yml`, so there is no `forge.min_version` to compare
+  against and no `models:` block — the implementation agent inherits the session model rather
+  than resolving a class. Recorded because a later diagnosis needs the version the procedures
+  came from, not because a gate fired.
 
 - **This card finishes a phase that has been built backwards**, and that is worth
   knowing rather than rediscovering: the writers came first (CARD-294/295/296/297),
