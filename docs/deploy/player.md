@@ -246,15 +246,27 @@ prompts to link again. Either answer that prompt every publish, or keep the iden
 outside the tree, where a rebuild cannot reach it:
 
 ```bash
-export VERCEL_ORG_ID=...      # TODO(owner): both from the Vercel dashboard,
-export VERCEL_PROJECT_ID=...  # Settings -> General
+export VERCEL_ORG_ID=team_p379UJJnEKFQ9nJC15tzcTyp
+export VERCEL_PROJECT_ID=prj_9SoVGUETjWldt1HN3CwrC8GCZbF1
 cd build/site && vercel deploy --prod
 ```
 
-`TODO(owner): confirm the two variables are honoured on the first publish.` They are the
-mechanism Vercel documents for CI, where there is likewise no `.vercel/` to read; this
-page has not watched them work, and the distinction between "documented" and "observed"
-is the one it keeps everywhere else.
+Those are this project's real ids, and they are the same two values "What production is"
+records above — read from the `.vercel/project.json` the first deploy wrote (`orgId`
+and `projectId`), which is the file the variables stand in for. An earlier revision of
+this block left them as `...` with a note to fetch them from the dashboard, and kept
+that note after the deploy had already recorded both: the page was sending a reader to
+look up something it was holding two sections higher. They are **not** secrets — an id
+names a project, it does not authorise anything; the credential is the CLI login, which
+lives in `~/.local/share/com.vercel.cli` and never belongs in a published tree (the same
+reason `vercel link`'s `.env.local`, which carries a real `VERCEL_OIDC_TOKEN`, is
+deleted before any upload — see the deploy record above).
+
+`TODO(owner): confirm the two variables are honoured on the first publish that relies
+on them.` The 2026-10-30 deploy did **not** test them: it ran with a live
+`.vercel/project.json` in the tree, so the variables were never the thing being read.
+They are the mechanism Vercel documents for CI, where there is likewise no `.vercel/`
+to read — documented, not observed, and this page keeps that distinction.
 
 **The first publish comes after the GoatCounter site code, not before.** The publish
 command above the deploy carries `--analytics` because a deploy counts, and the code it
