@@ -5,6 +5,21 @@ two overlapping lists. They are now one, here. `board.md` shows only the top of
 this file. Duplicates are folded into one entry, and every item that became a
 card names its card._
 
+## Decided against, recorded so it is not re-proposed
+
+- [x] **Extract a shared player UI layer so the admin and public players have ONE
+  implementation instead of two.** Offered to the owner 2026-10-30 alongside the
+  five public-player cards (CARD-323..327) and **declined** in favour of wiring
+  `player/` up now and keeping two UI layers. Two reasons it was the right call
+  then: CARD-268 was live in `src/nonogram/admin/static/solver.js`, so the
+  extraction could not start, and ADR-0041/R3 deliberately specifies sharing
+  *the pure module only* — widening it to the UI glue is an ADR amendment, not
+  a card. What makes the duplication detectable in the meantime is CARD-325's
+  AC-6 (the two crosshair implementations must be shown to agree); if this is
+  ever revived, that test is the thing the extraction deletes, and its deletion
+  is the evidence the extraction worked. Revival trigger: a third consumer of
+  the player UI, or a drift that AC-6 actually catches.
+
 ## Deferred during implementation
 - [ ] CARD-258 deferred (declared as its bound 9, not as a code comment — the mechanical deferral scan
   found 0 hits): `tests/test_db_engine_lifecycle.py`'s `_global_names_assigned_by` collects only
