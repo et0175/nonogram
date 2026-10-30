@@ -257,7 +257,7 @@ the interior's page walk and the page writers downstream of it, and that boundar
 | F-3 | `_write_pdf`, per page | a page arrives in the other medium's representation from the one its kind declares | `TypeError` naming the page number, the kind and the type that arrived (unchanged by this card — G-6) | **0** bytes written; the refusal is at page *k* of *N* and takes its partial bytes with it |
 | F-4 | the walk's per-kind medium gate | a gate is added, removed or asks something other than the decider | `page_medium` call tally over the module's AST is an equality | **5** calls in `produce` (TITLE, GUIDE, TOC, PUZZLE, ANSWER) and **1** in `_write_pdf`; DIVIDER has no gate and is held by F-3 instead |
 | F-5 | `_RASTER_DECLARATIONS`, conversion direction | a kind goes vector and its entry stays | `_declaration_findings` reports it | <= **1** finding per entry, so <= `len(_RASTER_DECLARATIONS)` = the registry's own size |
-| F-6 | `_RASTER_DECLARATIONS`, landing direction | every card an entry names reaches a terminal status and the entry is still here | `_landing_findings` reports it; a card whose status the board cannot give is **also** a finding (default-DENY) | <= **1** finding per entry; **0** cards on the board may have an unreadable status (asserted over all 321 card files) |
+| F-6 | `_RASTER_DECLARATIONS`, landing direction | every card an entry names reaches a terminal status and the entry is still here | `_landing_findings` reports it; a card whose status the board cannot give is **also** a finding (default-DENY) | <= **1** finding per entry; **0** cards on the board may have an unreadable status (asserted over **every** card file the board holds — a count, not a constant: **321** when this row was written, **330** when the card's own census was re-derived 670 lines below. The assertion is `== 0 unreadable`, which does not depend on the total, so the figure is the stale part and the claim is not) |
 | F-7 | the import direction | an edge is added from the generator to a writer that imports it, at any depth, or a module imports the assembly point | one finding per offending module, by AST over `src/nonogram/**/*.py` | **0** allowed, out of the whole package the walk enumerates; a function-body import counts (mutant M6) |
 
 Two rows are deliberately *not* here, and each for a measured reason rather than an
@@ -748,12 +748,31 @@ strongest terms. It measured them, named them, and stopped at the line.
     `src/nonogram/**/*.py`: the generator imports **none** of the three writers that import
     it *at any depth*; each of the three really does import the generator (the card's own
     premise, measured rather than quoted); the assembly point imports all four; and
-    **nothing in the package imports the assembly point**. Mutants **M6** (a cycle inside a
-    function body) and **M7** (another module imports the assembly point) each killed exactly
-    the cell that claims them. **M5** (the same cycle at module level) also dies, but **not
-    there** — see the corrected mutant table in *"[Fix round 1, 2026-10-30]"*: CPython refuses
-    the import at collection, so the AST cell never runs and M6 is the cell's only real
-    control.
+    **nothing in the package imports the assembly point**. <!-- CORRECTED 2026-10-30 at review cycle 2's F2-001. This passage previously
+    read: "Mutants M6 ... and M7 ... each killed exactly the cell that claims them. M5 (the
+    same cycle at module level) also dies, but NOT THERE ... CPython refuses the import at
+    collection, so the AST cell never runs and M6 is the cell's only real control."
+    THREE OF THOSE ASSERTIONS ARE FALSE, and fix round 1 wrote them in the SAME COMMIT as the
+    table that refutes them — ADR-0039/R4 (a figure recomputed and refuted is retracted
+    EVERYWHERE it was written) broken in the AC verdict the merge gate reads. Measured twice,
+    by the fix round and independently by cycle 2 over the whole 356-test impact set: the
+    card's OWN M5 wraps the import in `if False:` and reds EXACTLY the named cell, 1 failed /
+    355 passed. It is M5x -- cycle 1's DIFFERENT plant, the same import UNGUARDED -- that dies
+    at collection with 0 cells run. Cycle 1 substituted a plant and then faulted this card's
+    record for not describing the substituted one; the orchestrator relayed that. Only the
+    CONCLUSION survived, and for a different reason than the one given. -->
+    Mutants **M6** (a cycle inside a function body) and **M7** (another module imports the
+    assembly point) each red the cell that claims them; **M7's reach is an expectation, not a
+    measurement** — see the corrected table in *"[Fix round 1, 2026-10-30]"*. **M5** (the same
+    cycle written at module level but wrapped in `if False:`) reds **exactly that cell too**,
+    1 failed / 355 passed. So the cell is not hollow on any of the three.
+
+    **What M5 does NOT prove, which is the real point:** its plant is an import the
+    interpreter **never executes**, so M5 is evidence about the **AST reading**, not about a
+    cycle. A genuine module-level cycle is **un-plantable** — unguarded, it dies in
+    `conftest.py` at collection with **0 cells run** (that is M5x). **M6 is therefore the only
+    mutant that plants an import the interpreter actually runs and is still caught by the
+    cell**, which is why M6 — not M5 — is the cell's real control.
 
     **AC-5's wording is weaker than what M6 measured, and this is the stronger claim.** On
     M6, `tests/test_cli.py::test_every_import_in_the_package_points_inward` **PASSED** while
@@ -1059,7 +1078,7 @@ caches swept before and after each, target SHA-256'd before and after, **6 mutan
 |---|---|---|
 | **MF-1** | the *"one fewer since CARD-309"* sentence put back verbatim | `…::test_the_comment_claims_no_removal_the_registry_cannot_show` (1 red, 5 passed) |
 | **MF-2** | the *"CARD-309 removed one entry"* sentence put back verbatim | the same cell (1 red, 5 passed) |
-| **MF-3** | the registry loses an entry — `PageKind.PUZZLE:` keyed as `PageKind.COVER:`, collapsing two keys into one — while the prose still says nothing was taken out | the **mirror arm** of that cell, `…::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card`, and `test_no_declaration_outlives_the_cards_that_remove_it` (which asserts the cover's `expires_with == ()`, and the collapsed key gives it the puzzle's) — 3 red |
+| **MF-3** | the registry loses an entry — `PageKind.PUZZLE:` keyed as `PageKind.COVER:`, collapsing two keys into one — while the prose still says nothing was taken out | the **mirror arm** of that cell, `…::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card`, and `test_no_declaration_outlives_the_cards_that_remove_it` (which asserts the cover's `expires_with == ()`, and the collapsed key gives it the puzzle's) — **54 red over the whole impact set**, of which those three are the attributed kills. <!-- CORRECTED 2026-10-30 at cycle 2's F2-002, and the correction is the same defect this round NAMED as its own root cause: round 1's `mutate.py` ran only "the union of the node ids it expected to red", so its "cells it reds" column was really "cells it was expected to red". The round fixed that in `refire.py` and LEFT `mutate.py` -- the harness that certified this very control -- still passing `(CONTROL,) + NEIGHBOURS`. So this row said "3 red" where the real reach is 54, understated 18x. AND THE PLANT'S DOMAIN WAS UNDECLARED: collapsing `PageKind.PUZZLE:` onto `PageKind.COVER:` leaves PUZZLE undeclared, so `page_medium(PUZZLE)` returns VECTOR and every puzzle page changes medium -- MF-3 is a SHIPPED-BEHAVIOUR mutant, not the clean prose-vs-registry isolate this row described, and its mirror-arm kill is confounded with 51 others. No cell attribution was wrong and 0 of 6 mutants survived; the reach figure and its domain were. ADR-0039/R4 again. --> |
 | **MF-4** | TITLE re-pointed back to `("CARD-299", "CARD-309")` | the shape cell and `test_no_declaration_names_the_card_that_is_closing` — 2 red |
 | **MF-5** | the reading hollowed out (`if re.search(...)` → `if False and …`) | `…::test_the_reading_catches_the_claims_and_spares_the_honest_sentences` — 1 red. The detector is **not** hollow. |
 | **MF-6** | the extractor anchored on a name that is not in the file, so the block comes back empty | `…::test_the_block_is_the_one_above_the_registry` — 1 red. A vacuous green is **not** reachable. |
