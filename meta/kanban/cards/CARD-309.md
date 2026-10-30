@@ -323,13 +323,61 @@ this card's).
     0.169 mm figure, the 189/75 census, the four-cause root-cause split, the
     reader populations (12 and 9), and the 7.9×/3.6× size and time figures.
 
-- **[scratchpad committed to the branch — a review question, flagged not fixed]**
-  The branch commits ten probe scripts under `scratchpad/card309/`. The brief
-  asked for the harness to live there (not at the shared scratchpad root, which
-  is CARD-284's measured defect), and it does. Whether those files should reach
-  `main` is a separate question the review or the narrowing decision should
-  settle — the evidence they carry is worth keeping somewhere, and `main` may
-  not be that somewhere.
+- **[scratchpad — the review settled it, and fix round 1 implemented the split]**
+  Round 1 committed 13 files under `scratchpad/card309/` (11 `.py` probes plus
+  `impact.txt` and `census-converted.txt`) and flagged "should these reach
+  `main`?" as a review question. Review cycle 1 answered it on measured
+  reasons, and the branch now carries the answer:
+  - **KEPT on the branch, and so on `main`: `scratchpad/card309/impact.txt` and
+    `scratchpad/card309/census-converted.txt`.** These two are *measurements*,
+    not tooling: the 27-module impact set, and the per-module tally and every
+    failing node id of the converted state (`189 failed / 1860 passed /
+    1 skipped / 75 errors in 223.54s`). Nobody downstream can re-derive them,
+    because the conversion that produced them is reverted — and the card's
+    blocker argument cites them.
+  - **MOVED OUT to `~/Documents/nonogram-reviews/CARD-309/`: all 11 `.py`
+    probes, and every untracked file.** Exactly what moved is listed in
+    *"[Fix round 1, 2026-10-30]"* at the end of this card. The reasons are the
+    review's, each measured: (a) `main` carries **nothing** under `scratchpad/`
+    and `scratchpad/` is **not** in `.gitignore`, so the commit was silently
+    establishing a precedent, on a card that is not about tooling; (b) the
+    probes are **host-pinned** — `render_for_owner.py:13` hardcodes this
+    worktree's absolute path — so they do not run from a `main` checkout and
+    become a dead ref the moment the worktree goes, which is the very thing
+    committing them was meant to prevent; (c) `render_for_owner.py` as
+    committed renders pages 2/4/6/9 only, so it is not even the script that
+    made the committed p12 renders (F-007).
+  - **The card-scoped directory was still right** (not the shared scratchpad
+    root, which is CARD-284's measured defect). The defect was the commit, not
+    the location.
+
+- **[Fix round 1, 2026-10-30 — review cycle 1 closed, and what each correction was derived
+  from]** Cycle 1 scored **7.5**, did not certify, two open Important and zero critical, and
+  **every defect was in the record** rather than in the architecture (which the reviewer
+  re-derived and confirmed). The round's full account, including the **corrected mutant
+  table**, is *"[Fix round 1, 2026-10-30] Review cycle 1's findings, closed"* at the end of
+  this card. The derivations, one line each:
+  - **F-001** (the one defect that shipped in `src/`) — from `git diff main..HEAD`, which
+    removes **0** `PageKind.` entries, and from importing `_RASTER_DECLARATIONS` at HEAD and
+    on `main`: **7** entries both sides, with five moving from `("CARD-299","CARD-309")` to
+    `("CARD-299","CARD-322")`. **Re-pointed five, removed none.** The corrected statement
+    ships with `TestRasterDeclarations_TheCommentAgreesWithTheRegistry` (4 cells, mutated by
+    MF-1..MF-6, 0 survivors), because a prose claim that is mechanically checkable and is not
+    checked is this card's own finding repeating itself.
+  - **F-002** — from `grep -rn "F-307\|NoSheetFurniture" meta/kanban/` and CARD-322's G-5
+    line. The claim was about **another card's guardrail** and was false of it. Declining was
+    right; the routing had failed, and it was closed at the decompose station on `main`.
+  - **F-003 / F-007** — from `git ls-files scratchpad/` against
+    `git ls-files --others --exclude-standard scratchpad/`: **13** tracked, **23** untracked,
+    and every file the "all three runs are kept" sentence cited was in the untracked set.
+  - **F-004** — from `git diff main..HEAD -- tests/test_book_pdf.py`, which touches the
+    `_BOARD_STATUSES` frozenset **zero** times (the rebase took `main`'s strict superset), and
+    from re-reading one `**Status:**` line per card file in the main working tree today:
+    **330** files, zero with none and zero with two, `in_progress` **zero**.
+  - **F-005** — from re-firing round 1's **exact** mutant plants against the **whole** impact
+    set instead of the union of expected node ids, which is the harness defect that made both
+    mis-statements possible. The reach column of the table is **counted from the rows**.
+  - **F-006** — not this card's. Routed to CARD-322 / CARD-330 and to the owner's eye.
 
 - **[Env]** forge `2026.8.17` (executing manifest `forge_1/forge/.claude-plugin/plugin.json`).
   The project declares no `meta/.skills.yml`, so there is no `forge.min_version` to compare
@@ -576,7 +624,11 @@ lack elsewhere (overstated **4.8×–10.3×** as a small selection).
 **Measured before it was written down.** The card's item 2 — convert the puzzle page and
 delete PUZZLE's declaration — was implemented in full on this branch and the impact set run
 against it: **189 failures and 75 errors across 22 test modules** (`tests/` impact set,
-`-o addopts='' -p no:randomly`, census in `scratchpad/card309/run_converted.txt`; the
+`-o addopts='' -p no:randomly`, census in `scratchpad/card309/census-converted.txt` — the
+file that is **committed with this branch**, holding the per-module tally and every failing
+node id, and the one artefact of the three runs that nobody downstream can re-derive because
+the conversion is reverted; the raw pytest log it was distilled from is
+`~/Documents/nonogram-reviews/CARD-309/runs/run_converted.txt`; the
 unconverted tree runs the same set at 2122 passed / 1 skipped / 0 failed). The conversion was
 then **reverted** and PUZZLE's declaration re-added with that measurement as its reason, so
 what is shipped is the architecture and not a red tree. CARD-322 is named in all five
@@ -599,7 +651,7 @@ have **four** root causes, and only the first is a reader of a PDF:
    file: they are independent-oracle *geometry instruments* that recover a drawing from ink,
    and their stream twins are new instruments. **And a stream twin cannot simply replace
    them**, which is the measurement that settles this: re-derived here with
-   `scratchpad/card309/offset_probe.py` on CARD-295's own `Twin` fixture, **the raster and the
+   `~/Documents/nonogram-reviews/CARD-309/probes/offset_probe.py` on CARD-295's own `Twin` fixture, **the raster and the
    vector media place the same grid 2 device pixels — 0.169 mm — apart on all four edges**
    (ink `grid_left/right` 963/1849 against the stream's 965/1851; `grid_top/bottom` 1126/2012
    against 1128/2014; one offset, all four edges, which is exactly what
@@ -656,7 +708,7 @@ strongest terms. It measured them, named them, and stopped at the line.
   missing writer falls through — killed by `test_a_generator_with_no_downstream_writer_refuses`
   **and** `test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`).
 - **AC-3 — NOT MET. See the blocker.** Both populations were derived rather than quoted
-  (`scratchpad/card309/derive_readers.py`, by AST): **A = 12** modules import the one-image
+  (`~/Documents/nonogram-reviews/CARD-309/probes/derive_readers.py`, by AST): **A = 12** modules import the one-image
   reader (AC-3's own figure, reproduced exactly) and **B \ A = 9** files reach the hazard
   through `.interior()`/`.interior_pages()` — the card's eight test modules plus
   `tests/helpers/book_corpus.py`, which its table does not list because it is a helper. No
@@ -667,7 +719,7 @@ strongest terms. It measured them, named them, and stopped at the line.
   (G-4). CON-019's property test and the A4 golden are untouched and green —
   `tests/property/test_cli_exports_byte_identity.py`, `tests/test_export_a4_golden.py` and
   `tests/test_guard_integrity.py`: **233 passed** (G-3). **Interior size and generation time
-  at both ends**, on a 16-page book (`scratchpad/card309/render_for_owner.py`, the same book
+  at both ends**, on a 16-page book (`~/Documents/nonogram-reviews/CARD-309/probes/render_for_owner.py`, the same book
   both ways, same process):
 
   | medium | bytes | B/page | ms | ms/page |
@@ -680,6 +732,15 @@ strongest terms. It measured them, named them, and stopped at the line.
   reproduce exactly, the milliseconds are one reading on one host. ADR-0042's own headline is
   22.4x on a 24-page interior and 8.5x in time — **this is a different book and a smaller
   one**, so it corroborates the direction and is not a reproduction of that figure.
+
+  **[Review cycle 1 re-ran this, and the split it predicted is the split it got.]** The
+  reviewer re-fired the same probe on its own host: the **bytes reproduced exactly** —
+  4,786,226 / 607,106 B, 299,139 / 37,944 B/page, **7.9x**, 16 pages, every figure identical —
+  and the **milliseconds did not**: 523.0 / 126.5 ms, **4.1x** against this row's 333.6 /
+  91.7 and 3.6x. Nothing is restated in the table, because the table already says which half
+  is reproducible and which is one reading on one host, and the host-dependence is now
+  **confirmed by a second host** rather than asserted. The ratio moved 3.6x -> 4.1x in the
+  *same* direction on a slower host, which is the shape a fixed per-page raster cost has.
 - **AC-5 — PASSES, and it is the card.** `tests/test_cli.py`'s structural guard is
   **unmodified** (`git diff --stat` shows the file untouched) and green. The assembly point's
   own two classes, both new:
@@ -687,9 +748,24 @@ strongest terms. It measured them, named them, and stopped at the line.
     `src/nonogram/**/*.py`: the generator imports **none** of the three writers that import
     it *at any depth*; each of the three really does import the generator (the card's own
     premise, measured rather than quoted); the assembly point imports all four; and
-    **nothing in the package imports the assembly point**. Mutants **M5** (a module-level
-    cycle), **M6** (the same cycle inside a function body) and **M7** (another module imports
-    the assembly point) each killed exactly the cell that claims them.
+    **nothing in the package imports the assembly point**. Mutants **M6** (a cycle inside a
+    function body) and **M7** (another module imports the assembly point) each killed exactly
+    the cell that claims them. **M5** (the same cycle at module level) also dies, but **not
+    there** — see the corrected mutant table in *"[Fix round 1, 2026-10-30]"*: CPython refuses
+    the import at collection, so the AST cell never runs and M6 is the cell's only real
+    control.
+
+    **AC-5's wording is weaker than what M6 measured, and this is the stronger claim.** On
+    M6, `tests/test_cli.py::test_every_import_in_the_package_points_inward` **PASSED** while
+    the new cell reded. So the package-wide layering guard does **not** see a lateral import
+    *inside* `admin/` — admin modules are peers in one layer and importing one from another
+    points neither laterally across capabilities nor inward. AC-5's "the structural guard
+    passes unmodified" is therefore **necessary but not sufficient**: it is the evidence that
+    this card broke nothing, and it is *not* evidence that the direction is guarded. The
+    direction is guarded only by
+    `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_the_generator_imports_none_of_the_writers_that_import_it`,
+    which is work **nothing else in the tree does** — measured, by a mutant that passes one
+    guard and reds the other.
   - `TestAssemblyPoint_TheDownstreamWritersAreReachable` — lifts **all five** interior
     declarations and writes a real interior through
     `book_interior_vector.interior_generator`: every interior page comes out as operators
@@ -711,6 +787,31 @@ strongest terms. It measured them, named them, and stopped at the line.
   twin, **no** frame rules. The one thing worth the owner's eye is that this is the first
   time the whole interior has existed as operators in a file.
 
+  **[Corrected in fix round 1 — which script made which render, F-007.]** The probe that
+  renders pages 2/4/6/9 is the one that was committed; the **p12** pair in that directory was
+  made by a run with page 12 added to the same loop, so the committed script is not the
+  script that produced the whole committed set. Nothing about the renders changes; the record
+  does. The probe has since moved to
+  `~/Documents/nonogram-reviews/CARD-309/probes/render_for_owner.py` — beside the renders it
+  made, which is where a host-pinned script belongs (it hardcodes this worktree's absolute
+  path at line 13 and does not run from a `main` checkout at all). **It was not "fixed" to
+  add page 12 and derive its root from `__file__`**, deliberately: it is evidence of a
+  measurement already taken, not a tool anyone runs again, and editing it would have made the
+  copy beside the renders no longer the thing that produced them.
+
+  **[Routed, not fixed — F-006, the vector group rules read lighter at 150 dpi.]** The
+  reviewer measured, inside the page-6 grid body at 150 dpi: raster **58** heavy columns /
+  **47** heavy rows against vector **31** / **22** (a column or row counted heavy when >80%
+  of its pixels in the body window are dark). The raster twin reads as a clean 5x5 block
+  grid; the vector page reads as an almost uniform hairline grid. **The product is right** —
+  page 6's content stream emits all three declared widths (`0.3 w` x1, `0.8 w` x2, `1.3 w`
+  x4) — so this is a render-resolution artefact (the raster twin was drawn at 300 dpi and
+  downsampled; the vector hairlines are rasterised at 150), not a missing feature and not
+  this card's defect. **Routed to CARD-322 and CARD-330** (CARD-322 is the card that ships
+  this page to a reader; CARD-330 owns the medium difference) **and to the owner's eye**, with
+  the honest owner-facing sentence being *"the group rules are present but thinner at 150 dpi;
+  judge them at print resolution"*. This card does not chase it.
+
 ### The impact set, and the one skip attributed by name
 
 The impact set is the 27 modules in `scratchpad/card309/impact.txt`: this diff's own
@@ -725,12 +826,28 @@ it is **present at HEAD too** (the pre-change run of the same set: 2122 passed, 
 so it is a host fact and not something this card silenced. Green-with-skips and fully
 verified report the same total, which is why it is named rather than counted.
 
-The same set was run **three** times on this branch and all three are kept, because the
-middle one is the blocker's evidence: at HEAD **2122 passed / 1 skipped / 2 failed** (the
-two failures explained below — one is the board-status RED that predates this card, the
-other was contamination from a concurrent edit to a file an AST guard reads from disk, and
-both were re-measured in isolation); with the puzzle page converted,
+The same set was run **three** times on this branch: at HEAD **2122 passed / 1 skipped /
+2 failed** (the two failures explained below — one is the board-status RED that predates this
+card, the other was contamination from a concurrent edit to a file an AST guard reads from
+disk, and both were re-measured in isolation); with the puzzle page converted,
 **189 failed / 75 errors / 1860 passed**; as shipped, the figure above.
+
+**[Corrected in fix round 1 — F-003.]** Round 1's sentence here said all three runs "are
+kept", and that was **false of a checkout**: the three pytest logs, both node-id collections
+and `readers.json` were all **untracked**, so none of them reached `main` and all of them die
+with the worktree — a dead check ref one level down, which is the exact failure this card's
+Mutants section names as its reason for committing anything at all. What is true, and is what
+this card now cites:
+- **the middle run's substance is on the branch**, in `scratchpad/card309/census-converted.txt`
+  — the per-module tally and every failing node id of the converted state
+  (`189 failed / 1860 passed / 1 skipped / 75 errors in 223.54s`). It is the blocker's
+  evidence and the one measurement nobody downstream can re-derive, because the conversion is
+  reverted. **The blocker argument is reproducible from the branch alone.**
+- **the raw logs are kept outside the repo**, at
+  `~/Documents/nonogram-reviews/CARD-309/runs/` — `run_base.txt`, `run_converted.txt`,
+  `run_final1.txt`, `run_final2.txt`, `collect_base.txt`, `collect_now.txt`, `readers.json`.
+  That is where cited evidence that is not a measurement the tree needs belongs, and it is
+  where they now resolve from.
 
 ### G-5, measured rather than asserted
 
@@ -743,13 +860,28 @@ No test was deleted, renamed, skipped or merged; no `parametrize` id moved.
 
 ### Mutants fired, in one place
 
-Harness: `scratchpad/card309/mutate.py` (card-scoped directory, never the shared root).
-**The evidence is committed with the card, not left in a session scratchpad.** Every
-`scratchpad/card309/*.py` this section cites is in the commit, together with
-`impact.txt` (the 27-module set) and `census-converted.txt` (the per-module tally and every
-failing node id of the converted state). A measurement cited from a path that resolves
-nowhere from a checkout is a dead check ref one level down, which is CARD-298's F-004 and
-is recorded in ADR-0042/R2's own comment.
+Harness: `~/Documents/nonogram-reviews/CARD-309/probes/mutate.py` (round 1) and
+`.../fix-round1-harness/mutate.py` (fix round 1). Both were written under
+`scratchpad/card309*/` while they ran — card-scoped, never the shared scratchpad root, which
+is CARD-284's measured defect — and both were moved out of the tree before the commit.
+
+**What is committed and what is not, corrected in fix round 1 (F-003).** Round 1 committed
+the eleven probe scripts and claimed that committing them was what kept the evidence alive.
+Review cycle 1 measured the opposite on three counts: `main` carries nothing under
+`scratchpad/` and `scratchpad/` is not in `.gitignore`, so the commit was quietly setting a
+precedent on a card that is not about tooling; the probes are host-pinned (an absolute
+worktree path at `render_for_owner.py:13`) and so do not run from a `main` checkout at all,
+which makes them a dead ref the day the worktree goes — the very outcome committing them was
+meant to prevent; and the committed `render_for_owner.py` is not even the script that made
+the committed p12 renders. **So the split is by what the artefact IS, not by where it was
+written**: the two *measurements* — `scratchpad/card309/impact.txt` (the 27-module set) and
+`scratchpad/card309/census-converted.txt` (the per-module tally and every failing node id of
+the converted state) — stay on the branch and reach `main`, because the card's argument rests
+on them and the reverted conversion cannot be re-measured. Every *probe* and every raw log
+lives in `~/Documents/nonogram-reviews/CARD-309/`. A measurement cited from a path that
+resolves nowhere from a checkout is a dead check ref one level down (CARD-298's F-004, and
+recorded in ADR-0042/R2's own comment) — and a script committed to `main` that cannot run
+from `main` is the same defect wearing the fix's clothes.
 
 `PYTHONDONTWRITEBYTECODE=1`, `__pycache__`/`*.pyc` swept **before and after** every mutant,
 the target file SHA-256'd against its baseline before *and* after each one, and the recorder
@@ -772,21 +904,40 @@ M11 is the control for the census claim re-derived below.
   refuses nothing); and the module-axis bound moves `inside == 19` -> `23`, one
   `self.page_spec` per gate, cross-checked by a plain text count of `self.page_spec(`
   (19 -> 23) and by `ast.Call` nodes (912 -> 932) in a second domain.
-- **SCOPE+ `tests/test_book_pdf.py`'s `_BOARD_STATUSES` — a live RED on `main`, not this
-  card's work, fixed here because it reds this card's gate.** The set held `"in progress"`
-  with a **space**; the dispatcher writes **`in_progress`**. Nothing could observe that on
-  2026-10-29 when the set was derived, because the board had no card in flight that day
-  (`acd0a386`: *"wave 68 closes with no card in flight"*). Wave 69 opened two and
-  `test_no_declaration_outlives_the_cards_that_remove_it` **reds at HEAD** with
+- **SCOPE+ `tests/test_book_pdf.py`'s `_BOARD_STATUSES` — a live RED on `main` this card
+  found, and which `main` has since fixed. The diff no longer changes the set at all.** The
+  set held `"in progress"` with a **space**; the dispatcher writes **`in_progress`**. Nothing
+  could observe that on 2026-10-29 when the set was derived, because the board had no card in
+  flight that day (`acd0a386`: *"wave 68 closes with no card in flight"*). Wave 69 opened two
+  and `test_no_declaration_outlives_the_cards_that_remove_it` **reded at HEAD** with
   `['CARD-268', 'CARD-309']` — measured on this branch with the card's own src stashed, so it
-  is not this diff. Re-derived from the main working tree's 321 cards: `done` 274, `ready` 40,
-  `blocked` 3, `in_progress` 2, `skipped` 1, `parked` 1 — six spellings, every card
-  accounted for, the space form among none. The widening and its exemption ship together:
-  `in_progress` joins the vocabulary and deliberately **not** `_TERMINAL_STATUSES`, and the
-  control for that arm (`CARD-90003`) is rewritten in the same spelling. **This is a finding
-  about the board's own gate**: the cell's verdict is a function of the *main* working tree's
-  card directory, so dispatching any card now reds every in-flight branch until the spelling
-  is known. That is **CARD-310's** subject; this is the spelling correction, not the hoist.
+  was never this diff. **This is a finding about the board's own gate**: the cell's verdict is
+  a function of the *main* working tree's card directory, so dispatching any card reds every
+  in-flight branch until the spelling is known. That is **CARD-310's** subject; nothing here
+  is the hoist.
+
+  **[Corrected in fix round 1 — F-004. Two figures and one claim here were written for the
+  pre-rebase state.]** This card's rebase resolved the file in `main`'s favour, because
+  `main`'s set is a strict **superset**: it had already added `in_progress` **and** `review`
+  and dropped the dead space form. So `git diff main..HEAD` touches the frozenset **zero**
+  times and only the comment above it is this card's. Three corrections:
+  - *"The widening and its exemption ship together: `in_progress` joins the vocabulary"* —
+    **false after the rebase.** `main` landed the widening; this card adds no spelling. What
+    remains true, and is all the comment now claims, is that `in_progress` is deliberately
+    **not** in `_TERMINAL_STATUSES` and that `CARD-90003` is the control for that arm.
+  - *"six spellings, every card accounted for"* — **wrong in both directions**, which is why
+    the comment now writes no vocabulary list at all (its own no-counts rule, which the list
+    was violating). The frozenset holds **seven**; the list omitted `review`, which two cards
+    carry today — CARD-309 itself being one of them — and asserted `in_progress`, which **no
+    card in the live tree carries**.
+  - *"the main working tree's 321 cards: `done` 274, `ready` 40, ... `in_progress` 2"* —
+    stale. **Re-derived today from the main working tree, by reading one `**Status:**` line
+    per card file** (330 files, zero with none and zero with two): `done` 275, `ready` 48,
+    `blocked` 3, `review` 2, `skipped` 1, `parked` 1 — summing to 330, and **`in_progress`
+    zero**. Stated here, where a card records what it measured and when, and deliberately
+    **not** pasted back into the comment: a per-status count in a comment nobody re-reads was
+    already two cells out within a day of being written, which is the drift the comment's own
+    rule exists for.
 - **FINDING for CARD-306's F-307, NOT done here, and the reason is G-5.**
   `tests/test_book_puzzle_page_vector.py`'s
   `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` is named as this card's debt.
@@ -794,9 +945,26 @@ M11 is the control for the census claim re-derived below.
   output, which really does draw no furniture); the debt is the **name**, and the only fix
   for a name is a rename. **G-5 forbids renaming a test** — node ids included — and G-5 is
   authoritative at the task level and may only be weakened at the decompose station. The
-  class is also untouched by this card in substance, since no kind converted. Raised for
-  CARD-322, which converts the kinds and should carry the rename with a guardrail that
-  permits it.
+  class is also untouched by this card in substance, since no kind converted. **Declined, and
+  routed to CARD-322**, which converts the kinds and will be in that file anyway.
+
+  **[Corrected in fix round 1 — F-002. The decision was right; the hand-off claimed something
+  that was not yet true.]** Round 1 wrote that CARD-322 "should carry the rename with a
+  guardrail that permits it", in a tense that reads as a statement about that card. Measured
+  at review cycle 1: CARD-322 had **zero** mentions of F-307 or the class name, and its G-5
+  carried the **same unqualified prohibition** this card had just declined under — so the
+  debt was owed by a card that did not know it, behind a guardrail that forbade it, and the
+  loop was set up to run again. The declining was not the defect: **G-5 is authoritative at
+  the task level and may be weakened only at the decompose station**, never in a worktree, so
+  this card could not have granted itself the exemption. The *routing* was the defect. It has
+  since been closed **at the decompose station, on `main`, not by this card**: CARD-322's G-5
+  now carries one **named** exception for exactly this class
+  (`tests/test_book_puzzle_page_vector.py:1950`), with the re-stamp obligation spelled out,
+  and CARD-322 carries a section recording why the debt exists. `meta/kanban/cards/CARD-322.md`
+  is **not** touched by this branch — it is not this card's file to edit, and the exemption is
+  not this card's to grant. What this card owes, and now states, is the true sentence: it
+  **declined** the rename under G-5 and **routed** it to CARD-322, where the exception was
+  subsequently granted at the decompose station.
 - **FINDING, measured, that retires CARD-306's other residual.** CARD-306 recorded *"guide,
   TOC and answer pages currently carry no frame at all"* as this card's. Measured here:
   `_draw_page_frame` has exactly **two** call sites in `book_pdf_generator.py` — `_blank_page`
@@ -821,3 +989,223 @@ Nothing. `trace.yml` carries **no ADR-0042 rule rows** (re-checked on this branc
 mentions only), and no FR row's test moved, because no test was deleted, renamed or
 re-pointed and no baseline changed. A Trace line promising a re-stamp here would be the
 mistake CARD-298 inherited.
+
+### [Fix round 1, 2026-10-30] Review cycle 1's findings, closed — and the mutant table re-derived from the rows
+
+Cycle 1 scored **7.5** and did **not** certify (two open Important, zero critical). Its verdict
+is worth restating because it shapes this round: **the architecture was re-derived rather than
+accepted, and proved right** — no cycle anywhere, `tests/test_cli.py` 0 times in the diff,
+`_write_pdf` byte-identical to `main`, the refusal unbypassable, all seven guardrails measured
+passing, the three frozen figures re-derived from the rows, and AC-4's **byte** figures
+reproducing exactly. **Every defect was in the RECORD**, and it has one cause: the prose was
+written for the CONVERTED, pre-rebase state and was not fully re-derived after the revert and
+the rebase. **One instance of that shipped in `src/`.** So this round changed no architecture.
+
+#### F-001 (Important, gating) — a false claim in shipped `src/`, and the control it owes
+
+`src/nonogram/admin/book_pdf_generator.py`'s `#:` comment on `_RASTER_DECLARATIONS` carried two
+statements: *"the rest are CARD-298's findings, **one fewer since CARD-309**"* and *"No count of
+them is written here on purpose — **CARD-309 removed one entry** and a number in this comment
+would have been the drift CARD-261 found twice"*. **Both were false.** Re-derived here as well
+as at the review: `git diff main..HEAD` removes **0** `PageKind.` entries, and the registry holds
+**7** at HEAD — cover `()`, divider `('CARD-231',)`, and title/guide/toc/answer/puzzle each
+`('CARD-299','CARD-322')`. On `main` those same five read `('CARD-299','CARD-309')`, so what the
+card did is exactly **re-point five, remove none**.
+
+**The shape of the error is the point**: the second sentence invoked **CARD-261's drift precedent
+as its own justification while committing that drift** — and the same comment nominates this
+mapping as *"the one honest reading of how far ADR-0042/R1 has actually got"*, so the false
+statement sat on the one thing the comment claims is honest.
+
+**Fixed, and the no-count policy kept** (that half was right and is CARD-261's lesson applied
+correctly). The comment now says what happened — built the assembly point, **converted nothing**,
+**re-pointed five entries** from itself at CARD-322 — records that two earlier sentences claimed
+otherwise and were measured false, and justifies the no-count rule by the rule itself rather than
+by a removal that did not occur. The retracted sentences are **not quoted** in the comment: a
+false claim quoted where it was removed from is a claim the next reader has to re-adjudicate, and
+it would also have had to be exempted from the control below. They are quoted here instead.
+
+**The control, because a claim may change only with the test that proves the new one.**
+`tests/test_book_pdf.py::TestRasterDeclarations_TheCommentAgreesWithTheRegistry` — **4 cells**,
+and it holds the comment to the registry in **both** directions, so it does not need editing when
+CARD-322 legitimately converts a kind; it changes arm:
+
+- `test_the_comment_claims_no_removal_the_registry_cannot_show` — reads the contiguous `#:` block
+  directly above the assignment, joins it to one line (the two false sentences were each wrapped
+  across two), and scans it with a **9-pattern vocabulary** of already-happened removal claims.
+  `set(PageKind) - set(_RASTER_DECLARATIONS)` decides the arm: nothing taken out → the comment may
+  claim no removal; something taken out → it **must** say so, or it reads as further from done
+  than it is, which is the mirror defect and the one CARD-322 walks into.
+- `test_the_registry_lost_nothing_and_five_entries_name_the_converting_card` — the 7/5 shape the
+  corrected prose asserts, **derived**: seven is written as
+  `set(_RASTER_DECLARATIONS) == set(PageKind)` (no page kind has converted), not as a number; five
+  is written once beside a second derivation (`declared - {COVER, DIVIDER}`) that writes no number
+  at all, because a figure the comment states is a figure a cell owes. No entry may name CARD-309.
+- `test_the_block_is_the_one_above_the_registry` — the extractor's own control, both polarities. A
+  block the reading cannot find is a green suite that checked nothing.
+- `test_the_reading_catches_the_claims_and_spares_the_honest_sentences` — guard-the-guard, **per
+  sentence in both polarities**: 6 sentences that must be caught (the two verbatim false ones
+  first) and 8 that must not, every one of the 8 either standing in this comment today or the true
+  form of a retraction — *"CARD-322 is the card that removes these four"* (a FUTURE removal, which
+  is the mapping's whole point), *"the shrink is guarded in two directions"*, *"CARD-309 removed no
+  entry"*. Plus a floor: at least **4 distinct** patterns fire across the claims, so the
+  vocabulary is not one regex doing all the work.
+
+**Mutated, and measured per assertion** — harness
+`~/Documents/nonogram-reviews/CARD-309/fix-round1-harness/mutate.py`, `PYTHONDONTWRITEBYTECODE=1`,
+caches swept before and after each, target SHA-256'd before and after, **6 mutants, 0 survivors**:
+
+| mutant | plant | reds |
+|---|---|---|
+| **MF-1** | the *"one fewer since CARD-309"* sentence put back verbatim | `…::test_the_comment_claims_no_removal_the_registry_cannot_show` (1 red, 5 passed) |
+| **MF-2** | the *"CARD-309 removed one entry"* sentence put back verbatim | the same cell (1 red, 5 passed) |
+| **MF-3** | the registry loses an entry — `PageKind.PUZZLE:` keyed as `PageKind.COVER:`, collapsing two keys into one — while the prose still says nothing was taken out | the **mirror arm** of that cell, `…::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card`, and `test_no_declaration_outlives_the_cards_that_remove_it` (which asserts the cover's `expires_with == ()`, and the collapsed key gives it the puzzle's) — 3 red |
+| **MF-4** | TITLE re-pointed back to `("CARD-299", "CARD-309")` | the shape cell and `test_no_declaration_names_the_card_that_is_closing` — 2 red |
+| **MF-5** | the reading hollowed out (`if re.search(...)` → `if False and …`) | `…::test_the_reading_catches_the_claims_and_spares_the_honest_sentences` — 1 red. The detector is **not** hollow. |
+| **MF-6** | the extractor anchored on a name that is not in the file, so the block comes back empty | `…::test_the_block_is_the_one_above_the_registry` — 1 red. A vacuous green is **not** reachable. |
+
+#### F-002 — closed as a record correction only; the routing was closed on `main`, not here
+
+See *"FINDING for CARD-306's F-307"* above for the corrected sentence. In short: declining was
+right (G-5 is weakened only at the decompose station), the **routing** had failed — CARD-322 had
+zero mentions of F-307 and an unqualified G-5 — and that has since been fixed at the decompose
+station **on `main`**: CARD-322's G-5 now carries one named exception for exactly that class, with
+the node-id re-stamp obligation spelled out. `meta/kanban/cards/CARD-322.md` is **not** touched by
+this branch. This card's own sentence now claims only what is true of this card: it **declined**
+and **routed**.
+
+#### The committed scratchpad — the split the review decided, implemented
+
+Round 1 committed **13** files under `scratchpad/card309/` and left ~10 more untracked beside them.
+
+- **STAYED on the branch (2 files):** `scratchpad/card309/impact.txt`,
+  `scratchpad/card309/census-converted.txt`. They are *measurements*, the card cites them, and
+  **nobody downstream can re-derive them** because the conversion they measure is reverted.
+- **MOVED OUT to `~/Documents/nonogram-reviews/CARD-309/` (34 files):**
+  - `probes/` — all **11** `.py`: `answer_mix.py`, `census_diff.py`, `census_diff2.py`,
+    `cost_diff.py`, `derive_readers.py`, `dump_stream.py`, `mutate.py`, `offset_probe.py`,
+    `refusals.py`, `render_for_owner.py`, `sitediff.py`.
+  - `runs/` — the **7** untracked logs and derived files the card cited: `run_base.txt`,
+    `run_converted.txt`, `run_final1.txt`, `run_final2.txt`, `collect_base.txt`,
+    `collect_now.txt`, `readers.json`.
+  - `notes/` — the **3** untracked drafting files: `card_notes.md`, `card_sections.md`,
+    `notes_body.md`.
+  - `review-cycle1-harness/` — the **13** untracked files of the reviewer's own mutant harness
+    (`fire.sh`, `m2/m5/m6/m8/m8b/m11.py`, their `.out` logs, `measure.py`), which would otherwise
+    have died with the worktree and are the evidence behind F-005.
+  - `fix-round1-harness/` — this round's `mutate.py` and `refire.py`, moved out for the same
+    reason before the commit.
+
+  Every copy was `shasum -a 256`-compared against its source before the source was deleted: **0
+  mismatches**.
+- **The reasons are the review's, each measured:** (a) `main` carries **nothing** under
+  `scratchpad/` today and `scratchpad/` is **not** in `.gitignore`, so the commit was silently
+  establishing a precedent, on a card that is not about tooling; (b) the probes are
+  **host-pinned** — `render_for_owner.py:13` hardcodes this worktree's absolute path — so they do
+  **not** run from a `main` checkout and become a dead ref the moment the worktree goes, which is
+  the very thing committing them was meant to prevent; (c) `render_for_owner.py` as committed
+  renders pages 2/4/6/9 only, so it is not even the script that made the committed p12 renders.
+- **The card-scoped directory was still the right place to write them** (never the shared
+  scratchpad root, CARD-284's measured defect). The defect was the commit, not the location — and
+  a script committed to `main` that cannot run from `main` is a dead ref wearing the fix's clothes.
+
+#### The corrected mutant table — round 1's eleven, re-derived
+
+**The root cause of both mis-statements is the harness, and it is worth naming:** round 1's
+`mutate.py` ran only the **union of the node ids it expected to red**. A mutant's reach outside
+that union was therefore invisible by construction, and the "cells it reds" column was really the
+"cells it was expected to red" column. This round re-fired against **the whole impact set**
+(`tests/test_book_pdf.py`, `tests/test_book_export_interior_cover.py`, `tests/test_cli.py` —
+356 passed, 0 failed, **0 skipped** unmutated) and the reach column below is **counted from the
+rows of that run**.
+
+Re-fired: **M2, M5, M6, M8, M11**, each with round 1's *exact* plant copied from its harness
+rather than paraphrased, `PYTHONDONTWRITEBYTECODE=1`, caches swept before **and** after each,
+the target SHA-256'd against baseline before each and after restore (the guard earned its keep:
+a concurrent invocation of the harness aborted on it rather than measuring against a planted
+file). Baseline **356 passed / 0 failed / 0 skipped**; after all mutants restored, **356 passed
+/ 0 failed / 0 skipped** again.
+
+| mutant | plants | round 1's record | this round, counted from the rows |
+|---|---|---|---|
+| **M2** | default-DENY removed from `_drawn_downstream` (`if writer is None` → `if False`) | killed by `test_a_generator_with_no_downstream_writer_refuses` **and** `test_a_partial_writer_set_refuses_only_the_kind_it_is_missing` | **CONFIRMED, exactly those 2** and nothing else (2 failed / 354 passed) |
+| **M5** | the cycle at module level, as round 1 planted it: `if False:` + `from nonogram.admin.book_guide_vector import guide_page` | "killed exactly the cell that claims it" | **1 red, and it is that cell** — `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_the_generator_imports_none_of_the_writers_that_import_it`. **But see the row below: the plant is an import statement the interpreter never executes, so what it proves is narrower than the card implied.** |
+| **M5x** | the **same** cycle at module level **unguarded** — a real one | not fired | **the suite does not collect at all.** `ImportError: cannot import name 'FOLIO_PT' from partially initialized module 'nonogram.admin.book_pdf_generator' (most likely due to a circular import)`, raised while loading `tests/conftest.py`, through `app.py:79 → book_kdp.py:105 → book_pdf_generator.py:402 → book_guide_vector.py:103`. **0 cells run, the named cell among them.** |
+| **M6** | the same cycle **inside a function body** (`interior_stream`) | killed exactly the cell that claims it | **CONFIRMED, 1 red, that cell** (1 failed / 355 passed) — and the secondary result below, which is the useful one |
+| **M8** | the packed-answer writer bound to the lone-answer field in `book_interior_vector.DOWNSTREAM_WRITERS` | killed by `test_each_of_the_four_bindings_was_used` | **3 red** — that cell **plus** `test_every_interior_page_is_written_as_operators` and `test_the_four_writers_each_drew_their_own_page`. Not a weaker kill; a **wider** one than recorded. |
+| **M11** | the TOC gate calls the injected writer through a **local** instead of `_drawn_downstream`'s parameter | "reds two cells of this class" (the harness's `expect` list named 2) | **7 red — 3.5x the recorded reach.** Six in `tests/test_book_export_interior_cover.py::TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage`: the two named (`test_the_page_position_set_is_derived_from_the_one_geometry_door`, `test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`) plus `test_every_planted_position_shape_is_caught_or_refused`, `test_each_door_axis_arm_catches_a_shape_the_other_misses`, `test_the_door_axis_arms_reach_every_call_and_refuse_none_of_them`, `test_the_declared_blind_spots_are_still_silent` — and one in `tests/test_book_pdf.py`: `TestAssemblyPoint_TheDownstreamWritersAreReachable::test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`. |
+| **M1, M3, M4, M7, M9, M10** | AC-2's inside arm, the refusal on a set rather than a kind, one writer drawing every kind, the assembly point imported by another module, the board's unobserved spelling, an entry re-pointed back at CARD-309 | each killed the cell(s) round 1 names | **not re-fired this round, and the reach column for them is round 1's EXPECTATION, not a measurement** — stated plainly rather than carried as if measured. M10's shape *was* re-measured, as this round's MF-4, and reds `test_no_declaration_names_the_card_that_is_closing` plus the new shape cell. |
+
+**M5, re-stated honestly, because the correction cuts both ways.** Round 1's sentence is true of
+round 1's *plant*: the `if False:` guard makes a module-level `import` statement that the AST
+reading sees and the interpreter never runs, so the named cell reds and nothing else does. What
+the sentence invites a reader to believe, and what is **false**, is that this demonstrates the
+cell catching a module-level cycle. **It cannot be demonstrated**: a real one (M5x) is
+un-plantable — CPython refuses it while loading `conftest.py`, the suite collects zero tests, and
+the cell never runs. So M5's evidence is about the **reading**, not about a cycle; **M6 is the
+only mutant that plants an import the interpreter actually executes and is still caught by the
+cell**, and the cell's own evidence is therefore M6's. The guard is not hollow either way — the
+mutant does die — but the attribution was wrong and it mattered, because it was the cell's only
+claimed control.
+
+**M6's secondary result, which strengthens AC-5 beyond its own wording and was not recorded.**
+On M6, `tests/test_cli.py::test_every_import_in_the_package_points_inward` **PASSED** while the
+new cell reded. Measured again on M2, M5, M8 and M11: that guard is **GREEN on every one of the
+five mutants re-fired**. So the package-wide layering guard does **not** see a lateral import
+inside `admin/` — admin modules are peers in one layer, and one importing another points neither
+across capabilities nor inward, which is exactly what `tests/test_cli.py`'s walk is built to
+catch. AC-5's *"the structural guard passes unmodified"* is therefore **necessary but not
+sufficient**: it is evidence that this card broke nothing, and it is **not** evidence that the
+direction is guarded. The direction is guarded only by
+`TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_the_generator_imports_none_of_the_writers_that_import_it`,
+which does work **nothing else in the tree does** — and that is a stronger and more useful claim
+about this card's contribution than the one AC-5 currently makes.
+
+#### F-003, F-004, F-005, F-006, F-007 and AC-4's timings
+
+- **F-003 — closed.** See *"The impact set"* above: the "all three runs are kept" sentence is
+  replaced by what is true of a checkout. The blocker's evidence is on the branch
+  (`census-converted.txt`); the raw logs are cited at `~/Documents/nonogram-reviews/CARD-309/runs/`.
+- **F-004 — closed.** See the `_BOARD_STATUSES` SCOPE+ entry above. Both stale claims removed from
+  the comment; the board census re-derived today (330 card files, `in_progress` **zero**) and
+  recorded in the card rather than pasted back into the comment.
+- **F-005 — closed.** The corrected mutant table above, plus AC-5's re-statement.
+- **F-006 — routed, not fixed.** Recorded in AC-6 and routed to **CARD-322 / CARD-330** and to the
+  owner's eye: the vector group rules read lighter at 150 dpi (p06 raster 58 heavy columns /
+  47 heavy rows against vector 31 / 22) but the stream **does** emit `0.3/0.8/1.3 w`, so it is a
+  render-resolution artefact, not a missing feature and not this card's defect.
+- **F-007 — closed as a record correction.** AC-6 now says which script rendered which pages, and
+  the probe moved beside the renders it made rather than being edited.
+- **AC-4's timings — confirmed host-dependent, no figure changed.** The reviewer re-fired the probe
+  and the **bytes reproduced exactly** (4,786,226 / 607,106 B, 299,139 / 37,944 B/page, 7.9x,
+  16 pages); the milliseconds did not (523.0 / 126.5 ms, 4.1x against 333.6 / 91.7 and 3.6x). The
+  table already framed the durations as one reading on one host with the integers beside them,
+  which is this board's rule, so one sentence was added recording that a second host **confirmed**
+  the split rather than a new figure being pasted in.
+
+#### The gate, with skips attributed
+
+Impact set, `-o addopts='' -p no:randomly` (an explicit `-q` would have stacked to `-qq` and
+printed no count line at all): `tests/test_book_pdf.py`,
+`tests/test_book_export_interior_cover.py`, `tests/test_cli.py` — **356 passed, 0 failed,
+0 skipped** in 142.30 s, measured **after** every mutant was restored. The same set was
+**356 passed / 0 failed / 0 skipped** before the mutants, so nothing moved across them.
+
+**Skips: zero, and that is the measurement, not an absence of one.** Green-with-skips and fully
+verified report the same total, so *passed* is the figure that distinguishes them: 356 collected,
+356 passed, nothing to attribute. The one skip this card recorded for its own wider impact set
+(`tests/test_book_pdf_memory.py:1297`, `setrlimit(RLIMIT_AS)` refused by this kernel) is in a
+module **outside** this round's set and does not appear in it.
+
+**The count moved by 4 and the four are named.** Round 1's figure for the same three modules is
+352 (356 less this round's four); this round adds
+`TestRasterDeclarations_TheCommentAgreesWithTheRegistry`'s four cells and nothing else.
+
+**G-5 re-measured over the WHOLE tree, not asserted.**
+`-o addopts='' -p no:randomly --collect-only -q tests/`, run on a clean `main` checkout and on
+this working tree, node ids compared as sets: **main 9956, branch 9971, 0 REMOVED, 15 ADDED.**
+The 15 are the 11 the review measured (the ten assembly-point cells plus
+`test_no_declaration_names_the_card_that_is_closing`) **plus exactly** the four cells of
+`TestRasterDeclarations_TheCommentAgreesWithTheRegistry`. So no test was deleted, renamed,
+skipped or merged, no `parametrize` id moved, and the review's own 9956 -> 9967 is reproduced
+and accounted for: 9967 + 4 = 9971.

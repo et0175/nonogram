@@ -2045,29 +2045,47 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
 #: an underscore, which nothing could observe on 2026-10-29 because the board
 #: had **no card in flight** that day (``acd0a386``: *"wave 68 closes with no
 #: card in flight"*). Wave 69 opened two — and both of them reded this cell at
-#: once, exactly as the paragraph above promises a sixth spelling will, on a
-#: branch whose own diff had not touched the registry. Re-derived from the main
-#: working tree's cards, the whole vocabulary is ``done``, ``ready``,
-#: ``blocked``, ``in_progress``, ``skipped``, ``parked`` — six spellings, every
-#: card accounted for, and the space form among none of them. Retracted rather
-#: than kept beside the real one (ADR-0039/R4): a vocabulary carrying a
-#: spelling the board does not use is a set that cannot be checked against
-#: anything, and it was the half doing no work.
+#: once, exactly as the paragraph above promises a new spelling will, on a
+#: branch whose own diff had not touched the registry. The space form was
+#: retracted rather than kept beside the real one (ADR-0039/R4): a vocabulary
+#: carrying a spelling the board does not use is a set that cannot be checked
+#: against anything, and it was the half doing no work.
 #:
-#: **The widening and its exemption are one edit, and this is the exemption
-#: half.** ``in_progress`` joins the vocabulary and deliberately does **not**
-#: join :data:`_TERMINAL_STATUSES` — a card in flight is the most open a card
-#: gets, so a declaration naming one stays alive. The control for that arm is
+#: **CORRECTED 2026-10-30, CARD-309 fix round 1 (its review's F-004): this
+#: note now records a correction that is already landed, not an edit the
+#: branch makes.** CARD-309's round wrote these lines while it carried the
+#: widening; its rebase then resolved this file in ``main``'s favour, because
+#: ``main``'s set is a strict superset — it had added ``in_progress`` **and**
+#: ``review`` and dropped the dead space form. So the diff no longer changes
+#: :data:`_BOARD_STATUSES` at all, and two sentences written for the other
+#: state survived it: one claimed ``in_progress`` *joins* the vocabulary here
+#: (it was already in), and one wrote out the vocabulary as **six** spellings
+#: while the frozenset below holds **seven**. Both are gone. The widening is
+#: ``main``'s; what this file carries is the paragraph explaining it.
+#:
+#: **``in_progress`` is in the vocabulary and deliberately NOT in**
+#: :data:`_TERMINAL_STATUSES` — a card in flight is the most open a card gets,
+#: so a declaration naming one stays alive. The control for that arm is
 #: :func:`test_a_declaration_outliving_its_done_card_is_a_defect`'s
 #: ``CARD-90003``, which is written in this spelling for that reason.
 #:
+#: **And the vocabulary is still not re-stated in prose, for the reason the
+#: paragraph above gives.** The six-spelling list was exactly the drift it
+#: warns about: it omitted a spelling two cards carry today (``review`` —
+#: CARD-309 itself is one of them) and asserted one that no card in the live
+#: tree carries. The **set** is the claim, it is the frozenset below, and it is
+#: mechanically pinned by
+#: :func:`test_no_declaration_outlives_the_cards_that_remove_it`, which
+#: requires every card on the board to have a readable status — so a spelling
+#: outside it reds instead of drifting, whichever direction the board moves.
+#:
 #: **This is a finding about the board's own gate, not about CARD-309.** The
 #: cell's verdict is a function of the main working tree's card directory (see
-#: :func:`_board_cards`), so dispatching *any* card to *any* worktree now reds
+#: :func:`_board_cards`), so dispatching *any* card to *any* worktree reds
 #: every in-flight branch until the spelling is known here. That is CARD-310's
 #: subject — "a card's *name* is a structural fact that may be walked from
-#: ``tests/``, a card's *status* is a board-time fact that may not" — and this
-#: edit is the spelling correction, not the hoist.
+#: ``tests/``, a card's *status* is a board-time fact that may not" — and
+#: nothing here is the hoist.
 _BOARD_STATUSES = frozenset(
     {"done", "ready", "in_progress", "review", "blocked", "parked", "skipped"}
 )
@@ -2352,6 +2370,269 @@ def test_no_declaration_names_the_card_that_is_closing() -> None:
         if _THE_CONVERTING_CARD not in cards
     )
     assert unpointed == [], unpointed
+
+
+class TestRasterDeclarations_TheCommentAgreesWithTheRegistry:
+    """F-001's control — the registry's own prose, held to the registry.
+
+    CARD-309's review cycle 1 found two sentences in the ``#:`` comment above
+    :data:`~nonogram.admin.book_pdf_generator._RASTER_DECLARATIONS` asserting
+    that this card had taken an entry out of the mapping. Re-derived at that
+    commit: seven entries, the same seven as ``main``, and ``git diff`` removed
+    **none**. The second of the two sentences invoked CARD-261's drift
+    precedent as its reason for writing no count, while *being* that drift —
+    and the comment nominates this mapping as "the one honest reading of how
+    far ADR-0042/R1 has actually got", so the false claim sat on the one thing
+    the comment claims is honest.
+
+    A prose fix with no control is the same finding one card later. This board
+    has measured that twice (CARD-261: both copies of the component map had
+    drifted, in different places), which is why that map's rows were retired to
+    a place where a test holds them. These lines get the same treatment.
+
+    **Both directions, because either one alone passes a lie.**
+
+    * a comment claiming a removal the registry cannot show is F-001 itself;
+    * a registry that quietly loses an entry while the comment still says
+      nothing was taken out is the same defect with the signs swapped — and it
+      is the one the *next* card walks into, because CARD-322 is the card that
+      converts these kinds, and the day it does, the paragraph it has to
+      re-derive is this one.
+
+    :meth:`removal_claims` is a pure function of text, so the guard-the-guard
+    cell drives it with strings rather than writing a module into the tree
+    (ADR-0039/R1), and the vocabulary is controlled in **both** polarities:
+    sentences that must be caught, and legitimate sentences already standing in
+    this comment that must not be, so the reading cannot degenerate into a
+    substring match on "remove" or "shrink".
+    """
+
+    #: Resolved from this file rather than from the working directory, so the
+    #: guard reads the same module whatever pytest was invoked from — the same
+    #: resolution :class:`TestWritePdf_TheMediumIsChosenInOnePlace` uses.
+    MODULE = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "src"
+        / "nonogram"
+        / "admin"
+        / "book_pdf_generator.py"
+    )
+
+    #: The assignment whose ``#:`` comment block is the claim under test.
+    REGISTRY = "_RASTER_DECLARATIONS"
+
+    #: ``(label, pattern)`` for every way this comment has claimed, or could
+    #: claim, that the mapping has already lost an entry. Matched
+    #: case-insensitively against the block joined into **one** line, because
+    #: the two sentences cycle 1 found were each wrapped across two.
+    #:
+    #: Written as a vocabulary rather than a bare ``"remov" in text`` because
+    #: the comment legitimately contains "CARD-322 is the card that removes
+    #: these four" (a FUTURE removal, which is the mapping's whole point), "the
+    #: shrink is guarded in two directions", and "CARD-309 removed no entry" —
+    #: all three are in :data:`PASSES` below and none may be caught.
+    REMOVAL_CLAIMS: tuple[tuple[str, str], ...] = (
+        ("n-fewer", r"\b(?:one|two|three|four|five|six|seven|\d+)\s+fewer\b"),
+        ("fewer-since", r"\bfewer\s+since\b"),
+        ("one-less", r"\bone\s+less\b"),
+        (
+            "removed-n-entries",
+            r"\bremoved\s+(?:one|two|three|four|five|six|seven|an?|another|\d+)"
+            r"(?:\s+\w+){0,2}\s+(?:entry|entries|declaration|declarations)\b",
+        ),
+        (
+            "removed-the-entry",
+            r"\bremoved\s+(?:this|that|the|its)"
+            r"(?:\s+\w+){0,2}\s+(?:entry|entries|declaration|declarations)\b",
+        ),
+        (
+            "entry-is-gone",
+            r"\b(?:entry|entries|declaration|declarations)\s+"
+            r"(?:is|are|was|were)\s+(?:now\s+)?gone\b",
+        ),
+        ("shrank", r"\bshr(?:ank|unk)\b"),
+        ("no-longer-declared", r"\bno\s+longer\s+declared\b"),
+        (
+            "entry-was-removed",
+            r"\b(?:entry|entries|declaration|declarations)\s+"
+            r"(?:was|were|has\s+been|have\s+been)\s+removed\b",
+        ),
+    )
+
+    #: Sentences the reading MUST catch. The first two are the verbatim pair
+    #: review cycle 1 measured false, line-joined exactly as
+    #: :meth:`comment_block` would deliver them; the rest are the shapes a
+    #: later card would reach for.
+    CLAIMS = (
+        "**Two of these are the ADR's own; the rest are CARD-298's findings, "
+        "one fewer since CARD-309.**",
+        "No count of them is written here on purpose — CARD-309 removed one "
+        "entry and a number in this comment would have been the drift "
+        "CARD-261 found twice, in a comment nobody re-reads when the mapping "
+        "shrinks.",
+        "CARD-322 removed two entries and the rest stay.",
+        "The mapping has shrunk since CARD-322.",
+        "The puzzle page's declaration is now gone.",
+        "PageKind.PUZZLE is no longer declared here.",
+    )
+
+    #: Sentences the reading MUST NOT catch — every one of them either stands
+    #: in this comment today or is the true form of a retraction. A reading
+    #: that fires on these is a reading no honest comment can satisfy, which is
+    #: the failure mode of the first draft of any text guard.
+    PASSES = (
+        "**Two of these are the ADR's own; the rest are CARD-298's findings, "
+        "and CARD-309 removed no entry.**",
+        "It built ADR-0042/R1's assembly point, **converted nothing**, and "
+        "**re-pointed five entries** from itself at CARD-322.",
+        "**CARD-322 is the card that removes these four**, and `expires_with` "
+        "names it instead of CARD-309.",
+        "**Each entry names the cards that between them remove it, and the "
+        "shrink is guarded in two directions.**",
+        "a number in a comment nobody re-reads is exactly what goes stale "
+        "when the mapping *does* shrink",
+        "``test_a_raster_page_whose_declaration_is_removed_is_a_defect`` reds "
+        "when a declaration is removed while the page is still a bitmap",
+        "reds the day the last card named in an ``expires_with`` reaches "
+        "``done`` and the entry is still here",
+        "The mapping did not shrink.",
+    )
+
+    @classmethod
+    def comment_block(cls, source: str) -> list[str]:
+        """The contiguous ``#:`` lines directly above the registry assignment.
+
+        Returns ``[]`` when the assignment is absent, which is a measured
+        outcome rather than a pass — :meth:`test_the_block_is_the_one_above_the_registry`
+        drives that arm, because a reading that silently finds nothing would
+        make every claim cell below vacuously green.
+        """
+        lines = source.splitlines()
+        anchor = None
+        for index, line in enumerate(lines):
+            if re.match(rf"^{cls.REGISTRY}\b", line):
+                anchor = index
+                break
+        if anchor is None:
+            return []
+        block: list[str] = []
+        cursor = anchor - 1
+        while cursor >= 0 and lines[cursor].startswith("#:"):
+            block.append(lines[cursor][2:].strip())
+            cursor -= 1
+        return list(reversed(block))
+
+    @classmethod
+    def removal_claims(cls, text: str) -> list[str]:
+        """Every label in :data:`REMOVAL_CLAIMS` that ``text`` triggers."""
+        return sorted(
+            label
+            for label, pattern in cls.REMOVAL_CLAIMS
+            if re.search(pattern, text, re.IGNORECASE)
+        )
+
+    @classmethod
+    def block_text(cls) -> str:
+        block = cls.comment_block(cls.MODULE.read_text(encoding="utf-8"))
+        return " ".join(block)
+
+    def test_the_block_is_the_one_above_the_registry(self) -> None:
+        """The extractor's own control, in both polarities.
+
+        Everything below reads this block, so a block the reading cannot find
+        is a green suite that checked nothing.
+        """
+        block = self.comment_block(self.MODULE.read_text(encoding="utf-8"))
+        assert len(block) >= 20, len(block)
+        joined = " ".join(block)
+        assert "ADR-0042/R2's declared set" in joined, joined[:200]
+        # It really is THIS assignment's block and not the file's first
+        # comment: the registry's own name is in the line below the block.
+        source_lines = self.MODULE.read_text(encoding="utf-8").splitlines()
+        anchor = next(
+            index
+            for index, line in enumerate(source_lines)
+            if re.match(rf"^{self.REGISTRY}\b", line)
+        )
+        assert source_lines[anchor - 1].startswith("#:"), source_lines[anchor - 1]
+        # And the negative arm: no assignment, no block.
+        assert self.comment_block("#: a comment above nothing\nx = 1\n") == []
+
+    def test_the_comment_claims_no_removal_the_registry_cannot_show(self) -> None:
+        """F-001's cell. **Two arms, and which one applies is derived.**
+
+        The question is not "does this comment mention a removal" — the mapping
+        exists to name future removals. It is "does the comment's account of
+        what has **already** been taken out agree with what is in the mapping".
+
+        * nothing taken out yet → the comment may claim no removal;
+        * something taken out → the comment must say so, or it reads as
+          further from done than it is, which is the mirror defect.
+
+        So this cell does not have to be edited when CARD-322 converts a kind;
+        it flips arm, and reds until the paragraph is re-derived.
+        """
+        gone = sorted(kind.value for kind in set(PageKind) - set(_RASTER_DECLARATIONS))
+        claims = self.removal_claims(self.block_text())
+        if gone:
+            assert claims, (
+                "the registry no longer declares "
+                f"{gone} and the comment above it claims nothing was taken out"
+            )
+        else:
+            assert claims == [], (
+                "the comment claims a removal the registry cannot show "
+                f"({claims}); every PageKind is still declared raster"
+            )
+
+    def test_the_registry_lost_nothing_and_five_entries_name_the_converting_card(
+        self,
+    ) -> None:
+        """The shape the corrected paragraph asserts, derived from the enum.
+
+        Seven is not written here as a number: it is
+        ``set(PageKind) == set(_RASTER_DECLARATIONS)``, i.e. **no page kind has
+        converted**, which is the fact "CARD-309 removed no entry" rests on.
+        Five is written once, beside a second derivation that writes no number
+        at all, because the paragraph writes "five" and a figure a comment
+        states is a figure a cell owes.
+        """
+        kinds = set(PageKind)
+        declared = set(_RASTER_DECLARATIONS)
+        assert declared == kinds, sorted(kind.value for kind in kinds ^ declared)
+        re_pointed = {
+            kind
+            for kind, entry in _RASTER_DECLARATIONS.items()
+            if _THE_CONVERTING_CARD in entry.expires_with
+        }
+        assert re_pointed == declared - {PageKind.COVER, PageKind.DIVIDER}, sorted(
+            kind.value for kind in re_pointed
+        )
+        assert len(re_pointed) == 5, sorted(kind.value for kind in re_pointed)
+        assert [
+            kind.value
+            for kind, entry in _RASTER_DECLARATIONS.items()
+            if _THE_CLOSING_CARD in entry.expires_with
+        ] == []
+
+    def test_the_reading_catches_the_claims_and_spares_the_honest_sentences(
+        self,
+    ) -> None:
+        """Guard-the-guard, measured per sentence in both polarities."""
+        missed = [text for text in self.CLAIMS if not self.removal_claims(text)]
+        assert missed == [], missed
+        caught = [
+            (text, self.removal_claims(text))
+            for text in self.PASSES
+            if self.removal_claims(text)
+        ]
+        assert caught == [], caught
+        # And the vocabulary is not one pattern doing all the work: at least
+        # four distinct labels fire across CLAIMS.
+        labels = {
+            label for text in self.CLAIMS for label in self.removal_claims(text)
+        }
+        assert len(labels) >= 4, sorted(labels)
 
 
 def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:

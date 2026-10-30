@@ -557,20 +557,42 @@ class RasterDeclaration:
 
 #: The **whole** of ADR-0042/R2's declared set, keyed by page kind.
 #:
-#: **Two of these are the ADR's own; the rest are CARD-298's findings, one
-#: fewer since CARD-309.** The cover is permanent — "a cover is a photograph
-#: and raster is the right representation for it" — and the section divider is
-#: scheduling rather than technique: CARD-231 redesigns the page outright and
-#: "the new design can be born vector instead", so converting today's one-word
-#: page is throwaway work. Those two are the pair ADR-0042/R2 names.
+#: **Two of these are the ADR's own; the rest are CARD-298's findings, and
+#: CARD-309 removed no entry.** The cover is permanent — "a cover is a
+#: photograph and raster is the right representation for it" — and the section
+#: divider is scheduling rather than technique: CARD-231 redesigns the page
+#: outright and "the new design can be born vector instead", so converting
+#: today's one-word page is throwaway work. Those two are the pair
+#: ADR-0042/R2 names.
 #:
 #: The rest are the interior kinds the ADR means to be vector and which
 #: measurably cannot be yet. **Read their reasons rather than their count**:
 #: they are not "not converted yet", they are named blockers, and the count of
 #: this mapping is the one honest reading of how far ADR-0042/R1 has actually
-#: got. No count of them is written here on purpose — CARD-309 removed one
-#: entry and a number in this comment would have been the drift CARD-261 found
-#: twice, in a comment nobody re-reads when the mapping shrinks.
+#: got.
+#:
+#: **What CARD-309 did to this mapping, and what it did not.** It built
+#: ADR-0042/R1's assembly point, **converted nothing**, and **re-pointed five
+#: entries** from itself at CARD-322 — the comment on the first of them below
+#: says why, and each ``reason`` records which blocker is cleared and which
+#: remains. **The mapping did not shrink.** Two earlier sentences in these
+#: lines asserted that this card had taken an entry out of it; review cycle 1
+#: re-derived the registry and measured both false — and the second of them
+#: cited CARD-261's drift precedent as its own justification while being that
+#: drift. The verbatim pair, and the diff that shows nothing was taken out,
+#: are in CARD-309's ``## Worktree notes``; they are not reproduced here,
+#: because a false claim quoted in the comment it was removed from is a claim
+#: the next reader has to re-adjudicate.
+#:
+#: That history is why **no count of the live mapping is written here**: a
+#: number in a comment nobody re-reads is exactly what goes stale when the
+#: mapping *does* shrink. The re-pointing above is a **finished, past** fact
+#: about one card and so cannot drift. The live shape is pinned where it can
+#: be checked instead, by ``tests/test_book_pdf.py``'s
+#: ``TestRasterDeclarations_TheCommentAgreesWithTheRegistry``, which holds
+#: these lines to the mapping in **both** directions — it reds on a prose
+#: claim of a removal the registry cannot show, **and** on a registry that has
+#: lost an entry while these lines still claim nothing was taken out.
 #:
 #: **Each entry names the cards that between them remove it, and the shrink is
 #: guarded in two directions — neither of which alone is the whole claim.**
