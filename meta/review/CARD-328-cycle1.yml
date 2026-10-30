@@ -415,6 +415,9 @@ findings:
   critical: []
   important:
     - id: IMP-1
+      status: fixed
+      fixed_in: null
+      fix_round: 1
       title: >-
         Each declared divergence exempts the WHOLE fact, so real drift inside
         one is invisible -- four reviewer mutants survived
@@ -470,6 +473,9 @@ findings:
         the corresponding probe. Not fixed here -- reported, per the brief.
   minor:
     - id: MIN-1
+      status: fixed
+      fixed_in: null
+      fix_round: 1
       title: >-
         The "the texts differ" half of
         test_the_comparison_is_over_declarations_and_not_over_rule_text cannot fail
@@ -503,6 +509,9 @@ findings:
         (e.g. the admin rule is one line and the public rule is more than one),
         so the arm can fail when its premise stops being true.
     - id: MIN-2
+      status: fixed
+      fixed_in: null
+      fix_round: 1
       title: A parse failure inside a helper surfaces as a fixture ERROR, bundling attribution
       ac_refs: [AC-4]
       files: [tests/test_public_player_agreement.py]
@@ -524,6 +533,11 @@ findings:
         that moved.
   nit:
     - id: NIT-1
+      status: dismissed
+      dismissed_reason: >-
+        Bookkeeping, and not this round's: the fix brief forbids a rebase or merge
+        (the only contested path is meta/kanban/cards/CARD-328.md) and the
+        orchestrator resolves it at merge time.
       title: The branch is 4 commits behind main and will conflict on CARD-328.md
       files: [meta/kanban/cards/CARD-328.md]
       confidence: high
@@ -536,6 +550,9 @@ findings:
         main..e17229a4` should not be used to review this card because it shows
         main's later kanban commits as deletions.
     - id: NIT-2
+      status: fixed
+      fixed_in: null
+      fix_round: 1
       title: reduced_motion_blocks matches any prefers-reduced-motion media query
       files: [tests/test_public_player_agreement.py]
       confidence: medium

@@ -64,11 +64,20 @@ active:
     box-shadow rule added anywhere in the card. Cause not yet known; the fix
     round diagnoses before fixing.
 - id: CARD-328
-  phase: fix
-  review_cycle: 1   # of review.max_cycles: 3 -- cycle 1 scored 8.0, did NOT certify
-  fix_round: 1
+  phase: review
+  review_cycle: 2   # of review.max_cycles: 3
+  fix_round: 1      # complete
   score_history: [8.0]
-  gating_open: 1    # IMP-1, important; zero critical
+  gating_open: 0    # IMP-1 closed; orchestrator re-fired its own cycle-1 probe,
+                    # 23 passed -> 5 failed on named arms. MIN-1 and NIT-2 closed,
+                    # MIN-2 improved with its declined trade recorded, NIT-1
+                    # declined as merge-time bookkeeping.
+  note: >-
+    min_improvement is "off" on this board, so there is no score-delta stall
+    check; family_regression is "warn". Cycle 2's primary question is not
+    whether IMP-1 closed (it did, verified) but WHAT THE FIX WEAKENED while
+    closing it -- six consecutive gating findings across two earlier waves were
+    introduced by the previous fix.
   branch: card/328-player-looks-agree
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
   started: '2026-10-30T14:36:59Z'
@@ -115,7 +124,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T15:18:45Z'
+last_updated: '2026-10-30T15:43:20Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
