@@ -64,98 +64,32 @@ active:
     and must wait for it to close. That is why the wave does not open on its
     own blocker.
 queued:
-# Wave 70's remaining five, in the order the two chains drain at the cap of 2.
-# A wave larger than max_concurrent drains through the refill (cmd-run 6c), it
-# is not split into more waves.
-- id: CARD-330   # P1 1d  - the 0.169 mm question; BLOCKS CARD-322. Waits on CARD-309 (shared test_book_pdf.py).
-- id: CARD-317   # P1 0.5d - six check refs under other names; carries a real FR-001 generator finding. After CARD-318.
-- id: CARD-329   # P1 0.75d - the one-image reader. After CARD-330 (shared test_book_pdf.py).
-- id: CARD-331   # P1 0.75d - the difficulty-dot instrument. Free of everything; fills any gap.
-- id: CARD-316   # P1 0.25d - seven ACs naming tests never meant to exist. Last of the requirements chain.
-# Tails, free of every card above: CARD-278 (P2 0.25d, the solver's blinded
-# propagation path) and CARD-320 (P1 0.5d, a float reaching uuid.UUID).
-- id: CARD-268
-  phase: review
-  review_cycle: 2   # of review.max_cycles: 3 -- cycle 1 scored 7.5, fix round 1 complete
-  review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
-  build_fix_rounds: 1
-  score_history: [7.5]
-  gating_open: 0   # both cycle-1 findings closed; cycle 2 asks what the fix weakened
-- id: CARD-309
-  phase: review
-  review_cycle: 2   # of review.max_cycles: 3 -- cycle 1 scored 7.5, fix round 1 complete
-  review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
-  score_history: [7.5]
-  gating_open: 0   # both cycle-1 findings closed; cycle 2 asks what the fix weakened
-  branch: card/309-assembly-point-and-puzzle-operators
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
-  note: >-
-    Rebased onto main at dispatch, 22 commits behind -> 0. One conflict in
-    tests/test_book_pdf.py, resolved to MAIN's side in all three hunks: both
-    sides had independently fixed _BOARD_STATUSES's "in progress" (a spelling
-    no card ever carried) and main's is a strict superset -- it also adds
-    `review` and drops the dead spelling. The branch's own version omitted
-    `review`, so had it won it would have reddened on THIS CARD, which is now
-    Status: review. Verified after: tests/test_cli.py 135 passed and ZERO
-    occurrences in the diff (AC-5's core claim), declaration guard + its
-    synthetic control green, file parses.
-  branch: card/268-player-probe-mode
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-268
-  started: '2026-10-30T11:58:28Z'
-  resumed: '2026-10-30T15:07:52Z'
-  note: >-
-    Resumed on the owner's "resume 268". Its agent had died with the previous
-    session having FINISHED implementing, so this is not a re-dispatch. Two
-    recovery steps ran first. (1) An orphaned uncommitted registry change --
-    the ADDED_SINCE_BEFORE entries naming the two tests 9c88b723's fix round
-    added -- was verified (both node ids collect, shape correct) and committed
-    as bc43eda5. (2) The test gate is RED on a REAL regression, reproduced in
-    isolation and green on main, so it goes to the FIX loop rather than to
-    forge:review: test_the_riskiest_tests_pass_alone[test_puzzle_solver_fifth_rule]
-    fails because test_the_rules_against_paper_are_untouched finds a hairline
-    reaching unfilled cells on a BLANK board -- one pixel unit, with no
-    box-shadow rule added anywhere in the card. Cause not yet known; the fix
-    round diagnoses before fixing.
-in_review:
-- id: CARD-309
-  branch: card/309-assembly-point-and-puzzle-operators
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
-  commits: [9fc8651f, 37e1a093]
-  note: >-
-    re-cut at the decompose station; awaiting review cycle 1
-escalated_closed:
-- id: CARD-309
-  reason: >-
-    decomposition defect: implementing AC-1 reds 189 failures + 75 errors
-    across 22 test modules with four distinct causes, only one of them AC-3's
-    subject (a PDF reader). The decisive cause is a 0.169 mm raster-vs-vector
-    edge offset against EDGE_TOLERANCE_MM = 0.1, which changes the VALUE of
-    every placed-edge expectation in the tree -- a convention question
-    ADR-0042/R6 assigns to CARD-312. A third cause (the difficulty-dot
-    accounting instrument in the vector medium) is carded nowhere. The
-    assembly point landed, mutation-proved and cycle-free; the conversion was
-    reverted rather than absorbed.
-  station: decompose
-  route: "/forge:kanban decompose CARD-309 (or an owner narrowing to the delivered half, the CARD-298 / CARD-218 precedent)"
-  at: '2026-10-30T13:08:44Z'
-  worktree_kept: true
-  branch: card/309-assembly-point-and-puzzle-operators
-  commits: [9fc8651f, 37e1a093]
-# A SLOT IS FREE and wave 69 has no further cards of its own, so there is no
-# refill (cmd-run 6c refills from the CURRENT wave's un-started ready cards,
-# and 309/268 were the whole wave). Opening the next wave happens after the
-# active list empties, which means after CARD-268 closes. Candidates when it
-# does, in the order the board argues for them:
-#   CARD-310  -- owns the ARCHITECTURAL half of the defect the orchestrator
-#                hot-fixed on main today (a test's verdict depending on a
-#                sibling working tree). Its premise now has a live instance.
-#   CARD-312  -- cause 2 above is assigned to it by ADR-0042/R6's own comment,
-#                so CARD-309's re-cut waits on its convention decision.
-#   CARD-323..327 -- the five public-player cards, all confined to player/,
-#                intersection with everything in flight EMPTY.
-queued: []
-conflict_edges: []
-last_updated: '2026-10-30T20:56:08Z'
+# ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
+# now and then according to plan", after agreeing the set as 318 + 330 + 331.
+# Recorded explicitly because it was AGREED rather than inferred, and because
+# the cap of 2 means the sequence -- not the set -- is what decides when each
+# lands.
+#
+#   now            CARD-309 cycle 3  +  CARD-318          (both running)
+#   309 closes ->  CARD-330          +  CARD-318
+#   318 closes ->  CARD-330          +  CARD-331
+#   then the two chains drain: CARD-317, CARD-329, CARD-316
+#   tails, free of everything: CARD-278, CARD-320
+#
+# Why this order and not another: CARD-330 is the card CARD-322 waits on, so
+# it takes the first free slot even though CARD-331 is the one with no
+# conflicts at all. CARD-331 is held ONLY by the cap -- measured free of
+# CARD-309, CARD-318, CARD-330 and CARD-329 -- so it fills whichever gap opens
+# first. CARD-330 and CARD-329 cannot start while CARD-309 lives, because all
+# three touch tests/test_book_pdf.py.
+- id: CARD-330   # P1 1d    next in; BLOCKS CARD-322. Waits on CARD-309 (shared test_book_pdf.py).
+- id: CARD-331   # P1 0.75d free of EVERY card above; held only by the cap.
+- id: CARD-317   # P1 0.5d  after CARD-318 (shared requirements.yml); carries a real FR-001 generator finding.
+- id: CARD-329   # P1 0.75d after CARD-330 (shared test_book_pdf.py).
+- id: CARD-316   # P1 0.25d last of the requirements chain.
+- id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
+- id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
+last_updated: '2026-10-30T21:04:50Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
