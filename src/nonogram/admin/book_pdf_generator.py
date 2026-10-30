@@ -557,18 +557,20 @@ class RasterDeclaration:
 
 #: The **whole** of ADR-0042/R2's declared set, keyed by page kind.
 #:
-#: **Two of these are the ADR's own, and five are CARD-298's findings.** The
-#: cover is permanent — "a cover is a photograph and raster is the right
-#: representation for it" — and the section divider is scheduling rather than
-#: technique: CARD-231 redesigns the page outright and "the new design can be
-#: born vector instead", so converting today's one-word page is throwaway work.
-#: Those two are the pair ADR-0042/R2 names.
+#: **Two of these are the ADR's own; the rest are CARD-298's findings, one
+#: fewer since CARD-309.** The cover is permanent — "a cover is a photograph
+#: and raster is the right representation for it" — and the section divider is
+#: scheduling rather than technique: CARD-231 redesigns the page outright and
+#: "the new design can be born vector instead", so converting today's one-word
+#: page is throwaway work. Those two are the pair ADR-0042/R2 names.
 #:
-#: The other five are the interior kinds the ADR means to be vector and which
+#: The rest are the interior kinds the ADR means to be vector and which
 #: measurably cannot be yet. **Read their reasons rather than their count**:
-#: they are not "not converted yet", they are three named blockers, and the
-#: count of this mapping is the one honest reading of how far ADR-0042/R1 has
-#: actually got.
+#: they are not "not converted yet", they are named blockers, and the count of
+#: this mapping is the one honest reading of how far ADR-0042/R1 has actually
+#: got. No count of them is written here on purpose — CARD-309 removed one
+#: entry and a number in this comment would have been the drift CARD-261 found
+#: twice, in a comment nobody re-reads when the mapping shrinks.
 #:
 #: **Each entry names the cards that between them remove it, and the shrink is
 #: guarded in two directions — neither of which alone is the whole claim.**
@@ -613,81 +615,125 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
         authority="owner decision 2026-10-25, recorded in ADR-0042/R2",
         expires_with=("CARD-231",),
     ),
+    # **CARD-309 built the assembly point and did NOT convert a kind.** Its
+    # AC-1 asked for PageKind.PUZZLE's entry to go; the card measured why it
+    # cannot go yet and re-pointed all five entries at CARD-322 instead, which
+    # is the second of the two things its own body sanctions ("if this card
+    # converts only some kinds ... it must re-point the surviving entries at
+    # whatever card finishes the job, in the same commit. Say which,
+    # explicitly."). The measurement is in CARD-309's Worktree notes and in
+    # PUZZLE's reason below. What the card DID ship is the thing that was
+    # missing: the walk above now reaches all four downstream writers
+    # (`InteriorPageWriters`, `nonogram.admin.book_interior_vector`), so no
+    # entry below names an assembly point any more.
+    #
+    # **Why five entries changed card rather than going.** CARD-309 was SPLIT
+    # on 2026-10-30, by owner decision, into the architecture (the assembly
+    # point, `InteriorPageWriters` and `book_interior_vector`) and the
+    # repetition (the remaining four kinds). The seam is the card's own: the
+    # puzzle page is the one interior kind whose writer imports no generator,
+    # so this module reaches it by import and converting it needed no assembly
+    # point; the other four need the one this card built, plus ADR-0042/R6's
+    # reader conversion for the pages THEY draw, which is a different set of
+    # test modules from the puzzle page's. **CARD-322 is the card that removes
+    # these four**, and `expires_with` names it instead of CARD-309 because an
+    # `expires_with` is a claim about who removes the exception and leaving
+    # CARD-309 in it would have reddened
+    # `test_no_declaration_outlives_the_cards_that_remove_it` the day this card
+    # was marked done — which is what that guard is for.
+    #
+    # **What is no longer in these reasons, and why.** Each of GUIDE, TOC and
+    # ANSWER used to say "an assembly point has to be built before any page
+    # walk can reach it". That blocker is GONE: the walk now calls all three
+    # through `InteriorPageWriters`, and a vector interior with every interior
+    # kind written as operators is composed through `book_interior_vector`,
+    # written and read back in
+    # `tests/test_book_pdf.py::TestAssemblyPoint_TheDownstreamWritersAreReachable`.
+    # A reason that named a blocker which has been cleared would be a
+    # declaration reading as further from done than it is.
     PageKind.TITLE: RasterDeclaration(
         reason=(
-            "every reader of a book PDF in the test tree requires a DCTDecode "
-            "image on every page (tests/helpers/pdf_pages.py: \"a book page is "
-            "exactly one image\"), so no interior page can change medium until "
-            "ADR-0042/R6's READER conversion lands — measured on this, the one "
-            "kind whose two media are ink-identical by construction, at 112 "
-            "red cells across 14 modules — and until the PAGE conversion is "
-            "written there is nothing to write this page as operators with"
+            "the readers of a book PDF in the test tree that are still "
+            "medium-blind read EVERY page of an interior, so a page kind "
+            "cannot change medium until ADR-0042/R6's reader conversion has "
+            "reached the modules that read THIS page — measured on this, the "
+            "one kind whose two media are ink-identical by construction, at "
+            "112 red cells across 14 modules (CARD-298)"
         ),
         authority=(
-            "ADR-0042/R1, whose page conversion is CARD-309's; the reader "
-            "conversion it waits on is ADR-0042/R6's, CARD-299's"
+            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
+            "(CARD-309 was split and took the assembly point and the puzzle "
+            "page); the reader conversion is ADR-0042/R6's"
         ),
-        expires_with=("CARD-299", "CARD-309"),
+        expires_with=("CARD-299", "CARD-322"),
     ),
     PageKind.GUIDE: RasterDeclaration(
         reason=(
-            "its vector writer exists (book_guide_vector.guide_page) but is "
-            "downstream of this module and cannot be called from the "
-            "interior's own walk at all, so an assembly point has to be built "
-            "before any page walk can reach it; and ADR-0042/R6's reader "
-            "conversion has not landed either"
+            "its vector writer exists (book_guide_vector.guide_page) and the "
+            "interior's walk now reaches it through the assembly point "
+            "CARD-309 built, so what is left for this kind is ADR-0042/R6's "
+            "reader conversion for the modules that read a guide page"
         ),
         authority=(
-            "ADR-0042/R1, whose page conversion and whose assembly point are "
-            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
-            "CARD-299's"
+            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
+            "(CARD-309 was split and took the assembly point and the puzzle "
+            "page); the reader conversion is ADR-0042/R6's"
         ),
-        expires_with=("CARD-299", "CARD-309"),
+        expires_with=("CARD-299", "CARD-322"),
     ),
     PageKind.TOC: RasterDeclaration(
         reason=(
-            "its vector writer exists (book_toc_vector.toc_page_stream) but is "
-            "downstream of this module and cannot be called from the "
-            "interior's own walk at all, so an assembly point has to be built "
-            "before any page walk can reach it; and ADR-0042/R6's reader "
-            "conversion has not landed either"
+            "its vector writer exists (book_toc_vector.toc_page_stream) and "
+            "the interior's walk now reaches it through the assembly point "
+            "CARD-309 built, so what is left for this kind is ADR-0042/R6's "
+            "reader conversion for the modules that read a TOC page"
         ),
         authority=(
-            "ADR-0042/R1, whose page conversion and whose assembly point are "
-            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
-            "CARD-299's"
+            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
+            "(CARD-309 was split and took the assembly point and the puzzle "
+            "page); the reader conversion is ADR-0042/R6's"
         ),
-        expires_with=("CARD-299", "CARD-309"),
+        expires_with=("CARD-299", "CARD-322"),
     ),
     PageKind.ANSWER: RasterDeclaration(
         reason=(
             "its vector writers exist (book_answer_vector.answer_page and "
-            "packed_answer_page) but are downstream of this module and cannot "
-            "be called from the interior's own walk at all, so an assembly "
-            "point has to be built before any page walk can reach them; and "
-            "ADR-0042/R6's reader conversion has not landed either"
+            "packed_answer_page) and the interior's walk now reaches both "
+            "through the assembly point CARD-309 built, so what is left for "
+            "this kind is ADR-0042/R6's reader conversion for the modules "
+            "that read an answer page — the larger half of CON-020's exempt "
+            "clue digits is on this kind (CARD-299 measured 258 against the "
+            "puzzle page's 204)"
         ),
         authority=(
-            "ADR-0042/R1, whose page conversion and whose assembly point are "
-            "both CARD-309's; the reader conversion is ADR-0042/R6's, "
-            "CARD-299's"
+            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
+            "(CARD-309 was split and took the assembly point and the puzzle "
+            "page); the reader conversion is ADR-0042/R6's"
         ),
-        expires_with=("CARD-299", "CARD-309"),
+        expires_with=("CARD-299", "CARD-322"),
     ),
     PageKind.PUZZLE: RasterDeclaration(
         reason=(
-            "the furniture gap is CLOSED (CARD-306: vector_puzzle_page and "
-            "vector_two_up_page now carry the folio, both frame rules, the "
-            "grid-size label and the QR block, drawn by book_sheet_vector), "
-            "so what is left is ADR-0042/R6's reader conversion, which has "
-            "not landed"
+            "both blockers this entry used to name are cleared — the "
+            "furniture is CARD-306's and is drawn, and the interior's walk "
+            "draws the vector page through this module's own "
+            "vector_puzzle_page/vector_two_up_page — and the reader "
+            "conversion that is left is LARGER than ADR-0042/R6 recorded: "
+            "lifting this entry reds 189 cells and 75 errors across 22 test "
+            "modules, whose root causes are four distinct instruments and "
+            "not one reader, and the raster and vector media place the same "
+            "grid 2 device pixels (0.169 mm) apart on all four edges against "
+            "a 0.1 mm placed-edge tolerance, so every placed-edge "
+            "expectation in the tree changes value with the medium — a "
+            "per-site disposition, which is CARD-312's subject"
         ),
         authority=(
-            "ADR-0042/R1, whose page conversion is CARD-309's; the furniture "
-            "this entry used to wait on was CARD-306's and is done; the "
-            "reader conversion is ADR-0042/R6's, CARD-299's"
+            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
+            "(CARD-309 built the assembly point and measured the reader "
+            "surface instead of converting); the reader conversion is "
+            "ADR-0042/R6's and its per-site half is CARD-312's"
         ),
-        expires_with=("CARD-299", "CARD-309"),
+        expires_with=("CARD-299", "CARD-322"),
     ),
 }
 
@@ -717,6 +763,117 @@ def page_medium(kind: PageKind) -> PageMedium:
             f"a page medium is chosen per page kind, not for {kind!r}"
         )
     return PageMedium.RASTER if kind in _RASTER_DECLARATIONS else PageMedium.VECTOR
+
+
+@dataclass(frozen=True)
+class InteriorPageWriters:
+    """The interior page writers that live **downstream of this module**.
+
+    CARD-309, ADR-0042/R1's assembly point, as a parameter rather than as an
+    import. Three of the four vector interior writers —
+    :mod:`nonogram.admin.book_guide_vector`,
+    :mod:`nonogram.admin.book_toc_vector` and
+    :mod:`nonogram.admin.book_answer_vector` — import **this** module at module
+    level, for the constants, the type sizes and the frame helpers the pages
+    are composed from. So the interior's page walk
+    (:meth:`BookPDFGenerator.interior_stream`) cannot import them back: it
+    would be a cycle, and a lazy import inside the walk would be the same
+    cycle with the direction hidden in a function body.
+
+    What this class does instead is **state the shape the walk needs and
+    nothing else**. The walk calls through an instance; the only module that
+    can *build* one is :mod:`nonogram.admin.book_interior_vector`, which is
+    downstream of all five writers and which nothing in ``src/`` imports. The
+    puzzle page needs no entry here: :mod:`nonogram.admin.book_puzzle_vector`
+    imports no generator, so this module already imports it directly and
+    :meth:`BookPDFGenerator.vector_puzzle_page` composes the page here
+    (CARD-295/CARD-306).
+
+    **Default-DENY.** A field left ``None`` is not a fallback to the bitmap:
+    :func:`page_medium` is the only thing that decides a medium, and a kind it
+    calls ``VECTOR`` with no writer here is a **refusal** naming the assembly
+    point (:func:`_drawn_downstream`). A generator built with no writers at
+    all therefore keeps writing exactly the book it wrote before this card, and
+    stops dead the moment a declaration is lifted underneath it rather than
+    shipping a bitmap under a vector declaration.
+
+    Attributes:
+        guide: ``(spec, dpi, page_number, *, puzzle_count, easy_count,
+            medium_count, hard_count) -> ContentStream`` — one page of the
+            2-page tutorial, the twin of :meth:`BookPDFGenerator.create_guide_page`.
+        toc: ``(rows, frame, dpi, page_number) -> ContentStream`` — one page of
+            the table of contents over **its own slice** of the entries, the
+            twin of :meth:`BookPDFGenerator.create_toc_page`.
+        answer: ``(spec, dpi, payload, puzzle_number, page_number, title) ->
+            ContentStream`` — one full solved page, the twin of
+            :meth:`BookPDFGenerator.solved_puzzle_page`.
+        packed_answer: ``(spec, dpi, plan, payloads, page_number, titles) ->
+            ContentStream`` — one page of 2 or 4 small answers (CARD-202), the
+            twin of :meth:`BookPDFGenerator._packed_answer_page`.
+
+    Each signature is the downstream writer's **own**, in its own order, so
+    the assembly point binds rather than adapts: a shape stated here that the
+    writer does not have would be a second opinion about how a page is drawn.
+    """
+
+    guide: Optional[Any] = None
+    toc: Optional[Any] = None
+    answer: Optional[Any] = None
+    packed_answer: Optional[Any] = None
+
+
+#: An interior with no downstream writers at all — the generator every route
+#: builds today, and the one whose interior is byte-for-byte what it was
+#: before CARD-309 for every kind this module can draw itself.
+NO_DOWNSTREAM_WRITERS = InteriorPageWriters()
+
+
+def _drawn_downstream(
+    writer: Optional[Any], kind: PageKind, *args: Any, **keywords: Any
+) -> "ContentStream":
+    """One page of ``kind``, drawn by a writer that lives downstream of here.
+
+    **The one place this module calls an injected callable**, and the reason
+    it is one place is not tidiness. ``tests/test_book_export_interior_cover.py``'s
+    door-axis walk over this module is **default-DENY over every**
+    ``ast.Call``: it refuses a callee it cannot anchor to a definition this
+    module's own text shows, and a refusal there is a failure and not a pass
+    (ADR-0039/R2). An injected writer is by construction such a callee — a
+    value, not a definition — so a gate that called ``self.pages.guide(...)``
+    in place, or bound it to a local first, put a refusal in that walk for
+    **every** gate (measured: four). Here the callee is this function's own
+    ``writer`` **parameter**, which is one of that guard's declared and
+    controlled blind spots (*"the CALL-GRAPH axis: a parameter used as a
+    callee"*), so the whole of this card's indirection costs that walk
+    nothing it had not already declared — and the four gates above call a
+    module-level definition, which it anchors.
+
+    The arguments are forwarded as they arrive: each writer's signature is its
+    own (:class:`InteriorPageWriters` states them), and a per-kind wrapper
+    here would be four more places for a signature to drift from the writer
+    it names.
+
+    **Default-DENY.** Reached only when :func:`page_medium` has already said
+    ``VECTOR`` for ``kind``, so there is no bitmap left to fall back to and
+    falling back is exactly what must not happen: ``_write_pdf``'s own
+    representation refusal would catch a bitmap arriving under a vector
+    declaration (G-6), and this says the same thing one step earlier, where
+    the message can name the assembly point instead of a type.
+
+    Raises:
+        ValueError: ``kind`` is declared vector and this generator was built
+            with no writer for it.
+    """
+    if writer is None:
+        raise ValueError(
+            f"a {kind.value} page is written as operators (ADR-0042/R1) and "
+            "this generator was built with no downstream writer for it: "
+            "compose the interior through "
+            "nonogram.admin.book_interior_vector, the one module that may "
+            "import both this one and the page writers that import it"
+        )
+    return writer(*args, **keywords)
+
 
 #: What stands between a puzzle's number and its tier in the band: a middle dot
 #: (U+00B7) with a space either side, exactly as ADR-0037 writes it
@@ -3004,6 +3161,16 @@ class Interior:
     Attributes:
         pages: Every interior page in print order; ``pages[n - 1]`` is interior
             page ``n``. No cover page (FR-043, INV-013).
+
+            **Each page is in the medium its kind declares** (CARD-309,
+            :func:`page_medium`): an :class:`~PIL.Image.Image` for a declared
+            raster kind and a
+            :class:`~nonogram.admin.book_vector.ContentStream` for a vector
+            one, so a book whose puzzle pages are operators hands back a list
+            that is not all bitmaps. A caller that wants to *look* at a page
+            has to ask which medium it is in, which is what ADR-0042/R6 asks
+            of a reader anyway — the element type widened rather than the walk
+            rasterising a stream to keep it narrow.
         unpaired_page_count: What the same interior would have taken with every
             puzzle on a page of its own **and** its answer unpacked — the
             baseline before any space-saving technique. Both are **interior**
@@ -3023,7 +3190,7 @@ class Interior:
             checkpoint's own number, now CARD-202's packed-or-full count.
     """
 
-    pages: List[Image.Image]
+    pages: List[Union[Image.Image, ContentStream]]
     unpaired_page_count: int
     answer_page_count: int = 0
 
@@ -3116,8 +3283,8 @@ class InteriorStream:
 
 
 def _as_planned(
-    pages: Iterable[Image.Image], page_count: int
-) -> Iterator[Image.Image]:
+    pages: Iterable[Union[Image.Image, ContentStream]], page_count: int
+) -> Iterator[Union[Image.Image, ContentStream]]:
     """``pages``, refused the moment they stop being ``page_count`` of them.
 
     The streaming replacement for the list-length check the export used to
@@ -4326,6 +4493,14 @@ class BookPDFGenerator:
             ``None`` is a book with no stored print specification, which is
             CON-018's Book 1 profile, exactly as an empty column is
             (:func:`~nonogram.admin.book_page_spec.book_page_spec`).
+        pages: The interior page writers that live downstream of this module
+            (CARD-309) — :class:`InteriorPageWriters`. ``None`` is
+            :data:`NO_DOWNSTREAM_WRITERS`, a generator that can draw every
+            kind it owns itself and **refuses** a kind
+            :func:`page_medium` calls vector that it does not: see
+            :class:`InteriorPageWriters` for why the direction is a parameter
+            and :mod:`nonogram.admin.book_interior_vector` for the one module
+            that builds a full set.
 
     Raises:
         ValueError: the book's stored print specification cannot be laid out
@@ -4333,8 +4508,19 @@ class BookPDFGenerator:
             non-numeric column) — the message names the column at fault.
     """
 
-    def __init__(self, book: Any = None):
+    def __init__(
+        self, book: Any = None, pages: Optional[InteriorPageWriters] = None
+    ):
         self.book = book
+        # CARD-309: read once, here, for the same reason `ink_mode` and
+        # `divider_pages` are — the walk below asks it per page and two page
+        # walks of one export must not be able to disagree about which writer
+        # drew a kind. It is a constructor argument rather than a keyword on
+        # each of `export_book`/`export_interior`/`interior_stream` because
+        # those three are one walk behind three doors, and forwarding a
+        # parameter through all of them would be three signatures carrying a
+        # fact that belongs to the generator.
+        self.pages = NO_DOWNSTREAM_WRITERS if pages is None else pages
         self.dpi = DPI  # 300, the resolution COMP-007 measures every page at
         # CARD-147: how this book's interior is printed, read once from the
         # stored column. It decides the interior's colour space and nothing
@@ -7159,7 +7345,9 @@ class BookPDFGenerator:
             cell_sizes=cell_sizes,
         )
 
-    def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
+    def interior_pages(
+        self, puzzles: List[dict]
+    ) -> List[Union[Image.Image, ContentStream]]:
         """Every page of the interior, in print order; no cover page.
 
         :attr:`Interior.pages` of :meth:`interior`, for the callers that want
@@ -7621,7 +7809,7 @@ class BookPDFGenerator:
                 page_kinds.append(PageKind.DIVIDER)
             page_kinds.extend(PageKind.ANSWER for _ in answer_plan)
 
-        def produce() -> Iterator[Image.Image]:
+        def produce() -> Iterator[Union[Image.Image, ContentStream]]:
             """The interior's pages in print order, one per :func:`next`.
 
             Two rules hold throughout, and both are load-bearing rather than
@@ -7666,13 +7854,31 @@ class BookPDFGenerator:
             for guide_page_number in range(
                 1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
             ):
-                page = self.create_guide_page(
-                    len(puzzles),
-                    counts[Tier.EASY],
-                    counts[Tier.MEDIUM],
-                    counts[Tier.HARD],
-                    page_number=guide_page_number,
-                )
+                # CARD-309: in the medium `page_medium` declares for its kind,
+                # exactly as the title page above. The vector arm is the one
+                # the walk cannot reach by import (`InteriorPageWriters`), so
+                # it goes through the writer set this generator was built with
+                # and refuses rather than falls back when there is none.
+                if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
+                    page = _drawn_downstream(
+                        self.pages.guide,
+                        PageKind.GUIDE,
+                        self.page_spec(guide_page_number),
+                        self.dpi,
+                        guide_page_number,
+                        puzzle_count=len(puzzles),
+                        easy_count=counts[Tier.EASY],
+                        medium_count=counts[Tier.MEDIUM],
+                        hard_count=counts[Tier.HARD],
+                    )
+                else:
+                    page = self.create_guide_page(
+                        len(puzzles),
+                        counts[Tier.EASY],
+                        counts[Tier.MEDIUM],
+                        counts[Tier.HARD],
+                        page_number=guide_page_number,
+                    )
                 yield page
                 del page
 
@@ -7685,10 +7891,34 @@ class BookPDFGenerator:
             # split on every page rather than a per-page re-decision.
             for index in range(toc_page_count):
                 start = index * toc_entries_per_page
-                page = self.create_toc_page(
-                    toc_entries[start : start + toc_entries_per_page],
-                    TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1 + index,
-                )
+                rows = toc_entries[start : start + toc_entries_per_page]
+                # CARD-309, as the guide above: the split is still this walk's
+                # own (`toc_entries_per_page`, measured once), so the two media
+                # are handed the same slice and cannot re-decide it.
+                #
+                # The position is bound to `toc_page_number` rather than
+                # spelled in each arm, and the choice was measured rather than
+                # taken on taste: the vector arm needs it twice (its sheet, and
+                # the folio the writer sets), so spelling it inline puts three
+                # copies of one expression in this loop and takes
+                # `tests/test_book_export_interior_cover.py`'s guide-counting
+                # census from 9 sites to 11 for no gain. Bound, that census is
+                # unmoved and the cost is one new name in that file's position
+                # vocabulary — which is the honest statement of what happened:
+                # this walk now holds a name that carries the TOC's page
+                # number.
+                toc_page_number = TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1 + index
+                if page_medium(PageKind.TOC) is PageMedium.VECTOR:
+                    page = _drawn_downstream(
+                        self.pages.toc,
+                        PageKind.TOC,
+                        rows,
+                        page_frame(self.page_spec(toc_page_number)),
+                        self.dpi,
+                        toc_page_number,
+                    )
+                else:
+                    page = self.create_toc_page(rows, toc_page_number)
                 yield page
                 del page
 
@@ -7702,17 +7932,41 @@ class BookPDFGenerator:
                     )
                     continue
                 members = [payloads[number - 1] for number in page_plan.numbers]
+                # CARD-309: **the kind this card converts.** Both twins live
+                # in this module — `book_puzzle_vector` imports no generator,
+                # so the walk reaches the vector writer by import and needs no
+                # entry in `InteriorPageWriters` for it (which is why the
+                # puzzle page is the one kind the assembly point does not have
+                # to carry, and why it is the kind converted first).
+                vector = page_medium(PageKind.PUZZLE) is PageMedium.VECTOR
                 try:
                     if page_plan.pair is None:
                         ((_, payload),) = members
-                        page = self._blank_page(
-                            payload,
-                            page_plan.numbers[0],
-                            page_plan.page_number,
-                            decided.cell_sizes,
+                        page = (
+                            self.vector_puzzle_page(
+                                payload,
+                                page_plan.numbers[0],
+                                page_plan.page_number,
+                                decided.cell_sizes,
+                            )
+                            if vector
+                            else self._blank_page(
+                                payload,
+                                page_plan.numbers[0],
+                                page_plan.page_number,
+                                decided.cell_sizes,
+                            )
                         )
                     else:
-                        page = self._two_up_page(page_plan, [p for _, p in members])
+                        page = (
+                            self.vector_two_up_page(
+                                page_plan, [p for _, p in members]
+                            )
+                            if vector
+                            else self._two_up_page(
+                                page_plan, [p for _, p in members]
+                            )
+                        )
                 except Exception as e:
                     named = _named_puzzles(ids, page_plan.numbers)
                     raise RuntimeError(
@@ -7745,21 +7999,50 @@ class BookPDFGenerator:
                 yield self.create_divider_page(first_answer_page - 1)
             for index, entry in enumerate(answer_plan):
                 page_number = first_answer_page + index
+                # CARD-309, as the guide and the TOC above: the plan — which
+                # answers are packed and at what capacity — is this walk's and
+                # is handed to whichever medium draws it.
+                vector = page_medium(PageKind.ANSWER) is PageMedium.VECTOR
                 try:
                     if isinstance(entry, PackedAnswerPage):
-                        page = self._packed_answer_page(
-                            entry, payloads, page_number, titles
-                        )
+                        if vector:
+                            page = _drawn_downstream(
+                                self.pages.packed_answer,
+                                PageKind.ANSWER,
+                                self.page_spec(page_number),
+                                self.dpi,
+                                entry,
+                                payloads,
+                                page_number,
+                                titles,
+                            )
+                        else:
+                            page = self._packed_answer_page(
+                                entry, payloads, page_number, titles
+                            )
                     else:
                         puzzle_id, payload = payloads[entry.number - 1]
-                        page = self.solved_puzzle_page(
-                            payload,
-                            entry.number,
-                            page_number,
-                            title=answer_title(
-                                titles.get(str(puzzle_id)), payload.name
-                            ),
+                        title = answer_title(
+                            titles.get(str(puzzle_id)), payload.name
                         )
+                        if vector:
+                            page = _drawn_downstream(
+                                self.pages.answer,
+                                PageKind.ANSWER,
+                                self.page_spec(page_number),
+                                self.dpi,
+                                payload,
+                                entry.number,
+                                page_number,
+                                title,
+                            )
+                        else:
+                            page = self.solved_puzzle_page(
+                                payload,
+                                entry.number,
+                                page_number,
+                                title=title,
+                            )
                 except Exception as e:
                     numbers = (
                         entry.numbers

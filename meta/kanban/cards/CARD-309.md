@@ -241,6 +241,32 @@ point whichever order the rest lands in.
   loosens it to get green has removed its own safety net.
 - **G-7: probes stay OUT of `tests/`** (`RENDER_HEAVY_SNAPSHOT`).
 
+## Failure matrix
+
+Declared before the code was written, one row per boundary x failure mode, each with a
+numeric bound. **This card has no I/O concurrency** — PDF generation is in-process,
+single-threaded, allocates no file handle and opens no socket — so every row below is a
+*representation* or *composition* failure, which is the honest shape for it rather than a
+one-line "no failure-bearing boundary": the card's whole subject is a new boundary between
+the interior's page walk and the page writers downstream of it, and that boundary can fail.
+
+| # | boundary / operation | failure mode | declared behaviour | numeric bound |
+|---|---|---|---|---|
+| F-1 | the walk asks `InteriorPageWriters` for a kind `page_medium` calls VECTOR | the field is `None` (a declaration was lifted without composing through the assembly point) | `_downstream_writer` raises `ValueError` naming the kind **and** `nonogram.admin.book_interior_vector` | exactly **1** refusal, raised at the first page of that kind; **0** bytes of PDF reach any caller (the buffer is a local of `_write_pdf` until the trailer) |
+| F-2 | same | a writer is present but bound to the wrong kind's field | the writer raises on the argument shape it was not written for, and the interior is never written | detectable in **1** interior write of a book holding >= 1 page of each lifted kind; measured as mutant M8, killed by `test_each_of_the_four_bindings_was_used` |
+| F-3 | `_write_pdf`, per page | a page arrives in the other medium's representation from the one its kind declares | `TypeError` naming the page number, the kind and the type that arrived (unchanged by this card — G-6) | **0** bytes written; the refusal is at page *k* of *N* and takes its partial bytes with it |
+| F-4 | the walk's per-kind medium gate | a gate is added, removed or asks something other than the decider | `page_medium` call tally over the module's AST is an equality | **5** calls in `produce` (TITLE, GUIDE, TOC, PUZZLE, ANSWER) and **1** in `_write_pdf`; DIVIDER has no gate and is held by F-3 instead |
+| F-5 | `_RASTER_DECLARATIONS`, conversion direction | a kind goes vector and its entry stays | `_declaration_findings` reports it | <= **1** finding per entry, so <= `len(_RASTER_DECLARATIONS)` = the registry's own size |
+| F-6 | `_RASTER_DECLARATIONS`, landing direction | every card an entry names reaches a terminal status and the entry is still here | `_landing_findings` reports it; a card whose status the board cannot give is **also** a finding (default-DENY) | <= **1** finding per entry; **0** cards on the board may have an unreadable status (asserted over all 321 card files) |
+| F-7 | the import direction | an edge is added from the generator to a writer that imports it, at any depth, or a module imports the assembly point | one finding per offending module, by AST over `src/nonogram/**/*.py` | **0** allowed, out of the whole package the walk enumerates; a function-body import counts (mutant M6) |
+
+Two rows are deliberately *not* here, and each for a measured reason rather than an
+omission: **memory** (a content stream is 3-4 orders of magnitude smaller than the 25.2 MB
+page bitmap CARD-145's bound is about, and the walk's `del page` is untouched), and
+**partial files** (the buffer is `_write_pdf`'s local until the cross-reference table, which
+is `tests/test_book_pdf_memory.py`'s `TestBookPdfMemory_NothingHalfWrittenEscapes`, not
+this card's).
+
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
 - ADR-0042/R1 — interior pages are operators (check: review-lens → **this card flips it**, and only with the last conversion)
@@ -319,6 +345,25 @@ point whichever order the rest lands in.
 - **The incremental path exists only because CARD-298's refusal is default-DENY.**
   Without it, converting one kind would mean converting all five in one commit to
   keep the suite green. Do not trade that away for convenience (G-6).
+- **[BLOCKER] decomposition defect: AC-1 and AC-3 are not the same size.** The
+  assembly point, the walk's four gates and the declaration re-point are **done**;
+  the puzzle-page conversion is **not**, and the reason is measured rather than
+  estimated — lifting PUZZLE's declaration reds **189 failures and 75 errors across
+  22 test modules**, whose root causes are **four distinct instruments and not one
+  reader**, three of which are ink oracles rather than readers of a PDF and one of
+  which (the difficulty-dot accounting in `tests/test_book_difficulty_dots.py` with
+  `tests/helpers/round_ink.py`) has **no vector twin carded anywhere on the board**.
+  The decisive number: the two media place the same grid **2 device pixels, 0.169 mm**
+  apart on all four edges, against a **0.1 mm** placed-edge tolerance, so every
+  placed-edge expectation in the tree changes **value** with the medium — a per-site
+  disposition, which ADR-0042/R6's own comment assigns to **CARD-312**. The full
+  measurement, the per-module census and what a re-decomposition needs are in
+  *"[CARD-309's round, 2026-10-30]"* at the end of this card. **CARD-314 is landed**
+  (the clue-digit mark is live in the stream and in
+  `tests/helpers/pdf_vector.marked_type_sizes`), so it is not what blocks this.
+- **CARD-314's prerequisite is satisfied**, checked rather than assumed: a vector
+  puzzle page written on this branch opens a `/ClueDigit BMC` sequence around its
+  digits, so CON-020's exemption survives by its mark the day the kind converts.
 
 ## [Added 2026-10-29 after CARD-298's review cycle 2 — five declarations name this card, and a cell reds the day it closes]
 
@@ -480,3 +525,299 @@ done twice. CARD-288 is otherwise intact: its subject file is untouched since it
 census, all four tests are present by name, and its headline figure carries an **independent
 corroboration within 1.7%** — which is exactly what CARD-220's review found the 20261023 rankings
 lack elsewhere (overstated **4.8×–10.3×** as a small selection).
+
+## [CARD-309's round, 2026-10-30] What was built, what was measured, and the blocker
+
+### STRUCTURE decisions — CARD-322 reads these as the local convention
+
+- **STRUCTURE: the assembly point is `src/nonogram/admin/book_interior_vector.py`** — a new
+  module downstream of all five page writers, named after the two things it joins (the
+  *interior*, and the `book_*_vector` family). Why a new module and not a reshuffle of an
+  existing one: `book_guide_vector`, `book_toc_vector` and `book_answer_vector` each import
+  `book_pdf_generator` at module level for the constants, type sizes and frame helpers the
+  pages are composed from (measured: `book_guide_vector:103`, `book_toc_vector:60`,
+  `book_answer_vector:62`), so the walk inside `book_pdf_generator` cannot import them back.
+  The two alternatives were rejected on the ladder, not on taste: making those three imports
+  lazy is the same cycle with its direction hidden in a function body (and is a finding to
+  `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden`, mutant M6), and hoisting the ~70
+  shared names out of `book_pdf_generator` into a leaf module is a reordering of a declared
+  `conflict.hotspots` file that CARD-306 already declined.
+- **STRUCTURE: the direction is resolved by a parameter, not by a registry or a lazy import.**
+  `book_pdf_generator` declares the *shape* it needs — `InteriorPageWriters`, a frozen
+  dataclass of four callables with the downstream writers' own signatures — and the walk calls
+  through an instance. The generator imports no writer that imports it; the assembly point is
+  the only module that can see all five writers at once, and **nothing in `src/` imports the
+  assembly point**, which is what keeps the resolution a direction rather than a loop with a
+  door in it (asserted, mutant M7). A module-level mutable registry that the assembly point
+  registered into was rejected: it makes the medium a function of import order, which is a
+  hidden global and the "workaround" the card forbids.
+- **STRUCTURE: injection is on the generator, not on each export call.**
+  `BookPDFGenerator(book, pages=...)`, read once in `__init__` beside `ink_mode` and
+  `divider_pages` and for the same stated reason. `export_book`, `export_interior` and
+  `interior` are one walk behind three doors; a keyword forwarded through all three would be
+  three signatures carrying a fact that belongs to the generator, and the standards reject a
+  layer that only forwards.
+- **STRUCTURE: the puzzle page is deliberately NOT a field of the writer set.**
+  `book_puzzle_vector` imports no generator, so `book_pdf_generator` already imports it and
+  composes the page itself (`vector_puzzle_page`/`vector_two_up_page`). That is exactly why
+  the split put the puzzle page in this card: converting it needs no assembly point, so the
+  architecture and the conversion can be judged separately.
+- **STRUCTURE: default-DENY at the new boundary.** A field left `None` is not a fallback to
+  the bitmap. `_downstream_writer` refuses, by kind, naming the assembly point — one step
+  earlier than `_write_pdf`'s representation refusal, which is untouched (G-6) and still the
+  thing that catches a bitmap handed in under a vector declaration.
+- **STRUCTURE: no C4 change, no component-map row.** COMP-009 is one component
+  (`components-CTX-001.puml:100`) and `tests/test_cli.py`'s layering guard and component map
+  both work at *component* granularity, so a new module inside `admin/` needs neither. The
+  guard passes **unmodified** (AC-5).
+
+### [BLOCKER] decomposition defect: AC-1 and AC-3 are not the same size, and three of AC-3's four root causes are instruments nobody has carded
+
+**Measured before it was written down.** The card's item 2 — convert the puzzle page and
+delete PUZZLE's declaration — was implemented in full on this branch and the impact set run
+against it: **189 failures and 75 errors across 22 test modules** (`tests/` impact set,
+`-o addopts='' -p no:randomly`, census in `scratchpad/card309/run_converted.txt`; the
+unconverted tree runs the same set at 2122 passed / 1 skipped / 0 failed). The conversion was
+then **reverted** and PUZZLE's declaration re-added with that measurement as its reason, so
+what is shipped is the architecture and not a red tree. CARD-322 is named in all five
+interior entries (the card's own item 3, and its explicit second option: *"it must re-point
+the surviving entries at whatever card finishes the job, in the same commit. Say which,
+explicitly."*).
+
+**Why this is a decomposition defect and not an estimate miss.** AC-3 names *"the readers"*
+and derives them from an import of one helper. Derived per module instead, the 264 red cells
+have **four** root causes, and only the first is a reader of a PDF:
+
+1. **`tests/helpers/pdf_pages.py`'s one-image reader** — `KeyError: b'XObject'`, because it
+   loops **every** page asserting one `DCTDecode` image. This is AC-3's own subject and is a
+   genuine reader conversion. Measured: 15 cells in `test_book_export_interior_cover.py`,
+   9 in `test_book_pdf_ink_mode.py`.
+2. **`tests/helpers/page_ink.py`'s `drawing_of` and `tests/helpers/two_up_ink.py`** —
+   `'ContentStream' object has no attribute 'convert'`, the largest share (27 of
+   `test_book_difficulty_dots.py`'s, 21 of `test_book_pdf_two_up.py`'s, all 20 of
+   `test_book_cell_size.py`'s, 6 of `test_book_pdf_band.py`'s). These are **not** readers of a
+   file: they are independent-oracle *geometry instruments* that recover a drawing from ink,
+   and their stream twins are new instruments. **And a stream twin cannot simply replace
+   them**, which is the measurement that settles this: re-derived here with
+   `scratchpad/card309/offset_probe.py` on CARD-295's own `Twin` fixture, **the raster and the
+   vector media place the same grid 2 device pixels — 0.169 mm — apart on all four edges**
+   (ink `grid_left/right` 963/1849 against the stream's 965/1851; `grid_top/bottom` 1126/2012
+   against 1128/2014; one offset, all four edges, which is exactly what
+   `TestPuzzlePage_AgreesWithTheRasterTwin` declares as Pillow's line-cap convention). The
+   tree's placed-edge tolerance is `tests/test_book_pdf.py`'s **`EDGE_TOLERANCE_MM = 0.1`**.
+   0.169 > 0.1, so **every placed-edge expectation in the tree changes value with the
+   medium** — which is a per-site disposition with a convention question behind it
+   ("which convention is the book's?"), not a reader swap. ADR-0042/R6's own comment assigns
+   the *"321-site surface, a per-site disposition"* to **CARD-312**.
+3. **`tests/test_book_difficulty_dots.py` with `tests/helpers/round_ink.py` (27 cells)** —
+   the worst of the four and the one with no card at all. That instrument **monkeypatches the
+   raster drawing site** `book_pdf_generator._draw_difficulty_dots`, records every dot it
+   draws against the identity of the page image it drew on, and then accounts every round ink
+   region on every page against that recording. On a vector page that site is never called
+   and there is no page image to key on, so the instrument is not reading the wrong medium —
+   **it is measuring a page the product no longer draws**. Its vector twin is CARD-241/243's
+   spelling-blind instrument rebuilt for operators, and CARD-241's own module docstring
+   records that three review cycles were needed to get the raster one right. Nothing on the
+   board carries it.
+4. **`tests/test_book_export_interior_cover.py`'s frozen AST censuses over
+   `book_pdf_generator.py`** — these move with any additive edit to that module and are
+   **re-derived in this card** (see below). Not a blocker; named because they are outside the
+   impact radius and the merge gate finds them, not the review.
+
+**What a re-decomposition needs, concretely.** (a) the one-image reader's conversion — AC-3's
+real content, small; (b) a convention decision for the 0.169 mm offset, then CARD-312's
+per-site disposition over the geometry instruments; (c) a card for the difficulty-dot
+accounting instrument in the vector medium, which does not exist; (d) only then CARD-322's
+four conversions and R1's flip. **Converting the puzzle page is downstream of (a), (b) and
+(c), not of this card's architecture** — and the architecture is done, so CARD-322 inherits a
+working assembly point whichever order the rest lands in.
+
+**This card did not grow to cover (a)-(c)**, per the pipeline rule the brief states in the
+strongest terms. It measured them, named them, and stopped at the line.
+
+### AC by AC — what passes, what does not, and how it was verified
+
+- **AC-1 — PARTIAL, and the half that is shipped is the half the merge gate reads.**
+  PUZZLE's entry is **not** removed (see the blocker). **No declaration names CARD-309**: all
+  five interior entries now read `("CARD-299", "CARD-322")`, verified by
+  `tests/test_book_pdf.py::test_no_declaration_names_the_card_that_is_closing` (new; mutant
+  **M10** — re-pointing one entry back to `("CARD-299", "CARD-309")` — killed it, and did
+  **not** kill the landing guard, which is why the new cell exists: that guard reads the
+  board and CARD-309 is `in_progress`, so it passes with CARD-309 named all over the
+  registry). `test_no_declaration_outlives_the_cards_that_remove_it` is **green on this
+  branch** (it was RED at HEAD — see the finding below). R1 is **not** flipped (item 4).
+- **AC-2 — PASSES for the kinds it can be asked about.** The writer's representation refusal
+  is untouched (G-6) and is still driven by
+  `TestWritePdf_RefusesWhatItCannotWrite::test_a_bitmap_under_a_vector_declaration_is_refused`
+  and `::test_a_stream_under_a_raster_declaration_is_refused`. The card's two mutants, one
+  inside the region and one at its edge, are **M1** (the guide gate ignores the writer set
+  and hands a bitmap over under a lifted declaration — killed by
+  `test_every_interior_page_is_written_as_operators`) and **M2** (default-DENY removed, a
+  missing writer falls through — killed by `test_a_generator_with_no_downstream_writer_refuses`
+  **and** `test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`).
+- **AC-3 — NOT MET. See the blocker.** Both populations were derived rather than quoted
+  (`scratchpad/card309/derive_readers.py`, by AST): **A = 12** modules import the one-image
+  reader (AC-3's own figure, reproduced exactly) and **B \ A = 9** files reach the hazard
+  through `.interior()`/`.interior_pages()` — the card's eight test modules plus
+  `tests/helpers/book_corpus.py`, which its table does not list because it is a helper. No
+  module was left unclassified (ADR-0039/R2).
+- **AC-4 — PASSES, with a count of ZERO.** **No baseline moved**, because no kind converted:
+  `git status --porcelain tests/fixtures/` is empty, so all 21 `book_baseline_card*.json`
+  files are byte-identical to HEAD and nothing under `tests/fixtures/**` was regenerated
+  (G-4). CON-019's property test and the A4 golden are untouched and green —
+  `tests/property/test_cli_exports_byte_identity.py`, `tests/test_export_a4_golden.py` and
+  `tests/test_guard_integrity.py`: **233 passed** (G-3). **Interior size and generation time
+  at both ends**, on a 16-page book (`scratchpad/card309/render_for_owner.py`, the same book
+  both ways, same process):
+
+  | medium | bytes | B/page | ms | ms/page |
+  |---|---:|---:|---:|---:|
+  | raster (what this branch ships) | 4,786,226 | 299,139 | 333.6 | 20.85 |
+  | vector (through the assembly point) | 607,106 | 37,944 | 91.7 | 5.73 |
+
+  **7.9x smaller and 3.6x faster**, on 16 pages. Stated as the pair of integers beside the
+  durations, per the board's prefer-a-counter rule; the byte counts are the integers and
+  reproduce exactly, the milliseconds are one reading on one host. ADR-0042's own headline is
+  22.4x on a 24-page interior and 8.5x in time — **this is a different book and a smaller
+  one**, so it corroborates the direction and is not a reproduction of that figure.
+- **AC-5 — PASSES, and it is the card.** `tests/test_cli.py`'s structural guard is
+  **unmodified** (`git diff --stat` shows the file untouched) and green. The assembly point's
+  own two classes, both new:
+  - `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden` — by AST over
+    `src/nonogram/**/*.py`: the generator imports **none** of the three writers that import
+    it *at any depth*; each of the three really does import the generator (the card's own
+    premise, measured rather than quoted); the assembly point imports all four; and
+    **nothing in the package imports the assembly point**. Mutants **M5** (a module-level
+    cycle), **M6** (the same cycle inside a function body) and **M7** (another module imports
+    the assembly point) each killed exactly the cell that claims them.
+  - `TestAssemblyPoint_TheDownstreamWritersAreReachable` — lifts **all five** interior
+    declarations and writes a real interior through
+    `book_interior_vector.interior_generator`: every interior page comes out as operators
+    with no `/XObject`, the divider stays a bitmap (G-2), the face is embedded once
+    (ADR-0042/R5), each kind is identified by **text only its own writer sets**, and each of
+    the four bindings is **counted** at the binding. Mutants **M3** (the refusal fires on an
+    incomplete set rather than on the kind), **M4** (every vector kind drawn by one writer)
+    and **M8** (the packed-answer writer bound to the lone-answer field) all killed.
+    **M8 is why the book is `((30, 30, 10), (10, 10, 3))`**: three 10x10s pack every answer,
+    leave the lone-answer binding unexercised and let M8 survive — measured.
+- **AC-6 — PASSES.** `~/Documents/nonogram-reviews/CARD-309/` holds `interior-raster.pdf`
+  (what this branch ships), `interior-vector.pdf` (the same book through the assembly point,
+  every interior kind as operators) and poppler renders of pages 2, 4, 6, 9 and 12 of both at
+  150 DPI. **What the render shows**, looked at rather than asserted: the vector **guide**
+  page is indistinguishable from its raster twin at 150 DPI bar a 1-2 px vertical offset; the
+  vector **puzzle** page carries its band, frame, 0.3/0.8/1.3 pt grid, clue digits, folio,
+  grid-size label and QR block with both caption lines — CARD-306's furniture is all there;
+  the vector **answer** page carries its solved grid, caption and folio and, like its raster
+  twin, **no** frame rules. The one thing worth the owner's eye is that this is the first
+  time the whole interior has existed as operators in a file.
+
+### The impact set, and the one skip attributed by name
+
+The impact set is the 27 modules in `scratchpad/card309/impact.txt`: this diff's own
+modules, **both** reader populations AC-3 enumerates (A's 12 and B\A's 9), the interior
+type-floor and vector-primitive modules, `tests/test_cli.py` (AC-5's guard),
+`tests/test_collected_names.py` and `tests/test_suite_profile.py`. **No full-suite run was
+taken** — a sibling card was running concurrently and the merge gate owns the full run.
+
+`-o addopts='' -p no:randomly`: **2135 passed, 1 skipped, 0 failed** (386 s). The skip is
+`tests/test_book_pdf_memory.py:1297` — `setrlimit(RLIMIT_AS)` refused by this kernel — and
+it is **present at HEAD too** (the pre-change run of the same set: 2122 passed, 1 skipped),
+so it is a host fact and not something this card silenced. Green-with-skips and fully
+verified report the same total, which is why it is named rather than counted.
+
+The same set was run **three** times on this branch and all three are kept, because the
+middle one is the blocker's evidence: at HEAD **2122 passed / 1 skipped / 2 failed** (the
+two failures explained below — one is the board-status RED that predates this card, the
+other was contamination from a concurrent edit to a file an AST guard reads from disk, and
+both were re-measured in isolation); with the puzzle page converted,
+**189 failed / 75 errors / 1860 passed**; as shipped, the figure above.
+
+### G-5, measured rather than asserted
+
+Node-id set difference over the impact set with `-o addopts=''` (an explicit `-q` would have
+stacked to `-qq` and printed no node ids at all): **2125 collected at HEAD, 2136 now,
+0 removed, 11 added** — the ten assembly-point cells and
+`test_no_declaration_names_the_card_that_is_closing`, each verified **by node id** rather
+than by a green total, so a class pytest silently never ran would show here as a missing id.
+No test was deleted, renamed, skipped or merged; no `parametrize` id moved.
+
+### Mutants fired, in one place
+
+Harness: `scratchpad/card309/mutate.py` (card-scoped directory, never the shared root).
+**The evidence is committed with the card, not left in a session scratchpad.** Every
+`scratchpad/card309/*.py` this section cites is in the commit, together with
+`impact.txt` (the 27-module set) and `census-converted.txt` (the per-module tally and every
+failing node id of the converted state). A measurement cited from a path that resolves
+nowhere from a checkout is a dead check ref one level down, which is CARD-298's F-004 and
+is recorded in ADR-0042/R2's own comment.
+
+`PYTHONDONTWRITEBYTECODE=1`, `__pycache__`/`*.pyc` swept **before and after** every mutant,
+the target file SHA-256'd against its baseline before *and* after each one, and the recorder
+proved on a bare `assert x == y` (empty `AssertionError` message) before any zero was
+believed. **11 mutants, 0 survivors.** M1-M2 are AC-2's pair; M3-M4 and M8 drive the runtime
+half of AC-5; M5-M7 drive its structural half; M9-M10 drive the two board-facing cells;
+M11 is the control for the census claim re-derived below.
+
+### SCOPE+ and findings
+
+- **SCOPE+ `tests/test_book_export_interior_cover.py` — three frozen figures re-derived.**
+  Not in `Touches`, and unavoidable: that file holds an AST census of
+  `src/nonogram/admin/book_pdf_generator.py` by equality, and this card adds to that module.
+  Each delta is **attributed, not pasted**: `POSITION_NAMES` gains `toc_page_number` (the
+  TOC's page number is now bound rather than spelled in the one call that used it, because
+  the vector arm needs it twice; measured both ways — inline keeps the vocabulary and takes
+  the guide-counting census 9 -> 11, bound keeps that census at 9 and adds one name);
+  `CALLEE_EXEMPTION_COST` moves 841/567/213/211 -> 855/579/214/211, of which **+1 is this
+  card's whole indirection cost** and the last two steps stay **0** (the shipped arm still
+  refuses nothing); and the module-axis bound moves `inside == 19` -> `23`, one
+  `self.page_spec` per gate, cross-checked by a plain text count of `self.page_spec(`
+  (19 -> 23) and by `ast.Call` nodes (912 -> 932) in a second domain.
+- **SCOPE+ `tests/test_book_pdf.py`'s `_BOARD_STATUSES` — a live RED on `main`, not this
+  card's work, fixed here because it reds this card's gate.** The set held `"in progress"`
+  with a **space**; the dispatcher writes **`in_progress`**. Nothing could observe that on
+  2026-10-29 when the set was derived, because the board had no card in flight that day
+  (`acd0a386`: *"wave 68 closes with no card in flight"*). Wave 69 opened two and
+  `test_no_declaration_outlives_the_cards_that_remove_it` **reds at HEAD** with
+  `['CARD-268', 'CARD-309']` — measured on this branch with the card's own src stashed, so it
+  is not this diff. Re-derived from the main working tree's 321 cards: `done` 274, `ready` 40,
+  `blocked` 3, `in_progress` 2, `skipped` 1, `parked` 1 — six spellings, every card
+  accounted for, the space form among none. The widening and its exemption ship together:
+  `in_progress` joins the vocabulary and deliberately **not** `_TERMINAL_STATUSES`, and the
+  control for that arm (`CARD-90003`) is rewritten in the same spelling. **This is a finding
+  about the board's own gate**: the cell's verdict is a function of the *main* working tree's
+  card directory, so dispatching any card now reds every in-flight branch until the spelling
+  is known. That is **CARD-310's** subject; this is the spelling correction, not the hoist.
+- **FINDING for CARD-306's F-307, NOT done here, and the reason is G-5.**
+  `tests/test_book_puzzle_page_vector.py`'s
+  `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` is named as this card's debt.
+  Its **body** is already honest (CARD-306 re-pointed it at `book_puzzle_vector`'s own stream
+  output, which really does draw no furniture); the debt is the **name**, and the only fix
+  for a name is a rename. **G-5 forbids renaming a test** — node ids included — and G-5 is
+  authoritative at the task level and may only be weakened at the decompose station. The
+  class is also untouched by this card in substance, since no kind converted. Raised for
+  CARD-322, which converts the kinds and should carry the rename with a guardrail that
+  permits it.
+- **FINDING, measured, that retires CARD-306's other residual.** CARD-306 recorded *"guide,
+  TOC and answer pages currently carry no frame at all"* as this card's. Measured here:
+  `_draw_page_frame` has exactly **two** call sites in `book_pdf_generator.py` — `_blank_page`
+  and `_two_up_page`, both puzzle pages. **The raster guide, TOC and answer pages carry no
+  frame either**; each draws a folio and nothing else. So the vector twins are at **parity**
+  with the pages that ship, and this is a product question about front matter rather than a
+  conversion defect. It belongs to whoever owns the interior frame's scope (CARD-222's
+  family), not to ADR-0042's conversion phase.
+- **FINDING about CARD-299's completeness, as AC-3 asks.** CARD-299 left the *readings* in
+  three sites medium-gated and the *readers* untouched, which its own prose says. What this
+  card measured and CARD-299's prose does not reach: the surface is four instruments, three
+  of them ink oracles rather than PDF readers, and one of those has no vector twin on the
+  board at all (see the blocker, cause 3).
+- **FINDING for CARD-288, confirming the card's own note.** CARD-288 optimises how four tests
+  obtain their pages. Those tests obtain them through `interior_pages()`, which is cause 2
+  above; the mechanism is unchanged by this card, so CARD-288 is **not** unblocked by it and
+  still must run after whichever card converts the puzzle page.
+
+### What `trace.yml` gets
+
+Nothing. `trace.yml` carries **no ADR-0042 rule rows** (re-checked on this branch: two prose
+mentions only), and no FR row's test moved, because no test was deleted, renamed or
+re-pointed and no baseline changed. A Trace line promising a re-stamp here would be the
+mistake CARD-298 inherited.
