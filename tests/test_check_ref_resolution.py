@@ -1224,7 +1224,20 @@ RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 #: three figures that were wrong are kept straight in ADR-0039's table, and the
 #: coincidence worth naming is that 580 was once an *erroneous* census (ADR
 #: occurrences counted as refs at the cut) and is now the correct one.
-CENSUS = (580, "18c0c85ab5ae4317")
+#:
+#: **2026-10-30, 580 -> 583** (CARD-304 fix round 1, when ``main`` was merged
+#: into ``card/304``). CARD-304 flips ADR-0039/R4 from ``{kind: review-lens}``
+#: to ``{kind: test}`` with three comma-separated refs, so the ADRs'
+#: contribution becomes 47 distinct from 48 occurrences and 50 ref-mentions,
+#: and the union gains three. Re-derived as the symmetric difference of the
+#: whole census against ``main`` (0ea64cf3): exactly three refs enter and
+#: nothing leaves, which is the direction a flip to ``{kind: test}`` must
+#: move it. The refs are NOT named here -- G-2: this file would resolve them
+#: -- and they do not need to be: all three are defined, so
+#: :data:`DEFINED` moves by the same three, at
+#: ``tests/test_suite_profile.py:6076``, ``:6371`` and ``:6403``, each read
+#: off a ``def`` line rather than searched for.
+CENSUS = (583, "57b561b47ed1934f")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1251,7 +1264,15 @@ TRACE_TESTS = (510, "0ad7bd1af729a4bf")
 #: nothing leaving. They are the same three that left :data:`BOOKKEEPING_ONLY`
 #: and :data:`FALSELY_ALIVE`, so this is the repair direction of one event and
 #: not three independent moves.
-DEFINED = (389, "44af24f9281c7a97")
+#:
+#: **2026-10-30, 389 -> 392**: ADR-0039/R4's flip to ``{kind: test}``, the
+#: same event that moved :data:`CENSUS` by three. The symmetric difference
+#: against ``main`` (0ea64cf3) is exactly three entering and nothing leaving,
+#: and each one's ``def`` line was read in ``tests/test_suite_profile.py`` at
+#: 6076, 6371 and 6403 -- so the move is a DECLARATION arriving with its
+#: definition already in place, which is the one direction of census movement
+#: that needs no repair. Unnamed here for the same G-2 reason as above.
+DEFINED = (392, "a90eb1d1fc70d1ae")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

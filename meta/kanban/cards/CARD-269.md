@@ -707,3 +707,139 @@ chose to look at the thing they had accepted, since the artefact cited for it ha
 - [Fix 2] Dispatched on F-2 with decision 3 in hand. **The property to assert is "every press changes
   something a sighted player can see", not "the live region says…"** — all ten ACs are phrased the
   latter way, which is exactly why they passed while the feature did not reach the player.
+
+---
+
+## Fix round 2 — `ef5e03af` → `d22f1de0`. **F-2 closed; all three gating findings are closed.**
+
+**746 passed / 0 failed / 4 skipped** over a derived **18-file** set. Nothing pushed or rebased;
+`meta/kanban/cards/` and `requirements.yml` untouched.
+
+### Where the line went was decided by measurement, and the first two answers were wrong
+
+**The obvious reading of the owner's words cannot be afforded.** At 1280×720 — this suite's default
+viewport — the 15×15 board's bottom edge is at **715.813 px in a 720 px viewport**. The page has
+**4.187 px of vertical slack**; a line of that size needs **22.328 px**, of which only the toolbar's
+own 16 px margin is reclaimable: **+6.328 px minimum against 4.187 px available.**
+
+Spending it anyway pushes the board out of the viewport, Playwright scrolls to reach a cell, and any
+test comparing a **viewport-relative** box across an action starts comparing two scroll positions.
+Measured rather than predicted:
+
+| board shift | reds |
+|---|---|
+| +38.312 px | 5 |
+| +22.328 px | 4 |
+| +10.328 px | 4 |
+| **+6.328 px** | **2** — one whose drag re-measures the centre *between* its own mouse moves, so the board slides out from under a pointer path already computed; one whose solving click scrolls 2 px |
+| **0 px — the page-head row** | **0** |
+
+So the line is the third item of the `.page-head` row, which holds a line of text at **zero vertical
+cost by construction**: `flex: 1 1 0` + `min-width: 0` means it can never force that row to wrap nor
+widen it, and `nowrap` means it is always exactly one line, shorter than the `<h1>` that sets the
+row's height. **The CSS comment carries the whole derivation, both rejected placements, and the note
+that a future card wanting room there should fix the drag helper rather than buy it from this
+margin.**
+
+### The property, asserted as a property
+
+`TestSolverHintLadder_EveryPressChangesSomethingSeen`, 7 tests, phrased against the **visible**
+sentence — **deliberately not "the live region says…", which is how all ten card ACs passed while
+the feature did not reach the player.** The headline test walks three presses and asserts three
+visibly different pages, **and keeps F-2's own measurement alive as a live assertion**: between rung
+1 and rung 2 the board and toolbar are still indistinguishable, **so the visible line is the entire
+reason that press is visible.**
+
+**The instrument was proved in both directions before anything was claimed with it.** Positive:
+blank → rung 1 differs on board and line. Negative: **the same state measured twice, nothing
+between, is byte-identical on all three regions** — so a reported difference is in the page, not the
+instrument, which is the obvious way element screenshots could have read noise. **And the separation
+was measured, not chosen**: repaint noise is **1–2 levels**, every real change **≥20** (a focus ring
+20, a highlighted row 25, a revealed cell or an appearing sentence 204–227). The comparison is
+**componentwise** — a tuple compare *"would have let 9 levels through on 6 pixels"*.
+
+### The two dead-button cases are now visible, and a third is declared rather than hidden
+
+The exhausted board's first press and Check on a clean board both change the line while the **board
+digest is unchanged**, so the line is demonstrably carrying each alone — with the wrong-marks board
+as the in-test control that the same instrument *does* see a board change when there is one.
+
+**Declared residual, asserted in a test rather than left as prose:** the card's own rule fixes
+**one** sentence for both exhausted rungs, so **the second press on an exhausted board still changes
+nothing seen.** Giving it its own sentence changes declared semantics and is the owner's call; the
+round did not invent copy.
+
+### The accessibility choice, proved against Chromium's real tree
+
+`aria-hidden="true"` on the visible copy, the announce region unchanged as the AT channel — because
+that region is already the page's single `role="status"` announcement channel, and a second
+non-live copy would make a screen reader meet each sentence **twice**. **Proved via CDP
+`Accessibility.getFullAXTree`, not by asserting an attribute's spelling**: as shipped every node
+carrying the sentence is un-ignored and from the announce region; removing `aria-hidden` raises the
+count; restoring it returns the tree **exactly**. The announce region is asserted in its shipped 1×1
+clipped state **on a real press, not only at load.**
+
+### The owner-authorised copy sentence, and the tint
+
+The usage paragraph and its exact-equality pin both gain one sentence describing the three presses
+and Check, naming where each answer appears. **Nothing else in that file changed.** The tint is
+**not** recoloured: re-measured at **1.1526:1** against WCAG 1.4.11's 3:1, with the ratio function
+proved first (black on white 21.0000, a colour on itself 1.0000). Accepted as a residual because the
+sentence now carries the meaning — **and the sentence is also what tells rung 1's highlight from
+Check's, the job one tint could never do.**
+
+### The owner's accepted 1280 px toolbar is exactly where it was
+
+Every toolbar and board figure is **identical at base and at HEAD, line empty and line full**, at
+both 1280 and 1440 — and **frozen on a press**, verified at 390 / 820 / 821 / 1024 / 1280. **Fix
+round 1's five corrected figures all re-derive exactly** (263.656 need, 267.594 and 186.234 given,
+81.359 cost, 77.422 shortfall, 74.797/38.797 heights), confirming the review's 268/186/82 were the
+rounding artefacts it said they were.
+
+**Two further residuals declared:** the line **ellipsises between about 820 px and 1270 px**; and
+**inline at 390 px the title and badge would leave it 5.859 px**, which *"would have put F-2 straight
+back for phone players"* — so a narrow-width rule gives it its own row at a constant +38.328 px,
+where the board still fits. A phone/mid-width design for this line is a follow-up.
+
+### Nine things it measured wrong — including three of its own
+
+1. **Cycle 1's "byte-identical" is not a reproducible instrument.** The **board** does reproduce at 0
+   differing pixels; the **toolbar does not**, once a visible line exists — the announce write
+   invalidates a tile and Chromium re-rasters, returning **6 of 73,500 pixels** one level apart on
+   the deducible board and **23** on the exhausted one. Cycle 1's own digest still reproduces
+   exactly, **so its measurement was sound and the claim's FORM was not**; the test now bounds the
+   per-channel level instead, because the pixel count tracks how big a region Chromium chose to
+   re-raster.
+2. **`meta/architecture/requirements.yml:4733` still states the retired figures** — *"268 px needed
+   against 186 px left, short by exactly Check's own 82 px"*. Fix round 1's correction reached
+   `admin.css` and the test docstring but **not that site**. **Owed**, and out of both rounds' scope.
+3. **The lock did not stay free**: CARD-304's merge gate took it mid-run. The round's chained base
+   runs **aborted cleanly on the guard**, CARD-304's gate was untouched, and **the clean lock-free
+   re-run is the one carrying the verdict** — a 15 s tail overlap with 750 collected, not 0.
+4. **Its own first instrument was wrong and its own test caught it**: a `min-height` computed
+   **22.32 px** while the line box an actual sentence makes is **22.328125 px** — Chromium rounds a
+   used line-height to 1/64 px and a min-height to the raw value — **so the board moved 0.015625 px
+   on a press.** Replaced with a zero-width-space `::before`: *a line box reserves a line box
+   exactly.*
+5. **Its own second instrument was wrong**: the first draft asserted the a11y duplication by DOM text
+   count and got 2 — **the right count of DOM copies and the wrong count of anything a screen reader
+   meets.**
+6. **It corrupted one of its own runs and discarded it** — it edited source files while a browser run
+   was in flight, since the live server serves them from disk. Killed, re-run clean, **not reported
+   as a result.**
+7. **The orchestrator's framing of the layout risk was milder than the truth**: the brief warned about
+   disturbing the 1280 px threshold *if* the line went in the toolbar row. **The measured truth is
+   that the toolbar-to-board gap cannot take the line at all.**
+8. Confirmed wrong as cycle 1 and fix round 1 both said: `grep -rln '"Hint"' tests/` returns **6**
+   files, one of which is the editor file.
+9. Confirmed **correct**, having re-derived them: the 138 node baseline, the 77.422 px shortfall, all
+   five corrected toolbar figures, the heights, and 1.15:1 for the tint.
+
+**Node ids 138 → 145: +7 added, 0 removed, 0 renamed, 0 merged.** **Skips: 4, identical at base and
+HEAD**, all `db_required` methods of one class, `DATABASE_URL is not set` — environmental,
+base-invariant, and this round touches no Python and no DB code. Runtime **~384 s quiet, 425–440 s
+with anything else on the box**. No load figure.
+
+- [Fix 2] `d22f1de0` — F-2 closed; all three gating findings closed; three residuals declared and
+  measured rather than discovered later.
+- [Review 2/3] Dispatched.

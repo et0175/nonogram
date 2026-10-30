@@ -1,0 +1,766 @@
+version: 1
+generated_at: "2026-10-30T06:20:00Z"
+target: "card/314-clue-digits-say-so-in-the-stream @ 7f40f30f (cycle 1/3; delta 4d164f62..7f40f30f, 2 commits, 8 files, +1248/-86)"
+card: CARD-314
+cycle: 1
+mode: gating
+overall_score: 8.5
+min_score: 8
+verdict: CERTIFIES
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.10.30"
+
+# --------------------------------------------------------------------------
+# Run conditions -- every figure below is labelled with the condition it was
+# measured under, because the board's lock was held when this review started.
+# --------------------------------------------------------------------------
+run_conditions:
+  lock_at_start: >-
+    HELD. /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock
+    existed at 07:43 local (holder: CARD-304 merge gate, worktree
+    ...-card-304, commit e5eb7e45, pid 61854, started 2026-10-30T05:43:34Z),
+    checked by ABSOLUTE path. Read at 07:48 local and again before every run.
+  lock_cleared_at: "06:09:55Z (09:09 local-ish); confirmed absent by ls on the absolute path"
+  condition_A_archive: >-
+    OUT-OF-TREE ARCHIVE. `git archive 7f40f30f | tar -x` into
+    <scratch>/base. tests/full_suite_lock.main_repo_root() resolves a tree
+    with no .git to ITSELF, so the archive's lock path is
+    <scratch>/base/meta/kanban/.full-suite.lock, which does not exist (the
+    lock file is UNTRACKED -- `git ls-files --error-unmatch` on it errors), so
+    the guard passes honestly rather than being overridden. NO use of
+    NONOGRAM_IGNORE_FULL_SUITE_LOCK or NONOGRAM_FULL_SUITE_LOCK anywhere in
+    this review. Every mutant ran under condition A.
+  condition_B_worktree_lockfree: >-
+    REAL WORKTREE, LOCK ABSENT. The final confirming run only. Identical
+    reading to condition A (733 collected / 733 passed), which is the control
+    that condition A's numbers transfer.
+  zero_collected_check: >-
+    EVERY run in this review reports a non-zero `collected` or a non-zero
+    pass count. No run collected 0 tests. The smallest was a 67-test
+    --collect-only smoke on the archive before any measurement was taken.
+  blob_discipline: >-
+    Pristine second archive at <scratch>/pristine. Before/after blob sha1s
+    recorded for every mutated file and asserted equal to the pre-state after
+    EVERY mutant and at the end of the run; __pycache__ swept before each
+    pytest invocation; PYTHONDONTWRITEBYTECODE=1 on every call; every needle
+    asserted to occur EXACTLY once before substitution. No `git stash`.
+    Final `diff -rq base pristine` is empty but for .pytest_cache. The
+    worktree itself is untouched: `git status --porcelain` empty, HEAD still
+    7f40f30f. Nothing pushed, merged, rebased or committed.
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly"
+  full_suite_run: false
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-314.md in full (293 lines), including the Touches correction and the six self-corrections"
+    - "the whole 4d164f62..7f40f30f diff: src (181 lines), tests/helpers/pdf_vector.py, the three guard modules, tests/test_book_interior_type_floor.py (1036 diff lines), meta/architecture/trace.yml"
+    - "src/nonogram/admin/book_vector.py: CLUE_DIGIT_TAG, _NAME_CHARS, begin_marked/end_marked, _MARKED_BRACKETS, marked_content_imbalance, write_vector_page"
+    - "src/nonogram/admin/book_vector_draw.py: draw_clue_digits, _set_entries"
+    - "tests/helpers/pdf_vector.py: CLUE_DIGIT_TAG, MarkedFace, marked_type_sizes"
+    - "tests/test_book_interior_type_floor.py at HEAD: CLUE_DIGIT_KINDS derivation, stream_faces, faces_on_page, real_vector_stream, _no_clue_digit_mark, both new classes in full"
+    - "tests/full_suite_lock.py in full (the guard whose behaviour decides this review's run condition)"
+    - "~/Documents/nonogram-reviews/CARD-314/ (README.md, both PDFs, both PNGs) -- re-rendered and re-compared, not read"
+    - "the parent tree at 4d164f62, extracted out of tree, to re-derive the stale scope-correction premise"
+  not_reached:
+    - "the full suite -- forbidden by the brief; the radius measured is the 11 modules that import tests/helpers/pdf_vector or nonogram.admin.book_vector (733 tests)"
+    - "tests/test_book_pdf_memory.py -- outside the import radius; run ONCE, alone, only to attribute the card's one claimed skip by name"
+    - "the production database -- not connected to, at any point"
+    - "CARD-299's and CARD-309's own cards -- read only through this card's quotations and through the parent tree's code"
+  confidence: high
+
+metrics:
+  diff:
+    files: 8
+    added: 1248
+    removed: 86
+    src_files: 2
+    test_files: 5
+    model_files: 1
+  node_ids:
+    scope: "the four changed test modules, --collect-only -q, parent tree vs HEAD, both out of tree"
+    before: 317
+    after: 330
+    added: 13
+    removed: 0
+    renamed: 0
+    note: >-
+      VERIFIED EXACTLY as the card states. Precision on one word: the 13 new
+      ids are 11 new test FUNCTIONS, two of which are parametrised over
+      sorted(CLUE_DIGIT_KINDS) == ['answer','puzzle'] and so contribute 4 ids.
+      The card's "two of the 13 being new parametrize ids" is defensible as
+      "two ids beyond the function count" but reads as "two parametrised ids".
+  runtime_ranges:
+    note: "single figures are +/-15%, which is this host's measured run-to-run spread; no load figure is published"
+    floor_module_alone: "2.3 s (condition A), range 2.3-3.0 s across 14 invocations"
+    eleven_module_radius: "75-78 s (conditions A and B), 733 tests"
+    four_changed_modules: "~10 s (condition A)"
+  skips:
+    in_radius: 0
+    note: >-
+      733 tests, ZERO skipped, under both conditions. The poppler skipifs in
+      four of these modules do not fire: pdftoppm and pdftotext are both on
+      this host (/opt/homebrew/bin). The card's single claimed skip is OUTSIDE
+      this radius and resolves by name to
+      tests/test_book_pdf_memory.py:1297 -- "setrlimit(RLIMIT_AS) cannot bound
+      a process on this platform", measured in a run of that module alone
+      (54 passed, 1 skipped, 19.8 s). ZERO DATABASE_URL-gated skips anywhere
+      in either radius. The card's skip accounting is correct.
+  tests_cover_change: true
+  mutants_run: 18
+  mutants_survived: 2
+
+# --------------------------------------------------------------------------
+# Instrument proofs -- positive (it rises) and negative (it does not rise on
+# a near-miss), both on the unmutated tree, before any verdict was taken.
+# --------------------------------------------------------------------------
+instrument_proofs:
+  positive_control: >-
+    The instrument is pytest itself plus a mutation driver. Its positive proof
+    is M21: a PLANTED PUBLIC MEMBER on ContentStream (`def hatch`) reds 6
+    tests across two modules -- the five
+    TestAnswerTiles_ReuseTheGridRoutine door-guard tests and
+    TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee::test_the_unwatched_half_of_the_vocabulary_is_named.
+    So the four widened structural guards still bite, and the driver reaches
+    them.
+  negative_control: >-
+    M20: a planted PRIVATE member (`def _noop_card314`) on the same class,
+    i.e. a near-miss that should NOT be a door -- 265 passed, 0 failed. The
+    guards discriminate public surface from private, and the driver does not
+    manufacture failures.
+  second_negative_control: >-
+    The unmutated tree is green under both run conditions and the restore
+    check returns every blob sha to its pre-state, so no mutant leaked into a
+    later reading.
+
+# --------------------------------------------------------------------------
+# What the brief asked to be called out, each with its measurement
+# --------------------------------------------------------------------------
+called_out:
+  can_a_clue_digit_reach_the_stream_unmarked: >-
+    NO, and it is caught if it ever does. draw_clue_digits is the only caller
+    of _set_entries (grep over src/: one call site), and the only two callers
+    of draw_clue_digits are book_puzzle_vector.py:218 and
+    book_answer_vector.py:403 -- so the drawer IS the only path a clue digit
+    takes to the stream, DERIVED by grep here and held in-tree by
+    CLUE_DIGIT_KINDS' own ast derivation. MEASURED, not asserted: M9 (the
+    first clue entry drawn OUTSIDE the bracket, i.e. one digit escapes) reds
+    5 tests in the floor module, including both parametrisations of AC-1 and
+    AC-2 and the EC. A clue digit cannot silently escape.
+  can_the_mark_be_forged: >-
+    YES in principle, CAUGHT in practice, but not by the guard that claims
+    it. M16 planted a raw `stream._operators.append('/ClueDigit BMC')` in
+    book_answer_vector around a sub-floor face -- a forgery that calls neither
+    begin_marked nor end_marked. test_only_the_clue_digit_drawer_emits_the_mark
+    did NOT red; the forgery was caught (2 reds) only INCIDENTALLY, by AC-3's
+    instrument, whose _no_clue_digit_mark patches the two ContentStream
+    methods and therefore cannot suppress a raw append. See F-006.
+  is_the_emitter_set_derived_or_hand_written: >-
+    DERIVED, with a hand-chosen scope. SOURCES is
+    sorted(Path(book_pdf_generator.__file__).parent.glob("*.py")) -- read off
+    disk, 26 files, not a list. The expected result
+    {"book_vector_draw.py": {"draw_clue_digits"}} is an exact set equality
+    (default-DENY) with a non-emptiness guard above it, which is the right
+    shape. What is hand-chosen is the DIRECTORY. Measured: every file in src/
+    that names ContentStream is inside that directory today, and admin/ is
+    flat, so the glob's reach gap is 0 files AT THIS COMMIT. See F-006.
+  nesting: >-
+    The reader is a stack and a ClueDigit sequence containing another tag's
+    sequence DOES exempt everything inside the outer pair -- measured
+    directly: marked_type_sizes("/ClueDigit BMC\n/Artifact BMC\n...8.0 Tf...\nEMC\nEMC")
+    returns exempt=True. That is the documented reading and is harmless today
+    (one emitter, depth always 1). But it is UNMEASURED: M11 replaces
+    stack.pop() with stack.clear() -- a degenerate flag that cannot nest --
+    and SURVIVES the whole 733-test radius. See F-002.
+  balance: >-
+    BOTH ends verified. The reader raises ValueError on an EMC that closes
+    nothing and on a sequence open at the end (M12: breaking the open-at-end
+    raise reds 1). The writer refuses: write_vector_page calls
+    marked_content_imbalance and raises ContentStreamError, and that refusal
+    is on the REAL export path -- write_vector_page has exactly two callers,
+    book_vector.write_vector_pdf:1157 and book_pdf_generator:7983 (the
+    interior export). M15 (depth -= 1 becomes depth = 0, so nesting is lost in
+    the writer) reds the writer-refusal test. The literal-string blanking is
+    real on both sides: a caption written as "Puzzle (EMC) hi" comes out of
+    encode_text escaped and both the reader and marked_content_imbalance read
+    it as text, measured.
+  does_the_mark_survive_compression: >-
+    YES, verified against the WRITTEN FILE and not the in-memory stream, by
+    me and independently of the test. ~/Documents/nonogram-reviews/CARD-314/
+    puzzle-page-marked.pdf, read back through pdf_vector.content_streams
+    (FlateDecode): BMC 1, EMC 1, Tf 209, 204 faces exempt, sizes
+    [8.64, 10.08, 14.16]. The unmarked twin: BMC 0, EMC 0, Tf 209, 0 exempt.
+  is_the_46_of_47_split_the_right_division: >-
+    THE KIND IS RIGHT, THE COUNT IS WRONG AS PUBLISHED. Reproduced exactly
+    within the floor module: a per-digit drawer leaves 46 of 47 green and the
+    one that rises is the economy assertion in
+    test_the_mark_reaches_the_written_file_and_not_the_rendered_page. But
+    46/47 is a ONE-MODULE reading presented as the whole measurement. Across
+    the 733-test radius the same mutant reds FOUR tests in TWO modules (729
+    passed): the floor module's economy assertion plus
+    test_the_operator_alphabet_is_closed_at_what_this_page_draws,
+    test_every_page_of_the_shared_corpus_still_matches_its_layout and
+    test_the_operator_count_holds_on_a_page_of_many_widths, the last two
+    being the MARKED_CONTENT_OPERATORS = 2 derivations this card wrote. All
+    four are operator-ECONOMY claims and none is AC-bearing, so the DIVISION
+    is correct -- a differently-right drawer reds only economy. See F-005.
+  should_the_two_off_name_tests_keep_their_names: >-
+    NO. Ruled against the round. See F-004.
+  was_any_of_the_four_reclassified_guards_silenced: >-
+    NONE WAS SILENCED, and this is measured rather than read off the diff.
+    Every one kept an exact predicate: marks_of still ends in
+    `else: raise AssertionError` and the added "marked" pattern is a narrow
+    `^(?:/\w+ BMC|EMC)$`; the puzzle-page alphabet is still `set(tally) == {...}`;
+    the answer-key reading is still `tokens <= emitted` AND `seen == emitted`
+    and gained a NEW per-page-kind assertion (mark on answer, not on TOC);
+    the 16->18 and 8->10 counts are exact equalities over a dir()-derived
+    surface, and _NOT_A_DOOR_BECAUSE membership is MEASURED by driving each
+    member through _DOOR_PROBE and checking its emitted operators against
+    _PATH_OPERATORS. The proof is M21 above: a planted public member reds 6.
+    _STROKERS is UNMOVED AT EIGHT -- asserted twice in
+    test_book_solved_answer_key.py and confirmed on the shipped class.
+  do_all_ten_trace_refs_resolve: >-
+    YES. All ten resolved by `^class <name>[(:]` on disk, not by text search:
+    TestGuidePage_TypeIsBookSized (test_book_guide_page_type.py:467),
+    TestGuidePage_PointSizeIsIndependentOfDpi (:1149),
+    TestGuidePage_LeadingClearsTheType (:1266),
+    TestInteriorType_EveryFaceHoldsTheFloor (test_book_interior_type_floor.py:871),
+    TestInteriorType_FloorHoldsWithoutArial (:945),
+    TestInteriorType_OnlyPuzzleClueDigitsAreExempt (:998),
+    TestDividerPage_PointSizeIsIndependentOfDpi (:1039),
+    TestInteriorType_TheStreamArmIsReached (:1163),
+    TestInteriorType_TheClueDigitMarkIsTheWritersOwn (:1635),
+    TestInteriorType_EveryVectorClueDigitIsExemptByItsMark (:1813).
+    0 dead refs. requirements.yml is BYTE-UNCHANGED (`git diff --stat` empty),
+    so G-1 holds: only the verification moved, and it moved in trace.yml.
+  does_g5s_mechanism_hold: >-
+    YES, MECHANISM AND NOT ONLY THE COUNT. 0 files under tests/fixtures/
+    changed. The mechanism asserted by the card is that all seven PageKind
+    values are still declared raster, so no vector page reaches the interior
+    export -- measured on the shipped module: PageKind has exactly 7 values
+    (cover, title, guide, toc, divider, puzzle, answer) and
+    _RASTER_DECLARATIONS covers all 7, UNDECLARED == []. So the 0 is a
+    consequence of the mechanism and not a coincidence. The card was right to
+    raise nothing.
+  does_the_render_support_its_claim: >-
+    YES, reproduced end to end with poppler, an engine that wrote neither
+    file. pdftoppm -r 150 -png -gray on both PDFs, compared with numpy:
+    DIFFERING PIXELS 0 of 2,103,750 (1275x1650), MAX ABS DIFF 0. pdftotext on
+    both: byte-identical, 551 bytes (the card says 550 characters; the extra
+    byte is the trailing form feed, same thing). Bytes 383,099 vs 383,073 =
+    +26, +0.0068%. The page itself was looked at: title band "Puzzle 1 - Hard"
+    with its rule, the 30x30 grid with heavy five-cell rules, row and column
+    clue digits in their cells, the frame rules, the footer rule, "30 x 30",
+    folio "1", and the "Solve it online" / nonogram.example/p/001 / QR group
+    -- all present and legible. One figure does not reproduce exactly: ink
+    pixels measure 107,957 on BOTH images at a <128 threshold, against the
+    card's 107,962; the figure is threshold-dependent and both sides are equal
+    under either definition, so the claim is unaffected.
+  does_the_stale_premise_re_derive: >-
+    THE ROUND IS RIGHT AND THE CARD IS STALE. Re-derived in a separate
+    out-of-tree extract of 4d164f62: the guard there reads
+    `assert kind.value not in CLUE_DIGIT_KINDS` (NOT `!= "puzzle"`),
+    CLUE_DIGIT_KINDS evaluates to ['answer', 'puzzle'] by importing the parent
+    module, and test_a_vector_answer_page_refuses_too is live at line 1061.
+    The card's "[SCOPE CORRECTED]" paragraph therefore describes a state that
+    had already been fixed before this card's work began, and its "258 false
+    CON-020 violations" consequence could not have happened at the fork point.
+    The round's correction #1 is accepted in full.
+  stream_faces_was_never_testable_on_a_real_vector_page: >-
+    CONFIRMED by inspection of the parent tree: the pre-card refusal fired on
+    kind.value before any reading, and the only vector-claiming helper hands
+    back a raster page's stream. The round's split into faces_on_page +
+    real_vector_stream, which calls production's own vector_puzzle_page /
+    book_answer_vector.answer_page / book_guide_vector.guide_pages /
+    book_toc_vector.toc_pages, is the right remedy and is the reason AC-1's
+    and AC-2's bounds are exercised on real output at all.
+
+# --------------------------------------------------------------------------
+# Figures re-derived from scratch (none carried from the card or the brief)
+# --------------------------------------------------------------------------
+re_derived_figures:
+  exempt_sub_floor_faces_book1:
+    answer_8_64: 258
+    puzzle_8_64: 204
+    total: 462
+    verdict: "the card's table reproduces EXACTLY on book 1"
+  exempt_sub_floor_faces_min_trim:
+    answer_3_60: 258
+    answer_5_52: 64
+    puzzle_3_60: 204
+    puzzle_5_76: 54
+    puzzle_8_40: 64
+    total: 644
+    verdict: "the round's correction #2 reproduces EXACTLY -- 644 more at four further sizes"
+  exempt_sub_floor_faces_both_books:
+    total: 1106
+    by_page_kind: {answer: 580, puzzle: 526}
+    distinct_sizes: [3.6, 5.52, 5.76, 8.4, 8.64]
+    verdict: "1106, answer 580 vs puzzle 526 -- EXACT. Direction unchanged."
+    method: >-
+      m.recording(book, arial=True) for both entries of BOOKS, joined to
+      generator.interior_stream(baseline_puzzles()).page_kinds by page index,
+      filtered on TextCall.exempt and points < FLOOR_PT, counted with Counter.
+      Derived here, not read out of the module's comment.
+  ec_corpus:
+    pages: 18
+    minimum_cases_asserted: 18
+    exempt_faces: 3557
+    distinct_exempt_sizes: 11
+    sizes: [3.6, 4.08, 5.28, 5.76, 6.72, 7.68, 8.64, 10.56, 11.04, 12.96, 13.2]
+    exempt_at_or_above_floor: [10.56, 11.04, 12.96, 13.2]
+    exempt_below_floor: 2629
+    non_exempt_faces: 67
+    non_exempt_min_pt: 10.08
+    verdict: >-
+      CONFIRMED BY RE-DERIVATION, not quoted. Every figure reproduces to the
+      unit, including the four-above-the-floor claim. This IS the strongest
+      single argument on the card: a size key would have to know eleven values
+      and would still be wrong about four of them, because a clue digit does
+      not stop being one on a larger trim. It is also the argument that most
+      deserved this much care, and it got it.
+
+mutation_log:
+  note: >-
+    All 18 under condition A. "reds" counts are for the module set named.
+    Needle uniqueness asserted before every substitution; blob shas recorded
+    before/mutated/restored and asserted back after every one.
+  reproduced_from_the_card:
+    - id: M1
+      mutant: "marked_type_sizes exempts on float(size) == 8.64 instead of CLUE_DIGIT_TAG in stack"
+      scope: "floor module"
+      result: "5 failed, 42 passed -- EXACTLY the card's figure"
+      reds: ["test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits", "test_a_vector_answer_page_refuses_too", "test_a_body_face_at_the_clue_digit_size_is_reported[answer]", "test_a_body_face_at_the_clue_digit_size_is_reported[puzzle]", "test_every_non_exempt_face_holds_the_floor_and_every_digit_is_marked"]
+    - id: M2
+      mutant: "faces_on_page's missing-mark assertion short-circuited (assert marked or True)"
+      scope: "floor module"
+      result: "2 failed, 45 passed -- EXACTLY the card's figure"
+    - id: M3
+      mutant: "faces_on_page's over-applied assertion short-circuited"
+      scope: "floor module"
+      result: "1 failed, 46 passed -- EXACTLY the card's figure"
+    - id: M5
+      mutant: "draw_clue_digits opens one BMC/EMC pair PER DIGIT (differently right)"
+      scope: "floor module"
+      result: "1 failed, 46 passed -- EXACTLY the card's figure; the riser is the economy assertion"
+    - id: M5b
+      mutant: "the same per-digit drawer"
+      scope: "the whole 733-test radius"
+      result: "4 failed, 729 passed -- the card's 46/47 is module-scoped; see F-005"
+    - id: M4
+      mutant: "a second emitter planted in the FOLIO drawer (the card planted in 'the frame drawer')"
+      scope: "floor module"
+      result: >-
+        4 failed, 43 passed. The card reports 2 failed / 45 passed for its own
+        plant site. NOT a contradiction -- the count is site-dependent and the
+        card does not name its line, so its figure is not independently
+        checkable. Either way the chokepoint guard
+        test_only_the_clue_digit_drawer_emits_the_mark reds, which is the claim.
+  my_own:
+    - id: M9
+      mutant: "the first clue entry drawn OUTSIDE the bracket -- one clue digit escapes unmarked"
+      result: "5 failed -- CAUGHT (AC-1 both kinds, AC-2 both kinds, the EC)"
+    - id: M10
+      mutant: "a 12 pt body face set INSIDE the bracket by the right drawer (over-application the emitter walk cannot see)"
+      result: "4 failed -- CAUGHT by AC-1's 'no exempt face at or above the floor' and the EC's layout cross-check"
+    - id: M14
+      mutant: "an 8.0 pt (SUB-FLOOR) body face set inside the bracket -- the dangerous direction"
+      result: "4 failed -- CAUGHT on BOTH kinds"
+    - id: M16
+      mutant: "FORGED mark: raw stream._operators.append('/ClueDigit BMC') in book_answer_vector, no begin_marked call"
+      result: "2 failed -- caught, but NOT by the chokepoint guard; see F-006"
+    - id: M17
+      mutant: "begin_marked emits '/ClueDigit <<>> BDC' instead of BMC"
+      result: "7 failed -- CAUGHT"
+    - id: M12
+      mutant: "marked_type_sizes stops raising on a sequence open at the stream's end"
+      result: "1 failed -- CAUGHT"
+    - id: M15
+      mutant: "src marked_content_imbalance loses nesting depth (depth -= 1 becomes depth = 0)"
+      result: "1 failed -- CAUGHT at the writer"
+    - id: M13
+      mutant: "below_floor_in_its_medium drops the `and not face.exempt` clause"
+      result: "1 failed -- CAUGHT"
+    - id: M18
+      mutant: "the arm-reached test wraps the PRE-CARD type_sizes again"
+      result: >-
+        1 failed -- the round's correction #5 is real and the test can still
+        fail. But see F-007: it fails LOUDLY, it does not go silently vacuous.
+    - id: M19
+      mutant: "stream_faces stops reading vector pages entirely (continue before faces.extend)"
+      result: "2 failed -- the arm-reached test is not satisfiable by an arm that does nothing"
+    - id: M21
+      mutant: "a new PUBLIC member on ContentStream (positive control for the four widened guards)"
+      result: "6 failed across 2 modules -- the guards were classified, not silenced"
+    - id: M20
+      mutant: "a new PRIVATE member on ContentStream (negative control / near-miss)"
+      result: "0 failed -- correct non-rise"
+  survived:
+    - id: M22
+      mutant: "marked_type_sizes exempts on bool(stack) -- ANY marked-content tag, not /ClueDigit"
+      scope: "the whole 733-test radius"
+      result: "733 passed, 0 failed -- SURVIVES. See F-001."
+    - id: M11
+      mutant: "marked_type_sizes uses stack.clear() instead of stack.pop() -- a flag, not a stack"
+      scope: "the whole 733-test radius"
+      result: "733 passed, 0 failed -- SURVIVES. See F-002."
+
+findings:
+  - id: F-001
+    severity: medium
+    confidence: high
+    source: mutation
+    title: "The exemption is not keyed on the TAG -- 'by the mark' has no control for WHICH mark"
+    where: "tests/helpers/pdf_vector.py::marked_type_sizes (def at :392)"
+    measured: >-
+      Replacing `CLUE_DIGIT_TAG in stack` with `bool(stack)` -- i.e. exempting
+      every face inside ANY marked-content sequence regardless of its tag --
+      passes all 733 tests in the blast radius (M22, confirmed twice: 263
+      passed on the three vector modules, then 733 passed on the full radius).
+      The shipped code is CORRECT: a probe of the real reader returns
+      exempt=False for a face inside "/Artifact BMC ... EMC". Nothing in the
+      tree would notice if it stopped being correct.
+    why_it_matters: >-
+      This is AC-2 one level down, and it is the same mistake in a different
+      coordinate. AC-2 proves the exemption is not keyed on SIZE and is the
+      card's declared central control. Its necessary corollary -- that the
+      exemption is keyed on THIS tag and not on the mere presence of a
+      bracket -- is asserted in four docstrings and controlled by nothing.
+      /Artifact is the standard PDF idiom for exactly the kind of decorative
+      run a future interior card will want to bracket (PDF 1.7 section 14.8.2.2),
+      so the day a second marked-content sequence enters this writer, every
+      face inside it is silently exempt from CON-020. ADR-0039/R1: a claim
+      needs a control that CAN fail.
+      test_the_tag_the_reader_expects_is_the_tag_the_writer_emits does not
+      close it -- it holds the two SPELLINGS equal, which says nothing about
+      whether the reader uses the tag at all.
+    fix: >-
+      One assertion, in the module that already owns this claim: a stream
+      carrying a sub-floor face inside a non-ClueDigit BMC sequence must come
+      back non-exempt and must be REPORTED by faces_on_page on a clue-digit
+      kind. Roughly four lines beside
+      tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_an_unbalanced_mark_is_a_failure_not_a_silent_exemption
+      (def at :1445), which already builds hand-written streams for exactly
+      this sort of bound.
+
+  - id: F-002
+    severity: low
+    confidence: high
+    source: mutation
+    title: "The nesting claim is documented four times and controlled nowhere"
+    where: "tests/helpers/pdf_vector.py::marked_type_sizes (def at :392); src/nonogram/admin/book_vector.py::marked_content_imbalance (def at :1307)"
+    measured: >-
+      `stack.pop()` -> `stack.clear()` survives all 733 tests (M11). The
+      docstring says "Marked content nests (PDF 1.7 section 14.6), so the state
+      tracked is a stack rather than a flag", and a stack and a degenerate
+      flag are indistinguishable to this suite. (The WRITER's equivalent is
+      controlled: M15 on marked_content_imbalance reds.)
+    why_it_matters: >-
+      Lower than F-001 because production never nests today -- one emitter,
+      depth always 1, verified by grep over src/. It is the same family as
+      F-001: a correct implementation with a reasoned docstring and no control,
+      in a card whose whole subject is that a claim must be checkable.
+    fix: "One assertion: a ClueDigit sequence containing another tag's sequence exempts what is inside the inner one, and closing the inner one does not end the outer exemption."
+
+  - id: F-003
+    severity: medium
+    confidence: high
+    source: static
+    title: "A shipped assertion that cannot fail -- `assert <always False> or True`"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn::test_the_tag_the_reader_expects_is_the_tag_the_writer_emits (def at :1717), the assert spanning :1726-:1729"
+    measured: >-
+      The statement is
+      `assert book_vector.CLUE_DIGIT_TAG in frozenset({name for name in dir(book_vector) if True}) or True`.
+      Two independent defects in one line: (a) the trailing `or True` makes
+      the whole assertion unconditionally true, and (b) its left operand is
+      ALWAYS False anyway -- it tests the tag's VALUE ("ClueDigit") for
+      membership in the set of book_vector's ATTRIBUTE NAMES (which contains
+      "CLUE_DIGIT_TAG", not "ClueDigit"); evaluated on the shipped module, it
+      is False. The `if True` in the comprehension is a third tell. The
+      trailing comment says "the constant exists; the equality above is the
+      claim", which is an accurate description of a line that should then not
+      have been written.
+    why_it_matters: >-
+      This is the exact shape -- an assertion that reads as a check and is
+      not one -- that this board has spent the week removing, shipped inside
+      the card whose thesis is that a provenance claim must be checkable
+      rather than merely stated. The two assertions around it are real and
+      carry the test, so nothing is UNcovered; what is wrong is that a dead
+      assertion is in the tree under a true-sounding name.
+    fix: "Delete the statement. The real claim is the line above it and the source check below it."
+
+  - id: F-004
+    severity: medium
+    confidence: high
+    source: review
+    title: "Two test names now state the contract this card REVERSED, and keeping them is literal G-6 compliance, not honest G-6 compliance"
+    where: >-
+      tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits
+      (def at :1262) and ::test_a_vector_answer_page_refuses_too (def at :1297)
+    ruling: >-
+      THEY SHOULD NOT KEEP THEIR NAMES. The round's defence is that "the page
+      is refused rather than read" is still true. It is true only of the
+      MUTATED page the test builds (_no_clue_digit_mark, def at :771). Of the
+      page this card actually ships, the opposite is true and is the card's
+      headline: a vector puzzle page is now READ, and its clue digits are read
+      as clue digits. A name that is true only under the test's own mutation
+      is a name about something else.
+      The cost is not hypothetical and not local: CON-020's trace.yml row is
+      `status: covered` at ERROR severity, and a reader auditing which tests
+      verify CON-020 now meets a test called "a vector puzzle page refuses
+      rather than reading its clue digits" as a live member of that
+      verification. That reader will conclude the stream arm still refuses.
+      This board's memory rule "attribute by test, not by file" exists because
+      names are what people resolve claims against.
+      G-6 forbids a test being "deleted, renamed, skipped or merged" -- its
+      purpose is that coverage cannot vanish behind an edit, which a DECLARED
+      rename with a node-id delta does not do. The round was right to keep
+      them unilaterally and right to say so in both docstrings; it should also
+      have raised the conflict for an owner decision, which is what G-5 asks
+      for in the parallel case ("say which before re-recording anything").
+    fix: >-
+      Owner decision. Recommended: rename both in a follow-up with the node-id
+      delta declared explicitly (2 renamed, +0/-0 net) -- e.g.
+      ..._a_vector_puzzle_page_WITH_NO_MARK_refuses... . If the owner holds
+      G-6 absolutely, then at minimum trace.yml's CON-020 note should name
+      which of the class's tests assert the missing-mark refusal, since
+      trace.yml is where the names are consumed.
+
+  - id: F-005
+    severity: low
+    confidence: high
+    source: mutation
+    title: "The negative control's headline 46/47 is a one-module reading presented as the whole measurement"
+    where: "the card's 'Implementation' section; the four risers are in two modules"
+    measured: >-
+      Floor module alone: 1 failed / 46 passed, riser =
+      test_the_mark_reaches_the_written_file_and_not_the_rendered_page (def at
+      :1737). EXACTLY as published. Whole 733-test radius: 4 failed / 729
+      passed. The three extra risers are
+      tests/test_book_puzzle_page_vector.py::TestPuzzlePage_CarriesNoImageXObject::test_the_operator_alphabet_is_closed_at_what_this_page_draws,
+      ::TestPuzzlePage_TheSharedPagesAreNotMutated::test_every_page_of_the_shared_corpus_still_matches_its_layout
+      and ::test_the_operator_count_holds_on_a_page_of_many_widths -- the last
+      two being the MARKED_CONTENT_OPERATORS = 2 derivations (:2376) this card
+      itself added.
+    verdict_on_the_division: >-
+      THE DIVISION IS CORRECT. All four risers are operator-economy or
+      operator-count claims; no AC-bearing test rises on a differently-right
+      drawer, and no OTHER test should have risen. The economy assertion is a
+      legitimate separate claim rather than a performance preference, because
+      MARKED_CONTENT_OPERATORS feeds an EXACT derivation of the page's whole
+      operator list (`len(stream.operators) == len(expected) + _state_operators(...)`),
+      not a budget.
+    why_it_matters: >-
+      The second commit "states the division" in ONE of the four places that
+      rises. The other three carry names that read as correctness claims about
+      the page, so a future card that legitimately wants to spend the
+      operators will meet three reds whose docstrings do not say they are
+      economy. And the published 46/47 understates this card's own coupling to
+      a second module by a factor of four.
+    fix: "A one-line pointer in the two MARKED_CONTENT_OPERATORS-derived tests saying that a per-digit mark is differently-right and reds here by design; and restate the figure as 4/733, not 1/47."
+
+  - id: F-006
+    severity: low
+    confidence: high
+    source: mutation
+    title: "The chokepoint guard watches CALLS in one hand-chosen directory; a raw operator append is outside it"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn::test_only_the_clue_digit_drawer_emits_the_mark (def at :1691); SOURCES at :1657; _enclosing_functions at :1660"
+    measured: >-
+      Two gaps, both measured. (1) SCOPE: SOURCES globs
+      src/nonogram/admin/*.py, non-recursively. Measured gap TODAY: 0 -- every
+      file in src/ that names ContentStream is in that flat directory. The
+      scope is nonetheless hand-chosen rather than derived from where
+      ContentStream is used, so a vector writer placed anywhere else is
+      outside the guard silently. (2) MECHANISM: the walk finds ast.Call nodes
+      named begin_marked/end_marked. M16 planted
+      `stream._operators.append('/ClueDigit BMC')` in book_answer_vector --
+      a mark emitted with no such call -- and this guard did NOT red. The
+      forgery was caught (2 reds) only because AC-3's _no_clue_digit_mark
+      patches the two ContentStream methods and therefore cannot suppress a
+      raw append, so the refusal failed to fire. That is an incidental catch
+      by a different instrument, not the chokepoint doing its job.
+    why_it_matters: >-
+      ADR-0039/R2 wants an enumerable authority. The guard IS derived from
+      disk (not a hand-written emitter list, which is what this board has been
+      correcting all week) and its expected value is an exact set equality
+      with a non-emptiness guard -- that part is right and should be said so.
+      What is hand-written is the directory and the assumption that the only
+      way to emit the tag is to call the method. `_operators` is private, so
+      the second gap is small.
+    fix: >-
+      Two cheap hardenings in the same test: assert that the walked file set
+      covers every file under src/ whose text names ContentStream (today: 0
+      difference, so it starts green and stays honest), and add a text check
+      for a literal 'BMC'/'EMC' outside book_vector.py.
+
+  - id: F-007
+    severity: low
+    confidence: high
+    source: mutation
+    title: "The round's correction #5 mis-states its own hazard: the test would have gone RED, not silently vacuous"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_lifting_a_declaration_makes_the_stream_arm_read_that_page (def at :1173)"
+    measured: >-
+      M18 reverts the wrapper to the pre-card pdf_vector.type_sizes, which is
+      exactly the state the round says would have been vacuous. Result: 1
+      FAILED. The test's assertion is `assert len(asked) == 1`, so an arm that
+      never called the wrapped reader fails loudly. The test is fail-closed.
+    why_it_matters: >-
+      The fix is real and the test can still fail -- both of the brief's
+      questions answer YES. But the card and the round's report describe a
+      hazard ("the wrapper would have recorded nothing AND THE TEST WOULD HAVE
+      CLAIMED THE ARM WAS NEVER REACHED", listed under "silently vacuous")
+      that does not exist: the test would have said so out loud. On a board
+      whose week is about claims matching their measurement, a self-correction
+      that overstates the danger it caught is worth correcting in turn.
+    fix: "Restate it: 'one existing test would have gone RED, correctly, because its wrapper no longer sat on the function the arm calls; the body was updated under the same name.'"
+
+  - id: F-008
+    severity: low
+    confidence: high
+    source: static
+    title: "AC-2's docstring describes a plant it does not make"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_body_face_at_the_clue_digit_size_is_reported (def at :1361)"
+    measured: >-
+      The docstring says the body face is set "through the same
+      ContentStream.text primitive the band and the folio use". The body
+      appends a raw operator row:
+      `stream = f"{clean}\n0 g BT /F1 {planted} Tf 100 100 Td (8) Tj ET"`.
+      ContentStream.text is not called.
+    why_it_matters: >-
+      The plant is FINE -- it is outside every bracket, at a size READ OFF THE
+      PAGE (`planted = min(digits)`) exactly as claimed, which is the part
+      that matters and which I verified reproduces (M1 reds it). Only the
+      sentence about how it is spelled is wrong. It also quietly weakens the
+      test by one notch: a hand-written row does not prove the production
+      primitive emits an unmarked face.
+    fix: "Either say 'appended as a raw text row' or build it with ContentStream.text, which would also make the claim true."
+
+  - id: F-009
+    severity: low
+    confidence: high
+    source: static
+    title: "A dead local and a docstring that describes a mechanism the body does not use"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn::_enclosing_functions (def at :1660)"
+    measured: >-
+      `stack: list = []` at :1670 and `del stack` at :1688, with nothing
+      between them touching it. The docstring says the enclosing def is
+      "resolved by walking the tree with a parent trail"; the body threads an
+      `enclosing` parameter down the recursion instead -- which is correct and
+      is the right attribution rule, just not a parent trail.
+    fix: "Delete both lines; say 'threaded down the recursion'."
+
+  - id: F-010
+    severity: low
+    confidence: medium
+    source: review
+    title: "One of the four reclassifications is a filing decision, not a measurement, and the card says all four were measured"
+    where: "tests/test_book_pdf_vector_primitives.py, NOT_A_MARK at :1407, held by TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee::test_the_unwatched_half_of_the_vocabulary_is_named"
+    measured: >-
+      That test asserts only that the three sets PARTITION dir(ContentStream)
+      and do not overlap. It does not drive begin_marked/end_marked and does
+      not measure that they put no mark on a page. The claim "they paint
+      nothing" is measured -- but in the OTHER module, by
+      tests/test_book_solved_answer_key.py's _DOOR_PROBE (:2701) /
+      _NOT_A_DOOR_BECAUSE (:2738) pair, which drives each member and checks
+      its emitted operators against _PATH_OPERATORS.
+    why_it_matters: >-
+      Not a silencing: the predicate is unchanged, exact, and default-DENY
+      (M21 proves it bites), and this is the same standard the module's
+      pre-existing NOT_A_MARK members are held to. The card's sentence "each
+      is now classified with its own measurement" is simply one guard too
+      broad.
+    fix: "Wording only, or a two-line probe in that class if the owner wants all four self-contained."
+
+  - id: F-011
+    severity: nit
+    confidence: high
+    source: review
+    title: "Two figures in the tree are illustrative but written in the shape of measurements"
+    where: "src/nonogram/admin/book_vector_draw.py::draw_clue_digits (def at :513) and tests/test_book_puzzle_page_vector.py MARKED_CONTENT_OPERATORS (:2376), both saying '540 digits on a 30x30 ... rather than 1080'"
+    measured: >-
+      No 30x30 page this tree builds has 540 clue entries. The EC corpus's
+      three 30x30 pages have 456, 449 and 468; the rendered baseline puzzle
+      page has 204 clue digits (so the real economy there is 2 operators
+      against 408). 540 is a plausible upper bound stated as an observation.
+      Same family, smaller: the render README's 107,962 ink pixels measures
+      107,957 here at a <128 threshold (both images equal either way, so the
+      claim stands).
+    fix: "Say 'up to ~900 on a dense 30x30; 408 on this module's baseline page' or mark the figure as a bound."
+
+  - id: F-012
+    severity: nit
+    confidence: high
+    source: review
+    title: "The EC's minimum-case floor has no slack and cannot catch a filtered corpus"
+    where: "tests/test_book_interior_type_floor.py::TestInteriorType_EveryVectorClueDigitIsExemptByItsMark, MINIMUM_CASES = 18, asserted in test_every_non_exempt_face_holds_the_floor_and_every_digit_is_marked (def at :1919)"
+    measured: "len(_corpus()) == 18 == MINIMUM_CASES exactly, and 18 == len(TRIMS) * len(SIZES) by construction."
+    note: >-
+      This satisfies CLAUDE.md's rule (the count IS asserted inside the test)
+      and does catch a shrunk TRIMS or SIZES. It cannot catch a corpus that
+      shrank by a filter inside the loop, because the assertion and the
+      construction share a derivation. The companion assertions
+      (exempt_seen >= 1000 against an actual 3557, and sub_floor_seen non-zero)
+      carry the real non-vacuity load, so this is a nit.
+
+guardrails:
+  G-1: "HOLDS. requirements.yml byte-unchanged (git diff --stat empty). CON-020's statement is untouched; only trace.yml's verification moved."
+  G-2: "HOLDS, and is the best-controlled thing on the card. The exemption is read off the mark; M1 (size equality) reds 5 including both AC-2 parametrisations and the EC. Caveat at one level down: F-001."
+  G-3: "HOLDS BY SUBSTANCE. pyproject.toml diff empty. The only added imports in the whole delta are `import random`, `from contextlib import contextmanager` (both stdlib) and intra-project `from nonogram.admin import ...`. The third-party import set of both touched src files is unchanged (PIL.PdfParser only). The dead TestDependencyBaseline_ ref was not used."
+  G-4: "HOLDS. tests/test_book_interior_type_floor.py's raster/spy arm is untouched by the diff -- TestInteriorType_OnlyPuzzleClueDigitsAreExempt does not appear in the diff at all, and below_floor()'s left arm is unchanged. Separately, tests/test_book_puzzle_page_vector.py's marks_of was widened by SKIPPING bracket rows rather than by emitting a Mark for them, so no ink comparison in that module learned to ignore anything."
+  G-5: "HOLDS, MECHANISM VERIFIED. 0 files under tests/fixtures/ changed; all 7 PageKind values still in _RASTER_DECLARATIONS (undeclared == []), so no vector page reaches the interior export. Nothing to raise."
+  G-6: "HOLDS AS MEASURED (317 -> 330 node ids, +13 / 0 removed / 0 renamed; 0 test defs removed; no skip/xfail marker added in the delta). But see F-004: literal compliance here preserved two names that now state the pre-card contract, and that should go to the owner rather than be settled inside the round."
+
+acceptance_criteria:
+  AC-1: "MET. Clue digits are recoverable from the WRITTEN PDF (verified independently off ~/Documents/.../puzzle-page-marked.pdf: BMC 1, 204 of 209 faces exempt) and the floor is asserted over non-exempt faces only (below_floor_in_its_medium's `and not face.exempt`, controlled by M13)."
+  AC-2: "MET and it is a real control. M1 reds 5/47. The plant is outside every bracket and at a size read off the page (`planted = min(digits)`), exactly as claimed. Docstring nit at F-008."
+  AC-3: "MET. The missing mark FAILS rather than exempting or reporting ~204 violations; M2 reds 2. The mutant is planted at the one chokepoint on a real writer's page, which is the right place."
+  AC-4: "MET in both directions, and better than the card claims. Wrong page: M3 reds 1. Wrong code: the chokepoint walk reds on a planted emitter (M4). Beyond the card: over-application INSIDE the right drawer -- which neither named instrument covers -- is caught too, at 12 pt (M10, 4 reds) and at a sub-floor 8.0 pt (M14, 4 reds), by AC-1's at-or-above-the-floor assertion and the EC's len(layout.clue_entries) cross-check. Gap at F-001 (wrong TAG) and F-006 (forged by raw append)."
+  AC-5: "MET. The raster arm is byte-unchanged and green; all ten CON-020 trace refs resolve by `class` line; 0 dead refs; gate 3 is not at risk."
+  AC-6: "MET. Reproduced with poppler: 0 differing pixels of 2,103,750, max abs diff 0, identical text layer, +26 bytes. The page was looked at and is complete."
+  EC: "MET and independently re-derived to the unit: 18 pages >= MINIMUM_CASES 18, 3557 exempt faces over 11 distinct sizes, 4 of them above the floor, 2629 below, 67 non-exempt with min 10.08 pt. The cross-check against len(layout.clue_entries) from COMP-007's geometry is a genuine second source and is what catches M9/M10/M14."
+
+card_corrections_verified:
+  "1_stale_scope_premise": "ROUND IS RIGHT. Re-derived at 4d164f62 out of tree: the guard reads `not in CLUE_DIGIT_KINDS`, that set evaluates to ['answer','puzzle'], and the answer-page test is live at :1061. The card's load-bearing [SCOPE CORRECTED] paragraph describes a state that no longer existed when this work started."
+  "2_table_is_book_1_only": "ROUND IS RIGHT. 462 on book 1, 644 on min-trim, 1106 across both, answer 580 vs puzzle 526 -- all re-derived exactly."
+  "3_stream_faces_was_never_testable": "ROUND IS RIGHT, by inspection of the parent tree and of the generator's walk."
+  "4_touches_was_short": "ROUND IS RIGHT -- `git diff --numstat` gives exactly the eight files the corrected Touches names, including trace.yml and not requirements.yml."
+  "5_a_test_would_have_gone_vacuous": "PARTLY WRONG -- see F-007. The fix is real and the test can still fail, but it would have gone RED, not silent."
+  "6_two_off_name_tests": "CORRECTLY RAISED, WRONGLY RESOLVED -- see F-004."
+
+score_rationale: >-
+  8.5. What this round did is unusually well evidenced: every mutant the card
+  publishes reproduces to the test name (5/42, 2/45, 1/46, and the negative
+  control's 1/46 with exactly the economy assertion rising); every figure
+  re-derives to the unit, including the EC's eleven sizes and four
+  above-the-floor exemptions, which really is the strongest argument on the
+  card; all ten trace refs resolve by class line; G-5's mechanism holds and
+  not just its count; G-3 holds by substance; AC-6 reproduces pixel for pixel
+  through an engine that wrote neither file; and the four widened structural
+  guards are provably classified rather than silenced -- a planted public
+  member still reds six tests in two modules. The round's own six corrections
+  are five-and-a-half right, including the important one, and it reported them
+  against its own brief.
+  Pressed past what it claims, the implementation holds where it matters: a
+  clue digit cannot escape the bracket, an over-applied mark inside the right
+  drawer is caught at both a super-floor and a sub-floor size, a BDC swap is
+  caught, and a raw-append forgery is caught.
+  What keeps it off 9: two surviving mutants and a dead assertion, all three
+  in the same family and all three in a card whose subject is that a
+  provenance claim must be checkable. F-001 is the one that counts -- the
+  reading is not actually keyed on the tag, and the corollary of the card's
+  own central thesis has no control that can fail. F-003 ships an assertion
+  that cannot fail inside the class that holds the mark's authorship. F-004 is
+  a naming decision taken inside the round that should have gone to the owner,
+  on a board where CON-020's covered trace row is how people resolve which
+  test means what. None of these is a defect in shipped behaviour; all are
+  control and claim-accuracy gaps, and F-001/F-002/F-003 are together about
+  ten lines.
+
+recommendation: >-
+  CERTIFIES at 8.5 against min_score 8. A fix round is cheap and high value:
+  F-001 (four lines), F-003 (delete three lines), F-002 (two lines) and F-008
+  (one sentence) are all inside files this card already touches and would take
+  it to roughly 9.2. F-004 is an owner decision and should not be settled
+  inside a fix round. F-005 through F-012 are reporting and wording and can
+  ride along or be deferred.
