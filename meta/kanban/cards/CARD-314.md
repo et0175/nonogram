@@ -578,3 +578,66 @@ back**, needle unique, `__pycache__` swept, **no `git stash`**.
   card-resident M4 figure, corrected above by the orchestrator.
 - [Gate] Merge gate next, held only until CARD-269's review cycle 2 reports — the gate takes the
   scope-blind lock and would collapse that review's runs to 0 collected.
+
+---
+
+## Merge gate round 1 — **RED, 2 failed**, and the cause was this card's own unpaid bookkeeping
+
+Gate at `368b1997`: **2 failed, 9846 passed, 27 skipped, 1 xfailed** in 22:10. AC/EC **68 passed, 0
+skipped**; **G-5's 21 book baselines unmoved**; `src`+`tests` byte-identical to the gated commit.
+
+Both failures were in **CARD-308's frozen ref census**, and both were **+3**: `DEFINED` measured
+**395** against baseline 392, `TRACE_TESTS` **513** against 510. The three are this card's own — the
+implementation commit re-stamped CON-020's trace row with three added classes and **nobody updated
+CARD-308's baselines.**
+
+**Nobody inside a review cycle could have.** `tests/test_check_ref_resolution.py` is not in this
+card's impact radius, so **the per-cycle scope was structurally unable to see it and the merge gate
+is exactly what did** — the two-tier design working as designed, and worth recording on the day the
+lock that tier costs blinded three rounds.
+
+### Fix round 3 — `368b1997` → `8d70e2b0`, and the brief was wrong about the count
+
+**THREE baselines moved, not two.** `CENSUS` is asserted **inside the same test**, three statements
+*after* the `TRACE_TESTS` assert — so **the first failure short-circuited it and CENSUS never
+appeared in the gate log at all.** Updating only the two the log named would have **re-reddened that
+same node on the next gate with a fresh `(586, …)` surprise.** That is a latent failure found by
+reading the test rather than the log, and it saved a whole 22-minute gate.
+
+**The base was chosen for a reason and the reason is checkable**: the merge's **second parent**, i.e.
+`main` exactly as merged in — defensible **not because it is nearby but because it reproduces all
+three stored baselines byte-identically**. Derivation ran out of tree, loading **each tree's own
+copy** of CARD-308's module and calling its own `_declared_refs()` / `_verdicts()` / `_fingerprint()`
+— no reimplementation.
+
+**The symmetric difference is the same set for all three classes: exactly three enter, nothing
+leaves.** All three are declared by **`trace.yml` alone** — no `requirements.yml`, no ADR — so
+`586 = 583 + 3` with **no term cancelling**, and the other authorities are unmoved. *"One declaration
+event arriving with its definitions already in place — the one direction that needs no repair."*
+
+**Proved in both directions, two mutants, out of tree.** Removing one `tests:` entry gives 2 entering
+on both classes; renaming one `class` line gives 2 entering on `DEFINED` **while `TRACE_TESTS` stays
+at 513** with 3 entering. **Both differ from the clean tree and from each other — same count, different
+digest — so the declaration half and the definition half are independently measured.** A derivation
+blind to either would have reported 3-in on at least one mutant.
+
+All three resolve to real `class` lines **read off the line, not text-searched**, and all three are
+live: `-k` on them gives **25 passed**. **All ten CON-020 refs re-resolve after fix round 2's
+rename, 0 dead.** The three refs are **deliberately not named** in the baseline comments, and G-2's
+own test passing is the mechanical proof of it. **Node-id delta 0/0 raw and net** — the change is
+comments and three literals.
+
+### Two more corrections, both mine
+
+1. **The brief said two baselines; it is three.** Corrected above.
+2. **The brief cited the wrong precedent commit** for the file:line-without-names convention — it is
+   CARD-304's fix round **1**, not round 2; round 2 does not touch that file.
+
+### Flagged, deliberately not acted on
+
+**`ADR-0039:275,287` still states the census as 580.** CARD-304 moved it to 583 and did not re-stamp
+the ADR either, so it is **now stale by +6**. The round's judgement, which I accept: *"a mechanical
+fix round is the wrong place to re-stamp an ADR"* — and the ADR frames it as an as-of-a-named-tree
+figure, so it is a historical measurement rather than a false claim. **But ADR-0039/R4 is the rule
+that a figure recomputed and refuted is retracted everywhere it was written, and this is a stale
+figure inside ADR-0039 itself.** Recorded on CARD-319.
