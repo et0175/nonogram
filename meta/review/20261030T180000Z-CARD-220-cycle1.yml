@@ -1,0 +1,701 @@
+version: 1
+generated_at: "2026-10-30T18:00:00Z"
+target: "card/220-retire-subsumed-tests @ a58284bb (cycle 1/3; 1 commit on fork point 4d164f62, 2 files, +66/-92, tests only)"
+card: CARD-220
+cycle: 1
+mode: gating
+overall_score: 8.5
+min_score: 8
+risk_level: low
+review_lane: deep
+test_scope: impact
+mutation_check: true
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+verdict: >-
+  CERTIFIES at 8.5. The two deletions are sound and the subsumption proof is the
+  strongest shape available: the survivor's bound is not merely similar to the
+  deleted guards', it is the SAME CODE -- the deleted guards were inlined copies
+  of the helper function the survivor calls. Every instrument the round reports
+  reproduced here, including the decisive one-file-at-a-time discipline and the
+  short-circuit it exists to defeat. Four assertion shapes the round did not try
+  are all caught. Nothing's coverage is gone.
+  The findings below are improvements and card-text corrections, not blockers.
+  The one that matters is F-001: the round proved the PREDICATE identical and
+  never attacked the SCOPE SELECTOR, and the scope selector is where the defect
+  is -- it is blind to one of the two idiomatic import forms, specifically the
+  form the survivor's own module uses. Today's coverage is unaffected; a
+  coverage-PRESERVATION property that the per-file guards had is gone.
+
+naming_note: >-
+  This card DELETED two test functions. `meta/review/**` is inside the
+  validator's loose text resolver, so a full `path::name` spelling here would
+  make those names read as alive after the fact. Both are written partially
+  throughout this file, as the round did in its own commit comments:
+  `test_book_pdf_band.py::test_no_test_in_this_module_takes_a_fixture_through_get…`
+  and the identically-named function in `test_book_puzzle_frame.py`. The
+  SURVIVOR is live and is spelled in full, once, because it must resolve:
+  tests/test_shared_fixture_controls.py::TestSharedControls_TheCopiesCannotComeBack::test_no_importer_reaches_for_a_fixture_at_run_time
+
+# ---------------------------------------------------------------------------
+# COVERAGE AND METHOD
+# ---------------------------------------------------------------------------
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-220.md on main, in full (453 lines: the method, six ACs, the 2026-10-24 resolution note, the 2026-10-15 and 2026-10-23 re-pointings, the fence, the implementation record and its three self-findings)"
+    - "the full diff 4d164f62..a58284bb and the commit message of a58284bb in full"
+    - "tests/helpers/shared_fixture_controls.py -- `fixtures_taken_dynamically` and `refuse_unless_nothing_is_taken_dynamically` at :616-:663, read against the deleted guards' bodies line by line"
+    - "tests/test_shared_fixture_controls.py -- `_importers()` at :169, the survivor and its class at :350/:484, the importer-set non-vacuity floor at :364, and the module's own import of the home at :57"
+    - "tests/test_book_export_interior_cover.py -- the AC-5 pair at :4247/:4290, DOOR_ARMS at :3482, DOOR_SHAPES at :3723 (36 rows, counted by ast)"
+    - "meta/profiling/suite-hotspots-20261023.md and suite-durations-20261023.txt (per-file ranking re-derived from the raw file, not read off the digest)"
+  not_reached:
+    - "the full suite -- forbidden by the brief and reserved for the merge gate. Every run below is a named selection."
+    - "the round's own scripts: none were re-used. Every instrument in this report was written from scratch out of tree and is deliberately BROADER than the one it checks."
+    - "the three candidate groups the round says it rejected without mutation: not reachable, because they are recorded nowhere (F-003)."
+  confidence: high
+
+method:
+  out_of_tree: >-
+    Two `git archive` copies under the session scratchpad, one per arm
+    (4d164f62 -> before/, a58284bb -> after/), 363 .py files each. Every mutant
+    was planted in those copies. The worktree was never modified: `git status
+    --porcelain` is empty at the end of this cycle apart from the pre-existing
+    ignored .pytest_cache/ and this file. No `git stash`.
+  lock_discipline: >-
+    /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock
+    checked by ABSOLUTE PATH before every run batch in this cycle and was absent
+    every time. No run collapsed to 0 collected: every run below reports its own
+    non-zero collection count, and the two AC-2 collects returned 9819 and 9817.
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest, always `-o addopts='' -p no:randomly -rs`, PYTHONDONTWRITEBYTECODE=1, __pycache__ swept between reps"
+  mutant_hygiene: >-
+    Mutants were APPENDED at end-of-file (so no existing line moves and no
+    existing assert's topology shifts) except the AC-5 mutant, which is a
+    one-line in-place substitution with the line count held at 6990. Needle
+    occurrence asserted unique before substitution. Blob sha recorded
+    before / mutated / after restore and asserted equal to the before value on
+    every restore; all restores verified. No .orig file left behind.
+
+metrics:
+  diff:
+    files: 2
+    added: 66
+    removed: 92
+  src_files_in_diff: 0
+  test_functions_removed: 2
+  test_functions_added: 0
+  protected_files_in_diff: 0
+  skips_attributed: >-
+    ZERO across every run in this cycle. `-rs` printed no skip section on any
+    run, and every run's summary line reports only passed/failed. In particular
+    the SURVIVOR is not skip-gated on this host -- it ran green unmutated and
+    red under two separate mutants, so the subsumption proof does not lean on a
+    skip. The suite-wide 27 (26 DATABASE_URL-gated + 1 setrlimit) is NOT
+    confirmed here: that needs the full suite, which the brief forbids. Carried,
+    not confirmed.
+  no_load_figure: "stated deliberately: no load average is reported or used anywhere in this report."
+  per_figure_domain: >-
+    DOMAIN, stated because this board has paid for it repeatedly and because the
+    round's own finding 3 is an instance of the same family.
+    (a) 9819 / 9817 are PYTEST COLLECTION counts over `tests/` for the whole
+    tree, one per arm.
+    (b) 257 / 255 are COLLECTION counts for the four-file affected scope
+    (the three importers of the shared home plus the survivor's own module).
+    (c) 768 is a count of DEDUPED (file, shape, value) floor sites over
+    `tests/**`; 1247 is the same collector's RAW site list; 335 / 249 are the
+    raw / deduped subsets in the round's own narrow `len(..) >= N` shape. These
+    are four different domains and are NOT comparable to the round's 286 without
+    saying which.
+    (d) 16.61-17.05 s and 6.37-6.64 s are per-test `call` phase durations for
+    the AC-5 pair run as a TWO-TEST selection, 3 reps, quiet host.
+    (e) 13.14-13.40 s / 12.98-14.33 s are pytest SESSION wall clocks for the
+    four-file affected scope, 3 reps per arm.
+    (f) `#42` / `#76` are positions in a 214-row PER-FILE ranking I re-derived
+    from suite-durations-20261023.txt by summing setup+call+teardown per file.
+    The digest itself publishes only a top-20 file table, so neither rank can be
+    read off it.
+
+# ---------------------------------------------------------------------------
+# AREA 1 -- THE SUBSUMPTION PROOF, ATTACKED
+# ---------------------------------------------------------------------------
+area_1_subsumption:
+  importer_set_rederived:
+    verdict: "HOLDS -- exactly 3, on both arms, under a predicate broader than the survivor's."
+    how: >-
+      Wrote an independent ast walk over tests/**/*.py that flags ANY import
+      statement in ANY form mentioning the leaf name `shared_fixture_controls`
+      (ImportFrom module, ImportFrom alias names, Import alias names), excluding
+      the home itself and the survivor's own module. BROAD = 3, NARROW (the
+      survivor's own two shapes) = 3, BROAD-only = empty. Identical on
+      4d164f62 and on a58284bb.
+    the_three: "tests/test_book_pdf_band.py, tests/test_book_puzzle_frame.py, tests/test_book_puzzle_page_vector.py"
+    the_third_never_had_a_copy: >-
+      CONFIRMED by `git grep` for the deleted function's def line at the fork
+      point: exactly two hits, band :1624 and frame :3125. The vector file has
+      none, and its 65 node ids are unchanged across the diff. So the survivor's
+      scope was strictly wider than the two copies' -- before the card as well
+      as after it (see F-004).
+
+  is_the_bound_IDENTICAL_or_merely_similar:
+    verdict: >-
+      IDENTICAL, and stronger than the round claimed: it is the SAME SOURCE. The
+      deleted guards' bodies are inlined copies of
+      `shared_fixture_controls.fixtures_taken_dynamically`, which is what the
+      survivor reaches through
+      `refuse_unless_nothing_is_taken_dynamically`. Same traversal
+      (`ast.walk(ast.parse(...))`, i.e. unbounded depth), same node type
+      (`ast.Attribute`), same discriminator (`node.attr == "getfixturevalue"`),
+      same `sorted(... lineno)` reduction, same `assert not taken`. There is no
+      predicate gap to find, and I looked for one.
+    the_only_difference: >-
+      WHICH FILE'S SOURCE is read. The deleted guards read their own module's
+      `Path(__file__)`. The survivor reads `Path(path)` for each path that
+      `_importers()` returns. That relocates the question from "is the predicate
+      the same" (it is) to "is the file set the same" -- and that is where
+      F-001's defect lives.
+
+  shapes_the_round_did_not_try:
+    harness: >-
+      Six shapes planted one at a time at end-of-file in the BEFORE tree, so all
+      three guards (band's, frame's, the survivor) are observable on the same
+      run. 3 collected every time, 0 skipped, lock clear, blob restored and
+      asserted on every row.
+    matrix_band_only:
+      - { shape: "none (negative control)",                             band: PASS,  frame: PASS, survivor: PASS, note: "3 passed in 1.80s" }
+      - { shape: "plain method, `request.getfixturevalue(\"page\")`",   band: FAIL,  frame: PASS, survivor: "FAIL, names band:1972", note: "the round's own shape -- 2 failed, 1 passed" }
+      - { shape: "NESTED FUNCTION inside the test body",                band: FAIL,  frame: PASS, survivor: "FAIL, names band:1973", note: "NOT tried by the round -- caught" }
+      - { shape: "inside a LIST COMPREHENSION",                         band: FAIL,  frame: PASS, survivor: "FAIL, names band:1972", note: "NOT tried by the round -- caught" }
+      - { shape: "bound method taken THROUGH A VARIABLE then called",   band: FAIL,  frame: PASS, survivor: "FAIL, names band:1972", note: "NOT tried by the round -- caught" }
+      - { shape: "reached via `getattr(request, \"getfixture\"+\"value\")`", band: PASS, frame: PASS, survivor: PASS, note: "NOT tried by the round -- MISSED, by BOTH. See F-005." }
+      - { shape: "near-miss: the word in a docstring only",             band: PASS,  frame: PASS, survivor: PASS, note: "the round's negative control -- reproduces" }
+    conclusion: >-
+      The survivor catches every shape the deleted guards catch, including three
+      the round never planted, and misses exactly the one shape the deleted
+      guards also miss. Because the predicate is the same code this is a
+      structural certainty, not a sampling result -- the experiments confirm it
+      rather than establish it. `ast.walk` is full-depth, so nesting cannot
+      escape either reading.
+
+  one_file_at_a_time:
+    verdict: "REPRODUCES, and the discipline was NECESSARY -- I measured the short-circuit it defeats."
+    band_only: "band FAIL / frame PASS / survivor FAIL naming band -- 2 failed, 1 passed in 1.61s"
+    frame_only: "band PASS / frame FAIL / survivor FAIL naming frame:3443 -- 2 failed, 1 passed in 1.44s"
+    both_planted: >-
+      3 failed in 1.35s, and the survivor's single AssertionError names
+      `test_book_pdf_band.py` line 1972 ONLY. The loop
+      `for path in _importers(): controls.refuse_unless_...(path)` raises on the
+      first failing importer and never reaches the second, and `_importers()`
+      returns `sorted(...)` so band always comes first. A both-planted mutation
+      would therefore have credited the survivor for band's mutant and left
+      frame's deletion UNPROVEN. The round's choice is correct and load-bearing,
+      not a stylistic preference.
+    grep_near_miss_control:
+      substance: "HOLDS -- the bound is an ast reading, so the docstring-only plant leaves all three green while a text instrument would fire."
+      figure: "the round's '7 times per file' does not hold on the tree it describes. See F-006."
+
+  skip_gating: "checked and clear -- the survivor and its class's two non-vacuity tests all ran, none skipped, on both arms."
+
+# ---------------------------------------------------------------------------
+# AREA 2 -- AC-2 / AC-3 / AC-4 AS MEASUREMENTS, WITH THE INSTRUMENTS ATTACKED
+# ---------------------------------------------------------------------------
+area_2_gate_measurements:
+  ac_2_accounted_count:
+    verdict: "REPRODUCES EXACTLY. Both collects were real runs."
+    measured:
+      fork_point_collected: 9819
+      head_collected: 9817
+      arithmetic: "9819 - 9817 = 2"
+      removed_set: "exactly the two enumerated deletions (band's and frame's `…takes_a_fixture_through_get…`), 2 rows"
+      added_set: "EMPTY, 0 rows"
+      both_directions: "yes -- `comm -23` gives 2 and `comm -13` gives 0 over sorted unique node id files"
+    zero_collected_trap: >-
+      NEITHER collect was a 0-collected run, and this is the check that would
+      have been catastrophic for this card specifically: a 0-collected pair
+      yields `removed=0 added=0` and reads as a clean bill of health on a diff
+      that deleted two tests. Both runs exited 0 and printed their own non-zero
+      count ("9819 tests collected in 7.78s", "9817 tests collected in 7.51s").
+    negative_control: >-
+      The GOOD one, reproduced: a second independent collect of the AFTER arm
+      against the first gives 9817 ids, removed 0, added 0. So the diff above is
+      not an ordering artefact of pytest's collection.
+
+  ac_3_protected_classes:
+    verdict: "REPRODUCES. The round's negative control is good; there is a SECOND, stronger one it missed."
+    changed_files: ["tests/test_book_pdf_band.py", "tests/test_book_puzzle_frame.py"]
+    intersection_with_protected_set: "EMPTY"
+    membership_is_by_path_resolved_here:
+      brute_force_oracle: "tests/helpers/brute_force_oracle.py -- not in the diff"
+      solver_uniqueness: "tests/property/test_solver_uniqueness.py -- not in the diff"
+      mask_runs_cross_check: "tests/test_solver.py::test_mask_runs_agrees_with_the_clue_module (:619, asserts mask_runs == canonical_clue) -- not in the diff"
+      a4_golden: "tests/test_export_a4_golden.py and tests/test_layout_page_spec.py::TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden -- neither in the diff"
+      cli_exports_property: "tests/property/test_cli_exports_byte_identity.py -- not in the diff"
+    negative_control_the_round_reported: >-
+      HOLDS and reproduces: tests/test_book_puzzle_frame.py mentions "A4" 5
+      times in prose and IS a changed file, so a text-membership test would have
+      pulled it in as the A4 golden and failed AC-3 spuriously. The A4 golden
+      lives in two other files; membership by path correctly excludes it.
+    negative_control_the_round_MISSED: >-
+      Stronger, and it strengthens the round's own conclusion. BOTH changed
+      files carry `mask_runs` in a prose comment (band :1603, frame :3111,
+      adjacent to the deleted region), so a text-membership test would have
+      pulled in BOTH -- including band, which mentions "A4" zero times and would
+      have escaped the A4 control entirely. Also measured: the diff touches no
+      line containing `mask_runs` or `encode_line` in either direction.
+    protected_nodes_green: >-
+      70 passed, 0 skipped, 11.83 s session, on HEAD out of tree:
+      tests/property/test_solver_uniqueness.py +
+      tests/property/test_cli_exports_byte_identity.py +
+      tests/test_export_a4_golden.py +
+      tests/test_solver.py::test_mask_runs_agrees_with_the_clue_module.
+      (The round reports 66 on a slightly narrower selection; not a discrepancy.)
+    under_specification_judged: "see F-007 -- the round's flag is right, and 'two' cannot be correct under any reading."
+
+  ac_4_corpus_minimums:
+    verdict: >-
+      The CONCLUSION holds under a collector 3x broader than the round's. But the
+      measurement is VACUOUS ON THIS DIFF by construction, and the round does not
+      say so -- see F-002. The collector IS blind to four floor shapes that exist
+      in the tree; none of them is in a changed file and none is a corpus
+      minimum, so the blindness is harmless here.
+    my_collector: >-
+      Independent ast collector, deliberately broader: `len(x) >= N` and
+      `len(x) > N`; the REVERSED operands `N <= len(x)` / `N < len(x)`;
+      `len(x) == N` censuses; `.count()`, `.size`, `.shape` in place of `len`;
+      `min()`/`max()` in a comparison; `N-1`/`N+1` arithmetic resolved; a bare
+      int passed to any call whose name mentions at_least/minimum/min_cases/
+      floor/no_fewer; module-level int constants resolved one hop. `lineno`
+      excluded, same as the round's, for the same correct reason.
+    measured:
+      raw_sites_before: 1247
+      raw_sites_after: 1247
+      deduped_sites_before: 768
+      deduped_sites_after: 768
+      fallen_or_lost: 0
+      new: 0
+      sites_inside_the_two_changed_files: "15 on BOTH arms -- identical"
+      round_narrow_shape_for_comparison: "raw 335 / deduped 249 in `len(..) >= / > N`; the round reports 286, between my two figures, which is why (c) in per_figure_domain exists"
+    blindness_measured_not_reasoned:
+      reversed_operands: "7 sites spelled `N <= len(x)` / `N < len(x)` (property/test_book_pairing.py :829 :1091, property/test_book_pdf_geometry.py :812, test_batch_history.py :218, test_book_solved_answer_key.py :668, test_card_062_abandon_retry.py :90, test_puzzle_solver_page.py :825). ALL have value 0, 1 or 2 -- non-vacuity guards, not corpus minimums. None in a changed file."
+      count_gte: "14 sites on `.count(...) >= N` -- invisible to a `len(...)`-only reading."
+      min_max_guards: "37 sites where the length side is a `min()`/`max()`."
+      len_eq_censuses: "662 sites on `len(x) == N`, which pins a floor as tightly as `>=` does."
+      helper_expressed_floors: "ZERO -- my `call:` shape found no site, so the project does not express corpus minimums through a helper. The round's instrument is not blind to a shape that exists here."
+    why_it_is_vacuous_here: "see F-002"
+
+# ---------------------------------------------------------------------------
+# AREA 3 -- AC-5, THE KEPT PAIR
+# ---------------------------------------------------------------------------
+area_3_ac5:
+  kept_pair_verdict: "REPRODUCES EXACTLY, assertion for assertion and line for line. The bar is real, not performed."
+  pair:
+    - "tests/test_book_export_interior_cover.py::TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage::test_every_door_shape_is_read_or_refused_and_never_silent"
+    - "tests/test_book_export_interior_cover.py::TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage::test_each_door_axis_arm_catches_a_shape_the_other_misses"
+  shared_table: "DOOR_SHAPES, 36 rows (counted by ast, not read off the report)"
+  mutant:
+    mutation: "DOOR_ARMS at :3482 reduced from (\"callee identity\", \"door spelling\") to (\"callee identity\",) -- the door-spelling arm dropped"
+    needle_occurrences: 1
+    blob_before: 8c3710efec91644153e6ab7060270b42085801fc
+    blob_mutated: b189305204962c8835cc23f551529d698081149c
+    blob_restored: "8c3710efec91644153e6ab7060270b42085801fc -- asserted equal to before"
+    line_count: "6990 on both, so no assert's lineno moved"
+  result: >-
+    2 failed in 6.32s, 2 collected, 0 skipped. Both died, on DIFFERENT
+    assertions about DIFFERENT claims, exactly as the round reports:
+    * the first died at :4272 on the COVERAGE claim -- row "W19 the imported
+      door renamed by its own import" came back `()`, a silent pass, and the
+      measured-vs-declared equality named it;
+    * the second died at :4311 on its DECLARED-TABLE CONSISTENCY assertion
+      ("an arm with no measured per-arm list of its own") and NEVER REACHED its
+      per-arm coverage loop at all. Corroborated by the clock: unmutated it
+      costs 16.6-17.1 s; mutated the whole two-test session finished in 6.32 s,
+      because it aborts on its first assert.
+  conclusion: >-
+    Neither subsumes the other. Keeping both is right, and this is the card's
+    only evidence that its own bar rejects as well as accepts -- it rejected the
+    two most expensive tests in the suite's most expensive file. Genuine AC-5
+    satisfaction.
+  three_rejected_groups: "UNVERIFIABLE -- see F-003."
+
+# ---------------------------------------------------------------------------
+# AREA 4 -- THE COST CLAIM AND THE CARD'S THREE SELF-FINDINGS
+# ---------------------------------------------------------------------------
+area_4_cost_and_self_findings:
+  cost_claim:
+    verdict: >-
+      The round's honesty is COMPLETE on the arithmetic, and my own reps are
+      WEAKER than its. It understated its noise rather than its saving.
+    affected_scope: >-
+      Re-derived, not carried: the four-file selection that yields 257/255 is
+      the three importers of the shared home plus the survivor's own module
+      (band 40->39, frame 100->99, vector 65->65, shared 52->52).
+    measured:
+      before: "13.14 s, 13.40 s, 13.40 s -- 257 passed, 0 skipped, 284 warnings"
+      after: "12.98 s, 13.37 s, 14.33 s -- 255 passed, 0 skipped, 284 warnings"
+      reading: >-
+        The ranges OVERLAP and the direction does not even survive: AFTER's
+        slowest rep (14.33 s) is slower than BEFORE's slowest (13.40 s). So on
+        my host the saving is not resolvable at all, which is a stronger
+        statement of the round's own conclusion than the round made. The two
+        deleted tests are pure ast parses of one file each; ~0.03 s is the right
+        order and the rest is noise. CARD-217's "no single test is worth
+        deleting" is confirmed again.
+    value_claim_judged: "PARTLY UNSUPPORTED -- see F-004. One half of the sentence is right; the other credits the card with coverage that existed at the fork point."
+  self_finding_1_widening:
+    verdict: "JUSTIFIED. The reason is adequate and the handling was correct."
+    why: >-
+      Three things line up. (a) The narrowing note sanctions exactly this in its
+      own words -- widen the field with the reason, do not delete outside the
+      footprint silently. (b) The 2026-10-24 fence does not merely permit these
+      two files, it ASSIGNS them to this card by name and says retiring them
+      here needs the shared version named as the survivor, so the widening
+      follows the card's own latest instruction rather than overriding it.
+      (c) The round flagged it and corrected `Touches` to the re-derived actual,
+      preserving the original declaration inline. Confirmed by measurement: of
+      the four declared paths, zero appear in `git diff --name-only`.
+  self_finding_2_cost_gate_contradiction:
+    verdict: "THE CONTRADICTION IS REAL. Figures reproduce exactly. The round's resolution is right, and is better grounded than the round argued."
+    figures_rederived: >-
+      Per-file ranking recomputed from the raw suite-durations-20261023.txt by
+      summing setup+call+teardown per file over 214 files (the digest publishes
+      only a top-20 file table, so neither rank is readable from it):
+      test_book_pdf_band.py #42, 6.43 s over 34 tests = 0.189 s/test;
+      test_book_puzzle_frame.py #76, 2.43 s over 95 tests = 0.026 s/test;
+      test_book_pdf.py 4.84 s over 49 tests = 0.099 s/test, zero members in the
+      published top 50. Neither deleted test appears in the durations file at
+      all. So neither file is a top-20 file and neither test is a top-50 test:
+      the two deletions fail the card's step-1 cost gate outright.
+    the_reading_is_right_and_here_is_the_stronger_reason: >-
+      The round frames this as taking a later specific fence over an earlier
+      general filter, which is correct but understates its case. The card's own
+      2026-10-23 re-pointing had ALREADY retired the cost premise in so many
+      words -- "this card's cost premise is dead, and it should not be run as a
+      performance card" -- and restated the scope WITHOUT any cost gate: "its
+      honest scope is now narrower than its title: retire what a mutant proves
+      is covered twice, and nothing else." So step 1's cost clause is not a live
+      rule in tension with the fence; it is stale wave-37 text that a later
+      section of the same card already overrode. That matters for the re-cut: it
+      does not need an arbitration, it needs step 1's "both expensive and" and
+      its "cost alone is never a reason to delete" sentence REWRITTEN to the
+      2026-10-23 scope. Carded below.
+  self_finding_3_ranking_overstatement:
+    verdict: "REPRODUCES. 4.8x and 10.3x, same host, lock clear, 0 skips."
+    measured:
+      digest_20261023: "81.03 s (rank #1) and 67.08 s (rank #2), confirmed verbatim in suite-hotspots-20261023.md:90-91 and suite-durations-20261023.txt:65-66"
+      remeasured_as_a_two_test_selection: "16.61-17.05 s and 6.37-6.64 s, 3 reps, 2 collected, 2 passed, 0 skipped"
+      factors: "81.03 / 16.7 = 4.8x; 67.08 / 6.5 = 10.3x"
+    arithmetic_note: >-
+      The five tests of that file inside the digest's top 7 (#1 #2 #4 #5 #7) sum
+      to 258.78 s, not ~255 s. Direction of the rounding is against the round's
+      own argument, so the substance is unaffected -- but it is one more figure
+      whose domain was not stated, which is the point the finding itself makes.
+    consequence_agreed: >-
+      The digest attributes ~259 s to five tests that cost ~50 s as a selection.
+      That is not recoverable time, and any future curation or performance card
+      cut from those rankings must re-measure in the regime it intends to
+      optimise. Correct, important, and the most valuable thing this card
+      produced.
+  step_6_deviation:
+    verdict: "ACCEPTABLE, and correctly disclosed -- with one consequence the round did not draw."
+    why: >-
+      The card's step 6 asks for a solo re-profile, which is the full suite; the
+      brief reserves the full suite for the merge gate; the round profiled the
+      affected scope instead and said so in the card. That is the right call on
+      a board where two sibling cards are active and CARD-304's merge gate will
+      take the lock.
+    consequence: >-
+      AC-6 ("a solo profile before and after, both wall-clocks recorded") is
+      therefore NOT discharged by this cycle -- it is deferred, not met. AC-6 is
+      explicitly "recorded, not asserted", so this does not gate; but the merge
+      gate owes the solo figure, or AC-6 should be restated as scope-level.
+
+# ---------------------------------------------------------------------------
+# FINDINGS, RANKED
+# ---------------------------------------------------------------------------
+findings:
+  - id: F-001
+    severity: medium
+    confidence: high
+    source: measured
+    title: >-
+      The survivor's SCOPE SELECTOR is blind to one of the two idiomatic import
+      forms -- the one its own module uses -- and the deletion removed the
+      per-file guards' immunity to that. No coverage gone today; a
+      coverage-preservation property is.
+    where: "tests/test_shared_fixture_controls.py::_importers (:169-:195), and its only guard at :364"
+    what: >-
+      `_importers()` recognises exactly two shapes: an `ast.ImportFrom` whose
+      `node.module` is the home or ends with `shared_fixture_controls`, and an
+      `ast.Import` whose alias name IS the home. It does NOT recognise
+      `from tests.helpers import shared_fixture_controls as controls` -- an
+      ImportFrom whose `module` is `tests.helpers` and whose ALIAS carries the
+      leaf name. That is not a hypothetical idiom: it is the one
+      tests/test_shared_fixture_controls.py:57 uses for itself, the only
+      occurrence of it in the tree, and it is excluded from the loop only by the
+      separate `path == Path(__file__).resolve()` self-skip.
+    measured: >-
+      Synthetic importer added out of tree, with a live
+      `request.getfixturevalue("pages")` consumer, three arms, 1 collected each:
+      (A) recognised form `from tests.helpers.shared_fixture_controls import ...`
+      -> survivor FAILED, naming test_zz_new_importer.py line 18 (positive
+      control, the instrument rises);
+      (B) the alias form `from tests.helpers import shared_fixture_controls as
+      controls` -> survivor PASSED, 1 passed in 1.30s. A real importer with a
+      real violation runs GREEN;
+      (C) no import of the home at all -> survivor PASSED (negative control, the
+      instrument does not rise on a near miss).
+      File removed after the experiment; the AFTER tree's collect is unchanged.
+    why_it_matters: >-
+      Before the card, band and frame each carried a guard keyed on their own
+      `__file__`, which no import-statement refactor could switch off. After the
+      card the bound reaches those files ONLY through `_importers()`. Rewriting
+      band's import line to the alias form -- an innocuous, idiomatic change
+      that the project's own test file models -- silently drops band out of the
+      bound with nothing red. Compounding it: the only guard on the set is a
+      floor of `len(importers) >= 2` at :364 against a measured set of 3, so
+      losing ONE importer is silent too. The survivor's docstring claim that it
+      is "applied here rather than once per consumer file so that a module which
+      starts importing the shared home is covered the day it does" is FALSE for
+      one of the two forms a module might start importing it with.
+    verdict_on_the_deletion: >-
+      The deletion is still correct -- the survivor's scope is 3 files against
+      the copies' 2, so coverage strictly grew, and the brief's question "is the
+      bound identical" answers YES. But the round proved the PREDICATE and never
+      attacked the SCOPE SELECTOR, and the selector is the half with the defect.
+      This is the card's own rule-3 concern class ("coverage reduction wearing
+      curation's clothes") in a conditional form: not reduced now, reducible
+      silently later.
+    fix: >-
+      Three lines in `_importers()`: also match an `ast.ImportFrom` whose
+      `node.names` carry the leaf name, and an `ast.Import` whose alias name
+      ENDS WITH the home rather than equalling it. Then raise :364's floor from
+      a hand-written 2 to the measured set size, or assert the set equals a
+      derived membership so a drop-out reds. Cheap, and it makes the deletion
+      strictly better rather than merely safe.
+
+  - id: F-002
+    severity: medium
+    confidence: high
+    source: measured
+    title: >-
+      AC-4 cannot fail on this diff by construction, and the round presents it
+      as a measurement that could have gone the other way.
+    measured: >-
+      Every removed line in the diff, filtered for comparison operators, yields
+      exactly four hits, and all four are the same string equality
+      `node.attr == "getfixturevalue"` (two per deleted guard). There is no
+      numeric comparison against any length anywhere in the removed text, and no
+      file other than the two changed. The only other removals are two import
+      statements. So "0 fallen, 0 lost, 0 new" was GUARANTEED regardless of the
+      collector's quality -- a collector that returned the empty set would have
+      reported the same verdict.
+    why_it_matters: >-
+      The card's own framing is that this is the gate where a blind instrument
+      produces a clean bill of health, and the report answers that worry with 286
+      sites and nine controls. The controls are good work and the instrument is
+      real (I confirmed 0 fallen under a collector with 768 deduped sites and
+      five extra shapes). But the report should state that on THIS diff the
+      measurement has no way to fail, so a reader does not take "0 fallen" as
+      evidence about the deletion. The instrument is worth keeping for the next
+      curation card, where it will not be vacuous.
+    also: >-
+      The instrument is genuinely narrower than the report reads: blind to 7
+      reversed-operand sites, 14 `.count() >= N`, 37 min/max-sided comparisons
+      and 662 `len(x) == N` censuses. None is in a changed file and none is a
+      corpus minimum (the 7 reversed sites all compare against 0, 1 or 2), so
+      the blindness costs nothing here. Worth recording before the instrument is
+      reused.
+
+  - id: F-003
+    severity: low
+    confidence: high
+    source: measured
+    title: >-
+      "Three further groups were rejected without mutation, each with its
+      reason" is recorded nowhere. Only one of the three is even alluded to, and
+      none by name.
+    measured: >-
+      Searched the card (453 lines, in full), the commit message of a58284bb (in
+      full), meta/review/ (no CARD-220 file existed before this one) and the
+      worktree (`git status --porcelain --ignored` shows only .pytest_cache/, so
+      there is no untracked round artefact). The card's "## Worktree notes"
+      section is a single em dash. The negative-control pair is identifiable
+      only by chasing the quoted docstring phrase, which occurs at three sites
+      in two files -- so even that one is not pinned.
+    why_it_matters: >-
+      AC-5's obligation is "the card records why the pair was not redundant".
+      That is discharged, well, for the door pair. The three rejected groups are
+      a bare claim: a later card re-cutting this work cannot tell which
+      candidates were already considered and declined, which is precisely the
+      institutional memory this card exists to produce. The claim that one pair
+      is the other's negative control is also the single most load-bearing
+      "do not delete this" in the round's report and it names neither test.
+    fix: "name the three groups and their node ids in the card's Worktree notes. No code change."
+
+  - id: F-004
+    severity: low
+    confidence: high
+    source: measured
+    title: >-
+      Half the value claim is unsupported: the third importer was already
+      covered at the fork point, so "a third importer NOW covered" is a
+      zero-delta claim.
+    measured: >-
+      The survivor's node id is present in the FORK-POINT collect (grep over the
+      4d164f62 node-id file: 1 hit), and neither
+      tests/test_shared_fixture_controls.py nor
+      tests/helpers/shared_fixture_controls.py appears in
+      `git diff --name-only 4d164f62..a58284bb`. The third importer's 65 node ids
+      are identical on both arms. So the survivor, the bound and the three-file
+      scope all existed before this card and the card changed none of them.
+    what_the_card_actually_delivered: >-
+      The removal of two INLINED DUPLICATES of a bound that already had a single
+      home and already covered all three importers. That is a real, modest
+      maintenance win and it is worth having. But "one bound in one place
+      instead of three near-copies" overstates it in a second way too: there
+      were never three near-copies of the BOUND -- there was one bound in the
+      helper plus two inlined copies of its body. Net value: two fewer inlined
+      duplicates, minus the form-immunity in F-001.
+    why_it_matters: >-
+      This card's 2026-10-15 correction orders it re-justified on maintenance
+      terms or parked. The maintenance justification is the whole remaining case
+      for the card, so an overstated version of it is the one claim that must be
+      exact. Rewrite the value sentence to what the diff did.
+
+  - id: F-005
+    severity: info
+    confidence: high
+    source: measured
+    title: >-
+      Both readings miss a fixture reached through `getattr(request, "getfixture"
+      + "value")`. Not a subsumption gap -- a shared blind spot, inherited.
+    measured: "planted in band in the BEFORE tree: 3 passed, all three guards green, 0 skipped. The attribute name is a string constant, not an `ast.Attribute`, so neither the deleted copies nor the survivor can see it."
+    why_it_is_only_info: >-
+      Identical on both arms, so the deletion neither created nor widened it, and
+      the helper's own docstring already concedes that no static reading can
+      close this channel because the fixture name is a run-time expression. The
+      deleted guards' docstrings also listed four further open shapes and handed
+      them to CARD-219. Recorded so a future card does not rediscover it as new.
+
+  - id: F-006
+    severity: info
+    confidence: high
+    source: measured
+    title: >-
+      "A grep instrument would have fired 7 times per file" does not hold on the
+      tree it describes -- it is 5. Another figure with an unstated domain, in
+      the round's own report this time.
+    measured: >-
+      At the fork point, `getfixturevalue` occurs 5 times in
+      tests/test_book_pdf_band.py and 5 times in tests/test_book_puzzle_frame.py,
+      by `grep -c` (matching lines) and `grep -o | wc -l` (occurrences) alike --
+      the two agree, so the domain ambiguity does not explain it. At HEAD both are
+      2. The 7 is reachable only on the round's own docstring-only MUTATED tree,
+      i.e. baseline 5 plus its 2 planted mentions. Separately, "ast used 10x
+      elsewhere" in the frame file: I count 22 load-context reads of the name
+      `ast` at HEAD (2 at the fork point were the deleted guard's).
+    why_it_matters: >-
+      The substance is untouched -- grep fires, ast does not, and I reproduced
+      that. But the round's own finding 3 is that this board's dominant defect
+      family is figures whose domain was never stated, and these two are
+      instances of it inside the report that names the family. Worth stating so
+      the pattern is not read as applying only to other people's numbers.
+
+  - id: F-007
+    severity: info
+    confidence: high
+    source: measured
+    title: >-
+      AC-3's "the two protected node ids" cannot be correct under any reading.
+      The round's flag is right; the card text needs the fix.
+    measured: >-
+      The protected list names five items. One is a helper module with no node
+      ids. The A4 golden alone resolves to two classes in two files with ~130
+      parametrised node ids between them. The mask_runs cross-check is a further
+      single node id (tests/test_solver.py:619). So "two" matches nothing: there
+      are either 4 protected TARGETS (the round's reading, and the right one) or
+      ~136 node ids.
+    judgement: >-
+      It does not matter for this card -- the intersection is empty because only
+      two files changed and none of the five lives in either, so no reading of
+      "two" changes the verdict. It matters for the NEXT card that reads AC-3 as
+      a gate instruction, because an under-specified gate is one a round can
+      discharge by naming any two things. Over-covering to four was the correct
+      response. Fix the card text to name the four targets by path.
+
+# ---------------------------------------------------------------------------
+# WHAT I MEASURED TO BE WRONG IN THE BRIEF / CARD / ROUND REPORT
+# ---------------------------------------------------------------------------
+measured_wrong:
+  in_the_round_report:
+    - "'a third importer now covered' -- zero delta; the survivor covered it at the fork point (F-004)."
+    - "'a grep instrument would have fired 7 times per file' -- 5 at the fork point, by both grep domains (F-006)."
+    - "'ast used 10x elsewhere' in the frame file -- 22 load-context reads at HEAD (F-006)."
+    - "'~255 s the digest attributes to five tests' -- the five of that file inside the digest's top 7 sum to 258.78 s. Rounded against its own argument, so harmless."
+    - "AC-4's '0 fallen' is presented as a measurement; on this diff it is vacuous by construction (F-002)."
+  in_the_brief:
+    - >-
+      The brief asks whether the survivor's bound "catches the planted shape but
+      not a neighbouring one", framing the risk as a predicate gap. There is no
+      predicate gap and there cannot be one: the deleted guards' bodies ARE the
+      helper function's body, inlined. The real divergence is the file-set
+      selector, which the brief's list of shapes (nested function,
+      comprehension, aliased import, call through a variable) only brushes with
+      "an aliased import of the helper" -- and that one turns out to be the live
+      defect (F-001). Worth recording that the question was nearly right.
+  nothing_wrong_in:
+    - "the card's three self-findings -- all three reproduce, figures included."
+    - "AC-2, AC-3 and AC-5 as reported -- reproduced exactly, including both collects being real runs and the AC-5 pair's two distinct failing assertions."
+    - "the one-file-at-a-time discipline and its necessity -- reproduced, including the short-circuit."
+    - "the cost conclusion -- my reps are weaker than the round's, so its honesty is complete."
+
+# ---------------------------------------------------------------------------
+# RUNS
+# ---------------------------------------------------------------------------
+runs:
+  all_out_of_tree: true
+  lock_clear_on_every_batch: true
+  entries:
+    - "3-node guard set (survivor + both per-file guards), BEFORE arm, unmutated: 3 collected, 3 passed, 0 skipped, 1.80 s"
+    - "same 3 nodes under 6 planted shapes x band-only, BEFORE arm: 1.55-1.82 s each; 4 shapes gave 2 failed/1 passed, 2 shapes gave 3 passed (see the matrix)"
+    - "same 3 nodes, frame-only plant: 2 failed, 1 passed, 1.44 s"
+    - "same 3 nodes, both planted: 3 failed, 1.35 s, survivor names band only"
+    - "synthetic-importer experiment, AFTER arm, 3 arms: 1 collected each, 1 failed / 1 passed / 1 passed, 1.30-1.40 s"
+    - "whole-tree --collect-only -q, BEFORE arm: 9819 collected, exit 0, 7.78 s"
+    - "whole-tree --collect-only -q, AFTER arm: 9817 collected, exit 0, 7.51 s"
+    - "whole-tree --collect-only -q, AFTER arm, second independent run: 9817 collected (negative control)"
+    - "affected scope (4 files), BEFORE arm, 3 reps: 257 collected, 257 passed, 0 skipped, 13.14-13.40 s"
+    - "affected scope (4 files), AFTER arm, 3 reps: 255 collected, 255 passed, 0 skipped, 12.98-14.33 s"
+    - "AC-5 pair unmutated, AFTER arm, 3 reps: 2 collected, 2 passed, 0 skipped, 23.17-23.80 s session (17.05/16.61/16.70 s and 6.64/6.47/6.37 s call)"
+    - "AC-5 pair under the DOOR_ARMS mutant: 2 collected, 2 failed, 0 skipped, 6.32 s"
+    - "protected set (4 targets), AFTER arm: 70 collected, 70 passed, 0 skipped, 11.83 s"
+  failures_outside_mutants: none
+  skips: 0
+
+# ---------------------------------------------------------------------------
+# RECOMMENDATION
+# ---------------------------------------------------------------------------
+recommendation:
+  land: true
+  score: 8.5
+  rationale: >-
+    Above min_score 8 on cycle 1. The deletions are proven, the proof is the
+    strongest shape available (same code, not similar code), the decisive
+    methodological step is correct and necessary and I reproduced the
+    short-circuit it defeats, four shapes the round did not try are all caught,
+    AC-2 and AC-3 and AC-5 reproduce exactly, both collects were real runs, no
+    skip was leaned on, no protected path was touched, no src/** was edited, and
+    the card's three self-findings all hold with their figures. The cost honesty
+    is complete and understated.
+    F-001 is the finding the round owed and did not make, but it does not make
+    the deletion wrong -- coverage today is strictly wider than before -- so it
+    is a fix-round or follow-up item, not a reject.
+  before_merge_or_as_a_fix_round:
+    - "F-001: widen `_importers()` to the alias import form and tighten the :364 floor to the measured set. ~5 lines in tests/test_shared_fixture_controls.py, inside this card's widened field, with the same instrument proof (arm B must flip to red)."
+    - "F-004: rewrite the value sentence in the card's implementation record to what the diff did -- two inlined duplicates removed; the third importer was already covered."
+    - "F-002: add one line to the AC-4 section stating that the removed text contains no length comparison, so '0 fallen' could not have gone the other way on this diff."
+    - "F-003: name the three rejected groups and their node ids in the card's Worktree notes."
+  at_the_merge_gate:
+    - "AC-6's solo before/after wall clock, deferred by the step-6 deviation. Recorded, not asserted, so it does not gate -- but it is owed."
+  for_any_future_re_cut_of_this_card:
+    - "step 1's cost clause ('both expensive and suspected subsumed', 'cost alone is never a reason to delete') must be DELETED, not arbitrated: the card's own 2026-10-23 section already retired the cost premise and restated the scope without a cost gate. Leaving both texts standing is what produced self-finding 2."
+    - "AC-3 should name its four protected targets by path instead of 'the two protected node ids' (F-007)."
+    - "nothing may be re-cut from the 20261023 rankings without re-measuring in the intended regime -- 4.8x and 10.3x overstatement confirmed on the top two entries (self-finding 3)."
