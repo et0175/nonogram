@@ -1861,6 +1861,22 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "stack still holds each probe stroke as its own step"
     ),
     f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_keep_makes_the_probes_marks_savable_again": (
+        "CARD-268",
+        "rule 9's other end, and a gap a mutant found: while a probe is open "
+        "the save is the checkpoint prefix, so closing it has to write the "
+        "whole history again or the kept marks do not survive a reload",
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_a_reset_clears_the_open_probe": (
+        "CARD-268",
+        "rule 10, the second gap a mutant found: a reset clears any open "
+        "probe, and the reset stays one undo step whose undo does not reopen "
+        "it — without the close, Contradiction would un-reset the board",
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
     "TestSolverProbe_UndoClampsTheCheckpoint::"
     "test_undo_pops_probe_strokes_first_then_clamps": (
         "CARD-268",
