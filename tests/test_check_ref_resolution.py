@@ -1237,12 +1237,36 @@ RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 #: :data:`DEFINED` moves by the same three, at
 #: ``tests/test_suite_profile.py:6076``, ``:6371`` and ``:6403``, each read
 #: off a ``def`` line rather than searched for.
-CENSUS = (583, "57b561b47ed1934f")
+#:
+#: **2026-10-30, 583 -> 586** (CARD-314 fix round 3, when ``main`` was merged
+#: into ``card/314``). One authority moves: ``trace.yml``'s CON-020 row gains
+#: three entries in its ``tests:`` list, so ``trace.yml``'s contribution
+#: becomes 513 (:data:`TRACE_TESTS`) and the union gains three. Neither
+#: ``requirements.yml`` (404) nor the ADRs (47 distinct) changed -- all three
+#: refs are declared by ``trace.yml`` alone, so there is no new overlap to
+#: reconcile and 586 is 583 + 3 with no term cancelling. Re-derived as the
+#: symmetric difference of the WHOLE census against the base: exactly three
+#: refs enter and **nothing leaves**. The base is ``2c9238bc``, this merge's
+#: second parent -- ``main``'s tip as it was merged in -- and it reproduces all
+#: three stored baselines (583, 510, 392) exactly, which is what makes it the
+#: defensible base rather than merely a nearby commit. Unnamed here (G-2); all
+#: three are defined, so :data:`DEFINED` moves by the same three.
+CENSUS = (586, "8e863f4f1a052454")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
 #: ``tests:`` list derived 494 of these 510 and raised nothing.
-TRACE_TESTS = (510, "0ad7bd1af729a4bf")
+#:
+#: **2026-10-30, 510 -> 513** (CARD-314 fix round 3, after ``main`` was merged
+#: into ``card/314``). The card re-stamped ``trace.yml``'s CON-020 row with
+#: three more entries in its ``tests:`` list, so this authority -- and only
+#: this one -- gains three; :data:`CENSUS` and :data:`DEFINED` move by the same
+#: three, which is what one declaration event arriving with its definitions
+#: already in place looks like across all three classes. Re-derived as the
+#: symmetric difference of this class against the base, using this module's own
+#: :func:`_declared_refs`: exactly three refs enter and **nothing leaves**.
+#: Unnamed here (G-2); see :data:`DEFINED` for where each one is defined.
+TRACE_TESTS = (513, "873011178a1d2828")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1272,7 +1296,29 @@ TRACE_TESTS = (510, "0ad7bd1af729a4bf")
 #: 6076, 6371 and 6403 -- so the move is a DECLARATION arriving with its
 #: definition already in place, which is the one direction of census movement
 #: that needs no repair. Unnamed here for the same G-2 reason as above.
-DEFINED = (392, "a90eb1d1fc70d1ae")
+#:
+#: **2026-10-30, 392 -> 395**: CARD-314's CON-020 re-stamp, the same event that
+#: moved :data:`CENSUS` and :data:`TRACE_TESTS` by three. The symmetric
+#: difference against the base (``2c9238bc``, named at :data:`CENSUS`) is
+#: exactly three entering and **nothing leaving** -- so this is again a
+#: DECLARATION arriving with its definition already in place, the one direction
+#: of movement that needs no repair, and not a class shrinking because a file
+#: was synced in. Each entering ref was resolved to a real ``class`` line in
+#: ``tests/test_book_interior_type_floor.py`` at **1164**, **1804** and
+#: **2114**, read off the line itself rather than text-searched: all three
+#: match ``^class <name>[(:]`` there, as do the CON-020 row's other seven, so
+#: that row's ten refs all resolve after the round's rename. Unnamed here for
+#: the same G-2 reason as above.
+#:
+#: The derivation was proved in both directions rather than asserted. On two
+#: out-of-tree mutants of this same commit: removing ONE of the three entries
+#: from the ``tests:`` list gives 394 with two entering and 512 on
+#: :data:`TRACE_TESTS`; renaming ONE of the three ``class`` lines (line count
+#: preserved, blob checked back) gives 394 with two entering while
+#: :data:`TRACE_TESTS` stays 513 -- so the two halves of the measurement are
+#: independent, and a derivation that could not tell those trees apart would
+#: not be one.
+DEFINED = (395, "49c718f918f22b2c")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
