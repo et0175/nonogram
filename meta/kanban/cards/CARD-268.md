@@ -1,6 +1,6 @@
 # CARD-268: Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** `card/268-player-probe-mode`
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-268
+**Worktree:** — (removed at merge; 61 worktree-only files — the mutation harnesses, raw verdicts, run logs and the renders — preserved at `~/Documents/nonogram-reviews/CARD-268/`, 82 files in all)
 **Source:** quick — owner decision 2026-10-22 (player-convenience session, option 2: "for puzzles that need contradiction-probing add another color for probing cells", shaped in the same session into a transaction, not just a color); no handoff increment
 **Idea:** —
 **Wave:** 69 <!-- STAMPED 2026-10-30 at dispatch. Owner decision: "we agreed before to take 309+268". Its drafting-time conflict note named CARD-267 (crosshair) as the card it would serialize against -- CARD-267 merged `4b4a26e7` in wave 63, so that contention is gone. Against CARD-309 the measured Touches intersection is EMPTY. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_probe.py, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_page.py, tests/test_admin_design_tokens.py, tests/test_browser_fixture_scope.py (the `tokens.css` this line predicted was NOT touched — the marker is derived in `admin.css` from design tokens, which is the precedent CARD-267's crosshair and CARD-269's hint line both set; `page.py` and `browser_fixture_scope.py` are the two frozen censuses the suite enforces, added at review cycle 1 F-006)
-**Review score:** cycle 1 **7.5 — did NOT certify** (2 open important, 0 critical) → **fix round 1 complete**, cycle 2 running. **F-001 closed by MOVING CHANNEL** on the owner's decision: the marker is a **dashed outline** and the probe declares **no `background` at all**. Separations against every ground a probe cell can have — paper 66.26, crosshair 58.46, hint line 64.23, ink 71.47, crossed ink 56.85, hint-lined ink 51.19 — against a floor of 20, **8.7× the JND**. **Verified by the orchestrator re-firing its own probe:** the marker made visually absent now reds 3 cells on `TheMarkerIsMeasurablyApartFromItsGround` where the identical mutant previously passed **39/39**. **F-002 closed in both places**, and the insight is that **one number provably cannot carry rule 6** — an open probe's own undone stroke and a stroke undone before it leave `done.length` identical — so the probe became a frozen **set of stroke identities**, with the oracle rewritten independently and the demonstration run **both directions**. Its own honest negative: **T5** shows the filled-variant rule's real justification is **contrast** (3.57:1 → 8.22:1), not ΔE, because ΔE76 is lightness-dominated. Gate **591 passed / 0 skipped** (+10 = exactly its ten new node ids). **It also corrected a figure in the orchestrator's brief** (`background` claimants: 9 asserted, **6** counted from the rules).
+**Review score:** **9.0 (cycle 2/3) — CERTIFIED**, 0 critical / 0 important; cycle 1 **7.5 NOT certified** on two owner-decided findings, one fix round between, plus **one build-fix round before review** and **one post-certification census fix at the merge gate**. Final gate **9967 passed / 27 skipped / 1 xfailed / 0 failed in 22:21**, exit 0.
 **Started:** 2026-10-30T11:58:28Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-30T20:08:38Z
+**Actual:** 1.0d
+**Merge commit:** `2d9793e5` (gated tree `056bb48c`)
 **Blocked by:** —
 
 ## Why a transaction and not a fifth cell state
