@@ -21,6 +21,33 @@ Observed in the repository on **2026-10-29** (CARD-285):
 - Nothing under `src/nonogram/**` references the assembler, and `pyproject.toml` ships
   no `player/` package data.
 
+## What production is
+
+Observed on **2026-10-30**, at the first deploy. Everything here was read back from
+the CLI or fetched over the network, not copied from a plan.
+
+| Fact | Value |
+| --- | --- |
+| Project | `nonogram-studio`, id `prj_9SoVGUETjWldt1HN3CwrC8GCZbF1` |
+| Scope | `et0175's projects` (`team_p379UJJnEKFQ9nJC15tzcTyp`) |
+| Production URL | `https://nonogram.adverax.io` — the owner's custom domain, registered and verified serving this site 2026-10-30 (DNS is third-party; Vercel lists `adverax.io` and `nonogram-studio.co` under the scope) |
+| Vercel URL | `https://nonogram-studio-et0175s-projects.vercel.app`, still answering |
+| Framework Preset · Build Command · Root Directory | `Other` · none · `.` |
+| Output Directory | "`public` if it exists, or `.`" — the deploy root *is* the site |
+| Deployed from | the Vercel CLI, out of `build/site`; **no Git repository connected** (the CLI's own attempt to connect `et0175/nonogram` failed, which is the wanted outcome — see "Why not a git-driven deploy of the same tree") |
+| Deployment Protection | **disabled** by the owner on 2026-10-30. It was on by default for a project under a team scope, and every path answered `302 → vercel.com/sso-api`; a printed QR code pointing at an SSO login would have been worse than no QR code |
+| Counting | none: the deployed tree was assembled without `--analytics`, because the GoatCounter site code below is still a placeholder |
+| Bundle behind it | exported 2026-10-29 — 160 puzzles, one book (`6578fe3f67`) |
+
+Checked on the live site the same day: `/library`, `/play/<key>` and `/b/<slug>` all
+200, the served `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`,
+`width` (no solution, no puzzle title), and the served `solver_state.js` is SHA-256
+identical to `src/nonogram/admin/static/solver_state.js` — ADR-0041/R3's
+byte-identical copy, verified against production rather than against the assembler.
+
+`TODO(owner): confirm Auto-Deploy in the dashboard and record it here.` With the CLI
+publish this page documents, a push should deploy nothing at all.
+
 ## What is owner-managed and what is repo-managed
 
 | Thing | Who owns it |
@@ -33,28 +60,67 @@ Observed in the repository on **2026-10-29** (CARD-285):
 | The allow-list and the QR shapes on this page | Repo. This page is read by the tooling; see the two blocks below. |
 | The bundle's contents | Repo code, owner action: the panel's **Export player bundle** button. |
 
-### Owner steps, in order
+### The first deploy, start to finish
 
-Each one says what evidence to bring back here, because this page is the only place the
-repository records what production is.
+The owner steps and the commands, in the order they have to happen. Each step says
+what evidence to bring back to this page, because this page is the only place the
+repository records what production is. Nothing below has been run — every step is
+`TODO(owner)` until someone does it and dates it here.
 
-1. **`TODO(owner)`: create the Vercel project** from this repository, with
-   *Framework Preset:* **Other**, *Build Command:* **empty**, *Output Directory:* the
-   directory the assembly helper wrote (see "Publishing a new bundle"). A static tree
-   needs no build step and no toolchain (ADR-0041/R3). *Evidence to record here:* the
-   production domain, and the Output Directory setting as the dashboard shows it. Read
-   "Deploying the tree" first: for the CLI publish this page documents, the Output
-   Directory setting does not route anything, and the directory this step asks for is
-   one a git-driven deploy could not see anyway.
-2. **`TODO(owner)`: write the production domain into the QR block below**, replacing the
-   placeholder, and re-run the assembly helper so the site and this page agree.
-   CARD-210 (printed QR codes) is blocked on exactly this value.
-3. **`TODO(owner)`: create the GoatCounter site**, note its code, and if it is not
-   `nonogram` put the real one in the allow-list block below — in that one line — then
-   re-run the helper. *Evidence to record here:* the site code and the date.
-4. **`TODO(owner)`: confirm Auto-Deploy**. The admin panel's deploy was bitten by a
-   dashboard setting nobody wrote down (`docs/deploy/render.md`, the 2026-09-23
-   incident). *Evidence to record here:* the toggle's state and the date.
+**The project is created by the first deploy, not in the dashboard.** The CLI asks
+what it needs and writes the project; there is no "Framework Preset / Build Command /
+Output Directory" form to fill in first, because a static tree has no build step
+(ADR-0041/R3) and because the directory those settings would name is one a
+git-driven deploy could not see anyway (see "Deploying the tree" below for the
+measurement).
+
+1. **Sign in to the CLI.** `vercel login`, once per machine. It opens a browser.
+   Observed 2026-10-29: the CLI is installed (59.11.7) and its stored token is
+   stale, so this step is real rather than a formality. In Claude Code, run it as
+   `! vercel login` so the prompts reach you.
+2. **Export the bundle** — the admin panel's **Export player bundle** button.
+   Only non-draft books reach it; the panel says so if the book you pressed it
+   from is a draft. Details in "Publishing a new bundle" below.
+3. **Assemble the site** — "Publishing a new bundle" step 2. For this first
+   deploy, drop `--analytics` from that command: the counting endpoint is still a
+   placeholder until step 7, and the pages render and play with no snippet at all.
+4. **Look at it before publishing it.**
+   `./.venv/bin/python scripts/preview_player_site.py build/site 8081`, then open
+   `/library`, one `/play/<key>` and one `/b/<slug>`. A plain `python -m
+   http.server` is the trap here — it 404s every rewrite while `/library` keeps
+   working, which reads as a broken tree on a tree that is fine.
+5. **Create the project and deploy, in one command:**
+
+   ```bash
+   cd build/site && vercel deploy --prod
+   ```
+
+   The first run has no `.vercel/` to read, so it asks: the scope (your account or
+   a team), whether to link to an existing project, and a project name — the name
+   decides the default domain, so `nonogram-player` gives
+   `nonogram-player.vercel.app`, which is the shape the QR block below currently
+   guesses. Non-interactively the same thing is `vercel link -p nonogram-player
+   -y` followed by the deploy. *Evidence to record here:* the production domain the
+   deploy prints, and the date.
+6. **Write the domain into the QR block below**, replacing the placeholder, and
+   re-assemble so the site and this page agree. CARD-210 (printed QR codes) is
+   blocked on exactly this value, and a printed base cannot be changed later —
+   see drift step 3.
+7. **Create the GoatCounter site**, note its code, and if it is not `nonogram` put
+   the real one in the allow-list block below — in that one line. Then re-assemble
+   **with** `--analytics` and deploy again. This is the first counted tree, and it
+   is deliberately last: a visit that was never counted cannot be counted later,
+   and counting to a site code that does not exist is worse than not counting.
+   *Evidence to record here:* the site code and the date.
+8. **Confirm Auto-Deploy** in the dashboard, and record the toggle's state. The
+   admin panel's deploy was bitten by a dashboard setting nobody wrote down
+   (`docs/deploy/render.md`, the 2026-09-23 incident). With the CLI publish this
+   page documents, a git push should deploy nothing at all; if the dashboard says
+   otherwise, that disagreement is the thing to record.
+
+After the first deploy, a publish is steps 2, 3 and 5 — and step 5 is just the one
+command, provided the project identity survives (see "The project link cannot live
+in the output directory" below; it does not survive by default).
 
 ## The three doors
 
@@ -76,16 +142,30 @@ only the owner can supply.
 
 <!-- BEGIN qr-url-shapes -->
 ```
-base    = https://nonogram-player.vercel.app
+base    = https://nonogram.adverax.io
 book    = {base}/b/{slug}
 play    = {base}/play/{key}
 library = {base}/library
 ```
 <!-- END qr-url-shapes -->
 
-`TODO(owner): copy the production domain from the Vercel dashboard` — the `base` above
-is Vercel's default shape for a project named `nonogram-player` and has **not** been
-observed. `{slug}` is `player_bundle.book_slug` of the book's ordered keys; `{key}` is
+The `base` above is the owner's **custom domain**, registered on 2026-10-30 and
+**observed serving this site the same day**: `/library`, `/play/<key>`, `/b/<slug>`
+and `puzzle/<key>.json` all answer 200 on it, the served puzzle file carries the same
+five fields and no answer, and `solver_state.js` is SHA-256 identical to the panel's.
+This is the base a printed QR code should carry — it is short, it is the owner's, and
+it does not move if the project is ever rebuilt or renamed on the host.
+
+The project's Vercel URL (`https://nonogram-studio-et0175s-projects.vercel.app`,
+"What production is" below) still answers and is the fallback if DNS is ever pointed
+away. It is the *team-suffixed* form because the bare `nonogram-studio.vercel.app`
+is already another of the owner's projects — it serves a page titled "My Google AI
+Studio App" — so that shorter domain was never available to this one.
+
+`TODO(owner): copy the production domain here again if the custom domain is ever
+moved or retired.` That is the one way this value still moves, and a printed base
+cannot be re-pointed (drift step 3): a book carries whatever was true the day it was
+printed. `{slug}` is `player_bundle.book_slug` of the book's ordered keys; `{key}` is
 ADR-0041/R1's 10 hex characters.
 
 ## Publishing a new bundle

@@ -375,3 +375,28 @@ standard-library-only and knows nothing about `docs/`.
 Read `docs/deploy/player.md` before deploying: it has the owner steps, the QR
 URL base and the three URL shapes, and what is owner-managed rather than
 repo-managed.
+
+## `preview_player_site.py` — look at an assembled site before deploying it
+
+Serves an assembled tree locally **with `vercel.json`'s rewrites applied**:
+
+```bash
+./.venv/bin/python scripts/preview_player_site.py            # build/site on 8081
+./.venv/bin/python scripts/preview_player_site.py build/site 8081
+```
+
+`python -m http.server` is the trap this exists for. Two of the three doors are
+rewrites rather than files — `/play/<key>` and `/b/<slug>` are one document each,
+and the page reads the key or slug out of the path — so a plain static server
+answers 404 for every puzzle while `/library` keeps working by directory index.
+That partial failure reads as a broken tree on a tree that deploys fine
+(measured 2026-10-29).
+
+The rules come from the **served tree's own `vercel.json`**, the same file the
+host routes by and the fixtures in `tests/test_public_player_pages.py` derive
+from, so the preview cannot drift from the deploy. A directory without
+`player/assemble.py`'s `.player-site` marker is refused rather than served.
+
+It is not Vercel's router and not a deploy rehearsal: no cache headers, no
+`cleanUrls`, no trailing-slash semantics. It answers "do the pages render and
+play", and nothing else.
