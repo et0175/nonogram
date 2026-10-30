@@ -155,6 +155,68 @@ ten tests written to retire ten warnings.
   partial)`, which is a **separate and larger** population from the dead refs and is
   **not** this card's subject.
 
+## [Cycle 1's two orchestrator-caused findings, closed 2026-10-31]
+
+Review cycle 1 scored **7.0** on three Important findings. **Two were the
+orchestrator's, both caused by the AC-142 demotion**, and both are closed here.
+
+### F-001 — the demotion ADDED a warning, and the count hid it
+
+AC-6 demands *"no warning of any kind added"*. The first demotion's `then` read
+*"the unknown value is reported to the admin and then ignored, and every puzzle
+is listed"*, and the validator flagged it: **`'then' bundles several outcomes —
+split into separate acceptance criteria (one behaviour each)`**. The rule is
+`then.count(" and ") >= 2`, and that sentence named **two observables** — a flash
+appears, and the listing is unfiltered.
+
+**The count concealed it.** The demotion cleared AC-142's dead ref (**−1**) and
+added the bundling warning (**+1**), so the total stayed at **91** while the set
+changed. A figure read off the summary line rather than the rows was therefore
+*correct and useless* — exactly the trap this card family exists to remove,
+landing on the card's single most load-bearing figure.
+
+**The fix is not a reword around the count.** Dropping one ` and ` for a ` so `
+would satisfy the heuristic and still bundle two outcomes. So the second
+observable was **removed from the criterion** instead: AC-142's `then` now states
+the one outcome the negative case is about — what happens to the listing — and
+the flash, still asserted by the same test at `tests/test_strategies.py:521`, is
+named in a comment as a second observable that would need its own criterion
+rather than being silently dropped.
+
+### F-002 — the demotion never reached `trace.yml`
+
+`trace.yml` still listed `TestPuzzleReview_RejectsUnknownStrategyFilter` (**no
+definition**) and still said AC-142 was *"held open on an owner decision"*, which
+`3a4052a4` had settled. Two model artefacts contradicted each other and **the
+wrong one is what a trace-matrix reader reaches first**.
+
+Both are fixed, and the mechanism is recorded in `trace.yml` itself because it is
+the same one that produced the original ten: **the validator does not check
+`trace.yml`'s `tests:` entries at all**, so a name there can name nothing and
+nothing says so. Cycle 1 caught it only by resolving the names by `ast`
+definition instead of trusting the file.
+
+### AC-6's figure, re-measured FROM THE SETS
+
+Validator of record (`forge_1`'s, per `config.yml:38`), at the merge-base
+`ef242847` in a throwaway worktree versus this HEAD, warnings compared as **sets**:
+
+| | |
+|---|---|
+| merge-base | 0 errors, **100** warnings |
+| HEAD | 0 errors, **90** warnings |
+| difference | **10 REMOVED, 0 ADDED** |
+
+The ten removed are exactly FR-029's AC-136..AC-143 and EC-017/EC-018 check-ref
+warnings. **So AC-6 is satisfied** — and the card's own "9 removed" **understated
+it**: the demotion bought the tenth after all. The same stale read made the card
+understate its achievement and overstate its cleanliness at once.
+
+**F-003 remains open** and is the card's own: the M6/M9 spy discriminates
+`-> []` but not `-> ['simple_overlap']`, so its predicate is "truthy and within
+`STRATEGY_NAMES`" rather than identity with that puzzle's list, which is what
+AC-139's wording demands. It needs an assertion, not a re-measurement.
+
 ## Worktree notes
 
 ### The premise, re-derived — and disconfirmed

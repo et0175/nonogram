@@ -1529,7 +1529,7 @@ links:
   - TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage
   - TestExport_JSONCarriesStrategiesInOrder
   - TestPuzzleReview_FiltersListByStrategy
-  - TestPuzzleReview_RejectsUnknownStrategyFilter
+  - test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value
   - TestPuzzleReview_DetailShowsStrategiesInOrder
   - TestPropertySolveStrategies_GuessIffSearchBranched
   - TestPropertySolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
@@ -1537,9 +1537,21 @@ links:
     CARD-318 2026-10-30: the eleven names above were DEAD until this card —
     no definition of any of them existed under tests/. They now resolve to
     tests/test_solver_strategies.py and tests/property/test_solve_strategies.py,
-    EXCEPT TestPuzzleReview_RejectsUnknownStrategyFilter (AC-142), which is
-    held open on an owner decision: the shipped route IGNORES an unknown
-    strategy and lists everything, which is the opposite of what AC-142 says.
+    EXCEPT AC-142's, which was held open on an owner decision and is now
+    SETTLED (2026-10-31): the shipped route reports an unknown strategy and
+    then ignores it, listing everything — the CARD-066 status-filter pattern,
+    and the opposite of what AC-142 used to say. The owner chose to move the
+    CRITERION rather than the product, so AC-142 was demoted in
+    requirements.yml and its ref now points at CARD-072's own
+    test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value
+    (tests/test_strategies.py:489), which has covered this behaviour since it
+    shipped. The name above is updated to match.
+    WHY THIS LINE WAS STALE FOR A WHILE, because it is the same mechanism as
+    the ten dead refs this card is about: the validator does not check
+    trace.yml's `tests:` entries at all, so a name here can name nothing and
+    nothing says so. Review cycle 1 caught it (F-002) by resolving these names
+    by ast definition rather than by trusting the file — which is the only way
+    this class of defect surfaces.
     The two property names were also renamed off the `PropertyTest_` prefix,
     which pytest's default `python_classes = Test*` never collects. NOTE the
     notes below are the 2026-09-12 intake state and are now WRONG in detail:

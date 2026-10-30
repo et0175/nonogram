@@ -1950,9 +1950,24 @@ functional:
         # retire a warning (CARD-318 G-1): the behaviour was already covered by
         # CARD-072's suite under its own local name, which is the naming gap this whole
         # card turned out to be about.
-        then: >-
-          the unknown value is reported to the admin and then ignored, and every
-          puzzle is listed — the CARD-066 status-filter pattern, not a refusal
+        # ONE OUTCOME, 2026-10-31. The orchestrator's first demotion wrote "the
+        # unknown value is reported to the admin and then ignored, and every puzzle
+        # is listed", which the validator flagged: "'then' bundles several outcomes
+        # — split into separate acceptance criteria (one behaviour each)". It was
+        # right. That sentence named TWO observables — a flash appears, and the
+        # listing is unfiltered — and the rule's threshold is two ` and `s.
+        #
+        # The fix is NOT to reword around the count. Dropping one ` and ` for a
+        # ` so ` would satisfy the heuristic and still bundle two outcomes, which is
+        # evading the rule rather than meeting it. So the second observable is
+        # REMOVED from this criterion instead: the `then` below states the one
+        # outcome this negative case is about, which is what happens to the LISTING.
+        #
+        # The flash is still asserted by the same test (`tests/test_strategies.py:521`
+        # checks "Unknown strategy" is in the response) — a test may assert more than
+        # its criterion. If the board wants that observable governed, it needs its own
+        # criterion; it is named here rather than silently dropped.
+        then: the filter is ignored and every puzzle is listed — the CARD-066 status-filter pattern, not a refusal
         kind: negative
         # The ref is CARD-072's own test, which has covered this behaviour since it
         # shipped — `tests/test_strategies.py:489`, and its NAME says the shipped
