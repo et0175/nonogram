@@ -3235,6 +3235,18 @@ class Generator:
     #: (ADR-0039/R3): a site appearing or vanishing reds here and says which.
     #: ``book_page_spec``'s seed is counted in it now that its slot is read
     #: from its signature (F-203).
+    #: CARD-309 added ``toc_page_number``, and the name is the whole of the
+    #: delta: the TOC's own page number is now **bound** in
+    #: ``interior_stream``'s page loop instead of spelled inside the one call
+    #: that used it, because the vector arm the card added needs it twice (its
+    #: sheet, and the folio the downstream writer sets). Measured both ways
+    #: before choosing: spelled inline in all three places, this walk's site
+    #: count and vocabulary are unmoved and
+    #: :meth:`test_every_guide_counting_expression_counts_the_title_page`'s
+    #: census goes **9 -> 11**; bound, that census is unmoved at 9 and this
+    #: tuple gains one name. The second is the honest statement of what
+    #: happened — a name in that walk now carries the TOC's page number — and
+    #: it is one claim rather than two moved counts.
     POSITION_NAMES = (
         "first_answer_page",
         "first_page",
@@ -3242,6 +3254,7 @@ class Generator:
         "page_number",
         "puzzle_page",
         "title_page_number",
+        "toc_page_number",
     )
     #: CARD-298: 25, not 24. The one added row is a ``parameter default`` —
     #: ``vector_title_page(page_number)`` at ``book_pdf_generator.py:4998``,
@@ -3689,9 +3702,54 @@ class Generator:
         # still strict drops (274, 354, 2, 211), which is what this table is
         # for; the figures moved because the module gained calls, not because
         # a class started absorbing something new.
-        ((), 841),
-        (("builtins",), 567),
-        (("builtins", "definitions and imports"), 213),
+        #
+        # **CARD-309 re-measured it again, and one of the four moves is this
+        # card's whole subject.** 841 -> 855, 567 -> 579, 213 -> 214,
+        # 211 -> 211, and the steps 274/354/2/211 -> 276/365/3/211. Attributed
+        # rather than pasted, which the last step is what makes possible:
+        #
+        # * **+14 before any class** -- the module gained calls: four
+        #   ``page_medium`` gates, four ``self.page_spec`` sheets, a
+        #   ``page_frame``, an ``InteriorPageWriters()``, four
+        #   ``_drawn_downstream`` draws and the one indirect call inside it.
+        # * **2 of those absorbed by ``builtins``** and **11 by ``definitions
+        #   and imports``** -- every one of the above is either a builtin or a
+        #   name this module's own text defines or imports, which is why the
+        #   step moves and no class starts absorbing a new *kind* of thing.
+        # * **+1 absorbed by ``parameters``, and that one is the card.** It is
+        #   ``_drawn_downstream``'s own ``writer(*args, **keywords)``: the
+        #   single place this module calls a page writer it may not import
+        #   (ADR-0042/R1's assembly point, ``InteriorPageWriters``). An
+        #   injected callable is by construction a callee this walk cannot
+        #   anchor to a definition; routed through one function's **parameter**
+        #   it lands in the class this file already declares and controls for
+        #   exactly that shape, instead of in one refusal per gate that no
+        #   class absorbs. **Mutant-measured, and stated at the reach one
+        #   mutant shows**: calling the injected writer through a local bound
+        #   in a single gate (the TOC's) puts **one** unabsorbed refusal in
+        #   this module and reds two cells of this class —
+        #   :meth:`test_the_page_position_set_is_derived_from_the_one_geometry_door`
+        #   and
+        #   :meth:`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`.
+        #   The four-gate version of that shape was measured at four
+        #   unabsorbed refusals and five red cells in this class while the card
+        #   was being written; that figure is recorded in CARD-309's notes and
+        #   is not claimed here, because no single mutant reproduces it.
+        # * **the last two steps are still 0** -- the shipped arm refuses
+        #   nothing, which is the claim this table exists for and the one that
+        #   did not move.
+        #
+        # Independently counted, in a different domain, by the one-liner
+        # above: the module gains **+20** ``ast.Call`` nodes (912 -> 932)
+        # against this walk's **+14** refusals. The residue is six, and they
+        # are the calls this walk resolves rather than refuses: four
+        # ``self.page_spec`` (``self`` is a receiver the module defines), and
+        # the two ``vector_puzzle_page``/``vector_two_up_page`` gate calls,
+        # which are methods of the same receiver. Two readings, one
+        # reconciliation, no unexplained remainder.
+        ((), 855),
+        (("builtins",), 579),
+        (("builtins", "definitions and imports"), 214),
         (("builtins", "definitions and imports", "parameters"), 211),
         (
             (
@@ -5622,7 +5680,19 @@ class Generator:
         # measured on from the plan's own position exactly as
         # ``_two_up_page`` does. Same door, definition count still one, so
         # 19 + 1 = 20 under cycle 2's occurrence rule.
-        assert inside == 19, inside
+        # CARD-309: 23, and the four added calls are **named one per gate**
+        # rather than counted. ``interior_stream``'s page walk now draws the
+        # guide, the TOC and both shapes of answer page in the medium
+        # ``page_medium`` declares for the kind (ADR-0042/R1), and each of
+        # those four arms asks the same door for its page's own sheet:
+        # ``self.page_spec(guide_page_number)``,
+        # ``self.page_spec(toc_page_number)`` and ``self.page_spec(page_number)``
+        # twice in the answer loop (once for a packed page, once for a full
+        # one). Same door, definition count still one, so 19 + 4 = 23. A
+        # cross-check that the figure is the gates and not a drift: the module
+        # holds 23 ``self.page_spec(`` occurrences against HEAD's 19, counted
+        # by a plain text search, which is a second domain for the same four.
+        assert inside == 23, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "
