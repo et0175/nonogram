@@ -154,3 +154,268 @@ ten tests written to retire ten warnings.
   currently one of the 43 entries warning `requirement has no tests yet (status:
   partial)`, which is a **separate and larger** population from the dead refs and is
   **not** this card's subject.
+
+## Worktree notes
+
+### The premise, re-derived — and disconfirmed
+
+Step 1 was a walk of `src/`, not a read of this card's table. **FR-029's
+behaviour is not missing.** CARD-072 (done) shipped all of it and covered it in
+`tests/test_strategies.py` (521 lines, 17 tests) under its own card-local names
+(`test_strategies_*`). The registry's `test:` refs were written against the
+pre-implementation design and were never re-pointed, so ten criteria named
+symbols no definition in `tests/` ever had while reading as mechanically
+checked.
+
+Seams found in `src/`, all live:
+
+| seam | where |
+|---|---|
+| the solve's ladder | `solver/search.py:629` `rungs=tuple(...)`, `SolveSignals.rungs` |
+| `guess` appended off `branch_nodes` | `orchestrator.py:1302` (`record_difficulty`) — the one place it happens |
+| a second, independent derivation | `admin/regrade.py:486` `_strategies_used` |
+| random batch persistence | `admin/batch_generator.py:474` `strategies_used=list(puzzle.strategies)` |
+| image batch persistence | `admin/app.py:1993`, same value, different call site |
+| JSON export | `export/json_export.py:117` write, `:222` decode |
+| the strategy filter | `admin/puzzle_review.py:1687` (in-memory), `:1793` (SQL), vocabulary pinned at `:29` `STRATEGY_NAMES` |
+| unknown-value handling | `admin/app.py:2279` — flashes, then **ignores** |
+| the detail page | `templates/generated_puzzles.html:62` `<ol class="strategies">`, `/api/puzzle/<id>/details` |
+
+`requirements.yml`'s `evidence:` block for FR-029 is the 2026-09-12 **intake**
+state and is now wrong in every particular (it says the column is written as
+`[]` and the export carries no strategies). Flagged in place with a comment;
+not deleted, because it is a record of what was true when the FR was written.
+
+### Verdicts — all eleven, nothing unclassified (AC-1, ADR-0039/R2)
+
+The brief and this card both say **ten**. Measured, it is **eleven**: AC-135's
+ref `TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve` is equally absent
+from `tests/`, and does not warn only because the validator's check is a text
+search and the name occurs in 8 review YAMLs and 10 kanban cards. Two of those
+YAMLs state it "exists and passes" (`20260924T104859Z-CARD-145-cycle3.yml`,
+`20260930T123942Z-CARD-139-cycle1.yml`). This is the masking the memory note
+"Review YAMLs revive dead check refs" predicts, now measured on a second ref.
+
+| criterion | behaviour in `src/`? | verdict |
+|---|---|---|
+| AC-135 | yes | implemented-and-tested, ref misnamed **+ the `given` does not generate** |
+| AC-136 | yes | implemented-but-untested (no clock injection existed) |
+| AC-137 | yes | implemented, tested only at the aggregate; untested through a real branching solve |
+| AC-138 | yes | implemented-and-tested, ref misnamed |
+| AC-139 | yes, **both** paths | random tested; **image path untested** |
+| AC-140 | yes | implemented-and-tested, ref misnamed; order never pinned |
+| AC-141 | yes | implemented-and-tested, ref misnamed |
+| AC-142 | **yes, but the opposite of what the AC says** | **[BLOCKER] owner decision** |
+| AC-143 | yes | API order tested; **rendered order untested** |
+| EC-017 | yes | property untested; the branched arm was unreachable from a random corpus |
+| EC-018 | yes | determinism half tested; **end-to-end-preserved half untested** |
+
+**Partition.** implemented-but-untested (or under-tested) → **10**, repaired by
+test. not-implemented → **0**. behaviour present but contradicting its AC → **1**
+(AC-142, blocked). **orphaned by the CARD-106 renumbering → 0.**
+
+### Step 5 — the orphan hypothesis is false
+
+CARD-106 ("AC-122 through AC-143 each mean two different things", done) decided
+**explicitly not to renumber**: "Both runs are cited by tests and by closed
+cards." Its deliverable was a note in `requirements.yml` and a banner on each
+wave-0 card. The `# NB CARD-034/035/037 ... (CARD-106)` comments on FR-029 *are*
+that note. Measured: `requirements.yml` holds each of AC-135..AC-143 exactly
+once (and EC-017/EC-018 once each). The collision is with the wave-0 web-UI
+cards' **own local** AC numbering — CARD-034 owns 135-138, CARD-035 owns
+139-142, CARD-037 owns 143, which is exactly what the `# NB` lines attribute.
+**Nothing was orphaned and no id was reused in the registry.**
+
+### [BLOCKER] owner decision needed: AC-142 — build or demote?
+
+AC-142's `then` is *"the request is refused on the CARD-066 error branch and no
+puzzles are listed"*. The shipped route (`admin/app.py:2279`) flashes
+`Unknown strategy {value!r} — showing every strategy instead` and then **sets
+the filter to `None`**, listing every puzzle. That is deliberate and its comment
+says why: filtering on a name outside the vocabulary "would show an empty list
+that reads as 'nothing matches your other filters'". It is also exactly what
+CARD-066 did for the status filter, which AC-142 cites as its model — so the AC
+appears to have mis-stated the very pattern it names.
+
+Two honest outcomes, and both are the owner's:
+
+1. **Demote the AC** — rewrite the `then` to "reported and then ignored; every
+   puzzle is listed" and point it at the existing
+   `tests/test_strategies.py::test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value`.
+   Zero code change. Makes the registry describe the product.
+2. **Build the refusal** — change the route to refuse. That is a **product
+   behaviour change** on a live admin page, in a tech-debt card. G-2 forbids
+   doing it silently.
+
+**Left dead and untouched pending that call.** Writing a test for whichever
+side is easier to assert is precisely the defect this card family exists to
+remove (G-1). The dead-ref count therefore moves **9**, not 10 — see AC-6 below.
+
+### TDD — red→green, one line per criterion
+
+`TDD: true`, but every criterion's behaviour **predates** its test (that is the
+card's finding). So "red first" cannot mean "red because the feature is
+missing". The red of record is the AC-3 mutant: each test was written from the
+AC's `then` clause, run, and then shown red on a mutant in the behaviour it
+covers and green on restore. Two tests were additionally red on their first run
+for reasons that were real findings, not typos:
+
+- `AC-136: TestSolveStrategies_SameCluesSameListUnderDilatedClock red→green` —
+  **red on first run** at `assert slow.reads > 0`: the solver reads **no clock
+  at all** when `deadline is None`, so the dilated clock was not an input and
+  the test would have been vacuous. Fixed by passing a far deadline; the
+  measurement is now `reads=3`, apparent elapsed `3.0` vs `150.0`.
+- `AC-140: TestExport_JSONCarriesStrategiesInOrder red→green` — **red on first
+  run**: `ExportPayload` is slots-based and has no `__dict__`; switched to
+  `dataclasses.replace`.
+- `AC-135: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve red→green` (M1/M3)
+- `AC-137: TestSolveStrategies_GuessPresentWhenSearchBranched red→green` (M1)
+- `AC-138: TestSolveStrategies_GuessAbsentForLineSolvable red→green` (M1 discriminates: correctly PASSES)
+- `AC-139: TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage red→green` (M6 random, M9 image)
+- `AC-141: TestPuzzleReview_FiltersListByStrategy red→green` (M5)
+- `AC-143: TestPuzzleReview_DetailShowsStrategiesInOrder red→green` (M7)
+- `EC-017: TestPropertySolveStrategies_GuessIffSearchBranched red→green` (M1, M2)
+- `EC-018: TestPropertySolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd red→green` (M3, M8)
+
+### Mutant table (AC-3)
+
+Harness `scratchpad/card318/mutate.py`. Protocol: SHA-256 of the target
+asserted **before each mutant and after each restore** (all 9 `restore=ok`),
+restore from the in-memory original rather than `git checkout --` (which
+restores to HEAD and would have reverted the work, not the mutant),
+`PYTHONDONTWRITEBYTECODE=1` with a `*.pyc`/`__pycache__` sweep before and
+after each, `-o addopts=''`, and **one cell per node id** — a file-level verdict
+would hide an arm that never ran.
+
+| # | kind | target | node | verdict |
+|---|---|---|---|---|
+| M1 | deletion | `orchestrator.py` — the `guess` append | AC-137 aggregate | **FAILED** |
+| M1 | " | " | AC-138 aggregate | PASSED — correct discrimination: deleting an append cannot change a list that never had `guess` |
+| M1 | " | " | EC-017 corpus | **FAILED** |
+| M2 | deletion | `regrade._strategies_used` — the guess branch | EC-017 corpus | **FAILED** |
+| M2 | " | " | EC-017 hand-set counts | **FAILED** |
+| M3 | deletion | `json_export` — the `strategies` key | AC-140 written | **FAILED** |
+| M3 | " | " | AC-140 decoded | **FAILED** |
+| M3 | " | " | AC-140 reordered | **FAILED** |
+| M3 | " | " | EC-018 end-to-end | **FAILED** |
+| M4 | replacement (order only) | `json_export` — `sorted(...)` | AC-140 written | **FAILED** |
+| M4 | " | " | AC-140 reordered | PASSED — see below |
+| M5 | deletion | `puzzle_review` in-memory strategy filter | AC-141 | **FAILED** |
+| M6 | deletion | `batch_generator` — `strategies_used=[]` | AC-139 random | **FAILED** |
+| M7 | replacement (order only) | `generated_puzzles.html` — `|reverse` | AC-143 rendered | **FAILED** |
+| M8 | replacement (clock becomes an input) | `search.py` — ladder dropped when the solve *looks* slow | AC-136 | **FAILED** |
+| M8 | " | " | EC-018 dilated clock | **FAILED** |
+| M9 | replacement | `app.py` image route — `strategies_used=[]` | AC-139 image | **FAILED** |
+| M9 | " | " | AC-139 random | PASSED — correct discrimination: the mutant is in the image path only |
+
+Three mutants **survived on their first run** and each was a real defect, in my
+tests or in the mutant. All three are recorded rather than quietly re-rolled:
+
+- **M6 and M9 survived.** `add_puzzle` **derives** the list whenever its caller
+  hands it an empty one, so a generator passing `[]` still produces rows whose
+  column holds a real list — the store's safety net was hiding both call sites,
+  and a row-only assertion could not tell the two apart. The two tests now also
+  **spy on the hand-off**, which is what AC-139's "that puzzle's real list"
+  actually means. Both mutants red after the fix.
+- **M8 survived twice.** First version read `time.monotonic` from the `time`
+  module directly, which the tests do not patch (they patch
+  `solver.propagate.time`); second version sliced the ladder by a parity, which
+  cannot discriminate when the ladder has **one** rung — and `_settled_grid()`
+  produces exactly `('simple_overlap',)`. Third version drops the ladder when
+  the apparent elapsed time crosses a threshold, which the 1x/50x pair
+  separates deterministically (3.0 vs 150.0). A bad mutant looks exactly like a
+  strong test; only re-deriving it caught this.
+
+**M4's PASSED cell corrected a false claim in my own docstring.** The test had
+claimed it caught a sorting renderer. It does not: `sorted(reversed(STRATEGIES))`
+*is* `reversed(STRATEGIES)` for this fixture. The sorting mutant is caught one
+test up. The docstring now states what was measured instead of what was assumed
+— which is the same class of defect as the dead refs themselves.
+
+M4, M7, M8 and M9 are **replacements, not deletions**: a deletion cannot express
+"the order changed" or "elapsed time became an input", because neither is
+removable. Stated rather than passed off as deletion-only (AC-3's wording).
+
+### G-3 — the ref instrument, proven in both directions
+
+`scratchpad/card318/resolve_refs.py` resolves a ref by **`ast` definition**
+(`ClassDef`/`FunctionDef`) over `tests/**/*.py`, never by `git grep -lw`
+(`\b` is undefined in POSIX ERE and silently matches nothing). Proven on every
+run: it finds a known class (`TestComponentMap_EveryComponentIsListedExactlyOnce`),
+a known function (`test_reports_unique_solution`) and rejects a nonsense name
+(`NonsenseControl_ZZZ`). 9,742 distinct definition names indexed.
+
+### G-9 — the validator figure, with its binary
+
+Binary of record, from `meta/kanban/config.yml:38`:
+`/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture --phase all`
+(**not** the plugin cache copy, whose single ADR-0025 error is a regex artefact).
+
+| | errors | warnings |
+|---|---|---|
+| branch at start (== main) | **0** | **100** |
+| branch, committed | **0** | **91** |
+
+Warning **sets** diffed line by line, review YAMLs untouched and therefore
+equal on both sides: **9 removed, 0 added.** The nine are AC-136, AC-137,
+AC-138, AC-139, AC-140, AC-141, AC-143, EC-017, EC-018.
+
+**AC-6 reads 9, not 10.** The tenth is AC-142, held open for the owner above.
+A tenth could only be bought by asserting a behaviour the owner has not chosen.
+
+One mechanism worth recording for the next card: the validator's check is
+`git grep`, which **only searches tracked files**. The nine warnings did not
+move until the new tests were committed. A figure taken from an uncommitted
+tree is meaningless here.
+
+### G-7 — skip attribution, by name
+
+**Zero skips** across the impact set (`-rs`, `-o addopts=''`): `707 passed` with
+no `SKIPPED` line. Specifically, no DB-mode test skipped silently for want of
+`nonogram_test` — the memory note's "DB tests skip silently" failure mode did
+**not** fire here, because both database-touching arms are pinned to a real
+SQLite file (`_sqlite_scope`, per G-8) rather than reading `DATABASE_URL`:
+
+- `EC-018 :: test_the_aggregate_the_stored_row_and_the_export_hold_one_list` — real SQLite file, a real `strategies_used` column.
+- Every Flask-driven test deletes `DATABASE_URL` via `monkeypatch.delenv` before `create_app`, so none can reach `nonogram_poc` (G-8).
+
+### G-6 — nothing deleted, renamed, skipped or merged
+
+Proven by `git diff main --name-status -- tests/`: **two files, both `A`
+(added)**. No pre-existing test file was touched at all, so no node id —
+`parametrize` ids included — can have moved. The new files collect **21 node
+ids** across **10 classes**, verified by `--collect-only -q` with
+`-o addopts=''`.
+
+That verification is not a formality. `pyproject.toml` leaves `python_classes`
+at pytest's default `Test*`, so the registry's `PropertyTest_*` naming is
+**structurally uncollectable**: such a class never runs, with no skip and no
+error. EC-017/EC-018 are therefore named `TestPropertySolveStrategies_*` and
+`requirements.yml` is re-pointed at those names.
+
+### Belongs to another card
+
+1. **~40 `PropertyTest_*` refs across `requirements.yml` resolve only by
+   docstring text.** Measured: `grep -rn "^class PropertyTest_\|^def PropertyTest_" tests/`
+   returns **zero** definitions, yet most of those refs do not warn — including
+   FR-006's mandatory `PropertyTest_Solver_NeverFalsePositiveUniqueness`, which
+   the validator resolves against line 3 of `tests/property/test_solver_uniqueness.py`'s
+   **module docstring**. The tests behind them are real and do run under
+   `test_*` names; the *refs* are soft. Not fixed here: it is a board-wide
+   convention change, well outside a tech-debt card's scope, and it touches the
+   file CARD-317 and CARD-316 are queued on.
+2. **Two review YAMLs assert a test exists and passes when it does not** —
+   `20260924T104859Z-CARD-145-cycle3.yml` ("exists and passes") and
+   `20260930T123942Z-CARD-139-cycle1.yml` ("green in the full suite"), both for
+   `TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve`. Worth a pass over
+   the review corpus for the same shape.
+3. **FR-029's `delivery: CARD-072` and its `evidence:` block** disagree with the
+   code by a whole card. Commented in place here; a sweep for other FRs whose
+   intake evidence outlived its intake belongs elsewhere.
+
+### Shared-file etiquette
+
+`meta/architecture/requirements.yml` is shared with CARD-317 and CARD-316, which
+rebase onto this. Changes are **additive and local to FR-029**: three `test:`
+values, one `given`, and four comment blocks. No untouched entry was reflowed,
+no key reordered, no id renumbered. `yaml.safe_load` parses the result.

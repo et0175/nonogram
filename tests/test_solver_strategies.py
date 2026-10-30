@@ -390,12 +390,47 @@ class TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage:
     from the same aggregate field, and nothing covered it: the two are asserted
     together here because the AC names both and a fix to one has never implied
     the other.
+
+    Why the stored row is not enough, measured
+    -----------------------------------------
+    ``add_puzzle`` **derives** the list from its own uniqueness proof whenever
+    the caller hands it an empty one. So a generator that passed ``[]`` still
+    produces rows whose column holds a real non-empty list, and a row-only
+    assertion cannot tell the two apart: mutants that replaced both call sites'
+    ``list(puzzle.strategies)`` with ``[]`` left an all-row check **green**.
+    The AC's words are "that puzzle's real ... list", so what has to be
+    observed is the value the *generator handed over*, and both tests below
+    spy on the hand-off as well as reading the row back.
     """
 
     SAMPLE = ["LineLogic", "ConstraintProp"]
 
+    @staticmethod
+    def _spy_on(service: PuzzleReviewService) -> list[object]:
+        """Record the ``strategies_used`` every ``add_puzzle`` call is given.
+
+        The store's fallback is a genuine safety net and is not being removed;
+        it just has to stop hiding its callers.
+        """
+        handed_over: list[object] = []
+        real = service.add_puzzle
+
+        def spying(*args: object, **kwargs: object):
+            handed_over.append(kwargs.get("strategies_used"))
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        service.add_puzzle = spying  # type: ignore[method-assign]
+        return handed_over
+
+    def _assert_row_is_a_real_list(self, row: dict) -> None:
+        names = row["strategies_used"]
+        assert names, row["id"]
+        assert names != self.SAMPLE, row["id"]
+        assert set(names) <= set(puzzle_review.STRATEGY_NAMES), names
+
     def test_a_random_batch_stores_a_real_list_for_every_row(self) -> None:
         store = PuzzleReviewService()
+        handed_over = self._spy_on(store)
         generator = BatchGenerator(puzzle_review_service=store)
 
         # Ten is the smallest random batch the admin accepts (CARD-094).
@@ -404,9 +439,12 @@ class TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage:
 
         assert len(stored) == 10, len(stored)
         for row in stored:
-            names = row["strategies_used"]
-            assert names, row["id"]
-            assert names != self.SAMPLE, row["id"]
+            self._assert_row_is_a_real_list(row)
+
+        # The generator's own contribution, not the store's fallback.
+        assert len(handed_over) == 10, handed_over
+        for names in handed_over:
+            assert names, "the batch generator handed the store an empty list"
             assert set(names) <= set(puzzle_review.STRATEGY_NAMES), names
 
     def test_an_image_batch_stores_a_real_list_for_every_row(
@@ -418,6 +456,7 @@ class TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage:
         because the column is written inside a Flask route and there is no
         narrower seam to call.
         """
+        handed_over = self._spy_on(admin_app.puzzle_review_service)
         client = admin_app.test_client()
         with open(FIXTURES / "bird1.jpg", "rb") as handle:
             upload = client.post(
@@ -437,9 +476,12 @@ class TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage:
         )
         assert stored, "the image batch stored no puzzle, so the column is untested"
         for row in stored:
-            names = row["strategies_used"]
-            assert names, row["id"]
-            assert names != self.SAMPLE, row["id"]
+            self._assert_row_is_a_real_list(row)
+
+        # The route's own contribution, for the reason in the class docstring.
+        assert handed_over, "the image route never reached add_puzzle"
+        for names in handed_over:
+            assert names, "the image route handed the store an empty list"
             assert set(names) <= set(puzzle_review.STRATEGY_NAMES), names
 
 
@@ -497,11 +539,17 @@ class TestExport_JSONCarriesStrategiesInOrder:
         assert decoded.strategies == self.STRATEGIES
 
     def test_a_reordered_list_is_a_different_payload(self, tmp_path) -> None:
-        """Order is load-bearing, stated as a discrimination rather than an
-        equality: a renderer that sorted or set-ified the list would satisfy
-        both tests above if the fixture happened to be sorted already.
-        ``guess`` sorts last alphabetically-by-accident, so this uses the pair
-        whose order is not recoverable from the names.
+        """Order is load-bearing, stated as a discrimination: the same three
+        names in a different order must produce a different document.
+
+        What this does and does not catch, **measured** rather than claimed.
+        It reds on a renderer that drops the key (mutant M3). It does **not**
+        red on a renderer that sorts (mutant M4), because
+        ``sorted(reversed(STRATEGIES))`` is ``reversed(STRATEGIES)`` for this
+        fixture — the sorting mutant is caught one test up, by
+        ``test_the_written_array_is_the_list_in_order``, which M4 does red.
+        So the pair is what pins order, not either test alone; this one's own
+        job is a renderer that emits a constant list whatever it is handed.
         """
         reversed_payload = dataclasses.replace(
             self._payload(), strategies=tuple(reversed(self.STRATEGIES))
