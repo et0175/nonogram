@@ -204,3 +204,27 @@ below assume the repair lands somewhere this board can verify.)*
   this repository.
 - **Trace:** nothing is re-stamped by this card. Its effect on `trace.yml` is indirect
   and arrives as a changed warning set.
+
+
+## [Added 2026-10-30 from CARD-314's fix round 3] ADR-0039 carries a stale census figure, inside the rule about stale figures
+
+`meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md` states the ref census
+as **580** at two sites (**:275 and :287**). CARD-304 moved it to **583** and did not re-stamp the
+ADR; CARD-314 moved it to **586**. **It is now stale by +6.**
+
+**Nothing checks it mechanically** — no test matches those figures outside CARD-308's module and two
+historical review YAMLs — and the ADR frames the number as *as of a named tree*, so it is a
+historical measurement rather than a live false claim. That is why CARD-314's fix round **flagged it
+rather than touching it**, which was the right call for a mechanical round.
+
+**But the rule it sits in is ADR-0039/R4**: *"A figure recomputed and refuted is retracted everywhere
+it was written."* So this is a stale figure **inside the ADR that forbids stale figures**, and R4's
+check now executes (CARD-304). This card should decide one of two things and say which:
+
+- the ADR's figures are **as-of-a-tree historical records** and R4 does not reach them — in which
+  case **say so in R4**, because nothing currently distinguishes a historical figure from a live one;
+- or they are live claims, in which case **re-stamp both sites with the derivation** and note that
+  the next card to move the census owes the same.
+
+**Do not simply overwrite 580 with 586.** The next card moves it again, and a figure re-stamped
+without a rule about who re-stamps it is the same defect one wave later.

@@ -1,0 +1,598 @@
+card: CARD-304
+cycle: 1
+max_cycles: 3
+min_score: 8
+score: 8
+verdict: PASSES min_score at cycle 1
+reviewed_head: "e7af05d1"
+base_cut: "ca7c8c56"
+base: main
+branch: card/304-an-executing-check-for-figures
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
+reviewer: forge:review
+reviewer_station: review
+reviewer_version: "unknown"   # executing plugin manifest not resolvable from this session
+utc: "2026-10-29T00:00:00Z"
+test_scope: impact
+mutation_check: true
+
+mode: >-
+  FULL (initial). The whole delta ca7c8c56..e7af05d1 — config.yml's host_cells
+  block, tests/test_suite_profile.py's new class, ADR-0039/R4's check line and
+  REACH comment, and the card's own record. Because the card's subject is
+  "a figure is a claim and its instrument is part of it", EVERY figure in the
+  card, the brief and the committed text was re-derived here from a second
+  implementation rather than carried. Nine were re-derived correct; six were
+  measured to be wrong or overstated and are findings F-003, F-004, F-006,
+  F-008, F-009, F-011.
+
+host_cells:
+  instrument: "the `rival-pytest` cell of meta/kanban/config.yml's host_cells: block"
+  note: >-
+    DELIBERATELY NOT TRANSCRIBED HERE. Two prior review YAMLs on this board
+    (20261028T085257Z-CARD-227-cycle1.yml:12 and
+    20261028T115826Z-CARD-227-cycle2.yml:22) each spell the prescription
+    verbatim, so three byte-identical copies of it exist in the tree today.
+    That is F-009's subject; this report does not become the fourth.
+  rival_pytest_reading: 0
+  rival_pytest_harness: "set -o pipefail; exit 0; stdout '0'"
+  load_cell: "recorded, exit 0, shape matched; the figure is omitted per the brief's standing rule"
+  per_test_ceiling_cell: "null command, reason present — AC-1 has nothing to run"
+  full_suite_lock_taken: false
+  full_suite_run: false
+  lock_checked_at: "/Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock (MAIN checkout, absolute) — ABSENT at start and at end"
+  nonogram_env_switches_set: "none — `env | grep -c NONOGRAM` was 0 for every command this cycle"
+  ignore_lock_env_var: "never set"
+
+interpreter: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python
+pytest_flags: "-o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+
+targeted_gate:
+  scope_derivation: >-
+    IMPACT, derived rather than listed. `grep -rln 'kanban/config.yml|KANBAN_CONFIG'`
+    over tests/*.py resolves to exactly ONE module — tests/test_suite_profile.py —
+    so the config.yml half of the delta has a radius of one file. Added to it: the
+    two guards that scan `meta/review/**` and would see this report land there
+    (tests/test_full_suite_lock.py, whose OVERRIDE_PROSE exempts that prefix, and
+    tests/test_collected_names.py, whose pathspec excludes it).
+  runs:
+    - "tests/test_suite_profile.py::TestHostCells_ThePrescribedInstrumentsExecuteAndRespond — 29 passed, 5 runs, 2.72-3.40 s (session) / 3.73-3.87 s (wall)"
+    - "tests/test_suite_profile.py — 439 passed, 2 runs, 35.22 s and 37.85 s (session)"
+    - "tests/test_suite_profile.py::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog — 127 passed, 26.87 s (under mutant M-6, out of tree)"
+    - "tests/test_full_suite_lock.py + tests/test_collected_names.py — 54 passed, 11.62 s, WITH this report present in meta/review/"
+  failures: none
+  skips: 0
+  skips_attributed: "none to attribute — -rs printed no skip section on any run above"
+
+# ---------------------------------------------------------------------------
+# WHAT WAS RE-DERIVED, and by what instrument. Every row here was measured in
+# this cycle; nothing is carried from the brief or the card.
+# ---------------------------------------------------------------------------
+re_derived:
+  census:
+    claim: "410 -> 439, 0 lost, 29 added (card + brief)"
+    verdict: CORRECT
+    how: >-
+      Both node-id sets collected and diffed with comm(1). The base was
+      extracted OUT OF TREE (`git archive ca7c8c56` into the scratchpad), not
+      by checkout and not by stash. comm -23 (lost) is empty; comm -13 (added)
+      is exactly 29, all in the new class.
+  class_node_ids:
+    claim: "16 methods, 29 node ids"
+    verdict: CORRECT
+    how: "--collect-only -q on the class: 29 collected; 16 distinct method names."
+  skips:
+    claim: "zero skips from this module"
+    verdict: CORRECT
+    how: "-rs on the class (29 passed) and on the whole module (439 passed) printed no skip section in either."
+  awk_instrument:
+    claim: "rises by exactly 1 on a real `python -m pytest`; flat on all four near-misses, each proved present"
+    verdict: CORRECT, and reproduced by a SECOND implementation
+    how: >-
+      A standalone harness written for this review (no import from
+      test_suite_profile.py) spawned all six realizable cases, proved each
+      probe present by walking the process tree with `ps -eo pid=,ppid=,command=`,
+      and read the prescribed cell before/during/after. Deltas: (a) +1,
+      (b) 0, (d) 0, (d2) 0, (d3) 0, (e) 0. For (e) the harness ALSO confirmed
+      the grep child existed with the pattern in its own argv — which the
+      shipped test does not do (F-001).
+  row_6_correction:
+    claim: "config.yml's truth table row 6 recorded (b)=1; it is 0. The same awk keyed on /pytest/ reads 0 -> 1."
+    verdict: CORRECT, both halves
+    how: "Same harness, running the /pytest/ variant alongside: (b) prescribed 0->0, /pytest/ variant 0->1."
+  pgrep_fc:
+    claim: "`pgrep -fc` produces NO reading (exit 2, empty stdout), not 0"
+    verdict: CORRECT
+    how: >-
+      Measured directly under pipefail: bare form exit 2 with empty stdout and
+      a usage line on stderr; inside `| wc -l` the pipeline exits 2 while wc
+      prints '0' — which is precisely the "exit 0 with an empty cell" defect
+      AC-1 exists for, and is why pipefail is load-bearing.
+  pgrep_f_second_instance:
+    claim: "`pgrep -f 'python.* -m pytest' | wc -l` exits 1 because argv[0] is capital-P Python"
+    verdict: CORRECT
+    how: "exit 1, stdout '0' under pipefail. argv0 of a live venv run read out of a child's sys.orig_argv[0]: .../Python.app/Contents/MacOS/Python."
+  adr_hunk_confinement:
+    claim: "hunk confined to R4's check: line and its REACH comment; R4's statement untouched (G-1)"
+    verdict: CORRECT
+    how: "One hunk, @@ -271,13 +271,51 @@. No -/+ line touches `statement:`, `scope:` or `severity:`."
+  check_ref_resolution:
+    claim: "--verify-refs reports dead_check_ref: []"
+    verdict: CORRECT
+    how: >-
+      system_rules.py --verify-refs --format yaml on this worktree:
+      dead_check_ref: [], check_refs_verified: true. All three refs also
+      confirmed by hand to resolve to `def` lines in tests/test_suite_profile.py
+      (5787, 5904, 5936) rather than to a prose mention.
+  validator:
+    claim: "0 errors / 100 warnings"
+    verdict: CORRECT
+    how: "validate.py --format json on this worktree: Counter({'WARN': 100}), zero ERROR rows."
+
+# ---------------------------------------------------------------------------
+# MUTANTS. All out of tree (`git archive e7af05d1` into the scratchpad), needle
+# occurrence asserted unique before each edit, blob hash recorded before and
+# after, __pycache__ swept before each run. No `git stash` at any point; the
+# worktree was never modified and is still clean.
+# ---------------------------------------------------------------------------
+mutants:
+  - id: M-1
+    intent: "Does case (e)'s visibility assertion prove a SEARCH TOOL exists?"
+    mutation: "the search-tool probe's grep given an unknown flag, so it dies on arrival while the wrapper lives"
+    blob_before: 4f4adec8913937fe59a8793aa4146a0a4870ff0a
+    blob_after: a5f003f02464815afaef58217f3d0c9f7df57e9b
+    result: "SURVIVED — 29 passed. No search tool on the host at all and the suite is green."
+    finding: F-001
+  - id: M-2
+    intent: "Does the vacuity fix actually red for (d)/(d2)/(d3)?"
+    mutation: "shell-wrapper reverted to the tail form `: <text>; sleep N` (no `& wait`)"
+    blob_before: 4f4adec8913937fe59a8793aa4146a0a4870ff0a
+    blob_after: c9b3a66141d67e68f68abc3e297d6eb8708a39f4
+    result: "KILLED — test_each_near_miss_probe_is_visible_to_ps[d], [d2], [d3] all red with argv ''. 3 failed, 26 passed in 93.30s."
+    note: "The 93.30s is F-005's evidence: three 30s visibility timeouts land on ONE node's protocol."
+  - id: M-3
+    intent: "AC-1's gate (G-2): does planting `pgrep -fc` back red the suite?"
+    mutation: "the rival-pytest cell's command replaced with `pgrep -fc 'python.* -m pytest' | wc -l` in config.yml"
+    blob_before: 00560f83eb48be6f1b443329a93bb1479db90a04
+    blob_after: 332ddbca2213e581ce57747979bc89d64569f2d6
+    result: >-
+      KILLED — test_every_prescribed_host_cell_command_exits_zero[rival-pytest]
+      AND test_the_instrument_rises_on_a_real_pytest[a]. 2 failed, 27 passed.
+      Note that ..._prints_its_declared_shape[rival-pytest] stayed GREEN, because
+      wc printed '0': the shape test alone cannot see a non-executable
+      prescription, which is independent evidence FOR the two-harness split.
+  - id: M-4
+    intent: "Is AC-2 redundant given AC-1? Construct a blind form that passes ALL of AC-1."
+    mutation: "the rival-pytest cell's command replaced with `ps -Ao comm= | awk '/pytest$/' | wc -l` — executable, exits 0, prints a well-shaped integer, and totally blind (comm is `Python` for this venv)"
+    result: >-
+      KILLED BY AC-2 ONLY — 1 failed, 28 passed. Both AC-1 assertions green
+      (exit 0, shape matched); only test_the_instrument_rises_on_a_real_pytest[a]
+      red. This is the witness that AC-2 is not redundant.
+  - id: M-5
+    intent: "Is AC-1 redundant given AC-2? Construct a CORRECT reading instrument that AC-1 reds."
+    mutation: "not planted in the tree — measured directly in both harnesses: the prescribed awk with `| grep -c .` as its counting stage instead of `| wc -l`"
+    result: >-
+      AC-1 reds, AC-2 fully passes. Measured: quiet host -> pipefail exit 1,
+      stdout '0'; live `-m pytest` -> pipefail exit 0, stdout '1'. The reading
+      is correct in every case of the truth table (and $1 is still the
+      executable, so it keeps the near-miss immunity), yet the exit status
+      makes it unstorable. This is the witness that AC-1 is not redundant.
+  - id: M-6
+    intent: "Is the whole-class sandbox deselect necessary, or over-broad?"
+    mutation: "SANDBOX_DESELECTED narrowed from the class to the four rival_matrix-dependent methods only (11 of 29 node ids)"
+    result: >-
+      SANDBOX COMPARISON STAYS GREEN — TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog
+      127 passed in 26.87s, with 18 of the class's node ids participating in both
+      sandbox runs and the `set(values) == {PASSED}` equality holding.
+    finding: F-006
+  - id: M-7
+    intent: "Can all four negatives be made invisible at once, to bound the hang-guard exposure?"
+    mutation: "M-2 and a `grep -q` variant of M-1 applied together"
+    result: >-
+      3 failed, 26 passed in 94.83s. Case (e) STILL PASSED — second, independent
+      confirmation of F-001: (e) cannot be made to fail through its probe's
+      absence, because the assertion never looks at the probe.
+
+# ---------------------------------------------------------------------------
+# THE QUESTIONS THE BRIEF ASKED, answered
+# ---------------------------------------------------------------------------
+answers:
+  two_harness_split_necessary: >-
+    YES, and orthogonal in BOTH directions, each proved with a witness. M-4 is a
+    form that passes every AC-1 assertion (exit 0, declared shape) and is caught
+    only by AC-2. M-5 is a form that reads correctly in every case of the truth
+    table and is caught only by AC-1. Neither harness subsumes the other, so this
+    is not two ways to pass. M-3 adds a third piece of evidence the round did not
+    claim: on a non-executable prescription the SHAPE half of AC-1 stays green
+    because wc prints '0', so pipefail is the only thing standing between the
+    cell and an empty figure. The round's stated reason (right message, not just
+    a red) is true but weaker than the real one.
+  vacuity_fix_covers_all_four_negatives: >-
+    IN PARAMETRIZATION YES, IN SUBSTANCE NO. test_each_near_miss_probe_is_visible_to_ps
+    is parametrized over NEAR_MISS_CASES + BOUNDED_CASES = d, d2, d3, e, b, so (e)
+    is not skipped. But for (e) the assertion reads `_argv_of(proc.pid)` — the
+    `zsh` wrapper that OWNS the pipeline — and the wrapper's own argv carries the
+    pattern, so it is satisfied whether or not a search tool exists. See F-001;
+    M-1 and M-7 both prove the mutant survives.
+  visibility_assertion_has_its_own_control: >-
+    NO standing control. `_wait_until_visible`'s ability to fail is evidenced only
+    by the round's manual plant (reproduced here as M-2, which does red). Nothing
+    in the tree reds if that helper stops being able to return "". The asymmetry is
+    visible inside the card's own work: the OTHER new instrument, `_host_cells_block`,
+    does get a standing negative control (NOT_A_HOST_CELLS_BLOCK, four cases,
+    test_the_host_cells_reader_refuses_a_near_miss). See F-002.
+  bsd_assertions_feature_or_defect: >-
+    FEATURE, and correctly declared. Three measured reasons. (1) There is no CI in
+    this repository at all — neither .github/workflows/ nor ci/ exists — so "this
+    suite cannot pass on Linux CI" is a hypothetical cost, not a live one.
+    (2) A skipif would make "verified on this host" unfalsifiable, which is R4's
+    exact defect; and the module already forbids one globally
+    (test_nothing_in_this_module_goes_quiet_on_a_condition, line 4582, verified to
+    exist). (3) The portability bound is written down in config.yml's restated
+    DECLARED BOUND paragraph. The one thing to keep: this is now a hard coupling
+    of the suite to arm64 Darwin, and it should be named in whatever brief first
+    proposes a Linux runner rather than discovered there.
+  reach_comment_overclaims: >-
+    YES, in one sentence, and it UNDER-claims in another. The overclaim: "Each
+    near-miss is asserted VISIBLE in `ps` before its flatness is believed" is
+    false for (e) (F-001), and config.yml's matching sentence — "that immunity is
+    now asserted rather than reasoned" — is false for the same reason. The
+    under-claim: "a figure correct at one revision and stale at another" is listed
+    as unreached, but three shipped tests do reach the staleness of a CLAIM ABOUT
+    AN INSTRUMENT — test_a_rejected_instrument_is_still_refuted_on_this_host (a
+    rejection going stale), test_a_declared_bound_is_still_exactly_as_blind_as_declared
+    (a bound being overtaken) and test_the_board_starts_pytest_in_the_form_the_cell_can_see
+    (the premise of a bound going stale). That is a narrow corner of the domain
+    clause and erring toward under-claim is the safe direction, but it is still an
+    inaccurate reach statement. Everything else in both lists was checked and holds.
+  awk_form_behaves_as_reported: >-
+    YES, exactly, reproduced by an independent implementation: +1 on a real
+    `-m pytest`, flat on (b), (d), (d2), (d3), (e), with each probe's presence
+    proved by a process-tree walk. The refusal to widen to /pytest/ is the right
+    call and is well-argued: the widened form was measured here to read 1 for the
+    (b) console-script run, i.e. it would pass case (b) while acquiring an
+    unmeasured false-positive direction, and the card's bound-in-both-directions
+    design (test_a_declared_bound_is_still_exactly_as_blind_as_declared) reds if
+    anyone widens it without that control. The orchestrator's conclusion that "no
+    one-liner gets this right" is indeed refuted.
+  ac3_residue_item_by_item:
+    item_1_figure_in_prose: "UNREACHABLE. Correct and correctly reasoned."
+    item_2_ratio_mixed_halves: "UNREACHABLE from committed text. Correct."
+    item_3_point_estimate_for_spread: >-
+      UNREACHABLE in general, with an honest qualifier already in the card
+      ("without re-running the measurement"). Narrowly MERELY HARD: a convention
+      could require a band where spread is known, and a check could red a bare
+      point estimate in a declared-band position. Not worth building; noted only
+      because F-003 is this card committing that exact shape.
+    item_4_stale_at_another_revision: "UNREACHABLE in general; the derived-census workaround is named correctly. See the under-claim in reach_comment_overclaims."
+    item_5_refuted_figure_elsewhere: >-
+      UNREACHABLE AS SCOPED, and correctly so — widening the one-place check
+      tree-wide would red on the two CARD-227 review YAMLs, which are timestamped
+      historical records and must not be retracted. The item is right; the CHECK's
+      NAME is what is wrong (F-009).
+    item_6_mis_stated_instrument_warning: "UNREACHABLE. No artefact in the tree. Correct."
+    item_7_instruments_not_in_a_tracked_file: >-
+      UNREACHABLE, and the reasoning is right, but the heading contradicts its own
+      body: "Instruments that are not shell commands" then lists four shell
+      commands (`git grep -E` with \b, `grep -cE "^\[WARN"`, `timeout`, a bare-name
+      `git grep`). The operative property is "not a prescription in a tracked
+      file", which the body states. F-010.
+    item_8_any_host_but_this_one: "FEATURE. See bsd_assertions_feature_or_defect."
+    item_9_sandbox_comparison: >-
+      MISLABELLED. This is the one item that is NOT unreachable: it is an
+      accommodation, and M-6 proves it is over-broad by 18 of 29 node ids. The
+      stated reason ("judging the real convention from inside the sandbox is
+      exactly the vacuity this layout exists to prevent") is sound for the 11
+      rival_matrix-dependent node ids and inverted for the other 18 — a data
+      assertion reading the real config.yml through the symlink the round itself
+      added is reading the RIGHT file. The card is honest that this class now has
+      one defence rather than two; it just removed more than it had to. F-006.
+
+# ---------------------------------------------------------------------------
+# FINDINGS, ranked
+# ---------------------------------------------------------------------------
+findings:
+  - id: F-001
+    severity: high
+    confidence: measured
+    title: >-
+      Case (e)'s visibility assertion proves the WRAPPER exists, not the search
+      tool — the card's own headline vacuity, one case over — and it makes one
+      ADR sentence and one config.yml sentence false.
+    where:
+      - "tests/test_suite_profile.py — _wait_until_visible's non-pytest branch, and _spawn's search-tool branch"
+      - "meta/kanban/config.yml — 'A FOURTH FALSE-POSITIVE SOURCE' paragraph: 'that immunity is now asserted rather than reasoned'"
+      - "meta/architecture/decisions/adr/.../0039-...md — R4's REACH comment: 'Each near-miss is asserted VISIBLE in `ps` before its flatness is believed'"
+    measured: >-
+      The search-tool probe is `zsh -c "sleep N | /usr/bin/grep -- '<pattern>'"`.
+      zsh forks for a pipeline, so proc.pid stays the wrapper, and the WRAPPER's
+      own argv contains the pattern. The assertion `"pytest" in seen["argv"]` is
+      therefore satisfied by the wrapper regardless of the grep. M-1: with the
+      grep given an unknown flag it dies on arrival, no search tool exists on the
+      host, and all 29 tests pass. M-7 confirms the same with `grep -q`. Verified
+      directly besides: with the grep dead, the wrapper's argv still contains
+      'pytest' and the wrapper's only surviving child is `sleep`.
+    why_it_matters: >-
+      This is the precise defect the round discovered and fixed for d/d2/d3, left
+      in place for the one case the round itself ADDED. It is also the only near-miss
+      whose immunity argument depends on which process is observed ($1 being
+      /usr/bin/grep rather than a python), so a flat reading attributable to the
+      wrapper proves nothing about the search-tool direction. The underlying claim
+      IS true — this review verified the grep child present and the cell flat — but
+      the tree does not assert it, and two tracked files say it does.
+    fix: >-
+      Assert the search tool itself. The probe's children are enumerable:
+      `ps -eo pid=,ppid=,command=` filtered on ppid == proc.pid already yields the
+      grep row (confirmed here), so the (e) branch can require a child whose argv
+      carries the pattern AND whose $1 is not a shell. Then soften neither
+      sentence — they become true.
+  - id: F-002
+    severity: medium
+    confidence: measured
+    title: "The visibility assertion — the control on the controls — has no standing control of its own."
+    where: "tests/test_suite_profile.py — _wait_until_visible"
+    measured: >-
+      Nothing in the collected set reds if `_wait_until_visible` loses its ability
+      to return "". Its failure mode is evidenced only by a manual plant in the
+      round's record (reproduced here as M-2: it does red, correctly). Contrast
+      the sibling instrument added by the same round: `_host_cells_block` ships
+      NOT_A_HOST_CELLS_BLOCK and test_the_host_cells_reader_refuses_a_near_miss,
+      four cases, exactly this control.
+    why_it_matters: >-
+      R4's own prescription, applied to the card's newest instrument. The round
+      applied it to one of its two new instruments and not the other.
+    fix: >-
+      A deliberately-invisible probe shape as a fifth case of the reader-style
+      control: spawn the tail form `: <text>; sleep N`, assert `_wait_until_visible`
+      returns "". Cheap, and it also pins the zsh-exec finding as a measurement
+      rather than a comment.
+  - id: F-003
+    severity: medium
+    confidence: measured
+    title: >-
+      The module docstring's re-measured cost band (30.4–34.0 s) is already
+      exceeded on this host — this card committing residue item 3's own shape.
+    where: "tests/test_suite_profile.py — module docstring, the CARD-304 re-measurement paragraph"
+    measured: >-
+      Two runs of the whole module in the worktree with the prescribed flags:
+      35.22 s and 37.85 s as pytest reports them (36.5 s and 38.9 s wall). Both
+      above the stated 34.0 s ceiling, two days after it was taken, on the host
+      it was taken on.
+    why_it_matters: >-
+      The card's own AC-3 item 3 names "a point estimate published for a quantity
+      with run-to-run spread" as unreachable residue and cites "a 7.9–16.4 s band
+      that two later rounds exceeded at 18.47 s and 22.84 s on the same machine
+      within hours". The new band repeats the shape: four runs is not enough to
+      bound a quantity whose spread the paragraph itself argues is large, and the
+      board runs cards concurrently (CARD-306 is implementing now), which the
+      band's declared domain does not mention.
+    fix: >-
+      Widen the band to the measurements that exist (30.4–37.9 s across six runs,
+      two of them this review's) and name contention in its domain. The
+      paragraph's CONCLUSION is unaffected and is correct: the new class's cost is
+      inside the module's spread, so no delta is claimable for it.
+  - id: F-004
+    severity: medium
+    confidence: measured
+    title: >-
+      "Every probe IS killed as soon as the instrument has been read" is false —
+      each run leaves five orphans behind, one of them carrying ` -m pytest`.
+    where: "tests/test_suite_profile.py — PROBE_LIFETIME_SECONDS docstring; rival_matrix's `finally: proc.kill()`"
+    measured: >-
+      Immediately after a clean 29-passed run: four `sleep 30` processes and one
+      `/usr/bin/grep -- .../MacOS/Python -m pytest`, all with ppid 1. proc.kill()
+      signals the wrapper only; the backgrounded `sleep` (d/d2/d3) and the
+      pipeline's `sleep` and `grep` (e) are reparented and live out their 30 s.
+    why_it_matters: >-
+      Two things. The docstring states the opposite of what happens, in the module
+      about instruments that do not do what they say. And the orphan grep is
+      literally case (e)'s false-positive shape, injected into the host for 30 s
+      per run, on a board whose concurrency is 5 — so a sibling card's gate reading
+      a less careful instrument can be moved by this check's own litter. The
+      prescribed awk is immune (verified); nothing else is promised to be.
+    fix: >-
+      Spawn each probe in its own process group (`start_new_session=True`) and
+      `os.killpg` in the finally, or drop PROBE_LIFETIME_SECONDS to a few seconds.
+      Then the docstring becomes true.
+  - id: F-005
+    severity: medium
+    confidence: measured
+    title: >-
+      The visibility timeout puts the fixture within one failing probe of the
+      120 s hang guard, whose action is to KILL the process rather than fail a test.
+    where: "tests/test_suite_profile.py — PROBE_VISIBLE_TIMEOUT = 30.0; the module-scoped rival_matrix fixture"
+    measured: >-
+      The whole matrix is built inside the FIRST node that requests it
+      (--durations attributes it to test_each_near_miss_probe_is_visible_to_ps[d]'s
+      setup), and tests/hang_guard.py arms its 120 s timer in
+      pytest_runtest_protocol — which wraps setup — with exit=True. M-2: three
+      invisible negatives cost 93.30 s on that one node. M-7: 94.83 s. There are
+      five visibility cases, so the ceiling on that node is 150 s, past the guard.
+      Realized need is ~15x smaller: a healthy run builds the entire six-case
+      matrix in 2.7–3.4 s.
+    why_it_matters: >-
+      The failure mode is the worst available one: the hang guard writes stacks and
+      kills the process, so the run produces no summary line — which
+      config.yml itself calls "a MEASUREMENT defect, never a tree verdict". A
+      broken negative control would thus present as no verdict instead of as three
+      named reds.
+    fix: "PROBE_VISIBLE_TIMEOUT = 5.0 (still ~2x the observed worst case). Optionally make the fixture's total wait a single shared budget."
+  - id: F-006
+    severity: low-medium
+    confidence: measured
+    title: "The sandbox deselect removes 29 node ids where 11 suffice, and AC-3 lists it as unreachable rather than as the accommodation it is."
+    where: "tests/test_suite_profile.py — SANDBOX_DESELECTED; meta/kanban/cards/CARD-304.md — AC-3 residue item 9"
+    measured: >-
+      M-6: narrowing the deselect to the four rival_matrix-dependent methods
+      (11 node ids) leaves TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog
+      green — 127 passed in 26.87 s — with the other 18 node ids running in both
+      sandbox copies and the `set(values) == {PASSED}` equality holding.
+    why_it_matters: >-
+      The round added a config.yml symlink to the mirror specifically so the class
+      could collect in there, then deselected the whole class anyway, so the
+      symlink buys collection and nothing else. The 18 excluded node ids are the
+      log-independent ones — exactly the kind that could acquire an accidental log
+      coupling without a probe to make it obvious, which is the coupling review
+      cycle 1 found hiding in another class of this module.
+    fix: "Narrow SANDBOX_DESELECTED to the four fixture-dependent method names, and reclassify residue item 9 as a declared accommodation with its measured scope."
+  - id: F-007
+    severity: low-medium
+    confidence: measured
+    title: "config.yml names five test functions and nothing asserts any of them resolves — R4's shape inside the file the card made machine-readable."
+    where: "meta/kanban/config.yml — host_cells `re_executed_by` (x2) and `declared_bound`; and lines 86 and 176 of the prose"
+    measured: >-
+      All five names resolve today (verified against `def` lines at 5836, 5885,
+      5991, 6016). But RE_EXECUTED_REJECTS selects on the PRESENCE of the
+      `re_executed_by` key, never on its value, so renaming the named test leaves
+      the parametrization intact and the reference silently dead. The two prose
+      references at config.yml:86 and :176 have no checker at all.
+    why_it_matters: >-
+      A named instrument that may not exist is the first of the three shapes this
+      card was created to catch. The fix has precedent in the same module
+      (CLIFF_EDGE_SNAPSHOT asserts frozen node ids are still collected) and the
+      class is in the same file as the names.
+    fix: "Assert each `re_executed_by` value is an attribute of this class; add the two prose names to the same assertion or move them into the data."
+  - id: F-008
+    severity: low
+    confidence: measured
+    title: >-
+      AC-1's declared cost is overstated: a grep/pgrep prescription CAN be stored
+      without conflating "blind" with "quiet".
+    where: "meta/kanban/config.yml — the rival-pytest cell's `why_this_shape_is_storable_at_all`; and the card's 'Two harnesses' section"
+    measured: >-
+      `<pgrep|grep form> || [ $? -eq 1 ]` exits 0 on a legitimate empty match AND
+      still reds `pgrep -fc`, because -fc's usage failure is exit 2, not 1.
+      Measured under pipefail: normalized grep form -> exit 0; normalized
+      `pgrep -fc` form -> exit 1. So the distinction AC-1 turns on survives the
+      normalization, and "it cannot be stored as a host cell at all" is false.
+    why_it_matters: >-
+      The claim is load-bearing — it is the stated justification for the awk shape
+      — and it is the weaker of two available arguments. The strong one is already
+      in the file: a grep over full command lines false-positives on the measuring
+      agent's own wrappers (re-measured here: the normalized grep form read 2 with
+      no pytest running, which is the rejected-instrument row config.yml records
+      as "1, 2 and 3 within an hour"). The honest statement is that AC-1's pipefail
+      criterion excludes any instrument that signals emptiness through exit status,
+      including CORRECT ones (M-5), and that awk is preferred because grep's
+      readings are wrong, not because grep's exit status is unstorable.
+    fix: "Restate the bound as the exclusion it is (declared, which R4 asks for) and move the justification onto the false-positive measurement already in the file."
+  - id: F-009
+    severity: low
+    confidence: measured
+    title: >-
+      test_each_prescribed_command_is_written_in_one_place carries no scope in its
+      name, and three byte-identical copies of the prescription exist in the tree.
+    where: "tests/test_suite_profile.py:5836; and R4's REACH comment, 'each prescribed command is asserted to be written in exactly ONE place'"
+    measured: >-
+      The assertion is `KANBAN_CONFIG.read_text().count(command) == 1` — config.yml
+      only. Tree-wide the rival-pytest prescription appears byte-identically in
+      three tracked files: meta/kanban/config.yml:342,
+      meta/review/20261028T085257Z-CARD-227-cycle1.yml:12 and
+      meta/review/20261028T115826Z-CARD-227-cycle2.yml:22. `sysctl -n vm.loadavg`
+      likewise has copies in meta/profiling/card-292-per-test-ceiling.md (twice),
+      CARD-292.md and two further review YAMLs.
+    why_it_matters: >-
+      The docstring IS scoped ("twice in the file that prescribes it"); the test
+      name and the ADR comment are not, and a reader of either would believe the
+      tree is covered. AC-3 item 5 is right that tree-wide widening should NOT
+      happen — the review YAMLs are historical records — which is exactly why the
+      name needs the scope instead.
+    fix: >-
+      Rename to ..._is_written_in_one_place_in_config_yml (or equivalent) and add
+      'in config.yml' to R4's comment. Separately: review YAMLs on this board
+      should stop transcribing the prescription; this report does not.
+  - id: F-010
+    severity: low
+    confidence: measured
+    title: "AC-3 residue item 7's heading contradicts its own body."
+    where: "meta/kanban/cards/CARD-304.md — AC-3 item 7"
+    measured: >-
+      The heading is "Instruments that are not shell commands." The four examples
+      beneath it are all shell commands (a `git grep -E` pattern, a `grep -cE`,
+      macOS `timeout`, a bare-name `git grep`). The operative property, which the
+      body states correctly, is that they are one-off commands typed into a shell
+      rather than prescriptions in a tracked file.
+    fix: "Retitle to 'Instruments that are not written down as prescriptions'."
+  - id: F-011
+    severity: low
+    confidence: measured
+    title: "The class's cost figure (3.74–4.03 s) does not declare which reading it is."
+    where: "tests/test_suite_profile.py — module docstring"
+    measured: >-
+      Five runs of the class alone: pytest-reported 2.72, 2.95, 3.01, 3.20, 3.40 s;
+      wall 3.73, 3.80, 3.87 s. The card's figure matches WALL, i.e. it includes
+      interpreter start-up, while every other figure in the paragraph (the module
+      totals) is the pytest-reported session time.
+    why_it_matters: "R4's domain clause, self-applied: two readings of the same quantity differ by ~1 s and the paragraph mixes them without saying so. The paragraph's conclusion is unaffected."
+    fix: "Say 'wall' (or quote the session range 2.7–3.4 s) in the paragraph."
+
+# ---------------------------------------------------------------------------
+# WHAT THE ROUND GOT RIGHT, recorded because the card asked to be judged on it
+# ---------------------------------------------------------------------------
+credits:
+  - "Every AC lands. AC-1, AC-2, AC-3, AC-4 and AC-5 were each verified by measurement here, not read."
+  - >-
+    The zsh-exec discovery is real, correctly diagnosed and correctly fixed for
+    three of four cases. M-2 confirms the fix reds. Finding a vacuity in one's own
+    controls and reporting it is the behaviour R4 exists to produce.
+  - >-
+    The bound-in-both-directions design for case (b) is the best single piece of
+    engineering on the card: it reds if anyone widens the instrument AND if the
+    console script's argv changes shape, and test_the_board_starts_pytest_in_the_form_the_cell_can_see
+    pins the premise the tolerance rests on. The refusal to widen to /pytest/ is
+    the right call for the right reason.
+  - >-
+    All six self-reported corrections check out: pgrep -fc produces no reading;
+    truth-table row 6 (b) is 0 and the /pytest/ variant is 1; the DECLARED BOUND
+    paragraph did describe a retired instrument; the table is 7 cases; the
+    docstring figure was ~2x stale; and the lock must be checked in the main
+    checkout (re-confirmed: absent there, invisible from the worktree).
+  - >-
+    The PyYAML reasoning is sound and verified: nothing in pyproject.toml declares
+    PyYAML, and the hand-rolled reader was given the negative control that makes it
+    non-vacuous. It is the one new instrument on this card that ships with its own
+    control, which is why F-002 reads as an asymmetry rather than an oversight.
+  - "The orchestrator's 'no one-liner gets this right' conclusion is refuted, correctly, and this review reproduced the refutation independently."
+
+# ---------------------------------------------------------------------------
+# PROCESS
+# ---------------------------------------------------------------------------
+measurement_notes:
+  full_suite: "NOT RUN, per the brief. Scope was the new class, the module, and the sandbox comparison class."
+  skips_attribution: "Zero skips from tests/test_suite_profile.py, confirmed with -rs on both the class (29 passed) and the module (439 passed). The suite-wide 27 was NOT verified — it would require the full suite, which the brief forbids — and is therefore carried, not confirmed."
+  no_git_stash: true
+  worktree_clean_at_end: "no file under version control was modified; the only change to the worktree is this untracked report. Nothing was committed."
+  mutants_out_of_tree: "all seven; `git archive e7af05d1` into the session scratchpad, blob hashes recorded, __pycache__ swept before each run"
+  runtime_as_ranges: "all runtimes above are ranges over named run counts; no load figure is reported"
+  production_database: "not connected"
+  forge_1: "read only (system_rules.py, validate.py); nothing written under /Users/omelnikova/MyProjects/forge_1/"
+  check_ref_hygiene: >-
+    Every test name spelled in this report was verified to resolve to a `def`
+    line in tests/test_suite_profile.py, by `git grep -n '    def <name>('`:
+    5776, 5787, 5807, 5836, 5885, 5904, 5936, 5962, 5991, 6016, 6040, plus 4582,
+    4703 and 4752 in the older classes. None is a prose-only mention. HAZARD
+    CARRIED FORWARD, not resolved: because meta/review/** is inside the ref
+    resolver's text search, this file will itself make any of those names read as
+    alive after a future rename. It is a report, not an authority; the authority
+    is the `def` line.
+  merge_conflict: "main has merged CARD-308, which edited ADR-0039. This branch was NOT merged with main and no conflict was provoked. R4's region is the likely contact point. Orchestrator's to resolve."
+
+score_rationale: >-
+  8. Every acceptance criterion lands and was verified by measurement rather than
+  read. The card's central claim — that the prescribed awk instrument is already
+  correct, with controls — was reproduced here by an independent implementation and
+  holds in all six realizable cases. The two-harness split, which the brief asked
+  to be tested for decorativeness, is necessary and orthogonal in both directions,
+  each proved with a constructed witness. The novel result (zsh execs its last
+  command, so three negative controls were passing vacuously) is real, correctly
+  diagnosed, and its fix reds under mutation.
+  Against that: F-001 leaves the same vacuity in the one case the round itself
+  added, and two tracked files — including ADR-0039/R4's REACH comment now on
+  main's path — assert a control that does not execute. F-002 leaves the card's
+  newest instrument without the control its sibling got. F-003, F-004, F-008 and
+  F-011 are four more figures in the record that this review measured to be wrong
+  or overstated, in a card whose subject is figures measured wrong. None blocks an
+  AC and all are small edits, but six inaccuracies in the record of THIS card is a
+  pattern rather than a nitpick, and that is what separates 8 from 9.
+  F-001 is a three-line change and is recommended before merge: it is the only
+  finding that makes a committed ADR sentence untrue.

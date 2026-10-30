@@ -2359,10 +2359,23 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         operator reds, and an operator these pages *stop* emitting reds too.
         Measured identical on both profiles (13 members; the TOC alone emits 6
         of them and the answer pages all 13).
+
+        **CARD-314 took it to 15, and the two it added paint nothing.**
+        ``BMC``/``EMC`` bracket the clue digits an answer tile sets, so the
+        stream records the provenance CON-020's exemption is keyed on (PDF 1.7
+        §14.6, and
+        ``tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn``).
+        They come from the **answer** pages only: the TOC draws no clue digits
+        and still emits its 6, which is why the asymmetry is restated below
+        rather than left inside the union — a bracket appearing on a TOC page
+        would be the over-applied mark CARD-314's AC-4 exists to catch, and
+        this is the only reading in the tree that would see it on *these* two
+        kinds together.
         """
         emitted = {
             "g", "G", "w", "m", "l", "S", "re", "f",
             "BT", "ET", "Tf", "Td", "Tj",
+            "BMC", "EMC",
         }
         seen: set = set()
         for stream_text in pdf_vector.content_streams(
@@ -2377,6 +2390,17 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         # card's licence. Stated here as well as in the limit cell so the two
         # cannot drift apart again.
         assert not ({"B", "c", "h"} & seen), sorted({"B", "c", "h"} & seen)
+        # CARD-314: the mark is on the answer pages and NOT on the TOC, which
+        # draws no clue digit. Read per page kind, so an over-applied bracket
+        # on a TOC page reds here rather than disappearing into the union.
+        for rows, marked in (
+            (recorded.toc_streams(), False),
+            (recorded.answer_streams(), True),
+        ):
+            for stream_text in pdf_vector.content_streams(_written(rows)):
+                tally = pdf_vector.operator_tally(stream_text)
+                assert (tally["BMC"] > 0) is marked, (marked, tally["BMC"])
+                assert tally["BMC"] == tally["EMC"], (tally["BMC"], tally["EMC"])
 
     def test_the_raster_twin_of_the_same_page_does_carry_one(self, recorded) -> None:
         """The control. The same answer page as a bitmap references an image."""
@@ -2689,6 +2713,13 @@ _DOOR_PROBE = {
     "round_mark": (50.0, 50.0, 10.0),
     "text": ("x", 1.0, 2.0, 10.0),
     "render": (),
+    # CARD-314's marked-content brackets. Driven like every other member, so
+    # "they paint nothing" is a measurement here rather than a claim: the probe
+    # records ``/ClueDigit BMC`` and ``EMC``, neither of which is in
+    # :data:`_PATH_OPERATORS`, which is how they land in
+    # :data:`_NOT_A_DOOR_BECAUSE` instead of among the doors.
+    "begin_marked": ("ClueDigit",),
+    "end_marked": (),
 }
 
 #: Why each public ``ContentStream`` member the guard does **not** watch is not
@@ -2715,6 +2746,15 @@ _NOT_A_DOOR_BECAUSE = {
     "text": (
         "sets type (g BT Tf Td Tj ET) and constructs no path; a rule set as "
         "glyphs is round_mark's named limit, owned by CARD-298"
+    ),
+    "begin_marked": (
+        "opens a marked-content sequence (BMC) and constructs no path: PDF 1.7 "
+        "§14.6 makes it a statement ABOUT the operators inside it, which is "
+        "why CARD-314 carries CON-020's clue-digit provenance in one"
+    ),
+    "end_marked": (
+        "closes a marked-content sequence (EMC) and constructs no path, for "
+        "the reason begin_marked gives"
     ),
 }
 
@@ -3056,7 +3096,7 @@ class TestAnswerTiles_ReuseTheGridRoutine:
             "rectangle",
             "round_mark",
         }, sorted(_STROKERS)
-        assert len(members) == 16, sorted(members)
+        assert len(members) == 18, sorted(members)
         for name in _STROKERS:
             assert set(_DOOR_EMITS[name]) & _PATH_OPERATORS, (name, _DOOR_EMITS[name])
 
@@ -3073,7 +3113,7 @@ class TestAnswerTiles_ReuseTheGridRoutine:
             sorted(unwatched - set(_NOT_A_DOOR_BECAUSE)),
             sorted(set(_NOT_A_DOOR_BECAUSE) - unwatched),
         )
-        assert len(unwatched) == 8, sorted(unwatched)
+        assert len(unwatched) == 10, sorted(unwatched)
         for name, reason in _NOT_A_DOOR_BECAUSE.items():
             emitted = _DOOR_EMITS[name]
             assert not (set(emitted) & _PATH_OPERATORS), (name, emitted)
@@ -3179,9 +3219,16 @@ class TestAnswerTiles_ReuseTheGridRoutine:
 
         ``ContentStream`` inherits only ``object``, whose public surface is
         empty, so the ``dir()`` reading and the retired ``vars()`` reading are
-        the same sixteen names. Asserted as a set equality rather than as a
-        count, so a member that appeared *and* one that vanished could not
-        cancel.
+        the same names. Asserted as a set equality rather than as a count, so a
+        member that appeared *and* one that vanished could not cancel.
+
+        **The count was sixteen until CARD-314 and is eighteen**, the two added
+        being ``begin_marked``/``end_marked`` — the marked-content brackets
+        CON-020's clue-digit provenance is carried in. Both are classified in
+        :data:`_NOT_A_DOOR_BECAUSE` by their own measurement (they emit ``BMC``
+        and ``EMC``, neither a path operator), so :data:`_STROKERS` is unmoved
+        at eight: this card added two members to the vocabulary and no door to
+        the page.
         """
         assert ContentStream.__mro__ == (ContentStream, object)
         own = sorted(name for name in vars(ContentStream) if not name.startswith("_"))
@@ -3189,7 +3236,7 @@ class TestAnswerTiles_ReuseTheGridRoutine:
             _public_members(ContentStream),
             own,
         )
-        assert len(own) == 16, own
+        assert len(own) == 18, own
         assert len(_STROKERS) == 8, _STROKERS
 
     def test_the_derivation_is_not_simply_returning_everything(self) -> None:

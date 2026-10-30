@@ -1,0 +1,1001 @@
+card: CARD-304
+cycle: 2
+max_cycles: 3
+min_score: 8
+min_improvement: 0.5
+score: 8.5
+verdict: >-
+  PASSES min_score at cycle 2, and clears min_improvement EXACTLY (8.0 -> 8.5,
+  delta 0.5, at the threshold rather than above it).
+reviewed_head: "2583783b"
+base_cut: "74debef2"          # the `main` merge; 2583783b is the single fix commit on it
+base: main
+branch: card/304-an-executing-check-for-figures
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
+reviewer: forge:review
+reviewer_station: review
+reviewer_version: "unknown"   # executing plugin manifest not resolvable from this session
+utc: "2026-10-30T12:00:00Z"
+test_scope: impact
+mutation_check: true
+
+mode: >-
+  NARROW, by the orchestrator's instruction and for the fix round's own stated
+  reason ("a fix round that adds instruments should not be the round that
+  vouches for them"). Three areas: (1) the five new instruments, read and
+  attacked by someone other than their author; (2) the rewritten refutation
+  criterion and its declared bound; (3) the edit to CARD-308's frozen census.
+  Plus F-001's two committed sentences, G-1, the rename's inertness, and the
+  round's correction to cycle 1's `grep -q` witness. Cycle 1's other verdicts
+  were NOT re-litigated. Every figure below was re-derived in this cycle; none
+  is carried from the brief, the card or the round's report, and five figures
+  in those three documents were measured to be wrong or not reproducible.
+
+host_cells:
+  instrument: "the `rival-pytest` cell of meta/kanban/config.yml's host_cells: block"
+  note: >-
+    DELIBERATELY NOT TRANSCRIBED. Cycle 1 counted three byte-identical copies in
+    tracked files and declined to become the fourth; this report declines to
+    become the fifth. The prescription is read through the file, not quoted.
+  rival_pytest_reading_quiet_host: 0
+  rival_pytest_reading_with_a_sibling_gate_live: 1
+  rival_pytest_harness: "set -o pipefail; exit 0; stdout a bare integer"
+  load_cell: "recorded, exit 0, shape matched; the figure is omitted per the standing rule"
+  per_test_ceiling_cell: "null command with a stated reason — AC-1 has nothing to run"
+  full_suite_lock_taken_by_me: false
+  full_suite_run: false
+  lock_checked_at: "/Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock (MAIN checkout, absolute)"
+  lock_observed: >-
+    ABSENT at the start of this cycle; PRESENT from 2026-10-29T21:34:29Z,
+    holder `CARD-306 merge gate`, worktree .../PythonProject4-card-306, pid
+    25603; ABSENT again by the end. While it was held, every pytest run in THIS
+    worktree collected 0 tests (CARD-255's foreign-holder guard), so the middle
+    of this cycle ran against an out-of-tree `git archive 2583783b` copy whose
+    blob hashes are recorded below. Runs after the lock cleared were done in the
+    worktree and are labelled as such. This is not an incident: it is
+    config.yml's own documented IMPACT condition, observed.
+  nonogram_env_switches_set: "none"
+  ignore_lock_env_var: "never set"
+
+interpreter: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python
+pytest_flags: "-o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+
+targeted_gate:
+  scope_derivation: >-
+    IMPACT. The delta touches four files. tests/test_suite_profile.py and
+    meta/kanban/config.yml have a radius of one module (that module is the only
+    one that reads KANBAN_CONFIG). tests/test_check_ref_resolution.py is
+    CARD-308's and was run whole. The ADR hunk is comment-only (G-1, verified),
+    so its radius is the ref resolver, exercised through --verify-refs and
+    through CARD-308's module.
+  runs:
+    - "tests/test_suite_profile.py::TestHostCells_ThePrescribedInstrumentsExecuteAndRespond — 35 passed, 7 runs; 4.95-5.96 s session / 5.54-7.13 s wall across a quiet and a contended host"
+    - "tests/test_suite_profile.py — 445 passed, 4 runs (2 worktree/quiet, 2 out-of-tree/contended); 37.28-40.30 s session / 38.05-40.94 s wall"
+    - "tests/test_suite_profile.py::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog — 127 passed, 27.93 s session / 28.76 s wall"
+    - "tests/test_check_ref_resolution.py — 23 passed, 2 runs, 6.34 s and 6.85 s session"
+  failures: none
+  skips: 0
+  skips_attributed: >-
+    None to attribute: `-rs` printed no skip section on any run above, module or
+    class. The suite-wide 27 is NOT confirmed here — that needs the full suite,
+    which the brief forbids and whose lock a sibling card held for part of this
+    cycle. Carried, not confirmed.
+
+# ---------------------------------------------------------------------------
+# AREA 1 — the five new instruments, attacked rather than read
+# ---------------------------------------------------------------------------
+area_1_new_instruments:
+  summary: >-
+    The brief's premise — "each is claimed to carry a mutant that reds it" — is
+    FALSE for two of the five, and incomplete for a third. The two that work
+    (`_children_of`, `test_the_named_tests_in_config_yml_all_resolve`) work
+    well; `VISIBILITY_CONTROL_PROBES` is a genuine standing control and kills
+    three separate mutants. But `_is_a_shell` neutered to `return False`
+    survives, `_is_a_real_pytest_run` neutered to `return False` survives, and
+    `test_a_probe_leaves_no_orphan_behind` survives a broken `killpg`.
+
+  children_of_embedded_whitespace:
+    question: "can a command containing whitespace, or a right-aligned pid column, shift the fields?"
+    verdict: "NO — it survives both. Measured, not reasoned."
+    how: >-
+      `line.split(maxsplit=2)` with the command column LAST is structurally
+      immune: the first two splits take pid and ppid, the remainder is handed
+      back whole. Measured with a child spawned as
+      `Python -c '...' 'lots   of    spaces   and pytest   here'`: the recovered
+      argv is byte-identical to `ps -o command= -p <pid>`, multi-space runs
+      preserved. Leading blanks from the right-aligned pid column are consumed
+      by `str.split`. A 1034-character argv came back untruncated through a pipe
+      (BSD `ps` truncates to terminal width only on a tty), and truncation would
+      cost a tail, never a field shift. The `len(fields) < 3: continue` arm
+      drops the shapes with no command column.
+      Residual, stated and not a finding: an argv containing a literal NEWLINE
+      would be split across `splitlines()` boundaries and its tail lost. No such
+      process exists on this host and the failure direction is "child not
+      found", which reds.
+    mutants:
+      - id: M-C
+        mutation: "`line.split(maxsplit=2)` -> `line.split()` (argv truncated to its first word)"
+        blob_before: c792a9b47530ff6c2593d8b61b0d4dc6798fdb6d
+        blob_after: 27eb566fe9ba1e545135520993d630263c089d5a
+        result: "KILLED — 3 failed, 32 passed in 22.04 s"
+      - id: M-D
+        mutation: "parentage filter dropped (`int(fields[1]) == pid` removed), so every process reads as a child"
+        blob_after: e396013cf396e580853347de8df3b90ec8680e48
+        result: >-
+          KILLED — 2 failed, 33 passed in 13.58 s, and the killer is the right
+          one: `test_the_visibility_check_is_proved_in_both_directions[a search
+          tool that dies on arrival]`. The invisible row is what makes the
+          parentage load-bearing.
+
+  is_a_shell_authority:
+    question: "what is its authority, and is it enumerable? (ADR-0039/R2)"
+    verdict: >-
+      HAND-WRITTEN, and R2 is mandatory with `tests/**` in scope. The predicate
+      is `executable == _shell() or Path(executable).name.endswith("sh")`. The
+      first half is derived (config.yml's own `shell` key, the same value
+      `_spawn` passes to `Popen`); the second is a suffix heuristic with no
+      authority behind it. An enumerable authority EXISTS on this host and is
+      free: `/etc/shells` lists 7 entries and ALL SEVEN agree with the suffix
+      rule, so deriving the set would change no current answer and would make
+      the set checkable.
+    measured_misclassifications: >-
+      False NEGATIVES (a shell read as not-a-shell, which is the direction
+      F-001 was about): `env zsh -c foo`, `/usr/bin/env sh`,
+      `/bin/bash-5.2 -c foo`, and any wrapper script with a shebang
+      (`/usr/local/bin/mywrapper`). False POSITIVE: `/usr/bin/ssh host` reads as
+      a shell. The two shapes the brief asked about that DO work: `/bin/sh -c
+      foo` and a login shell's `-zsh` argv[0] both read True.
+    r2_default_deny: >-
+      R2 requires that a shape the guard cannot analyse be a FAILURE and never a
+      silent pass. `_is_a_shell` returns False for every shape it does not
+      recognise, and the caller's test is `not _is_a_shell(child)` — so an
+      unrecognised shell is accepted AS the search tool. The default is
+      permissive in exactly the direction that reinstates the vacuity.
+    mutants:
+      - id: M-A
+        intent: "is the shell-exclusion controlled in the direction that reinstates F-001?"
+        mutation: "`_is_a_shell` body replaced with `return False`"
+        blob_before: c792a9b47530ff6c2593d8b61b0d4dc6798fdb6d
+        blob_after: 165e33e73e5c4753d24fbe9c5ef9dc12bb5946d0
+        result: "SURVIVED — 35 passed in 5.54 s. See F-103."
+      - id: M-B
+        intent: "the opposite direction"
+        mutation: "`_is_a_shell` body replaced with `return True`"
+        blob_after: b8b0b0dbad2976a4d7d0a11c4dbe9959fa805616
+        result: >-
+          KILLED — 3 failed, 32 passed in 17.20 s
+          (`test_each_near_miss_probe_is_visible_to_ps[e]`,
+          `test_the_visibility_check_is_proved_in_both_directions[a search tool
+          that is really there]`, `test_a_probe_leaves_no_orphan_behind`).
+    reachability: >-
+      Separately measured and it matters for how F-103 should be read: the
+      clause is not merely uncontrolled, it is never EXERCISED on this host.
+      Polling a live case-(e) probe's children every 50 ms for 1.5 s, the child
+      set was constant at exactly `('sleep N', '/usr/bin/grep -- <pattern>')`
+      across 12 trials and 30 polls — zsh's fork/exec window for a pipeline
+      stage never showed an intermediate shell. So `not _is_a_shell(child)` has
+      no realized work to do here; it is a defensive clause that the ADR comment
+      and the config.yml paragraph both present as the thing making the branch
+      sound.
+
+  visibility_control_probes:
+    verdict: >-
+      REAL, and the best thing added this round. Four rows, two visible and two
+      not, one pair per branch, at one shared budget
+      (VISIBILITY_CONTROL_LIFETIME 4 / VISIBILITY_CONTROL_TIMEOUT 1.0), and the
+      invisible rows are the two vacuities actually measured on this card rather
+      than invented ones. It kills M-B, M-C and M-D above, each on a different
+      row. VISIBILITY_CONTROL_TEXT's refusal to spell any instrument's pattern
+      is the right call and is reasoned correctly in its own comment.
+    one_soft_spot: >-
+      `assert not _is_a_shell(seen) or shape == "shell-wrapper"` short-circuits
+      for 2 of the 4 rows, and for the other 2 it is satisfied by the same
+      predicate M-A shows is uncontrolled. It is the one assertion in the block
+      that carries nothing.
+
+  named_tests_resolver:
+    verdict: "WORKS, and the regex narrowing holds against the shapes it was aimed at."
+    how: >-
+      Re-derived the sets by hand from config.yml: `spelled` is 6 names,
+      `named` is exactly 4 after the two exemptions, the floor is 4 — tight, not
+      a ceiling-free floor — and all 4 resolve to `def` lines (6125, 6253, 6458,
+      6483). The anchored form drops BOTH phantoms the unanchored one caught:
+      `test_configure` (out of `pytest_configure`) and `test_suite_profile` (out
+      of a module path). The negative control is real: `defines()` is called on
+      `test_command` and `test_scope` in the same run and must answer no twice.
+    mutant:
+      - id: M-H
+        mutation: "one config-named test renamed at its `def` line only (`..._in_the_form_...` -> `..._in_a_form_...`)"
+        blob_after: 25c217133ca39f6a82712890f84d2ed135a5eba5
+        result: "KILLED — 1 failed, 34 passed in 5.38 s. The instrument finds a dead reference."
+    domain_question_the_brief_asked: >-
+      CAN config.yml legitimately name a test in another file? Yes — it is the
+      board's convention file, not this module's. The resolver searches THIS
+      module's source only, so such a name reds as dead when it is alive. The
+      docstring declares this ("names tests in this module only, today"), so it
+      is a declared bound rather than a hidden one; but the declared direction
+      is "report a live test as dead" in a file every card edits, which is the
+      expensive direction for a shared file. See F-109.
+    shape_the_narrowing_did_not_consider: >-
+      The character class is `[a-z0-9_]` only. A test name with an uppercase
+      letter (`test_fooBar`) produces NO match at all — the lookahead on `[\w.]`
+      rejects the `test_foo` prefix — so such a name would be silently unseen
+      rather than loudly dead. No such name exists in config.yml today and the
+      floor of 4 is exact, so nothing is hidden now.
+
+  orphan_test:
+    orphan_claim_re_measured:
+      before_the_fix: >-
+        FIVE, confirmed independently. Ran the class from an out-of-tree
+        `git archive 74debef2` copy (29 passed in 3.39 s) and censused `ppid == 1`
+        immediately after: four `sleep 30` and one
+        `/usr/bin/grep -- .../MacOS/Python -m pytest`. The orphan grep's argv
+        does spell ` -m pytest`, exactly as reported.
+      after_the_fix: >-
+        ZERO. Same census after the class at HEAD (worktree, 35 passed) and
+        after two whole-module runs (445 passed): no `sleep 30`, no `sleep 4`,
+        no probe `grep` with ppid 1. Host was swept clean between the two
+        measurements.
+    is_two_the_right_floor: >-
+      YES and it is TIGHT. The realized child count for a search-tool probe is
+      exactly 2 (`sleep` + `grep`), measured stable over 12 trials — so
+      `>= 2` equals the actual value and cannot absorb the loss of a child.
+    but_it_does_not_measure_a_kill:
+      - id: M-J
+        intent: "does the test detect a killpg that reaches nothing?"
+        mutation: "`start_new_session=True` -> `False` on the search-tool spawn ONLY (1 of 6 sites)"
+        blob_after: c48980934d4d122654f44df8e37926552cf62ea0
+        result: >-
+          SURVIVED — 35 passed, but in 65.41 s instead of ~5 s. Without a new
+          session `proc.pid` is not a process-group id, `os.killpg` raises
+          ProcessLookupError, the `finally` tolerates it, and
+          `proc.wait(timeout=60)` then simply waits out
+          PROBE_LIFETIME_SECONDS = 30 for each of the two search-tool spawns.
+          The children are gone when the assertion looks because they died of
+          old age. The docstring's "the group is killed the way the fixture
+          kills it, and every pid that was there has to be gone" is satisfied by
+          waiting.
+      - id: M-J2
+        intent: "bound the exposure that leaves"
+        mutation: "all SIX `start_new_session=True` sites -> `False`"
+        blob_after: 580e03b97b9dbf3860f6cd9b08956722a0e7736a
+        result: >-
+          NO VERDICT. 15 dots, then the process was killed at 121.18 s wall with
+          no summary line — tests/hang_guard.py's 120 s `exit=True`. This is the
+          exact failure mode cycle 1's F-005 was raised to remove
+          ("a MEASUREMENT defect, never a tree verdict"), re-entering through the
+          F-004 fix: the dominant term on the module-scoped fixture's node is now
+          `_kill_group`'s `proc.wait(timeout=60)` over up to
+          6 cases x 4 BASELINE_ATTEMPTS = 24 spawns, not PROBE_VISIBLE_TIMEOUT x 5.
+          See F-104.
+
+# ---------------------------------------------------------------------------
+# AREA 2 — the rewritten refutation criterion and its declared bound
+# ---------------------------------------------------------------------------
+area_2_refutation_criterion:
+  finding_12_itself: "CORRECT, and correctly diagnosed. Re-derived."
+  how: >-
+    `_reading` returns `int(stdout)` when `stdout.strip().isdigit()` and None
+    otherwise. `pgrep -f` without `-c` prints a PID LIST, so exactly one
+    matching argv makes the cell a digit string and the OLD criterion ("exits
+    non-zero, or printed something that is not a number") reads the rejection as
+    no longer refuted. The diagnosis of what spells the pattern also checks out:
+    this module's own (d)/(d2) wording is one source, and a sibling card's shell
+    wrapper is another — CARD-306's full-suite gate was live on this host during
+    this cycle and its own `zsh -c` wrapper lines were measured in `ps`.
+
+  interference_observed_live: >-
+    OBSERVED, as the brief hoped, and it moves a figure. From 2026-10-29T21:34Z
+    CARD-306's merge gate held the lock with a real `-m pytest` alive (pid
+    25643). At that instant: prescribed cell 1; `pgrep -fc` exit 2 with empty
+    stdout; `pgrep -f 'python.* -m pytest'` exit 1, NO match (the gate's argv
+    carries no lowercase `python` — the (d3) property, holding); and
+    `ps -Ao command= | grep -c '[m] pytest'` read **2** against a true 1.
+
+  faithfulness_of_the_native_reimplementation:
+    verdict: "FAITHFUL today, verified; but with NO standing cross-check, so free to drift."
+    how: >-
+      Cross-checked `_is_a_real_pytest_run` against the awk it mirrors by
+      running both over (a) every row of live `ps -eo command=` and (b) a
+      20-case synthetic argv corpus built for the shapes that could diverge
+      (`/usr/bin/python3.12`, `/a/pythonw`, `/a/python -mpytest`,
+      `/a/python - m pytest`, a trailing newline, `jython`, `/a/PYTHON`,
+      `/a/python.`, `/a/xpython`, `-m pytest` with no argv[0], empty and
+      whitespace-only lines, and `-m pytest` hidden inside a `-c` string).
+      ZERO divergences in either direction. awk's `$1 ~ /re/` and Python's
+      `re.search` on `argv.split()[0]` agree, and awk's `/-m pytest/` over `$0`
+      is a metacharacter-free literal, so `in argv` is equivalent.
+    but: >-
+      The project's precedent for native reimplementation over lateral import
+      (`solver/propagate.py`'s `mask_runs`) is cross-checked FROM THE TEST TREE
+      against the thing it mirrors. There is no equivalent here: the awk is read
+      out of config.yml at run time by `_instrument()` while the two halves are
+      frozen in Python, and nothing compares them. The corpus above is mine, not
+      the tree's. See F-102.
+
+  does_half_1_carry_the_row:
+    verdict: "NO — refuted, for the `pgrep -f` row, and this is the cycle's headline."
+    argument_and_measurement: >-
+      For the `pgrep -fc` row half (1) is meaningful: the cell produces no
+      reading at all, and it would red the day pgrep grew a working `-c` that
+      agreed with the prescribed cell. PROVED, M-L: with that entry's instrument
+      replaced by the prescribed awk itself, half (1) reds (1 failed, 1 passed).
+      For the `pgrep -f` row half (1) is STRUCTURALLY INCAPABLE of reddening.
+      `pgrep -f` can only ever print a PID list, and `_reading` of a PID list is
+      either a pid — never equal to a single-digit process count — or `None`
+      when more than one pid prints. So the comparison `_reading(instrument) !=
+      prescribed` is a guaranteed pass on that row, whatever happens to pgrep.
+    the_bound_is_mis_stated_not_merely_understated: >-
+      The docstring declares: "the second half is strong while a real `-m
+      pytest` is alive and weak while none is... the first half carries the row
+      either way." BOTH clauses are wrong on this host, and the reason is one
+      fact neither the round nor the brief names: BSD `pgrep` EXCLUDES ITS OWN
+      ANCESTORS by default. `man pgrep`: "-a  Include process ancestors in the
+      match list. By default, the current pgrep or pkill process and all of its
+      ancestors are excluded." The test always runs under a real `-m pytest` —
+      its own runner, which `_is_a_real_pytest_run` counts and the prescribed
+      cell counts (measured: the cell read 2 from inside a run while one sibling
+      was live) — yet that runner is invisible to every pgrep-family instrument
+      in the rejected list, because it is the ancestor of the `zsh -c pgrep` the
+      test spawns. Measured directly from inside a pytest run: runner pid 27867,
+      argv `.../MacOS/Python -m pytest ...`, and `pgrep -fi 'python.* -m pytest'`
+      returned only the sibling's pid, not the runner's.
+      So the real condition is not "while a real `-m pytest` is alive" but
+      "while a real `-m pytest` that is NOT AN ANCESTOR of this process is
+      alive" — i.e. while a sibling card is running pytest. On a solo board,
+      never.
+    mutant_both_ways:
+      - id: M-E
+        intent: "make the `pgrep -f` rejection genuinely STALE and see whether the row notices"
+        mutation: "that entry's instrument -> `pgrep -fi 'python.* -m pytest'`, the case-insensitive form config.yml itself records as no longer blind"
+        config_blob_after: 221c3e4bf4a6ce6b7a043f7fb32a4a133a18e8ca
+        result_with_a_sibling_gate_live: >-
+          KILLED, by half (2) ALONE — 1 failed, 1 passed. The failure names
+          CARD-306's gate pytest (25643) and a nested probe pytest it had
+          spawned (27696). Half (1) passed.
+        result_on_a_quiet_host: >-
+          SURVIVED — 2 passed in 0.29 s, with the same demonstrably stale
+          instrument in place and `ps -eo command= | awk ... | wc -l` reading 0.
+        conclusion: >-
+          On a quiet board the `[pgrep -f]` row asserts NOTHING: half (2) has
+          nothing it can see and half (1) cannot fail. Its greenness on a solo
+          run is not evidence about the rejection. See F-101.
+
+# ---------------------------------------------------------------------------
+# AREA 3 — the edit to CARD-308's frozen baseline
+# ---------------------------------------------------------------------------
+area_3_frozen_census:
+  symmetric_difference_re_derived: "EXACTLY THREE IN, ZERO OUT. Confirmed independently."
+  how: >-
+    Two out-of-tree `git archive` copies — `0ea64cf3` (main) and `2583783b`
+    (HEAD) — each `git init`ed and committed so `git ls-files` has a tracked set
+    (1765 files in both), then CARD-308's own `_declared_refs()` and
+    `_verdicts()` run against each and the resulting ref SETS diffed. This
+    re-derives the DELTA from the data rather than re-deriving CARD-308's
+    algorithm, which is the right division: the algorithm is its instrument, the
+    delta is the claim under review.
+  census: "580 -> 583; entering = the three R4 refs; leaving = []"
+  defined: "389 -> 392; entering = the same three; leaving = []"
+  all_three_resolve: >-
+    YES, and to real definitions, read off `def` lines in
+    tests/test_suite_profile.py rather than text-searched:
+    test_every_prescribed_host_cell_command_exits_zero at 6076,
+    test_the_instrument_rises_on_a_real_pytest at 6371,
+    test_the_instrument_does_not_rise_on_a_near_miss at 6403. All three are in
+    the DEFINED set too, which is why both baselines move by the same three —
+    a declaration arriving with its definition already in place.
+  g2_intact: "YES, and its counterfactual is confirmed rather than assumed."
+  g2_how: >-
+    tests/test_check_ref_resolution.py is 23 passed at HEAD, including
+    test_this_module_resolves_no_verifying_ref_at_all and
+    test_a_ref_with_a_real_definition_is_not_reported. Then the counterfactual,
+    M-F: the three node ids written INTO that file's CENSUS comment, blob
+    recorded (97c62e55d094717f33634abf00bdad2af6aa3d3a), run, restored to the
+    commit's own 7a893d6c. Result: 1 failed, 22 passed — G-2 reds and names all
+    three. So the unnamed form is NECESSARY, not merely tidy, and the
+    file:line-instead-of-name precedent is the only shape available.
+  was_updating_the_baseline_the_right_move: >-
+    YES. The baseline did its job: it went red, it refused to be nudged, and it
+    forced the delta to be derived before it moved. The move is additive and the
+    direction a flip to {kind: test} must produce; nothing left; every entrant
+    arrived already defined, which is the one census movement that needs no
+    repair. The docstring says exactly that and names the file:line evidence.
+    The thing worth recording is not a defect but a coupling: CENSUS and DEFINED
+    are whole-board fingerprints owned by one card, so any card that adds a
+    check ref must edit another card's frozen artefact. That is a board process
+    observation for the retrospective, not a finding against CARD-304.
+
+# ---------------------------------------------------------------------------
+# ALSO CONFIRMED
+# ---------------------------------------------------------------------------
+also_confirmed:
+  f001_two_sentences_now_true: >-
+    YES, and the code is what makes them so. Replayed cycle 1's surviving M-1 on
+    the FIXED tree — the probe's grep given a flag it does not have, blob
+    f2b0d4ada1f64568cef7d875410f919517e5ece8 — and
+    `test_each_near_miss_probe_is_visible_to_ps[e]` now RED (2 failed, 33
+    passed; `test_a_probe_leaves_no_orphan_behind` red with it). Where cycle 1
+    measured 29/29 green with no search tool on the host, HEAD reds. The (e)
+    branch requires a child of the wrapper carrying the text whose `$1` is not a
+    shell, and on this host that child is measurably the grep. config.yml's
+    "that immunity is now asserted rather than reasoned -- asserted ON THE GREP"
+    and R4's "for the search tool that means THE SEARCH TOOL, a child of the
+    pipeline whose own $1 is not a shell" are both TRUE as written. One
+    qualification, which is F-103 and not a falsity: the "$1 is not a shell"
+    half of that requirement is itself uncontrolled and unexercised.
+  g1_held: >-
+    YES. ONE hunk in the ADR (@@ -541,10 +541,29 @@). Every `-`/`+` line is a
+    `#` comment; a grep over the changed lines for `statement:`, `scope:`,
+    `severity:` and `check:` returns nothing, and a grep for any changed line
+    that is NOT a comment returns nothing. R4's statement, scope, severity and
+    check are byte-identical to the merge base.
+  the_rename_is_inert_today_and_the_silencer_is_measured:
+    inert: >-
+      YES. The pre-rename name (the one-place test's name without its
+      `_in_config_yml` suffix) now resolves to ZERO `def` lines tree-wide, and
+      it is spelled in exactly ONE tracked file: the cycle-1 review YAML. R4's
+      `check:` does not name it — R4 names three refs and none is that one — and
+      `system_rules.py --verify-refs --format yaml` on this worktree reports
+      `dead_check_ref: []`, `check_refs_verified: true`, `unparseable_sources: []`.
+      The name is in neither the census nor the DEFINED set.
+    but_the_hazard_is_no_longer_theoretical: >-
+      MEASURED, on this exact name. In the out-of-tree copy I appended that dead
+      name to R4's own `check:` ref list and ran --verify-refs twice. WITH the
+      cycle-1 review YAML present: `dead_check_ref: []`. With that one file
+      moved aside: `dead_check_ref: ["ADR-0039/R4 -> <the dead name> (partial —
+      still checked by: ...)"]`. So the board's safety net for that name is
+      switched off by a committed file, and it will stay off. Inert because
+      nothing names it; NOT inert because nothing could. See F-105.
+  grep_q_correction_to_cycle_1: >-
+    THE ROUND IS RIGHT, and cycle 1's committed report is wrong on this point.
+    Re-derived: spawned the case-(e) pipeline three ways and enumerated the
+    wrapper's children. With a plain grep, children are
+    `['sleep 5', '/usr/bin/grep -- <pattern>']` and the (e) branch returns the
+    grep. With `grep -q`, children are
+    `['sleep 5', '/usr/bin/grep -q -- <pattern>']` — the grep still blocks on
+    the pipe, so a real search tool exists and the fixed branch finds it. Only
+    the unknown-flag form leaves `['sleep 5']` alone and reds. So cycle 1's M-7
+    `grep -q` variant surviving was legitimate behaviour, not a second
+    independent witness for F-001, and listing it as corroboration overstated
+    the evidence by one witness. Correcting a committed review report against
+    measurement is the behaviour R4 exists to produce.
+  f010_already_on_main: >-
+    CONFIRMED. The card's AC-3 residue list now reads "one-off shell commands
+    that are not prescriptions"; the contradicted heading is gone. Nothing was
+    owed.
+  pgrep_fc_re_measurements: >-
+    ALL THREE EXACT, under pipefail. `pgrep -fc 'python.* -m pytest'` bare ->
+    exit 2, empty stdout, usage on stderr. Same form with `|| [ $? -eq 1 ]` ->
+    exit 1, so it STILL reds (2 != 1). The normalized grep form
+    (`ps -Ao command= | grep -c '[m] pytest' || [ $? -eq 1 ]`) -> exit 0. Also
+    re-confirmed: `pgrep -f 'python.* -m pytest' | wc -l` -> exit 1, stdout 0.
+  sandbox_narrowing: >-
+    CONFIRMED by derivation, not by reading: the class collects 35 node ids and
+    SANDBOX_DESELECTED's four methods account for exactly 11 of them
+    (visible_to_ps 5, rises 1, does_not_rise 4, declared_bound 1), leaving 24
+    participating in both sandbox copies. TestSuiteTiming_CollectsTheSameWithAnd
+    WithoutTheLog is 127 passed in 27.93 s.
+  validators: "100 WARN / 0 ERROR (Counter({'WARN': 100}), zero ERROR rows); dead_check_ref: []."
+  node_ids: "445 at HEAD, 439 at the merge base. See the figure correction below."
+
+# ---------------------------------------------------------------------------
+# WHAT I MEASURED TO BE WRONG in the brief, the card or the round's report
+# ---------------------------------------------------------------------------
+measured_wrong:
+  - subject: "the brief: 'node ids 439 -> 445, 6 additions, 0 deletions'"
+    measured: >-
+      The RAW symmetric difference is 2 REMOVED and 8 ADDED. What leaves is the
+      rename's two param ids; what arrives is the same two under the new name
+      plus six genuinely new ones (orphan test 1, resolver 1, visibility control
+      4). The net-of-rename accounting is honest and the COMMIT MESSAGE discloses
+      it ("1 deliberate rename (2 ids)"); the brief's phrasing, carried alone,
+      is not. 439 and 445 are both correct.
+  - subject: "the brief and the round: 'each [new instrument] is claimed to carry a mutant that reds it'"
+    measured: >-
+      FALSE for two of five. `_is_a_shell` -> `return False` survives (M-A, 35
+      passed). `_is_a_real_pytest_run` -> `return False` survives (M-I, 35
+      passed). And `test_a_probe_leaves_no_orphan_behind`'s mutant coverage does
+      not include the direction its own docstring is about: a `killpg` that
+      reaches nothing survives (M-J).
+  - subject: "the docstring's class cost band: 5.3-5.8 s session / 6.2-6.7 s wall over five runs"
+    measured: >-
+      EXCEEDED IN BOTH DIRECTIONS within a day, which is worse than cycle 1's
+      F-003 (exceeded above only). Seven runs: on a quiet host 4.95 / 4.99 /
+      5.31 s session and 5.54 / 5.61 / 6.51 s wall; with a sibling gate live
+      5.64 / 5.87 / 5.96 s session and 6.65 / 6.74 / 7.13 s wall. The band's
+      domain does not mention host contention, although the module bullets
+      directly above it now do.
+  - subject: "the docstring's module cost band: 37.6-39.0 s session over six runs, 445 node ids"
+    measured: >-
+      37.28-40.30 s over four runs (2 in the worktree on a quiet host: 37.28,
+      40.30; 2 out of tree with the sibling gate live: 38.62, 39.09). Outside
+      the band at both ends. 445 passed every time; zero skips every time.
+  - subject: "config.yml: the grep form 'was re-measured on 2026-10-30 reading 3 at an instant when the prescribed cell read 1'"
+    measured: >-
+      NOT REPRODUCIBLE as a figure, though the DIRECTION is confirmed twice.
+      With CARD-306's gate live: grep form 2, prescribed 1. On a quiet host:
+      grep form 1, prescribed 0. The quantity counts the measuring agent's own
+      shell wrappers, so it is contention-dependent and the figure carries no
+      domain saying how many were alive. This is the shape the card's own AC-3
+      item 3 lists as unreachable residue, committed once more by the card. The
+      ARGUMENT it supports (grep's readings are wrong, so awk is preferred for
+      that reason and not for its exit status) stands and was re-confirmed.
+  - subject: "the round's declared bound on the refutation criterion"
+    measured: >-
+      Mis-stated in both clauses. See area_2 and F-101. A real `-m pytest` is
+      ALWAYS alive during the test — the runner — and half (2) is weak anyway
+      because BSD pgrep excludes its own ancestors; and half (1) does not carry
+      the `pgrep -f` row, it cannot fail there at all.
+  - subject: "cycle 1's report, F-001: `grep -q` listed as M-7's second witness"
+    measured: "Non-discriminating. The round's correction is right. See also_confirmed."
+
+# ---------------------------------------------------------------------------
+# FINDINGS, ranked
+# ---------------------------------------------------------------------------
+findings:
+  - id: F-101
+    severity: high
+    confidence: measured
+    title: >-
+      On a quiet board `test_a_rejected_instrument_is_still_refuted_on_this_host[pgrep -f]`
+      asserts nothing — half (1) cannot fail there and half (2) cannot see the
+      only real pytest that is always alive — and the declared bound says the
+      opposite.
+    where:
+      - "tests/test_suite_profile.py — test_a_rejected_instrument_is_still_refuted_on_this_host, its DECLARED BOUND paragraph and both assertions"
+      - "meta/kanban/config.yml — the `rejected` entry for the case-sensitive `pgrep -f` form"
+    measured: >-
+      Half (1) compares `_reading(instrument)` with the prescribed count.
+      `pgrep -f` can only print a PID list; `_reading` turns that into a pid
+      (never equal to a one-digit count) or into None (two or more pids), so the
+      inequality is a guaranteed pass on that row — structurally, not
+      circumstantially. Half (2) asks whether anything the instrument matched is
+      a run the prescribed cell would count, and BSD pgrep's documented default
+      excludes the invoking process AND ALL ITS ANCESTORS (`man pgrep`, the `-a`
+      flag), so the test's own runner — a real `-m pytest` that the prescribed
+      cell does count, measured at 2 from inside a run — is invisible to it.
+      M-E proves the consequence both ways with the same stale instrument in
+      place (`pgrep -fi`, which config.yml itself records as no longer blind):
+      KILLED by half (2) alone while CARD-306's gate was live, naming its pids;
+      SURVIVED, 2 passed in 0.29 s, on a quiet host. M-L shows half (1) is not
+      decorative for the `-fc` row, which is the only row it protects.
+    why_it_matters: >-
+      This is the card's own subject one row over: a control whose green is not
+      evidence. Worse, its greenness is a function of what ELSE is running on
+      the host, so the row is green on a solo run and only becomes informative
+      when a sibling card happens to be mid-gate — the inverse of what a gate
+      should do. And the paragraph that would tell a reader this says "the first
+      half carries the row either way", which is the one sentence a future
+      reader would rely on.
+    fix: >-
+      Two small changes, either of which restores the row. (a) Add `-a` to the
+      pgrep forms the test runs — not to the prescription, only to the
+      re-execution — so the runner is in the match list and half (2) is strong on
+      every run; the rejection's verdict is about blindness, and the runner is
+      exactly the run it must be blind to. (b) Restate the bound to say which
+      half carries which row: half (1) carries `-fc` (M-L), half (2) carries
+      `-f`, and neither carries both. If (a) is taken, the bound shortens to one
+      sentence instead of needing a hedge.
+
+  - id: F-102
+    severity: medium
+    confidence: measured
+    title: >-
+      `_is_a_real_pytest_run` — the awk's two halves reimplemented natively — has
+      no control at all, and no cross-check against the awk it mirrors.
+    where: "tests/test_suite_profile.py — _is_a_real_pytest_run, and its single call site in the refutation test"
+    measured: >-
+      M-I: the body replaced with `return False`, i.e. the helper made totally
+      blind. 35 passed in 5.26 s. Nothing in the collected set notices, because
+      half (2)'s only assertion is `not counted` — so any narrowing of this
+      predicate is a silent pass, which is ADR-0039/R2's named prohibition.
+      Separately: the copy IS faithful today. I cross-checked it against the awk
+      over every live `ps -eo command=` row and over a 20-case synthetic argv
+      corpus aimed at the shapes that could diverge; zero disagreements either
+      way. But that corpus is mine. The awk is read out of config.yml at run
+      time by `_instrument()` while the two halves are frozen in Python, and
+      nothing compares them — so a future edit to the prescription leaves the
+      copy behind with no red.
+    why_it_matters: >-
+      The project's own precedent for reimplementing rather than importing
+      (`solver/propagate.py`'s `mask_runs`) is explicitly cross-checked from the
+      test tree against the thing it mirrors, and CLAUDE.md names that as the
+      pattern. This copy has the reimplementation without the cross-check, which
+      is the half that makes the pattern safe.
+    fix: >-
+      A table-driven control in the same class: a handful of argv strings with
+      expected verdicts, asserted BOTH against `_is_a_real_pytest_run` and
+      against the prescription's own awk run as a subprocess over the same
+      strings. That is one test, it is the `mask_runs` shape, and it reds on
+      either drift or blindness.
+
+  - id: F-103
+    severity: medium
+    confidence: measured
+    title: >-
+      `_is_a_shell`'s set is hand-written, not derived from the enumerable
+      authority that exists, and its default on an unrecognised shape is a
+      silent pass in exactly the direction F-001 was about — ADR-0039/R2,
+      mandatory, `tests/**` in scope.
+    where: "tests/test_suite_profile.py — _is_a_shell; its call sites in _wait_until_visible and in the visibility control's second assertion"
+    measured: >-
+      The predicate is one derived equality (config.yml's `shell` key) OR a
+      hand-written suffix rule (`Path(executable).name.endswith("sh")`). No
+      authority backs the suffix rule, and `/etc/shells` — 7 entries on this
+      host — is an enumerable authority that agrees with it on all 7, so
+      deriving the set would change no present answer and would make it
+      checkable. Measured misclassifications: `env zsh`, `/usr/bin/env sh`,
+      `/bin/bash-5.2` and any shebang wrapper read as NOT a shell (and the
+      caller's test is `not _is_a_shell(child)`, so an unrecognised shell is
+      accepted as the search tool); `/usr/bin/ssh` reads as a shell. The brief's
+      `/bin/sh` and `-zsh` both work.
+      M-A: the body replaced with `return False` — 35 passed. M-B: `return True`
+      — 3 failed. So the predicate is controlled only in the over-inclusive
+      direction, and uncontrolled in the one that reinstates the vacuity.
+      Also measured: the clause is never exercised. A live case-(e) probe's
+      children were exactly `('sleep N', 'grep -- <pattern>')` across 12 trials
+      and 30 polls at 50 ms — zsh's pre-exec window for a pipeline stage never
+      appeared — so nothing on this host ever reaches the shell filter.
+    why_it_matters: >-
+      R4's REACH comment and config.yml's restated paragraph both present "a
+      child whose own $1 is not a shell" as the thing that makes the branch
+      sound. It is the half of that requirement with no authority, no control
+      and no realized work. The sentences are still true (the code does require
+      it); the guarantee behind them is thinner than it reads.
+    fix: >-
+      Derive the set from `/etc/shells` plus config.yml's declared `shell`,
+      default to DENY on an unparseable executable (treat "cannot analyse" as
+      "is a shell", which is the safe direction for this caller), and add the
+      third pair to VISIBILITY_CONTROL_PROBES that would make M-A red: a probe
+      whose pattern-carrying child IS a shell and must not be accepted.
+
+  - id: F-104
+    severity: medium
+    confidence: measured
+    title: >-
+      `test_a_probe_leaves_no_orphan_behind` measures a WAIT, not a kill — and
+      the hang-guard exposure cycle 1's F-005 removed has re-entered through the
+      fix for F-004.
+    where: "tests/test_suite_profile.py — test_a_probe_leaves_no_orphan_behind; _kill_group's proc.wait(timeout=60); the module-scoped rival_matrix fixture"
+    measured: >-
+      M-J: `start_new_session=True` -> `False` on the search-tool spawn alone.
+      35 PASSED, in 65.41 s instead of ~5 s. Without a new session `proc.pid` is
+      not a process-group id, `os.killpg` raises ProcessLookupError, the
+      `finally` tolerates it by design, and `proc.wait(timeout=60)` then waits
+      out PROBE_LIFETIME_SECONDS = 30 per search-tool spawn. The children are
+      gone when the assertion looks because they expired, not because they were
+      killed.
+      M-J2: the same at all six spawn sites. The run was KILLED at 121.18 s with
+      15 dots and NO SUMMARY LINE — hang_guard's 120 s `exit=True`. The fixture
+      builds up to 6 cases x 4 BASELINE_ATTEMPTS = 24 spawns inside ONE node, so
+      the ceiling on that node is now dominated by `_kill_group`'s 60 s wait,
+      not by the PROBE_VISIBLE_TIMEOUT x 5 that F-005 lowered from 30 to 5. One
+      broken shape already costs 65 s of a 120 s node budget.
+    why_it_matters: >-
+      The orphan claim itself is TRUE and I re-measured it independently (five
+      before, including the grep spelling ` -m pytest`; zero after, including
+      after whole-module runs). The defect is in what the new test can detect:
+      it cannot tell a working `killpg` from one that reaches nothing, which is
+      the only thing the F-004 fix added. And F-005's own argument — that this
+      node must stay clear of a guard whose action is to kill the process and
+      produce no verdict — now applies to a larger term than the one that was
+      reduced.
+    fix: >-
+      Assert the kill rather than the outcome: after `os.killpg`, poll for the
+      children's disappearance with a budget of a second or two and fail if they
+      outlive it, instead of letting `proc.wait(timeout=60)` absorb the
+      difference. Drop that wait to a few seconds (a group that got SIGKILL does
+      not need 60), and make the ProcessLookupError arm distinguish "the group
+      was already gone" from "there was never a group with that id" — the second
+      is the mutant and it is distinguishable (`os.getpgid(proc.pid) != proc.pid`).
+
+  - id: F-105
+    severity: low-medium
+    confidence: measured
+    title: >-
+      The deliberate rename orphaned a name whose dead-ref warning is now
+      permanently silenced by a committed review YAML — inert today, and the
+      silencing is measured rather than feared.
+    where:
+      - "tests/test_suite_profile.py:6125 — the renamed one-place test"
+      - "meta/review/20261030T000000Z-CARD-304-cycle1.yml — the only tracked file still spelling the old name"
+    measured: >-
+      The pre-rename name resolves to ZERO `def` lines tree-wide and appears in
+      exactly one tracked file, the cycle-1 report. Nothing declares it: R4's
+      `check:` names three refs and none is that one, and --verify-refs is
+      `dead_check_ref: []` / `check_refs_verified: true` / `unparseable_sources: []`.
+      So the rename is INERT.
+      The hazard, however, is no longer theoretical. With that dead name
+      appended to R4's own `check:` ref list in an out-of-tree copy:
+      --verify-refs reports `dead_check_ref: []` while the cycle-1 YAML is
+      present, and reports the dead ref the moment that one file is moved aside.
+      The board's safety net for that specific name is off, by a committed file,
+      permanently.
+    why_it_matters: >-
+      It is the board-level version of this card's subject: a resolver whose text
+      domain includes its own review reports cannot tell a live instrument from a
+      discussed one, and every review cycle widens the blind spot by one file.
+      CARD-304 did not create the mechanism, but its rename is the first name on
+      which the mechanism has been measured end to end.
+    fix: >-
+      Nothing for this card beyond recording it. For the board: a card that
+      excludes `meta/review/**` from the ref resolver's text domain, or requires
+      review YAMLs to spell test names in a split form. Until then, review
+      reports should assume every name they spell is a name they have revived —
+      which is why this report writes the orphaned one descriptively and never
+      in full.
+
+  - id: F-106
+    severity: low
+    confidence: measured
+    title: >-
+      Both re-measured cost bands are already outside their own ranges, one day
+      old, and the class band is now outside in BOTH directions — the shape
+      cycle 1's F-003 named, surviving its own fix.
+    where: "tests/test_suite_profile.py — the module docstring's CARD-304 re-measurement paragraph"
+    measured: >-
+      Class, 5.3-5.8 s session / 6.2-6.7 s wall over five runs. Seven runs here:
+      quiet host 4.95 / 4.99 / 5.31 s session, 5.54 / 5.61 / 6.51 s wall;
+      sibling gate live 5.64 / 5.87 / 5.96 s session, 6.65 / 6.74 / 7.13 s wall.
+      Outside at both ends on both readings.
+      Module, 37.6-39.0 s session over six runs: 37.28 / 38.62 / 39.09 / 40.30 s
+      here. Outside at both ends.
+    why_it_matters: >-
+      The F-003 fix was the right one and it did the hard half — each module
+      figure now carries its host, date, node-id count and (for the newest) the
+      fact that a sibling gate was live. The class figure did not get the same
+      treatment: it says WHICH READING it is, which was F-011, but it is still a
+      bare two-decimal range from five runs with no domain, immediately below
+      bullets that argue five runs cannot bound this quantity. The paragraph's
+      conclusion is unaffected and remains correct.
+    fix: >-
+      Give the class figure the same bullet treatment as the module totals, with
+      contention in its domain, or widen it to the measurements that now exist
+      (4.95-5.96 s session, 5.54-7.13 s wall, 13 runs across two load domains).
+
+  - id: F-107
+    severity: low
+    confidence: measured
+    title: >-
+      AC-5 is the one acceptance criterion HEAD literally contradicts, and only
+      the commit message says so.
+    where: "meta/kanban/cards/CARD-304.md — AC-5, and its census paragraph"
+    measured: >-
+      AC-5 reads "collected node-id set loses nothing; additions named. **Param
+      ids count.**" The raw symmetric difference at HEAD is 2 REMOVED / 8 ADDED:
+      the two removed are the one-place test's `[load]` and `[rival-pytest]`
+      param ids, which is precisely the clause AC-5 emphasises. The card's own
+      record still says "Census 410 -> 439, 0 lost". The commit message
+      discloses the rename and its two ids; nothing in a tracked
+      artefact other than that message does.
+    why_it_matters: >-
+      No test was retired and the rename was prescribed by the review, so the
+      substance is fine. But the card is the artefact a later reader checks the
+      ACs against, and it now records a figure HEAD does not produce — the
+      AC-vs-body drift this board keeps paying for.
+    fix: >-
+      Orchestrator's, not the round's: one line on the card recording the
+      rename, the two retired param ids and the two replacing them, and the fact
+      that AC-5's "param ids count" clause is being read as "no test retired".
+      No code change.
+
+  - id: F-108
+    severity: low
+    confidence: measured
+    title: >-
+      The false-positive figure that now carries the storability argument is a
+      point estimate of a contention-dependent quantity with no stated domain.
+    where: "meta/kanban/config.yml — the rival-pytest cell's `why_this_shape_is_storable_at_all`"
+    measured: >-
+      "reading 3 at an instant when the prescribed cell read 1" did not
+      reproduce. Two re-measurements: 2 against a true 1 with CARD-306's gate
+      live, and 1 against a true 0 on a quiet host. The quantity counts the
+      measuring agent's own `zsh -c` wrapper lines, so it moves with how many
+      agents are alive — which the sentence does not say.
+    why_it_matters: >-
+      The F-008 fix correctly moved the argument off an overstated exit-status
+      claim and onto a measurement; the measurement it landed on is itself the
+      card's AC-3 residue item 3. The DIRECTION is solid and I confirmed it
+      twice, so the argument holds.
+    fix: >-
+      State it as a range with its domain ("1-3 depending on how many agent
+      shells are alive; measured 1 against a true 0 and 2 against a true 1 on
+      2026-10-30"), or as the qualitative claim it actually is: the form counts
+      the measuring agent's own wrappers, so its reading is not a function of the
+      host's pytest count at all.
+
+  - id: F-109
+    severity: low
+    confidence: measured
+    title: >-
+      The new resolver's domain is one module while its data's domain is the
+      whole board, so its declared failure direction is "report a live test as
+      dead" in a file every card edits.
+    where: "tests/test_suite_profile.py — test_the_named_tests_in_config_yml_all_resolve"
+    measured: >-
+      `defines()` searches `Path(__file__)` only. config.yml is the board's
+      kanban convention file; a future `re_executed_by` naming a test in another
+      module — a legitimate thing for that file to do — reds here although the
+      test is alive. The docstring declares this bound explicitly, which is why
+      this is low and not medium. Also measured: the character class is
+      `[a-z0-9_]`, so a name containing an uppercase letter yields no match at
+      all rather than a partial one — a shape the narrowing that produced the
+      anchors did not consider. Today `named` is exactly 4, the floor is exactly
+      4, and all 4 resolve, so nothing is hidden.
+    fix: >-
+      Either widen the resolver to `tests/**` (a `def` search over tracked test
+      modules, which keeps "definition not mention") and keep the floor, or keep
+      the module scope and make the failure message say "and if the name is
+      defined in another module, move it into the data" — it already half says
+      this. Add an uppercase case to the regex or state the lowercase
+      restriction as part of the bound.
+
+# ---------------------------------------------------------------------------
+# WHAT THE ROUND GOT RIGHT
+# ---------------------------------------------------------------------------
+credits:
+  - >-
+    The F-001 fix is real and is killed by the exact mutant that survived it
+    before. Cycle 1 measured 29/29 green with no search tool on the host; HEAD
+    reds on the same plant. Both committed sentences became true because the
+    code changed, which is what the round claimed and is not what usually
+    happens.
+  - >-
+    VISIBILITY_CONTROL_PROBES is a genuine standing control and it earns its
+    place three times over: it is the killer for M-B, M-C and M-D, each on a
+    different row, and keeping the F-001 mutant standing as a permanent row is
+    exactly the right instinct. VISIBILITY_CONTROL_TEXT's refusal to spell any
+    instrument's pattern — reasoned, with the measurement that forced it — is
+    the kind of care this module is for.
+  - >-
+    Finding 12 is the best work on the round: a gate reddening for a reason that
+    is not about the tree, found by running it rather than by reading it,
+    diagnosed to the exact mechanism (`pgrep -f` prints a PID list, `isdigit()`
+    is true), reproduced deterministically, and traced to a named sibling card.
+    I reproduced the mechanism and the sibling's wrapper lines independently.
+  - >-
+    The correction to cycle 1's committed report is correct and I re-derived it:
+    `grep -q` is not discriminating, the grep child exists with the pattern in
+    its argv, and listing it as a second F-001 witness did read as corroboration
+    it was not. Correcting a review report against measurement, and saying which
+    report, is the behaviour R4 exists to produce.
+  - >-
+    The handling of another card's frozen baseline is exemplary. Symmetric
+    difference against a named main commit rather than a count comparison;
+    exactly three in and zero out, independently confirmed; every entrant
+    resolved to a `def` line read off the line; the refs deliberately NOT named
+    in that file, with the G-2 reason stated — and I confirmed the
+    counterfactual, so the unnamed form is necessary rather than fastidious.
+  - >-
+    G-1 held cleanly: one comment-only hunk, R4's statement, scope, severity and
+    check byte-identical. The card's whole reason for existing is a rule that
+    outlived its check, and the temptation to trim the rule to the check was
+    there and was not taken.
+  - >-
+    The sandbox narrowing is right and the figures are right: 11 of 35
+    deselected, 24 participating, comparison still 127 passed. The symlink is
+    now load-bearing for 24 node ids instead of buying collection alone.
+  - >-
+    `test_the_named_tests_in_config_yml_all_resolve` found a real dead reference
+    on its first run — the one the prescribed rename had just created — which is
+    the strongest possible evidence for an instrument, and its regex narrowing
+    drops both phantoms with the measurement that forced each anchor written
+    down beside it.
+
+# ---------------------------------------------------------------------------
+# min_improvement COMPARISON
+# ---------------------------------------------------------------------------
+improvement_against_cycle_1:
+  cycle_1_score: 8.0
+  cycle_2_score: 8.5
+  delta: 0.5
+  threshold: 0.5
+  verdict: "MET, exactly at the threshold — not comfortably above it."
+  what_improved: >-
+    Cycle 1's decisive deduction was that the card's headline control did not
+    execute for the one case the round itself added, and that TWO tracked files
+    — one of them ADR-0039/R4's REACH comment on main's path — asserted that it
+    did. That is gone: the control executes, it reds under the exact mutant that
+    survived it, and both sentences are true as written. Cycle 1's F-002 (the
+    control on the controls had no control) is answered with a four-row standing
+    control that kills three independent mutants. F-004's orphan claim was false
+    and is now true and measured (five -> zero, re-derived from a pre-fix tree).
+    F-003/F-008/F-009/F-011 were four inaccurate figures and all four are
+    restated with their domains; F-006's over-broad deselect is narrowed to the
+    measured 11. Beyond the review, the round found a twelfth defect by running
+    its own gate and corrected an error in a committed review report. Eleven of
+    eleven addressed, and none addressed by softening a sentence.
+  what_holds_it_to_8_5: >-
+    Three of the five instruments this round added are uncontrolled in the
+    direction that matters — `_is_a_shell` (M-A survives), `_is_a_real_pytest_run`
+    (M-I survives) and the orphan test's kill (M-J survives at 13x the cost) —
+    and the rewritten refutation criterion leaves one parametrized row asserting
+    nothing on a quiet board while its declared bound says the other half carries
+    it (M-E survives quiet, reds with a sibling live). In a card whose subject is
+    that an instrument without controls is not a measurement, that is the same
+    family of defect as cycle 1's, one layer in. It is strictly less severe:
+    nothing committed is FALSE this time — the bound is mis-stated, not inverted;
+    the sentences the ADR and config.yml carry are true; no AC is blocked; and
+    F-104's and F-101's failure modes are both latent on a solo board. One notch,
+    not two.
+  recommendation: >-
+    LAND IT. F-101's fix is two lines (`-a` on the re-executed pgrep forms, and
+    one sentence of the bound restated) and is the only finding that leaves a
+    gate row whose green is not evidence; F-102 is one table-driven test. Both
+    are small enough for a second fix round, and neither blocks a merge if the
+    orchestrator would rather carry them. F-107 is the orchestrator's own line on
+    the card and costs nothing. F-105 is board work and belongs in the
+    retrospective beside the review-YAML resolver family.
+
+# ---------------------------------------------------------------------------
+# PROCESS
+# ---------------------------------------------------------------------------
+measurement_notes:
+  full_suite: "NOT RUN. Scope was the new class, the module, the sandbox comparison class and CARD-308's ref module."
+  lock_discipline: >-
+    Checked at the absolute path in the MAIN checkout, never worktree-relative.
+    Absent at start, held by CARD-306's merge gate from 21:34:29Z, absent at the
+    end. I never took it and never set NONOGRAM_IGNORE_FULL_SUITE_LOCK. While it
+    was held my worktree runs collected 0 tests; those runs are not reported as
+    results, and the work moved to an out-of-tree copy whose blobs are recorded.
+  mutants_out_of_tree: >-
+    All twelve (M-A, M-B, M-C, M-D, M-E, M-F, M-H, M-I, M-J, M-J2, M-L, plus the
+    cycle-1 M-1 replay). `git archive 2583783b` and `git archive 74debef2` and
+    `git archive 0ea64cf3` into the session scratchpad; needle occurrence
+    asserted unique before every edit; blob hashes recorded before and after and
+    restored to the commit's own hashes
+    (tests/test_suite_profile.py c792a9b4, meta/kanban/config.yml 6e4aa9e2,
+    tests/test_check_ref_resolution.py 7a893d6c,
+    the ADR e2351eb1); `__pycache__` swept before each run.
+  no_git_stash: true
+  stash_list_unchanged: "4 at the start and 4 at the end, all pre-existing from other branches."
+  worktree_clean_at_end: >-
+    `git status --short` is empty for tracked files; HEAD is still 2583783b;
+    nothing was committed, pushed, merged or rebased. The only addition to the
+    worktree is this untracked report.
+  cards_directory: "READ ONLY. meta/kanban/cards/ was not modified."
+  production_database: "not connected."
+  forge_1: "read only (system_rules.py, validate.py). Nothing written under /Users/omelnikova/MyProjects/forge_1/."
+  runtime_as_ranges: "every runtime above is a range over a named run count, with its load domain stated. No load figure is reported."
+  traps_observed: >-
+    `zsh` does not word-split an unquoted variable, so every module list was
+    passed as a literal argument rather than through a variable. macOS has no
+    `timeout`; `/usr/bin/time -p` was used for wall clock. `ps -Ao comm=` prints
+    `Python` and was not used for counting. `pgrep -fc` gives exit 2 with empty
+    stdout. One trap not in the brief and worth adding to it: BSD `pgrep`
+    excludes the invoking process AND ALL ITS ANCESTORS unless `-a` is passed,
+    which is F-101's mechanism and would silently weaken any pgrep-based probe
+    run from inside the process it is probing for.
+  check_ref_hygiene: >-
+    Every test or class name spelled in this report was verified against a real
+    `def`/`class` line before being written, by `grep -n '^\s*def <name>('` on
+    the file named: in tests/test_suite_profile.py —
+    test_every_prescribed_host_cell_command_exits_zero 6076,
+    test_each_prescribed_command_is_written_in_one_place_in_config_yml 6125,
+    test_the_named_tests_in_config_yml_all_resolve 6163,
+    test_each_near_miss_probe_is_visible_to_ps 6253,
+    test_the_visibility_check_is_proved_in_both_directions 6276,
+    test_a_probe_leaves_no_orphan_behind 6330,
+    test_the_instrument_rises_on_a_real_pytest 6371,
+    test_the_instrument_does_not_rise_on_a_near_miss 6403,
+    test_a_declared_bound_is_still_exactly_as_blind_as_declared 6429,
+    test_the_board_starts_pytest_in_the_form_the_cell_can_see 6458,
+    test_a_rejected_instrument_is_still_refuted_on_this_host 6483,
+    test_the_host_cells_reader_refuses_a_near_miss 6065,
+    test_the_outcomes_are_identical_with_and_without_the_log 4772,
+    test_nothing_in_this_module_goes_quiet_on_a_condition 4602,
+    test_the_guard_sets_are_derived_and_not_hand_written 4181,
+    class TestHostCells_ThePrescribedInstrumentsExecuteAndRespond 6024,
+    class TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog 4564;
+    in tests/test_check_ref_resolution.py —
+    test_a_ref_with_a_real_definition_is_not_reported 1910,
+    test_this_module_resolves_no_verifying_ref_at_all 1967.
+    None is a prose-only mention.
+    HAZARD, acknowledged and partly mitigated rather than carried blindly:
+    meta/review/** is inside the ref resolver's TEXT domain, and F-105 above
+    MEASURES that a synced review YAML silences a live dead-ref warning. So this
+    file makes every name listed here read as alive after a future rename. The
+    one name that is already dead — the pre-rename form of the one-place test —
+    is therefore written descriptively throughout this report and never spelled
+    in full, so this report does not deepen the hole it is reporting. The
+    authority is the `def` line, not this file.

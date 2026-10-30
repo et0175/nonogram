@@ -3035,3 +3035,57 @@ active:
   phase: implementation dispatched on ca7c8c56
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
 queued: [CARD-220]
+
+# --- wave 66 CLOSED; wave 67 opens with CARD-306 + CARD-269, 2026-10-30 ---
+# CARD-308 merged 4545911a at 8.0, re-gate 9766/27/1xf/0f in 22:25, merged-tree
+#   identity proved, all 27 skips derived and attributed. Wave 66 closes with
+#   three cards merged (299, 285, 308), one skipped (307) and five cut from its
+#   own findings (316-320).
+#   Its estimate missed by 3.0x -- 0.5d against 1.5d -- landing the same day's
+#   retrospective finding that the miss is concentrated in the 0.5d bucket, on
+#   the very next card to close.
+#
+# CARD-304 is IMPLEMENTED at e7af05d1 and awaiting review cycle 1, HELD rather
+#   than dispatched: two implementations are already running, and three
+#   concurrent agents is the condition under which I twice today claimed a clear
+#   box and was wrong. Its branch is stable and loses nothing by waiting, and its
+#   review wants a quiet box for its mutation work.
+#   IT REFUTED MY OWN CONCLUSION, which is the most useful thing on it. I had
+#   measured five probe variants at one instant, got five different answers
+#   against a ground truth of one, and concluded no one-liner gets it right so
+#   the gate scripts should record a PID list. I had tested five forms I invented
+#   and never the one config.yml already prescribed, which rises by exactly 1 on
+#   a real run and is flat on all four near-misses. The PID list is the right
+#   DIAGNOSTIC and is now what its failure messages print, but a gate row needs a
+#   figure and a figure needs an instrument with controls.
+#   It also found a vacuity in its own controls -- zsh execs its last command, so
+#   a near-miss wrapper does not exist in ps at all and "did not rise" proves
+#   nothing -- and every negative case is now judged only after visibility.
+#   AND IT CAUGHT A BRIEF DEFECT AFFECTING ABOUT SIX AGENTS: I told them to check
+#   meta/kanban/.full-suite.lock, but that path is worktree-relative and the lock
+#   lives in the MAIN checkout, so the check never sees it. Six agents were
+#   instructed to run a blind instrument, for exactly the reason CARD-304 exists.
+#   Both briefs dispatched today give the absolute path and say why.
+#
+# CARD-306 and CARD-269 share nothing with each other or with CARD-304, measured
+#   glob-aware this time -- an earlier literal-string comparison of the same
+#   fields missed a 1.00 overlap because it compared a glob as text.
+# CARD-220 stays queued in wave 68 behind them.
+wave: 67
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-306
+  wave: 67
+  phase: implementation dispatched on 560d7e09
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-306
+- id: CARD-269
+  wave: 67
+  phase: implementation dispatched on 560d7e09
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-269
+- id: CARD-304
+  wave: 67
+  phase: implemented e7af05d1, review cycle 1 HELD for a quiet box
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
+queued: [CARD-220]

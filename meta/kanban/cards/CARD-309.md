@@ -101,6 +101,12 @@ as the one that removes them.
   grep only because THREE OF ITS NODE IDS END IN `_pdf_pages`. A mention count is
   not a reader count. --> A module that needs a further edit here is a **finding about
   CARD-299's completeness**, to be raised, not absorbed.
+  <!-- AC-3's DERIVATION HAS A BLIND SPOT, measured 2026-10-30 — see the section
+  "AC-3 counts readers by an import name" below. The twelve are derived from the
+  IMPORT of the one-image reader, and EIGHT further modules reach the same hazard
+  by a different route: they call `.interior()`/`.interior_pages()` and use the
+  returned pages as images. They are invisible to this AC as written. Read AC-3 as
+  covering both populations. -->
 - **AC-4** (the baselines move once, enumerated): *Given* the branch, *then* the
   re-recorded baselines are listed file by file in the card, the count is stated,
   and **CON-019's property test and the A4 golden are untouched and green**.
@@ -240,3 +246,96 @@ that happened to measure 8.64 pt.
 **If this card converts the puzzle page with CARD-314 unlanded, raise it rather than
 proceeding.** Converting the other four kinds first is a legitimate order; converting
 the puzzle page is not.
+
+## [Added 2026-10-29 from CARD-306's review — one class name becomes false the day this card lands]
+
+CARD-306 gave the vector puzzle page its sheet furniture, and its review's **F-307** names a debt
+that is **this card's to clear, not CARD-306's**:
+
+`tests/test_book_puzzle_page_vector.py`'s
+`TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` **now names a claim that is false
+of the shipped page.** CARD-306 re-pointed the class at `book_puzzle_vector`'s own **stream
+output** rather than at the composed page, which is a genuinely narrowed claim and not one
+relocated to stay true — the reviewer confirmed the module is **AST-identical ignoring
+docstrings**, the narrowing is stated in prose, and the class carries an in-test control
+(`len(composed) > len(shown)`). So the body is honest. **The name is the debt.**
+
+When you convert the puzzle page, that class either goes or is re-pointed, and its name must stop
+saying *"no sheet furniture"* about a page that draws folio, frame rules, grid-size label and QR
+block. Per the board's standing rule, the name is not a cosmetic fix: a class name is a claim, and
+this one will read true while being false.
+
+Also worth carrying, both measured on CARD-306's branch and relevant here:
+- `book_guide_vector:103`, `book_toc_vector:60` and `book_answer_vector:62` **all import
+  `book_pdf_generator` at module level**, so none can be called from its page walk without a
+  cycle. CARD-306's new `src/nonogram/admin/book_sheet_vector.py` was deliberately built
+  **kind-agnostic for all interior kinds** and imports only `book_vector`, `book_vector_draw` and
+  `export.layout` — the minimum set that breaks that cycle, asserted by set equality. **Its
+  furniture is ready for the other four kinds; the assembly point is the thing that is missing**,
+  and that is this card's work.
+- Guide, TOC and answer pages currently carry **no frame at all**. CARD-306 declared that a
+  residual and named it as this card's.
+
+## [Added 2026-10-30] AC-3 counts readers by an import name, and eight modules arrive by another road
+
+**Raised from an owner question about CARD-288's relevance, and measured rather than assumed.**
+
+AC-3's twelve are derived from *"modules that import `tests/helpers/pdf_pages.py`'s one-image
+reader"*. That derivation is correct about what it measures and **blind to a second population
+that hits the same wall**: modules that never parse a written PDF at all, because they call
+**`BookPDFGenerator.interior()` / `.interior_pages()`** and consume the result directly.
+`interior_pages` is declared `-> List[Image.Image]`. **The day a kind converts, it stops being
+that**, and `_write_pdf`'s own representation refusal already says so in the form these modules
+will meet it: *"… page, but arrived as `<type>`"*.
+
+**Derived 2026-10-30** by walking `tests/**/*.py` for the reader import and for `.interior(` /
+`.interior_pages(` call sites:
+
+| set | count |
+|---|---|
+| **A** — imports the one-image reader (AC-3's derivation) | 14 modules |
+| **B** — calls `.interior()` / `.interior_pages()` | 14 modules |
+| **A ∩ B** | 6 |
+| **B \ A — consume generator page objects and AC-3 cannot see them** | **8** |
+
+| module in B \ A | image-shaped uses of the returned pages | `len(pages)` checks |
+|---|---:|---:|
+| `tests/test_book_puzzle_frame.py` | 35 | 7 |
+| `tests/test_book_pdf_two_up.py` | 22 | 16 |
+| `tests/property/test_book_pdf_geometry.py` | 17 | 2 |
+| `tests/test_book_difficulty_dots.py` | 14 | 1 |
+| `tests/test_book_cell_size.py` | 12 | 0 |
+| `tests/test_book_divider_pages_option.py` | 2 | 1 |
+| `tests/test_book_pdf_levels.py` | 2 | 2 |
+| `tests/property/test_book_pairing.py` | 1 | 3 |
+
+"Image-shaped uses" counts `.size`/`.crop`/`.convert`/`.getpixel`/`.load`/`.resize`/`.getbbox`,
+`np.asarray(...)` and the ink readers. **All eight use the pages as images.**
+
+**What is measured and what is not.** Measured: the eight modules, the two sets, and that every one
+of them treats the returned pages as images. **Not measured: which of them actually breaks.** That
+depends on *which page kinds each one indexes* and whether those kinds convert — a module that only
+reads the cover or the dividers is unaffected, and several take `len(pages)` only. **Deriving that
+per-module is this card's job, and it should be done before the first kind converts, not after the
+first red.** Per ADR-0039/R2, a module the walk cannot classify is a FAILURE, not a silent pass.
+
+**The one worked example, because it is the suite's densest file.**
+`tests/property/test_book_pdf_geometry.py` indexes **puzzle pages specifically**
+(`pages[3 + toc_page_count + index]`) and calls `drawing_of` on them. It imports the one-image
+reader **zero** times — CARD-299's fix round was right to strike it from the count — and it is in
+`B \ A` with 17 image-shaped uses. CARD-314's round measured the shape it will meet: lifting the
+puzzle page's raster declaration gives *"page 6 is a vector puzzle page, but arrived as Image"*.
+
+**Why the oracle does not save it.** ADR-0042/R6 declares *"independent second-implementation
+oracles (`Sheet` and its kind) are unaffected and still compared against — **only the reading of
+the artefact changes**"*. `Sheet` lives in that file at `:124`. So R6 **protects the assertions and
+explicitly requires the reading to change** — which is the work AC-3 is about, for a module AC-3
+cannot see.
+
+**Scheduling consequence for CARD-288**, which is what prompted this. CARD-288 optimises *how those
+four tests obtain their pages* — 3820 drawn to read 1033. **It must run AFTER this card**, or the
+optimisation is designed against a page-obtaining mechanism this card replaces, and the work is
+done twice. CARD-288 is otherwise intact: its subject file is untouched since its 2026-10-24
+census, all four tests are present by name, and its headline figure carries an **independent
+corroboration within 1.7%** — which is exactly what CARD-220's review found the 20261023 rankings
+lack elsewhere (overstated **4.8×–10.3×** as a small selection).
