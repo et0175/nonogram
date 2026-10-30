@@ -31,8 +31,12 @@
 **byte-identical copy** of the admin player's module — so the public page is
 already shipping every transition the fourth mark needs. Measured 2026-10-30:
 `clickedState` and `clickStroke` handle `MAYBE` with no special case, and
-`player/player.css:411` **already carries its look** —
-`.player-cell[data-state="maybe"] { background: var(--color-surface-hover); }`.
+`player/player.css` **already carries its look**, as the one rule
+`.player-cell[data-state="maybe"] { background: var(--color-surface-hover); }`
+(at `:411` when this card was cut — **locate it by the selector, not by the line**:
+that file gained 45 lines from an out-of-pipeline commit within half an hour of
+this card being written, and a bare line number is the figure CARD-281 exists
+because of).
 
 What excludes it is **one line and one button**: `player/play.js`'s `TOOLS`
 constant is `[FILLED, EMPTY, UNKNOWN]`, and its comment states the reason —
@@ -126,6 +130,40 @@ reverses the scope choice and leaves the three answer-dependent features out.
 - **UI components:** `.player-tools` gains a fourth `.player-tool-item`; `.player-cell[data-state="maybe"]` already exists.
 - **Screens:** `/play/<key>`.
 - **Standards:** real buttons with accessible names, `role="radio"` + `aria-checked` as the three siblings already do; the owner validates the look on a real puzzle render before merge.
+
+## [Re-verified 2026-10-30 15:15] `main` moved under this card, and every premise was re-measured
+
+**Another session committed to the public player, directly on `main`, outside the
+card pipeline**, within half an hour of these five cards being cut:
+
+- `2400501b` *"player: the white mark is a dot and solving is revealed, matching the
+  panel"* — `player/play.js` **+3**, `player/player.css` **+57/−12**,
+  `tests/test_public_player.py` **+143**, `tests/test_public_player_pages.py` **+9**.
+  That is this card's exact footprint.
+- `7ec579e4` and `7d34892e` — docs only (`docs/deploy/player.md`,
+  `docs/how-it-works/**`), no code.
+
+**Every measured premise in this card was re-derived afterwards and all of them
+still hold** (15:15, against `7a2cfdf1`):
+
+| premise | at cutting | now |
+|---|---|---|
+| `TOOLS = [FILLED, EMPTY, UNKNOWN]` | yes, `play.js` | yes, `play.js:83` |
+| `.player-cell[data-state="maybe"]` styled | yes | yes, one rule |
+| `player.css` zoom rules | 0 | **0** |
+| `player.css` circle rules | 0 | **0** |
+| `player.css` crosshair rules | 0 | **0** |
+| `play.js`'s false hint comment present | yes | **yes**, verbatim |
+| `play.js` length | 576 | **579** |
+
+**What changed that a dispatching agent must know:** that commit brought a sixth
+feature over by hand — the white mark as a dot, and a solved sweep whose
+per-cell delay `play.js` now sets as `--player-wave`, *"as solver.js sets it for
+the admin player"*. So the public player is being closed toward the admin
+player's feature set **from two directions at once**: these cards, and
+direct-to-`main` commits. **Re-measure this card's figures at dispatch rather
+than trusting the table above** — it is a record of one moment, and the moment
+had already moved once.
 
 ## Worktree notes
 

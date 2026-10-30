@@ -243,6 +243,40 @@ worktree.** AC-6 is the mechanical half of the claim.
 - **Screens:** `/play/<key>`.
 - **Standards:** a real button with an accessible name and `aria-disabled` when there is nothing to hint; the rung-1/2 sentences go in a `role="status"` region so a screen reader hears the explanation, which is the whole point of rungs 1-2; the owner validates the look on a real puzzle render before merge, **and on a phone width** — CARD-321 exists because the admin ladder's answer line truncated there.
 
+## [Re-verified 2026-10-30 15:15] `main` moved under this card, and every premise was re-measured
+
+**Another session committed to the public player, directly on `main`, outside the
+card pipeline**, within half an hour of these five cards being cut:
+
+- `2400501b` *"player: the white mark is a dot and solving is revealed, matching the
+  panel"* — `player/play.js` **+3**, `player/player.css` **+57/−12**,
+  `tests/test_public_player.py` **+143**, `tests/test_public_player_pages.py` **+9**.
+  That is this card's exact footprint.
+- `7ec579e4` and `7d34892e` — docs only (`docs/deploy/player.md`,
+  `docs/how-it-works/**`), no code.
+
+**Every measured premise in this card was re-derived afterwards and all of them
+still hold** (15:15, against `7a2cfdf1`):
+
+| premise | at cutting | now |
+|---|---|---|
+| `TOOLS = [FILLED, EMPTY, UNKNOWN]` | yes, `play.js` | yes, `play.js:83` |
+| `.player-cell[data-state="maybe"]` styled | yes | yes, one rule |
+| `player.css` zoom rules | 0 | **0** |
+| `player.css` circle rules | 0 | **0** |
+| `player.css` crosshair rules | 0 | **0** |
+| `play.js`'s false hint comment present | yes | **yes**, verbatim |
+| `play.js` length | 576 | **579** |
+
+**What changed that a dispatching agent must know:** that commit brought a sixth
+feature over by hand — the white mark as a dot, and a solved sweep whose
+per-cell delay `play.js` now sets as `--player-wave`, *"as solver.js sets it for
+the admin player"*. So the public player is being closed toward the admin
+player's feature set **from two directions at once**: these cards, and
+direct-to-`main` commits. **Re-measure this card's figures at dispatch rather
+than trusting the table above** — it is a record of one moment, and the moment
+had already moved once.
+
 ## Worktree notes
 
 - **[Serialization, not dependency]** This card and CARD-323, CARD-324,
