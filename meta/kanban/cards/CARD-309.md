@@ -1,9 +1,9 @@
 # CARD-309: The assembly point, and the puzzle page becomes operators — the half of the conversion that is architecture rather than repetition
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** enabler
-**Estimate:** 1.5d <!-- RE-ESTIMATED 2026-10-30 at the split. The 1d covered five conversions, an assembly point that does not exist, 21 baselines, R1's flip, CARD-297's divergence and a reader population measured at 12+8 modules. CARD-308 had this shape today -- architectural with a frozen artefact to move -- and came in at 3.0x. This card now carries the assembly point and ONE kind; CARD-322 carries the other four. -->
+**Estimate:** 1.5d <!-- unchanged. The card was re-cut at the decompose station on 2026-10-30 rather than re-estimated: the work it NOW claims (the assembly point) is what it actually did, and it came in at roughly this. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -15,15 +15,15 @@
 **Wave:** 69 <!-- RE-STAMPED 2026-10-30 at dispatch, 68 -> 69. The field records the wave a card RAN in, and this card never ran in 68: wave 68 closed with CARD-220 (`cb5856dc`) and CARD-314 (`8762beed`) merged while this card sat `ready`. Leaving the old stamp is what made the board read waves 67 and 68 as unclosed. Dispatched with CARD-268; measured Touches intersection with it is EMPTY (overlap 0.0), and the one hotspot this card touches (`book_pdf_generator.py`) is not in CARD-268's set, so no conflict edge. -->
 **Created wave:** 65
 **Deferred waves:** 0
-**Depends on:** CARD-298, CARD-299, CARD-306, CARD-314
+**Depends on:** CARD-298, CARD-299, CARD-306, CARD-314 <!-- all done; unchanged by the re-cut -->
 **Split into:** CARD-309 (this card: the assembly point + the puzzle page) and **CARD-322** (the remaining four kinds, R1's flip, CARD-297's divergence)
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_toc_vector.py, src/nonogram/admin/book_answer_vector.py, src/nonogram/admin/book_puzzle_vector.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_interior_vector.py, tests/test_book_pdf.py, tests/test_book_export_interior_cover.py <!-- NARROWED 2026-10-30 at the decompose station. The four vector writers and tests/fixtures/book_baseline_*.json are OUT: no kind converts here, so no baseline moves. book_interior_vector.py is IN and is new. -->
 **Review score:** —
 **Started:** 2026-10-30T11:58:28Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — decompose: implementing AC-1 reds **189 failures + 75 errors across 22 test modules** with **four distinct causes**, and only one of them is a PDF reader (AC-3's subject). Cause 2 is the decisive one and is not this card's: raster and vector place the same grid **0.169 mm** apart on all four edges against `EDGE_TOLERANCE_MM = 0.1`, so **every placed-edge expectation in the tree changes value with the medium** — a convention question ADR-0042/R6's own comment assigns to **CARD-312**. Cause 3 (`test_book_difficulty_dots.py` + `tests/helpers/round_ink.py`, 27 cells) monkeypatches the raster drawing site and is **carded nowhere**. The assembly point — the half the card itself calls "the card" — **landed, is mutation-proved and is cycle-free**; the conversion was reverted rather than absorbed. Worktree and branch KEPT. Route: `/forge:kanban decompose` to re-cut, or an owner narrowing like CARD-298's.
+**Blocked by:** —
 
 ## Why this card exists
 
@@ -77,6 +77,66 @@ TITLE, GUIDE, TOC, ANSWER and PUZZLE each carry `('CARD-299', 'CARD-309')`.
 impact radius, exactly like the two frozen registries that reddened CARD-314's and CARD-269's gates
 within one hour today.
 
+## [RE-CUT 2026-10-30 at the decompose station] This card is now the assembly point, and nothing else
+
+**It escalated with `[BLOCKER] decomposition defect` and this is the re-cut.** The
+implementation round built the assembly point, measured why the puzzle-page
+conversion cannot land with it, and **reverted the conversion rather than absorbing
+it** — which is the behaviour the pipeline wants and the reason this re-cut is cheap.
+
+**What this card now claims** (all of it already implemented and green on the branch,
+commits `9fc8651f` and `37e1a093`):
+
+- `src/nonogram/admin/book_interior_vector.py` — the assembly point, downstream of
+  all five writers. The direction is a **parameter** (`InteriorPageWriters`, frozen,
+  four callables) rather than a registry or a lazy import, injected on the generator
+  and read once in `__init__`, so three export doors are one walk.
+- PUZZLE's declaration **stays**, and all five interior declarations are re-pointed
+  to `("CARD-299", "CARD-322")` — so no declaration names this card and
+  `test_no_declaration_outlives_the_cards_that_remove_it` is green on the day it is
+  marked done.
+- `_write_pdf`'s representation refusal untouched, plus a `_drawn_downstream` refusal
+  by kind one step before it (default-DENY, naming the assembly point).
+- **ADR-0042/R1 is NOT flipped.** It is true only when all four remaining kinds are
+  operators too. CARD-298 and CARD-299 each refused this flip on their own initiative
+  and were each right; so does this card. R1's flip is **CARD-322's**, with the last
+  conversion.
+
+**What left this card, and where it went.** The round root-caused the conversion's
+**189 failures + 75 errors across 22 modules** into four causes, and only one was a
+PDF reader:
+
+| cause | now owned by |
+|---|---|
+| 1. `tests/helpers/pdf_pages.py`'s one-image reader (`KeyError: b'XObject'`) — the only actual reader | **CARD-329** |
+| 2. `tests/helpers/page_ink.py`'s independent pixel oracles, and the 0.169 mm the two media disagree by against `EDGE_TOLERANCE_MM = 0.1` | **CARD-330** |
+| 3. `tests/test_book_difficulty_dots.py` + `tests/helpers/round_ink.py` (27 cells) — monkeypatches the raster drawing site, so on a vector page it measures a page the product no longer draws. **Was carded nowhere.** | **CARD-331** |
+| 4. frozen AST censuses in `tests/test_book_export_interior_cover.py` | re-derived on this branch; **stays here** |
+| the conversion itself, the four remaining kinds, the 21 baselines, R1's flip | **CARD-322** |
+
+**One routing the round got wrong, corrected here.** It assigned cause 2's convention
+question to CARD-312. Measured 2026-10-30: CARD-312's text mentions no tolerance, no
+offset and no `page_ink` site — it owns *whether a site must convert*, not *what a
+placed-edge expectation means when both media are legal and disagree*. That question
+was **unowned**, which is why CARD-330 exists. CARD-330 also reframes it: 2 px at
+300 dpi is 0.1693 mm and 300 dpi is the interior's own render DPI, so the gap is
+exactly one rounding step and the two values are **a quantisation of one**, not two
+opinions — making the first question "which medium is at the specified margin?"
+
+### The honest statement of what this card does NOT achieve
+
+**Nothing in `src/` imports the assembly point, so it ships with zero production call
+sites** — verbatim the condition this card was cut to end (*"four cards built the
+writers and every one still has zero real call sites in `src/`"*). The conversion
+would have been that call site, and the conversion is CARD-322's now. So the phase's
+hole — *nobody who turns a page into operators* — **is still open after this card
+merges**, and this card is the fifth artefact waiting for a caller.
+
+That is recorded because it is true, not because the work was wrong: the blocker is
+real, well measured, and the alternative was to grow the card past its own scope gate.
+**CARD-322 is now the card that closes the phase**, and it inherits a built assembly
+point whichever order the rest lands in.
+
 ## What to implement
 
 1. **Build the assembly point. This is the card.** `book_guide_vector`, `book_toc_vector` and
@@ -105,6 +165,13 @@ within one hour today.
    record the interior's size and generation time at both ends.
 
 ## Acceptance criteria
+
+> **RE-CUT 2026-10-30.** AC-1 holds in its second half only (the declarations are
+> honest and name CARD-322; PUZZLE's entry **stays**). **AC-3 is CARD-329's** and
+> is not verified here. AC-4's count is **zero** — no kind converted, so no baseline
+> moved, and `git status tests/fixtures/` is empty. **AC-5 is this card's core** and
+> passed with the guard unmodified. AC-2 and AC-6 hold as written. Read the
+> re-cut section above before judging any of them.
 
 - **AC-1** (the puzzle page is operators, and the declarations are honest): *Given* a written
   interior, *then* **no puzzle page references an image XObject**, PUZZLE's entry is **gone** from

@@ -16,7 +16,7 @@
 **Wave:** —
 **Created wave:** 68
 **Deferred waves:** 0
-**Depends on:** CARD-309
+**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331 <!-- WIDENED 2026-10-30 at CARD-309's re-cut, from `CARD-309` alone. CARD-309 implemented this card's conversion to measure it and reverted it: 189 failures + 75 errors across 22 modules, four causes. Three of them are now cards and every one of them is a PREREQUISITE, not a sibling -- CARD-329 (the one-image reader), CARD-330 (the 0.169 mm the media disagree by, which changes the VALUE of every placed-edge expectation), CARD-331 (the difficulty-dot instrument, which on a vector page measures a page the product no longer draws and does so SILENTLY). Converting before CARD-330 decides its question means re-deriving every edge expectation twice. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_toc_vector.py, src/nonogram/admin/book_answer_vector.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
 **Started:** —
@@ -47,6 +47,46 @@ the split.
 **So this card cannot be marked done until all four entries are gone.** Verify on arrival that the
 re-pointing actually happened — if CARD-309 shipped without it, that is a **finding about CARD-309**,
 raised, not absorbed.
+
+## [Added 2026-10-30 at CARD-309's re-cut] This card now closes the phase, and the conversion has been measured once already
+
+**CARD-309 implemented this card's conversion, measured it, and reverted it.** That
+measurement is this card's most valuable inheritance and must be re-derived, not
+trusted: the conversion reds **189 failures + 75 errors across 22 test modules**,
+with **four** causes of which only one is a PDF reader.
+
+Three are now prerequisites (`Depends on` widened accordingly):
+
+- **CARD-329** — `tests/helpers/pdf_pages.py`'s one-image reader raises
+  `KeyError: b'XObject'` on an operators page. The small, genuine reader conversion.
+- **CARD-330** — the raster and vector media place the same grid **0.169 mm** apart
+  (**2 px at the interior's own 300 dpi** — one rounding step) against
+  `EDGE_TOLERANCE_MM = 0.1`. **Every placed-edge expectation in the tree changes
+  value with the medium**, so converting before that question is answered means
+  deriving every edge expectation twice and probably loosening a bound by accident.
+- **CARD-331** — the difficulty-dot accounting instrument monkeypatches the *raster*
+  drawing site, so on a vector page it measures a page the product no longer draws —
+  and a monkeypatch on an uncalled function **passes silently** rather than erroring.
+
+The fourth cause (frozen AST censuses in `tests/test_book_export_interior_cover.py`)
+CARD-309 re-derived on its own branch.
+
+**What this card inherits ready-made:** the assembly point,
+`src/nonogram/admin/book_interior_vector.py` — downstream of all five writers, the
+direction a **parameter** (`InteriorPageWriters`) rather than a registry or a lazy
+import, with **no cycle anywhere** in the `book_*` graph (verified by an independent
+`ast` walk at the decompose station) and `tests/test_cli.py`'s structural guard
+passing **unmodified**. Copy that convention; do not re-litigate it.
+
+**What this card alone owns:** the four remaining conversions, the **21 baselines**,
+CARD-297's declared clip divergence, and **ADR-0042/R1's flip — with the last
+conversion, not before.** CARD-298, CARD-299 and CARD-309 each refused that flip on
+their own initiative and each was right.
+
+**And this card is what finally gives the phase a reader.** CARD-309 ships the
+assembly point with **zero production call sites**, which is verbatim the condition
+it was cut to end. The conversion is the call site. Until this card lands, nothing in
+`src/` turns an interior page into operators.
 
 ## What to implement
 

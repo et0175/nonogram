@@ -22,13 +22,47 @@ max_concurrent_override: 2
 # carries `Wave: 67` and is dispatchable (its only dependency, CARD-298, is
 # done). It is not in this wave because the cap is 2 and the owner named the
 # other two. It is the first candidate for wave 70.
+# CARD-309's escalation CLOSED 2026-10-30T14:45:35Z at the decompose station. Re-cut into
+# itself (the assembly point, now Status: review) plus CARD-329 / CARD-330 /
+# CARD-331. CARD-322's deps widened to all four; CARD-288 re-pointed from
+# CARD-309 to CARD-322. Kahn re-run over the whole graph: 330 cards, 330
+# ordered, no cycle, no dangling ref.
+#
+# CARD-328 dispatched 2026-10-30T14:45Z into wave 69's second slot. Verified not
+# assumed: CARD-268 writes admin.css (+129) and solver.js (+196), which
+# CARD-328's guard READS -- and it adds only .player-probe* / [data-probe]
+# rules, touching neither the dot rule nor the solved sweep. Compared surface
+# untouched.
+#
+# CARD-268 IS STALLED, NOT RUNNING. Its agent died with the previous session
+# having finished implementing: 2 commits, 2052 insertions, the second a
+# mutant-driven fix round. pgrep shows no live process on its worktree. It
+# needs its REVIEW CYCLE resumed, not re-implementing. Loose ends:
+# tests/test_browser_fixture_scope.py committed then modified again
+# (uncommitted), and the diff touches two files outside its Touches
+# (test_browser_fixture_scope.py +164 new, test_puzzle_solver_page.py +6)
+# while NOT touching tokens.css, which its Touches predicted.
 active:
 - id: CARD-268
-  phase: implementation
+  phase: implementation_complete_agent_dead
   branch: card/268-player-probe-mode
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-268
   started: '2026-10-30T11:58:28Z'
-escalated:
+  note: >-
+    needs `review`, not re-dispatch; liveness checked with pgrep
+- id: CARD-328
+  phase: implementation
+  branch: card/328-player-looks-agree
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
+  started: '2026-10-30T14:45:35Z'
+in_review:
+- id: CARD-309
+  branch: card/309-assembly-point-and-puzzle-operators
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
+  commits: [9fc8651f, 37e1a093]
+  note: >-
+    re-cut at the decompose station; awaiting review cycle 1
+escalated_closed:
 - id: CARD-309
   reason: >-
     decomposition defect: implementing AC-1 reds 189 failures + 75 errors
@@ -60,7 +94,7 @@ escalated:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T13:08:44Z'
+last_updated: '2026-10-30T14:45:35Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

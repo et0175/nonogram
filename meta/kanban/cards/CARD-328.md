@@ -1,6 +1,6 @@
 # CARD-328: The public player's duplicated looks are held to the admin's — the dot and the solved reveal, declared after the fact
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d <!-- The claim-card floor (owner, wave 50): a card whose subject is a CLAIM or a MEASUREMENT may not be estimated as trivial, whatever its diff size. This card's entire deliverable is the claim "two implementations agree", so the floor applies. It was first scoped at 0.5d in conversation before the rule was applied. -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false <!-- Deliberately. TDD's red→green loop assumes production code to write; here the behaviour ALREADY SHIPPED (`2400501b`) and the deliverable is the guard over it. A guard written against working code is green on its first run by construction, so "watch it fail" is meaningless and MUTATION is the discipline that carries the weight instead — see the AC-5/AC-6 mutant pairs. -->
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/328-player-looks-agree`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-328
 **Source:** owner decision 2026-10-30, after the owner asked whether to revert `2400501b` and card it, or fold it into CARD-268's gate. Neither: the work is green and well evidenced, and CARD-268 cannot absorb it (disjoint footprint, and the commit is already CARD-268's rebase baseline — folding it in would attribute a public-player feature to an admin-player card's merge commit and make that card's record false). This card is the third option — **declare what shipped, review it, revert nothing** — and it owns the one debt the commit created.
 **Idea:** —
-**Wave:** —
+**Wave:** 69 <!-- JOINS the wave in flight (precedent: CARD-291 joined wave 65 on 2026-10-28) rather than opening 70, because CARD-268 is still that wave's card and this is its second slot under the owner's cap of 2. Measured intersection with CARD-268's ACTUAL diff: EMPTY. Checked more sharply than a Touches comparison, because this card's guard READS two files CARD-268 writes: `admin.css` (+129) and `solver.js` (+196). Re-derived at dispatch -- CARD-268 adds only `.player-probe*` and `.player-cell[data-probe]` rules and touches NEITHER `.player-cell[data-state="empty"]::after` (the dot) NOR `player-solved-flash` / `player-solved-in` / `--player-wave` / `is-solved` (the sweep), and does not touch solver.js's `--player-wave` line. So this card's compared surface is untouched by the card it runs beside. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_public_player_agreement.py, player/player.css, player/play.js
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-30T14:36:59Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -211,6 +211,13 @@ either kind is visible instead of silent.
 - **Standards:** the reveal must keep working under `prefers-reduced-motion` exactly as `2400501b` shipped it (banner and frame, no motion).
 
 ## Worktree notes
+
+- **[Env]** forge `2026.8.17`. No `meta/.skills.yml`, so no `forge.min_version` to
+  compare against and no `models:` block — the implementation agent inherits the
+  session model rather than resolving a class.
+- **[Dispatched]** 2026-10-30T14:36:59Z, into wave 69 beside CARD-268, whose
+  live agent had died leaving its implementation complete (two commits). The
+  cap of 2 is honoured: this card and CARD-268 are the two slots.
 
 - **[Declared, not rebuilt — the board's own idiom]** This is a declaration
   card in the sense CARD-262, CARD-276 and CARD-296 established: the state is

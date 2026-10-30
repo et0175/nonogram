@@ -77,6 +77,34 @@ flips it.**
    NAME** — the node-id form measures as a DEAD check ref on this board (107 → 108),
    while the bare name resolves to the `def` itself.
 
+## [Added 2026-10-30] Item 2's "oracle" class has a question in front of it, and it is CARD-330's
+
+Item 2 partitions the 321 pixel-reading sites, and one of its classes is *"an
+independent **oracle** R6 exempts by name"*. **Two of those oracles now have a
+measured problem that this card does not own and must not absorb.**
+
+`tests/helpers/page_ink.py`'s `drawing_of` and `two_up_ink` read pixels deliberately,
+as a second implementation — so by this card's partition they are correctly
+**exempt** and need no conversion. But CARD-309's round measured that the raster and
+vector media place the same grid **0.169 mm apart on all four edges** (ink
+`grid_left/right` 963/1849 vs stream 965/1851) against `EDGE_TOLERANCE_MM = 0.1`. So
+those oracles' *verdicts* change with the medium even though their *class* does not.
+
+**That is a different question from this card's**, and the distinction matters:
+
+- **This card asks:** must this site convert? (Answer for these two: no, they are
+  exempt oracles.)
+- **CARD-330 asks:** what does a placed-edge expectation mean when both media are
+  legal and disagree by one rounding step — and **which medium is actually at the
+  specified margin**? (2 px at 300 dpi is 0.1693 mm, and 300 dpi is the interior's own
+  render DPI, so the two values are a quantisation of one rather than two opinions.)
+
+**CARD-309's round routed its convention question here; that routing was wrong** and
+was corrected at the decompose station on 2026-10-30 — measured, this card's text
+mentions no tolerance, no offset and no `page_ink` site. **Partition them as exempt
+and say that their disposition is CARD-330's**; do not widen `EDGE_TOLERANCE_MM`
+here, and do not record a convention this card did not derive.
+
 ## Acceptance criteria
 
 - **AC-1** (inherited from CARD-299's AC-3, verbatim): *Given* `tests/**`, *then* the
