@@ -1,6 +1,6 @@
 # CARD-210: Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver
 
-**Status:** blocked
+**Status:** ready
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to print in a book that cannot be reprinted. Unblock when both exist (`/forge:kanban unblock CARD-210`).
+**Blocked by:** — (unblocked 2026-10-30; both preconditions now exist, see Worktree notes)
 
 ## What to implement
 
@@ -132,7 +132,48 @@ presume the two blockers are resolved and the chosen URL scheme is recorded.)
 
 ## Worktree notes
 
-—
+**[Unblocked] 2026-10-30.** The two things this card waited on both exist now, and the
+evidence is in the repository rather than in a claim:
+
+1. **A public solver that is actually hosted.** COMP-011 is deployed — project
+   `nonogram-studio` on Vercel, serving the owner's custom domain
+   `https://nonogram.adverax.io`. Verified against production the same day: `/library`,
+   `/play/<key>`, `/b/<slug>` and `puzzle/<key>.json` all 200; the served puzzle file
+   carries exactly `clues`, `height`, `key`, `tier`, `width` (no solution, no puzzle
+   title); the served `solver_state.js` is SHA-256 identical to the panel's. Recorded in
+   `docs/deploy/player.md` ("What production is").
+2. **A URL namespace stable enough to print.** ADR-0041/R1 (puzzle key) and R7 (book
+   slug) are content hashes of the grid and of the ordered keys — recomputable from what
+   a printed book preserves, and deliberately independent of any title. The base is
+   recorded in that page's `qr-url-shapes` block, which
+   `tests/test_public_player_pages.py::test_the_qr_url_shapes_here_are_the_shipped_routes`
+   holds to `vercel.json`'s own rewrite sources.
+
+**What this card still has to decide, and must not assume:** *where the base comes from
+at print time.* Today it is a line in `docs/deploy/player.md`, which is repo-managed and
+test-pinned. CARD-332 adds a domain field to book print setup, which would be a second
+source. Whatever this card prints has to come from one of them by decision, and the
+decision belongs with CARD-332 — see its "The one decision this card must not duck".
+The owner's stated intent (2026-10-30) is the print-setup field, with the stored value
+being what a book records as printed.
+
+**Still true from 2026-10-13, and worth re-reading before starting:** a printed QR code
+cannot be re-pointed. The slug moves if a book's puzzle membership or order changes
+(INV-012 returns such a book to draft), so the set must be frozen before a run is
+printed, and this card does not change that.
+
+**Where the placeholder is now:** `book_pdf_generator.py:882` `QR_LINK_TEMPLATE =
+"nonogram.example/p/{number:03d}"`, read only by `qr_link` (`:2125`), drawn as a
+checkerboard by `_draw_qr_placeholder` (`:2085`). The slot is CARD-204's 2x2 cm reserve;
+the caption line is `QR_CAPTION_TEXT = "Solve it online"` (`:864`). Note the template is
+per-puzzle-NUMBER and the real link is per-KEY — a book's puzzle number is not a public
+identifier, so this is a change of what the footer identifies, not just of the string.
+
+**Dependency note:** `pyproject.toml` is in `Touches:` because a QR encoder is a new
+runtime dependency, and ADR-0006/R1 closes that baseline at stdlib + Pillow + NumPy.
+Adding `qrcode`/`segno` is an ADR revisit, not a `pyproject.toml` edit — or the card
+draws the modules itself from the spec. That question is open and is the reason this
+card is `architectural`.
 
 ## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
 
