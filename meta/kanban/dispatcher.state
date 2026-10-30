@@ -44,17 +44,35 @@ max_concurrent_override: 2
 # while NOT touching tokens.css, which its Touches predicted.
 active:
 - id: CARD-268
-  phase: implementation_complete_agent_dead
+  phase: build_fix
+  build_fix_attempt: 1   # of review.build_fix_attempts: 2 -- NOT a review cycle
   branch: card/268-player-probe-mode
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-268
   started: '2026-10-30T11:58:28Z'
+  resumed: '2026-10-30T15:07:52Z'
   note: >-
-    needs `review`, not re-dispatch; liveness checked with pgrep
+    Resumed on the owner's "resume 268". Its agent had died with the previous
+    session having FINISHED implementing, so this is not a re-dispatch. Two
+    recovery steps ran first. (1) An orphaned uncommitted registry change --
+    the ADDED_SINCE_BEFORE entries naming the two tests 9c88b723's fix round
+    added -- was verified (both node ids collect, shape correct) and committed
+    as bc43eda5. (2) The test gate is RED on a REAL regression, reproduced in
+    isolation and green on main, so it goes to the FIX loop rather than to
+    forge:review: test_the_riskiest_tests_pass_alone[test_puzzle_solver_fifth_rule]
+    fails because test_the_rules_against_paper_are_untouched finds a hairline
+    reaching unfilled cells on a BLANK board -- one pixel unit, with no
+    box-shadow rule added anywhere in the card. Cause not yet known; the fix
+    round diagnoses before fixing.
 - id: CARD-328
-  phase: implementation
+  phase: review
+  review_cycle: 1   # of review.max_cycles: 3
   branch: card/328-player-looks-agree
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
-  started: '2026-10-30T14:45:35Z'
+  started: '2026-10-30T14:36:59Z'
+  note: >-
+    Implementation complete at e17229a4 and its gate verified independently by
+    the orchestrator (103 passed / 0 skipped, 23 declared = 23 collected, src/
+    byte-identical by SHA on both files). Review cycle 1 dispatched 2026-10-30T15:07:52Z.
 in_review:
 - id: CARD-309
   branch: card/309-assembly-point-and-puzzle-operators
@@ -94,7 +112,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T14:45:35Z'
+last_updated: '2026-10-30T15:07:52Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
