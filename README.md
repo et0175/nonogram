@@ -403,6 +403,9 @@ python -m nonogram generate --help   # CLI help
 - [DEPLOYMENT_WORKFLOW.md](docs/DEPLOYMENT_WORKFLOW.md) — Railway deployment guide
 - [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — Full schema reference
 - [MIGRATIONS.md](docs/MIGRATIONS.md) — Migration history & best practices
+- [deploy/player.md](docs/deploy/player.md) — the public player's deployment: a static
+  site, separate from the admin panel, with the publish commands and the owner steps
+- [deploy/render.md](docs/deploy/render.md) — what the deployed admin panel actually runs
 - [PROJECT_PLAN_POC.md](PROJECT_PLAN_POC.md) — Business plan & requirements
 - [IMPLEMENTATION_BREAKDOWN.md](IMPLEMENTATION_BREAKDOWN.md) — Task breakdown & timeline
 

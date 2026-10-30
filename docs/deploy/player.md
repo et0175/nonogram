@@ -42,7 +42,10 @@ repository records what production is.
    *Framework Preset:* **Other**, *Build Command:* **empty**, *Output Directory:* the
    directory the assembly helper wrote (see "Publishing a new bundle"). A static tree
    needs no build step and no toolchain (ADR-0041/R3). *Evidence to record here:* the
-   production domain, and the Output Directory setting as the dashboard shows it.
+   production domain, and the Output Directory setting as the dashboard shows it. Read
+   "Deploying the tree" first: for the CLI publish this page documents, the Output
+   Directory setting does not route anything, and the directory this step asks for is
+   one a git-driven deploy could not see anyway.
 2. **`TODO(owner)`: write the production domain into the QR block below**, replacing the
    placeholder, and re-run the assembly helper so the site and this page agree.
    CARD-210 (printed QR codes) is blocked on exactly this value.
@@ -105,9 +108,10 @@ explicit owner action and never a side effect of finalising a book or exporting 
    run writes no snippet at all, which is what a local run and every test fixture want
    (see drift step 4 — the safe side is the default, not a flag to remember). Pass
    `--print-only` to see the delegated command line without running it.
-3. Deploy `build/site` with the Vercel CLI (`vercel deploy --prebuilt`) or let the
-   dashboard's Output Directory point at it. `TODO(owner): record which of the two the
-   project actually does.`
+3. Deploy the tree — one command, and it is in "Deploying the tree" below. That
+   section exists because of the two things which are *not* one command: a project link
+   that cannot live inside the tree, and a git-driven deploy that cannot see the tree at
+   all.
 
 The output directory **is** the site: one directory holding the pages, the two
 byte-identical copies from the panel (`solver_state.js`, `tokens.css`), `vercel.json`,
@@ -115,6 +119,71 @@ the rebuilt `puzzle/<key>.json` files, the rebuilt `index.json` and `book/<slug>
 and a `.player-site` marker. Assembling into a directory deletes it first, and the
 marker is what the assembler recognises its own output by, so a directory it did not
 write is refused.
+
+### Deploying the tree
+
+Observed on this machine on **2026-10-29** (CARD-285): Vercel CLI 59.11.7 is installed,
+`vercel whoami` answers *"The specified token is not valid"*, and the checkout holds no
+`.vercel/` directory — so the first publish from here begins with a `vercel login`, and
+no project has ever been linked from this repository.
+
+```bash
+cd build/site && vercel deploy --prod
+```
+
+The assembled tree **is** the deploy root. It carries its own `vercel.json`, so the three
+rewrites travel with the files that need them and are not a dashboard setting somebody
+has to keep in step — which is the same argument the allow-list below is built on.
+
+**Why not a git-driven deploy of the same tree.** This rules out one half of the choice
+this page used to leave open ("or let the dashboard's Output Directory point at it"):
+`build/` is ignored, `git check-ignore -v build/site` answers `.gitignore:7`, so the
+tree is in no commit and a git deploy would publish a project with no site in it. Every
+file that makes the site — the pages, the rebuilt `puzzle/<key>.json`, the two
+byte-identical copies from the panel — is written into the output directory, and none of
+them is tracked there. Committing the output instead would put a second copy of
+`solver_state.js` and `tokens.css` in the repository, which is precisely the drift
+ADR-0041/R3's build-time-copy rule exists to prevent. `TODO(owner): record what the
+project's Git integration and Output Directory are actually set to` — the repository
+rules out one wiring; which one the dashboard is configured for is still a fact only the
+dashboard has.
+
+**Why not `vercel deploy --prebuilt`.** An earlier revision of this page named that
+command and it is the wrong one. The CLI's own help for 59.11.7 reads *"Use in
+combination with `vc build`. Deploy an existing build"*: the flag uploads the
+`.vercel/output` tree that `vercel build` writes, in Vercel's Build Output API layout.
+`player/assemble.py` writes neither of those. It writes a plain static tree with a
+`.player-site` marker, because per ADR-0041/R3 "building" this site is copying and there
+is no toolchain to run. Read out of the help text on the date above, not out of a
+deploy — nothing in this repository has deployed yet, and this page does not claim
+otherwise.
+
+**The project link cannot live in the output directory.** `vercel deploy` records the
+project's identity in `.vercel/project.json` beside the files it deploys, and the
+assembler calls `shutil.rmtree` on its output directory before writing a byte — so a
+link stored in `build/site` is gone with the next bundle, and the publish after it
+prompts to link again. Either answer that prompt every publish, or keep the identity
+outside the tree, where a rebuild cannot reach it:
+
+```bash
+export VERCEL_ORG_ID=...      # TODO(owner): both from the Vercel dashboard,
+export VERCEL_PROJECT_ID=...  # Settings -> General
+cd build/site && vercel deploy --prod
+```
+
+`TODO(owner): confirm the two variables are honoured on the first publish.` They are the
+mechanism Vercel documents for CI, where there is likewise no `.vercel/` to read; this
+page has not watched them work, and the distinction between "documented" and "observed"
+is the one it keeps everywhere else.
+
+**The first publish comes after the GoatCounter site code, not before.** The publish
+command above the deploy carries `--analytics` because a deploy counts, and the code it
+would count to is the placeholder in the allow-list below until owner step 3 replaces
+it. So for a publish made before that step, drop that one flag from the command: the
+pages render and play with no snippet at all, and
+`tests/test_public_player_pages.py::test_pages_work_with_analytics_blocked` is what holds
+that. The reverse order sends production traffic to a site code that may not be
+registered, and a visit that was never counted cannot be counted later.
 
 ## Usage counting
 

@@ -13,6 +13,11 @@ for it, and the evidence is dated. Everything else is marked
 `TODO(owner): copy from the Render dashboard`. An observed fact describes the service
 on the day it was observed. It is not a claim about today's settings.
 
+This service is the admin panel and nothing else. The public player is a **separate
+deployment** — static files on a static host, no Flask route, no traffic through here —
+and `docs/deploy/player.md` is its page. Customer traffic from a printed QR code is not
+supposed to reach this service at all.
+
 ## Settings
 
 | Setting | Current value | Evidence |
