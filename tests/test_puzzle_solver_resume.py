@@ -38,6 +38,15 @@ from tests.test_puzzle_solver_marking import (
     _tool,
     _trigger_text,
 )
+# CARD-268's own helpers: the probe's controls and its marker, driven and
+# read exactly as tests/test_puzzle_solver_probe.py drives and reads them, so
+# AC-6 cannot disagree with the rest of that card about what "open" means.
+from tests.test_puzzle_solver_probe import (
+    _actions_shown,
+    _members,
+    _probe,
+    _probe_pressed,
+)
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
     _open,
@@ -747,3 +756,105 @@ class TestSolverResume_SetBoardStartIsNotSaved:
         _set(browser_page, [U] * (SIDE * SIDE))  # a blank start is saved
         _cell(browser_page, 6, 6).click()
         assert _saved(browser_page, puzzle_id) is not None
+
+
+# ==========================================================================
+# CARD-268 AC-6 — an open probe is not in the save, so a reload abandons it
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverResume_AReloadAbandonsTheOpenProbe:
+    """CARD-268 AC-6 / its rule 9 — while a probe is open the save is the
+    save as of the probe's CHECKPOINT, so a save never holds a probe stroke,
+    ``deserializeState`` has nothing new to parse, and compatibility holds
+    both ways (CARD-268 G-5: no ``SAVE_VERSION`` bump, no new key).
+
+    This is the one test CARD-268 adds to this file, and the card says so (its
+    G-7 names this file as the single exception to "the existing
+    ``tests/test_puzzle_solver_*.py`` files run unedited").
+
+    Two methods. The first is AC-6 itself: with a probe open over a board B
+    and marks made inside it, the stored entry is byte for byte the entry
+    that was there at the checkpoint, and a reload comes back to B with no
+    probe open, no marker and the pre-probe undo history intact — plus rule
+    9's other half, the one short line beside the probe controls that says
+    leaving abandons the probe.
+
+    The second measures the card's ONE recorded divergence from rule 9, so
+    that it is a tested claim and not a sentence in a comment: the checkpoint
+    prefix carries no REDO stack. The probe is one number, and from one number
+    an open probe's own undone strokes cannot be told from strokes undone
+    before it (undo a probe stroke and it sits on ``undone`` exactly as a
+    pre-probe stroke would), so the only answer that can never save a probe
+    stroke is to save no redo stack at all. It is reachable exactly one way —
+    undo PAST the checkpoint while a probe is open — and it costs only the
+    save: the live player's redo stack is untouched, which this asserts.
+    """
+
+    def test_the_save_is_the_save_as_of_the_checkpoint(self, browser_page, live) -> None:
+        problems = _watch_problems(browser_page, live)
+        puzzle_id = live.store(GRID)
+        _open(browser_page, live, puzzle_id)
+        _drag(browser_page, [(0, 0), (0, 6)])
+        _cell(browser_page, 2, 2).click()
+        checkpoint = _states(browser_page)
+        at_checkpoint = _saved(browser_page, puzzle_id)
+        assert at_checkpoint is not None
+
+        _probe(browser_page)
+        # Opening records nothing, so the entry is not even rewritten.
+        assert _saved(browser_page, puzzle_id) == at_checkpoint
+
+        _drag(browser_page, [(5, 0), (5, 4)])
+        _tool(browser_page, "Maybe")
+        _cell(browser_page, 6, 6).click()
+        assert _members(browser_page) != []
+        assert _states(browser_page) != checkpoint
+
+        # AC-6's claim, byte for byte: the save as of the checkpoint.
+        assert _saved(browser_page, puzzle_id) == at_checkpoint
+        # Rule 9's other half: the page says so, where the controls are.
+        note = browser_page.locator("#puzzle-player-probe-note")
+        assert note.is_visible()
+        assert "abandon" in note.text_content().lower()
+
+        _reload(browser_page)
+
+        assert _states(browser_page) == checkpoint
+        assert _members(browser_page) == []
+        assert _probe_pressed(browser_page) == "false"
+        assert _actions_shown(browser_page) == (False, False, False)
+        # The pre-probe undo history is intact: both strokes, and no more.
+        assert not _is_disabled(browser_page, "Undo")
+        _button(browser_page, "Undo").click()
+        _button(browser_page, "Undo").click()
+        assert set(_states(browser_page)) == {U}
+        assert _is_disabled(browser_page, "Undo")
+        assert problems == []
+
+    def test_an_open_probe_saves_no_redo_stack(self, browser_page, live) -> None:
+        puzzle_id = live.store(GRID)
+        _open(browser_page, live, puzzle_id)
+        _cell(browser_page, 0, 0).click()
+        _cell(browser_page, 1, 1).click()
+        _button(browser_page, "Undo").click()
+        pending = json.loads(_saved(browser_page, puzzle_id))
+        assert (len(pending["done"]), len(pending["undone"])) == (1, 1)
+
+        _probe(browser_page)
+        # Still untouched: opening records nothing and writes nothing, so the
+        # pending redo survives in the entry for as long as the probe is empty.
+        assert json.loads(_saved(browser_page, puzzle_id)) == pending
+
+        _button(browser_page, "Undo").click()  # past the checkpoint: the clamp
+
+        saved = json.loads(_saved(browser_page, puzzle_id))
+        assert (saved["done"], saved["undone"]) == ([], [])
+        # The divergence is in the SAVE only. The live player's redo stack
+        # still holds both strokes and still works.
+        assert not _is_disabled(browser_page, "Redo")
+        _button(browser_page, "Redo").click()
+        assert _states(browser_page)[0] == F
+        _button(browser_page, "Redo").click()
+        assert _states(browser_page)[1 * SIDE + 1] == F

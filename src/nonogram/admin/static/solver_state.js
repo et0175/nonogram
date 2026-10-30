@@ -1051,6 +1051,210 @@ export function gesturePaints(pointerType, armed) {
 }
 
 // ---------------------------------------------------------------------------
+// Probe mode (CARD-268, owner decision 2026-10-22, FR-044)
+//
+// What a solver does when probing is make a GROUP of marks under one
+// hypothesis and then either revert them all (a contradiction was found) or
+// keep them all (the hypothesis held). So a probe is a TRANSACTION and never
+// a fifth cell state: during one the player marks filled, empty AND "?"
+// cells, so "this mark is a hypothesis" is a layer orthogonal to the mark —
+// and CELL_STATES above keeps exactly its four members, because every
+// selector, every save and every test on this page is keyed on those values.
+//
+// THE WHOLE VALUE IS THE STROKES THAT CAME BEFORE IT. A probe is the frozen
+// set of strokes the history already held — on BOTH stacks — at the moment it
+// opened, or null when none is open. Membership follows from it (probeCells)
+// rather than being stored per cell, and the checkpoint it used to be stored
+// as is derived back out of it when a number is what is wanted
+// (probeStart). That is what makes undo and redo move the probe for free: a
+// stroke popped off `done` takes its cells out of the set with it, and no
+// second place can disagree with the history about what the probe holds.
+//
+// IT USED TO BE ONE NUMBER, and the number was wrong (review cycle 1,
+// F-002). A checkpoint was `done.length` at the open, clamped on every
+// recorded change with Math.min — which can only ever LOWER it. A redo
+// RAISES done.length, so five inputs (mark A, mark B, Undo, Probe, Redo)
+// brought B back wearing the probe's marker and let Contradiction take away a
+// mark the player had made BEFORE the probe existed. Rule 6 says in so many
+// words that "a probe never contains strokes made before it started", and
+// from one number that sentence cannot be made true: an open probe's own
+// undone stroke and a stroke undone before it opened are the same number
+// (undo one probe stroke and `done.length` is the checkpoint again, exactly
+// as it is after an undo past the checkpoint), so no arithmetic on it can
+// tell which a redo is bringing back.
+//
+// Naming the strokes instead makes rule 6 true BY CONSTRUCTION rather than by
+// arithmetic: a stroke the probe did not already hold is one the player made
+// under the hypothesis, whatever stack it travelled through to get here, and
+// a stroke it did hold can never become a member however often it is undone
+// and redone. The CLAMP of rule 6 stops being a rule of its own — "the
+// checkpoint is never past the undo stack" is what `done` not holding a
+// stroke already means — which is why nextProbe has nothing to do on a
+// recorded change, and why solver.js is unchanged by this fix.
+//
+// Stroke objects are the right thing to hold because `record` freezes one per
+// step and `undo`/`redo` MOVE that same object between the stacks (undo puts
+// `entry.stroke` on `undone`; redo wraps that same stroke in a fresh entry),
+// so identity survives every history move. Only `record` can mint a new one.
+//
+// Like Region's flag and the hint ladder's rung, the probe is player state:
+// the transitions are here (ADR-0038/R4) and the value itself lives in
+// solver.js, where the buttons and the marker are. It is never a cell state,
+// never a stroke, and never saved — a load always starts with no probe open
+// (which is also rule 9: leaving the page abandons an open probe).
+
+//: The event names nextProbe understands — everything that can move a probe,
+//: and nothing else can. "keep", "abandon" and "change" are the three the
+//: page raises by itself; "open" is the only one a control raises directly.
+export const PROBE_EVENTS = Object.freeze(["open", "keep", "abandon", "change"]);
+
+// The probe after `event`, given it was `probe` (null, or the strokes that
+// predate it) and the history is now `history`:
+//   "open"     a probe opens at the current position (rule 2): it takes the
+//              strokes the history already holds, `undone` included, because
+//              a stroke on the redo stack is a stroke the player made before
+//              the probe (F-002) and redoing it must not join one. DEPTH 1
+//              (rule 1): an open probe is returned unchanged, so pressing the
+//              control again cannot nest one.
+//   "keep"     the marks become normal and the probe closes (rule 5). The
+//              board is not touched: commit is a change of status, not of
+//              cells. This is also the answer for the two closes the page
+//              makes on the player's behalf — a board that reaches the
+//              solved state was a correct hypothesis (rule 7), and a reset
+//              clears the board the hypothesis was about (rule 10).
+//   "abandon"  the probe closes after abandonProbe has undone it (rule 4).
+//   "change"   something was recorded: NOTHING TO DO. The probe names the
+//              strokes it is not about, so undoing past the open position
+//              shrinks it to empty and leaves it open, the next mark belongs
+//              to it, and a redo of a pre-probe stroke stays out of it —
+//              rule 6, all three sentences, without a clamp to get wrong.
+//              The event is kept rather than dropped because solver.js's
+//              commit() is the one choke point every recorded change goes
+//              through and a probe that needed moving would be moved there;
+//              a silently unhandled event name is the failure this module
+//              refuses everywhere else.
+// The three closing events share one answer and are three names rather than
+// one because the call sites name the rule they are invoking; nothing here
+// can tell them apart, and no test pretends to. Any other `event` is a
+// RangeError, like nextRegion's and stepZoom's: a typo must not read as a
+// quiet "leave it as it was", which is the one answer that would strand a
+// probe open for ever.
+export function nextProbe(probe, history, event) {
+  if (!PROBE_EVENTS.includes(event)) {
+    throw new RangeError(`"${event}" is not a probe event (${PROBE_EVENTS.join(", ")})`);
+  }
+  if (event === "open") {
+    if (probe !== null) return probe;
+    return Object.freeze([...history.done.map((entry) => entry.stroke), ...history.undone]);
+  }
+  if (event === "change") return probe;
+  return null;
+}
+
+// How many of `history.done`'s strokes predate the open probe at `probe` —
+// the CHECKPOINT the probe used to be stored as, derived rather than kept, so
+// nothing has to keep it in step with the history. null when none is open.
+//
+// The pre-probe strokes are always a PREFIX of `done`, which is what makes
+// this a count and not a set: a probe stroke is recorded only while the probe
+// is open, and `record` drops the redo stack, so the moment one is recorded
+// every pre-probe stroke still on `undone` is gone for good. A pre-probe
+// stroke can therefore only come back by redo while the probe holds nothing
+// at all, and the probe's own undone strokes sit BELOW it on `undone` (they
+// were undone first) and so are redone after it.
+export function probeStart(history, probe) {
+  if (probe === null) return null;
+  const before = new Set(probe);
+  let at = 0;
+  while (at < history.done.length && before.has(history.done[at].stroke)) at += 1;
+  return at;
+}
+
+// The cells the open probe at `probe` holds: every cell of every stroke in
+// `done` that the probe does not already hold, each cell once, in the order
+// first marked, as a frozen array of frozen [row, col] pairs. Empty when no
+// probe is open, and empty while an open probe holds no stroke.
+//
+// A MARK MADE, not a cell changed (rule 3). A cell marked during the probe
+// and then marked back to the state it had before it is still the probe's:
+// the player touched it under the hypothesis, which is what the marker says.
+// Reading membership off the strokes rather than off a before/after
+// comparison of two boards is also what makes the probe cost nothing to move
+// — there is no per-cell record to repair when the history does.
+export function probeCells(history, probe) {
+  const cells = [];
+  if (probe === null) return Object.freeze(cells);
+  const before = new Set(probe);
+  const seen = new Set();
+  for (const entry of history.done) {
+    if (before.has(entry.stroke)) continue;
+    for (const [row, col] of entry.stroke.cells) {
+      const key = `${row},${col}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cells.push(Object.freeze([row, col]));
+    }
+  }
+  return Object.freeze(cells);
+}
+
+// `history` undone back to the probe's own strokes (rule 4): the board is
+// exactly the board the probe opened on, and the probe's strokes sit on the
+// redo stack like any other undos — which is what makes "redo after an
+// abandon follows the existing history rules" true by construction instead of
+// by a rule of its own. `history` itself when no probe is open.
+//
+// The loop is total: every step undoes one stroke the probe does not hold, so
+// `done` shrinks by one each time and stops at the pre-probe prefix.
+// Nothing here is a new kind of move — an abandon IS a run of undos, which is
+// why one undo after it goes on past the checkpoint as it always did.
+export function abandonProbe(history, probe) {
+  if (probe === null) return history;
+  const before = new Set(probe);
+  let at = history;
+  while (at.done.length > 0 && !before.has(at.done[at.done.length - 1].stroke)) {
+    at = undo(at);
+  }
+  return at;
+}
+
+// The history a save is written from while `probe` is open (rule 9): the
+// history as of the checkpoint — the checkpoint board and the undo stack's
+// pre-probe prefix. `history` itself when no probe is open.
+//
+// So a save never holds a probe stroke, deserializeState has nothing new to
+// parse, and compatibility holds BOTH ways (G-5): a save written by today's
+// player loads here unchanged, and a save written here loads in today's
+// player. A reload resumes at the probe's start, which is "leaving the page
+// abandons the open probe" — and the page says so beside the controls.
+//
+// DIVERGENCE FROM RULE 9, in the REDO STACK only, recorded here because the
+// card's block is the contract and is not edited to match code: the prefix
+// carries NO redo stack, where "the save as of the checkpoint" would have
+// carried the one the player had then. What it costs is bounded and reachable
+// only one way: undo past the checkpoint while a probe is open, and a redo
+// that was pending is not restorable after a reload (the live player's redo
+// is untouched). In every other case the cost is zero, because `record` has
+// already dropped the redo stack itself.
+//   The REASON changed in fix round 1 and the divergence did not. It used to
+// be that the two could not be told apart: the probe was one number, and from
+// one number an open probe's own undone strokes are indistinguishable from
+// strokes undone before it. F-002's fix names the pre-probe strokes, so
+// `history.undone.filter((stroke) => before.has(stroke))` is now exactly the
+// redo stack the checkpoint had, and carrying it became POSSIBLE. It is still
+// not carried: rule 9 asks for the save as of the checkpoint and AC-6's own
+// control (test_an_open_probe_saves_no_redo_stack) measures that it holds no
+// redo stack, so flipping it is a node-id rename and a behaviour change for
+// a cost that is unchanged and bounded. Recorded as a candidate follow-up,
+// not as a defect.
+export function checkpointHistory(history, probe) {
+  if (probe === null) return history;
+  const keep = probeStart(history, probe);
+  const board = keep === history.done.length ? history.board : history.done[keep].before;
+  return historyOf(board, history.done.slice(0, keep), []);
+}
+
+// ---------------------------------------------------------------------------
 // Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
 //
 // Pure: these functions build and read the TEXT of a save. Reading and

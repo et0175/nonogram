@@ -204,6 +204,15 @@ ALONE_PROBES = (
     # PAGE_ISOLATION names. Run alone, the count can only be its own.
     "tests/test_puzzle_solver_crosshair.py::"
     "TestSolverCrosshair_IsPureView::test_hovering_issues_no_request",
+    # CARD-268's file postdates ALONE_RECORD too. Of its tests this is the
+    # one a predecessor could most easily fake a verdict for: it installs a
+    # CONTEXT request listener — the kind that outlives a navigation — and one
+    # of its arms is a count of what arrived on it (G-2 for opening a probe
+    # and marking inside one), so a leftover listener or a leftover request
+    # from a test before it is exactly the cross-talk PAGE_ISOLATION names.
+    "tests/test_puzzle_solver_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
@@ -1745,6 +1754,324 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "empty versus full at 1280 and at 1440, the empty line is already one "
         "line box tall, and scrollWidth against clientWidth refuses a "
         "silently ellipsised sentence",
+    ),
+    # CARD-268 — probe mode: a group of marks made under one hypothesis,
+    # kept or abandoned as one transaction. The probe is a CHECKPOINT in the
+    # stroke history (one number), membership is derived from it, and the
+    # marker rides data-probe rather than a fifth CELL_STATES member. The
+    # second file to be added whole to the family after CARD-270's; it is
+    # listed in PAGE_ISOLATION and sampled by ALONE_PROBES like the others.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_named_rule_cases_match_the_oracle": (
+        "CARD-268",
+        "AC-9's rule table: one named case per numbered semantics rule the "
+        "pure half carries, each compared with a Python oracle written from "
+        "the card rather than from solver_state.js"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_a_seeded_corpus_matches_the_oracle": (
+        "CARD-268",
+        "AC-9's corpus arm: 300 seeded op sequences (marks with every "
+        "brush, undo/redo, open/keep/abandon) against the same oracle, with "
+        "the reached states counted so the equality cannot be an agreement "
+        "about nothing"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_checkpoint_prefix_is_a_savable_history": (
+        "CARD-268",
+        "rule 9's precondition: the prefix a save is written from still "
+        "starts from a blank board, which is the only history "
+        "serializeState accepts, and differs from the live board only on "
+        "cells the probe owns"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_cell_states_are_four_and_an_unknown_event_is_refused": (
+        "CARD-268",
+        "G-4 and the module's standing discipline: CELL_STATES is exactly "
+        "today's four members in today's order, and an unknown probe event "
+        "is a RangeError rather than a quiet 'leave it as it was'"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_probe_is_pure_and_only_the_renderer_knows_the_attribute": (
+        "CARD-268",
+        "ADR-0038/R4: the probe's transitions are exported from "
+        "solver_state.js, that file reaches no DOM name, and data-probe is "
+        "written only in solver.js"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not": (
+        "CARD-268",
+        "AC-1: marks made with each brush inside a probe keep their own "
+        "data-state and gain the marker, marks made before it gain none, "
+        "and no request is made by opening or marking (G-2's probe half)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_four_states_stay_apart_under_the_tint": (
+        "CARD-268",
+        "rule 3 measured in pixels: the three light states share the tinted "
+        "ground and are told apart by their own ::after channel, filled by "
+        "its ground's luma -- CARD-267's instrument for the same claim "
+        "about its own tint"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_crosshair_does_not_repaint_a_probe_cell": (
+        "CARD-268",
+        "the three-way tie between the board's ground tints, driven by a "
+        "real pointer: a probed cell reads the same crossed or not, and not "
+        "as the crosshair's own ground"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_hint_lines_tint_does_not_repaint_a_probe_cell": (
+        "CARD-268",
+        "the same tie against CARD-269's line highlight; a stylesheet-order "
+        "claim, so the competing class is put on by script and only "
+        "computed styles are read"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AbandonRestoresTheCheckpointBoard::"
+    "test_abandon_restores_the_board_and_closes_the_probe": (
+        "CARD-268",
+        "AC-2: four strokes over a board B, one press of Contradiction, and "
+        "the board is B cell for cell with the probe closed and no marker "
+        "left"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AbandonRestoresTheCheckpointBoard::"
+    "test_a_stroke_redone_after_an_abandon_is_a_normal_stroke": (
+        "CARD-268",
+        "rule 4's redo edge, which the card flagged as possibly ambiguous: "
+        "an abandon is a run of undos, so a redone stroke past a CLOSED "
+        "probe's old checkpoint is a normal stroke and carries no marker"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_keep_keeps_every_cell_and_drops_every_marker": (
+        "CARD-268",
+        "AC-3: Keep is a change of status and not of cells -- every "
+        "data-state is what it was, every marker is gone, and the undo "
+        "stack still holds each probe stroke as its own step"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_keep_makes_the_probes_marks_savable_again": (
+        "CARD-268",
+        "rule 9's other end, and a gap a mutant found: while a probe is open "
+        "the save is the checkpoint prefix, so closing it has to write the "
+        "whole history again or the kept marks do not survive a reload",
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_a_reset_clears_the_open_probe": (
+        "CARD-268",
+        "rule 10, the second gap a mutant found: a reset clears any open "
+        "probe, and the reset stays one undo step whose undo does not reopen "
+        "it — without the close, Contradiction would un-reset the board",
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_UndoClampsTheCheckpoint::"
+    "test_undo_pops_probe_strokes_first_then_clamps": (
+        "CARD-268",
+        "AC-4: probe strokes pop first and their markers clear with them, a "
+        "probe undone to nothing stays open, and an undo PAST the "
+        "checkpoint clamps it instead of adopting the pre-probe stroke it "
+        "took back"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_OnlyOneProbeAtATime::"
+    "test_a_second_press_opens_nothing": (
+        "CARD-268",
+        "AC-5 / rule 1: of the card's two options the toggle is the "
+        "disabled one, and the arm that actually proves depth 1 is that "
+        "abandoning afterwards reaches the FIRST checkpoint's board"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_SolvingCommitsTheProbe::"
+    "test_the_solving_mark_commits_the_probe": (
+        "CARD-268",
+        "AC-7: a probe whose marks complete the solution was a correct "
+        "hypothesis, so it commits -- the banner, the lock and the announce "
+        "line are exactly today's and no marker is left"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CountersSeeProbeMarksAsMarks::"
+    "test_the_same_marks_read_the_same_inside_a_probe": (
+        "CARD-268",
+        "AC-8 / rule 8: the same run of real input made twice on one page, "
+        "once plain and once inside a probe, reads the same error count, "
+        "percent and circled set, so no shipped AC-3xx is amended"
+    ),
+    f"{FAMILY_PREFIX}_resume.py::"
+    "TestSolverResume_AReloadAbandonsTheOpenProbe::"
+    "test_the_save_is_the_save_as_of_the_checkpoint": (
+        "CARD-268",
+        "AC-6: with a probe open the stored entry is byte for byte the "
+        "entry as of the checkpoint, the page carries rule 9's one-line "
+        "notice, and a reload comes back to the pre-probe board with the "
+        "undo history intact"
+    ),
+    f"{FAMILY_PREFIX}_resume.py::"
+    "TestSolverResume_AReloadAbandonsTheOpenProbe::"
+    "test_an_open_probe_saves_no_redo_stack": (
+        "CARD-268",
+        "the card's one recorded divergence from rule 9, measured so that "
+        "it is a tested claim and not a comment: the checkpoint prefix "
+        "carries no redo stack, and the live player's redo is untouched"
+    ),
+    # CARD-268's fix round. The probe bar shipped flush with the board's top
+    # edge, which put its own paint into the first row of every ELEMENT
+    # screenshot of .player-board (the clip is the enclosing whole-pixel
+    # rect) and reddened the fifth-rule file's blank-board arm with a
+    # reading of a button. One --border-width of air fixes it; these four
+    # cases are the mechanism control for that air, swept over the two
+    # viewports the pixel sibling samples and both probe states, because the
+    # bar's HEIGHT changes with the probe and the air must not.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[desktop-closed]": (
+        "CARD-268",
+        "the bar's bottom edge against floor(.player-board's top) at "
+        "1440 x 900 with no probe open — the exact viewport and board state "
+        "the fifth-rule file's blank-board arm reads the pixels of"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[desktop-open]": (
+        "CARD-268",
+        "the same two edges with a probe OPEN, where Keep, Contradiction "
+        "and the note make the bar taller: the air is a function of the "
+        "bar's margin and not of its height"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[phone-closed]": (
+        "CARD-268",
+        "the same two edges at 390 x 844, the other viewport the pixel "
+        "sibling declares, where the board's top lands on a different "
+        "fraction (502.0625 against 210.796875)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[phone-open]": (
+        "CARD-268",
+        "the phone with a probe open, the one case where the bar WRAPS onto "
+        "further lines of its own, so the height term is largest and the "
+        "air still has to be one whole pixel"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[1280x720]": (
+        "CARD-268",
+        "the other half of the fix round: the bar's line is paid for above "
+        "the toolbar, so the board's top is the same number as in a page "
+        "with both of this card's geometry rules switched off — at the "
+        "viewport where the keyboard and solved-banner siblings reddened"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[1440x900]": (
+        "CARD-268",
+        "the same identity at the desktop viewport the pixel sibling "
+        "declares, where the toolbar is one short line rather than two"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[390x844]": (
+        "CARD-268",
+        "the same identity on the phone, where the toolbar is a tall stack "
+        "and the pull-up is the same 9 px it is everywhere else"
+    ),
+    # CARD-268's review cycle 1. F-001: the probe shipped as a ground tint
+    # that was dE76 2.55 from CARD-267's crosshair tint -- the same colour for
+    # two small cells -- and the only boundary the suite held was string
+    # equality of a computed value, so the mix at 1 % left the gate green.
+    # The marker moved to an OUTLINE with a style of its own and the
+    # separation is now measured, one case per ground a probe cell can have.
+    # F-005: rule 3 names hint strokes and nothing made one inside a probe.
+    # F-007: only the air was held in the open-probe state, never the focus
+    # scroll the card's first constraint is about.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_a_hint_revealed_inside_a_probe_belongs_to_it": (
+        "CARD-268",
+        "rule 3's last clause (F-005): the ladder's rung-3 reveal, driven by "
+        "three real presses inside an open probe, is a member, wears the "
+        "hint's colour with the probe's dash, and Contradiction takes it back"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[paper]": (
+        "CARD-268",
+        "F-001: dE76 between the probe's ring and the bare paper it is drawn "
+        "on, with the pointer moved OFF the board so the crosshair is not "
+        "silently the ground being measured"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[crosshair]": (
+        "CARD-268",
+        "the same distance under CARD-267's hovered row -- the exact pair "
+        "F-001 measured at 2.55 when both lived on the background channel"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[hint-line]": (
+        "CARD-268",
+        "the same distance under CARD-269's highlighted line, the board's "
+        "other ground tint"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[ink]": (
+        "CARD-268",
+        "a FILLED cell, whose ground is --grid-ink and whose ring is the "
+        "light variant for exactly that reason"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[crosshair-ink]": (
+        "CARD-268",
+        "a filled cell under the crosshair, whose ground is the crossed "
+        "filled rule's own mix rather than --grid-ink"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[hint-line-ink]": (
+        "CARD-268",
+        "a filled cell under the hint line -- the SMALLEST of the six "
+        "separations (51.2) and so the case the floor of 20 is nearest to"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_hints_outline_by_SHAPE": (
+        "CARD-268",
+        "the one channel the marker shares: .player-cell.is-hinted is SOLID "
+        "where the probe is DASHED, which is what makes the colour distance "
+        "moot for that pair instead of relocating it"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell::"
+    "test_the_scroll_stays_inside_a_half_cell[1280x720]": (
+        "CARD-268",
+        "F-007: #puzzle-player's focus scroll with a probe OPEN, the state no "
+        "geometry class visited, against the half-cell the card's first "
+        "constraint is stated in (measured 11 px against 11.18)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell::"
+    "test_the_scroll_stays_inside_a_half_cell[390x844]": (
+        "CARD-268",
+        "the same measurement at the width where the open bar WRAPS, which "
+        "is where the margin is thinnest: 0 px closed, 7 px open, against a "
+        "half-cell of 7.20"
     ),
 }
 

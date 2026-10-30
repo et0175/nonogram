@@ -1274,6 +1274,294 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell.is-hint-line, .player-clue.is-hint-line { animation: player-hint-line-in calc(2 * var(--duration-base)) var(--ease); }
 @keyframes player-hint-line-in { from { background-color: transparent; } }
 
+/* Probe mode (CARD-268, owner decision 2026-10-22): the marks made under one
+   hypothesis wear a tint of their own until they are kept or abandoned.
+
+   WHERE THE BAR IS, AND WHO PAYS FOR IT. The controls are a group of their
+   own on the TOOLBAR'S LAST FLEX LINE (flex-basis: 100%), not three more
+   buttons inside .player-tools as the card's design context put them. The
+   bullets below are the measurements that decided that, and that decided
+   where the line's 24 px comes from; none of them is a preference, and each
+   is one standing test away. They carry no count of themselves on purpose —
+   a tally in a comment beside the things it counts is the one figure that
+   cannot be checked and has drifted here once already (this block said
+   "four" over five bullets, and "47 px" over a 24 px line, both measured
+   wrong in the fix round below).
+
+     * HORIZONTALLY the toolbar has nothing left, so the group cannot join the
+       first row. At 1280 x 720 that row is exactly full — .player-tools
+       208 px (its own 13rem floor, and the trigger + Region measure 208 px
+       inside it, so there is no slack there either), .player-history 441,
+       .player-zoom 97, .player-counters 186 and three 16 px gaps: 980 px in a
+       980 px row. One more visible button anywhere on it wraps it, and
+       ".player-tools > button" / ".player-history > button" are the selectors
+       two standing tests read one-row-ness through
+       (tests/test_puzzle_solver_maybe.py
+       TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280 and
+       tests/test_puzzle_solver_percent.py
+       TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop).
+       On its own line the group leaves every box on that row where it was, at
+       every width.
+     * THE BOARD MAY NOT MOVE DOWN, and that is the constraint that shaped
+       everything below. #puzzle-player is a scroll container, so Chromium
+       puts it in the TAB ORDER and smooth-scrolls it into view when it takes
+       focus — which the brush menu's own keyboard test does on its way round
+       the cycle (it blurs and tabs the whole ring). On today's tree that
+       scroll is 11 px at 1280 x 720, just inside half a cell (11.7 px), and
+       the drag that test then performs lands on the cells it means to. Let
+       the stage sit 23 px lower and the scroll is 34 px, the drag crosses a
+       row mid-animation, and the cases of
+       tests/test_puzzle_solver_marking.py
+       TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press
+       go red. THAT TEST HAS SIX CASES, not eight — Black, White and Clear
+       by Enter and Space, counted from
+       `--collect-only` and not from memory; "the 8 cases" stood in five
+       places on this card and in this bullet and was invented in every one
+       of them (review cycle 1 F-003). The FIX ROUND measured the shallow end
+       of that too, and the number this bullet first carried was wrong in the
+       only direction that mattered: it said 4 of the cases red at 23 px
+       lower and implied 8 px lower was fine. EIGHT PX LOWER ALREADY REDS
+       3 OF THE 6 (White-Enter, White-Space, Clear-Enter — measured in
+       isolation, identically at 8 px and at 9 px), because the focus scroll
+       goes 11 -> 19 px and 19 px is already past the half-cell (11.7 px)
+       that bullet names as the tolerance. It also reds
+       tests/test_puzzle_solver_progress.py
+       TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move
+       for a SECOND mechanism nobody had looked for: the board 8 px lower
+       puts that test's last filled cell under the fold, Playwright scrolls
+       the PAGE 5 px to click it, and a test that compares the board's
+       bounding box across the solving stroke sees the board move 5 px
+       (247.796875 -> 242.796875) — the whole page moved, the toolbar's own
+       height never changed. "The board may not move down" is therefore not
+       a budget with 8 px of slack in it. It is zero.
+     * SO THE ROW IS PAID FOR ABOVE THE TOOLBAR, NOT BELOW IT, which is
+       where the fix round moved it. It is a COMPACT row — its buttons are
+       control height less --space-3, 24 px, which still meets WCAG 2.2
+       (2.5.8)'s 24 px target and is the smallest footprint any of these
+       options has — and the bar's own negative margins cancel the toolbar's
+       flex row gap (8 px) and all but ONE PIXEL of the toolbar's bottom
+       margin (16 px, the air between the toolbar and the board, which the
+       bar now sits in). That still leaves the row gap itself, 9 px with the
+       pixel, which no margin on a flex ITEM can give back — so the TOOLBAR
+       gives it back, out of the 16 px between it and the page head
+       (.player-head's own margin-bottom), with a margin-top of exactly
+       -(--space-2 + --border-width). The arithmetic is forced, not chosen:
+       with the bar h px tall, the board moves 8 + mt + h + mb and the air
+       below it is 16 + mb, so air >= 1 px and movement 0 together need
+       mt = 7 - h — i.e. -17 px with a 24 px row, which would put the bar
+       9 px INSIDE the toolbar's first line. There is no third margin on the
+       bar to spend. Measured at 1280 x 720 with the rule in place: the
+       toolbar top 139 against today's 148, the head/toolbar gap 7 px
+       against 16, the stage top 238.796875 — today's number exactly — the
+       focus scroll 11 px, today's, the document 898 px tall, today's, and
+       1 px of air between the bar and the board at 1280 x 720, 1440 x 900
+       and 390 x 844 alike. Below the toolbar the page is byte-for-byte
+       today's geometry, which is why nothing downstream of it has to be
+       re-measured.
+       The rule is keyed :has(.player-probe) because puzzle_edit.html
+       (CARD-246) draws its board under the same .player-toolbar and is
+       offered no probe: there the row does not exist, so there is nothing
+       to give back and its head keeps the gap it had. It is keyed on the
+       bar's PRESENCE and not on :not([hidden]), so the pull-up is constant
+       for the page's whole life — the toolbar and the bar are unhidden in
+       the same pass (solver.js), and a margin that changed when the bar
+       appeared would move the board at that moment for nothing.
+     * THE ONE PIXEL IS NOT SLACK, it is the whole reason this bar is not
+       flush with the board, and it was learned the expensive way: shipped
+       flush (margin-bottom exactly -16 px, air 0) the bar's bottom edge
+       COINCIDED with .player-board's top edge, measured at every viewport
+       the suite samples — 246.796875 at 1280 x 720, 210.796875 at
+       1440 x 900, 502.0625 at 390 x 844, board top and bar bottom the same
+       number to the 1/64 px. A Playwright ELEMENT screenshot clips the page
+       raster to the ENCLOSING WHOLE-PIXEL rect, [floor(top), ceil(bottom)),
+       so a board whose top is at y.797 is captured from y.0 — and the first
+       row of every .player-board capture then holds the bottom 0.797 px of
+       the Probe button instead of the page behind the board. That is paint
+       this card does not own landing inside another card's instrument:
+       tests/test_puzzle_solver_fifth_rule.py
+       TestSolverFifthRule_GeometryAndOtherMarksUnchanged::test_the_rules_against_paper_are_untouched
+       compares two such captures of a BLANK board byte for byte, and it
+       went red on 4 pixels of row 0 (the button's own antialiased corners,
+       x = 1, 2, 55, 56, by 1 per channel) — a reading of the button, with
+       nothing to say the board had changed at all. One --border-width of
+       air fixes it for every viewport and zoom rather than for the ones
+       measured, because floor(t) > t - 1 for every t: a bar ending one
+       whole CSS pixel above the board's top can never reach the capture's
+       first row. HALF a pixel cannot say it, and the measurement shows why
+       the difference is not pedantry: with half a pixel of air (fix round
+       mutant A2) 1440 x 900 still passes — the board's top fraction there
+       is .797 and floor() happens to absorb the half — while 390 x 844
+       fails, its fraction being .0625. Whether half a pixel is enough is
+       an accident of the viewport. A whole one is not.
+       The standing check is
+       tests/test_puzzle_solver_probe.py
+       TestSolverProbe_TheBarStaysOutOfTheBoardsCapture, which reads the two
+       edges and floor()s the board's own — the mechanism, where that
+       sibling reads the pixels.
+     * THE OTHER PLACES THE 9 px COULD HAVE COME FROM each cost more than
+       they save, measured each way — this is the list the implementation
+       round worked through before it settled for moving the board, and the
+       head/toolbar gap above is the one it had not tried:
+       --player-chrome-h (otherwise exactly the right property) also feeds the
+       CELL CLAMP, whose height term binds at 1280 x 720 — a 15 x 15's cell
+       goes 23.4 -> 21.1 px and fit and geometry tests red, the largest
+       board's own fit among them (the implementation round recorded "five"
+       and recorded no node ids with it, so that count is struck rather than
+       repeated: what is checkable here is the cell size, and it is enough to
+       reject the alternative); .player-stage's own max-height keeps the
+       cell but shortens the scrollport, which flips CARD-271's sticky-band
+       share for a 30 x 30 at 900 x 700 and reds
+       tests/test_puzzle_solver_zoom.py
+       TestSolverZoom_CluesStayInViewWhileZoomed; and the page-head row, which
+       would cost no vertical space at all, has about 9 px of width to spare at
+       1280 for the ladder's longest sentence (measured: the widest sentence of
+       this grid is 539.1 px in a 628 px box, and the longest the ladder can
+       say is ~619 px — CARD-269's own "below about 1270 px it is ellipsised"),
+       so a control there reds that card's no-clipping assertion. See the
+       card's [BLOCKER] note.
+     * BELOW THE BOARD is worse, not better, which is the half that was least
+       obvious. A focusable control under the fold is reached by the same Tab
+       walk, and Chromium then scrolls the page 233 px to reveal it — reddening
+       the same keyboard test, harder. A control in the toolbar is already in
+       view, so tabbing to it scrolls nothing (measured: 0 px).
+
+   [hidden] needs rules of its own here for .editor-save's reason: `display:
+   flex` and .player-toolbar .btn's `display: inline-flex` both beat the
+   hidden attribute's UA `display: none`. The bar starts hidden (solver.js
+   shows it with the toolbar, so a page whose script never ran shows no dead
+   buttons) and so do the two actions and the note, which only exist while a
+   probe is open. The line's own SIZE does not change when the board is solved
+   — a solved board commits the probe (rule 7), so the actions and the note
+   are hidden and the toggle only says aria-disabled, which is what keeps the
+   board from moving on the solving stroke
+   (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth sweeps 960..1480 and the
+   phone for exactly that).
+
+   The .player-stage rule below is keyed on nothing: it declares the two
+   custom properties unconditionally, and it is the only thing this card puts
+   on the stage. An earlier draft also gave the stage's own max-height back
+   and needed :has(.player-probe) to keep that off puzzle_edit.html's board
+   (CARD-246 draws it in the same .player-stage and is offered no probe); that
+   draft is the one the bullet above measures as reddening
+   TestSolverZoom_CluesStayInViewWhileZoomed, and it did not ship. The
+   unconditional form is safe there because the editor's cells never get
+   data-probe at all — solver.js's paintProbe is the only writer and no probe
+   can open on a page with no probe bar — so the two properties sit unused.
+
+   THE MARKER. One attribute, data-probe, on the member cells (solver.js
+   paintProbe), never a fifth data-state and never a change to one (G-4): the
+   template's own comment says every selector, save and test is keyed on those
+   four values. Membership is derived from the history, so the attribute is
+   rewritten on every recorded change and nothing stores it per cell.
+
+   IT IS A DASHED OUTLINE AND NOT A GROUND TINT, and that is review cycle 1's
+   F-001 (owner decision 2026-10-30). What shipped first was a ground tint,
+   14 % of the warning hue mixed into the paper, and this block argued at
+   length that it was "a plainly warmer ground than either" of the two tints
+   already on the board. Measured in Chromium from the shipped tokens, it was
+   not: the probe's light ground resolved to rgb(238, 231, 213) against the
+   crosshair's --color-surface-hover rgb(241, 235, 221) — dRGB (-3, -4, -8),
+   dE76 2.55, which is the just-noticeable-difference threshold. For two
+   small, non-adjacent cells that is the same colour, in the one feature built
+   to stop the player reading a wrong board, and the light states are the bulk
+   of what a probe paints. The FILLED variants were plainly apart (dE 27.4),
+   so the defect was confined to unknown/empty/maybe.
+
+   A STRONGER TINT WAS NOT THE FIX, because the background channel is the
+   crowded one. Counted from the rules in this file and not from a tally: SIX
+   of them declare a background on a .player-cell — the paper the cell starts
+   on, the ink a filled cell takes, and the light/filled pair of each of the
+   two tints (.is-crossed, .is-hint-line) — and the probe's own two made
+   eight. (The other channels, counted the same way: outline had ONE claimant,
+   .is-hinted; box-shadow two, a filled cell's division and .is-hinted's paper
+   ring; the cell's ::after two, the white dot and the "?". Only `background`
+   had a queue.) A token swap rescues nothing either — tokens.css's
+   --color-warning-tint is itself only dE 5.36 from the crosshair — and any
+   mix chosen to clear today's three grounds is a tuning exercise that the
+   fourth ground tint re-opens. So the marker moved CHANNEL: an outline, with
+   a STYLE of its own. Two outlines that differ in style are told apart at any
+   colour distance, which answers the question instead of relocating it, and
+   the three rules below take the background channel back down to six.
+
+   The outline's one existing claimant is .player-cell.is-hinted (CARD-183 /
+   CARD-269), and it is SOLID where this is DASHED. The two cells can be the
+   same cell — rung 3's reveal records its stroke through the same commit, so
+   a cell revealed inside a probe is a member (tested:
+   test_a_hint_revealed_inside_a_probe_belongs_to_it) — and the two rules tie
+   on specificity (one class + one attribute against two classes, 0-2-0 both),
+   so file order would hand the whole shorthand to the probe and take the
+   hint's accent ring away. The third rule below is that cell: it keeps the
+   hint's accent COLOUR and the probe's DASH, so both signals are on it at
+   once, and it is the last of the three so that a filled hinted probe cell
+   gets the accent too (which is what a hinted filled cell already looks
+   like).
+
+   Nothing else on the cell is touched, and that is the point of the channel:
+   .is-crossed and .is-hint-line keep their grounds, so a probed cell under
+   the pointer now shows BOTH — where the pointer is and what the hypothesis
+   is — instead of one of them winning a tie. The outline takes no layout
+   either (outline-offset is negative, so it is drawn inside the cell's own
+   box), so none of this round's geometry is affected.
+
+   THE TWO COLOURS ARE BOTH THE WARNING HUE, inverted from the tint they
+   replace: a probe is provisional, which is what that hue says and what
+   neither the crosshair's "the pointer is here" nor the hint line's "the
+   answer you pressed for" can say while also meaning what they already mean.
+   --player-probe is 86 % of it into the paper — rgb(150, 115, 35), a dark
+   amber for the three LIGHT states — and --player-probe-ink is 42 % into the
+   paper, rgb(204, 186, 144), a light amber for a FILLED cell. The dark ring
+   does NOT vanish on a filled cell's --grid-ink ground, and the sentence that
+   used to say so here was never measured: it is 3.57:1, which is just past
+   WCAG 2.2 1.4.11's 3:1 floor and is the worst pairing anywhere on this
+   board. The light variant takes that same pairing to 8.22:1, which is why
+   the second rule exists — a doubling of the worst case, not a rescue from
+   invisibility. --color-warning against
+   --grid-paper is 5.80:1, re-derived (tokens.css's own comment says 5.6:1 on
+   surface and 5.0:1 on its tint; the "6.6:1" this paragraph used to claim was
+   no pairing of anything, and a hex spelling cannot stand in a comment here
+   either — the whole-file sweep of
+   test_the_stylesheet_uses_tokens_not_literals reads the comments too).
+
+   EVERY ONE OF THOSE SEPARATIONS IS MEASURED, which is the other half of
+   F-001: the old claim had nothing but string inequality behind it, so the
+   tint at 1 % — visually absent — left the whole gate green. The ring is
+   held against every ground a probe cell can have, in dE76 off the computed
+   values, by
+   tests/test_puzzle_solver_probe.py
+   TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround, with a floor of
+   20 (8.7x the JND of 2.3, and 2.56x inside the smallest separation the
+   shipped values have). Measured on a real page, one case per ground: 66.3 on paper,
+   58.5 under the crosshair, 64.2 under the hint line, 71.5 on a filled cell,
+   56.9 on a filled crossed cell, 51.2 on a filled hint-lined cell. At 1 % the
+   paper arm reads 0.72 and that test reds; at 14 % — what cycle 1 shipped —
+   the crosshair arm reads 2.36 and it reds as well, with the paper arm at
+   10.20 and the hint line's at 9.65. (2.36 against the 2.55 above: the test
+   reads the UNROUNDED computed value, cycle 1 read canvas-rounded bytes.
+   Rounding, in the third significant figure, an order of magnitude under the
+   floor either way — said here because two numbers for one pair, left
+   unexplained, is the thing this round spent itself on.) As CONTRAST rather than
+   distance the ring is 4.33:1 against the paper and 8.22:1 on a filled
+   cell's ink, and every one of the six pairings is past WCAG 2.2 1.4.11's
+   3:1 floor for a non-text indicator (the lowest is 3.70:1, the dark ring
+   under the crosshair's tint).
+
+   No token is added to tokens.css, for the crosshair's and the hint line's
+   reason, stated at both: tokens.css is mirrored verbatim from
+   meta/design/tokens.css and a probe marker is a value DERIVED from design
+   tokens for one component. Every value in the rules below is a token or a
+   token-only color-mix(), checked per rule by
+   test_the_probe_tint_comes_from_tokens (AC-9), whose own allowance for the
+   one bare keyword here (`dashed`) is named and controlled in that file. */
+.player-toolbar:has(.player-probe) { margin-top: calc(-1 * var(--space-2) - var(--border-width)); }
+.player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4) + var(--border-width)); }
+.player-probe[hidden], .player-probe [hidden] { display: none; }
+.player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); height: calc(var(--control-h) - var(--space-3)); min-height: 0; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }
+.player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
+.player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
+.player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
+.player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
+.player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
+
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the
    board. The message takes the free space so a long refusal wraps inside
