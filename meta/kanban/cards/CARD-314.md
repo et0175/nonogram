@@ -1,6 +1,6 @@
 # CARD-314: A vector page's clue digits say so in the stream — CON-020's exemption survives the conversion instead of becoming unverifiable
 
-**Status:** in progress
+**Status:** done
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 0.5d
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-299
 **Touches:** src/nonogram/admin/book_vector.py, src/nonogram/admin/book_vector_draw.py, tests/helpers/pdf_vector.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_vector_primitives.py, tests/test_book_puzzle_page_vector.py, tests/test_book_solved_answer_key.py, meta/architecture/trace.yml <!-- CORRECTED at implementation from `git diff --numstat 4d164f62..7f40f30f`. The declaration was wrong in three ways. (1) It named `book_puzzle_vector.py`; the mark actually lives in **`book_vector_draw.py`**, one chokepoint serving BOTH page kinds, which is why the card's two-kind scope costs nothing extra. (2) It named `requirements.yml`; the card touches **`trace.yml`** instead and leaves requirements.yml byte-unchanged -- G-1 says only the VERIFICATION changes, and verification lives in trace.yml. (3) It was short by four test files, every one a structural default-DENY guard that refused an operator or member nobody had classified: the vector-primitives mark guard, the puzzle-page operator reader and state-operator count, and the answer-key door probe plus its emitted-operator set (16->18 and 8->10 members). **Each guard behaved correctly and each is now classified with its own measurement rather than silenced**, and two were strengthened -- the answer-key module now asserts the mark is on answer pages and NOT on the TOC, per kind. -->
-**Review score:** **8.5 (cycle 1/3) — CERTIFIES**, 12 findings, **none a defect in shipped behaviour**; fix round 1 running. **F-004 is with the owner** (it proposes a rename, which G-6 forbids).
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** **8.5 (cycle 1/3) — CERTIFIES**, 12 findings, none a defect in shipped behaviour; **three fix rounds**, the third discharging a cross-card census the gate caught.
+**Started:** 2026-10-30T05:20:00Z (wave 68 dispatch)
+**Closed:** 2026-10-30T08:33:00Z
+**Actual:** 0.4d — **~3h 13m wall clock**, dispatch to merge, which is the instrument: implementation, one review cycle, three fix rounds and two gate runs (the first red). Against a 0.5d estimate that is **0.8×** — under, and the comparison is only sound against cards measured the same way.
+**Merge commit:** `8762beed` (gated tree `8d70e2b0`)
 **Blocked by:** —
 
 ## [SCOPE CORRECTED 2026-10-29, before dispatch — this is TWO page kinds, not one]
@@ -641,3 +641,50 @@ fix round is the wrong place to re-stamp an ADR"* — and the ADR frames it as a
 figure, so it is a historical measurement rather than a false claim. **But ADR-0039/R4 is the rule
 that a figure recomputed and refuted is retracted everywhere it was written, and this is a stale
 figure inside ADR-0039 itself.** Recorded on CARD-319.
+
+---
+
+## Merge gate round 2 — **GREEN**, merged `8762beed`
+
+Gated commit **`8d70e2b0`**. **9848 passed · 27 skipped · 1 xfailed · 0 failed** in **21:16**;
+AC/EC by node id **68 passed · 0 skipped**; **21 baselines unmoved**; `src`+`tests` **byte-identical**
+to the gated commit, before the merge and on `main` after. All 27 skips read from the log.
+
+**The empty failure list is trustworthy this time, and that is the point of the repair**: the gate now
+prints the verdict line beside it, so *"no failures listed"* and *"0 failed"* corroborate each other
+rather than the first standing alone.
+
+### What this card ends up having been
+
+**CON-020's exemption was keyed on the drawing function, and a PDF content stream records no
+provenance.** CARD-299 therefore refused a vector page **by name** rather than report ~205 false
+violations or exempt 8.64 pt **by its value** — correct, and a hole with a date on it. This card
+closes it: the clue digits now **say so in the stream**, and the exemption is **by the mark, never by
+the size**. The proof that it matters is in the EC corpus — **four of eleven exempt sizes are ABOVE
+the floor**, because a clue digit does not stop being one on a larger trim, which is why a size key
+was never an option.
+
+**Its own thesis came back at it twice.** Cycle 1 measured that replacing the tag test with
+`bool(stack)` — exempt inside **any** bracket — passed all 733 tests: **a provenance exemption that
+accepts any provenance is a magic bracket instead of a magic number.** Then fix round 1 measured the
+review **understated** its sibling finding: a *balanced* raw-append forgery survived the **entire**
+radius, so that tree had **three** surviving mutants, not two. Both are closed with controls that red.
+
+### Three orchestrator figures corrected on this card
+
+The scope-correction premise was **stale** (CARD-299's fix round already covered both page kinds);
+`Touches` was **wrong in three ways and short by five files**; and **M4's mutant split is
+site-dependent** with its plant line never recorded — 2/45 against a reviewer's 4/43 from a different
+site. All three were my figures, not the rounds'.
+
+### The gate earned its place today
+
+Round 1 went **red on bookkeeping no review cycle could have seen** — three trace refs this card
+added, against CARD-308's frozen census, in a module outside this card's impact radius. **The
+per-cycle scope was structurally blind to it; the gate was not.** And the fix round then found a
+**third** baseline the gate log could not show, because it is asserted after the one that
+short-circuited.
+
+**Not closed here, by design:** ADR-0042/R1 stays unflipped — all seven `PageKind` values are still
+declared raster, so **nothing in production changes medium today**. This card makes CARD-309's
+conversion **safe for CON-020**; it does not perform it.
