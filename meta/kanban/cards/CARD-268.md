@@ -337,6 +337,84 @@ them as written, never as passing before they exist:
 `TestSolverProbe_StateIsPureAndStatesAreFour`,
 `test_the_probe_tint_comes_from_tokens`.
 
+## [Owner decisions 2026-10-30, on review cycle 1's two gating findings]
+
+Cycle 1 scored **7.5** and did not certify: two open Important findings, both
+put to the owner because the card itself said to surface rather than pick.
+
+### F-001 — the probe's membership moves to a DIFFERENT CHANNEL, not a stronger tint
+
+**Owner's choice**, over "stronger tint, same channel". The reasoning the choice
+rests on: a different channel cannot collide with **any** background tint —
+crosshair, hover, or a fourth added later — whereas re-tuning the mix is a
+tuning exercise against today's palette that a future tint re-opens.
+
+The finding is a **shipped miss**, not a coverage gap, and the measurement
+reproduces exactly (orchestrator, independently, from the shipped tokens):
+
+| | value | |
+|---|---|---|
+| probe light | `color-mix(in srgb, #855d00 14%, #fffdf8)` | **(238, 231, 213)** |
+| crosshair | `--color-surface-hover` `#f1ebdd` | **(241, 235, 221)** |
+| | ΔRGB (−3, −4, −8) | **ΔE76 = 2.55** |
+
+2.55 is at the just-noticeable-difference threshold — for two small
+non-adjacent grid cells it is the same colour. **A token swap does not rescue
+it:** `--color-warning-tint` (`#f6ecd4`) is only **ΔE 5.36** from the crosshair.
+The FILLED variants are plainly apart (probe-ink vs cross-ink 27.4), so the
+defect is confined to unknown/empty/maybe — which is the bulk of what a probe
+paints.
+
+**THE CHANNELS ARE CROWDED, and this is the constraint the fix must solve
+rather than discover.** Measured on `admin.css`'s `.player-cell` rules:
+
+- **`background`** — 9 claimants: the four `data-state` looks, `.is-crossed`
+  (CARD-267's crosshair), `.is-hint-line`, and the probe's two.
+- **`outline`** — taken by `.player-cell.is-hinted` (CARD-183/269).
+- **`box-shadow`** — taken twice: `[data-state="filled"]`'s own division
+  (CARD-270) and `.is-hinted`.
+- **`::after`** — taken twice: the empty mark's dot and the maybe mark's.
+
+So there is no unclaimed channel to take. **A candidate worth pricing first,
+because it sidesteps ΔE entirely:** distinguish by **shape rather than
+colour** — e.g. a *dashed* outline against the hint's *solid* one. Two
+outlines that differ in style are distinguishable at any colour distance,
+which makes the whole ΔE question moot for this pair instead of moving it.
+Whatever is chosen, the separation gets **a test that measures it**, so mutant
+**T1** (the tint at 1%, visually absent) stops surviving — today the only
+boundary the suite holds is *string equality* of the computed value, which
+ΔE 2.55 sails straight through.
+
+**This is player-visible, so the standing rule applies: it needs a rendered
+eyeball, not green tests.** Produce a render under
+`~/Documents/nonogram-reviews/CARD-268/` showing a probe open **under a hovered
+row**, which is the exact state F-001's scenario describes, plus the hint line
+in the same frame since that is the other neighbour.
+
+### F-002 — rule 6 is FIXED to match its own text, not recorded as a divergence
+
+**Owner's choice**, over recording the shipped behaviour. Rule 6 says *"a probe
+never contains strokes made before it started"*, and the shipped code
+contradicts it: `nextProbe(..., "change")` is `Math.min(probe, done.length)`,
+which can only **lower** the checkpoint — so a **redo raises** `done.length`,
+the checkpoint stays, and `probeCells` adopts the redone stroke.
+
+Reachable in five inputs: **mark A, mark B, Undo, Probe, Redo** → B comes back
+wearing the probe marker, and Contradiction then takes away a mark the player
+made **before** opening the probe. That is the behaviour the owner rejected:
+restoring an earlier mark is not part of the hypothesis.
+
+**The oracle shares the bug, and that is the sharpest part of the finding.**
+`_oracle`'s redo branch encodes the same reading, so this card's strongest
+mechanism — an independent second implementation — was defeated by a shared
+assumption. **10 of the 300** corpus sequences reach the shape and pass,
+asserting the wrong behaviour as correct. So the fix is in **two** places and
+the oracle is the one that proves the fix: a corrected module against an
+uncorrected oracle must red.
+
+Add a named `_RULE_CASES` entry for the five-input sequence so rule 6's letter
+has a control of its own, which it did not have.
+
 ## Worktree notes
 
 - **[Env]** forge `2026.8.17` (executing manifest `forge_1/forge/.claude-plugin/plugin.json`).
