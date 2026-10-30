@@ -15,7 +15,7 @@
 **Wave:** —
 **Created wave:** 57
 **Deferred waves:** 0
-**Depends on:** —
+**Depends on:** CARD-309 <!-- ADDED 2026-10-30 on owner question "is CARD-288 still relevant?". Answer: yes, premise intact -- subject file untouched since the card's 2026-10-24 census, all four tests present by name, `Sheet` still at :124, and ADR-0042/R6 EXEMPTS `Sheet` BY NAME rather than superseding it. But this card optimises HOW those four tests obtain their pages, and they obtain them from `BookPDFGenerator.interior_pages()`, declared `-> List[Image.Image]`, indexing PUZZLE pages specifically. CARD-309 converts that kind, after which the return stops being a list of images -- CARD-314's round measured the shape: "page 6 is a vector puzzle page, but arrived as Image". Running 288 first designs the optimisation against a mechanism 309 replaces. Recorded in full on CARD-309, where it also exposed that AC-3's reader derivation cannot see this file or seven others. -->
 **Touches:** tests/property/test_book_pdf_geometry.py, meta/profiling/card-288-page-census.md
 **Review score:** —
 **Started:** —
