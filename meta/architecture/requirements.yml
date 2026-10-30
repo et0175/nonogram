@@ -1930,16 +1930,37 @@ functional:
       - id: AC-142
         given: an admin review puzzle list
         when: it is filtered by a strategy value outside the enum
-        # CARD-318 [BLOCKER — owner decision]: this `then` CONTRADICTS the shipped
-        # route. `admin/app.py`'s strategy branch reports the unknown value and then
-        # IGNORES it, listing every puzzle — deliberately, as the CARD-066 status
-        # filter does, because filtering on an unknown name shows an empty page that
-        # reads as "your other filters matched nothing". Which behaviour is wanted is
-        # a product call, so the ref is left dead rather than pointed at a test for
-        # whichever side is easier to assert (CARD-318 G-1/G-2).
-        then: the request is refused on the CARD-066 error branch and no puzzles are listed
+        # DEMOTED 2026-10-31 on the owner's decision, raised as CARD-318's [BLOCKER].
+        # The previous `then` read "the request is refused on the CARD-066 error branch
+        # and no puzzles are listed", and it CONTRADICTED the shipped route in the very
+        # pattern it cited. `admin/app.py:2279-2284` reports the unknown value and then
+        # IGNORES it, listing every puzzle — and says so in its own flash text,
+        # "showing every strategy instead". That is deliberate and it is what the
+        # CARD-066 status filter does, because filtering on a name that cannot match
+        # yields an empty page a reader mistakes for "your other filters matched
+        # nothing".
+        #
+        # So the AC was wrong about the code AND wrong about its own cited precedent.
+        # The owner chose to move the CRITERION rather than the product: zero code
+        # change, no risk to a live admin page, and the AC now agrees with CARD-066.
+        # Building the refusal would have been a product change contradicting that
+        # precedent, which CARD-318's G-2 forbids a tech-debt card from doing quietly.
+        #
+        # The ref moves to the test that covers what ships. It is NOT a test written to
+        # retire a warning (CARD-318 G-1): the behaviour was already covered by
+        # CARD-072's suite under its own local name, which is the naming gap this whole
+        # card turned out to be about.
+        then: >-
+          the unknown value is reported to the admin and then ignored, and every
+          puzzle is listed — the CARD-066 status-filter pattern, not a refusal
         kind: negative
-        test: TestPuzzleReview_RejectsUnknownStrategyFilter
+        # The ref is CARD-072's own test, which has covered this behaviour since it
+        # shipped — `tests/test_strategies.py:489`, and its NAME says the shipped
+        # semantics outright: "offers the filter and ignores an unknown value",
+        # asserting the flash text at :521. That it was already covered under a
+        # card-local name, while the registry pointed at a test nobody wrote, is the
+        # naming-gap-mistaken-for-a-coverage-gap this whole card turned out to be.
+        test: test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value
       # NB CARD-037 uses AC-143 for a different criterion of its own (CARD-106)
       - id: AC-143
         given: a stored puzzle whose list is [line_dp, probe_contradiction]
