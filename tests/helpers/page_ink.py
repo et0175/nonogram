@@ -116,6 +116,27 @@ class Drawing:
     rows: int
     framed: bool = False
 
+    # EVERY FIELD ABOVE IS AN INK EXTENT, NOT A BOUNDARY, and CARD-330 is the
+    # card that had to say so. A grid rule is *centred* on the boundary it
+    # closes, and each ``grid_*`` above is the FIRST inked pixel line of its
+    # rule — so the reading sits ``(rule width - 1) // 2`` outside the
+    # boundary the page spec states: 2 px for the book's 6 px border, 1 px for
+    # its 3 px cell line. Differencing one of these against a coordinate —
+    # a content stream's operand, a ``Layout``'s ``position`` — therefore
+    # measures half a rule and reads exactly like a renderer placing the grid
+    # somewhere else, which is the reading CARD-309's round arrived at and
+    # CARD-330 re-derived away (ADR-0042/R6's own note, 2026-10-31). Compare
+    # ink with ink, or compare a coordinate with a coordinate.
+    #
+    # The same applies to :attr:`left` and :attr:`top`, with one medium-
+    # dependent extra: on a framed drawing Pillow strokes four butt-capped
+    # lines, so the frame's top side begins above where its left side starts
+    # and these two read the path exactly, while a PDF rasteriser strokes the
+    # frame as one ``re`` and mitres its outer corner, putting the same
+    # reading 3 px further out. Measured, that is 0.254 mm at 300 DPI, which
+    # is the figure a conversion of these pages moves past
+    # ``tests/test_book_pdf.py``'s ``EDGE_TOLERANCE_MM``.
+
     @property
     def cell(self) -> float:
         """The printed cell in device pixels: the grid's width over its columns."""
