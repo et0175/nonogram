@@ -1,6 +1,6 @@
 # CARD-220: Retire tests whose coverage another test already provides — only with a named survivor
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-217 <!-- DISPATCH NOTE 2026-10-30: dispatched alongside CARD-314 while CARD-304 sits at its merge gate rather than merged. The wave-68 comment below records the owner's 'after CARD-304' sequencing; 304's implementation, two review cycles and two fix rounds are all complete and only the gate remains, so the sequencing is honoured in substance. Measured before dispatching: CARD-220 shares NO declared path with CARD-314 (Jaccard 0.00) and one with CARD-309 (`tests/test_book_pdf.py`, 0.09) -- both under `max_overlap: 0.3`, and neither is a conflict hotspot, while `book_pdf_generator.py`, which IS one, is touched by 309 and by neither of these two. -->
 **Touches:** tests/test_book_pdf_band.py, tests/test_book_puzzle_frame.py <!-- ACTUAL, re-derived from `git diff --name-only 4d164f62..a58284bb` at implementation. The declared footprint below was `tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/` and NOT ONE of those was touched -- the round widened with its reason, which the narrowing note itself sanctions, and flagged it rather than widening silently. `meta/profiling/` was deliberately left alone per AC-6's "recorded, not asserted". --> ORIGINAL DECLARATION: tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/ <!-- NARROWED 2026-10-30 on owner decision, from `tests/**`. Two reasons, both measured. (1) `tests/**` overlaps essentially every open card, so under `dispatcher.max_overlap: 0.3` this card could only ever run ALONE and would block its whole wave. (2) The narrowing matches the card's OWN method: step 1 already restricts candidates to tests that are 'both expensive (in the top-50 list or a top-20 file) and suspected subsumed', so a repo-wide footprint was always wider than the work. The paths named here are where the measured cost actually is -- `test_book_export_interior_cover.py` alone is 29.8% of the suite's wall clock (90 -> 127 tests, 344.29s -> 467.30s standalone). THIS IS A FOOTPRINT NARROWING, NOT A SCOPE CUT: the deletion rule, the three never-touch classes and the per-pair mutation proof are untouched. If a proven-subsumed pair turns up outside these paths, widen the field with the reason -- do not delete outside the declared footprint silently. -->
-**Review score:** **8.5 (cycle 1/3) — CERTIFIES**, 7 findings, 0 gating; fix round 1 owed on F-001
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** **8.5 (cycle 1/3) — CERTIFIES**, 7 findings, 0 gating; one fix round
+**Started:** 2026-10-30T05:20:00Z (wave 68 dispatch)
+**Closed:** 2026-10-30T10:35:00Z
+**Actual:** 0.7d — **~5h 15m wall clock**, dispatch to merge: implementation, one review cycle, one fix round, one gate. Against a 1d estimate that is **0.7×**.
+**Merge commit:** `cb5856dc` (gated tree `cfab5945`)
 **Blocked by:** —
 
 ## What to implement
@@ -112,7 +112,17 @@ nature. Read AC-2, AC-3 and AC-4 as gate obligations on the card's own diff. -->
   mutation evidence, per `review.mutation_check`)
 - **AC-2** (guard, accounted count): *Given* the suite, *when* it runs, *then*
   the collected test count equals the pre-card count minus exactly the
-  enumerated deletions (parametrised merges keep their case count). (**gate**: set difference over
+  enumerated deletions (parametrised merges keep their case count).
+  <!-- AMENDED 2026-10-30 by fix round 1, which ADDED a test and so changed this AC's
+  shape. The added set is no longer empty: ONE new test function,
+  `tests/test_shared_fixture_controls.py::TestSharedControls_TheCopiesCannotComeBack::test_the_import_reading_sees_every_form_and_no_near_miss`,
+  collecting as 10 parametrised rows -- the control for F-001's widened import
+  reading. Measured against the fork point with two real collects, neither
+  0-collected: 9819 -> 9827, removed exactly the two enumerated deletions,
+  added exactly those 10 rows. RAW -2 / +10, NET +8. Stated raw and net rather
+  than netted away, which is the defect this board corrected on three other
+  cards today. Read AC-2 as: the removed set is exactly the deletion list, and
+  the added set is exactly this one function's rows. --> (**gate**: set difference over
   sorted node ids between the fork point and HEAD -- the removed set must equal
   the card's enumerated deletion list exactly, in both directions, and the added
   set must be empty. A standing test cannot know the pre-card count; see the
@@ -570,3 +580,107 @@ most valuable thing this card produced."*
 - [Fix 1] Owed: F-001's importer widening + floor tightening with the alias arm flipping red as
   proof; F-002's one-line vacuity disclosure; F-003's three group names into worktree notes. F-004
   and F-006 are corrected above and were the orchestrator's.
+
+---
+
+## Fix round 1 — `a58284bb` → `60080a69`, 5 files, +364/−19, **tests only, no `src/`**
+
+### F-001 — the alias arm flips, and the fix is not where the review said it was
+
+`_importers()` now **asks the import statements** instead of matching two remembered shapes. The
+decisive measurement, one arm at a time, out of tree, with a live violation planted:
+
+| arm | before | after |
+|---|---|---|
+| a recognised import form | survivor **FAILED** | survivor **FAILED** |
+| **the alias form** | **2 passed — green on a real violation** | survivor **FAILED**, naming the plant |
+| no import at all | passed | passed (negative control) |
+
+**My brief's fix sketch was wrong about where the defect lives**, and the round measured it:
+narrowing the *match* still passes **9 of 10** forms, because the alias form is reconstructed as the
+home's own dotted name. **The seat of the gap is name reconstruction, not the match** — my
+three-line sketch would have produced a fix that looked right and closed less.
+
+Recognised now, each a row in a new table: a name or a star out of the home; the module dotted,
+aliased or not; the module out of its package, aliased, plain or relative; **and any of those
+deferred inside a function.** Refused: a longer sibling name, the name in prose, a commented-out
+import. **What it still cannot analyse is a failure, not an absence** — an unparsable file now
+**raises** where the old code silently `continue`d, and all 256 test files parse today.
+
+**The widening has its own control, proved both ways**: restoring the blindness reds **exactly the
+four widened rows**; matching the leaf as a substring reds **the longer-sibling row**, so the
+refused rows have teeth too.
+
+**A methodological note worth keeping**: its first two mutants reddened only one row each, which is
+what located the real seat — *"a mutant that barely rises is evidence about the mutant, not the
+instrument."*
+
+### The floor is gone, replaced by a second independent reading
+
+`len(importers) >= 2` against a measured 3 **was blind to the loss it existed to detect**. The set is
+now held **equal** to `_files_that_name_the_home()` — the files whose *text* names the home — which
+is ADR-0039/R1's shape: two independent readings of one question. Commenting out one importer's
+block: **before 1 passed; after 1 failed, naming the file by path.**
+
+### F-003 — four groups recorded in-tree, and a fifth reason the pair had to stay
+
+The round's three rejected groups were **recoverable from no artefact**, so the fix re-derived them
+and **over-covered to four**, because the *"the negative has teeth"* idiom occurs at three sites in
+two files and **none was pinned**. Each control-pair comment says what deleting **either** destroys:
+*the control is the other's instrument proof, the other is the control's subject.*
+
+**And it found a structural reason the AC-5 door pair had to stay that both the round and cycle 1
+missed**: both node ids are **pinned in `test_suite_profile.py`'s `CLIFF_EDGE_SNAPSHOT`**, with a live
+test asserting the suite still collects them. **Deleting either would have reddened a frozen registry
+in a file this card does not touch.**
+
+### Frozen registries — derived from an enumerable authority, then run
+
+The impact selector's always-on set **is** the tree-scanning tests, itself derived by scanning for the
+idioms — so it is **the enumerable authority** for what any diff can move. **31 files, identical at
+the fork point, at `a58284bb`, and now.** Run whole three times, **all green, 0 failed**:
+3290 → 3373 → 3373 passed. **`test_check_ref_resolution.py` is the one that could have reddened** —
+its refs resolve by a `git grep -lw` **text** search and this card deleted 92 lines of docstring that
+search reads — and it is **23 of 23 green.**
+
+### Three figures corrected, one of them mine
+
+1. **Review F-002's "exactly four hits, all four the same string equality"** is **2**, one per deleted
+   guard. The other two "operator" hits are **`->` arrows**, which are not comparisons. **The
+   conclusion is unaffected and stronger**: comparisons against a numeric literal in the removed text
+   are **zero**, so a collector returning the empty set would have given the same verdict.
+2. **My brief's "`test_check_ref_resolution.py` references both files this card edits"** is wrong: it
+   references **one** — a single prose comment naming the frame file — and **zero** references to the
+   band file. I ran an **OR** grep and read *"something matched"* as *"both matched"*. Same family as
+   the `\b` slip, in an instrument I built to apply a lesson about instruments.
+3. **The in-tree retirement comments carried the "7 times per file" grep figure** the card record had
+   already corrected to 5 — **CARD-261's lesson again: the record was fixed and the in-tree copy had
+   drifted from it.** Both copies now state the domain.
+
+### Skips, and what they are not
+
+**11, every one named**, all one cause — `DATABASE_URL is not set` — in two modules outside this
+card's field. **None is the survivor and none is a protected target**, so **no proof here leans on a
+skip**, which was the bar: a skip-gated survivor cannot prove subsumption.
+
+---
+
+## Merge gate — **GREEN**, merged `cb5856dc`
+
+Gated commit **`cfab5945`**. **9892 passed · 27 skipped · 1 xfailed · 0 failed** in **21:32**; AC/EC
+by node id **200 passed · 0 skipped**; **AC-3's protected-set intersection EMPTY**, checked path by
+path; `src`+`tests` **byte-identical** to the gated commit.
+
+**AC-6 is discharged, and its honest content is a negative result.** Affected scope before
+**13.47–14.75 s**, after **12.72–13.27 s** — ranges that barely clear each other — and cycle 1's
+reviewer measured after's slowest rep *slower* than before's. **The two deleted tests cost 0.01 s and
+0.02 s, so ~0.03 s is the real saving.** The gate's own solo reading of the three modules is 200
+passed in 12.01 s. **This confirms CARD-217's own recommendation that no single test is worth
+deleting**, and it is the right result for this card to end on: **the value delivered is maintenance,
+not speed** — one bound in one place instead of two inlined copies, now with an import reading that
+cannot be switched off by an alias.
+
+**What this card is, in the end.** It deleted **two** tests. It spent far more effort proving the
+other candidates were **not** subsumed — including the suite's two most expensive tests, which die on
+**different assertions about different claims** — and more again making the survivor actually cover
+what the deleted copies covered. **The deletion was the small part; the proof was the card.**
