@@ -1,7 +1,7 @@
 # CARD-329: The one-image reader learns the content stream — AC-3's real content, separated from the three causes that were not readers
 
 **Status:** ready
-**Priority:** P2
+**Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30 on the owner's "move from raster to vector first". It is on the critical path to CARD-322, which is the card that finally gives the vector interior a reader -- nothing in `src/` turns an interior page into operators until it lands. CARD-330 was already P1; these three are one front and a split priority would have the dispatcher take them in the wrong order. -->
 **Category:** tech-debt
 **Estimate:** 0.75d
 **Complexity:** standard

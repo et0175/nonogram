@@ -13,7 +13,7 @@
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("## Puzzle page header — `Puzzle 37                                      MEDIUM` / `─────────────────────────────────────────────────────`")
 **Idea:** —
 **Wave:** —
-**Depends on:** CARD-204
+**Depends on:** CARD-204, CARD-322 <!-- ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_band.py, tests/test_book_pdf.py, tests/test_book_interior_type_floor.py
 **Review score:** —
 **Started:** —
