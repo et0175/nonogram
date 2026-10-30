@@ -824,6 +824,68 @@ class TestSolverProbe_CommitKeepsCellsAndDropsTheTint:
         assert requests == []  # G-2: committing a probe asks for nothing
         assert problems == []
 
+    def test_keep_makes_the_probes_marks_savable_again(self, browser_page, live) -> None:
+        """Rule 9's other end, and the arm a mutant found missing: while a
+        probe is open the save is the CHECKPOINT prefix, so the moment it
+        closes the whole history has to be written again or the kept marks
+        would not survive a reload.
+
+        Driven through a real reload rather than by reading the entry, because
+        "the save is right" is only interesting as "the board comes back".
+        (Measured: the mutant that stops ``probed()`` writing leaves every
+        other test of this card green and reds this one.)
+        """
+        puzzle_id = live.store(GRID)
+        _open(browser_page, live, puzzle_id)
+        _cell(browser_page, 0, 0).click()
+
+        _probe(browser_page)
+        _drag(browser_page, [(5, 0), (5, 4)])
+        _cell(browser_page, 7, 7).click()
+        kept = _states(browser_page)
+        _keep(browser_page)
+        assert _states(browser_page) == kept
+
+        browser_page.reload()
+        browser_page.wait_for_function("window.puzzlePlayer !== undefined")
+
+        assert _states(browser_page) == kept
+        assert _members(browser_page) == []
+        assert _probe_pressed(browser_page) == "false"
+
+    def test_a_reset_clears_the_open_probe(self, browser_page, live) -> None:
+        """Rule 10, and the second arm a mutant found missing: a reset clears
+        any open probe.
+
+        The board the hypothesis was about is gone, so the probe has nothing
+        left to be about — and a reset stroke left INSIDE the probe would make
+        Contradiction un-reset the board, which is the one thing a player who
+        has just confirmed a reset cannot have asked for. The history is
+        exactly today's: the reset is one undoable step (the confirmation says
+        "Undo brings them back"), and undoing it does not reopen the probe.
+        (Measured: the mutant that drops the close leaves the probe pressed
+        and makes every cell of the board a member.)
+        """
+        _open(browser_page, live, live.store(GRID))
+        _probe(browser_page)
+        _drag(browser_page, [(5, 0), (5, 4)])
+        before_reset = _states(browser_page)
+        assert _members(browser_page) != []
+
+        _button(browser_page, "Reset").click()
+        _button(browser_page, "Reset board").click()
+
+        assert set(_states(browser_page)) == {U}
+        assert _members(browser_page) == []
+        assert _probe_pressed(browser_page) == "false"
+        assert _actions_shown(browser_page) == (False, False, False)
+        # Today's history: the reset is one undo step, and undoing it brings
+        # the marks back as ordinary marks, not as a reopened probe.
+        _button(browser_page, "Undo").click()
+        assert _states(browser_page) == before_reset
+        assert _members(browser_page) == []
+        assert _probe_pressed(browser_page) == "false"
+
 
 # ==========================================================================
 # AC-4 — undo during a probe: probe strokes pop first, then the clamp
