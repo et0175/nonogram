@@ -4730,8 +4730,19 @@ functional:
         # round surfaced the conflict instead of picking, and the owner chose to let the
         # requirement follow the design decision rather than relocate the button.
         # The counter half is UNCHANGED and deliberately so: Check's arrival moves the
-        # 1280 px wrap threshold for the Progress group (owner-accepted; measured as 268
-        # px needed against 186 px left, short by exactly Check's own 82 px), but
+        # 1280 px wrap threshold for the Progress group (owner-accepted). CORRECTED
+        # 2026-10-30: this comment quoted 268 px needed / 186 px left / short by 82,
+        # all three retired by CARD-269's fix round 1 and re-verified by fix round 2.
+        # One line of the counters NEEDS 263.656 px -- pair 146.52 + Progress 101.14 +
+        # the rule's 16 px column-gap, not the 20 the 268 was built from. 268 was never
+        # a need: 267.594 px is what the flex layout GAVE the counters at 1280 without
+        # Check, and 186.234 px is what it gives them with it. Check costs 81.359 px
+        # (its own 73.359 box + the history group's 8 px gap); the 82 was the difference
+        # of two already-rounded widths, and the "confirmed two ways" check repeated
+        # that rounding on another pair rather than checking it. The threshold claim
+        # survives in figures that reproduce: 267.594 >= 263.656 fits, 186.234 is short
+        # by 77.422 so Progress wraps, 346.234 >= 263.656 fits at 1440. The test asserts
+        # inequalities on positions and was always right; only this prose was wrong.
         # "Hints: N" still follows "Errors: N" on one row, so that half was not touched.
         # The `test:` ref is NOT dead: it names the CLASS
         # TestSolverHint_PlacesTheButtonAndTheCounter, which survives at
