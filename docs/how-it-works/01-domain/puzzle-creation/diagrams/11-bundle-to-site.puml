@@ -1,0 +1,87 @@
+@startuml 11-bundle-to-site
+' Where a solution grid stops, on the path from the database to a visitor.
+' Derived from: admin/player_bundle.py (export_bundle :336, SERVED/BOOK/INDEX
+' field tuples :140-:159, puzzle_key :215, book_slug :257, FINALIZED_STATUSES
+' :302) and player/assemble.py (COPIED_FROM_ADMIN :381, SERVED_SCHEMA :733,
+' EXEMPT_SERVED_FIELDS :541, EXEMPT_LISTING_FIELDS :902, check_capacity :572,
+' SITE_MARKER_FILE :487) and player/play.js (fetch + isClueSolved :174).
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam ArrowFontSize 11
+skinparam NoteFontSize 11
+
+rectangle "COMP-010 database" as db {
+  card "puzzles.grid\n**the solution**" as grid
+  card "books (status != draft)" as books
+}
+
+rectangle "COMP-009 admin panel" as admin {
+  card "export_bundle()\nread-only (EC-049)\nexplicit owner action (R5)" as export
+  card "puzzle_key(grid)\nSHA-256, 10 hex (R1)" as key
+  card "book_slug(keys)\nSHA-256, 10 hex (R7)\n**title not an input**" as slug
+}
+
+rectangle "build/player-bundle" as bundle {
+  card "puzzle/<key>.json\nclues + extent + title" as bpuzzle
+  card "index.json · book/<slug>.json" as blist
+}
+
+rectangle "COMP-011 player/assemble.py" as asm {
+  card "REBUILD from SERVED_SCHEMA\n(clues, height, key, tier, width)\n→ a puzzle's **title is dropped**" as rebuild
+  card "byte-identical copies\nsolver_state.js · tokens.css" as copy
+  card "check_capacity()\n< MIN_SIZE * MIN_SIZE bits" as cap
+}
+
+rectangle "build/site  (the deployable tree)" as site {
+  card "play/index.html · play.js · player.css\npuzzle/<key>.json (rebuilt)\nindex.json · book/<slug>.json\nvercel.json · .player-site" as tree
+}
+
+rectangle "the visitor's browser" as browser {
+  card "GET /play/<key>\n→ rewrite → play/index.html\n→ GET puzzle/<key>.json" as fetch
+  card "isClueSolved(board, rows, columns)\nsolved **without** an answer" as solved
+  card "localStorage: nonogram-public:<key>\n(R4; no account, no write request)" as store
+}
+
+grid --> export
+books --> export
+export --> key
+export --> slug
+key --> bpuzzle
+slug --> blist
+bpuzzle --> rebuild
+blist --> rebuild
+rebuild --> cap
+copy --> tree
+cap --> tree
+tree --> fetch
+fetch --> solved
+solved --> store
+
+note right of export
+  The grid is read here and
+  **never leaves**: only clues
+  (from compute_clues, R5) and
+  the two hashes travel on.
+end note
+
+note right of rebuild
+  Not a filter: a scan cannot decide
+  whether a string encodes a grid
+  (CARD-282 measured 7 of 7 planted
+  encodings missed). The channel is
+  removed instead.
+  EXEMPT: clues + key (R2), and a
+  BOOK's title on /b/<slug> only
+  (owner, 2026-10-28) — a declared
+  residual, not a bounded one.
+end note
+
+note bottom of solved
+  Every published puzzle is uniquely
+  solvable (CON-005 / INV-002), so
+  clue satisfaction **is** the answer
+  — which is why none is needed.
+end note
+
+@enduml

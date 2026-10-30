@@ -5,7 +5,7 @@ aspect, because the system has one bounded context.
 
 | Aspect | Context | Covers |
 |---|---|---|
-| [puzzle-creation/](puzzle-creation/) | **CTX-001 Puzzle Creation** | the whole pipeline — sourcing, clue derivation, uniqueness verification and recovery, difficulty calibration, export — plus book assembly, the puzzle player, the three inbound adapters and the one database |
+| [puzzle-creation/](puzzle-creation/) | **CTX-001 Puzzle Creation** | the whole pipeline — sourcing, clue derivation, uniqueness verification and recovery, difficulty calibration, export — plus book assembly, the two puzzle players (the admin panel's and the public static one), the three inbound adapters and the one database |
 
 ## Why this group has one aspect, and the others do not exist
 
@@ -29,7 +29,9 @@ rather than a shortcut:
   model does not support. They are
   [file 09](puzzle-creation/09-the-three-inbound-adapters.md) inside this aspect.
 - **`operations` would be a perspective, not an aspect.** There is one deployed
-  service, one database and one `start.sh`. What an operator needs is the
+  service, one database and one `start.sh` — the public player adds a deployed
+  *surface* (static files, `docs/deploy/player.md`) but no process to operate,
+  which is the point of ADR-0041/R3. What an operator needs is the
   *operational reading* of this same ground truth, which is exactly what
   [`perspectives/sre.md`](puzzle-creation/perspectives/sre.md) is for. A separate
   group would have had to restate the admin panel's mechanism to say anything at

@@ -2,10 +2,13 @@
 
 ## Why this matters to `sre`
 
-Only one of the three containers is a service you can be paged about: the admin
-panel, a Flask app behind gunicorn on Render, with a Postgres database. The CLI and
-the web UI are local processes a person starts and stops — nothing to monitor, no
-uptime, no deployment.
+Only one of the containers is a service you can be paged about: the admin panel, a
+Flask app behind gunicorn on Render, with a Postgres database. The CLI and the web
+UI are local processes a person starts and stops — nothing to monitor, no uptime,
+no deployment. The public player (COMP-011) is a fourth surface and deliberately
+not a service either: static files on a CDN, no process of ours, no database
+(ADR-0041/R3) — its failure modes are a stale bundle and a broken deploy, not an
+outage you are paged for.
 
 Two properties of that one service are worth knowing before the first incident:
 **every generation is synchronous inside the HTTP request**, so the slow routes'
@@ -23,6 +26,7 @@ production runs. See "What is not determinable from code".
 | COMP-008 web UI | `nonogram serve`, stdlib `ThreadingHTTPServer`, **same process** as the CLI's entry point | a loopback bind, plus a cross-origin refusal | exports, plus ≤ 8 retained temp uploads |
 | COMP-009 admin panel | `start.sh` → `gunicorn … nonogram.admin.app:create_app()`, Render | loopback by default, **or** one credentialed door | Postgres, plus uploaded pictures and covers on disk |
 | COMP-010 database | Postgres via SQLAlchemy + Alembic | reached by COMP-009 alone | the only persistent state in the system |
+| COMP-011 public player | static files assembled by `player/assemble.py` and published to a static host (DEC-045: Vercel); **not deployed as of 2026-10-30** — see `docs/deploy/player.md` | none: public by design, and it never holds an answer (ADR-0041/R2) | the visitor's own `localStorage`, one entry per puzzle; nothing server-side |
 
 The deployed panel's door is covered in
 [09 — the three inbound adapters](../09-the-three-inbound-adapters.md). The two

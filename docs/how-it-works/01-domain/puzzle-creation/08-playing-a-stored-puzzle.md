@@ -18,11 +18,23 @@ not COMP-007."
 It is the only capability in the model with **no event, no command and no
 aggregate**, and that is deliberate: *playing changes no system state.* All marks
 are browser-local (CON-021), so there is nothing for a CMD to be. CON-002 is
-superseded by CON-021, which is narrow: interactive play is allowed, but **only as
-this admin-panel page** — no public player, no persisted play state, no accounts;
-and the admin POC may ship the solution while a public one may not
-(`requirements.yml:247`). CON-021 was amended on 2026-10-06 to allow play state in
-*this browser's* `localStorage` only — "still nothing on the server".
+superseded by CON-021, which was narrow when it was written on 2026-10-03:
+interactive play allowed, but **only as this admin-panel page** — no public
+player, no persisted play state, no accounts; and the admin POC may ship the
+solution while a public one may not (`requirements.yml:247`). CON-021 was amended
+on 2026-10-06 to allow play state in *this browser's* `localStorage` only — "still
+nothing on the server".
+
+**That "only as this admin-panel page" clause no longer holds, and this file is
+about the first of the two forms that replaced it.** FR-045 and ADR-0041
+(2026-10-23) added the public player, and CON-021's current statement
+(`trace.yml:631`) reads "interactive play in exactly two forms — the admin panel's
+puzzle player (behind CON-015/CON-016, may ship the solution) and the public
+player per ADR-0041 (static, read-only, no accounts, localStorage-only, never
+ships a solution); everything else forbidden, no server-persisted play state
+anywhere". Both are CAP-007. The second one is
+[11 — the public player](11-the-public-player.md); everything below here is the
+panel's page, which is still the only one that may ship a solution grid.
 
 ## The naming trap, stated by the model itself
 
@@ -135,6 +147,7 @@ over observable state, not an inspection of intent.
 
 ## Related
 
+- [11-the-public-player.md](11-the-public-player.md) — the other form of play: static, answer-free, outside the door
 - [07-book-assembly-and-the-admin-panel.md](07-book-assembly-and-the-admin-panel.md) — the panel this route lives in
 - [09-the-three-inbound-adapters.md](09-the-three-inbound-adapters.md) — the door that makes shipping the solution acceptable
 - [04-uniqueness-and-recovery.md](04-uniqueness-and-recovery.md) — COMP-005, the *other* thing called a solver

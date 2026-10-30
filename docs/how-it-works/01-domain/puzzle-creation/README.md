@@ -11,8 +11,10 @@ candidate technical seams were considered and deliberately kept as *module* seam
 Two aggregates: **AGG-001 Puzzle**, and **AGG-002 Book**, which references puzzles
 by id and never modifies them (ADR-0033).
 
-Seven capabilities, three inbound adapters, ten components, one dependency
-direction — enforced by an `ast` walk, not a convention.
+Seven capabilities, three inbound adapters, eleven components, one dependency
+direction — enforced by an `ast` walk, not a convention. The eleventh, COMP-011,
+is the first whose code lives outside `src/nonogram/`, so the walk does not reach
+it: see [11](11-the-public-player.md).
 
 Start at [01 — the layered pipeline](01-the-layered-pipeline.md). Every later file
 assumes the direction of the arrows described there.
@@ -30,7 +32,8 @@ assumes the direction of the arrows described there.
 | [07-book-assembly-and-the-admin-panel.md](07-book-assembly-and-the-admin-panel.md) | the storage guard, AGG-002's lifecycle and gate, the distribution plan re-derived, the three millimetre constants, the page-at-a-time PDF | COMP-009 / CAP-006 |
 | [08-playing-a-stored-puzzle.md](08-playing-a-stored-puzzle.md) | the one route, why it has no command, the naming trap, and how "nothing is written" is tested | COMP-009 / CAP-007 |
 | [09-the-three-inbound-adapters.md](09-the-three-inbound-adapters.md) | the CLI's parsing-only line and exit-code table, the web UI's bind and cross-origin refusal, the admin panel's credentialed door | COMP-001, COMP-008, COMP-009 |
-| [10-persistence-and-the-unmodelled-edges.md](10-persistence-and-the-unmodelled-edges.md) | engine selection, the dual-mode doubling, the six tables (three unread), and the 1.6% of the package no component names | COMP-010 |
+| [10-persistence-and-the-unmodelled-edges.md](10-persistence-and-the-unmodelled-edges.md) | engine selection, the dual-mode doubling, the six tables (three unread), and the fraction of the package no component names | COMP-010 |
+| [11-the-public-player.md](11-the-public-player.md) | the second form of play: the two content-hash URLs, why the page cannot have the answer, reuse by byte-identical copy, the rebuilt served schema and its capacity ceiling, the three doors | COMP-011 / CAP-007 |
 
 ## Perspectives
 
@@ -57,18 +60,22 @@ constraints, never as a task guide.
 [diagrams/04-recovery-policies.puml](diagrams/04-recovery-policies.puml) | `orchestrator.py:1591`-`2196` and the bound constants at `:192`/`:224`/`:261`/`:287` |
 [diagrams/05-score-and-tier-bands.puml](diagrams/05-score-and-tier-bands.puml) | `difficulty.py:316`, `:342`, `:200`-`226`, `:464` |
 [diagrams/07-book-lifecycle.puml](diagrams/07-book-lifecycle.puml) | `admin/book_manager.py:50`, `:2223`, `:2180`, `:488` |
+[diagrams/11-bundle-to-site.puml](diagrams/11-bundle-to-site.puml) | `admin/player_bundle.py:140`-`:159`, `:215`, `:257`, `:302`, `:336` and `player/assemble.py:381`, `:487`, `:541`, `:572`, `:733`, `:902` — where the solution stops |
 
 The C4 views sit beside them in the model: `meta/architecture/c4/context.puml`,
 `containers.puml`, `components-CTX-001.puml`.
 
 ## doc → code map
 
-Component globs are `meta/architecture/trace.yml:2356`-`2402`. Line counts
-re-derived with `wc -l` over `find src/nonogram -name '*.py'`.
+Component globs are `meta/architecture/trace.yml:2578`-`2635` (the range this
+note used to give has drifted with the file). Line counts re-derived with `wc -l`
+over `find src/nonogram -name '*.py'` on **2026-10-30**; the prose in each row is
+from the reading that wrote it, and only the COMP-011 and `player_bundle.py` rows
+were re-read on that date.
 
 | Path | Lines | Component | Role |
 |---|---|---|---|
-| `src/nonogram/__init__.py` | 54 | — | the canonical package map; re-exports nothing and imports no submodule, so importing `nonogram` cannot drag an adapter in behind a capability |
+| `src/nonogram/__init__.py` | 86 | — | the canonical package map; re-exports nothing and imports no submodule, so importing `nonogram` cannot drag an adapter in behind a capability |
 | `src/nonogram/cli.py` | 573 | COMP-001 | argparse adapter; syntax only; the sole owner of the exit-code table |
 | `src/nonogram/orchestrator.py` | 2,675 | COMP-002 | owns AGG-001; the single enforcement point for INV-002 and INV-003; drives POL-001..POL-006 and the reveal policy; the only `solver.solve` call site in the pipeline |
 | `src/nonogram/errors.py` | 190 | — (shared rank) | the flat, import-free, behaviour-free domain error hierarchy |
@@ -78,14 +85,14 @@ re-derived with `wc -l` over `find src/nonogram -name '*.py'`.
 | `src/nonogram/sourcing/random_grid.py` | 460 | COMP-003 | the exact-count sampler, **and** the shared extent/density validators every mode delegates to |
 | `src/nonogram/sourcing/library.py` | 415 | COMP-003 | template registry (`cat`/`heart`/`house`/`moon`), exact-integer rescale, the jittered boundary threshold |
 | `src/nonogram/sourcing/image.py` | 1,251 | COMP-003 | ink box, aspect guard, crop, binarisation (threshold vs dither), the degenerate-ink guard, and POL-002's nudge *mechanism* |
-| `src/nonogram/sourcing/templates/` | 152 | COMP-003 | ASCII-art data as `.py` modules (so setuptools ships them); `dolphin`/`dog_in_house` are present but unregistered |
+| `src/nonogram/sourcing/templates/` | 179 | COMP-003 | ASCII-art data as `.py` modules (so setuptools ships them); `dolphin`/`dog_in_house` are present but unregistered |
 | `src/nonogram/solver/__init__.py` | 116 | COMP-005 | the whole public API: five names, documented as the complete surface |
 | `src/nonogram/solver/propagate.py` | 1,205 | COMP-005 | line logic: overlap rule, placement-intersection DP, the fixed-point sweep, `RungTagger`, `check_deadline`, and `mask_runs` (the native clue-encode twin) |
 | `src/nonogram/solver/search.py` | 1,815 | COMP-005 | `solve`, `SolveResult`/`SolveSignals`, the restart schedule, probing, the CON-005 re-encode backstop, `choose_givens` |
-| `src/nonogram/difficulty.py` | 592 | COMP-006 | the ladder, `score_difficulty`, the one `classify`, `Tier`, `parse_tier` / `tier_of_record` |
+| `src/nonogram/difficulty.py` | 609 | COMP-006 | the ladder, `score_difficulty`, the one `classify`, `Tier`, `parse_tier` / `tier_of_record` |
 | `src/nonogram/export/__init__.py` | 351 | COMP-007 | the format registry — the only list of format names in the codebase — `ExportPayload`, `write`, `_free_path` |
-| `src/nonogram/export/layout.py` | 4,838 | COMP-007 | the shared print geometry; `compute_layout`, `PageSpec`, the comfort curve, the cell floor, two-up pairing |
-| `src/nonogram/export/png.py` | 456 | COMP-007 | the raster, and `render_image` — the entry point the PDF reuses so the two cannot drift |
+| `src/nonogram/export/layout.py` | 5,333 | COMP-007 | the shared print geometry; `compute_layout`, `PageSpec`, the comfort curve, the cell floor, two-up pairing |
+| `src/nonogram/export/png.py` | 498 | COMP-007 | the raster, and `render_image` — the entry point the PDF reuses so the two cannot drift |
 | `src/nonogram/export/svg.py` | 173 | COMP-007 | the vector, assembled as text; inches over a pixel `viewBox` |
 | `src/nonogram/export/pdf.py` | 496 | COMP-007 | two pages from the same raster; the packaged DejaVu Sans header face |
 | `src/nonogram/export/json_export.py` | 347 | COMP-007 | schema version 2, document + decoder; carries `strategies` and `binarisation` |
@@ -99,30 +106,51 @@ re-derived with `wc -l` over `find src/nonogram -name '*.py'`.
 | `src/nonogram/web/multipart.py` | 206 | COMP-008 | the hand-rolled multipart parser (no stdlib one exists after PEP 594) |
 | `src/nonogram/web/uploads.py` | 115 | COMP-008 | opaque retention tokens, bounded by count at 8 |
 | `src/nonogram/web/metadata.py` | 140 | COMP-008 | **no production caller**; the shipped work is `web/static/metadata.js` |
-| `src/nonogram/admin/app.py` | 6,330 | COMP-009 | `create_app`, the boot-time refusals, the request hook, ~55 routes |
-| `src/nonogram/admin/puzzle_review.py` | 2,350 | COMP-009 | the puzzle store, filters, review actions, **and the ADR-0032/R1 storage guard** |
+| `src/nonogram/admin/app.py` | 6,492 | COMP-009 | `create_app`, the boot-time refusals, the request hook, ~55 routes |
+| `src/nonogram/admin/puzzle_review.py` | 2,590 | COMP-009 | the puzzle store, filters, review actions, **and the ADR-0032/R1 storage guard** |
 | `src/nonogram/admin/batch_generator.py` | 858 | COMP-009 | batch generation through COMP-002 |
-| `src/nonogram/admin/book_manager.py` | 2,783 | COMP-009 | AGG-002's store, the one `set_book_status`, the readiness gate |
+| `src/nonogram/admin/book_manager.py` | 2,804 | COMP-009 | AGG-002's store, the one `set_book_status`, the readiness gate |
 | `src/nonogram/admin/book_plan.py` | 596 | COMP-009 | the distribution plan as pure domain; `DEFAULT_PLAN`, buckets, largest-remainder apportionment |
-| `src/nonogram/admin/book_page_spec.py` | 576 | COMP-009 | the one door onto a book's sheet; `BOOK1_PROFILE`, `FLOOR_MM`, `InkMode` |
-| `src/nonogram/admin/book_pdf_generator.py` | 7,114 | COMP-009 | the interior/cover export; fits no cell and places no grid line (ADR-0036/R2); `interior_stream`'s one-page-at-a-time generator |
+| `src/nonogram/admin/book_page_spec.py` | 766 | COMP-009 | the one door onto a book's sheet; `BOOK1_PROFILE`, `FLOOR_MM`, `InkMode` |
+| `src/nonogram/admin/book_pdf_generator.py` | 8,069 | COMP-009 | the interior/cover export; fits no cell and places no grid line (ADR-0036/R2); `interior_stream`'s one-page-at-a-time generator |
 | `src/nonogram/admin/book_answer_key.py` | 540 | COMP-009 | INV-011's answer-page capacity and order |
 | `src/nonogram/admin/book_proof.py` | 795 | COMP-009 | ADR-0037's two measurable proof pages |
-| `src/nonogram/admin/book_kdp.py` | 627 | COMP-009 | KDP's gutter table and the finalise check |
-| `src/nonogram/admin/print_specs.py` | 419 | COMP-009 | `PrintSpecValidator`, the form-side trim/margin check |
+| `src/nonogram/admin/book_kdp.py` | 651 | COMP-009 | KDP's gutter table and the finalise check |
+| `src/nonogram/admin/print_specs.py` | 441 | COMP-009 | `PrintSpecValidator`, the form-side trim/margin check |
 | `src/nonogram/admin/image_manager.py` | 788 | COMP-009 | the uploaded-picture store, size presets, fit prediction |
 | `src/nonogram/admin/image_to_puzzle.py` | 100 | COMP-009 | picture → grid + clues for the panel |
 | `src/nonogram/admin/grid_renderer.py` | 53 | COMP-009 | `grid_to_svg` for preview and download |
 | `src/nonogram/admin/regrade.py` | 573 | COMP-009 | the re-grade batch under the ADR-0029 ladder; `REGRADE_BUDGET_SECONDS` |
 | `src/nonogram/admin/pdf_generator.py` | 349 | COMP-009 | **test-reachable only**; the tree's only `reportlab` user |
 | `src/nonogram/admin/book_membership.py` | 277 | COMP-009 | **test-reachable only**; a one-off repair utility (CARD-100) |
+| `src/nonogram/admin/player_bundle.py` | 631 | COMP-009 | the player-bundle exporter (FR-045, ADR-0041/R5): `puzzle_key`, `book_slug`, `export_bundle`; read-only against the database (EC-049), and the only implementation of either hash |
 | `src/nonogram/admin/templates/`, `static/` | — | COMP-009 | Jinja templates, `admin.css`, and CAP-007's `solver.js` / `solver_state.js` (120 KB, named by no component) |
-| `src/nonogram/db/models.py` | 227 | COMP-010 | six tables; three of them read and written by nothing |
-| `src/nonogram/db/session.py` | 461 | COMP-010 | engine selection from `DATABASE_URL`, `normalized_url`, `session_scope` |
+| `src/nonogram/db/models.py` | 258 | COMP-010 | six tables; three of them read and written by nothing |
+| `src/nonogram/db/session.py` | 481 | COMP-010 | engine selection from `DATABASE_URL`, `normalized_url`, `session_scope` |
 | `src/nonogram/db/__init__.py` | 38 | COMP-010 | PEP 562 `__getattr__` forwarding, so a stale `None` cannot be captured at import |
 | `src/nonogram/analysis/quality_metric.py` | 303 | **no component** | live: `measure_quality`, called from `admin/app.py:1942`; the machinery behind ADR-0032/R2 |
 | `src/nonogram/analysis/strategy_counter.py` | 151 | **no component** | unreferenced; a second difficulty scorer whose vocabulary predates ADR-0029 |
-| | **46,127** | | **744 lines (1.6%) fall outside every component glob** |
+| | **54,326** | | **776 lines (1.4%) fall outside every component glob** — `__init__.py`, `errors.py`, `limits.py` and `analysis/` |
+
+### COMP-011, the component outside `src/`
+
+`code: ["player/**"]` (`trace.yml:2635`). Counted separately because the total
+above is `src/nonogram` only, and because none of this is Python that the import
+guard or the package ships.
+
+| Path | Lines | Role |
+|---|---|---|
+| `player/play.js` | 579 | the `/play/<key>` glue: fetch, draw, three brushes, drag strokes, undo/redo, the localStorage save, `isClueSolved` |
+| `player/pages.js` | 364 | the two listing pages' glue (`/library`, `/b/<slug>`) |
+| `player/player.css` | 461 | the player's own stylesheet; the empty cell's dot and the solved reveal live here |
+| `player/play.html` · `library.html` · `book.html` | 100 · 95 · 99 | one hand-written document per door |
+| `player/vercel.json` | — | the host's three rewrites; the test fixtures route by reading this file |
+| `player/assemble.py` | 1,642 | writes the deployable tree: copies, rebuilds the served JSON from `SERVED_SCHEMA`, carries EC-048, refuses an `--out` it did not write |
+
+Note the asymmetry: the assembler is larger than everything it assembles. That is
+where ADR-0041/R2 is carried — the served files are *rebuilt* from a schema rather
+than copied, which is what removes the free-text channel CARD-282 measured a 12×12
+answer travelling through.
 
 ### Test tree, where it is part of the mechanism
 
@@ -137,6 +165,8 @@ re-derived with `wc -l` over `find src/nonogram -name '*.py'`.
 | `tests/test_admin_serving.py` | reads `--timeout` out of `start.sh` and asserts it clears the route budgets |
 | `tests/test_admin_auth.py`, `tests/test_admin_binding.py` | seven and four classes mapping one-to-one onto the panel's door |
 | `tests/bench_generate.py` | ADR-0001's 5 s p95 benchmark gate — deliberately *not* an enforced constant |
+| `tests/test_public_player.py`, `tests/test_public_player_pages.py` | COMP-011's whole surface, in a real browser: the byte-identical copies, the answer-free served tree, no write request on any interaction, and the allow-list scan of every external reference |
+| `tests/test_player_bundle.py` | the two hash recipes against fixtures, and the bundle's own answer-freeness (ADR-0041/R1/R2) |
 
 ## Related docs
 

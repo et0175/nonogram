@@ -111,7 +111,8 @@ hollow.
    [05](01-domain/puzzle-creation/05-difficulty-calibration.md) ·
    [06](01-domain/puzzle-creation/06-exporting-a-finished-puzzle.md) ·
    [07](01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md) ·
-   [09](01-domain/puzzle-creation/09-the-three-inbound-adapters.md) your change
+   [09](01-domain/puzzle-creation/09-the-three-inbound-adapters.md) ·
+   [11](01-domain/puzzle-creation/11-the-public-player.md) your change
    lands in.
 3. The [doc → code map](01-domain/puzzle-creation/README.md#doc--code-map) when you
    need to find a file by what it does.
@@ -121,6 +122,9 @@ hollow.
 1. [perspectives/sre.md](01-domain/puzzle-creation/perspectives/sre.md) — the one
    deployed service, the timeout chain derived from its constants, every bound with
    its constant, the failure modes, and the capacity figures the project measured.
+   The public player is a second deployed *surface* and deliberately not a second
+   service: [11](01-domain/puzzle-creation/11-the-public-player.md) and
+   `docs/deploy/player.md`.
 2. [09 — the three inbound adapters](01-domain/puzzle-creation/09-the-three-inbound-adapters.md)
    — the credentialed door, and the three disagreeing ways the admin socket can be
    opened.
@@ -143,7 +147,7 @@ and which on a **diagram** — the two are not equally current here.
 |---|---|
 | L1 — context | `meta/architecture/domain/actors.yml`, `external_systems.yml`, `c4/context.puml` |
 | L2 — containers | `c4/containers.puml`, `meta/architecture/platform.yml` |
-| L3 — aspects | `domain/contexts.yml` (CTX-001), `domain/capabilities.yml` (CAP-001..CAP-007), `c4/components-CTX-001.puml` (COMP-001..COMP-010) |
+| L3 — aspects | `domain/contexts.yml` (CTX-001), `domain/capabilities.yml` (CAP-001..CAP-007), `c4/components-CTX-001.puml` (COMP-001..COMP-010; COMP-011 is in `trace.yml` and not yet in the diagram) |
 | L4 — mechanism | **the real code** under `src/nonogram/`, plus the test tree where a test *is* the mechanism, with `trace.yml:2356` giving each component's code glob |
 
 All four domain registries exist and are current enough to derive from — they live
