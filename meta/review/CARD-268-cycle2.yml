@@ -1,0 +1,500 @@
+version: 1
+generated_at: "2026-10-30T21:40:00Z"
+target: >-
+  CARD-268 cycle 2 (confirmation) — branch card/268-player-probe-mode,
+  this round's delta e057b89d..HEAD (fix round 1 = b963d65c, 7 files,
+  +1298/-196); whole card acd0a386..HEAD, in
+  /Users/omelnikova/PycharmProjects/PythonProject4-card-268
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+certifies: true
+certification_reason: >-
+  score 9.0 >= min_score 8 and no open Critical or Important finding. F-001 and
+  F-002 are both closed on evidence derived in this review, not on the fix
+  round's say-so: every colour figure re-derived from the shipped tokens, R1 and
+  R2 re-fired onto the exact recorded cells, and a 12,000-sequence differential
+  showing the rule-6 rewrite changes behaviour ONLY on the path F-002 names.
+  Three Minor findings remain, none gating.
+
+mode: confirmation
+confirmation_note: >-
+  The fix delta touches solver_state.js, solver.js, admin.css and three test
+  files, so nothing of the card's scope was carriable as delta-clean: every
+  guardrail, every system-contract rule and all eleven declared semantics rules
+  were re-derived on this head. The two certification-class checks cycle 1 ran
+  (mutation re-fires, baseline/visual judgement) were run again here because the
+  delta changed both their subjects.
+
+coverage:
+  read:
+    - src/nonogram/admin/static/solver_state.js
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/tokens.css
+    - tests/test_puzzle_solver_probe.py
+    - tests/test_admin_design_tokens.py
+    - tests/test_browser_fixture_scope.py
+    - meta/kanban/cards/CARD-268.md
+    - meta/review/CARD-268-cycle1.yml
+    - "~/Documents/nonogram-reviews/CARD-268/03-*, 04-* (desktop + phone stage crops)"
+  ran:
+    - "tests/test_puzzle_solver_probe.py + resume.py + page.py + test_admin_design_tokens.py — 133 passed, 0 skipped, 58.6 s"
+    - "tests/test_browser_fixture_scope.py + test_puzzle_solver_marking.py + test_puzzle_solver_hint.py — 167 passed, 0 skipped, 145.1 s"
+  not_reached:
+    - "tests/test_puzzle_solver_{clues,crosshair,fifth_rule,maybe,percent,progress,region,resume_*,zoom}.py — not re-run on this head; the delta touches no CSS rule with a layout effect (the ring is outline-only with a negative offset) and mutants A2/B2/S1 show the geometry siblings survive, so the fix round's 591-passed family run stands for them"
+    - "the full suite — deliberately not run (brief); no foreign flock existed at any point"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 1298, removed: 196 }
+  source_diff: { files: 3, added: 202, removed: 94 }
+  max_fan_in:
+    symbol: "solver_state.js nextProbe/probeStart/probeCells/abandonProbe/checkpointHistory"
+    callers: 1
+    note: >-
+      one consumer by design (solver.js) plus the test driver _PROBE_MODULE;
+      probeStart is new in this round and has exactly two call sites
+      (checkpointHistory, and the browser driver the oracle is compared through)
+  tests_cover_change: true
+  new_node_ids: 10
+  hotspots:
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/solver.js
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      not_applicable — the co-change peers of solver_state.js/solver.js/admin.css
+      are exactly the files this delta touches plus the two frozen censuses,
+      both of which are in it.
+    churn_defect_density: >-
+      not_applicable — admin.css and solver.js are the board's two highest-churn
+      files by construction (every player card touches them); the number adds no
+      signal this card's own geometry controls do not already carry.
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — hand-written JS/CSS only: the delta is 7 files, none a manifest (`git diff --name-only e057b89d..HEAD` contains no pyproject/package.json/requirements), no vendored file and no build step; the CSS added is 4 plain declarations and the JS is plain ES-module source (check: review-lens)"
+    - "ADR-0038/R2 ✓ holds — no network request per mark, probe actions included: `grep -n 'fetch(|XMLHttpRequest|sendBeacon'` over solver.js and solver_state.js returns nothing on this head, and the three `_watch_requests` arms (AC-1 open+mark, AC-2 abandon, AC-3 keep) assert `requests == []`. The named check ref TestSolverMarking_NoRequestPerMark — which cycle 1 could not re-run under the lock — I ran on this head: tests/test_puzzle_solver_marking.py green inside the 167-passed run"
+    - "ADR-0038/R4 ✓ holds — state logic is a pure module: the rewrite kept every probe transition in solver_state.js (nextProbe, the new probeStart, probeCells, abandonProbe, checkpointHistory) and solver.js's delta is COMMENT-ONLY (I checked every changed line in `git diff e057b89d..HEAD -- solver.js`: all are `//`). test_the_probe_is_pure_and_only_the_renderer_knows_the_attribute now also requires `export function probeStart` and sweeps the file for DOM names — green in my own run"
+    - "ADR-0038/R6 ✓ holds — the probe adds no new consumer of the solution: `player.solves` is unchanged by this delta (comment-only in solver.js), no new template or endpoint reads the solution (check: review-lens)"
+    - "CON-021 ✓ holds — play state stays browser-local: the probe value changed TYPE (number -> frozen array of stroke references) and is still never serialized — SAVE_VERSION is 1 and `git diff acd0a386..HEAD -- solver_state.js | grep -c SAVE_VERSION` is 0; the only write is the existing save.write, and it goes through checkpointHistory, which returns a plain history (test_the_checkpoint_prefix_is_a_savable_history green, and mutant R2 reds it)"
+
+declared_semantics:
+  rules_checked: 11
+  as_written: 9
+  diverged_recorded: 2
+  diverged_silently: 0
+  note: >-
+    Rule 6 moved from "partly as written, partly diverged silently" (cycle 1) to
+    AS WRITTEN in full. No rule is now diverged silently.
+  verdicts:
+    - "rule 1 (depth 1) — AS WRITTEN. nextProbe returns an open probe unchanged on 'open' (`if (probe !== null) return probe`). Rule case '1 — a second open changes nothing (depth 1)' plus test_a_second_press_opens_nothing. AC-5's either/or (disabled, not no-op) stays a recorded divergence of the AC, not of the rule"
+    - "rule 2 (open at the current position) — AS WRITTEN, by a different carrier: the probe is now the set of strokes the history already held (done's strokes + undone) and the position is derived back out by probeStart. Rule case '2 —' compares that derived number against the oracle's independently counted one"
+    - "rule 3 (every mark belongs, hint strokes too; four looks distinguishable) — AS WRITTEN, and the hint clause now has a control (cycle 1 F-005): test_a_hint_revealed_inside_a_probe_belongs_to_it drives rung 3 with three real presses inside a probe and asserts membership, the composed look, and that Contradiction takes it back. The four looks stay apart and all four now wear one ring (test_the_four_states_stay_apart_under_the_tint's new block)"
+    - "rule 4 (abandon restores the checkpoint board exactly) — AS WRITTEN. abandonProbe now undoes while the top stroke is NOT one the probe already held; I verified the prefix invariant it rests on from record/undo/redo (record appends and empties `undone`; undo pops the tail; redo re-appends the top of `undone` — so pre-probe strokes are always a prefix of `done`), which makes the loop undo exactly the probe's strokes and stop. Held by both AC-2 arms, two named rule cases, mutant R3 (recorded) and the corpora; the 'abandon after undoing past the open position' shape is reached 4/300 (seed 268) and 2/300 (seed 2680) in my own replay of the generator"
+    - "rule 5 (commit/Keep touches no cell) — AS WRITTEN. nextProbe('keep') returns null and the handler records nothing; test_keep_keeps_every_cell_and_drops_every_marker green"
+    - "rule 6 (undo/redo during a probe: LIFO, clamp, shrink-to-empty-and-stay-open, next mark belongs, NEVER contains pre-probe strokes) — AS WRITTEN IN FULL, which is the change this round exists for. The round's argument that one number cannot carry it is CORRECT and I re-derived it: undo one probe stroke and `done.length` is the open-position value again, exactly as it is after an undo past that position, so no clamp on it can tell which stroke a redo is restoring. The set makes the sentence true by construction. Four new named cases cover both directions; re-fired mutant R1 reds them"
+    - "rule 7 (solved while probing commits) — AS WRITTEN. The commit path is untouched (solver.js comment-only); test_the_solving_mark_commits_the_probe green"
+    - "rule 8 (error count, progress, circles unchanged) — AS WRITTEN. Nothing in the delta touches those readers; test_the_same_marks_read_the_same_inside_a_probe green"
+    - "rule 9 (the save never contains probe strokes) — DIVERGED AND RECORDED, in the redo stack only, unchanged in substance. The REASON changed and the card says so: it used to rest on an impossibility that the fix made false. Carrying `undone.filter(before.has)` is now possible and is deliberately not taken; recorded as a follow-up"
+    - "rule 10 (reset) — DIVERGED AND RECORDED ('as today' won over 'clears the history'), unchanged by this round except that the bullet now cites the test that actually holds it (test_a_reset_clears_the_open_probe) instead of a weaker test and the nonexistent mutant E2"
+    - "rule 11 (probe is player state in the pure module; data-probe, never data-state) — AS WRITTEN. All five probe functions are pure and exported from solver_state.js; the value is a `let probe` in wireMarking; the marker is written only by paintProbe. One wording note, not a divergence: rule 11's enumeration still names a 'clamp' among the pure functions, and after the rewrite there is no clamp — the rules block is correctly left unedited and the Divergences block does not need a bullet for a vestigial noun, but the next reader should not go looking for it"
+
+acceptance_criteria:
+  met: 9
+  not_met: 0
+  note: >-
+    All nine re-verified on this head. AC-1, AC-5, AC-7, AC-8, AC-9 and the two
+    probe-bar geometry classes ran green in my own runs; AC-2/AC-3/AC-4/AC-6 ran
+    green in the 133-passed file run. AC-9's first half gained four rule cases
+    (13 -> 17, the count assertion moved with it) and its second half gained
+    three control cases for the dashed-keyword allowance (7 -> 10).
+
+fix_round_verification:
+  f001:
+    closed: true
+    evidence: >-
+      Derived, not accepted. (a) The channel really moved: the probe declares no
+      `background` at all — the three new rules are outline/outline-offset/
+      outline-color only. (b) I counted the background channel from the rules
+      myself: six .player-cell rules declare a background (admin.css:529, 647,
+      1206, 1207, 1271, 1272) — the fix round's figure, not the brief's nine;
+      648 is a ::after and belongs to that channel. (c) Every shipped colour
+      figure re-derives from the tokens: --player-probe = rgb(150,115,35),
+      --player-probe-ink = rgb(204,186,144); the six ground separations 66.21 /
+      58.41 / 64.17 / 71.55 / 56.92 / 51.26 against the card's 66.3 / 58.5 /
+      64.2 / 71.5 / 56.9 / 51.2; contrast 4.33 / 3.70 / 3.75 and 8.22 / 5.19 /
+      4.01 with the lowest 3.701; --color-warning on --grid-paper 5.798 (the
+      corrected 5.80, not the struck 6.6); the 14 % value cycle 1 shipped is
+      2.362 from the crosshair (the card's 2.36) and 10.197 from paper (10.20);
+      --color-warning-tint vs crosshair 5.364 (5.36); T1e/T1f bracket 18.925 /
+      20.469 (18.92 / 20.47); T5's survivor 69.17 (69). Every one counted from
+      the values, not restated. (d) The cascade claim is true as stated:
+      .player-cell.is-hinted (admin.css:925) and .player-cell[data-probe]
+      (:1561) are both 0-2-0 and the probe is later, so it takes the shorthand;
+      .player-cell.is-hinted[data-probe] (:1563) is 0-3-0 and later than
+      .player-cell[data-probe][data-state="filled"] (:1562), also 0-3-0, so the
+      accent wins on the shared cell — exactly what the third rule claims.
+      (e) The owner's render exists and shows it: in 03-*-stage the nine members
+      on the crosshair-tinted row 6 wear a plainly legible dashed amber ring on
+      both the warm ground and on filled cells, while row 1's eight pre-probe
+      filled marks wear nothing.
+  f002:
+    closed: true
+    evidence: >-
+      Derived. (a) The mechanism is sound: I checked that stroke identity
+      survives every history move — `record` freezes one entry per step with the
+      stroke as given, `undo` pushes `entry.stroke` onto `undone`, `redo` wraps
+      that same object in a fresh entry, and all four `record` call sites in
+      solver.js build a fresh stroke through makeStroke, which never memoises.
+      So no two steps can share a stroke object and no pre-probe stroke can lose
+      its identity. (b) probeStart's prefix assumption holds: record appends and
+      drops `undone`, undo pops the tail, redo re-appends the top of `undone` —
+      by induction the pre-probe strokes are always a prefix of `done`, so the
+      walk and the oracle's total agree exactly when the invariant holds and
+      disagree when it does not, which is the asymmetry the round claims.
+      (c) Re-fired R1: 3 of the 5 arms of TestSolverProbe_StateIsPureAndStatesAreFour
+      red, on the named rule cases, the seeded corpus and the checkpoint-prefix
+      arm — the exact recorded cells. (d) The blast radius is provably confined:
+      replaying the corpus generator in Python and running BOTH readings over
+      12,000 sequences (40 seeds x 300), 196 disagree and ZERO disagree without
+      reaching the pre-probe-redo shape. The rewrite changes behaviour only
+      where F-002 said it should.
+  reconciliation_of_cycle1_figure:
+    verdict: correct
+    evidence: >-
+      Re-derived from the generator: seed 268 reaches the shape 3/300 and
+      disagrees 3/300; seed 2680 reaches it 7/300 and disagrees 5/300. 3 + 7 =
+      10 across the two corpora, which is cycle 1's "10 of the 300" — cycle 1
+      conflated the two 300-case corpora into one. The smaller 3 and 5 are
+      indeed the sequences still disagreeing at sequence end. The
+      re-explanation replaced a wrong number with a right one.
+  oracle_independence:
+    verdict: >-
+      Genuinely independent again in the sense that matters, with one residual
+      shared assumption named honestly below.
+    detail: >-
+      Cycle 1's defect was a shared ARITHMETIC assumption (both sides clamped
+      with min). That is gone: the oracle mints an int identity per mark and
+      models no history object at all, the module filters frozen stroke objects
+      out of a real history, and the two report DIFFERENT quantities for the
+      checkpoint (total pre-probe strokes still on `done` vs a prefix walk) — an
+      asymmetry that is live, not decorative: mutant R2 (probeStart returns
+      probe.length) reds 4 cells including TestSolverProbe_UndoClampsTheCheckpoint,
+      which I re-fired. What they DO still share is the membership predicate
+      itself ("a stroke the probe did not already hold is a member"), because
+      that predicate is rule 6's sentence read literally — which is what an
+      oracle is supposed to be. So the independence is of representation,
+      history model and derived quantity, not of algorithm; the card's framing
+      ("does not count strokes at all") is true and its stronger implication
+      (nothing is shared) is not. Worth stating; not a defect.
+
+guardrails:
+  held: 8
+  violated: 0
+  verdicts:
+    - "G-1 ✓ held — hand-written JS/CSS; no manifest in the delta's 7 files, no vendored file, no build step"
+    - "G-2 ✓ held — no fetch/XHR/sendBeacon anywhere in solver.js or solver_state.js on this head; the three request-watch arms assert `requests == []`; and the named sibling check TestSolverMarking_NoRequestPerMark, which cycle 1 could not re-run, is green in my own run of tests/test_puzzle_solver_marking.py"
+    - "G-3 ✓ held — the probe is in-memory only; its type changed and it is still never serialized and never sent"
+    - "G-4 ✓ held — CELL_STATES untouched, no data-state value changed, membership rides data-probe; test_the_cell_states_are_four_and_an_unknown_event_is_refused green"
+    - "G-5 ✓ held BOTH WAYS — SAVE_VERSION is 1 and never touched by the whole card diff; serializeState/deserializeState bodies are outside the delta's hunks (all five are in the probe block, solver_state.js:1061-1255); the save is still written from checkpointHistory, whose prefix is proven savable over 300 seeded cases. No escalation needed and none taken"
+    - "G-6 ✓ held — every value in the four probe rules is a token or a token-only color-mix(); the one bare keyword the channel move introduces (`dashed`) is stripped by a regex scoped to this single test and deliberately kept OUT of _KEYWORD_VALUES, and three new control cases drive a named colour, a bare length and an unnamed keyword (`dotted`) past the strip, so the allowance is not a hole. The whole-file literal sweep (test_the_stylesheet_uses_tokens_not_literals) is unedited and green"
+    - "G-7 ✓ held — amended at F-006 to name BOTH exceptions and why page.py's is structural, and extended to ADDED_SINCE_BEFORE. This delta edits exactly one tests/test_puzzle_solver_*.py file (probe.py, this card's own) and no existing test BODY anywhere"
+    - "G-8 ✓ held — the Maybe brush is untouched; a probed maybe cell keeps its own ::after channel and now also wears the same ring as the other three, asserted in test_the_four_states_stay_apart_under_the_tint"
+
+mutation_refires:
+  tooling: >-
+    Byte copies of the targets taken into scratchpad/review268c2/ before each
+    mutation and restored from them (never `git checkout`), SHA-256 asserted
+    before and after every mutant — solver_state.js e586c9da..., admin.css
+    b20c9d26..., test_puzzle_solver_probe.py fbde4046... all match their
+    pre-mutation values; PYTHONDONTWRITEBYTECODE=1, __pycache__ swept; final
+    `git status --porcelain` shows only the untracked cycle-1 report and the
+    scratchpad. Harness never in the shared scratchpad root.
+  refires:
+    - id: R1
+      purpose: "the corrected ORACLE against an uncorrected module — the half of the demonstration the brief asked me to re-fire"
+      mutation: "nextProbe('open') snapshots `history.done`'s strokes only, dropping `...history.undone`"
+      result: >-
+        DIES, 3 of 5 — exactly the recorded cells:
+        TestSolverProbe_StateIsPureAndStatesAreFour::test_the_named_rule_cases_match_the_oracle,
+        ::test_a_seeded_corpus_matches_the_oracle and
+        ::test_the_checkpoint_prefix_is_a_savable_history. Failure cell:
+        `assert wrong == []`, first item "6 — a stroke made before the probe and
+        redone inside it is not a member" — oracle {probe: 2, members: []},
+        module {probe: 1, members: [(1, 1)]}. That is F-002's five-input
+        scenario, caught by the oracle it used to share.
+    - id: R2
+      purpose: "the one genuinely independent asymmetry — prefix walk vs total count"
+      mutation: "probeStart returns `probe.length` instead of walking the prefix"
+      result: >-
+        DIES, 4 — the same three plus
+        TestSolverProbe_UndoClampsTheCheckpoint::test_undo_pops_probe_strokes_first_then_clamps.
+        Exactly the recorded row. This is what makes the oracle's differing
+        quantity a live cross-check and not a stated one.
+    - id: S1
+      purpose: "the brief's question about the geometry siblings and F-007's control"
+      mutation: ".player-probe's `gap` doubled (a taller bar only where it wraps)"
+      result: >-
+        DIES 1 of 2, and the siblings survive 7/7 — exactly as recorded.
+        test_the_scroll_stays_inside_a_half_cell[390x844] reds with the message
+        "focus scroll is 15 px against a half-cell of 7.1953 px (the same page
+        with the probe closed scrolls 0 px)"; [1280x720] survives;
+        TheBarStaysOutOfTheBoardsCapture 4/4 and TheBarCostsTheBoardNoGround 3/3
+        both survive. So the new control is indeed the only thing in the gate
+        that catches a taller OPEN bar, and the outline change cost no geometry.
+  not_refired:
+    - "T1 / T1g — the orchestrator verified T1 dies (3 of 6 ring cases). I confirmed the arithmetic behind both rows instead: at 1 % the paper arm is 0.72 and at 14 % the crosshair arm is 2.36, both an order of magnitude under the floor of 20"
+    - "T5 — I confirmed its substance arithmetically rather than by deleting the rule: the dark ring is dE76 69.17 from --grid-ink, so the floor genuinely does not bind there and the rule's real control is contrast, 3.569 vs 8.219 (the card's 3.57 vs 8.22). The round recorded this honestly and its stated reason now matches its actual control"
+    - "A2 / B2 — the orchestrator and the fix round both re-fired these; S1's run re-confirmed both sibling classes survive on this head"
+
+instrumented_measurements:
+  - what: "F-007's shipped margins, read off the page by temporarily forcing the assertion (restored, SHA-verified)"
+    result: >-
+      1280x720 — focus scroll 11 px open, 11 px closed, half-cell 11.1797 px
+      (margin 0.1797). 390x844 — 7 px open, 0 px closed, half-cell 7.1953 px
+      (margin 0.1953). The card's 7 / 7.1953 and 11 / 11.18 are exact.
+
+gate_arithmetic:
+  verdict: correct
+  evidence: >-
+    tests/test_puzzle_solver_probe.py collects 35 node ids at HEAD; the file at
+    e057b89d has 20 test defs of which two are parametrized (4 and 3 ids), i.e.
+    25. 35 - 25 = 10, and ADDED_SINCE_BEFORE gains exactly 10 entries this round
+    (1 hint-reveal + 6 ring grounds + 1 SHAPE + 2 focus-scroll). No node id was
+    removed; _RULE_CASES 13 -> 17 adds cases inside one test, not ids;
+    test_admin_design_tokens.py still collects 14. So 581 + 10 = 591 is exactly
+    this round's ten new node ids, all registered. I also RAN
+    tests/test_browser_fixture_scope.py (inside a 167-passed run) so the registry
+    equality that proves no id is unaccounted for is green on this head.
+  skips: >-
+    None to attribute, spot-checked and confirmed. The only `skipif` in the whole
+    gate is test_admin_design_tokens.py:131, on meta/design/ existing — it does
+    (`ls -d meta/design` succeeds) and my run reported 133 passed with no skip
+    line at all. conftest's pytest.skip calls are all DATABASE_URL/postgres
+    fixture-gated; the two gate files that mention a database use
+    sqlite_session_scope, not those fixtures. Browser fixtures pytest.fail
+    (conftest.py:274), they do not skip.
+
+root_causes:
+  - id: RC-1
+    title: "The shape-distinction argument is held by string inequality of a computed value and is not measured at the cell sizes the board reaches"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: risk
+    file: tests/test_puzzle_solver_probe.py
+    line: 893
+    title: "On the one cell the hint and the probe share, membership is dash-only — and the dash is held by string inequality, the instrument cycle 1 condemned"
+    description: |
+      The channel move's whole argument is "two outlines that differ in STYLE
+      are told apart at any colour distance". On every cell but one that is
+      belt-and-braces: the ring is amber where nothing else is, and the six
+      ground separations are measured against a floor of 20.
+
+      On the cell that is both hinted and probed, it is the entire signal.
+      `.player-cell.is-hinted[data-probe]` hands that cell the hint's accent
+      COLOUR (admin.css:1563), so what distinguishes "revealed and a probe
+      member" from "revealed" is the dash alone.
+
+      Two gaps, both narrow:
+
+      1. `test_the_ring_is_apart_from_the_hints_outline_by_SHAPE` holds that
+         claim by comparing computed `outline-style` strings ("solid" !=
+         "dashed"). String inequality of a computed value is exactly what cycle
+         1's F-001 found insufficient for the colour case — a dash that renders
+         as a continuous line would sail through it, as dE 2.55 sailed through
+         the old crosshair assertion.
+      2. Nothing measures that the dash is RESOLVABLE at the cell sizes this
+         board actually reaches. `--player-cell-min` is 14 px normally but
+         admin.css:691 drops it to 0 below 820 px, so a large board at phone
+         width draws cells well under 14 px against a 2 px ring
+         (`--player-rule-major` = 2 * --border-width). The owner's own render
+         shows the effect at the gentle end: in
+         04-probe-with-revealed-cell-phone-390x844-stage.png the revealed
+         cell's green ring reads as very nearly solid.
+
+      Failure scenario: a player on a phone with a 30 x 30 opens a probe and
+      presses Hint to rung 3. The revealed cell wears a green ring that at that
+      size is indistinguishable from an ordinary hint ring, so the player does
+      not know it is part of the hypothesis; pressing Contradiction takes the
+      revealed cell away with the rest and the reveal appears to have been
+      undone by itself.
+
+      Bounded, and that is why this is Minor and not Important: it is ONE cell
+      (rung 3 reveals one), it needs a hint pressed to rung 3 inside a probe at
+      a small cell size, the board arithmetic is correct throughout, and the
+      probe's own controls (Keep / Contradiction, visible on the toolbar) carry
+      membership for the session even when the per-cell signal is faint. The
+      card's headline claim — the bulk of what a probe paints is legible — is
+      measured and holds.
+    suggestion: |
+      Cheapest honest close is to say in the record what the SHAPE test
+      actually holds (a style keyword, not a resolvable dash) so the next
+      reader does not mistake it for a measured claim, and to note the
+      small-cell case as a known limit of the channel.
+      If it is worth a control: render the shared cell at the smallest cell
+      size the clamp allows and assert the ring has at least N gaps across a
+      side (readable off a canvas sample of the cell's edge row, the same
+      instrument the dE test already uses), or make the ring's dash length a
+      function of the cell so the period scales. Either is a design change and
+      belongs to the owner, not to a fix round.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_probe.py
+    line: 1779
+    title: "The focus-scroll control waits on a 700 ms fixed sleep, and its failure direction is a false pass"
+    description: |
+      `_FOCUS_SCROLL` ends with
+      `await new Promise((resolve) => setTimeout(resolve, 700));` before reading
+      the board's top. That is sleep-based synchronisation for the passage of a
+      smooth scroll — the pattern engineering-standards §6 names — and it costs
+      2.8 s of suite time across the four evaluations in the two parametrized
+      cases.
+
+      The direction matters more than the cost: if the smooth scroll has not
+      settled in 700 ms the measurement is SMALLER than the truth, and the
+      assertion is `scrolled <= halfCell`. So on a slow machine the control
+      silently passes rather than flaking red — the failure mode that is
+      invisible.
+
+      It is not a new sin on this board: `wait_for_timeout` is used in five
+      sibling files in the same family (crosshair x2, zoom x3, clues,
+      fifth_rule, progress), so a fixed wait is established precedent here, and
+      S1 shows 700 ms is long enough for the control to still discriminate (it
+      reads 15 px when the bar is taller). That is why this is Minor.
+    suggestion: |
+      Poll instead of sleeping: read the board's top every frame until two
+      consecutive readings agree (or until a cap), which is both faster in the
+      common case and correct in the slow one. Chromium also fires `scrollend`,
+      which would remove the wait entirely.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-268.md
+    line: 428
+    title: "The owner-decision block still carries the brief's wrong background census (9 claimants), where the fix round's correction is three sections away"
+    description: |
+      The "[Owner decisions 2026-10-30]" section states
+      "`background` — 9 claimants: the four `data-state` looks, `.is-crossed`,
+      `.is-hint-line`, and the probe's two". Counted from the rules, the figure
+      is 8: six `.player-cell` rules declare a background (admin.css:529 paper,
+      647 filled ink, 1206/1207 crossed, 1271/1272 hint-line) plus the probe's
+      own two. Only two of the four data-state looks declare one — unknown IS
+      the base rule and maybe declares none; the empty mark's background is on
+      a `::after`, which the same paragraph counts separately.
+
+      The fix round caught this and said so, which is the right behaviour, and
+      admin.css now carries the correct census. But the correction lives in the
+      Worktree-notes section ~230 lines below, while the wrong number sits in
+      the block a reader goes to for "what did the owner decide". On this card
+      that exact shape — a correction nine lines from the claim it corrects —
+      was cycle 1's F-003 item 1.
+
+      Failure scenario: a later card reads the owner-decision block to learn
+      how crowded the background channel is, gets 9, and prices an alternative
+      against a number that is one claimant too many in a census of eight.
+    suggestion: |
+      Leave the owner's words, but mark the figure where it stands: one
+      parenthetical ("counted from the rules this is 8 — see the fix round's
+      census below") is enough, and it is the same move the fix round already
+      made for "the 8 cases" in five places.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope_observations:
+  - file: tests/test_puzzle_solver_probe.py
+    title: "F-007's 0.195 px — leaving it to the owner was right, and it is a note, not a finding"
+    note: >-
+      I measured both margins myself (instrumented, restored): 1280x720 is 11 px
+      open against a half-cell of 11.1797, 390x844 is 7 px open against 7.1953.
+      Three reasons it is a note. (1) The probe's OWN contribution is phone-only:
+      at desktop the scroll is 11 px with the probe open AND closed, so the thin
+      desktop margin is the standing layout's, inherited from CARD-193/267/269,
+      not something this card spends. (2) The measured scroll is whole-pixel
+      quantised (11, 7, 0, and 15 under S1), so the real boundary is "one more
+      pixel of open bar", not 0.195 px of sub-pixel noise — it is not a flake
+      source. (3) The constraint HOLDS and is now mechanically guarded by a
+      control S1 proves sharp at exactly the viewport where the bar wraps, which
+      is strictly better than cycle 1's state, where no test visited the open
+      state at all. Shrinking the open bar is a design change against a
+      deliberate wrap; the owner's call, correctly recorded rather than taken.
+  - file: src/nonogram/admin/static/solver_state.js
+    title: "The rule-9 deferral was the right call"
+    note: >-
+      `undone.filter((stroke) => before.has(stroke))` is now exactly the
+      checkpoint's redo stack, so closing the divergence became possible. Not
+      taking it is right: AC-6's own control (test_an_open_probe_saves_no_redo_stack)
+      PINS "no redo stack", so flipping it is a behaviour change plus a node-id
+      rename in a frozen census, for a cost (one pending redo lost across a
+      reload, reachable only by undoing past the open position) that the fix did
+      not change. The card records the reason-change rather than leaving a
+      dead justification standing, which is the part that mattered.
+  - file: tests/test_puzzle_solver_probe.py
+    title: "Leaving TestSolverProbe_CommitKeepsCellsAndDropsTheTint misnamed was right, and it is now doubly stale"
+    note: >-
+      The class holds rule 10's reset test, and the rename is churn in a frozen
+      census for no behavioural gain — the divergence bullet now points at the
+      test itself, which is the board's own "attribute by test, not by class
+      name". Worth recording for whichever card next touches this file: the name
+      is now wrong twice over, because "DropsTheTint" describes a tint this card
+      no longer has.
+  - file: src/nonogram/admin/static/admin.css
+    title: "Nothing here belongs to another card, with two pointers"
+    note: >-
+      admin.css:691 (`--player-cell-min: 0px` below 820 px) is pre-existing and
+      is what makes F-001's small-cell case reachable; any ring that scales with
+      the cell is a later card, not this one. The desktop focus scroll of 11 px
+      against an 11.18 px half-cell is likewise the standing layout's margin and
+      predates this card. CARD-328 reads admin.css and solver.js from its test
+      tree; this delta adds four declarations at the end of the player block and
+      changes no existing selector, so nothing here is CARD-328's.
+  - file: tests/test_puzzle_solver_probe.py
+    title: "The round's own claim-sweep is honest — spot-checked against the rows"
+    note: >-
+      Every replacement figure re-derives: the keyboard test really collects 6
+      cases; 5.80:1, 3.57:1, 8.22:1, 4.33:1 and "the lowest is 3.70:1" all
+      compute from the shipped tokens; "struck rather than restated" is applied
+      to both counts that had no node ids behind them ("five fit and geometry
+      tests", "5 of 8 cases"); the nonexistent mutant E2 is gone; and the round
+      corrected a claim in its own first draft ("a filled cell's ink would
+      swallow the dark ring" — it is 3.57:1, not invisibility). After seven
+      instances of the figures-without-rows rule failing on this card, this
+      round did not add an eighth.
