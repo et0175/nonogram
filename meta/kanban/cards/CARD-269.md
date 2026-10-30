@@ -15,7 +15,7 @@
 **Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** **5.5 (cycle 1/3) — NOT CERTIFIED**, 3 gating. Fix round 1 `ef5e03af` closed F-1 and F-3 (**branch green, 540 passed**) and every should-fix; **fix round 2 running on F-2 with the owner's decision in hand**.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -434,3 +434,276 @@ before the amendment rather than after.
 does not mention the ladder, because `test_the_page_copy_describes_the_new_click` pins it
 by exact equality and this card forbids editing that file. The round **reverted its own
 copy addition** rather than edit a forbidden file. One sentence, player-visible, owed.
+
+---
+
+## Review cycle 1 — **5.5 / 10, NOT CERTIFIED** (`min_score: 8`), 3 gating
+
+`meta/review/20261029T222119Z-CARD-269-cycle1.yml`. Eleven findings, thirteen judgements.
+
+### F-1 (gating) — the branch is red, and the round did not know
+
+`tests/test_puzzle_solver_resume.py` is **15/15 at the base `560d7e09`** and **13/15 at
+`bcd136b5`**, deterministic across two runs and reproduced inside a 12-file selection.
+`test_reload_restores` and `test_saves_every_change` each press Hint **once** and assert the board
+or the localStorage entry changed; **under the ladder, one press changes neither.**
+
+**This is the round's own correction-1 class in a THIRD file.** The card says *"G-5's blast radius is
+wrong — two further existing files"*; it is wrong by **three**, and the third was left failing. The
+second failure is **the save**, which **G-3 and AC-9 are both about.** And the derivation was
+available: `grep -rln '"Hint"' tests/` returns **seven** player files that press the button, and it
+names `resume.py`. **The round's "11-file affected selection" excluded it** — a selection, not a
+derivation, which is the defect under the two reds.
+
+### F-2 (gating) — rung 2 is invisible to a sighted player. **WITH THE OWNER.**
+
+`#puzzle-player-announce` is a **1×1 clipped region**, measured 1×1 live. By **SHA-256 of element
+screenshots with `getAnimations()` settled**, rung 2's board and toolbar are **byte-identical to
+rung 1's** — and the instrument was proved first: rung 1 *does* differ from blank, rung 3 from both.
+The class toggle off/on **coalesces in one task**, so there is not even a re-fade, and under reduced
+motion there is no animation at all.
+
+So **the rung whose job is "explain the deduction" — half the card's title — changes nothing a
+sighted player can see.** On the exhausted board **rungs 1 and 2 both** show nothing; **Check on a
+clean board** shows nothing. CARD-183's Hint always did something visible on every press; the ladder
+introduces **presses indistinguishable from a dead button.** The one visible channel, the line tint,
+is **1.15:1** against the paper — under **WCAG 1.4.11's 3:1** — and carries **two meanings** (rung 1
+vs Check) with only the hidden sentence to separate them.
+
+**And all ten ACs are phrased "the live region says…", so they pass while the feature does not reach
+the player.** That is the shape the board has been correcting all day, in the acceptance criteria
+this time.
+
+The reviewer's answer to the asked judgement: **shipping with no on-page mention is not acceptable,
+and not as documentation debt** — the on-page paragraph is the only remaining channel that could
+explain two presses with no visible effect. Reverting the copy rather than editing a forbidden file
+was still the right call.
+
+### F-3 (gating) — the supersession is recorded nowhere executable
+
+**AC-327, AC-329 and AC-334 are live and unamended in `requirements.yml`, each now false of the
+shipped code**, and each carries a `test:` ref that **resolves to a live class now asserting the
+opposite**. CARD-308/CARD-319's defect class one level up: **ref alive, requirement dead.**
+`inputs/raw-requirements.md`, where the card routes the FR-044 delta, was **never touched** — while
+`bcd136b5` **does** edit `requirements.yml`, **which the card forbids itself twice.** Fix round 1
+writes the delta; the three amendments are owed and are the owner's, as AC-333's was.
+
+### F-4 (important) — the evidence for an owner decision does not exist
+
+The card claims captures at both widths. **All 20 are 1280 px. There is no 1440 px capture**, and
+`announcements.txt` states the toolbar shown *"is NOT the shipped layout"*. **So the owner accepted
+the 1280 px layout change on evidence that is not there** — and the figures *were* right
+(268 / 186 / 82 / 1440-fits-all all re-derive exactly, 82 two ways), so this is a missing-artefact
+defect, not a wrong-measurement one. Surfaced to the owner; fix round 1 produces the real captures.
+
+### Answers to the brief's questions
+
+- **`hintLine()`'s null: behaviourally one case, structurally three.** `hint === null` (unreachable
+  from the UI), the fallback (the real exhausted state), and **"neither axis forces it"** — the
+  *"I could not tell"* null, unreachable **only because `knownLine` duplicates `hintCell`'s
+  projection by hand.** Measured: **mutating that projection passes every page test**; only the 1×3
+  unit assertion reds. **The card's whole promise rests on those two nulls being the same thing, and
+  today they are the same only by a duplication nothing guards.** G-4's *"AC-328 holds at every rung
+  by construction"* has **no control**.
+- **Drift rungs 1–2 → rung 3: none.** `commit()` is the single choke point; all seven call sites
+  traced including `setBoard` → `marking.commit`, and `editing` is a `const`. **Sound.**
+- **Enumerable authority: partly, and the card misattributes it.** The working authority is
+  **`HINT_REASONS`**, not `HINT_RUNGS`/`RUNG_EVENTS`. **`LADDER_REASON` is not exported**, so both
+  comments claiming *"the suite asserts these keys ARE `HINT_REASONS`"* assert something **no test
+  can perform**. Second lists do exist: `RUNG_AFTER_PRESS`, the test's `_REASON_SENTENCE`,
+  `knownLine`, and an underived rung ternary. **One unreachable row, `(3, "press")`** — an
+  unreachable row is an untested row.
+- **M5 reproduces exactly**, reddening only the one cell with seven siblings green — **and its pair
+  is genuinely two independent assertions**, measured: the converse mutant reds the *second* having
+  **passed** the first. The card's strongest claim survives intact.
+- **The four adapted classes weakened no assertion**, several strengthened. **The superseded set
+  really is seven.**
+- **The runs-complete third correction is RIGHT**: deleting the second half leaves 53/53 green — a
+  permanent surviving mutant, honestly noted, and the note is the right form.
+- **The five toolbar numbers re-derive exactly**, and **the 1440 control does achieve the
+  threshold-moved-not-broken distinction** — the same inequality is false at 1280 and true at 1440.
+  But **187 → 223 are bottom-edge coordinates, not heights**; the real heights are **39 → 75 px**,
+  mislabelled on this card, in `admin.css` and in the test docstring.
+- **AC-333's ref resolves to a real `class` line**, exactly as the card claims; `hintIsLastChild` is
+  gone and the amended `then:` is genuinely asserted. **The check made before the amendment was
+  sound.** Residue: that class's docstring is now stale.
+- **The colour claim holds**: the shipped capture samples **`#e6efec`, exactly
+  `--color-accent-tint`**, and `tokens.css` is byte-identical to `meta/design/tokens.css`. The
+  round's `getAnimations()` self-catch was right.
+- **CARD-263's path is report-only**, `errorCount` and the counter untouched. Confirmed.
+
+### Also measured wrong in shipped code, and one figure of the round's
+
+- **"Assigning the SAME string is a no-op in the DOM" is false** — a MutationObserver records the
+  identical assignment, so the stated rationale does not hold.
+- **Check reads `aria-disabled="false"` mid-drag while its handler silently returns**; Hint reads
+  `"true"`.
+- `8 files +1895/−65` and **29 node ids added, 0 removed/renamed/merged (94 → 123)** re-derive, zero
+  skips across every run, both unforeseen files marked in place. **The two card files measured
+  36.4 s, below the card's stated 41–43 s** — a band exceeded in the *low* direction, which is the
+  day's third card to do that.
+
+### Strengths the review named
+
+The **1800-line seeded reason corpus with counted near-misses and independent re-verification of the
+module's own claims**; the exhausted pair; the 1440 discriminator; in-test negative controls
+throughout; and the `getAnimations()` self-catch written into `admin.css` so the next eyeball of that
+colour waits for the animation. **The ladder does remove the falsehood it set out to remove.**
+
+- [Review 1/3] Score: 5.5 ✗ below threshold, 3 gating findings
+- [Fix 1] Dispatched on F-1, F-3, F-4, F-5, F-6, F-7, F-8, F-9, F-10. **F-2 excluded and escalated**
+  — a visible channel for rung 2 is a player-facing design decision with an accessibility dimension,
+  and the on-page copy sentence it depends on is already owed to the owner.
+
+---
+
+## Fix round 1 — `bcd136b5` → `ef5e03af`, 5 commits, branch **GREEN**
+
+Branch now **11 files, +2225/−76**; this round **+355/−52**. `requirements.yml` **byte-unchanged by
+this round**. F-2 deliberately untouched: no visible channel designed, no copy paragraph edited, tint
+unchanged. Lock absent for the whole round, no refused run, no 0-collected run banked.
+
+### F-1 — fixed, and the derivation was the defect under the two reds
+
+**The review's own derivation was wrong twice**: `grep -rln '"Hint"' tests/` returns **six** files,
+not seven, and one of the six is `test_puzzle_editor_ui.py`, the **editor** file. So the round built
+a wider, defensible union instead — *(anything pressing or reading Hint/Check)* ∪ *(anything
+asserting the toolbar's layout, because **Check is a new button in the toolbar**)* = **13 files**,
+one of them a derivation false positive **kept in the run so the exclusion is measured rather than
+asserted**.
+
+| tree | result |
+|---|---|
+| base `560d7e09` | **511 passed, 0 failed, 0 skipped** |
+| `bcd136b5` | **2 failed, 538 passed** |
+| HEAD `ef5e03af` | **540 passed, 0 failed, 0 skipped** |
+
+**The two reds reproduce exactly, are exactly the two the review named, and nothing else in the
+13-file set was red** — so the derived set is wide enough *and* the review's attribution was right.
+
+Fixed through a local `_reveal()` helper at **three** press sites, not two: the two reds plus one in
+`TestSolverResume_ResetClearsTheSave` that **passed either way but whose Hint press had silently
+become a no-op**, so it no longer put a hint stroke in the save its own assertions walk. Every
+assertion unchanged. **The fix is load-bearing, measured**: one site back to a single press reds
+`test_saves_every_change` and nothing else. **G-5's blast radius is wrong by three existing files,
+not two**, and the adapted set is **12 classes across 4 files**.
+
+### F-3 — the delta is where the card routes it
+
+`meta/architecture/inputs/raw-requirements.md` gains an 85-line delta naming **AC-327, AC-329,
+AC-334** one by one — what each `then:` still says, what the code does, **the live class that now
+asserts the opposite**, and the amendment owed — plus **AC-335's owed extension** (the rule extends
+to the line highlight; the test already asserts it, the AC does not) and **AC-328** recorded as
+unchanged in substance but now *structurally* guaranteed by the F-7 fix. **The three ACs were not
+amended** — those are the owner's, as AC-333's was. And the question I asked it to answer:
+**`bcd136b5`'s `requirements.yml` edit does NOT exceed the owner's AC-333 decision** — the diff is
+exactly that one `then:` line plus its comment block, touching no other id.
+
+### F-4 — the captures the card claimed, now actually taken
+
+Confirmed with PIL that **no 1440 px capture existed** and that `announcements.txt` did say the
+toolbar shown was not the shipped layout. New: `10-shipped-layout-1280px-{fullpage,toolbar}.png`
+(980×**75**) and `11-shipped-layout-1440px-{fullpage,toolbar}.png` (1140×**39**).
+
+**The discipline is asserted, not just followed**: the probe awaited every animation's `finished`,
+then **asserted `getAnimations()` was empty**, **asserted two consecutive measurements byte-identical**,
+and **asserted the announce region was in its shipped 1×1 clipped state** — nothing was made visible
+or restyled to take them. 00–09 kept; the caveat is now scoped to them. **The owner has re-confirmed
+on these**, and they show something neither the card nor the review recorded: **the wrap reorders the
+counters.** At 1440 they read *Progress · Errors · Hints*; at 1280 the top row is *Errors · Hints*
+and **Progress drops to the second row**, so the first counter becomes the last read.
+
+### F-5 — and the figures cycle 1 *certified* do not re-derive
+
+**187 → 223 are bottom-edge coordinates**; the real heights are **38.797 → 74.797 px**, top `y=148`,
+identical at 1280×900 and 1280×720, and confirmed by a **second independent instrument** — the
+element screenshots' own crop heights, 75 and 39. **`admin.css` never carried 187/223**; one code
+site, not two, so F-5's own claim was wrong there.
+
+Then the larger one. Cycle 1 called 268 / 186 / 82 *"exact, 82 confirmed two ways"*. Measured:
+- one line of `.player-counters` **needs 263.66 px** — the rule's column-gap is **16 px, not the 20
+  cycle 1 used**, which is how that sum landed on a different quantity and still looked exact;
+- **268 is not a need at all** — 267.59 px is the width the flex layout *gave* the counters at 1280
+  without Check, 186.23 with it;
+- **Check costs 81.36 px**, not 82 (its 73.36 px box + the group's 8 px gap); 82 is the difference of
+  two already-rounded widths, and **the "second way" is the same rounding on another pair** — real
+  widths 359.22 and 440.58, difference 81.36. **It repeated the derivation rather than checking it.**
+- **The threshold claim survives in figures that reproduce**: 267.59 ≥ 263.66 fits; 186.23 is short by
+  **77.43 px** so Progress wraps; 346.23 ≥ 263.66 fits at 1440. **The test asserts inequalities on
+  positions and was always right — only the prose was wrong.**
+
+And it caught **its own blind instrument** doing it: setting `style.width='max-content'` on a flex
+item with `flex:1 1 0` **returns the given width unchanged**. Replaced with a children-plus-gap
+measurement before anything was committed.
+
+### F-6, F-7/G-4, and the small ones
+
+`LADDER_REASON` is now `export const` and asserted against `HINT_REASONS` **both directions**, so the
+two comments claiming that **are true for the first time**. The underived rung ternary became an
+exported, asserted map — a rung with no entry is a `RangeError` at the press rather than silently
+rendering rung 2's text. `RUNG_AFTER_PRESS` is **derived** from `HINT_RUNGS`, which also disposes of
+**F-8's unreachable row**, and its comment now attributes the real 3→1 step to `commit()`'s
+`"change"`, which is what does the work. The test-side sentence map is **declared a deliberate second
+list with its reason** — the player-facing wording is what that file exists to pin, and importing the
+shipped map could only confirm the page says what the page says. Attribution fixed in code:
+**`HINT_REASONS` is the authority; `HINT_RUNGS` keys nothing in the announce path.**
+
+**F-7/G-4 — the control that reds now exists.** `hintCell` projects **through** `knownLine` instead
+of a five-line copy, so the no-drift property is structural. Measured both sides: at `bcd136b5` the
+projection mutant reds **only** the pure-module test — **52 page tests pass, AC-328's own class among
+them**; at HEAD the same mutant **also reds `TestSolverHint_IgnoresWrongMarks`**, and it bites
+because that class deliberately picks a board where face-value reading gives a *different* hint.
+Negative control: a semantically identical rewrite leaves all 12 green.
+
+**`hintLine`'s three nulls are now written apart**, and the third — a deduced cell no axis forces —
+**is no longer a null at all but an asserted impossibility (`RangeError`)**, because a player could
+not tell it from the exhausted state. Asserted with its own control: a hand-built deduced hint
+throws, while the real result on the *same* board still returns the exhausted null. **That closes the
+structural gap cycle 1 named: the two nulls are no longer the same thing by a duplication nothing
+guards.**
+
+F-9's false "no-op in the DOM" comment is struck for what is true; F-10's Check now carries
+`locked || gesture !== null` like Hint, with Hint as the in-test positive control and a mutant that
+reds exactly that test; the stale docstring no longer says AC-333's clause is undecided.
+
+### Figures
+
+**Node ids: base 109 → HEAD 138 over the five changed files, +29 added, 0 removed/renamed/merged** —
+and **this round added 0 and removed 0**, `comm` empty both directions. The card's 94 → 123 over four
+files plus resume.py's constant 15 gives the same +29/−0. **Skips: none, and `-rs` printed no skip
+section in any of the four whole-set runs.** Runtime **28.9–29.9 s** for the card's two files on an
+idle box, against the card's stated **41–43 s** and cycle 1's **36.4 s** — *"all three are probably
+real under different load, which is the point"*; the card's range needs its conditions. Whole set
+**284–349 s**. No load figure. The card's `8 files +1895/−65` re-derives exactly.
+
+### Five things it measured wrong in the review or my brief
+
+1. `grep -rln '"Hint"' tests/` returns **6**, not 7, and one is the editor file.
+2. F-5's *"mislabelled in `admin.css`"* — `admin.css` never carried those numbers.
+3. **268 / 186 / 82 do not re-derive as stated**, and *"confirmed two ways"* was the same rounding
+   twice.
+4. `bcd136b5`'s `requirements.yml` edit does **not** exceed the owner's decision.
+5. The announce region's line number shifted by 5; the review's number was right at `bcd136b5`.
+
+It also hit the documented zsh word-splitting trap once, produced a 0-collected run, **and reported
+it as what it was rather than as green.**
+
+- [Fix 1] `ef5e03af` — F-1 and F-3 closed, branch green at 540 passed; every should-fix and
+  nice-to-have addressed; three figures cycle 1 certified measured wrong and corrected in code.
+
+## OWNER DECISIONS 2026-10-30 (second pair)
+
+**3. Rung 2 gets a VISIBLE sentence on the page.** The announce text is promoted into a real visible
+line near the toolbar, so **every press changes something seen as well as spoken** — and that also
+settles the tint's two-meanings problem, since the sentence is what separates rung 1 from Check. The
+tint is **not** being recoloured; its measured **1.15:1 against the paper, under WCAG 1.4.11's 3:1**,
+is to be declared as a residual with the reason it is acceptable — the tint now reinforces rather
+than carrying meaning alone. **This decision unblocks the owed on-page copy sentence**, which fix
+round 1 correctly refused to take.
+
+**4. The 1280 px layout is re-confirmed on real captures**, not on the arithmetic alone — the owner
+chose to look at the thing they had accepted, since the artefact cited for it had not existed.
+
+- [Fix 2] Dispatched on F-2 with decision 3 in hand. **The property to assert is "every press changes
+  something a sighted player can see", not "the live region says…"** — all ten ACs are phrased the
+  latter way, which is exactly why they passed while the feature did not reach the player.

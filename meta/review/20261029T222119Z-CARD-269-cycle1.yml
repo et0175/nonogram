@@ -1,0 +1,742 @@
+version: 1
+generated_at: "2026-10-29T22:21:19Z"
+target: "card/269-hint-ladder @ bcd136b5 (cycle 1/3; base 560d7e09; implementation abebc70b is 8 files +1895/-65, re-derived exact; bcd136b5 adds requirements.yml 17/-1; tracked tree clean before and after)"
+card: CARD-269
+cycle: 1
+mode: gating-review
+overall_score: 5.5
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  The engineering here is above this board's average and most of the round's
+  claims hold under independent measurement. The pure module is well shaped,
+  the 1800-line seeded reason corpus is a real property test with counted
+  near-misses AND an independent re-check of the claims the module made, M5
+  reproduces exactly and its certified pair is genuinely two independent
+  assertions, every figure the owner decided on (268 / 186 / 82) re-derives to
+  the pixel, the 1440 px control really does buy the threshold-moved
+  distinction, and the colour the round reverted to IS the design token --
+  confirmed by sampling the capture: (230, 239, 236) = #e6efec =
+  --color-accent-tint. The round catching its own mid-fade instrument and
+  writing the trap into admin.css is the right reflex and it worked.
+
+  Three things gate it, and the first is not a judgement call.
+
+  THE BRANCH IS RED. tests/test_puzzle_solver_resume.py is 15/15 at the base
+  560d7e09 and 13/15 at bcd136b5, deterministic across two runs. Both failures
+  are the ladder's own supersession reaching a file the round neither adapted
+  nor reported: TestSolverResume_ReloadRestoresBoardCountsAndHistory::test_reload_restores
+  and TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change
+  each press Hint ONCE and assert the board (resp. the localStorage entry)
+  changed. Under the ladder one press changes neither. The round's own
+  correction 2 says "G-5's blast radius is wrong -- two further existing files
+  had to change"; it is wrong by THREE, and the third is left failing. This is
+  in the card's own guardrail territory: the second failure is the save, which
+  G-3 and AC-9 are both about. `grep -rln '"Hint"' tests/` returns seven player
+  files in two seconds and names it. F-1.
+
+  THE LADDER'S MIDDLE RUNG IS INVISIBLE TO A SIGHTED PLAYER. #puzzle-player-announce
+  is a 1x1 clipped region (admin.css:923; measured 1x1 on a live page), so every
+  sentence the ladder produces goes only to assistive technology. Measured by
+  SHA-256 of the rendered board and toolbar after getAnimations() settled: rung
+  2's board and toolbar are BYTE-IDENTICAL to rung 1's (board 096a5d1bff66,
+  toolbar caab001602a1 for both). The rung whose whole job is "explain the
+  deduction" -- half this card's title -- changes nothing a sighted player can
+  see. On the exhausted board rungs 1 AND 2 both produce nothing visible at
+  all, and Check on a clean board produces nothing visible at all; CARD-183's
+  Hint produced a visible cell change on every press, so the ladder introduces
+  presses that are indistinguishable from a dead button. The on-page usage
+  paragraph mentions neither Hint, nor Check, nor the ladder. The captures
+  look legible only because the live region was MADE VISIBLE to take them --
+  the instrument shows something production does not. F-2.
+
+  THE SUPERSESSION IS RECORDED NOWHERE EXECUTABLE. AC-327, AC-329 and AC-334
+  are still live and unamended in requirements.yml, each now FALSE of the
+  shipped code, each with a `test:` ref that resolves to a live class now
+  asserting the opposite. meta/architecture/inputs/raw-requirements.md -- where
+  the card says the FR-044 delta goes -- was not touched by either commit. And
+  the card says twice that it "does not edit requirements.yml" while bcd136b5
+  edits it. One AC was amended; three were left to read satisfied and
+  mechanically checked while stating the retired behaviour. This is the
+  CARD-308 / CARD-319 defect class one level up: the ref is alive, the
+  requirement is dead. F-3.
+
+  Nothing here asks the owner to relitigate either decision. The 1280 px
+  toolbar and the AC-333 amendment are both sound and both re-derive; what
+  does not hold is the evidence the card cites for the first (F-4) and the
+  units it states it in (F-5).
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-269.md in full, including the Declared semantics block, the three corrections, both escalations and both owner decisions"
+    - "the whole diff 560d7e09..bcd136b5, per file"
+    - "src/nonogram/admin/static/solver_state.js: the pre-existing lineForced/hintCell (:572-:656) and the entire CARD-269 ladder block (:668-:884)"
+    - "src/nonogram/admin/static/solver.js: the MARKING/LADDER header blocks, the player object's nextHint/hintLine/wrongRow seam (:986-:1000), the LADDER rendering block (:1205-:1272), wireMarking's rung state, setLadderLine, refresh, commit and both click handlers (:1448-:1945)"
+    - "src/nonogram/admin/static/admin.css: the .player-counters comment and the five .is-hint-line rules; tokens.css against meta/design/tokens.css"
+    - "src/nonogram/admin/templates/puzzle_solve.html: the amended comment block and the Check button"
+    - "tests/test_puzzle_solver_hint.py in full at HEAD (the helpers, the pure-module driver, all nine new classes, all seven adapted ones)"
+    - "tests/test_admin_design_tokens.py's new per-rule check; the maybe/percent diffs in full"
+    - "tests/test_puzzle_solver_marking.py::test_the_page_copy_describes_the_new_click (:622-:647) -- the pinned copy and the file G-5 forbids"
+    - "meta/architecture/requirements.yml AC-327..AC-335; meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md Rules block (R1-R4)"
+    - "~/Documents/nonogram-reviews/CARD-269/ -- announcements.txt, every shipped capture, the alt-tint set, pixel-sampled"
+  not_reached:
+    - "the full suite -- not run, per the brief; meta/kanban/.full-suite.lock absent at the absolute path for the whole cycle"
+    - "any database -- no db_required node was collected or run; see skips_attributed"
+    - "tests/test_public_player*.py, test_book_*.py -- they consume admin.css but not the Hint control; outside the ladder's reach"
+  confidence: high
+
+method_note: >-
+  One throwaway detached worktree at the base 560d7e09, created with
+  `git worktree add --detach` into the scratchpad, `git status --porcelain`
+  clean before `git worktree remove --force`; `git worktree list` confirms it
+  is gone and the card worktree is clean. NO `git stash` at any point.
+
+  Instrument proof FIRST, on the unmutated tree at bcd136b5: the two card
+  files -> 66 passed, 0 skipped, 36.4 s. Every mutant was applied by a needle
+  whose occurrence count was ASSERTED to be 1 before the write, every mutated
+  file's blob sha was printed before / mutated / restored and asserted back to
+  its HEAD value (solver.js -> 37b8c281...; solver_state.js -> 5adeb1b6...),
+  `__pycache__` and `.pytest_cache` swept after every run, and
+  `git status --porcelain` printed empty after each restore. All mutants are
+  deletions or single-line edits.
+
+  Three temporary probe files were added under tests/ (the fixtures live in
+  tests/conftest and sibling modules, so a probe outside the tree cannot
+  resolve them), each run once and deleted in the SAME command, with
+  __pycache__ swept and `git status --porcelain` printed empty afterwards.
+  They measured only; they asserted nothing about the card.
+
+  Negative controls, stated: M5b (a one-word change to LADDER_EXHAUSTED) reds
+  a DIFFERENT line of the same test from M5a, which is what establishes the
+  pair's independence rather than asserting it. The knownLine and
+  RUNG_AFTER_PRESS mutants each red exactly one test and 52 page tests stay
+  green, which is the measurement, not a failure to kill.
+
+  Figures re-derived, never carried: the diffstat, the node-id delta, the five
+  toolbar numbers, the runtimes and the skip count were each computed here.
+  No load figure is reported.
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock checked at the ABSOLUTE path /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock -- absent for the whole cycle. No run was refused."
+  results:
+    - "card's two files (hint + design_tokens) at bcd136b5 -> 66 passed, 0 skipped, 36.4 s. The card states 41-43 s; one clean reading here is BELOW that range. Not a defect; stated because the brief forbids carrying a range."
+    - "the two unforeseen files (maybe + percent) -> 57 passed, 0 skipped, 65 s"
+    - "12-file player impact selection -> 2 failed, 538 passed, 0 skipped, 318 s. See F-1."
+    - "tests/test_puzzle_solver_resume.py at bcd136b5 -> 2 failed, 13 passed (twice, identical)"
+    - "tests/test_puzzle_solver_resume.py at 560d7e09 in the base worktree -> 15 passed, 0 skipped"
+    - "--collect-only over the four changed test files: base 94, head 123"
+  skips_attributed:
+    - "ZERO skips in every run of this cycle. `-rs` printed nothing across 66, 57, 540 and 15-test selections."
+    - "db_required: none collected. No file in this card's blast radius carries a DATABASE_URL gate, so none of the suite-wide 27 (26 DATABASE_URL + 1 setrlimit) is reachable from here -- verified by collection, not assumed."
+    - "No Chromium skip is possible in these files: the browser fixture fails rather than skips on a missing executable."
+
+node_ids:
+  method: "--collect-only -q | grep '::' | sort in the base worktree and the card worktree over the four changed test files, compared with comm"
+  base: 94
+  head: 123
+  added: 29
+  removed: 0
+  renamed: 0
+  merged: 0
+  verdict: >-
+    The card's "29 node ids added, 0 removed, 0 renamed, 0 merged" RE-DERIVES
+    EXACTLY. comm -23 is empty, so nothing was deleted or renamed away. The 29
+    are: 1 in test_admin_design_tokens.py, 28 in test_puzzle_solver_hint.py
+    (including 6 parametrize variants of the reset test -- mark, drag, undo,
+    redo, reset, check -- which are exactly the six reset events card rule 1
+    names, and 1 reduced-motion variant). G-5's NODE-ID half holds; its
+    FILE-SET half does not -- see F-1.
+
+guardrails:
+  G-1: "HOLDS. Hand-written JS/CSS only; no framework, no build step, no vendored library; pyproject.toml absent from the whole diff."
+  G-2: "HOLDS. No request path is added; TestSolverMarking_NoRequestPerMark runs unedited and passes, and TestSolverHint_KeyboardAndNoRequest now drives the whole ladder plus Check under the same request watch."
+  G-3: >-
+    HOLDS IN THE CODE, NOT IN THE TREE. hintStroke, savedStroke and
+    SAVE_VERSION are untouched and rung 3's commit path is byte-identical to
+    CARD-183's. But TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change
+    -- the test that watches the save entry change on every recorded action --
+    is RED on this branch. The save format is fine; the file asserting it is
+    failing. F-1.
+  G-4: >-
+    HOLDS structurally -- CELL_STATES is not extended and hintCell / lineForced
+    keep their signatures and bodies. The AC-328 half ("wrong-marks-ignored
+    must hold at every rung") is ASSERTED BY CONSTRUCTION and by nothing else:
+    see F-7, where breaking exactly that construction passes every page test.
+  G-5: >-
+    VIOLATED. The card names two existing test files as changeable; the round
+    changed four and reported the two extra as unforeseen. A fifth,
+    tests/test_puzzle_solver_resume.py, needed the same adaptation, did not get
+    it, and is red. F-1.
+  G-6: "HOLDS. Every new value is a token or a token-only color-mix(); test_the_hint_line_tint_comes_from_tokens collects the five rules by what they ARE and carries a control that drives its predicate over deliberately broken rules."
+  G-7: "HOLDS. AC-9's test shows the save byte-identical with and without a ladder/Check press, and the reload starts on rung 1; the rung and ladderLine are wireMarking locals, never serialized."
+  G-8: "HOLDS. No probe-cell suggestion; the exhausted text ships exactly as semantics rule 6 wrote it."
+  ADR-0038/R4: "HOLDS, and well. Every transition, the line choice, the classifier and Check's scan are pure functions of their arguments in solver_state.js; solver.js holds only the rung value, the sentences, the highlight and the two buttons."
+  ADR-0038/R6: "HOLDS. Check is a new reader of the solution already shipped to this page behind the CON-015/CON-016 door, not a new shipper."
+  ADR-0039/R1: >-
+    PARTIALLY. Most new classes carry a real in-test negative control (a
+    deducible board that DOES get a line; two presses with nothing between them
+    that DO climb; rung 3 that DOES change the save; a non-reduced-motion run
+    where the line DOES animate), and I drove several of them. Two claims have
+    no control that can fail: G-4's "at every rung" (F-7) and the
+    runs-complete second half (F-11, correctly declared by the round).
+  ADR-0039/R2: >-
+    OVERCLAIMED IN SHIPPED CODE. The reason set IS an enumerable authority and
+    the suite does derive from it. But LADDER_REASON is a module-private const
+    in solver.js:1240 -- not exported -- so the two comments claiming "the
+    suite asserts these keys ARE HINT_REASONS" assert something no test can
+    perform. F-6.
+  ADR-0039/R4: >-
+    THREE FIGURE DEFECTS, all in claims the round itself committed: the
+    captures cited as evidence for the owner's layout decision do not contain
+    the width they are cited for and state in their own README that they are
+    not the shipped layout (F-4); 187/223 are a bottom-edge coordinate written
+    as a height in three places (F-5); and a DOM claim in solver.js is
+    measurably false (F-9). The round's own getAnimations() catch is the rule
+    working; these are three sites where it was not applied.
+
+findings:
+  - id: F-1
+    severity: gating
+    confidence: certain
+    source: measured
+    title: "The branch reddens a clean tree: two deterministic failures in tests/test_puzzle_solver_resume.py, a blast-radius file the round neither adapted nor reported"
+    where: "tests/test_puzzle_solver_resume.py:451 and :675 (the Hint press sites); the assertions that fail are :445 and :669"
+    detail: >-
+      TestSolverResume_ReloadRestoresBoardCountsAndHistory::test_reload_restores
+      walks a sequence of actions asserting each one changed the board, and its
+      fifth step is one Hint click. TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change
+      does the same against the localStorage entry, and its 23rd step is one
+      Hint click. Under the ladder a first press changes neither, so both fail.
+      MEASURED: 15 passed at the base 560d7e09 in a detached worktree; 2 failed
+      / 13 passed at bcd136b5, identical across two consecutive runs, and
+      identical inside the 12-file impact selection. These are precisely the
+      round's own correction-1 class -- "presses Hint once and expects a
+      reveal" -- in a file the correction did not reach. The round reports the
+      superseded set as seven classes and the unforeseen file set as two; both
+      are short. A two-second `grep -rln '"Hint"' tests/` returns the seven
+      player files that press the button and names resume.py among them, so the
+      file set was derivable without running anything.
+    why_it_matters: >-
+      A gate cannot pass on a red tree, and the second failure is the SAVE --
+      the thing G-3 and AC-9 are both about -- so this is not an unrelated
+      corner. It also means the round's "11-file affected selection, 545 tests"
+      did not include every file that drives the control the card rewrote.
+    suggested_fix: >-
+      Adapt both sites through the same _reveal() three-press helper the round
+      already built, and mark them in place as unforeseen by G-5 the way
+      test_puzzle_solver_maybe.py is. Then re-derive the impact set from
+      `grep -rln '"Hint"' tests/` rather than from an import graph, and state
+      the seven files.
+
+  - id: F-2
+    severity: gating
+    confidence: certain
+    source: measured
+    title: "Rung 2 produces zero visible change on the shipped page; the ladder's explanation never reaches a sighted player, and no on-page copy mentions it"
+    where: "src/nonogram/admin/static/admin.css:923 (.player-announce); src/nonogram/admin/static/solver.js ladderExplainText and the Hint handler; src/nonogram/admin/templates/puzzle_solve.html:230"
+    detail: >-
+      #puzzle-player-announce is position:absolute, 1px x 1px, clip:rect(0 0 0 0)
+      -- a visually hidden live region (measured 1x1 on a live page). Every
+      sentence this card ships goes only there. MEASURED by SHA-256 of
+      element screenshots taken after getAnimations() settled: after rung 1 the
+      board hashes 096a5d1bff66 and the toolbar caab001602a1; after rung 2 the
+      board hashes 096a5d1bff66 and the toolbar caab001602a1 -- BYTE-IDENTICAL.
+      (Rung 1 does differ from blank, and rung 3 differs from both, so the
+      instrument reads real differences.) The re-fade does not rescue it: the
+      class is toggled off and on inside one task with no forced reflow between,
+      so the animation coalesces and does not restart -- and under
+      prefers-reduced-motion there is no animation at all.
+
+      The consequences compound: on the exhausted board rungs 1 AND 2 both
+      highlight nothing and say nothing visible, so a player presses Hint twice
+      and sees a dead button before the third press finally reveals -- strictly
+      worse than CARD-183's one-press reveal, which always did something
+      visible. Check on a clean board is likewise a button that does nothing
+      visible. And the one visible channel that does exist, the line tint, is
+      --color-accent-tint #e6efec against the board's #fffdf8 paper: a measured
+      contrast ratio of 1.15:1, far under WCAG 2.1 SC 1.4.11's 3:1 for a
+      graphical object needed to understand the content. The same tint also
+      carries two different meanings (rung 1's "deduce here" and Check's "an
+      error is here") with nothing but the hidden sentence to tell them apart.
+
+      Every AC is written as "the live region says ...", so all ten pass while
+      the feature does not reach the player.
+    why_it_matters: >-
+      This is a Category: feature, player-facing card whose title is "point at
+      the line, EXPLAIN THE DEDUCTION, and only then reveal". The explanation
+      is the middle third of the card and it is invisible to the majority of
+      players. The captures read legible only because the round made the live
+      region visible to take them -- the instrument displays something
+      production does not, which is the same family as the mid-fade catch the
+      round made on itself.
+    judgement_requested_answer: >-
+      Shipping with no on-page mention is NOT acceptable, and not merely as
+      documentation debt. With the announce region hidden, the on-page
+      paragraph is the only channel that could explain two presses that do
+      nothing visible. The owed one-sentence copy change is load-bearing, not
+      cosmetic, and the ladder should not ship before it or before rung 2 gains
+      a visible channel.
+    suggested_fix: >-
+      Either (a) give rung 2 a visible channel -- the simplest being a visible
+      hint line in the toolbar's existing slot rather than only the hidden
+      region -- or (b) escalate to the owner that rungs 1-2 are AT-only and get
+      a decision, since it changes what the feature is. In both cases the
+      pinned-copy guardrail needs the owner to unblock
+      tests/test_puzzle_solver_marking.py::test_the_page_copy_describes_the_new_click
+      so the paragraph can name the ladder and Check. Separately, raise the
+      tint's contrast or add a second channel (a border on the line's edge
+      cells) so the one visible cue clears 3:1.
+
+  - id: F-3
+    severity: gating
+    confidence: certain
+    source: measured
+    title: "AC-327, AC-329 and AC-334 are left live and unamended while being false of the shipped code, each with a test: ref that still resolves"
+    where: "meta/architecture/requirements.yml (AC-327, AC-329, AC-334, and AC-335's extension); meta/architecture/inputs/raw-requirements.md (untouched)"
+    detail: >-
+      AC-327's then: still reads "exactly one cell changes ... the page shows
+      'Hints: 1'" for one real click. Shipped: one click changes no cell and
+      leaves "Hints: 0". AC-329's still reads "when Hint is pressed, the first
+      undecided cell row-major takes its solution state". Shipped: the first
+      press changes nothing and announces that no single line decides a cell.
+      AC-334's still reads "each press reveals one cell" for three presses.
+      Shipped: three presses reveal one cell. Each of the three `test:` refs
+      resolves to a live class -- TestSolverHint_RevealsOneCell:692,
+      TestSolverHint_FallsBackToTheSolution:861,
+      TestSolverHint_KeyboardAndNoRequest:1091 -- and each of those classes now
+      asserts the OPPOSITE of its AC. AC-335's then: was not extended to the
+      line highlight although the card says the rule extends and the test does.
+
+      `git log 560d7e09..bcd136b5 -- meta/architecture/inputs/raw-requirements.md`
+      is EMPTY, so the FR-044 delta the card routes through the architect side
+      was never written. Meanwhile bcd136b5 DOES edit requirements.yml, which
+      the card forbids itself in two places (semantics rule 10 and Architecture
+      context). The owner's decision covered AC-333 only.
+    why_it_matters: >-
+      This is the CARD-308 / CARD-319 defect class one level up: the ref reads
+      alive, so no dead-ref diagnostic fires, and the requirement reads
+      mechanically checked while stating behaviour the code deliberately
+      retired. On merge, main's requirement registry carries three false
+      acceptance criteria about its most-exercised player control.
+    suggested_fix: >-
+      Amend AC-327, AC-329 and AC-334 in place with the same AMENDED comment
+      shape bcd136b5 used for AC-333 -- the precedent and the owner's reasoning
+      are already on the branch -- and extend AC-335's then: to name the line
+      highlight. If the owner prefers the architect-side route, write the delta
+      into inputs/raw-requirements.md on this branch and say in the card that
+      requirements.yml now holds four amendments, not one.
+
+  - id: F-4
+    severity: important
+    confidence: certain
+    source: measured
+    title: "The captures cited as evidence for the owner's accepted 1280 px layout do not contain a 1440 px state, and their own README says the toolbar shown is not the shipped layout"
+    where: "~/Documents/nonogram-reviews/CARD-269/ (20 PNGs + announcements.txt); the claim is CARD-269.md's 'The captures at both widths are in ~/Documents/nonogram-reviews/CARD-269/'"
+    detail: >-
+      MEASURED with PIL: all ten full-page captures are 1280 x 900 and all ten
+      toolbar crops are 980 px wide. There is NO 1440 px capture, in the
+      shipped set or the alt-tint set; `find` for any 1440-named file returns
+      nothing. Worse, announcements.txt states in its own words that
+      #puzzle-player-announce "was made visible for these shots ... It is
+      therefore in the flex flow here and pushes the toolbar's wrapping around:
+      the toolbar layout in these images is NOT the shipped layout", and then
+      "Judge that on the real page, not here." So the captures cannot support
+      the layout decision at either width, and the card's sentence asserting
+      they cover both widths is false on two counts.
+    why_it_matters: >-
+      The owner accepted a visible layout change at a common width. The visual
+      evidence recorded for that acceptance does not exist, and the card tells
+      a future reader it does. ADR-0039/R4: a reading taken with an instrument
+      that cannot see the quantity is not a measurement, and the round wrote
+      exactly that rule into admin.css one paragraph away.
+    suggested_fix: >-
+      Capture the toolbar at 1280 and 1440 with the live region in its shipped
+      hidden state (the probe used here does it in one page.evaluate), store
+      both, and correct the card's sentence. Keep announcements.txt's honest
+      caveat for the announce-text captures, which is the right note for those.
+
+  - id: F-5
+    severity: important
+    confidence: certain
+    source: measured
+    title: "The toolbar figures 187 px -> 223 px are a bottom-edge coordinate written as a height, in three places"
+    where: "meta/kanban/cards/CARD-269.md (owner decision 1); src/nonogram/admin/static/admin.css (the .player-counters comment); tests/test_puzzle_solver_percent.py's test_shares_the_buttons_row_at_1280 docstring"
+    detail: >-
+      MEASURED on the shipped page at 1280 x 900, live region hidden:
+      getBoundingClientRect().height of BOTH .player-toolbar and
+      #puzzle-player-controls is 39 px without the Check button and 75 px with
+      it. The toolbar's top is y=148, so its BOTTOM is 148+39 = 187 and
+      148+75 = 223. The two numbers committed as heights are bottom-edge
+      coordinates of a viewport-relative rect; they depend on everything above
+      the toolbar and are not a property of the toolbar at all. The physical
+      claim -- one wrapped counter line, 36 px taller -- is correct and
+      re-derives (75-39 = 36 = 223-187).
+    why_it_matters: >-
+      The admin.css comment is the file a future card reads before touching
+      this layout, and CARD-194's own measurement already lives there as
+      precedent. A height that is actually an offset will not reproduce for
+      whoever checks it next, and ADR-0039/R4 makes a figure's domain part of
+      the figure.
+    suggested_fix: "Replace with the heights (39 px -> 75 px at 1280, 39 px at 1440) in all three places, or state them explicitly as bottom offsets and name the top they are measured from."
+
+  - id: F-6
+    severity: important
+    confidence: certain
+    source: measured
+    title: "ADR-0039/R2 overclaim: the announce table cannot be checked against the authority, because it is not exported"
+    where: "src/nonogram/admin/static/solver.js:1232-1240 (the LADDER_REASON comment) and :1240 (const LADDER_REASON); src/nonogram/admin/static/solver_state.js:789-792 (HINT_REASONS' comment)"
+    detail: >-
+      Both comments claim the suite asserts LADDER_REASON's keys ARE
+      HINT_REASONS. LADDER_REASON is a module-private `const` -- `grep
+      "export.*LADDER_REASON"` returns nothing -- so no test can read its keys,
+      and no test does. What the suite actually does
+      (TestSolverHintLadder_SecondPressExplains::test_each_reason_is_announced_on_a_board_where_it_holds)
+      is assert `set(_reason_boards()) == set(HINT_REASONS)` and then drive one
+      real board per reason. That catches a MISSING sentence -- ladderExplainText
+      throws a RangeError at the press -- but not an EXTRA key, which is dead
+      and undetected; and the Python side's _REASON_SENTENCE is a hand-written
+      transliteration of LADDER_REASON, so what is really cross-checked is two
+      hand-written tables against three driven boards.
+
+      The card's own sentence is wrong in a further way: it attributes this to
+      "HINT_RUNGS / RUNG_EVENTS" as "an enumerable authority the announce table
+      is checked against". The announce table is keyed by HINT_REASONS;
+      HINT_RUNGS keys nothing in the announce path. The rung dispatch in the
+      Hint handler is a two-way ternary over a three-valued rung, derived from
+      no authority at all -- a fourth rung added to HINT_RUNGS would silently
+      render the explain text.
+    why_it_matters: >-
+      R2's whole point is that a guard's set comes from an authority the runtime
+      can enumerate. The mechanism that exists is decent; the claim written
+      beside it is wider than the mechanism, which is the exact family
+      ADR-0039 was promoted to stop.
+    suggested_fix: >-
+      Export LADDER_REASON (or a frozen array of its keys) and assert the
+      equality directly in the pure-module test; that is two lines and makes
+      both comments true. Correct the card's sentence to name HINT_REASONS.
+      Optionally derive the rung dispatch from HINT_RUNGS so a new rung is a
+      loud failure like an unknown event already is.
+
+  - id: F-7
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "hintLine's null is three structural paths, not one; the third is unreachable only via a duplicated projection that no page test guards"
+    where: "src/nonogram/admin/static/solver_state.js hintLine (:775-:786) and knownLine (:748-:760) against hintCell's inline `known` (:636-:639)"
+    detail: >-
+      hintLine returns null (a) when hint is null, (b) when hint.deduced is not
+      true, and (c) when BOTH line() calls return null because lineForced does
+      not force the cell on either axis. (a) is unreachable from the UI -- the
+      Hint handler returns on `hint === null` before calling it -- and is
+      exercised directly by the pure-module test's `noCell` case; folding it
+      into "not a deduced cell" is a definitional choice the comment makes
+      explicit, so it is honest. (b) is the exhausted state the card is about.
+      (c) is the "I could not tell" null the brief asks about, and it is
+      unreachable ONLY because knownLine reproduces hintCell's projection
+      exactly -- the same `state === truth ? state : UNKNOWN`, the same row and
+      column construction -- so an axis hintCell found forcing is an axis
+      hintLine finds forcing. That is a parallel-maintained duplicate, not a
+      shared helper.
+
+      MEASURED: mutating knownLine's projection to `return state;` (wrong marks
+      at face value -- breaking exactly the invariant the no-drift claim rests
+      on) leaves EVERY page test green; only
+      TestSolverHintLadder_ThePureModule::test_the_ladder reds, on its 1x3
+      knownLine unit assertion. 52 page tests pass. In particular
+      TestSolverHint_IgnoresWrongMarks -- the class that owns AC-328 -- passes,
+      because it never presses rung 1 or rung 2 on a board with wrong marks.
+      G-4 and the solver_state.js comment both say AC-328 holds "at every rung
+      by construction"; the construction has no control.
+    why_it_matters: >-
+      With that projection drifted, rungs 1-2 would announce the exhausted
+      sentence on a board that is NOT exhausted -- a user-visible falsehood of
+      exactly the kind this card exists to remove -- and nothing the player
+      meets would catch it. The claim's reach is wider than its control
+      (ADR-0039/R1).
+    suggested_fix: >-
+      Either have hintCell call knownLine (G-4 preserves its signature and
+      semantics; the body is free), which makes the invariant structural, or
+      add one page-level case to TestSolverHint_IgnoresWrongMarks that presses
+      rung 1 and rung 2 on the wrong-marks board and asserts the line is the
+      one the correct-marks-only oracle picks.
+    on_the_brief_question: >-
+      ANSWER: behaviourally one case, structurally three, with one path's
+      unreachability resting on an untested invariant. A null meaning
+      "exhausted" and a null meaning "I could not tell" would indeed be
+      indistinguishable to rungs 1-2, and today only a duplicated five-line
+      projection keeps the second from occurring.
+
+  - id: F-8
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "The rung-3 row of the frozen transition table is unreachable in production"
+    where: "src/nonogram/admin/static/solver_state.js RUNG_AFTER_PRESS (:715-:719); src/nonogram/admin/static/solver.js's Hint handler"
+    detail: >-
+      MEASURED: changing `[RUNG_REVEAL]: RUNG_POINT` to `RUNG_EXPLAIN` reds
+      ONLY TestSolverHintLadder_ThePureModule::test_the_ladder; 52 page tests
+      pass. The handler branches to commit() before reaching nextRung whenever
+      rung === RUNG_REVEAL, so `nextRung(3, "press")` is never called from the
+      UI; the real 3 -> 1 reset is commit()'s `nextRung(rung, "change")`. Five
+      of the six (rung, event) pairs are reachable in production; this one is
+      not, and the comment justifies it with the mechanism that in fact does
+      the work somewhere else.
+    why_it_matters: >-
+      Minor -- a total function is a defensible shape and the derived table test
+      does cover the row. Reported because the brief asks, and because the
+      comment attributes the ladder's wrap to a row nothing executes, which
+      will mislead the next reader (CARD-263 is already slated to reuse
+      nextRung unchanged).
+    suggested_fix: "Keep the row; change the comment to say the wrap exists so nextRung is total, and that production reaches rung 1 after a reveal through commit()'s 'change'."
+
+  - id: F-9
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "'Assigning the SAME string is a no-op in the DOM' is false, so the stated reason for rung 2's silence on the exhausted board does not exist"
+    where: "src/nonogram/admin/static/solver.js, the LADDER header block above ladderPointText"
+    detail: >-
+      MEASURED with a MutationObserver on the shipped page: setting
+      announce.textContent to an identical string produces a mutation record
+      (1, the same as the first assignment). Per the DOM spec the textContent
+      setter runs "string replace all", which removes the existing text node
+      and inserts a new one -- never a no-op. So whether a repeated rung-2
+      answer is re-announced is AT-dependent, not "silent by the platform's
+      rule". On the exhausted board rung 2 writes the identical sentence, so by
+      the card's own rule 6 that press is a no-op in the hidden channel too and
+      a no-op in the visible one (F-2) -- the press has no observable effect
+      anywhere.
+    suggested_fix: "Correct the comment to say what is true: the string is reassigned, and whether AT repeats it is the AT's choice. Then decide rung 2's exhausted behaviour deliberately rather than inheriting it from a false premise."
+
+  - id: F-10
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "Check reads enabled and silently does nothing during a drag"
+    where: "src/nonogram/admin/static/solver.js: refresh()'s `actions.check?.setAttribute('aria-disabled', String(locked))` against the Check handler's `if (gesture || player.locked()) return;`"
+    detail: >-
+      MEASURED mid-drag on a live board: Check reports aria-disabled="false"
+      while Hint reports "true", and Check's handler returns early on the same
+      gesture. Hint includes `gesture !== null` in its attribute; Check does
+      not. Card rule 9 specifies only the lock for Check, so the handler's
+      gesture guard is undeclared behaviour on top of the declared contract.
+    why_it_matters: "An aria-disabled=\"false\" control that does nothing is the a11y failure mode aria-disabled exists to prevent; reachable with a second pointer on a touch device."
+    suggested_fix: "Pick one: drop the gesture guard from the handler (Check changes nothing, so running mid-drag is harmless), or add `gesture !== null` to the attribute as Hint has it, and say which in the card."
+
+  - id: F-11
+    severity: minor
+    confidence: certain
+    source: measured
+    title: "The round's third correction is RIGHT: the runs-complete second half is a permanent surviving mutant"
+    where: "src/nonogram/admin/static/solver_state.js hintReason (:849-:852)"
+    detail: >-
+      MEASURED: deleting `&& cells.every((state, i) => state === FILLED ||
+      forced[i] === EMPTY)` leaves 53/53 green in the card's own test file. The
+      reasoning holds: given forced !== null a placement exists, and a placement
+      consistent with `cells` must fill every FILLED cell; with marked === total
+      there are exactly as many marked cells as any placement fills, so every
+      placement's filled set IS the marked set, so every other cell is EMPTY in
+      every placement and forced[i] === EMPTY. The clause cannot fail on its
+      own. The round kept it with an honest note instead of a comment implying
+      two guards, which is the right call -- and no test claims to cover that
+      half, so nothing is laundered.
+    why_it_matters: "Reported as a verified-correct correction, not a defect. It is a permanent surviving mutant and should be declared as such wherever this round's mutant tally is quoted, so a future mutation sweep does not read it as a new gap."
+    suggested_fix: "None required. Optionally name it in the card's mutation record as a KNOWN survivor with its proof, so the next sweep's count is interpretable."
+
+judgements_requested:
+  "1_is_hintLine_s_null_one_case_or_several_collapsed": >-
+    SEVERAL, COLLAPSED, and the collapse is sound for two of the three. Three
+    structural return-null paths; (a) hint === null is unreachable from the UI
+    and explicitly folded into the comment's definition; (b) the fallback is
+    the exhausted state; (c) "neither axis forces it" is the "I could not tell"
+    null and is unreachable only by an untested duplicated projection. See F-7,
+    with the measurement.
+  "2_can_rungs_1_2_drift_from_rung_3_s_cell": >-
+    NO, and the mechanism is sound. commit() is the single choke point every
+    recorded change passes through -- I traced all seven call sites (click
+    :1801, drag :1795, undo/redo :1892 and :1981, reset :1959, rung 3 :1916,
+    and setBoard, which routes through marking.commit at :1111) -- and it calls
+    nextRung(rung, "change") and setLadderLine(null) before anything else. The
+    board therefore cannot change between rung 1 and rung 3, hintCell is a pure
+    function of (board, payload), and hintLine's row axis is indexed by
+    hint.row with the cell at hint.col, so the cell is in the line by
+    construction. `editing` is a const (:758), so edit mode cannot toggle under
+    the ladder. TestSolverHintLadder_FirstPressPointsAtALine::test_the_cell_the_third_press_will_reveal_is_on_that_line
+    pins it where the player meets it. No drift found.
+  "3_is_HINT_RUNGS_RUNG_EVENTS_a_genuine_enumerable_authority": >-
+    PARTLY, and the card misattributes it. The authority that does real work is
+    HINT_REASONS, and the announce table is NOT checked against it because it
+    is not exported (F-6). There ARE second hand-written lists: RUNG_AFTER_PRESS
+    mirrors HINT_RUNGS, _REASON_SENTENCE (test) mirrors LADDER_REASON (source),
+    knownLine mirrors hintCell's projection, and the rung dispatch is a ternary
+    derived from nothing. UNREACHABLE ROW: yes, one -- (3, "press"), measured
+    (F-8). The other five pairs are reachable, and the derived table test does
+    drive all six.
+  "4_does_M5_reproduce_and_is_its_pair_two_independent_assertions": >-
+    YES to both, measured rather than argued. Reconstructed M5 as the
+    one-line `setLadderLine(line)` -> `setLadderLine(line ?? { axis: "row",
+    index: hint.row })`: it highlights row 1 (15 cells + rowClue 0) on the
+    exhausted board and reds EXACTLY ONE test,
+    TestSolverHint_FallsBackToTheSolution::test_the_first_two_presses_say_no_line_decides_and_point_at_nothing,
+    at tests/test_puzzle_solver_hint.py:898 -- the _lined assertion -- while all
+    seven sibling node ids in that class and the two ladder classes stay green.
+    Exactly as the card claims.
+
+    The pair is INDEPENDENT. The converse mutant M5b (one word changed in
+    LADDER_EXHAUSTED) reds the SAME test at :899 -- the _announced assertion --
+    having PASSED :898. So each mutant kills exactly one half and neither
+    assertion implies the other. The card's justification for asserting both is
+    sound.
+
+    On the mutant discipline more broadly: the nine mutants are NOT itemized
+    anywhere in the repository -- only M5's effect is described in prose, and
+    `grep -rn "CARD-269"` over meta/ finds no mutant record. The discipline
+    described (needle unique, blob sha both sides, __pycache__ swept) is the
+    right one and I applied it myself, but the claim "nine mutants" cannot be
+    audited or reproduced from what is committed, and F-11 is a tenth, known
+    survivor that the tally's phrasing does not accommodate.
+  "5a_did_the_four_adapted_classes_keep_every_assertion": >-
+    YES, verified line by line against the base. Every one of the four is a
+    pure `_hint(page).click()` -> `_reveal(page)` substitution with no
+    assertion removed or loosened, and several classes GAINED assertions:
+    TestSolverHint_FallsBackToTheSolution's reveal test gained the empty-line
+    assertion, TestSolverHint_KeyboardAndNoRequest gained per-rung "nothing
+    changed" checks inside the key loop plus a whole Check-by-keyboard arm, and
+    TestSolverHint_ReducedMotion gained the line-highlight zero and a second
+    control that it rises. The superseded set really is seven classes.
+  "5b_is_G5_s_blast_radius_two_files": >-
+    NO -- THREE. Both files the round names are genuinely marked in place
+    (test_puzzle_solver_maybe.py names G-5 and the word "unforeseen" explicitly;
+    test_puzzle_solver_percent.py documents the change thoroughly but does NOT
+    use the word or name G-5, so the card's "both marked in place as
+    unforeseen" is a hair generous). The third, test_puzzle_solver_resume.py,
+    is neither adapted nor marked and is RED. F-1.
+  "5c_does_the_runs_complete_second_half_really_cannot_fail": >-
+    IT REALLY CANNOT, and I measured it rather than accepting the argument:
+    deleting the clause leaves 53/53 green. The round's reasoning reproduces.
+    No test claims to cover that half, so the honest note understates nothing
+    and covers nothing that was being claimed. F-11.
+  "6_do_the_five_toolbar_numbers_re_derive_and_does_the_1440_control_work": >-
+    FOUR OF FIVE RE-DERIVE EXACTLY; the fifth is mislabelled.
+
+    268: the counters' max-content width at 1280 WITHOUT Check -> 268 px
+    (pair 147 + Progress 101 + 20 gap). EXACT.
+    186: the counters' width at 1280 WITH Check -> 186 px. EXACT.
+    82: 268 - 186 = 82, and independently the history group goes 359 -> 441 =
+    +82 when Check is added. EXACT, confirmed two ways. (Check's own button box
+    is 73 px; the 82 is the room it costs, which is how the card uses it.)
+    1440 fits all three: Progress and Errors both at top 149, toolbar 39 px,
+    counters 346 px on one row. EXACT.
+    187 -> 223: these are bottom-edge coordinates, not heights. F-5.
+
+    THE 1440 CONTROL DOES ACHIEVE THE DISTINCTION. The 1280 assertion
+    (`pt >= eb`) and the 1440 assertion (`wpt < web and wet < wpb`) are the two
+    halves of a discriminator: the same inequality is FALSE at 1280 and TRUE at
+    1440 on the shipped tree, so a change that broke the layout at both widths
+    reds the 1440 control while a change that merely moved the threshold reds
+    neither. That is exactly the "threshold moved, not layout broken" shape the
+    owner's decision needs, and it is the strongest single piece of test design
+    on this card.
+  "7_does_AC_333_s_ref_resolve_to_a_real_class": >-
+    YES. `TestSolverHint_PlacesTheButtonAndTheCounter` resolves to a real
+    `class` line at tests/test_puzzle_solver_hint.py:777 -- the exact line the
+    card states -- and `grep -rn hintIsLastChild tests/` returns nothing, so
+    the renamed internals are gone and the class name survives. The amended
+    `then:` is genuinely asserted: got["group"] == [..., "hint", "check"],
+    checkIsLastChild, checkFollowsHint, hintsFollowErrors, at both 1440 and
+    390. The ref is NOT dead and the check was made in the right order. One
+    residue: that class's DOCSTRING still says the AC-333 clause is "part of
+    what the ladder supersedes -- surfaced in the report, not decided quietly
+    here", which bcd136b5 made stale. One sentence.
+  "8_is_the_ladder_legible_to_a_player_from_the_captures": >-
+    THE CAPTURES ARE LEGIBLE; THE SHIPPED PAGE IS NOT. In the captures rung 1's
+    tinted row and clue box read clearly, the exhausted state (07/08) reads
+    exactly as the card wants, and Check's named row (05) reads. But the
+    captures were taken with the live region MADE VISIBLE -- their own README
+    says so -- and the sentences they show do not appear on the shipped page at
+    all. With the region in its shipped 1x1 clipped state, rung 2 is
+    byte-identical to rung 1, the exhausted rungs show nothing, and Check-clean
+    shows nothing. F-2.
+
+    On the colour: the shipped captures' highlight samples (230, 239, 236) =
+    #e6efec = --color-accent-tint exactly, and the alt set samples
+    (215, 225, 220); tokens.css is byte-identical to meta/design/tokens.css.
+    THE REVERTED COLOUR IS THE TOKEN, confirmed at pixel level, and the
+    captures do support that -- they were taken settled, or they would read
+    lighter than the token. The round's catch and revert were right.
+  "9_is_shipping_with_no_on_page_mention_acceptable": >-
+    NO. See F-2's judgement_requested_answer. Reverting the copy addition
+    rather than editing a forbidden file was the correct call under the
+    guardrail, and the follow-up is not this round's to take -- but the gap is
+    not cosmetic documentation debt, because the on-page paragraph is the only
+    remaining channel that could explain two presses with no visible effect.
+  "10_is_CARD_263_s_path_report_only_and_untouched": >-
+    CONFIRMED. `git diff 560d7e09..bcd136b5` touches neither errorCount in
+    solver_state.js nor the #puzzle-player-errors counter in solver.js or the
+    template. The card's statement of what CARD-263 must decide -- that
+    "Errors: N" is a live role="status" region updated on every mark, so making
+    the count cost a press means hiding or freezing a counter CARD-162 shipped
+    -- is accurate, and leaving it to an owner decision is right.
+  "11_are_the_two_deliberate_divergences_sound": >-
+    BOTH SOUND, both recorded. The sibling class (rather than extending
+    TestSolverHintModule) keeps each class docstring true about which card it
+    covers, which is this tree's convention. Clearing lastClick on a ladder
+    press and a Check press is semantically right -- they ARE inputs, and the
+    reset confirmation already follows that rule -- and I verified the test it
+    protects, TestSolverClickFollowsTheBrush in test_puzzle_solver_marking.py,
+    passes untouched in the impact run.
+
+positives:
+  - "The 1800-line seeded reason corpus (TestSolverHintLadder_TheReasonIsNeverALie) is the strongest test on the card: minimum counts per reason asserted inside the test, BOTH near-miss populations counted rather than merely present (>=150 overlap-with-a-mark, >=400 one-run-short), and -- the part that matters most -- the claims the module DID make are re-verified against their own preconditions rather than against the oracle that shares them. That last loop is what rescues the Python _reason() from being a mere transliteration of the JS."
+  - "The exhausted-state pair (sentence AND empty highlight) is load-bearing and independently so, measured both ways."
+  - "The 1440 px control is a genuine discriminator, not a decoration."
+  - "Every new AC class carries an in-test negative control that rises."
+  - "The getAnimations() self-catch, and writing the trap into the admin.css comment rather than only into the card, is the right shape for a measurement lesson."
+  - "Node-id and diffstat discipline is exact: 8 files +1895/-65 and +29/-0/-0/-0 both re-derive to the digit."
+  - "The ladder genuinely removes the falsehood it set out to remove: on the exhausted board rungs 1-2 no longer hand over a cell while claiming a missed line deduction. That is real and it is the card's point."
+
+recommendation:
+  disposition: "NOT CERTIFIED (5.5 < min_score 8). Fix round recommended."
+  must_fix_before_next_cycle:
+    - "F-1 -- adapt the two resume.py sites and re-derive the impact file set from the Hint-press grep, not the import graph. The tree must be green."
+    - "F-2 -- decide rung 2's visible channel, or escalate that rungs 1-2 are AT-only, and get the on-page copy unblocked."
+    - "F-3 -- amend AC-327/AC-329/AC-334 (and AC-335's extension) the way AC-333 was amended, or write the raw-requirements delta on this branch."
+  should_fix:
+    - "F-4, F-5, F-6 -- the three figure/claim defects, each a one-to-three-line correction."
+  nice_to_have:
+    - "F-7's structural fix (hintCell calling knownLine), F-8's comment, F-9's comment, F-10's attribute, and the stale docstring in judgements_requested.7."
+
+refs_verified: >-
+  Every `path::name` and bare test name spelled in this file was resolved
+  against a real `def` or `class` line before being written, because
+  meta/review/** is inside the validator's ref resolver and a name spelled here
+  reads as alive after a future rename. Verified at bcd136b5:
+  TestSolverHint_RevealsOneCell:692, TestSolverHint_PlacesTheButtonAndTheCounter:777,
+  TestSolverHint_IgnoresWrongMarks:824, TestSolverHint_FallsBackToTheSolution:861,
+  test_the_first_two_presses_say_no_line_decides_and_point_at_nothing:881,
+  TestSolverHint_KeyboardAndNoRequest:1091, TestSolverHint_ReducedMotion:1161,
+  TestSolverHintLadder_ThePureModule:1332, test_the_ladder:1345,
+  TestSolverHint_TheHighlightSurvivesARedraw:1409,
+  TestSolverHintLadder_FirstPressPointsAtALine:1496,
+  TestSolverHintLadder_SecondPressExplains:1579,
+  test_each_reason_is_announced_on_a_board_where_it_holds:1590,
+  TestSolverHintLadder_ThirdPressRevealsTheSameSituation:1623,
+  TestSolverHintLadder_AnyChangeResetsTheLadder:1672,
+  TestSolverHintLadder_TheReasonIsNeverALie:1846,
+  TestSolverHintLadder_NeitherRungNorCheckIsSaved:1944,
+  TestSolverCheck_NamesTheFirstWrongRow:2020,
+  TestSolverCheck_CleanLockedAndEditMode:2088 (all tests/test_puzzle_solver_hint.py);
+  test_the_hint_line_tint_comes_from_tokens:553 (tests/test_admin_design_tokens.py);
+  TestSolverPercent_SitsNextToTheCounters:398 and
+  test_shares_the_buttons_row_at_1280:441 (tests/test_puzzle_solver_percent.py);
+  test_the_page_copy_describes_the_new_click:622 (tests/test_puzzle_solver_marking.py);
+  TestSolverResume_ReloadRestoresBoardCountsAndHistory::test_reload_restores and
+  TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change
+  (tests/test_puzzle_solver_resume.py -- resolved by running them, both FAILING
+  at this HEAD and both passing at 560d7e09);
+  TestSolverMarking_NoRequestPerMark and TestSolverClickFollowsTheBrush
+  (tests/test_puzzle_solver_marking.py, resolved by the passing impact run).

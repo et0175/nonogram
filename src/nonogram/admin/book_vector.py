@@ -83,6 +83,7 @@ on every text object, which is what CARD-299's rewritten
 
 from __future__ import annotations
 
+import re
 import struct
 import time
 import zlib
@@ -1110,6 +1111,103 @@ def _flate_face(face: bytes) -> bytes:
     return zlib.compress(face, 9)
 
 
+#: PDF's own whitespace, all six characters of it (ISO 32000-1 §7.2.2): space,
+#: tab, carriage return, line feed, form feed and NUL. The first version of the
+#: refusal below used ``[ \t]``, two of the six, and CARD-306's review measured
+#: ``"q\n/Im0 Do\nQ"`` appended as one operator row slipping through it — on the
+#: only path that can reach the refusal at all, since appending the operator by
+#: hand is the only way to write one. Named rather than inlined so the class is
+#: countable against the specification.
+_PDF_WHITESPACE = " \t\r\n\f\x00"
+
+#: PDF's delimiters (same section). A token also ends at one of these, which is
+#: what makes ``/Im0Do`` a resource name and not a paint.
+_PDF_DELIMITERS = "()<>[]{}/%"
+
+#: The ``Do`` operator, which is the only way a content stream paints an
+#: XObject — matched as a whole token, bounded by PDF whitespace, by a PDF
+#: delimiter or by the row's own ends. Written as an explicit character class
+#: rather than with ``\b``, which this board has measured silently matching
+#: nothing in POSIX ERE and which is a habit worth not carrying into Python's
+#: own regex engine.
+#:
+#: **The pattern alone is not the check**: it is searched over a row whose
+#: string bodies :func:`_without_string_bodies` has already blanked, because a
+#: token match on the raw row refuses ``"(Scan Do now) Tj"`` — a text literal,
+#: measured firing on the first version of this check. The two halves together
+#: are :func:`_paints_xobject`, which is what the writer calls.
+_XOBJECT_PAINT = re.compile(
+    "(?:^|[{break_}])Do(?=[{break_}]|$)".format(
+        break_=re.escape(_PDF_WHITESPACE + _PDF_DELIMITERS)
+    )
+)
+
+
+def _without_string_bodies(row: str) -> tuple[str, bool]:
+    """``row`` with every string body blanked, and whether it was balanced.
+
+    A content stream's two string forms are the literal ``(…)`` — nestable,
+    with ``\\`` escaping the next character — and the hex string ``<…>``. Their
+    *bodies* are data, not operators, so a ``Do`` inside one paints nothing;
+    they are replaced by spaces rather than removed so that what is left keeps
+    the token boundaries the row really had.
+
+    ``<<`` and ``>>`` are the dictionary delimiters, not a hex string, and are
+    left alone — this vocabulary emits neither, but mis-reading ``<<`` as the
+    start of a hex string would blank the rest of such a row.
+
+    The second element is False when a literal was never closed. Such a row is
+    not readable for operators at all, and :func:`_paints_xobject` takes the
+    conservative side on it rather than reporting the blanked remainder as
+    clean. A ``%`` comment is *not* interpreted: this vocabulary writes none,
+    and treating one as a comment would mean a ``Do`` in a comment passed.
+    """
+    out: list[str] = []
+    index, depth, end = 0, 0, len(row)
+    while index < end:
+        char = row[index]
+        if depth:
+            if char == "\\":
+                out.append("  ")
+                index += 2
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            out.append(" ")
+            index += 1
+            continue
+        if char == "(":
+            depth = 1
+            out.append(" ")
+            index += 1
+            continue
+        if char == "<" and row[index : index + 2] != "<<":
+            close = row.find(">", index)
+            stop = end if close < 0 else close + 1
+            out.append(" " * (stop - index))
+            index = stop
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out), depth == 0
+
+
+def _paints_xobject(row: str) -> bool:
+    """Whether one operator row paints an XObject.
+
+    A ``Do`` token outside every string body, by the two definitions above —
+    or, when the row carries an unterminated literal and so cannot be read for
+    operators, a ``Do`` anywhere in it at all, which is the conservative side
+    of a row this vocabulary cannot produce.
+    """
+    readable, balanced = _without_string_bodies(row)
+    if _XOBJECT_PAINT.search(readable) is not None:
+        return True
+    return not balanced and "Do" in row
+
+
 def write_vector_page(
     pdf: PdfParser.PdfParser,
     stream: ContentStream,
@@ -1132,10 +1230,42 @@ def write_vector_page(
     which would still be a page that *has* an XObject entry — which is
     ADR-0042/R1 as a property of this function rather than of each caller.
 
+    **And since CARD-306 a page that tried to paint one is refused rather
+    than written** (that card's AC-4). Leaving the resource dictionary silent
+    makes an XObject unreachable *to a viewer*; it does not make the operator
+    unwritable, and a ``Do`` whose name resolves to nothing is a page that
+    shows less than its stream says — the "merely reported" failure mode AC-4
+    names. :class:`ContentStream` has no XObject vocabulary, so the only way
+    to reach this refusal is to append the operator by hand, which is exactly
+    the case worth refusing: an image on a vector page is a medium decision
+    and belongs in ``book_pdf_generator._RASTER_DECLARATIONS`` with a reason
+    and an ``expires_with``, not in a page's operator list.
+
+    **What the reading is, exactly** (CARD-306's review measured the first
+    version of it being both too narrow and too wide): a ``Do`` token in any
+    row of :attr:`ContentStream.operators`, bounded by any of PDF's six
+    whitespace characters, by a delimiter or by the row's ends, and read
+    *outside* every ``(…)`` literal and ``<…>`` hex body — so a hand-appended
+    ``"q\\n/Im0 Do\\nQ"`` block is refused while ``"(Scan Do now) Tj"`` is
+    not. :func:`_paints_xobject` holds that definition, and the controls in
+    ``tests/test_book_puzzle_page_vector.py`` run every one of the six
+    whitespace characters and both string forms through it.
+
     ``font_ref`` is the file's one ``/Font``, written once per document by
     :func:`write_face_objects`; every page names the same object, which is
     ADR-0042/R5.
+
+    Raises:
+        ContentStreamError: ``stream`` paints an XObject (a ``Do`` operator).
     """
+    painted = [row for row in stream.operators if _paints_xobject(row)]
+    if painted:
+        raise ContentStreamError(
+            "a vector page paints no XObject: this stream carries "
+            f"{len(painted)} Do operator(s), the first being {painted[0]!r}. An "
+            "image on an interior page is a declared medium (ADR-0042/R2), not "
+            "an operator"
+        )
     _, _, width_pt, height_pt = stream.media_box
     pdf.write_page(
         page_ref,

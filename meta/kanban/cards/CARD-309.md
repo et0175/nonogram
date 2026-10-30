@@ -240,3 +240,32 @@ that happened to measure 8.64 pt.
 **If this card converts the puzzle page with CARD-314 unlanded, raise it rather than
 proceeding.** Converting the other four kinds first is a legitimate order; converting
 the puzzle page is not.
+
+## [Added 2026-10-29 from CARD-306's review — one class name becomes false the day this card lands]
+
+CARD-306 gave the vector puzzle page its sheet furniture, and its review's **F-307** names a debt
+that is **this card's to clear, not CARD-306's**:
+
+`tests/test_book_puzzle_page_vector.py`'s
+`TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` **now names a claim that is false
+of the shipped page.** CARD-306 re-pointed the class at `book_puzzle_vector`'s own **stream
+output** rather than at the composed page, which is a genuinely narrowed claim and not one
+relocated to stay true — the reviewer confirmed the module is **AST-identical ignoring
+docstrings**, the narrowing is stated in prose, and the class carries an in-test control
+(`len(composed) > len(shown)`). So the body is honest. **The name is the debt.**
+
+When you convert the puzzle page, that class either goes or is re-pointed, and its name must stop
+saying *"no sheet furniture"* about a page that draws folio, frame rules, grid-size label and QR
+block. Per the board's standing rule, the name is not a cosmetic fix: a class name is a claim, and
+this one will read true while being false.
+
+Also worth carrying, both measured on CARD-306's branch and relevant here:
+- `book_guide_vector:103`, `book_toc_vector:60` and `book_answer_vector:62` **all import
+  `book_pdf_generator` at module level**, so none can be called from its page walk without a
+  cycle. CARD-306's new `src/nonogram/admin/book_sheet_vector.py` was deliberately built
+  **kind-agnostic for all interior kinds** and imports only `book_vector`, `book_vector_draw` and
+  `export.layout` — the minimum set that breaks that cycle, asserted by set equality. **Its
+  furniture is ready for the other four kinds; the assembly point is the thing that is missing**,
+  and that is this card's work.
+- Guide, TOC and answer pages currently carry **no frame at all**. CARD-306 declared that a
+  residual and named it as this card's.

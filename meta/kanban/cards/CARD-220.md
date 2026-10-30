@@ -1,6 +1,6 @@
 # CARD-220: Retire tests whose coverage another test already provides — only with a named survivor
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,15 +9,15 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/220-retire-subsumed-tests
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-220
 **Source:** owner request 2026-10-13 ("make cards for tests curation") — the deletion half, deliberately cut last and narrowest of the four
 **Idea:** —
 **Wave:** 68 <!-- STAMPED 2026-10-30: owner sequenced this AFTER CARD-304. Encoded as a later wave rather than a `Depends on: CARD-304` edge, because there is no technical dependency -- 220 needs only CARD-217 (done). A sequencing preference written as a dependency would pollute the graph the dispatcher reasons over. -->
 **Created wave:** 37
 **Deferred waves:** 0
-**Depends on:** CARD-217
-**Touches:** tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/ <!-- NARROWED 2026-10-30 on owner decision, from `tests/**`. Two reasons, both measured. (1) `tests/**` overlaps essentially every open card, so under `dispatcher.max_overlap: 0.3` this card could only ever run ALONE and would block its whole wave. (2) The narrowing matches the card's OWN method: step 1 already restricts candidates to tests that are 'both expensive (in the top-50 list or a top-20 file) and suspected subsumed', so a repo-wide footprint was always wider than the work. The paths named here are where the measured cost actually is -- `test_book_export_interior_cover.py` alone is 29.8% of the suite's wall clock (90 -> 127 tests, 344.29s -> 467.30s standalone). THIS IS A FOOTPRINT NARROWING, NOT A SCOPE CUT: the deletion rule, the three never-touch classes and the per-pair mutation proof are untouched. If a proven-subsumed pair turns up outside these paths, widen the field with the reason -- do not delete outside the declared footprint silently. -->
-**Review score:** —
+**Depends on:** CARD-217 <!-- DISPATCH NOTE 2026-10-30: dispatched alongside CARD-314 while CARD-304 sits at its merge gate rather than merged. The wave-68 comment below records the owner's 'after CARD-304' sequencing; 304's implementation, two review cycles and two fix rounds are all complete and only the gate remains, so the sequencing is honoured in substance. Measured before dispatching: CARD-220 shares NO declared path with CARD-314 (Jaccard 0.00) and one with CARD-309 (`tests/test_book_pdf.py`, 0.09) -- both under `max_overlap: 0.3`, and neither is a conflict hotspot, while `book_pdf_generator.py`, which IS one, is touched by 309 and by neither of these two. -->
+**Touches:** tests/test_book_pdf_band.py, tests/test_book_puzzle_frame.py <!-- ACTUAL, re-derived from `git diff --name-only 4d164f62..a58284bb` at implementation. The declared footprint below was `tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/` and NOT ONE of those was touched -- the round widened with its reason, which the narrowing note itself sanctions, and flagged it rather than widening silently. `meta/profiling/` was deliberately left alone per AC-6's "recorded, not asserted". --> ORIGINAL DECLARATION: tests/test_book_export_interior_cover.py, tests/test_book_pdf.py, tests/helpers/book_corpus.py, meta/profiling/ <!-- NARROWED 2026-10-30 on owner decision, from `tests/**`. Two reasons, both measured. (1) `tests/**` overlaps essentially every open card, so under `dispatcher.max_overlap: 0.3` this card could only ever run ALONE and would block its whole wave. (2) The narrowing matches the card's OWN method: step 1 already restricts candidates to tests that are 'both expensive (in the top-50 list or a top-20 file) and suspected subsumed', so a repo-wide footprint was always wider than the work. The paths named here are where the measured cost actually is -- `test_book_export_interior_cover.py` alone is 29.8% of the suite's wall clock (90 -> 127 tests, 344.29s -> 467.30s standalone). THIS IS A FOOTPRINT NARROWING, NOT A SCOPE CUT: the deletion rule, the three never-touch classes and the per-pair mutation proof are untouched. If a proven-subsumed pair turns up outside these paths, widen the field with the reason -- do not delete outside the declared footprint silently. -->
+**Review score:** — (implemented `a58284bb`, review cycle 1 running)
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -341,3 +341,113 @@ raised and could not touch under G-2 are genuinely this card's:
   a `getfixturevalue` consumer reds **both** the per-file guard and the shared
   one. CARD-219's G-2 forbade deleting them; retiring them here needs the shared
   version named as the survivor.
+
+---
+
+## Implementation — `4d164f62` → `a58284bb`, 1 commit, 2 files, +66/−92
+
+**Outcome: 2 deletions, both proven by mutation. No escalation** — the card's trigger is
+"dozens", and the subsumption bar held, rejecting every other candidate including the expensive
+ones. Worktree clean, nothing pushed or rebased, `meta/kanban/cards/` untouched. The lock was
+checked by absolute path before every run batch and was **clear every time**, so no run collapsed
+to 0 collected.
+
+### What was deleted, and what proved it
+
+Both copies of `test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue` — in
+`test_book_pdf_band.py` and `test_book_puzzle_frame.py`. **Survivor:**
+`test_shared_fixture_controls.py::TestSharedControls_TheCopiesCannotComeBack::test_no_importer_reaches_for_a_fixture_at_run_time`,
+which applies the **identical bound** over **every importer** of the shared home. Importer set
+measured by `ast` = exactly **3**: band, puzzle_frame, **and `test_book_puzzle_page_vector.py`,
+which never had a per-file copy** — so the survivor already covered **strictly more** than the two
+copies did.
+
+**The decisive methodological step was mutating one file at a time**, because with both planted the
+survivor short-circuits on the first importer and names only band — which would have left the
+second pair unproven:
+
+| mutant | band's guard | frame's guard | survivor |
+|---|---|---|---|
+| none (negative control) | PASS | PASS | PASS |
+| consumer planted in **band only** | FAIL | PASS | **FAIL**, naming band's line |
+| consumer planted in **frame only** | PASS | FAIL | **FAIL**, naming frame's line |
+| near-miss: the word in a docstring only | PASS | PASS | PASS |
+
+**The near-miss is the instrument's negative control and it earns its place**: a grep instrument
+would have fired **7 times per file** on that tree. The bound is an AST reading, not a text match.
+The survivor is **not skip-gated** on this host — stated explicitly, because a skipped survivor
+would have failed the bar.
+
+Also removed as the deletion's own debris: band's now-unused `import ast` and `from pathlib import
+Path`, measured to zero remaining references. Frame keeps both (`ast` used 10× elsewhere). **Each
+deletion site carries a comment naming the survivor and the mutation**, so the rule is satisfied
+**in the diff**, not only in a report.
+
+### AC-5 satisfied by a pair that was NOT subsumed
+
+The suite's two most expensive tests in its #1 file look like the same 36-row table walked twice.
+Mutating the shared table, **both failed — on different assertions about different claims**: one
+died on the *coverage* claim (a shape came back silent), the other on a **bookkeeping/consistency**
+assertion and **never reached its coverage measurement at all**. So neither subsumes the other, and
+both are kept. **A pair that looked redundant and was not is the card's own named success case.**
+
+Three further groups were rejected without mutation, each with its reason — including one pair
+where the second test **is the first's negative control** (*"the negative has teeth"*), so deleting
+either would destroy an instrument proof.
+
+### AC-2 / AC-3 / AC-4 as measurements against `4d164f62`, each with its instrument proved
+
+- **AC-2**: fork point **9819** → HEAD **9817**. Removed set = exactly the two enumerated
+  deletions; **added set empty**; equality in **both directions**. Positive control: the diff rises
+  by the right amount. Negative control: HEAD vs a second independent collect yields 0/0, so no
+  spurious ordering diff. **Both collects returned non-zero counts, so neither was a 0-collected
+  run** — the trap that would have been catastrophic for this card specifically.
+- **AC-3**: changed files = the two test modules; intersection with the protected set **EMPTY**
+  (independently re-derived here from `git diff --name-only`). Protected node ids green, 66 passed,
+  0 skipped. Its negative control is the good one: `test_book_puzzle_frame.py` mentions "A4" in
+  prose and **a text search would have pulled it in** as the A4 golden test — membership is by
+  path, so it correctly does not count.
+- **AC-4**: an `ast` collector keying every `len(...) >= N` floor, including literals reached
+  through a module-level constant, **with `lineno` deliberately excluded** because deleting a test
+  shifts every later line and would make every site look changed. Fork point **286** sites, HEAD
+  **286**, **0 fallen, 0 lost, 0 new**. **4 positive controls all rise and 5 negative controls all
+  correctly do not** — this is the instrument that would otherwise have reported "no minimum fell"
+  while blind.
+
+### Cost: the honest answer is that there isn't one
+
+BEFORE **13.47–14.75 s** (257 passed), AFTER **12.72–13.27 s** (255 passed), 3 reps each,
+`__pycache__` swept, lock clear. **The ranges barely clear each other and no performance claim is
+defensible**: the two deleted tests measured **0.01 s and 0.02 s**, so ~0.03 s is the honest
+saving and the rest is run-to-run noise. **This confirms CARD-217's own recommendation that no
+single test is worth deleting.** The value delivered is maintenance — one bound in one place
+instead of three near-copies, and the third importer now covered where no per-file copy ever
+covered it. **Zero skips in every run**, `-rs` used.
+
+### THREE FINDINGS ABOUT THIS CARD — the second is structural and blocks a re-cut
+
+1. **Both deletions are OUTSIDE the narrowed `Touches`**, and not one of the four declared paths
+   was touched. The narrowing note sanctions exactly this (*"if a proven-subsumed pair turns up
+   outside these paths, widen the field with the reason — do not delete outside the declared
+   footprint silently"*), and the round flagged it rather than widening quietly. `Touches` corrected
+   above.
+2. **The card's step-1 cost gate and its 2026-10-24 fence contradict each other.** Step 1 requires
+   a candidate be *"both expensive and suspected subsumed"*. The two tests the fence assigns to this
+   card are **not expensive by any reading** — band is file #42 at 0.189 s/test, frame #76 at
+   0.026 s/test, and the tests themselves cost 0.01 s and 0.02 s. **So the only deletions this card
+   authorises fail its own cost gate, and the only cost-qualifying candidates are ones it must not
+   delete.** The round took the later specific fence over the earlier general filter, which is the
+   right reading, but **this must be resolved before the card is ever re-cut.** Also measured: of
+   the four declared paths, `test_book_pdf.py` is **0.099 s/test with zero top-50 members** — inside
+   CARD-217's "6057 tests under 0.1 s" class — and `helpers/book_corpus.py` has **no node ids at
+   all**, so **only one of the four could ever host a cost-qualifying candidate.**
+3. **The 20261023 rankings overstate that file's two most expensive tests by 5–10×** when they run
+   as a small selection: **81.03 s → 16.34 s** and **67.08 s → 6.43 s**, same host, lock clear.
+   Likely a per-text source-segmentation memo amortising differently, plus full-suite contention.
+   **The ~255 s the digest attributes to five tests is not ~255 s of recoverable time**, and anyone
+   re-cutting a curation card from those numbers must re-measure first. **That is a figure whose
+   domain was never stated — this week's dominant family, in the profiling data this time.**
+
+One deviation stated rather than chosen silently: the card's step 6 asks for a **solo re-profile**,
+which means the full suite; the brief reserves that for the merge gate. The round profiled the
+affected scope instead **and said so**.

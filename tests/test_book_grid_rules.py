@@ -87,7 +87,7 @@ from PIL import ImageDraw, Image
 from nonogram.admin import book_vector_draw
 from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
-from nonogram.admin.book_vector import write_vector_pdf
+from nonogram.admin.book_vector import POINTS_PER_INCH, write_vector_pdf
 from nonogram.export import png
 from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
@@ -99,6 +99,8 @@ from nonogram.export.layout import (
     Layout,
     _device_rule_px,
     compute_answer_page_layout,
+    interior_frame,
+    qr_slot,
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
@@ -180,6 +182,14 @@ class Drawn:
             spec = replace(spec, grid_rules=rules)
         self.layout = compute_layout(payload.row_clues, payload.column_clues, spec)
         stream = generator.vector_puzzle_page(payload, 1, A_PUZZLE_PAGE, sizes)
+        # Since CARD-306 the production page also carries the **sheet's**
+        # furniture — the interior frame's two rules and the QR icon's
+        # border — which are not grid rules and which every reading in this
+        # module is asked to leave alone. What they are is derived from
+        # COMP-007's own frame, never named: see :meth:`furniture_widths`.
+        self.frame = interior_frame(spec)
+        self.qr_groups = 0 if qr_slot(self.layout) is None else 1
+        self.has_furniture = rules is None
         if rules is not None:
             # The generator's own door builds the sheet from the book profile,
             # so an alternative set of weights is drawn through the same
@@ -188,6 +198,7 @@ class Drawn:
             book_vector_draw.draw_ruled_grid(stream, self.layout)
             if self.layout.frame is not None:
                 book_vector_draw.draw_frame(stream, self.layout.frame)
+            self.qr_groups = 0
         self.pdf = write_vector_pdf([stream], 1).getvalue()
         (self.text,) = pdf_vector.content_streams(self.pdf)
         self._tmp_path = tmp_path
@@ -204,9 +215,46 @@ class Drawn:
 
     # -- stream readings ---------------------------------------------------
 
+    def furniture_widths(self) -> list[float]:
+        """The ``w`` operands the **sheet's** furniture sets, in emission order.
+
+        Derived from COMP-007's :class:`~nonogram.export.layout.InteriorFrame`
+        rather than named (CARD-306): the header rule's own device width in
+        points, then the footer hairline's, then one per QR group for the
+        icon's border — which ``book_sheet_vector`` strokes at the hairline's
+        own weight. Empty for a page drawn without furniture (the alternative
+        ``GridRules`` arm, which goes through the bare draw routines).
+        """
+        if not self.has_furniture:
+            return []
+        scale = POINTS_PER_INCH / self.layout.dpi
+        hairline = round(self.frame.footer_rule.width * scale, 3)
+        return [round(self.frame.header_rule.width * scale, 3), hairline] + [
+            hairline
+        ] * self.qr_groups
+
     def stated_widths(self) -> list[float]:
-        """Every ``w`` operand of the page, in order, in points."""
-        return pdf_vector.stroke_widths(self.text)
+        """Every ``w`` operand the **grid** sets, in order, in points.
+
+        The whole list with the sheet's furniture taken off the **end** —
+        ``book_sheet_vector`` draws after ``book_puzzle_vector``, so the
+        furniture's widths are the last ones emitted and the grid's are
+        untouched by this card.
+
+        **Removed by position and checked by value, not filtered by value**
+        (ADR-0039/R2): the trailing operands must be exactly
+        :meth:`furniture_widths`' derived list, so a furniture rule that
+        changed weight, vanished or doubled reds here rather than silently
+        leaving a grid reading short — or, worse, a grid weight that happened
+        to equal a furniture weight being filtered out of the grid's own
+        readings.
+        """
+        every = pdf_vector.stroke_widths(self.text)
+        sheet = self.furniture_widths()
+        if not sheet:
+            return every
+        assert every[-len(sheet):] == sheet, (every[-len(sheet):], sheet)
+        return every[: -len(sheet)]
 
     def stroke_tones(self) -> list[float]:
         """Every stroke tone (``G``) the page sets, in order."""
@@ -1265,4 +1313,19 @@ def _strokes_by_axis(drawn: Drawn) -> tuple[list, list]:
             verticals.append((x1, width))
         else:
             horizontals.append((y1, width))
-    return verticals, horizontals
+    # The sheet's own two rules are horizontals and are not grid rules
+    # (CARD-306). Their rows come from COMP-007's frame, and **each must be
+    # found exactly once**: a filter that merely dropped matching rows would
+    # pass a page that had lost one.
+    scale = POINTS_PER_INCH / drawn.layout.dpi
+    wanted = {
+        round((drawn.layout.height - rule.y) * scale, 3)
+        for rule in (drawn.frame.header_rule, drawn.frame.footer_rule)
+    } if drawn.has_furniture else set()
+    kept = [pair for pair in horizontals if pair[0] not in wanted]
+    assert len(horizontals) - len(kept) == len(wanted), (
+        len(horizontals),
+        len(kept),
+        wanted,
+    )
+    return verticals, kept
