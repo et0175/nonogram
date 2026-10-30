@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-299
 **Touches:** src/nonogram/admin/book_vector.py, src/nonogram/admin/book_vector_draw.py, tests/helpers/pdf_vector.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_vector_primitives.py, tests/test_book_puzzle_page_vector.py, tests/test_book_solved_answer_key.py, meta/architecture/trace.yml <!-- CORRECTED at implementation from `git diff --numstat 4d164f62..7f40f30f`. The declaration was wrong in three ways. (1) It named `book_puzzle_vector.py`; the mark actually lives in **`book_vector_draw.py`**, one chokepoint serving BOTH page kinds, which is why the card's two-kind scope costs nothing extra. (2) It named `requirements.yml`; the card touches **`trace.yml`** instead and leaves requirements.yml byte-unchanged -- G-1 says only the VERIFICATION changes, and verification lives in trace.yml. (3) It was short by four test files, every one a structural default-DENY guard that refused an operator or member nobody had classified: the vector-primitives mark guard, the puzzle-page operator reader and state-operator count, and the answer-key door probe plus its emitted-operator set (16->18 and 8->10 members). **Each guard behaved correctly and each is now classified with its own measurement rather than silenced**, and two were strengthened -- the answer-key module now asserts the mark is on answer pages and NOT on the TOC, per kind. -->
-**Review score:** — (implemented `7f40f30f`)
+**Review score:** **8.5 (cycle 1/3) — CERTIFIES**, 12 findings, **none a defect in shipped behaviour**; fix round 1 running. **F-004 is with the owner** (it proposes a rename, which G-6 forbids).
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -290,3 +290,91 @@ refuses; **0 `DATABASE_URL`-gated skips in this radius.** Runtime as ranges with
 floor module **2.3–3.1 s**; the whole blast radius **1239 passed, 1 skipped in ~198 s**; and the
 round measured its own **run-to-run spread at ~15%** on a fixed 8-module set (54 s against 62 s), so
 it states single figures as ±15% rather than publishing them bare. No load figure.
+
+---
+
+## Review cycle 1 — **8.5 / 10, CERTIFIES**, 12 findings, **none a defect in shipped behaviour**
+
+`meta/review/20261030T060000Z-CARD-314-cycle1.yml` (synced under the timestamped convention; the
+round wrote it unstamped). Every finding is a **control gap or a claim-accuracy issue** — which is
+precisely why a fix round is worth taking on this card and not on another: **this is the card that
+makes an exemption provable, so an uncontrolled control is the one defect it cannot ship.**
+
+**Run conditions, stated rather than assumed.** The lock **was held** at start (CARD-304's merge
+gate). All 18 mutants ran from an **out-of-tree archive**, where the guard passed honestly because
+that tree has no lock of its own — **no override environment variable anywhere**, which is the
+standing rule. When the lock cleared the reviewer **re-ran the 733-test radius in the real worktree
+lock-free and got an identical reading** — the control proving the archive's numbers transfer.
+**No run collected 0 tests.**
+
+### F-001 — the card's own thesis, one notch down, and nothing would notice
+
+**Replacing the tag test with `bool(stack)` — exempt inside *any* marked-content sequence — passes
+all 733 tests.** AC-2 proves the exemption is **not by size**; the corollary, **"by THIS mark, not
+by any bracket"**, has **no control that can fail.** And the risk is concrete: **`/Artifact` is the
+standard PDF idiom** for the next decorative run anyone brackets, and the moment one appears every
+face inside it becomes exempt. **A provenance exemption that accepts any provenance is a magic
+bracket instead of a magic number** — the same defect this card was cut to remove, one level down.
+~4 lines.
+
+### What the brief asked, answered with measurements
+
+- **Can a clue digit reach the stream unmarked? No** — the drawer is the only caller of the entry
+  writer, and its only two callers are the puzzle and answer writers, **derived by grep**. A mutant
+  drawing the first entry *outside* the bracket reds 5.
+- **Can the mark be forged? Yes in principle, caught in practice — but NOT by the guard that claims
+  it (F-006).** A raw operator-row append planted in the answer writer **did not red**
+  `test_only_the_clue_digit_drawer_emits_the_mark`; **AC-3's instrument caught it incidentally.** So
+  the guard's name asserts something it does not perform.
+- **The emitter set is DERIVED** — a directory glob, 26 files, exact set equality with a
+  non-emptiness guard, scope gap measured at **0 files today**. Hand-chosen: the directory, and the
+  assumption that *emitting* means *calling the method* — which is exactly the gap F-006 fell through.
+- **Compression round-trip verified off the written file** (`BMC 1`, 204 of 209 faces exempt), and
+  the writer's refusal sits on the real export path. **Nesting works as documented and is completely
+  unmeasured (F-002)** — `stack.pop()` → `stack.clear()` survives all 733.
+- **No guard was silenced — proved, not read.** A planted **public** stream member reds **6 tests
+  across 2 modules**; a planted **private** one reds 0. The stroker set is **unmoved at eight**.
+- **All ten `trace.yml` refs resolve by `class` line, 0 dead**; `requirements.yml` **byte-unchanged**
+  (G-1). **G-5's mechanism holds, not just its count**: `PageKind` has 7 values and all 7 are
+  declared, undeclared `[]`.
+- **The card's scope-correction premise is stale — confirmed.** Re-derived out of tree at the fork
+  point: the guard reads against a derived kind set that evaluates to both kinds, and the answer-page
+  test is live. **The round was right and the card's paragraph describes a state that had already
+  stopped existing.**
+- **The render reproduces**: **0 differing pixels of 2,103,750**, max abs diff 0, text layer
+  byte-identical, **+26 bytes** — and the reviewer looked at the page: band, grid, clue digits, frame
+  rules, footer, folio, QR group all present.
+- **Every re-derived figure is exact**: 462 / 644 / **1106**, answer **580** vs puzzle **526**; the EC
+  corpus's 18 pages, **3557** exempt faces, **11** distinct sizes, **4 above the floor** (10.56,
+  11.04, 12.96, 13.20), 2629 below, 67 non-exempt at min 10.08; node ids **317 → 330, +13 / 0 / 0**;
+  and all four of the card's own mutant splits reproduce.
+
+### The other findings
+
+**F-003 — a shipped assertion that cannot fail, and it is dead twice over**: an `or True` makes it
+unconditional, **and its left operand is always False anyway**, because it tests the tag's *value*
+against a set of *attribute names*. It sits **inside the class that holds the mark's authorship**.
+**F-005 — the 46/47 split is module-scoped and reads as whole-radius**: across 733 tests the same
+per-digit drawer reds **4 tests in 2 modules**, the three extra being this card's own operator-economy
+derivations. **The division is still correct** — all four are economy claims and **no AC-bearing test
+rises**. **F-007 — the round's own correction #5 overstates its hazard**: proven by mutant, that test
+would have gone **RED**, not silently vacuous. **F-008** — AC-2's docstring describes a plant through
+the stream's text method when it is appended as a raw operator row. **F-011 — the "1080 operators on a
+30×30" economy figure is measured nowhere**: real 30×30s give **449–468** and the rendered page
+**204**. **F-010** — "each reclassification carries its own measurement" is one guard too broad: one is
+a filing decision whose measurement lives in another module. **F-009** — a dead local and its `del`.
+And the card's **M4 figure is plant-site-dependent with its line unnamed**, so it is **not
+independently checkable** — the reviewer's own plant site gives 4/43 against the card's 2/45.
+
+### F-004 — WITH THE OWNER, because it asks to break this card's own G-6
+
+The two tests whose names now sit off their bodies. **The reviewer ruled against the round**: the
+names are true only of the **mutated** page the test builds; of the page **this card ships**, the
+opposite is true **and is the card's headline**. It argues **G-6's purpose — coverage cannot vanish —
+is not violated by a *declared* rename**, and that CON-020's `covered` trace row is exactly where
+someone resolves which test means what. **G-6 forbids renaming in plain words**, so this is not the
+round's to settle and not the orchestrator's.
+
+- [Review 1/3] Score: 8.5 ✓ threshold reached, certifies, 0 defects in shipped behaviour
+- [Fix 1] Dispatched on F-001, F-002, F-003, F-005, F-006, F-007, F-008, F-009, F-010, F-011 and the
+  unnamed M4 plant site. **F-004 excluded and escalated.**
