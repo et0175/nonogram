@@ -291,6 +291,12 @@
     </div>
     <p class="player-progress" id="puzzle-player-progress">Progress: <span class="player-progress-count" data-player-progress>0%</span></p>
     </div>
+    <div class="player-probe" id="puzzle-player-probe-bar" role="group" aria-label="Probe" hidden>
+        <button type="button" class="btn btn-outline-secondary" id="puzzle-player-probe" data-player-probe aria-pressed="false" aria-disabled="false">Probe</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="keep" hidden>Keep</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-probe-action="abandon" hidden>Contradiction</button>
+        <p class="player-probe-note" id="puzzle-player-probe-note" hidden>Leaving this page abandons the open probe &mdash; press Keep or Contradiction first.</p>
+    </div>
 </div>
 
 <div class="player-stage" id="puzzle-player">

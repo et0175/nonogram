@@ -454,6 +454,49 @@
 // the half-painted crosshair the card refuses: the next move onto that same
 // cell would take the "same cell, nothing to do" return and paint nothing.
 // So redraw() calls forget(), and the next pointer event paints afresh.
+//
+// PROBE (CARD-268, owner decision 2026-10-22, player-convenience session:
+// "for puzzles that need contradiction-probing add another color for probing
+// cells", shaped in the same session into a transaction rather than a colour).
+// What a solver does when probing is make a GROUP of marks under one
+// hypothesis and then either revert them all or keep them all, so the probe
+// is a TRANSACTION and never a fifth cell state: during one the player marks
+// filled, empty AND "?" cells. CELL_STATES keeps exactly its four members and
+// no data-state value changes — the template's own comment says every
+// selector, save and test on this page is keyed on those values — so
+// membership rides a separate attribute, data-probe on td.player-cell.
+//
+// The value is ONE NUMBER and it lives in wireMarking beside Region's flag
+// and the ladder's rung: the probe is the CHECKPOINT it opened at (how many
+// entries the undo stack held then), or null. Every transition is
+// solver_state.js's (nextProbe, abandonProbe, probeCells, checkpointHistory,
+// ADR-0038/R4) and this file only says which event happened. What is this
+// file's:
+//   controls  three real buttons in #puzzle-player-probe-bar, a group on the
+//             toolbar's last flex line (admin.css carries the measurements
+//             that put it there rather than inside .player-tools, and that
+//             decide which air pays for the line). Probe is a toggle carrying
+//             aria-pressed, and aria-disabled while a probe is open — rule
+//             1's depth of 1, said rather than silently done; Keep and
+//             Contradiction are offered only while one is open, with the
+//             one-line notice that leaving the page abandons it (rule 9).
+//             Opening and Keep record nothing and so do not go through
+//             commit(); Contradiction IS a run of undos and so is an
+//             ordinary commit, which is what makes redo after it behave
+//             exactly as redo after an undo always has (rule 4).
+//   markers   paintProbe() in start() writes data-probe on the member cells
+//             after every recorded change, after every redraw and on the
+//             probe's own presses. A drag's PREVIEW is not repainted:
+//             nothing is recorded yet, so those cells become members at the
+//             drag's own commit and not before.
+//   the save  while a probe is open the stored entry is the entry as of the
+//             checkpoint (serializeState of checkpointHistory), so a save
+//             never holds a probe stroke and deserializeState is unchanged.
+// Nothing here fetches: open, mark, Keep and Contradiction make no request
+// (ADR-0038/R2), and nothing of the probe reaches a server or any storage
+// beyond the one localStorage entry the player already keeps (CON-021).
+// The counters, the progress percent and the clue circles are untouched: they
+// read the board as it is, probe marks included (rule 8).
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
@@ -484,6 +527,11 @@ import {
 // (ADR-0038/R4); answerOfBoard is imported by static/puzzle_edit.js, not by
 // this file, which never asks a board for its answer.
 import { boardOfGrid } from "./solver_state.js";
+// Probe mode (CARD-268): see PROBE below. The checkpoint arithmetic, the
+// membership, the clamp, the two transitions and the checkpoint prefix a save
+// is written from are all pure (ADR-0038/R4); the three buttons, the one-line
+// notice and the tint on the member cells are this file's.
+import { abandonProbe, checkpointHistory, nextProbe, probeCells } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -809,6 +857,22 @@ function start() {
     if (hintedAt) element(hintedAt)?.classList.add("is-hinted");
   }
 
+  // CARD-268: which cells the open probe holds, written as data-probe (see
+  // PROBE above). Membership is DERIVED from the history and the checkpoint
+  // (solver_state.js probeCells) and stored nowhere, so this is simply
+  // rewritten wherever either can have moved: every commit, every redraw, and
+  // the probe's own presses (player.probed below). Nothing is remembered
+  // between calls, so there is no stale half-painted state a redraw could
+  // leave behind — the crosshair's forget() has no counterpart here.
+  function paintProbe() {
+    const members = new Set(probeCells(history, marking.getProbe())
+      .map(([row, col]) => row * payload.width + col));
+    cellElements.forEach((element, index) => {
+      if (members.has(index)) element.dataset.probe = "true";
+      else delete element.dataset.probe;
+    });
+  }
+
   // CARD-193: boards wider than BIG_SIDE columns mirror their row clues to
   // the right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
   // shell breakpoint, the same one admin.css keys the phone cell floor to.
@@ -979,6 +1043,9 @@ function start() {
     clueNumbers = clueNumbersOf(table);
     keepCluesInView();
     paint(cellElements, board);
+    // CARD-268: the markers go on the cells the redraw has just replaced, so
+    // they are written again here, beside the board itself.
+    paintProbe();
     // The highlighted ELEMENT is gone with the old table; the hinted CELL is
     // not, so it is put back on the new one (CARD-212 review cycle 2,
     // G-003). Before this card a redraw meant crossing 820 px; it now also
@@ -1017,13 +1084,36 @@ function start() {
       board = next;
       paint(cellElements, board);
     },
+    // CARD-268 rule 7: whether `candidate` solves the puzzle, asked by
+    // wireMarking's commit about the board it is ABOUT to record, so a probe
+    // that reached the solved state can commit before the save is written
+    // from it (rule 9). In edit mode there is no solved state at all
+    // (showProgress returns at once), so no probe ever auto-commits there.
+    solves: (candidate) => !editing && isSolved(candidate, payload.solution),
+    // CARD-268: a probe opened or closed with nothing recorded, so only the
+    // markers move — and the save, but only on the CLOSE. While a probe is
+    // open the stored entry is already the entry as of the checkpoint (the
+    // last commit wrote it and nothing has been recorded since), and
+    // rewriting it through checkpointHistory would drop a pending redo the
+    // checkpoint still had; the moment the probe closes the whole history is
+    // savable again. Keyed on the probe being null rather than on a flag the
+    // caller passes, so the two cases cannot disagree about which happened.
+    probed() {
+      paintProbe();
+      if (marking.getProbe() === null) save.write(serializeState(history, payload));
+    },
     commit(next, hint) {
       history = next;
       board = history.board;
       paint(cellElements, board);
+      paintProbe();
       showHint(hint ? { row: hint.row, col: hint.col } : null);
       showProgress(hint);
-      save.write(serializeState(history, payload));
+      // CARD-268 rule 9: while a probe is open the entry is the history as of
+      // its checkpoint, so a save never holds a probe stroke and a reload
+      // resumes at the probe's start. With no probe open checkpointHistory
+      // returns `history` itself, so this is exactly CARD-185's line.
+      save.write(serializeState(checkpointHistory(history, marking.getProbe()), payload));
       // CARD-246 (see BOARD CHANGE above): the one announcement of a
       // recorded change, for the one consumer that needs it. Off in the
       // player, which has nobody listening and must stay byte-identical.
@@ -1544,6 +1634,26 @@ function wireMarking(container, player) {
   // nothing highlighted (AC-9).
   let rung = RUNG_POINT;
   let ladderLine = null;
+  // The probe (CARD-268, see PROBE above): null, or the checkpoint it opened
+  // at. Player state of Region's and the rung's kind — the whole transition
+  // table is solver_state.js nextProbe, so this file only says which event
+  // happened — and never a cell state, never recorded and never saved, so a
+  // load always starts with no probe open (rule 9).
+  let probe = null;
+  // The probe's controls sit in a group of their own on the toolbar's last
+  // flex line (admin.css carries the measurements that put them there rather
+  // than inside .player-tools). They are read from that bar by their own
+  // data-player-probe-action — data-player-zoom-action's precedent — rather
+  // than joining `actions`, which collects [data-player-action] and would
+  // then hand Undo's and Reset's neighbours two entries that are not history
+  // controls. All of them are absent on the manual editor's page (CARD-246),
+  // which loads this same file and is not offered a probe; the null
+  // discipline is Hint's and Check's.
+  const probeBar = document.getElementById("puzzle-player-probe-bar");
+  const probeToggle = probeBar?.querySelector("[data-player-probe]") ?? null;
+  const probeKeep = probeBar?.querySelector('[data-player-probe-action="keep"]') ?? null;
+  const probeAbandon = probeBar?.querySelector('[data-player-probe-action="abandon"]') ?? null;
+  const probeNote = probeBar?.querySelector(".player-probe-note") ?? null;
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
 
@@ -1732,6 +1842,30 @@ function wireMarking(container, player) {
     if (ladderLine !== null) paintLadderLine(ladderLine, true);
   }
 
+  // The probe bar from `probe` and the lock — rendering, and nothing else:
+  // the toggle's pressed state, whether it can act, and whether the two
+  // actions and the leaving-abandons line are offered at all. refresh() calls
+  // it, so every recorded change and every redraw re-sync it.
+  //
+  // DEPTH 1 (rule 1) is SAID and not silently done. Of the card's two options
+  // — a disabled control or a no-op — this is the disabled one, which is the
+  // discipline every other control on this page already follows: Undo, Redo,
+  // Reset, Hint and Check all stay focusable and say aria-disabled="true"
+  // when they have nothing to do, and the handler returns early as Reset's
+  // does. aria-pressed keeps carrying whether a probe is OPEN, because that
+  // is the state a screen reader needs and the one thing the tint cannot say
+  // for the controls. The lock disables it too: a solved board has nothing
+  // left to probe, and rule 7 has already committed any probe that got there.
+  function syncProbe() {
+    if (probeBar === null) return;
+    const open = probe !== null;
+    probeToggle.setAttribute("aria-pressed", String(open));
+    probeToggle.setAttribute("aria-disabled", String(open || player.locked()));
+    probeKeep.hidden = !open;
+    probeAbandon.hidden = !open;
+    probeNote.hidden = !open;
+  }
+
   function refresh() {
     const { board: current, done, undone } = player.getHistory();
     const locked = player.locked();
@@ -1768,6 +1902,7 @@ function wireMarking(container, player) {
     // calls this function last, so painting it back here is what keeps a
     // rung the reader is standing on visible across a resize.
     if (ladderLine !== null) paintLadderLine(ladderLine, true);
+    syncProbe(); // CARD-268
   }
 
   function commit(next, hint = null) {
@@ -1781,6 +1916,13 @@ function wireMarking(container, player) {
     // stale line on it.
     rung = nextRung(rung, "change");
     setLadderLine(null);
+    // CARD-268: the probe follows the recorded change BEFORE the change is
+    // handed over, because player.commit writes the save from it (rule 9). A
+    // board that reaches the solved state was a correct hypothesis, so the
+    // probe COMMITS (rule 7); otherwise the checkpoint clamps to the undo
+    // stack it still has (rule 6) — which is how a probe shrinks to empty and
+    // stays open instead of adopting strokes made before it started.
+    probe = nextProbe(probe, next, player.solves(next.board) ? "keep" : "change");
     // And the visible answer line goes with the highlight: a sentence about
     // the board as it was is worse than no sentence (CARD-269 review F-2).
     // Cleared BEFORE player.commit, so rung 3's own reveal — which arrives
@@ -1988,6 +2130,46 @@ function wireMarking(container, player) {
   // should. It never touches `tool` or `lastClick`.
   regionToggle.addEventListener("click", () => setRegion(nextRegion(region, "toggle")));
 
+  // The probe's three controls (CARD-268, see PROBE above). Native <button>s,
+  // so Enter and Space already arrive as "click"; none of them moves focus,
+  // none touches `tool`, and none makes a request (G-2). All three are
+  // ignored mid-gesture, for Hint's and Check's reason: a drag is one input
+  // and the board is still being painted.
+  //   Probe          opens one at the current history position (rule 2). It
+  //                  records nothing, so it does not go through commit() —
+  //                  the board, the counters, the ladder and `lastClick` are
+  //                  all untouched by opening a probe, because pressing it is
+  //                  not a mark. Pressing it while one is open is refused by
+  //                  the attribute AND, were it ever reached, by nextProbe's
+  //                  own depth of 1 (rule 1).
+  //   Keep           closes it and leaves every cell exactly as it is (rule
+  //                  5): commit is a change of status, not of cells. Records
+  //                  nothing either, for the same reason.
+  //   Contradiction  closes it after undoing back to the checkpoint (rule 4).
+  //                  That IS a recorded change — a run of undos — so it goes
+  //                  through commit() like any other, which is what makes
+  //                  redo after an abandon behave exactly as redo after an
+  //                  undo always has. The probe is closed BEFORE the commit,
+  //                  so the save that commit writes is the whole history.
+  probeToggle?.addEventListener("click", () => {
+    if (gesture || probeToggle.getAttribute("aria-disabled") === "true") return;
+    probe = nextProbe(probe, player.getHistory(), "open");
+    player.probed();
+    refresh();
+  });
+  probeKeep?.addEventListener("click", () => {
+    if (gesture || probe === null) return;
+    probe = nextProbe(probe, player.getHistory(), "keep");
+    player.probed();
+    refresh();
+  });
+  probeAbandon?.addEventListener("click", () => {
+    if (gesture || probe === null) return;
+    const back = abandonProbe(player.getHistory(), probe);
+    probe = nextProbe(probe, back, "abandon");
+    commit(back);
+  });
+
   // Undo and redo change nothing while the board is locked (solved).
   const step = {
     undo: () => (player.locked() ? player.getHistory() : undo(player.getHistory())),
@@ -2068,6 +2250,11 @@ function wireMarking(container, player) {
   });
   // commit closes the confirmation (and returns focus to Reset).
   confirm.querySelector('[data-player-confirm="accept"]').addEventListener("click", () => {
+    // CARD-268 rule 10: a reset clears any open probe. The board the
+    // hypothesis was about is gone, and a reset stroke left INSIDE the probe
+    // would make Contradiction un-reset the board — which is the one thing a
+    // player who has just confirmed a reset cannot have asked for.
+    probe = nextProbe(probe, player.getHistory(), "keep");
     commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
     player.forget(); // a confirmed reset clears the save (see SAVE)
   });
@@ -2105,7 +2292,12 @@ function wireMarking(container, player) {
   // puzzle_edit.html's sake, like the Hint and Check buttons.
   const explainLine = document.getElementById("puzzle-player-explain");
   if (explainLine !== null) explainLine.hidden = false;
-  return { refresh, commit, getZoom: () => zoom };
+  // CARD-268: and the probe bar, with the toolbar and for the toolbar's
+  // reason — a page whose script never ran, or whose payload was refused,
+  // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
+  // Check and the explain line.
+  if (probeBar !== null) probeBar.hidden = false;
+  return { refresh, commit, getZoom: () => zoom, getProbe: () => probe };
 }
 
 start();

@@ -78,6 +78,81 @@ history**; probe membership is *derived from history*, never stored per cell.
     rendering in `solver.js`. Rendering marks membership on the cell (e.g.
     `data-probe` on `td.player-cell`), **never** by changing `data-state`.
 
+### Divergences from the block above, recorded at implementation
+
+The eleven rules are the contract and are **not edited**. These are the places
+the shipped code departs from them, or decides something they left open, each
+with the reason and the test that holds it.
+
+- **Rule 9, in the REDO STACK only.** While a probe is open the save is the
+  history as of the checkpoint *with no redo stack*, where "the save as of the
+  checkpoint" would have carried the redo the player had then. The probe is one
+  number, and from one number an open probe's own undone strokes cannot be told
+  from strokes undone before it (undo a probe stroke and it sits on `undone`
+  exactly as a pre-probe stroke would), so the only answer that can never save
+  a probe stroke is to save no redo stack. The cost is bounded and reachable
+  exactly one way — undo PAST the checkpoint while a probe is open, after which
+  a redo that was pending is not restorable from a reload; the live player's
+  redo is untouched. In every other case the cost is zero, because `record`
+  has already dropped the redo stack itself, and opening a probe writes no save
+  at all. Tested, both halves:
+  `TestSolverResume_AReloadAbandonsTheOpenProbe::test_an_open_probe_saves_no_redo_stack`.
+- **Rule 10 is inconsistent with itself, and "as today" won.** It says Reset
+  "behaves as today" AND that it "clears the board, the history and any open
+  probe". Today's Reset does *not* clear the history: it records one undoable
+  `resetStroke` through `record`, which is what makes "Undo brings them back"
+  true (the confirmation says so). Shipped: the open probe is closed and the
+  board is cleared by that same one undoable stroke, so the history behaves
+  exactly as today. Closing the probe is also the only sane reading — a reset
+  stroke left INSIDE the probe would make Contradiction un-reset the board.
+  Tested by `TestSolverProbe_CountersSeeProbeMarksAsMarks` (which resets
+  between its two runs) and by the mutant `E2` below.
+- **AC-5's either/or: DISABLED, not a no-op.** While a probe is open the
+  toggle carries `aria-disabled="true"` and keeps `aria-pressed="true"`; the
+  handler returns early as Reset's does. That is the discipline every other
+  control on this page already follows, and it tells the player why rather
+  than looking broken. Tested by
+  `TestSolverProbe_OnlyOneProbeAtATime::test_a_second_press_opens_nothing`.
+- **Rule 4's flagged redo edge is NOT ambiguous** (the card asked for a
+  finding if it were). Membership is a function of `(history, probe)` and
+  `probe` is `null` once the probe closes, so a stroke redone past a *closed*
+  probe's old checkpoint is a normal stroke by construction — there is no
+  second place that could still believe it belongs to the probe. Tested by
+  `TestSolverProbe_AbandonRestoresTheCheckpointBoard::test_a_stroke_redone_after_an_abandon_is_a_normal_stroke`.
+- **Design context, not a numbered rule: where the controls are.** The card's
+  Design context put the Probe toggle and the two actions inside
+  `.player-tools`. They ship as a group of their own on the TOOLBAR'S LAST
+  FLEX LINE, and the line's 47 px is paid for by the toolbar's own row gap
+  (8 px), the toolbar's own bottom margin (16 px, the air between it and the
+  board) and 24 px off `.player-stage`'s own `max-height` — never by the cell
+  clamp. **Five measurements decided it**, all written out in `admin.css`
+  beside the rules, and each is one standing test away:
+  (a) at 1280 x 720 the toolbar's first row is exactly full (980 px of content
+  in a 980 px row; `.player-tools` is itself 208 px of content inside its own
+  13rem floor), and `.player-tools > button` / `.player-history > button` are
+  the selectors two standing tests read one-row-ness through;
+  (b) **the board may not move DOWN**, because `#puzzle-player` is a scroll
+  container and so sits in the Tab order: Chromium smooth-scrolls it into view
+  when the brush menu's keyboard test tabs the whole ring, 11 px today at
+  1280 x 720 — just inside half a cell (11.7 px) — and 34 px with the row
+  unpaid, which crosses a row mid-drag and reds 4 of the 8 cases of
+  `tests/test_puzzle_solver_marking.py
+  TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press`;
+  (c) the same shift reds `tests/test_puzzle_solver_zoom.py
+  TestSolverZoom_ZoomKeepsTheViewCentre` at 390 x 844 (a 30 x 30 at 300 % put
+  the stage's own centre at 848.8 past a 844 px window, so
+  `elementFromPoint` answered null);
+  (d) paying for the row in `--player-chrome-h` — otherwise exactly the right
+  property — also feeds the CELL CLAMP, whose height term binds at 1280 x 720:
+  it takes a 15 x 15's cell from 23.4 px to 21.1 px and reds five fit and
+  geometry tests, the largest board's own fit among them. So the stage's cap
+  pays and the board's fit does not;
+  (e) BELOW the board is worse, not better: a focusable control under the fold
+  is reached by the same Tab walk and Chromium scrolls the page 233 px to
+  reveal it, reddening the same keyboard test harder (measured: 5 of 8 cases).
+  Net effect of what shipped, measured: the stage's bottom edge 729.6 px
+  against today's 730.6, and that focus scroll 10 px against today's 11.
+
 ## What to implement
 
 **Current behaviour (verified by reading the code).**

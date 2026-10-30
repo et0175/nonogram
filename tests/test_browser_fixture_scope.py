@@ -204,6 +204,15 @@ ALONE_PROBES = (
     # PAGE_ISOLATION names. Run alone, the count can only be its own.
     "tests/test_puzzle_solver_crosshair.py::"
     "TestSolverCrosshair_IsPureView::test_hovering_issues_no_request",
+    # CARD-268's file postdates ALONE_RECORD too. Of its tests this is the
+    # one a predecessor could most easily fake a verdict for: it installs a
+    # CONTEXT request listener — the kind that outlives a navigation — and one
+    # of its arms is a count of what arrived on it (G-2 for opening a probe
+    # and marking inside one), so a leftover listener or a leftover request
+    # from a test before it is exactly the cross-talk PAGE_ISOLATION names.
+    "tests/test_puzzle_solver_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
@@ -1745,6 +1754,161 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "empty versus full at 1280 and at 1440, the empty line is already one "
         "line box tall, and scrollWidth against clientWidth refuses a "
         "silently ellipsised sentence",
+    ),
+    # CARD-268 — probe mode: a group of marks made under one hypothesis,
+    # kept or abandoned as one transaction. The probe is a CHECKPOINT in the
+    # stroke history (one number), membership is derived from it, and the
+    # marker rides data-probe rather than a fifth CELL_STATES member. The
+    # second file to be added whole to the family after CARD-270's; it is
+    # listed in PAGE_ISOLATION and sampled by ALONE_PROBES like the others.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_named_rule_cases_match_the_oracle": (
+        "CARD-268",
+        "AC-9's rule table: one named case per numbered semantics rule the "
+        "pure half carries, each compared with a Python oracle written from "
+        "the card rather than from solver_state.js"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_a_seeded_corpus_matches_the_oracle": (
+        "CARD-268",
+        "AC-9's corpus arm: 300 seeded op sequences (marks with every "
+        "brush, undo/redo, open/keep/abandon) against the same oracle, with "
+        "the reached states counted so the equality cannot be an agreement "
+        "about nothing"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_checkpoint_prefix_is_a_savable_history": (
+        "CARD-268",
+        "rule 9's precondition: the prefix a save is written from still "
+        "starts from a blank board, which is the only history "
+        "serializeState accepts, and differs from the live board only on "
+        "cells the probe owns"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_cell_states_are_four_and_an_unknown_event_is_refused": (
+        "CARD-268",
+        "G-4 and the module's standing discipline: CELL_STATES is exactly "
+        "today's four members in today's order, and an unknown probe event "
+        "is a RangeError rather than a quiet 'leave it as it was'"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_StateIsPureAndStatesAreFour::"
+    "test_the_probe_is_pure_and_only_the_renderer_knows_the_attribute": (
+        "CARD-268",
+        "ADR-0038/R4: the probe's transitions are exported from "
+        "solver_state.js, that file reaches no DOM name, and data-probe is "
+        "written only in solver.js"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not": (
+        "CARD-268",
+        "AC-1: marks made with each brush inside a probe keep their own "
+        "data-state and gain the marker, marks made before it gain none, "
+        "and no request is made by opening or marking (G-2's probe half)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_four_states_stay_apart_under_the_tint": (
+        "CARD-268",
+        "rule 3 measured in pixels: the three light states share the tinted "
+        "ground and are told apart by their own ::after channel, filled by "
+        "its ground's luma -- CARD-267's instrument for the same claim "
+        "about its own tint"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_crosshair_does_not_repaint_a_probe_cell": (
+        "CARD-268",
+        "the three-way tie between the board's ground tints, driven by a "
+        "real pointer: a probed cell reads the same crossed or not, and not "
+        "as the crosshair's own ground"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_the_hint_lines_tint_does_not_repaint_a_probe_cell": (
+        "CARD-268",
+        "the same tie against CARD-269's line highlight; a stylesheet-order "
+        "claim, so the competing class is put on by script and only "
+        "computed styles are read"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AbandonRestoresTheCheckpointBoard::"
+    "test_abandon_restores_the_board_and_closes_the_probe": (
+        "CARD-268",
+        "AC-2: four strokes over a board B, one press of Contradiction, and "
+        "the board is B cell for cell with the probe closed and no marker "
+        "left"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AbandonRestoresTheCheckpointBoard::"
+    "test_a_stroke_redone_after_an_abandon_is_a_normal_stroke": (
+        "CARD-268",
+        "rule 4's redo edge, which the card flagged as possibly ambiguous: "
+        "an abandon is a run of undos, so a redone stroke past a CLOSED "
+        "probe's old checkpoint is a normal stroke and carries no marker"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CommitKeepsCellsAndDropsTheTint::"
+    "test_keep_keeps_every_cell_and_drops_every_marker": (
+        "CARD-268",
+        "AC-3: Keep is a change of status and not of cells -- every "
+        "data-state is what it was, every marker is gone, and the undo "
+        "stack still holds each probe stroke as its own step"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_UndoClampsTheCheckpoint::"
+    "test_undo_pops_probe_strokes_first_then_clamps": (
+        "CARD-268",
+        "AC-4: probe strokes pop first and their markers clear with them, a "
+        "probe undone to nothing stays open, and an undo PAST the "
+        "checkpoint clamps it instead of adopting the pre-probe stroke it "
+        "took back"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_OnlyOneProbeAtATime::"
+    "test_a_second_press_opens_nothing": (
+        "CARD-268",
+        "AC-5 / rule 1: of the card's two options the toggle is the "
+        "disabled one, and the arm that actually proves depth 1 is that "
+        "abandoning afterwards reaches the FIRST checkpoint's board"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_SolvingCommitsTheProbe::"
+    "test_the_solving_mark_commits_the_probe": (
+        "CARD-268",
+        "AC-7: a probe whose marks complete the solution was a correct "
+        "hypothesis, so it commits -- the banner, the lock and the announce "
+        "line are exactly today's and no marker is left"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_CountersSeeProbeMarksAsMarks::"
+    "test_the_same_marks_read_the_same_inside_a_probe": (
+        "CARD-268",
+        "AC-8 / rule 8: the same run of real input made twice on one page, "
+        "once plain and once inside a probe, reads the same error count, "
+        "percent and circled set, so no shipped AC-3xx is amended"
+    ),
+    f"{FAMILY_PREFIX}_resume.py::"
+    "TestSolverResume_AReloadAbandonsTheOpenProbe::"
+    "test_the_save_is_the_save_as_of_the_checkpoint": (
+        "CARD-268",
+        "AC-6: with a probe open the stored entry is byte for byte the "
+        "entry as of the checkpoint, the page carries rule 9's one-line "
+        "notice, and a reload comes back to the pre-probe board with the "
+        "undo history intact"
+    ),
+    f"{FAMILY_PREFIX}_resume.py::"
+    "TestSolverResume_AReloadAbandonsTheOpenProbe::"
+    "test_an_open_probe_saves_no_redo_stack": (
+        "CARD-268",
+        "the card's one recorded divergence from rule 9, measured so that "
+        "it is a tested claim and not a comment: the checkpoint prefix "
+        "carries no redo stack, and the live player's redo is untouched"
     ),
 }
 

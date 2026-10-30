@@ -646,6 +646,12 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "is entirely about the 390x844 phone viewport: it sets it eight times "
         "and its assertions are computed-style readings of that viewport",
     ),
+    "test_puzzle_solver_probe.py": (
+        "own-page",
+        "installs a context request listener to prove the probe's controls ask "
+        "for nothing, and a page listener for console problems; neither is "
+        "undone by navigating",
+    ),
     "test_puzzle_solver_progress.py": (
         "own-page",
         "reads and writes the localStorage save six times and installs six "

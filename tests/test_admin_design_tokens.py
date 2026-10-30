@@ -636,3 +636,90 @@ def test_the_hint_line_tint_comes_from_tokens() -> None:
             f"{label}: {rule} passed the token predicate, so the rule it is "
             f"supposed to enforce is narrative"
         )
+
+
+def test_the_probe_tint_comes_from_tokens() -> None:
+    """CARD-268 AC-9 / G-6 — the rules that card adds to the board.
+
+    Three of them: the two custom properties the tint is derived from and the
+    two rules that spend them (a probe cell, a probe FILLED cell). Collected
+    by what they ARE rather than by the names this test expects, the way
+    :func:`test_the_crosshair_tint_comes_from_tokens` and
+    :func:`test_the_hint_line_tint_comes_from_tokens` are, so a rule renamed,
+    reformatted across lines or deleted drops out of the collection and reds
+    the equality below instead of silently shrinking the sweep.
+
+    The probe's tint has no clue-box rule, and that is the one place its
+    collection differs from its two neighbours': probe membership is a
+    property of a MARK, so it is never on a clue box. A rule added for one
+    would red the equality, which is the right answer — it would need
+    deciding, not sweeping.
+
+    The whole-file hex sweep above would catch ``#f6ecd4`` here; it would not
+    catch ``rgb()``, a named colour, or a bare length — and "a bit warmer than
+    the paper" has no token of its own, which is exactly the kind of value a
+    card reaches for a literal to write.
+
+    The filled rule is asserted to EXIST, not merely to be clean, for the
+    crosshair's and the hint line's reason: a filled cell's ground is
+    ``--grid-ink``, and without a variant of its own the light tint would
+    repaint it and lose the mark.
+
+    The LAYOUT rules of the probe bar (``.player-probe`` and its two
+    neighbours) are deliberately outside this sweep: they declare `display`,
+    `flex-wrap` and a `100%`-free geometry rather than a colour, and the
+    collection keys on the marker attribute and on the two custom properties,
+    neither of which they mention. ``.player-probe-note``'s own colour and
+    size are tokens, and the whole-file sweep above is what holds them to it.
+
+    The predicate is a branch nothing executes while these rules are clean
+    (ADR-0039/R1), so the control at the end drives it over the rules broken
+    on purpose — one break per way a literal can get into THESE rules.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = [
+        line.strip()
+        for line in rules_only.splitlines()
+        if "{" in line and line.strip().endswith("}")
+        and ("data-probe" in line.split("{")[0] or "--player-probe" in line)
+    ]
+    assert [rule.split("{")[0].strip() for rule in rules] == [
+        ".player-stage",
+        ".player-cell[data-probe]",
+        '.player-cell[data-probe][data-state="filled"]',
+    ], rules
+    assert any(
+        rule.startswith('.player-cell[data-probe][data-state="filled"]') for rule in rules
+    ), "a probed FILLED cell has no rule of its own, so the tint repaints it as paper"
+    for rule in rules:
+        values = _declared_values(rule)
+        assert values, rule
+        offenders = _untokenised(values)
+        assert offenders == [], (
+            f"{rule.split('{')[0].strip()}: {offenders} are not design tokens "
+            f"(or token-only calc()/color-mix()); a colour or a length here "
+            f"belongs in tokens.css"
+        )
+
+    # The control. Each is a literal reaching into one of the three rules
+    # above, in a form the whole-file hex sweep would NOT catch; the predicate
+    # has to report every one of them, or it is pinning nothing.
+    broken = {
+        "a colour function": ".player-cell[data-probe] { background: rgb(246, 236, 212); }",
+        "a named colour": ".player-cell[data-probe] { background: wheat; }",
+        "a hex literal": ".player-stage { --player-probe: #f6ecd4; }",
+        "a bare length": ".player-cell[data-probe] { outline-width: 2px; }",
+        "a literal inside the mix": ".player-stage { --player-probe-ink: "
+                                    "color-mix(in srgb, #855d00 42%, var(--grid-ink)); }",
+        "a bare length inside the calc": '.player-cell[data-probe][data-state="filled"] '
+                                         "{ outline-width: calc(1px + var(--border-width)); }",
+        "an inch length, whose unit is also a keyword":
+            '.player-cell[data-probe][data-state="filled"] '
+            "{ outline-width: calc(1in + var(--border-width)); }",
+    }
+    for label, rule in broken.items():
+        assert _untokenised(_declared_values(rule)) != [], (
+            f"{label}: {rule} passed the token predicate, so the rule it is "
+            f"supposed to enforce is narrative"
+        )

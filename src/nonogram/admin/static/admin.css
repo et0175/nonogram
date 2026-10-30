@@ -1274,6 +1274,135 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell.is-hint-line, .player-clue.is-hint-line { animation: player-hint-line-in calc(2 * var(--duration-base)) var(--ease); }
 @keyframes player-hint-line-in { from { background-color: transparent; } }
 
+/* Probe mode (CARD-268, owner decision 2026-10-22): the marks made under one
+   hypothesis wear a tint of their own until they are kept or abandoned.
+
+   WHERE THE BAR IS, AND WHO PAYS FOR IT. The controls are a group of their
+   own on the TOOLBAR'S LAST FLEX LINE (flex-basis: 100%), not three more
+   buttons inside .player-tools as the card's design context put them. Four
+   measurements decided that and decided where its 47 px comes from; none of
+   them is a preference, and each is one standing test away.
+
+     * HORIZONTALLY the toolbar has nothing left, so the group cannot join the
+       first row. At 1280 x 720 that row is exactly full — .player-tools
+       208 px (its own 13rem floor, and the trigger + Region measure 208 px
+       inside it, so there is no slack there either), .player-history 441,
+       .player-zoom 97, .player-counters 186 and three 16 px gaps: 980 px in a
+       980 px row. One more visible button anywhere on it wraps it, and
+       ".player-tools > button" / ".player-history > button" are the selectors
+       two standing tests read one-row-ness through
+       (tests/test_puzzle_solver_maybe.py
+       TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280 and
+       tests/test_puzzle_solver_percent.py
+       TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop).
+       On its own line the group leaves every box on that row where it was, at
+       every width.
+     * THE BOARD MAY NOT MOVE DOWN, and that is the constraint that shaped
+       everything below. #puzzle-player is a scroll container, so Chromium
+       puts it in the TAB ORDER and smooth-scrolls it into view when it takes
+       focus — which the brush menu's own keyboard test does on its way round
+       the cycle (it blurs and tabs the whole ring). On today's tree that
+       scroll is 11 px at 1280 x 720, just inside half a cell (11.7 px), and
+       the drag that test then performs lands on the cells it means to. Let
+       the stage sit 23 px lower and the scroll is 34 px, the drag crosses a
+       row mid-animation, and 4 of the 8 cases of
+       tests/test_puzzle_solver_marking.py
+       TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press
+       go red (measured, in isolation, both ways).
+     * SO THE ROW IS PAID FOR out of air, as far as air goes. It is a
+       COMPACT row — its buttons are control height less --space-3, 24 px,
+       which still meets WCAG 2.2 (2.5.8)'s 24 px target and is the smallest
+       footprint any of these options has — and the negative margins here
+       cancel the toolbar's own row gap (8 px) and its own bottom margin
+       (16 px, the air between the toolbar and the board, which the bar now
+       sits in). What is left is the flex row gap itself, 8 px, which no
+       margin on an item can give back. Measured at 1280 x 720: the stage
+       0..8 px lower than today (top 246.8 against 239.0), the focus scroll
+       above 19 px against today's 11.
+     * AND THAT RESIDUAL 8 px IS WHERE THIS CARD STOPPED. Paying it any other
+       way costs more than it saves, measured each way:
+       --player-chrome-h (otherwise exactly the right property) also feeds the
+       CELL CLAMP, whose height term binds at 1280 x 720 — a 15 x 15's cell
+       goes 23.4 -> 21.1 px and five fit and geometry tests red, the largest
+       board's own fit among them; .player-stage's own max-height keeps the
+       cell but shortens the scrollport, which flips CARD-271's sticky-band
+       share for a 30 x 30 at 900 x 700 and reds
+       tests/test_puzzle_solver_zoom.py
+       TestSolverZoom_CluesStayInViewWhileZoomed; and the page-head row, which
+       would cost no vertical space at all, has about 9 px of width to spare at
+       1280 for the ladder's longest sentence (measured: the widest sentence of
+       this grid is 539.1 px in a 628 px box, and the longest the ladder can
+       say is ~619 px — CARD-269's own "below about 1270 px it is ellipsised"),
+       so a control there reds that card's no-clipping assertion. See the
+       card's [BLOCKER] note.
+     * BELOW THE BOARD is worse, not better, which is the half that was least
+       obvious. A focusable control under the fold is reached by the same Tab
+       walk, and Chromium then scrolls the page 233 px to reveal it — reddening
+       the same keyboard test, harder. A control in the toolbar is already in
+       view, so tabbing to it scrolls nothing (measured: 0 px).
+
+   [hidden] needs rules of its own here for .editor-save's reason: `display:
+   flex` and .player-toolbar .btn's `display: inline-flex` both beat the
+   hidden attribute's UA `display: none`. The bar starts hidden (solver.js
+   shows it with the toolbar, so a page whose script never ran shows no dead
+   buttons) and so do the two actions and the note, which only exist while a
+   probe is open. The line's own SIZE does not change when the board is solved
+   — a solved board commits the probe (rule 7), so the actions and the note
+   are hidden and the toggle only says aria-disabled, which is what keeps the
+   board from moving on the solving stroke
+   (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth sweeps 960..1480 and the
+   phone for exactly that).
+
+   The stage rule is keyed on :has(.player-probe) and not on .player-stage
+   itself, because puzzle_edit.html (CARD-246) draws its board in the same
+   .player-stage and is offered no probe: there the row does not exist, so
+   there is nothing to give back and its stage keeps the cap it had.
+
+   THE TINT. One attribute, data-probe, on the member cells (solver.js
+   paintProbe), never a fifth data-state and never a change to one (G-4): the
+   template's own comment says every selector, save and test is keyed on those
+   four values. Membership is derived from the history, so the attribute is
+   rewritten on every recorded change and nothing stores it per cell.
+
+   The hue is the WARNING hue mixed into the paper, 14 % — the proportion
+   tokens.css itself names for a tier chip's ground — and it is deliberately
+   neither of the two tints already on this board: --color-surface-hover is
+   the crosshair's (CARD-267, "the pointer is here") and --color-accent-tint
+   is the hint line's (CARD-269, "the answer you pressed for"). A probe is
+   provisional, which is what the warning hue says and what neither of the
+   other two can say while also meaning what they already mean. 14 % of a
+   6.6:1 ink into paper is a plainly warmer ground than either, and the three
+   light marks keep their own channels on it (the white dot's ::after
+   background, the "?"'s ::after colour, and nothing for Clear).
+
+   A filled cell takes the mix into the INK for the crosshair's reason: its
+   ground is --grid-ink, so a light tint would repaint it and lose the mark.
+   42 % of the warning hue into the ink is a dark brown — still far darker
+   than any light ground (mean sRGB 0.23 against 0.95), so all four
+   data-state looks stay plainly apart under the probe tint, which is rule 3.
+
+   THESE RULES COME LAST, and that is what decides the three-way tie: a probe
+   cell's two rules have exactly the specificity of their .is-crossed and
+   .is-hint-line twins, so file order settles it and the PROBE wins. It is the
+   only one of the three that says something about the MARKS themselves — a
+   hypothesis not yet committed — while the other two say where the pointer is
+   and which line to look at, and a probe hidden under a hovered row would be
+   the one of the three that costs the player a wrong board.
+
+   No token is added to tokens.css, for the crosshair's and the hint line's
+   reason, stated at both: tokens.css is mirrored verbatim from
+   meta/design/tokens.css and a probe tint is a value DERIVED from design
+   tokens for one component. Every value in the rules below is a token or a
+   token-only color-mix(), checked per rule by
+   test_the_probe_tint_comes_from_tokens (AC-9). */
+.player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4)); }
+.player-probe[hidden], .player-probe [hidden] { display: none; }
+.player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); height: calc(var(--control-h) - var(--space-3)); min-height: 0; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }
+.player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
+.player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 14%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-ink)); }
+.player-cell[data-probe] { background: var(--player-probe); }
+.player-cell[data-probe][data-state="filled"] { background: var(--player-probe-ink); }
+
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the
    board. The message takes the free space so a long refusal wraps inside
