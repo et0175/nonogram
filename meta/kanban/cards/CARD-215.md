@@ -1,6 +1,6 @@
 # CARD-215: Given cells print — a black cell for a revealed filled cell, a dot for a revealed white one
 
-**Status:** ready
+**Status:** blocked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** owner decision 2026-10-30 — **the generator is not being publicly delivered yet, so revealed cells are not needed.** *"I'd postpone revealed cells, we'll not public deliver generator yet."* The generation half already shipped (**CARD-214**, done), so nothing is half-built by waiting: what is postponed is only the *presentation* of given cells — printing them (CARD-215) and locking them in the player (CARD-216). **Unblock when the generator is delivered publicly**, which is the condition the decision names (`/forge:kanban unblock CARD-215` / `CARD-216`).
 
 ## What to implement
 
@@ -143,6 +143,8 @@ _47 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - **Trace:** `meta/architecture/trace.yml` — not updated by this card.
 
 ## Worktree notes
+
+- **[Postponed 2026-10-30, owner decision]** Not a defect and not a re-scope — a sequencing call: revealed cells have no audience until the generator ships publicly. **Two things this card carries are worth not losing while it waits.** (1) Its own text flags a false clause: *"the dot is at least **1 device pixel** across"*, which it already answers with *"should be: the same design without that clause"* — a device-pixel floor is meaningless for a vector interior (ADR-0042/R7), and that correction is owed whenever this card resumes. (2) Its `## System contract` quotes a **superseded** ADR-0037/R2 — *"at least 0.25 mm … twice the thin rule, in pure black"* — which the 2026-10-17 amendment replaced with three weights, grey rather than black, and a 2-device-pixel floor. That row is false as quoted and must be re-derived at the next decompose, not carried forward.
 
 —
 

@@ -66,6 +66,73 @@ than discovered, per the board's wrong-but-declared rule. It may be false — th
 vector writer may genuinely be placing the grid 2 px off, in which case this is a
 defect in the vector writer and the tolerance was right all along.
 
+## [Owner steer 2026-10-30] Vector is the destination; do not spend the card fixing raster
+
+*"I think let's aim at switching on vector for the interior (not dividers) — don't
+spend much time on fixing-updating raster."*
+
+**This narrows the card, and the narrowing is the point.** The card was written to
+*reconcile* the two media — three outcomes, one of which was "the raster is the
+inaccurate one". That third branch now has a disposition attached rather than an
+open question:
+
+- **If the vector is at the specified margin and the raster is 0.169 mm off**
+  (the measured hypothesis), **do not fix the raster.** Pin its expectations as
+  legacy, state in one line that they encode a 2-device-pixel quantisation the
+  vector does not have, and let **CARD-322's conversion retire them**. Re-tuning a
+  medium the interior is leaving is exactly the work the owner has ruled out.
+- **If the vector is the one off spec**, that is still a finding and still stops the
+  card — a vector writer placing the grid wrong is a defect the destination medium
+  carries forward, and it is cheap now and expensive after CARD-322.
+- **If the offset is not uniform**, unchanged: the premise is wrong and that is the
+  result.
+
+**What this does to item 2 (the geometry instruments).** `page_ink.py`'s `drawing_of`
+and `two_up_ink` stay pixel oracles — G-2 is unchanged — but their disposition is now
+**medium-pinned rather than medium-aware**: pin each placed-edge expectation to the
+medium it was measured in, so the raster rows keep passing untouched until the
+conversion removes them. That is less work than making both media satisfy one
+expectation, and it is the honest shape: the two numbers are a quantisation of one,
+not two opinions, so one expectation for both was always going to encode the
+rounding.
+
+**What this does NOT change.** The measurement in item 1 still has to happen, and
+`EDGE_TOLERANCE_MM` still may not be widened without its exemption and control
+(G-1). "Don't invest in raster" is not "accept any figure" — it is a decision about
+*which medium gets the effort*, and the effort still has to establish which one is
+right. **The one outcome the steer forbids outright is widening the bound to admit
+the more accurate medium**, which was already this card's named hazard.
+
+### And the device floor is the same arithmetic, now scoped to one medium
+
+The 0.169 mm this card measures **is ADR-0037/R2's device floor** — 2 device pixels
+at 300 DPI, the figure R2's 2026-10-17 amendment set as the thin-rule minimum. So
+this card's question and the interior's furniture-floor question are one measurement
+seen from two sides, and the owner's steer settles the harder half: **the interior is
+going vector, so the floor question is vector-only.** ADR-0042/R7 already says the
+device floor is *inapplicable to the interior* because a content-stream line has no
+device pixel to clear — while ADR-0037/R2 says furniture that must not drop out on
+press is held to that same floor "for the dropout reason directly". **Those two
+collide, and nothing on the board owns the collision.**
+
+Two cards wait on it — **CARD-208** (ruled boxes for clue numbers) and **CARD-226**
+(a two-up page split by a *light rule*); **CARD-215 was the third and is now
+postponed**. Both of the remaining two also quote a **superseded** R2 in their System
+contract rows and need that re-derived whatever is decided.
+
+**This card is the right place to produce the figure and the wrong place to decide
+the policy**: R7's own caveat says the owner judged *renders, not paper*, that dot
+gain at 0.1058 mm and whether 35% grey reads as guidance are *measured by nobody*,
+and that the revisit trigger is **the first printed book or proof**. So: measure the
+offset here and state what it implies for a vector hairline; leave the floor's
+*policy* to the owner at the proof, and record in ADR-0042 that R2-vs-R7 is
+unresolved for interior furniture rather than letting a reader infer a floor that
+neither rule grants.
+
+**Dividers stay raster** — unchanged by all of this. ADR-0042/R2 declares the divider
+an exception by scheduling, not technique, and CARD-231 redesigns the page to be
+*born* vector rather than converted.
+
 ## What to implement
 
 1. **Decide the question above, by measurement, before touching anything.** For a

@@ -1,6 +1,6 @@
 # CARD-216: A puzzle's given cells are stored with it, and the player shows them as locked marks
 
-**Status:** ready
+**Status:** blocked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** owner decision 2026-10-30 — **the generator is not being publicly delivered yet, so revealed cells are not needed.** *"I'd postpone revealed cells, we'll not public deliver generator yet."* The generation half already shipped (**CARD-214**, done), so nothing is half-built by waiting: what is postponed is only the *presentation* of given cells — printing them (CARD-215) and locking them in the player (CARD-216). **Unblock when the generator is delivered publicly**, which is the condition the decision names (`/forge:kanban unblock CARD-215` / `CARD-216`).
 
 ## What to implement
 
@@ -169,6 +169,8 @@ _44 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   own marks without relying on colour alone, and keep CARD-182's tap targets.
 
 ## Worktree notes
+
+- **[Postponed 2026-10-30, owner decision]** Sequencing, not scope. Its core is a stored column plus a migration, and all 27 of this suite's skips are `DATABASE_URL`-gated on this box, so its own verification would land **skipping green** here — a reason to wait that is independent of the owner's, and one the board already noted when CARD-269 was chosen over it for wave 67. **CARD-273 lists this card among its 21 dependencies**, but that list is the *"after the book wave drains"* bundle rather than a technical edge, and CARD-273 is gated behind the whole family regardless.
 
 **DB-mode tests skip silently.** Without a `nonogram_test` database the
 DB-mode tests skip green — use `sqlite_session_scope` for the regression tests

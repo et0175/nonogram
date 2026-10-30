@@ -109,6 +109,24 @@ opposite of the truth while the assertions underneath are correct. A test whose
 name contradicts its body is this board's most-cited defect family, and it is
 sitting in the file this card has to edit anyway.
 
+## [Owner steer 2026-10-30] This card is the destination
+
+*"Let's aim at switching on vector for the interior (not dividers) — don't spend much
+time on fixing-updating raster."*
+
+So this card is the one the phase is aimed at, and the steer changes what it inherits
+rather than what it does. **CARD-330 will pin the raster placed-edge expectations as
+legacy instead of re-tuning them**, so this card's conversion is what *retires* them —
+expect to delete raster expectations here, not satisfy them. Same for **CARD-331**'s
+raster arm of the difficulty-dot accounting: its lifetime ends with this card.
+
+**Dividers stay raster**, unchanged: ADR-0042/R2 makes the divider an exception by
+scheduling rather than technique, and CARD-231 redesigns that page to be *born* vector.
+So "switch the interior to vector" means the four remaining kinds **and not the
+divider**, which is exactly the scope this card already carries — and R1's flip is
+still only legal once the five temporary entries are gone, which ADR-0042's own Rules
+comment states.
+
 ## What to implement
 
 1. **One kind at a time, each removal complete.** For TITLE, GUIDE, TOC and ANSWER: wire the vector
