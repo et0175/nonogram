@@ -1,6 +1,6 @@
 # CARD-318: FR-029's strategies criteria are ten unwritten tests reading as mechanically checked — the board's one real coverage gap
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_solver_strategies.py (new or renamed), tests/test_batch_generator.py, tests/test_puzzle_review_*.py, tests/property/
-**Review score:** —
+**Review score:** — (implementation complete, cycle 1 running). **The card's premise is DISCONFIRMED and that is its finding:** FR-029's behaviour was never missing — CARD-072 shipped all of it and covered it in `tests/test_strategies.py` (521 lines, 17 tests) under card-local names, while the registry's refs were written against the pre-implementation design and never re-pointed. **A naming gap that read as a coverage gap**, so nothing was demoted for absence and nothing was built. **Ten criteria turned out to be eleven** — AC-135's ref is equally absent and does not warn only because the validator's check is a TEXT SEARCH and the name occurs in 9 review YAMLs and 79 cards, two of which assert it *exists and passes*. **AC-142 demoted on the owner's decision 2026-10-31**, its `then` having contradicted both the shipped route and the CARD-066 precedent it cited. 10 classes / 21 node ids, all verified to collect; 9 mutants with three surviving their first run, each a real defect.
 **Started:** 2026-10-30T20:55:22Z
 **Closed:** —
 **Actual:** —

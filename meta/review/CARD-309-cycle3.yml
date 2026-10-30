@@ -1,0 +1,326 @@
+version: 1
+generated_at: "2026-10-30T23:40:00Z"
+target: "CARD-309 cycle 3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-309, branch card/309-assembly-point-and-puzzle-operators, HEAD 86466379, this round's delta 180b64f0..86466379 (card text only)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+certifies: true
+certification_reason: >-
+  Score 9.0 >= threshold 8, and 0 open Critical or Important findings. Cycle 2's two
+  Important findings (F2-001, F2-002) and its Minor F2-003 are closed, each on evidence
+  re-derived in this cycle rather than relayed: MF-3's reach measured independently at
+  exactly 54 red / 302 passed over the whole 356-cell impact set; M5 at 1 failed /
+  355 passed on exactly the named cell; M5x dead at collection with 0 cells run; M6 at
+  1 failed / 355 passed with an import the interpreter executes. Nothing was broken or
+  weakened: src/ and tests/ are byte-identical to the state cycle 2 measured, the branch
+  still collects 9971 node ids, and the impact set is still 356 passed / 0 failed /
+  0 skipped.
+
+mode: confirmation
+confirmation_note: >-
+  Cycle 3 of at most 3, the last max_cycles allows. The delta since cycle 2's reviewed
+  state is `git diff 180b64f0..86466379` = meta/kanban/cards/CARD-309.md only, 27+/8-.
+  Verified rather than accepted: src/ and tests/ have 0 +/- lines in that range, and
+  ast.dump(book_pdf_generator.py) is byte-identical across 50d2c627, 180b64f0 and
+  86466379 (sha 39f0e102bb2a494c). Verdict lines whose scope the delta cannot touch are
+  carried as `carried(cycle 2, delta-clean)`; every claim the delta REWROTE was re-fired
+  from scratch in this worktree.
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-309.md (whole, incl. both rewritten passages and the failure matrix)
+    - meta/review/CARD-309-cycle2.yml
+    - src/nonogram/admin/book_pdf_generator.py (at main, 50d2c627, 180b64f0, HEAD — via git show + ast)
+    - tests/test_book_pdf.py (the F-001 control class, the assembly-point classes)
+    - tests/test_cli.py (_outward_imports, the layering walk)
+    - meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md (R1's Rules comment)
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md (R4 statement + reach comment)
+    - meta/architecture/decisions/adr/0006-*.md (R1's check ref)
+    - "~/Documents/nonogram-reviews/CARD-309/ (both prior harnesses, cycle 2's logs)"
+    - "~/.forge/retro-signals.yml (review_false_positives)"
+  not_reached:
+    - "tests/helpers/pdf_pages.py, page_ink.py, round_ink.py — AC-3's subject, out of scope by the re-cut (CARD-329/330/331)"
+    - "tests/property/test_cli_exports_byte_identity.py, tests/test_export_a4_golden.py — 0 occurrences in the whole-card diff (G-3 verified structurally), not run: outside the stated impact set"
+    - "MF-1, MF-2, MF-5, MF-6 — not re-fired this cycle; carried from cycle 2's whole-impact-set measurements, which are delta-clean (src/ and tests/ unchanged since 180b64f0)"
+    - "round 1's own M7 plant — not preserved in any harness, so not reproducible; I fired a same-class substitute (M7b) and labelled it as such rather than faulting the card for my plant (the exact error cycle 1 made with M5/M5x)"
+    - "the 0.169 mm offset, the 189/75 converted-state census, AC-4's byte/ms figures and AC-6's renders — unchanged this round, carried from cycles 1-2"
+  confidence: high
+
+metrics:
+  diff:
+    this_round: { files: 1, added: 27, removed: 8 }
+    whole_card: { files: 7, added: 2428, removed: 111 }
+  max_fan_in:
+    symbol: "nonogram.admin.book_interior_vector"
+    callers: 0
+    note: >-
+      a MEASURED zero and the card's declared subject — nothing in src/ imports the
+      assembly point; re-measured this cycle by mutant M7b, which plants exactly that
+      import in book_kdp.py and reds
+      test_nothing_in_the_package_imports_the_assembly_point (1 failed / 355 passed),
+      so the zero is guarded and not merely asserted.
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (not touched this round; 0 +/- lines since 50d2c627 beyond `#:` comments)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the delta is a single card file under meta/kanban/; its co-change peers are review YAMLs under meta/review/, which are written by this review, not by the card"
+    whole_suite: "not_applicable — the brief forbids a full-suite run; the impact set (356 cells) was run 8 times (1 baseline + 7 mutants)"
+
+system_contract:
+  rules_checked: 11
+  holds: 7
+  unchecked: 4
+  violated: 0
+  note: >-
+    The card's "## System contract" section declares 10 rules. ADR-0039/R4 is the
+    eleventh, added by cycle 2 because its scope globs include meta/kanban/** and it was
+    the rule the residual defects broke. It is enumerated here too, so the close of
+    cycle 2's one violation is visible as a verdict rather than as an absence.
+  verdicts:
+    - "ADR-0042/R1 ✓ holds — still deliberately NOT flipped, which the ADR's own Rules comment requires (\"Flip this check when ... the five temporary entries in _RASTER_DECLARATIONS are gone\"). Re-derived by AST over `git show HEAD:...book_pdf_generator.py` and over main: 7 registry keys on both (COVER, DIVIDER, TITLE, GUIDE, TOC, ANSWER, PUZZLE), 0 removed. R1's statement is still false of a shipped interior and still declared false."
+    - "ADR-0042/R2 ✓ holds — exactly 5 entries re-pointed ('CARD-299','CARD-309') -> ('CARD-299','CARD-322') and 0 entries name CARD-309 (re-derived by AST, this cycle). COVER's expires_with is () and DIVIDER's is ('CARD-231',), both untouched. Check ref test_every_raster_page_is_declared_with_its_reason exists (tests/test_book_pdf.py:1836) and is green in this cycle's 356-pass baseline."
+    - "ADR-0042/R3 ✓ holds — carried(cycle 2, delta-clean) and re-checked mechanically: ast.dump(book_pdf_generator.py) is IDENTICAL at 50d2c627, 180b64f0 and 86466379 (39f0e102bb2a494c), so no figure a downstream writer receives can have moved."
+    - "ADR-0042/R6 ✓ holds — the assembly-point runtime cells (test_every_interior_page_is_written_as_operators and the four binding cells) read the artefact as a content stream and are green in this cycle's 356-pass baseline, which I ran myself."
+    - "ADR-0036/R1 ⚠ unchecked — stale_check: tests/test_export_a4_golden.py appears 0 times in `git diff --name-only merge-base..HEAD`, but it is outside the stated impact set and the brief forbids a wider run, so no run of it against this head exists."
+    - "CON-019 ⚠ unchecked — stale_check: tests/property/test_cli_exports_byte_identity.py appears 0 times in the whole-card diff (G-3 verified structurally); not run against this head for the same reason."
+    - "CON-020 ⚠ unchecked — no_eligible_fact: no kind converted this card, so no stream-read type floor newly applies to an interior page; the delta is card text."
+    - "INV-013 ✓ holds — carried(cycle 2, delta-clean): the interior page-kind walk is AST-identical since 50d2c627, and the interior-structure cells in tests/test_book_export_interior_cover.py are green in this cycle's 356-pass baseline."
+    - "ADR-0039/R1-R2 ✓ holds — the 4 cells of TestRasterDeclarations_TheCommentAgreesWithTheRegistry each carry a control that CAN fail, and the set is derived (`set(PageKind) - set(_RASTER_DECLARATIONS)` picks the mirror arm). Re-fired by me: MF-3 reds the mirror arm with the right message (54 failed / 302 passed over the impact set), MF-4 reds the shape cell + test_no_declaration_names_the_card_that_is_closing (2 failed / 354 passed). MF-1/MF-2/MF-5/MF-6 carried from cycle 2 at 1 red each. 6 mutants, 0 survivors. Check ref test_the_control_for_each_spelling_depends_on_the_set exists (tests/test_suite_profile.py:4127)."
+    - "ADR-0039/R4 ✓ holds — cycle 2's one violation is CLOSED at all three sites, and I re-derived each new figure rather than reading it: (a) AC-5's M5 sentence now states what M5, M5x and M6 actually do — M5 1 failed / 355 passed on exactly test_the_generator_imports_none_of_the_writers_that_import_it; M5x dead at collection (ImportError FOLIO_PT, 0 cells run); M6 1 failed / 355 passed on that same cell with an import the interpreter executes; (b) MF-3's reach now reads 54 with its population named, and 54 is exactly what I measured independently; (c) the F-6 bound's 321 is now written as two dated readings with the note that the assertion is `== 0 unreadable` and does not depend on the total. `grep -rl` over meta/ finds no surviving copy of either retracted claim outside cycle 2's own report. Residual: three reach rows (MF-1, MF-2, MF-4) still do not name their population — filed as F3-002 (Minor); their FIGURES are correct (MF-4 re-measured by me at 2 over the whole impact set), so this is an incomplete disclosure clause, not a restored violation."
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy has ZERO def/class definitions in the repo (3 text hits, all docstring or comment mentions — each checked against the def/class rule, not counted as a definition). CARD-307's finding, recorded by the card itself. Manual read of this round's delta found no violation: 0 lines added to src/ or pyproject.toml."
+
+guardrails:
+  - "G-1 PASS — re-derived by AST this cycle, not carried: PageKind.COVER's expires_with is () at HEAD and on main, and the whole-card diff touches no COVER declaration line. No cover conversion."
+  - "G-2 PASS — re-derived the same way: PageKind.DIVIDER's expires_with is ('CARD-231',) at HEAD and on main."
+  - "G-3 PASS — tests/property/test_cli_exports_byte_identity.py and tests/test_export_a4_golden.py appear 0 times in `git diff --name-only merge-base..HEAD`. Not run (recorded as stale_check above)."
+  - "G-4 PASS — 0 paths under tests/fixtures/ in the whole-card diff; `git status --porcelain` shows nothing under tests/ at all."
+  - "G-5 PASS, re-derived over the WHOLE tree at today's main rather than carried. `-o addopts='' -p no:randomly --collect-only -q tests/`: branch 9971 (exactly cycle 2's figure, confirming tests/ is delta-clean), main 9995 today. Node ids as sets: 15 on the branch and not on main — exactly the 10 assembly-point cells + test_no_declaration_names_the_card_that_is_closing + the 4 control cells; 39 on main and not on the branch, every one of them in tests/test_puzzle_solver_probe.py (35), tests/test_puzzle_solver_resume.py (2), tests/test_admin_design_tokens.py (1) and tests/test_browser_fixture_scope.py (1) — main's own growth since the merge-base (CARD-268 et al.), none in a file this card touches. So 0 removed, 15 added, no parametrize id moved. NOTE for the record: cycle 2's \"main 9956\" is stale because MAIN moved, not because the branch did; the card-attributable difference is identical."
+  - "G-6 PASS — `_write_pdf`'s AST source segment is 9282 chars and byte-identical (sha 004e5bdf0fb0) at 50d2c627, 180b64f0, 86466379 AND main's tip. The representation refusal is not weakened."
+  - "G-7 PASS — `git ls-tree -r HEAD -- scratchpad/` is exactly scratchpad/card309/impact.txt + scratchpad/card309/census-converted.txt. This review's own harness was written to scratchpad/review309c3/, then copied to ~/Documents/nonogram-reviews/CARD-309/review-cycle3-harness/ (13 files, shasum-compared, 0 mismatches) and the source deleted; `git status --porcelain` is now only the two untracked review YAMLs."
+
+acceptance_criteria:
+  - "AC-1 PARTIAL as re-cut — carried(cycle 2) and spot-re-derived: PUZZLE's entry stays, 5 entries name CARD-322, 0 name CARD-309. The conversion half is CARD-322's."
+  - "AC-2 PASS — carried(cycle 2, delta-clean): _drawn_downstream's default-DENY arm is AST-identical, and both refusal cells are green in this cycle's 356-pass baseline."
+  - "AC-3 OUT OF SCOPE — CARD-329/330/331's by the re-cut. Not verified here."
+  - "AC-4 PASS with a count of ZERO by design — 0 fixtures in the diff, nothing under tests/ in git status. No figure moved this round."
+  - "AC-5 PASS and it is the card. tests/test_cli.py is 0 times in the whole-card diff and green in the baseline. The AC's blindness is confirmed BY CONSTRUCTION from the code, re-read this cycle: _outward_imports filters `other != own`, so an admin -> admin import is exempt as \"a module's internals\" and the package-wide walk cannot see it. The verdict prose that carried F2-001 is rewritten and every claim in the replacement is now measured (see ADR-0039/R4's verdict line). One residual: the replacement's \"M6 is therefore the only mutant that plants an import the interpreter actually runs and is still caught by the cell\" is true of THE DIRECTION CELL (its definite article) but not of the class as a whole — I planted an executed import of the assembly point in book_kdp.py (M7b) and the sibling cell reds, 1 failed / 355 passed. Filed as F3-001 (Minor), and it STRENGTHENS the card: the sibling cell is now non-vacuous on measurement rather than on round 1's expectation."
+  - "AC-6 PASS — carried(cycle 2): both PDFs and the ten renders are in ~/Documents/nonogram-reviews/CARD-309/; unchanged this round."
+  - "R1 deliberately NOT flipped — correct, and ADR-0042/R1's own Rules comment says to flip only when the five temporary entries are gone. Re-read this cycle."
+
+root_causes:
+  - id: RC-1
+    title: "The reach column of the MF table discloses its population on one row (MF-3, fixed this round) and not on the three the fix did not re-fire"
+    finding_ids: [F3-002]
+
+findings:
+  - id: F3-001
+    severity: low
+    category: enabler
+    type: risk
+    file: meta/kanban/cards/CARD-309.md
+    line: 773
+    title: "\"M6 is the only mutant that plants an import the interpreter actually runs and is still caught\" is true of the direction cell, not of the class — and an executed import of the assembly point IS plantable and IS caught"
+    description: |
+      The replacement passage closes F2-001 and every one of its measured claims
+      reproduces (M5 1 failed / 355 passed on exactly
+      `test_the_generator_imports_none_of_the_writers_that_import_it`; M5x dead at
+      collection with 0 cells run; M6 1 failed / 355 passed on that cell). The one
+      sentence that does not survive a wider reading is the conclusion:
+
+        "**M6 is therefore the only mutant that plants an import the interpreter
+         actually runs and is still caught by the cell**"
+
+      Read in place, "the cell" is the direction cell named two sentences earlier,
+      and the sentence is TRUE: among M5 / M5x / M6, only M6 plants an executed
+      import and is caught there. Read as the commit message and the orchestrator's
+      brief both restate it — "M6 is the only mutant that plants an executed import
+      and is still caught", with the cell scope dropped — it is false.
+
+      Measured, because the card's M7 plant is not preserved in any harness and I
+      would not fault the card for a substituted plant (cycle 1's exact error with
+      M5/M5x): I planted a SAME-CLASS mutant, M7b — `from nonogram.admin import
+      book_interior_vector` in `src/nonogram/admin/book_kdp.py`, after that module's
+      own generator import completes, so the interpreter really executes it. Result
+      over the whole impact set: **1 failed / 355 passed**, the one red being
+      `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`.
+      (My first attempt, the same import planted in book_pdf_generator.py itself,
+      dies at collection with the same FOLIO_PT circular ImportError as M5x — that
+      site is un-plantable, which is worth recording but is not the card's M7.)
+
+      So an executed import of the assembly point is plantable, caught, and now
+      measured rather than expected. Low, not Important: the card's sentence is
+      defensible where it stands, the finding ADDS evidence in the card's favour
+      rather than refuting it, and nothing downstream depends on the stronger
+      reading.
+
+      Failure scenario, stated because it is the one that could bite: CARD-322's
+      implementer reads the dropped-scope form (which is what the commit message
+      carries) and concludes that the only executed-import control in the class is
+      M6's — so when it edits the assembly point's import surface it re-fires only
+      the direction cell and leaves
+      `test_nothing_in_the_package_imports_the_assembly_point` uncontrolled, the
+      cell that will matter most the day something legitimately needs to import the
+      assembly point.
+    suggestion: |
+      Scope the sentence explicitly ("...the only mutant that plants an executed
+      import and is still caught by THAT cell"), and record M7b's measurement beside
+      M7's expectation — the harness is at
+      ~/Documents/nonogram-reviews/CARD-309/review-cycle3-harness/ (fire.py, M7b.out).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F3-002
+    severity: low
+    category: enabler
+    type: gap
+    file: meta/kanban/cards/CARD-309.md
+    line: 1081
+    title: "F2-002 is closed on MF-3 only: MF-1, MF-2 and MF-4 still state a reach with no population, and MF-3's domain is disclosed in the retraction comment rather than in the claim"
+    description: |
+      Cycle 2's F2-002 asked for two things: the reach column re-stated with its
+      population named, and MF-3's domain recorded. The round delivered both for
+      MF-3 and nothing for the rest, because it did not re-fire anything (the commit
+      says so plainly, and the full-suite lock was its reason).
+
+      What I measured, over the whole 356-cell impact set, caches swept, target
+      SHA-256'd before each plant and after each restore:
+
+        * **MF-3 — 54 failed / 302 passed.** The card's corrected 54 is EXACTLY
+          right, re-derived independently of cycle 2. The three attributed kills are
+          all among the 54
+          (test_the_comment_claims_no_removal_the_registry_cannot_show,
+          test_the_registry_lost_nothing_and_five_entries_name_the_converting_card,
+          test_no_declaration_outlives_the_cards_that_remove_it), and the other 51
+          are the shipped-behaviour blast the comment describes — the run carries
+          `test_PropertyTest_Interior_NoVectorPageCarriesABitmap: assert 33 == 0`
+          and a wall of `KeyError: b'XObject'`, which is every puzzle page flipping
+          medium. Confirmed structurally too: page_medium's docstring and code are
+          default-DENY to VECTOR, so an undeclared PUZZLE returns VECTOR.
+        * **MF-4 — 2 failed / 354 passed**, and they are the two the row names
+          (test_no_declaration_names_the_card_that_is_closing and the shape cell).
+          The row's "2 red" is therefore CORRECT over the whole impact set, not just
+          over the expected union. This is the main reason this finding is Low: the
+          residual rows are under-disclosed, not wrong.
+
+      The two residual gaps:
+        (a) MF-1 ("1 red, 5 passed"), MF-2 (same) and MF-4 ("2 red") still state no
+            population. "5 passed" is the 6-node expected union — the instrument
+            whose defect this round named as its own root cause — while the same
+            mutant over the real population is 1 failed / 355 passed.
+        (b) MF-3's DOMAIN (that the plant flips every puzzle page's medium, so the
+            mirror-arm kill is confounded with 51 others) is written inside the row's
+            `<!-- CORRECTED ... -->` comment, not in the claim. The visible row still
+            reads as the prose-versus-registry isolate — "the registry loses an entry
+            ... while the prose still says nothing was taken out" — with "54 red over
+            the whole impact set" after it. A reader of the rendered card sees the
+            right NUMBER and the wrong CHARACTER of the mutant.
+
+      Low rather than Important, and the distinction is deliberate: cycle 2's
+      failure scenario for F2-002 was a reader taking "3 red" as evidence that
+      removing a declaration is a 3-cell edit and scheduling CARD-322 on it. The
+      visible "54 red over the whole impact set" closes exactly that scenario on the
+      row's own face. What is left is disclosure quality on three rows whose figures
+      I have now verified to be right.
+    suggestion: |
+      Give mutate.py the same whole-impact-set IMPACT default refire.py has (the
+      round's own diagnosis, applied to the second harness), re-fire MF-1/MF-2/MF-4
+      and state each reach with its population; and lift one clause of MF-3's
+      retraction comment into the row's visible text ("the plant also leaves PUZZLE
+      undeclared, so every puzzle page flips medium — 51 of the 54 are that, not the
+      declaration claim").
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F3-003
+    severity: low
+    category: enabler
+    type: question
+    file: meta/kanban/cards/CARD-309.md
+    line: 1081
+    title: "MF-3's row says \"those three are the attributed kills\" while naming two cells"
+    description: |
+      The row reads "the **mirror arm** of that cell,
+      `...::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card`,
+      and `test_no_declaration_outlives_the_cards_that_remove_it` ... of which those
+      three are the attributed kills." The apposition names two node ids; the third,
+      `test_the_comment_claims_no_removal_the_registry_cannot_show`, is the arm the
+      phrase "that cell" points back to and is never spelled out in the row.
+
+      All three do red — I verified each by name in the 54 — so this is a referential
+      nit, not a wrong claim, and it predates this round (the original "3 red" row had
+      the same shape). Recorded because the next card re-derives this table and the
+      ambiguity costs it a grep.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F2-004
+    severity: low
+    category: enabler
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 2502
+    title: "CARRIED OPEN from cycle 2 — the control reads only the `#:` block, and the removal prose inside the registry literal is outside it"
+    description: |
+      Unchanged by this round (tests/ has 0 +/- lines since 180b64f0), still Low, and
+      still the bound cycle 2 described: `comment_block` anchors on
+      `^_RASTER_DECLARATIONS\b` and walks UP through `#:` lines, so the plain-`#`
+      prose between DIVIDER's and TITLE's entries — where the narrative about who
+      removes what actually lives — is unguarded by both arms. This belongs to
+      CARD-322, which is the card that writes a removal narrative there.
+    suggestion: |
+      CARD-322: either extend comment_block to the contiguous `#` run inside the
+      literal, or keep the removal narrative in the `#:` block the control reads.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutants_refired:
+  - "Baseline, unmutated: 356 passed / 0 failed / 0 SKIPPED in 94.15 s (`-o addopts='' -p no:randomly -rs`, the three-module impact set). The card's 356/0/0 reproduces, and the `-rs` confirms the zero skips rather than inferring them from a green exit."
+  - "MF-3 (PageKind.PUZZLE keyed as PageKind.COVER) — **54 failed / 302 passed**, 37 in tests/test_book_pdf.py and 17 in tests/test_book_export_interior_cover.py. The mirror arm fires with the right message (\"the registry no longer declares ['puzzle'] and the comment above it claims nothing was taken out\"); all three attributed kills are present; the remaining 51 are the medium flip (`assert 33 == 0` in test_PropertyTest_Interior_NoVectorPageCarriesABitmap, and KeyError: b'XObject' throughout). The card's corrected 54 is CONFIRMED by an independent measurement."
+  - "MF-4 (TITLE re-pointed back to ('CARD-299','CARD-309')) — **2 failed / 354 passed**: test_no_declaration_names_the_card_that_is_closing and TestRasterDeclarations_TheCommentAgreesWithTheRegistry::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card. The row's unmeasured \"2 red\" is correct over the whole impact set. Fired because the brief is fallible and this was the one remaining expected-union figure that could have been a second MF-3."
+  - "M5 (the CARD's own plant: `if False:` + `from nonogram.admin.book_guide_vector import guide_page`) — **1 failed / 355 passed**, the one red being TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_the_generator_imports_none_of_the_writers_that_import_it. The cell RUNS and it CATCHES. The replacement passage's claim is CONFIRMED."
+  - "M5x (the same cycle UNGUARDED) — pytest exit 4, collection dies: ImportError: cannot import name 'FOLIO_PT' from partially initialized module 'nonogram.admin.book_pdf_generator', via book_pdf_generator.py:401 -> book_guide_vector.py:103. **0 cells run.** The \"un-plantable\" claim is CONFIRMED."
+  - "M6 (the same cycle INSIDE interior_stream.produce, cycle 1's m6.py plant verbatim) — **1 failed / 355 passed**, the same direction cell, while tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED. So M6 does plant an import the interpreter executes and is caught, and the layering guard is blind to it — both halves of the replacement's load-bearing claim CONFIRMED."
+  - "M7 (my first attempt: the assembly point imported at module level FROM the generator) — exit 4, the same FOLIO_PT collection death. That site is un-plantable; not round 1's M7, and not counted against the card."
+  - "M7b (same class, plantable site: `from nonogram.admin import book_interior_vector` in src/nonogram/admin/book_kdp.py, after its own generator import) — **1 failed / 355 passed**, the one red being test_nothing_in_the_package_imports_the_assembly_point. The sibling cell is non-vacuous ON MEASUREMENT, which round 1 only expected. See F3-001."
+  - "Not re-fired: MF-1, MF-2, MF-5, MF-6 (cycle 2 measured each at 1 red over this same impact set; src/ and tests/ are byte-identical since, so the measurements carry delta-clean), M1-M4, M8-M11 (same carry, cycle 1/2), and round 1's own M7 plant (not preserved anywhere — see M7b)."
+  - "Discipline: PYTHONDONTWRITEBYTECODE=1; __pycache__ and *.pyc swept under src/ and tests/ before AND after every mutant; each target's SHA-256 asserted against a recorded baseline BEFORE the plant and AFTER the restore; restore is a write-back of the captured bytes, never `git checkout`. Final state: all SIX touched files match the baseline hash (OK x6) and `git status --porcelain` is only the two untracked review YAMLs. No lock was present at any point (`meta/kanban/.full-suite.lock` absent in both the main repo and this worktree; `pgrep -f pytest` empty before the first run) and none was written — no full-suite run was made."
+
+measurements_reproduced:
+  - "The delta IS card text only: `git diff --stat 180b64f0..86466379` = meta/kanban/cards/CARD-309.md, 27+/8-, and `git diff --stat 180b64f0..86466379 -- src/ tests/` is empty."
+  - "src/ comment-only SINCE 50d2c627: 40 changed lines in book_pdf_generator.py, all `#:` comments, proved by ast.dump identity (39f0e102bb2a494c at 50d2c627, 180b64f0 and 86466379). CORRECTION to the orchestrator's brief, which said src/ is \"comment-only across the card\": it is comment-only across the FIX ROUNDS. Across the card src/ gains 143 lines of new module (book_interior_vector.py) and 481 changed lines in book_pdf_generator.py, and that module's AST at HEAD differs from main's (39f0e102 vs 9e3c13f5) — as it must, since the card's subject is new code."
+  - "_write_pdf's AST source segment: 9282 chars and byte-identical (sha 004e5bdf0fb0) at 50d2c627, 180b64f0, 86466379 and main's tip."
+  - "tests/test_cli.py: 0 occurrences in `git diff --name-only merge-base..HEAD`. AC-5's blindness is by construction — _outward_imports (tests/test_cli.py:877-890) filters `other != own`, so admin -> admin is exempt; measured again on M6, where that guard passed while the card's own cell reded."
+  - "G-5 whole tree: branch 9971 (= cycle 2's figure), main 9995 today; 15 added, 0 removed, all 39 of main's extras in files this card does not touch. The 15 are the 10 assembly-point cells + test_no_declaration_names_the_card_that_is_closing + the 4 control cells."
+  - "`git ls-tree -r HEAD -- scratchpad/` is exactly scratchpad/card309/impact.txt + scratchpad/card309/census-converted.txt."
+  - "The registry at HEAD and on main: 7 keys each, 0 removed; COVER () and DIVIDER ('CARD-231',) untouched; exactly 5 entries re-pointed to ('CARD-299','CARD-322'); 0 entries name CARD-309. Re-derived by AST, this cycle."
+  - "F-001's control: 4 cells in TestRasterDeclarations_TheCommentAgreesWithTheRegistry (extractor, claim arm, mirror arm, guard-the-guard), two-armed, the arm chosen by `set(PageKind) - set(_RASTER_DECLARATIONS)`. 6 mutants, 0 survivors (MF-3 and MF-4 measured here; MF-1/2/5/6 carried from cycle 2)."
+  - "Board census population: the F-6 row's assertion derives its population from disk — tests/test_book_pdf.py:2295 `cards.glob(\"CARD-*.md\")` — so \"a count, not a constant\" is accurate. Live counts today: 330 card files in this worktree, 331 in the main working tree. The corrected row no longer asserts a live total; it records 321 \"when this row was written\" and 330 \"when the card's own census was re-derived\", both as dated readings, plus the note that the assertion is `== 0 unreadable` and does not depend on the total. It therefore CANNOT go stale the way the original did — which was the point of the fix. (The brief's \"331 today\" is main's figure; the worktree's is 330.)"
+  - "No surviving copy of either retracted claim: `grep -rl` over meta/ for \"MF-3\", \"cell's only real control\" and \"the AST cell never runs\" hits only meta/review/CARD-309-cycle2.yml — the review record that found them, which is where they belong. ADR-0039/R4's \"retracted everywhere it was written\" is satisfied."
+  - "This cycle's harness and every raw pytest log are at ~/Documents/nonogram-reviews/CARD-309/review-cycle3-harness/ (13 files: fire.py, baseline.sha256, baseline.out, chain.log, one .out per mutant, collect_main.txt, collect_branch.txt), shasum-compared against the worktree source before the source was deleted, 0 mismatches."

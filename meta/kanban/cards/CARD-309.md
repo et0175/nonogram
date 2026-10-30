@@ -1,6 +1,6 @@
 # CARD-309: The assembly point, and the puzzle page becomes operators — the half of the conversion that is architecture rather than repetition
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1.5d <!-- unchanged. The card was re-cut at the decompose station on 2026-10-30 rather than re-estimated: the work it NOW claims (the assembly point) is what it actually did, and it came in at roughly this. -->
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** `card/309-assembly-point-and-puzzle-operators`
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-309
+**Worktree:** — (removed at merge; the probe harnesses, raw verdicts, run logs, the three review harnesses and the owner renders are preserved at `~/Documents/nonogram-reviews/CARD-309/`)
 **Source:** CARD-298's review cycle 1, F-002, 2026-10-29 — which measured that **no card on the board converts the interior pages at all**. Cut by the orchestrator on owner decision the same day. The work is what CARD-298 was originally cut to do, minus the mechanism CARD-298 kept.
 **Idea:** —
 **Wave:** 69 <!-- RE-STAMPED 2026-10-30 at dispatch, 68 -> 69. The field records the wave a card RAN in, and this card never ran in 68: wave 68 closed with CARD-220 (`cb5856dc`) and CARD-314 (`8762beed`) merged while this card sat `ready`. Leaving the old stamp is what made the board read waves 67 and 68 as unclosed. Dispatched with CARD-268; measured Touches intersection with it is EMPTY (overlap 0.0), and the one hotspot this card touches (`book_pdf_generator.py`) is not in CARD-268's set, so no conflict edge. -->
@@ -18,11 +18,11 @@
 **Depends on:** CARD-298, CARD-299, CARD-306, CARD-314 <!-- all done; unchanged by the re-cut -->
 **Split into:** CARD-309 (this card: the assembly point + the puzzle page) and **CARD-322** (the remaining four kinds, R1's flip, CARD-297's divergence)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_interior_vector.py, tests/test_book_pdf.py, tests/test_book_export_interior_cover.py <!-- NARROWED 2026-10-30 at the decompose station. The four vector writers and tests/fixtures/book_baseline_*.json are OUT: no kind converts here, so no baseline moves. book_interior_vector.py is IN and is new. -->
-**Review score:** cycle 1 **7.5 — did NOT certify** (2 open important, 0 critical) → **fix round 1 complete** (`180b64f0`, `src/` **comment-only**), cycle 2 running. **F-001's two false statements are gone and now have a control that cannot be theatre:** `TestRasterDeclarations_TheCommentAgreesWithTheRegistry`, 4 cells, **two-armed and chosen by data** — `set(PageKind) - set(_RASTER_DECLARATIONS)` decides whether a removal claim is *forbidden* or *required*, so CARD-322 changes its arm rather than editing it. Six mutants MF-1..MF-6, **0 survivors**, including one that **hollows the detector** and one that makes the **extractor vacuous**. **Verified by the orchestrator:** putting the false sentence back verbatim reds exactly `test_the_comment_claims_no_removal_the_registry_cannot_show`. It declined to quote the retracted sentences in the comment, reasoning a false claim quoted where it was removed from is one the next reader must re-adjudicate. **Two recorded reaches corrected UPWARD** — M8 reds 3 not 1, M11 reds **7** not 2 — traced to a round-1 harness that ran against the union of expected node ids instead of the whole impact set. **And it corrected a claim the orchestrator relayed:** the card's own M5 (`if False:`-wrapped) reds exactly its named cell; cycle 1's M5x (unguarded) dies at collection with 0 cells run. Two different plants, and the card was right about its own — what is wrong is the *implication*, since a real module-level cycle is un-plantable.
+**Review score:** **9.0 (cycle 3/3) — CERTIFIED**, 0 critical / 0 important. Cycle 1 **7.5**, cycle 2 **8.0**, both failing on record-only findings, with one fix round and one orchestrator card-text pass between. Merge gate **9982 passed / 27 skipped / 1 xfailed / 0 failed in 20:01**, exit 0 — on a retry, after the first attempt was killed at ~15% and orphaned a pytest that `pgrep` by worktree path could not see.
 **Started:** 2026-10-30T11:58:28Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-30T23:11:20Z
+**Actual:** 1.4d
+**Merge commit:** `db366763` (gated tree `055a841d`)
 **Blocked by:** —
 
 ## Why this card exists

@@ -43,10 +43,21 @@ max_concurrent_override: 2
 # (test_browser_fixture_scope.py +164 new, test_puzzle_solver_page.py +6)
 # while NOT touching tokens.css, which its Touches predicted.
 active:
-- id: CARD-318
+- id: CARD-330
   phase: implementation
-  branch: card/318-fr-029-strategies-criteria
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
+  branch: card/330-edge-offset-is-two-device-pixels
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-330
+  started: '2026-10-30T23:18:51Z'
+  note: >-
+    Took the slot CARD-309 freed at merge. It could not start earlier: this card
+    and CARD-329 both touch tests/test_book_pdf.py, which CARD-309 also touched,
+    so all three conflicted and CARD-318 opened the wave instead. Measured free
+    of CARD-318 -- intersection EMPTY -- which is the pairing the owner asked
+    for: one vector card beside one generator/solver card. NARROWED by the
+    owner's steer: if the raster is the medium that is off spec, it is NOT
+    fixed; its expectations are pinned as legacy and CARD-322's conversion
+    retires them. The named hazard stands regardless: EDGE_TOLERANCE_MM may not
+    be widened to admit the more accurate medium.
   started: '2026-10-30T20:56:08Z'
   note: >-
     Wave 70 opens on the owner's "start these cards together with cards for
@@ -82,14 +93,13 @@ queued:
 # CARD-309, CARD-318, CARD-330 and CARD-329 -- so it fills whichever gap opens
 # first. CARD-330 and CARD-329 cannot start while CARD-309 lives, because all
 # three touch tests/test_book_pdf.py.
-- id: CARD-330   # P1 1d    next in; BLOCKS CARD-322. Waits on CARD-309 (shared test_book_pdf.py).
 - id: CARD-331   # P1 0.75d free of EVERY card above; held only by the cap.
 - id: CARD-317   # P1 0.5d  after CARD-318 (shared requirements.yml); carries a real FR-001 generator finding.
 - id: CARD-329   # P1 0.75d after CARD-330 (shared test_book_pdf.py).
 - id: CARD-316   # P1 0.25d last of the requirements chain.
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
-last_updated: '2026-10-30T21:04:50Z'
+last_updated: '2026-10-30T23:18:51Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
