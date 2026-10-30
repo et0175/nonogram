@@ -93,10 +93,12 @@ tree, where the import is legal**. Do the same here.
   position with nothing painted, which is the state CARD-267 explicitly refuses.
   (test: `TestPublicCrosshair_TouchIsNeverHalfPainted`)
 - **AC-6** (the two implementations agree): *Given* both players' sources, *then*
-  a test in the test tree reads each and asserts they make the same decision on
-  the four cases of item 1 — the control that makes this card's deliberate
-  duplication detectable if one side drifts. (test:
-  `TestPublicCrosshair_TheTwoImplementationsAgree`)
+  the crosshair's agreement check **joins `tests/test_public_player_agreement.py`**,
+  the file **CARD-328** establishes as the one home for "a look the public player
+  reimplements is held to the admin's" — asserting they make the same decision on
+  the four cases of item 1, and **declaring** any divergence with its reason
+  rather than asserting sameness wholesale. Do not start a parallel guard here.
+  (test: `TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions`, in that file)
 
 ## Guardrails
 
@@ -188,3 +190,14 @@ had already moved once.
   is a promise nothing checks. If a future card does extract the shared layer,
   AC-6's test is the thing it deletes, and that deletion is the evidence the
   extraction worked.
+- **[AC-6 moved to CARD-328's file, same day]** The agreement pattern stopped
+  being this card's invention within hours: `2400501b` landed the dot and the
+  solved reveal on `main` by reimplementing two more of the admin's looks, and
+  **CARD-328** was cut to own the guard over them. Its
+  `tests/test_public_player_agreement.py` is now the one home for the pattern —
+  including the decision this card would otherwise have had to make alone, that
+  a guard asserts the **shared** parts and **declares** the legitimate
+  divergences (measured there: the dot's rules are declaration-for-declaration
+  identical, while the sweep's selectors differ for a stated reason, so a guard
+  demanding sameness wholesale would be false). Read CARD-328 before writing
+  AC-6's test; a third copy of this reasoning is what it exists to prevent.
