@@ -1,0 +1,374 @@
+version: 1
+generated_at: "2026-10-30T19:40:00Z"
+target: "CARD-309 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-309, branch card/309-assembly-point-and-puzzle-operators, git diff main..HEAD (2 commits: 1e7d453c, 50d2c627)"
+overall_score: 7.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+certifies: false
+certification_reason: "score 7.5 < min_score 8, and two open Important findings (F-001, F-002)"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_interior_vector.py
+    - src/nonogram/admin/book_pdf_generator.py
+    - tests/test_book_pdf.py
+    - tests/test_book_export_interior_cover.py
+    - tests/test_cli.py
+    - meta/kanban/cards/CARD-309.md
+    - meta/kanban/cards/CARD-322.md
+    - scratchpad/card309/
+    - "~/Documents/nonogram-reviews/CARD-309/ (p06 both media, p12 vector)"
+  not_reached:
+    - "tests/helpers/pdf_pages.py, page_ink.py, round_ink.py (AC-3's subject, left this card to CARD-329/330/331)"
+    - "tests/property/test_cli_exports_byte_identity.py and tests/test_export_a4_golden.py (untouched by the diff; not run this cycle)"
+    - "the 0.169 mm offset re-derivation and the 189/75 converted-state census (taken from the committed scratchpad/card309/census-converted.txt, not re-measured)"
+  confidence: high
+
+metrics:
+  diff: { files: 18, added: 2162, removed: 104 }
+  max_fan_in:
+    symbol: "nonogram.admin.book_interior_vector"
+    callers: 0
+    note: "zero callers in src/ is a MEASURED zero and is the card's own central subject; the only importer anywhere is tests/test_book_pdf.py"
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (90 commits/12mo, 46 fix-shaped)"
+    - "tests/test_book_export_interior_cover.py (38 commits/12mo, 14 fix-shaped)"
+    - "tests/test_book_pdf.py (30 commits/12mo, 10 fix-shaped)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the co-change peers of book_pdf_generator.py (test_book_pdf.py, test_book_export_interior_cover.py) are both IN the diff; no absent peer"
+
+system_contract:
+  rules_checked: 10
+  holds: 5
+  unchecked: 4
+  violated: 1
+  verdicts:
+    - "ADR-0042/R1 ✓ holds — deliberately NOT flipped, which is correct for a card that converted no kind: _RASTER_DECLARATIONS still holds 7 entries at HEAD (re-derived by import, same 7 as main), so R1's claim is still false and still declared false."
+    - "ADR-0042/R2 ✗ violated — src/nonogram/admin/book_pdf_generator.py:565-570: the registry's own comment states 'the rest are CARD-298's findings, one fewer since CARD-309' and 'CARD-309 removed one entry'. Re-derived at HEAD: 7 entries, identical to main. R2's point is that this mapping's count is 'the one honest reading of how far ADR-0042/R1 has actually got'; the comment misstates it. See F-001."
+    - "ADR-0042/R3 ✓ holds — every figure a downstream writer receives is the walk's own: self.page_spec(...), page_frame(...), the rows slice and toc_page_number, read at book_pdf_generator.py:7862-7920 and 8005-8046; _drawn_downstream (831-875) forwards *args/**keywords and derives nothing."
+    - "ADR-0042/R6 ✓ holds — the four new runtime cells read the artefact as a content stream (pdf_vector.content_streams / page_resource_keys / embedded_faces), never as pixels: tests/test_book_pdf.py::TestAssemblyPoint_TheDownstreamWritersAreReachable, 5 cells, all green in the 84-pass run."
+    - "ADR-0036/R1 ⚠ unchecked — stale_check: tests/test_export_a4_golden.py is untouched by the diff (0 hits in git diff --name-only) but was not run this cycle; it is outside the stated impact set."
+    - "CON-019 ⚠ unchecked — stale_check: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry's file is untouched by the diff (G-3 verified structurally) but was not run this cycle."
+    - "CON-020 ⚠ unchecked — no_eligible_fact: no kind converted, so no stream-read type floor newly applies to an interior page; CARD-314's /ClueDigit mark is live and untouched."
+    - "INV-013 ✓ holds — measured on a 16-page interior generated this cycle from the card's own probe: page_kinds = title, guide, guide, toc, divider, puzzle x5, divider, answer x5 — no COVER page, parity from interior page 1."
+    - "ADR-0039/R1-R2 ✓ holds — every new cell carries a control that can fail and every set is derived, not listed: test_the_import_reading_finds_a_planted_edge_at_any_depth (both shapes), the guard-the-guard asserts inside test_the_generator_imports_none_of_the_writers_that_import_it, the both-arms `_RASTER in set(media)` assertions, the `len(lifted) >= 4` / `len(fields) >= 4` floors, _package_modules() walked from disk and _interior_kinds() derived from the registry. Re-derived by re-firing M2, M6, M8 and M11: each reds the cell(s) it claims."
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: the card itself records zero definitions of this ref in the repo (CARD-307). Manual read of this diff found no violation: the new module imports only stdlib typing and existing nonogram.* modules; pyproject.toml is untouched."
+
+root_causes:
+  - id: RC-1
+    title: "The card's record was written for the CONVERTED, pre-rebase state and was not fully re-derived after the revert and the rebase"
+    finding_ids: [F-001, F-003, F-004, F-005, F-007]
+  - id: RC-2
+    title: "CARD-306's F-307 rename was declined on G-5 and routed in prose only — the receiving card was never amended"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: enabler
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 565
+    title: "Shipped comment on _RASTER_DECLARATIONS claims CARD-309 removed an entry; it removed none"
+    description: |
+      The registry's module comment was rewritten for the state the card then
+      REVERTED, and the rewrite survived the revert. It now reads:
+
+        "Two of these are the ADR's own; the rest are CARD-298's findings, ONE
+         FEWER SINCE CARD-309."
+        "... No count of them is written here on purpose — CARD-309 REMOVED ONE
+         ENTRY and a number in this comment would have been the drift CARD-261
+         found twice, in a comment nobody re-reads when the mapping shrinks."
+
+      Re-derived at HEAD by importing the module: 7 entries (COVER, DIVIDER,
+      TITLE, GUIDE, TOC, ANSWER, PUZZLE) — byte-identical in count to `main`.
+      CARD-309 removed nothing. Both sentences are false, and the second is
+      false in the act of invoking CARD-261's drift precedent as its reason.
+
+      Failure scenario: CARD-322's implementer opens the registry to find out
+      how far R1 has got — which this very comment nominates as "the one honest
+      reading" — reads that one entry is already gone, and plans four
+      conversions where five remain. The card's re-cut makes "the declarations
+      must be honest" the surviving half of AC-1; the declaration DATA is
+      honest, this prose is not, and it is the half a reader reaches first.
+    suggestion: |
+      Restore the comment to a statement true of a registry that did not shrink:
+      CARD-309 built the assembly point, re-pointed five entries at CARD-322,
+      and removed none. Keep the no-count rule (it is right), drop the
+      "one fewer"/"removed one entry" clauses.
+    confidence: high
+    source: static
+    violates: ADR-0042/R2
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: enabler
+    type: gap
+    file: meta/kanban/cards/CARD-322.md
+    line: 157
+    title: "The F-307 rename is handed to CARD-322 in CARD-309's prose only, and CARD-322's G-5 forbids it exactly as CARD-309's did"
+    description: |
+      CARD-309 declines CARD-306's F-307 debt (the class name
+      `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`) and records:
+      "Raised for CARD-322, which converts the kinds and SHOULD CARRY THE RENAME
+      WITH A GUARDRAIL THAT PERMITS IT."
+
+      Measured on this branch:
+        * `grep -rn "F-307\|NoSheetFurniture" meta/kanban/` returns CARD-238,
+          CARD-306 and CARD-309 — and NOT CARD-322. The debt appears nowhere in
+          the receiving card.
+        * CARD-322.md:157 reads "**G-5: no test deleted, renamed, skipped or
+          merged** — `parametrize` ids included." — the same unqualified
+          prohibition, with no exemption for this class.
+        * `git diff main..HEAD --name-only` shows CARD-322.md is not touched by
+          this card, so no amendment was even attempted.
+
+      Declining the rename WAS right (G-5 is authoritative at the task level and
+      may only be weakened at the decompose station — that reasoning is correct
+      and is the one part of this finding that is not a defect). But the
+      hand-off is a claim about another card's guardrail that is false of that
+      card, and the hand-off is not where its reader will look.
+
+      Failure scenario: CARD-322 runs, converts the puzzle page, hits the same
+      class, consults its own guardrails, finds G-5 unqualified, declines on
+      identical grounds, and routes the debt onward — the loop this card had the
+      chance to break. A false name survives two more cards while two card
+      records each assert it is someone else's.
+    suggestion: |
+      Either amend CARD-322 (add the F-307 rename to its "What to implement" and
+      qualify its G-5 with the named exemption — a decompose-station edit), or
+      card the rename on its own. Correct CARD-309's claim that CARD-322 already
+      carries a permitting guardrail.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: enabler
+    type: gap
+    file: meta/kanban/cards/CARD-309.md
+    line: 733
+    title: "The card cites four evidence files by path that are UNTRACKED and die with the worktree; 'all three runs are kept' is false of a checkout"
+    description: |
+      The card's blocker paragraph cites "census in
+      `scratchpad/card309/run_converted.txt`" and its impact section states "The
+      same set was run THREE times on this branch and ALL THREE ARE KEPT".
+
+      `git status --porcelain scratchpad/` on the branch: `run_base.txt`,
+      `run_converted.txt`, `run_final1.txt`, `run_final2.txt`, `collect_base.txt`,
+      `collect_now.txt`, `readers.json`, `card_notes.md`, `card_sections.md`,
+      `notes_body.md` are all **untracked**. None reaches `main`; all are removed
+      with the worktree.
+
+      This is the exact failure the card's own Mutants section names as its
+      reason for committing the harness: "A measurement cited from a path that
+      resolves nowhere from a checkout is a dead check ref one level down, which
+      is CARD-298's F-004". Three of the four runs — including the node-id
+      collections behind G-5 — are such paths today.
+
+      Mitigating and worth stating: the MIDDLE run's substance does survive, in
+      the committed `scratchpad/card309/census-converted.txt` (218 lines, the
+      per-module tally and `189 failed, 1860 passed, 1 skipped, 75 errors in
+      223.54s`). So the blocker argument is reproducible; the cited paths and the
+      "three kept" claim are not.
+    suggestion: |
+      Commit the three run files and the two collect files alongside
+      census-converted.txt, or re-word the card to cite only the committed
+      artefact. See the scratchpad decision in the review's prose.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: enabler
+    type: risk
+    file: tests/test_book_pdf.py
+    line: 2041
+    title: "_BOARD_STATUSES' SCOPE+ comment is stale after the rebase and now contradicts the set three lines below it"
+    description: |
+      The rebase resolved this file's conflict in main's favour (main's set is a
+      strict superset: it added `review` and dropped the dead `"in progress"`).
+      The diff therefore no longer changes `_BOARD_STATUSES` at all — only the
+      comment above it survived, and the comment describes work the diff no
+      longer does:
+
+        * "The widening and its exemption are ONE EDIT, and this is the exemption
+          half. `in_progress` joins the vocabulary" — main already added it; this
+          diff adds nothing.
+        * "the whole vocabulary is `done`, `ready`, `blocked`, `in_progress`,
+          `skipped`, `parked` — SIX spellings, EVERY CARD ACCOUNTED FOR" — the
+          frozenset three lines below holds SEVEN, including `review`.
+
+      Re-derived from the main working tree today (330 card files): done 275,
+      ready 48, blocked 3, **review 2**, skipped 1, parked 1 — zero
+      `in_progress`. The comment's census both omits a spelling two cards carry
+      (CARD-309 itself is `Status: review`) and asserts one no card carries.
+
+      Failure scenario: a later card re-derives the vocabulary from this comment
+      rather than from the board, drops `review`, and reds every in-flight branch
+      — the identical failure the comment was written to document.
+    suggestion: |
+      Re-derive the census at HEAD and re-word the note as a record of a
+      correction main already landed, not as an edit this diff makes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: enabler
+    type: risk
+    file: meta/kanban/cards/CARD-309.md
+    line: 692
+    title: "Two of the eleven mutants are mis-attributed: M5 is killed by the interpreter, not by its named cell; M11 reds 7 cells, not 2"
+    description: |
+      Re-fired this cycle, cache-swept and SHA-asserted before and after each.
+
+      M5 ("a module-level cycle"): planted
+      `from nonogram.admin.book_guide_vector import guide_page` at
+      book_pdf_generator.py:401. Result — the suite does not collect at all:
+      `ImportError: cannot import name 'FOLIO_PT' from partially initialized
+      module ... (most likely due to a circular import)` raised while loading
+      `tests/conftest.py`. The card says M5 "killed exactly the cell that claims
+      [it]"; that cell never runs. A module-level cycle is un-plantable without a
+      hard ImportError, so the AST cell's unique value is M6, not M5 — which the
+      card's wording obscures.
+
+      M11 (injected writer called through a local, in the TOC gate): reds SEVEN
+      cells, not the two the card names. Both named cells DO red
+      (`test_the_page_position_set_is_derived_from_the_one_geometry_door`,
+      `test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`),
+      plus four more of the same class and
+      `TestAssemblyPoint_TheDownstreamWritersAreReachable::test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`.
+      The card's "reds two cells of this class" understates its own mutant's
+      reach by 3x on that class.
+
+      Neither is a surviving mutant and neither weakens the design argument —
+      both are accuracy defects in a record the board reads as measured.
+    suggestion: |
+      Re-state M5 as "killed at import, before the cell runs — which is why M6
+      is the cell's real control", and re-state M11's reach from the rows.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: enabler
+    type: question
+    file: /Users/omelnikova/Documents/nonogram-reviews/CARD-309/vector-p06-06.png
+    line: 0
+    title: "The vector puzzle page's 5-cell group rules read visibly lighter than the raster twin's at 150 dpi, and AC-6's description does not mention it"
+    description: |
+      Looked at rather than asserted, then measured. Inside the grid body of
+      page 6 (the same page in both media, 150 dpi):
+        raster-p06: 58 heavy columns, 47 heavy rows
+        vector-p06: 31 heavy columns, 22 heavy rows
+      (a column/row counted "heavy" when >80% of its pixels in the body window
+      are dark). The raster twin reads as a clean 5x5 block grid; the vector page
+      reads as an almost uniform hairline grid.
+
+      The PRODUCT is right — the page-6 content stream emits all three declared
+      widths (`0.3 w` x1, `0.8 w` x2, `1.3 w` x4), so this is a render-resolution
+      artefact: the raster twin was drawn at 300 dpi and downsampled, the vector
+      hairlines are rasterised at 150. It is not a missing feature and not a
+      gating defect.
+
+      It is raised because AC-6 exists to put an owner's eye on exactly this, the
+      card's description of the render does not mention it, and CARD-322 is the
+      card that ships this page to a reader. The honest owner-facing statement is
+      "the group rules are present but thinner; judge them at print resolution".
+    suggestion: |
+      Re-render p06 at 300 dpi for the owner, or state the difference in AC-6's
+      description. Route to CARD-322 / CARD-330 (the medium-difference owner).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: enabler
+    type: gap
+    file: scratchpad/card309/render_for_owner.py
+    line: 59
+    title: "The committed render probe does not reproduce the render set the card describes, and hardcodes the worktree path"
+    description: |
+      The card's AC-6 says the directory holds "poppler renders of pages 2, 4, 6,
+      9 AND 12 of both". The committed probe's loop is
+      `for page in (2, 4, 6, 9)` — page 12 is not in it, though
+      `~/Documents/nonogram-reviews/CARD-309/` does hold `vector-p12-12.png` and
+      `raster-p12-12.png`. The committed script is therefore not the script that
+      produced the committed evidence.
+
+      Separately, `ROOT = pathlib.Path("/Users/omelnikova/PycharmProjects/
+      PythonProject4-card-309")` is hardcoded at line 13, so the probe does not
+      run from a `main` checkout at all — which bears directly on whether
+      `scratchpad/card309/` belongs on `main` (see the review's decision).
+
+      Verified reproducible despite this: with the output path redirected, the
+      probe reproduces AC-4's byte figures EXACTLY (4,786,226 / 607,106 B,
+      299,139 / 37,944 B/page, 7.9x, 16 pages).
+    suggestion: |
+      Add page 12 to the loop and derive ROOT from __file__, or move the probe to
+      ~/Documents/nonogram-reviews/CARD-309/ with the renders it made.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+guardrails:
+  - "G-1 PASS — PageKind.COVER's RasterDeclaration (book_pdf_generator.py:602) is untouched by the diff; expires_with=() at HEAD. No cover conversion."
+  - "G-2 PASS — PageKind.DIVIDER's entry (610) untouched, expires_with=('CARD-231',) at HEAD. The only DIVIDER hit in the diff is the unchanged `page_kinds.append(PageKind.DIVIDER)` context line. The new runtime cell asserts `_RASTER in set(media)` so the divider is still a bitmap on a wholly-lifted file."
+  - "G-3 PASS — tests/property/test_cli_exports_byte_identity.py and tests/test_export_a4_golden.py appear 0 times in `git diff main..HEAD --name-only`. Not run this cycle (recorded as stale_check above)."
+  - "G-4 PASS — 0 paths under tests/fixtures/ in the diff; `git status --porcelain tests/fixtures/` is empty. No corpus minimum lowered (the new cells add floors: `len(lifted) >= 4`, `len(fields) >= 4`, `len(named) >= 2`, `len(interior) >= 4`)."
+  - "G-5 PASS — node-id set difference over the WHOLE tree (stronger than the card's impact-set check), `-o addopts='' -p no:randomly --collect-only -q`: main 9956 ids, branch 9967 ids, 0 REMOVED, 11 ADDED. The 11 are exactly the 10 assembly-point cells plus test_no_declaration_names_the_card_that_is_closing. No parametrize id moved."
+  - "G-6 PASS — `_write_pdf` is BYTE-IDENTICAL between main and HEAD (AST source segment compared: 9282 chars both sides, identical=True). The representation refusal is not weakened; _drawn_downstream's refusal sits one step earlier and is additive."
+  - "G-7 PASS — the diff's only tests/ paths are tests/test_book_pdf.py and tests/test_book_export_interior_cover.py, both real test modules. Every probe lives under scratchpad/card309/ (see F-003 for where it should live)."
+
+mutants_refired:
+  - "M2 (default-DENY removed from _drawn_downstream: `if writer is None` -> `if False`) — KILLED by exactly the two cells the card names: TestAssemblyPoint_TheDownstreamWritersAreReachable::test_a_generator_with_no_downstream_writer_refuses and ::test_a_partial_writer_set_refuses_only_the_kind_it_is_missing. 2 failed, 7 passed."
+  - "M5 (module-level cycle: generator -> book_guide_vector) — KILLED, but at COLLECTION by CPython's own import machinery (ImportError: cannot import name 'FOLIO_PT' ... circular import), not by the structural cell the card names. See F-005."
+  - "M6 (the same cycle inside interior_stream.produce's GUIDE gate) — KILLED by exactly TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_the_generator_imports_none_of_the_writers_that_import_it. 1 failed, 218 passed. DECISIVE SECONDARY RESULT: tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED on this mutant — the structural layering guard does NOT see a lateral import inside admin/, so AC-5's 'the structural guard passes unmodified' is necessary-but-not-sufficient evidence, and the new cell is doing work nothing else does."
+  - "M8 (packed-answer writer bound to the lone-answer field and vice versa, in book_interior_vector.DOWNSTREAM_WRITERS) — KILLED by test_each_of_the_four_bindings_was_used (the card's named cell) plus test_every_interior_page_is_written_as_operators and test_the_four_writers_each_drew_their_own_page. The BOOK reasoning was verified by an independent CONTROL: clean src + the first-draft BOOK=((10,10,3),(10,10,3),(10,10,3)) reds test_each_of_the_four_bindings_was_used with used=['guide','packed_answer','toc'] — 'answer' absent. The lone-answer binding really is unexercised by an all-packing book, so BOOK=((30,30,10),(10,10,3)) is load-bearing exactly as claimed."
+  - "M11 (TOC gate calls the injected writer through a local instead of through _drawn_downstream's parameter) — KILLED. Both cells the card names red; so do five more (7 total). See F-005."
+

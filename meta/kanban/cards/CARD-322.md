@@ -88,6 +88,27 @@ assembly point with **zero production call sites**, which is verbatim the condit
 it was cut to end. The conversion is the call site. Until this card lands, nothing in
 `src/` turns an interior page into operators.
 
+## [Added 2026-10-30 at CARD-309's review] This card owes CARD-306's F-307 rename, and until now nothing said so
+
+CARD-309's review cycle 1 raised this as its **F-002**, and it was a real routing
+hole rather than a disagreement: CARD-309's record claims it hands the rename to
+this card *"with a guardrail that permits it"*, and measured, **this card had
+zero mentions of F-307 or the class name**, while its G-5 carried the same
+unqualified prohibition CARD-309 had just declined under. So the rename was
+owed by a card that did not know it, behind a guardrail that forbade it.
+
+**CARD-309 was right to decline.** G-5 is task-level authoritative and is
+weakened only at the decompose station. What failed was the routing, and it is
+fixed in two places: G-5 above now carries the one named exception, and this
+section records why the debt exists.
+
+**The debt itself:** `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`
+says the vector puzzle page draws **no** sheet furniture. CARD-306 then gave it
+folio, frame rules, a grid-size label and a QR block — so the name is now the
+opposite of the truth while the assertions underneath are correct. A test whose
+name contradicts its body is this board's most-cited defect family, and it is
+sitting in the file this card has to edit anyway.
+
 ## What to implement
 
 1. **One kind at a time, each removal complete.** For TITLE, GUIDE, TOC and ANSWER: wire the vector
@@ -154,7 +175,22 @@ it was cut to end. The conversion is the call site. Until this card lands, nothi
   to refresh.
 - **G-4: do not lower a corpus minimum**, and regenerate nothing under `tests/fixtures/**` beyond the
   baselines item 5 enumerates.
-- **G-5: no test deleted, renamed, skipped or merged** — `parametrize` ids included.
+- **G-5: no test deleted, renamed, skipped or merged** — `parametrize` ids
+  included. **ONE NAMED EXCEPTION, granted at the decompose station 2026-10-30**
+  (a guardrail is weakened here and nowhere else — never in a worktree):
+  `tests/test_book_puzzle_page_vector.py:1950`'s
+  `class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`
+  **may be renamed**, and only it. Its *body* is honest; its **name** became
+  false when CARD-306 gave the vector puzzle page exactly the sheet furniture
+  the name denies (folio, frame rules, grid-size label, QR block). CARD-306
+  raised it as F-307; CARD-309 examined it, found the only fix is a rename, and
+  **correctly declined** under this very guardrail — see its round's findings.
+  The rename is this card's because this card converts the kind and will be in
+  that file anyway. Spell the replacement for what the class now asserts, and
+  re-stamp every consumer of the old node ids in the same commit: a renamed
+  class is a node-id change, so `ADDED_SINCE_BEFORE`, any `_SEEN_REGIONS`-style
+  census and any frozen snapshot naming it move **with** it or the gate finds
+  them.
 - **G-6: do not weaken `_write_pdf`'s representation refusal to let a conversion land.** It is the
   thing that makes a partial conversion safe; a card that loosens it to get green has removed its own
   safety net.

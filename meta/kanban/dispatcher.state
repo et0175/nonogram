@@ -54,8 +54,17 @@ active:
                     # Both decided by the owner 2026-10-30 and recorded on the
                     # branch at e057b89d: a different channel, and fix the rule.
 - id: CARD-309
-  phase: review
-  review_cycle: 1   # of review.max_cycles: 3
+  phase: fix
+  review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
+  fix_round: 1
+  score_history: [7.5]
+  gating_open: 2    # F-001 a FALSE CLAIM IN SHIPPED src/ (the registry comment
+                    # claims a removal that did not happen, justified by
+                    # CARD-261's drift precedent while committing that drift);
+                    # F-002 the F-307 rename was owed by CARD-322, which had
+                    # zero mentions of it -- ALREADY FIXED on main by the
+                    # orchestrator at the decompose station, since a guardrail
+                    # is weakened there and nowhere else.
   branch: card/309-assembly-point-and-puzzle-operators
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
   note: >-
@@ -124,7 +133,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T18:07:05Z'
+last_updated: '2026-10-30T18:27:33Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
