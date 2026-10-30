@@ -171,17 +171,6 @@ _**Two cards, both wave 69**, at the owner's cap of 2. Re-derived from all 330 c
   **declares** the three divergences, with a fourth reddening. Mutation is the deliverable,
   **two mutants per sheet**, because a guard reading one sheet passes half of them.
 
-- **CARD-328** P2 · **The public player's duplicated looks are held to the admin's** ⚙ `implementation`
-  `worktree: ../PythonProject4-card-328` · `branch: card/328-player-looks-agree`
-  `0.75d est · standard · TDD off deliberately`
-  Dispatched 14:36Z. Declares `2400501b` (already on `main`, green at 67 passed / 0 skipped)
-  and guards the duplication it created. **The whole difficulty is that a guard demanding the
-  two sheets match would be FALSE**: the dot's rules are declaration-for-declaration identical,
-  while the sweep's selectors differ for a stated reason — so it asserts the shared parts and
-  **declares** the three divergences, with a fourth reddening. Mutation is the deliverable,
-  **two mutants per sheet**, because a guard reading one sheet passes half of them.
-
-
 ## Review
 
 - **CARD-309** P2 · **The assembly point** — re-cut 2026-10-30 to the half it delivered  `cycle 0/3 · no score yet`
@@ -195,6 +184,22 @@ _**Two cards, both wave 69**, at the owner's cap of 2. Re-derived from all 330 c
   reverted conversion is on the branch's history as evidence, not as shipped code, and
   `scratchpad/card309/**` carries ten probe scripts: **whether those should reach `main` is an
   open review question**, flagged rather than decided.
+
+- **CARD-328** P2 · **The public player's duplicated looks are held to the admin's** · `implementation complete, awaiting cycle 1`
+  `worktree: ../PythonProject4-card-328` · `branch: card/328-player-looks-agree` (`e17229a4`)
+  23 tests in one new file, **8 mutants / 8 killed / 0 survived**, and `src/` byte-identical
+  (both SHAs re-checked against `main` by the orchestrator). **103 passed / 0 skipped** across
+  the agreement file plus the three it must not disturb — re-run independently, and the two
+  shipped files' **67** reproduces the card's declared figure exactly. The guard derives **12
+  facts**; **9 agree, 3 diverge, and the 3 are exactly the declared set**. Four of its eight
+  mutants are **admin-side**, so a guard reading the public tree twice would have survived all
+  four — and it asserts that property about itself.
+  **It also corrected a figure of the orchestrator's:** the card claimed admin had 4
+  reduced-motion blocks against the public sheet's 1. Both have **one**; the "4" was
+  `grep -c` on a string, three of whose hits are prose comments. The real divergence is the
+  block's **coverage** (5 selectors vs 2), and the **count agrees at 1 = 1** and is
+  deliberately left undeclared, since declaring a non-divergence is the stale exemption its
+  own AC-4 forbids.
 
 ## Parked
 - **CARD-300** P2 · The door axis's seventh appearance, **priced before it is attempted** — R9's closure, the surface rule's two unequal halves, and whether this guard should survive the vector interior at all  _(unscheduled, `architectural`, from CARD-276's merge as a declaration 2026-10-25. **Its AC-1 is a recorded decision, not a code change**: close R9, keep the declaration and spend the round on this file's cost, or retire the door axis if the vector phase makes it unverifiable — because a seventh round on the same mechanism in the same file is the shape this board has already paid for. Carries R9's baseline measurements, the surface rule's decorated-method asymmetry with its **4-refusal cost on a defect-free tree**, CARD-276's six unverified AC-5 cells, and the partition-B figure verifiable only as **+22** against a claimed 33. **Sequence it with CARD-287/292/299 on this file** — the ADR-0042 census argues the conversion and the cheapening are one piece of work done once)_

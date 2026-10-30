@@ -1,6 +1,6 @@
 # CARD-328: The public player's duplicated looks are held to the admin's — the dot and the solved reveal, declared after the fact
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d <!-- The claim-card floor (owner, wave 50): a card whose subject is a CLAIM or a MEASUREMENT may not be estimated as trivial, whatever its diff size. This card's entire deliverable is the claim "two implementations agree", so the floor applies. It was first scoped at 0.5d in conversation before the rule was applied. -->
@@ -89,7 +89,22 @@ in agreement** — measured 2026-10-30:
   reveal fires on the transition into solved and does not re-trigger while it
   stays solved). **Not a drift.**
 - **The `, 0` fallback** in the public page's `var(--player-wave, 0)`.
-- **Reduced-motion blocks:** admin has 4, the public sheet has 1.
+- **The reduced-motion block's COVERAGE.** <!-- CORRECTED 2026-10-30 by the
+  implementation round, and the error was the orchestrator's. This line read
+  "admin has 4, the public sheet has 1", which is `grep -c 'prefers-reduced-motion'`
+  — a STRING count read as a BLOCK count. Re-derived: `admin.css` has exactly ONE
+  `@media (prefers-reduced-motion: reduce)` block, at :1061; its other three hits
+  (:872, :1059, :1259) are prose comments mentioning the feature. Both sheets have
+  ONE block, so the block count is NOT a divergence and declaring it would have been
+  the stale exemption AC-4 forbids. The real divergence is what the one block covers.
+  This is the board's own rule — a figure is counted from the rows, never from a
+  narrative or a string match — failing in a card brief. -->
+  Both sheets have exactly **one** `@media (prefers-reduced-motion: reduce)` block.
+  What differs is its reach: admin's silences **5 selectors** with
+  `animation: none !important; transition: none !important` (it has toolbar and stage
+  chrome to quiet); the public sheet's silences **2** with `animation: none`. The
+  **block count is compared separately and must agree at 1 = 1** — it is not declared,
+  precisely because it is not a divergence.
 
 So a guard asserting "the two sheets are the same" would be **false**, and one
 asserting only the dot would miss the sweep entirely. The guard this card owes
