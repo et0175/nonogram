@@ -1,4 +1,4 @@
-wave: 69
+wave: 70
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -43,6 +43,37 @@ max_concurrent_override: 2
 # (test_browser_fixture_scope.py +164 new, test_puzzle_solver_page.py +6)
 # while NOT touching tokens.css, which its Touches predicted.
 active:
+- id: CARD-318
+  phase: implementation
+  branch: card/318-fr-029-strategies-criteria
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
+  started: '2026-10-30T20:56:08Z'
+  note: >-
+    Wave 70 opens on the owner's "start these cards together with cards for
+    generator/solver" -- the vector interior path AND the generator/solver
+    family in ONE wave. Measured: the two groups have ZERO cross-conflicts,
+    so every vector x gen/solver pairing is free and the wave is exactly the
+    shape asked for. Each group serializes INTERNALLY:
+      vector      CARD-330 <-> CARD-329 share tests/test_book_pdf.py (0.50);
+                  CARD-331 is free of both
+      gen/solver  CARD-318 <-> CARD-317 <-> CARD-316 all share
+                  requirements.yml (0.50-1.00)
+    This card goes first of its chain. It starts NOW, while CARD-309 is still
+    in review, because its intersection with CARD-309 is EMPTY -- whereas
+    CARD-330 and CARD-329 BOTH collide with CARD-309 on tests/test_book_pdf.py
+    and must wait for it to close. That is why the wave does not open on its
+    own blocker.
+queued:
+# Wave 70's remaining five, in the order the two chains drain at the cap of 2.
+# A wave larger than max_concurrent drains through the refill (cmd-run 6c), it
+# is not split into more waves.
+- id: CARD-330   # P1 1d  - the 0.169 mm question; BLOCKS CARD-322. Waits on CARD-309 (shared test_book_pdf.py).
+- id: CARD-317   # P1 0.5d - six check refs under other names; carries a real FR-001 generator finding. After CARD-318.
+- id: CARD-329   # P1 0.75d - the one-image reader. After CARD-330 (shared test_book_pdf.py).
+- id: CARD-331   # P1 0.75d - the difficulty-dot instrument. Free of everything; fills any gap.
+- id: CARD-316   # P1 0.25d - seven ACs naming tests never meant to exist. Last of the requirements chain.
+# Tails, free of every card above: CARD-278 (P2 0.25d, the solver's blinded
+# propagation path) and CARD-320 (P1 0.5d, a float reaching uuid.UUID).
 - id: CARD-268
   phase: review
   review_cycle: 2   # of review.max_cycles: 3 -- cycle 1 scored 7.5, fix round 1 complete
@@ -124,7 +155,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T19:01:29Z'
+last_updated: '2026-10-30T20:56:08Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

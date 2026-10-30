@@ -1,6 +1,6 @@
 # CARD-318: FR-029's strategies criteria are ten unwritten tests reading as mechanically checked — the board's one real coverage gap
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/318-fr-029-strategies-criteria`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-318
 **Source:** CARD-307's fourth premise re-measurement, 2026-10-29, which found the board's real dead-ref population and partitioned it. CARD-307 was cut; this is the successor carrying the only genuine coverage work in it. Cut by the orchestrator on owner decision.
 **Idea:** —
-**Wave:** —
+**Wave:** 70 <!-- STAMPED 2026-10-30 at dispatch. Wave 70 opens on the owner's "start these cards together with cards for generator/solver" -- the vector interior path AND the generator/solver family in one wave. This card goes FIRST of the three that share `requirements.yml` (CARD-318 -> CARD-317 -> CARD-316, which mutually serialize at overlap 0.50-1.00), and it starts while CARD-309 is still in review because their Touches intersection is EMPTY -- unlike CARD-330 and CARD-329, which both collide with CARD-309 on tests/test_book_pdf.py and must wait for it to close. -->
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_solver_strategies.py (new or renamed), tests/test_batch_generator.py, tests/test_puzzle_review_*.py, tests/property/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-30T20:55:22Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
