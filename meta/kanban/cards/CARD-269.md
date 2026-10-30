@@ -1,6 +1,6 @@
 # CARD-269: Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks
 
-**Status:** in progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -16,10 +16,10 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
 **Review score:** **8.5 (cycle 2/3) — CERTIFIED**; cycle 1 5.5, cycle 2 8.5, **delta +3.0** against `min_improvement: 0.5`, 0 gating open. Two fix rounds.
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Started:** 2026-10-29T19:33:56Z (wave 67 opened)
+**Closed:** 2026-10-30T09:37:00Z
+**Actual:** 1.7d — **~14h wall clock**, wave open to merge, which is the instrument: implementation, two review cycles, three fix rounds, four owner decisions and two gate runs. Against a 1d estimate that is **1.7×**. The overrun is almost entirely F-2: the feature was built, reviewed, found not to reach the player at all, and then rebuilt around a property nobody had written down.
+**Merge commit:** `9f917b9d` (gated tree `234c88fb`)
 **Blocked by:** —
 
 ## Why a ladder
@@ -1019,3 +1019,67 @@ no-cascade cell.
 **Node-id delta for the round: 0 added, 0 removed, raw and net**, proved three ways — the module
 collects 30 before and after, the diff contains no added or removed `def test`/`class`/`parametrize`
 line, and it is 331 insertions with 0 deletions.
+
+---
+
+## Merge gate round 2 — **GREEN**, merged `9f917b9d`
+
+Gated commit **`234c88fb`**. **9884 passed · 27 skipped · 1 xfailed · 0 failed** in **24:07**; AC/EC
+by node id **88 passed · 0 skipped**; `src`+`tests` **byte-identical** to the gated commit, before the
+merge and on `main` after. All 27 skips read from the log.
+
+### What this card ends up having been
+
+It was cut to replace a one-shot answer machine with a ladder, and the honest summary is that
+**the card's stated purpose was achieved by its implementation and its actual purpose was not**.
+
+The implementation removed the falsehood it set out to remove: the row-major fallback stopped
+teaching the player they had missed a line deduction when no line decides a cell. **That part was
+right from the first commit**, and `hintLine()`'s null — the exhausted state — is the whole mechanism.
+
+Then cycle 1 measured, by SHA-256 of element screenshots with animations settled, that **rung 2 — the
+rung whose job is "explain the deduction", half the card's title — changed nothing a sighted player
+could see.** The announce region is 1×1 and clipped. **All ten ACs were phrased "the live region
+says…", so every one of them passed while the feature did not reach the player.** That is the sharpest
+single finding of the whole wave, and it is a finding about **how the acceptance criteria were
+written**, not about the code.
+
+The owner chose a visible sentence; fix round 2 then measured that **the obvious placement could not
+be afforded** — 4.187 px of slack against a line needing 22.328 — and found the one row on the page
+that costs **zero vertical by construction**. The property is now asserted as a property, against the
+**visible** sentence, with an instrument proved in both directions and a separation **measured rather
+than chosen**.
+
+### Four owner decisions, and what each cost
+
+1. **The taller 1280 px toolbar accepted** — and later **re-confirmed on real captures**, because the
+   evidence originally cited for it **did not exist**: all 20 captures were 1280 px and the file
+   stated the toolbar shown was not the shipped layout. The figures were right; the artefact was not.
+2. **AC-333 amended** to name Check, letting the requirement follow the design decision.
+3. **Rung 2 gets a visible sentence** — the decision that closed F-2.
+4. **The on-page copy sentence authorised**, unblocking what fix round 1 had correctly refused to take.
+
+### Three gate-relevant lessons this card paid for
+
+- **A frozen cross-card registry is invisible to `test_scope: impact` and red at the gate.** 35
+  browser tests went unregistered; fix round 3 paid it, deriving rather than transcribing, and
+  **wrote 118 distinct reasons where boilerplate would have satisfied the assertion and destroyed the
+  artefact.**
+- **Three of the round's own instruments were wrong and its own tests caught two of them** — a
+  `min-height` 0.008 px short of a real line box, an a11y assertion counting DOM copies rather than
+  accessibility nodes, and a run corrupted by editing source while a browser run was in flight, which
+  it **discarded rather than reported.**
+- **Cycle 1's byte-identity claim was sound as a measurement and wrong as a claim.** Cycle 2 confirmed
+  it by **disagreeing with fix round 2's numbers while confirming its thesis** — the strongest
+  evidence available for it.
+
+### Owed onward
+
+**CARD-321** carries the two deferred findings: the phone is inside the ellipsis band, so the
+explanation rung is **truncated at 390 px**; and the narrow-width rule pushes the board out of a 900 px
+viewport between roughly 700 and 820 px — **the exact failure mode the gap placement was rejected
+for**, one band over. Neither is a defect at the widths this card measured.
+
+**Not this card's and recorded as such:** the second press on an exhausted board still changes nothing
+seen, because the card's own rule fixes one sentence for both exhausted rungs — asserted in a test
+rather than left as prose, and a card that gives it its own copy changes that assertion on purpose.
