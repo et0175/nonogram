@@ -1,6 +1,6 @@
 # CARD-330: The 0.169 mm the two media disagree by is 2 raster pixels — measure which one is at the specified margin before calling it a convention
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** card/330-edge-offset-is-two-device-pixels
+**Branch:** `card/330-edge-offset-is-two-device-pixels`
 **Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-330
 **Source:** CARD-309's implementation round, 2026-10-30, as the decisive one of the four causes that blocked its AC-1 — re-measured by the orchestrator at the decompose station, where the framing changed (see below).
 **Idea:** —
-**Wave:** —
+**Wave:** 70 <!-- STAMPED 2026-10-31 at dispatch, into the slot CARD-309 freed at merge. It could not start earlier: this card and CARD-329 both touch tests/test_book_pdf.py, which CARD-309 also touched, so all three conflicted and CARD-318 opened the wave instead. Measured free of CARD-318 (requirements.yml/trace.yml/solver tests vs page_ink/test_book_pdf/adr-0042 -- intersection EMPTY), which is why the wave runs one vector card beside one generator/solver card. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
-**Started:** 2026-10-31
+**Started:** 2026-10-30T23:16:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
