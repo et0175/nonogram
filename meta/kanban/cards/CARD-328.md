@@ -1,6 +1,6 @@
 # CARD-328: The public player's duplicated looks are held to the admin's — the dot and the solved reveal, declared after the fact
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d <!-- The claim-card floor (owner, wave 50): a card whose subject is a CLAIM or a MEASUREMENT may not be estimated as trivial, whatever its diff size. This card's entire deliverable is the claim "two implementations agree", so the floor applies. It was first scoped at 0.5d in conversation before the rule was applied. -->
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false <!-- Deliberately. TDD's red→green loop assumes production code to write; here the behaviour ALREADY SHIPPED (`2400501b`) and the deliverable is the guard over it. A guard written against working code is green on its first run by construction, so "watch it fail" is meaningless and MUTATION is the discipline that carries the weight instead — see the AC-5/AC-6 mutant pairs. -->
 **Branch:** `card/328-player-looks-agree`
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-328
+**Worktree:** — (removed at merge; the round's raw mutant verdicts, harnesses and run logs were untracked and are preserved at `~/Documents/nonogram-reviews/CARD-328/`)
 **Source:** owner decision 2026-10-30, after the owner asked whether to revert `2400501b` and card it, or fold it into CARD-268's gate. Neither: the work is green and well evidenced, and CARD-268 cannot absorb it (disjoint footprint, and the commit is already CARD-268's rebase baseline — folding it in would attribute a public-player feature to an admin-player card's merge commit and make that card's record false). This card is the third option — **declare what shipped, review it, revert nothing** — and it owns the one debt the commit created.
 **Idea:** —
 **Wave:** 69 <!-- JOINS the wave in flight (precedent: CARD-291 joined wave 65 on 2026-10-28) rather than opening 70, because CARD-268 is still that wave's card and this is its second slot under the owner's cap of 2. Measured intersection with CARD-268's ACTUAL diff: EMPTY. Checked more sharply than a Touches comparison, because this card's guard READS two files CARD-268 writes: `admin.css` (+129) and `solver.js` (+196). Re-derived at dispatch -- CARD-268 adds only `.player-probe*` and `.player-cell[data-probe]` rules and touches NEITHER `.player-cell[data-state="empty"]::after` (the dot) NOR `player-solved-flash` / `player-solved-in` / `--player-wave` / `is-solved` (the sweep), and does not touch solver.js's `--player-wave` line. So this card's compared surface is untouched by the card it runs beside. -->
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_public_player_agreement.py, player/player.css, player/play.js
-**Review score:** cycle 1 **8.0 — did NOT certify** (1 open important, 0 critical) → **fix round 1 complete**, awaiting cycle 2 of 3. IMP-1 closed by constraining the **residue** rather than the key: `DECLARED_DIVERGENCES` became `{key: Divergence(reason, difference, residue)}`, the declared difference is normalised away and what is left is held to equality on both sheets, under a floor that rejects an unreadable residue on **either** side — because two absences are equal, and both sheets dropping the sweep would otherwise pass. **Verified by the orchestrator re-firing its own cycle-1 probe**: the admin sweep flashing *empty* cells went from `23 passed in 0.10s` to **5 failed / 30 passed**, on named arms whose parametrize ids read as the product consequence. 28 mutants at expectation (23 kill, 5 survive), the four cycle-1 survivors all dying, the original eight still dying, a **fifth drift found while fixing** (N5: the hook renamed in the sweep rule only, leaving the reduced-motion block quieting a selector that no longer exists). Gate **115 passed / 0 skipped**; node ids **23 → 35**, removals empty. MIN-1 closed, NIT-2 closed, MIN-2 improved with the trade it declined recorded, NIT-1 declined as merge-time bookkeeping.
+**Review score:** **9.0 (cycle 2/3) — CERTIFIED**, 0 critical / 0 important; cycle 1 **8.0 NOT certified** on IMP-1, one fix round between. Merge gate **9928 passed / 27 skipped / 1 xfailed / 0 failed in 28:53**, exit 0, under a correctly-formed full-suite lock.
 **Started:** 2026-10-30T14:36:59Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-30T16:59:18Z
+**Actual:** 0.3d
+**Merge commit:** `39682e87` (gated tree `ec0d7288`)
 **Blocked by:** —
 
 ## What already shipped, and is NOT this card's to rebuild

@@ -1,0 +1,747 @@
+card: CARD-328
+cycle: 2
+of_max: 3
+reviewer: forge:review
+date: "2026-10-30"
+commit_under_review: "34042762"
+round_delta_base: e17229a4
+whole_card_base: ef04286a
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
+branch: card/328-player-looks-agree
+min_score: 8
+
+score: 9
+certifies: true
+certifies_rationale: >-
+  Score 9, no open critical or important finding. IMP-1 is genuinely closed on
+  evidence I derived rather than re-read: all four cycle-1 survivors now die,
+  and so does a fifth drift of the same family the fix round found on its own.
+  More importantly for this board's standing risk, I went looking for what the
+  tightening broke and did not find it: all eight of the card's original mutants
+  still red the exact arm sets cycle 1 recorded, every one of the five
+  equivalence mutants still survives at `35 passed`, no node id was removed, and
+  the re-expressed arm kept its second assert. The three remaining findings are
+  one minor documentation staleness and two diagnostic nits.
+
+diff_scope_note: >-
+  `git diff main..HEAD` is wrong here -- the branch is 4 commits behind main, so
+  that diff renders main's later kanban commits as deletions. Whole card
+  (`ef04286a..HEAD`): 4 files, 1778 insertions, ZERO under `src/`. This round
+  (`e17229a4..HEAD`): exactly `tests/test_public_player_agreement.py` (+613/-49)
+  and `meta/kanban/cards/CARD-328.md` (+314). Commits on top of e17229a4:
+  08266400 (the fix), 34042762 (the superseded declaration).
+
+primary_question_of_this_cycle:
+  question: Did anything regress or weaken while IMP-1 was closed?
+  verdict: nothing_regressed
+  evidence_derived_by_reviewer: >-
+    This is the board's standing risk (3 of 3, then 2 of 2, gating findings
+    introduced by the previous fix), so I spent most of the cycle here and
+    attacked it from four sides.
+
+    (1) ORIGINAL ARM SETS INTACT, not merely bigger totals. I re-fired all eight
+    card-table mutants and read the `FAILED <nodeid>` lines, never the count.
+    M1/M2 red the same four arms cycle 1 recorded; M3/M4 the same three, with
+    `test_a_fourth_divergence...` correctly still absent for the reason cycle 1
+    verified; M5/M6 the same three PLUS the new residue arm; M7/M8 the same four.
+    Not one arm that used to catch a mutant has gone quiet. The grown totals
+    (9-10 vs 3-4) are fully accounted for: 4 original + 6 parametrized controls
+    reding on their precondition assert, which I confirmed by reading the
+    assertion text under M1 (it is the key-level `absorbed == set(...)` assert,
+    with 'dot.declarations' named as the extra item).
+
+    (2) NO OVER-TIGHTENING. The sharper risk with a residue comparison is that it
+    starts reding on the declared differences themselves. All five equivalence
+    mutants still survive at exactly `35 passed`: E1 (the sweep hook renamed
+    CONSISTENTLY in both the sweep rule and the reduced-motion block), E2 (the
+    public fallback `, 0` -> `, 1`), E3 (the admin reduced-motion block drops a
+    chrome selector), P2 (the public dot reindented but not made identical),
+    Q2 (an unrelated `: no-preference` block added, which the old loose opener
+    would have miscounted).
+
+    (3) NO CLAIM DROPPED BY THE RE-EXPRESSION. The old arm had two asserts, a
+    tautological one and 'declarations equal'. The new arm keeps the second
+    verbatim (proved: M1-M4 still red this arm, and they can only reach it
+    through that assert) and replaced the tautology with a claim that can fail
+    (proved: P1 now kills, exactly and only here).
+
+    (4) NO NEW MERGE HAZARD. A stricter guard is likelier to red on a sibling's
+    work, so I re-ran this card's `compared_surface` and `residues` against
+    CARD-268's worktree as it stands now (f0c22aab, +213 admin.css and +192
+    solver.js over this card's): 12 facts, disagreements exactly the three
+    declared, residue disagreements `{}`, unreadable residues `[]`.
+
+imp_1:
+  status: genuinely_closed
+  closed_how: the residue is constrained, not the key
+  evidence_derived_by_reviewer: >-
+    I re-fired all four cycle-1 survivors from my own harness and each dies at
+    the cells the card names, with the counts the card states: N1 `5 failed, 30
+    passed`, N2 `2 failed, 33 passed`, N3 and N4 `3 failed, 32 passed`. I also
+    re-derived the live residue table by importing the module rather than
+    quoting the card: all three residues readable and equal
+    (`.player-cell[data-state="filled"]`, `calc(var(--player-wave) * 12ms)`,
+    `.player-cell[data-state="filled"] { animation: none }`), reason lengths
+    661/649/797 against a floor of 120, and 6 plants, 2 per exemption.
+  the_four_probes_now_die: true
+  the_exemption_is_now_over_a_difference: >-
+    Verified by the E1/N5 pair, which is the discrimination the whole fix rests
+    on and the one I would have expected to be fudged. E1 renames the sweep's
+    hook consistently in the sweep rule AND the reduced-motion block -- that IS
+    the declared difference, and it survives at `35 passed`. N5 renames it in
+    the sweep rule only, leaving the reduced-motion block quieting a selector
+    that no longer exists -- real drift inside the exemption, and it dies at
+    3 cells. The exemption therefore buys exactly the stated difference and
+    nothing adjacent to it.
+
+findings:
+  critical: []
+  important: []
+  minor:
+    - id: MIN-3
+      status: open
+      title: >-
+        The round-1 "G-5 / the CARD-255 shape" enumeration is left standing
+        unqualified, and it is now an incomplete count of what holds G-5
+      files: [meta/kanban/cards/CARD-328.md]
+      confidence: high
+      source: static-analysis
+      ac_refs: [AC-4]
+      guardrail_refs: [G-5]
+      detail: >-
+        Commit 34042762 inserts a `[Superseded by fix round 1]` block, and it is
+        well written -- but it scopes itself to "The three rows above", i.e. the
+        exemption table. Nine lines below it, still inside the round-1 section,
+        stands a separate bolded claim under its own heading: "**G-5 / the
+        CARD-255 shape.** The declaration is not a bare list. It carries three
+        constraints and two controls, each its own node id:" followed by five
+        bullets. All five arms still exist and still do what the bullets say, so
+        nothing there is false. But the sentence is a closed enumeration of what
+        satisfies G-5 ("It carries three constraints and two controls"), and
+        after this round G-5 is held by four more constraints and six more
+        controls: `...names_the_difference_it_normalises_away`,
+        `...agrees_on_the_residue_it_leaves`,
+        `...has_an_unreadable_residue`, `...carries_a_control_of_its_own`, and
+        the six parametrized `test_real_drift_inside_a_declared_divergence...`
+        cases. G-5 is the guardrail cycle 1 gated on, and cycle 1's own G-5
+        verdict quoted this very block.
+      failure_scenario: >-
+        A later reader -- the merge gate, CARD-325's implementer, or cycle 3 --
+        audits G-5 by finding the card's G-5 heading. It reads as a complete
+        answer and says nothing about residues, so they conclude the per-exemption
+        constraint was never built, and either re-open a closed finding or copy
+        the key-and-reason pattern into CARD-325's AC-6 believing it is what this
+        card shipped. That is the stale-declaration family this board cites most,
+        and it is the one statement in the card the supersede commit did not
+        reach.
+      why_minor_not_important: >-
+        The fix-round section below is explicit and correct, its own guardrail
+        list states "G-5 ... now holding per exemption and not just at the
+        table", and the superseded block does point forward to "the current
+        shape, the residues and the controls ... in Fix round 1 below". So a
+        linear reader is not misled, and no shipped behaviour depends on it. One
+        sentence closes it.
+      suggested_direction_report_only: >-
+        Extend the superseded block's scope to the G-5 enumeration too, or append
+        one clause to that sentence -- "...and, since fix round 1, four more
+        constraints and six more controls; see Fix round 1".
+  nit:
+    - id: NIT-3
+      status: open
+      title: >-
+        The six controls red on their precondition under any undeclared drift, so
+        totals inflate from 4 cells to 10 and six of them report a precondition
+      files: [tests/test_public_player_agreement.py]
+      confidence: high
+      source: mutation
+      detail: >-
+        `test_real_drift_inside_a_declared_divergence_is_reported` asserts, first,
+        that the key-level table still absorbs the plant. Under any drift
+        elsewhere in the tree that assert fails for all six cases, so M1-M8 and
+        Q1 each red 9-10 cells of which six say nothing about the mutant. This is
+        deliberate and correct -- assert 1 is what makes the control witness the
+        original defect, and I confirmed it is real, is first, and carries a
+        message that names the extra disagreeing fact and tells the reader to
+        read `test_the_disagreements_are_exactly_the_declared_ones` first. Recorded
+        only because the brief is right that totals are now a poor signal: the
+        card's own figures should keep being read as cell sets, not counts.
+    - id: NIT-4
+      status: open
+      title: Under N2 the surviving-side control reds with a message that misattributes the cause
+      files: [tests/test_public_player_agreement.py]
+      confidence: medium
+      source: mutation
+      detail: >-
+        With the panel's delay already 3x (N2), the PUBLIC-side plant makes the
+        public delay 3x as well, the two residues become equal, and the control
+        reds on assert 2 with "the exemption absorbed real drift:
+        sweep.animation.delay" -- when what actually happened is that the plant
+        cancelled pre-existing drift. The card explains the mechanism in prose
+        and the outcome is red rather than green, so nothing is hidden; the
+        assertion message is simply wrong about why.
+    - id: NIT-5
+      status: open
+      title: "`_selector_hook` is dead code"
+      files: [tests/test_public_player_agreement.py]
+      confidence: high
+      source: static-analysis
+      detail: >-
+        `_selector_hook` occurs exactly once in the file -- its own `def` line.
+        Its docstring pairs it with `_selector_tail`, which is used by both
+        `_sweep_target` and `_how_the_sweep_is_quieted`. Harmless; it reads as
+        the half of the hook/tail pair the residue design ended up not needing.
+
+mutants_refired:
+  policy: >-
+    Per the wave-60 refire policy: every gating finding's mutation, plus a sample
+    of the minors whose claim is load-bearing elsewhere. 32 mutants in 29 runs.
+    Each re-fire was judged on the question "is the cell the fix round named the
+    cell that reds", read from `FAILED <nodeid>` lines with
+    `-o addopts='' -v -rf -p no:randomly`, never from a count. Harness
+    `scratchpad/review328c2/fire.py`, scoped to `scratchpad/review328c2/`, never
+    the shared scratchpad root. Per mutant: SHA-256 against `git show HEAD:<path>`
+    before, substitution asserted to apply exactly the expected number of times,
+    `*.pyc`/`__pycache__` swept before and after, restore from pre-mutant bytes,
+    SHA re-asserted after.
+  imp_1_gating_refires:
+    - id: N1
+      change: 'admin.css sweep selector [data-state="filled"] -> "empty" (sweep rule only)'
+      cycle_1: SURVIVED at 23 passed
+      now: KILLED
+      count_line: "5 failed, 30 passed"
+      cells_that_red:
+        - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+        - test_no_declared_divergence_has_an_unreadable_residue
+        - 'test_real_drift...[sweep.selector::the panel flashes the empty cells]'
+        - 'test_real_drift...[sweep.selector::the public page flashes the empty cells]'
+        - 'test_real_drift...[reduced-motion.coverage::the panel stops quieting its sweep]'
+      matches_card_claim: true
+    - id: N2
+      change: "admin.css delay -> calc(3 * var(--player-wave) * 12ms)"
+      cycle_1: SURVIVED at 23 passed
+      now: KILLED
+      count_line: "2 failed, 33 passed"
+      cells_that_red:
+        - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+        - 'test_real_drift...[sweep.animation.delay::the public sweep is three times slower]'
+      matches_card_claim: true
+      note: >-
+        The public-side case rather than the panel-side one, for the reason the
+        card gives and I re-derived independently. See NIT-4.
+    - id: N3
+      change: admin.css reduced-motion block no longer names the sweep
+      cycle_1: SURVIVED at 23 passed
+      now: KILLED
+      count_line: "3 failed, 32 passed"
+      cells_that_red:
+        - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+        - test_no_declared_divergence_has_an_unreadable_residue
+        - 'test_real_drift...[reduced-motion.coverage::the panel stops quieting its sweep]'
+      matches_card_claim: true
+    - id: N4
+      change: player.css reduced-motion block no longer names the sweep
+      cycle_1: SURVIVED at 23 passed
+      now: KILLED
+      count_line: "3 failed, 32 passed"
+      cells_that_red:
+        - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+        - test_no_declared_divergence_has_an_unreadable_residue
+        - 'test_real_drift...[reduced-motion.coverage::the public page stops quieting its sweep]'
+      matches_card_claim: true
+    - id: N5
+      change: >-
+        admin.css sweep HOOK renamed .is-solved -> .is-finished in the sweep rule
+        ONLY, leaving the reduced-motion block quieting a dead selector. The fix
+        round's own discovery, and the least externally checked claim in it.
+      now: KILLED
+      count_line: "3 failed, 32 passed"
+      cells_that_red:
+        - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+        - test_no_declared_divergence_has_an_unreadable_residue
+        - 'test_real_drift...[reduced-motion.coverage::the panel stops quieting its sweep]'
+      why_it_matters: >-
+        This is why the coverage residue searches for the own-sweep selector
+        EXACTLY, hook included, rather than by its tail. Matching by tail would
+        have found `[data-state="filled"]` in the block and passed. Paired with
+        E1 (the same rename done consistently, which survives), it proves the
+        exemption is over the stated difference and not over the fact.
+  the_original_eight_arm_sets:
+    question: >-
+      Are the arm sets cycle 1 recorded still intact, or does a mutant now red
+      only through a new control while the arm that used to catch it has gone
+      quiet?
+    verdict: all_intact
+    rows:
+      - id: M1
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: 4 of 4
+        arms:
+          - TheDot...::test_the_two_declaration_sets_are_equal
+          - TheDot...::test_the_comparison_is_over_declarations_and_not_over_rule_text
+          - ADiv...::test_the_disagreements_are_exactly_the_declared_ones
+          - ADiv...::test_a_fourth_divergence_in_the_compared_surface_is_reported
+        plus_new: the 6 parametrized controls, on their precondition assert
+      - id: M2
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: the same 4
+      - id: M3
+        count_line: "9 failed, 26 passed"
+        cycle_1_arms_still_red: 3 of 3
+        note: >-
+          `test_a_fourth_divergence...` correctly still absent -- its precision
+          assertion legitimately holds, which is the subtle three-not-four note
+          cycle 1 verified and which still reproduces.
+      - id: M4
+        count_line: "9 failed, 26 passed"
+        cycle_1_arms_still_red: the same 3
+      - id: M5
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: 3 of 3
+        arms:
+          - TheSweep...::test_the_per_cell_step_agrees
+          - ADiv...::test_the_disagreements_are_exactly_the_declared_ones
+          - ADiv...::test_a_fourth_divergence_in_the_compared_surface_is_reported
+        strengthened_by: >-
+          ADiv...::test_every_declared_divergence_agrees_on_the_residue_it_leaves
+          now reds too -- the step change moves the delay residue. A genuine
+          strengthening, not a substitution.
+      - id: M6
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: the same 3, plus the residue arm
+      - id: M7
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: 4 of 4
+        arms:
+          - BothPlayers...::test_both_players_set_the_wave_to_the_same_expression
+          - BothPlayers...::test_the_wave_is_the_cells_row_plus_its_column
+          - ADiv...::test_the_disagreements_are_exactly_the_declared_ones
+          - ADiv...::test_a_fourth_divergence_in_the_compared_surface_is_reported
+      - id: M8
+        count_line: "10 failed, 25 passed"
+        cycle_1_arms_still_red: the same 4
+  equivalence_mutants_that_must_survive:
+    note: >-
+      The over-tightening check. All five survive at exactly `35 passed`, so the
+      residue comparison does not red on the differences the card declares.
+    rows:
+      - {id: E1, change: "the sweep hook renamed CONSISTENTLY in the sweep rule and the reduced-motion block", verdict: SURVIVED, count_line: "35 passed"}
+      - {id: E2, change: "the public fallback var(--player-wave, 0) -> , 1", verdict: SURVIVED, count_line: "35 passed"}
+      - {id: E3, change: "the admin reduced-motion block drops the chrome selector .player-stage *", verdict: SURVIVED, count_line: "35 passed"}
+      - {id: P2, change: "the public dot reindented but still not the admin's text", verdict: SURVIVED, count_line: "35 passed"}
+      - {id: Q2, change: "an unrelated : no-preference block added to player.css", verdict: SURVIVED, count_line: "35 passed"}
+  min_1_refire:
+    - id: P1
+      change: >-
+        player.css's dot rule collapsed onto one line BYTE-IDENTICAL to
+        admin.css's -- a pure reformat, zero pixels moved. Cycle 1's probe, which
+        SURVIVED then.
+      now: KILLED
+      count_line: "1 failed, 34 passed"
+      cells_that_red:
+        - TheDot...::test_the_comparison_is_over_declarations_and_not_over_rule_text
+      retained_arm_docstring_honest: true
+      docstring_check: >-
+        The arm now claims only "the two rules' TEXT differs today", with both
+        operands raw, and its message tells the next reader the premise is gone
+        rather than that something is broken. That is exactly what it holds, no
+        more. The claim it could not carry lives in
+        `test_reformatting_a_dot_rule_moves_no_declaration`, which asserts its own
+        reformat applied before measuring anything -- so it cannot go vacuous
+        either. P2 confirms the retained arm is not formatting police.
+  nit_2_refire:
+    - {id: Q1, change: "the admin reduce query renamed : no-preference", verdict: KILLED, count_line: "10 failed, 25 passed", first_cell: test_the_disagreements_are_exactly_the_declared_ones}
+  reviewer_probes_of_the_floor:
+    note: >-
+      Finding 2 of the brief. The floor's stated purpose is that two absences are
+      equal. I tested it one-sided and two-sided, and then removed the clause to
+      see whether it is load-bearing or decoration.
+    rows:
+      - id: F1
+        change: BOTH sheets drop the sweep from their reduced-motion block
+        verdict: KILLED
+        count_line: "4 failed, 31 passed"
+        cells_that_red:
+          - test_every_declared_divergence_agrees_on_the_residue_it_leaves
+          - test_no_declared_divergence_has_an_unreadable_residue
+          - 'test_real_drift...[reduced-motion.coverage::the panel stops quieting its sweep]'
+          - 'test_real_drift...[reduced-motion.coverage::the public page stops quieting its sweep]'
+        note: >-
+          Here the equality arm reds too, because each sheet's unreadable message
+          embeds its own sweep selector and the two hooks differ. So this is not
+          the clean two-absences case.
+      - id: F2
+        change: >-
+          BOTH sheets still name the sweep in their reduced-motion block but with
+          `animation: slide` instead of `none` -- an accessibility regression on
+          both pages, and the one shape that makes both residues BYTE-IDENTICAL
+          unreadable strings (the message embeds only the shared selector tail).
+        verdict: KILLED
+        count_line: "1 failed, 34 passed"
+        cells_that_red:
+          - test_no_declared_divergence_has_an_unreadable_residue
+        significance: >-
+          The floor is the ONLY cell standing between this regression and green.
+          The equality arm passes, exactly as the fix round predicted.
+      - id: F2+W4
+        change: >-
+          F2, plus the floor arm stripped of its `value.startswith(UNREADABLE)`
+          clause (keeping only the empty-string check).
+        verdict: SURVIVED
+        count_line: "35 passed"
+        significance: >-
+          Decisive. Remove that one clause and the two-sided regression is
+          invisible again. The floor's stated purpose is not rationalisation --
+          it is load-bearing, and I measured the exact cell that carries it.
+  reviewer_probes_of_the_shape:
+    note: >-
+      Finding 4 of the brief -- is it a shape or three special cases? I added a
+      FOURTH exemption myself (`dot.declarations`, made genuinely divergent by
+      planting the admin dot at `width: 31%`) in six forms and recorded what the
+      suite demanded of each.
+    rows:
+      - id: S1
+        form: declared as a bare reason string, the way all three were in cycle 1
+        verdict: KILLED
+        count_line: "14 failed, 21 passed"
+        decisive_cell: test_every_declared_divergence_names_the_difference_it_normalises_away
+        also_red: [test_every_declared_divergence_carries_a_reason, both residue arms, the control set-equality arm]
+      - id: S2prime
+        form: a proper Divergence with a difference and a CORRECT residue, but no control
+        verdict: KILLED
+        count_line: "4 failed, 31 passed"
+        decisive_cell: test_every_declared_divergence_carries_a_control_of_its_own
+      - id: S2prime+W5
+        form: S2prime, plus the control arm's set equality weakened from `==` to `<=`
+        verdict: KILLED_but_the_decisive_cell_went_green
+        count_line: "3 failed, 32 passed"
+        significance: >-
+          `test_every_declared_divergence_carries_a_control_of_its_own` stops
+          reding, so the set EQUALITY is precisely what demands a control from a
+          fourth exemption. The pairing is structural, not a habit.
+      - id: S3
+        form: Divergence plus its own control, but the residue is a NO-OP (identity)
+        verdict: KILLED
+        count_line: "4 failed, 32 passed"
+        decisive_cell: test_every_declared_divergence_agrees_on_the_residue_it_leaves
+      - id: S4
+        form: >-
+          Divergence plus control plus a residue that actually normalises the
+          declared difference away
+        verdict: >-
+          the declaration machinery is satisfied -- no residue arm, no floor, no
+          control arm reds. The only remaining reds are collateral from my base
+          drift (the two AC-1 dot arms, which correctly report that the dot
+          really does differ, and `test_a_fourth_divergence...`, whose own plant
+          my drift neutralises).
+        significance: >-
+          Confirms the fix round's statement that the one thing a fourth
+          exemption does NOT inherit is the content of its residue -- the
+          normaliser for its particular difference must be written, and that is
+          the only gap.
+      - id: S5
+        form: residue normalises EVERYTHING away (returns "")
+        verdict: KILLED
+        count_line: "5 failed, 31 passed"
+        cells_that_red:
+          - test_no_declared_divergence_has_an_unreadable_residue
+          - 'test_real_drift...[dot.declarations::the public dot changes height]'
+        significance: a vacuous residue cannot ship -- the floor's empty-string clause catches it.
+      - id: S6
+        form: >-
+          residue is a NON-EMPTY CONSTANT ("ok"), which evades the floor
+          entirely -- the gap I went looking for, since UNREADABLE is an in-band
+          string prefix and nothing forces a new normaliser to use it.
+        verdict: KILLED
+        count_line: "4 failed, 32 passed"
+        decisive_cell: 'test_real_drift...[dot.declarations::the public dot changes height]'
+        significance: >-
+          The shape is closed after all, and by a route the card does not claim:
+          a normaliser that fails to mark its own failures still cannot ship,
+          because its MANDATORY control plants real drift and a constant residue
+          makes the two sides always agree, so `key in found` fails. The floor
+          and the control cover each other. This is my own derivation, not a
+          card claim I verified.
+  anti_vacuity_of_the_new_machinery:
+    note: >-
+      Cycle 1 established the old machinery is not hollow. The residue machinery
+      is new, so I injected emptiness into it the same way.
+    rows:
+      - {id: W1b, change: "residues() returns {}", verdict: KILLED, count_line: "6 failed, 29 passed", first_cell: "all six test_real_drift... cases"}
+      - {id: W2, change: "residue_disagreements() returns {}", verdict: KILLED, count_line: "6 failed, 29 passed", first_cell: "all six test_real_drift... cases"}
+      - {id: W3, change: "without_var_fallbacks() collapses to a constant", verdict: KILLED, count_line: "2 failed, 33 passed", first_cell: test_every_declared_divergence_agrees_on_the_residue_it_leaves}
+      - {id: V1, change: "_RULE never matches (MIN-2's parse-collapse path)", verdict: KILLED, count_line: "20 failed, 10 passed, 5 errors", named_cell: test_the_compared_surface_parses_fact_by_fact}
+      - {id: V5, change: "compared_surface() returns {}", verdict: KILLED, count_line: "13 failed, 22 passed", first_cell: test_the_compared_surface_is_not_empty_and_names_both_looks}
+    conclusion: >-
+      The six parametrized controls are what make the residue machinery
+      un-hollowable: any way of making the residue path return nothing reds all
+      six of them. That is the same role `DOT_PROPERTIES` and `WAVE_EXPRESSION`
+      play for the facts that agree outright, and it is structurally sound.
+  reviewer_probe_of_the_controls_first_assert:
+    note: >-
+      Finding 3 of the brief -- is assert (a), the key-level absorption, really
+      asserted rather than assumed? If the plant only checked (b), the control
+      would stop witnessing the original defect.
+    verdict: really_asserted_and_first
+    how: >-
+      Read from the code (it precedes `key in found`) and then proved by
+      execution: I ran one parametrized case by exact node id under M1 and
+      captured the traceback. The failing line is
+      `assert absorbed == set(DECLARED_DIVERGENCES)`, with the message naming
+      'dot.declarations' as "disagreeing but not declared" and pointing the
+      reader at `test_the_disagreements_are_exactly_the_declared_ones`. Under
+      N1-N5 the complement holds: only the 1-2 cases whose plant matches the
+      mutant red, which is only possible if assert (a) passed in all six and
+      assert (b) was reached.
+  restore_verification:
+    verified_by_sha: true
+    evidence: >-
+      After every mutant and after the whole run, all five touched files equal
+      `git show HEAD:<path>`. `git status --porcelain` shows only
+      `?? scratchpad/` and `?? meta/review/CARD-328-cycle1.yml` (the cycle-1
+      report, untracked in this worktree). No `.pyc` or `__pycache__` left
+      behind; `PYTHONDONTWRITEBYTECODE=1` throughout.
+
+min_2_declined_trade:
+  question: Is the declined trade-off stated correctly, or is it a rationalisation?
+  verdict: stated_correctly
+  reasoning_derived_by_reviewer: >-
+    The fix reports every fact through `_measured(fact, read)` so a collapsed
+    parse names the fact, adds a fixture-free arm that turns any collapse into
+    one named FAILED cell, and KEEPS the fixture-scoped ERRORs on the grounds
+    that removing them would mean handing the arms a sentinel surface and making
+    "not found" something other than a failure. I checked what a sentinel would
+    actually do to one arm, which is the cheap test. `disagreements()` is
+    `{k: p for k, p in surface.items() if p[0] != p[1]}`. If a collapsed fact
+    were handed out as, say, `("<unparsed>", "<unparsed>")`, the two sides would
+    compare EQUAL, the fact would drop out of `disagreements()`, and
+    `test_the_disagreements_are_exactly_the_declared_ones` -- the arm that
+    carries AC-4 -- would pass while reporting perfect agreement about nothing.
+    That is precisely the vacuity this file's `DOT_PROPERTIES`, `WAVE_EXPRESSION`
+    and `UNREADABLE` floor all exist to prevent, so declining the trade is not a
+    rationalisation; accepting it would have traded a hard failure for a silent
+    one in the same round that closed IMP-1 by adding a floor against exactly
+    that. V1 confirms the improvement is real: 5 errors remain, but
+    `test_the_compared_surface_parses_fact_by_fact` reds as a named FAILED cell
+    alongside them.
+
+superseded_declaration:
+  commit: "34042762"
+  verdict: present_and_correctly_pointed_forward_but_incompletely_scoped
+  evidence: >-
+    The block sits immediately after the round-1 exemption table, states that
+    the three rows describe the key-and-reason shape, names cycle 1's IMP-1 and
+    the `23 passed` survivors as the reason, says each exemption now also names
+    the difference and leaves a residue, and points at "Fix round 1 below" for
+    the current shape, the residues and the controls. It does not overclaim: it
+    says the "why it is not drift" column is still accurate as far as it goes.
+    The fix-round section itself describes the shipped mechanism accurately --
+    I re-derived its residue table from the live files and it reproduces
+    exactly. The gap is the separate G-5 enumeration nine lines below, which the
+    block's scope does not reach: see MIN-3.
+
+guardrails:
+  G-1:
+    held: true
+    re_derived_by_sha_after_my_mutation_run: true
+    evidence: >-
+      After my own 29 mutation runs (which mutated admin.css and solver.js
+      repeatedly), both files are byte-identical to HEAD and to main:
+      admin.css 03a7de8d1f5f1066f4c9e3400d65393144cafffb5d2609e35734b5cc527a381d,
+      solver.js 7a3b4aeb59fbc91ae146f2d523716b77c13c00be9b8f9687e1a673ed37d2fbe5.
+      `git diff --name-only main..HEAD -- src/` is 0 files and
+      `git diff --name-only ef04286a..HEAD -- src/` is 0 files. A bad restore is
+      the failure that hides here and it did not happen.
+  G-2:
+    held: true
+    evidence: >-
+      `git diff --name-status ef04286a..HEAD -- tests/` is a single `A` line on
+      the new file, so no existing test could have been edited. Both protected
+      calls re-checked in place: `getAnimations` occurs in
+      tests/test_public_player.py only at line 2051, inside the docstring that
+      explains why the reveal is NOT read through it; the `background-image`
+      arm is intact -- `cellBackgroundImage` captured at 2085 and asserted
+      `== "none"` at 2098.
+  G-3:
+    held: true
+    evidence: >-
+      `git diff e17229a4..HEAD -- player/` is EMPTY -- this round touched no
+      player file at all. Over the whole card the player/ diff is 3 added lines:
+      one `//` pointer comment in play.js, one `/* */` pointer comment in
+      player.css, one blank line. Both comments are stripped by the guard's own
+      `_css_code`/`_js_code_lines`, so they cannot perturb the parse either.
+      player.css and play.js SHAs unchanged this round.
+  G-4:
+    held: true
+    evidence: >-
+      player/assemble.py has 0 lines in the card diff; `COPIED_FROM_ADMIN` is
+      not widened. The guard READS admin.css and solver.js from the test tree
+      and copies neither, which is the whole reason the card exists --
+      ADR-0041/R3 does not cover these two looks.
+  G-5:
+    held: true
+    was: partially (the finding cycle 1 gated on)
+    evidence: >-
+      Now held at BOTH levels, and this is the guardrail I verified most
+      carefully. At the table level, unchanged from cycle 1. At the per-exemption
+      level: each entry is a `Divergence(reason, difference, residue)` whose
+      residue is held to cross-sheet equality, under a floor that rejects an
+      unreadable or empty residue, with `RESIDUE_CONTROLS` held to the table by
+      set equality and six plants (one per exemption per sheet). I established
+      that this is a shape rather than three special cases by adding a fourth
+      exemption myself in six forms (S1, S2prime, S3, S4, S5, S6) and in every
+      deficient form the suite named the missing piece. The two weakening probes
+      (W4, W5) each flipped exactly one of those demands back off, which
+      localises the constraint to a specific cell rather than to a total.
+  G-6:
+    held: true
+    re_expression_dropped_no_claim: true
+    evidence: >-
+      Node-id set difference measured myself by collecting both revisions
+      (`--collect-only -q -o addopts=''`, the old file restored by SHA
+      afterwards): 23 -> 35, REMOVALS EMPTY, 12 additions. AST cross-check: 30
+      class test methods and 0 module-level test functions, one method carrying
+      6 parametrize ids, so 30 - 1 + 6 = 35 collected -- the card's figure, and
+      I counted it from the rows rather than quoting it. Class split counted
+      from the collected ids: TheDot 6, TheSweep 8, BothPlayers 3, ADiv 18 = 35,
+      matching the card. No parametrize id was renamed (the 6 are all new). The
+      one re-expressed arm kept its second assert verbatim -- proved by M1-M4
+      still reding it, which they can only do through that assert -- so the
+      re-expression added a claim and dropped none.
+  G-7:
+    held: true
+    evidence: >-
+      No CSS file is in this round's diff at all. Over the whole card the only
+      player.css change is one comment line; no declaration, no value, no token.
+
+gate_observed:
+  guard_alone: "35 passed in 0.17s, 0 skipped"
+  impact_set: >-
+    `tests/test_public_player_agreement.py tests/test_public_player.py
+    tests/test_public_player_pages.py tests/test_admin_design_tokens.py` with
+    `-o addopts='' -rs -p no:randomly`: 115 passed, 0 failed, 0 skipped, exit 0
+    (13.76s). Skip attribution: the skip SET IS EMPTY -- `-rs` printed no skip
+    section and the count line carries no `skipped` term, so there is no skip to
+    name and the browser-marked tests ran rather than skipping (ADR-0038/R8
+    satisfied).
+  tree_scanning_guards: >-
+    test_collected_names.py, test_guard_integrity.py, test_suite_profile.py,
+    test_impact_set.py: 664 passed, 0 skipped (71.10s).
+  full_suite: >-
+    NOT run. CARD-268 is live in a parallel worktree (f0c22aab) in its own fix
+    round; the flock on meta/kanban/.full-suite.lock was not taken. A gate that
+    reds under contention is not a verdict about the tree, and the merge gate is
+    the only full run.
+  addopts_override: >-
+    Every measuring run used `-o addopts=''`. No run relied on a `-q` count line
+    and no `--collect-only -q` was read without the override.
+  node_id_selection: >-
+    Selection by explicit node id or explicit file path. I hit the documented
+    `-k` trap once on purpose and recorded it: `-k "panel stops quieting"`
+    collected 6 and ran 0, exiting 0 with "no tests ran". Re-run by exact node
+    id (brackets and spaces included) it collected and ran 1. Every run's
+    collected count was checked.
+  totals_are_a_poor_signal: >-
+    Honoured. With 35 node ids and six table-iterating controls I read
+    `FAILED <nodeid>` lines for every mutant and compared cell SETS, never
+    counts. Two of my own probes (W1 first attempt, S3 first attempt) were
+    no-op or malformed instruments -- `{} or {...}` returns the right operand,
+    and a tuple missing its trailing comma breaks collection -- and both were
+    caught and re-fired rather than recorded as results.
+  figures_counted_from_rows: >-
+    The card's "28 mutants" is counted from the rows: 28 unique mutant ids in
+    the fix-round tables (E1-E3, M1-M8, N1-N5, P1-P2, Q1-Q2, S1-S2, V1-V6).
+    "30 declared methods" counted by AST. "23 -> 35, removals empty" counted by
+    collecting both revisions. The class split 6/8/3/18 counted from the node
+    ids. No figure in this report is quoted from the card.
+
+claims_verified:
+  residue_table: >-
+    Re-derived by importing the module and calling `residues()` on the live
+    tree, not quoted: sweep.selector -> `.player-cell[data-state="filled"]` both
+    sides; sweep.animation.delay -> `calc(var(--player-wave) * 12ms)` both
+    sides; reduced-motion.coverage ->
+    `.player-cell[data-state="filled"] { animation: none }` both sides. All
+    three equal, none unreadable. Matches the card's fix-round table exactly.
+  surface_unchanged_by_the_fix: >-
+    12 facts, disagreements exactly the three declared, set equality True --
+    identical to cycle 1. The fix added constraints without moving the surface.
+  reason_floor: "Reason lengths 661 / 649 / 797 against a floor of 120."
+  controls_per_exemption: "2 each, 6 total, one per sheet -- counted from RESIDUE_CONTROLS."
+  residue_arms_total_over_the_table: >-
+    Read from the code (both arms are loops/comprehensions over
+    `DECLARED_DIVERGENCES`) and proved by execution: my fourth exemption was
+    held by them the moment it was added, in every deficient form.
+
+cross_card_findings:
+  - card: CARD-268
+    relation: live in admin.css, solver.js, solver_state.js, tokens.css, puzzle_solve.html
+    finding: >-
+      Merge safety HOLDS, re-derived one step further than cycle 1 did because
+      the sibling has moved again (cycle 1 checked bc43eda5; it is now f0c22aab,
+      +213 lines of admin.css and +192 of solver.js over this card's copies). I
+      ran this card's `compared_surface`, `disagreements` and `residues` against
+      the SIBLING's admin.css and solver.js: 12 facts, disagreements exactly the
+      three declared, residue disagreements `{}`, unreadable residues `[]`. This
+      mattered more this cycle than last, because a residue comparison is
+      strictly stricter than a key comparison and could have introduced a merge
+      hazard that did not exist in cycle 1. It did not. No action for either card.
+  - card: CARD-325
+    relation: its AC-6 (the crosshair's two implementations agree) is scheduled to join this file
+    finding: >-
+      Correctly absent from the diff, and the sequencing worked out: the pattern
+      AC-6 will now copy is the constrained one. My S-series measured exactly
+      what the file will demand of it if it declares a divergence -- a
+      `Divergence` with a non-empty `difference` phrase and a callable `residue`
+      (S1), an entry in `RESIDUE_CONTROLS` (S2prime), a residue that actually
+      normalises the declared difference away rather than being a no-op (S3) or
+      vacuous (S5) or a constant (S6). The one thing it must write itself is the
+      normaliser for its own difference (S4). Worth putting in CARD-325's brief
+      so its implementer is not surprised by four reds.
+  - card: none
+    relation: this card's own conduct
+    finding: >-
+      Credit where due, twice. The fix round found N5 itself -- a drift of the
+      same family as the four it was asked to close, which nobody had asked for
+      -- and let it drive a design decision (match the own-sweep selector
+      exactly, hook included, rather than by its tail). It also declined MIN-2's
+      full fix and wrote down why, and the reasoning survives inspection. The
+      round-1 section had already corrected an error in its own dispatch brief.
+      A card that reports what it found rather than what it was told to find.
+
+summary: >-
+  IMP-1 is genuinely closed, and closed in the right shape: the exemption is now
+  over a stated difference rather than over a fact. All four cycle-1 survivors
+  die at the cells the card names, and so does N5, the fifth drift the fix round
+  found on its own. The E1/N5 pair is the proof that matters -- the same hook
+  rename survives when done consistently and dies when done in the sweep rule
+  only -- because it shows the exemption buys exactly what it declares and
+  nothing adjacent.
+
+  The question this cycle existed for is whether the tightening broke or weakened
+  anything, and on four independent lines of evidence it did not. Every arm cycle
+  1 recorded for the original eight mutants still reds; the grown totals are
+  accounted for cell by cell rather than taken on trust. All five equivalence
+  mutants still survive at exactly `35 passed`, so the residue comparison has not
+  become formatting police. The re-expressed arm kept its old assert and gained a
+  real one. And the guard still reports nothing but the three declared
+  disagreements against CARD-268's current worktree, so the stricter comparison
+  introduced no merge hazard.
+
+  Two of the subtler claims I tested directly rather than reading. The unreadable
+  floor is load-bearing: F2 -- both sheets naming the sweep in their
+  reduced-motion block but with `animation: slide` -- produces byte-identical
+  unreadable residues, the equality arm passes, and the floor is the only cell
+  that reds; strip its `startswith(UNREADABLE)` clause and the regression goes
+  invisible again at `35 passed`. And the per-exemption constraint is a shape, not
+  three special cases: I added a fourth exemption in six forms and the suite named
+  the missing piece every time, with the only genuine gap being the normaliser for
+  the new difference -- exactly what the fix round said. I also found the shape is
+  closed one step further than the card claims: a future normaliser that fails to
+  mark its own failures still cannot ship, because its mandatory control makes a
+  constant residue red.
+
+  All seven guardrails hold, G-1 re-derived by SHA after my own 29 mutation runs.
+  What is left is one minor and three nits, none of them in the code: a round-1
+  "G-5 / the CARD-255 shape" enumeration that the supersede commit's scope did
+  not reach and that now undercounts what holds G-5, plus two diagnostic-quality
+  nits in the new controls and one dead helper. Score 9; the card certifies.
