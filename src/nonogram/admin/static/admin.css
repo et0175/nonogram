@@ -1279,9 +1279,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 
    WHERE THE BAR IS, AND WHO PAYS FOR IT. The controls are a group of their
    own on the TOOLBAR'S LAST FLEX LINE (flex-basis: 100%), not three more
-   buttons inside .player-tools as the card's design context put them. Four
-   measurements decided that and decided where its 47 px comes from; none of
-   them is a preference, and each is one standing test away.
+   buttons inside .player-tools as the card's design context put them. The
+   bullets below are the measurements that decided that, and that decided
+   where the line's 24 px comes from; none of them is a preference, and each
+   is one standing test away. They carry no count of themselves on purpose —
+   a tally in a comment beside the things it counts is the one figure that
+   cannot be checked and has drifted here once already (this block said
+   "four" over five bullets, and "47 px" over a 24 px line, both measured
+   wrong in the fix round below).
 
      * HORIZONTALLY the toolbar has nothing left, so the group cannot join the
        first row. At 1280 x 720 that row is exactly full — .player-tools
@@ -1305,22 +1310,89 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
        scroll is 11 px at 1280 x 720, just inside half a cell (11.7 px), and
        the drag that test then performs lands on the cells it means to. Let
        the stage sit 23 px lower and the scroll is 34 px, the drag crosses a
-       row mid-animation, and 4 of the 8 cases of
+       row mid-animation, and the cases of
        tests/test_puzzle_solver_marking.py
        TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press
-       go red (measured, in isolation, both ways).
-     * SO THE ROW IS PAID FOR out of air, as far as air goes. It is a
-       COMPACT row — its buttons are control height less --space-3, 24 px,
-       which still meets WCAG 2.2 (2.5.8)'s 24 px target and is the smallest
-       footprint any of these options has — and the negative margins here
-       cancel the toolbar's own row gap (8 px) and its own bottom margin
-       (16 px, the air between the toolbar and the board, which the bar now
-       sits in). What is left is the flex row gap itself, 8 px, which no
-       margin on an item can give back. Measured at 1280 x 720: the stage
-       0..8 px lower than today (top 246.8 against 239.0), the focus scroll
-       above 19 px against today's 11.
-     * AND THAT RESIDUAL 8 px IS WHERE THIS CARD STOPPED. Paying it any other
-       way costs more than it saves, measured each way:
+       go red. The FIX ROUND measured the shallow end of that too, and the
+       number this bullet first carried was wrong in the only direction that
+       mattered: it said 4 of 8 red at 23 px lower and implied 8 px lower was
+       fine. EIGHT PX LOWER ALREADY REDS 3 OF THE 8 (White-Enter,
+       White-Space, Clear-Enter — measured in isolation, identically at 8 px
+       and at 9 px), because the focus scroll goes 11 -> 19 px and 19 px is
+       already past the half-cell (11.7 px) that bullet names as the
+       tolerance. It also reds
+       tests/test_puzzle_solver_progress.py
+       TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move
+       for a SECOND mechanism nobody had looked for: the board 8 px lower
+       puts that test's last filled cell under the fold, Playwright scrolls
+       the PAGE 5 px to click it, and a test that compares the board's
+       bounding box across the solving stroke sees the board move 5 px
+       (247.796875 -> 242.796875) — the whole page moved, the toolbar's own
+       height never changed. "The board may not move down" is therefore not
+       a budget with 8 px of slack in it. It is zero.
+     * SO THE ROW IS PAID FOR ABOVE THE TOOLBAR, NOT BELOW IT, which is
+       where the fix round moved it. It is a COMPACT row — its buttons are
+       control height less --space-3, 24 px, which still meets WCAG 2.2
+       (2.5.8)'s 24 px target and is the smallest footprint any of these
+       options has — and the bar's own negative margins cancel the toolbar's
+       flex row gap (8 px) and all but ONE PIXEL of the toolbar's bottom
+       margin (16 px, the air between the toolbar and the board, which the
+       bar now sits in). That still leaves the row gap itself, 9 px with the
+       pixel, which no margin on a flex ITEM can give back — so the TOOLBAR
+       gives it back, out of the 16 px between it and the page head
+       (.player-head's own margin-bottom), with a margin-top of exactly
+       -(--space-2 + --border-width). The arithmetic is forced, not chosen:
+       with the bar h px tall, the board moves 8 + mt + h + mb and the air
+       below it is 16 + mb, so air >= 1 px and movement 0 together need
+       mt = 7 - h — i.e. -17 px with a 24 px row, which would put the bar
+       9 px INSIDE the toolbar's first line. There is no third margin on the
+       bar to spend. Measured at 1280 x 720 with the rule in place: the
+       toolbar top 139 against today's 148, the head/toolbar gap 7 px
+       against 16, the stage top 238.796875 — today's number exactly — the
+       focus scroll 11 px, today's, the document 898 px tall, today's, and
+       1 px of air between the bar and the board at 1280 x 720, 1440 x 900
+       and 390 x 844 alike. Below the toolbar the page is byte-for-byte
+       today's geometry, which is why nothing downstream of it has to be
+       re-measured.
+       The rule is keyed :has(.player-probe) because puzzle_edit.html
+       (CARD-246) draws its board under the same .player-toolbar and is
+       offered no probe: there the row does not exist, so there is nothing
+       to give back and its head keeps the gap it had. It is keyed on the
+       bar's PRESENCE and not on :not([hidden]), so the pull-up is constant
+       for the page's whole life — the toolbar and the bar are unhidden in
+       the same pass (solver.js), and a margin that changed when the bar
+       appeared would move the board at that moment for nothing.
+     * THE ONE PIXEL IS NOT SLACK, it is the whole reason this bar is not
+       flush with the board, and it was learned the expensive way: shipped
+       flush (margin-bottom exactly -16 px, air 0) the bar's bottom edge
+       COINCIDED with .player-board's top edge, measured at every viewport
+       the suite samples — 246.796875 at 1280 x 720, 210.796875 at
+       1440 x 900, 502.0625 at 390 x 844, board top and bar bottom the same
+       number to the 1/64 px. A Playwright ELEMENT screenshot clips the page
+       raster to the ENCLOSING WHOLE-PIXEL rect, [floor(top), ceil(bottom)),
+       so a board whose top is at y.797 is captured from y.0 — and the first
+       row of every .player-board capture then holds the bottom 0.797 px of
+       the Probe button instead of the page behind the board. That is paint
+       this card does not own landing inside another card's instrument:
+       tests/test_puzzle_solver_fifth_rule.py
+       TestSolverFifthRule_GeometryAndOtherMarksUnchanged::test_the_rules_against_paper_are_untouched
+       compares two such captures of a BLANK board byte for byte, and it
+       went red on 4 pixels of row 0 (the button's own antialiased corners,
+       x = 1, 2, 55, 56, by 1 per channel) — a reading of the button, with
+       nothing to say the board had changed at all. One --border-width of
+       air fixes it for every viewport and zoom rather than for the ones
+       measured, because floor(t) > t - 1 for every t: a bar ending one
+       whole CSS pixel above the board's top can never reach the capture's
+       first row. Half a pixel cannot say that, and is measured failing.
+       The standing check is
+       tests/test_puzzle_solver_probe.py
+       TestSolverProbe_TheBarStaysOutOfTheBoardsCapture, which reads the two
+       edges and floor()s the board's own — the mechanism, where that
+       sibling reads the pixels.
+     * THE OTHER PLACES THE 9 px COULD HAVE COME FROM each cost more than
+       they save, measured each way — this is the list the implementation
+       round worked through before it settled for moving the board, and the
+       head/toolbar gap above is the one it had not tried:
        --player-chrome-h (otherwise exactly the right property) also feeds the
        CELL CLAMP, whose height term binds at 1280 x 720 — a 15 x 15's cell
        goes 23.4 -> 21.1 px and five fit and geometry tests red, the largest
@@ -1353,10 +1425,16 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth sweeps 960..1480 and the
    phone for exactly that).
 
-   The stage rule is keyed on :has(.player-probe) and not on .player-stage
-   itself, because puzzle_edit.html (CARD-246) draws its board in the same
-   .player-stage and is offered no probe: there the row does not exist, so
-   there is nothing to give back and its stage keeps the cap it had.
+   The .player-stage rule below is keyed on nothing: it declares the two
+   custom properties unconditionally, and it is the only thing this card puts
+   on the stage. An earlier draft also gave the stage's own max-height back
+   and needed :has(.player-probe) to keep that off puzzle_edit.html's board
+   (CARD-246 draws it in the same .player-stage and is offered no probe); that
+   draft is the one the bullet above measures as reddening
+   TestSolverZoom_CluesStayInViewWhileZoomed, and it did not ship. The
+   unconditional form is safe there because the editor's cells never get
+   data-probe at all — solver.js's paintProbe is the only writer and no probe
+   can open on a page with no probe bar — so the two properties sit unused.
 
    THE TINT. One attribute, data-probe, on the member cells (solver.js
    paintProbe), never a fifth data-state and never a change to one (G-4): the
@@ -1395,7 +1473,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    tokens for one component. Every value in the rules below is a token or a
    token-only color-mix(), checked per rule by
    test_the_probe_tint_comes_from_tokens (AC-9). */
-.player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4)); }
+.player-toolbar:has(.player-probe) { margin-top: calc(-1 * var(--space-2) - var(--border-width)); }
+.player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4) + var(--border-width)); }
 .player-probe[hidden], .player-probe [hidden] { display: none; }
 .player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); height: calc(var(--control-h) - var(--space-3)); min-height: 0; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }
 .player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }

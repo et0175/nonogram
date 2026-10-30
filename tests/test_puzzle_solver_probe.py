@@ -1145,3 +1145,210 @@ class TestSolverProbe_CountersSeeProbeMarksAsMarks:
         assert probed == plain
         assert probed[0] == _errors_of(probed_board, GRID)
         assert problems == []
+
+
+# ==========================================================================
+# The probe bar's own geometry — the fix round's control
+# ==========================================================================
+
+
+#: Where the bar sits against the board, in viewport px, plus the one
+#: derived number the claim below is about.
+#:
+#: ``capture`` is the first whole pixel row a Playwright ELEMENT screenshot of
+#: ``.player-board`` is taken from: such a capture clips the page raster to
+#: the ENCLOSING whole-pixel rect, ``[floor(top), ceil(bottom))``, so a board
+#: whose top is at ``y.797`` is captured from ``y.0`` and its first row holds
+#: 0.797 px of whatever is directly above the board.
+#:
+#: ``barBottom`` is the bar's own border-box bottom rather than its children's
+#: — it encloses them (no child carries a negative margin), so it is the
+#: stricter of the two and it does not change when the bar wraps.
+_BAR_AGAINST_BOARD = """() => {
+  const bar = document.querySelector('.player-probe');
+  const board = document.querySelector('.player-board');
+  const tools = document.querySelector('.player-tools');
+  const boardTop = board.getBoundingClientRect().top;
+  return {
+    hidden: bar.hidden,
+    barTop: bar.getBoundingClientRect().top,
+    barBottom: bar.getBoundingClientRect().bottom,
+    barHeight: bar.getBoundingClientRect().height,
+    toolsBottom: tools.getBoundingClientRect().bottom,
+    boardTop,
+    capture: Math.floor(boardTop),
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverProbe_TheBarStaysOutOfTheBoardsCapture:
+    """The probe bar's 1 px of air above the board, in the mechanism domain.
+
+    This is the fix round's control, and the defect it pins is not a tint or
+    a transition: shipped with ``margin-bottom: calc(-1 * var(--space-4))``
+    the bar ate the WHOLE 16 px between the toolbar and the board, so its
+    bottom edge and ``.player-board``'s top edge were the same number to the
+    1/64 px at every viewport the suite samples (246.796875 at 1280 x 720,
+    210.796875 at 1440 x 900, 502.0625 at 390 x 844). A Playwright element
+    screenshot clips the page raster to the enclosing whole-pixel rect, so
+    row 0 of every ``.player-board`` capture then held the bottom 0.797 px of
+    the Probe button — and
+    ``tests/test_puzzle_solver_fifth_rule.py``
+    ``TestSolverFifthRule_GeometryAndOtherMarksUnchanged::``
+    ``test_the_rules_against_paper_are_untouched``, which compares two such
+    captures of a BLANK board byte for byte, reported a difference on 4
+    pixels of that row (the button's antialiased corners, by 1 per channel).
+    Its message said a hairline was reaching unfilled cells; no cell had a
+    ``box-shadow`` at all. That sibling is this claim's PIXEL control and is
+    not edited (G-7); what is asserted here is the two edges themselves.
+
+    The claim is stated as ``barBottom <= floor(boardTop)`` and not as "1 px
+    of air", because ``floor(t) > t - 1`` for every ``t``: one whole CSS
+    pixel of air keeps the bar out of the capture's first row at every
+    viewport, zoom and device pixel ratio rather than at the ones measured,
+    and half a pixel does not — both measured, as the fix round's A1/A2
+    mutants.
+
+    Two assertions, and the first is not decoration. A bar that is hidden,
+    or that has been folded back onto the toolbar's first row, satisfies the
+    second one for a reason that has nothing to do with the air; the premise
+    says the bar is visible and is a line of its OWN below ``.player-tools``,
+    which is the layout the air is arithmetic about.
+
+    Both probe states are swept because the bar's height is not constant —
+    Keep, Contradiction and the leaving note appear while a probe is open,
+    and at 390 px they wrap the bar onto further lines (measured: 24 px
+    closed, taller open). The air is a function of the bar's MARGIN and not
+    of its height, and that is the half of the arithmetic a reader is most
+    likely to doubt.
+    """
+
+    @pytest.mark.parametrize(
+        "viewport,open_probe",
+        [
+            ((1440, 900), False),
+            ((1440, 900), True),
+            ((390, 844), False),
+            ((390, 844), True),
+        ],
+        ids=["desktop-closed", "desktop-open", "phone-closed", "phone-open"],
+    )
+    def test_the_bar_ends_above_the_boards_first_capture_row(
+        self, browser_page, live, viewport, open_probe
+    ) -> None:
+        browser_page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+        _open(browser_page, live, live.store(GRID))
+        if open_probe:
+            _probe(browser_page)
+            assert _probe_pressed(browser_page) == "true"
+        seen = browser_page.evaluate(_BAR_AGAINST_BOARD)
+
+        assert (
+            not seen["hidden"]
+            and seen["barHeight"] > 0
+            and seen["barTop"] >= seen["toolsBottom"]
+        ), (
+            f"the probe bar is not a visible line of its own below "
+            f".player-tools, so the air below it is not what keeps it out of "
+            f"the board's capture: {seen}"
+        )
+        assert seen["barBottom"] <= seen["capture"], (
+            f"the probe bar's bottom edge ({seen['barBottom']}) is inside the "
+            f"first whole pixel row an element screenshot of .player-board is "
+            f"taken from (the board's top is {seen['boardTop']}, so the "
+            f"capture starts at {seen['capture']}), which puts the bar's own "
+            f"paint into every pixel reading taken of the board"
+        )
+
+
+#: Takes the probe LINE out of the page without taking the probe's element out
+#: of the DOM: the bar stops being laid out, and the toolbar's own pull-up
+#: stops applying. Together those are exactly the two rules CARD-268 adds to
+#: the page's vertical geometry, so what is left is the layout the solve page
+#: had before this card — which is the thing the board's position is compared
+#: against. (``display: none`` alone would not do it: ``:has(.player-probe)``
+#: matches on the element's PRESENCE, so the toolbar would keep the pull-up
+#: and the board would sit 9 px too high.)
+_WITHOUT_THE_PROBE_LINE = """() => {
+  const style = document.createElement('style');
+  style.id = 'card268-no-probe-line';
+  style.textContent =
+    '.player-probe { display: none !important; }'
+    + '.player-toolbar { margin-top: 0 !important; }';
+  document.head.append(style);
+}"""
+
+_BOARD_TOP = """() => document.querySelector('.player-board').getBoundingClientRect().top"""
+
+_TOOLBAR_PULL = """() => parseFloat(
+  getComputedStyle(document.querySelector('.player-toolbar')).marginTop)"""
+
+
+@pytest.mark.browser
+class TestSolverProbe_TheBarCostsTheBoardNoGround:
+    """The probe bar's line is paid for ABOVE the toolbar, so the board sits
+    exactly where it sat before this card.
+
+    The card's own first constraint is that the board may not move down —
+    ``#puzzle-player`` is a scroll container, Chromium puts it in the Tab
+    order and smooth-scrolls it into view, and a board lower down means a
+    longer scroll still in flight when a test drags across it. The
+    implementation round read that constraint as a budget with 8 px of slack
+    and shipped the bar's line out of the toolbar's bottom margin alone; the
+    fix round measured the slack and there is none. Eight px lower took the
+    focus scroll from 11 px to 19 px, past the half-cell the constraint is
+    about, and reddened 3 of the 8 cases of
+    ``tests/test_puzzle_solver_marking.py``
+    ``TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press``
+    plus — by a second route nobody had looked for — ``test_the_banner_takes
+    _the_tools_place_and_the_board_does_not_move`` in
+    ``tests/test_puzzle_solver_progress.py``, whose last filled cell went
+    under the fold so that Playwright scrolled the PAGE 5 px to click it.
+    Both of those are unedited siblings (G-7) and both are behavioural
+    controls for this claim: they were red at the implementation round's
+    commit and are green with the pull-up.
+
+    What is asserted HERE is the arithmetic itself, because those two go red
+    at 8 px and not at 1 px, and 1 px is exactly the error a reader of this
+    rule would make: the board's top is compared with the board's top in a
+    page whose two CARD-268 geometry rules have both been switched off, and
+    the two must be the same number. That is sharp at one pixel.
+
+    Probe CLOSED at all three viewports, which is the standing layout every
+    sibling test sees. An OPEN probe deliberately makes the bar taller (Keep,
+    Contradiction and the leaving note appear) and at 390 px wraps it onto
+    further lines, so the board does move down while a probe is open — the
+    player asked for it, it lasts as long as the probe does, and no test in
+    the family opens one. The companion class above is what holds the air in
+    that state.
+    """
+
+    @pytest.mark.parametrize(
+        "viewport",
+        [(1280, 720), (1440, 900), (390, 844)],
+        ids=["1280x720", "1440x900", "390x844"],
+    )
+    def test_the_probe_line_leaves_the_boards_top_where_it_was(
+        self, browser_page, live, viewport
+    ) -> None:
+        browser_page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+        _open(browser_page, live, live.store(GRID))
+
+        pull = browser_page.evaluate(_TOOLBAR_PULL)
+        assert pull < 0 and browser_page.locator(".player-probe").is_visible(), (
+            f"the toolbar's margin-top is {pull} and the probe bar's "
+            f"visibility is "
+            f"{browser_page.locator('.player-probe').is_visible()}: there is "
+            f"no line to pay for, or nothing paying for it, so the "
+            f"comparison below is between a page and itself"
+        )
+
+        with_bar = browser_page.evaluate(_BOARD_TOP)
+        browser_page.evaluate(_WITHOUT_THE_PROBE_LINE)
+        without = browser_page.evaluate(_BOARD_TOP)
+        assert with_bar == without, (
+            f"the board's top is {with_bar} with the probe line and "
+            f"{without} without it, so the line this card adds to the "
+            f"toolbar moves the board by {with_bar - without} px"
+        )

@@ -1926,6 +1926,69 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "it is a tested claim and not a comment: the checkpoint prefix "
         "carries no redo stack, and the live player's redo is untouched"
     ),
+    # CARD-268's fix round. The probe bar shipped flush with the board's top
+    # edge, which put its own paint into the first row of every ELEMENT
+    # screenshot of .player-board (the clip is the enclosing whole-pixel
+    # rect) and reddened the fifth-rule file's blank-board arm with a
+    # reading of a button. One --border-width of air fixes it; these four
+    # cases are the mechanism control for that air, swept over the two
+    # viewports the pixel sibling samples and both probe states, because the
+    # bar's HEIGHT changes with the probe and the air must not.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[desktop-closed]": (
+        "CARD-268",
+        "the bar's bottom edge against floor(.player-board's top) at "
+        "1440 x 900 with no probe open — the exact viewport and board state "
+        "the fifth-rule file's blank-board arm reads the pixels of"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[desktop-open]": (
+        "CARD-268",
+        "the same two edges with a probe OPEN, where Keep, Contradiction "
+        "and the note make the bar taller: the air is a function of the "
+        "bar's margin and not of its height"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[phone-closed]": (
+        "CARD-268",
+        "the same two edges at 390 x 844, the other viewport the pixel "
+        "sibling declares, where the board's top lands on a different "
+        "fraction (502.0625 against 210.796875)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarStaysOutOfTheBoardsCapture::"
+    "test_the_bar_ends_above_the_boards_first_capture_row[phone-open]": (
+        "CARD-268",
+        "the phone with a probe open, the one case where the bar WRAPS onto "
+        "further lines of its own, so the height term is largest and the "
+        "air still has to be one whole pixel"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[1280x720]": (
+        "CARD-268",
+        "the other half of the fix round: the bar's line is paid for above "
+        "the toolbar, so the board's top is the same number as in a page "
+        "with both of this card's geometry rules switched off — at the "
+        "viewport where the keyboard and solved-banner siblings reddened"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[1440x900]": (
+        "CARD-268",
+        "the same identity at the desktop viewport the pixel sibling "
+        "declares, where the toolbar is one short line rather than two"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheBarCostsTheBoardNoGround::"
+    "test_the_probe_line_leaves_the_boards_top_where_it_was[390x844]": (
+        "CARD-268",
+        "the same identity on the phone, where the toolbar is a tall stack "
+        "and the pull-up is the same 9 px it is everywhere else"
+    ),
 }
 
 
