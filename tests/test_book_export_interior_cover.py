@@ -244,6 +244,16 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
             "no rule, no ink of any kind (AC-283)"
         )
 
+    # CARD-220 examined this test and the one above as a deletion candidate
+    # and KEPT BOTH. They call the same `_ink_pixels` on two pages, which is
+    # what makes them look like one test written twice. They are not: the test
+    # above asserts the count is ZERO on the title page and this one asserts
+    # it is NON-ZERO on the least-inked page the generator draws, so this one
+    # is the other's instrument proof. Delete this one and "page 1 holds no
+    # ink" is satisfied by an `_ink_pixels` that cannot see ink at all;
+    # delete the other and this one measures an instrument with no subject.
+    # Neither has a named survivor, so neither may be retired under CARD-220's
+    # rule.
     def test_the_ink_count_would_have_caught_a_folio(self, covered_book):
         """The negative has teeth: the measurement does see a page's marks.
 
@@ -328,6 +338,12 @@ class TestBookExport_InteriorHoldsNoCoverPage:
         assert len(cover) == 1 and cover[0].size == TRIM_PX
         assert same_page(cover[0], _cover_art().resize(TRIM_PX))
 
+    # CARD-220 examined this test and the one above as a deletion candidate
+    # and KEPT BOTH, for the same reason as the `_ink_pixels` pair earlier in
+    # this class: `same_page` is asserted NEGATIVE above (no interior page is
+    # the cover) and POSITIVE here (a cover page IS recognised as the cover).
+    # Delete this one and the "not the cover" claims above are satisfied by a
+    # comparison that matches nothing. Neither has a named survivor.
     def test_the_comparison_would_have_caught_the_old_file(self):
         """The negative has teeth: a cover page IS recognised as the cover."""
         cover = BookPDFGenerator().create_cover_page(BOOK_TITLE, _cover_art())
@@ -4244,6 +4260,22 @@ class Generator:
             outcome.append("refusal")
         return tuple(outcome)
 
+    # CARD-220 examined this test and `test_each_door_axis_arm_catches_a_shape
+    # _the_other_misses` below as a deletion candidate -- one DOOR_SHAPES table
+    # walked twice -- and KEPT BOTH, with the finding recorded (its AC-5).
+    # Dropping the "door spelling" arm from DOOR_ARMS reds both, but on
+    # DIFFERENT assertions about different claims: the first dies on the
+    # COVERAGE claim (row W19 comes back `()`, a silent pass) and the second on
+    # its DECLARED-TABLE CONSISTENCY assert, never reaching its own coverage
+    # loop. Neither subsumes the other.
+    #
+    # There is a second, structural reason neither may go, which CARD-220's
+    # implementation round and its cycle-1 review both missed and this fix
+    # round measured: both node ids are PINNED in
+    # `tests/test_suite_profile.py`'s CLIFF_EDGE_SNAPSHOT, and
+    # `test_both_cliff_edge_rows_are_tests_the_suite_still_collects` collects
+    # the live suite and asserts they are both still in it. Deleting either
+    # reds that frozen registry as well, in a file this one does not touch.
     def test_every_door_shape_is_read_or_refused_and_never_silent(self):
         """AC-2 / ADR-0039/R2 on the DOOR axis: a call whose callee's identity
         this walk cannot derive is a refusal.

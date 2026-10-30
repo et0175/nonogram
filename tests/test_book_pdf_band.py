@@ -1646,7 +1646,12 @@ SHARED_FIFTH_RULE_PAGE = "page"
 #     `test_book_puzzle_frame.py` line 3445.
 #   * near-miss control: the word in a docstring/string only, planted in both
 #     files, left all three GREEN — while a grep instrument would have fired
-#     7 times per file. The bound is an `ast` reading, not a text match.
+#     7 times on the MUTATED file. CARD-220 fix round 1 re-derived that figure
+#     and states its domain, which the line above did not: the BASELINE is 5
+#     occurrences per file at the fork point 4d164f62 (`grep -c` and
+#     `grep -o | wc -l` agree, so the domain ambiguity does not explain it),
+#     plus the 2 planted mentions. It is 2 per file today. The bound is an
+#     `ast` reading of Attribute nodes, not a text match.
 #
 # Anyone adding a `request.getfixturevalue(...)` consumer to this file still
 # reds immediately — in the shared home's test rather than here. Take the
