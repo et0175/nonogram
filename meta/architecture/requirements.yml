@@ -1865,11 +1865,21 @@ functional:
       enum: [simple_overlap, line_dp, probe_contradiction, guess]   # fixed by ADR-0029 rev. 2026-09-12; cross_line dropped (it was iteration, not inference)
       enum_note: "CLOSED 2026-09-13 (CARD-076). No longer provisional: ADR-0029 fixes the three rungs (simple_overlap < line_dp < probe_contradiction, `cross_line` dropped as iteration rather than inference) and ADR-0025 fixes `guess` as the fourth member, keyed on branch_nodes >= 1 (EC-015). The members are confirmed in code — `difficulty.LADDER` and `solver.RUNG_ORDER`, bound to each other from the test tree because ADR-0007 forbids the import (tests/test_difficulty.py::test_the_ladder_is_the_solvers_own_ladder), and `difficulty.Tier` with four members. Writing the list into `strategies_used`, the JSON `strategies` array and the admin filter remains CARD-072's."
       delivery: CARD-072
+      # CARD-318: the line numbers and the claims in `evidence` below are the
+      # 2026-09-12 PRE-CARD-072 state and are now wrong — `strategies_used` is no
+      # longer written as `[]` (batch_generator.py:474 and app.py:1993 both write
+      # `list(puzzle.strategies)`), the hardcoded ['LineLogic', 'ConstraintProp'] sample is
+      # gone, and json_export.py:117 does carry a `strategies` array. Left in place
+      # as the intake record it is; do not read it as current.
       evidence: ["src/nonogram/db/models.py:63", "src/nonogram/admin/batch_generator.py:346", "src/nonogram/admin/app.py:476", "src/nonogram/admin/puzzle_review.py:730", "src/nonogram/export/json_export.py", "docs/GENERATION_ALGORITHM.md#6", "docs/GENERATION_ALGORITHM.md#7"]
     acceptance:
       # NB CARD-034 uses AC-135 for a different criterion of its own (CARD-106)
       - id: AC-135
-        given: a random-mode request at 20x20, density 40, seed 42, with the solver wrapped by a call counter
+        # CARD-318: the extent was 20x20 density 40 seed 42, which MEASURABLY DOES NOT
+        # GENERATE on this code — it raises GenerationAbandoned after 30 attempts, and
+        # other seeds at 20x20/40 raise SolverTimeout (the known-hard class CLAUDE.md
+        # names). 15x15 is the nearest extent that generates. The `then` is unchanged.
+        given: a random-mode request at 15x15, density 40, seed 42, with the solver wrapped by a call counter
         when: the puzzle is generated
         then: the Puzzle carries a non-empty ordered strategies list whose every member is in the enum, recorded off the verifying solve's signals, and the solver was entered exactly once for the accepted candidate
         kind: happy
@@ -1920,6 +1930,13 @@ functional:
       - id: AC-142
         given: an admin review puzzle list
         when: it is filtered by a strategy value outside the enum
+        # CARD-318 [BLOCKER — owner decision]: this `then` CONTRADICTS the shipped
+        # route. `admin/app.py`'s strategy branch reports the unknown value and then
+        # IGNORES it, listing every puzzle — deliberately, as the CARD-066 status
+        # filter does, because filtering on an unknown name shows an empty page that
+        # reads as "your other filters matched nothing". Which behaviour is wanted is
+        # a product call, so the ref is left dead rather than pointed at a test for
+        # whichever side is easier to assert (CARD-318 G-1/G-2).
         then: the request is refused on the CARD-066 error branch and no puzzles are listed
         kind: negative
         test: TestPuzzleReview_RejectsUnknownStrategyFilter
@@ -1940,7 +1957,10 @@ functional:
           requires-guessing attribute).
         kind: consistency
         instances: [AC-137, AC-138]
-        test: PropertyTest_SolveStrategies_GuessIffSearchBranched
+        # CARD-318: renamed from `PropertyTest_SolveStrategies_GuessIffSearchBranched`.
+        # `pyproject.toml` leaves `python_classes` at pytest's default `Test*`, so a
+        # class named `PropertyTest_*` is silently never collected — no skip, no error.
+        test: TestPropertySolveStrategies_GuessIffSearchBranched
       - id: EC-018
         statement: >-
           For any clue set, the strategies list is a pure function of the
@@ -1952,7 +1972,8 @@ functional:
         kind: consistency
         instances: [AC-136, AC-140]
         nfr: NFR-007
-        test: PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
+        # CARD-318: renamed, for the reason given on EC-017 above.
+        test: TestPropertySolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd
 
   # ===================================================================
   # 2026-09-22 — Book generator: print fit on the KDP trim, distribution
