@@ -1,6 +1,6 @@
 # CARD-309: The assembly point, and the puzzle page becomes operators — the half of the conversion that is architecture rather than repetition
 
-**Status:** in_progress
+**Status:** blocked
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1.5d <!-- RE-ESTIMATED 2026-10-30 at the split. The 1d covered five conversions, an assembly point that does not exist, 21 baselines, R1's flip, CARD-297's divergence and a reader population measured at 12+8 modules. CARD-308 had this shape today -- architectural with a frozen artefact to move -- and came in at 3.0x. This card now carries the assembly point and ONE kind; CARD-322 carries the other four. -->
@@ -23,7 +23,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — decompose: implementing AC-1 reds **189 failures + 75 errors across 22 test modules** with **four distinct causes**, and only one of them is a PDF reader (AC-3's subject). Cause 2 is the decisive one and is not this card's: raster and vector place the same grid **0.169 mm** apart on all four edges against `EDGE_TOLERANCE_MM = 0.1`, so **every placed-edge expectation in the tree changes value with the medium** — a convention question ADR-0042/R6's own comment assigns to **CARD-312**. Cause 3 (`test_book_difficulty_dots.py` + `tests/helpers/round_ink.py`, 27 cells) monkeypatches the raster drawing site and is **carded nowhere**. The assembly point — the half the card itself calls "the card" — **landed, is mutation-proved and is cycle-free**; the conversion was reverted rather than absorbed. Worktree and branch KEPT. Route: `/forge:kanban decompose` to re-cut, or an owner narrowing like CARD-298's.
 
 ## Why this card exists
 
@@ -196,6 +196,47 @@ within one hour today.
 - **Trace:** `trace.yml` carries **no ADR-0042 rule rows at all** — measured 2026-10-29, only two prose mentions at `:1813` and `:1853`. So no rule row is re-stamped here; the FR rows whose tests move are. Do not write a Trace line promising to re-stamp a row that does not exist, which is the mistake CARD-298 inherited.
 
 ## Worktree notes
+
+- **[Escalated]** 2026-10-30T13:08:14Z — `[BLOCKER]` decomposition defect: AC-1's conversion
+  reds 189 failures + 75 errors across 22 modules, four causes, only one of them
+  AC-3's subject · station: **decompose** · route: `/forge:kanban decompose`
+  CARD-309, or an owner narrowing to the delivered half (the CARD-298 / CARD-218
+  precedent). **Worktree and branch kept** — there is real, green, unmerged work
+  on the branch.
+
+- **[Orchestrator verification, 2026-10-30T13:08:14Z]** The implementation's
+  structural claims were re-derived independently rather than taken from its
+  report, because this card's whole subject is an import direction:
+  - `tests/test_cli.py` is in the diff **zero** times — AC-5's core claim holds.
+  - An `ast` walk over every `src/nonogram/admin/book_*.py` on the branch finds
+    **no cycle anywhere** in the `book_*` graph. `book_interior_vector` imports
+    `book_answer_vector`, `book_guide_vector`, `book_toc_vector`,
+    `book_pdf_generator` and `book_vector` — genuinely downstream of all of
+    them — and `book_pdf_generator` names it only in comments, never in an
+    `import`. The direction is right.
+  - **AND THAT IS ALSO THE CARD'S OWN COMPLAINT, NOW TRUE OF ITS OWN
+    ARTEFACT.** Nothing in `src/` imports `book_interior_vector`, so it has
+    **zero production call sites** — which is verbatim the condition this card
+    was cut to end ("four cards built the writers and every one still has zero
+    real call sites in `src/`"). The conversion would have been that call site,
+    and the conversion was reverted. So the phase's actual hole — *nobody who
+    turns a page into operators* — **is still open**, and the artefact that was
+    supposed to close it is now the fifth thing waiting for a caller. This is
+    not a defect in the implementation (the blocker is real and well measured);
+    it is the fact the owner's narrow-or-re-cut decision turns on, and it is
+    recorded here because a report that says "the assembly point is done" is
+    true and, on its own, misleading.
+  - Not verified by the orchestrator, and left for the review station: the
+    0.169 mm figure, the 189/75 census, the four-cause root-cause split, the
+    reader populations (12 and 9), and the 7.9×/3.6× size and time figures.
+
+- **[scratchpad committed to the branch — a review question, flagged not fixed]**
+  The branch commits ten probe scripts under `scratchpad/card309/`. The brief
+  asked for the harness to live there (not at the shared scratchpad root, which
+  is CARD-284's measured defect), and it does. Whether those files should reach
+  `main` is a separate question the review or the narrowing decision should
+  settle — the evidence they carry is worth keeping somewhere, and `main` may
+  not be that somewhere.
 
 - **[Env]** forge `2026.8.17` (executing manifest `forge_1/forge/.claude-plugin/plugin.json`).
   The project declares no `meta/.skills.yml`, so there is no `forge.min_version` to compare

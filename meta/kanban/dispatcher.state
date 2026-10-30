@@ -23,20 +23,44 @@ max_concurrent_override: 2
 # done). It is not in this wave because the cap is 2 and the owner named the
 # other two. It is the first candidate for wave 70.
 active:
-- id: CARD-309
-  phase: implementation
-  branch: card/309-assembly-point-and-puzzle-operators
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
-  started: '2026-10-30T11:58:28Z'
 - id: CARD-268
   phase: implementation
   branch: card/268-player-probe-mode
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-268
   started: '2026-10-30T11:58:28Z'
-escalated: []
+escalated:
+- id: CARD-309
+  reason: >-
+    decomposition defect: implementing AC-1 reds 189 failures + 75 errors
+    across 22 test modules with four distinct causes, only one of them AC-3's
+    subject (a PDF reader). The decisive cause is a 0.169 mm raster-vs-vector
+    edge offset against EDGE_TOLERANCE_MM = 0.1, which changes the VALUE of
+    every placed-edge expectation in the tree -- a convention question
+    ADR-0042/R6 assigns to CARD-312. A third cause (the difficulty-dot
+    accounting instrument in the vector medium) is carded nowhere. The
+    assembly point landed, mutation-proved and cycle-free; the conversion was
+    reverted rather than absorbed.
+  station: decompose
+  route: "/forge:kanban decompose CARD-309 (or an owner narrowing to the delivered half, the CARD-298 / CARD-218 precedent)"
+  at: '2026-10-30T13:08:44Z'
+  worktree_kept: true
+  branch: card/309-assembly-point-and-puzzle-operators
+  commits: [9fc8651f, 37e1a093]
+# A SLOT IS FREE and wave 69 has no further cards of its own, so there is no
+# refill (cmd-run 6c refills from the CURRENT wave's un-started ready cards,
+# and 309/268 were the whole wave). Opening the next wave happens after the
+# active list empties, which means after CARD-268 closes. Candidates when it
+# does, in the order the board argues for them:
+#   CARD-310  -- owns the ARCHITECTURAL half of the defect the orchestrator
+#                hot-fixed on main today (a test's verdict depending on a
+#                sibling working tree). Its premise now has a live instance.
+#   CARD-312  -- cause 2 above is assigned to it by ADR-0042/R6's own comment,
+#                so CARD-309's re-cut waits on its convention decision.
+#   CARD-323..327 -- the five public-player cards, all confined to player/,
+#                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T11:58:28Z'
+last_updated: '2026-10-30T13:08:44Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

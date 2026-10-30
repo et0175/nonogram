@@ -115,6 +115,52 @@ structural fact that outlives a wave, its status is a board-time fact that does 
    converting, which is the mis-attribution CARD-298's cycle 1 was gated for. A
    window in which neither home asserts it is a regression, however short.
 
+## [Added 2026-10-30] The premise now has a live instance, and it cost a red `main`
+
+This card's premise — *a test's verdict must not depend on a sibling working
+tree* — was argued from the mechanism. It now has a **measured instance**, and
+the card should be read with it in hand.
+
+**What happened.** Dispatching wave 69 (CARD-309 + CARD-268) turned
+`tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it`
+**red on `main`**, with `AssertionError: ['CARD-268', 'CARD-309']`. Nothing in
+`src/` or `tests/` had changed; two card files had gained
+`**Status:** in_progress`. The guard reads the **main working tree's** board
+(`_board_cards`), so the act of starting work made a test fail — which is the
+coupling this card exists to remove.
+
+**The proximate cause was a vocabulary bug and is already fixed** (commit
+`7bdd7d4a`): `_BOARD_STATUSES` held `"in progress"` with a space, the spelling
+of `board.md`'s heading rather than of any `**Status:**` field, because the set
+was derived on 2026-10-29 from a board that **had no card in flight**. `review`
+was added at the same time, since CARD-268 would otherwise have reded `main` a
+second time on a different word when it reached its review phase.
+
+**That fix does not make this card unnecessary — it sharpens it.** Two things
+the incident establishes that the card could previously only assert:
+
+1. **The failure mode is real and it is loud in the wrong place.** The verdict
+   changed with no change to the code under test, and it changed for *every*
+   in-flight branch at once, not just the card that provoked it.
+2. **A vocabulary is a moving target as long as the input is a live tree.**
+   `reverted` is still absent from the set, deliberately — the first revert on
+   this board will red this guard the same way. Re-homing the assertion per
+   item 1 is what stops that class; widening a set is only ever the last
+   instance of it.
+
+So the honest reading of item 1's three candidates is now: **the committed
+derived artefact** gains the strongest argument, because "stale in the safe
+direction" is exactly what today's incident was not — the live read failed
+*unsafely*, inventing a finding about declarations nothing had touched.
+Commit-addressed reading would also have failed here (the status change was
+committed to `main`), which this card already suspected in writing: *"`main`'s
+tip still advances without a commit to the branch under test, so this may only
+narrow the window rather than close it."* Today is that sentence being right.
+
+**Scope note.** `7bdd7d4a` already edited `tests/test_book_pdf.py`, which is in
+this card's `Touches`. The vocabulary and its four mutants are done; do not
+redo them. What remains is item 1's decision and the re-homing.
+
 ## Acceptance criteria
 
 - **AC-1** (no test's verdict depends on a sibling working tree): *Given* the
