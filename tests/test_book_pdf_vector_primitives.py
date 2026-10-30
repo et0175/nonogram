@@ -1391,10 +1391,34 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     UNWATCHED_MARKS = frozenset(
         {"begin_path", "line_to", "close_path", "curve", "paint"}
     )
-    #: Puts no mark on a page: graphics state, the page box, and the two
-    #: readers. A guard watching these would be watching nothing.
+    #: Puts no mark on a page: graphics state, the page box, the two readers,
+    #: and CARD-314's marked-content brackets. A guard watching these would be
+    #: watching nothing.
+    #:
+    #: ``begin_marked``/``end_marked`` belong here and **not** in
+    #: :data:`UNWATCHED_MARKS`, and the distinction is this partition's point
+    #: rather than a filing choice: a ``BMC``/``EMC`` pair is a statement
+    #: *about* the operators between it (PDF 1.7 §14.6), it paints nothing, and
+    #: it cannot be assembled into a shape — so it adds no route to the round
+    #: mark this class's hole is about.
+    #:
+    #: **Where that is measured, and where it is not** (CARD-314 fix round 1,
+    #: F-010). Filing them here is a decision taken here; the claim that they
+    #: paint nothing is a measurement, but it is taken in **another module** —
+    #: ``tests/test_book_solved_answer_key.py``'s ``_DOOR_PROBE`` /
+    #: ``_NOT_A_DOOR_BECAUSE`` pair, which drives each member and checks the
+    #: operators it emits against ``_PATH_OPERATORS``. The test below asserts
+    #: only that the three sets partition ``dir(ContentStream)`` without
+    #: overlapping, which is the same standard this set's pre-existing members
+    #: are held to — so "each reclassification carries its own measurement" is
+    #: one guard too broad for this one, and this is the pointer it owes. What it does carry is CON-020's
+    #: clue-digit provenance, and that **is** watched, by
+    #: ``tests/test_book_interior_type_floor.py::TestInteriorType_TheClueDigitMarkIsTheWritersOwn``,
+    #: which holds ``src/`` to one emitter of the tag.
     NOT_A_MARK = frozenset(
         {
+            "begin_marked",
+            "end_marked",
             "fill_grey",
             "stroke_grey",
             "stroke_width",
