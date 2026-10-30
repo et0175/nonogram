@@ -44,9 +44,30 @@ max_concurrent_override: 2
 # while NOT touching tokens.css, which its Touches predicted.
 active:
 - id: CARD-268
+  phase: fix
+  review_cycle: 1   # of review.max_cycles: 3 -- scored 7.5, did NOT certify
+  fix_round: 1
+  build_fix_rounds: 1
+  score_history: [7.5]
+  gating_open: 2    # F-001 the tint at dE 2.55 (a SHIPPED MISS, T1 survives);
+                    # F-002 rule 6 decided silently, AND THE ORACLE SHARES IT.
+                    # Both decided by the owner 2026-10-30 and recorded on the
+                    # branch at e057b89d: a different channel, and fix the rule.
+- id: CARD-309
   phase: review
   review_cycle: 1   # of review.max_cycles: 3
-  build_fix_rounds: 1   # of 2 -- GREEN, not counted as a review cycle
+  branch: card/309-assembly-point-and-puzzle-operators
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-309
+  note: >-
+    Rebased onto main at dispatch, 22 commits behind -> 0. One conflict in
+    tests/test_book_pdf.py, resolved to MAIN's side in all three hunks: both
+    sides had independently fixed _BOARD_STATUSES's "in progress" (a spelling
+    no card ever carried) and main's is a strict superset -- it also adds
+    `review` and drops the dead spelling. The branch's own version omitted
+    `review`, so had it won it would have reddened on THIS CARD, which is now
+    Status: review. Verified after: tests/test_cli.py 135 passed and ZERO
+    occurrences in the diff (AC-5's core claim), declaration guard + its
+    synthetic control green, file parses.
   branch: card/268-player-probe-mode
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-268
   started: '2026-10-30T11:58:28Z'
@@ -64,28 +85,6 @@ active:
     reaching unfilled cells on a BLANK board -- one pixel unit, with no
     box-shadow rule added anywhere in the card. Cause not yet known; the fix
     round diagnoses before fixing.
-- id: CARD-328
-  phase: review
-  review_cycle: 2   # of review.max_cycles: 3
-  fix_round: 1      # complete
-  score_history: [8.0]
-  gating_open: 0    # IMP-1 closed; orchestrator re-fired its own cycle-1 probe,
-                    # 23 passed -> 5 failed on named arms. MIN-1 and NIT-2 closed,
-                    # MIN-2 improved with its declined trade recorded, NIT-1
-                    # declined as merge-time bookkeeping.
-  note: >-
-    min_improvement is "off" on this board, so there is no score-delta stall
-    check; family_regression is "warn". Cycle 2's primary question is not
-    whether IMP-1 closed (it did, verified) but WHAT THE FIX WEAKENED while
-    closing it -- six consecutive gating findings across two earlier waves were
-    introduced by the previous fix.
-  branch: card/328-player-looks-agree
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-328
-  started: '2026-10-30T14:36:59Z'
-  note: >-
-    Implementation complete at e17229a4 and its gate verified independently by
-    the orchestrator (103 passed / 0 skipped, 23 declared = 23 collected, src/
-    byte-identical by SHA on both files). Review cycle 1 dispatched 2026-10-30T15:07:52Z.
 in_review:
 - id: CARD-309
   branch: card/309-assembly-point-and-puzzle-operators
@@ -125,7 +124,7 @@ escalated_closed:
 #                intersection with everything in flight EMPTY.
 queued: []
 conflict_edges: []
-last_updated: '2026-10-30T16:17:47Z'
+last_updated: '2026-10-30T18:07:05Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
