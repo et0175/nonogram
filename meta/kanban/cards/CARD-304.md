@@ -627,3 +627,147 @@ own resolver.
   "the quantity is zero" from "the instrument is blind."** Landing four of those from this card
   would be the same mistake as shipping the false ADR sentence fix round 1 was dispatched to repair.
   Cycle 3 remains.
+
+---
+
+## Fix round 2 — `2583783b` → `ac27a6b7`, 2 files, +728/−59
+
+**G-1 holds trivially**: the changed-file list is exactly `tests/test_suite_profile.py` and
+`meta/kanban/config.yml` — **ADR-0039 is untouched this round.** Stash list 4 at start and end, lock
+absent at every check, full suite not run.
+
+### The quiet-host row now reds where it passed
+
+Measured on a **genuinely quiet host** — 0 other real `-m pytest` immediately before *and* after both
+runs, checked with the prescribed awk — using cycle 2's own stale instrument:
+
+| tree | result |
+|---|---|
+| `2583783b` (before) | **2 passed — SURVIVED** |
+| `ac27a6b7` (after) | **1 failed, 1 passed — KILLED** |
+
+The failure names both runs it found: a sibling's, **and the test's own runner** — the pid that was
+structurally invisible before. **The mechanism was re-derived from `man pgrep` rather than quoted**,
+and the table it produced is worth keeping: from inside a pytest run, `pgrep -f` returns an
+**ancestor zsh wrapper and not the runner**; `-fa` returns two, both ancestor zsh; `-fi` returns two
+with the runner **absent**; `-fia` returns four **with the runner present**; `-fc` and `-fca` both
+give **exit 2 with empty stdout** (`-c` is not in the usage string at all); the prescribed awk reads
+**2**.
+
+**Half (1) is confirmed structurally unable to fail on the `-f` row, and that was not papered over**
+— `-a` was added **at the point of re-execution only**, `config.yml`'s rejected spellings are
+untouched, and the bound now says **which half carries which row** instead of claiming one carries
+both. `RE_EXECUTION_REWRITES` is a 4-row table (2 must change, 2 must not) plus an assertion that
+**every** entry in the re-executed set is actually rewritten, so a future non-pgrep rejection cannot
+ride the function's silence. The new test asserts on **`os.getpid()`, not on a count**, so it is
+independent of board load.
+
+### Every previously-surviving mutant now reds — and cycle 2 was reproduced before being trusted
+
+Reproduced first on `2583783b`: M-A survived 35 passed; M-I survived 35 passed; M-J survived 35
+passed in **65.78 s** (blob matching cycle 2 exactly); M-J2 gave **no verdict, 15 dots, 121.14 s**.
+Then on `ac27a6b7`: **M-A 2 failed · M-B 4 failed · M-P 1 failed · M-I 1 failed · M-I2 (a predicate
+*drift* that stays non-blind) 1 failed · M-N (the prescription drifts and the frozen copy does not)
+6 failed · M-K 2 failed.** **M-J went from 35 passed in 65.78 s to a named failure in 7.58 s**, and
+**M-J2 from no summary line at 121 s to a named failure at 5.84 s.** The named message is the
+instrument speaking: *"probe … is in process group …, so `os.killpg` below would not reach its
+children and this test would pass on children that expired of old age."* M-J3 shows the **elapsed**
+assertion carries that claim alone.
+
+**Negative controls**: unmutated 40 passed over 7 runs, and **three semantics-preserving near-misses
+applied together still 40 passed.** The instruments rise on the defect and not on a near-miss.
+
+### `_is_a_shell` — and cycle 2 had this backwards
+
+`SHELL_NAMES` is now derived from `/etc/shells` unioned with `config.yml`'s own `shell` key, with a
+**floor so a short authority is a loud failure** rather than a quiet skip, and the module's own AST
+checked so the set cannot be hand-written back in (M-P reds exactly that).
+
+**This is a correction, not only a provenance change.** Over the **486 distinct executables live on
+this host at one instant**, the derived set and the suffix rule disagree on **two**, and **the suffix
+rule is wrong on both**: `ssh`, and `/System/Library/CoreServices/ReportCrash` — which ends in `sh`.
+So cycle 2's *"all 7 agree, deriving changes no present answer"* is **false in the useful direction**.
+It was also incomplete in the dangerous one: **`-zsh` is live on this host at every instant**, the
+suffix rule got it right, and a naive derived set would have **lost** it — the leading `-` is
+stripped deliberately. And **unparseable argv now DENIES**, because the caller's test is
+`not _is_a_shell(child)`, so returning False on an unanalysable shape would *accept* it as the search
+tool.
+
+**Cycle 2's own "measured false negatives" mostly do not reproduce as live processes**: `env` *execs*
+rather than forks, so `/usr/bin/env zsh …` shows in `ps` as `zsh -c …` and reads **True**; a shebang
+wrapper shows as `/bin/sh /path/…` and reads **True**; `/bin/bash-5.2` does not exist on this host.
+They misclassify only as hand-written strings, **which is not an input this predicate has.** The one
+real misclassification is the false **positive** — the direction the derivation fixes.
+
+### `_is_a_real_pytest_run` — the cross-check exists now
+
+`_prescribed_filter()` **slices the judgement stage live out of `config.yml`** (three stages
+asserted; a prescription whose awk grew a `|` reds rather than handing back a fragment — declared).
+`PYTEST_ARGV_CORPUS` is 18 argv shapes with declared verdicts, each checked **against the declared
+verdict and against the awk run as a subprocess over the same strings**, so **a wrong declared
+verdict is self-policing — the row reds even when both implementations agree.** Three verdicts had to
+be corrected while writing it and are annotated so a reader does not read them as typos: `-m pytestqa`
+**contains** `-m pytest`, and neither regex is anchored at the start of `$1`, so `xpython` and
+`python.` both satisfy it.
+
+### F-104 — a kill, not a wait
+
+`_kill_group` now separates *leader already gone* (tolerated — the normal race) from *there was never
+a group with that id* (raised and named), checked **before** the signal. The 60 s wait became
+**5.0 s**: a group that got SIGKILL needs the scheduler, not a minute, and 60 × up to 24 spawns on one
+node is what put `hang_guard` back in reach. The test times kill-plus-disappearance against **a ratio
+of `PROBE_LIFETIME_SECONDS`, not a cost band**, because killed children go in milliseconds and
+aged-out children take 30 s by construction.
+
+### Figures, with the domains that explain them
+
+**Node ids, raw and net, both re-derived:** fix round 1 `439 → 445` = **2 removed / 8 added** raw,
+6 net; this round `445 → 450` = **0 removed / 5 added**, nothing renamed; cumulative `439 → 450` =
+**2 removed / 13 added** raw, 11 net, 0 lost. **The 2 removed are the one-place test's `[load]` and
+`[rival-pytest]` param ids**, replaced under its new name — which is AC-5's correction above,
+independently confirmed.
+
+**The class cost band is gone, and the reason is the interesting part.** Seven runs: with one sibling
+pytest alive throughout, **6.51–6.75 s session**; with none alive, **7.00–7.22 s session**. **The
+quiet domain is the SLOWER one**, by about half a second. A range whose stated domain is
+"quiet/contended" would have been a figure whose domain does not explain its own spread — so the
+docstring now carries the observed spread **with its conditions** and says a band is the wrong form
+here. **Residue item 3's shape for the third time on this card, and this is the answer to it.**
+Module: 43.42–43.82 s session over 3 runs at 450 ids, readings indistinguishable across contention,
+so the ~4 s rise over fix round 1's figure is **the 5 new node ids** — dominated by the fifth
+visibility-control row, which is an *invisible* row and spends its whole timeout by construction.
+
+`tests/test_suite_profile.py` **450 passed**; the sandbox comparison **127 passed**, count
+unaffected; `test_check_ref_resolution.py` **23 passed**; and `test_guard_integrity.py` +
+`test_collected_names.py` **180 passed** — **two files that read this module from outside and are in
+the impact radius, which cycle 2 did not run.** Validators `dead_check_ref: []`,
+`check_refs_verified: true`, `unparseable_sources: []`. **Skips: zero, by name — and the suite-wide
+27 is explicitly not claimed**, because that needs the full suite.
+
+### Corrections to cycle 2, and one more to the record
+
+Besides the `_is_a_shell` reversal above: cycle 2's **"all SIX `start_new_session=True` sites"** —
+there are **four** spawn sites; `grep -c` returns 6 because two occurrences are **prose** in
+docstrings. Its sed produced the same behavioural mutation, so **its result stands and its count does
+not**. And F-108's figure is confirmed irreproducible with **the mechanism now pinned**: the reading
+is the true count **plus one per live shell wrapper spelling the pattern**, so it is not a function
+of the host's pytest count at all — restated in `config.yml` as a mechanism rather than a range.
+
+### Declared residuals, not hidden
+
+Half (1) still cannot fail on the `-f` row (structural, bound now names which half carries which
+row); `_is_a_shell` returns False for an unrecognised *name* by necessity; `_prescribed_filter`'s
+`|` split is naive and **reds loudly** on a prescription it cannot slice; `PYTEST_ARGV_CORPUS` is
+hand-written data, but **every verdict in it is checked against the live prescription**.
+
+**F-105 is recorded, not fixed** — a paragraph stating that the board-level resolver's text domain
+includes `meta/review/**`, that cycle 2 measured the silencing end to end on this card's own
+orphaned name, that the in-module resolver cannot be fooled that way because it requires a `def`, and
+that **CARD-319 owns the board-level fix**. The orphaned name is deliberately **not spelled**
+anywhere in the module or the report — spelling it is what revives it.
+
+- [Fix 2] `ac27a6b7` — all four blind instruments now carry controls that red, each proved by a
+  mutant that previously survived; the hang-guard exposure went from **no summary line at 121 s** to
+  **a named failure at 5.8 s**; and the figure that kept being exceeded has stopped being published
+  as a band.
+- [Gate] Merge gate next. The override is discharged.
