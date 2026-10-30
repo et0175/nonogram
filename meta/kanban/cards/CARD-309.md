@@ -252,7 +252,7 @@ the interior's page walk and the page writers downstream of it, and that boundar
 
 | # | boundary / operation | failure mode | declared behaviour | numeric bound |
 |---|---|---|---|---|
-| F-1 | the walk asks `InteriorPageWriters` for a kind `page_medium` calls VECTOR | the field is `None` (a declaration was lifted without composing through the assembly point) | `_downstream_writer` raises `ValueError` naming the kind **and** `nonogram.admin.book_interior_vector` | exactly **1** refusal, raised at the first page of that kind; **0** bytes of PDF reach any caller (the buffer is a local of `_write_pdf` until the trailer) |
+| F-1 | the walk asks `InteriorPageWriters` for a kind `page_medium` calls VECTOR | the field is `None` (a declaration was lifted without composing through the assembly point) | `_drawn_downstream` raises `ValueError` naming the kind **and** `nonogram.admin.book_interior_vector` | exactly **1** refusal, raised at the first page of that kind; **0** bytes of PDF reach any caller (the buffer is a local of `_write_pdf` until the trailer) |
 | F-2 | same | a writer is present but bound to the wrong kind's field | the writer raises on the argument shape it was not written for, and the interior is never written | detectable in **1** interior write of a book holding >= 1 page of each lifted kind; measured as mutant M8, killed by `test_each_of_the_four_bindings_was_used` |
 | F-3 | `_write_pdf`, per page | a page arrives in the other medium's representation from the one its kind declares | `TypeError` naming the page number, the kind and the type that arrived (unchanged by this card — G-6) | **0** bytes written; the refusal is at page *k* of *N* and takes its partial bytes with it |
 | F-4 | the walk's per-kind medium gate | a gate is added, removed or asks something other than the decider | `page_medium` call tally over the module's AST is an equality | **5** calls in `produce` (TITLE, GUIDE, TOC, PUZZLE, ANSWER) and **1** in `_write_pdf`; DIVIDER has no gate and is held by F-3 instead |
@@ -563,7 +563,7 @@ lack elsewhere (overstated **4.8×–10.3×** as a small selection).
   the split put the puzzle page in this card: converting it needs no assembly point, so the
   architecture and the conversion can be judged separately.
 - **STRUCTURE: default-DENY at the new boundary.** A field left `None` is not a fallback to
-  the bitmap. `_downstream_writer` refuses, by kind, naming the assembly point — one step
+  the bitmap. `_drawn_downstream` refuses, by kind, naming the assembly point — one step
   earlier than `_write_pdf`'s representation refusal, which is untouched (G-6) and still the
   thing that catches a bitmap handed in under a vector declaration.
 - **STRUCTURE: no C4 change, no component-map row.** COMP-009 is one component
