@@ -1714,8 +1714,13 @@ def test_the_listing_pages_carry_no_colour_literal_and_only_defined_tokens() -> 
         # ``--player-width`` / ``--player-height`` are set on the board
         # element by play.js and so are declared in script rather than in
         # CSS, which is why they are named here — CARD-283's own rule names
-        # them for the same reason.
-        defined = tokens | {"--player-width", "--player-height"}
+        # them for the same reason. ``--player-wave`` (2026-10-30) is the
+        # third of exactly that kind: play.js sets it per cell as row + col,
+        # the solved sweep's delay reads it, and solver.js sets it the same
+        # way for the admin player's own copy of that animation. Naming it
+        # costs the rule nothing — a typo in the *use* still reds, because
+        # the name a cell is given lives in play.js, not here.
+        defined = tokens | {"--player-width", "--player-height", "--player-wave"}
         defined |= set(re.findall(r"(--[a-z0-9-]+)\s*:", text))
         used = set(re.findall(r"var\(\s*(--[a-z0-9-]+)", text))
         return sorted(used - defined)

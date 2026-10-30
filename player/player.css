@@ -410,15 +410,52 @@ body {
 .player-cell[data-state="unknown"] { background: var(--grid-paper); }
 .player-cell[data-state="maybe"] { background: var(--color-surface-hover); }
 
-/* The white mark: a small cross, so "decided empty" reads differently from
-   "not yet decided" without a second colour. */
-.player-cell[data-state="empty"] {
-  background-image:
-    linear-gradient(to bottom right, transparent 44%, var(--color-text-secondary) 44%, var(--color-text-secondary) 56%, transparent 56%),
-    linear-gradient(to bottom left, transparent 44%, var(--color-text-secondary) 44%, var(--color-text-secondary) 56%, transparent 56%);
-  background-size: 50% 50%;
-  background-position: center;
-  background-repeat: no-repeat;
+/* The white mark: a small centred dot, so "decided empty" reads differently
+   from "not yet decided" without a second colour. The owner's choice of
+   2026-10-30, taken because this page and the admin player disagreed: this
+   one drew two linear-gradient strokes (a cross) while the panel drew a dot,
+   and the same mark should mean the same thing in both.
+
+   Reimplemented here rather than imported: ADR-0041/R3 copies
+   solver_state.js and tokens.css byte-identically, and nothing else, so the
+   admin's own rule (admin.css's `.player-cell[data-state="empty"]::after`)
+   is the look this matches, not a file this one reads. An ::after and not a
+   background-image, as there: the cell's background is the paper, and a mark
+   painted into it cannot be sized from the cell's own box. */
+.player-cell[data-state="empty"]::after {
+  content: "";
+  display: block;
+  width: 28%;
+  height: 28%;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
 }
 
+/* Solved (ADR-0038/R6 keeps the answer off this page, so the only thing that
+   changes is the board the player already made). The frame was the whole of
+   it until 2026-10-30; the owner asked for the admin player's reveal, which
+   is two animations: the banner settles in, and the filled cells flash the
+   success colour in a diagonal sweep before ending in ink. The sweep's
+   per-cell delay comes from --player-wave (row + col), set in play.js when
+   the board is drawn, exactly as solver.js sets it for admin.css.
+
+   Keyed on body[data-solved] rather than a class of its own: play.js already
+   writes that attribute on every render, so the animation plays on the
+   transition into solved and does not re-trigger while it stays solved —
+   the same once-only reveal .is-solved gives the panel. */
 body[data-solved="true"] .player-board { outline: var(--player-rule-major) solid var(--color-success); }
+
+@keyframes player-solved-in { from { opacity: 0; transform: translateY(calc(-1 * var(--space-1))); } }
+@keyframes player-solved-flash { 50% { background: var(--color-success); } }
+
+.player-solved:not([hidden]) { animation: player-solved-in var(--duration-base) var(--ease); }
+body[data-solved="true"] .player-cell[data-state="filled"] {
+  animation: player-solved-flash calc(2 * var(--duration-base)) var(--ease) calc(var(--player-wave, 0) * 12ms);
+}
+
+/* The same reveal with no motion: the frame and the banner still appear. */
+@media (prefers-reduced-motion: reduce) {
+  .player-solved:not([hidden]),
+  body[data-solved="true"] .player-cell[data-state="filled"] { animation: none; }
+}

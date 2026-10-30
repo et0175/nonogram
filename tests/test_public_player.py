@@ -2033,6 +2033,149 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
 
 
 @pytest.mark.browser
+def test_the_empty_mark_is_a_dot_and_solving_is_revealed(browser_page, host) -> None:
+    """The owner's two calls of 2026-10-30, held where each one can drift.
+
+    **The empty mark is a dot.** It was a cross here — two linear-gradient
+    strokes painted into the cell's background — while the admin player drew
+    a centred dot, so the same mark meant one thing in the panel and another
+    on the public page. The dot is asserted through the ``::after`` box and
+    the cell's own ``background-image``, not through the declaration: a rule
+    that stops applying (an override, a specificity change, a later edit that
+    puts the cross back as a background) reds here.
+
+    **Solving is revealed, not merely recorded.** The page set a success
+    frame and showed a banner; the panel also plays a reveal, and the owner
+    asked for it. Two animations, and both are asserted through the
+    *computed* ``animation-*`` properties rather than through
+    ``getAnimations()``: a running animation is gone from that list once it
+    finishes, so a test that reads it races the 440 ms it is testing. The
+    computed delay is what makes the sweep a sweep — it varies per cell with
+    ``--player-wave`` (row + col, set in ``play.js``) — and it is a value, so
+    it can be asserted exactly.
+
+    The negative half matters as much: while the board is NOT solved the same
+    cell animates nothing, so the reveal is keyed on solving rather than on
+    being drawn.
+    """
+    page = browser_page
+    grid = GRIDS["min"]
+    key = host[2]["min"]
+    filled = _filled_cells(grid)
+    blanks = [
+        (r, c)
+        for r in range(len(grid))
+        for c in range(len(grid[0]))
+        if not grid[r][c]
+    ]
+
+    # ---- the empty mark -------------------------------------------------
+    _prefill(page, host, key, _save(key, grid, blanks, state="empty"))
+    mark = page.evaluate(
+        """() => {
+      const cell = document.querySelector('.player-cell[data-state="empty"]');
+      const after = getComputedStyle(cell, '::after');
+      const box = cell.getBoundingClientRect();
+      return {
+        content: after.content,
+        widthRatio: parseFloat(after.width) / box.width,
+        heightRatio: parseFloat(after.height) / box.height,
+        radius: after.borderRadius,
+        colour: after.backgroundColor,
+        cellBackgroundImage: getComputedStyle(cell).backgroundImage,
+        secondary: getComputedStyle(document.documentElement)
+          .getPropertyValue('--color-text-secondary').trim(),
+      };
+    }"""
+    )
+    assert mark["content"] in ('""', "''"), mark["content"]
+    assert 0.24 <= mark["widthRatio"] <= 0.32, mark
+    assert 0.24 <= mark["heightRatio"] <= 0.32, mark
+    assert mark["radius"].startswith("50%"), mark["radius"]
+    # A round mark in the secondary ink, and NOT the cross: the cross was a
+    # pair of gradients on the cell itself, so an empty cell's own
+    # background-image has to be nothing at all.
+    assert mark["cellBackgroundImage"] == "none", mark["cellBackgroundImage"]
+    assert mark["colour"] not in ("rgba(0, 0, 0, 0)", "transparent"), mark["colour"]
+    assert mark["secondary"], "tokens.css did not reach the page"
+
+    # ---- the reveal -----------------------------------------------------
+    # One cell short of the solution, so the board becomes solved by a click,
+    # which is the transition the reveal is keyed on.
+    _prefill(page, host, key, _save(key, grid, filled[:-1]))
+    before = page.evaluate(
+        """() => {
+      const cell = document.querySelector('.player-cell[data-state="filled"]');
+      return getComputedStyle(cell).animationName;
+    }"""
+    )
+    assert before == "none", before
+
+    _tap(page, *filled[-1])
+    assert page.get_attribute("body", "data-solved") == "true"
+
+    reveal = page.evaluate(
+        """() => {
+      const cells = [...document.querySelectorAll('.player-cell[data-state="filled"]')];
+      const read = (el) => {
+        const style = getComputedStyle(el);
+        return {
+          name: style.animationName,
+          delay: style.animationDelay,
+          duration: style.animationDuration,
+          wave: el.style.getPropertyValue('--player-wave'),
+          row: Number(el.dataset.row),
+          col: Number(el.dataset.col),
+        };
+      };
+      const banner = getComputedStyle(document.querySelector('[data-player-solved]'));
+      return {
+        cells: cells.map(read),
+        banner: { name: banner.animationName, duration: banner.animationDuration },
+      };
+    }"""
+    )
+    assert reveal["banner"]["name"] == "player-solved-in", reveal["banner"]
+    assert reveal["cells"], "no filled cell on a solved board"
+    for cell in reveal["cells"]:
+        assert cell["name"] == "player-solved-flash", cell
+        # The sweep: the delay IS the cell's diagonal, 12 ms a step. Compared
+        # as seconds and not as text -- Chrome writes a zero delay "0s", not
+        # "0.0s", and the unit is the browser's to choose.
+        assert cell["wave"] == str(cell["row"] + cell["col"]), cell
+        assert cell["delay"].endswith("s"), cell
+        assert float(cell["delay"].removesuffix("s")) == pytest.approx(
+            (cell["row"] + cell["col"]) * 0.012
+        ), cell
+    delays = {cell["delay"] for cell in reveal["cells"]}
+    assert len(delays) > 1, f"every cell flashes at once, so it is not a sweep: {delays}"
+
+    # ---- and none of it under prefers-reduced-motion --------------------
+    page.emulate_media(reduced_motion="reduce")
+    try:
+        _prefill(page, host, key, _save(key, grid, filled[:-1]))
+        _tap(page, *filled[-1])
+        assert page.get_attribute("body", "data-solved") == "true"
+        still = page.evaluate(
+            """() => {
+          const cell = document.querySelector('.player-cell[data-state="filled"]');
+          const banner = document.querySelector('[data-player-solved]');
+          return {
+            cell: getComputedStyle(cell).animationName,
+            banner: getComputedStyle(banner).animationName,
+            frame: getComputedStyle(document.querySelector('.player-board')).outlineStyle,
+            bannerShown: !banner.hidden,
+          };
+        }"""
+        )
+    finally:
+        page.emulate_media(reduced_motion="no-preference")
+    assert still["cell"] == "none" and still["banner"] == "none", still
+    # The reveal is still a reveal: the frame and the banner do not move.
+    assert still["bannerShown"] is True and still["frame"] == "solid", still
+
+
+@pytest.mark.browser
 def test_resume_is_local_and_the_page_writes_nowhere(browser_page, host) -> None:
     """AC-385 — marks come back after a reload, from this browser only.
 

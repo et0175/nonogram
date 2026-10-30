@@ -347,6 +347,9 @@ function drawBoard(stage, payload) {
       cell.dataset.state = UNKNOWN;
       if (majorAfter(col, width)) cell.classList.add("major-right");
       if (majorAfter(row, height)) cell.classList.add("major-below");
+      // The solved sweep's per-cell delay (player.css), as solver.js sets it
+      // for the admin player: a diagonal, so the flash crosses the picture.
+      cell.style.setProperty("--player-wave", String(row + col));
       tr.append(cell);
       cells.push(cell);
     }
