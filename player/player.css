@@ -410,6 +410,8 @@ body {
 .player-cell[data-state="unknown"] { background: var(--grid-paper); }
 .player-cell[data-state="maybe"] { background: var(--color-surface-hover); }
 
+/* CARD-328: the dot and the solved reveal below are held to admin.css's own by tests/test_public_player_agreement.py — change either here and that guard reds until the panel's matches or the difference is declared there with its reason. */
+
 /* The white mark: a small centred dot, so "decided empty" reads differently
    from "not yet decided" without a second colour. The owner's choice of
    2026-10-30, taken because this page and the admin player disagreed: this

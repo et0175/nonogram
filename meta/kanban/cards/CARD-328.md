@@ -262,3 +262,240 @@ either kind is visible instead of silent.
   two for the sweep plus two for the wave formula. Both sides of every pair
   matter — **a guard that reads only one sheet passes half of them**, which is
   the exact shape of defect this card is built to catch.
+
+### Implementation round 1 (2026-10-30, worktree `PythonProject4-card-328`)
+
+**What shipped:** `tests/test_public_player_agreement.py` (new, 23 tests in the
+four classes the ACs name), plus one pointer comment in `player/player.css`
+and one in `player/play.js`. **Nothing under `src/` is changed** — see the SHA
+check at the end of this round.
+
+#### The guard's design
+
+The compared surface is **derived, not written down**. `compared_surface()`
+takes the two sheets' text and the two scripts' extracted wave expressions and
+returns `{fact: (admin value, public value)}` — **12 facts**, counted from the
+dict it returns, not from this sentence:
+
+`dot.declarations`, `keyframes.player-solved-in`,
+`keyframes.player-solved-flash`, `sweep.selector`,
+`sweep.animation.{name,duration,easing,delay,step}`,
+`reduced-motion.block-count`, `reduced-motion.coverage`, `wave.expression`.
+
+`disagreements()` is **total over those keys**, so a fact that starts to differ
+can only be *declared* or *reported* — never overlooked. Three things make the
+parse honest rather than convenient:
+
+- **Parsed declarations, never rule text** (AC-1). One sheet writes the dot on
+  a single line, the other over nine, so a text comparison would compare code
+  style. `test_the_comparison_is_over_declarations_and_not_over_rule_text`
+  asserts the texts *differ* and the declarations *agree*, which is what stops
+  a later "simplification" into `admin_rule == public_rule`.
+- **The sweep rule is found by what it does**, not by its selector: the one
+  rule whose `animation` value names `player-solved-flash`, with reduced-motion
+  blocks excluded first. Looking it up by the admin's selector would simply not
+  find the public one, and "not found" has to be a failure here.
+- **Anti-vacuity arms throughout.** Declaration-set equality is vacuously true
+  on two empty parses, so each side is *also* held to an independently written
+  expectation: `DOT_PROPERTIES` (the seven names), `WAVE_EXPRESSION`
+  (`row + col`), a non-empty keyframes body, `rule_count(...) == 1` per sheet,
+  `len(surface) >= 12`. A regex that stopped matching tomorrow reds instead of
+  reporting perfect agreement about nothing.
+
+No CSS parser is in the dependency baseline, so this is `re` plus two brace
+walks, following `tests/test_admin_design_tokens.py`'s idiom for reading these
+sheets rather than inventing a second one. No `hypothesis`. The animation
+shorthand is split by an independent paren-depth tokeniser rather than matched
+against the formula we expect, because the expected formula is the thing under
+comparison.
+
+#### The shared / declared split (AC-4), re-derived 2026-10-30
+
+Measured: **9 of the 12 facts agree, 3 disagree, and the 3 that disagree are
+exactly `DECLARED_DIVERGENCES`.**
+
+| Declared divergence | admin | public | why it is not drift |
+|---|---|---|---|
+| `sweep.selector` | `.player-board.is-solved .player-cell[data-state="filled"]` | `body[data-solved="true"] .player-cell[data-state="filled"]` | different DOM hooks: `play.js` already writes the attribute on every render, so the reveal fires on the transition into solved and does not re-trigger while it stays solved — the same once-only reveal the class gives the panel. The look agrees; the hook is each page's own. |
+| `sweep.animation.delay` | `calc(var(--player-wave) * 12ms)` | `calc(var(--player-wave, 0) * 12ms)` | a fallback, not a different delay. The step is compared **separately** as `sweep.animation.step` and must agree, so this exemption cannot hide a changed step (M5/M6 prove it). |
+| `reduced-motion.coverage` | 5 selectors (`.player-toolbar`, `.player-toolbar *`, `.player-stage`, `.player-stage *`, the sweep) with `animation: none !important; transition: none !important` | 2 selectors (the banner, the sweep) with `animation: none` | the panel has toolbar/stage chrome that animates and the public page has none of it. Both switch the same reveal off; the surface each has to switch off differs. The block **count** is compared separately as `reduced-motion.block-count` and must agree. |
+
+**G-5 / the CARD-255 shape.** The declaration is not a bare list. It carries
+three constraints and two controls, each its own node id:
+- `test_every_declared_divergence_is_a_fact_the_guard_measures` — a declared
+  key outside the compared surface exempts nothing and hides everything;
+- `test_every_declared_divergence_carries_a_reason` — a reason floor
+  (120 chars), because the key says *what* differs and only the sentence says
+  whether anyone *decided* it;
+- `test_the_disagreements_are_exactly_the_declared_ones` — set **equality**, so
+  an undeclared disagreement reds *and* a declared key that no longer diverges
+  reds as a stale exemption;
+- `test_a_fourth_divergence_in_the_compared_surface_is_reported` — the positive
+  control for "a fourth divergence reds": the real public sheet text with
+  `width: 28%` → `31%` planted as a string substitution, asserted to surface as
+  `dot.declarations` and to be **outside** the exemption table;
+- `test_a_declared_divergence_that_stops_diverging_is_reported` — the other
+  direction, the public selector rewritten to the panel's own.
+
+#### [FINDING — this card's own brief, corrected] the third divergence was a mention count, not a block count
+
+The card body and the dispatch brief both state *"reduced-motion blocks: admin
+has 4, the public sheet has 1."* **Re-derived on 2026-10-30: both sheets have
+exactly ONE `@media (prefers-reduced-motion: reduce)` block.**
+
+`grep -c 'prefers-reduced-motion' admin.css` = 4 and `player.css` = 1 — but in
+`admin.css` only line 1061 opens a block; lines 872, 1059 and 1259 are *prose
+comments* that mention the feature. The figure came from a string count and
+reads as a block count. The board's own rule applies to the brief as much as to
+the work: **a figure summarising rows is counted from the rows.**
+
+So the guard declares the honest divergence — `reduced-motion.coverage`, the
+block's selector set and declarations — and *additionally* compares
+`reduced-motion.block-count`, which **agrees at 1 = 1** and is therefore
+deliberately **not** in `DECLARED_DIVERGENCES`. Declaring a divergence that
+isn't one would have been the stale exemption the same AC forbids. The card
+asked for three declared divergences with a reason each and it has three; the
+third one's *shape* is the corrected one.
+
+#### The mutant table (AC-5, AC-6) — 8 mutants, 8 KILLED, 0 survived
+
+Harness: `scratchpad/card328/mutate_card328.py` (not at the shared scratchpad
+root — CARD-284's root-level harness was re-executed after its own run and its
+first kill reading was untrustworthy). Per mutant: assert the file is at HEAD
+by SHA-256 against `git show HEAD:<path>` → sweep `*.pyc`/`__pycache__` →
+substitute (asserting it applied exactly once) → run with
+`PYTHONDONTWRITEBYTECODE=1` and `-o addopts=''  -v` → restore from the
+pre-mutant bytes → re-assert the SHA → sweep again. A crashed instrument is
+recorded `CRASHED`, never as a survivor; an empty verdict map raises. Raw
+verdicts: `scratchpad/card328/mutants.json`.
+
+The admin dot mutants are applied **to the line carrying
+`.player-cell[data-state="empty"]::after`**, because `.player-swatch[data-state="empty"]::after`
+(admin.css:781) shares `width: 28%` and `var(--color-text-secondary)` — a
+whole-file substitution would have mutated two rules and the kill would not
+have been attributable.
+
+| # | File | Change | AC | Status | Arms red (node id, class prefix `TestPlayerLooksAgree_`) |
+|---|---|---|---|---|---|
+| M1 | `src/nonogram/admin/static/admin.css` | dot `width: 28%` → `31%` | AC-5 | **KILLED** | `TheDot…::test_the_two_declaration_sets_are_equal`, `TheDot…::test_the_comparison_is_over_declarations_and_not_over_rule_text`, `ADivergence…::test_the_disagreements_are_exactly_the_declared_ones`, `ADivergence…::test_a_fourth_divergence_in_the_compared_surface_is_reported` |
+| M2 | `player/player.css` | dot `width: 28%` → `31%` | AC-5 | **KILLED** | the same four |
+| M3 | `src/nonogram/admin/static/admin.css` | dot `background: var(--color-text-secondary)` → `var(--color-text)` | AC-5 | **KILLED** | `TheDot…::test_the_two_declaration_sets_are_equal`, `TheDot…::test_the_comparison_is_over_declarations_and_not_over_rule_text`, `ADivergence…::test_the_disagreements_are_exactly_the_declared_ones` |
+| M4 | `player/player.css` | dot `background: var(--color-text-secondary)` → `var(--color-text)` | AC-5 | **KILLED** | the same three |
+| M5 | `src/nonogram/admin/static/admin.css` | sweep step `* 12ms` → `* 13ms` | AC-6 | **KILLED** | `TheSweep…::test_the_per_cell_step_agrees`, `ADivergence…::test_the_disagreements_are_exactly_the_declared_ones`, `ADivergence…::test_a_fourth_divergence_in_the_compared_surface_is_reported` |
+| M6 | `player/player.css` | sweep step `* 12ms` → `* 13ms` | AC-6 | **KILLED** | the same three |
+| M7 | `src/nonogram/admin/static/solver.js` | `setProperty("--player-wave", row + col)` → `row` | AC-6 | **KILLED** | `BothPlayers…::test_both_players_set_the_wave_to_the_same_expression`, `BothPlayers…::test_the_wave_is_the_cells_row_plus_its_column`, `ADivergence…::test_the_disagreements_are_exactly_the_declared_ones`, `ADivergence…::test_a_fourth_divergence_in_the_compared_surface_is_reported` |
+| M8 | `player/play.js` | `setProperty("--player-wave", String(row + col))` → `String(row)` | AC-6 | **KILLED** | the same four |
+
+Counted from the rows: **8 mutants, 8 killed, 0 survived, 0 crashed/not-reached.**
+Four of them are admin-side (M1, M3, M5, M7) — **a guard that read
+`player.css`/`play.js` on both sides of every comparison would have survived
+all four**, which is why both sides of every pair are in the table rather than
+one of each. `test_the_guard_reads_both_trees_and_not_one_of_them_twice`
+asserts that property about the guard itself.
+
+Note M3/M4 red three arms rather than four: with the dot already disagreeing on
+colour, the planted-fourth-divergence control's precision assertion
+(`disagreements - declared == {"dot.declarations"}`) still holds. That is
+correct behaviour of the control, not a missed arm.
+
+#### AC-by-AC evidence
+
+- **AC-1** — `TestPlayerLooksAgree_TheDotIsDeclarationForDeclarationTheSame`,
+  5 node ids: `test_the_rule_is_declared_once_in_each_sheet`,
+  `test_the_admin_sheet_declares_the_seven_properties`,
+  `test_the_public_sheet_declares_the_seven_properties`,
+  `test_the_two_declaration_sets_are_equal`,
+  `test_the_comparison_is_over_declarations_and_not_over_rule_text`. Split one
+  arm per claim deliberately — a test short-circuits at its first failing
+  assert, so a bundled method's single `FAILED` line would say nothing about
+  which arm a mutant reached. Reds under M1–M4.
+- **AC-2** — `TestPlayerLooksAgree_TheSweepSharesItsKeyframesAndItsStep`,
+  8 node ids (banner keyframes, flash keyframes, non-empty bodies, rule found
+  once per sheet, name, duration, easing, step). Reds under M5/M6 at
+  `test_the_per_cell_step_agrees`.
+- **AC-3** — `TestPlayerLooksAgree_BothPlayersSetTheSameWave`, 3 node ids.
+  `test_each_player_sets_the_wave_exactly_once` is the shape constraint: a
+  second setter is a second decision, and the CARD-255 lesson is that the
+  thing nobody counted is where the extra executable copy lives. Reds under
+  M7/M8.
+- **AC-4** — `TestPlayerLooksAgree_ADivergenceMustBeDeclared`, 7 node ids; see
+  the split table and the G-5 list above. Its two planted controls make the
+  claim falsifiable without touching a file, which matters because the live
+  tree agrees and a set equality over an agreeing tree proves nothing on its
+  own.
+- **AC-5 / AC-6** — the mutant table above.
+- **AC-7** — see the next block.
+
+#### AC-7: nothing rendered changes, and the skip attribution
+
+`tests/test_public_player.py` + `tests/test_public_player_pages.py` +
+`tests/test_admin_design_tokens.py` + the new file, run with
+`-o addopts='' -rs -p no:randomly`:
+
+**103 passed, 0 skipped, 0 failed, exit 0** (15.91s). Split: 34 + 33 + 13 + 23.
+The two shipped files' **67** reproduces the card's declared figure exactly.
+
+**Skip attribution: the set of skips is EMPTY, and that is a measurement, not
+an absence of one.** `-rs` reports a reason line per skip and printed no skip
+section; the count line carries no `skipped` term. So there is no skip to
+attribute by name — which is what ADR-0038/R8 wants here: every skip in this
+suite would be `DATABASE_URL`-gated, and the browser fixtures refuse loudly
+when Chromium is absent rather than skipping green. Chromium *is* present in
+this worktree — the `browser`-marked tests ran and passed, including
+`2400501b`'s own `test_the_empty_mark_is_a_dot_and_solving_is_revealed`
+(re-run alone by node id: 1 passed).
+
+**G-2 is intact and re-derived, not assumed.** `git diff --name-only HEAD --
+tests/` is **empty**: no existing test file is touched. The two protected calls
+still read as shipped — `getAnimations` occurs exactly once in
+`tests/test_public_player.py` and that occurrence is the docstring explaining
+why the reveal is *not* asserted through it, and the `background-image`/
+`cellBackgroundImage` arm is still there (lines 2085, 2097).
+
+Also run, because a new file in `tests/` can red a tree-scanning guard by its
+own text: `tests/test_collected_names.py`, `tests/test_guard_integrity.py`,
+`tests/test_suite_profile.py`, `tests/test_impact_set.py` — **664 passed, 0
+skipped**. The new file matches neither `RENDER_API_PATTERN` (so
+`RENDER_HEAVY_SNAPSHOT` does not move) nor `scripts/impact_set.py`'s
+`SCAN_IDIOMS`, and it declares no `PropertyTest_*` class. It uses no `skipif`
+and no module-scope silencer, so it registers no new host-state silence. **The
+full suite was not run — the merge gate is the only full run.**
+
+#### G-6: no test deleted, renamed, skipped or merged
+
+`git diff --name-only HEAD -- tests/` is empty, so no existing node id can have
+moved; the node-id set difference is therefore **additions only**. Enumerated
+by AST and cross-checked against `--collect-only -q -o addopts=''`: **23
+declared, 23 collected, both differences empty** — no silently-uncollected
+class (the CARD-294 defect shape), and no helper named `test*`.
+
+#### Guardrails
+
+- **G-1 `src/nonogram/admin/**` untouched.** `admin.css` and `solver.js` were
+  mutated and restored during the mutation run; both are byte-identical to
+  HEAD afterwards:
+  `03a7de8d1f5f1066f4c9e3400d65393144cafffb5d2609e35734b5cc527a381d  admin.css`
+  and `7a3b4aeb59fbc91ae146f2d523716b77c13c00be9b8f9687e1a673ed37d2fbe5  solver.js`,
+  equal to `git show HEAD:<path>`. `git status` shows only `player/play.js`,
+  `player/player.css`, `tests/test_public_player_agreement.py`, this card and
+  `scratchpad/`.
+- **G-3 no rendered pixel changed.** The two edits to `player/` are comments.
+  The guard found **no real disagreement** outside the three declared ones, so
+  there is nothing to raise with the owner on that front.
+- **G-4** — `COPIED_FROM_ADMIN` is not touched and ADR-0041/R3 is not
+  weakened. The guard reads `admin.css`/`solver.js`; it copies neither.
+- **G-7** — no CSS value added, only a comment.
+
+#### [FINDING — belongs to CARD-268, not to this card] its edit misses this card's surface, re-derived
+
+Re-derived in the sibling worktree at `9c88b723` rather than taken on trust:
+`git diff ef04286a` there is `admin.css +129`, `solver.js +196`, and **not one
+added or removed line touches this card's compared surface.** The dot rule
+(`admin.css:648`), both `@keyframes player-solved-*` (1055, 1056), the sweep
+rule (1058) and the reduced-motion block (1061-1062) are byte-identical in both
+trees, and `solver.js`'s `--player-wave` setter is unchanged (it has only moved
+730 → 778). Its only hit anywhere near the surface is `.player-probe-note`,
+which reaches for `--color-text-secondary` as a text colour and is not a
+compared fact. **No merge conflict is expected, and the guard is line-number-free
+by construction** — every fact is found by selector, keyframes name or what the
+rule does, never by a line number, precisely so a +129 above it cannot move it.

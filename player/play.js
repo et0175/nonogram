@@ -349,6 +349,7 @@ function drawBoard(stage, payload) {
       if (majorAfter(row, height)) cell.classList.add("major-below");
       // The solved sweep's per-cell delay (player.css), as solver.js sets it
       // for the admin player: a diagonal, so the flash crosses the picture.
+      // CARD-328: tests/test_public_player_agreement.py holds this expression to solver.js's own — change it here and that guard reds.
       cell.style.setProperty("--player-wave", String(row + col));
       tr.append(cell);
       cells.push(cell);
