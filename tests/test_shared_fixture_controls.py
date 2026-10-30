@@ -47,6 +47,7 @@ import collections
 import functools
 import gc
 import inspect
+import re
 import types
 from collections.abc import Iterable
 from pathlib import Path
@@ -61,6 +62,25 @@ TESTS_ROOT = REPO_ROOT / "tests"
 
 #: The shared home's own module name as an importer spells it.
 HOME = "tests.helpers.shared_fixture_controls"
+
+#: Its leaf module name, derived from :data:`HOME` so this file holds one
+#: spelling of it and not two.
+HOME_LEAF = HOME.rsplit(".", 1)[-1]
+
+#: The home's own file and this module, by identity rather than by spelling.
+#: Both name the leaf without importing it, so both sit outside the
+#: cross-check in :func:`_files_that_name_the_home`.
+HOME_FILE = (TESTS_ROOT / "helpers" / f"{HOME_LEAF}.py").resolve()
+THIS_FILE = Path(__file__).resolve()
+
+#: The leaf name as text, with this module's own *file* name excluded by
+#: construction: ``tests/test_shared_fixture_controls.py`` carries the leaf as
+#: a substring, so a card quoting this module's path in a docstring would
+#: otherwise read as a file that reaches the home. Measured on CARD-220's fix
+#: round: today the lookbehind changes nothing -- with and without it the text
+#: reading returns the same three files -- so it is a pre-emption, not a live
+#: exclusion.
+NAMES_THE_HOME = re.compile(rf"(?<!test_){re.escape(HOME_LEAF)}")
 
 
 # --------------------------------------------------------------------------
@@ -166,33 +186,148 @@ def _shared_names() -> set[str]:
     }
 
 
+def _imported_dotted_names(tree: ast.AST) -> set[str]:
+    """Every dotted name an ``import`` statement in ``tree`` could bind.
+
+    One reading of *all* the import statements rather than one pattern per
+    shape somebody remembered (ADR-0039/R2): the set is derived from the
+    statements themselves, so no form has to be anticipated by name.
+    ``ast.walk`` is full depth, so an import deferred inside a function, a
+    ``try`` or a class body is read exactly like a top-level one.
+
+    For ``from X import y`` both ``X`` and ``X.y`` are reported, because
+    whether ``y`` is a submodule or an attribute of ``X`` is not decidable
+    from the statement -- and for this question it need not be: either way the
+    file has the home's names in hand. A relative import keeps its leading
+    dots, which is enough for the leaf match below and is why no package
+    arithmetic is attempted here.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = "." * node.level + (node.module or "")
+            names.add(base)
+            names.update(
+                f"{base.rstrip('.')}.{alias.name}"
+                for alias in node.names
+                if alias.name != "*"
+            )
+    return names
+
+
+def _import_names_the_home(dotted: str) -> bool:
+    """Whether one dotted import name reaches the shared home.
+
+    The leaf is matched as a **whole dotted segment**, so
+    ``shared_fixture_controls_extra`` is a different module and
+    ``from tests.helpers import shared_fixture_controls as controls`` is this
+    one.
+    """
+    return dotted == HOME or dotted == HOME_LEAF or dotted.endswith(f".{HOME_LEAF}")
+
+
 def _importers() -> list[Path]:
     """Every test module that imports the shared home, found by parsing.
 
     An ``import`` statement is read out of the AST rather than grepped, so this
     module's own prose about the home is not an importer and a commented-out
     import is not either.
+
+    **Every import form, not a list of two.** Until CARD-220's fix round 1
+    this read exactly two shapes -- an ``ImportFrom`` whose *module* is the
+    home, and an ``Import`` whose alias *is* the home -- and was therefore
+    blind to ``from tests.helpers import shared_fixture_controls as controls``,
+    which is the form this very module uses on itself and the only occurrence
+    of it in the tree. Cycle 1's F-001 measured the cost: a synthetic importer
+    written that way, carrying a live ``request.getfixturevalue`` consumer,
+    ran **green** through
+    :meth:`~TestSharedControls_TheCopiesCannotComeBack.test_no_importer_reaches_for_a_fixture_at_run_time`,
+    while the same violation in a recognised form failed it. That became
+    load-bearing the day CARD-220 retired the two per-file copies of that
+    bound: each was keyed on its own ``__file__`` and so immune to any import
+    refactor, and afterwards this function is the only thing that puts those
+    two files inside the bound. It now asks the statements
+    (:func:`_imported_dotted_names`) instead of matching remembered shapes.
+
+    What it **cannot** analyse is a failure rather than an absence: an
+    unparsable file raises here, and a file that names the home by a route no
+    import statement declares is reported by name by
+    :meth:`TestSharedControls_TheCopiesCannotComeBack.test_the_importer_set_is_not_empty`
+    against :func:`_files_that_name_the_home`. Each recognised and refused
+    form carries a row in :data:`IMPORT_FORMS`.
     """
     found: list[Path] = []
     for path in sorted(TESTS_ROOT.rglob("*.py")):
-        if path == Path(__file__).resolve():
+        if path.resolve() in {HOME_FILE, THIS_FILE}:
             continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:  # pragma: no cover - the tree parses today
-            continue
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module and (
-                node.module == HOME or node.module.endswith("shared_fixture_controls")
-            ):
-                found.append(path)
-                break
-            if isinstance(node, ast.Import) and any(
-                alias.name == HOME for alias in node.names
-            ):
-                found.append(path)
-                break
+        except SyntaxError as exc:  # pragma: no cover - the tree parses today
+            raise AssertionError(
+                f"{path.relative_to(REPO_ROOT)} does not parse, so this "
+                "reading cannot establish that it is NOT an importer of the "
+                "shared home. An unanalysable file is a failure here and not "
+                "an absence (ADR-0039/R2): skipping it would silently shrink "
+                f"the bound that file may be inside. {exc}"
+            ) from exc
+        if any(_import_names_the_home(name) for name in _imported_dotted_names(tree)):
+            found.append(path)
     return found
+
+
+def _files_that_name_the_home() -> list[Path]:
+    """Every test file whose *text* names the shared home -- the crude reading.
+
+    The second, independent answer to the same question, and the only thing
+    that can catch :func:`_importers` losing a file (ADR-0039/R1). A module
+    can reach the home by a route no import statement declares --
+    ``importlib.import_module``, a fixture that hands the module object over,
+    a helper that re-exports it -- and no structural reading sees any of
+    those. This one sees every file that so much as names it, those included;
+    the two sets are asserted **equal**, so a file one reading has and the
+    other has not is named rather than merely absent from the bound.
+
+    What escapes this reading too, stated rather than implied: a module that
+    reaches the home without naming it anywhere in its own text -- a dotted
+    name assembled at run time from pieces. Nothing in the tree does that.
+    """
+    return [
+        path
+        for path in sorted(TESTS_ROOT.rglob("*.py"))
+        if path.resolve() not in {HOME_FILE, THIS_FILE}
+        and NAMES_THE_HOME.search(path.read_text(encoding="utf-8"))
+    ]
+
+
+def _as_the_import_reading_was_before_card_220(tree: ast.AST) -> bool:
+    """CARD-220's pre-fix-round :func:`_importers` predicate, in behaviour.
+
+    Two shapes: an ``ImportFrom`` whose ``module`` is the home or ends with
+    the leaf, and an ``Import`` whose alias name **is** the home. This is the
+    missed-WITHOUT arm of every row of :data:`IMPORT_FORMS` (ADR-0039/R1), and
+    it is a second implementation rather than the live function behind a flag:
+    a flag would let one edit move both arms together.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and (
+            node.module == HOME or node.module.endswith(HOME_LEAF)
+        ):
+            return True
+        if isinstance(node, ast.Import) and any(
+            alias.name == HOME for alias in node.names
+        ):
+            return True
+    return False
+
+
+def _reads_as_an_importer(source: str) -> bool:
+    """:func:`_importers`' own predicate, asked of a source string."""
+    return any(
+        _import_names_the_home(name)
+        for name in _imported_dotted_names(ast.parse(source))
+    )
 
 
 def _locally_defined_names(source: str) -> set[str]:
@@ -346,6 +481,79 @@ AGREEMENT_SHAPES_GREEN = (
     ),
 )
 
+#: Every form a module could reach the shared home by, with what each of the
+#: two readings makes of it: ``(label, source, seen now, seen before)``.
+#: ``seen before`` is CARD-220's pre-fix-round two-shape reading
+#: (:func:`_as_the_import_reading_was_before_card_220`), kept as the WITHOUT
+#: arm so each widened row proves it closed something that was open rather
+#: than restating something that already worked -- and the rows both readings
+#: agree on keep the widening honest, because without them "seen now" would be
+#: satisfied by a reading that answers ``True`` to everything.
+IMPORT_FORMS = (
+    (
+        "a name out of the home",
+        "from tests.helpers.shared_fixture_controls import case_of\n",
+        True,
+        True,
+    ),
+    (
+        "a star out of the home",
+        "from tests.helpers.shared_fixture_controls import *\n",
+        True,
+        True,
+    ),
+    (
+        "the module itself, dotted and aliased",
+        "import tests.helpers.shared_fixture_controls as controls\n",
+        True,
+        True,
+    ),
+    (
+        "the module out of its package, aliased - F-001's form",
+        "from tests.helpers import shared_fixture_controls as controls\n",
+        True,
+        False,
+    ),
+    (
+        "the module out of its package, plain",
+        "from tests.helpers import shared_fixture_controls\n",
+        True,
+        False,
+    ),
+    (
+        "the module out of its package, relatively",
+        "from .helpers import shared_fixture_controls as controls\n",
+        True,
+        False,
+    ),
+    (
+        "deferred inside a function, aliased",
+        "def _late():\n"
+        "    from tests.helpers import shared_fixture_controls as controls\n"
+        "    return controls\n",
+        True,
+        False,
+    ),
+    (
+        "a longer sibling module, not the home",
+        "from tests.helpers import shared_fixture_controls_extra\n",
+        False,
+        False,
+    ),
+    (
+        "the home's name in prose only",
+        '"""This module does not use shared_fixture_controls at all."""\n',
+        False,
+        False,
+    ),
+    (
+        "a commented-out import",
+        "# from tests.helpers import shared_fixture_controls as controls\n",
+        False,
+        False,
+    ),
+)
+
 
 class TestSharedControls_TheCopiesCannotComeBack:
     """The agreement guard CARD-218's two copies never had.
@@ -359,11 +567,84 @@ class TestSharedControls_TheCopiesCannotComeBack:
     """
 
     def test_the_importer_set_is_not_empty(self) -> None:
-        """Non-vacuity: a check over no files passes however broken it is."""
+        """Non-vacuity, and the exactness a floor cannot give it.
+
+        A check over no files passes however broken it is -- but a bare floor
+        is a weak answer to that, and CARD-220's cycle 1 (F-001) measured how
+        weak: this read ``len(importers) >= 2`` against a measured set of
+        **three**, so one importer could drop out of the bound below and
+        nothing would notice. It had by then become the *only* guard on that
+        set, because the same card retired the two per-file copies of the
+        bound, each of which was keyed on its own ``__file__`` and so could not
+        be switched off by an import refactor.
+
+        So the set is held to the second, independent reading of the same
+        question (:func:`_files_that_name_the_home`) rather than to a number.
+        A file that names the home and that the parse does not see is reported
+        by name -- which is what makes an import form this reading cannot
+        analyse a *failure* rather than an absence -- and a file that stops
+        being seen reds here instead of quietly leaving the loop below.
+        Measured on the fix round: deleting one importer's import line alone
+        leaves the old floor green (3 -> 2, still ``>= 2``) and reds this.
+        """
         importers = _importers()
-        assert len(importers) >= 2, (
+        assert importers, (
             "no test module imports the shared control home, so the "
             f"redefinition check below has nothing to check: {importers}"
+        )
+
+        named = _files_that_name_the_home()
+        assert set(importers) == set(named), {
+            "names the home, not read as an importer": sorted(
+                str(path.relative_to(REPO_ROOT)) for path in set(named) - set(importers)
+            ),
+            "read as an importer, does not name the home": sorted(
+                str(path.relative_to(REPO_ROOT)) for path in set(importers) - set(named)
+            ),
+            "why this is red": (
+                "the two readings of 'which modules reach the shared control "
+                "home' disagree, so the bound below is over a set nothing "
+                "agrees on. Either an import form `_importers` cannot analyse "
+                "has appeared -- widen it, with its row in IMPORT_FORMS -- or "
+                "a file only talks about the home, in which case it belongs "
+                "in a named allowance here with its reason, deliberately "
+                "rather than silently."
+            ),
+        }
+
+    @pytest.mark.parametrize(
+        "label, source, seen_now, seen_before",
+        IMPORT_FORMS,
+        ids=[row[0] for row in IMPORT_FORMS],
+    )
+    def test_the_import_reading_sees_every_form_and_no_near_miss(
+        self, label: str, source: str, seen_now: bool, seen_before: bool
+    ) -> None:
+        """The control CARD-220's widening of :func:`_importers` owes.
+
+        Cycle 1's F-001 was not a predicate gap -- the retired per-file copies
+        were inlined copies of the shared bound's own body, so no predicate gap
+        was possible -- it was a **scope selector** gap: *which file's source
+        gets read*. Widening a selector with no control of its own is the same
+        defect once more, so every form is asserted in both directions, with
+        the pre-card reading as the WITHOUT arm.
+        """
+        assert _reads_as_an_importer(source) is seen_now, (
+            f"the import form {label!r} is "
+            f"{'invisible to' if seen_now else 'visible to'} `_importers`, so "
+            "a module reaching the shared control home that way is "
+            f"{'outside the' if seen_now else 'wrongly inside the'} "
+            "dynamic-fixture bound below"
+        )
+        assert (
+            _as_the_import_reading_was_before_card_220(ast.parse(source))
+            is seen_before
+        ), (
+            f"the WITHOUT arm has moved on {label!r}. The pre-CARD-220 reading "
+            "is written out here so each widened row proves it closed "
+            "something that was open; a row the two readings agree on "
+            "certifies nothing about the widening and belongs in the agreeing "
+            "rows or in no row at all"
         )
 
     def test_the_shared_name_set_is_not_empty(self) -> None:
@@ -407,6 +688,13 @@ class TestSharedControls_TheCopiesCannotComeBack:
             "no table at all"
         )
 
+    # CARD-220 examined this test and the one above as a deletion candidate
+    # -- one table walked twice -- and KEPT BOTH. They walk DIFFERENT tables
+    # carrying OPPOSITE claims: AGREEMENT_SHAPES_CAUGHT is what the guard must
+    # report, AGREEMENT_SHAPES_GREEN is what it must not. Merging them into
+    # one parametrisation would need a verdict column and would put both
+    # claims behind one assertion. Neither is redundant and neither has a
+    # named survivor, so neither may be retired under this card's rule.
     @pytest.mark.parametrize(
         "label, source",
         AGREEMENT_SHAPES_GREEN,
@@ -489,7 +777,16 @@ class TestSharedControls_TheCopiesCannotComeBack:
         offers a bound instead
         (:func:`~tests.helpers.shared_fixture_controls.refuse_unless_nothing_is_taken_dynamically`).
         It is applied here rather than once per consumer file so that a module
-        which starts importing the shared home is covered the day it does.
+        which starts importing the shared home is covered the day it does --
+        in **any** import form, at any depth. That claim was measured FALSE
+        before CARD-220's fix round: cycle 1's F-001 planted a real importer
+        spelled ``from tests.helpers import shared_fixture_controls as
+        controls`` with a live violation in it and this test passed green, one
+        of the two idiomatic forms being invisible to :func:`_importers`. The
+        reading is widened and :data:`IMPORT_FORMS` is its control; the set
+        this loop runs over is cross-checked against an independent reading by
+        :meth:`test_the_importer_set_is_not_empty`, so a file dropping out of
+        it reds there rather than quietly leaving this bound.
         """
         for path in _importers():
             controls.refuse_unless_nothing_is_taken_dynamically(path)

@@ -47,13 +47,11 @@ so the two agree on where the grid is before either measures anything in it.
 
 from __future__ import annotations
 
-import ast
 import random
 from collections import Counter
 from functools import lru_cache
 from importlib import resources
 from io import BytesIO
-from pathlib import Path
 from typing import Iterable, Iterator, NamedTuple, Sequence
 
 import numpy as np
@@ -1621,51 +1619,44 @@ SHARED_SNOWFLAKE = "snowflake_interior"
 SHARED_FIFTH_RULE_PAGE = "page"
 
 
-def test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue() -> None:
-    """The one consumer shape *both* guards above are blind to, held to zero.
-
-    ``shared_fixture_controls.declared_consumers`` reads this module's own
-    definitions and ``consumers_among`` reads ``item.fixturenames``; a test that takes
-    the shared render with ``request.getfixturevalue("snowflake_interior")``
-    appears in neither, so it is in no denominator and in no later-consumer
-    set. Cycle 2 measured the consequence with one mutation drawn two ways: a
-    late class putting a 9 px line on ``snowflake_interior[0]`` is **caught**
-    (2 failed) when it takes the fixture as a parameter and **missed**
-    (40 passed, 0 cells) when it takes it that way. The idiom is live in this
-    tree — 9 sites, one of them ``tests/test_puzzle_solver_page.py:671``,
-    ``return request.getfixturevalue("page")``, the same fixture name as this
-    module's class-scoped render.
-
-    So it becomes a **declared bound with its own failing control**
-    (ADR-0039/R3) rather than a silent gap: this file uses it **0 times**
-    (measured), and this says so to pytest. Anyone who adds one reds here
-    immediately, which is the point — the message below is the handover.
-
-    This is deliberately a *check* and not a model. The shapes that would need
-    one — a consumer reached through another fixture, an inherited method, a
-    nested ``Test`` class, ``@pytest.mark.usefixtures`` — stay open, have no
-    instance in these two files today (measured: for all three shared
-    fixtures, collected minus declared is empty, with declared = collected =
-    22 / 8 / 4), and are CARD-219's, where the transitive-fixture closure that
-    actually answers them is being written against a shared copy of these
-    helpers.
-    """
-    taken = sorted(
-        node.lineno
-        for node in ast.walk(ast.parse(Path(__file__).read_text(encoding="utf-8")))
-        if isinstance(node, ast.Attribute) and node.attr == "getfixturevalue"
-    )
-    assert not taken, (
-        f"{len(taken)} test(s) in this module take a fixture through "
-        f"`request.getfixturevalue`, at line(s) {taken}: a consumer taken "
-        "that way is invisible to both halves of the selection guard above — "
-        "to `declared_consumers`, which reads this module's definitions, "
-        "and to `consumers_among`, which reads `item.fixturenames` — so the "
-        "controls on the shared render would pass without covering it "
-        "(cycle 2 F-002, measured: 2 cells when declared, 0 when taken this "
-        "way). Take the fixture as a parameter, or close this guard properly "
-        "with the transitive-fixture closure CARD-219 owns."
-    )
+# --------------------------------------------------------------------------
+# RETIRED by CARD-220 — `test_no_test_in_this_module_takes_a_fixture_through_
+# getfixturevalue` stood here.
+#
+# SURVIVOR: tests/test_shared_fixture_controls.py
+#   ::TestSharedControls_TheCopiesCannotComeBack
+#   ::test_no_importer_reaches_for_a_fixture_at_run_time
+#
+# It calls the same bound, `shared_fixture_controls.
+# refuse_unless_nothing_is_taken_dynamically`, over **every** importer of the
+# shared home rather than once per file — "applied here rather than once per
+# consumer file so that a module which starts importing the shared home is
+# covered the day it does", as its own docstring puts it. This file is one of
+# the three importers (measured: test_book_pdf_band.py,
+# test_book_puzzle_frame.py, test_book_puzzle_page_vector.py), and the third
+# never had a per-file copy — so the shared version already covered strictly
+# more than the two copies did.
+#
+# MUTATION PROOF (CARD-220, out of tree, one file at a time so the survivor
+# cannot be credited for the other's mutant):
+#   * planted in THIS file only: this module's retired guard FAILED and the
+#     survivor FAILED naming `test_book_pdf_band.py` line 1974; the other
+#     file's per-file guard PASSED.
+#   * planted in test_book_puzzle_frame.py only: the survivor FAILED naming
+#     `test_book_puzzle_frame.py` line 3445.
+#   * near-miss control: the word in a docstring/string only, planted in both
+#     files, left all three GREEN — while a grep instrument would have fired
+#     7 times on the MUTATED file. CARD-220 fix round 1 re-derived that figure
+#     and states its domain, which the line above did not: the BASELINE is 5
+#     occurrences per file at the fork point 4d164f62 (`grep -c` and
+#     `grep -o | wc -l` agree, so the domain ambiguity does not explain it),
+#     plus the 2 planted mentions. It is 2 per file today. The bound is an
+#     `ast` reading of Attribute nodes, not a text match.
+#
+# Anyone adding a `request.getfixturevalue(...)` consumer to this file still
+# reds immediately — in the shared home's test rather than here. Take the
+# fixture as a parameter.
+# --------------------------------------------------------------------------
 
 
 # --------------------------------------------------------------------------

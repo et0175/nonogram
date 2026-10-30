@@ -505,6 +505,12 @@ class TestBookPdf_WideGridPrintsUprightNeverRotated:
 
         assert (drawing.columns, drawing.rows) == (30, 15)
 
+    # CARD-220 examined this test and the one above as a deletion candidate
+    # and KEPT BOTH. `drawing_of` is read one way above (a 30x15 puzzle reads
+    # 30x15) and the other way here (a 15x30 reads 15x30), so this test is the
+    # other's instrument proof: delete it and "the grid is drawn unrotated" is
+    # satisfied by a measurement that reports the declared dimensions whatever
+    # the page actually holds. Neither has a named survivor.
     def test_the_measurement_would_have_seen_a_rotation(self):
         """The negative has teeth: a 15-wide x 30-tall puzzle reads the other way."""
         page = _interior(_book(), [_puzzle(15, 30, 5)])[FIRST_PUZZLE_PAGE - 1]
