@@ -1989,6 +1989,90 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "the same identity on the phone, where the toolbar is a tall stack "
         "and the pull-up is the same 9 px it is everywhere else"
     ),
+    # CARD-268's review cycle 1. F-001: the probe shipped as a ground tint
+    # that was dE76 2.55 from CARD-267's crosshair tint -- the same colour for
+    # two small cells -- and the only boundary the suite held was string
+    # equality of a computed value, so the mix at 1 % left the gate green.
+    # The marker moved to an OUTLINE with a style of its own and the
+    # separation is now measured, one case per ground a probe cell can have.
+    # F-005: rule 3 names hint strokes and nothing made one inside a probe.
+    # F-007: only the air was held in the open-probe state, never the focus
+    # scroll the card's first constraint is about.
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_MarksCarryTheTint::"
+    "test_a_hint_revealed_inside_a_probe_belongs_to_it": (
+        "CARD-268",
+        "rule 3's last clause (F-005): the ladder's rung-3 reveal, driven by "
+        "three real presses inside an open probe, is a member, wears the "
+        "hint's colour with the probe's dash, and Contradiction takes it back"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[paper]": (
+        "CARD-268",
+        "F-001: dE76 between the probe's ring and the bare paper it is drawn "
+        "on, with the pointer moved OFF the board so the crosshair is not "
+        "silently the ground being measured"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[crosshair]": (
+        "CARD-268",
+        "the same distance under CARD-267's hovered row -- the exact pair "
+        "F-001 measured at 2.55 when both lived on the background channel"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[hint-line]": (
+        "CARD-268",
+        "the same distance under CARD-269's highlighted line, the board's "
+        "other ground tint"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[ink]": (
+        "CARD-268",
+        "a FILLED cell, whose ground is --grid-ink and whose ring is the "
+        "light variant for exactly that reason"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[crosshair-ink]": (
+        "CARD-268",
+        "a filled cell under the crosshair, whose ground is the crossed "
+        "filled rule's own mix rather than --grid-ink"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_ground_it_is_drawn_on[hint-line-ink]": (
+        "CARD-268",
+        "a filled cell under the hint line -- the SMALLEST of the six "
+        "separations (51.2) and so the case the floor of 20 is nearest to"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround::"
+    "test_the_ring_is_apart_from_the_hints_outline_by_SHAPE": (
+        "CARD-268",
+        "the one channel the marker shares: .player-cell.is-hinted is SOLID "
+        "where the probe is DASHED, which is what makes the colour distance "
+        "moot for that pair instead of relocating it"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell::"
+    "test_the_scroll_stays_inside_a_half_cell[1280x720]": (
+        "CARD-268",
+        "F-007: #puzzle-player's focus scroll with a probe OPEN, the state no "
+        "geometry class visited, against the half-cell the card's first "
+        "constraint is stated in (measured 11 px against 11.18)"
+    ),
+    f"{FAMILY_PREFIX}_probe.py::"
+    "TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell::"
+    "test_the_scroll_stays_inside_a_half_cell[390x844]": (
+        "CARD-268",
+        "the same measurement at the width where the open bar WRAPS, which "
+        "is where the margin is thinnest: 0 px closed, 7 px open, against a "
+        "half-cell of 7.20"
+    ),
 }
 
 

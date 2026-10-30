@@ -1313,14 +1313,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
        row mid-animation, and the cases of
        tests/test_puzzle_solver_marking.py
        TestSolverMarking_KeyboardAndLabels::test_each_tool_acts_on_a_single_key_press
-       go red. The FIX ROUND measured the shallow end of that too, and the
-       number this bullet first carried was wrong in the only direction that
-       mattered: it said 4 of 8 red at 23 px lower and implied 8 px lower was
-       fine. EIGHT PX LOWER ALREADY REDS 3 OF THE 8 (White-Enter,
-       White-Space, Clear-Enter — measured in isolation, identically at 8 px
-       and at 9 px), because the focus scroll goes 11 -> 19 px and 19 px is
-       already past the half-cell (11.7 px) that bullet names as the
-       tolerance. It also reds
+       go red. THAT TEST HAS SIX CASES, not eight — Black, White and Clear
+       by Enter and Space, counted from
+       `--collect-only` and not from memory; "the 8 cases" stood in five
+       places on this card and in this bullet and was invented in every one
+       of them (review cycle 1 F-003). The FIX ROUND measured the shallow end
+       of that too, and the number this bullet first carried was wrong in the
+       only direction that mattered: it said 4 of the cases red at 23 px
+       lower and implied 8 px lower was fine. EIGHT PX LOWER ALREADY REDS
+       3 OF THE 6 (White-Enter, White-Space, Clear-Enter — measured in
+       isolation, identically at 8 px and at 9 px), because the focus scroll
+       goes 11 -> 19 px and 19 px is already past the half-cell (11.7 px)
+       that bullet names as the tolerance. It also reds
        tests/test_puzzle_solver_progress.py
        TestSolverProgress_SolvedWhenBlacksMatch::test_the_banner_takes_the_tools_place_and_the_board_does_not_move
        for a SECOND mechanism nobody had looked for: the board 8 px lower
@@ -1400,8 +1404,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
        head/toolbar gap above is the one it had not tried:
        --player-chrome-h (otherwise exactly the right property) also feeds the
        CELL CLAMP, whose height term binds at 1280 x 720 — a 15 x 15's cell
-       goes 23.4 -> 21.1 px and five fit and geometry tests red, the largest
-       board's own fit among them; .player-stage's own max-height keeps the
+       goes 23.4 -> 21.1 px and fit and geometry tests red, the largest
+       board's own fit among them (the implementation round recorded "five"
+       and recorded no node ids with it, so that count is struck rather than
+       repeated: what is checkable here is the cell size, and it is enough to
+       reject the alternative); .player-stage's own max-height keeps the
        cell but shortens the scrollport, which flips CARD-271's sticky-band
        share for a 30 x 30 at 900 x 700 and reds
        tests/test_puzzle_solver_zoom.py
@@ -1441,51 +1448,119 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    data-probe at all — solver.js's paintProbe is the only writer and no probe
    can open on a page with no probe bar — so the two properties sit unused.
 
-   THE TINT. One attribute, data-probe, on the member cells (solver.js
+   THE MARKER. One attribute, data-probe, on the member cells (solver.js
    paintProbe), never a fifth data-state and never a change to one (G-4): the
    template's own comment says every selector, save and test is keyed on those
    four values. Membership is derived from the history, so the attribute is
    rewritten on every recorded change and nothing stores it per cell.
 
-   The hue is the WARNING hue mixed into the paper, 14 % — the proportion
-   tokens.css itself names for a tier chip's ground — and it is deliberately
-   neither of the two tints already on this board: --color-surface-hover is
-   the crosshair's (CARD-267, "the pointer is here") and --color-accent-tint
-   is the hint line's (CARD-269, "the answer you pressed for"). A probe is
-   provisional, which is what the warning hue says and what neither of the
-   other two can say while also meaning what they already mean. 14 % of a
-   6.6:1 ink into paper is a plainly warmer ground than either, and the three
-   light marks keep their own channels on it (the white dot's ::after
-   background, the "?"'s ::after colour, and nothing for Clear).
+   IT IS A DASHED OUTLINE AND NOT A GROUND TINT, and that is review cycle 1's
+   F-001 (owner decision 2026-10-30). What shipped first was a ground tint,
+   14 % of the warning hue mixed into the paper, and this block argued at
+   length that it was "a plainly warmer ground than either" of the two tints
+   already on the board. Measured in Chromium from the shipped tokens, it was
+   not: the probe's light ground resolved to rgb(238, 231, 213) against the
+   crosshair's --color-surface-hover rgb(241, 235, 221) — dRGB (-3, -4, -8),
+   dE76 2.55, which is the just-noticeable-difference threshold. For two
+   small, non-adjacent cells that is the same colour, in the one feature built
+   to stop the player reading a wrong board, and the light states are the bulk
+   of what a probe paints. The FILLED variants were plainly apart (dE 27.4),
+   so the defect was confined to unknown/empty/maybe.
 
-   A filled cell takes the mix into the INK for the crosshair's reason: its
-   ground is --grid-ink, so a light tint would repaint it and lose the mark.
-   42 % of the warning hue into the ink is a dark brown — still far darker
-   than any light ground (mean sRGB 0.23 against 0.95), so all four
-   data-state looks stay plainly apart under the probe tint, which is rule 3.
+   A STRONGER TINT WAS NOT THE FIX, because the background channel is the
+   crowded one. Counted from the rules in this file and not from a tally: SIX
+   of them declare a background on a .player-cell — the paper the cell starts
+   on, the ink a filled cell takes, and the light/filled pair of each of the
+   two tints (.is-crossed, .is-hint-line) — and the probe's own two made
+   eight. (The other channels, counted the same way: outline had ONE claimant,
+   .is-hinted; box-shadow two, a filled cell's division and .is-hinted's paper
+   ring; the cell's ::after two, the white dot and the "?". Only `background`
+   had a queue.) A token swap rescues nothing either — tokens.css's
+   --color-warning-tint is itself only dE 5.36 from the crosshair — and any
+   mix chosen to clear today's three grounds is a tuning exercise that the
+   fourth ground tint re-opens. So the marker moved CHANNEL: an outline, with
+   a STYLE of its own. Two outlines that differ in style are told apart at any
+   colour distance, which answers the question instead of relocating it, and
+   the three rules below take the background channel back down to six.
 
-   THESE RULES COME LAST, and that is what decides the three-way tie: a probe
-   cell's two rules have exactly the specificity of their .is-crossed and
-   .is-hint-line twins, so file order settles it and the PROBE wins. It is the
-   only one of the three that says something about the MARKS themselves — a
-   hypothesis not yet committed — while the other two say where the pointer is
-   and which line to look at, and a probe hidden under a hovered row would be
-   the one of the three that costs the player a wrong board.
+   The outline's one existing claimant is .player-cell.is-hinted (CARD-183 /
+   CARD-269), and it is SOLID where this is DASHED. The two cells can be the
+   same cell — rung 3's reveal records its stroke through the same commit, so
+   a cell revealed inside a probe is a member (tested:
+   test_a_hint_revealed_inside_a_probe_belongs_to_it) — and the two rules tie
+   on specificity (one class + one attribute against two classes, 0-2-0 both),
+   so file order would hand the whole shorthand to the probe and take the
+   hint's accent ring away. The third rule below is that cell: it keeps the
+   hint's accent COLOUR and the probe's DASH, so both signals are on it at
+   once, and it is the last of the three so that a filled hinted probe cell
+   gets the accent too (which is what a hinted filled cell already looks
+   like).
+
+   Nothing else on the cell is touched, and that is the point of the channel:
+   .is-crossed and .is-hint-line keep their grounds, so a probed cell under
+   the pointer now shows BOTH — where the pointer is and what the hypothesis
+   is — instead of one of them winning a tie. The outline takes no layout
+   either (outline-offset is negative, so it is drawn inside the cell's own
+   box), so none of this round's geometry is affected.
+
+   THE TWO COLOURS ARE BOTH THE WARNING HUE, inverted from the tint they
+   replace: a probe is provisional, which is what that hue says and what
+   neither the crosshair's "the pointer is here" nor the hint line's "the
+   answer you pressed for" can say while also meaning what they already mean.
+   --player-probe is 86 % of it into the paper — rgb(150, 115, 35), a dark
+   amber for the three LIGHT states — and --player-probe-ink is 42 % into the
+   paper, rgb(204, 186, 144), a light amber for a FILLED cell. The dark ring
+   does NOT vanish on a filled cell's --grid-ink ground, and the sentence that
+   used to say so here was never measured: it is 3.57:1, which is just past
+   WCAG 2.2 1.4.11's 3:1 floor and is the worst pairing anywhere on this
+   board. The light variant takes that same pairing to 8.22:1, which is why
+   the second rule exists — a doubling of the worst case, not a rescue from
+   invisibility. --color-warning against
+   --grid-paper is 5.80:1, re-derived (tokens.css's own comment says 5.6:1 on
+   surface and 5.0:1 on its tint; the "6.6:1" this paragraph used to claim was
+   no pairing of anything, and a hex spelling cannot stand in a comment here
+   either — the whole-file sweep of
+   test_the_stylesheet_uses_tokens_not_literals reads the comments too).
+
+   EVERY ONE OF THOSE SEPARATIONS IS MEASURED, which is the other half of
+   F-001: the old claim had nothing but string inequality behind it, so the
+   tint at 1 % — visually absent — left the whole gate green. The ring is
+   held against every ground a probe cell can have, in dE76 off the computed
+   values, by
+   tests/test_puzzle_solver_probe.py
+   TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround, with a floor of
+   20 (8.7x the JND of 2.3, and 2.56x inside the smallest separation the
+   shipped values have). Measured on a real page, one case per ground: 66.3 on paper,
+   58.5 under the crosshair, 64.2 under the hint line, 71.5 on a filled cell,
+   56.9 on a filled crossed cell, 51.2 on a filled hint-lined cell. At 1 % the
+   paper arm reads 0.72 and that test reds; at 14 % — what cycle 1 shipped —
+   the crosshair arm reads 2.36 and it reds as well, with the paper arm at
+   10.20 and the hint line's at 9.65. (2.36 against the 2.55 above: the test
+   reads the UNROUNDED computed value, cycle 1 read canvas-rounded bytes.
+   Rounding, in the third significant figure, an order of magnitude under the
+   floor either way — said here because two numbers for one pair, left
+   unexplained, is the thing this round spent itself on.) As CONTRAST rather than
+   distance the ring is 4.33:1 against the paper and 8.22:1 on a filled
+   cell's ink, and every one of the six pairings is past WCAG 2.2 1.4.11's
+   3:1 floor for a non-text indicator (the lowest is 3.70:1, the dark ring
+   under the crosshair's tint).
 
    No token is added to tokens.css, for the crosshair's and the hint line's
    reason, stated at both: tokens.css is mirrored verbatim from
-   meta/design/tokens.css and a probe tint is a value DERIVED from design
+   meta/design/tokens.css and a probe marker is a value DERIVED from design
    tokens for one component. Every value in the rules below is a token or a
    token-only color-mix(), checked per rule by
-   test_the_probe_tint_comes_from_tokens (AC-9). */
+   test_the_probe_tint_comes_from_tokens (AC-9), whose own allowance for the
+   one bare keyword here (`dashed`) is named and controlled in that file. */
 .player-toolbar:has(.player-probe) { margin-top: calc(-1 * var(--space-2) - var(--border-width)); }
 .player-probe { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); margin-bottom: calc(-1 * var(--space-4) + var(--border-width)); }
 .player-probe[hidden], .player-probe [hidden] { display: none; }
 .player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); height: calc(var(--control-h) - var(--space-3)); min-height: 0; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }
 .player-probe-note { margin: 0; color: var(--color-text-secondary); font-size: var(--text-xs); line-height: 1; }
-.player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 14%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-ink)); }
-.player-cell[data-probe] { background: var(--player-probe); }
-.player-cell[data-probe][data-state="filled"] { background: var(--player-probe-ink); }
+.player-stage { --player-probe: color-mix(in srgb, var(--color-warning) 86%, var(--grid-paper)); --player-probe-ink: color-mix(in srgb, var(--color-warning) 42%, var(--grid-paper)); }
+.player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }
+.player-cell[data-probe][data-state="filled"] { outline-color: var(--player-probe-ink); }
+.player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }
 
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the

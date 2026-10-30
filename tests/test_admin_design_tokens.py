@@ -230,6 +230,19 @@ def test_the_stylesheet_uses_tokens_not_literals() -> None:
 #: still reported.
 _SHADOW_KEYWORD = re.compile(r"^inset\s+")
 
+#: ``dashed`` is an outline-STYLE keyword, not a value, and CARD-268's probe
+#: marker is the one rule in these sweeps whose whole point is a style rather
+#: than a colour (fix round 1 / F-001: the marker moved off the background
+#: channel precisely so that it could differ from the hint's SOLID outline by
+#: shape instead of by a colour distance). Named for :data:`_SHADOW_KEYWORD`'s
+#: reason and stripped exactly as narrowly: only the keyword goes, and what is
+#: left of the value — the width and the colour — still faces the same
+#: token-only predicate, so ``2px dashed red`` is still reported twice over.
+#: It is applied in :func:`test_the_probe_tint_comes_from_tokens` alone and is
+#: NOT in :data:`_KEYWORD_VALUES`, where it would quietly let a bare
+#: ``dashed`` into every other rule this file sweeps.
+_OUTLINE_STYLE_KEYWORD = re.compile(r"(?<= )dashed(?= |$)")
+
 
 def test_the_filled_cell_division_comes_from_tokens() -> None:
     """CARD-270 G-2 / AC-4 — the one rule that card adds a value to.
@@ -641,29 +654,49 @@ def test_the_hint_line_tint_comes_from_tokens() -> None:
 def test_the_probe_tint_comes_from_tokens() -> None:
     """CARD-268 AC-9 / G-6 — the rules that card adds to the board.
 
-    Three of them: the two custom properties the tint is derived from and the
-    two rules that spend them (a probe cell, a probe FILLED cell). Collected
+    Four of them: the two custom properties the marker is derived from and the
+    three rules that spend them (a probe cell, a probe FILLED cell, a probe
+    cell the hint ladder has just revealed). Collected
     by what they ARE rather than by the names this test expects, the way
     :func:`test_the_crosshair_tint_comes_from_tokens` and
     :func:`test_the_hint_line_tint_comes_from_tokens` are, so a rule renamed,
     reformatted across lines or deleted drops out of the collection and reds
     the equality below instead of silently shrinking the sweep.
 
-    The probe's tint has no clue-box rule, and that is the one place its
+    The probe's marker has no clue-box rule, and that is the one place its
     collection differs from its two neighbours': probe membership is a
     property of a MARK, so it is never on a clue box. A rule added for one
     would red the equality, which is the right answer — it would need
     deciding, not sweeping.
 
     The whole-file hex sweep above would catch ``#f6ecd4`` here; it would not
-    catch ``rgb()``, a named colour, or a bare length — and "a bit warmer than
-    the paper" has no token of its own, which is exactly the kind of value a
-    card reaches for a literal to write.
+    catch ``rgb()``, a named colour, or a bare length — and "a dark amber
+    ring" has no token of its own, which is exactly the kind of value a card
+    reaches for a literal to write.
+
+    The marker is an OUTLINE and not a ground since fix round 1 (review cycle
+    1 / F-001: at 14 % of the warning hue the ground was dE76 2.55 from
+    CARD-267's crosshair tint, which is the same colour for two small cells).
+    So one bare keyword reaches these rules — ``dashed``, the whole point of
+    the channel move — and :data:`_OUTLINE_STYLE_KEYWORD` strips exactly that
+    one word before the predicate runs, leaving the width and the colour of
+    the same declaration facing it. The controls at the end drive a literal
+    into the ``outline`` shorthand past the strip, so the allowance cannot be
+    the hole.
 
     The filled rule is asserted to EXIST, not merely to be clean, for the
-    crosshair's and the hint line's reason: a filled cell's ground is
-    ``--grid-ink``, and without a variant of its own the light tint would
-    repaint it and lose the mark.
+    crosshair's and the hint line's reason, restated for a ring and measured
+    rather than asserted: the three light states' dark amber ring on a
+    ``--grid-ink`` ground is 3.57:1, the worst pairing anywhere on this board,
+    and the light variant the filled rule installs takes it to 8.22:1. The
+    dE76 floor in ``tests/test_puzzle_solver_probe.py`` does NOT bind there
+    (the dark ring is dE 69 from the ink, because dE76 is dominated by the
+    lightness difference), so this existence assertion is one of exactly two
+    things holding that rule — measured: deleting it reds this line and
+    ``TestSolverProbe_MarksCarryTheTint``'s
+    ``test_the_four_states_stay_apart_under_the_tint`` (whose last assertion
+    is that a filled cell's ring is NOT the light states' ring), and nothing
+    else in the gate.
 
     The LAYOUT rules of the probe bar (``.player-probe`` and its two
     neighbours) are deliberately outside this sweep: they declare `display`,
@@ -688,12 +721,21 @@ def test_the_probe_tint_comes_from_tokens() -> None:
         ".player-stage",
         ".player-cell[data-probe]",
         '.player-cell[data-probe][data-state="filled"]',
+        ".player-cell.is-hinted[data-probe]",
     ], rules
     assert any(
         rule.startswith('.player-cell[data-probe][data-state="filled"]') for rule in rules
-    ), "a probed FILLED cell has no rule of its own, so the tint repaints it as paper"
+    ), ("a probed FILLED cell has no rule of its own, so the three light "
+        "states' dark amber ring is what is drawn on a --grid-ink ground: "
+        "3.57:1, the worst pairing on the board, where the light variant is "
+        "8.22:1")
+    assert any(
+        rule.startswith(".player-cell.is-hinted[data-probe]") for rule in rules
+    ), ("a probed cell the hint ladder has just revealed has no rule of its "
+        "own, so the probe's shorthand takes the hint's accent outline away")
     for rule in rules:
-        values = _declared_values(rule)
+        values = [_OUTLINE_STYLE_KEYWORD.sub("", value)
+                  for value in _declared_values(rule)]
         assert values, rule
         offenders = _untokenised(values)
         assert offenders == [], (
@@ -706,20 +748,31 @@ def test_the_probe_tint_comes_from_tokens() -> None:
     # above, in a form the whole-file hex sweep would NOT catch; the predicate
     # has to report every one of them, or it is pinning nothing.
     broken = {
-        "a colour function": ".player-cell[data-probe] { background: rgb(246, 236, 212); }",
-        "a named colour": ".player-cell[data-probe] { background: wheat; }",
+        "a colour function": ".player-cell[data-probe] { outline-color: rgb(246, 236, 212); }",
+        "a named colour": ".player-cell[data-probe] { outline-color: wheat; }",
         "a hex literal": ".player-stage { --player-probe: #f6ecd4; }",
         "a bare length": ".player-cell[data-probe] { outline-width: 2px; }",
         "a literal inside the mix": ".player-stage { --player-probe-ink: "
-                                    "color-mix(in srgb, #855d00 42%, var(--grid-ink)); }",
+                                    "color-mix(in srgb, #855d00 42%, var(--grid-paper)); }",
         "a bare length inside the calc": '.player-cell[data-probe][data-state="filled"] '
                                          "{ outline-width: calc(1px + var(--border-width)); }",
         "an inch length, whose unit is also a keyword":
             '.player-cell[data-probe][data-state="filled"] '
             "{ outline-width: calc(1in + var(--border-width)); }",
+        # Past the dashed-keyword strip, in the one shorthand it applies to:
+        # the allowance takes a word, never a colour and never a length.
+        "a named colour behind the style keyword":
+            ".player-cell[data-probe] { outline: var(--player-rule-major) dashed wheat; }",
+        "a bare length in front of the style keyword":
+            ".player-cell[data-probe] { outline: 2px dashed var(--player-probe); }",
+        "a second keyword the allowance does not name":
+            ".player-cell[data-probe] { outline: var(--player-rule-major) dotted "
+            "var(--player-probe); }",
     }
     for label, rule in broken.items():
-        assert _untokenised(_declared_values(rule)) != [], (
+        values = [_OUTLINE_STYLE_KEYWORD.sub("", value)
+                  for value in _declared_values(rule)]
+        assert _untokenised(values) != [], (
             f"{label}: {rule} passed the token predicate, so the rule it is "
             f"supposed to enforce is narrative"
         )

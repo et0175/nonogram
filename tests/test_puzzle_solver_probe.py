@@ -32,6 +32,7 @@ file's page isolation is declared in ``tests/test_puzzle_solver_page.py``'s
 
 from __future__ import annotations
 
+import math
 import random
 import re
 from pathlib import Path
@@ -166,6 +167,60 @@ def _luma(value: str) -> float:
     return sum(channels) / 3
 
 
+def _rgb255(value: str) -> tuple[float, float, float]:
+    """A computed colour's three channels on 0..255, from either spelling."""
+    srgb = _SRGB.match(value)
+    if srgb:
+        return tuple(float(n) * 255 for n in srgb.group(1).split()[:3])
+    plain = _RGB.match(value)
+    assert plain, f"unrecognised computed colour: {value!r}"
+    return tuple(float(n) for n in plain.group(1).replace("/", " ").split(",")[:3])
+
+
+def _lab(rgb: tuple[float, float, float]) -> tuple[float, float, float]:
+    """CIE L*a*b* (D65) of an sRGB triple on 0..255."""
+    def linear(channel: float) -> float:
+        channel /= 255
+        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+
+    red, green, blue = (linear(channel) for channel in rgb)
+    x = (0.4124 * red + 0.3576 * green + 0.1805 * blue) / 0.95047
+    y = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    z = (0.0193 * red + 0.1192 * green + 0.9505 * blue) / 1.08883
+
+    def f(t: float) -> float:
+        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+
+    fx, fy, fz = f(x), f(y), f(z)
+    return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+
+
+def _de76(first: str | tuple, second: str | tuple) -> float:
+    """CIE76 colour difference between two computed colours.
+
+    The plainest of the perceptual metrics and the one whose thresholds are
+    quotable: ~2.3 is the classic just-noticeable difference, ~5 is "plainly
+    different". Written here from the formula (a Euclidean distance in L*a*b*)
+    rather than imported, because the dependency baseline has no colour
+    library and this is twenty lines of arithmetic.
+    """
+    pair = [_rgb255(value) if isinstance(value, str) else value
+            for value in (first, second)]
+    return math.dist(_lab(pair[0]), _lab(pair[1]))
+
+
+#: The floor the probe's ring is held to against every ground it can be drawn
+#: on — about 8.7x the just-noticeable difference (2.3), and 2.56x inside the
+#: smallest separation the shipped values actually have (51.19). Chosen so
+#: that the
+#: value this card SHIPPED at review cycle 1 fails it: the ground tint it used
+#: to be was dE76 2.55 from CARD-267's crosshair tint and 10.3 from the paper.
+#: A floor is the honest shape for this claim — "a marker the player can see"
+#: has no exact number — and it is nowhere near the shipped margin, so it
+#: cannot be met by a value nobody could see.
+_RING_FLOOR = 20.0
+
+
 #: The ops the pure-module driver and :func:`_oracle` both understand. A
 #: ``mark`` is one click's stroke (``clickStroke`` always changes its cell, so
 #: every mark is one history step); ``undo``/``redo`` are the history's own
@@ -208,7 +263,11 @@ _PROBE_MODULE = """async ({ cases, side }) => {
     const prefix = S.checkpointHistory(h, probe);
     const first = prefix.done.length > 0 ? prefix.done[0].before : prefix.board;
     out.push({
-      probe,
+      // The CHECKPOINT, derived from the probe (solver_state.js probeStart),
+      // and not the probe value itself: since fix round 1 the probe holds the
+      // strokes that predate it, and a count is what the oracle below can
+      // state independently of how the module stores them.
+      probe: S.probeStart(h, probe),
       members: pairs(S.probeCells(h, probe)),
       done: h.done.length,
       undone: h.undone.length,
@@ -248,22 +307,41 @@ def _oracle(ops):
     and the shape of the history and of the checkpoint prefix a save is
     written from.
 
-    A probe is the number of undo-stack entries at the moment it opened
-    (rule 2). Opening while one is open changes nothing (rule 1, depth 1).
-    Keep and Abandon close it (rules 5 and 4); Abandon first undoes back to
-    the checkpoint, which puts its strokes onto the redo stack like any other
-    undos. Any recorded change clamps the checkpoint to the undo stack it
-    still has (rule 6), so a probe can shrink to empty, stay open, and own
-    the next mark. Members are the cells of the strokes recorded since the
-    checkpoint, each once, in the order first marked (rule 3).
+    Opening a probe while one is open changes nothing (rule 1, depth 1). Keep
+    and Abandon close it (rules 5 and 4); Abandon first undoes every stroke
+    the probe owns, which puts them onto the redo stack like any other undos.
+    Members are the cells of the strokes the probe does NOT own from before,
+    each once, in the order first marked (rule 3) — so a probe can shrink to
+    empty, stay open and own the next mark (rule 6).
+
+    **Written a second way after review cycle 1's F-002, deliberately.** The
+    first version of this oracle modelled a probe as the card's old
+    implementation did — one checkpoint number, re-clamped with
+    ``min(probe, len(done))`` after every move — and so it agreed with the
+    module about the one thing the module had wrong: a stroke made before the
+    probe, undone, and redone while the probe was open came back as a member.
+    Two implementations that share an assumption are one implementation, so
+    this one does not count strokes at all. It MINTS AN IDENTITY per mark and
+    the probe is the set of identities that already existed when it opened —
+    no arithmetic to share, and rule 6's sentence ("a probe never contains
+    strokes made before it started") is read off the identities directly.
+
+    The checkpoint it reports is the TOTAL number of pre-probe strokes still
+    on the undo stack, where the module derives a PREFIX length
+    (``probeStart`` stops at the first stroke the probe does not own). The two
+    agree only while the pre-probe strokes really are a prefix of ``done``,
+    which is the module's own stated invariant — so a sequence that broke it
+    would show up here as a disagreement rather than as nothing at all.
     """
-    done: list[tuple[int, int]] = []   # one cell per mark — a click's stroke
-    undone: list[tuple[int, int]] = []
-    probe: int | None = None
+    done: list[tuple[int, tuple[int, int]]] = []   # (identity, cell) per mark
+    undone: list[tuple[int, tuple[int, int]]] = []
+    before: set[int] | None = None   # the identities the open probe found made
+    minted = 0
     for op in ops:
         if op[0] == "mark":
-            done.append((op[1], op[2]))
-            undone = []
+            minted += 1
+            done.append((minted, (op[1], op[2])))
+            undone = []            # `record` drops the redo stack
         elif op[0] == "undo":
             if done:
                 undone.append(done.pop())
@@ -271,27 +349,26 @@ def _oracle(ops):
             if undone:
                 done.append(undone.pop())
         elif op[0] == "open":
-            if probe is None:
-                probe = len(done)
-            continue
+            if before is None:
+                before = {identity for identity, _ in done + undone}
         elif op[0] == "keep":
-            probe = None
-            continue
+            before = None
         elif op[0] == "abandon":
-            if probe is not None:
-                while len(done) > probe:
+            if before is not None:
+                while done and done[-1][0] not in before:
                     undone.append(done.pop())
-                probe = None
-            continue
+                before = None
         else:
             raise AssertionError(f"unknown op {op[0]}")
-        if probe is not None:
-            probe = min(probe, len(done))
     members: list[tuple[int, int]] = []
-    for cell in (done[probe:] if probe is not None else []):
-        if cell not in members:
+    if before is not None:
+        for identity, cell in done:
+            if identity in before or cell in members:
+                continue
             members.append(cell)
-    prefix_done = len(done) if probe is None else min(probe, len(done))
+    probe = None if before is None else sum(
+        1 for identity, _ in done if identity in before)
+    prefix_done = len(done) if probe is None else probe
     prefix_undone = len(undone) if probe is None else 0
     return {
         "probe": probe,
@@ -339,6 +416,23 @@ _RULE_CASES = {
     "6 — the next mark after a clamp belongs to the probe": [
         ("mark", 0, 0, "f"), ("open",), ("undo",), ("mark", 3, 3, "f"),
     ],
+    # Review cycle 1 F-002, five inputs: the shipped code brought B back
+    # wearing the probe's marker, because the checkpoint could only ever be
+    # lowered and a redo raises done.length. Rule 6's letter — "a probe never
+    # contains strokes made before it started" — had no case of its own.
+    "6 — a stroke made before the probe and redone inside it is not a member": [
+        ("mark", 0, 0, "f"), ("mark", 1, 1, "f"), ("undo",), ("open",), ("redo",),
+    ],
+    "6 — a probe's OWN undone stroke redone inside it is still a member": [
+        ("open",), ("mark", 0, 0, "f"), ("undo",), ("redo",),
+    ],
+    "6 — undoing past the open position and redoing does not hand it over": [
+        ("mark", 0, 0, "f"), ("mark", 1, 1, "f"), ("open",), ("undo",), ("redo",),
+    ],
+    "6 — a pre-probe redo and the probe's own, in one sequence": [
+        ("mark", 0, 0, "f"), ("mark", 1, 1, "f"), ("undo",), ("open",), ("redo",),
+        ("mark", 2, 2, "f"), ("undo",), ("redo",),
+    ],
     "6 — a probe can shrink to empty and still be open": [
         ("open",), ("mark", 0, 0, "f"), ("undo",),
     ],
@@ -378,14 +472,23 @@ def _corpus(rng):
 
 @pytest.mark.browser
 class TestSolverProbe_StateIsPureAndStatesAreFour:
-    """AC-9 (first half) / rule 11 — the probe's whole value is one number in
-    the pure module, and ``CELL_STATES`` is untouched.
+    """AC-9 (first half) / rule 11 — the probe's whole value lives in the pure
+    module, and ``CELL_STATES`` is untouched.
+
+    It used to be one number and fix round 1 made it the strokes that predate
+    the probe (review cycle 1 F-002): rule 6's "a probe never contains strokes
+    made before it started" is not a statement one number can keep — an open
+    probe's own undone stroke and a stroke undone before it opened leave
+    ``done.length`` at the same value, so no clamp on it can tell which a redo
+    is bringing back. The arms below read the CHECKPOINT back out of the probe
+    (``probeStart``), so what they compare is unchanged.
 
     Five arms, measured one at a time because a test short-circuits at its
     first failing assert:
 
     1. every numbered rule the pure half carries, as a named case, against
-       :func:`_oracle`;
+       :func:`_oracle` — seventeen of them, four of which are rule 6's redo
+       letter and did not exist before fix round 1;
     2. a seeded corpus of 300 random op sequences against the same oracle —
        the probe value, the member cells, the history's two stack sizes and
        the checkpoint prefix's;
@@ -408,7 +511,7 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
             {"cases": [[list(op) for op in _RULE_CASES[name]] for name in names],
              "side": _SIDE},
         )
-        assert len(got) == len(names) == 13
+        assert len(got) == len(names) == 17
         wrong = []
         for name, seen in zip(names, got):
             want = _oracle(_RULE_CASES[name])
@@ -480,8 +583,8 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
         state = (_STATIC / "solver_state.js").read_text(encoding="utf-8")
         renderer = (_STATIC / "solver.js").read_text(encoding="utf-8")
 
-        for name in ("nextProbe", "probeCells", "abandonProbe", "checkpointHistory",
-                     "PROBE_EVENTS"):
+        for name in ("nextProbe", "probeStart", "probeCells", "abandonProbe",
+                     "checkpointHistory", "PROBE_EVENTS"):
             assert f"export function {name}" in state or f"export const {name}" in state, name
 
         # ADR-0038/R4: the pure module reaches nothing outside its arguments.
@@ -503,16 +606,20 @@ class TestSolverProbe_StateIsPureAndStatesAreFour:
 # ==========================================================================
 
 #: One cell's whole look, as the shipped CSS actually draws it: the ground,
-#: the ``::after`` mark's content and the two paints a mark can use.
+#: the OUTLINE (the probe's channel since fix round 1, and the hint's), the
+#: ``::after`` mark's content and the two paints a mark can use.
 _LOOK = """(cells) => Object.fromEntries(Object.entries(cells).map(([name, [row, col]]) => {
   const cell = document.querySelector(
     `td.player-cell[data-row="${row}"][data-col="${col}"]`);
   const after = getComputedStyle(cell, '::after');
+  const own = getComputedStyle(cell);
   return [name, { state: cell.dataset.state,
                   probe: cell.getAttribute('data-probe'),
                   crossed: cell.classList.contains('is-crossed'),
                   lined: cell.classList.contains('is-hint-line'),
-                  background: getComputedStyle(cell).backgroundColor,
+                  hinted: cell.classList.contains('is-hinted'),
+                  background: own.backgroundColor,
+                  outline: [own.outlineStyle, own.outlineWidth, own.outlineColor],
                   mark: after.content,
                   markGround: after.backgroundColor,
                   markInk: after.color }];
@@ -533,13 +640,25 @@ def _click_times(page, row, col, times):
         _cell(page, row, col).click()
 
 
+def _settle(page):
+    """Wait for every running animation to finish before reading a colour.
+
+    CARD-269's own ``admin.css`` note says why this is not optional: the
+    hinted cell's ring FADES in (``player-hinted-in``), so a computed
+    ``outline-color`` read the instant after the press is mid-fade — measured
+    here at ``rgba(31, 95, 91, 0.004)`` — and the first reading of that
+    card's colour was wrong for exactly this reason.
+    """
+    page.evaluate("Promise.all(document.getAnimations().map((a) => a.finished))")
+
+
 @pytest.mark.browser
 class TestSolverProbe_MarksCarryTheTint:
     """AC-1 / rules 2, 3 — the marker rides a separate attribute, the four
-    looks stay apart under the tint, and the tint beats the two tints it can
-    share a cell with.
+    looks stay apart under it, and it shares no channel with the two tints it
+    can share a cell with.
 
-    Four arms, measured one at a time (a test short-circuits at its first
+    Five arms, measured one at a time (a test short-circuits at its first
     failing assert, so one FAILED line would say nothing about the arms that
     never ran):
 
@@ -547,19 +666,32 @@ class TestSolverProbe_MarksCarryTheTint:
        cells carry one — the member set read off the DOM is exactly the cells
        marked since the probe opened, whichever brush made them, and every
        one of them keeps the ``data-state`` it would have had anyway (G-4);
-    2. all four ``data-state`` looks stay plainly apart under the tint, in
-       pixels and not by eye: the three light states share the tinted ground
+    2. all four ``data-state`` looks stay plainly apart under the marker, in
+       pixels and not by eye: the three light states share the paper ground
        and are told apart by their own ``::after`` channel (nothing, the white
-       dot's background, the "?"'s colour), and ``filled`` by its ground's
-       luma — CARD-267's instrument for the same claim about its own tint;
-    3. the crosshair (CARD-267) does not repaint a probe cell: a cell that is
-       both probed and crossed reads exactly as a probed cell that is not
-       crossed, and not as a crossed cell that is not probed;
-    4. nor does the hint ladder's line (CARD-269). That arm is a claim about
-       the STYLESHEET's order and not about input, so the competing class is
-       put on by script and only computed styles are read; arm 3's crosshair
-       is driven by a real pointer, because there it is the pointer that
-       decides.
+       dot's background, the "?"'s colour), ``filled`` by its ground's luma —
+       CARD-267's instrument for the same claim about its own tint — and all
+       four wear the same ring, which is what makes it a marker of membership
+       and not a fifth look;
+    3. the crosshair (CARD-267) does not repaint a probe cell, and since fix
+       round 1 it CANNOT: the probe marker is an outline and the crosshair is
+       a ground, so a cell that is both keeps both — the crosshair's ground
+       and, byte for byte, the ring a probed uncrossed cell wears. Before the
+       fix both lived on ``background`` and the probe's rule won a specificity
+       tie by file order, which is the tie review cycle 1's F-001 measured at
+       dE76 2.55 — the same colour, for two small cells;
+    4. nor does the hint ladder's line (CARD-269), which is also a ground.
+       That arm is a claim about the STYLESHEET and not about input, so the
+       competing class is put on by script and only computed styles are read;
+       arm 3's crosshair is driven by a real pointer, because there it is the
+       pointer that decides;
+    5. rule 3 names HINT STROKES explicitly (review cycle 1 F-005): the hint
+       ladder's rung 3 reveal, driven to it by three real presses inside an
+       open probe, makes the revealed cell a member, and Contradiction takes
+       it back. That is the one stroke kind with a flag of its own and the one
+       whose cell the player did not choose, and the one cell on which the
+       hint's own accent outline and the probe's ring are the same channel —
+       so the look is read there too.
     """
 
     def test_the_probes_marks_carry_the_marker_and_earlier_marks_do_not(
@@ -626,6 +758,15 @@ class TestSolverProbe_MarksCarryTheTint:
         assert len(set(marks.values())) == 3, marks
         luma = {state: _luma(look[state]["background"]) for state in look}
         assert len({round(luma[state], 4) for state in (U, E, M)}) == 1, luma
+        # And the marker itself is the SAME ring on all four, which is what
+        # makes it membership and not a fifth look: one dashed style and one
+        # width everywhere, and one colour per ground (the three light states
+        # share theirs; a filled cell's own ink ground needs the light one).
+        rings = {state: look[state]["outline"] for state in look}
+        assert {ring[0] for ring in rings.values()} == {"dashed"}, rings
+        assert len({ring[1] for ring in rings.values()}) == 1, rings
+        assert len({rings[state][2] for state in (U, E, M)}) == 1, rings
+        assert rings[F][2] != rings[U][2], rings
         # Each mark that has a paint of its own is apart from the tint it sits
         # on, in pixels and through the channel that paints it.
         for state, colour in {E: look[E]["markGround"], M: look[M]["markInk"]}.items():
@@ -651,11 +792,20 @@ class TestSolverProbe_MarksCarryTheTint:
         assert not look["probe_filled"]["crossed"] and not look["probe_blank"]["crossed"]
         assert look["crossed_only"]["crossed"]
         assert look["crossed_only"]["probe"] is None
-        # The probe tint wins: a probed cell reads the same crossed or not.
-        assert look["crossed_filled"]["background"] == look["probe_filled"]["background"]
-        assert look["crossed_blank"]["background"] == look["probe_blank"]["background"]
-        # And it is not the crosshair's own ground that it reads.
-        assert look["crossed_blank"]["background"] != look["crossed_only"]["background"]
+        # The two signals COMPOSE, which is the whole point of the channel
+        # move (F-001): the ring a probed crossed cell wears is byte for byte
+        # the ring a probed uncrossed cell wears, in all three of style, width
+        # and colour...
+        assert look["crossed_filled"]["outline"] == look["probe_filled"]["outline"]
+        assert look["crossed_blank"]["outline"] == look["probe_blank"]["outline"]
+        # ...while its GROUND is the crosshair's, not the uncrossed cell's,
+        # so the crosshair is not lost either. Under the shipped-at-cycle-1
+        # ground tint this pair had to be EQUAL (one channel, one winner); now
+        # it must differ, and the ring above is what carries membership.
+        assert look["crossed_blank"]["background"] == look["crossed_only"]["background"]
+        assert look["crossed_blank"]["background"] != look["probe_blank"]["background"]
+        # And a cell that is only crossed wears no ring at all.
+        assert look["crossed_only"]["outline"][0] == "none", look["crossed_only"]
 
     def test_the_hint_lines_tint_does_not_repaint_a_probe_cell(
         self, browser_page, live
@@ -682,9 +832,253 @@ class TestSolverProbe_MarksCarryTheTint:
         })
         assert look["lined_filled"]["lined"] and look["lined_blank"]["lined"]
         assert look["lined_only"]["lined"] and look["lined_only"]["probe"] is None
-        assert look["lined_filled"]["background"] == look["probe_filled"]["background"]
-        assert look["lined_blank"]["background"] == look["probe_blank"]["background"]
-        assert look["lined_blank"]["background"] != look["lined_only"]["background"]
+        assert look["lined_filled"]["outline"] == look["probe_filled"]["outline"]
+        assert look["lined_blank"]["outline"] == look["probe_blank"]["outline"]
+        assert look["lined_blank"]["background"] == look["lined_only"]["background"]
+        assert look["lined_blank"]["background"] != look["probe_blank"]["background"]
+        assert look["lined_only"]["outline"][0] == "none", look["lined_only"]
+
+    def test_a_hint_revealed_inside_a_probe_belongs_to_it(
+        self, browser_page, live
+    ) -> None:
+        """Rule 3's last clause, which had no test (review cycle 1 F-005).
+
+        The rule names hint strokes among the marks a probe owns. Rung 3 of
+        the ladder (CARD-269) is the one stroke kind with a flag of its own
+        (``hint: true``) and the one whose cell the PLAYER did not choose, so
+        "the player touched it under the hypothesis" — the card's stated
+        reason for membership — is weakest exactly there. It works by reading
+        (the reveal records through the same ``commit`` every other change
+        goes through), and this is the reading made mechanical: a later card
+        that routed the reveal around ``commit`` would red here instead of
+        silently leaving a revealed cell behind on an abandoned board.
+
+        Three claims: the reveal happened and is a member beside a mark the
+        player made; the look on that cell carries BOTH signals (the hint's
+        accent colour, the probe's dash — the one cell in the player where the
+        two share a channel), read against a probe member that is not hinted
+        so that neither colour is spelled here; and Contradiction takes the
+        revealed cell back with the rest, hint ring and all.
+        """
+        _open(browser_page, live, live.store(GRID))
+        before = _states(browser_page)
+        _probe(browser_page)
+        _cell(browser_page, 8, 8).click()       # a member the ladder did not pick
+        for _ in range(3):                      # rung 1 points, 2 explains, 3 reveals
+            _button(browser_page, "Hint").click()
+        _settle(browser_page)                   # the hinted ring FADES in
+
+        revealed = browser_page.evaluate(
+            "[...document.querySelectorAll('td.player-cell.is-hinted')]"
+            ".map((td) => [+td.dataset.row, +td.dataset.col])"
+        )
+        assert len(revealed) == 1, revealed
+        at = (revealed[0][0], revealed[0][1])
+        assert _members(browser_page) == sorted([at, (8, 8)]), _members(browser_page)
+
+        look = _look(browser_page, {"revealed": list(at), "marked": [8, 8]})
+        assert look["revealed"]["hinted"] and look["revealed"]["probe"] is not None, look
+        assert not look["marked"]["hinted"], look
+        # The probe's DASH on both — one channel, so the reveal did not take
+        # the membership marker away...
+        assert [look[name]["outline"][0] for name in ("revealed", "marked")] == [
+            "dashed", "dashed",
+        ], look
+        assert look["revealed"]["outline"][1] == look["marked"]["outline"][1], look
+        # ...and the hint's own COLOUR on the revealed one, which is the third
+        # of the three rules: the accent ring the hint is, dashed.
+        assert look["revealed"]["outline"][2] != look["marked"]["outline"][2], look
+
+        _contradiction(browser_page)
+        assert _members(browser_page) == []
+        assert _states(browser_page) == before
+        assert browser_page.locator("td.player-cell.is-hinted").count() == 0
+
+
+# ==========================================================================
+# AC-1 / F-001 — the marker is MEASURABLY apart from every ground it can be
+# drawn on, and from the one outline it shares a channel with
+# ==========================================================================
+
+#: Each ground a probe cell can have, and how the page is driven into it:
+#: ``state`` is the brush run that gives the member cell its data-state, and
+#: ``neighbour`` is the other thing painting that same cell — the crosshair's
+#: hovered row (CARD-267) or the hint ladder's highlighted line (CARD-269).
+_GROUNDS = {
+    "paper": (U, None),
+    "crosshair": (U, "cross"),
+    "hint-line": (U, "line"),
+    "ink": (F, None),
+    "crosshair-ink": (F, "cross"),
+    "hint-line-ink": (F, "line"),
+}
+
+_PROBED = (6, 0)      # the member cell every case reads
+_PLAIN = (9, 0)       # the same marks outside the probe: the ground's control
+_HOVER = (12, 0)      # its row and COLUMN 0 are tinted, so both of the above are
+
+
+@pytest.mark.browser
+class TestSolverProbe_TheMarkerIsMeasurablyApartFromItsGround:
+    """Review cycle 1 F-001, the half that stops it recurring: the separation
+    is MEASURED rather than argued.
+
+    The probe shipped as a ground tint, 14 % of the warning hue into the
+    paper, and ``admin.css`` argued at length that it was "a plainly warmer
+    ground than either" of the two tints already on the board. Resolved in
+    Chromium it was rgb(238, 231, 213) against the crosshair's
+    rgb(241, 235, 221): dE76 **2.55**, the just-noticeable-difference
+    threshold, which for two small non-adjacent cells is the same colour — in
+    the one feature built to stop the player reading a wrong board. Nothing
+    held it: the only boundary the file had was *string equality* of a
+    computed value (``test_the_crosshair_does_not_repaint_a_probe_cell``),
+    which 2.55 sails through, so the mix at 1 % — a marker nobody could see —
+    left the whole gate green.
+
+    The owner's fix (2026-10-30) moved the marker to a different CHANNEL
+    rather than to a stronger tint, because a channel cannot collide with a
+    ground tint added later, while a mix chosen to clear today's three
+    grounds is a tuning exercise the fourth re-opens. So what is measured here
+    is the thing a channel move has to be true of: the ring is visible on
+    every ground a probe cell can actually have. Six cases, which is that set
+    exactly — paper, the crosshair's tint and the hint line's tint for the
+    three light states, and the three grounds a FILLED cell can have
+    (``--grid-ink`` itself, and the crossed and hint-lined mixes over it).
+    Six, counted from :data:`_GROUNDS`, which is the set the parametrize
+    reads.
+
+    Three CLAIMS per case, asserted in this order because a test
+    short-circuits at its first failing assert (the premise is several
+    statements, which is why this says claims and not a count of asserts):
+
+    1. the PREMISE — the cell is a member and its ground is the neighbour's
+       own, read off a cell that is NOT a member in the same condition. A
+       colour distance from the wrong ground proves nothing;
+    2. the ring is actually drawn: a dashed style and a non-zero width. A
+       colour cannot be seen through a ring that is not there, and that is
+       the arm a width mutation reds;
+    3. the CLAIM — dE76 between the ring and the ground it is drawn on is at
+       least :data:`_RING_FLOOR`.
+    """
+
+    @pytest.mark.parametrize("ground", list(_GROUNDS))
+    def test_the_ring_is_apart_from_the_ground_it_is_drawn_on(
+        self, browser_page, live, ground
+    ) -> None:
+        state, neighbour = _GROUNDS[ground]
+        _open(browser_page, live, live.store(GRID))
+
+        def mark(at):
+            if state == F:
+                _cell(browser_page, *at).click()
+            else:
+                _click_times(browser_page, *at, 3)   # black, white, blank
+
+        mark(_PLAIN)              # before the probe: the ground's own control
+        _probe(browser_page)
+        mark(_PROBED)             # inside it: the same run, now a member
+        assert _members(browser_page) == [_PROBED], _members(browser_page)
+
+        if neighbour == "cross":
+            # The hovered cell's ROW and COLUMN are tinted, and both cells
+            # under test sit in column 0, so one hover crosses them both.
+            _hover(browser_page, *_HOVER)
+        else:
+            # And OFF the board otherwise — a click leaves the pointer on the
+            # cell it clicked, so the crosshair would still be painting here
+            # and the two bare-ground cases would silently measure the
+            # crosshair's tint instead (measured: they did, until this moved).
+            browser_page.mouse.move(2, 2)
+        if neighbour == "line":
+            browser_page.evaluate(
+                """(rows) => rows.forEach((row) => document.querySelectorAll(
+                     `td.player-cell[data-row="${row}"]`).forEach(
+                       (td) => td.classList.add('is-hint-line')))""",
+                [_PROBED[0], _PLAIN[0]],
+            )
+        _settle(browser_page)
+
+        look = _look(browser_page, {"probed": list(_PROBED), "plain": list(_PLAIN)})
+        # 1 — the premise: one member, one not, the same state, the same
+        # ground. A colour distance from the wrong ground proves nothing.
+        assert look["probed"]["probe"] is not None, look
+        assert look["plain"]["probe"] is None, look
+        assert look["probed"]["state"] == look["plain"]["state"] == state, look
+        for name in ("probed", "plain"):
+            assert (look[name]["crossed"], look[name]["lined"]) == (
+                neighbour == "cross", neighbour == "line"
+            ), (ground, name, look[name])
+        assert look["probed"]["background"] == look["plain"]["background"], (
+            f"{ground}: the probe repainted the ground, so the distance below "
+            f"would be measured against the wrong colour"
+        )
+        # 2 — the ring is drawn at all: a colour cannot be seen through a ring
+        # that is not there, which is the arm a width mutation reds.
+        style, width, colour = look["probed"]["outline"]
+        assert style == "dashed", (ground, look["probed"]["outline"])
+        assert float(width.removesuffix("px")) > 0, (ground, width)
+        # 3 — the CLAIM: the ring is apart from that ground.
+        apart = _de76(colour, look["probed"]["background"])
+        assert apart >= _RING_FLOOR, (
+            f"{ground}: the probe's ring is dE76 {apart:.2f} from the ground it "
+            f"is drawn on ({colour} on {look['probed']['background']}), under "
+            f"the floor of {_RING_FLOOR}; review cycle 1's F-001 was this "
+            f"claim going unmeasured"
+        )
+
+    def test_the_ring_is_apart_from_the_hints_outline_by_SHAPE(
+        self, browser_page, live
+    ) -> None:
+        """The one channel the marker shares, and why the colour distance
+        stops mattering there.
+
+        ``.player-cell.is-hinted`` (CARD-183/269) is the outline's other
+        claimant. Two outlines that differ in STYLE are told apart at any
+        colour distance, which is what made this channel worth moving to
+        rather than re-tuning a mix — so the claim held here is the style
+        difference, and it is held in both directions: a probe member that
+        the ladder has not revealed is dashed, a revealed cell that is not a
+        member is solid, and the cell that is both is dashed in the hint's own
+        colour (the third of the card's three rules).
+
+        Four claims, in order: the two premises (there is a revealed cell with
+        no probe open, and a probe member the ladder has not revealed), then
+        solid-vs-dashed, then the cell that is both.
+        """
+        _open(browser_page, live, live.store(GRID))
+        # A revealed cell with NO probe open: the hint's own look.
+        for _ in range(3):
+            _button(browser_page, "Hint").click()
+        _settle(browser_page)
+        solid = browser_page.evaluate(
+            "[...document.querySelectorAll('td.player-cell.is-hinted')]"
+            ".map((td) => [+td.dataset.row, +td.dataset.col])"
+        )
+        assert len(solid) == 1, solid
+        hint_look = _look(browser_page, {"at": solid[0]})["at"]
+        assert hint_look["probe"] is None, hint_look
+
+        _probe(browser_page)
+        _cell(browser_page, 8, 8).click()
+        member = _look(browser_page, {"at": [8, 8]})["at"]
+        assert member["probe"] is not None and not member["hinted"], member
+
+        assert (hint_look["outline"][0], member["outline"][0]) == ("solid", "dashed"), (
+            hint_look["outline"], member["outline"])
+
+        for _ in range(3):
+            _button(browser_page, "Hint").click()
+        _settle(browser_page)
+        both_at = browser_page.evaluate(
+            "[...document.querySelectorAll('td.player-cell.is-hinted')]"
+            ".map((td) => [+td.dataset.row, +td.dataset.col])"
+        )
+        assert len(both_at) == 1, both_at
+        both = _look(browser_page, {"at": both_at[0]})["at"]
+        assert both["probe"] is not None, both
+        assert both["outline"][0] == "dashed", both
+        assert both["outline"][2] == hint_look["outline"][2], (both, hint_look)
+        assert both["outline"][2] != member["outline"][2], (both, member)
 
 
 # ==========================================================================
@@ -1357,4 +1751,89 @@ class TestSolverProbe_TheBarCostsTheBoardNoGround:
             f"the board's top is {with_bar} with the probe line and "
             f"{without} without it, so the line this card adds to the "
             f"toolbar moves the board by {with_bar - without} px"
+        )
+
+
+# ==========================================================================
+# F-007 — the FOCUS SCROLL while a probe is open, which is what the card's
+# first constraint is actually about
+# ==========================================================================
+
+#: How far the page scrolls when ``#puzzle-player`` takes focus, and the
+#: half-cell that is the card's stated tolerance for it.
+#:
+#: ``#puzzle-player`` is a scroll container, so Chromium puts it in the Tab
+#: order and SMOOTH-scrolls it into view when it takes focus — which the brush
+#: menu's own keyboard test does on its way round the ring. The card measured
+#: that scroll at 11 px at 1280 x 720 against a half-cell of 11.7 px, and the
+#: fix round measured 19 px — red — with the board 8 px lower. The scroll is
+#: read as the board's own movement rather than as ``window.scrollY``, because
+#: the board moving is what makes a keyboard drag land a row off, and it is
+#: the same quantity whichever box did the scrolling.
+_FOCUS_SCROLL = """async () => {
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  const board = () => document.querySelector('.player-board').getBoundingClientRect().top;
+  const before = board();
+  document.getElementById('puzzle-player').focus();
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  return {
+    scrolled: before - board(),
+    halfCell: parseFloat(
+      getComputedStyle(document.querySelector('.player-cell')).height) / 2,
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverProbe_AnOpenProbeKeepsTheFocusScrollInsideAHalfCell:
+    """Review cycle 1 F-007 — the one state the geometry classes do not visit.
+
+    ``TheBarCostsTheBoardNoGround`` above sweeps the probe CLOSED, which is
+    the standing layout every sibling sees, and its docstring says honestly
+    that an OPEN probe makes the bar taller (Keep, Contradiction and the note
+    appear) and at 390 px wraps it, so the board does move down for as long as
+    the probe is open. ``TheBarStaysOutOfTheBoardsCapture`` holds the 1 px of
+    air in that state. Nothing held the CONSEQUENCE the card's first
+    constraint is about: ``#puzzle-player``'s focus scroll, 11 px today
+    against a half-cell of 11.7 px, which the fix round measured at 19 px and
+    red when the board sat 8 px lower.
+
+    Two claims per viewport: the premise (a probe is open and its two actions
+    and note are showing, so the taller layout is really the one being
+    measured) and the claim (the scroll is still inside half a cell).
+
+    **It holds, and the margin is THIN — which is the finding, not the
+    reassurance.** Measured on this fixture: at 1280 x 720 the scroll is 11 px
+    with the probe closed and 11 px with it open, against a half-cell of
+    11.18 px; at 390 x 844 it is 0 px closed and 7 px open, against 7.20 px.
+    So an open probe spends almost the whole tolerance at phone width, where
+    the bar WRAPS onto further lines, and it is the one place on this page
+    where shrinking the open bar would buy real room. That is a design change
+    (the wrap is deliberate) and so it is the owner's, not this round's — it
+    is recorded on the card rather than acted on. What this class does is make
+    the margin a number the next geometry change trips over instead of a state
+    nobody visits.
+    """
+
+    @pytest.mark.parametrize(
+        "viewport", [(1280, 720), (390, 844)], ids=["1280x720", "390x844"],
+    )
+    def test_the_scroll_stays_inside_a_half_cell(
+        self, browser_page, live, viewport
+    ) -> None:
+        browser_page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+        _open(browser_page, live, live.store(GRID))
+        closed = browser_page.evaluate(_FOCUS_SCROLL)
+        _probe(browser_page)
+        assert _probe_pressed(browser_page) == "true"
+        assert _actions_shown(browser_page) == (True, True, True)
+        opened = browser_page.evaluate(_FOCUS_SCROLL)
+        assert opened["scrolled"] <= opened["halfCell"], (
+            f"{viewport}: with a probe open #puzzle-player's focus scroll is "
+            f"{opened['scrolled']} px against a half-cell of "
+            f"{opened['halfCell']} px (the same page with the probe closed "
+            f"scrolls {closed['scrolled']} px) — past the tolerance the card's "
+            f"first constraint is stated in, so a keyboard drag can land a row "
+            f"off while a probe is open"
         )

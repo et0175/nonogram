@@ -466,11 +466,17 @@
 // selector, save and test on this page is keyed on those values — so
 // membership rides a separate attribute, data-probe on td.player-cell.
 //
-// The value is ONE NUMBER and it lives in wireMarking beside Region's flag
-// and the ladder's rung: the probe is the CHECKPOINT it opened at (how many
-// entries the undo stack held then), or null. Every transition is
-// solver_state.js's (nextProbe, abandonProbe, probeCells, checkpointHistory,
-// ADR-0038/R4) and this file only says which event happened. What is this
+// The value lives in wireMarking beside Region's flag and the ladder's rung:
+// the probe is the frozen set of STROKES the history already held, on both
+// stacks, when it opened — or null. (It was one number, the checkpoint it
+// opened at, until review cycle 1's F-002: a redo raises done.length and a
+// checkpoint clamped with Math.min can only fall, so a stroke made BEFORE the
+// probe came back inside it. One number cannot carry rule 6 — an open probe's
+// own undone stroke and a stroke undone before it leave done.length at the
+// same value.) THIS FILE IS UNCHANGED BY THAT FIX and was never meant to be:
+// it only ever says which event happened, and reads the value through the
+// pure module. Every transition is solver_state.js's (nextProbe, probeStart,
+// abandonProbe, probeCells, checkpointHistory, ADR-0038/R4). What is this
 // file's:
 //   controls  three real buttons in #puzzle-player-probe-bar, a group on the
 //             toolbar's last flex line (admin.css carries the measurements
@@ -492,6 +498,12 @@
 //   the save  while a probe is open the stored entry is the entry as of the
 //             checkpoint (serializeState of checkpointHistory), so a save
 //             never holds a probe stroke and deserializeState is unchanged.
+//   the look  a DASHED OUTLINE, never a ground tint (review cycle 1 F-001,
+//             owner decision 2026-10-30: the ground the probe shipped with
+//             was dE76 2.55 from CARD-267's crosshair tint, which for two
+//             small cells is the same colour). admin.css carries the
+//             measurement and the channel census; nothing here changed but
+//             this sentence.
 // Nothing here fetches: open, mark, Keep and Contradiction make no request
 // (ADR-0038/R2), and nothing of the probe reaches a server or any storage
 // beyond the one localStorage entry the player already keeps (CON-021).
@@ -527,10 +539,10 @@ import {
 // (ADR-0038/R4); answerOfBoard is imported by static/puzzle_edit.js, not by
 // this file, which never asks a board for its answer.
 import { boardOfGrid } from "./solver_state.js";
-// Probe mode (CARD-268): see PROBE below. The checkpoint arithmetic, the
-// membership, the clamp, the two transitions and the checkpoint prefix a save
-// is written from are all pure (ADR-0038/R4); the three buttons, the one-line
-// notice and the tint on the member cells are this file's.
+// Probe mode (CARD-268): see PROBE below. The membership, the checkpoint a
+// save is written from and the two transitions are all pure (ADR-0038/R4);
+// the three buttons, the one-line notice and the marker on the member cells
+// are this file's.
 import { abandonProbe, checkpointHistory, nextProbe, probeCells } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
@@ -1634,11 +1646,12 @@ function wireMarking(container, player) {
   // nothing highlighted (AC-9).
   let rung = RUNG_POINT;
   let ladderLine = null;
-  // The probe (CARD-268, see PROBE above): null, or the checkpoint it opened
-  // at. Player state of Region's and the rung's kind — the whole transition
+  // The probe (CARD-268, see PROBE above): null, or the strokes that predate
+  // it. Player state of Region's and the rung's kind — the whole transition
   // table is solver_state.js nextProbe, so this file only says which event
-  // happened — and never a cell state, never recorded and never saved, so a
-  // load always starts with no probe open (rule 9).
+  // happened, and it reads the value through that module and never into it —
+  // and never a cell state, never recorded and never saved, so a load always
+  // starts with no probe open (rule 9).
   let probe = null;
   // The probe's controls sit in a group of their own on the toolbar's last
   // flex line (admin.css carries the measurements that put them there rather
@@ -1919,9 +1932,11 @@ function wireMarking(container, player) {
     // CARD-268: the probe follows the recorded change BEFORE the change is
     // handed over, because player.commit writes the save from it (rule 9). A
     // board that reaches the solved state was a correct hypothesis, so the
-    // probe COMMITS (rule 7); otherwise the checkpoint clamps to the undo
-    // stack it still has (rule 6) — which is how a probe shrinks to empty and
-    // stays open instead of adopting strokes made before it started.
+    // probe COMMITS (rule 7); otherwise nothing moves: since review cycle 1's
+    // F-002 the probe names the strokes it is NOT about, so a probe shrinking
+    // to empty, staying open, owning the next mark and refusing a redone
+    // pre-probe stroke (rule 6, all of it) all fall out of membership rather
+    // than out of a clamp this line would have to get right.
     probe = nextProbe(probe, next, player.solves(next.board) ? "keep" : "change");
     // And the visible answer line goes with the highlight: a sentence about
     // the board as it was is worse than no sentence (CARD-269 review F-2).
