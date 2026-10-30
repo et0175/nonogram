@@ -1269,23 +1269,28 @@ class TestInteriorType_TheStreamArmIsReached:
             "card's finding about the clue-digit exemption has no subject"
         )
 
-    def test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits(
+    def test_a_vector_puzzle_page_with_no_clue_digit_mark_is_refused(
         self, monkeypatch
     ):
-        """The default-DENY arm: an unreadable shape FAILS (ADR-0039/R2).
+        """AC-3's default-DENY arm: the MARK is missing, so the page FAILS.
 
-        **CARD-314 moved what this refuses, and kept that it refuses.** While a
-        stream carried no provenance at all, every vector puzzle page was
-        refused by name: the exemption is keyed on the drawing function, so a
-        reading that instead skipped the page, or exempted 8.64 pt because that
-        is what clue digits happen to measure, would be the silent pass
-        ADR-0039/R2 forbids — the second would exempt a *body* face that
-        happened to be 8.64 pt. The page is now **read**
-        (:meth:`test_a_marked_vector_puzzle_page_is_read_and_exempted_by_the_mark`),
-        and what is refused is the same page **with its writer's mark missing**,
-        which is CARD-314's AC-3 and the identical argument: a page whose
-        provenance cannot be recovered has only those two wrong answers
-        available, so it fails instead.
+        What this test builds is the mutant, not the shipped page. The page
+        CARD-314 ships is **read**, and its clue digits are read as clue digits
+        (:meth:`test_a_marked_vector_page_is_read_and_exempted_by_the_mark`);
+        the page refused here is that same page **with its writer's mark
+        dropped**, which is why the name says ``with_no_clue_digit_mark``.
+        (Renamed in CARD-314 fix round 2 under an owner override of G-6, from
+        ``test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits``
+        — a name that stated the pre-card contract CARD-299 shipped and that
+        this card reversed; cycle 1 F-004. Node ids: 2 removed, 2 added.)
+
+        Why a missing mark must fail rather than fall back: the exemption is
+        keyed on the drawing function and a content stream records no caller,
+        so a reading with no mark to go on has only two wrong answers
+        available — skip the page, or exempt 8.64 pt **because that is what
+        clue digits happen to measure**, which would also exempt a *body* face
+        that happened to be 8.64 pt. Both are the silent pass ADR-0039/R2
+        forbids, so an unanalysable shape is a failure.
 
         The mark is dropped at its one chokepoint — ``draw_clue_digits``, the
         only emitter in the package — so what is exercised is a real writer's
@@ -1293,6 +1298,13 @@ class TestInteriorType_TheStreamArmIsReached:
         real one: :func:`real_vector_stream` calls production's own
         ``vector_puzzle_page``, which is what ``export_interior`` cannot yet be
         made to do (see :func:`faces_on_page`).
+
+        Not vacuous, and measured rather than argued: planting the size-keyed
+        exemption this bound exists to refuse (``exempt`` read as
+        ``points < FLOOR_PT`` instead of off the mark, in
+        ``tests/helpers/pdf_vector.py``) reds this test and its answer-page
+        twin, in an out-of-tree extract — and a near-miss threshold no face on
+        these pages reaches (``points < 6.0``) correctly reds neither.
         """
         with _no_clue_digit_mark(monkeypatch):
             stream = real_vector_stream("puzzle")
@@ -1304,12 +1316,25 @@ class TestInteriorType_TheStreamArmIsReached:
         with pytest.raises(AssertionError, match="VECTOR puzzle page"):
             faces_on_page(6, "puzzle", stream)
 
-    def test_a_vector_answer_page_refuses_too(self, monkeypatch):
-        """Review cycle 1's F-001 — the bound covers BOTH kinds, not one.
+    def test_a_vector_answer_page_with_no_clue_digit_mark_is_refused_too(
+        self, monkeypatch
+    ):
+        """The missing-mark bound covers BOTH clue-digit kinds, not one.
 
-        CARD-299 round 1 keyed its refusal on ``"puzzle"`` alone. Re-derived on
-        this branch at ``4d164f62``, **258 of Book 1's 462 exempt sub-floor
-        faces are on ANSWER pages** — more than the puzzle page's 204 — drawn
+        The twin of the test above, for the other kind in
+        :data:`CLUE_DIGIT_KINDS`: an answer page whose writer's mark is dropped
+        is refused as well. (Renamed in CARD-314 fix round 2 under an owner
+        override of G-6, from ``test_a_vector_answer_page_refuses_too`` — the
+        old name said only that the page is refused, which is true of the
+        mutant this test builds and false of the page the card ships; cycle 1
+        F-004. Node ids: 2 removed, 2 added across the pair.)
+
+        Why the second kind is a separate test and not a parametrisation of the
+        first: it is CARD-299 cycle 1's F-001, and the measurement is the
+        argument. CARD-299 round 1 keyed its refusal on ``"puzzle"`` alone.
+        Re-derived on this branch at ``4d164f62``, **258 of Book 1's 462
+        exempt sub-floor faces are on ANSWER pages** — more than the puzzle
+        page's 204 — drawn
         through ``book_pdf_generator._write_clues``, and
         ``book_answer_vector.draw_clue_digits`` draws them in the vector medium
         too. So the day ``PageKind.ANSWER``'s declaration lifted, the one-kind
@@ -1606,10 +1631,16 @@ class TestInteriorType_TheStreamArmIsReached:
         take these with it.
 
         Renamed from ``test_the_refusal_does_not_absorb_the_guide_or_the_toc``?
-        **No** — that name is kept below, unchanged, because CARD-314's G-6
-        forbids renaming a test. This is its twin for the direction CARD-314
+        **No** — that name is kept below, unchanged, and its test is a separate
+        test, not this one renamed. This is its twin for the direction CARD-314
         adds: those two pages must carry **no mark**, which is the AC-4 bound
         read as a property of the shipped writers rather than of a planted one.
+
+        CARD-314's G-6 forbids renaming a test, and the owner's fix-round-2
+        override of it is narrow: it covers exactly the two missing-mark tests
+        in :class:`TestInteriorType_TheStreamArmIsReached` whose names stated
+        the contract this card reversed (cycle 1 F-004), and no other name in
+        this file moved. The pair below is not in that set.
         """
         for kind in ("guide", "toc"):
             assert kind in LETTERING_KINDS, kind
