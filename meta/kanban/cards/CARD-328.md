@@ -329,8 +329,18 @@ exactly `DECLARED_DIVERGENCES`.**
 > "why it is not drift" column here is still accurate as far as it goes, but it
 > is no longer the whole of what holds these three exemptions.
 
-**G-5 / the CARD-255 shape.** The declaration is not a bare list. It carries
-three constraints and two controls, each its own node id:
+**G-5 / the CARD-255 shape.** <!-- SUPERSEDED IN PART by fix round 1, and
+labelled here on cycle 2's MIN-3 because the supersede block nine lines above
+scopes itself to "the three rows above" and does not reach this heading. G-5 is
+the guardrail cycle 1 GATED on, and a reader jumping straight here would
+conclude the per-exemption constraint was never built. The count below is
+round 1's and is now a FLOOR, not a total: fix round 1 added four more
+constraints and six more controls, holding G-5 per exemption as well as at the
+table — see "## [Fix round 1]" below for the shipped mechanism. Nothing in the
+list below is false; it is incomplete, which in this family is the same
+defect. -->
+The declaration is not a bare list. **As round 1 shipped it** — since extended,
+see above — it carried three constraints and two controls, each its own node id:
 - `test_every_declared_divergence_is_a_fact_the_guard_measures` — a declared
   key outside the compared surface exempts nothing and hides everything;
 - `test_every_declared_divergence_carries_a_reason` — a reason floor
