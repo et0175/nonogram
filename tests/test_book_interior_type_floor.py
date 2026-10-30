@@ -1761,6 +1761,15 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
         } == {"Tj", "S", "re", "f"}, sorted(
             set(pdf_vector.operator_tokens(written))
         )
+        # **One pair for the whole clue set, not one per digit** — 2 operators
+        # on a 30x30 rather than 1080. This is the only assertion in this file
+        # about the mark's *spelling* rather than its meaning, and it is
+        # deliberate: it is the economy ``MARKED_CONTENT_OPERATORS`` in
+        # ``tests/test_book_puzzle_page_vector.py`` is a constant because of.
+        # Measured — a per-digit variant of ``draw_clue_digits`` leaves every
+        # other test in this module green and reds exactly here, which is the
+        # right division: a card that wants to spend the operators changes
+        # this number and nothing else in CON-020's reading.
         assert pdf_vector.operator_tally(written)["BMC"] == 1
         assert pdf_vector.operator_tally(written)["EMC"] == 1
 
