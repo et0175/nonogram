@@ -320,6 +320,15 @@ exactly `DECLARED_DIVERGENCES`.**
 | `sweep.animation.delay` | `calc(var(--player-wave) * 12ms)` | `calc(var(--player-wave, 0) * 12ms)` | a fallback, not a different delay. The step is compared **separately** as `sweep.animation.step` and must agree, so this exemption cannot hide a changed step (M5/M6 prove it). |
 | `reduced-motion.coverage` | 5 selectors (`.player-toolbar`, `.player-toolbar *`, `.player-stage`, `.player-stage *`, the sweep) with `animation: none !important; transition: none !important` | 2 selectors (the banner, the sweep) with `animation: none` | the panel has toolbar/stage chrome that animates and the public page has none of it. Both switch the same reveal off; the surface each has to switch off differs. The block **count** is compared separately as `reduced-motion.block-count` and must agree. |
 
+> **[Superseded by fix round 1]** The three rows above describe the table as it
+> shipped in round 1, where each exemption was a key and a reason. Review cycle
+> 1's IMP-1 showed that shape absorbs real drift — four mutants fired inside
+> these three facts survived at `23 passed` — so each exemption now also names
+> the **difference** it exempts and leaves a **residue** that must agree. The
+> current shape, the residues and the controls are in *Fix round 1* below; the
+> "why it is not drift" column here is still accurate as far as it goes, but it
+> is no longer the whole of what holds these three exemptions.
+
 **G-5 / the CARD-255 shape.** The declaration is not a bare list. It carries
 three constraints and two controls, each its own node id:
 - `test_every_declared_divergence_is_a_fact_the_guard_measures` — a declared
