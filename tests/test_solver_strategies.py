@@ -423,16 +423,28 @@ class TestBatchGenerator_PersistsRealStrategiesUsedForRandomAndImage:
       holds a real list while the caller is wrong. Mutants replacing both call
       sites' ``list(puzzle.strategies)`` with ``[]`` left an all-row check
       green (CARD-318's M6/M9).
-    * the **hand-off** arm sees that, and *with identity* it also sees a
-      hand-off that is non-empty, in-vocabulary and wrong. The predicate this
-      class carried before — truthy and a subset of ``STRATEGY_NAMES`` — did
-      not: a hardcoded ``['simple_overlap']`` passed it at both call sites
-      (cycle 1's R3/R4).
+    * the **hand-off** arm sees that, and it is the arm that holds when the
+      store's echo cannot be relied on. The predicate this class carried
+      before — truthy and a subset of ``STRATEGY_NAMES`` — saw neither: a
+      hardcoded ``['simple_overlap']`` passed it at both call sites (cycle 1's
+      R3/R4).
 
-    Measured, per assertion: ``strategies_used=[]`` planted at either call
-    site reds the hand-off arm; ``strategies_used=['simple_overlap']`` planted
-    at either reds the identity arm. CARD-318's mutant table (R1-R4) names
-    which assertion fired for which plant.
+    Measured, per assertion, because a test short-circuits at its first
+    failing assert and "the test reds" says nothing about the arms that never
+    ran:
+
+    * ``strategies_used=[]`` at either call site reds the **hand-off
+      emptiness** assertion — the row arm is green, exactly as M6/M9 showed;
+    * ``strategies_used=['simple_overlap']`` at either reds the **row
+      identity** assertion, which runs first: a non-empty list is echoed by
+      the store, so the wrong value reaches the row and is seen there;
+    * the **hand-off identity** assertion therefore has its own plant rather
+      than a claim — a store that always derives (so the row is right) plus a
+      constant hand-off reds it, and the same store-only plant alone reds
+      nothing.
+
+    CARD-318's fix-round mutant table (R1-R4, R5a/R5b) is that measurement,
+    one cell per node id with the assertion that fired.
 
     The two corpora differ in what guarantees the identity assertion can
     discriminate a constant, and say so where they are built: the image half
