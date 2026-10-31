@@ -497,6 +497,15 @@ def round_marks(page: Image.Image, level: int = MARK_LEVEL) -> list[InkRegion]:
 #: (``nonogram.admin.book_vector.ContentStream``), and a reader that guessed
 #: at a shape it had never been shown would be the silent pass ADR-0039/R2
 #: refuses. :func:`stream_marks` raises on them instead.
+#:
+#: That "the writer emits neither" is a **measurement**, not this comment's
+#: word: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_readers_vocabulary_covers_every_operator_the_writer_emits``
+#: drives every public ``ContentStream`` member, takes the union of what each
+#: one emits, and holds it to this set, :data:`_PAINT_OPERATORS`,
+#: :data:`_REFUSED_PATH_OPERATORS` and :data:`_REFUSED_STATE_OPERATORS`
+#: together — so an operator the writer grows reds there rather than being
+#: read by whichever of this module's branches happens to swallow it.
 _PATH_OPERANDS = {"m": 2, "l": 2, "c": 6, "re": 4, "h": 0}
 
 #: The PDF path-painting operators, and whether each one paints. ``n`` ends a
@@ -519,6 +528,46 @@ _PAINT_OPERATORS = {
 #: The operators that construct a path but that this reader refuses to guess
 #: at — see :data:`_PATH_OPERANDS`.
 _REFUSED_PATH_OPERATORS = frozenset({"v", "y"})
+
+#: The operators that would make this reader's answer **wrong** rather than
+#: merely unfamiliar, and which it therefore refuses outright.
+#:
+#: Every other token it does not recognise only sets state — a tone, a stroke
+#: width, a text object's brackets — and is passed over by clearing the operand
+#: stack, which is why ``v``, ``y``, a starved operand and an unknown token
+#: between coordinates all end in a refusal anyway. These four are a different
+#: class: each one either moves the coordinate system the operands are read in
+#: or paints a mark that is not a path at all, so tolerating one means
+#: answering with the **wrong** number instead of a missing one.
+#:
+#: Measured before this set existed, which is why it exists: a
+#: ``10 10 20 20 re f`` under ``2 0 0 2 0 0 cm`` read its *untransformed* box,
+#: bit-identical to the same rect with no ``cm`` at all; ``/Im0 Do`` and
+#: ``/Sh0 sh`` each read **0 marks and said nothing**.
+#:
+#: * ``cm`` concatenates a transform onto the CTM. A non-uniform one prints a
+#:   path-space circle as an ellipse (a false round mark) or a path-space
+#:   ellipse as a circle — a **missed** round mark, which is the direction the
+#:   no-round-mark-on-the-book's-own-sheets accounting depends on.
+#: * ``Do`` paints an external object, form or image, whose own marks live in a
+#:   stream this reader is never handed.
+#: * ``sh`` paints a shading, which has no path to measure.
+#: * ``BI`` opens an inline image, whose data is not tokens at all.
+#:
+#: ``q`` and ``Q`` are deliberately **not** here, and that is an argument
+#: rather than an omission: a saved and restored graphics state changes where
+#: an operand lands only if something moved the CTM between the two, and the
+#: only operator that can is ``cm``, refused above. So refusing ``cm`` closes
+#: the ``q``/``Q`` dependency too, instead of this reader asserting the
+#: writer's absence of them.
+#:
+#: Bound to the writer's own **measured** emission set, not to this comment, by
+#: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_readers_vocabulary_covers_every_operator_the_writer_emits``,
+#: which drives every public ``ContentStream`` member and reds if the writer
+#: grows an operator this reader would refuse — or one it would pass over
+#: without that having been recorded (ADR-0039/R2).
+_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})
 
 #: How many straight segments one cubic Bézier is flattened into before its
 #: box and its enclosed area are measured.
@@ -730,8 +779,10 @@ def stream_marks(stream: str) -> list[StreamMark]:
 
     Raises:
         StreamShapeError: the stream paints a path built with an operator this
-            reader does not understand, paints one with no subpath open, or
-            runs out of operands mid-operator. An unanalysable shape is a
+            reader does not understand, paints one with no subpath open, runs
+            out of operands mid-operator, or uses one of
+            :data:`_REFUSED_STATE_OPERATORS` — an operator that would leave the
+            reading *wrong* rather than short. An unanalysable shape is a
             FAILURE (ADR-0039/R2).
     """
     tokens = _without_strings(stream).split()
@@ -747,6 +798,14 @@ def stream_marks(stream: str) -> list[StreamMark]:
                 f"the stream builds a path with {token!r}, a shorthand Bezier "
                 "this reader has never been shown and will not guess at: an "
                 "unanalysable shape is a FAILURE (ADR-0039/R2)"
+            )
+        if token in _REFUSED_STATE_OPERATORS:
+            raise StreamShapeError(
+                f"the stream uses {token!r}, which this reader would have to "
+                "ignore to carry on — and ignoring it does not lose a mark, it "
+                "reports the wrong one: see _REFUSED_STATE_OPERATORS for the "
+                "measurement. An unanalysable stream is a FAILURE "
+                "(ADR-0039/R2)"
             )
         if token in _PATH_OPERANDS:
             wanted = _PATH_OPERANDS[token]

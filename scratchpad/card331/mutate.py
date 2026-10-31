@@ -268,6 +268,110 @@ MUTANTS: tuple[Mutant, ...] = (
             "test_each_arms_probe_reports_death_when_its_mechanism_goes",
         ),
     ),
+    # ------------------------------------------------------------------
+    # Fix round 1. One plant per Important/Minor finding that a mutant can
+    # prove, each with its matched control green in this same run.
+    # ------------------------------------------------------------------
+    Mutant(
+        name="MUT-18",
+        what="F-004, the reviewer's own M10 RE-FIRED: the raster arm hooks a "
+        "production attribute inside its PLANT function, which the hook "
+        "detector's set did not cover and which SURVIVED cycle 1 at 189 passed",
+        path=MODULE,
+        old="    return book_pdf_generator._draw_difficulty_dots(draw, PLANTED_TIER, *box)",
+        new="    book_pdf_generator._NOT_A_REAL_ATTRIBUTE = 1\n"
+        "    return book_pdf_generator._draw_difficulty_dots(draw, PLANTED_TIER, *box)",
+        nodes=(
+            "TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct::"
+            "test_this_arm_hooks_no_production_attribute",
+        ),
+    ),
+    Mutant(
+        name="MUT-19",
+        what="F-003: the stream reader goes back to IGNORING cm/Do/sh, which is "
+        "the committed cycle-1 behaviour -- a rect under a transform read its "
+        "untransformed box and an XObject read 0 marks, both silently",
+        path=HELPER,
+        old='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})',
+        new="_REFUSED_STATE_OPERATORS = frozenset()",
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_an_operator_the_reader_would_misread_is_refused_not_ignored",
+        ),
+    ),
+    Mutant(
+        name="MUT-20",
+        what="F-003, the binding itself: the WRITER grows an operator the "
+        "reader refuses (stroke_width starts emitting a cm). The vocabulary "
+        "cell must red -- this is the whole property, that a new operator in "
+        "the writer reds here instead of being passed over",
+        path="src/nonogram/admin/book_vector.py",
+        old='self._operators.append(f"{_number(points)} w")',
+        new='self._operators.append(f"{_number(points)} w 1 0 0 1 0 0 cm")',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_the_readers_vocabulary_covers_every_operator_the_writer_emits",
+        ),
+    ),
+    Mutant(
+        name="MUT-21",
+        what="F-003, the other direction: an operator is recorded as a "
+        "PASS-OVER that the writer does not emit, which is how that list would "
+        "start absorbing the next cm",
+        path=MODULE,
+        old='    "EMC": "closes one; paints nothing",\n}',
+        new='    "EMC": "closes one; paints nothing",\n'
+        '    "cm": "a transform, which this reader would be wrong to pass over",\n}',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_the_readers_vocabulary_covers_every_operator_the_writer_emits",
+        ),
+    ),
+    Mutant(
+        name="MUT-22",
+        what="F-002: the per-assertion separation is fused -- the raster arm's "
+        "count and verdict become ONE assert, which is exactly the "
+        "short-circuit AC-5 exists to measure",
+        path=MODULE,
+        old='        assert _unaccounted(found, declared) == (), (\n'
+        '            "a dot the one drawing site drew is not matched by its own box"\n'
+        "        )",
+        new="        assert len(found) == len(declared) and _unaccounted(\n"
+        "            found, declared\n"
+        '        ) == (), "fused: one assert for the count and the verdict"',
+        nodes=(
+            "TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness::"
+            "test_each_wrongness_ac5_names_reaches_its_own_assertion",
+            "TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness::"
+            "test_the_count_and_the_verdict_are_two_assertions_not_one",
+        ),
+    ),
+    Mutant(
+        name="MUT-23",
+        what="F-006: the probe-reports-death cell's live-state message goes "
+        "back to naming the arm and nothing else, so the card's claim that "
+        "both reds carry mechanism + remedy becomes false again",
+        path=MODULE,
+        old='                f"the {arm.name} arm is not alive: {live.what}. Its mechanism "\n'
+        '                f"is {arm.mechanism}. {arm.remedy}"',
+        new='                f"the {arm.name} arm is not alive"',
+        nodes=(
+            "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails::"
+            "test_both_reds_of_this_section_name_the_mechanism_and_the_remedy",
+        ),
+    ),
+    Mutant(
+        name="MUT-24",
+        what="F-005: the raster arm's remedy offers an option its own sibling "
+        "cell forbids -- 'retire this arm' while PageMedium keeps RASTER",
+        path=MODULE,
+        old='            "the product no longer draws this page as a bitmap: RE-POINT this "',
+        new='            "the product no longer draws this page as a bitmap: retire this arm, or re-point this "',
+        nodes=(
+            "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails::"
+            "test_no_arms_remedy_offers_an_option_this_section_forbids",
+        ),
+    ),
 )
 
 COUNT = re.compile(r"(\d+) (passed|failed|error|errors|skipped)")
@@ -311,7 +415,7 @@ def main() -> int:
     counts = tally(out)
     print(f"    exit={code} {counts}")
     assert code == 0, "the committed module is not green"
-    assert counts.get("passed", 0) == 189, counts
+    assert counts.get("passed", 0) == 195, counts
     assert counts.get("skipped", 0) == 0, f"SKIPS on the baseline: {counts}"
     assert counts.get("failed", 0) == 0, counts
 

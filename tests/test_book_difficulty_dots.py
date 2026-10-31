@@ -90,6 +90,7 @@ import ast
 import inspect
 import math
 import random
+import textwrap
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -150,6 +151,23 @@ from tests.helpers.round_ink import (
     round_marks,
     round_stream_marks,
     stream_marks,
+)
+
+# The writer's own operator surface, **as the module that measures it reports
+# it** rather than as this one would re-list it (ADR-0039/R2).
+# ``_DOOR_EMITS`` is what ``_content_stream_doors`` records when it drives every
+# public ``ContentStream`` member; ``_UNCLASSIFIED_DOORS`` is the members its
+# probe table cannot call, and must be empty for the union of the first to be
+# the whole surface; ``_PATH_OPERATORS`` is that surface partitioned into the
+# operators that put a path on a page. Imported across the test tree the way
+# ``tests/test_book_cell_size.py`` and sixteen other modules import a sibling's
+# measurement: the import CLAUDE.md forbids is a lateral one inside
+# ``src/nonogram``, and this is the test tree, which is exactly where that rule
+# says a cross-check belongs.
+from tests.test_book_solved_answer_key import (
+    _DOOR_EMITS as _WRITER_DOOR_EMITS,
+    _PATH_OPERATORS as _WRITER_PATH_OPERATORS,
+    _UNCLASSIFIED_DOORS as _WRITER_UNCLASSIFIED_DOORS,
 )
 
 # --------------------------------------------------------------------------
@@ -6135,10 +6153,24 @@ def _arm_page() -> ArmPage:
     The layout is recomputed here, from the same ``_puzzle_page_spec`` and the
     same ``compute_layout`` the writer calls, because the band's own geometry
     is what a glyph's box is measured in and the writer does not hand it back.
-    That recomputation is **checked** rather than trusted:
-    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_recomputed_layout_is_the_page_the_writer_wrote`
-    holds the stream's own ``MediaBox`` to it, so a layout that drifted from
-    the page would red instead of putting the declared dots in the wrong place.
+    That recomputation is **checked** rather than trusted, and checked
+    narrowly:
+    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_page_extent_this_arm_flips_y_about_is_the_streams_own`
+    holds the stream's own ``MediaBox`` to it, so the **extent** the y-flip is
+    done against cannot drift unnoticed.
+
+    Read that as exactly what it says. It is *not* a check that the recomputed
+    layout is the writer's in every respect, and the wider sentence this
+    docstring used to carry — that a drifted layout "would red instead of
+    putting the declared dots in the wrong place" — is **retracted**: this
+    round measured it false. A one-pixel drift of the recomputed extent reds
+    one cell and one only (that one), because :func:`_appended` builds its
+    scratch stream from the same figure, so the accounting stays
+    self-consistent and the declared dots are *not* put in the wrong place; and
+    a page-number drift leaves the band's centre and the glyph's box
+    bit-identical, so it is invisible here altogether. The cell's own docstring
+    states both limits (ADR-0039/R4: a refuted figure is retracted everywhere
+    it was written).
 
     A **single**-puzzle page, not a two-up one: a two-up sheet carries two
     bands and the accounting would then be about which of them a plant landed
@@ -6361,10 +6393,13 @@ ARMS: tuple[InstrumentArm, ...] = (
             "bitmap puzzle page the product draws through _blank_page"
         ),
         remedy=(
-            "the product no longer draws this page as a bitmap: retire this "
-            "arm, or re-point it at a page kind _RASTER_DECLARATIONS still "
-            "declares raster, and move the 27 cells of this module that read "
-            "the interior as bitmaps with it"
+            "the product no longer draws this page as a bitmap: RE-POINT this "
+            "arm at a page kind _RASTER_DECLARATIONS still declares raster — "
+            "the cover and the divider, which keep their bitmaps under "
+            "ADR-0042/R2 — and move the 27 cells of this module that read the "
+            "interior as bitmaps with it. Retiring the arm is NOT one of the "
+            "options while PageMedium keeps RASTER: an arm set that loses a "
+            "medium reds test_there_is_one_arm_per_medium_the_product_can_write"
         ),
         probe=lambda page: _raster_arm_liveness(
             book_pdf_generator.page_medium(PageKind.PUZZLE), page.bitmap
@@ -6421,7 +6456,21 @@ class TestDifficultyDots_AnArmWhoseMechanismIsDeadFails:
         )
 
     def test_there_is_one_arm_per_medium_the_product_can_write(self) -> None:
-        """Held to :class:`PageMedium`, so a third medium cannot arrive unarmed."""
+        """Held to :class:`PageMedium`, so a third medium cannot arrive unarmed.
+
+        **What this cell deliberately does not pin, and what does.** It is a
+        claim about the set of *media*, not about the arms' spellings, so
+        renaming an arm must leave it green — the round's declared negative
+        control (MUT-13) and the reason it survived. That is only half the
+        reason the survival is legitimate. The other half is that
+        :attr:`InstrumentArm.name` feeds the ``ids=`` of the two parametrized
+        cells in this class, so a rename moves a node id from ``[raster]`` to
+        whatever it was renamed to — and node ids are pinned, by G-5's node-id
+        gate, a different instrument at a different layer. So a rename is
+        caught; it is caught *there* rather than here. Without that second
+        half, a reader cannot tell this declared negative control from a claim
+        quietly narrowed until its mutant stopped failing.
+        """
         assert {arm.medium for arm in ARMS} == set(PageMedium), (
             "a medium the product can write has no arm of this accounting: "
             f"{sorted(medium.value for medium in set(PageMedium) - {a.medium for a in ARMS})}"
@@ -6454,6 +6503,76 @@ class TestDifficultyDots_AnArmWhoseMechanismIsDeadFails:
         )
         assert live[0].medium is book_pdf_generator.page_medium(PageKind.PUZZLE)
 
+    def test_no_arms_remedy_offers_an_option_this_section_forbids(self) -> None:
+        """A work order cannot offer a route its own sibling cell reds.
+
+        The raster arm's remedy used to begin "retire this arm, or re-point
+        it…". Taking the first option **reds**
+        :meth:`test_there_is_one_arm_per_medium_the_product_can_write`, because
+        ``PageMedium`` keeps ``RASTER`` for the cover and the divider
+        (ADR-0042/R2) — so the remedy sent its reader down a path that fails
+        for a reason the remedy did not mention, in a string whose whole
+        purpose is that a guard which reds without saying what to do gets
+        widened rather than answered.
+
+        The forbiddenness is **derived** here, not stated: dropping any arm
+        from the set leaves a medium the product can write with no arm of this
+        accounting. Then the remedies are held to it.
+        """
+        for arm in ARMS:
+            rest = tuple(other for other in ARMS if other is not arm)
+            assert {other.medium for other in rest} != set(PageMedium), (
+                f"retiring the {arm.name} arm would leave every medium armed, "
+                "so this cell's premise no longer holds and the remedies below "
+                "may offer retirement again"
+            )
+
+        # The one place retirement may be named is as the option it is not.
+        forbidden_named_as_forbidden = "Retiring the arm is NOT one of the options"
+        (raster_arm,) = [arm for arm in ARMS if arm.medium is PageMedium.RASTER]
+        assert forbidden_named_as_forbidden in raster_arm.remedy, (
+            "the raster arm's remedy no longer says that retiring it is "
+            "forbidden, and CARD-322 reads that string as its work order"
+        )
+        for arm in ARMS:
+            offered = arm.remedy.replace(forbidden_named_as_forbidden, "")
+            for verb in ("retire", "retiring"):
+                assert verb not in offered.lower(), (
+                    f"the {arm.name} arm's remedy OFFERS {verb!r}, which reds "
+                    "test_there_is_one_arm_per_medium_the_product_can_write: "
+                    f"{arm.remedy!r}"
+                )
+
+    def test_both_reds_of_this_section_name_the_mechanism_and_the_remedy(
+        self,
+    ) -> None:
+        """The card's claim about this section's two reds, machine-checked.
+
+        Under the declaration lift exactly two of this module's new cells red,
+        and the card says both name the arm, its mechanism and its remedy. One
+        did; its sibling red on its live-state loop with the arm's name and
+        nothing else, so the claim was half true and a reader of that red got
+        no work order.
+
+        Derived rather than re-read: the two cells' assert **messages** are
+        taken off their own source, and each must carry both attributes. A
+        message that drops either one reds here.
+        """
+        for leaf in (
+            "test_each_arms_mechanism_is_still_exercised",
+            "test_each_arms_probe_reports_death_when_its_mechanism_goes",
+        ):
+            messages = " ".join(
+                _assert_messages_of(
+                    "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails", leaf
+                )
+            )
+            for attribute in ("arm.name", "arm.mechanism", "arm.remedy"):
+                assert attribute in messages, (
+                    f"{leaf} can red without naming {attribute}, so a reader of "
+                    "that failure is told an arm is dead and not what to do"
+                )
+
     def test_each_arms_probe_reports_death_when_its_mechanism_goes(
         self, arm_page: ArmPage
     ) -> None:
@@ -6485,9 +6604,18 @@ class TestDifficultyDots_AnArmWhoseMechanismIsDeadFails:
         )
 
         # And the live state, in the same test, so neither direction can be
-        # passing because the probe is stuck.
+        # passing because the probe is stuck. The message carries the mechanism
+        # and the remedy, as its sibling cell's does: cycle 1 of this card's
+        # review found the card claiming both reds name them and only one
+        # doing so, and a red here is read by the same person for the same
+        # reason — a guard that reds without saying what to do gets widened
+        # rather than answered.
         for arm in ARMS:
-            assert arm.liveness(arm_page).alive, f"the {arm.name} arm is not alive"
+            live = arm.liveness(arm_page)
+            assert live.alive, (
+                f"the {arm.name} arm is not alive: {live.what}. Its mechanism "
+                f"is {arm.mechanism}. {arm.remedy}"
+            )
 
 
 # --------------------------------------------------------------------------
@@ -6506,6 +6634,75 @@ class TestDifficultyDots_AnArmWhoseMechanismIsDeadFails:
 #: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_filling_paints_are_a_subset_of_the_readers_own_set`,
 #: so a paint operator the reader learns about cannot be silently missing here.
 PAINTS_THAT_FILL = frozenset({"f", "F", "f*", "B", "B*", "b", "b*"})
+
+
+def _writer_operators() -> frozenset[str]:
+    """Every operator the book's vector writer is **measured** to emit.
+
+    The union of :data:`_WRITER_DOOR_EMITS`' values — one entry per public
+    ``ContentStream`` member, each one *driven* and its output read, which is
+    the enumerable authority ADR-0039/R2 asks a guard's set to be derived from.
+    Not ``dir(ContentStream)`` directly: a member's *name* says nothing about
+    which operators it writes, and the module next door already pays the cost
+    of finding out.
+    """
+    return frozenset(
+        token for tokens in _WRITER_DOOR_EMITS.values() for token in tokens
+    )
+
+
+#: :func:`_writer_operators`' answer, **recorded**, so the vocabulary guard
+#: below is a statement about a known surface rather than a tautology over
+#: whatever the writer happens to emit today. 17 operators, measured off
+#: ``ContentStream``'s 18 public members (``to_points``, ``media_box``,
+#: ``operators`` and ``render`` emit none; ``line``, ``rectangle``,
+#: ``round_mark`` and ``text`` emit several each).
+WRITER_OPERATORS_RECORDED = frozenset(
+    {
+        "BMC",
+        "BT",
+        "EMC",
+        "ET",
+        "G",
+        "S",
+        "Td",
+        "Tf",
+        "Tj",
+        "c",
+        "f",
+        "g",
+        "h",
+        "l",
+        "m",
+        "re",
+        "w",
+    }
+)
+
+#: The operators of that surface the stream reader deliberately **passes over**,
+#: with what each one is: state the paper never sees, or type, which is the
+#: reader's one stated bound (a glyph is not a path — the asymmetry
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_a_typed_round_mark_is_outside_this_arms_reach`
+#: controls).
+#:
+#: An entry here is a **recorded** pass-over, which is the whole difference the
+#: cycle-1 review found: ``cm``, ``Do`` and ``sh`` used to be passed over too,
+#: and were in no list at all, so the reader answered with the wrong box or
+#: with silence and nothing said so. They are refused now
+#: (:data:`round_ink._REFUSED_STATE_OPERATORS`), and this dict is what keeps the
+#: remaining pass-overs from growing the same way.
+WRITER_OPERATORS_NOT_A_PATH = {
+    "G": "sets the stroke tone; state, not a mark",
+    "g": "sets the fill tone; state, not a mark",
+    "w": "sets the stroke width; state, and CARD-330's subject, not a path",
+    "BT": "opens a text object",
+    "Tf": "selects a font inside one",
+    "Td": "moves the text line inside one",
+    "Tj": "shows a string — TYPE, this reader's stated bound",
+    "ET": "closes a text object",
+    "BMC": "CARD-314's marked-content bracket; paints nothing",
+    "EMC": "closes one; paints nothing",
+}
 
 
 def _at_the_streams_places(
@@ -6786,10 +6983,22 @@ def _production_hooks(sources: Mapping[str, str]) -> list[str]:
 #: "it hooks nothing" is a measurement over a named set rather than a hope
 #: about a whole 6000-line module — the legacy harness in the same file
 #: *does* hook, deliberately, and still does.
+#:
+#: The two **plant** functions are in it, and were not until cycle 1 of this
+#: card's review proved the hole with a mutant: a plant that inserted
+#: ``book_pdf_generator._NOT_A_REAL_ATTRIBUTE = 1`` into
+#: :func:`_declaring_plant`'s body — a textbook production rebind, the exact
+#: shape the detector's own first control catches when handed it as a string —
+#: left the module at 189 passed and the detector never saw it. They are not
+#: part of the 6000-line module's noise the narrowing exists to exclude; they
+#: are the arm's own moving parts, and ``_raster_arm_reading`` reads nothing
+#: without the one it is handed.
 RASTER_ARM_FUNCTIONS = (
     "_arm_page",
     "_raster_arm_reading",
     "_raster_arm_liveness",
+    "_declaring_plant",
+    "_rogue_plant",
 )
 
 
@@ -7257,6 +7466,154 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
             "a stroke is a paint and is not a fill"
         )
 
+    def test_the_readers_vocabulary_covers_every_operator_the_writer_emits(
+        self,
+    ) -> None:
+        """The cell above, widened from paints to the **whole** vocabulary.
+
+        ADR-0039/R2. The reader's own comments carried a claim about the
+        product — "this project's writer emits neither ``v`` nor ``y``" — and
+        nothing bound it to the writer, while three operator classes the reader
+        passed over (``cm``, ``Do``, ``sh``) were in no list at all. That is the
+        shape this card's whole thesis is about, one layer down: the liveness
+        probe stays green on 588 painted subpaths of grid rules while a dot
+        drawn through a route the reader cannot see goes unaccounted.
+
+        So the vocabulary is held to an **enumerated authority** instead:
+        :func:`_writer_operators` is the union of what
+        ``_content_stream_doors`` records when it *drives* every public
+        ``ContentStream`` member. Every operator in it must be understood,
+        refused, or a recorded pass-over — and the day the writer grows one, it
+        is in none of the three and this cell reds.
+        """
+        # The authority is only the whole surface if its probe could call every
+        # member. That module asserts this too; it is restated here because
+        # *this* cell's "every operator the writer emits" rests on it.
+        assert _WRITER_UNCLASSIFIED_DOORS == (), (
+            "the writer has a public member nothing drives, so the operator "
+            f"set below is not its whole surface: {_WRITER_UNCLASSIFIED_DOORS}"
+        )
+        emitted = _writer_operators()
+        assert emitted == WRITER_OPERATORS_RECORDED, (
+            "the writer's measured operator surface moved: "
+            f"gained {sorted(emitted - WRITER_OPERATORS_RECORDED)}, "
+            f"lost {sorted(WRITER_OPERATORS_RECORDED - emitted)}"
+        )
+
+        understood = set(round_ink._PATH_OPERANDS) | set(round_ink._PAINT_OPERATORS)
+        refused = set(round_ink._REFUSED_PATH_OPERATORS) | set(
+            round_ink._REFUSED_STATE_OPERATORS
+        )
+        passed_over = set(WRITER_OPERATORS_NOT_A_PATH)
+
+        # The three classifications are a partition, not three overlapping
+        # opinions: an operator in two of them makes the verdict below depend
+        # on which branch of the reader happens to run first.
+        assert not understood & refused, sorted(understood & refused)
+        assert not understood & passed_over, sorted(understood & passed_over)
+        assert not refused & passed_over, sorted(refused & passed_over)
+
+        unknown = emitted - understood - passed_over - refused
+        assert not unknown, (
+            f"the writer emits {sorted(unknown)}, which tests/helpers/round_ink.py "
+            "neither understands, refuses, nor records as a pass-over — so the "
+            "vector arm's reading of a page carrying it is wrong or short, and "
+            "the liveness probe would stay green either way"
+        )
+        collides = emitted & refused
+        assert not collides, (
+            f"the writer emits {sorted(collides)}, which the reader now REFUSES: "
+            "every stream of the corpus raises StreamShapeError"
+        )
+
+        # And the pass-over list is held down as well as up: an entry naming an
+        # operator the writer does not emit is a pass-over nobody measured, and
+        # is how this list would start absorbing the next cm.
+        stale = passed_over - emitted
+        assert not stale, (
+            f"{sorted(stale)} are recorded as pass-overs the writer emits, and "
+            "it does not emit them"
+        )
+
+        # The other half of the authority: the surface partitioned into the
+        # operators that put a PATH on a page. All of them are understood —
+        # which is the claim the reader's comments made and did not check.
+        assert set(_WRITER_PATH_OPERATORS) <= understood, (
+            f"{sorted(set(_WRITER_PATH_OPERATORS) - understood)} put a path on "
+            "a page and this reader does not understand them"
+        )
+        assert emitted & set(_WRITER_PATH_OPERATORS), (
+            "the writer emits no path operator at all, so this cell is "
+            "measuring an empty intersection"
+        )
+
+    def test_an_operator_the_reader_would_misread_is_refused_not_ignored(
+        self,
+    ) -> None:
+        """``cm``, ``Do``, ``sh`` and ``BI``, each with its matched control.
+
+        Cycle 1 of this card's review measured all three of the first against
+        the reader as committed: a ``10 10 20 20 re f`` under
+        ``2 0 0 2 0 0 cm`` reported its **untransformed** box, bit-identical to
+        the same rect with no transform; ``/Im0 Do`` and ``/Sh0 sh`` each
+        reported 0 marks and raised nothing. Tolerating them is not a missing
+        mark, it is the **wrong** mark — and the wrong direction is the
+        dangerous one, because a path-space ellipse printed as a circle by a
+        non-uniform ``cm`` is a round mark the no-round-mark cells would not
+        find.
+
+        The control is the same stream without the operator, read and measured,
+        so "refused" is a change of verdict rather than a reader that refuses
+        everything. ``q``/``Q`` is the second control and the reason that set
+        does not list them: a graphics state saved and restored moves nothing
+        unless something moved the CTM in between, and the only operator that
+        can is ``cm``.
+        """
+        rect = "10 10 20 20 re f"
+        (plain,) = stream_marks(rect)
+        assert (plain.x0, plain.y0, plain.x1, plain.y1) == (10.0, 10.0, 30.0, 30.0)
+
+        for stream, what in (
+            (f"2 0 0 2 0 0 cm {rect}", "a transform (cm)"),
+            ("q 100 0 0 100 0 0 cm /Im0 Do Q", "an external object (Do)"),
+            ("/Sh0 sh", "a shading (sh)"),
+            ("BI /W 1 /H 1 /CS /G /BPC 8 ID z EI", "an inline image (BI)"),
+        ):
+            try:
+                tolerated = stream_marks(stream)
+            except round_ink.StreamShapeError:
+                continue
+            raise AssertionError(
+                f"{what} passed this reader silently; it reported "
+                f"{len(tolerated)} marks "
+                f"{[(m.x0, m.y0, m.x1, m.y1) for m in tolerated]}, and a "
+                "silent pass is what ADR-0039/R2 refuses"
+            )
+
+        # q/Q alone: read, not refused, and the same box as without them.
+        (bracketed,) = stream_marks(f"q {rect} Q")
+        assert (bracketed.x0, bracketed.y0, bracketed.x1, bracketed.y1) == (
+            plain.x0,
+            plain.y0,
+            plain.x1,
+            plain.y1,
+        ), "q/Q moved a box, so refusing cm is not enough to close the CTM"
+
+        # And every recorded pass-over, in one stream with the rect: still read,
+        # still one mark, still the same box — the control for the other half of
+        # the vocabulary cell above.
+        state_and_type = (
+            "0 g 0 G 1 w BT /F1 10 Tf 1 1 Td (x) Tj ET "
+            f"/ClueDigit BMC {rect} EMC"
+        )
+        (through_state,) = stream_marks(state_and_type)
+        assert (
+            through_state.x0,
+            through_state.y0,
+            through_state.x1,
+            through_state.y1,
+        ) == (plain.x0, plain.y0, plain.x1, plain.y1)
+
     def test_an_integer_pixel_reaches_the_stream_exactly(self) -> None:
         """Why the accounting rounds to three places instead of tolerating a gap.
 
@@ -7298,7 +7655,7 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         )
 
     def test_the_flattening_costs_far_less_than_the_tolerance_it_is_read_against(
-        self,
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """``_BEZIER_SEGMENTS``' price, derived at three segment counts.
 
@@ -7308,19 +7665,26 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         :data:`ROUND_FILL_TOLERANCE`. Measured by moving the segment count,
         which is also the control: a flattening coarse enough to matter would
         move the number.
+
+        Moved through ``monkeypatch.context()`` rather than by rebinding the
+        global and restoring it in a ``finally``. The ``finally`` was correct
+        serially and the cell re-asserted the restored value, but
+        ``round_ink._BEZIER_SEGMENTS`` is reachable from 21 test modules
+        through the ``page_ink`` hop, and a sibling reading a round mark while
+        this cell held 8 would get a ``fill`` 0.9 % off — inside
+        :data:`ROUND_FILL_TOLERANCE`, so **silent** rather than loud. Nothing in
+        this repo runs workers in parallel today; a scoped patch is what keeps
+        that from being the reason (engineering-standards §6).
         """
         stream = ContentStream(width_px=1000.0, height_px=1000.0, dpi=DPI)
         stream.round_mark(500.0, 500.0, 50.0, paint="fill")
         text = _stream_text(stream)
         readings: dict[int, float] = {}
         for segments in (8, round_ink._BEZIER_SEGMENTS, 256):
-            saved = round_ink._BEZIER_SEGMENTS
-            try:
-                round_ink._BEZIER_SEGMENTS = segments
+            with monkeypatch.context() as patched:
+                patched.setattr(round_ink, "_BEZIER_SEGMENTS", segments)
                 (mark,) = stream_marks(text)
                 readings[segments] = mark.fill
-            finally:
-                round_ink._BEZIER_SEGMENTS = saved
         assert round_ink._BEZIER_SEGMENTS == 32, "the flattening's value moved"
         cost = abs(readings[256] - readings[32])
         assert cost == pytest.approx(3.96e-4, abs=1e-5), (
@@ -7489,3 +7853,187 @@ class TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct:
         assert len(_unaccounted(found, declared[:-1])) == 1
         assert _unaccounted(found, declared + (declared[0],)) == ()
         assert len(found) != len(declared) + 1
+
+
+# --------------------------------------------------------------------------
+# AC-5's own evidence, derived instead of transcribed
+# --------------------------------------------------------------------------
+#
+# AC-5 declared its verifier as "the per-assertion table in `## Worktree
+# notes`" — prose. Three commits after that table was written, 4 of its 5
+# distinct line numbers pointed at other code: the table was transcribed out of
+# a `--tb=line` run, and the commit that renamed a cell shifted every line
+# below it. Nothing re-derived it, so nothing noticed.
+#
+# The table is DATA here, and what it cites is what cannot drift: the cell by
+# name and the assertion by its own source text, normalised through
+# `ast.unparse` so whitespace and line breaks do not enter into it. The card's
+# table now points at this cell instead of carrying line numbers, which is the
+# standing rule this board adopted on CARD-317's F-003 — a criterion verified
+# only by prose is a visibility regression.
+
+
+def _assertions_of(owner: str, leaf: str) -> list[str]:
+    """Every ``assert``'s own tested expression in ``owner.leaf``, in order.
+
+    Source text, normalised by ``ast.unparse``: an assertion cited this way
+    survives every reformatting and every line shift, and stops being citable
+    the moment the assertion itself changes — which is the point.
+    """
+    target = getattr(globals()[owner], leaf)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(target)))
+    return [
+        ast.unparse(node.test)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assert)
+    ]
+
+
+def _assert_messages_of(owner: str, leaf: str) -> list[str]:
+    """Every ``assert``'s own failure message in ``owner.leaf``, as source text."""
+    target = getattr(globals()[owner], leaf)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(target)))
+    return [
+        ast.unparse(node.msg)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assert) and node.msg is not None
+    ]
+
+
+#: AC-5's evidence: one row per plant of this round, naming the **wrongness**
+#: it introduces, the cell it reds, and the assertion inside that cell it
+#: reaches. ``(arm, mutant, wrongness, kind, class, method, assertion)``.
+#:
+#: Three kinds per arm, because a test short-circuits at its first failing
+#: assert and a surviving mutant looks exactly like a never-reached assertion:
+#: *liveness* (the arm's source is gone), *count* (the declaration and the
+#: reading disagree in number) and *verdict* (they agree in number and not in
+#: place). MUT-7/MUT-8 alone would have left the verdict assertion unmeasured.
+AC5_PER_ASSERTION: tuple[tuple[str, str, str, str, str, str, str], ...] = (
+    (
+        "raster",
+        "MUT-2",
+        "the page arrives as operators",
+        "liveness",
+        "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails",
+        "test_each_arms_mechanism_is_still_exercised",
+        "liveness.alive",
+    ),
+    (
+        "raster",
+        "MUT-7",
+        "one dot too few is declared",
+        "count",
+        "TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct",
+        "test_a_declared_glyph_is_found_as_ink_and_accounted_for",
+        "len(declared) == _rank(PLANTED_TIER)",
+    ),
+    (
+        "raster",
+        "MUT-14",
+        "the declared boxes are shifted one device pixel, so the counts agree",
+        "verdict",
+        "TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct",
+        "test_a_declared_glyph_is_found_as_ink_and_accounted_for",
+        "_unaccounted(found, declared) == ()",
+    ),
+    (
+        "vector",
+        "MUT-1",
+        "the writer emits an empty stream",
+        "liveness",
+        "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails",
+        "test_each_arms_mechanism_is_still_exercised",
+        "liveness.alive",
+    ),
+    (
+        "vector",
+        "MUT-8",
+        "one dot too few is declared",
+        "count",
+        "TestDifficultyDots_TheVectorArmReadsTheStream",
+        "test_a_declared_glyph_is_found_in_the_stream_and_accounted_for",
+        "len(declared) == len(dots.dots)",
+    ),
+    (
+        "vector",
+        "MUT-15",
+        "the declared boxes are flipped about the wrong page height, so the "
+        "counts agree",
+        "verdict",
+        "TestDifficultyDots_TheVectorArmReadsTheStream",
+        "test_a_declared_glyph_is_found_in_the_stream_and_accounted_for",
+        "_unaccounted(found, declared) == ()",
+    ),
+)
+
+
+class TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness:
+    """AC-5's evidence, re-derived off the cells rather than read off a table.
+
+    This class is the whole of F-002's remedy. AC-5's claim is not "both arms
+    have a failing test" — it is "each wrongness reaches **its own**
+    assertion", which is a claim about the structure of two cells, and a claim
+    about structure can be derived from the structure.
+    """
+
+    def test_each_wrongness_ac5_names_reaches_its_own_assertion(self) -> None:
+        """Every row of :data:`AC5_PER_ASSERTION` names an assertion that exists.
+
+        The citation is the assertion's **source text**, so this cell reds both
+        ways: an assertion that is edited or deleted stops matching, and a row
+        kept for a cell that no longer carries it stops matching too. Neither
+        failure mode is available to a line number, which is what went stale.
+        """
+        assert len(AC5_PER_ASSERTION) == 6, len(AC5_PER_ASSERTION)
+        for arm, mutant, wrongness, kind, owner, leaf, assertion in (
+            AC5_PER_ASSERTION
+        ):
+            assert owner in globals(), f"{mutant} names a class that is gone: {owner}"
+            assert hasattr(globals()[owner], leaf), (
+                f"{mutant} names a cell that is gone: {owner}::{leaf}"
+            )
+            tests = _assertions_of(owner, leaf)
+            assert tests.count(assertion) == 1, (
+                f"{mutant} ({arm}, {kind}: {wrongness}) cites "
+                f"{assertion!r} in {owner}::{leaf}, which carries it "
+                f"{tests.count(assertion)} times. Its assertions are {tests}"
+            )
+
+    def test_the_count_and_the_verdict_are_two_assertions_not_one(self) -> None:
+        """The separation itself, per arm, and in the order that makes it matter.
+
+        A fused ``assert count and verdict`` would satisfy every row above and
+        measure one thing: the short-circuit AC-5 exists to name. So the two
+        are required to be **distinct** assert statements of the same cell,
+        with the count strictly **earlier** — which is what makes "MUT-7 alone
+        would have left the verdict unmeasured" a fact about this code rather
+        than a story about it.
+        """
+        for arm in ("raster", "vector"):
+            rows = {
+                kind: (owner, leaf, assertion)
+                for row_arm, _, _, kind, owner, leaf, assertion in AC5_PER_ASSERTION
+                if row_arm == arm
+            }
+            assert set(rows) == {"liveness", "count", "verdict"}, (
+                f"the {arm} arm reaches {sorted(rows)}, not three distinct "
+                "wrongnesses"
+            )
+            count_owner, count_leaf, count_assertion = rows["count"]
+            verdict_owner, verdict_leaf, verdict_assertion = rows["verdict"]
+            assert (count_owner, count_leaf) == (verdict_owner, verdict_leaf), (
+                f"the {arm} arm's count and verdict are in different cells, so "
+                "neither can short-circuit the other and this cell is vacuous"
+            )
+            assert count_assertion != verdict_assertion
+            tests = _assertions_of(count_owner, count_leaf)
+            assert tests.index(count_assertion) < tests.index(verdict_assertion), (
+                f"the {arm} arm's verdict assertion runs BEFORE its count "
+                f"assertion in {count_owner}::{count_leaf}, so the count is "
+                "the one a short-circuit hides"
+            )
+            # And the liveness assertion is elsewhere: the arm's source going
+            # dead is not a wrongness the accounting cells can see at all,
+            # which is this card's whole subject.
+            assert rows["liveness"][:2] != (count_owner, count_leaf)
