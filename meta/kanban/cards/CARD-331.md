@@ -178,26 +178,55 @@ day it stops. With the declaration lifted, the new section's 34 cells report
 **exactly 2 red**, both naming the raster arm, its mechanism and the remedy;
 the vector arm's 32 are green on the converted tree.
 
+> **Fix round 1 (F-006).** That sentence was half true when it was written:
+> the mechanism-still-exercised cell carried arm + mechanism + remedy, and its
+> sibling — the probe-reports-death cell — red on its live-state loop with
+> `f"the {arm.name} arm is not alive"` and nothing else. The second message now
+> carries both, and the claim is **machine-checked** rather than restated:
+> `…AnArmWhoseMechanismIsDeadFails::test_both_reds_of_this_section_name_the_mechanism_and_the_remedy`
+> reads both cells' assert messages off their own source with `ast` and reds if
+> either drops `arm.mechanism` or `arm.remedy` (MUT-23).
+
 ### [AC-5: both arms fail on their own medium, measured PER ASSERTION]
 
 A test short-circuits at its first failing assert, so a surviving mutant and a
 never-reached assertion look identical. Each row below is a separate plant,
-and the line it reds is the assertion it reached.
+and the assertion it reaches is the assertion it reds.
 
-| arm | mutant | wrong how | assertion reached and red |
-|---|---|---|---|
-| raster | MUT-2 | the page arrives as operators | `liveness.alive` (`:6413`) — *"the raster arm … is DEAD: the puzzle page arrived as ContentStream, not a bitmap"* |
-| raster | MUT-7 | one dot too few **declared** | `len(declared) == _rank(PLANTED_TIER)` (`:7446`) — the **count** assertion |
-| raster | MUT-14 | declared boxes shifted 1 device px (counts still agree) | `_unaccounted(found, declared) == ()` (`:7454`) — the **verdict** assertion |
-| vector | MUT-1 | the writer emits an empty stream | `liveness.alive` (`:6413`) — *"0 painted subpaths in the stream"* |
-| vector | MUT-8 | one dot too few **declared** | `len(declared) == len(dots.dots)` (`:7080`) — the **count** assertion |
-| vector | MUT-15 | declared boxes flipped about the wrong page height (counts still agree) | `_unaccounted(found, declared) == ()` (`:7087`) — the **verdict** assertion |
+**The table is this module's own data, not this file's prose** (fix round 1,
+F-002). `AC5_PER_ASSERTION` in `tests/test_book_difficulty_dots.py` carries
+these six rows, and two cells of
+`TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness` derive the claim
+off the cells themselves. Each row cites the **cell by name** and the
+**assertion by its own source text**, normalised through `ast.unparse` — never
+by line number. The first version of this table cited lines, and three commits
+later 4 of its 5 distinct line numbers pointed at other code (`:7446` at a
+message string, `:7454` at `) -> None:`, `:7080` at `assert margin > 1.0`,
+`:7087` at a `filled=` kwarg), because the table was transcribed out of a
+`--tb=line` run and the commit that renamed a cell shifted every line below it.
+AC-5's substance was never in doubt; its *evidence* rotted, with nothing
+re-deriving it. That is the shape CARD-317's F-003 made a standing rule: a
+criterion verified only by prose is a visibility regression.
+
+| arm | mutant | wrong how | cell it reds | assertion reached |
+|---|---|---|---|---|
+| raster | MUT-2 | the page arrives as operators | `…AnArmWhoseMechanismIsDeadFails::test_each_arms_mechanism_is_still_exercised[raster]` | `liveness.alive` — *"the raster arm … is DEAD: the puzzle page arrived as ContentStream, not a bitmap"* |
+| raster | MUT-7 | one dot too few **declared** | `…TheRasterArmHoldsWithoutHookingTheProduct::test_a_declared_glyph_is_found_as_ink_and_accounted_for` | `len(declared) == _rank(PLANTED_TIER)` — the **count** assertion |
+| raster | MUT-14 | declared boxes shifted 1 device px (counts still agree) | the same cell | `_unaccounted(found, declared) == ()` — the **verdict** assertion |
+| vector | MUT-1 | the writer emits an empty stream | `…AnArmWhoseMechanismIsDeadFails::test_each_arms_mechanism_is_still_exercised[vector]` | `liveness.alive` — *"0 painted subpaths in the stream"* |
+| vector | MUT-8 | one dot too few **declared** | `…TheVectorArmReadsTheStream::test_a_declared_glyph_is_found_in_the_stream_and_accounted_for` | `len(declared) == len(dots.dots)` — the **count** assertion |
+| vector | MUT-15 | declared boxes flipped about the wrong page height (counts still agree) | the same cell | `_unaccounted(found, declared) == ()` — the **verdict** assertion |
 
 Both arms therefore reach **three distinct** assertions under three distinct
 wrongnesses: liveness, count, verdict. MUT-7/MUT-8 alone would have left the
-verdict assertion unmeasured, which is exactly the short-circuit AC-5 names.
+verdict assertion unmeasured, which is exactly the short-circuit AC-5 names —
+and that is now derived rather than told:
+`test_the_count_and_the_verdict_are_two_assertions_not_one` requires the count
+and the verdict to be **two distinct assert statements of one cell** with the
+count strictly **earlier**, so a fused `assert count and verdict` reds (MUT-22)
+instead of satisfying every row.
 
-### [The full mutant round: 16 killed, 1 declared negative control survived]
+### [The full mutant round: 23 killed, 1 declared negative control survived]
 
 `scratchpad/card331/mutate.py`. Every plant located by text with its
 occurrence count asserted to be exactly 1; every control measured green in the
@@ -205,7 +234,7 @@ same harness run *before* its plant; SHA-256 asserted before the plant and
 after the restore; `__pycache__` swept before and after each run;
 `PYTHONDONTWRITEBYTECODE=1`; the full environment inherited
 (`dict(os.environ, …)`); `-o addopts=` passed as two argv items; and
-**0 skipped asserted on the baseline** (189 passed, 0 skipped, 0 failed).
+**0 skipped asserted on the baseline** (**195** passed, 0 skipped, 0 failed; 189 before fix round 1 added six cells).
 
 | # | the plant | node it reds |
 |---|---|---|
@@ -221,11 +250,18 @@ after the restore; `__pycache__` swept before and after each run;
 | MUT-10 | the reader stops refusing a shape it cannot analyse | `…::test_a_shape_the_reader_cannot_analyse_is_a_failure` |
 | MUT-11 | the margin is declared (2.0) rather than derived | `…::test_the_closest_a_vector_page_comes_to_a_round_mark_is_derived` |
 | MUT-12 | the arm set loses a member: both arms claim RASTER | `…::test_there_is_one_arm_per_medium_the_product_can_write` |
-| MUT-13 | **declared negative control**: an arm is renamed and nothing else — it must SURVIVE, because the guard claims one arm per medium and not a set of spellings | (survived, as declared) |
+| MUT-13 | **declared negative control**: an arm is renamed and nothing else — it must SURVIVE, because the guard claims one arm per medium and not a set of spellings. That is **half** the reason. The other half, and the one that makes the survival unambiguous rather than a claim narrowed to fit: `InstrumentArm.name` feeds the `ids=` of this class's two parametrized cells, so a rename moves a node id from `[raster]` to the new spelling — caught by **G-5's node-id gate**, a different instrument at a different layer. A rename is caught; it is caught *there* rather than here, and the cell's own docstring now says so | (survived, as declared) |
 | MUT-14 | AC-5 raster, verdict | `…::test_a_declared_glyph_is_found_as_ink_and_accounted_for` |
 | MUT-15 | AC-5 vector, verdict | `…::test_a_declared_glyph_is_found_in_the_stream_and_accounted_for` |
 | MUT-16 | the page extent the vector accounting flips y about drifts from the stream's own | `…::test_the_page_extent_this_arm_flips_y_about_is_the_streams_own` |
 | MUT-17 | **the control's own control**: the raster arm's probe stops noticing that the medium has moved | `…::test_each_arms_probe_reports_death_when_its_mechanism_goes` |
+| MUT-18 | **F-004, the reviewer's own M10 re-fired**: the arm hooks a production attribute inside its *plant* function — it SURVIVED cycle 1 at 189 passed | `…TheRasterArmHoldsWithoutHookingTheProduct::test_this_arm_hooks_no_production_attribute` |
+| MUT-19 | **F-003**: the reader goes back to *ignoring* `cm`/`Do`/`sh` — the committed cycle-1 behaviour | `…TheVectorArmReadsTheStream::test_an_operator_the_reader_would_misread_is_refused_not_ignored` |
+| MUT-20 | **F-003, the binding itself**: the *writer* grows an operator the reader refuses (`stroke_width` emits a `cm`) | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
+| MUT-21 | **F-003, the other direction**: an operator is recorded as a pass-over the writer does not emit — how that list would absorb the next `cm` | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
+| MUT-22 | **F-002**: the raster count and verdict are fused into ONE assert — the short-circuit AC-5 exists to measure | `…AC5ReachesADistinctAssertionPerWrongness::test_each_wrongness_ac5_names_reaches_its_own_assertion` + `test_the_count_and_the_verdict_are_two_assertions_not_one` |
+| MUT-23 | **F-006**: the second red's message goes back to naming the arm and nothing else | `…::test_both_reds_of_this_section_name_the_mechanism_and_the_remedy` |
+| MUT-24 | **F-005**: the raster remedy offers "retire this arm" again | `…::test_no_arms_remedy_offers_an_option_this_section_forbids` |
 
 ### [The frozen render-heavy set: a hazard met and avoided, with the reason]
 
@@ -337,3 +373,127 @@ loud what it does **not** see.
   bands, so the accounting would become a question about which band a plant
   landed in. Named as the arm's next step rather than half-built.
 - **`RENDER_HEAVY_SNAPSHOT` not re-frozen** — see above.
+
+## Fix round 1 — cycle 1 scored 8.5, three Important and four Minor
+
+The review reproduced both halves of this round's premise correction (29/160
+and 15/174), confirmed the floors are not self-referential, the node ids
+155 → 189 with 0 removed, the validator set-identical, and no tolerance
+widened. Its three Important findings were all about **declarations**, not
+about the work: two of them one root cause — prose in this diff still carrying
+a claim the round's own measurements had retired.
+
+### [F-003 — the reader's vocabulary is bound to an enumeration now, and three operator classes refuse]
+
+The finding's measurement, re-run against the reader **as committed**, and
+reproduced exactly:
+
+| stream | the reader, before | the reader, after |
+|---|---|---|
+| `10 10 20 20 re f` | accepted, 1 mark, box (10,10,30,30) | accepted, 1 mark, box (10,10,30,30) |
+| the same rect under `2 0 0 2 0 0 cm` | **accepted, 1 mark, the UNTRANSFORMED box** — bit-identical to no transform | **refused** `StreamShapeError` |
+| `q 100 0 0 100 0 0 cm /Im0 Do Q` | **accepted, 0 marks, silent** | **refused** `StreamShapeError` |
+| `/Sh0 sh` | **accepted, 0 marks, silent** | **refused** `StreamShapeError` |
+| `BI /W 1 /H 1 … ID … EI` | accepted, 0 marks, silent | **refused** `StreamShapeError` |
+| `q 10 10 20 20 re f Q` (control) | accepted, 1 mark | accepted, 1 mark, the same box |
+| `0 g 0 G 1 w BT … Tj ET /ClueDigit BMC … EMC` (control) | accepted, 1 mark | accepted, 1 mark, the same box |
+| `10 10 m 20 20 30 30 v f` | refused | refused |
+| `0 0 10 re f` (starved) | refused | refused |
+
+`q`/`Q` are deliberately **not** in the refused set, and that is an argument
+rather than an omission: a saved and restored graphics state changes where an
+operand lands only if something moved the CTM in between, and the only
+operator that can is `cm`. So refusing `cm` closes the `q`/`Q` dependency
+too — two of the three facts the reader used to *depend on* collapse into one
+refusal, and the third (`write_vector_page` refuses a `Do`) stops being a
+dependency at all.
+
+**The vocabulary is bound to the enumerable authority** (ADR-0039/R2):
+`_DOOR_EMITS` from `tests/test_book_solved_answer_key.py`, which *drives* every
+public `ContentStream` member and reads what comes out. Its union is 17
+operators; `_UNCLASSIFIED_DOORS == ()` is restated here because this claim
+rests on it. Every one of the 17 must be **understood**, **refused**, or a
+**recorded pass-over**, the three sets held disjoint — and the pass-over list
+is held down as well as up, because an entry naming an operator the writer does
+not emit is exactly how that list would absorb the next `cm` (MUT-21).
+
+**Home: `tests/test_book_difficulty_dots.py`, not the co-change peer.** The
+reviewer suggested `tests/test_book_pdf_vector_primitives.py` (this diff's one
+unguardrailed co-change peer, 5 of 12 months) and the judgement went the other
+way, for three reasons. The failure mode is an **under-measurement of this
+card's accounting** — the vector arm is `stream_marks`' only consumer, and the
+symptom is a dot the arm cannot see while liveness stays green on 588 grid-rule
+subpaths. Every instrument that would catch a regression in it is pointed at
+this module: G-5's node-id gate, the 195-cell baseline, and the mutant harness.
+A cell in the peer module would sit outside all three — which is precisely
+F-002's defect in a different costume. And the cell it widens, the
+`PAINTS_THAT_FILL`-is-a-subset cell, is already in this module's vector-arm
+class, so the general guard sits beside the narrow one it generalises.
+
+### [F-005 — the cross-card contradiction, and what CARD-322 must do]
+
+The raster arm's remedy offered "retire this arm, or re-point it…". **The
+first option is not available**, and the card's own guard forbids it:
+`PageMedium` has exactly two members and the cover and divider stay raster
+under ADR-0042/R2, so an arm set that loses `RASTER` reds
+`test_there_is_one_arm_per_medium_the_product_can_write`.
+
+And the contradiction is sharper than the remedy string. `CARD-322.md:118-121`
+reads: *"expect to delete raster expectations here, not satisfy them. Same for
+**CARD-331**'s raster arm of the difficulty-dot accounting: its lifetime ends
+with this card."* So CARD-322 is told to **delete** the arm, this card's guard
+reds if it does, and this card's own remedy offered deletion as an option. Two
+cards, two instructions, and one of them unbuildable.
+
+**Which half of CARD-322's sentence is false, and why.** The *puzzle page's*
+raster expectations do end with CARD-322 — that half is right, and the 27
+bitmap-reading cells are exactly what it retires. What does not end is the
+**medium**: `PageMedium` keeps `RASTER` because the cover and the divider keep
+their bitmaps under ADR-0042/R2 (CARD-322's own text says "**Dividers stay
+raster**, unchanged" four lines later, which is the sentence that refutes the
+one above it). The arm is an accounting **per medium**, not per page kind, and
+the axis it is enumerated on is the thing that survives the conversion.
+
+**The instruction CARD-322 inherits, stated once:** *re-point*, do not retire.
+Concretely — keep the raster arm, change its `kind` from `PageKind.PUZZLE` to a
+page kind `_RASTER_DECLARATIONS` still declares raster (the cover or the
+divider), and move the 27 bitmap-reading cells of this module with it.
+CARD-322 is the card that owes the correction to its own line 118-121; it is
+not edited from here, because another card's body is its own record. The remedy
+string now says only this, and
+names the forbidden option as forbidden, so a reader of the red cannot pick it
+by accident. `test_no_arms_remedy_offers_an_option_this_section_forbids`
+**derives** the forbiddenness — dropping any arm leaves a medium the product
+can write unarmed — and then holds every remedy to it (MUT-24).
+
+### [Out-of-scope answers the next card inherits]
+
+- **CARD-227, not CARD-223, is the nearer precedent for the render-set
+  refusal — and the refusal survives it.** CARD-227 added a file to
+  `RENDER_HEAVY_SNAPSHOT` whose grep match was "a false positive by the grep's
+  purpose" anyway, "because the file genuinely renders and the set is there to
+  find the files that do" — a criterion `tests/test_book_difficulty_dots.py`
+  also meets. What CARD-227 never faced is the **450 occurrences of this file
+  in `suite-durations-20261023.txt`**: adding it moves the render-heavy row
+  (554.47 s / 38.88 % / 1391) and the two rows derived from it in *both*
+  committed hotspots documents, whose figures two cells re-derive, and makes
+  `suite-hotspots-20261023.md`'s own "render-set drift: none" false until
+  re-verified. CARD-227's file carried no such census. Recorded here so a later
+  reader who hits CARD-227 first does not read it as unanswered.
+- **The arm never reads a pairing-walk sheet.** Rebuilding the corpus to
+  compose one vector sheet per puzzle **row** was strictly better on its own
+  merits (a dropped page is a dropped puzzle; 11 pages → 13; both parities in
+  the sweep), and it gave up one thing explicitly: no sheet in this corpus
+  came through the pairing walk. The two-up arm — correctly not built here,
+  because a paired sheet carries two bands and the accounting would become a
+  question about which band a plant landed in — inherits that gap as well as
+  the two-band question.
+
+### [Figures re-derived in fix round 1, with their bases]
+
+| figure | base |
+|---|---|
+| **195 passed / 0 skipped** on `tests/test_book_difficulty_dots.py` | the whole module, `-o addopts=`, `-rs`; 189 before this round, +6 cells |
+| **23 killed / 1 declared survivor** over 24 plants | `scratchpad/card331/mutate.py`, every control green in the same run |
+| the writer's measured surface: **17 operators** | the union of `_DOOR_EMITS`, which drives all 18 public `ContentStream` members |
+| the validator: **0 err / 90 warn** | `meta/architecture/` is byte-identical to `b18fd397` (`git diff b18fd397..HEAD -- meta/architecture/` is empty), so set-identity is a property of the diff and not of a run. `meta/kanban/config.yml:17-22` carries a stale 2026-10-29 comment saying 102; it is wrong and is not this card's file to correct |

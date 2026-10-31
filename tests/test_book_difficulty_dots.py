@@ -8028,6 +8028,20 @@ class TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness:
             )
             assert count_assertion != verdict_assertion
             tests = _assertions_of(count_owner, count_leaf)
+            # Both present before either is located, so a fused or deleted
+            # assertion reds with a message rather than raising ValueError out
+            # of ``list.index`` — a crash reads as a broken instrument, and
+            # this cell's whole job is to be readable when it fires.
+            missing = [
+                assertion
+                for assertion in (count_assertion, verdict_assertion)
+                if assertion not in tests
+            ]
+            assert not missing, (
+                f"the {arm} arm's {count_owner}::{count_leaf} no longer carries "
+                f"{missing} as an assertion of its own — fused into another "
+                f"assert, or gone. Its assertions are {tests}"
+            )
             assert tests.index(count_assertion) < tests.index(verdict_assertion), (
                 f"the {arm} arm's verdict assertion runs BEFORE its count "
                 f"assertion in {count_owner}::{count_leaf}, so the count is "
