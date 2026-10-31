@@ -122,6 +122,35 @@ active:
 - id: CARD-317
   phase: review
   cycle: 1
+  cycle1_score: 6.0
+  fix_round: 1
+  fix_findings: [F-001, F-002, F-003, F-004, F-005]
+  # Cycle 1 CONFIRMED all three premise refutations and verified every numeric
+  # claim the round made as exact -- and still scored 6.0 on three Important
+  # defects, two of them one root cause: the round re-measured everything handed
+  # to it as a NUMBER and trusted what was handed to it as a MECHANISM.
+  #   F-001  the headline repair landed in the card's own erosion class: the new
+  #          ADR-0006/R1 ref is a 2-part NODE ID resolving from 58 bookkeeping
+  #          files and NOT from the module holding its def. The bare name
+  #          resolves from 82 INCLUDING its definition module. One-line fix.
+  #   F-002  a FALSE claim committed into an accepted ADR ("ADR rule refs are
+  #          not yet verified at all by the validator"). Orchestrator-verified in
+  #          the source: validators/requirements.py:169 calls
+  #          _validate_adr_rule_check_refs, which walks every Accepted ADR's
+  #          Rules block through the same _check_ref_findings. Violates
+  #          ADR-0039/R4. CONSEQUENCE BEYOND THIS CARD: CARD-319's Defect 2 is
+  #          refuted at this HEAD and that card must be re-measured before it is
+  #          unblocked -- recorded on its board entry.
+  #   F-003  AC-269 went from "honestly dead, one WARN every run" to "resolves,
+  #          validator silent, gap in prose only" with NO card owing the form --
+  #          CARD-318's F-009 in a milder form. Standing rule set here: a
+  #          partly-asserted criterion may ship, but only with a named card
+  #          owing the form or a tool-readable mark. Never on prose.
+  # The review also corrected TRACE_TESTS to OUT 8 (not 7; 513-8+2=507, so the
+  # committed baseline was right and only the summary was off) and corrected an
+  # orchestrator figure: the requirements.yml hand-off shifts are CUMULATIVE
+  # across five sites -- FR-001 +0, FR-019 +44, FR-042 +61, NFR-001 +87,
+  # CON-011 +97 -- not the +27/+19 I committed to the board. Retracted there.
   # Implementation REFUTED the card three times over: FR-001's dead ref was
   # hiding nothing (the 50->30 narrowing is recorded five times in
   # requirements.yml); the re-pointing job is FR-019's, whose six refs resolved
