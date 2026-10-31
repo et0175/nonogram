@@ -70,6 +70,11 @@ active:
 - id: CARD-330
   phase: review
   cycle: 1
+  cycle1_score: 7.5
+  fix_round: 1
+  fix_findings: [F-001, F-002, F-003, F-103, F-105]
+  routed_to_card_322: [F-101, F-102]
+  routed_dead_ref_family: [F-104]
   branch: card/330-edge-offset-is-two-device-pixels
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-330
   started: '2026-10-30T23:18:51Z'
