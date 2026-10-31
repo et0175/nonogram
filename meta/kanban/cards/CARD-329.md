@@ -1,6 +1,6 @@
 # CARD-329: The one-image reader learns the content stream — AC-3's real content, separated from the three causes that were not readers
 
-**Status:** review
+**Status:** done
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30 on the owner's "move from raster to vector first". It is on the critical path to CARD-322, which is the card that finally gives the vector interior a reader -- nothing in `src/` turns an interior page into operators until it lands. CARD-330 was already P1; these three are one front and a split priority would have the dispatcher take them in the wrong order. -->
 **Category:** tech-debt
 **Estimate:** 2d <!-- RE-CUT 2026-10-31 from 0.75d on the owner's "re-cut 329". 0.75d priced the helper fix plus a triage; this card now also REPAIRS the population-B modules its triage names, and builds the verification that makes AC-4 capable of failing. Five modules, a helper, and a harness. -->
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/helpers/pdf_pages.py, tests/test_book_pdf.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_cell_size.py <!-- WIDENED 2026-10-31 at the re-cut, by the five unowned population-B modules. DELIBERATELY EXCLUDED: tests/test_book_difficulty_dots.py and tests/helpers/round_ink.py (CARD-331's, G-3) and tests/helpers/page_ink.py (CARD-330's, G-2). -->
-**Review score:** 6.5 → 7.5 → **9.0 CERTIFIED** (cycle 3 of 3, the last allowed; no Critical, no Important, one non-gating Minor)
+**Review score:** 9.0 (cycle 3 of 3 — CERTIFIED; 6.5 → 7.5 → 9.0; no Critical, no Important, one non-gating Minor — F-011, closed at the merge gate by re-derivation)
 **Started:** 2026-10-31T06:47:15+00:00
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-31T10:52:18+00:00
+**Actual:** 4.1h wall-clock against a 2d estimate (measured from Started, not estimated)
+**Merge commit:** `9db10da6` — gate green on the merged tree: 10101 passed / 0 failed / 27 skipped / 1 xfailed in 1288s. Skips attributed from `-rfs`, not from memory: **26** from the bare `DATABASE_URL` check at `tests/conftest.py:207` ("Database not reachable: DATABASE_URL is not set") and **1** from the `setrlimit(RLIMIT_AS)` platform gate at `tests/test_book_pdf_memory.py:1297`; the per-worktree `*_test` resolution gate did NOT fire. G-5 re-derived twice on the merged tree and agreeing: the card's own `ast` walk over the seven `Touches` paths gives 282 → 310, and pytest's own whole-suite collection gives 10101 → 10129 — **0 lost, 28 gained, the two instruments naming the IDENTICAL 28 node ids**. Validator of record (the forge_1 copy, read-only): 0 errors / 88 warnings on main before the merge and on the merged tree, with the WARN **sets** compared by `comm` rather than by total — empty symmetric difference in both directions, so no `+1/-1` pair hides inside the unchanged total, and no dead-ref warning DISAPPEARED, which is the empirical proof that merging `scratchpad/card329/*.py` revived no dead check ref. Merged onto `59eb2126`, one kanban bookkeeping commit past the `ce2765dd` the gate brief named (`board.md` + `dispatcher.state` only, no `tests/` and no `src/`, so the baseline is unaffected).
 **Blocked by:** —
 
 ## [Re-cut 2026-10-31] — the owner's call, and the vacuity it exposed
