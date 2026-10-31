@@ -4184,25 +4184,39 @@ functional:
       # given the per-book title ... in Arrangement" (owner-confirmed source
       # of the title; outcome unchanged).
       #
-      # REF RE-POINTED 2026-10-31 by CARD-317, and the residual gap recorded
-      # rather than papered over. The old ref, like AC-268's, defined nothing
-      # and was mentioned nowhere. The ref below is the only test that
-      # exercises this criterion's distinguishing half — that the per-book
-      # title set in Arrangement, not the picture's own name, is what the
-      # answer's caption carries — and it asserts it with a control: the page
-      # rendered for the book that sets "Winter Star" matches the page
-      # rendered under that title and does NOT match the page rendered under
-      # "Snowflake". What NO test asserts is this `then` literally: the
-      # rendered caption string for the custom-title case is never read back
-      # (AC-268's ref does that only for the name case). So the criterion is
-      # verified in substance and under-verified in form; CARD-317 states
-      # this instead of calling the ref's resolution coverage.
+      # REF RE-POINTED 2026-10-31 by CARD-317. The old ref, like AC-268's,
+      # defined nothing and was mentioned nowhere. TWO refs now, because the
+      # criterion has two halves and one test each:
+      #   * the first exercises the distinguishing half — that the per-book
+      #     title set in Arrangement, not the picture's own name, is what the
+      #     answer's caption carries — with a control: the page rendered for
+      #     the book that sets "Winter Star" matches the page rendered under
+      #     that title and does NOT match the page rendered under
+      #     "Snowflake". That pins the WIRING;
+      #   * the second reads this `then` off the rendered page: it composes
+      #     "Puzzle 1 — Winter Star" from a template literal declared in its
+      #     own module as a deliberate second implementation of the caption
+      #     rule, asserts that line of ink is on the answer page exactly once
+      #     at a size other than the band's, and asserts the picture's own
+      #     name is printed nowhere on it. One-puzzle book, so the number is 1
+      #     rather than 7; nothing else differs, as for AC-268's 5.
+      #
+      # GAP CLOSED 2026-10-31, fix round 1 (CARD-317 review cycle 1, F-003).
+      # Until the second ref existed this criterion was "verified in substance
+      # and under-verified in form", and that was recorded here as prose — the
+      # wiring test's two sides both compose the caption through the same
+      # primitive, so a caption printed "Winter Star — Puzzle 1", or with the
+      # number or the em dash dropped, would have kept it green. The review
+      # called prose-only mitigation a visibility regression (the dead-ref WARN
+      # a reader met every run was gone and nothing had replaced it), and it
+      # was right: the whole CARD-307 family exists to stop the model relying
+      # on prose. Closed rather than marked, so no card owes a form assertion.
       - id: AC-269
         given: a book whose puzzle 7 is named "Snowflake" and was given the per-book title "Winter Star" in Arrangement
         when: the book PDF is generated
         then: answer 7's caption reads "Puzzle 7 — Winter Star"
         kind: boundary
-        test: test_a_custom_book_title_wins_over_the_pictures_own_name
+        test: test_a_custom_book_title_wins_over_the_pictures_own_name, test_the_answer_caption_reads_the_custom_title_and_not_the_name
       # REWORDED 2026-09-22 (d): "30 pages" -> "30 answer pages (the
       # SOLUTIONS divider not counted)". A one-tier book, so the level
       # restart cannot bite; the three-level default plan is AC-293.

@@ -40,9 +40,28 @@ def classes() -> dict[str, tuple[str, ...]]:
     return {
         "bookkeeping_only": tuple(sorted(v.ref for v in verdicts if v.bookkeeping_only)),
         "falsely_alive": tuple(sorted(v.ref for v in verdicts if v.falsely_alive)),
+        "falsely_dead": tuple(sorted(v.ref for v in verdicts if v.falsely_dead)),
         "defined": tuple(sorted(v.ref for v in verdicts if v.strict)),
         "honest_dead": tuple(
             sorted(v.ref for v in verdicts if not v.loose and not v.strict)
+        ),
+        "resolved_from_afar": tuple(
+            sorted(
+                v.ref
+                for v in verdicts
+                if v.declared.form == guard.FORM_NODE_ID
+                and v.strict
+                and v.ref.partition("::")[0] not in v.loose
+            )
+        ),
+        "same_file_prose": tuple(
+            sorted(
+                v.ref
+                for v in verdicts
+                if v.declared.form == guard.FORM_NODE_ID
+                and v.strict
+                and v.ref.partition("::")[0] in v.loose
+            )
         ),
         "census": tuple(sorted(d.ref for d in guard._declared_refs())),
         "trace_tests": trace,

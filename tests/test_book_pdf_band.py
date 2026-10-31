@@ -1497,6 +1497,63 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         assert found[0].size != BAND_FONT_PX
 
 
+class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
+    """FR-042/AC-269's ``then``, read off the page instead of inferred.
+
+    AC-268 -- the sibling criterion -- is closed by
+    :meth:`TestBookPdf_BandPrintsOnceInTheExportedPdf.test_the_search_finds_an_answer_caption_at_its_own_size`
+    above, which composes the caption from :data:`ANSWER_CAPTION` (this
+    module's deliberate second implementation of the rule, not
+    ``book_answer_key.answer_caption`` run twice) and asserts that string is
+    the ink on the answer page, at a size other than the band's. AC-269 is the
+    same question for the case that distinguishes it: the per-book title set
+    in Arrangement (``books.puzzle_titles``) beating the picture's own name.
+
+    **Why this cell exists.** AC-269's other ref -- the cell at line 308 of
+    ``tests/test_book_solved_answer_key.py``, named here by site rather than
+    spelled, so this module does not become a text resolver for a ref declared
+    elsewhere -- pins the WIRING: it compares the rendered page against
+    ``solved_puzzle_page`` called with ``title="Winter Star"``, with the
+    picture's name as the negative control.
+    That is a real assertion and it is kept; what it cannot see is the caption
+    itself, because both sides of its comparison compose the caption through
+    the same primitive. Printed "Winter Star -- Puzzle 1", or with the number
+    dropped, or with the em dash gone, it would stay green. So AC-269's
+    ``then`` -- that the caption *reads* "Puzzle 7 - Winter Star" -- was
+    narrated in ``requirements.yml`` and asserted nowhere. CARD-317 review
+    cycle 1 (F-003) called that a visibility regression rather than coverage,
+    and this is the four-line close it named.
+
+    One-puzzle book, so the number is 1 rather than the criterion's 7; nothing
+    else differs, exactly as for AC-268's 5. The negative half is this book's
+    own picture name, which must be ink nowhere on that page.
+    """
+
+    TITLE = "Winter Star"
+    NAME = "Snowflake"
+    PUZZLE_ID = "p7"
+
+    def test_the_answer_caption_reads_the_custom_title_and_not_the_name(self) -> None:
+        puzzle = _puzzle(name=self.NAME, puzzle_id=self.PUZZLE_ID)
+        book = _book()
+        book.puzzle_titles = {self.PUZZLE_ID: self.TITLE}
+        pages = _interior([puzzle], book)
+
+        answer = pages[answer_page_number([puzzle]) - 1]
+        custom = ANSWER_CAPTION.format(number=1, title=self.TITLE)
+        own = ANSWER_CAPTION.format(number=1, title=self.NAME)
+        found = _find([answer], [custom, own])
+
+        assert [hit.text for hit in found] == [custom], (
+            f"the answer page prints {[hit.text for hit in found]} where exactly "
+            f"one line of {custom!r} and no line of {own!r} was expected"
+        )
+        assert found[0].size != BAND_FONT_PX, (
+            "the caption was found at the band's size, so the line read is the "
+            "band and not the caption"
+        )
+
+
 class _BandDraws(NamedTuple):
     #: ``{page written: Counter of band lines drawn on the image written there}``,
     #: pages numbered in write order (the interior's 1..11, then the cover's)

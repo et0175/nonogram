@@ -1,0 +1,332 @@
+# NOT A SOURCE OF CHECK REFS. Nothing in this file is a `check:` ref, a `test:`
+# ref or a declaration of any symbol. It is a review record, and it lives inside
+# the architecture validator's loose-resolution domain (`git grep -lw`, which
+# excludes meta/architecture and every *.md and NOTHING ELSE), so a ref name
+# spelled here would RESOLVE and revive a dead pointer for that search. Every
+# retired/phantom ref discussed below is therefore named BY SITE
+# (requirements.yml / trace.yml / ADR id + criterion id) and never spelled. The
+# test names that do appear are names with a real `def` line, where an extra
+# text resolver changes no class; they are written inline in prose and never at
+# the start of a line, so none can be read as a definition.
+version: 1
+generated_at: "2026-10-31T00:00:00Z"
+target: "CARD-317 cycle 1 — branch card/317-check-refs-and-the-grid-bound, HEAD f70c2d84, merge base b18fd397 (10 files, +948/-55)"
+overall_score: 6.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - meta/architecture/requirements.yml
+    - meta/architecture/trace.yml
+    - meta/architecture/decisions/adr/0001-generation-time-thresholds.md
+    - meta/architecture/decisions/adr/0006-dependency-baseline.md
+    - tests/test_check_ref_resolution.py
+    - tests/test_grid_bound_agreement.py
+    - tests/test_book_pdf_band.py
+    - tests/test_book_solved_answer_key.py
+    - tests/test_export_pdf.py
+    - tests/test_timeout.py
+    - tests/test_sourcing_image.py
+    - tests/bench_generate.py
+    - src/nonogram/limits.py
+    - scratchpad/card317/
+    - /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validators/requirements.py
+    - /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validators/utils.py
+  not_reached:
+    - tests/test_suite_profile.py           # holds ADR-0039/R1,R2's own check refs; existence verified, bodies not read
+    - the full 10,060-node suite            # impact scope only; full-suite lock respected, lock never touched
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 948, removed: 55 }
+  tests_cover_change: true
+  hotspots:
+    - meta/architecture/requirements.yml    # the registry; CARD-316 serializes behind this card on it
+    - tests/test_check_ref_resolution.py    # six frozen censuses, repaired by hand on CARD-318
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: >-
+      not_applicable — the diff contains no src/ change and exports no symbol;
+      the only cross-file couplings are declarative (a `test:`/`check:` ref and
+      a trace row), and those were enumerated exactly instead (nine withdrawn
+      declarations, two added, re-derived as set differences).
+    cochange_missing: >-
+      no_eligible_fact — the co-change peers of the touched meta/architecture
+      files over the last 12 months are the card files and review YAMLs the
+      pipeline writes for every card; none is a missing-change candidate for a
+      model-only diff, so the empty list is a judgement and not a count.
+
+system_contract:
+  rules_checked: 4
+  holds: 3
+  unchecked: 0
+  violated: 1
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — the card's claims carry controls that CAN fail, measured: 11 of my 15 planted mutants were killed by the card's own cells (MIN_SIZE 10->9; FR-019's worded range 30->50; AC-068's `then` 30x30->50x50; AC-002's `status: superseded` removed; a `superseded_by` pointed at a criterion FR-019 does not declare; a cue-free stale-extent line added to ADR-0001; ADR-0006/R1's ref replaced by a nonsense name; the definition behind one re-pointed ref renamed to a non-substring; a registry `test:` replaced by a nonsense name; a class-style phantom re-added to a trace row). The new module proves its own scanner in both directions before concluding from it (tests/test_grid_bound_agreement.py, the scanner cell). Caveat filed as F-004: one claim's control is line-scoped and weaker than its docstring sentence."
+    - "ADR-0039/R2 ✓ holds — an unanalysable shape is a FAILURE, not a silent pass: the new module's block scanner raises rather than returning empty for a requirement it cannot find (exercised with pytest.raises in the scanner cell), and the census guard's own shape-refusal cell is green in all 23 of its tests. Re-derived: the round's `MAX_SIZE 30 -> 29` trap is real — that mutant exits pytest with rc=4 and NO count line (conftest import breaks), so it is unanalysable rather than killed, exactly as the round recorded."
+    - "ADR-0001 ✓ holds — neither threshold is reopened and the card decides nothing. `**Status:** Accepted (revised 2026-08-28)` at line 3 is untouched (the diff's first hunk starts at line 10); the 5s p95 and 30s timeout figures are unchanged; the new text is a `## History` scope note that records the owner's 2026-08-30 narrowing, its authorities, the rejected alternatives and that the code-side date is unrecoverable. ADR-0001's text now agrees with src/nonogram/limits.py (MIN_SIZE 10, MAX_SIZE 30) and with FR-019, and a test holds the three together."
+    - "ADR-0039/R4 ✗ violated — meta/architecture/decisions/adr/0006-dependency-baseline.md:186-188 commits a claim about the validator of record without running it, and the claim is false (F-002). The rule's other half is honoured: two refuted figures were retracted where they were written, and both retractions re-derive correctly."
+
+root_causes:
+  - id: RC-1
+    title: >-
+      Claims about ref resolution inherited from sibling cards instead of
+      re-measured — the one input class this round did not put through its own
+      instruments
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0006-dependency-baseline.md
+    line: 170
+    title: "ADR-0006/R1's repaired pointer still resolves only from bookkeeping — the card's own erosion class"
+    description: |
+      The card's item 5 is the one repair it was commissioned to make, and it
+      landed in the one ref form the card's own worktree notes derive as not
+      resolving at a definition.
+
+      The new ref is a two-part pytest node id. In the validator's domain
+      (`git grep -lw <whole ref>`, excluding meta/architecture and *.md) it
+      resolves from 58 tracked files, measured at this HEAD: 52 under
+      meta/review/, 4 under meta/profiling/, meta/kanban/backlog-scored.yml,
+      and one test module. That one test module is NOT the module holding the
+      definition — the module that carries the real `def` (line 1249 of
+      tests/test_export_pdf.py) does not spell the node id anywhere, so the
+      ref does not resolve at its own definition.
+
+      The card's own guard already has a class for this and the ref is in it:
+      the resolved-from-afar cell (tests/test_check_ref_resolution.py around
+      line 1861) selects node-id refs whose definition exists and whose
+      declaring path is absent from the loose hits, and its docstring reads
+      "the loose resolution rests entirely on files that are about the card
+      rather than about the code, and the board has no control stopping them
+      being pruned". The class did not move only because ADR-0042's own rule
+      had already declared the identical string (line 650 of
+      0042-book-interior-is-vector-cover-stays-raster.md).
+
+      The honest form was available and the card used it everywhere else.
+      Measured: the BARE name resolves from 82 files INCLUDING its own
+      definition module. That is the rule the card states in its worktree
+      notes ("a bare name resolves at its own `def` line in both
+      instruments") and applies to FR-019's six and FR-042's two — and then
+      does not apply here.
+
+      Consequence, concretely: prune or stop syncing meta/review/ and
+      meta/profiling/ and ADR-0006/R1 flips from falsely-alive to a dead-ref
+      WARN with its test untouched and passing. The twelve cards' hand-written
+      DEAD-REF notes the card declares "now true" are true of the rule and
+      still not true of the pointer's resolution path.
+    suggestion: |
+      Change ADR-0006/R1's `check.ref` to the bare test name (no path, no `::`),
+      which resolves at its own `def` line in both the validator and the guard —
+      the form this card already chose for FR-019's six, FR-042's two and
+      CON-011. Keep the prose explaining what the retired name was. The census
+      guard will red (a declaration moved) and must be re-derived, which is the
+      intended behaviour.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: meta/architecture/decisions/adr/0006-dependency-baseline.md
+    line: 186
+    title: "A false claim about the validator of record, committed into an accepted ADR without running the instrument"
+    description: |
+      The new comment states: "ADR rule refs are in any case not yet verified
+      at all by the validator (CARD-319), so this pointer would have resolved
+      falsely even if they were."
+
+      Measured against the validator of record named in meta/kanban/config.yml
+      line 38 (the forge_1 copy, read-only, not the plugin cache):
+
+      * validators/requirements.py line 169 — `run()` calls
+        `_validate_adr_rule_check_refs(a, stage, cs)`, one line above the
+        AC/EC check the card's own AC-6 analysis reads correctly.
+      * That function extracts every ACCEPTED ADR's `## Rules` block and calls
+        the same `_check_ref_findings` the AC/EC path uses.
+      * ADR-0006 is `**Status:** Accepted (revised 2026-09-01)` at line 3, and
+        its `## Rules` block parses — verified by running the validator's own
+        `extract_rules_yaml` plus ruamel on the post-change file, which yields
+        ADR-0006/R1 with its new check mapping.
+      * Direct invocation of `_check_ref_findings` with an ADR rule id and a
+        nonsense ref returns a WARN: "rule ADR-9999/R1: check names test '...'
+        but no definition was found in the code".
+
+      So ADR rule refs ARE checked. CARD-319 (status: blocked, Touches
+      /Users/omelnikova/MyProjects/forge_1/... — outside this repository) is
+      the source of the claim, and its "Defect 2 — ADR rule check refs are
+      never checked" is refuted at this HEAD. The round re-measured the
+      90-vs-100 warning count, the 112 text-resolver figure, all six census
+      baselines and both retracted figures — and took this one claim on trust
+      from a blocked sibling, writing it into an accepted ADR beside the
+      pointer it was repairing. That is the exact defect class the card exists
+      to stop, which is why it is filed rather than noted: ADR-0039/R4 makes
+      the instrument part of the claim.
+    suggestion: |
+      Retract the sentence. Either delete the CARD-319 clause, or replace it
+      with the measured statement: ADR rule check refs ARE verified by
+      `validators/requirements.py::_validate_adr_rule_check_refs` for ADRs
+      whose Status is Accepted, and this rule's pointer raises no warning
+      because the validator's existence test is a text search — which is the
+      point F-001 is about. CARD-319's Defect 2 needs re-measuring before that
+      card is unblocked.
+    confidence: high
+    source: model
+    violates: ADR-0039/R4
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 4205
+    title: "FR-042/AC-269 re-pointed to a test that does not assert its `then`, with no card owing the assertion"
+    description: |
+      The criterion's `then` is that answer 7's caption READS "Puzzle 7 —
+      Winter Star". Its new ref is a method at line 308 of
+      tests/test_book_solved_answer_key.py. Read: the test builds a one-puzzle
+      book with a per-book title, renders the interior, and compares
+      `pages[start - 1].tobytes()` against the bytes that
+      `solved_puzzle_page(..., title="Winter Star")` produces, plus a negative
+      control against the same call with the picture's own name. It asserts
+      WHICH title is passed through — the wiring — and never reads the rendered
+      caption string back. The round states this accurately on the criterion
+      and in the card and does not claim coverage, which is the right move and
+      is why this is not filed as a false claim.
+
+      What is missing is the mitigation that keeps the record honest over time.
+      Grepped: only CARD-317.md and the already-done CARD-134.md mention
+      AC-269, so no card owes the form assertion. The net change in visibility
+      is a regression: before this card AC-269 carried a dead-ref WARN a reader
+      met every validation run; after it, the ref resolves, the validator is
+      silent, and the only trace of the gap is prose inside requirements.yml.
+      That is CARD-318's F-009 in a milder form — a criterion whose ref
+      resolves so nothing warns, while the test does not verify the stated
+      outcome.
+
+      The technique to close it is already in the sibling re-point: AC-268's
+      new ref (line 1483 of tests/test_book_pdf_band.py) composes the caption
+      from a template literal declared in its own module at line 182 — a
+      deliberate second implementation — and asserts that string is found
+      exactly once, on the answer page, at a font size other than the band's.
+      The same four lines applied to the custom-title case would make AC-269's
+      `then` asserted rather than narrated.
+    suggestion: |
+      Either (a) open a card owing the caption read-back for the custom-title
+      case — the AC-268 technique, four lines — and name it beside the
+      criterion, or (b) leave the ref and additionally mark the criterion so a
+      tool can see the shortfall (the registry's own `status:` vocabulary, or a
+      demotion of the `test:` to the review-lens form the card used elsewhere).
+      Prose alone is what the whole CARD-307 family exists to stop relying on.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_grid_bound_agreement.py
+    line: 176
+    title: "The ADR-agreement cell is line-scoped, so a stale maximum added to an already-cue-bearing paragraph is invisible"
+    description: |
+      The cell's docstring says "A new sentence claiming a stale maximum, with
+      no cue, reds here." Measured by mutation, that is true per LINE and not
+      per sentence, and ADR-0001's paragraphs are single lines over a thousand
+      characters long.
+
+      Killed (correct): a NEW, cue-free line reading "The cap applies to every
+      grid up to the 50x50 maximum." inserted before `## Alternatives
+      considered` — 1 failed, 3 passed.
+
+      SURVIVED: the sentence "The cap covers every grid up to 50x50." appended
+      inside the Decision paragraph, which already carries the cues "narrowed"
+      and "History" — 4 passed, 0 skipped. One cue anywhere in a multi-sentence
+      paragraph exempts every stale extent in it, and the Decision paragraph is
+      precisely where a future reaffirmation would be written.
+
+      The cell is still the right artefact and its positive direction works;
+      the docstring's claim is one notch stronger than its control.
+    suggestion: |
+      Scan sentences rather than lines (split the ADR on `. ` as well as on
+      newlines), or require the cue to occur within a bounded distance of the
+      offending extent. Narrow the docstring sentence to what is measured if
+      the scope is kept as it is.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_check_ref_resolution.py
+    line: 1181
+    title: "Five of the six baseline notes carry the same union block, so each describes departures and entrants that are not its own"
+    description: |
+      The counts and digests are exact — every one independently re-derived,
+      count AND digest, before and after. The attribution in the notes is not.
+
+      Measured per-class symmetric differences at this HEAD:
+        bookkeeping-only  11 -> 11   OUT 0  IN 0
+        falsely-alive    162 -> 155  OUT 7  IN 0
+        honest-dead       18 -> 16   OUT 2  IN 0
+        defined          406 -> 408  OUT 0  IN 2
+        census           586 -> 579  OUT 9  IN 2
+        trace-tests      513 -> 507  OUT 8  IN 2
+
+      The same "OUT ... / IN ..." block is pasted verbatim into the notes of
+      falsely-alive, honest-dead, census, trace-tests and defined, listing all
+      nine departures and both entrants in every one. So falsely-alive's note
+      claims two entrants it did not gain and two departures that left
+      honest-dead instead; defined's note claims nine departures it did not
+      have; and neither trace-tests' own count of 8 (the shared phantom is
+      withdrawn from two rows but is one name, and two more leave with the book
+      criteria) nor falsely-alive's 7 is stated anywhere.
+
+      bookkeeping-only's note is correctly class-specific — it says this class
+      did not move and why — so the round could and did write a per-class
+      reading when the class was simple. The value of these notes is that the
+      next reader re-derives THIS class's movement from them, which is the
+      failure mode CARD-318 had to repair by hand.
+    suggestion: |
+      Give each of the five notes its own OUT/IN counts and its own members'
+      sites, keeping the shared method paragraph (the ast index, the set diff)
+      once. No ref needs naming — the sites already carry the information.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

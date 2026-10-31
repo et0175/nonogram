@@ -647,7 +647,21 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     stdlib plus Pillow plus NumPy — stays closed; no PDF or font library is
     added. A library becomes necessary only by a new ADR.
   scope: {code: ["src/nonogram/**", "pyproject.toml"]}
-  check: {kind: test, ref: "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed"}
+  check: {kind: test, ref: test_the_dependency_baseline_is_still_closed}
+  # PREFIX DELETED 2026-10-31 by CARD-317, closing the 26-character fix R5's
+  # comment below recorded as "outside this card ... for whoever next touches
+  # R4" (CARD-294 F-9, 2026-10-25). R5's measurement stands and is the reason:
+  # the node-id spelling resolved from 58 tracked files, not one of them the
+  # module holding the `def`, so delete or rename the test and R4 would have
+  # gone on reading as a live, mechanically-checked ref forever. The bare name
+  # resolves from 82 files INCLUDING `tests/test_export_pdf.py` itself, where
+  # the `def` is at :1249. ADR-0006/R1 -- the baseline this rule restates --
+  # carried the identical node id and was corrected in the same change; it was
+  # the only other declaration of that string, which is why
+  # `tests/test_check_ref_resolution.py`'s resolved-from-afar class moves
+  # 4 -> 3 on this edit instead of standing still. R4's statement, scope and
+  # severity are untouched: this changes what the validator searches for, not
+  # what the rule says.
   severity: mandatory
 - id: ADR-0042/R5
   statement: >-
@@ -692,7 +706,11 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # live, mechanically-checked ref forever — the standing rule about honest
   # check refs seen from the other side, on AC-5's own declared check. The fix
   # is deleting the 26-character `tests/test_export_pdf.py::` prefix. It was
-  # left outside CARD-294 and is recorded here for whoever next touches R4.)
+  # left outside CARD-294 and recorded here for whoever next touched R4 --
+  # **done 2026-10-31 by CARD-317**, which hit the identical defect on
+  # ADR-0006/R1 and fixed both declarations of the string at once. R4 above now
+  # carries the bare name; the measurement in this paragraph is what justified
+  # it and is kept as the record of what was measured, when.)
   #
   # What the ref reaches, and what it does not. The test makes R5's three
   # claims — embedded, embedded ONCE per file, and no base-14 reference —

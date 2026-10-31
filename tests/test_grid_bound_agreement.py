@@ -177,6 +177,13 @@ def test_the_live_registry_bound_is_the_constant() -> None:
         ), (key, extents, limits.MAX_SIZE)
 
 
+#: A sentence boundary as this ADR writes one: terminal punctuation then space.
+#: The ADR's paragraphs are single lines of a thousand characters and more, so
+#: the unit of the scan below has to be smaller than a line -- see that cell's
+#: docstring for the measurement that forced this.
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
+
+
 def test_adr_0001_names_no_bare_maximum_other_than_the_constant() -> None:
     """ADR-0001's text agrees with the constant, or says where it does not.
 
@@ -184,9 +191,25 @@ def test_adr_0001_names_no_bare_maximum_other_than_the_constant() -> None:
     supported size", so it necessarily names an extent, and it was written
     against 50x50. Its historical sentences are kept — that record is the
     point of CARD-317's G-1 — so the rule asserted here is not "the string
-    50x50 is absent" but the weaker, true one: **every line naming a square
-    extent other than the constant's also carries a retraction cue**. A new
-    sentence claiming a stale maximum, with no cue, reds here.
+    50x50 is absent" but the weaker, true one: **every SENTENCE naming a
+    square extent other than the constant's also carries a retraction cue**.
+
+    **Scoped to sentences, not lines — CARD-317 review cycle 1, F-004.** This
+    cell shipped line-scoped, and its docstring claimed what sentence scope
+    buys while only line scope was implemented. Measured by the reviewer and
+    reproduced here: a cue-free *new line* claiming a 50x50 maximum was killed,
+    but the same sentence appended inside the **Decision** paragraph survived,
+    because that paragraph is one ~1000-character line that already carries
+    "narrowed" and "History" — and the Decision paragraph is exactly where a
+    future reaffirmation would be written. One cue anywhere in a multi-sentence
+    paragraph was exempting every stale extent in it.
+
+    **What is still not caught, stated rather than implied.** A stale extent
+    spliced *inside* an existing cue-bearing sentence — no terminal
+    punctuation between the cue and the extent — still passes, and so does one
+    in a paragraph written as a single sentence. Sentence scope is the
+    narrowest unit a text scan can draw without a parser; the claim here is
+    exactly "cue in the same sentence", not "cue near the extent".
     """
     cues = (
         "superseded",
@@ -196,34 +219,43 @@ def test_adr_0001_names_no_bare_maximum_other_than_the_constant() -> None:
         "when this was decided",
         "narrowed",
         "retired",
+        "alternative not taken",
         "History",
     )
-    # Each cue above is a word that RETRACTS the extent on its line, and the
-    # set is deliberately short: every addition is a hole. "retired" earned its
-    # place by catching this card's own History entry, which argues about the
-    # 50x50 alternative it did not take and so names the stale extent in a
-    # sentence that retracts it twice over.
+    # Each cue above is a phrase that RETRACTS the extent in its own sentence,
+    # and the set is deliberately short: every addition is a hole. "retired"
+    # earned its place by catching this card's own History entry. "alternative
+    # not taken" earned its place when the scope narrowed to sentences: the
+    # History entry's two rejected-alternative sentences name 50x50 and carry
+    # their retraction in that phrase alone, their paragraph's "retired" and
+    # "narrowed" being in other sentences. Measured, not assumed — the
+    # sentence scan over the real file reports six sentences holding a stale
+    # extent, and this is the one cue none of the other eight covers.
     offenders = []
     seen_any = False
     for number, line in enumerate(_lines(ADR_0001), start=1):
-        extents = {
-            (int(width), int(height)) for width, height in _SQUARE.findall(line)
-        }
-        if not extents:
+        if not _SQUARE.search(line):
             continue
-        seen_any = True
-        stale = {
-            extent
-            for extent in extents
-            if extent[0] == extent[1] and extent[0] > limits.MAX_SIZE
-        }
-        if stale and not any(cue in line for cue in cues):
-            offenders.append((number, sorted(stale), line.strip()[:120]))
+        for sentence in _SENTENCE_BREAK.split(line):
+            extents = {
+                (int(width), int(height))
+                for width, height in _SQUARE.findall(sentence)
+            }
+            if not extents:
+                continue
+            seen_any = True
+            stale = {
+                extent
+                for extent in extents
+                if extent[0] == extent[1] and extent[0] > limits.MAX_SIZE
+            }
+            if stale and not any(cue in sentence for cue in cues):
+                offenders.append((number, sorted(stale), sentence.strip()[:160]))
 
     assert seen_any, "ADR-0001 names no square extent at all -- the scan read nothing"
     assert not offenders, (
         "ADR-0001 states a maximum above limits.MAX_SIZE="
-        f"{limits.MAX_SIZE} with nothing on the line to retract it:\n"
+        f"{limits.MAX_SIZE} in a sentence with nothing in it to retract it:\n"
         + "\n".join(f"  line {n}: {ext} -- {text}" for n, ext, text in offenders)
     )
 
