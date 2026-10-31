@@ -64,6 +64,63 @@ class Mutant:
     extra: dict = field(default_factory=dict)
 
 
+PIN_CLASS = "TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+
+#: The two cells of the pin that a medium crossing written one frame in has
+#: to red: the raster-oracle requirement (the site reads no page through
+#: ``drawing_of``) and the closed deny (its page source reaches
+#: ``interior_images`` -> ``page_image`` -> ``rendered_page``).
+PIN_DENY_NODES = (
+    f"{READER_TESTS}::{PIN_CLASS}"
+    "::test_every_site_reads_its_page_through_the_raster_ink_oracle",
+    f"{READER_TESTS}::{PIN_CLASS}"
+    "::test_no_site_reaches_a_stream_reader_through_a_helper_either",
+)
+
+#: A module-level anchor, unique in the file, that the planted site is
+#: inserted in front of. Located by text like every other plant here.
+PLANT_ANCHOR = "class TestEdgeOffset_TheAdrRecordsTheCanonicalMedium:"
+
+
+def planted_site(klass: str, bare: str) -> str:
+    """A new placed-edge site whose page source crosses the medium **one
+    frame in** -- the house one-line seam this card standardised across five
+    modules and instructed CARD-322 to apply to nine more.
+
+    The site's own body names no stream reader, so the depth-0 deny passes it
+    (that is MUT-16b, a declared survivor); the crossing is in the
+    module-level helper it calls.
+
+    Two deliberate choices about the names, both so the plant cannot pollute
+    anything while it is held:
+
+    * ``klass`` is **not** ``Test*``-prefixed, so pytest collects nothing new
+      and the node-id census is unchanged while the plant is in. The pin
+      derives its sites with ``ast`` and filters on the presence of
+      ``EDGE_TOLERANCE_MM``, never on a collection prefix, so the code path
+      under measurement is identical;
+    * ``bare`` is always a function name that **already exists** in
+      ``tests/``. The validator's check-ref search is a TEXT search over
+      tracked files, so an invented test-like symbol spelled in this file
+      could resolve a ref that nothing in ``tests/`` defines
+      (``ref_pollution_check.py`` is the control, and it reds on one).
+      The matched pair's only variable is therefore whether that existing
+      name is **registered** as an exemption, which is exactly the hazard.
+    """
+    return f'''def _plant_page_source(generator, puzzles):
+    """CARD-329 plant only: the one-line seam at a page-source helper."""
+    return interior_images(generator.interior_pages(puzzles))
+
+
+class {klass}:
+    def {bare}(self) -> None:
+        source = _plant_page_source
+        assert 0.0 <= EDGE_TOLERANCE_MM, (source, EDGE_TOLERANCE_MM)
+
+
+{PLANT_ANCHOR}'''
+
+
 MUTANTS: tuple[Mutant, ...] = (
     # ------------------------------------------------------------------
     # The helper. AC-5's pair: inside the claim, and at its edge.
@@ -449,6 +506,87 @@ MUTANTS: tuple[Mutant, ...] = (
             "::test_raster_pages_at_disagreeing_dpis_are_refused_not_averaged",
             f"{READER_TESTS}::TestPdfPagesReader_AnOperatorsPageIsNotAKeyError"
             "::test_the_dpi_derivation_itself_answers_none_only_when_it_must",
+        ),
+    ),
+    # ------------------------------------------------------------------
+    # Cycle 2's F-008: the exemption register's lookup. The matched pair
+    # is MUT-20/MUT-21 -- the SAME planted site and the SAME one-frame-in
+    # helper, differing only in the planted test's bare name. Under the
+    # pre-fix lookup (`self._bare(name) in self._BOUND_ONLY_SITES`, with a
+    # bare register) MUT-20 left all five pin cells green; both must red
+    # now, because the register is matched on the whole key.
+    # ------------------------------------------------------------------
+    Mutant(
+        name="MUT-20",
+        what="F-008: the house one-line seam planted at a new placed-edge "
+        "site whose BARE name collides with a registered exemption in a "
+        "DIFFERENT class. The qualified keys differ, so the collapse cell "
+        "sees nothing; under the pre-fix bare lookup this site was exempt "
+        "from the closed deny AND the raster-oracle requirement with "
+        "nothing added to the register",
+        path=READER_TESTS,
+        old=PLANT_ANCHOR,
+        new=planted_site(
+            "PlantedSiteWhoseBareNameIsRegistered",
+            "test_the_two_media_ink_differs_by_one_device_pixel_not_two",
+        ),
+        nodes=PIN_DENY_NODES,
+    ),
+    Mutant(
+        name="MUT-21",
+        what="F-008's matched control: the IDENTICAL site and helper under a "
+        "bare name that also already exists in this module but is NOT "
+        "registered. Caught before the fix too -- the pair isolates the "
+        "lookup as the variable, because registration is the only thing "
+        "that differs between MUT-20 and MUT-21",
+        path=READER_TESTS,
+        old=PLANT_ANCHOR,
+        new=planted_site(
+            "PlantedSiteWhoseBareNameIsNotRegistered",
+            "test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
+        ),
+        nodes=PIN_DENY_NODES,
+    ),
+    Mutant(
+        name="MUT-22",
+        what="F-008's lookup degrades back: the raster-oracle cell matches "
+        "the register through `_bare` again. That is the exact regression "
+        "that opened the hole, and it fails silently in the permissive "
+        "direction, so the control resolves it by `ast` rather than "
+        "trusting a docstring",
+        path=READER_TESTS,
+        old="        for name, readers in self._sites().items():\n"
+        "            if name in self._BOUND_ONLY_SITES:",
+        new="        for name, readers in self._sites().items():\n"
+        "            if self._bare(name) in self._BOUND_ONLY_SITES:",
+        nodes=(
+            f"{READER_TESTS}::{PIN_CLASS}"
+            "::test_the_exemption_lookup_does_not_strip_the_class",
+        ),
+    ),
+    Mutant(
+        name="MUT-23",
+        what="F-008's vacuity arm: the register collapses to an empty "
+        "frozenset. Every subset assertion the existence cell had is "
+        "satisfied by the empty set, so before the non-emptiness assertion "
+        "a collapsed register passed while exempting nothing",
+        path=READER_TESTS,
+        old="""    _BOUND_ONLY_SITES = frozenset(
+        {
+            "TestEdgeOffset_ATolerenceChangeCarriesItsExemption"
+            "::test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt",
+            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
+            "::test_the_two_media_ink_differs_by_one_device_pixel_not_two",
+            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
+            "::test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance",
+        }
+    )""",
+        new="    _BOUND_ONLY_SITES = frozenset()",
+        nodes=(
+            f"{READER_TESTS}::{PIN_CLASS}"
+            "::test_the_exemption_list_names_only_sites_that_exist",
+            f"{READER_TESTS}::{PIN_CLASS}"
+            "::test_the_exemption_lookup_does_not_strip_the_class",
         ),
     ),
 )

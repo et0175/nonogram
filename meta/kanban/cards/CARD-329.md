@@ -414,10 +414,11 @@ is a **FAILURE**, not a silent pass.
     `test_book_pdf.py` **38** + `test_book_difficulty_dots.py` **29** (G-3) +
     the five modules this card repaired **16** = **151**. Three modules are at
     0 and are the three that went green.
-- **[AC-5, twenty plants, every control green with 0 skipped in the same run]**
-  `scratchpad/card329/mutate.py`. **18 KILLED, 2 DECLARED SURVIVORS.** (Twelve
-  at the first pass, 13-15 at the gap this card's own helper opened, and
-  16/16b/17/18/19 at cycle 1's F-001, F-002 and F-003.)
+- **[AC-5, twenty-four plants, every control green with 0 skipped in the same run]**
+  `scratchpad/card329/mutate.py`. **22 KILLED, 2 DECLARED SURVIVORS.** (Twelve
+  at the first pass, 13-15 at the gap this card's own helper opened,
+  16/16b/17/18/19 at cycle 1's F-001, F-002 and F-003, and 20-23 at cycle 2's
+  F-008.)
   | plant | what it breaks | verdict | node it reds |
   |---|---|---|---|
   | MUT-1 | **inside the claim**: an operators page comes back as a raster page the reader already decoded | KILLED | `…AnOperatorsPageIsNotAKeyError::test_an_operators_page_inside_a_file_reads_beside_its_raster_pages` |
@@ -440,6 +441,10 @@ is a **FAILURE**, not a silent pass.
   | MUT-17 | the derivation is replaced by the retired hand-written set, dropping `rendered_page` and eight more (nine of the 16, named in the cell's own `unclassified` list) | KILLED | `…::test_every_public_reader_of_the_two_owners_is_classified` |
   | MUT-18 | the poppler guard in `page_image` stops guarding: a missing engine reads a page instead of saying the reading is MISSING | KILLED | `…AnOperatorsPageIsNotAKeyError::test_a_missing_poppler_is_a_missing_reading_and_never_a_skip` |
   | MUT-19 | raster pages at **disagreeing** DPIs settle a scale anyway — `_derived_dpi` pops one instead of refusing | KILLED | `…::test_raster_pages_at_disagreeing_dpis_are_refused_not_averaged` + `…::test_the_dpi_derivation_itself_answers_none_only_when_it_must` |
+  | MUT-20 | MUT-16's crossing at a **new** site whose bare name collides with a registered exemption in a different class — the dodge that needed no register edit | KILLED | `…::test_every_site_reads_its_page_through_the_raster_ink_oracle` + `…::test_no_site_reaches_a_stream_reader_through_a_helper_either` |
+  | MUT-21 | MUT-20's **matched control**: the identical site and helper under a bare name that also already exists in this module but is **not** registered, so registration is the only variable between the two | KILLED | the same two cells |
+  | MUT-22 | the exemption lookup degrades back to `_bare()`, the regression that opened the hole and the one that fails silently | KILLED | `…::test_the_exemption_lookup_does_not_strip_the_class` |
+  | MUT-23 | the register collapses to an empty `frozenset` — every subset assertion it had is satisfied vacuously | KILLED | `…::test_the_exemption_list_names_only_sites_that_exist` + `…::test_the_exemption_lookup_does_not_strip_the_class` |
   **MUT-11 is where this card cannot meet AC-5, and it says so.** All four of
   `property/test_book_pdf_geometry.py`'s node ids are red under the probe both
   before and after the edit, so the module holds **no green node** to be a
@@ -587,8 +592,51 @@ is a **FAILURE**, not a silent pass.
   `rendered_page`, `stroke_widths`, `subpath_vertices`, `tones`, `type_sizes`
   and `word_boxes`.) **MUT-14** was re-aimed at the exemption register, now the only
   hand-written half, and is **KILLED**.
-  Plants now **20: 18 KILLED, 2 declared SURVIVORS**. Node ids over the seven
-  `Touches` paths: **282 -> 309, 0 lost.**
+  Plants now **24: 22 KILLED, 2 declared SURVIVORS**. Node ids over the seven
+  `Touches` paths: **282 -> 310, 0 lost.**
+- **[The exemption register is matched on the whole key — cycle 2's F-008]**
+  The pin's two denies exempt `_BOUND_ONLY_SITES`, and cycle 1 asked whether
+  that exemption was controlled. It was, against the hazard it was asked
+  about — the register is existence-controlled, the depth-0 deny exempts
+  nobody, and both media-comparison entries really do reach `content_streams`
+  and `rendered_page` through `_edge_reading`, which is their job. The hole
+  was elsewhere: **the lookup stripped the class.** The register held bare
+  function names and all three consulting cells matched through `_bare()`,
+  while `_sites()` is keyed class-qualified — and it is keyed that way
+  *because the bare name is not unique in this module* (CARD-330 cycle 1's
+  F-002 lost a site to exactly such a collision, which is why
+  `_COLLIDING_SITES` exists). So any future site in any class whose bare name
+  happened to equal a registered one was exempt from the closed deny **and**
+  from the raster-oracle requirement, with nothing added to the register and
+  no cell reporting it. Omission is the permissive direction (ADR-0039/R2).
+  **Measured, matched pair, the planted bare name the only variable, SHA-256
+  asserted before plant and after restore:** against the pre-fix lookup at
+  `ea248582` the colliding-name plant left the whole pin green — **11 passed
+  / 0 failed / 0 skipped**; against the fix it reds two cells (**MUT-20**),
+  and the same site under an existing but *unregistered* bare name reds the
+  same two (**MUT-21**). Both plants borrow a bare name that `tests/` already
+  defines and use a class name pytest does not collect, so the harness adds
+  no test-like symbol to a tracked file — `ref_pollution_check.py` reds on
+  one, and it is at **0 orphans of 59 symbols** (it reported 3 on the first
+  draft of these plants, which is how the convention was settled). The
+  register now holds the three class-qualified keys, the three cells match on
+  the whole key, and `_bare()` is left only at the walk's floor control, where
+  the class genuinely does not matter. Two controls on the fix itself, because
+  the old lookup failed silently: `test_the_exemption_lookup_does_not_strip_the_class`
+  asserts both directions and resolves the degradation by `ast` — no
+  consulting cell may call `_bare` (**MUT-22** KILLED) — and the existence
+  cell now asserts the register non-empty, since the empty set satisfied every
+  subset assertion it had (**MUT-23** KILLED). The pin is what this card says
+  protects 30 of the 38 reds, and the crossing it could not see is exactly the
+  seam CARD-322 applies next.
+- **[The closure control's depth, taken inline at cycle 2]** F-001's control
+  pinned depths 0, 1 and 2 at one site and its docstring claimed only that
+  much, so it was honest — but hard-stopped at **2** rounds the walk still
+  passed it. The oracle chain at the same site runs one frame further:
+  `drawing_of` → `_dark` → `ink_mask` → `INK_LEVEL`, and no body nearer than
+  `ink_mask`'s names that threshold, so depth 3 is now asserted too and any
+  bounded stop at 2 reds. Measured: the walk settles at **4** rounds at this
+  site (121 reachable names, unchanged from round 3).
 - **[AC-1's refusal half is now driven, not just implemented — cycle 1's
   F-003]** AC-1 is a disjunction and both halves were written, but only one of
   the three refusal branches had a control that could fail. ADR-0039/R1 is in
