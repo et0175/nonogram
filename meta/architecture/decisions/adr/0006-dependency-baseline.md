@@ -167,33 +167,44 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 - id: ADR-0006/R1
   statement: The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party package joins the installed dependencies without revising this ADR. Non-executable static assets (fonts and similar data files) may ship as package data instead, and doing so is not a dependency change.
   scope: {code: ["pyproject.toml", "src/nonogram/**"]}
-  check: {kind: test, ref: TestDependencyBaseline_IsExactlyPillowAndNumpy}
-  # THE RULE IS TESTED AND THIS POINTER IS DEAD — two different findings, and a
-  # reader who arrives here from the validator's warning needs both (CARD-308).
-  # The ref above has ZERO `def`/`class` definitions anywhere in the repo. It
-  # resolves only because `code_search` is a TEXT search and ~110 tracked
-  # non-Markdown files — synced review reports, duration logs, the scored
-  # backlog, and a comment in tests/test_export_pdf.py and a docstring in
-  # tests/test_puzzle_editor_ui.py — spell the string while merely talking about
-  # it. So "went LIVE 2026-09-01" below describes the TEST, not the pointer: the
-  # pointer has never resolved to a definition, and it read as mechanically
-  # checked for months on the strength of files that only mention it.
-  # The rule's content IS checked, exactly and today:
-  # Check ref went LIVE 2026-09-01 with CARD-032 (merge 5bd126a):
-  # tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed parses
-  # pyproject and pins the installed set to exactly {pillow, numpy}. The rule's
-  # first implementation is that same card's bundled font — the case the rule was
-  # written to permit.
-  # Do NOT read the validator's warning about this rule as "the dependency
-  # baseline is unverified" — that overstatement is the more dangerous of the two
-  # errors and it has been made on this board repeatedly. Pointing this `check:`
-  # at the node id above is CARD-307's one-line repair; the detector that stops
-  # the resolution being eroded further is tests/test_check_ref_resolution.py,
-  # and ADR-0039 carries the full argument.
-  # The limit case, measured and worth knowing before anyone "cleans up": that
-  # test's own docstring spells the dead ref in full on its second line, so
-  # tests/test_export_pdf.py is itself one of the ~110 resolvers — sitting in the
-  # module that holds the real assertion. It is not removable: that line is the
-  # only human-readable link between this rule and its test.
+  check: {kind: test, ref: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed}
+  # POINTER REPAIRED 2026-10-31 by CARD-317. The ref above now resolves to a
+  # real definition — `def test_the_dependency_baseline_is_still_closed` at
+  # tests/test_export_pdf.py:1249 — which parses `pyproject.toml` and asserts
+  # `project.dependencies` is exactly {pillow, numpy}. That is R1's statement
+  # by substance and not by name: the whole runtime list is pinned, so the
+  # rule is stronger than a denylist of the three PDF libraries CARD-014 was
+  # told not to reach for. The rule's first implementation is CARD-032's
+  # bundled font — the case the rule was written to permit — and the check
+  # went live with that card on 2026-09-01 (merge 5bd126a).
+  #
+  # What the previous pointer was, and why it mattered (CARD-308, CARD-307's
+  # fourth premise re-measurement): the ref read
+  # `TestDependencyBaseline_IsExactlyPillowAndNumpy`, which had ZERO
+  # `def`/`class` definitions anywhere in the repo. It resolved anyway, and so
+  # raised no warning, because `code_search` is a TEXT search: CARD-317
+  # measured 112 tracked non-Markdown files spelling the string while merely
+  # talking about it — synced review reports, duration logs, the scored
+  # backlog, the dispatcher state, plus a comment in tests/test_export_pdf.py
+  # and a docstring in tests/test_puzzle_editor_ui.py. ADR-0039's own prose
+  # says ~110; 112 is the figure at this commit, so neither number is a
+  # constant and both are re-derivable. ADR rule refs are in any case not yet
+  # verified at all by the validator (CARD-319), so this pointer would have
+  # resolved falsely even if they were.
+  #
+  # Two readings to keep apart, because the board has repeatedly collapsed
+  # them: the RULE was tested throughout, and the POINTER never resolved to a
+  # definition. Do NOT read any warning about this rule as "the dependency
+  # baseline is unverified" — that overstatement is the more dangerous of the
+  # two errors. The detector that stops the resolution being eroded again is
+  # tests/test_check_ref_resolution.py, and ADR-0039 carries the full
+  # argument.
+  #
+  # The limit case, still true of the retired name: that test's own docstring
+  # spells it in full on its second line, so tests/test_export_pdf.py was
+  # itself one of the resolvers, sitting in the module that holds the real
+  # assertion. The line is left in place as the human-readable record of what
+  # the ref used to be; it now resolves nothing, because nothing declares the
+  # retired name any more.
   severity: mandatory
 ```

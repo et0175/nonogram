@@ -278,6 +278,25 @@ functional:
     # 60x60 is no longer the boundary at MAX_SIZE=30), AC-004 (9x9 rejected) ->
     # AC-070 (30x9 rejected). The FR entry, its trace row and its capability
     # mapping all stay in place so the supersession is reversible.
+    #
+    # STAMPED 2026-10-31 by CARD-317. The retirement of AC-001..AC-004 was
+    # stated by the paragraph above and by nothing a tool reads, so the four
+    # criteria carried no `status:` and every consumer counted them LIVE — the
+    # validator among them, which is why four dead-ref warnings sat on
+    # criteria the model had already retired. Each now carries the
+    # machine-readable form the registry uses everywhere else for this case
+    # (AC-009, AC-038, AC-303, AC-304): status + superseded_by + the date.
+    # Their `test:` refs are deliberately NOT re-pointed. CARD-317 measured
+    # the only tests that cover this behaviour — the function-style tests in
+    # tests/test_sourcing_random.py — and they assert the NARROWED bound
+    # (test_generate_random_accepts_max_side_30 asserts MAX_SIZE == 30 and
+    # rejects 31 and 60). Pointing AC-002, whose `then` is "a 50x50 grid is
+    # produced without error", at a test asserting the opposite would make a
+    # false criterion read as verified; and re-pointing a preserved historical
+    # record rewrites the record. The refs stay as the honest statement that
+    # nothing verifies a retired criterion, which is the same decision
+    # AC-009's and AC-038's refs already embody. The LIVE criteria for this
+    # behaviour are FR-019's AC-066..AC-070, re-pointed by the same card.
     status: superseded
     superseded_by: FR-019
     statement: >-
@@ -286,24 +305,49 @@ functional:
     source: [US-001]
     acceptance:
       - id: AC-001
+        status: superseded
+        superseded_by: AC-066
+        superseded_at: 2026-08-30
         given: a request for a 20x20 random grid
         when: the grid is generated
         then: a 20x20 black/white grid is produced
         kind: happy
         test: TestGenerateRandom_ProducesRequestedSize
       - id: AC-002
+        status: superseded
+        superseded_by: AC-068
+        superseded_at: 2026-08-30
+        superseded_note: >-
+          The one criterion of the four whose outcome became FALSE rather
+          than merely non-boundary: at MAX_SIZE=30 a 50x50 request is
+          rejected before a grid is produced. AC-068 restates it at 30x30.
+          Preserved verbatim, dead ref included — see the block comment on
+          FR-001 for why it is not re-pointed.
         given: a request for the maximum supported size, 50x50
         when: the grid is generated
         then: a 50x50 grid is produced without error
         kind: boundary
         test: TestGenerateRandom_AcceptsMaxSize50
       - id: AC-003
+        status: superseded
+        superseded_by: AC-069
+        superseded_at: 2026-08-30
+        superseded_note: >-
+          Still TRUE at MAX_SIZE=30 — 60x60 remains out of range — but no
+          longer THE boundary case, which moved to AC-069 (31x30). The same
+          reading as FR-017/AC-050's.
         given: a request for a 60x60 grid (above the supported range)
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
         kind: negative
         test: TestGenerateRandom_RejectsSizeAbove50
       - id: AC-004
+        status: superseded
+        superseded_by: AC-070
+        superseded_at: 2026-08-30
+        superseded_note: >-
+          Still TRUE — 10 is still MIN_SIZE — and retired only because
+          FR-019 restates it per side; AC-070 is the 30x9 form.
         given: a request for a 9x9 grid (below the supported range)
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
@@ -1083,6 +1127,23 @@ functional:
     # Replaces FR-001 (status: superseded, superseded_by: FR-019). Same
     # behaviour, two changes: extent is a (width, height) pair (FR-018) and each
     # side is bounded 10..30 instead of 10..50 (CON-011, US-016).
+    #
+    # REFS RE-POINTED 2026-10-31 by CARD-317. All six refs below named
+    # class-style symbols with ZERO `def`/`class` definitions anywhere in the
+    # tree, and raised no warning of any kind: each resolved through the
+    # validator's TEXT search because the very test that covers it names the
+    # phantom in its own docstring. So the live requirement for the 10..30
+    # bound read as mechanically checked while nothing it named existed —
+    # strictly worse than FR-001's four, which at least warned. They are
+    # re-pointed to the function-style tests that carry the assertions, by
+    # BARE NAME rather than as pytest node ids: a bare name resolves at its
+    # own `def` line in both instruments, whereas the validator resolves a
+    # node id only by finding that literal string somewhere in the tree (for
+    # AC-037's node-id ref, in two review reports and four profiling logs) —
+    # the same text-search accident this family exists to stop relying on.
+    # EC-005's old ref also carried the `PropertyTest_` prefix, which pytest's
+    # default `python_classes = Test*` never collects even when such a class
+    # does exist; the test that verifies it is a module-level function.
     statement: >-
       Generate a random black/white solution grid at a configurable width
       and height, each side 10 to 30 inclusive. Replaces FR-001, whose
@@ -1095,34 +1156,34 @@ functional:
         when: the grid is generated
         then: a 20-column, 20-row black/white grid is produced
         kind: happy
-        test: TestGenerateRandom_ProducesRequestedDimensions
+        test: test_generate_random_produces_requested_dimensions
       - id: AC-067
         given: a request for a 30x12 random grid
         when: the grid is generated
         then: a grid of 12 rows of 30 columns is produced, not a square
         kind: happy
-        test: TestGenerateRandom_ProducesRectangularGrid
+        test: test_generate_random_produces_rectangular_grid
       - id: AC-068
         given: a request for 30x30, the largest supported grid
         when: the grid is generated
         then: a 30x30 grid is produced without error
         kind: boundary
         invariant: INV-004
-        test: TestGenerateRandom_AcceptsMaxSide30
+        test: test_generate_random_accepts_max_side_30
       - id: AC-069
         given: a request for a 31x30 grid, whose width is one past the supported maximum
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
         kind: negative
         invariant: INV-004
-        test: TestGenerateRandom_RejectsSideAbove30
+        test: test_generate_random_rejects_side_above_30
       - id: AC-070
         given: a request for a 30x9 grid, whose height is one below the supported minimum
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
         kind: negative
         invariant: INV-004
-        test: TestGenerateRandom_RejectsSideBelow10
+        test: test_generate_random_rejects_side_below_10
     engineering_constraints:
       - id: EC-005
         statement: >-
@@ -1133,7 +1194,7 @@ functional:
           request, not of one sourcing path.
         kind: consistency
         instances: [AC-069, AC-070]
-        test: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+        test: test_every_source_mode_rejects_every_side_outside_ten_to_thirty
 
   - id: FR-020
     statement: >-
@@ -4101,21 +4162,47 @@ functional:
         then: the tile draws the 15 x 15 filled grid and no clue number
         kind: negative
         test: TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
+      # REF RE-POINTED 2026-10-31 by CARD-317. The old ref named no `def` and
+      # no `class` anywhere and nothing mentioned it either, so it was one of
+      # the board's honestly dead refs. The outcome IS covered, and by a test
+      # that reads the caption off the rendered page rather than re-deriving
+      # it: the ref below composes "Puzzle 5 — Snowflake" from a template
+      # literal written out in its own module as a deliberate second
+      # implementation of this criterion ("FR-042's answer caption, restated"
+      # — not book_answer_key.answer_caption run twice), then asserts that
+      # string is found exactly once in the exported book and on the answer
+      # page. Its book sets no per-book title, so the title it reads is the
+      # puzzle's own name, which is this criterion's `given`. The number is 5
+      # rather than 7; nothing else differs.
       - id: AC-268
         given: a book whose puzzle 7 is named "Snowflake" and has no custom book title
         when: the book PDF is generated
         then: answer 7's caption reads "Puzzle 7 — Snowflake"
         kind: happy
-        test: TestBookAnswerKey_CaptionPuzzleNumberAndTitle
+        test: test_the_search_finds_an_answer_caption_at_its_own_size
       # REWORDED 2026-09-22 (d): "carries the custom book title" -> "was
       # given the per-book title ... in Arrangement" (owner-confirmed source
       # of the title; outcome unchanged).
+      #
+      # REF RE-POINTED 2026-10-31 by CARD-317, and the residual gap recorded
+      # rather than papered over. The old ref, like AC-268's, defined nothing
+      # and was mentioned nowhere. The ref below is the only test that
+      # exercises this criterion's distinguishing half — that the per-book
+      # title set in Arrangement, not the picture's own name, is what the
+      # answer's caption carries — and it asserts it with a control: the page
+      # rendered for the book that sets "Winter Star" matches the page
+      # rendered under that title and does NOT match the page rendered under
+      # "Snowflake". What NO test asserts is this `then` literally: the
+      # rendered caption string for the custom-title case is never read back
+      # (AC-268's ref does that only for the name case). So the criterion is
+      # verified in substance and under-verified in form; CARD-317 states
+      # this instead of calling the ref's resolution coverage.
       - id: AC-269
         given: a book whose puzzle 7 is named "Snowflake" and was given the per-book title "Winter Star" in Arrangement
         when: the book PDF is generated
         then: answer 7's caption reads "Puzzle 7 — Winter Star"
         kind: boundary
-        test: TestBookAnswerKey_CaptionUsesCustomBookTitle
+        test: test_a_custom_book_title_wins_over_the_pictures_own_name
       # REWORDED 2026-09-22 (d): "30 pages" -> "30 answer pages (the
       # SOLUTIONS divider not counted)". A one-tier book, so the level
       # restart cannot bite; the three-level default plan is AC-293.
@@ -6363,9 +6450,16 @@ constraints:
       (docs/cell_size.md, NFR-005) and stops being comfortable to mark by
       hand, so the upper bound is a print-legibility limit, not a
       performance one.
+    # REF RE-POINTED 2026-10-31 by CARD-317, with EC-005's, which named the
+    # same phantom: it had no `class` and no `def` anywhere, and the
+    # `PropertyTest_` prefix pytest's default `python_classes = Test*` never
+    # collects even when such a class exists. The test that holds this rule
+    # over all three source modes is a module-level function in
+    # tests/property/test_grid_dimensions.py, already listed on this CON's
+    # trace row beside the phantom.
     check:
       kind: test
-      ref: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
+      ref: test_every_source_mode_rejects_every_side_outside_ten_to_thirty
     severity: mandatory
   - id: CON-012
     type: technical

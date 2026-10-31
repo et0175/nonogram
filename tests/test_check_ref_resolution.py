@@ -1149,6 +1149,10 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # when a first draft of this comment spelled one out. Refs are identified by site.
 # One departure: the generation-path class FR-029 declares, which gained a real
 # definition at tests/test_solver_strategies.py:204.
+# CARD-317 (2026-10-31) measured this class NOT moving, with an EMPTY
+# symmetric difference in both directions -- the one class its nine
+# withdrawn declarations left alone, because every one of them was
+# resolved by a file under tests/ and so was never bookkeeping-only.
 BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
@@ -1177,7 +1181,38 @@ BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
 # revives it for the validator's text search -- this module's own cell caught that
 # when a first draft of this comment spelled one out. Refs are identified by site.
 # The same single departure as BOOKKEEPING_ONLY, for the same reason.
-FALSELY_ALIVE = (162, "b387d06007d3a3c4")
+# RE-DERIVED 2026-10-31 by CARD-317 -- measured, not pasted from the failure
+# message, which offers a ready-made line and says itself that it is a prompt
+# and not a gate. Method: this module's own derivation was run over the whole
+# ref population before and after the change, the two dumps diffed as SETS,
+# and every entrant and every departure then resolved against a real def/class
+# line by an INDEPENDENT ast index of tests/ and src/ (355 modules parsed,
+# 11,016 distinct names) -- a second reading, so the git-grep regex this module
+# uses cannot be both the measurement and its own witness.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and
+# so revives it for the validator's text search. Identified by SITE:
+#   OUT  FR-019's five acceptance criteria and its EC-005, plus CON-011's
+#        `check:` -- six class-style declarations withdrawn from
+#        requirements.yml and trace.yml. The ast index finds ZERO def/class
+#        lines for all six. They were the live 10..30 bound requirement's
+#        entire ref set and they raised no warning of any kind, because each
+#        resolved through the docstring of the very test that covers it.
+#   OUT  FR-042's AC-268 and AC-269 -- two declarations withdrawn, zero
+#        def/class lines each. These two were HONESTLY dead and their two
+#        validator warnings are the only ones this card retires.
+#   OUT  ADR-0006/R1's `check:` -- one declaration withdrawn, zero def/class
+#        lines, 112 text resolvers at the previous commit.
+#   IN   the new refs of FR-042's AC-268 and AC-269: two real defs, at
+#        tests/test_book_pdf_band.py:1483 and
+#        tests/test_book_solved_answer_key.py:308.
+# ADR-0006/R1's new ref and FR-019's six new refs move no class: every one was
+# ALREADY declared elsewhere (ADR-0042/R-rule for the first, trace.yml's own
+# function-style list for the rest) and already resolved to a definition.
+# FR-001's four refs are deliberately NOT re-pointed and stay in HONEST_DEAD --
+# see FR-001's block comment in requirements.yml for why re-pointing them would
+# falsify a retired criterion rather than repair it.
+FALSELY_ALIVE = (155, "8465e851f42f9867")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1212,7 +1247,38 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 # -10, and both reasons are repairs: seven gained real definitions in
 # tests/test_solver_strategies.py, and three left because their DECLARATION was
 # retired or re-pointed, so there is no longer a ref there to be dead.
-HONEST_DEAD = (18, "e8063a08cd898607")
+# RE-DERIVED 2026-10-31 by CARD-317 -- measured, not pasted from the failure
+# message, which offers a ready-made line and says itself that it is a prompt
+# and not a gate. Method: this module's own derivation was run over the whole
+# ref population before and after the change, the two dumps diffed as SETS,
+# and every entrant and every departure then resolved against a real def/class
+# line by an INDEPENDENT ast index of tests/ and src/ (355 modules parsed,
+# 11,016 distinct names) -- a second reading, so the git-grep regex this module
+# uses cannot be both the measurement and its own witness.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and
+# so revives it for the validator's text search. Identified by SITE:
+#   OUT  FR-019's five acceptance criteria and its EC-005, plus CON-011's
+#        `check:` -- six class-style declarations withdrawn from
+#        requirements.yml and trace.yml. The ast index finds ZERO def/class
+#        lines for all six. They were the live 10..30 bound requirement's
+#        entire ref set and they raised no warning of any kind, because each
+#        resolved through the docstring of the very test that covers it.
+#   OUT  FR-042's AC-268 and AC-269 -- two declarations withdrawn, zero
+#        def/class lines each. These two were HONESTLY dead and their two
+#        validator warnings are the only ones this card retires.
+#   OUT  ADR-0006/R1's `check:` -- one declaration withdrawn, zero def/class
+#        lines, 112 text resolvers at the previous commit.
+#   IN   the new refs of FR-042's AC-268 and AC-269: two real defs, at
+#        tests/test_book_pdf_band.py:1483 and
+#        tests/test_book_solved_answer_key.py:308.
+# ADR-0006/R1's new ref and FR-019's six new refs move no class: every one was
+# ALREADY declared elsewhere (ADR-0042/R-rule for the first, trace.yml's own
+# function-style list for the rest) and already resolved to a definition.
+# FR-001's four refs are deliberately NOT re-pointed and stay in HONEST_DEAD --
+# see FR-001's block comment in requirements.yml for why re-pointing them would
+# falsify a retired criterion rather than repair it.
+HONEST_DEAD = (16, "8723fc2092e3a735")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -1295,7 +1361,38 @@ RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 # when a first draft of this comment spelled one out. Refs are identified by site.
 # Count unchanged at 586, digest moved: the same three retired declarations out
 # and their three defined replacements in.
-CENSUS = (586, "00b3e6b1747a7111")
+# RE-DERIVED 2026-10-31 by CARD-317 -- measured, not pasted from the failure
+# message, which offers a ready-made line and says itself that it is a prompt
+# and not a gate. Method: this module's own derivation was run over the whole
+# ref population before and after the change, the two dumps diffed as SETS,
+# and every entrant and every departure then resolved against a real def/class
+# line by an INDEPENDENT ast index of tests/ and src/ (355 modules parsed,
+# 11,016 distinct names) -- a second reading, so the git-grep regex this module
+# uses cannot be both the measurement and its own witness.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and
+# so revives it for the validator's text search. Identified by SITE:
+#   OUT  FR-019's five acceptance criteria and its EC-005, plus CON-011's
+#        `check:` -- six class-style declarations withdrawn from
+#        requirements.yml and trace.yml. The ast index finds ZERO def/class
+#        lines for all six. They were the live 10..30 bound requirement's
+#        entire ref set and they raised no warning of any kind, because each
+#        resolved through the docstring of the very test that covers it.
+#   OUT  FR-042's AC-268 and AC-269 -- two declarations withdrawn, zero
+#        def/class lines each. These two were HONESTLY dead and their two
+#        validator warnings are the only ones this card retires.
+#   OUT  ADR-0006/R1's `check:` -- one declaration withdrawn, zero def/class
+#        lines, 112 text resolvers at the previous commit.
+#   IN   the new refs of FR-042's AC-268 and AC-269: two real defs, at
+#        tests/test_book_pdf_band.py:1483 and
+#        tests/test_book_solved_answer_key.py:308.
+# ADR-0006/R1's new ref and FR-019's six new refs move no class: every one was
+# ALREADY declared elsewhere (ADR-0042/R-rule for the first, trace.yml's own
+# function-style list for the rest) and already resolved to a definition.
+# FR-001's four refs are deliberately NOT re-pointed and stay in HONEST_DEAD --
+# see FR-001's block comment in requirements.yml for why re-pointing them would
+# falsify a retired criterion rather than repair it.
+CENSUS = (579, "90e075cf78a560bd")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1322,7 +1419,38 @@ CENSUS = (586, "00b3e6b1747a7111")
 # Count unchanged at 513, digest moved: three out, three in. The three departures
 # are defined nowhere (two retired property spellings and AC-142's retired
 # target); all three entrants have a definition line.
-TRACE_TESTS = (513, "921647301c1714c7")
+# RE-DERIVED 2026-10-31 by CARD-317 -- measured, not pasted from the failure
+# message, which offers a ready-made line and says itself that it is a prompt
+# and not a gate. Method: this module's own derivation was run over the whole
+# ref population before and after the change, the two dumps diffed as SETS,
+# and every entrant and every departure then resolved against a real def/class
+# line by an INDEPENDENT ast index of tests/ and src/ (355 modules parsed,
+# 11,016 distinct names) -- a second reading, so the git-grep regex this module
+# uses cannot be both the measurement and its own witness.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and
+# so revives it for the validator's text search. Identified by SITE:
+#   OUT  FR-019's five acceptance criteria and its EC-005, plus CON-011's
+#        `check:` -- six class-style declarations withdrawn from
+#        requirements.yml and trace.yml. The ast index finds ZERO def/class
+#        lines for all six. They were the live 10..30 bound requirement's
+#        entire ref set and they raised no warning of any kind, because each
+#        resolved through the docstring of the very test that covers it.
+#   OUT  FR-042's AC-268 and AC-269 -- two declarations withdrawn, zero
+#        def/class lines each. These two were HONESTLY dead and their two
+#        validator warnings are the only ones this card retires.
+#   OUT  ADR-0006/R1's `check:` -- one declaration withdrawn, zero def/class
+#        lines, 112 text resolvers at the previous commit.
+#   IN   the new refs of FR-042's AC-268 and AC-269: two real defs, at
+#        tests/test_book_pdf_band.py:1483 and
+#        tests/test_book_solved_answer_key.py:308.
+# ADR-0006/R1's new ref and FR-019's six new refs move no class: every one was
+# ALREADY declared elsewhere (ADR-0042/R-rule for the first, trace.yml's own
+# function-style list for the rest) and already resolved to a definition.
+# FR-001's four refs are deliberately NOT re-pointed and stay in HONEST_DEAD --
+# see FR-001's block comment in requirements.yml for why re-pointing them would
+# falsify a retired criterion rather than repair it.
+TRACE_TESTS = (507, "06021d84f972abd1")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1389,7 +1517,38 @@ TRACE_TESTS = (513, "921647301c1714c7")
 # glob, so the old spelling was silently never collected -- :203 and :304 of
 # tests/property/test_solve_strategies.py now are), and AC-142's re-pointed
 # function at tests/test_strategies.py:490.
-DEFINED = (406, "ab9946b256c9cc93")
+# RE-DERIVED 2026-10-31 by CARD-317 -- measured, not pasted from the failure
+# message, which offers a ready-made line and says itself that it is a prompt
+# and not a gate. Method: this module's own derivation was run over the whole
+# ref population before and after the change, the two dumps diffed as SETS,
+# and every entrant and every departure then resolved against a real def/class
+# line by an INDEPENDENT ast index of tests/ and src/ (355 modules parsed,
+# 11,016 distinct names) -- a second reading, so the git-grep regex this module
+# uses cannot be both the measurement and its own witness.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and
+# so revives it for the validator's text search. Identified by SITE:
+#   OUT  FR-019's five acceptance criteria and its EC-005, plus CON-011's
+#        `check:` -- six class-style declarations withdrawn from
+#        requirements.yml and trace.yml. The ast index finds ZERO def/class
+#        lines for all six. They were the live 10..30 bound requirement's
+#        entire ref set and they raised no warning of any kind, because each
+#        resolved through the docstring of the very test that covers it.
+#   OUT  FR-042's AC-268 and AC-269 -- two declarations withdrawn, zero
+#        def/class lines each. These two were HONESTLY dead and their two
+#        validator warnings are the only ones this card retires.
+#   OUT  ADR-0006/R1's `check:` -- one declaration withdrawn, zero def/class
+#        lines, 112 text resolvers at the previous commit.
+#   IN   the new refs of FR-042's AC-268 and AC-269: two real defs, at
+#        tests/test_book_pdf_band.py:1483 and
+#        tests/test_book_solved_answer_key.py:308.
+# ADR-0006/R1's new ref and FR-019's six new refs move no class: every one was
+# ALREADY declared elsewhere (ADR-0042/R-rule for the first, trace.yml's own
+# function-style list for the rest) and already resolved to a definition.
+# FR-001's four refs are deliberately NOT re-pointed and stay in HONEST_DEAD --
+# see FR-001's block comment in requirements.yml for why re-pointing them would
+# falsify a retired criterion rather than repair it.
+DEFINED = (408, "cce751165e74727c")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
