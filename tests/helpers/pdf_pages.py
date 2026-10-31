@@ -151,7 +151,7 @@ def page_image(page: Page, *, out_dir: Optional[Path] = None) -> Image.Image:
             host, so there is no engine to read it with. Said out loud rather
             than skipped (ADR-0038/R8).
     """
-    if page_medium_of(page) is RASTER:
+    if page_medium_of(page) == RASTER:
         return page
     if pdf_vector.PDFTOPPM is None:
         raise PageMediumRefused(

@@ -93,8 +93,8 @@ MUTANTS: tuple[Mutant, ...] = (
         "object -- so only an identity assertion can see it, which is why "
         "AC-2 asserts identity and not equality",
         path=HELPER,
-        old="    if page_medium_of(page) is RASTER:\n        return page",
-        new='    if page_medium_of(page) is RASTER:\n        return page.convert("RGB")',
+        old="    if page_medium_of(page) == RASTER:\n        return page",
+        new='    if page_medium_of(page) == RASTER:\n        return page.convert("RGB")',
         nodes=(
             f"{READER_TESTS}::TestPdfPagesReader_ARasterPageIsUnchanged"
             "::test_a_live_raster_page_is_handed_back_as_the_very_same_object",
@@ -320,15 +320,17 @@ MUTANTS: tuple[Mutant, ...] = (
     Mutant(
         name="MUT-14",
         what="AT THE CLAIM'S EDGE: a name that reads like a reader and is "
-        "defined nowhere joins `_STREAM_READERS`. It forbids nothing, and "
-        "without the existence cell the set would rot into a list of words "
-        "while still reading as a guard",
+        "defined nowhere joins the medium-blind register. Since cycle 1's "
+        "F-002 the crossing set is DERIVED, so a dead name can no longer "
+        "enter it -- the exemption register is now the only hand-written "
+        "half, and a dead entry there exempts a reader that does not exist "
+        "while reading as a considered decision",
         path=READER_TESTS,
-        old='            "interior_images",\n            "pdf_pages",',
-        new='            "interior_images",\n            "pdf_pages",\n            "rendered_interior_pages",',
+        old='            "pdf_page_count",\n            "same_page",',
+        new='            "pdf_page_count",\n            "same_page",\n            "rendered_interior_pages",',
         nodes=(
             f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
-            "::test_every_stream_reader_named_here_is_a_real_reader",
+            "::test_every_public_reader_of_the_two_owners_is_classified",
         ),
     ),
     Mutant(
@@ -338,11 +340,116 @@ MUTANTS: tuple[Mutant, ...] = (
         "operators page straight back. A member justified by belief rather "
         "than by behaviour would survive this",
         path=HELPER,
-        old="    if page_medium_of(page) is RASTER:\n        return page\n    if pdf_vector.PDFTOPPM is None:",
-        new="    if page_medium_of(page) is RASTER:\n        return page\n    return page\n    if pdf_vector.PDFTOPPM is None:",
+        old="    if page_medium_of(page) == RASTER:\n        return page\n    if pdf_vector.PDFTOPPM is None:",
+        new="    if page_medium_of(page) == RASTER:\n        return page\n    return page\n    if pdf_vector.PDFTOPPM is None:",
         nodes=(
             f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
             "::test_the_pixel_returning_stream_readers_really_cross_the_medium",
+        ),
+    ),
+    # ------------------------------------------------------------------
+    # Cycle 1's fix round. F-001, F-002 and F-003 each get a plant that
+    # SURVIVED before the fix and has to be killed by it.
+    # ------------------------------------------------------------------
+    Mutant(
+        name="MUT-16",
+        what="F-001, THE PLANT THE REVIEW FIRED AND WATCHED SURVIVE: the "
+        "same medium crossing as MUT-13, written one frame in at this "
+        "module's own page-source helper `_interior` -- which is exactly the "
+        "one-line seam this card standardised across five modules and "
+        "exactly what CARD-322 is instructed to apply to nine more. Closed "
+        "at depth 0 the pin could not see it",
+        path=READER_TESTS,
+        old="""def _interior(book: Book, puzzles: list[dict]) -> list:
+    \"\"\"The book's interior pages in print order; ``pages[n - 1]`` is page ``n``.\"\"\"
+    return BookPDFGenerator(book).interior_pages(puzzles)""",
+        new="""def _interior(book: Book, puzzles: list[dict]) -> list:
+    \"\"\"The book's interior pages in print order; ``pages[n - 1]`` is page ``n``.\"\"\"
+    return interior_images(BookPDFGenerator(book).interior_pages(puzzles))""",
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_no_site_reaches_a_stream_reader_through_a_helper_either",
+        ),
+    ),
+    Mutant(
+        name="MUT-16b",
+        what="F-001's control in the other direction: the SAME plant against "
+        "the depth-0 cell, which must still SURVIVE it -- otherwise the new "
+        "closed cell is measuring nothing the old one did not, and the two "
+        "would be one assertion written twice",
+        path=READER_TESTS,
+        old="""def _interior(book: Book, puzzles: list[dict]) -> list:
+    \"\"\"The book's interior pages in print order; ``pages[n - 1]`` is page ``n``.\"\"\"
+    return BookPDFGenerator(book).interior_pages(puzzles)""",
+        new="""def _interior(book: Book, puzzles: list[dict]) -> list:
+    \"\"\"The book's interior pages in print order; ``pages[n - 1]`` is page ``n``.\"\"\"
+    return interior_images(BookPDFGenerator(book).interior_pages(puzzles))""",
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_no_site_reads_a_content_stream",
+        ),
+        extra={"must": "SURVIVED"},
+    ),
+    Mutant(
+        name="MUT-17",
+        what="F-002: the derivation is replaced by the hand-written set this "
+        "round retired -- the exact seven names, no more. `rendered_page`, "
+        "the stream reader that returns pixels and the one `page_image` "
+        "itself delegates to, drops out, and the completeness control is "
+        "what notices. Under the old existence-only control this was the "
+        "shipped state",
+        path=READER_TESTS,
+        old="        return frozenset(crossing & public)",
+        new="""        return frozenset(
+            {
+                "content_streams",
+                "operator_tokens",
+                "operator_tally",
+                "page_media",
+                "page_image",
+                "interior_images",
+                "pdf_pages",
+            }
+        )""",
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_every_public_reader_of_the_two_owners_is_classified",
+        ),
+    ),
+    Mutant(
+        name="MUT-18",
+        what="F-003: the poppler guard in `page_image` stops guarding, so a "
+        "host without the engine reads a page anyway instead of saying the "
+        "reading is MISSING (ADR-0038/R8). Nothing in the tree set "
+        "`PDFTOPPM` to None before this round, so no control could reach "
+        "this branch at all",
+        path=HELPER,
+        old="""    if pdf_vector.PDFTOPPM is None:
+        raise PageMediumRefused(
+            "this page is written as content-stream operators (ADR-0042/R1) """",
+        new="""    if False:
+        raise PageMediumRefused(
+            "this page is written as content-stream operators (ADR-0042/R1) """",
+        nodes=(
+            f"{READER_TESTS}::TestPdfPagesReader_AnOperatorsPageIsNotAKeyError"
+            "::test_a_missing_poppler_is_a_missing_reading_and_never_a_skip",
+        ),
+    ),
+    Mutant(
+        name="MUT-19",
+        what="F-003's other branch: raster pages at DISAGREEING DPIs settle "
+        "a scale anyway -- `_derived_dpi` pops one of the two rather than "
+        "refusing, which is a reading in a domain nobody named. MUT-4 covers "
+        "the zero-raster-page arm; this is the arm the docstring and the "
+        "exception text both state and nothing drove",
+        path=HELPER,
+        old="    return derived.pop() if len(derived) == 1 else None",
+        new="    return derived.pop() if derived else None",
+        nodes=(
+            f"{READER_TESTS}::TestPdfPagesReader_AnOperatorsPageIsNotAKeyError"
+            "::test_raster_pages_at_disagreeing_dpis_are_refused_not_averaged",
+            f"{READER_TESTS}::TestPdfPagesReader_AnOperatorsPageIsNotAKeyError"
+            "::test_the_dpi_derivation_itself_answers_none_only_when_it_must",
         ),
     ),
 )
