@@ -91,10 +91,16 @@ active:
 - id: CARD-318
   phase: review
   cycle: 2
-  fix_rounds_done: 1
   cycle1_score: 7.0
-  cycle1_closed: [F-001, F-002, F-003]
-  cycle1_open_by_design: [F-004, F-005]
+  cycle2_score: 8.5
+  fix_round: 2
+  fix_findings: [F-009]
+  # min_score 8 is MET at 8.5; certification also needs no open Important, and
+  # F-009 is one. Cycle 3 follows and is the LAST max_cycles allows.
+  cycle2_closed: [F-001, F-002, F-003]
+  cycle2_accepted_open_low: [F-004]
+  cycle2_rescoped: {F-005: F-009}
+  f009_cause: orchestrator commit 7845cb5c, not the implementer
   branch: card/318-fr-029-strategies-criteria
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
   started: '2026-10-30T20:56:08Z'
