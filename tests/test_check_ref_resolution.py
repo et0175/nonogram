@@ -1340,6 +1340,14 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 # honest gap this card shipped. Closing it needs a check that reads what a test
 # ASSERTS; no instrument on this board does, and it is carded rather than built
 # here.
+#
+# A SECOND, NARROWER BOUND, measured by the same fix round's mutant 4: for a ref that a
+# SECOND authority still declares, this class cannot see the first authority's key come
+# BACK either. Restoring FR-001/AC-001's withdrawn `test:` key leaves all 23 cells green
+# -- the ref stays in the census via trace.yml and stays undefined, so neither this class
+# nor :data:`CENSUS` moves -- while the validator of record flips that criterion's warning
+# from "has no 'test'" back to a dead ref. For the four of FR-001 the only instrument that
+# sees the change in either direction is the validator, not this module.
 HONEST_DEAD = (9, "e109f654427454a9")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from

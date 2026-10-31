@@ -338,7 +338,14 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
 - **G-3: do not touch AC-205.** It is the live, correct, tested criterion and the
   control that AC-206/207 are the rejected pair.
 - **G-4: no test deleted, renamed, skipped or merged** — `parametrize` ids included.
-  (**gate**: node-id set difference with `-o addopts=''`.)
+  (**gate**: node-id set difference with `-o addopts=''`.) **Discharged, fix round 1:**
+  `tests/test_check_ref_resolution.py` is the ONLY file under `tests/` this branch changes
+  (`git diff --name-only 9932bb07..HEAD -- tests/`), and its collected node ids at `main`
+  and at HEAD are **23 and 23 with an EMPTY set difference in both directions** — nothing
+  added, nothing removed, nothing renamed. Both lists were asserted non-empty before being
+  compared, the module's SHA-256 was identical before and after the temporary checkout of
+  main's copy, and `--collect-only -q` was run with `-o addopts=` (bare `-q` stacks to
+  `-qq` and prints no node ids at all).
 - **G-5: do not compare this branch's warning count to main's without holding the
   review YAMLs equal.** `meta/review/**` is inside the validator's ref-resolution
   domain, so a tree with different reports in it resolves differently. Swap the files
@@ -580,6 +587,22 @@ Mutants 1 and 2 red at **different** node pairs, which is the edge the comment o
 `HONEST_DEAD` claims: a withdrawal reds at the census pin, an erosion reds at the gate
 and at falsely-alive. The two cases are distinguishable by the guard, not just by prose.
 
+**Fix round 1's mutants — four plants, same discipline** (`PYTHONDONTWRITEBYTECODE=1`,
+`__pycache__` swept both ends, each anchor's occurrence asserted `== 1`, SHA-256 recorded
+before the plant and after the restore and **identical in all four**, `git status` clean
+after each, and all four planted on a COMMITTED tree):
+
+| # | plant (by text) | what it is for | result |
+|---|---|---|---|
+| 4 | restore **FR-001/AC-001**'s withdrawn `test:` key | the claim that the conversion moves no pin — a mutant *inside* a negative claim | **23 passed, NO cell red**; validator stays 88 with that criterion's `has no 'test'` **out** and its DEAD check ref **in**. This is the refutation's mechanism made visible: the ref is still declared by `trace.yml`, so `CENSUS` cannot move, and it was already honest-dead, so `HONEST_DEAD` cannot move. **An honest bound falls out of it: for FR-001's four the pins cannot see the key come back either** — the only instrument that sees this change in either direction is the validator |
+| 5 | restore **AC-191**'s withdrawn `test:` key (round 0's mutant 1, re-fired on the rebased tree) | that the pins still gate after the rebase and the new comments | **2 failed, 21 passed** — `test_the_trace_tests_lists_agree_with_an_independent_reading` (the `CENSUS` pin) and `test_the_two_directions_of_disagreement_are_exactly_the_measured_ones` (honest-dead). Identical to round 0; validator flips that one warning back, total still 88 |
+| 6 | a **live declared+defined ref with 13 existing loose resolvers**, named as a comment in `meta/kanban/config.yml` | the decisive control for F-012's widened G-2 cell: a ref chosen so that **no pinned class can move** | **1 failed, 22 passed** — and the one red is `test_this_module_resolves_no_verifying_ref_at_all` **alone**. **Counterfactual measured, not argued:** with the plant in place, a trie over the census applied to the OLD cell's domain (`Path(__file__)`, this module only) returns **0 hits**, so the cell as it stood **would have passed**. The widening is what catches it |
+| 7 | a live declared ref named in `scratchpad/card316/derive_set.py` | the same, through the **glob** arm rather than the literal arm | **2 failed, 21 passed** — the G-2 cell plus `test_the_two_directions_…` (the planted ref was *falsely-dead*, so giving it a loose resolver also moved `FALSELY_DEAD`; with the class-immobile ref of mutant 6 the G-2 cell is the sole red) |
+
+Mutant 6 is the one that matters: it is a regression that **nothing on this board could
+see before this fix round**, caught by the cell this round widened, with the
+counterfactual measured rather than reasoned.
+
 **Controls this round does NOT have, stated rather than implied.** AC-3 ("the six keep
 their given/when/then and their comments intact") has no test and is not worth one; it is
 discharged mechanically at the diff level, which is weaker and labelled as such: every
@@ -619,24 +642,46 @@ any file in the domain passes the cell and still revives the name for the valida
 storing the withdrawn names, which G-2 forbids in that module. It is a measured bound and
 is written beside the cell as one.
 
-**Impact run.** Two batches, both file-scoped with the count read by pattern:
+**Impact run, fix round 1 — the set is DERIVED, with the rule stated (F-007).** Cycle 1
+found round 0's set was named "the registry's readers" and omitted six of the fifteen,
+including the two modules the card's own analysis names as the prose-resolvers of
+AC-124/125/126/173 and AC-111/132/114. The set is now the union of three enumerable arms:
 
-- the registry's readers and the criteria's own live siblings (13 files:
-  `test_check_ref_resolution`, `test_approval_guess_gate`, `test_grid_bound_agreement`,
-  `test_nfr001_generation_time`, `test_public_player`, `test_public_player_pages`,
-  `test_cli`, `test_collected_names`, `test_solver_strategies`, `test_sourcing_random`,
-  `test_book_plan_storage`, `test_book_select_floor_tiles`, `test_book_pdf_band`) —
-  **565 passed, 1 xfailed, 0 skipped**;
-- the board's own guards, because `meta/kanban/config.yml` is inside the validator's
-  search domain (`test_guard_integrity`, `test_impact_set`, `test_kill_matrix`,
-  `test_full_suite_lock`, `test_suite_profile`, plus the census module and `test_cli`
-  again) — **939 passed, 0 skipped**.
+- **A — every module under `tests/` that reads the registry**: `git grep -l 'requirements\.yml' -- tests/` → **15**;
+- **B — the live-sibling modules**: every live `test:` ref on the six FRs this card
+  touches (FR-001, FR-019, FR-028, FR-032, FR-035, FR-040), 36 refs, each resolved to its
+  defining module by an `ast` index → **12** modules. **5 of the 36 resolve to no module
+  under `tests/` at all** — `TestGenerateRandom_AcceptsDensityOneAndNinetyNine`,
+  `TestGenerateRandom_RefusesDensityZeroAndHundred`,
+  `TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam`,
+  `TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage` and
+  `TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge` — which is the prose-resolution
+  population this card is about, surfacing again from the authority rather than by eye;
+- **C — the board's own guards**, because `meta/kanban/**` is inside the validator's
+  search domain and the G-2 cell now reads `config.yml`: `test_guard_integrity`,
+  `test_impact_set`, `test_kill_matrix`, `test_full_suite_lock`, `test_suite_profile`,
+  `test_collected_names` → **6**.
 
-**Skips: zero in both batches, read with `-rs` rather than assumed** — which matters
-here, because a stripped `PATH` makes platform-gated cells skip and a skip reads as a
-surviving mutant. The single **xfail** is pre-existing and unrelated:
-`tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s` (AC-037, generation
-time still over budget at the high densities; CARD-018's marker, read off `-rx`).
+Union: **31 modules** (the figure is the union's size, not the sum). Run in three batches
+only because two cells need different environments:
+
+- **29 modules** (the union less `test_kill_matrix` and `test_suite_profile`) —
+  **1441 passed, 1 xfailed, 9795 warnings in 212.07s (0:03:32)**;
+- **`test_kill_matrix` alone, under `NONOGRAM_TEST_HANG_SECONDS=900`** — **76 passed in 106.33s (0:01:46)**. Its last two
+  whole-file reproduction cells exceed the default 120 s hang budget on a loaded box, and
+  the guard then `os._exit`s the session leaving its in-tree plant unrestored; `git status`
+  was checked after and the tree was clean;
+- **`test_suite_profile` alone, under the DEFAULT hang budget**, because an override would
+  mask one of its own profile assertions — **450 passed in 42.19s**.
+
+**Total: 1967 passed, 0 failed, 1 xfailed, 0 skipped.** Every count line was
+located by pattern (`-q` stacks to `-qq` and prints none; with `-q` the count line is not
+the last line), every call carried `-o addopts=`, no `-k` was used and no call was
+nodeless. **Skips: 0, read with `-rfs` rather than assumed** — none, so neither DB gate nor a platform gate fired; a stripped PATH would have shown up here as a skip reading like a surviving mutant. The 1 **xfail** is
+pre-existing and unrelated: `tests/test_nfr001_generation_time.py::test_20x20_p95_is_under_5s`
+(AC-037, generation time still over budget at the high densities; CARD-018's marker). The
+full suite was NOT run, `NONOGRAM_FULL_SUITE_LOCK` was not touched and the ignore flag was
+not set.
 
 One thing worth recording for the next round rather than re-discovering: during the
 second batch `git status` showed `tests/test_db_engine_lifecycle.py` as modified with a
@@ -644,6 +689,25 @@ diff that changed size between two reads. That is `test_guard_integrity`/
 `test_kill_matrix` planting and restoring its own mutants in-tree. It restored cleanly.
 **Do not read a dirty tree during those two modules as a stray edit, and do not commit
 while they run.**
+
+**Routed out of this card rather than done in it**, each with the reason, so nothing sits
+only in a review YAML:
+
+1. **the re-point blind spot** (F-004) — the registry-side twin of CARD-333's item 2 and
+   CARD-319's text-search defect, all three waiting on the same forge_1 decision. Needs a
+   check that reads what a test ASSERTS; nothing on this board does. Recorded as a bound
+   at three sites and carded, not built here.
+2. **the seven stale `_meta.dec_expected: true` flags** (F-006) — a registry record change
+   outside this card's set. The orchestrator is cutting it; the count and the seven FR ids
+   are above.
+3. **the G-2 hazard already live on `main`** (F-012) — three tracked files under
+   `scratchpad/card318fix/` each spell one live declared ref as a whole token, so they are
+   in-domain resolvers written by hand. Measured, named by site, and left: widening this
+   card's glob to cover them would red the suite on another card's artefacts.
+4. **AC-2's residue** — FR-001's four were the owner's call and are now settled; what
+   remains is that no mechanical instrument on this board sees a `test:` key arrive at or
+   leave a criterion whose ref a *second* authority also declares (mutant 4). That is
+   item 1's population, one layer out.
 
 **Environment.** Validator and suite both run with
 `/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python` (worktrees share the
