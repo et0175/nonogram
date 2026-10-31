@@ -1,6 +1,6 @@
 # CARD-331: The difficulty-dot accounting instrument measures a page the product will stop drawing — it needs a vector twin, and nobody owned that
 
-**Status:** review
+**Status:** done
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30, same reason as CARD-329: one of the three prerequisites of CARD-322, and the only one of CARD-309's four causes that had no owner at all before today. -->
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -19,9 +19,9 @@
 **Touches:** tests/test_book_difficulty_dots.py, tests/helpers/round_ink.py
 **Review score:** 8.5 (cycle 3 of 3 — CERTIFIED; 8.5 → 8.0 → 8.5, two fix rounds)
 **Started:** 2026-10-31T02:39:21+00:00
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-31T06:46:13+00:00
+**Actual:** 4.1h wall-clock against a 0.75d estimate — two fix rounds and three review cycles
+**Merge commit:** `36099a5d` — gate green on 10073 passed / 27 skipped / 1 xfailed / 0 failed
 **Blocked by:** —
 
 ## Why this card exists

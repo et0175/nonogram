@@ -1,6 +1,6 @@
 # CARD-316: Seven acceptance criteria name tests that were never meant to exist — rejected alternatives, retired features and one forward declaration, each reading as mechanically checked
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -8,21 +8,74 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/316-seven-phantom-acceptance-keys`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-316
 **Source:** CARD-307's fourth premise re-measurement, 2026-10-29, which found that the board's real dead-ref population is bare class names rather than node ids. CARD-307 was cut; this is one of its four successors. Cut by the orchestrator on owner decision.
 **Idea:** —
-**Wave:** —
+**Wave:** 72 <!-- STAMPED 2026-10-31 at dispatch. Free of CARD-329 (intersection EMPTY) and no longer behind CARD-317, which merged 8e2ce9ed and released requirements.yml. Premise VERIFIED at dispatch: all seven ACs present, all seven named tests still phantom by an ast index. -->
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T06:47:15+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## [Premise verified at dispatch, 2026-10-31] — and every line number in the table is stale
+
+**Checked before dispatch, per the rule four earlier cards of this family produced
+(a premise built on a text-search reading dissolves on contact, so resolve it by
+definition first).** This card's premise **holds, completely**:
+
+- all **seven** ACs are still present in `requirements.yml`;
+- all **seven** named tests still resolve to **no `def`/`class` anywhere** in `tests/`
+  or `src/`, by an `ast` index — they are genuinely phantom, not merely un-grepped.
+
+So this card is dispatchable as cut. **What is stale is every line number in the table
+above — all 7 of 7**, because CARD-318 and CARD-317 both landed in this file since the
+card was written:
+
+| entry | cited | actual | shift |
+|---|---|---|---|
+| AC-129 | `:1802` | **`:1863`** | +61 |
+| AC-134 | `:1810` | **`:1871`** | +61 |
+| AC-191 | `:2424` | **`:2542`** | +118 |
+| AC-192 | `:2432` | **`:2550`** | +118 |
+| AC-206 | `:2969` | **`:3087`** | +118 |
+| AC-207 | `:2976` | **`:3094`** | +118 |
+| AC-379 | `:3594` | **`:3712`** | +118 |
+
+**Do not offset. Re-derive.** Those actuals are a reading at this commit and nothing
+more — CARD-316 is the third card in a row to inherit a stale `requirements.yml` line
+figure, and the previous two inherited an *offset band* that was right at requirement
+granularity and wrong at criterion granularity, which is the granularity here. Find
+each entry by its `- id:` line:
+
+```python
+import re, pathlib
+for i, line in enumerate(pathlib.Path("meta/architecture/requirements.yml")
+                         .read_text().splitlines(), 1):
+    if re.match(r"^\s*- id: AC-206\s*$", line):
+        print(i)
+```
+
+**Two facts from the cards that shifted the file, both load-bearing here:**
+
+- **CARD-318's F-009 is the defect to avoid repeating.** Demoting a criterion's `then`
+  to match the code, without checking that its named test asserts the new `then`, left
+  a criterion that *resolves* — so nothing warns — while verifying nothing. If any of
+  these seven is repaired by re-pointing rather than by removing the key, **check the
+  target asserts the criterion's own `then`**, not merely that the name resolves.
+- **CARD-317 measured that the validator has NO `status: superseded` exemption** for an
+  AC dead ref (`_validate_ac_ec_test_refs`, no `status` test in the function), and that
+  its suggested fix — dropping the `test:` — trades the dead-ref warning for an
+  "acceptance criterion has no 'test'" warning: **net zero**. So expect the warning
+  count to move by less than seven, and **derive what it actually does** rather than
+  predicting it. Main stands at **0 err / 90 warn**; diff the WARN **sets** with `comm`,
+  never the totals.
 
 ## Why this card exists
 

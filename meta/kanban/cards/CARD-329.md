@@ -1,6 +1,6 @@
 # CARD-329: The one-image reader learns the content stream — AC-3's real content, separated from the three causes that were not readers
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30 on the owner's "move from raster to vector first". It is on the critical path to CARD-322, which is the card that finally gives the vector interior a reader -- nothing in `src/` turns an interior page into operators until it lands. CARD-330 was already P1; these three are one front and a split priority would have the dispatcher take them in the wrong order. -->
 **Category:** tech-debt
 **Estimate:** 2d <!-- RE-CUT 2026-10-31 from 0.75d on the owner's "re-cut 329". 0.75d priced the helper fix plus a triage; this card now also REPAIRS the population-B modules its triage names, and builds the verification that makes AC-4 capable of failing. Five modules, a helper, and a harness. -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/329-one-image-reader-learns-the-stream`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-329
 **Source:** CARD-309's implementation round, 2026-10-30 — cause 1 of the four that blocked its AC-1, and **the only one of them that is actually a PDF reader**. Its AC-3 was written as though all of the breakage were this, which is why the card could not close.
 **Idea:** —
-**Wave:** —
+**Wave:** 72 <!-- STAMPED 2026-10-31 at dispatch, opening wave 72 after wave 71 closed two-for-two. Re-cut the same day on the owner's call: it now REPAIRS population B, not just triages it. Measured free of CARD-316 (intersection EMPTY). Its one conflict edge is tests/test_book_pdf.py with CARD-322, which serializes them in the intended order -- this card lands first and CARD-322 consumes its AC-6 output. It is CARD-322's LAST open dependency. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/helpers/pdf_pages.py, tests/test_book_pdf.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_cell_size.py <!-- WIDENED 2026-10-31 at the re-cut, by the five unowned population-B modules. DELIBERATELY EXCLUDED: tests/test_book_difficulty_dots.py and tests/helpers/round_ink.py (CARD-331's, G-3) and tests/helpers/page_ink.py (CARD-330's, G-2). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T06:47:15+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

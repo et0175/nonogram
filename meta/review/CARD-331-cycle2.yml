@@ -1,0 +1,1021 @@
+# forge:review — CARD-331, cycle 2 (confirmation + regression hunt)
+#
+# ===================================================================
+# THIS FILE CONTAINS NO CHECK REFS.
+# ===================================================================
+# The architecture validator's check-ref search is a TEXT search over the
+# repository, and a synced review YAML has been MEASURED silencing a live
+# dead-ref warning on main. So, as in cycle 1: every pytest cell named below is
+# written either as a full `path::Class::cell` node id inside quotes, or as
+# prose prefixed with the word `cell`/`node`. No line of this file is a Python
+# definition line (no line begins with `def ` or `class `), and nothing here may
+# be read as satisfying any rule's `check:`. The refs this review verified live
+# in `tests/`, not here. A reader — human or validator — that finds a name in
+# this file has found a CITATION, never a definition.
+#
+# Like cycle 1's, this file is left UNTRACKED in the worktree on purpose.
+version: 1
+generated_at: "2026-10-31T09:40:00Z"
+target: "CARD-331, branch card/331-difficulty-dot-instrument-vector, HEAD 9f617ed1, merge base b18fd397, fix commits 18ce1ed0 + 9f617ed1 on 308bbded, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-331"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+mode: >-
+  Confirmation / differential. The unit of review is the fix delta
+  308bbded..9f617ed1 (4 files, +919/-34). Every cycle-1 finding was
+  re-derived from evidence rather than from the fix round's claim, and the
+  delta's own new code was reviewed at full depth. Certification was NOT
+  deferred: the mutation check ran (24 of the card's plants re-fired plus 6
+  of my own) and 8g is N/A (no UI).
+
+coverage:
+  read:
+    - "tests/test_book_difficulty_dots.py — the whole fix delta (+596) in full; the F-003, F-002, F-005 and F-006 cells and their data in full; the module read from its git object (`git show HEAD:`) while plants were held, so no read observed a mutated tree"
+    - "tests/helpers/round_ink.py — the whole fix delta (+63) in full: both refusal sets, node `stream_marks` end to end, the `_REFUSED_STATE_OPERATORS` docstring"
+    - "scratchpad/card331/mutate.py — the whole delta (+106), all 24 plant definitions, the driver's discipline asserts"
+    - "meta/kanban/cards/CARD-331.md — in full (499 lines), including the +188 of the delta"
+    - "meta/kanban/cards/CARD-322.md on main — the owner's 2026-10-31 ORCHESTRATOR CORRECTION block and the sentence it corrects"
+    - "meta/kanban/config.yml on main — the re-dated validator-of-record comment"
+    - "tests/test_book_solved_answer_key.py — the `_DOOR_EMITS` / `_UNCLASSIFIED_DOORS` authority and its own `_UNCLASSIFIED_DOORS == ()` cell"
+    - "tests/test_book_pdf_vector_primitives.py — import surface and cell count, to judge the binding's home"
+    - "meta/review/CARD-331-cycle1.yml — in full"
+    - "CLAUDE.md — the import-ban clause, to adjudicate the round's claim about it"
+  not_reached:
+    - "tests/test_book_difficulty_dots.py lines 1-5950 (the 155 pre-existing cells) read only where the delta touches them — the legacy guard families were not re-derived this cycle either"
+    - "the two-up / paired vector sheet, which this card deliberately does not instrument"
+    - "the 19 system rules the lens assembles but the card does not declare (see system_contract.source)"
+  confidence: high
+
+metrics:
+  diff:
+    whole_card_vs_merge_base: { files: 8, added: 3575, removed: 0 }
+    fix_delta_308bbded_to_HEAD: { files: 4, added: 919, removed: 34 }
+  max_fan_in:
+    symbol: "tests.helpers.round_ink.stream_marks"
+    callers: 1
+    note: >-
+      Re-measured: exactly two files mention it — its own defining module and
+      the one touched test module. So the vector arm is its ONLY consumer,
+      which is a load-bearing fact for the binding-home judgement (F-003's
+      third reason) and I confirm it. The co-change peer
+      tests/test_book_pdf_vector_primitives.py does not reference it at all.
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_book_difficulty_dots.py — 24 commits/12mo, 2 of them fix/bug (8% defect density); the highest-churn file in the diff"
+    - "tests/helpers/round_ink.py — 6 commits/12mo, 0 fix/bug"
+  cochange_missing:
+    - "tests/test_book_pdf_vector_primitives.py (5 of the 24 co-changing commits) — the only co-change peer absent from this diff that no guardrail excuses. Re-examined this cycle and I now agree it is correctly absent: see finding F-003's carried status and the verdict in `judgements` below."
+    - "src/nonogram/export/layout.py (5), src/nonogram/admin/book_vector.py (4), src/nonogram/admin/book_pdf_generator.py (4) — absent BY GUARDRAIL (G-1/G-3); all three measured at 0 diff lines"
+    - "tests/helpers/page_ink.py (4) — absent BY GUARDRAIL (G-2, CARD-330's); 0 diff lines"
+    - "tests/helpers/pdf_vector.py (4) — absent by the round's stated choice; 0 diff lines"
+    - "meta/profiling/rank_durations.py (3) — absent by the round's measured-and-declined re-freeze"
+  unmeasured:
+    bus_factor: >-
+      tooling_failure — `git shortlog -sn` returns an empty table for both
+      touched files at every window including all-time, on a repo whose every
+      commit is authored `Claude Code`. The signal cannot be separated from a
+      single-author repo and says nothing about this diff. (Same reason as
+      cycle 1; re-attempted, same result.)
+    audit_findings: >-
+      no_eligible_fact — meta/audit/ does not exist in this worktree, so there
+      is no on-touch audit report to collect findings from.
+    positioning_backing: >-
+      no_eligible_fact — meta/business/positioning.md and
+      meta/business/bets.md are both absent, the card carries no `@bet:`
+      context, and neither touched file backs an NFR/EC named as a pillar.
+    project_local_dismissals: >-
+      no_eligible_fact — .claude/fix-suppress.yaml does not exist in this
+      worktree, so no finding below was suppressed as an exact prior human
+      ruling.
+    impact_scope_module_set_parity: >-
+      not_applicable — the round reported 1041 over its 6 modules, cycle 1
+      reported 1016 over its 6, and I report 962 over mine. The three sets are
+      deliberately different and none of the figures is comparable to the
+      others; each is stated with its own module list. Mine is in
+      `measurements.impact_scope`.
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  source: >-
+    The card's own `## System contract` section (5 entries), which is why N=5.
+    The on-the-fly lens
+    (`system_rules.py --root meta/architecture --card CARD-331 --verify-refs`)
+    assembles 24 rules for these touches and reports `check_refs_verified:
+    true` with `dead_check_ref: []`, `tooling_failure: []`,
+    `unresolvable_scope: []` and `scope_unmapped_model: []` — so no rule below
+    rests on a dead ref, and that is a verified fact rather than an empty list
+    of unknown meaning. The 19 the card does not declare resolve
+    `no_eligible_fact` for this test-only diff: they govern browser tests, the
+    player bundle, the puzzle-key recipe and the admin surface, none of which
+    this diff reaches. ADR-0039/R2 was cycle 1's single violation and it FLIPS
+    to holds this cycle; the residual control gap I found is filed under
+    ADR-0039/R1 as F-008, and it does not flip R1 because R1's clause is met
+    for three of the four cases and for every other claim in the delta.
+  verdicts:
+    - "ADR-0042/R6 ✓ holds — carried(cycle 1, delta-clean) for the arm's own structure, re-verified for the delta: the fix delta adds no new reading path, and the two new vector cells read `ContentStream.operators` through the same stream reader and nothing else. Re-derivable: the card's plant MUT-15 (declared boxes flipped about the wrong page height) reds exactly 1 cell and MUT-8 (one dot too few declared) reds exactly 2, both measured by me this cycle at `scratchpad/card331/mutate.py`, so the stream really is the authority the accounting answers to."
+    - "ADR-0042/R2 ✓ holds — a raster page is declared with a reason and the declaration is untouched. Re-derived mechanically: `git diff b18fd397..HEAD --numstat -- src/nonogram` is 0 changed paths, as is `-- tests/test_book_pdf.py` and `-- tests/fixtures`. All 11 mentions of `_RASTER_DECLARATIONS`/`RENDER_HEAVY_SNAPSHOT` in the diff are prose, comment, or a `-p` session plugin's runtime `.pop()`; no definition line moved. The arm-per-medium guard is what makes R2's survival load-bearing, and it is the reason CARD-322 must re-point rather than retire."
+    - "ADR-0039/R1 ✓ holds — a claim needs a control that CAN fail, and I fired 30 controls rather than reading them: the card's 24 plants (23 killed, 1 declared survivor, harness exit 0, baseline asserted at 195 passed / 0 skipped on every single run) plus 6 of my own (5 killed, 1 survived). The 5 that killed reach the `stale`, `unknown`, `BI`-case and `sh`-case assertions; MUT-R6 shows the q/Q non-refusal is itself pinned by a control that reds when q/Q are refused. The one survivor is F-008: the `Do` case's control cannot fail because a `cm` in the same stream masks it. That is a control gap in ONE of four cases of ONE cell, filed as an Important finding with `violates: ADR-0039/R1`; it does not make the rule's verdict `violated` for this diff, because every other claim the delta adds has a control I measured reaching it."
+    - "ADR-0039/R2 ✓ holds — FLIPPED from cycle 1's `✗ violated (partial)`. The three mark-bearing classes that passed silently now refuse, probed by me directly against the committed reader: a rect under `2 0 0 2 0 0 cm` raises StreamShapeError (was: read its UNTRANSFORMED box), `/Im0 Do` raises (was: 0 marks, silent), `/Sh0 sh` raises (was: 0 marks, silent), and `BI` raises; the bare-rect and `q`/`Q` controls still read the same box, so this is a change of verdict and not a reader that refuses everything. And the rule's first clause — a guard's set is derived from an authority the runtime can enumerate, not hand-written — is now met the way R2 asks: the vocabulary is held to `_DOOR_EMITS`' measured union (17 operators), recorded, partitioned into understood / refused / recorded-pass-over with the three sets held disjoint and the pass-over list held down as well as up. Re-derivable: plant MUT-20 (the writer grows a `cm` via `stroke_width`) reds that cell, measured by me."
+    - "COMP-009 ✓ holds — the book production component is not reached. `git diff b18fd397..HEAD --numstat -- src/nonogram tests/fixtures` is 0 changed paths; the diff is test-side plus the card plus 5 scratchpad instruments, and `git ls-files scratchpad/card331/` carries only `.py` files — no measurement dump, which is what reddened CARD-318's merge gate."
+
+root_causes:
+  - id: RC-1
+    title: >-
+      The delta's NEWEST cell carries three claims about what it catches that
+      are not each held to a control reaching them — the card's own AC-5
+      thesis (a surviving mutant and a never-reached assertion look
+      identical), applied to the cells the fix round wrote
+    finding_ids: [F-008, F-009, F-010]
+  - id: RC-2
+    title: >-
+      F-002's root cause — prose evidence that re-derives to a different value
+      at HEAD — survives in two places outside AC-5's table, one of them
+      falsified by the fix round's own +6 cells
+    finding_ids: [F-011, F-012]
+
+findings:
+  # ---------------------------------------------------------------
+  # Cycle 1's seven, each carried forward with an explicit status.
+  # Every closure was re-derived from evidence, not accepted on the
+  # fix round's claim.
+  # ---------------------------------------------------------------
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 6150
+    title: "A dead :meth: cross-reference that also restates the claim this round measured false"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED. Verified two ways, both mechanical.
+
+      (a) The dead reference is gone and so is its whole class: I resolved
+      EVERY `:meth:` cross-reference in the module against the module's own
+      `ast` (class -> method map, plus module-level functions) and found
+      **0 refs naming a Test* class or method that does not exist**. The
+      `_arm_page` docstring now points at the renamed cell, which exists.
+
+      (b) The clause is RETRACTED IN PLACE, not deleted, which is what
+      ADR-0039/R4 asks for. The old sentence is quoted verbatim at
+      tests/test_book_difficulty_dots.py:6163-6165 and marked `**retracted**`,
+      with BOTH limits stated: the one-pixel-drift self-consistency (node
+      `_appended` builds its scratch stream from the same figure, so the
+      accounting stays self-consistent) and the invisible page-number drift
+      (band centre and glyph box bit-identical on both parities). The card
+      carries the same retraction at meta/kanban/cards/CARD-331.md:325-349 with
+      its two measurements, and the renamed cell's own docstring states both
+      limits again — "retracted everywhere it was written".
+
+      The retraction's measurement re-derives: plant MUT-16 reds exactly 1
+      cell, which is the one-cell result the narrowed claim asserts.
+    suggestion: "None — closed."
+    confidence: high
+    source: static
+    violates: "ADR-0039/R4"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 190
+    title: "AC-5's prose evidence cites 4 line numbers that do not carry the assertions it names"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED, and closed at the root for AC-5 itself.
+
+      The table is now module DATA (`AC5_PER_ASSERTION`, 6 rows) and the
+      citation is the assertion's own `ast.unparse`d SOURCE TEXT, obtained by
+      `inspect.getsource` + `ast.parse` over the named cell. That is immune to
+      a line shift by construction — which was the entire defect — and it
+      reds BOTH ways: an edited or deleted assertion stops matching, and a row
+      kept for a cell that no longer carries it stops matching too. I
+      confirmed the card's table carries **zero line numbers** (the only
+      numbers left in that section are the historical record of the four WRONG
+      ones, which is the retraction, not the claim).
+
+      Derived, not transcribed, in the part that rotted: the rows still name
+      mutant -> assertion by hand (which cannot be derived without running the
+      mutants), but every row's LOCATION claim is re-derived off the cells, and
+      the structural claim AC-5 actually makes — count and verdict are two
+      DISTINCT asserts of the same cell, with the count strictly earlier, and
+      liveness in a different cell — is derived in full.
+
+      Re-derived: plant MUT-22 (the raster count and verdict fused into one
+      assert) reds **both** new cells. The round's own self-fix also holds: the
+      second red now carries a message naming the fused assertion
+      ("...no longer carries [...] as an assertion of its own — fused into
+      another assert, or gone") instead of a bare ValueError out of
+      `list.index`, because both assertions are checked present before either
+      is located.
+
+      NOTE: the ROOT CAUSE survives elsewhere in the card — see F-011, F-012.
+      AC-5's own evidence is closed.
+    suggestion: "None for AC-5 — closed. See F-011/F-012 for the same cause outside it."
+    confidence: high
+    source: static
+    violates: "AC-5"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/helpers/round_ink.py
+    line: 570
+    title: "The reader's operator vocabulary is hand-written beside an authority the repo already enumerates, and three mark-bearing operator classes pass silently"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED. This was the cycle's hardest finding and
+      its closure is the strongest work in the round. I re-derived both halves.
+
+      THE REFUSALS. Probed directly against the committed reader, not read:
+      every row of cycle 1's table flips, and both controls still behave. My
+      table is in `measurements.probe_table`. `_REFUSED_STATE_OPERATORS =
+      {cm, Do, sh, BI}` at tests/helpers/round_ink.py:570, raised from node
+      `stream_marks` at :802-808.
+
+      THE BINDING. This is the part that makes the closure structural rather
+      than another hand-written set, and it satisfies ADR-0039/R2's first
+      clause. The cell at tests/test_book_difficulty_dots.py:7469 asserts, in
+      order: `_UNCLASSIFIED_DOORS == ()` restated locally because the claim
+      rests on it (:7492); the writer's measured union equals the RECORDED
+      17-operator set (:7497) so the cell is a statement about a known surface
+      and not a tautology; the three classifications pairwise disjoint
+      (:7512-7514); no emitted operator unclassified (:7517); no emitted
+      operator colliding with a refusal (:7524); the pass-over list held DOWN
+      (:7533); every path operator understood (:7541); and a non-vacuity check
+      that the measured intersection is not empty (:7545). The authority has
+      its own guard too — tests/test_book_solved_answer_key.py:3086 carries
+      its own `_UNCLASSIFIED_DOORS == ()` cell — so the binding has two
+      anchors, not one.
+
+      Re-derived: MUT-19 (the reader goes back to ignoring cm/Do/sh) KILLED;
+      MUT-20 (the WRITER grows a `cm` via `stroke_width`) KILLED; MUT-21
+      KILLED. I also fired 4 of my own against this closure: the `stale`
+      assert fires (MUT-R1), the `unknown` assert fires (MUT-R2), and the `BI`
+      and `sh` cases each red on their own (MUT-R3, MUT-R4).
+
+      TWO RESIDUALS, both filed separately and neither reopening this finding:
+      the `Do` case's control cannot fail (F-008, Important) and the refusal
+      set's docstring claims more than it holds (F-010, Minor).
+    suggestion: "None for this finding — closed. See F-008 and F-010."
+    confidence: high
+    source: static
+    violates: "ADR-0039/R2"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 6996
+    title: "The hook detector's scope omits the raster arm's own plant functions — proved by a surviving mutant"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED, and this is the cleanest before/after in
+      the round. `RASTER_ARM_FUNCTIONS` now carries 5 names: the original three
+      plus `_declaring_plant` and `_rogue_plant`, exactly as cycle 1's
+      suggestion asked.
+
+      Measured, not argued: cycle 1's M10 is re-fired VERBATIM as the card's
+      MUT-18 (it inserts `book_pdf_generator._NOT_A_REAL_ATTRIBUTE = 1` into
+      node `_declaring_plant`'s body). It SURVIVED cycle 1 at 189 passed. I
+      fired it this cycle and it is **KILLED**, redding at
+      tests/test_book_difficulty_dots.py:7772 with
+      `assert ['_declaring_...AL_ATTRIBUTE'] == []`. A mutant flipped from
+      survivor to kill by the named fix is the strongest closure evidence a
+      review can get.
+
+      Cycle 1 explicitly accepted the hand-listed shape ("the narrowing is
+      honest and the reason for it is sound, which is why this is Minor and
+      not more"), so I do not re-rate it. The standing hazard that the set's
+      COMPLETENESS is still undrived is recorded as note N-1, not re-filed.
+    suggestion: "None — closed."
+    confidence: high
+    source: static
+    violates: "AC-3"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 2035
+    title: "The raster arm's remedy offers 'retire this arm', which reds a sibling cell"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED on both halves, and the round was right
+      that cycle 1 UNDERSTATED it.
+
+      THE REMEDY. The string now offers only re-pointing and names retirement
+      as forbidden: "...RE-POINT this arm at a page kind _RASTER_DECLARATIONS
+      still declares raster — the cover and the divider, which keep their
+      bitmaps under ADR-0042/R2 — and move the 27 cells of this module that
+      read the interior as bitmaps with it. Retiring the arm is NOT one of the
+      options while PageMedium keeps RASTER". I read that message as actually
+      emitted, by running the premise probe. The new cell DERIVES the
+      forbiddenness (dropping any arm leaves a medium the product can write
+      unarmed) and then holds every remedy to it. Re-derived: MUT-24 (which
+      puts "retire this arm, or" back) is KILLED at :6540 with
+      "the raster arm's remedy OFFERS 'retire', which reds <the sibling cell>".
+
+      THE CROSS-CARD HALF. I verified the round's sharper reading verbatim.
+      meta/kanban/cards/CARD-322.md:118-121 does say CARD-331's raster arm's
+      "lifetime ends with this card", and CARD-322's own line 150 refutes it
+      four lines later ("**Dividers stay raster**, unchanged: ADR-0042/R2...").
+      The round correctly did NOT edit another card's body and instead stated
+      the one inherited instruction in its own card and named CARD-322 as
+      owing the correction.
+
+      CARD-331's OWN SIDE IS UNAMBIGUOUS — which is what I was asked to
+      confirm. meta/kanban/cards/CARD-331.md:456-468 states it once, in the
+      imperative, with the concrete steps: "**The instruction CARD-322
+      inherits, stated once:** *re-point*, do not retire. Concretely — keep
+      the raster arm, change its `kind` from `PageKind.PUZZLE` to a page kind
+      `_RASTER_DECLARATIONS` still declares raster (the cover or the divider),
+      and move the 27 bitmap-reading cells of this module with it." It also
+      says which half of CARD-322's sentence is false and why. A converting
+      card reading that cannot come away with two instructions. The owner's
+      2026-10-31 ORCHESTRATOR CORRECTION block on main (CARD-322.md:123-146)
+      carries the same instruction plus the warning that the raster liveness
+      cell reds on arrival by design and must be satisfied by re-pointing, not
+      widened — and the two texts agree.
+
+      I also re-derived the 27: the premise probe reds exactly 27 pre-existing
+      bitmap-reading cells, all at the same line with the same message.
+    suggestion: "None — closed. CARD-322 still owes the correction to its own line 118-121; the owner has annotated it on main."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 182
+    title: "The card over-claims that both of the two reds name the mechanism and the remedy"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED, and closed by machine-checking the claim
+      rather than by restating it. The live-state message now carries
+      `arm.mechanism` + `arm.remedy`, and a new cell reads BOTH cells' assert
+      messages off their own source with `ast` and reds if either drops
+      either. The card retracts its half-true sentence in place at
+      meta/kanban/cards/CARD-331.md:182-189 rather than rewriting it.
+
+      Re-derived: MUT-23 (the live-state message goes back to naming the arm
+      and nothing else) is KILLED at :6571 with "<the sibling cell> can red
+      without naming arm.mechanism, so a re...". And I confirmed the claim
+      end-to-end by running the premise probe: both reds now carry the full
+      mechanism + remedy text, which I read in the probe output.
+    suggestion: "None — closed."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 7684
+    title: "The flattening cell mutates a helper module's global, which is a shared-state bar to worker parallelism"
+    description: |
+      CARRIED FROM CYCLE 1 — CLOSED. The global rebind plus `finally` is
+      replaced by `with monkeypatch.context() as patched:` at
+      tests/test_book_difficulty_dots.py:7684, and the docstring states the
+      reason the old shape was a hazard rather than a bug (21 test modules
+      reach `round_ink._BEZIER_SEGMENTS` through the `page_ink` hop; a sibling
+      reading a round mark while this cell held 8 would get a `fill` 0.9% off,
+      inside ROUND_FILL_TOLERANCE and therefore SILENT).
+
+      Re-derived two ways. (a) MUT-9 still KILLS, so the cell still measures
+      what it measured. (b) Mechanically: I grepped the whole module for a
+      module-level rebind of a `round_ink` / `page_ink` / `book_pdf_generator`
+      attribute outside monkeypatch and found **none**; the only remaining
+      production-attribute patches are three `monkeypatch.setattr` calls on
+      `book_pdf_generator.TIERS`, which pytest restores and which are data,
+      not a drawing site.
+    suggestion: "None — closed."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  # ---------------------------------------------------------------
+  # NEW this cycle. All five live inside the fix delta's own code or
+  # prose, which is where the review procedure says fix-introduced
+  # defects live.
+  # ---------------------------------------------------------------
+  - id: F-008
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 7578
+    title: "The `Do` refusal has no control that can fail — a `cm` in the same stream masks it, and a mutant survives"
+    description: |
+      MEASURED, not argued. This is the one gating finding of cycle 2, and it
+      sits inside F-003's own closure.
+
+      The new refusal cell at tests/test_book_difficulty_dots.py:7550 loops
+      over four streams, one per refused operator. The `Do` case's stream is:
+
+          "q 100 0 0 100 0 0 cm /Im0 Do Q"
+
+      It contains a `cm`. Since `cm` is ALSO refused, that stream raises
+      StreamShapeError whether or not `Do` is in `_REFUSED_STATE_OPERATORS` —
+      so the `Do` row's refusal is never actually measured.
+
+      Proof, with the discipline the card's own harness uses (plant by text,
+      occurrence asserted == 1, SHA-256 before plant and after restore,
+      `PYTHONDONTWRITEBYTECODE=1`, `__pycache__` swept both ends, 0 skipped
+      asserted on the baseline, matched control green in the same run):
+
+        MUT-R3  drop only "BI" from the refused set  -> KILLED  (BI row reds)
+        MUT-R4  drop only "sh" from the refused set  -> KILLED  (sh row reds)
+        MUT-R5  drop only "Do" from the refused set  -> **SURVIVED**, 1 passed
+
+      So three of the four cases have a working per-case control and the
+      fourth does not. `Do` is one of the three classes cycle 1 measured as
+      silently passing (`/Im0 Do` read 0 marks and raised nothing), which
+      makes it the case that most needs its own control: a future edit that
+      drops `Do` from the set re-opens exactly that silent pass with the suite
+      green.
+
+      ADR-0039/R1 is explicit — "any claim the guard makes about what it
+      catches needs a control that can fail: caught WITH the set member
+      present, missed WITHOUT it. A claim whose control cannot fail is
+      narrative, not coverage." And this card's own AC-5 is the same thesis:
+      a surviving mutant and a never-reached assertion look identical.
+
+      The reader itself is correct — I probed `"q /Im0 Do Q"` with no `cm` and
+      it REFUSES with the `Do` message. Only the test's stream is wrong.
+    suggestion: |
+      One-line fix: drop the `cm` from the `Do` case's stream, e.g.
+
+          ("q /Im0 Do Q", "an external object (Do)"),
+
+      I verified that stream still refuses, and refuses FOR `Do` (the message
+      names `'Do'`). Re-fire MUT-R5 (drop only "Do" from
+      `_REFUSED_STATE_OPERATORS`) afterwards; it must flip to KILLED.
+
+      Worth also asserting, inside that loop, that the raised message names
+      the operator the row is about — that turns all four rows into per-case
+      controls structurally rather than by the stream author's care, and is
+      the same move F-002's remedy made for AC-5.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 418
+    title: "MUT-21 is cited as the measurement of the `stale` assertion and does not reach it"
+    description: |
+      The card states: "the pass-over list is held down as well as up, because
+      an entry naming an operator the writer does not emit is exactly how that
+      list would absorb the next `cm` **(MUT-21)**"
+      (meta/kanban/cards/CARD-331.md:416-419), and MUT-21's own `what=` string
+      in scratchpad/card331/mutate.py:317-322 says the same.
+
+      Measured: MUT-21 adds `"cm"` to `WRITER_OPERATORS_NOT_A_PATH`. Because
+      `cm` is also in the refused set, the cell reds at the DISJOINTNESS
+      assertion (tests/test_book_difficulty_dots.py:7514, message `['cm']`) —
+      not at the `stale = passed_over - emitted` assertion at :7533, which the
+      prose attributes to it. pytest stops at the first failing assert, so
+      :7533 is never reached by any of the round's 24 plants.
+
+      The assertion itself is sound and reachable — my MUT-R1 (add `"gs"`, an
+      operator that is neither refused nor emitted) reds it at :7534 with its
+      own message, "['gs'] are recorded as pass-overs the writer emits, and it
+      does not emit them". So nothing is broken; the defect is that a named
+      control is credited with a property it does not exercise, which is the
+      shape ADR-0039/R1 calls narrative rather than coverage, and the shape
+      F-001's own fix retracted elsewhere in this same round.
+    suggestion: |
+      Either add a plant that reaches :7533 (a pass-over entry naming a
+      non-refused, non-emitted operator — `"gs"` works and I measured it), or
+      narrow the card's sentence and MUT-21's `what=` to what MUT-21 actually
+      measures (a pass-over entry cannot name a REFUSED operator — the
+      disjointness guard), per ADR-0039/R1's "narrowed to what is measured".
+      The first is better: it is one line and it leaves both properties with a
+      control.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/round_ink.py
+    line: 536
+    title: "The refusal set's docstring claims every other unrecognised token 'only sets state'; `W` and `gs` refute it"
+    description: |
+      `_REFUSED_STATE_OPERATORS`' docstring at tests/helpers/round_ink.py:
+      534-539 makes a universal claim: "Every other token it does not
+      recognise **only sets state** — a tone, a stroke width, a text object's
+      brackets — and is passed over by clearing the operand stack." The set is
+      introduced as "the operators that would make this reader's answer
+      **wrong** rather than merely unfamiliar", which reads as a complete
+      enumeration of that class.
+
+      Measured against the committed reader, two PDF operators refute it:
+
+        "5 5 6 6 re W n 10 10 20 20 re f"  -> accepted, 1 mark (10,10,30,30)
+        "/GS0 gs 10 10 20 20 re f"          -> accepted, 1 mark (10,10,30,30)
+
+      `W` sets a clipping path, so a round mark clipped to a sliver is still
+      reported at its full stated box — the answer is WRONG, not short, which
+      is this set's own criterion. `gs` loads an ExtGState that can carry
+      `/ca 0` or an `/SMask`, making a painted mark invisible — again wrong
+      rather than short. Neither "only sets state" in the sense the docstring
+      means, and neither is a recorded pass-over.
+
+      CONSEQUENCE TODAY: none, and that is why this is Minor rather than part
+      of F-008. The binding cell's equality assertion
+      (`emitted == WRITER_OPERATORS_RECORDED`, :7497) is absolute, so neither
+      `W` nor `gs` can reach this reader without redding first — I confirmed
+      that is the assertion MUT-20 dies at. The defect is the docstring's
+      universal quantifier, in a round whose other two fixes were precisely
+      about narrowing an over-claim to what is measured.
+    suggestion: |
+      Narrow the sentence: the refused four are the operators of the WRITER'S
+      MEASURED SURFACE's neighbourhood that would make the answer wrong, and
+      the general guarantee comes from the binding cell, not from this list
+      being exhaustive over PDF. Naming `W` and `gs` as the two known
+      out-of-surface members of the same wrongness class (and pointing at the
+      binding cell as what keeps them out) costs two lines and makes the
+      claim true.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 177
+    title: "The card's 'new section's 34 cells report exactly 2 red' was falsified by the fix round's own +6 cells"
+    description: |
+      meta/kanban/cards/CARD-331.md:177-180 reads: "With the declaration
+      lifted, the new section's **34 cells** report **exactly 2 red**, both
+      naming the raster arm, its mechanism and the remedy; the vector arm's
+      **32** are green on the converted tree."
+
+      Re-derived at HEAD. Node-id sets, `-o addopts=''`, detached worktrees at
+      b18fd397 and HEAD: the module goes **155 -> 195**, so this card's
+      section is **40** cells, not 34 — the fix round added 6 to that very
+      section and left the figure at its pre-fix value. The premise probe
+      (`-p probe_puzzle_vector`) reports **29 failed / 166 passed** at HEAD,
+      of which 27 are the pre-existing bitmap cells (all at :3960, all
+      `AttributeError: 'ContentStream' object has no attribute 'convert'`) and
+      **2** are this section's deliberately future-red liveness cells. So the
+      section is 40 cells, 2 red, **38** green.
+
+      The SUBSTANCE holds and I verified it: exactly 2 red, both naming the
+      arm, its mechanism and its remedy, and all 6 new cells green under the
+      probe. Only the two counts rotted. This is F-002's root cause — prose
+      evidence re-deriving to a different value — surviving outside AC-5's
+      table, and falsified by the very commit that fixed AC-5's version of it.
+      ADR-0039/R4: a figure recomputed and refuted is retracted everywhere it
+      was written.
+    suggestion: |
+      Re-derive and correct to "the new section's 40 cells report exactly 2
+      red ... the vector arm's 38 are green", or state the figure as
+      "155 + this card's section" so it cannot rot when the section grows. The
+      figures table at :492-499 was correctly re-derived in this round; this
+      bullet was missed.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R4"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 155
+    title: "The premise bullet cites a test-file line number that has never carried the code it names"
+    description: |
+      meta/kanban/cards/CARD-331.md:150-159 grounds the premise correction on
+      a line citation: the 27 reds all fail "from
+      `tests/test_book_difficulty_dots.py:3918`, which is `_interior_ink`'s
+      render loop".
+
+      Re-derived: that line does not carry `_interior_ink`'s render loop at
+      HEAD, and never has at any commit of this branch. At HEAD, 9a070e26 and
+      308bbded alike, :3918 is
+      `book_pdf_generator._draw_difficulty_dots = site`. The render loop
+      (`grey = np.asarray(page.convert("L"))`) is at **:3960** at HEAD and was
+      at :3942 at 308bbded; the premise probe confirms all 27 reds land at
+      :3960.
+
+      Same root cause as F-011 and as cycle 1's F-002: a line number used as a
+      citation. Lower stakes than F-002 because the function name
+      `_interior_ink` is cited beside the number, so the evidence is still
+      locatable — but a reader following the number lands on unrelated code
+      while the card's F-002 section, 50 lines below, explains why that is not
+      a citation.
+    suggestion: |
+      Drop the line number and cite the function, as F-002's remedy did:
+      "...from node `_interior_ink`'s render loop". The probe output already
+      names the line at run time, so the number carries nothing the function
+      name does not.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R4"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---------------------------------------------------------------
+# Not findings. Judgements I was asked for, non-actions I endorse,
+# and notes the next card inherits.
+# ---------------------------------------------------------------
+judgements:
+  - id: J-1
+    title: "The q/Q non-refusal argument is CORRECT, and holds more strongly than the card states"
+    verdict: endorse
+    detail: >-
+      The card's argument is that a saved graphics state moves a path operand
+      only if something moved the CTM between `q` and `Q`, and the only
+      operator that can is `cm` — so refusing `cm` closes the q/Q dependency.
+      I tested it rather than reasoning about it, and the mechanism is
+      stronger than the stated one: `cm` is refused at ANY position in the
+      stream, so the CTM is provably identity for the WHOLE stream and the
+      "between the two" qualifier is not even needed. Probed: `q rect Q` reads
+      the same box as the bare rect; `q q q rect` likewise; and
+      `2 0 0 2 0 0 cm q Q rect` REFUSES, so there is no q/Q arrangement that
+      can restore a CTM that was never concatenated. A malformed mid-path `q`
+      (`10 10 q 20 20 re f`) refuses too, via the starved-operand branch.
+      On the exhaustive side: within a content stream PDF 1.7 gives `cm` as
+      the sole CTM operator; the other three routes by which an operand can
+      land somewhere else — a Form XObject's own `/Matrix` via `Do`, an inline
+      image's implicit unit-square mapping via `BI`, and a shading via `sh` —
+      are all refused. The remaining unrefused operators that could still make
+      the reading wrong (`W` clip, `gs` soft-mask/alpha) do not move an
+      operand and are filed as F-010; they are held out by the binding cell,
+      not by this argument. Finally, the non-refusal is itself pinned: my
+      MUT-R6 (add `q`/`Q` to the refused set) is KILLED, so the "q/Q are read,
+      not refused" control is load-bearing rather than decorative.
+  - id: J-2
+    title: "The binding's home is tests/test_book_difficulty_dots.py, not the co-change peer — the round was right to go against the suggestion"
+    verdict: endorse
+    detail: >-
+      I checked all three of the round's reasons and the import claim, and
+      found a fourth reason it did not make.
+      (1) MEASURED TRUE: exactly two files mention node `stream_marks` — its
+      own defining module and this test module — so the vector arm is its only
+      consumer.
+      (2) MEASURED TRUE, and it is the strongest reason: scratchpad/card331/
+      mutate.py hard-codes `MODULE = "tests/test_book_difficulty_dots.py"` and
+      builds every plant's node id as `f"{MODULE}::{node}"`, so a cell in the
+      peer module literally CANNOT be a target of this card's mutant harness.
+      Add G-5's node-id gate (scoped to this module) and the 195-cell baseline
+      and a peer cell sits outside all three instruments. The round's phrase
+      for this — "F-002's defect in a different costume" — is accurate.
+      (3) TRUE: the cell it widens (the `PAINTS_THAT_FILL`-is-a-subset cell) is
+      already in this module's vector-arm class.
+      (4) MINE, and decisive: tests/test_book_pdf_vector_primitives.py does
+      not reference `stream_marks` at all. Putting a `stream_marks` vocabulary
+      guard there would put the guard in a module that never calls the thing
+      it guards.
+      THE IMPORT CLAIM IS CORRECT. CLAUDE.md's ban is scoped to lateral
+      imports inside `src/nonogram` — its structural guard "walks
+      `src/nonogram/**/*.py` on disk with `ast`" — and CLAUDE.md itself
+      blesses the test-tree form, saying node `mask_runs` "is cross-checked
+      against `clues.encode_line` from the test tree instead, where the import
+      is legal". The precedent count is UNDERSTATED rather than wrong: the
+      module's comment says "sixteen other modules" (17 total) and I measure
+      **45 test files / 95 `from tests.test_` import lines** repo-wide, with
+      the cited tests/test_book_cell_size.py:64 real. Understating a precedent
+      strengthens the argument.
+      THE PEER IS NOT LEFT UNGUARDED. It carries 57 of its own cells, imports
+      `book_vector` directly, and loses nothing here (0 diff lines). And the
+      authority the binding rests on has its own guard at
+      tests/test_book_solved_answer_key.py:3086, so the binding has two
+      anchors and not one.
+      NO DOUBLE COLLECTION, measured three ways — see
+      measurements.double_collection.
+  - id: J-3
+    title: "NOT recording cm/Do/sh as BOUND: entries is correct — and it is structurally required, not merely defensible"
+    verdict: endorse
+    detail: >-
+      A bound in this module's vocabulary is what the instrument CANNOT see;
+      the typed-glyph bound is the model case. After the fix, cm/Do/sh are
+      refusals — the instrument sees them and raises. A refusal is the opposite
+      of a bound, so adding them would assert blindness where the reader is now
+      loud. Stronger than that: the bounds cell asserts
+      `all(bound.caught is False for bound in MEASURED_MARK_BOUNDS)`
+      (tests/test_book_difficulty_dots.py:5780), and a refused operator IS
+      caught — so a cm/Do/sh row in `MEASURED_MARK_BOUNDS` would red that
+      cell. The non-action is enforced by an existing assertion, not just
+      argued. Leaving `MEASURED_MARK_BOUNDS` and the struck-bound agreement
+      cell untouched (0 diff lines on both definitions) is right. Note N-2
+      records the one thing missing: the REASONING is not written into the
+      card.
+  - id: J-4
+    title: "NOT editing meta/kanban/config.yml's stale figure was the right call"
+    verdict: endorse
+    detail: >-
+      CARD-317 was in a concurrent fix round on the same shared config, and a
+      conflict there would red a merge gate over a comment — a real cost for
+      zero substance. The round did the right thing twice over: it left the
+      file alone AND recorded in its own figures table that the comment is
+      stale and whose file it is to correct, so the staleness is visible rather
+      than silently inherited. The owner has since made the edit on main
+      (config.yml now records `forge_1  0 error(s), 90 warning(s), 0 info`,
+      re-measured 2026-10-31 after CARD-318 closed ten dead refs, 100 -> 90 as
+      sets), which matches my own run exactly. See note N-3 for the one-word
+      consequence at merge.
+
+notes:
+  - id: N-1
+    title: "Standing hazard, inherited by CARD-322: RASTER_ARM_FUNCTIONS' completeness is still undrived"
+    severity: out-of-scope
+    confidence: low
+    learned_pattern:
+      pattern_summary: >-
+        Real finding outside the card's declared scope (a file the card must
+        not edit); deferred to a backlog follow-up rather than wrong.
+      dismissed_count: 3
+    detail: >-
+      F-004 is closed exactly as cycle 1 filed it, and cycle 1 explicitly
+      accepted the hand-listed shape, so I do not re-rate it. But the fix
+      extended a LIST, not the mechanism: the only guard on the set is
+      `set(_raster_arm_sources()) == set(RASTER_ARM_FUNCTIONS)`, which checks
+      that every listed name has a source and cannot catch a name that SHOULD
+      be listed and is not — which is precisely the hole cycle 1's M10
+      exploited to survive at 189 passed. A future function added to the raster
+      arm and not added to the 5-name tuple reopens it identically, with
+      MUT-18 surviving again. ADR-0039/R1's first clause asks for "a
+      completeness test written before the set". The imminent exposure is
+      CARD-322, which is the next card to touch this arm and which will
+      re-point it. Worth one recorded line in the card's "What was NOT done"
+      section so the next card inherits the hazard rather than rediscovering
+      it; filed as a note, not a finding, because cycle 1 ruled on the shape.
+  - id: N-2
+    title: "The BOUND non-action's reasoning is not written into the card"
+    severity: out-of-scope
+    detail: >-
+      The card documents the reasoning for its other judgement calls (q/Q, the
+      binding's home, the render-set refusal, the retraction) but says nothing
+      about why cm/Do/sh were NOT recorded as bounds and why
+      `MEASURED_MARK_BOUNDS` was left untouched. The reasoning is correct and
+      structurally enforced (J-3), so nothing is at risk — but a deliberate
+      non-action on a frozen registry with no record is the kind of thing a
+      later card re-litigates. One line in the existing "What was NOT done,
+      and why" section would close it.
+  - id: N-3
+    title: "The card's config.yml sentence becomes false at merge, through no fault of the card"
+    severity: out-of-scope
+    detail: >-
+      The figures table says "`meta/kanban/config.yml:17-22` carries a stale
+      2026-10-29 comment saying 102; it is wrong and is not this card's file to
+      correct". True when written; the owner has since corrected that comment
+      on main to 90 with the staleness kept visible, so the sentence and its
+      line reference now describe a defect that no longer exists. A one-word
+      edit at merge ("carried", past tense, or a pointer to the owner's
+      correction) keeps the card's record honest. Not the card's error.
+  - id: N-4
+    title: "The card carries no impact-scope figure"
+    severity: out-of-scope
+    detail: >-
+      The figures table records the module baseline, the mutant tally, the
+      operator surface and the validator, but no impact-scope run. That is
+      defensible (impact scope is a review-side measurement and cycle 1's YAML
+      carried it), and mine is in measurements.impact_scope. Noted only so the
+      absence is not read as an omitted re-derivation.
+
+measurements:
+  baseline:
+    claimed: "195 passed / 0 skipped"
+    derived: "195 passed, 0 skipped, 0 failed, 58 warnings, 18.31s"
+    base: >-
+      `pytest tests/test_book_difficulty_dots.py -o addopts='' -p no:randomly
+      -rs` from the worktree root with the full environment inherited, run
+      through the main repo's venv. Zero lines of the output match /skip/i, and
+      `-rs` printed no skip report — so the 0 is a measurement and not an
+      absent number. Poppler present at /opt/homebrew/bin/pdftoppm.
+      Independently re-asserted by both mutation harnesses on every one of
+      their 60 runs.
+  node_ids:
+    claimed: "189 -> 195, 6 added, 0 removed"
+    derived: "189 at 308bbded, 195 at HEAD; 6 added, 0 removed — CONFIRMED"
+    added:
+      - "the two F-003 cells (the vocabulary binding, and the refusal-not-ignored cell)"
+      - "the two F-002 cells of the AC-5-per-assertion class"
+      - "the one F-005 cell (no arm's remedy offers a forbidden option)"
+      - "the one F-006 cell (both reds name the mechanism and the remedy)"
+    base: >-
+      `--collect-only -q -o addopts=''`, node ids sorted and diffed with
+      `comm`, HEAD against a DETACHED worktree at 308bbded (so no checkout
+      touched the card's tree).
+  g5_node_id_gate:
+    claimed: "G-5: no test deleted, renamed, skipped or merged"
+    derived: "155 -> 195 against the merge base; 40 added, **0 removed** — G-5 HOLDS"
+    base: >-
+      Same method, against a detached worktree at b18fd397. `comm -23` of the
+      two sorted id sets is empty. This is the figure that matters for the
+      guardrail (the 189->195 delta only covers the fix round), and it also
+      settles that the pre-card module was exactly 155 cells and this card's
+      section is now exactly 40 — which is what falsifies F-011's figure.
+  mutants_theirs:
+    claimed: "24 plants, 23 killed, 1 declared survivor (MUT-13)"
+    derived: "24 plants, 23 KILLED, 1 SURVIVED (MUT-13, declared) — CONFIRMED, harness exit 0"
+    base: >-
+      `scratchpad/card331/mutate.py`, re-fired whole. The harness itself
+      asserts, per plant: the plant text occurs exactly once; the matched
+      control node is green in the same run with 0 skipped and the expected
+      collected count; SHA-256 of the touched file equal before plant and after
+      restore; and the verdict equals the declared one. Baseline asserted at
+      195 passed / 0 skipped / 0 failed before the sweep. Exit 0 therefore
+      means every one of those held.
+    notable:
+      - "MUT-18 — cycle 1's M10 verbatim, which SURVIVED at 189 passed — is now KILLED at :7772. The cleanest before/after in the round, and I fired it myself."
+      - "MUT-20 (the writer grows a `cm` via `stroke_width`) KILLED, but at :7497, the `emitted == WRITER_OPERATORS_RECORDED` equality — NOT at the `collides` assertion at :7524. That is the stricter, earlier gate and it is good design (any writer growth reds, and the classification assertions become reachable only after a human updates the recorded set); recording it because the binding's kill comes from the recorded-set gate, not from the collision check."
+      - "MUT-21 KILLED at the disjointness assertion :7514, not at the `stale` assertion :7533 the card credits it with — see F-009."
+      - "MUT-22 reds BOTH new AC-5 cells, and the second red carries a message naming the fused assertion rather than a bare ValueError — the round's self-fix confirmed."
+      - "MUT-16 reds exactly 1 cell, which IS F-001's retraction measurement."
+  mutants_mine:
+    base: >-
+      Six of my own, same discipline (plant by text with occurrence == 1,
+      SHA-256 before and after, `PYTHONDONTWRITEBYTECODE=1`, `__pycache__`
+      swept both ends, full environment inherited, matched control green in the
+      same run, whole-module baseline asserted at 195 passed / 0 skipped).
+      Script: /private/tmp/.../scratchpad/c331/mine.py (session scratchpad, NOT
+      committed — the check-ref search is a text search). Final state verified:
+      `git status --short` shows only the untracked cycle-1 YAML and
+      `git diff --stat HEAD` is empty, so no mutation was left behind.
+    results:
+      - "MUT-R1  add `gs` (not refused, not emitted) to the pass-over list  -> KILLED at :7534. The `stale` assertion WORKS and is reachable; F-009 is about its citation, not its correctness."
+      - "MUT-R2  drop `BMC` from the pass-over list                         -> KILLED. The `unknown` assertion — the real default-deny — works."
+      - "MUT-R3  drop only `BI` from the refused set                        -> KILLED, BI row reds."
+      - "MUT-R4  drop only `sh` from the refused set                        -> KILLED, sh row reds."
+      - "MUT-R5  drop only `Do` from the refused set                        -> **SURVIVED**, 1 passed. F-008."
+      - "MUT-R6  add `q`/`Q` to the refused set                             -> KILLED. The q/Q non-refusal is pinned by a working control (J-1)."
+  probe_table:
+    base: >-
+      My own script against the committed reader (`stream_marks` called
+      directly), run with `python -I` from the session scratchpad. Reproduces
+      the orchestrator's table exactly and extends it.
+    rows:
+      - "`10 10 20 20 re f`                                  -> accepted, 1 mark (10,10,30,30)"
+      - "the same rect under `2 0 0 2 0 0 cm`                -> REFUSED (cm)"
+      - "`q 100 0 0 100 0 0 cm /Im0 Do Q`                    -> REFUSED, but by the **cm**, not the Do — this is F-008"
+      - "`q /Im0 Do Q` (no cm)                               -> REFUSED (Do). The reader is right; the test's stream is not."
+      - "`/Sh0 sh`                                           -> REFUSED (sh)"
+      - "`BI /W 1 /H 1 /CS /G /BPC 8 ID z EI`                -> REFUSED (BI)"
+      - "`q 10 10 20 20 re f Q` (control)                    -> accepted, same box"
+      - "`v` / `y` curves                                    -> REFUSED"
+      - "state + type + BMC around the rect (control)        -> accepted, same box"
+      - "`2 0 0 2 0 0 cm q Q 10 10 20 20 re f`               -> REFUSED (cm anywhere refuses the whole stream)"
+      - "`q q q 10 10 20 20 re f` (nested, unbalanced)       -> accepted, same box"
+      - "`10 10 q 20 20 re f` (mid-path q, malformed)        -> REFUSED (starved operand)"
+      - "`5 5 6 6 re W n 10 10 20 20 re f`                   -> accepted, UNCLIPPED box — F-010"
+      - "`/GS0 gs 10 10 20 20 re f`                          -> accepted — F-010"
+      - "`/P0 scn /Pattern cs 10 10 20 20 re f`              -> accepted (pattern colour; same class as F-010)"
+      - "`BX 2 0 0 2 0 0 cm EX 10 10 20 20 re f`             -> REFUSED (cm is refused even inside a compatibility section)"
+  impact_scope:
+    derived: "962 passed, 0 skipped, 0 failed, 66.65s over 6 modules"
+    modules:
+      - "tests/test_book_difficulty_dots.py (195) — the module"
+      - "tests/test_book_solved_answer_key.py (151) — the NEW cross-module import source, and a direct round_ink consumer"
+      - "tests/test_book_pdf_vector_primitives.py (67) — the one unguardrailed co-change peer"
+      - "tests/test_book_interior_type_floor.py (51) — co-change peer via the page_ink hop"
+      - "tests/test_book_guide_page_vector.py (48) — co-change peer via the page_ink hop"
+      - "tests/test_suite_profile.py (450) — the guardrail that owns RENDER_HEAVY_SNAPSHOT (G-6)"
+    note: >-
+      My own set, deliberately different from the round's (1041) and cycle 1's
+      (1016); none of the three figures is comparable to the others. 0 skipped
+      with `-rs` and no skip report, so the two DB gates and any
+      platform-gated cells are running rather than silently skipping. The full
+      suite was NOT run and no lock was touched.
+  double_collection:
+    claimed: "the cross-module import causes no double collection"
+    derived: "CONFIRMED, measured three ways: 962 = 962 = 962"
+    base: >-
+      Sum of the six modules collected SEPARATELY = 962; the six collected
+      TOGETHER = 962; unique node ids of the together-run (`sort -u`) = 962.
+      So `from tests.test_book_solved_answer_key import ...` inside the card's
+      module re-collects nothing.
+  validator:
+    claimed: "0 err / 90 warn, set-identity a property of the diff"
+    derived: "0 error(s), 90 warning(s), 0 info — CONFIRMED, and the diff argument is sound"
+    base: >-
+      forge_1's `validate.py` (the validator of record per
+      meta/kanban/config.yml, and per the standing note that the plugin-cache
+      copy's ADR-0025 error is a regex bug). `git diff b18fd397..HEAD --numstat
+      -- meta/architecture` is 0 changed paths, so the artefacts are
+      byte-identical to the merge base and set-identity IS a property of the
+      diff rather than of a run. Separately, `system_rules.py --verify-refs`
+      reports `check_refs_verified: true` with `dead_check_ref: []` — an empty
+      list of KNOWN meaning. The "102" in older artefacts is superseded; the
+      owner re-dated config.yml to 90 on main and my run agrees.
+  tolerances:
+    claimed: "no tolerance widened or added"
+    derived: "CONFIRMED"
+    base: >-
+      `git diff 308bbded..HEAD` contains **zero** code lines matching
+      /approx|abs=|rel=|atol|rtol|TOLERANCE/ — the only two matches in the fix
+      delta are a card prose line and a docstring reference to the existing
+      ROUND_FILL_TOLERANCE. Over the whole card diff the four `pytest.approx`
+      lines are all NEW assertions pinning derived figures at abs=1e-9, 1e-9,
+      1e-6 and 1e-5 — tightenings, not widenings — and no removed line matches
+      the idiom at all, so nothing existing was loosened.
+  guardrails:
+    claimed: "0 diff lines on the guardrailed paths"
+    derived: "CONFIRMED — 0 changed paths on every one"
+    base: >-
+      `git diff b18fd397..HEAD --numstat -- <path>` for each of
+      tests/helpers/pdf_pages.py, tests/helpers/page_ink.py,
+      tests/helpers/pdf_vector.py, tests/test_book_pdf.py,
+      tests/test_suite_profile.py, src/nonogram, tests/fixtures and
+      meta/architecture: every one returns 0 changed paths. All 11 diff
+      mentions of `_RASTER_DECLARATIONS`/`RENDER_HEAVY_SNAPSHOT` are prose,
+      comment, or a `-p` session plugin's runtime `.pop()`; both definitions
+      live in files measured at 0 diff lines, so neither was re-frozen. The
+      two-up arm is not built. G-6 holds: `git ls-files scratchpad/card331/`
+      carries only `.py` files — no measurement dump.
+  writer_surface:
+    claimed: "17 operators"
+    derived: "17 — CONFIRMED, and pinned rather than asserted"
+    base: >-
+      `WRITER_OPERATORS_RECORDED` has exactly 17 members (BMC BT EMC ET G S Td
+      Tf Tj c f g h l m re w), held to `_writer_operators()`' measured union by
+      an equality assertion. 7 are understood by the reader (S c f h l m re),
+      10 are recorded pass-overs; the refused four intersect the surface in the
+      empty set. MUT-20 reds the equality, so the 17 is a measured and guarded
+      figure, not a counted one.
+  precedent_count:
+    claimed: "17 cross-test-module import precedents"
+    derived: "45 test files / 95 `from tests.test_` import lines — LARGER than claimed"
+    base: >-
+      `grep -rn "from tests\\.test_" tests`. The cited
+      tests/test_book_cell_size.py:64 is real. The figure does not re-derive at
+      17, but it understates rather than overstates, so the argument it
+      supports is stronger than the card claims. Not filed as a finding.

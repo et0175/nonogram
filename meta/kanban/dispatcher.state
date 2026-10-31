@@ -1,4 +1,4 @@
-wave: 71
+wave: 72
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -123,21 +123,61 @@ max_concurrent_override: 2
 # PRICE THAT BEFORE STARTING, and choose per module: convert, retire with a
 # named survivor, or pin as legacy (CARD-330's choice for what it owned).
 #
+#
+# WAVE 71 CLOSED 2026-10-31, two for two:
+#   CARD-317  merge 8e2ce9ed  9.0 cycle 2/3  gate 10033 passed / 0 failed
+#   CARD-331  merge 36099a5d  8.5 cycle 3/3  gate 10073 passed / 0 failed  (two fix rounds)
+# Both refuted their own premise -- CARD-317 three times, CARD-331 by half, and
+# in CARD-331's case the false half CHANGED THE DESIGN. Parse check done; the
+# status census re-derived as sets against all 331 card files.
+#
+# WAVE 72 OPENS on the owner's pinned order. Pairing MEASURED, not assumed:
+# CARD-329 declares tests/helpers/pdf_pages.py plus five book test modules;
+# CARD-316 declares meta/architecture/requirements.yml. Intersection EMPTY, no
+# shared conflict.hotspots entry.
+#
+# CARD-329 IS CARD-322'S LAST OPEN DEPENDENCY -- 309, 330 and 331 are all done.
+# Re-cut 2026-10-31 on the owner's call from 0.75d/triage to 2d/repair, and the
+# re-cut exposed AN AC THAT COULD NOT FAIL: AC-4 read "all 21 modules pass"
+# without naming a converted tree, and on main nothing is converted, so it was
+# satisfied by an EMPTY DIFF against a suite green at 10,073. It now runs under a
+# declaration-lifting probe and must record the red count BEFORE changing
+# anything. Its one conflict edge is tests/test_book_pdf.py with CARD-322, which
+# serializes them in the intended order.
+#
+# CARD-316's PREMISE WAS VERIFIED AT DISPATCH, per the rule four cards of this
+# family produced: all seven ACs present, all seven named tests still resolving
+# to NO def/class by an ast index. Dispatchable as cut. What was stale is every
+# line number in its table -- 7 of 7, +61/+118 from CARD-318 and CARD-317 -- so
+# it carries "re-derive, do not offset" with the measured actuals beside it.
+# It is the THIRD card in a row to inherit a stale requirements.yml line figure.
+#
 active:
-- id: CARD-331
-  phase: review
-  cycle: 3
-  cycle1_score: 8.5
-  cycle2_score: 8.0
-  fix_rounds_done: 2
-  # Cycle 3 is the LAST max_cycles allows. Fix round 2 closed the [BLOCKER] and
-  # all four Minors: 28 plants, 27 killed, 1 declared survivor. The drop-only-Do
-  # plant FLIPPED from surviving (cycle 2) to killed, orchestrator-verified, and
-  # the red names the silent pass. Every refusal row now asserts the message
-  # names its own operator, so a fifth row cannot repeat F-008.
-  # It also self-caught an F-009-class defect in its OWN round-2 prose -- it had
-  # stated a plant's kill site from the shape of the code, measured the real one,
-  # and committed the correction alone. That is the discipline, unprompted.
+- id: CARD-329
+  phase: implementation
+  branch: card/329-one-image-reader-learns-the-stream
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-329
+  started: '2026-10-31T06:40:00Z'
+  note: >-
+    CARD-322's last open dependency, and re-cut the same day on the owner's call
+    so it REPAIRS population B rather than only triaging it: five modules, a
+    shared helper, and a verification mechanism. The two mechanisms for standing
+    the converted tree up without touching a production medium both exist on
+    main and the card names them -- interior_generator(book, pages=...) from the
+    assembly point CARD-309 merged, still with zero production call sites, and a
+    declaration-lifting session probe of the kind CARD-331 used.
+- id: CARD-316
+  phase: implementation
+  branch: card/316-seven-phantom-acceptance-keys
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-316
+  started: '2026-10-31T06:40:00Z'
+  note: >-
+    Seven acceptance criteria carry a test: key naming a test nobody should
+    write; the comment beside each says not-to-be-built and the key says
+    otherwise, and the key is the part the machine reads. Expect the warning
+    count to move by LESS than seven: CARD-317 measured that the validator has no
+    status: superseded exemption and that dropping a test: trades the dead-ref
+    warning for a no-test: warning, net zero. Derive what it does; do not predict.
 queued:
 # ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
 # now and then according to plan", after agreeing the set as 318 + 330 + 331.

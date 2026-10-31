@@ -1,0 +1,754 @@
+# forge:review — CARD-331, cycle 1
+#
+# ===================================================================
+# THIS FILE CONTAINS NO CHECK REFS.
+# ===================================================================
+# The architecture validator's check-ref search is a TEXT search over the
+# repository, and a synced review YAML has been measured silencing a live
+# dead-ref warning on main. So: every pytest cell named below is written as a
+# full `path::Class::cell` node id inside quotes, or as prose prefixed with the
+# word `cell`/`node`. No line of this file is a Python definition line, and
+# nothing here may be read as satisfying any rule's `check:` — the refs this
+# review verified live in `tests/`, not here. A reader (human or validator)
+# that finds a name here has found a citation, never a definition.
+version: 1
+generated_at: "2026-10-31T06:10:00Z"
+target: "CARD-331, branch card/331-difficulty-dot-instrument-vector, HEAD 308bbded, merge base b18fd397, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-331"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_book_difficulty_dots.py (the 1582 added lines in full; the legacy harness around node `_interior_ink` and its docstring)"
+    - "tests/helpers/round_ink.py (the 362 added lines in full)"
+    - "scratchpad/card331/ (all 5 committed instruments)"
+    - "meta/kanban/cards/CARD-331.md (in full), meta/kanban/cards/CARD-322.md (dependency + handover prose)"
+    - "meta/profiling/rank_durations.py (RENDER_API_PATTERN + every RESTATED precedent entry), meta/profiling/suite-hotspots-20261023.md"
+    - "src/nonogram/admin/book_vector.py (ContentStream vocabulary, _number, _paints_xobject, write_vector_page), src/nonogram/admin/book_pdf_generator.py (_RASTER_DECLARATIONS, PageMedium, _draw_difficulty_dots)"
+    - "tests/test_book_pdf_vector_primitives.py (the vocabulary partition), tests/test_book_solved_answer_key.py (the door-probe operator authority)"
+    - "meta/architecture/decisions/adr/0039-*.md and 0042-*.md Rules blocks"
+  not_reached:
+    - "tests/test_book_difficulty_dots.py lines 1-5950 (the pre-existing 155 cells) read only where the diff touches them — the legacy guard families were not re-derived"
+    - "the two-up/paired vector sheet, which this card deliberately does not instrument"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 2690, removed: 0 }
+  max_fan_in:
+    symbol: "tests.helpers.round_ink.stream_marks"
+    callers: 2
+    note: >-
+      2 files reference it (its own module and the one touched test module);
+      23 textual occurrences repo-wide. The round_ink module's PRE-EXISTING
+      surface has wide fan-in (21 test modules reach it through the
+      tests/helpers/page_ink hop), but the diff is purely additive to that
+      module — no existing line changed beyond two imports and two `__all__`
+      entries — so the blast radius on those 21 consumers is an added `import
+      re` and nothing else.
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_book_difficulty_dots.py — 22 commits/12mo, 2 of them fix/bug (highest-churn file in the diff)"
+    - "tests/helpers/round_ink.py — 5 commits/12mo, 0 fix/bug"
+  cochange_missing:
+    - "tests/test_book_pdf_vector_primitives.py (5 co-changes) — the only co-change peer absent from this diff that NO guardrail excuses; it owns the ContentStream vocabulary partition that F-003's missing cross-check would bind to"
+    - "src/nonogram/export/layout.py (5), src/nonogram/admin/book_vector.py (4), src/nonogram/admin/book_pdf_generator.py (4) — absent BY GUARDRAIL (G-1/G-3), not by omission"
+    - "tests/helpers/page_ink.py (4) — absent BY GUARDRAIL (G-2, CARD-330's)"
+    - "tests/helpers/pdf_vector.py (4) — absent by the round's own stated choice (the reader went into the declared Touches file instead)"
+    - "meta/profiling/rank_durations.py (3) — absent by the round's measured-and-declined re-freeze; see N-1"
+  unmeasured:
+    bus_factor: >-
+      tooling_failure — `git shortlog -sn` returns an empty table for both
+      touched files at every --since window including all-time, on a repo whose
+      every commit is authored `Claude Code`; the signal cannot be separated
+      from a single-author repo and says nothing about this diff.
+    audit_findings: >-
+      no_eligible_fact — no report under meta/audit/ carries a `migration:
+      on-touch` + `status: open` finding against either touched file.
+    positioning_backing: >-
+      no_eligible_fact — the card carries no `@bet:` context and neither
+      touched file backs an NFR/EC named as a positioning pillar; this is a
+      test-only instrument card.
+    project_local_dismissals: >-
+      no_eligible_fact — .claude/fix-suppress.yaml holds no entry whose
+      rule+pattern+file matches any finding below.
+    cross_project_false_positives: >-
+      provider_unavailable — ~/.forge/retro-signals.yml carries no
+      `signals.review_false_positives` block, so no soft match was possible
+      and no finding below was confidence-softened on that ground.
+
+system_contract:
+  rules_checked: 5
+  holds: 4
+  unchecked: 0
+  violated: 1
+  source: >-
+    The card's own `## System contract` section (5 entries), which is why N=5.
+    The on-the-fly lens (`system_rules.py --root meta/architecture --card
+    CARD-331 --verify-refs`) assembles 24 rules for these touches — every
+    mandatory rule scoped to `tests/**` — and reports `check_refs_verified:
+    true` with `dead_check_ref: []`, so no rule below rests on a dead ref. The
+    19 the card does not declare resolve `no_eligible_fact` for this diff: they
+    govern browser tests, the player bundle, the puzzle key recipe and the
+    admin surface, none of which this test-only diff reaches.
+  verdicts:
+    - "ADR-0042/R6 ✓ holds — a claim about an interior page is asserted against the content stream. The new vector arm reads `ContentStream.operators` through the added stream reader and nothing else; 13 cells of node `tests/test_book_difficulty_dots.py::TestDifficultyDots_TheVectorArmReadsTheStream` are green, and re-derivably so: plant M11 (the declared box flipped about height+1, writer untouched) reds exactly 3 of them and plant M6 (the recomputed extent drifted, writer AND declaration) reds exactly 1 disjoint cell — so the stream really is the authority the accounting answers to."
+    - "ADR-0042/R2 ✓ holds — a raster page is declared with a reason, and the declaration is untouched. `git diff b18fd397..HEAD -- src/` is empty (0 lines), so `_RASTER_DECLARATIONS` at src/nonogram/admin/book_pdf_generator.py:623 is byte-identical to the merge base; `git diff b18fd397..HEAD -- tests/test_book_pdf.py` is 0 lines, and AC-6's cell is present and unmodified at tests/test_book_pdf.py:2274. The declaration lift exists only as a `-p` session plugin under scratchpad/card331/."
+    - "ADR-0039/R1 ✓ holds — every claim the new section makes has a control that CAN fail, and I fired 14 of them rather than reading them. 12 killed (M2..M9, M11, M12, M13 and the round's own re-fired set), each at the predicted cell, each run 189 collected / 0 skipped. The 2 survivors are both declared: the round's MUT-13 (an arm renamed) survives for the stated reason, and my M10 survives because of F-004's narrowed detector scope."
+    - "ADR-0039/R2 ✗ violated (partial) — tests/helpers/round_ink.py:289-311 + 780-830. The reader's default-deny is real and I probed it: `v`, `y`, a paint with no subpath, a starved operand, a leading-dot number `.5`, an unknown token between coordinates and an exponent-form number are ALL refused with StreamShapeError. But three mark-bearing classes are tolerated silently — a `cm` transform (a rect under `2 0 0 2 0 0 cm` reads its untransformed box, identical to the untransformed rect), an XObject painted via `/Im0 Do` (0 marks, no refusal) and an `sh` shading (0 marks, no refusal). None is recorded as a bound, unlike the typed-glyph bound which is recorded AND controlled. See F-003."
+    - "COMP-009 ✓ holds — the book production component is not reached. `git diff b18fd397..HEAD -- src/ tests/fixtures/` is empty; the diff is test-side plus the card plus 5 scratchpad instruments, and `git ls-files scratchpad/card331/` confirms only `.py` files are tracked there (no measurement dumps, which is what reddened CARD-318's merge gate)."
+
+root_causes:
+  - id: RC-1
+    title: >-
+      The round's own narrowing landed in one place and not in the two other
+      places the retracted claim had been written
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 6139
+    title: "A dead :meth: cross-reference that also restates the claim this round measured false"
+    description: |
+      The fixture-builder's docstring (lines 6138-6141) reads:
+
+        That recomputation is **checked** rather than trusted:
+        :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_recomputed_layout_is_the_page_the_writer_wrote`
+        holds the stream's own ``MediaBox`` to it, so a layout that drifted
+        from the page would red instead of putting the declared dots in the
+        wrong place.
+
+      Two defects in one sentence, and both are residues of this round's own
+      commit 308bbded:
+
+      1. the `:meth:` target does not exist. Grep over tests/ src/ meta/
+         scratchpad/ finds the old name at exactly two places — this line and
+         meta/kanban/cards/CARD-331.md:293, where it is correctly quoted as
+         the FORMER name. A reader following the reference finds nothing.
+      2. the clause "would red instead of putting the declared dots in the
+         wrong place" is verbatim the over-wide claim the round measured as
+         false and narrowed the test away from. I confirmed the refutation
+         independently: plant M6 drifts the recomputed extent by one pixel and
+         reds exactly ONE cell (the surviving node
+         `tests/test_book_difficulty_dots.py::TestDifficultyDots_TheVectorArmReadsTheStream::test_the_page_extent_this_arm_flips_y_about_is_the_streams_own`),
+         because `_appended` builds its scratch stream from the same mutated
+         height, so the accounting stays self-consistent and the declared dots
+         are NOT put in the wrong place. The retracted claim is restated here
+         as fact.
+
+      The renamed cell's own docstring (6962-6968) says the narrow thing
+      correctly. This is the one place that did not get the correction, and it
+      is the place a reader of the fixture arrives at first.
+    suggestion: |
+      Point the reference at the surviving node id and cut the second clause,
+      e.g.: "the stream's own MediaBox is held to it by this class's
+      page-extent cell, so the EXTENT the conversion is done against cannot
+      drift unnoticed; a page-number drift is invisible here and that cell's
+      docstring says so."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 18ce1ed0
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-331.md
+    line: 189
+    title: "AC-5's prose evidence cites 4 line numbers that do not carry the assertions it names"
+    description: |
+      AC-5 declares its verifier as "evidence: the per-assertion table in
+      `## Worktree notes`" — prose, not a cell. That table (CARD-331.md
+      lines 189-194) names, per mutant, "the assertion reached and red" by
+      file line. Checked against HEAD, 4 of the 5 distinct line numbers are
+      wrong:
+
+        :6413  CITED as `liveness.alive`           -> IS `assert liveness.alive, (`   CORRECT
+        :7446  CITED as the raster COUNT assertion -> IS a message string inside the
+                                                      bitmap no-round-mark cell
+        :7454  CITED as the raster VERDICT assertion -> IS `) -> None:`
+        :7080  CITED as the vector COUNT assertion -> IS `assert margin > 1.0, ...`
+        :7087  CITED as the vector VERDICT assertion -> IS a `filled=` keyword argument
+
+      The cause is visible in the card's own commit order: 54736521 wrote the
+      table, then 308bbded renamed a cell and narrowed a claim, shifting every
+      line below. The round's instrument is sound — scratchpad/card331/mutate.py
+      locates every plant by text with its occurrence count asserted to be 1
+      (line 322-324), asserts SHA-256 and 0 skipped, and runs `--tb=line`,
+      which is where the line numbers came from. What is unsound is
+      transcribing a `--tb=line` artefact into prose that nothing re-derives.
+
+      AC-5's SUBSTANCE is not in doubt and I verified it independently: both
+      `..._reds_this_arm` cells exist, are in the node-id set and are green,
+      each asserting BOTH directions (one dot too few -> the verdict carries
+      it; one too many -> the verdict is empty and the counts disagree); and
+      the per-assertion separation is real, since M11 reds 3 cells and M6 reds
+      1 disjoint cell. So this is a defect in the AC's evidence, not in the
+      card's work — but AC-5 is the one AC whose only declared verifier is
+      that evidence, which is exactly why it went stale inside three commits
+      and nothing noticed.
+    suggestion: |
+      Re-derive the table from the harness and cite what cannot drift: the
+      node id plus the assertion's TEXT (`_unaccounted(found, declared) == ()`)
+      instead of its line. Better still, have scratchpad/card331/mutate.py
+      emit the table, so AC-5's evidence is re-runnable rather than
+      transcribed — the instrument already has every input it needs.
+    confidence: high
+    source: static
+    violates: "AC-5"
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/helpers/round_ink.py
+    line: 289
+    title: "The reader's operator vocabulary is hand-written beside an authority the repo already enumerates, and three mark-bearing operator classes pass silently"
+    description: |
+      `_PATH_OPERANDS` (line ~300) carries a claim about the product:
+      "``v`` and ``y`` ... are deliberately absent: this project's writer emits
+      neither (``nonogram.admin.book_vector.ContentStream``)". Nothing in the
+      diff binds that claim to the writer. The authority exists and the
+      project already uses it, one module over:
+
+        * `dir(ContentStream)` is runtime-enumerable, and
+          tests/test_book_pdf_vector_primitives.py partitions it into
+          watched/unwatched/not-a-mark;
+        * tests/test_book_solved_answer_key.py:2691 holds
+          `_PATH_OPERATORS = frozenset({"m","l","re","c","h","S","f","B"})`
+          — the MEASURED emission set — and its door-probe drives every
+          member of that surface and records what each one emits.
+
+      All 8 of those measured operators are understood by the new reader, so
+      the claim is TRUE today. It is simply unchecked, which ADR-0039/R2
+      addresses directly: a guard's set is derived from an enumerable
+      authority, not hand-written; and the module that would import the
+      authority (tests/test_book_pdf_vector_primitives.py) is this diff's one
+      unguardrailed co-change peer, 5 co-changes in 12 months.
+
+      The consequence is measurable. Probing the reader as committed:
+
+        REFUSED  "10 10 m 20 20 30 30 v f"            (v shorthand)
+        REFUSED  "10 10 m 20 20 30 30 y S"            (y shorthand)
+        REFUSED  "f"                                   (paint, no subpath)
+        REFUSED  "10 m"                                (starved operand)
+        REFUSED  "0 0 .5 .5 re f"                      (leading-dot number)
+        REFUSED  "0 0 BOGUS 10 10 re f"                (unknown token)
+        REFUSED  "0 0 1e1 1e1 re f"                    (exponent form)
+        TOLERATED  "2 0 0 2 0 0 cm 0 0 10 10 re f"  -> box (0,0,10,10), i.e.
+                   bit-identical to the same rect with no `cm` at all: the
+                   transform is silently dropped, so a non-uniform `cm` would
+                   let a path-space circle print as an ellipse (false round)
+                   or a path-space ellipse print as a circle (MISSED round
+                   mark, the direction that matters to the
+                   no-round-mark-on-the-books-own-sheets cell)
+        TOLERATED  "q 100 0 0 100 0 0 cm /Im0 Do Q"  -> 0 marks, no refusal
+        TOLERATED  "/Sh0 sh"                          -> 0 marks, no refusal
+
+      The default-deny is genuinely strong — an unrecognised token clears the
+      operand stack and the next path operator then starves and raises, which
+      is why 7 of 10 classes refuse. That makes the asymmetry the finding: the
+      ONE bound the module records (type is not a path) is recorded in prose
+      AND given a two-sided control with the other arm as its witness, while
+      `cm`/`Do`/`sh` are neither recorded nor controlled. ADR-0039/R3 is
+      explicit that a bound a guard cannot close is recorded "as a measured
+      bound with its own failing control".
+
+      Practical risk today is low and should be weighed as such: `ContentStream`
+      deliberately has no `q`/`Q` and no transformations (its own docstring,
+      src/nonogram/admin/book_vector.py ~756), `write_vector_page` refuses a
+      `Do` outright (same file, ~1411, with its own cells in
+      tests/test_book_puzzle_page_vector.py around 3368-3401), and `sh` is
+      outside the vocabulary. The gap is that the new reader depends on those
+      three facts and asserts none of them, so the day the writer grows one,
+      this instrument mis-measures or under-measures and the liveness probe
+      stays green — 588 painted subpaths of grid rules keep `alive` true while
+      a dot drawn through the new route is invisible. That is this card's own
+      thesis one layer down.
+    suggestion: |
+      Add one cell to the vector-arm class that imports the measured emission
+      set from tests/test_book_solved_answer_key.py (or re-derives it over
+      `dir(ContentStream)` with the door probe) and asserts it is a subset of
+      `_PATH_OPERANDS | _PAINT_OPERATORS | _REFUSED_PATH_OPERATORS` — the
+      exact shape the existing `PAINTS_THAT_FILL`-is-a-subset cell already has
+      for paints, widened from paints to the whole vocabulary. Then record
+      `cm`/`Do`/`sh` in the module header as a named bound beside the typed-glyph
+      one, with a control: a two-line stream for each, asserting what the reader
+      reports today, so a future refusal is a visible change rather than a
+      silent one.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R2"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 6789
+    title: "The hook detector's scope omits the raster arm's own plant functions — proved by a surviving mutant"
+    description: |
+      `RASTER_ARM_FUNCTIONS` is `("_arm_page", "_raster_arm_reading",
+      "_raster_arm_liveness")`. AC-3's structural claim ("this arm hooks no
+      production attribute") is measured over those three sources only. Not in
+      the set: `_declaring_plant` and `_rogue_plant` — the two callables
+      `_raster_arm_reading` takes as its `plant` argument and without which it
+      reads nothing — nor any cell of the raster-arm class itself.
+
+      Measured, not argued. My plant M10 inserted
+      `book_pdf_generator._NOT_A_REAL_ATTRIBUTE = 1` into `_declaring_plant`'s
+      body — a textbook production rebind, the exact shape the detector's first
+      control catches when handed it as a string — and the module reported
+      **189 passed, 0 failed, 0 skipped**: the detector never saw it.
+
+      The scope is declared ("a measurement over a named set rather than a hope
+      about a whole 6000-line module"), which is why this is Minor and not more:
+      the narrowing is honest and the reason for it is sound. But the two plant
+      functions are not part of the 6000-line module's noise — they are the
+      arm's own moving parts, and a future card can hook a production attribute
+      inside them with AC-3's cell still green.
+    suggestion: |
+      Add `_declaring_plant` and `_rogue_plant` to `RASTER_ARM_FUNCTIONS`. The
+      existing equality (`set(_raster_arm_sources()) == set(RASTER_ARM_FUNCTIONS)`)
+      then keeps the set honest, and re-running M10 should turn it from a
+      survivor into a kill. Both functions are hook-free today, so this costs
+      nothing but closes the hole.
+    confidence: high
+    source: static
+    violates: "AC-3"
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_book_difficulty_dots.py
+    line: 6363
+    title: "The raster arm's remedy offers 'retire this arm', which reds a sibling cell"
+    description: |
+      The raster arm's `remedy` string — the work order CARD-322's author will
+      read off the failure — begins "the product no longer draws this page as a
+      bitmap: **retire this arm**, or re-point it at a page kind
+      _RASTER_DECLARATIONS still declares raster, and move the 27 cells ...".
+
+      The first of the two options is not available. `PageMedium` has exactly
+      two members, VECTOR and RASTER (src/nonogram/admin/book_pdf_generator.py:501),
+      and the cover and divider stay raster under ADR-0042/R2, so retiring the
+      raster arm leaves `{arm.medium for arm in ARMS} == {VECTOR}` and reds the
+      arm-per-medium cell ("a medium the product can write has no arm of this
+      accounting: ['raster']"). I confirmed the mechanism from the adjacent
+      direction: plant M13 (the vector arm re-declared RASTER, so the set loses
+      a member the other way) reds that cell plus the exactly-one-live-arm cell,
+      2 failed / 187 passed.
+
+      The second option is correct and sufficient. So the remedy sends its
+      reader down a path that fails for a reason the remedy does not mention —
+      in a string whose whole purpose, by the arm's own docstring, is that "a
+      guard that reds without saying what to do gets widened rather than
+      answered".
+    suggestion: |
+      Drop "retire this arm, or" and keep the re-pointing instruction, or
+      qualify it: "retire this arm ONLY if PageMedium loses RASTER; otherwise
+      re-point it at a page kind _RASTER_DECLARATIONS still declares raster
+      (the cover and the divider), and move the 27 cells with it".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-331.md
+    line: 177
+    title: "The card over-claims that both of the two reds name the mechanism and the remedy"
+    description: |
+      The card states: "With the declaration lifted, the new section's 34 cells
+      report **exactly 2 red**, both naming the raster arm, its mechanism and
+      the remedy."
+
+      The count is exactly right and I reproduced it at both probe states
+      (29 failed / 160 passed under the declaration lift; 15 failed / 174
+      passed under the medium-tolerant fix; in BOTH cases exactly 2 of the new
+      34 cells red, and both inside the AC-4 class). But only one of the two
+      carries the full message. The mechanism-still-exercised cell fails with
+      the arm, the death, the mechanism and the remedy — I captured it
+      verbatim. Its sibling, the probe-reports-death cell, reds on its live-state
+      loop with `f"the {arm.name} arm is not alive"` — the arm's name and
+      nothing else.
+    suggestion: |
+      Either soften the card's sentence to "one of which names the arm, its
+      mechanism and the remedy", or widen the probe-reports-death cell's
+      live-state assertion message to carry `arm.mechanism` and `arm.remedy`
+      too. The second is three lines and makes the card's sentence true.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "18ce1ed0+9f617ed1"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 7316
+    title: "The flattening cell mutates a helper module's global, which is a shared-state bar to worker parallelism"
+    description: |
+      The flattening-cost cell rebinds `round_ink._BEZIER_SEGMENTS` to 8, then
+      32, then 256, restoring in a `finally`. The restore is correct and the
+      cell re-asserts `round_ink._BEZIER_SEGMENTS == 32` afterwards, so a
+      sequential suite is safe — and that same assertion is what kills the
+      coarsened-flattening plant (my M9: 32 -> 4, 1 failed / 188 passed).
+
+      It is still a mutation of a module global that 21 test modules reach
+      through the page_ink hop. Under `pytest-xdist` or any future worker
+      parallelism, a sibling module reading a round mark while this cell holds
+      `_BEZIER_SEGMENTS = 8` gets a `fill` 0.9 % off, which is inside
+      ROUND_FILL_TOLERANCE and therefore silent rather than loud. Recorded
+      per engineering-standards §6's shared-mutable-global note, with the
+      shared state named; no suite in this repo runs parallel today.
+    suggestion: |
+      Prefer `monkeypatch.setattr(round_ink, "_BEZIER_SEGMENTS", segments)` —
+      which is scoped and auto-restored — or pass the segment count as an
+      argument to the flattening helper so no global moves. Note the first
+      option collides with AC-3's hook detector if this cell ever joins
+      `RASTER_ARM_FUNCTIONS`; it does not today, and the vector arm makes no
+      hooks-nothing claim.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 18ce1ed0
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---------------------------------------------------------------------------
+# Out-of-scope notes — not counted in the score, recorded for the next card.
+# ---------------------------------------------------------------------------
+notes:
+  - id: N-1
+    title: "The render-set refusal is correct, and its precedent argument is one entry short"
+    body: |
+      VERIFIED, all of it. The grep that defines the frozen set finds 0 of its
+      8 names in either touched file (`grep -cE` over both: 0 and 0; the
+      defining `grep -rlE` over tests/ returns 36 paths and neither touched
+      file is among them). tests/test_suite_profile.py is green at 450 cells,
+      0 skipped. `test_book_difficulty_dots` appears 450 times in
+      meta/profiling/suite-durations-20261023.txt, so re-freezing really would
+      move measured SECONDS in the render-heavy row (554.47 s / 38.88 % / 1391,
+      suite-hotspots-20261023.md:16) and falsify that document's own
+      "render-set drift: none" at line 8.
+
+      That last fact is what distinguishes this case from every precedent in
+      the frozen list, and the distinction is the precedents' OWN stated
+      criterion: CARD-222's addition contributes 0 s ("this file does not appear
+      at all"), CARD-223's contributes 0 s and moved only the row's COUNT
+      (1079 -> 1091) which that card restated, CARD-295's and CARD-305's
+      contribute 0 s because the files did not exist. CARD-331's file
+      contributes 450 recorded phase entries. No precedent re-froze a set in a
+      way that moved a measured second, and this card has no instrument to
+      re-derive one.
+
+      The deferral is also genuinely pre-existing and owner-visible, exactly
+      where the round says it is: the legacy harness's own docstring records
+      that "the call this file really makes, `interior_pages`, is not one of
+      those eight names, so the file does not match that grep on its own
+      merits; CARD-241's notes record why re-freezing the snapshot was not
+      this card's to do (G-5) and what the next profiling run should record
+      instead." So the file's render-heavy-but-unlisted status is CARD-241's
+      recorded debt, not something this card created.
+
+      ONE GAP in the argument. The card answers CARD-223 ("added rather than
+      dodged") and distinguishes it correctly. It does not answer CARD-227,
+      which is the NEARER precedent and cuts the other way: that file matched
+      the grep only in its own docstring — "a false positive by the grep's
+      purpose", with the card recording that "the tempting move was to reword
+      the sentence and slip the set" — and it was "added anyway, because the
+      file genuinely renders and the set is there to find the files that do."
+      By that criterion CARD-331's file belongs in the set, because it does
+      genuinely render. The refusal survives anyway, on the 450-occurrences
+      ground CARD-227 did not face and on CARD-241's standing deferral; but
+      the card should say so, because a later reader checking the precedents
+      will find CARD-227 first and read the refusal as unanswered.
+
+      On whether the corpus rebuild is a dodge: it is not, and the file's own
+      legacy docstring normalises the move — "a helper spelled that way — or a
+      docstring quoting it, which is how this sentence had to be rewritten"
+      is the same card family spelling around the same trap. The rebuild also
+      grew the sweep (11 -> 13 pages), made the book's row count the corpus's
+      authority rather than a pairing verdict, and put both page parities in
+      it, all asserted. My M2 plant (one page dropped) reds 2 cells, so the
+      new anchor has teeth.
+
+  - id: N-2
+    title: "What the rebuilt corpus gives up, named for the next card"
+    body: |
+      The corpus no longer consults the pairing walk at all, so the vector arm
+      never reads a sheet composed the way a real book's interior composes a
+      paired one. The round names this and names the two-up sheet as the arm's
+      next step rather than half-building it, with a stated reason (a paired
+      sheet carries two bands, so the accounting becomes a question about which
+      band a plant landed in). I judge the not-built decision CORRECT: a
+      two-band accounting with no band-attribution rule would be a verdict
+      nobody can read, which is the defect class this card exists to remove.
+      Recorded so the next card inherits the gap explicitly rather than
+      discovering it.
+
+  - id: N-3
+    title: "Figures re-derived this cycle, with their bases"
+    body: |
+      Every number below is mine, measured on HEAD 308bbded with
+      /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python,
+      `-o addopts=` as two argv items, the environment inherited, and 0 skipped
+      asserted on every run.
+
+        touched module ............. 189 passed, 0 skipped, 0 failed, 58 warnings
+        node-id set ................ 155 (b18fd397 worktree) -> 189; 0 removed,
+                                     34 added, by `--collect-only -q` set diff
+                                     with `comm` on both trees. G-5 holds exactly.
+        added test classes ......... 4, all carrying the Test prefix (ast);
+                                     the 4 added non-Test classes hold 0 test
+                                     defs, so nothing is silently uncollected.
+        AC cell counts ............. AC-1 10, AC-2 13, AC-3 6, AC-4 5 — the
+                                     card's table, node-id-exact.
+        impact scope ............... 1016 passed, 0 skipped, 0 failed over 6
+                                     modules (the touched module, the other
+                                     round_ink importer, the AC-6 gate module,
+                                     the frozen-census module and the two
+                                     vector page modules). My module set, so
+                                     the figure is not the round's 1019.
+        frozen census .............. 450 passed, 0 skipped.
+        architecture validator ..... 0 errors / 90 warnings, forge_1's
+                                     validate.py (the validator of record,
+                                     config.yml:38). Re-derived on a throwaway
+                                     worktree at b18fd397 and compared: the two
+                                     dumps are BYTE-IDENTICAL, so 0 added / 0
+                                     removed, necessarily — `git diff
+                                     b18fd397..HEAD -- meta/architecture/` is
+                                     empty, so the set-identity is a property
+                                     of the diff and not only of the run.
+                                     90 is the live figure; config.yml:17-22's
+                                     102 is a stale 2026-10-29 comment and the
+                                     100 in the dispatch brief was wrong.
+                                     Baseline worktree removed; `git worktree
+                                     list` shows only main, card-317 and
+                                     card-331.
+        premise, state A ........... declaration lifted: 29 failed / 160 passed.
+        premise, state B ........... + medium-tolerant fix: 15 failed / 174
+                                     passed, i.e. 14 of the 27 go green.
+                                     In BOTH states exactly 2 of the new 34
+                                     cells red, both in the AC-4 class.
+        vector margin .............. (4/pi - 1)/ROUND_FILL_TOLERANCE, asserted
+                                     as a derivation; plant M8 (the figure
+                                     declared as 2.276996 instead of derived)
+                                     reds it.
+        flattening cost ............ plant M9 (32 -> 4) reds it; the cell also
+                                     pins the constant at 32 directly.
+        1.1369e-13 pt .............. the 200-case seeded sweep asserts
+                                     `worst < 5e-4` and an exact equality after
+                                     rounding to the stream's 3 places. NO
+                                     TOLERANCE WAS WIDENED anywhere in the
+                                     diff — confirmed by reading every
+                                     `approx`/tolerance in the added lines:
+                                     the three `approx` calls are abs=1e-9,
+                                     abs=1e-9, abs=1e-6 and abs=1e-5, all new
+                                     and all tight, and no pre-existing
+                                     tolerance constant is touched.
+        floors are NOT self-referential — the CARD-330 check, run three ways.
+                                     Raising each floor past its measured value
+                                     reds, which a floor whose fixture was
+                                     built from the floor could not do:
+                                     pages 12 -> 999 reds (1 failed/188),
+                                     regions 85 -> 999 reds (1 failed/188),
+                                     shaped 170 -> 9999 reds (1 failed/188).
+                                     The corpus is anchored to each book's own
+                                     row count by an equality, not to the floor.
+        corpus shrink .............. one page dropped reds 2 cells:
+                                     "...TheVectorArmReadsTheStream::test_the_corpus_is_one_page_per_puzzle_of_both_books"
+                                     and
+                                     "...TheVectorArmReadsTheStream::test_the_books_own_vector_sheets_carry_no_round_mark".
+
+  - id: N-4
+    title: "Mutation results — 14 plants fired this cycle, 12 killed, 2 survivors both accounted for"
+    body: |
+      Harness discipline: PYTHONDONTWRITEBYTECODE=1, `__pycache__` swept before
+      and after every run, every plant located BY TEXT with its occurrence count
+      asserted to be exactly 1, SHA-256 asserted before the plant and after the
+      restore, the environment inherited via `dict(os.environ, ...)`,
+      `["-o", "addopts="]` as two argv items, and 189 collected / 0 skipped
+      asserted on every single run including the baseline.
+
+        M1  (re-fire of the round's MUT-13: an arm renamed, nothing else)
+              SURVIVED, 189 passed — as declared. LEGITIMATE, see N-5.
+        M2  (MUT-3: corpus shrunk by one page)           KILLED, 2 cells
+        M3  (MINE: page floor 12 -> 999)                 KILLED, 1 cell
+        M4  (MINE: region floor 85 -> 999)               KILLED, 1 cell
+        M5  (MINE: shaped floor 170 -> 9999)             KILLED, 1 cell
+        M6  (MUT-16: recomputed extent drifts 1 px)      KILLED, 1 cell
+        M7  (MUT-10: the reader stops refusing v/y)      KILLED, 1 cell
+        M8  (MUT-11: the margin declared, not derived)   KILLED, 1 cell
+        M9  (MUT-9: flattening 32 -> 4)                  KILLED, 1 cell
+        M10 (MINE: a production rebind inside the raster arm's plant function)
+              SURVIVED, 189 passed — this is F-004, a real hole.
+        M11 (MUT-15: ONLY the declaration flips about the wrong height)
+              KILLED, 3 cells, DISJOINT from M6's one
+        M12 (MINE: the vector arm's liveness hardcoded to always-alive)
+              KILLED, 1 cell — the control's own control works
+        M13 (MUT-12: the vector arm re-declared RASTER)  KILLED, 2 cells
+
+      The M6/M11 pair is the load-bearing result of this cycle and it vindicates
+      the self-narrowing. M6 drifts the extent that BOTH the writer and the
+      declaration use, so the accounting stays self-consistent and only the
+      independent MediaBox reading disagrees: 1 red, and it is the narrowed
+      cell. M11 drifts ONLY the declaration, so the accounting breaks and the
+      MediaBox cell is untouched: 3 reds, none of them the narrowed cell. The
+      two plants red disjoint sets. That is precisely the standard — a claim
+      narrowed to exactly what its own control can fail on, with the wider
+      failure owned by a different control — and it is why the old, wider claim
+      ("every declared dot in the wrong place") was not just unproven but FALSE:
+      under M6 the declared dots are in the RIGHT place relative to the stream.
+
+      Tree state after every plant: `git status --porcelain` empty, HEAD still
+      308bbded, `git diff --stat b18fd397..HEAD` still 8 files / 2690
+      insertions, the touched module's sha256 equal to its HEAD blob's. One
+      transient note for honesty: I once ran `git status` WHILE a background
+      harness held a plant and saw the file modified; I restored from HEAD and
+      verified the sha matches the HEAD blob exactly. That was my race, not a
+      left-behind mutation — the harness's own final line reported a clean tree.
+      No orphaned pytest processes (`lsof -c python` finds 0 holding this
+      worktree). CARD-317's worktree was not touched.
+
+  - id: N-5
+    title: "MUT-13's declared survival is legitimate, and the round's reason is half the reason"
+    body: |
+      Re-fired: an arm renamed and nothing else survives, 189 passed. The
+      round's justification — "the guard claims one arm per medium and not a
+      set of spellings" — is correct and is a claim stated in the cell's own
+      name and docstring, written before the mutant rather than after it. The
+      mutant that attacks the actual claim is killed: M13 (the vector arm
+      re-declared RASTER, so the set loses a medium) reds 2 cells. A declared
+      survivor is only meaningful next to the kill that bounds it, and that
+      kill exists.
+
+      What the round's table does not say, and should: the arm's `name` is NOT
+      unguarded, it is guarded by a different instrument at a different layer.
+      `name` feeds the parametrize ids, so renaming `raster` to `bitmap` moves
+      the node id from `[raster]` to `[bitmap]` — which G-5's node-id set diff
+      catches as a renamed cell. So the complete answer is "the spelling is
+      pinned by the card gate, not by this cell, and correctly not by this
+      cell". With that sentence the survivor is honest discipline. Without it a
+      reader cannot tell it from a claim quietly narrowed to fit, which is the
+      question I was asked to decide. Verdict: HONEST DISCIPLINE, not a hole.
+
+  - id: N-6
+    title: "The deliberately future-red cell is the right instrument, and CARD-322 was already told"
+    body: |
+      The mechanism-still-exercised cell will red the day the puzzle page
+      converts. I judge this CORRECT rather than a landmine, on three grounds,
+      two of them measured:
+
+      1. it reds for a TRUE reason. On that day the 27 legacy cells really do
+         stop measuring the product's own page. A guard that stayed green
+         across the medium change is the silent pass this card exists to kill —
+         and I proved a tolerant guard cannot do the job: under probe state B
+         the legacy walk never reaches the vector page at all (it is filtered
+         out), so NO exception, named or otherwise, would fire. The cheaper fix
+         the brief asked me to weigh — making the legacy walk raise a named
+         error — is therefore provably insufficient, not merely weaker.
+      2. the failure is a work order, not a puzzle. Captured verbatim: "the
+         raster arm of the difficulty-dot accounting is DEAD: the product now
+         writes a puzzle page as vector, so a bitmap of one is a page it does
+         not print. Its mechanism is ink extents, in device pixels, of the
+         connected regions of a bitmap puzzle page the product draws through
+         _blank_page. the product no longer draws this page as a bitmap:
+         retire this arm, or re-point it at a page kind _RASTER_DECLARATIONS
+         still declares raster, and move the 27 cells of this module that read
+         the interior as bitmaps with it." (F-005 is about the first of those
+         two options.)
+      3. CARD-322 is adequately told, and was told BEFORE this round ran —
+         which is the part the card gets to take no credit for and should cite.
+         meta/kanban/cards/CARD-322.md lines 118-121 already read: "expect to
+         delete raster expectations here, not satisfy them. Same for
+         **CARD-331**'s raster arm of the difficulty-dot accounting: its
+         lifetime ends with this card." That is "expect it, not widen it",
+         recorded on the consuming card, written at CARD-309's re-cut. CARD-331
+         is also already in CARD-322's `Depends on`.
+
+      So the instrument is right, the message is right, and the hand-off is
+      already on the receiving card. The one wrinkle is F-005: CARD-322's prose
+      says "delete", the guard requires "re-point" (PageMedium keeps RASTER for
+      the cover and divider), and the remedy string offers both without saying
+      the first one reds.
+
+  - id: N-7
+    title: "The corrected premise, and whether the deliverable follows from it"
+    body: |
+      Both halves of the correction reproduce.
+
+      Half one — the card's "passes silently" is FALSE TODAY, and the round's
+      reason is right: 29 failed / 160 passed with the declaration lifted, and
+      the 27 legacy reds die on a type error naming neither a dot nor a dead
+      hook. Half two — the silent pass is ONE PATCH AWAY and the patch is the
+      one a converting card writes: 15 failed / 174 passed with the walk also
+      filtered to bitmaps, i.e. 14 cells go green on a book whose puzzle pages
+      have left the measurement. Both probes are committed, both do exactly
+      what they claim, and I ran both.
+
+      The second premise correction also holds: `_draw_difficulty_dots` has no
+      production caller (grep over src/ finds its own def at
+      book_pdf_generator.py:2178 and one docstring mention at
+      book_guide_vector.py:901, nothing else), and `round_mark` appears in src/
+      only inside book_vector.py — its own def and three docstrings. So BOTH
+      arms are accounting instruments rather than readings of a drawn glyph,
+      and the vector arm is explicitly forward-looking. The code SAYS so
+      rather than glossing it: the glyph-writing helper's docstring states "the
+      package has no vector drawing site for this glyph (CARD-207 is the card
+      that puts one on the puzzle page) ... So this arm is a *forward*
+      instrument: it is the accounting a vector dot site will be measured by,
+      standing ready", and the vector-arm class's docstring opens its own
+      "What this arm is not" paragraph. That is honest.
+
+      DOES THE DELIVERABLE FOLLOW? Yes, and this is the cycle's central
+      measurement. Under probe state B — the exact state in which 14 cells go
+      silently green — the new section still reds, in the AC-4 class, with the
+      message quoted in N-6. The thing the card promised (an arm per medium,
+      each naming its mechanism, plus a guard that reds when an arm's mechanism
+      stops being exercised whatever the page object's type is) is the thing
+      that catches the scenario the corrected premise identified, and the
+      cheaper alternative provably does not. The design follows from the
+      correction rather than being justified by it after the fact.
