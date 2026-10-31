@@ -48,7 +48,22 @@ from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
+
+
+#: CARD-329: this module's one page-source seam. ADR-0042/R1 writes the puzzle
+#: pages as content-stream operators, so the walk hands back a
+#: ``ContentStream`` for them and an ``Image.Image`` for the kinds that stay
+#: raster (ADR-0042/R2). Every claim in this module is stated on *device
+#: pixels*, so the conversion is absorbed here: ``interior_images`` returns a
+#: raster page unchanged and rasterises an operators page with poppler at that
+#: page's own DPI, putting both readings in the one domain the assertions
+#: already read (CARD-330 — an instrument has to say which domain it is in).
+#: No claim was weakened and no tolerance widened to make this agree.
+def _interior(generator: BookPDFGenerator, puzzles: list) -> list:
+    """``generator``'s interior, every page as device pixels."""
+    return interior_images(generator.interior_pages(puzzles))
 
 #: 300 DPI, the resolution every book page is drawn at.
 PX_PER_MM = 300 / 25.4
@@ -383,7 +398,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         # book's trim and this book's puzzle count, so it is read off the
         # real plan for this case rather than assumed to be any fixed number.
         toc_page_count = generator.section_plan([puzzle]).toc_page_count
-        pages = generator.interior_pages([puzzle])
+        pages = _interior(generator, [puzzle])
         assert len(pages) == 6 + toc_page_count, (
             "the blank title page (CARD-206), the 2-page guide (CARD-201), "
             "the TOC (CARD-200), puzzle, divider, answer"
@@ -472,7 +487,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
         # puzzle count, so it is read off the real plan for this sheet rather
         # than assumed.
         toc_page_count = generator.section_plan(puzzles).toc_page_count
-        pages = generator.interior_pages(puzzles)
+        pages = _interior(generator, puzzles)
         trim_width_px, trim_height_px = _trim_px(sheet)
         tops: set[int] = set()
         # CARD-225 (NFR-008 as amended): this corpus names three wide extents
@@ -620,7 +635,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         ]
         generator = BookPDFGenerator(sheet.book)
         toc_page_count = generator.section_plan(book_rows).toc_page_count
-        pages = generator.interior_pages(book_rows)
+        pages = _interior(generator, book_rows)
         assert len(pages) == 12 + toc_page_count, (
             "the blank title page, the 2-page guide, the TOC, two level "
             "dividers, three puzzles, SOLUTIONS, three answers"
@@ -792,7 +807,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     ]
     generator = BookPDFGenerator(sheet.book)
     toc_page_count = generator.section_plan(puzzles).toc_page_count
-    pages = generator.interior_pages(puzzles)
+    pages = _interior(generator, puzzles)
     trim_width_px, trim_height_px = _trim_px(sheet)
     band_foot_mm = TOP_MM + BAND_MM
 

@@ -81,6 +81,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.export.layout import compute_layout, interior_frame, qr_caption
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
+from tests.helpers.pdf_pages import interior_images
 
 # --------------------------------------------------------------------------
 # CON-018's Book 1 profile, in millimetres, written out rather than imported.
@@ -178,8 +179,20 @@ def _book_of(*members: Tuple[str, str]) -> List[dict]:
 
 
 def _interior(puzzles: Sequence[dict]) -> List[Image.Image]:
-    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``."""
-    return BookPDFGenerator(_book()).interior_pages(list(puzzles))
+    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``.
+
+    **CARD-329: the medium is read here and nowhere else.** ADR-0042/R1 writes
+    the puzzle pages as content-stream operators, so this walk hands back a
+    ``ContentStream`` for them and an ``Image.Image`` for the kinds that stay
+    raster (the cover and the divider, ADR-0042/R2). Every claim below is
+    stated on *device pixels*, so the conversion is absorbed at this one seam:
+    ``interior_images`` returns a raster page unchanged and rasterises an
+    operators page with poppler at that page's own DPI, which puts both
+    readings in the one domain the assertions already read (CARD-330 — an
+    instrument has to say which domain it is in). No claim below was weakened
+    and no tolerance was widened to make this agree.
+    """
+    return interior_images(BookPDFGenerator(_book()).interior_pages(list(puzzles)))
 
 
 # --------------------------------------------------------------------------
