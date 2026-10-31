@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/0001-generation-time-thresholds.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/trace.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- ADDED fix round 1: ADR-0042/R4 declared the identical node id F-001 retires from ADR-0006/R1, and was that string's only other declaration -- see the fix-round-1 notes for why splitting it off would have made the repair unprovable. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 2 of 3 — CERTIFIED; 6.0 → 9.0)
 **Started:** 2026-10-31T02:39:21+00:00
 **Closed:** —
 **Actual:** —
@@ -379,7 +379,7 @@ replaced by prose. AC-269 now declares **two** comma-separated refs (the form
 `requirements.yml:5447` already uses):
 
 1. the wiring test (`tests/test_book_solved_answer_key.py:308`), kept;
-2. **new** — `tests/test_book_pdf_band.py:1533`, which composes the caption
+2. **new** — `tests/test_book_pdf_band.py:1536`, which composes the caption
    from that module's `ANSWER_CAPTION` template literal (`:182`, a deliberate
    second implementation, not `book_answer_key.answer_caption` run twice),
    asserts that line of ink is on the answer page **exactly once at a size
@@ -457,14 +457,28 @@ a single pair of offsets where the real shift is **cumulative across five
 insertion sites**, and this round moved it again. Measured off the `  - id:`
 lines at `b18fd397` and at this HEAD, the file being 6867 → **6985** lines:
 
-| from | shift |
-|---|---|
-| FR-001's block | +0 |
-| FR-002 … FR-019 | +44 |
-| FR-020 … FR-042 | +61 |
-| FR-043 … NFR-001 | +101 |
-| NFR-002 … CON-011 | +111 |
-| CON-012 and below | +118 |
+**The band table that stood here is DELETED, not corrected** — cycle 2's F-007,
+and it is the third wrong figure this one paragraph has carried. The bands were
+exact for **requirement** lines and wrong for **criteria**, which is the unit
+CARD-316 actually touches: FR-001's four ACs moved **+19 / +22 / +31 / +38**,
+not the "+0" its band claimed, and AC-268 moved **+73** where the band said
++61. A table of offsets that is right at one granularity and wrong at another
+does not inform the next card — it invites exactly the offsetting the heading
+forbids, which is how the first two wrong figures here propagated.
+
+So there is no table. The handle is the `  - id:` line:
+
+```python
+import re, pathlib
+for i, line in enumerate(pathlib.Path("meta/architecture/requirements.yml")
+                         .read_text().splitlines(), 1):
+    if re.match(r"^\s*- id: AC-268\s*$", line):
+        print(i)
+```
+
+Only two figures here are stable enough to state, and only because they are
+whole-file: the registry went **6867 → 6985** lines, and it holds **496**
+`- id:` entries at both commits (nothing added or removed, five values changed).
 
 Those are the figures **at this commit only**. CARD-316 touches seven criteria
 across the same registry; a line number is not a stable handle here and

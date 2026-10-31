@@ -1536,7 +1536,7 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 #        carry -- the same definition the departure above pointed at, reached by
 #        an honest spelling), tests/test_book_pdf_band.py:1483 (AC-268's new
 #        ref), tests/test_book_solved_answer_key.py:308 (AC-269's wiring ref)
-#        and tests/test_book_pdf_band.py:1533 (AC-269's fix-round-1 caption
+#        and tests/test_book_pdf_band.py:1536 (AC-269's fix-round-1 caption
 #        read-back, the F-003 close).
 # So 406 - 1 + 4 = 409, and three of the four entrants are DECLARATIONS arriving
 # with their definitions already in place -- the one direction of movement that
