@@ -73,6 +73,24 @@ engineering constraints:
    *owed* by CARD-226 — the behaviour is planned, not rejected — and `superseded` is the
    wrong word for it. Either a distinct status value or an explicit decision that a
    forward declaration carries no status and lives in a comment. **State which and why.**
+5. **Inherit a SETTLED word for the never-adopted case, and do not re-open it lightly.**
+   <!-- Routed in 2026-10-31 by CARD-316 fix round 2 (review F2-002). -->
+   The registry's six retired acceptance criteria all carry `status: retired`, including
+   the four that were **never adopted** (AC-129, AC-134, AC-206, AC-207). CARD-316 first
+   gave those four a narrower `rejected` and withdrew it, because two **accepted** ADRs
+   already spend `retired` on exactly those four and one of them names a precedent for
+   doing so: `decisions/adr/0027-refuse-degenerate-density.md:167` ("AC-129, AC-134
+   (retired)"), `decisions/adr/0034-default-book-plan-150-at-40-40-20.md:48` ("AC-206,
+   AC-207 retired") and `0034-…:41` ("AC-206 … and AC-207 … are **retired unimplemented,
+   following the FR-004 / ADR-0027 precedent**"). `requirements.yml:181` uses the same
+   word for the adopted-then-amended pair. So `retired` is the word in force for both
+   families, and today it is inert — an acceptance criterion's `status` is read **nowhere**
+   in the validator of record (re-measured by CARD-316 fix round 2: `_validate_criterion`
+   does not read it, `_validate_con_lifecycle`'s one call site is the constraints loop,
+   and every other `status` read in the tree is over a trace entry, a CON, a DEC or an
+   ADR). **This card is what makes it stop being inert**, so it is this card that must
+   either adopt `retired` for both families or, if it wants the narrower split, carry an
+   **ADR amendment** to ADR-0027 and ADR-0034 — not a block comment in the registry.
 
 ## Why this is blocked
 

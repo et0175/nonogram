@@ -342,18 +342,40 @@ functional:
     # owes the validator change that would make them real (owner's decision,
     # item 5; same blocker as CARD-319).
     #
-    # Because nothing enforces it, each value below is CHOSEN, not borrowed.
+    # THE VOCABULARY IS BORROWED, NOT CHOSEN -- CORRECTED 2026-10-31 by
+    # CARD-316's fix round 2 (review F2-002). The paragraph that stood here said
+    # each value was "CHOSEN, not borrowed" and then split the six: `rejected`
+    # for AC-129, AC-134, AC-206, AC-207 (never adopted, so nothing superseded
+    # them) and `retired` for AC-191, AC-192 (adopted under BK-3, then amended
+    # away). THAT SPLIT IS WITHDRAWN AND ALL SIX TAKE `retired`, because two
+    # ACCEPTED ADRs already spend that word on the never-adopted four, and one
+    # of them names a precedent for doing so. The three lines, read directly:
+    #   decisions/adr/0027-refuse-degenerate-density.md:167
+    #     -- "AC-129, AC-134 (retired)"
+    #   decisions/adr/0034-default-book-plan-150-at-40-40-20.md:48
+    #     -- "AC-206, AC-207 retired"
+    #   decisions/adr/0034-default-book-plan-150-at-40-40-20.md:41
+    #     -- "AC-206 (30/45/25) and AC-207 (derived from audience) are RETIRED
+    #        UNIMPLEMENTED, following the FR-004 / ADR-0027 precedent"
+    # The last is decisive: it is the never-adopted case taking `retired` AND
+    # naming a precedent for it. So the never-adopted / adopted-then-amended
+    # distinction was NEW, not borrowed, and for four of the six it overrode the
+    # word of two accepted ADRs -- from a kanban card, which is an ADR amendment's
+    # job and not a block comment's. It is therefore not kept silently and not
+    # kept at all. This file agrees with the ADRs already: ":181" reads
+    # "AC-191/AC-192 RETIRED unimplemented (kept, FR-004 / ADR-0027 precedent)",
+    # and the comment above FR-028's density note reads "explicitly allowing
+    # degenerate grids (AC-129/AC-134) is retired unimplemented" -- the same word
+    # for both families.
     # This file's AC `status` vocabulary before today was `superseded` (9 keys)
-    # and `unmet` (1). `superseded` fits these four: each names its successor.
-    # It does not fit the six CARD-316 retired, and rather than force them into
-    # it the card adds two words and says so here:
-    #   * `rejected` -- AC-129, AC-134, AC-206, AC-207. Each states the branch a
-    #     RESOLVED DEC chose against (DEC-034/ADR-0027, DEC-036/ADR-0034).
-    #     Nothing superseded them, because they were never adopted, and they are
-    #     not unmet commitments.
-    #   * `retired` -- AC-191, AC-192. These two WERE adopted (BK-3) and then
-    #     amended away. "Retired" is the word ADR-0027, ADR-0034 and this file's
-    #     own comment above AC-191 already use.
+    # and `unmet` (1). `superseded` fits FR-001's four above: each names its
+    # successor. It fits none of the six, which is why ONE word is added --
+    # `retired`, the word already in use here and in the two ADRs -- rather than
+    # two invented here.
+    # ROUTED: the vocabulary question goes to CARD-333's "What to implement"
+    # item 5, because CARD-333 owes the validator change this comment says it
+    # owes, and the moment it lands an inert marker disagreeing with two
+    # accepted ADRs about the same four criteria stops being inert.
     # AC-379 is given NO status, deliberately: it is a FORWARD declaration owed
     # by CARD-226, not a retirement, and the owner's decision reserves its exact
     # form to CARD-333's item 4.
@@ -1935,7 +1957,7 @@ functional:
       # alternative: allow_degenerate_grids
       # NB CARD-032 uses AC-129 for a different criterion of its own (CARD-106)
       - id: AC-129
-        status: rejected   # PROSE, not machinery; vocabulary and reason on FR-001's block
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a random-mode request at 20x20 with density 100
         when: it is generated with no difficulty requested
         then: an all-filled 20x20 grid is returned with solution_count 1
@@ -1945,7 +1967,7 @@ functional:
       # alternative: allow_degenerate_grids
       # NB CARD-033 uses AC-134 for a different criterion of its own (CARD-106)
       - id: AC-134
-        status: rejected   # PROSE, not machinery; vocabulary and reason on FR-001's block
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: the all-filled 20x20 grid accepted for density 100
         when: it is scored
         then: its tier is Easy
@@ -3209,7 +3231,7 @@ functional:
       # above AC-129, not touched here.
       # alternative: fixed_research_mix_30_45_25
       - id: AC-206
-        status: rejected   # PROSE, not machinery; vocabulary and reason on FR-001's block
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a new book created with no Print setup values entered
         when: its stored plan is read
         then: the split is 30/45/25
@@ -3217,7 +3239,7 @@ functional:
       # alternative: derived_from_audience
       # `test:` dropped with AC-206's; see the block above it.
       - id: AC-207
-        status: rejected   # PROSE, not machinery; vocabulary and reason on FR-001's block
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a new book created with audience "enthusiast" and no Print setup values entered
         when: its stored plan is read
         then: the split is 30/45/25
