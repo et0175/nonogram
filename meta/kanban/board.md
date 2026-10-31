@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-31 (**WAVE 70 CLOSES TWO-FOR-TWO, BOTH AT 9.0 — and both cards' finding was that their own premise was false.** CARD-318 merged `884124f3`, CARD-330 merged `f7e5d764`; gates green at **10003** and **10028 passed / 27 skipped / 1 xfailed / 0 failed**. Re-derived from all 331 card files as a set per status: **279 done · 44 ready · 2 in progress · 0 in review · 1 parked · 4 blocked · 1 skipped = 331**. **CARD-330:** both media were always at spec — the specified boundary, the vector stream's operand and the raster rule's **centreline** are one number, and CARD-309's 2 px differenced an **ink extent** against a **path coordinate**. The discriminator is measured off the page: the offset is `(width - 1) // 2`, so it tracks the rule's **weight** (2 px for the 6 px border, 1 px for the 3 px cell line), which a quantisation of *position* could not do. Review found the raster renderer's own `Layout` borders at `965 / 1851`, identical to the stream's operands, with **no residual in the chain**, and killed **19 of 19** mutants. Two orchestrator claims retracted by measurement: the 0.169 mm is **not** ADR-0037/R2's device floor, and ink-against-ink the grid's edges differ by **1 px = 0.0847 mm, inside the bound** — what exceeds it is **3 px = 0.254 mm on `Drawing.left`/`top`**, a rasteriser **mitring** a stroked `re`'s corner, so **CARD-322 reds on the drawing's outer edges, not the grid's**. **CARD-318:** FR-029's behaviour was never missing — a **naming gap that read as a coverage gap** — and its cycle-3 certification moved six frozen censuses, every one re-derived against a real `def`/`class` line before a baseline changed (`defined` 395 → **406**, `honest-dead` 28 → **18**, `falsely-alive` 163 → **162**). Two of that +11 are classes renamed out of the `PropertyTest_` prefix: `python_classes` is matched as a **prefix, not a glob**, so **those two tests had never run at all**. **Wave 71 opens on CARD-331 + CARD-317** (intersection empty). _Was: both cards in review._)
+_Updated: 2026-10-31 (**WAVE 70 CLOSES TWO-FOR-TWO, BOTH AT 9.0 — and both cards' finding was that their own premise was false.** CARD-318 merged `884124f3`, CARD-330 merged `f7e5d764`; gates green at **10003** and **10028 passed / 27 skipped / 1 xfailed / 0 failed**. Re-derived from all 331 card files as a set per status: **279 done · 44 ready · 1 in progress · 1 in review · 1 parked · 4 blocked · 1 skipped = 331**. **CARD-330:** both media were always at spec — the specified boundary, the vector stream's operand and the raster rule's **centreline** are one number, and CARD-309's 2 px differenced an **ink extent** against a **path coordinate**. The discriminator is measured off the page: the offset is `(width - 1) // 2`, so it tracks the rule's **weight** (2 px for the 6 px border, 1 px for the 3 px cell line), which a quantisation of *position* could not do. Review found the raster renderer's own `Layout` borders at `965 / 1851`, identical to the stream's operands, with **no residual in the chain**, and killed **19 of 19** mutants. Two orchestrator claims retracted by measurement: the 0.169 mm is **not** ADR-0037/R2's device floor, and ink-against-ink the grid's edges differ by **1 px = 0.0847 mm, inside the bound** — what exceeds it is **3 px = 0.254 mm on `Drawing.left`/`top`**, a rasteriser **mitring** a stroked `re`'s corner, so **CARD-322 reds on the drawing's outer edges, not the grid's**. **CARD-318:** FR-029's behaviour was never missing — a **naming gap that read as a coverage gap** — and its cycle-3 certification moved six frozen censuses, every one re-derived against a real `def`/`class` line before a baseline changed (`defined` 395 → **406**, `honest-dead` 28 → **18**, `falsely-alive` 163 → **162**). Two of that +11 are classes renamed out of the `PropertyTest_` prefix: `python_classes` is matched as a **prefix, not a glob**, so **those two tests had never run at all**. **Wave 71 opens on CARD-331 + CARD-317** (intersection empty). _Was: both cards in review._)
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -146,12 +146,21 @@ _**⛔ 10 cards in this list are gated** (`Revision pending: true`, set by the 2
   27 cells monkeypatch the **raster** drawing site and key on page-image identity. On a vector page that site is
   never called, so the instrument **passes silently** instead of erroring — ADR-0039/R2 wants a FAILURE. AC-4 is
   the card: a dead mechanism must red, with a mutant on each arm. One of CARD-322's four dependencies.
-- **CARD-317** P1 · **Six check refs name tests that exist under other names** · `implementation`
+- **CARD-317** P1 · **Six check refs name tests that exist under other names** · `implementation complete — cycle 1/3 dispatched`
   `worktree: ../PythonProject4-card-317` · `branch: card/317-check-refs-and-the-grid-bound`
-  Carries a **live defect behind a dead ref**: AC-002/AC-003 and ADR-0001 say **50x50** where
-  `tests/test_sourcing_random.py:107` asserts `MAX_SIZE == 30`. It re-points the refs and **records** the
-  contradiction in the ADR rather than deciding the bound — a quiet edit would turn a visible contradiction
-  into an invisible one. CARD-316 serializes behind it on `requirements.yml`.
+  **Refuted its own card three times, and the third refutation is the valuable one.** FR-001's dead ref was
+  hiding nothing — the 50→30 narrowing is recorded **five times** in `requirements.yml`; **ADR-0001 was the
+  unrecorded side**, diverging for **62 days**. The re-pointing job is **FR-019's**, whose six refs named
+  symbols with **zero `def`/`class` lines** and raised **no warning at all**, each resolving through the
+  docstring of the very test that covers it — strictly worse than FR-001's four, which at least warn. And
+  **FR-001's four must NOT be re-pointed**: AC-002's `then` is *"a 50x50 grid is produced without error"*,
+  which is **impossible at `MAX_SIZE = 30`** (orchestrator-verified), so pointing a test at it would have
+  recreated CARD-318's F-009 exactly. They are stamped `superseded` instead, the form the registry already
+  uses at AC-009/AC-038/AC-303/AC-304. **AC-6 refuted too**: two fewer warnings, not six, because the
+  validator has **no `status: superseded` exemption** for an AC dead ref — routed to a `forge_1` card, which
+  this board may not edit. The bound was **recorded, not decided**: a `## History` scope note naming the
+  decider, the date and why 50x50 was not restored. Nine phantom refs retired, 11 mutants and 0 survivors.
+  CARD-316 serializes behind it on `requirements.yml`, with line numbers shifted **+27/+19**.
 
 ## Review
 

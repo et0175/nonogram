@@ -1,6 +1,6 @@
 # CARD-317: Six check refs name tests that exist under other names — and the dead ref on FR-001 has been hiding a grid bound the code abandoned
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d

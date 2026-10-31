@@ -103,7 +103,18 @@ active:
     FAILURE. AC-4 is the card: a dead mechanism must red, with a mutant on each
     arm. One of CARD-322's four dependencies.
 - id: CARD-317
-  phase: implementation
+  phase: review
+  cycle: 1
+  # Implementation REFUTED the card three times over: FR-001's dead ref was
+  # hiding nothing (the 50->30 narrowing is recorded five times in
+  # requirements.yml); the re-pointing job is FR-019's, whose six refs resolved
+  # only through the docstrings of the tests that cover them and warned about
+  # NOTHING; and FR-001's four must NOT be re-pointed, because AC-002's `then`
+  # ("a 50x50 grid is produced without error") is IMPOSSIBLE at MAX_SIZE = 30 --
+  # pointing a test at it would have recreated CARD-318's F-009 exactly.
+  # Verified by the orchestrator: MAX_SIZE is 30, so that `then` is false.
+  # AC-6 also refuted: two fewer warnings, not six, because the validator has no
+  # `status: superseded` exemption for an AC dead ref. Routed to a forge_1 card.
   branch: card/317-check-refs-and-the-grid-bound
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-317
   started: '2026-10-31T04:00:00Z'
