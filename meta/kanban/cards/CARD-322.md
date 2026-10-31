@@ -205,6 +205,55 @@ over the import graph rather than by the declaration list:
   its own edit, and say which per module. A module that needs more is a finding about
   scope, to be raised."*
 
+**MEMBERSHIP CORRECTED AGAIN 2026-10-31, by CARD-329's review cycle 1 — this is the
+third correction to this section and the figures below are the measured ones.** The
+orchestrator's census agreed with CARD-329 on the *count* and was wrong on the *set*:
+
+- **`tests/helpers/page_ink.py` is NOT in population B.** It never *obtains* a page; it
+  is *handed* one (`drawing_of(page: Image.Image)`), and a grep for `interior_pages` /
+  `.interior` over it returns **nothing**. Under AC-3's own filter — obtains a page **and**
+  uses it as an image — it cannot be in B. It is in B's **indirect half, as a consumer**,
+  which is precisely what puts `property/test_book_pairing.py` in. Same for `round_ink.py`.
+- **And the orchestrator's own list of seven was wrong in a second place**: it carried
+  `test_book_arrange_page_breaks.py` and **dropped `test_book_pdf_ink_mode.py`**, which is
+  red at 10 and does belong. **CARD-329's list of seven is the correct one.**
+
+**THE VERIFIED RESIDUE THIS CARD INHERITS** — every one re-measured still red under
+CARD-329's probe *after* that card's round, so these are not stale:
+
+| module | reds | population |
+|---|---|---|
+| `tests/test_book_pdf_band.py` | 23 | A |
+| `tests/test_book_pdf_memory.py` | 23 | A |
+| `tests/test_book_pdf_ink_mode.py` | 10 | A |
+| `property/test_book_export_interior.py` | 2 | A |
+| `tests/test_book_export_interior_cover.py` | 2 | A |
+| `tests/test_book_proof_pages.py` | 1 | A |
+| `tests/test_book_solved_answer_key.py` | 1 | A |
+| `tests/test_book_divider_pages_option.py` | 3 | B |
+| `property/test_book_pairing.py` | 1 | B |
+| **`tests/test_book_arrange_page_breaks.py`** | **1** | A — **lands in no bucket** |
+| **`tests/test_book_guide_page.py`** | **1** | A — **lands in no bucket** |
+
+**The last two are CARD-329's F-004 and they are the ones to read twice.** They are not
+`ContentStream`-attribute reds, not the seven seam edits, not G-3's exclusion and not
+"by design": `arrange_page_breaks` fails `ValueError: too many values to unpack` on a
+`two_up_ink` reading finding two drawings where one is expected, and `guide_page` fails a
+geometric assertion (`2.944881889763778 <= 2`). Both are pixel-oracle readings of a
+converted page — **CARD-312's family, not this card's seam** — so they need a disposition
+of their own rather than the one-line edit the other nine take.
+
+**And a trap this card must not walk into, measured by CARD-329's review:** the
+placed-edge pin's site walk collects names **from the body of the `EDGE_TOLERANCE_MM`-
+bearing function only** and does not close over the call graph. A plant of the *same*
+medium crossing at a module's own page-source helper **survives with the fix in place**.
+That is exactly the one-line seam shape CARD-329 standardised across five modules and
+exactly where this card would put it — so **applying the house style to
+`tests/test_book_pdf.py` would silently retire CARD-330's pin over 30 of the 38 reds the
+pin protects.** CARD-329's fix round owns closing the walk; if it lands before this card,
+inherit it. If it does not, this card must not add that seam to `test_book_pdf.py`
+without closing the walk first.
+
 **So the per-module disposition this section originally asked THIS card to choose is
 CARD-329's output, not this card's job.** Do not redo it. **Run CARD-329 first and
 consume its per-module classification**; what remains for this card is the modules

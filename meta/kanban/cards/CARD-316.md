@@ -1,6 +1,6 @@
 # CARD-316: Seven acceptance criteria name tests that were never meant to exist — rejected alternatives, retired features and one forward declaration, each reading as mechanically checked
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.25d

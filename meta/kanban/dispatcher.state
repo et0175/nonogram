@@ -187,6 +187,26 @@ active:
 - id: CARD-329
   phase: review
   cycle: 1
+  cycle1_score: 6.5
+  fix_round: 1
+  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-006, F-007]
+  # 6.5, and the review's own summing-up: "unusually strong -- every load-bearing
+  # figure reproduces, the medium gap it found is real and its fix is proven by
+  # measurement in both directions, and its refusals to force things green are
+  # backed by the ADR rather than by rhetoric. It scores 6.5 because the three
+  # things it states slightly wider than it measured all land on the consumable
+  # CARD-322 reads next."
+  # MUT-11's declared survival UPHELD with no finding; "edited, not repaired"
+  # UPHELD and shown MECHANICALLY FORCED for pdf_levels, whose survivors assert
+  # exact tobytes() identity against a Pillow-composed raster. AC-6 judged MET.
+  # F-001 is the one that matters: the placed-edge pin's site walk closes at
+  # DEPTH 0, so the same medium crossing planted at the module's own page-source
+  # helper SURVIVES with the fix in place -- and that is exactly the seam shape
+  # CARD-322 would use, which would silently retire CARD-330's pin over 30 of
+  # the 38 reds it protects. The round had already learned this one walk over
+  # (its population walk needed a fixed point) and did not apply it to the pin.
+  # Validator question closed in the round's favour: 88 on both trees, comm
+  # empty both directions, so it cannot have moved a warning.
   # The probe's red count WAS recorded before anything changed, which is what
   # the re-cut existed to force: 20 of 20 modules RED, 259 failed+error, 1088
   # passed, 1 skipped (setrlimit, read off -rs, not a DB gate). After:
@@ -233,6 +253,23 @@ active:
 - id: CARD-316
   phase: review
   cycle: 1
+  cycle1_score: 6.0
+  fix_round: 1
+  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-007, F-008, F-012]
+  # 6.0, and the review was explicit the score is NOT a verdict on what shipped:
+  # every central claim reproduced under an instrument sharing no code with the
+  # one under review, all NINE census classes matched at both commits in count
+  # AND fingerprint, and all seven movers were confirmed WITHDRAWALS not erosion.
+  # Its own M5 is the structural finding: re-point a phantom at an existing,
+  # defined, already-declared test that asserts something else and the suite is
+  # 23 passed ALL GREEN while the validator goes 88 -> 87, one warning OUT.
+  # THE COMBINED GATE STRICTLY PREFERS THE LIE TO THE HONEST GAP THIS CARD
+  # SHIPPED. Recorded as a bound, not built into a guard here.
+  # F-002 is mine to answer for: the branch writes "CURRENT ... 88 warnings"
+  # into the exact hunk where main's a29c3c96 wrote "THERE IS NO CURRENT FIGURE
+  # HERE". merge-tree confirms a conflict. The branch's config.yml edit is
+  # dropped and it rebases; main's block is strictly better.
+  # Fix round also executes the owner's retirement decision across ALL ELEVEN.
   # Implementation reported; review cycle 1 dispatched. Its round refuted THREE
   # of its own card's claims, the central one being the card's derivation
   # recipe: it selects 191 of 421 declared refs, and 21 once intersected with
