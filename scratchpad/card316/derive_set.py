@@ -7,9 +7,14 @@ dead AC ref, taken from tests/test_check_ref_resolution.py's two resolvers
 rather than re-implemented here.
 
 Partition = the lifecycle marker that already classifies each entry:
-  * `status: superseded` on the entry  -> machine-readable retirement, and the
-    ONE case already handled (FR-001/AC-001..004, CARD-317, 2026-10-31), whose
-    refs are deliberately kept; out of this card's scope.
+  * `status: superseded` on the entry  -> machine-readable retirement. This box
+    is FR-001/AC-001..004. The sentence that stood here -- that their refs are
+    deliberately kept and the four are out of this card's scope -- is RETRACTED
+    (ADR-0039/R4, CARD-316 fix round 2): the owner settled their shape on
+    2026-10-31 and fix round 1 converted them together with the markered seven,
+    so the box is empty at HEAD. The `in scope` total printed below still counts
+    the three MARKERED boxes, which is the population the card was cut for; this
+    box is reported beside them with its own label.
   * `# alternative:` header comment    -> a criterion of a rejected DEC branch.
   * `# RETIRED` header comment         -> a criterion the model retired.
   * `# OWED` header comment            -> a forward declaration owed by a card.
@@ -92,7 +97,12 @@ def main():
     print(f"dead AC `test:` refs in requirements.yml: "
           f"{sum(len(v) for v in boxes.values()) + len(unclassifiable)}\n")
     for box in ("alternative", "retired", "owed", "superseded"):
-        scope = "OUT OF SCOPE (CARD-317)" if box == "superseded" else "IN SCOPE"
+        # Labels only -- `in_scope` below is unchanged and counts the three
+        # MARKERED boxes, the population this card was cut for. The superseded
+        # box was routed in by the owner's decision of 2026-10-31 and converted
+        # with them, so it is no longer out of scope.
+        scope = ("CONVERTED 2026-10-31 (owner's decision)"
+                 if box == "superseded" else "IN SCOPE")
         print(f"-- {box}: {len(boxes[box])}  [{scope}]")
         for ac_id, id_line, ref_line, ref in boxes[box]:
             print(f"     {ac_id}  id@{id_line}  test@{ref_line}  {ref}")
