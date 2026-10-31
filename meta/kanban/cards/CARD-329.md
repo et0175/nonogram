@@ -335,18 +335,24 @@ is a **FAILURE**, not a silent pass.
   | `test_book_pdf_levels.py` | 10 | 4 | **EDITED, NOT REPAIRED.** The four survivors compare a page byte-for-byte with `expected_puzzle_page`, a **raster** page the module composes by hand. Cross-medium byte identity cannot hold; the expectation needs composing in the page's own medium, which re-opens what its independent form is. |
   | `test_book_pdf_two_up.py` | 24 | 4 | **EDITED, NOT REPAIRED.** Two survivors are the same byte-identity family as above; two are pixel-row claims about the upper slot's top edge. |
   | `test_book_puzzle_frame.py` | 22 | 4 | **EDITED, NOT REPAIRED.** All four are `TwoUp` stroke-weight and placed-edge claims: the two-up page reads weights `[2, 4, 6]` where it declares two, the third weight being a boundary-straddling rule read one pixel wider. |
-  | `property/test_book_pdf_geometry.py` | 4 | 4 | **EDITED, NOT REPAIRED.** All four node ids of the module are red before and after; the edit moved their cause from `AttributeError: 'ContentStream' object has no attribute 'size'` (x3) and `…no attribute 'convert'` to a placed-edge disagreement — **re-measured at the fix round, four residuals of 0.2626 / 0.2993 / 0.2880 / 0.2887 mm** (`:435`, `:527`, `:660`, `:836`). This row used to say "0.254 mm", the aliasing figure, and that was the aliasing figure *stated wider than it was measured*: the residual here is **2.6x–3.0x `EDGE_TOLERANCE_MM`** and larger than 0.254, so the aliasing measurement is a **lower bound** on what a conversion moves at these four sites, not the whole of it. Which strengthens the disposition rather than weakening it: the widening that would close them is bigger than the card's own aliasing figure implies, and the frame-centre oracle is the only thing that closes them without one. |
+  | `property/test_book_pdf_geometry.py` | 4 | 4 | **EDITED, NOT REPAIRED.** All four node ids of the module are red before and after; the edit moved their cause from `AttributeError: 'ContentStream' object has no attribute 'size'` (x3) and `…no attribute 'convert'` to a placed-edge disagreement. **Each residual is stated against the bound its own site carries**, and the bound is not `EDGE_TOLERANCE_MM`: that token appears **0** times in this module (`grep -c EDGE_TOLERANCE` = 0). The module defines `PX_PER_MM = 300 / 25.4` and `HALF_PIXEL_MM = 0.5 / PX_PER_MM` = **0.042333 mm** (`:69-70`) and each of the four sites is bound by a different **multiple** of it — **re-measured at cycle 2's fix round, two clean runs agreeing to every printed digit** (4 failed / 0 passed / 0 skipped): `:435` **0.26264 mm** against `3 x HALF_PIXEL_MM` = 0.12700 mm, **2.07x**; `:527` **0.29931 mm** against `3 x` = 0.12700 mm, **2.36x**; `:660` **0.28800 mm** against `2 x` = 0.08467 mm, **3.40x**; `:836` **0.23133 mm** against `1 x` = 0.04233 mm, **5.46x**. There is deliberately **no single range** over the four: they are governed by three different multiples, so a range across them would be normalised against nothing. This row used to say "0.254 mm", the aliasing figure, which understated what these sites see at three of them — but **not at `:836`, where 0.23133 < 0.254** and the aliasing figure accounts for more than the whole residual. Which strengthens the disposition rather than weakening it: every one of the four is 2x–5.5x past the bound it actually carries, the widening that would close them is far bigger than the card's aliasing figure implies, and the frame-centre oracle is the only thing that closes them without one. *(Provenance: these four figures were carried from cycle 1's own observation — 0.263 / 0.299 / 0.288 / **0.289** — and cycle 2's F-009 found the fourth wrong by 25% and the yardstick wrong for all four. The values above are re-read off a fresh run at `ea248582`; this module **is** in the fix delta, 19 insertions / 4 deletions, so "untouched, therefore unchanged" was never available as a reason.)* |
   Total across the five: **80 → 16**. None of the 16 is green-because-unreached:
   every one is a measured red, named above.
 - **[Why the 16 are not a tolerance away, measured]**
   `scratchpad/card329/probe_aliasing.py` reads the SAME page in both media at
   300 DPI through the SAME oracle (`page_ink.drawing_of`):
   - the grid's four edges: **1 device pixel, 0.0847 mm**;
-  - the drawing's own left/top edges: **3 device pixels, 0.254 mm** — a
-    LOWER BOUND on what a site sees, not the figure every site sees: the four
-    `test_book_pdf_geometry.py` residuals re-measured at the fix round are
-    0.2626-0.2993 mm, i.e. the aliasing accounts for most of each but not all
-    of any;
+  - the drawing's own left/top edges: **3 device pixels, 0.254 mm** — a lower
+    bound on what a site sees at *three* of the four
+    `test_book_pdf_geometry.py` sites and an **upper** bound at the fourth,
+    re-measured at cycle 2's fix round: 0.26264 (`:435`), 0.29931 (`:527`)
+    and 0.28800 mm (`:660`) each exceed it, so there the aliasing accounts
+    for most of the residual but not all of it; at `:836` the residual is
+    **0.23133 mm**, below 0.254, so the aliasing figure accounts for *more*
+    than the whole of it. The figure is therefore a lower bound at three
+    sites and not a bound at all at the fourth — stated that way rather than
+    as one range, because the four sites are bound by three different
+    multiples of `HALF_PIXEL_MM` (3/3/2/1) and share no yardstick;
   - **identical with poppler's antialiasing on and off** (`-aa`/`-aaVector`),
     so it is not a halo; it is the two writers' line-placement conventions.
   These two numbers reproduce, independently, the two that
@@ -431,7 +437,7 @@ is a **FAILURE**, not a silent pass.
   | MUT-15 | `page_image` stops crossing the medium, so the set's *reason* goes false | KILLED | `…::test_the_pixel_returning_stream_readers_really_cross_the_medium` |
   | MUT-16 | **the same crossing one frame in**, at `_interior` — the seam shape CARD-322 is handed. The plant cycle 1 fired and watched survive | KILLED | `…::test_no_site_reaches_a_stream_reader_through_a_helper_either` |
   | MUT-16b | MUT-16 against the **depth-0** cell, which must not see it — otherwise the two cells are one assertion written twice | **SURVIVED, declared** | — |
-  | MUT-17 | the derivation is replaced by the retired hand-written set, dropping `rendered_page` and five more | KILLED | `…::test_every_public_reader_of_the_two_owners_is_classified` |
+  | MUT-17 | the derivation is replaced by the retired hand-written set, dropping `rendered_page` and eight more (nine of the 16, named in the cell's own `unclassified` list) | KILLED | `…::test_every_public_reader_of_the_two_owners_is_classified` |
   | MUT-18 | the poppler guard in `page_image` stops guarding: a missing engine reads a page instead of saying the reading is MISSING | KILLED | `…AnOperatorsPageIsNotAKeyError::test_a_missing_poppler_is_a_missing_reading_and_never_a_skip` |
   | MUT-19 | raster pages at **disagreeing** DPIs settle a scale anyway — `_derived_dpi` pops one instead of refusing | KILLED | `…::test_raster_pages_at_disagreeing_dpis_are_refused_not_averaged` + `…::test_the_dpi_derivation_itself_answers_none_only_when_it_must` |
   **MUT-11 is where this card cannot meet AC-5, and it says so.** All four of
@@ -445,13 +451,15 @@ is a **FAILURE**, not a silent pass.
 - **[G-5, derived]** Node-id set difference over all seven `Touches` paths
   against `f7ba9c96`, by `ast` (`scratchpad/card329/node_ids.py` — not
   `--collect-only`, which prints no node ids under this project's
-  `addopts = "-q"`): **282 → 309, 0 lost, 27 gained.** Nothing deleted,
-  renamed, skipped or merged. *(Re-derived at the fix round, which added 7
-  cells — 4 on the pin and the derivation, 3 on the refusal branches. The
-  reading this note first carried, "282 → 300, 18 gained", was taken before
-  `bd14c108` and was cycle 1's F-006: the node count was refreshed to 302 in
-  the note below and this one was not. Both now come from the same run of
-  `node_ids.py f7ba9c96`, and the arithmetic closes: 282 + 20 + 7 = 309.)
+  `addopts = "-q"`): **282 → 310, 0 lost, 28 gained.** Nothing deleted,
+  renamed, skipped or merged. *(Re-derived at every fix round. Round 1 added
+  7 cells — 4 on the pin and the derivation, 3 on the refusal branches —
+  giving 309; round 2 adds the 8th, `test_the_exemption_lookup_does_not_strip_the_class`
+  (cycle 2's F-008), giving 310. The reading this note first carried,
+  "282 → 300, 18 gained", was taken before `bd14c108` and was cycle 1's
+  F-006: the node count was refreshed to 302 in the note below and this one
+  was not. Both now come from the same run of `node_ids.py f7ba9c96`, and
+  the arithmetic closes: 282 + 20 + 7 + 1 = 310.)
 - **[G-1/G-6 hold]** No page converted, no rule flipped, nothing under `src/`
   edited. Every one of the seven page kinds is declared raster on `main`, so a
   mixed-medium file cannot be built from the rules in force; the one test that
@@ -558,15 +566,26 @@ is a **FAILURE**, not a silent pass.
   `_stream_readers()` now derives it from the two owners' source: a function
   crosses the medium when it reaches poppler, holds `/Contents` or
   `/Resources`, or takes a decoded stream as a parameter — then, to a fixed
-  point, when it calls anything that does. **16 of the 28 public module-level
-  readers**, the hand-written 7 included. The other 12 are named in
-  `_MEDIUM_BLIND_READERS`, so the classification is a **partition with nothing
-  unclassified** rather than a filter whose omissions are invisible; a reader
-  added to either helper that the derivation does not recognise reds.
+  point, when it calls anything that does. **16 of the 26 public module-level
+  readers** (20 public in `pdf_vector` + 6 in `pdf_pages`), the hand-written 7
+  included. The other **10** are named in `_MEDIUM_BLIND_READERS`, so the
+  classification is a **partition with nothing unclassified** rather than a
+  filter whose omissions are invisible; a reader added to either helper that
+  the derivation does not recognise reds. *(Cycle 2's F-010: this bullet said
+  "16 of the 28 … the other 12", which adds up as arithmetic and therefore
+  reads as derived, over a population that is 26 on disk. Re-derived three
+  ways — the review's own AST walk, its call-graph variant, and
+  `_stream_readers()`/`_owner_functions()` called directly: 26 public, 16
+  crossing, 10 blind, union equal to the public set, intersection empty, 0
+  unclassified.)*
   **MUT-17** puts the retired hand-written set back and is **KILLED** by the
-  completeness cell, which names the six readers it drops — `rendered_page`
-  among them, i.e. the plant reproduces exactly the shipped defect F-002
-  reported. **MUT-14** was re-aimed at the exemption register, now the only
+  completeness cell, whose `unclassified` list names the **nine** readers it
+  drops — the derived 16 less the hand-written 7, `rendered_page` among them,
+  i.e. the plant reproduces exactly the shipped defect F-002 reported. (Cycle
+  2's F-010: this said "six"; fired at the fix round the message names nine,
+  `extracted_text`, `marked_type_sizes`, `page_resource_keys`,
+  `rendered_page`, `stroke_widths`, `subpath_vertices`, `tones`, `type_sizes`
+  and `word_boxes`.) **MUT-14** was re-aimed at the exemption register, now the only
   hand-written half, and is **KILLED**.
   Plants now **20: 18 KILLED, 2 declared SURVIVORS**. Node ids over the seven
   `Touches` paths: **282 -> 309, 0 lost.**

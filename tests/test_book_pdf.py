@@ -4986,8 +4986,14 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
 
     @classmethod
     def _bare(cls, qualified: str) -> str:
-        """The function part of a key, for matching the exemption register —
-        which names tests, not classes."""
+        """The function part of a key.
+
+        Used only where the class genuinely does not matter: the walk's own
+        floor control, which asks whether a known test was found at all.
+        It is deliberately **not** used to match the exemption register —
+        that lookup stripped the class until cycle 2's F-008, and a bare
+        name is not unique in this module (:data:`_COLLIDING_SITES`).
+        """
         return qualified.rsplit("::", 1)[-1]
 
     @staticmethod
@@ -5090,25 +5096,107 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     #: nothing has to be added here deliberately — and every name listed is
     #: asserted to still exist, so the list cannot rot into a blanket
     #: exemption.
+    #:
+    #: **Class-qualified, exactly as :meth:`_sites` keys them — cycle 2's
+    #: F-008.** The register used to hold bare function names and the two
+    #: denies below consulted it through :meth:`_bare`, which strips the
+    #: class. The bare name is not unique in this module (see
+    #: :data:`_COLLIDING_SITES`), so a future site in ANY class whose bare
+    #: name happened to equal a registered one was exempted from the closed
+    #: deny AND from the raster-oracle requirement, with nothing added here
+    #: and no cell reporting it — measured: the one-frame-in medium crossing
+    #: written under its own name reds two cells, and the identical crossing
+    #: with only its bare name changed to collide left all five green.
+    #: Omission is the permissive direction (ADR-0039/R2), and this module
+    #: has already lost a site to a bare-name collision once (CARD-330
+    #: cycle 1's F-002), which is why :meth:`_sites` is keyed this way.
     _BOUND_ONLY_SITES = frozenset(
         {
-            "test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt",
-            "test_the_two_media_ink_differs_by_one_device_pixel_not_two",
-            "test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance",
+            "TestEdgeOffset_ATolerenceChangeCarriesItsExemption"
+            "::test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt",
+            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
+            "::test_the_two_media_ink_differs_by_one_device_pixel_not_two",
+            "TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels"
+            "::test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance",
         }
+    )
+
+    #: The cells that consult :data:`_BOUND_ONLY_SITES`. Named here so the
+    #: lookup control below can resolve them by ``ast`` rather than trust a
+    #: sentence: each one must match the register on the **whole** key.
+    _EXEMPTING_CELLS = (
+        "test_the_exemption_list_names_only_sites_that_exist",
+        "test_every_site_reads_its_page_through_the_raster_ink_oracle",
+        "test_no_site_reaches_a_stream_reader_through_a_helper_either",
     )
 
     def test_the_exemption_list_names_only_sites_that_exist(self) -> None:
         """No dead entry: a renamed test would otherwise leave a name that
-        exempts nothing and hides the next site that takes it."""
-        sites = {self._bare(name) for name in self._sites()}
+        exempts nothing and hides the next site that takes it.
+
+        Resolved on the **whole** key since cycle 2's F-008, so a register
+        entry whose class moved is as dead as one whose function was renamed.
+        The non-emptiness assertion is the control on this cell itself: a
+        register that collapsed to ``frozenset()`` would satisfy every
+        subset assertion here and silently exempt nothing while reading as
+        a checked list.
+        """
+        sites = set(self._sites())
+        assert self._BOUND_ONLY_SITES, "the exemption register is empty"
         assert self._BOUND_ONLY_SITES <= sites, sorted(
             self._BOUND_ONLY_SITES - sites
         )
 
+    def test_the_exemption_lookup_does_not_strip_the_class(self) -> None:
+        """F-008's control: the register is class-qualified **and consulted
+        that way**, in both directions.
+
+        Measured when the lookup stripped the class: the house one-frame-in
+        seam (``interior_images`` at a module-level page-source helper),
+        planted at a placed-edge site under its own name, reds two of this
+        class's cells; the identical plant with only its bare name changed to
+        collide with a registered entry in a *different* class left all five
+        green and added nothing to the register. So both halves are asserted:
+
+        * every entry is class-qualified and exempts the site it names;
+        * the same bare name under any other class is **not** exempt;
+        * and no consulting cell calls :meth:`_bare`, which is the exact
+          degradation that opened the hole — a sentence in a docstring would
+          not have caught it, so this half is resolved by ``ast``.
+        """
+        assert self._BOUND_ONLY_SITES, "the exemption register is empty"
+        for entry in sorted(self._BOUND_ONLY_SITES):
+            assert "::" in entry, entry
+            # The negative direction: the bare name alone, and the bare name
+            # under a class that is not the entry's, are both outside the
+            # register — so a colliding site elsewhere stays denied.
+            bare = self._bare(entry)
+            assert bare not in self._BOUND_ONLY_SITES, bare
+            assert (
+                f"TestEdgeOffset_ANameThatCollidesInAnotherClass::{bare}"
+                not in self._BOUND_ONLY_SITES
+            ), bare
+
+        tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        consulting = {
+            node.name: node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name in self._EXEMPTING_CELLS
+        }
+        assert set(consulting) == set(self._EXEMPTING_CELLS), sorted(consulting)
+        for name, node in sorted(consulting.items()):
+            mentioned = {
+                inner.attr
+                for inner in ast.walk(node)
+                if isinstance(inner, ast.Attribute)
+            }
+            assert "_BOUND_ONLY_SITES" in mentioned, name
+            assert "_bare" not in mentioned, name
+
     def test_every_site_reads_its_page_through_the_raster_ink_oracle(self) -> None:
         for name, readers in self._sites().items():
-            if self._bare(name) in self._BOUND_ONLY_SITES:
+            if name in self._BOUND_ONLY_SITES:
                 continue
             assert self._RASTER_READER in readers, (name, sorted(readers))
 
@@ -5256,10 +5344,18 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         a stream reader is their job — and, measured, both of them do
         (``content_streams`` and ``rendered_page``, through ``_edge_reading``).
         Every other site must reach none.
+
+        The exemption is matched on the **whole** key, class included —
+        cycle 2's F-008. Matched on the bare name, as it was, any future
+        site in any class could take a registered name and buy itself out of
+        this deny and the raster-oracle cell at once, with nothing added to
+        the register; measured, that dodge turned a two-cell red into five
+        green. :meth:`test_the_exemption_lookup_does_not_strip_the_class` is
+        the control.
         """
         readers = self._stream_readers()
         for name, reachable in self._closed_sites().items():
-            if self._bare(name) in self._BOUND_ONLY_SITES:
+            if name in self._BOUND_ONLY_SITES:
                 continue
             assert not (reachable & readers), (
                 name,
@@ -5280,6 +5376,15 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         ``_mirrored_pages`` → ``_interior`` → ``interior_pages`` — and
         ``_interior`` is where the seam goes, so a closure removed, or taken
         at depth 1 and *called* a fixed point, fails here.
+
+        And it is **not only** those two depths, which is cycle 2's scope
+        note: hard-stopped at two rounds this cell still passed, because
+        every name it named is within two frames. The oracle chain at this
+        same site runs one frame further — ``drawing_of`` → ``_dark`` →
+        ``ink_mask`` → :data:`~tests.helpers.page_ink.INK_LEVEL`, and no
+        body nearer than ``ink_mask``'s mentions that threshold — so the
+        depth-3 assertion below reds any bounded stop at 2 as well. The walk
+        itself settles at 4 rounds here, measured.
         """
         direct = self._sites()
         closed = self._closed_sites()
@@ -5304,6 +5409,12 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         # reads nothing off its own page and hands it to `_dark`.
         assert "drawing_of" in direct[site]
         assert "_dark" in closed[site], sorted(closed[site])
+        # Depth 2 and depth 3 on that same chain: `_dark` asks `ink_mask`,
+        # whose body is the only one within reach that names the threshold.
+        # A walk hard-stopped at two rounds reaches `ink_mask` and stops,
+        # passing everything above and failing the next line.
+        assert "ink_mask" in closed[site], sorted(closed[site])
+        assert "INK_LEVEL" in closed[site], sorted(closed[site])
 
 
 class TestEdgeOffset_ThePixelOraclesStillReadPixels:
