@@ -7564,24 +7564,50 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
 
         The control is the same stream without the operator, read and measured,
         so "refused" is a change of verdict rather than a reader that refuses
-        everything. ``q``/``Q`` is the second control and the reason that set
-        does not list them: a graphics state saved and restored moves nothing
-        unless something moved the CTM in between, and the only operator that
-        can is ``cm``.
+        everything. Each row is **its own** control: the refusal it raises has
+        to name the row's own operator, so a stream carrying a *second* refused
+        operator cannot stand in for the one the row is about. That is not a
+        hypothetical — fix round 2's F-003 cell shipped the ``Do`` row as
+        ``q 100 0 0 100 0 0 cm /Im0 Do Q``, which carries a ``cm`` and so
+        refused whether or not ``Do`` was refused; dropping ``Do`` alone from
+        :data:`round_ink._REFUSED_STATE_OPERATORS` left this cell **green**
+        while ``/Im0 Do`` went back to reporting 0 marks silently (fix round 2,
+        F-008). Naming the operator in the assertion makes the next row added
+        unable to repeat it.
+
+        ``q``/``Q`` is the second control and the reason that set does not list
+        them, and the argument is stronger than "nothing moved the CTM in
+        between": ``cm`` is refused at **any** position in the stream, and
+        ``cm`` is PDF's only in-stream CTM operator, so for every stream this
+        reader finishes the CTM is provably the identity from the first token
+        to the last — the "in between" qualifier is unnecessary. The three
+        other routes by which an operand could land somewhere else — a Form
+        XObject's ``/Matrix`` (reached by ``Do``), an inline image's
+        unit-square map (``BI``) and a shading (``sh``) — are each refused
+        above. And the non-refusal is load-bearing rather than merely safe:
+        adding ``q``/``Q`` to the refused set is **KILLED**, by the ``q/Q``
+        control below (MUT-25).
         """
         rect = "10 10 20 20 re f"
         (plain,) = stream_marks(rect)
         assert (plain.x0, plain.y0, plain.x1, plain.y1) == (10.0, 10.0, 30.0, 30.0)
 
-        for stream, what in (
-            (f"2 0 0 2 0 0 cm {rect}", "a transform (cm)"),
-            ("q 100 0 0 100 0 0 cm /Im0 Do Q", "an external object (Do)"),
-            ("/Sh0 sh", "a shading (sh)"),
-            ("BI /W 1 /H 1 /CS /G /BPC 8 ID z EI", "an inline image (BI)"),
+        for stream, operator, what in (
+            (f"2 0 0 2 0 0 cm {rect}", "cm", "a transform (cm)"),
+            ("q /Im0 Do Q", "Do", "an external object (Do)"),
+            ("/Sh0 sh", "sh", "a shading (sh)"),
+            ("BI /W 1 /H 1 /CS /G /BPC 8 ID z EI", "BI", "an inline image (BI)"),
         ):
             try:
                 tolerated = stream_marks(stream)
-            except round_ink.StreamShapeError:
+            except round_ink.StreamShapeError as refusal:
+                assert repr(operator) in str(refusal), (
+                    f"{what} was refused, but by something else in the same "
+                    f"stream: the message is {str(refusal)!r} and names no "
+                    f"{operator!r}, so this row is not a control for "
+                    f"{operator!r}'s refusal and dropping it from "
+                    "_REFUSED_STATE_OPERATORS would leave this cell green"
+                )
                 continue
             raise AssertionError(
                 f"{what} passed this reader silently; it reported "

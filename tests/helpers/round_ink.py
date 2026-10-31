@@ -532,13 +532,26 @@ _REFUSED_PATH_OPERATORS = frozenset({"v", "y"})
 #: The operators that would make this reader's answer **wrong** rather than
 #: merely unfamiliar, and which it therefore refuses outright.
 #:
-#: Every other token it does not recognise only sets state — a tone, a stroke
-#: width, a text object's brackets — and is passed over by clearing the operand
-#: stack, which is why ``v``, ``y``, a starved operand and an unknown token
-#: between coordinates all end in a refusal anyway. These four are a different
-#: class: each one either moves the coordinate system the operands are read in
-#: or paints a mark that is not a path at all, so tolerating one means
+#: Every other token it does not recognise is passed over by clearing the
+#: operand stack, which is why ``v``, ``y``, a starved operand and an unknown
+#: token between coordinates all end in a refusal anyway. These four are
+#: refused because each one either moves the coordinate system the operands are
+#: read in or paints a mark that is not a path at all, so tolerating one means
 #: answering with the **wrong** number instead of a missing one.
+#:
+#: The pass-over is **not** safe for every token outside this set, and this
+#: comment used to claim it was ("every other token only sets state"). Two
+#: measured counter-examples, both *wrong* rather than short: ``W`` clips, so
+#: ``q 0 0 5 5 re W n 10 10 20 20 re f Q`` is read as the **unclipped**
+#: (10,10)–(30,30) box; and ``gs`` can set ``/ca 0`` or an ``/SMask``, so an
+#: **invisible** mark is reported as a mark. Neither has a consequence today,
+#: and the reason is a binding rather than luck: the vocabulary guard in
+#: ``tests/test_book_difficulty_dots.py`` holds the writer's measured emission
+#: set *equal* to ``WRITER_OPERATORS_RECORDED``, which contains neither, so the
+#: day the writer can emit one that cell reds before any corpus is read
+#: (MUT-20 dies on exactly that equality). They are therefore deliberately
+#: **not** added here: refusing an operator no writer in reach can emit buys
+#: nothing and costs a refusal nothing measures.
 #:
 #: Measured before this set existed, which is why it exists: a
 #: ``10 10 20 20 re f`` under ``2 0 0 2 0 0 cm`` read its *untransformed* box,
@@ -555,11 +568,19 @@ _REFUSED_PATH_OPERATORS = frozenset({"v", "y"})
 #: * ``BI`` opens an inline image, whose data is not tokens at all.
 #:
 #: ``q`` and ``Q`` are deliberately **not** here, and that is an argument
-#: rather than an omission: a saved and restored graphics state changes where
-#: an operand lands only if something moved the CTM between the two, and the
-#: only operator that can is ``cm``, refused above. So refusing ``cm`` closes
-#: the ``q``/``Q`` dependency too, instead of this reader asserting the
-#: writer's absence of them.
+#: rather than an omission. The argument does not need an "in between"
+#: qualifier: ``cm`` is refused at **any** position in the stream, and ``cm``
+#: is PDF's only in-stream CTM operator, so for every stream this reader
+#: finishes the CTM is provably the identity from the first token to the last —
+#: a saved and restored graphics state can therefore move nothing. The three
+#: other routes by which an operand could land somewhere else are each refused
+#: above as well: a Form XObject's ``/Matrix`` (reached only by ``Do``), an
+#: inline image's unit-square map (``BI``), and a shading (``sh``). So refusing
+#: ``cm`` closes the ``q``/``Q`` dependency outright, instead of this reader
+#: asserting the writer's absence of them — and the non-refusal is load-bearing
+#: rather than merely safe: adding ``q``/``Q`` to this set is KILLED by the
+#: ``q``/``Q`` control in
+#: ``test_an_operator_the_reader_would_misread_is_refused_not_ignored``.
 #:
 #: Bound to the writer's own **measured** emission set, not to this comment, by
 #: ``tests/test_book_difficulty_dots.py``'s

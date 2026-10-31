@@ -304,7 +304,10 @@ MUTANTS: tuple[Mutant, ...] = (
         what="F-003, the binding itself: the WRITER grows an operator the "
         "reader refuses (stroke_width starts emitting a cm). The vocabulary "
         "cell must red -- this is the whole property, that a new operator in "
-        "the writer reds here instead of being passed over",
+        "the writer reds here instead of being passed over. It reds at the "
+        "EQUALITY assertion (:7497, emitted == WRITER_OPERATORS_RECORDED), "
+        "which the writer's surface moving hits first -- NOT at the `collides` "
+        "assertion further down (fix round 2, F-009's class)",
         path="src/nonogram/admin/book_vector.py",
         old='self._operators.append(f"{_number(points)} w")',
         new='self._operators.append(f"{_number(points)} w 1 0 0 1 0 0 cm")',
@@ -317,7 +320,10 @@ MUTANTS: tuple[Mutant, ...] = (
         name="MUT-21",
         what="F-003, the other direction: an operator is recorded as a "
         "PASS-OVER that the writer does not emit, which is how that list would "
-        "start absorbing the next cm",
+        "start absorbing the next cm. Because the operator planted is `cm`, "
+        "which is REFUSED, it reds at the refused-vs-pass-over disjointness "
+        "assertion (:7514) and never reaches `stale` (:7533). MUT-28 is the "
+        "plant that reaches `stale` (fix round 2, F-009)",
         path=MODULE,
         old='    "EMC": "closes one; paints nothing",\n}',
         new='    "EMC": "closes one; paints nothing",\n'
@@ -370,6 +376,63 @@ MUTANTS: tuple[Mutant, ...] = (
         nodes=(
             "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails::"
             "test_no_arms_remedy_offers_an_option_this_section_forbids",
+        ),
+    ),
+    Mutant(
+        name="MUT-25",
+        what="F-008's other side: q/Q are ADDED to the refused set. The cell's "
+        "q/Q non-refusal is load-bearing, not merely safe -- the docstring now "
+        "claims this plant is KILLED, so it is a plant",
+        path=HELPER,
+        old='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})',
+        new='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI", "q", "Q"})',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_an_operator_the_reader_would_misread_is_refused_not_ignored",
+        ),
+    ),
+    Mutant(
+        name="MUT-26",
+        what="FIX ROUND 2, F-008 re-fired: ONLY `Do` is dropped from the "
+        "refused set. Cycle 2 measured this SURVIVING at 1 passed, because the "
+        "Do row's stream carried a `cm` and so refused either way -- Do's "
+        "refusal was never measured. The row is now `q /Im0 Do Q` and each row "
+        "asserts the refusal names its own operator, so this must KILL",
+        path=HELPER,
+        old='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})',
+        new='_REFUSED_STATE_OPERATORS = frozenset({"cm", "sh", "BI"})',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_an_operator_the_reader_would_misread_is_refused_not_ignored",
+        ),
+    ),
+    Mutant(
+        name="MUT-27",
+        what="FIX ROUND 2, F-008's structural half: the refusal STAYS, but its "
+        "message stops naming the operator. Every row is then refused by "
+        "something it cannot identify, which is the state that let the Do row "
+        "pass -- so the names-its-own-operator assertion must KILL this",
+        path=HELPER,
+        old='                f"the stream uses {token!r}, which this reader would have to "',
+        new='                "the stream uses an operator this reader would have to "',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_an_operator_the_reader_would_misread_is_refused_not_ignored",
+        ),
+    ),
+    Mutant(
+        name="MUT-28",
+        what="FIX ROUND 2, F-009: the plant that genuinely reaches the `stale` "
+        "assertion (:7533). `gs` is recorded as a pass-over and the writer does "
+        "not emit it; unlike MUT-21's `cm` it is in no refused set, so every "
+        "disjointness assertion above passes and `stale` is the one that reds",
+        path=MODULE,
+        old='    "EMC": "closes one; paints nothing",\n}',
+        new='    "EMC": "closes one; paints nothing",\n'
+        '    "gs": "sets a graphics state the writer has never been measured to set",\n}',
+        nodes=(
+            "TestDifficultyDots_TheVectorArmReadsTheStream::"
+            "test_the_readers_vocabulary_covers_every_operator_the_writer_emits",
         ),
     ),
 )
