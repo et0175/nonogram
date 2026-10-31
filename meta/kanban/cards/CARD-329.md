@@ -470,9 +470,10 @@ is a **FAILURE**, not a silent pass.
   mixed-medium file cannot be built from the rules in force; the one test that
   needs one lifts PUZZLE's declaration under `monkeypatch` for its own
   duration, which is the session probe at test scope.
-- **[FINAL measurement under the probe, re-run at the fix round]** 20 modules,
-  one run each (`scratchpad/card329/measure_probe.py`): **17 of 20 RED (was 20
-  of 20), 151 failed+error (was 259), 1223 passed (was 1088), 1 skipped** — the
+- **[FINAL measurement under the probe, RE-RUN WHOLE at the merge gate]** 20
+  modules, one run each (`scratchpad/card329/measure_probe.py`): **17 of 20 RED
+  (was 20 of 20), 151 failed+error (was 259), 1224 passed (was 1088), 1
+  skipped** — the
   `setrlimit` skip at `tests/test_book_pdf_memory.py:1297`, attributed by `-rs`
   and not from memory. **108 reds cleared.** Three modules are fully green
   under the probe: `test_book_interior_face.py` (3 -> 0),
@@ -482,11 +483,20 @@ is a **FAILURE**, not a silent pass.
   **The passed count derives, which is cycle 1's F-006.** This note first said
   **1214**, and the arithmetic says why that was wrong: 1088 + 108 cleared +
   20 new cells = 1216, while 1214 is 1088 + 108 + **18**, the state before
-  `bd14c108` added the gap-closing pair. The fix round adds 7 more cells, so
-  **1088 + 108 + 20 + 7 = 1223**, which is what the run reports. A figure
+  `bd14c108` added the gap-closing pair. The two fix rounds add 8 more cells,
+  so **1088 + 108 + 20 + 8 = 1224**, which is what the run reports. A figure
   refreshed beside one that was not is precisely the drift
   `config.yml`'s "a count here is a DATED READING, never a current fact" exists
-  to catch, and it caught this one.
+  to catch, and it caught this one — **twice**. It read **1223** until the
+  merge gate, from fix round 1, stale by exactly the one cell fix round 2
+  added; cycle 3 filed that as F-011 but named only this derivation site, and
+  the headline reading above carried the same number, so correcting one would
+  have reproduced the finding in the more prominent of the two places. The
+  gate did not patch the arithmetic: it **re-ran the whole 20-module census**,
+  because an arithmetic correction to a figure nobody re-measured is the same
+  defect one level up. The per-module reds come back unchanged from the
+  reading below — 151 in total, all 20 modules — so the only thing that moved
+  is the one added cell, and it passes under the probe.
   Per module, so the 151 is auditable rather than asserted: 2 / 1 / 2 / 1 / 0 /
   **38** / 23 / 10 / 23 / 1 / 1 / 0 (population A, in `measure_probe.py`'s
   order) and 1 / 4 / 0 / **29** / 3 / 4 / 4 / 4 (population B).
@@ -696,9 +706,20 @@ is a **FAILURE**, not a silent pass.
   - The check-ref search is a TEXT search over the repo, so a scratchpad
     mention can silence a dead ref. `scratchpad/card329/ref_pollution_check.py`
     derives every test-like symbol the **eleven** instruments mention —
-    **50**, re-derived at the fix round after `derive_stream_readers.py`,
-    `derive_site_closure.py` and `probe_disagreeing_dpi.py` joined them — and
-    resolves each to a `def`/`class` in `tests/`: **0 orphans**. Every one is
+    **59**, re-derived at the merge gate and agreeing with the same figure at
+    the ref-pollution note above (this site read **50** until the gate: one
+    copy of the figure was refreshed at fix round 2 and this one was not,
+    which is cycle 3's F-011 and the same shape as cycle 1's F-006) — and
+    resolves each to a `def`/`class` in `tests/`: **0 orphans**. A clean
+    reading here is worthless without a control, because a matcher that finds
+    nothing *because it was built wrong* prints the same 0: the gate therefore
+    ran a second matcher of a different shape (tokenise every identifier, then
+    filter by prefix in Python, instead of one `\b`-anchored alternation). It
+    agrees on the identical genuine set of 59 with 0 orphans, differing only
+    by the two bare prefix fragments `PropertyTest` and `PropertyTest_` that
+    the card's `{4,}` tail excludes; and with two synthetic orphans injected
+    into the scanned text it reported **both**, so the 0 is a measurement and
+    not a silence. Every one is
     already resolved by a real definition, so the scratchpad changes no ref's
     resolution. (This is the failure recorded in the orchestrator's notes: a
     commit of measurement text reddened a merge gate by making dead refs
@@ -707,9 +728,13 @@ is a **FAILURE**, not a silent pass.
     live in this card.)
 - **[The impact run, on `main`'s rules with no probe]** All six runnable
   `Touches` paths in one node-scoped call with `-o addopts=` and `-rs`:
-  **346 passed, 0 failed, 0 skipped**, measured at `b609e675` after the fix
-  round's last edit (339 + the 7 cells it adds, so the figure derives rather
-  than being retyped). Zero skips is the assertion, not an
+  **347 passed, 0 failed, 0 skipped**, re-measured at the merge gate at
+  `e690d15f` with `-rfs` as ONE flag (339 + the 8 cells the two fix rounds add,
+  so the figure derives rather than being retyped). The figure this note first
+  carried, **346**, was honestly stamped at `b609e675` and went stale by
+  exactly the one cell fix round 2 added — that is cycle 3's F-011, re-derived
+  at the gate rather than copied from the review. Zero skips is the assertion,
+  not an
   observation — a skip keeps the collected count and removes the assertion, so
   a green-with-skips reading would say nothing. (A full suite shows 27 skips,
   26 DB-gated and 1 `setrlimit`; an impact run of these files touches neither
