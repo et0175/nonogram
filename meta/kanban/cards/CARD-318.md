@@ -390,6 +390,183 @@ named test. Both live in `requirements.yml`/this card's prose, which this round
 deliberately did not open. F-006/F-007/F-008 are info and belong to other
 cards, as the sections below already record.
 
+> **Superseded by fix round 2 — and this paragraph is itself the finding.**
+> Review cycle 2 raised the F-005 wording above as **F-009** (high) and
+> **ADR-0039/R3**: AC-142 had *no* second clause left to assert, because this
+> very round's predecessor commit `7845cb5c` had already removed the clause the
+> named test did cover. So the exemption was granted against a text that no
+> longer existed, and what remained was a criterion verified by nothing. Both
+> F-004 and F-005/F-009 are closed in *Fix round 2* below. Left standing here
+> as the record of what was claimed when.
+
+## [Fix round 2 — F-009 closed, 2026-10-31]
+
+Review cycle 2 scored **8.5** (`min_score: 8` met) but left F-009 open at
+**high**, so the card could not certify. This round closes it, and F-004 with
+it. One finding, one assertion; `src/`, `requirements.yml` and `trace.yml` were
+not opened.
+
+### F-009 — AC-142's criterion had no control, and the cause was a commit of ours
+
+AC-142's `then` says an unknown strategy filter is *"ignored and every puzzle
+is listed — the CARD-066 status-filter pattern, not a refusal"*. Its named test,
+`test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value`,
+asserted four things: `/puzzles` is 200; `id="strategy"` renders;
+`value="probe_contradiction"` renders; and the unknown request is 200 with
+`"Unknown strategy"` in the body. **None of those is a claim about what is
+listed.** So the one clause that distinguishes the demotion from the refusal it
+replaced was the clause nothing checked — this card's own defect class
+(a criterion whose `test:` resolves, so the validator counts it live and
+nothing warns, while the test does not verify the stated outcome) re-created on
+the card's own deliverable, and on the one criterion the owner personally ruled
+on.
+
+**The inversion was caused by this round's predecessor commit `7845cb5c`, not
+by the implementer, and the card records it that way.** Cycle 1's F-005 was
+written against a `then` with two clauses, one of which the named test *did*
+cover. `7845cb5c` removed that clause — correctly: it was the second observable
+that triggered the validator's `'then' bundles several outcomes` warning, which
+is what AC-6's 10-removed figure is made of. What it left behind is exactly the
+clause the test does not assert. Fix round 1 then exempted F-005 as "still
+open, and not this round's" **while describing it in its pre-`7845cb5c`
+form** — so the exemption was granted against a text its own predecessor commit
+had already replaced. That is the whole mechanism, and it is a sequencing
+failure in the fix rounds, not an oversight in the implementation.
+
+### What the assertion is now
+
+The test seeds **two** puzzles with different ladders into the app's own
+in-memory store, fetches `/puzzles` and `/puzzles?strategy=LineLogic`, and
+asserts **both pages list exactly those two**:
+
+```python
+assert listed(body) == {plain, guessy}
+...
+assert listed(unknown_body) == {plain, guessy}
+```
+
+The listing is read **off the response, not out of the store** — the store is
+not what AC-142 is about. `_puzzle_table.html` gives every row a thumbnail at
+`/api/puzzle/<id>/grid`, so the ids in those urls *are* the listing.
+
+One detail in `listed()` is load-bearing and is commented as such: the id
+pattern is `[\w-]+`, **not** `[^/]+`. The same page also carries the detail
+modal's *script*, which builds that url from a JS template
+(`${escapeAttr(puzzle.id)}`), and that literal is in the body whether or not a
+single row is listed. With `[^/]+` the set is non-empty on an empty page, which
+would have defeated the control the helper exists to be — and it was measured,
+not reasoned about: the first run of the assertion failed on exactly that extra
+member before the pattern was tightened.
+
+**What was deliberately not done.** The `then` is *correct as written*; what
+was missing is a control, so `requirements.yml` was not reopened. In
+particular the `then` was **not widened** to put the second observable back: a
+second `" and "` re-triggers the bundling warning the demotion was escaping and
+would red AC-6. And F-009 was **not** closed by re-pointing at the flash —
+under Y1 the flash still appears *and* the filter still applies, so
+`"Unknown strategy"` is satisfied by both semantics. `monkeypatch.delenv(
+"DATABASE_URL")` is kept: the test stays in-memory (its own comment records
+that leaving it ambient once stalled the test for ten minutes against a local
+Postgres), and no production database was contacted (G-8).
+
+### Y1 re-fired — the acceptance condition for this round
+
+Cycle 2's own plant, re-fired by `scratchpad/card318fix/y1_control.py` under the
+protocol `final_mutants.py` established (SHA-256 asserted before the plant and
+after the restore, restore from the in-memory original, `__pycache__` swept both
+ends, `PYTHONDONTWRITEBYTECODE=1`, the plant located **by text** with an
+asserted single occurrence, `-o addopts=` unquoted in the argv, and the
+collected count asserted on every run). Y2/Y3 are in
+`scratchpad/card318fix/y_discrimination.py`.
+
+| cell | plant | target | verdict | fires at |
+|---|---|---|---|---|
+| — | *unmutated baseline* | named node | **1 passed** | — |
+| — | *unmutated baseline* | the four files cycle 2 used | **88 passed** | — |
+| **Y1** | `strategy = None` → `pass`, `app.py:2284` | named node | **FAILED — KILLED** | `test_strategies.py:560` `assert listed(unknown_body) == {plain, guessy}` |
+| **Y1** | same | the four files | **1 failed, 87 passed** | same line |
+| Y2 | `status = None` → `pass`, `app.py:2272` — the *unrelated* CARD-066 branch, three lines up | named node | **PASSED**, as required | — |
+| Y3 | the flash's wording changed, the reset **kept**, `app.py:2281` | named node | **FAILED** | `test_strategies.py:557` `assert "Unknown strategy" in unknown_body` |
+
+Y1 was measured **SURVIVING** by cycle 2 at the same site with the same
+spelling; it is now killed, and the baseline it is matched against is the
+identical **88 passed** figure cycle 2 recorded. Y2 and Y3 are there because a
+control that reds on *any* edit to this route would be no evidence about the
+strategy filter: Y2 breaks the neighbouring branch of the same shape and the
+node stays green, and Y3 keeps the reset while moving only the flash — so the
+flash assertion reds at `:557` and the listing assertion stays green. The two
+assertions observe different things and neither absorbs the other. `app.py`'s
+sha256 is `403fb957…4ce4` before every plant and after every restore, and
+`git status --porcelain -- src/ tests/ meta/architecture/` is empty.
+
+### Gate — node ids, impact set, untouched files
+
+**G-6, nothing deleted, renamed, skipped or merged.** Derived by `ast` from each
+revision's own source, not read off a summary: `tests/test_strategies.py` yields
+**17** test node ids at `2ee0be38` and **17** after, identical as sorted sets
+(nothing added, nothing removed), **zero decorators** on any of them — so no
+`parametrize`, no `skip`, no `xfail`. `tests/test_solver_strategies.py` is
+**unchanged** and stays at **16**. pytest agrees: **33 collected** across the
+two, before and after. The round extends an existing test in place and adds no
+node id; the new `listed()` helper is nested inside that test and is not one.
+
+*(Note for the record: cycle 2's G-7 table attributes 16 to `test_strategies.py`
+and 17 to `test_batch_generator.py`. Re-derived here the two are the other way
+round — `test_strategies.py` 17, `test_batch_generator.py` 16 — and fix round
+1's own table above already had them that way. The total, 109, is unaffected.)*
+
+**Impact set**, `-o addopts= -rs`, on the committed code, per-file counts
+derived separately and summing to the run's total:
+
+| file | collected |
+|---|---|
+| `tests/test_strategies.py` | 17 |
+| `tests/test_solver_strategies.py` | 16 |
+| `tests/property/test_solve_strategies.py` | 5 |
+| `tests/test_puzzle_review_book_filter.py` | 20 |
+| `tests/test_puzzle_review_bulk_read.py` | 35 |
+| `tests/test_batch_generator.py` | 16 |
+| **total, counted from the rows** | **109** |
+
+**109 passed, 0 failed, 0 skipped**, `grep -c '^SKIPPED'` = **0** — so there is
+no skip to attribute, and in particular no DB-mode test skipped green for want
+of a `nonogram_test` database: the `[db]` parametrizations in
+`test_puzzle_review_bulk_read.py` appear by name in the run and really ran
+(G-7).
+
+**Untouched, and verified rather than asserted.** `git diff ef242847..HEAD
+-- src/` is **empty** — nothing under `src/` changed on the whole branch, so the
+shipped behaviour at `app.py:2277-2284` is as it was and the defect really was
+in the verification. `git diff 7845cb5c..HEAD -- meta/architecture/` is
+**empty**, so `requirements.yml` and `trace.yml` are untouched by both fix
+rounds: AC-6's figure — merge-base `ef242847` 0 err / 100 warn → HEAD 0 err /
+90 warn, **10 removed / 0 added as sets** — is unmoved and was not re-measured,
+and CARD-317/CARD-316 keep their queue position on that file.
+
+### F-004 closed, with the figures re-derived
+
+Cycle 2 accepted F-004 at low and said correcting it was optional. It is
+corrected, because this round was already in the card: the *Shared-file
+etiquette* section's counts are now **five changed values** (naming which five)
+and **six comment blocks**. The basis is stated there and is my own derivation,
+not the review's numbers — both revisions parsed with `yaml.safe_load` and
+flattened to leaf paths keyed by `id` rather than by list index (0 keys added,
+0 removed, 5 changed leaves), and the comment figure from `difflib`
+`SequenceMatcher` opcodes over the two line lists (62 added lines, 57 of them
+comments, in 6 runs of consecutive line numbers). It reproduces cycle 2's
+structural figures exactly.
+
+### Still open after fix round 2
+
+**F-006, F-007, F-008** — all `info`, all carried unchanged and all belonging to
+other cards: the `PropertyTest_*` ref population (a convention card sequenced
+after CARD-317/CARD-316), the review-YAML dead-ref silencing (whose fix is a
+one-line change in forge_1's `symbol_exists`, which is read-only from here, plus
+a `meta/review/` sweep), and FR-029's intake-era `evidence` block (flagged in
+place, because `trace.yml` is auto-generated). The sections below already record
+all three. **F-005 is closed by F-009's fix**: it was the same criterion's
+missing assertion, and RC-1 is the cause of both.
+
 ## Worktree notes
 
 ### The premise, re-derived — and disconfirmed
