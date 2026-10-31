@@ -7700,10 +7700,23 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         Moved through ``monkeypatch.context()`` rather than by rebinding the
         global and restoring it in a ``finally``. The ``finally`` was correct
         serially and the cell re-asserted the restored value, but
-        ``round_ink._BEZIER_SEGMENTS`` is reachable from 21 test modules
-        through the ``page_ink`` hop, and a sibling reading a round mark while
+        ``round_ink._BEZIER_SEGMENTS`` is reachable from **two** test modules —
+        this one and ``tests/test_book_solved_answer_key.py``, the only two that
+        import the helper — and a sibling reading a round mark while
         this cell held 8 would get a ``fill`` 0.9 % off — inside
-        :data:`ROUND_FILL_TOLERANCE`, so **silent** rather than loud. Nothing in
+        :data:`ROUND_FILL_TOLERANCE`, so **silent** rather than loud.
+
+        **RETRACTED 2026-10-31, cycle 3's F-014.** This sentence said "reachable
+        from 21 test modules through the ``page_ink`` hop". **There is no hop:**
+        ``tests/helpers/page_ink.py`` imports only ``dataclasses``, ``numpy`` and
+        ``PIL``, and names ``round_ink`` in two *docstring* lines only, so nothing
+        reaches ``_BEZIER_SEGMENTS`` through it. Real reachability is the two
+        direct importers above — which is the same measurement this round used to
+        justify its narrower impact set, three lines from the claim it refutes.
+        The remedy is unchanged and right either way: a shared global rebound
+        under ``monkeypatch.context()`` rather than a ``finally``. Only the
+        number was wrong, and ADR-0039/R4 wants it retracted where it was
+        written. Nothing in
         this repo runs workers in parallel today; a scoped patch is what keeps
         that from being the reason (engineering-standards §6).
         """

@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_difficulty_dots.py, tests/helpers/round_ink.py
-**Review score:** —
+**Review score:** 8.5 (cycle 3 of 3 — CERTIFIED; 8.5 → 8.0 → 8.5, two fix rounds)
 **Started:** 2026-10-31T02:39:21+00:00
 **Closed:** —
 **Actual:** —
@@ -154,9 +154,19 @@ Measured, it does not — and the measurement is what this round is built on.
   `'ContentStream' object has no attribute 'convert'`, raised from the
   `page.convert("L")` of **`_interior_ink`'s own render loop** — cited by name,
   because the line number moves and this sentence used to cite one that never
-  held it: `:3918` is `return dots` inside the legacy spy at HEAD and at both
-  earlier commits of this branch, while the render loop is `tests/test_book_difficulty_dots.py:3960` at HEAD and `:3942` at `308bbded` (fix round 2,
-  F-012 — a line number used as a citation fifty lines above this card's own
+  held it. **What `:3918` actually holds was itself stated wrongly here and is
+  corrected 2026-10-31 (cycle 3's F-013):** it is `def banded(...)` at HEAD —
+  `return dots` is `:3916` — and `_draw_difficulty_dots = site` at `308bbded`
+  and `9a070e26`. The contents claim is **dropped** rather than re-stated at a
+  third value, because it is load-bearing for nothing: what matters is that
+  `:3918` never held the render loop, which holds at every commit. (Cycle 2's
+  own YAML asserted the `_draw_difficulty_dots` reading *at HEAD*, also false —
+  so this round inherited a wrong number from the review that filed the
+  finding, and the fix is to stop citing contents by line at all.) The
+  load-bearing citations do re-derive: `_interior_ink` opens at `:3862`, the
+  render loop is `tests/test_book_difficulty_dots.py:3960` at HEAD and `:3942`
+  at `308bbded`, and 27 of 27 reds land at `:3960` (fix round 2, F-012 — a line
+  number used as a citation fifty lines above this card's own
   explanation of why that does not work). The accounting never runs at all. So the 27 the card counted *are* the
   cells that fall, and ADR-0039/R2 is satisfied **today** — by accident, by a
   type error whose message names neither a dot nor a dead hook, and before the
@@ -628,3 +638,30 @@ safe.
 | the new section under the converted tree: **40 / 2 red / 38 green** | `probe_puzzle_vector` reports 29 failed / 166 passed; the 29 intersect the base set in **27** and the added set in **2**, with nothing left over |
 | **346 passed / 0 skipped** over the impact set | the set is the **two** test modules that import the changed helper — `grep -E '^(from\|import).*round_ink'` over `tests/` matches `tests/test_book_difficulty_dots.py` (195) and `tests/test_book_solved_answer_key.py` (151), and nothing else; `tests/helpers/page_ink.py` names `round_ink` only in prose. Skips: **zero**, asserted rather than assumed. Cycle 2's own figure was 962 over its own six modules; this is this round's set and its own total, not a reconciliation |
 | the cross-module import precedent: **93 statements / 46 files** | an `ast` walk over `tests/**/*.py` counting `Import`/`ImportFrom` nodes that name a peer `test_*` module; 45 of the 46 files are modules other than this one |
+
+### Cycle 3's residue, recorded rather than left implied
+
+Cycle 3 **certified at 8.5** with no Critical and no Important, and filed three
+Minors — all prose or comment, none touching a test outcome, a guard, a tolerance or
+a figure anything rests on. Their shared root cause is the one this card exists to
+fix, which is worth stating plainly rather than filing quietly:
+
+- **F-013** — fix round 2's *correction* to F-012 named the wrong contents for
+  `:3918`, at all three commits. Corrected above, and the contents claim **dropped**
+  rather than re-stated: citing a line's contents is what failed twice.
+- **F-014** — a **shipped** comment claimed `_BEZIER_SEGMENTS` was "reachable from 21
+  test modules through the `page_ink` hop". There is no hop; reachability is **2**.
+  Retracted in place in the module. The irony is the finding: the refuting measurement
+  was made by this same round, three lines away, to justify its impact set.
+- **F-015** — the impact-scope basis named round_ink's importers and so covered one of
+  the **two** changed files; `tests/test_book_pdf_vector_primitives.py:1453` imports
+  `ALL_DRAW_METHODS, VECTOR_STREAM_METHODS` from the changed module and sat outside the
+  stated set. Cycle 2 included it; cycle 3 ran it **green**. The basis is corrected
+  here: the impact set is *the importers of every changed module*, not of one of them.
+
+**Three rounds of this card produced a wrong line-number or reachability claim, each
+time in prose that no control covers.** The pattern is not carelessness — it is that a
+figure written into prose has no instrument behind it, which is exactly what AC-5's own
+F-002 fix addressed by making its evidence derived data instead of a table. The rule
+this card leaves behind: **a number in prose needs either a derivation beside it or no
+number at all.**
