@@ -185,7 +185,40 @@ max_concurrent_override: 2
 #
 active:
 - id: CARD-329
-  phase: implementation
+  phase: review
+  cycle: 1
+  # The probe's red count WAS recorded before anything changed, which is what
+  # the re-cut existed to force: 20 of 20 modules RED, 259 failed+error, 1088
+  # passed, 1 skipped (setrlimit, read off -rs, not a DB gate). After:
+  # 17/20 red, 151 failed+error, 1214 passed -- 108 REDS CLEARED.
+  # AC-6's dispositions are honest rather than flattering: 80 -> 16, and only
+  # ONE module is "repaired" (cell_size 20 -> 0). Four are "EDITED, NOT
+  # REPAIRED" at 4 reds each, and the round says so rather than forcing them
+  # green. Orchestrator-verified on the one repair: at the merge base under the
+  # probe cell_size is 20 failed / 23 passed; on the branch 43 passed / 0
+  # failed, and still 43 passed WITHOUT the probe -- so the repair is
+  # medium-agnostic, not a swap.
+  # THE READER RETURNS rather than refuses, and the reasoning decided it:
+  # refusing satisfies AC-1's letter and moves nothing, because all 37
+  # KeyError reds are callers reading a page's PIXELS. It rasterises with
+  # poppler -- the engine must not be the one that wrote the file (CLAUDE.md:52)
+  # -- and refuses by name only when no DPI can be established or poppler is
+  # absent (ADR-0038/R8: a missing engine is a missing reading, never a skip).
+  # THREE FINDINGS AGAINST ITS OWN CARD: AC-4's "21 modules" is 20
+  # (book_corpus.py collects zero nodes); AC-4 and G-3 CANNOT BOTH HOLD, since
+  # difficulty_dots is red at 29 under the probe -- CARD-331's own designed 29 --
+  # and G-3 excludes it, so G-3 wins; and test_book_pdf.py's 38 reds ARE THE
+  # DESIGN, being CARD-330's placed-edge pin plus six assertions about
+  # _RASTER_DECLARATIONS which the probe lifts. Forcing either green would
+  # disable the pin and the registry guards.
+  # AND IT FOUND A GAP ITS OWN CHANGE OPENED: _STREAM_READERS decides whether a
+  # placed-edge site changed medium, and the new helper added three functions
+  # returning PIXELS from a content stream -- so a site could cross the medium
+  # with drawing_of still in its call set and the pin still passing. F-009 in
+  # miniature, closed default-DENY, with MUT-13 proving the plant is invisible
+  # to the pin without the fix.
+  # 15 plants, 14 killed, 1 DECLARED survivor: geometry has no green node to
+  # plant against, all four of its node ids being red before and after.
   branch: card/329-one-image-reader-learns-the-stream
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-329
   started: '2026-10-31T06:40:00Z'
@@ -198,7 +231,25 @@ active:
     assembly point CARD-309 merged, still with zero production call sites, and a
     declaration-lifting session probe of the kind CARD-331 used.
 - id: CARD-316
-  phase: implementation
+  phase: review
+  cycle: 1
+  # Implementation reported; review cycle 1 dispatched. Its round refuted THREE
+  # of its own card's claims, the central one being the card's derivation
+  # recipe: it selects 191 of 421 declared refs, and 21 once intersected with
+  # the three markers, not 6 -- because the validator resolves by `git grep -w`
+  # over tracked files excluding only meta/architecture/ and *.md, so fourteen
+  # equally-unwritten criteria resolve from PROSE comment tables and AC-252
+  # resolves from a committed .txt duration dump. The honest authority is dead
+  # on BOTH resolvers: 11 dead AC refs, 0 unclassifiable, 0 in scope after the
+  # repair.
+  # It also measured `kind: review-lens` on an AC to be a NO-OP (planted,
+  # re-validated, WARN-set symmetric difference EMPTY) -- F-009's shape caught
+  # before shipping -- and caught the orchestrator's 90, measuring 88.
+  # PENDING FOR ITS FIX ROUND: the owner's decision of 2026-10-31 on the
+  # retirement shape, which this round's work made necessary. Apply the standard
+  # to ALL ELEVEN criteria -- its own seven plus FR-001's four from CARD-317 --
+  # with AC-379 excepted, being a FORWARD declaration owed by CARD-226 rather
+  # than a retirement.
   branch: card/316-seven-phantom-acceptance-keys
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-316
   started: '2026-10-31T06:40:00Z'
