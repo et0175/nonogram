@@ -212,10 +212,183 @@ warnings. **So AC-6 is satisfied** — and the card's own "9 removed" **understa
 it**: the demotion bought the tenth after all. The same stale read made the card
 understate its achievement and overstate its cleanliness at once.
 
-**F-003 remains open** and is the card's own: the M6/M9 spy discriminates
-`-> []` but not `-> ['simple_overlap']`, so its predicate is "truthy and within
-`STRATEGY_NAMES`" rather than identity with that puzzle's list, which is what
-AC-139's wording demands. It needs an assertion, not a re-measurement.
+**F-003 is closed by fix round 1**, in the section below. It was the card's
+own: the M6/M9 spy discriminated `-> []` but not `-> ['simple_overlap']`, so
+its predicate was "truthy and within `STRATEGY_NAMES`" rather than identity
+with that puzzle's list, which is what AC-139's wording demands. It needed an
+assertion, not a re-measurement, and all four of cycle 1's mutants were
+re-fired on the result.
+
+## [Fix round 1 — F-003 closed, 2026-10-31]
+
+Cycle 1's third Important finding, and the only one that was this card's own.
+The reviewer confirmed the M6/M9 spy watches the right boundary; the gap was
+the **predicate**. It asserted *truthy **and** a subset of `STRATEGY_NAMES`* —
+never identity with that puzzle's own list — so a hardcoded in-vocabulary
+constant passed both the row check and the hand-off check at both call sites
+(the reviewer's R3/R4, which survived symmetrically).
+
+### What the assertion is now
+
+Both arms assert **equality** against `_strategies_from_grid(grid)`: the clues
+recomputed from that puzzle's own grid, a fresh solve, and `_strategies_of`'s
+native statement of FR-029's rule. The spy records the **grid** beside the
+list, which is what makes the puzzle identifiable without asking its caller
+anything.
+
+**Why that expectation is independent (G-5).** It is not fetched from the code
+under test. The code under test is the admin's hand-off —
+`batch_generator.py:474` and `app.py:1993` — and the value it is compared
+against is re-derived in the test tree from the stored grid, by the same
+second-implementation route `_strategies_of` already was in cycle 1. Measured
+before relying on it: over **250** candidates (10 at `MIN_SIZE`, 50 at 18x18,
+160 at 20x20, 30 at 22x22) and both call sites, the re-derivation reproduced
+the handed-over list **250 of 250 times**, and the image half reproduces it
+identically on repeated runs. The alternative the brief allows — a known
+fixture with its strategies written into the test — was **not** needed, and is
+not what was done.
+
+### Both arms, because each is blind to what the other sees
+
+- The **row** arm is AC-139's own sentence and cannot see an empty hand-off at
+  all: `add_puzzle` derives the list from its own uniqueness proof when handed
+  one, so the row is right while the caller is wrong. That is why M6/M9
+  survived in the first place.
+- The **hand-off** arm sees that, and with identity it also sees a hand-off
+  that is non-empty, in-vocabulary and wrong.
+
+Measured, the row arm is the one that reds for R3/R4 — the store *echoes* a
+non-empty list, so the wrong value reaches the row and is seen there first.
+That left the hand-off **identity** assertion without a mutant of its own, so
+it has one (R5): a store that stops echoing plus a constant hand-off, the one
+shape in which only the hand-off can see the defect. Stated rather than
+claimed by proximity.
+
+### Mutant table — one cell per node id, with the assertion that fired
+
+Harness `scratchpad/card318fix/final_mutants.py`, fired on the **committed**
+code (`485b9164`). Protocol: SHA-256 of every target asserted before each
+plant and after each restore (**all 10 `restore=ok`**, every target pristine
+afterwards, `git status --porcelain -- src/ tests/` empty),
+`PYTHONDONTWRITEBYTECODE=1` with a `*.pyc`/`__pycache__` sweep before **and**
+after each run, restore from the in-memory original, and the **collected count
+asserted to be exactly 1** on every one of the 13 runs.
+
+| # | plant | site | node | verdict | the assertion that fired |
+|---|---|---|---|---|---|
+| R1 | `strategies_used=[]` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:519` hand-off is non-empty |
+| R1 | " | " | AC-139 image | PASSED | correct discrimination — the plant is in the random path only |
+| R2 | `strategies_used=[]` | `app.py:1993` | AC-139 random | PASSED | correct discrimination — the plant is in the image path only |
+| R2 | " | " | AC-139 image | **FAILED** | `:519` hand-off is non-empty |
+| R3 | `strategies_used=['simple_overlap']` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:506` row == that puzzle's re-derived list |
+| R3 | " | " | AC-139 image | PASSED | correct discrimination, as R1 |
+| R4 | `strategies_used=['simple_overlap']` | `app.py:1993` | AC-139 random | PASSED | correct discrimination, as R2 |
+| R4 | " | " | AC-139 image | **FAILED** | `:506` row == that puzzle's re-derived list |
+
+**R1 and R2 still die; R3 and R4 now die too** — which is the round's
+deliverable. Counted from the rows: **8 cells, 4 FAILED, 4 PASSED**, and every
+PASSED cell is a cross-site cell, i.e. the mutant is not in the path that node
+drives. Cycle 1 measured R3/R4 as SURVIVED on the same two lines.
+
+### The lines the fix added also carry controls
+
+| # | plant | node | verdict | the assertion that fired |
+|---|---|---|---|---|
+| R5a | `puzzle_review.py:946` `if not strategies_used:` → `if True:` (store always derives), call sites pristine | AC-139 random | PASSED | no spurious red — nothing fired |
+| R5b | R5a **plus** `batch_generator.py:474` → `['simple_overlap']` | AC-139 random | **FAILED** | `:520` hand-off == re-derived list |
+| R6 | `LADDER_EXTENT` → `MIN_SIZE` | AC-139 random | PASSED | **not a control** — see below |
+| R7 | second picture → `owl1.png`, whose ladder is measured equal to `bird1.jpg`'s | AC-139 image | **FAILED** | `:609` the two ladders differ |
+| R8 | `search.py:629` → ladder truncated to its first rung | AC-139 random | **FAILED** | `:559` at least one ladder is longer than one rung |
+
+**R6 is recorded as a failed mutant, not as a passing test.** It was written to
+red the random half's non-degeneracy floor by putting the extent back to
+`MIN_SIZE`, and it **passed** — which disconfirmed the figure the fix's own
+comment carried ("every 10x10 candidate solves with the single rung", read off
+one batch and eight density-40 seeds). Re-measured **from the candidates**: at
+10x10 density 50, **89 of 100** candidates are single-rung and **4 of 10** whole
+batches are single-rung throughout — so `MIN_SIZE` blinds the identity
+assertion about two batches in five, not always, and a mutant that reds 40% of
+the time is not a control. The comment now states the measured rates and the
+floor's control is R8, which truncates every ladder in the solver and therefore
+reds at **any** extent (twice out of two). R8 is also the discriminating plant:
+the identity arms stay green under it, because they re-derive through the same
+solver, so a truncated ladder is still that puzzle's list — the failure is at
+`:559` and nowhere earlier.
+
+### The corpora, and why they changed
+
+- **Random half: `MIN_SIZE` → 20x20.** Figures above. At 20x20, density 50 —
+  the density `orchestrator.generate_batch` gives every random candidate, not a
+  number chosen here — **134 of 160** candidates carry a longer ladder, **0 of
+  16** batches were single-rung throughout, nothing was abandoned, nothing
+  timed out, and a batch of ten costs 0.3-0.7s. The batch RNG cannot be seeded
+  from outside (`orchestrator.generate` draws its seed from
+  `secrets.randbits`, `generate_batch` builds an unseeded `random.Random`), so
+  non-degeneracy is **asserted per arm** (`:559`) rather than arranged — this
+  suite's own style for a corpus it cannot seed. At the measured single-rung
+  rate, ten draws miss the floor with probability ~1e-8.
+- **Image half: `bird2.jpg` beside `bird1.jpg`.** The image path draws nothing
+  from the RNG, so each picture's ladder is fixed: `bird1.jpg` solves with
+  `('simple_overlap',)` and `bird2.jpg` with `('simple_overlap', 'line_dp',
+  'probe_contradiction')`, identical on repeated runs. Two ladders that differ
+  is what makes **every** constant fail the identity assertion on this half,
+  which the random half can only make overwhelmingly likely — and it is
+  asserted (`:609`), with R7 as its control.
+
+### The docstring says what is asserted
+
+The sentence F-003 named — *"what has to be observed is the value the generator
+handed over"*, true of the observation and silent about the predicate — is
+gone. The class now states the predicate (identity against an independent
+re-derivation), names both arms and what each is blind to, and says which plant
+reds which arm. That was the defect, so it is not reproduced in new wording.
+
+### A harness trap worth the next card's attention
+
+The first run of this round's harness passed `-o "addopts=''"` inside a
+subprocess argv — the quotes are *data* there, so pytest read an `addopts` of
+`''`, which contributed an empty path argument and collected **10,016** tests
+instead of 1. Two runs of that were killed part-way (SIGTERM at ~5 min; the
+`.full-suite.lock` was free and unheld throughout, no foreign holder existed,
+and none was written). It is the `addopts` trap in a new disguise: `-o addopts=`
+is the correct spelling, and **every run of the final harness asserts its
+collected count is exactly 1**, which is what caught it.
+
+### Gate — impact set, every skip attributed
+
+`-o addopts= -rs`, the six files the round's brief names, on the committed code:
+
+| file | collected |
+|---|---|
+| `tests/test_solver_strategies.py` | 16 |
+| `tests/property/test_solve_strategies.py` | 5 |
+| `tests/test_batch_generator.py` | 16 |
+| `tests/test_strategies.py` | 17 |
+| `tests/test_puzzle_review_book_filter.py` | 20 |
+| `tests/test_puzzle_review_bulk_read.py` | 35 |
+| **total, counted from the rows** | **109** |
+
+**109 passed, 0 failed, 0 skipped** in 21.8s, twice, with `grep -c '^SKIPPED'`
+= **0** — so there is no skip to attribute, and in particular no DB-mode test
+skipped silently for want of `nonogram_test` (G-7). The brief's "299 passed"
+and this card's earlier "707 passed" are both *wider* sets than these six
+files; 109 is this set counted from its own rows, and the sum of the per-file
+counts equals the run's total.
+
+`meta/architecture/requirements.yml` and `trace.yml` are **untouched** by this
+round (`git diff` of both against `7845cb5c` is empty), so the AC-6 figure
+recorded above — merge-base `ef242847` 0 errors / 100 warnings → HEAD 0 errors
+/ 90 warnings, 10 removed / 0 added as sets — is unmoved and was not
+re-measured. CARD-317 and CARD-316 keep their queue position on that file.
+
+### Still open, and not this round's
+
+F-004 and F-005 (both **low**) are untouched: F-004 is the shared-file
+etiquette sentence's own undercount (five changed values naming `AC-142.then`,
+six comment blocks), F-005 is AC-142's second clause not being asserted by the
+named test. Both live in `requirements.yml`/this card's prose, which this round
+deliberately did not open. F-006/F-007/F-008 are info and belong to other
+cards, as the sections below already record.
 
 ## Worktree notes
 
@@ -379,8 +552,11 @@ tests or in the mutant. All three are recorded rather than quietly re-rolled:
   hands it an empty one, so a generator passing `[]` still produces rows whose
   column holds a real list — the store's safety net was hiding both call sites,
   and a row-only assertion could not tell the two apart. The two tests now also
-  **spy on the hand-off**, which is what AC-139's "that puzzle's real list"
-  actually means. Both mutants red after the fix.
+  **spy on the hand-off**. Both mutants red after that fix — but the predicate
+  on the hand-off was only "truthy and in-vocabulary", which cycle 1 measured
+  as weaker than AC-139's wording (F-003). Since **fix round 1** both arms
+  assert the handed and stored lists **equal** that puzzle's own re-derived
+  list, and R1-R4 in the fix-round section are the re-fired measurement.
 - **M8 survived twice.** First version read `time.monotonic` from the `time`
   module directly, which the tests do not patch (they patch
   `solver.propagate.time`); second version sliced the ladder by a parity, which
