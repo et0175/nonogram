@@ -22,6 +22,58 @@
 **Merge commit:** —
 **Blocked by:** —
 
+## [Scheduled 2026-10-31] — premise verified at the queue, every anchor exact
+
+**Scheduled on the owner's instruction while wave 72's two slots were full**, so it is
+next to start when one frees. Its premise was checked before scheduling, per the rule
+four cards of the vector family produced: a card whose premise rests on cited code
+should have that code resolved before it is queued, not in its first hour.
+
+**All seven anchors this card cites hold exactly**, measured 2026-10-31:
+
+| the card cites | measured |
+|---|---|
+| `app.py:3593`, the setup-print route | **exact** |
+| `app.py:4839`, the arrange-puzzles route | **exact** |
+| `app.py:3329`, the `is-invalid`/`aria-invalid` refusal pattern | **exact** |
+| `print_specs.py`'s validator family | all three present — `validate_trim_size`, `validate_margins`, `validate_interior_ink_mode` |
+| `player_bundle.puzzle_key` | `src/nonogram/admin/player_bundle.py:215` |
+| `templates/book_setup_print.html`, `book_arrange_puzzles.html` | both exist |
+| `tests/test_book_setup_print_mobile.py`, `tests/test_player_bundle.py` | both exist |
+
+**Why the line numbers are not stale, unlike the sibling cards':** nothing in waves 70
+or 71 touched `src/nonogram/admin/app.py`. Those waves were test-side and registry-side
+(CARD-317/318 in `requirements.yml`, CARD-330/331 in `tests/`), which is also why
+CARD-316 arrived with 7 of 7 of its `requirements.yml` lines stale while this card
+arrived with none. **That is a fact about what moved, not a guarantee** — re-derive any
+anchor at the start of the round rather than trusting this table, which is a dated
+reading like every other figure on this board.
+
+**Conflict profile, measured rather than assumed.** Intersection is **EMPTY** against
+every card that could contend: CARD-329 and CARD-316 (both in flight), the tails
+CARD-278 and CARD-320, the destination CARD-322, and CARD-210. So it can start the
+moment a slot frees, beside anything.
+
+**But it declares a hotspot: `src/nonogram/admin/app.py`.** Nothing currently active
+declares it, so there is no edge today — and any future card that declares it must
+serialize against this one. Say so at dispatch rather than discovering it.
+
+**Priority note, stated because it inverts the queue.** This is **P2** and it is being
+placed ahead of **CARD-320 (P1)**, on the owner's instruction after the public player's
+first deploy. The reasons are its own: 0.5d, owner-facing, free of every other card, and
+it closes a gap the owner hit in use rather than one the board inferred. CARD-320's P1
+stands on a real defect (a float reaching `uuid.UUID` through `add_puzzle`, visible only
+under the full suite) and it keeps its place immediately behind.
+
+**One thing this card owes that the test-side cards did not.** It changes owner-facing
+UI — a form field and a per-puzzle link — so a green suite is not the whole gate. The
+round should produce a **rendered check of both pages** for the owner (the print-setup
+form with the field, including its refusal state, and the arrangement page showing a
+real `{base}/play/{key}` beside an arranged puzzle), filed under
+`~/Documents/nonogram-reviews/CARD-332/`. The link's own value is derivable:
+`puzzle_key` is ADR-0041/R1's ten hex characters computed from the stored grid, so the
+render can be checked against a key derived independently rather than eyeballed.
+
 ## What to implement
 
 Two owner-facing pieces, and one decision that has to be made before either is written.

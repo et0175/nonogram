@@ -178,6 +178,28 @@ active:
     count to move by LESS than seven: CARD-317 measured that the validator has no
     status: superseded exemption and that dropping a test: trades the dead-ref
     warning for a no-test: warning, net zero. Derive what it does; do not predict.
+#
+# CARD-332 SCHEDULED 2026-10-31 on the owner's "ok schedule it", while wave 72's
+# two slots were full. NEXT TO START when one frees. Wave stamped at dispatch.
+#   PREMISE CHECKED BEFORE QUEUEING, per the rule the vector family produced:
+#     app.py:3593 (setup-print), :4839 (arrange-puzzles), :3329 (the is-invalid
+#     refusal pattern) -- all three EXACT; print_specs.py's validator family all
+#     present; player_bundle.puzzle_key at player_bundle.py:215; both templates
+#     and both test files exist. Its line numbers are NOT stale because nothing
+#     in waves 70-71 touched src/nonogram/admin/app.py -- a fact about what
+#     moved, not a guarantee; re-derive at the start of the round.
+#   CONFLICT PROFILE MEASURED: intersection EMPTY against CARD-329, CARD-316,
+#     CARD-278, CARD-320, CARD-322 and CARD-210. Free of everything.
+#   BUT it declares the hotspot src/nonogram/admin/app.py. No edge today, since
+#     nothing active declares it; any future card that does serializes behind it.
+#   PRIORITY INVERSION, stated because it is one: P2 placed ahead of CARD-320
+#     (P1) on the owner's instruction after the public player's first deploy.
+#     CARD-320's P1 stands on a real defect and keeps the place behind it.
+#   OWES A RENDER: it changes owner-facing UI (a form field and a per-puzzle
+#     link), so a green suite is not the whole gate. Both pages rendered into
+#     ~/Documents/nonogram-reviews/CARD-332/, the link checked against a key
+#     derived independently rather than eyeballed.
+#
 queued:
 # ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
 # now and then according to plan", after agreeing the set as 318 + 330 + 331.

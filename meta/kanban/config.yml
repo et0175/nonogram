@@ -17,17 +17,35 @@ tdd: false            # not the project's practice; cards opt in via `TDD: true`
 # this box and they disagree, so a figure without a binary attached is not a
 # figure.
 #
-# CURRENT, re-measured 2026-10-31 on main after CARD-318 merged (which closed ten
-# dead refs, 100 -> 90 as sets):
+# THERE IS NO CURRENT FIGURE HERE, AND THAT IS THE THIRD VERSION OF THIS COMMENT.
 #
-#   forge_1       0 error(s), 90 warning(s), 0 info
+# It said 102 (2026-10-29) as a bare fact; I replaced that with 90 labelled
+# "CURRENT, re-measured 2026-10-31"; CARD-316's round then measured 88 and was
+# right. The cause is in this repo's own ancestry: the 90 was stamped at
+# 03f96e87 (06:35) and CARD-317 merged at 8e2ce9ed (07:23), closing two dead
+# refs inside the validator's input domain. A figure written to stop stale
+# figures propagating went stale in forty-eight minutes, by a merge the same
+# session performed.
+#
+# A warning count cannot be kept true in a comment, because every merge that
+# touches meta/architecture/ moves it. So this comment no longer carries one.
+# To get the number, run the validator of record named below -- and diff the
+# WARN **sets** with `comm` rather than comparing totals, because a +1/-1 pair
+# hides inside an unchanged total (CARD-317 and CARD-316 both measured exactly
+# such a pair: seven dead-ref warnings out, seven "no 'test'" warnings in,
+# total unmoved).
 #
 # The 102 below was measured 2026-10-29 and went stale the moment a card closed a
 # ref. It is kept, dated, rather than overwritten, because two rounds quoted it
 # as current and a reader needs to see which figure they were holding:
 #
-#   forge_1       0 error(s), 102 warning(s), 0 info   <- STALE 2026-10-29
-#   plugin cache  1 error(s), 102 warning(s), 0 info   <- STALE 2026-10-29
+# Dated readings, kept only because rounds quoted them as current and a reader
+# needs to see which figure they were holding -- NONE of these is current:
+#
+#   2026-10-29  forge_1       0 error(s), 102 warning(s), 0 info
+#   2026-10-29  plugin cache  1 error(s), 102 warning(s), 0 info
+#   2026-10-31  forge_1       0 error(s),  90 warning(s)  (before CARD-317 merged)
+#   2026-10-31  forge_1       0 error(s),  88 warning(s)  (at f7ba9c96)
 #
 # A count here is a DATED READING, never a current fact: re-derive before citing
 # it, and diff the WARN sets with `comm` rather than comparing totals, because a
