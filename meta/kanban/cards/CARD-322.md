@@ -136,6 +136,16 @@ raster arm of the difficulty-dot accounting: its lifetime ends with this card.
      `_RASTER_DECLARATIONS` still declares raster, and move with it the 27 cells of
      that module which read the interior as bitmaps.
 
+     AND ONE OBLIGATION, routed here by CARD-331's cycle 3 (its N-1) because that
+     card cannot edit this one's body: WHEN YOU RE-POINT THE ARM, DERIVE
+     `RASTER_ARM_FUNCTIONS`' COMPLETENESS RATHER THAN EXTENDING THE LIST. The guard
+     over that set checks that every listed name has a source; it CANNOT catch a name
+     that should be listed. That is the exact hole a cycle-1 mutant survived in before
+     CARD-331's F-004 extended the list -- which closed the instance and not the
+     mechanism. This card is the imminent exposure, being the next card to touch that
+     arm, and the hazard cannot bite before one does. Deriving the set is the fix;
+     adding your new function to the list is the defect repeating.
+
      Expect ONE deliberate red on arrival, by design, not by drift:
      `test_each_arms_mechanism_is_still_exercised[raster]` is built to fail the day
      this card converts the puzzle page, and its message is a work order naming the
