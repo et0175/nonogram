@@ -1,4 +1,4 @@
-wave: 72
+wave: 73
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -298,7 +298,86 @@ max_concurrent_override: 2
 #   two-thirds and its four mechanisms the expensive third; a four-way split puts
 #   every piece under 1.5d at the cost of a fourth graph edge.
 #
+#
+# WAVE 73 OPENED 2026-10-31 on the owner's "yes, send 332 with 338 and some
+# player card also". THREE CARDS, AGAINST max_concurrent_override: 2.
+# Recorded as the owner's explicit call rather than quietly taken: they named
+# three, and the cap is their standing rule to spend.
+#   CONFLICT GRAPH MEASURED, NOT ASSUMED. Pairwise Touches intersections are
+#   EMPTY across all three: CARD-332 is src/nonogram/admin/ (app.py,
+#   print_specs.py, two templates) plus two test modules; CARD-338 is three card
+#   .md files plus scratchpad/card338/; CARD-323 is player/*. CARD-338 is also
+#   empty against every other card on the board.
+#   ONE EDGE TO REMEMBER: CARD-332 declares the app.py hotspot, so any future
+#   card touching route registration serializes behind it.
+#   ALL THREE STAMPED ON MAIN AT f407c350 BEFORE ANY WORKTREE EXISTED, and each
+#   worktree cut AT that commit -- the fix for the un-stamping hazard, which has
+#   now hit four cards in a row on the Status field alone.
+#   DISPATCHED WITH A HOLD: CARD-316's merge gate was mid-full-suite, so all
+#   three were told to read the lock file and run NO pytest until it clears --
+#   and to poll by READING THE LOCK, never with a pgrep loop, since a pattern
+#   that matches its own command line never exits and this board gates
+#   concurrency with pgrep.
+#
+#   CARD-338 LEADS ITS FAMILY DELIBERATELY. CARD-336 carries 2d priced against a
+#   one-kind lift, and the five-kind census is 225 rather than 151, so reviewing
+#   336 first would judge it against a figure already known wrong. CARD-338's
+#   figures are themselves the re-cut pass's and UNVERIFIED by me -- the card
+#   says so and its item 1 is to re-derive them.
+#   ITS ONE UNUSUAL RISK: AC-5 makes it edit three OTHER cards' files (336, 337,
+#   322). I am keeping off those three on main while its branch is open. A
+#   sloppy edit there carries three whole cards' stale copies back at merge --
+#   the same hazard as the Status field but three files wide instead of one.
+#
+#   CARD-323 WAS CHOSEN FROM FIVE MUTUALLY EXCLUSIVE PLAYER CARDS. CARD-323
+#   through CARD-327 all touch player/play.js, play.html and player.css, so only
+#   one can ever run; 323 was taken as the SMALLEST (0.25d) because its round
+#   establishes the house style the other four inherit -- they are near-identical
+#   in shape, one JS feature plus one test module. PREMISE VERIFIED AT SOURCE
+#   rather than read off the card: player/player.css:411 already carries the
+#   maybe cell rule and player/play.js spells the word ZERO times, so the look
+#   ships and the behaviour does not, exactly as claimed.
+#
 active:
+- id: CARD-332
+  phase: implementation
+  branch: card/332-the-panel-learns-the-players-domain
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-332
+  started: '2026-10-31T13:10:00Z'
+  note: >-
+    The owner's named card, carried as next-to-start since 2026-10-31. Owes a
+    RENDER into ~/Documents/nonogram-reviews/CARD-332/ because it changes
+    owner-facing UI -- a form field and a per-puzzle link -- and the link must be
+    checked against a key derived independently, not eyeballed. Its cited line
+    numbers were exact when scheduled and nothing in waves 70-72 touched app.py,
+    but that is a fact about what moved rather than a guarantee: the round is
+    told to RE-DERIVE every one and never offset a stale one.
+- id: CARD-338
+  phase: implementation
+  branch: card/338-the-five-kind-probe-and-the-measured-floor
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-338
+  started: '2026-10-31T13:10:00Z'
+  note: >-
+    Head of the vector chain. Its deliverable is a number three cards can trust:
+    CARD-329's probe lifts one kind of five, and the two-line extension turns
+    three unmeasured premises into a measured floor. AC-1 is the card -- a probe
+    that rebinds a renamed global or lifts an absent kind must FAIL LOUDLY, never
+    run green over a tree it did not change, and it must be PROVEN by a
+    renamed-target run. Its characteristic failure mode is measuring nothing
+    while reading green, which is this board's recurring one.
+- id: CARD-323
+  phase: implementation
+  branch: card/323-the-public-player-gains-the-maybe-brush
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-323
+  started: '2026-10-31T13:10:00Z'
+  note: >-
+    First of five mutually exclusive player cards, taken smallest-first so its
+    round sets the pattern the other four inherit. Owes a visual check via the
+    browser tooling into ~/Documents/nonogram-reviews/CARD-323/, because the
+    owner validates player changes by looking at them. ADR-0041/R2 binds hardest
+    here: no public asset may carry a solution grid or data from which any
+    solution cell is recoverable, and this board has already shipped a leak at
+    exactly this seam.
 - id: CARD-316
   phase: review
   cycle: 3
@@ -560,7 +639,6 @@ queued:
 # two-for-two; CARD-329 and CARD-316 are in `active` above, so a queue row for
 # them was a second copy of a running card. The order the owner confirmed on
 # 2026-10-30 is now fully consumed down to its two named tails.
-- id: CARD-332   # P2 1d   NEXT TO START. Scheduled on the owner's word; premise checked, conflict-free, owes a render. See the block above `queued:`.
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
@@ -572,11 +650,10 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-338   # P1 0.5d FIRST. The five-kind probe extension and the measured floor the other three infer today. Two lines of instrument; its value is that three cards stop pricing against a one-kind lift.
 - id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: '2026-10-31T12:45:00Z'
+last_updated: '2026-10-31T13:10:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
