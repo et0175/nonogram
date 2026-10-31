@@ -226,6 +226,78 @@ max_concurrent_override: 2
 #   done, verified against the card files. CARD-322 is unblocked and needs a
 #   DECOMPOSE pass, not a dispatch.
 #
+#
+# CARD-322 RE-CUT 2026-10-31 at the decompose station, on the owner's "run
+# decomposition then". Nothing dispatched. Three cards became four:
+#   CARD-338  0.5d  the five-kind probe extension + the measured floor  (NEW, mine)
+#   CARD-336  2d    the frame-centre oracle -- 39 placed-edge reds, one mechanism
+#   CARD-337  2d    the twelve modules CARD-329's triage left owed
+#   CARD-322  2d    the last FIVE kinds and ADR-0042/R1's flip  (kept, re-scoped)
+# Chain 338 -> 336 -> 337 -> 322. Kahn over the whole graph: 337 cards, 337
+# ordered, no cycle, no dangling. 6d against the 1d the card carried.
+#   THE PASS'S SHARPEST FINDING IS THAT EVERY FIGURE THIS FAMILY HAS BEEN PRICED
+#   AGAINST MEASURES THE WRONG CONVERSION. CARD-329's probe lifts PageKind.PUZZLE
+#   ALONE, and its docstring says lifting the others "would measure a REFUSAL,
+#   not a converted page -- a different experiment". That reason has stopped
+#   being true: the refusal is ONE LINE defaulting `pages` to an empty writer
+#   set, and CARD-309's assembly point already exports the full one from a leaf
+#   module nothing in src/ imports. Extending the probe is TWO LINES. Over the
+#   identical 20 modules the census goes 151 -> 225 failed+error, the whole +74
+#   in population A -- and `interior_face` goes 0 (GREEN) -> 2. That module is
+#   one of the three CARD-329 reports as fully green. A module reported green by
+#   the only available instrument is exactly what nobody re-checks.
+#   Bounded rather than guessed: three modules hold 17 monkeypatch.delitem sites
+#   of which only two pass raising=False, so the rest raise KeyError once the
+#   probe removes the key -- an instrument artefact capped at +13; the six
+#   population-A modules with no delitem site carry +61 MEASURED reds.
+#   A 22ND MODULE sits in neither population: test_book_interior_type_floor.py,
+#   CON-020's type-floor arm, red at 3 under CARD-329's OWN probe, reaching the
+#   hazard through the MEDIUM DECISION ITSELF -- a third population both of
+#   CARD-329's filters are structurally blind to. So CARD-329's "the arithmetic
+#   closes, so nothing is left for a reader to discover" is true of the 20
+#   modules it chose and NOT of the tree. That is a statement about a census's
+#   frame, not a defect: its arithmetic does close over its own population, which
+#   I verified at its gate. Honest residue 154 PUZZLE-only, 228 at the end state.
+#   I CARDED THE PROBE EXTENSION AS CARD-338 and put it at the head, answering
+#   the pass's own judgement call 3. It had built the extension, run the census,
+#   and then described the instrument in PROSE in all three cards rather than
+#   carding it -- which is precisely how CARD-309 happened: five expires_with
+#   entries nobody owned and four cards that built writers with zero call sites.
+#   Its characteristic failure mode is measuring nothing while reading green, so
+#   it gets its own judgement rather than arriving as a side-deliverable.
+#   CARD-322 CONVERTS FIVE KINDS, NOT FOUR. Verified by ast on main: TITLE,
+#   GUIDE, TOC, ANSWER and PUZZLE all carry expires_with ("CARD-299","CARD-322").
+#   The card's own title, its "Why this card exists" and its item 1 all said
+#   four, and so did my brief.
+#   THE FIFTH BUCKET RE-ROUTED, AND NEITHER HALF WAS CARD-312's. That card is a
+#   static guard that classifies pixel-reading sites and partitions the
+#   independent oracles as EXEMPT -- and a site it exempts is a site it does not
+#   repair, so it could never have closed either red. CARD-329's F-004 routing
+#   was half wrong; raised and carded rather than absorbed.
+#   SPLITTING BY KIND WAS REJECTED ON MEASUREMENT, not taste: the 19 live
+#   baselines would be re-recorded twice, and expires_with would need a per-kind
+#   re-point IN src/ to keep its guard green. As cut, NO expires_with edit is
+#   needed at all -- all five entries name the same pair, CARD-322 still removes
+#   all five, and the guard only reds when every card an entry names is terminal.
+#   CARD-322 KEPT THE TERMINAL DELIVERABLE, so not one dependent edge moved: all
+#   seven gated cards plus CARD-273 still wait on the conversion their tests
+#   target, and the owner's "this card is the destination" stays literally true.
+#   CARD-288's gate and edge both UNCHANGED, deliberately: the premise that
+#   dissolves it is the BITMAP COUNT, and the bitmaps go when the DECLARATIONS
+#   go, so re-pointing it at CARD-336 would gate it on a card that converts
+#   nothing. Its own note already anticipates its successor and now resolves to
+#   CARD-336, whose round its re-cut should read.
+#   FIVE PREMISES STATED AS UNMEASURED, each with what would measure it -- the
+#   convention this board adopted for the vector family, where a premise is an
+#   inference about a tree that does not exist until a card builds it. The first
+#   is the residue CARD-322 faces after 336 and 337 land, which is unmeasurable
+#   today and is CARD-322's own item 0.
+#   OPEN FOR THE OWNER: 6d is six times the board's figure, and sizing.max_estimate
+#   is 1d with exactly one 2d precedent (CARD-329, which came in at 4.1h). The
+#   lever if 6d is unacceptable is CARD-337 -- its nine seams are the cheap
+#   two-thirds and its four mechanisms the expensive third; a four-way split puts
+#   every piece under 1.5d at the cost of a fourth graph edge.
+#
 active:
 - id: CARD-316
   phase: review
@@ -491,8 +563,20 @@ queued:
 - id: CARD-332   # P2 1d   NEXT TO START. Scheduled on the owner's word; premise checked, conflict-free, owes a render. See the block above `queued:`.
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
-- id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T12:10:00Z'
+#
+# THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
+# each is its successor's dependency, and all four pairwise share a file anyway
+# (page_ink.py / test_book_pdf.py / test_book_solved_answer_key.py), so one of
+# them plus a non-family card is the most the owner's cap of 2 can run.
+#   The decompose pass is DONE -- this is now a straight dispatch in order, not a
+#   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
+#   is measured rather than estimated. If 6d is unacceptable the lever is
+#   CARD-337: a four-way split puts every piece under 1.5d.
+- id: CARD-338   # P1 0.5d FIRST. The five-kind probe extension and the measured floor the other three infer today. Two lines of instrument; its value is that three cards stop pricing against a one-kind lift.
+- id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
+- id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
+- id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
+last_updated: '2026-10-31T12:45:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

@@ -16,7 +16,7 @@
 **Wave:** —
 **Created wave:** 72
 **Deferred waves:** 0
-**Depends on:** CARD-329, CARD-330
+**Depends on:** CARD-329, CARD-330, CARD-338 <!-- CARD-338 ADDED 2026-10-31 by the orchestrator, answering the re-cut's own judgement call 3. The re-cut built the five-kind probe extension, ran the census, and then described the instrument in prose in this card, CARD-337 and CARD-322 rather than carding it. Three cards quoting the same undelivered instrument is how CARD-309 happened -- five `expires_with` entries nobody owned, four cards that built writers with zero call sites. CARD-338 owns it, and its deliverable is the measured floor this card's premise needs: CARD-329's probe lifts PageKind.PUZZLE ALONE, so every figure this card inherits is measured against one fifth of the conversion. -->
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_guide_page.py
 **Review score:** —
 **Started:** —
