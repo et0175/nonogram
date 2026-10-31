@@ -82,7 +82,13 @@ for name, plants, nodes in PLANTS:
     sweep()
     for p, lineno, old, new in plants:
         lines = orig[p].splitlines(keepends=True)
-        assert old in lines[lineno - 1], (name, p.name, lineno, lines[lineno - 1])
+        # The line is LOCATED by its text and the hardcoded number is checked
+        # against it, so a plant can never land on a line that moved.
+        hits = [i for i, l in enumerate(lines) if old in l]
+        assert len(hits) == 1, (name, p.name, old, hits)
+        if hits[0] + 1 != lineno:
+            print(f"  note: {name} {p.name} target moved {lineno} -> {hits[0] + 1}")
+        lineno = hits[0] + 1
         lines[lineno - 1] = lines[lineno - 1].replace(old, new)
         p.write_text("".join(lines))
         assert sha(p) != base[p]

@@ -267,7 +267,7 @@ claimed by proximity.
 ### Mutant table — one cell per node id, with the assertion that fired
 
 Harness `scratchpad/card318fix/final_mutants.py`, fired on the **committed**
-code (`485b9164`). Protocol: SHA-256 of every target asserted before each
+code (`29a3066a`). Protocol: SHA-256 of every target asserted before each
 plant and after each restore (**all 10 `restore=ok`**, every target pristine
 afterwards, `git status --porcelain -- src/ tests/` empty),
 `PYTHONDONTWRITEBYTECODE=1` with a `*.pyc`/`__pycache__` sweep before **and**
@@ -276,14 +276,14 @@ asserted to be exactly 1** on every one of the 13 runs.
 
 | # | plant | site | node | verdict | the assertion that fired |
 |---|---|---|---|---|---|
-| R1 | `strategies_used=[]` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:519` hand-off is non-empty |
+| R1 | `strategies_used=[]` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:531` hand-off is non-empty |
 | R1 | " | " | AC-139 image | PASSED | correct discrimination — the plant is in the random path only |
 | R2 | `strategies_used=[]` | `app.py:1993` | AC-139 random | PASSED | correct discrimination — the plant is in the image path only |
-| R2 | " | " | AC-139 image | **FAILED** | `:519` hand-off is non-empty |
-| R3 | `strategies_used=['simple_overlap']` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:506` row == that puzzle's re-derived list |
+| R2 | " | " | AC-139 image | **FAILED** | `:531` hand-off is non-empty |
+| R3 | `strategies_used=['simple_overlap']` | `batch_generator.py:474` | AC-139 random | **FAILED** | `:518` row == that puzzle's re-derived list |
 | R3 | " | " | AC-139 image | PASSED | correct discrimination, as R1 |
 | R4 | `strategies_used=['simple_overlap']` | `app.py:1993` | AC-139 random | PASSED | correct discrimination, as R2 |
-| R4 | " | " | AC-139 image | **FAILED** | `:506` row == that puzzle's re-derived list |
+| R4 | " | " | AC-139 image | **FAILED** | `:518` row == that puzzle's re-derived list |
 
 **R1 and R2 still die; R3 and R4 now die too** — which is the round's
 deliverable. Counted from the rows: **8 cells, 4 FAILED, 4 PASSED**, and every
@@ -295,10 +295,10 @@ drives. Cycle 1 measured R3/R4 as SURVIVED on the same two lines.
 | # | plant | node | verdict | the assertion that fired |
 |---|---|---|---|---|
 | R5a | `puzzle_review.py:946` `if not strategies_used:` → `if True:` (store always derives), call sites pristine | AC-139 random | PASSED | no spurious red — nothing fired |
-| R5b | R5a **plus** `batch_generator.py:474` → `['simple_overlap']` | AC-139 random | **FAILED** | `:520` hand-off == re-derived list |
+| R5b | R5a **plus** `batch_generator.py:474` → `['simple_overlap']` | AC-139 random | **FAILED** | `:532` hand-off == re-derived list |
 | R6 | `LADDER_EXTENT` → `MIN_SIZE` | AC-139 random | PASSED | **not a control** — see below |
-| R7 | second picture → `owl1.png`, whose ladder is measured equal to `bird1.jpg`'s | AC-139 image | **FAILED** | `:609` the two ladders differ |
-| R8 | `search.py:629` → ladder truncated to its first rung | AC-139 random | **FAILED** | `:559` at least one ladder is longer than one rung |
+| R7 | second picture → `owl1.png`, whose ladder is measured equal to `bird1.jpg`'s | AC-139 image | **FAILED** | `:621` the two ladders differ |
+| R8 | `search.py:629` → ladder truncated to its first rung | AC-139 random | **FAILED** | `:571` at least one ladder is longer than one rung |
 
 **R6 is recorded as a failed mutant, not as a passing test.** It was written to
 red the random half's non-degeneracy floor by putting the extent back to
@@ -313,7 +313,7 @@ floor's control is R8, which truncates every ladder in the solver and therefore
 reds at **any** extent (twice out of two). R8 is also the discriminating plant:
 the identity arms stay green under it, because they re-derive through the same
 solver, so a truncated ladder is still that puzzle's list — the failure is at
-`:559` and nowhere earlier.
+`:571` and nowhere earlier.
 
 ### The corpora, and why they changed
 
@@ -324,7 +324,7 @@ solver, so a truncated ladder is still that puzzle's list — the failure is at
   timed out, and a batch of ten costs 0.3-0.7s. The batch RNG cannot be seeded
   from outside (`orchestrator.generate` draws its seed from
   `secrets.randbits`, `generate_batch` builds an unseeded `random.Random`), so
-  non-degeneracy is **asserted per arm** (`:559`) rather than arranged — this
+  non-degeneracy is **asserted per arm** (`:571`) rather than arranged — this
   suite's own style for a corpus it cannot seed. At the measured single-rung
   rate, ten draws miss the floor with probability ~1e-8.
 - **Image half: `bird2.jpg` beside `bird1.jpg`.** The image path draws nothing
@@ -333,7 +333,7 @@ solver, so a truncated ladder is still that puzzle's list — the failure is at
   'probe_contradiction')`, identical on repeated runs. Two ladders that differ
   is what makes **every** constant fail the identity assertion on this half,
   which the random half can only make overwhelmingly likely — and it is
-  asserted (`:609`), with R7 as its control.
+  asserted (`:621`), with R7 as its control.
 
 ### The docstring says what is asserted
 
