@@ -73,6 +73,37 @@ engineering constraints:
    *owed* by CARD-226 — the behaviour is planned, not rejected — and `superseded` is the
    wrong word for it. Either a distinct status value or an explicit decision that a
    forward declaration carries no status and lives in a comment. **State which and why.**
+5. **Inherit a SETTLED word for the never-adopted case, and do not re-open it lightly.**
+   <!-- Routed in 2026-10-31 by CARD-316 fix round 2 (review F2-002). -->
+   The registry's six retired acceptance criteria all carry `status: retired`, including
+   the four that were **never adopted** (AC-129, AC-134, AC-206, AC-207). CARD-316 first
+   gave those four a narrower `rejected` and withdrew it, because two **accepted** ADRs
+   already spend `retired` on exactly those four and one of them names a precedent for
+   doing so: `decisions/adr/0027-refuse-degenerate-density.md:167` ("AC-129, AC-134
+   (retired)"), `decisions/adr/0034-default-book-plan-150-at-40-40-20.md:48` ("AC-206,
+   AC-207 retired") and `0034-…:41` ("AC-206 … and AC-207 … are **retired unimplemented,
+   following the FR-004 / ADR-0027 precedent**"). `requirements.yml:181` uses the same
+   word for the adopted-then-amended pair. So `retired` is the word in force for both
+   families, and today it is inert — an acceptance criterion's `status` is read **nowhere**
+   in the validator of record. Re-measured by CARD-316 fix round 2 and **re-scoped in its
+   fix round 3** (review F3-002), because the inherited wording was an enumeration stated
+   as exhaustive that named 7 of 14: `_validate_criterion` does not read it,
+   `_validate_con_lifecycle`'s one call site is the constraints loop, and an `ast` walk
+   over the **21** `*.py` files of the validator tree finds **14** genuine `status` dict
+   reads inside `validators/` (28 such sites tree-wide, 26 of them reads) — **not one of
+   them on an acceptance criterion**. The objects they read are a CON
+   (`requirements.py:511`, `utils.py:361`), a trace entry (`trace.py:62`, `:188`,
+   `requirements.py:826`), a DEC (`decisions.py:57`, `:152`), an ADR/DEC open-shadow item
+   (`adr_integrity.py:213`), a docs-trace story entry (`docs_trace.py:215`), a persona
+   (`market.py:256`), a bet (`:284`), an SOP (`business.py:342`), a BCON (`:513`) and a
+   business-ledger entry (`:607`). `requirements.py:101` is a false positive: the word
+   "status" inside the module-level `OBSERVABLE_TOKENS` heuristic, not a dict read.
+   **This card inherits the fourteen, not the seven** — when it gives a criterion a
+   lifecycle the validator reads, that is the tree's first `status` read on an acceptance
+   criterion, and none of the fourteen existing sites has to change for it.
+   **This card is what makes it stop being inert**, so it is this card that must
+   either adopt `retired` for both families or, if it wants the narrower split, carry an
+   **ADR amendment** to ADR-0027 and ADR-0034 — not a block comment in the registry.
 
 ## Why this is blocked
 

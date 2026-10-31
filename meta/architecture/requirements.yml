@@ -297,6 +297,88 @@ functional:
     # nothing verifies a retired criterion, which is the same decision
     # AC-009's and AC-038's refs already embody. The LIVE criteria for this
     # behaviour are FR-019's AC-066..AC-070, re-pointed by the same card.
+    #
+    # CONVERTED 2026-10-31 by CARD-316's fix round, on the owner's decision of
+    # the same day (meta/kanban/dispatcher.state, "the retirement shape for an
+    # acceptance criterion"), which routed all eleven criteria -- CARD-316's
+    # seven and these four -- to one branch because a second edit of this file
+    # would only conflict. The four `test:` keys below are DROPPED. CARD-317's
+    # reason for keeping them -- that a dead ref is the honest statement that
+    # nothing verifies a retired criterion -- was right about the SUBSTANCE and
+    # wrong about the CARRIER: the key is the half a tool reads, and what it
+    # says to forge:status and to kanban's fail-closed AC/EC/G gate is "a test
+    # verifies this", which is the opposite of what the paragraph above means.
+    # Everything that carries the record stays -- the ids, the given/when/then,
+    # status, superseded_by, superseded_at, superseded_note -- so the
+    # supersession is still reversible. The four names the keys carried were
+    # TestGenerateRandom_ProducesRequestedSize,
+    # TestGenerateRandom_AcceptsMaxSize50, TestGenerateRandom_RejectsSizeAbove50
+    # and TestGenerateRandom_RejectsSizeBelow10; they are kept here, as prose,
+    # because they are the record of what the keys claimed, and it is safe to
+    # spell them because both resolvers -- the validator's `git grep -w` and
+    # tests/test_check_ref_resolution.py's -- exclude meta/architecture/
+    # outright. They are NOT re-pointed, for CARD-317's reason above.
+    #
+    # Each is still DECLARED, by trace.yml:110-113, which this card does not
+    # touch: so this conversion does NOT move the census or the honest-dead
+    # class, and the review's expectation that it would (573 -> 569, 9 -> 5) is
+    # REFUTED -- see the re-derivation on CARD-316's AC-6. Measured on the
+    # validator of record (forge_1's architect-validate/scripts/validate.py,
+    # the copy meta/kanban/config.yml names), WARN SETS diffed with `comm` and
+    # never totals: four dead-ref warnings OUT, four "acceptance criterion has
+    # no 'test'" warnings IN, nothing else moved. The same one-for-one trade
+    # CARD-316's own seven made.
+    #
+    # THE `status:` KEYS ON RETIRED CRITERIA IN THIS FILE ARE PROSE, NOT
+    # MACHINERY. This is the one place that says so and the other sites point
+    # here rather than repeating it. Measured, not assumed: an acceptance
+    # criterion's `status` is read NOWHERE by the validator of record.
+    # `_validate_criterion` (validators/requirements.py:196-235) reads the id,
+    # given/when/then, the `test:` key and the wording heuristics, and nothing
+    # else; the lifecycle check that DOES read `status`
+    # (`_validate_con_lifecycle`, :501) has exactly ONE call site, :460, inside
+    # the constraints loop. So the vocabulary is unenforced for an AC and no
+    # consumer honours these markers: they are the HUMAN record, and CARD-333
+    # owes the validator change that would make them real (owner's decision,
+    # item 5; same blocker as CARD-319).
+    #
+    # THE VOCABULARY IS BORROWED, NOT CHOSEN -- CORRECTED 2026-10-31 by
+    # CARD-316's fix round 2 (review F2-002). The paragraph that stood here said
+    # each value was "CHOSEN, not borrowed" and then split the six: `rejected`
+    # for AC-129, AC-134, AC-206, AC-207 (never adopted, so nothing superseded
+    # them) and `retired` for AC-191, AC-192 (adopted under BK-3, then amended
+    # away). THAT SPLIT IS WITHDRAWN AND ALL SIX TAKE `retired`, because two
+    # ACCEPTED ADRs already spend that word on the never-adopted four, and one
+    # of them names a precedent for doing so. The three lines, read directly:
+    #   decisions/adr/0027-refuse-degenerate-density.md:167
+    #     -- "AC-129, AC-134 (retired)"
+    #   decisions/adr/0034-default-book-plan-150-at-40-40-20.md:48
+    #     -- "AC-206, AC-207 retired"
+    #   decisions/adr/0034-default-book-plan-150-at-40-40-20.md:41
+    #     -- "AC-206 (30/45/25) and AC-207 (derived from audience) are RETIRED
+    #        UNIMPLEMENTED, following the FR-004 / ADR-0027 precedent"
+    # The last is decisive: it is the never-adopted case taking `retired` AND
+    # naming a precedent for it. So the never-adopted / adopted-then-amended
+    # distinction was NEW, not borrowed, and for four of the six it overrode the
+    # word of two accepted ADRs -- from a kanban card, which is an ADR amendment's
+    # job and not a block comment's. It is therefore not kept silently and not
+    # kept at all. This file agrees with the ADRs already: ":181" reads
+    # "AC-191/AC-192 RETIRED unimplemented (kept, FR-004 / ADR-0027 precedent)",
+    # and the comment above FR-028's density note reads "explicitly allowing
+    # degenerate grids (AC-129/AC-134) is retired unimplemented" -- the same word
+    # for both families.
+    # This file's AC `status` vocabulary before today was `superseded` (9 keys)
+    # and `unmet` (1). `superseded` fits FR-001's four above: each names its
+    # successor. It fits none of the six, which is why ONE word is added --
+    # `retired`, the word already in use here and in the two ADRs -- rather than
+    # two invented here.
+    # ROUTED: the vocabulary question goes to CARD-333's "What to implement"
+    # item 5, because CARD-333 owes the validator change this comment says it
+    # owes, and the moment it lands an inert marker disagreeing with two
+    # accepted ADRs about the same four criteria stops being inert.
+    # AC-379 is given NO status, deliberately: it is a FORWARD declaration owed
+    # by CARD-226, not a retirement, and the owner's decision reserves its exact
+    # form to CARD-333's item 4.
     status: superseded
     superseded_by: FR-019
     statement: >-
@@ -312,7 +394,6 @@ functional:
         when: the grid is generated
         then: a 20x20 black/white grid is produced
         kind: happy
-        test: TestGenerateRandom_ProducesRequestedSize
       - id: AC-002
         status: superseded
         superseded_by: AC-068
@@ -327,7 +408,6 @@ functional:
         when: the grid is generated
         then: a 50x50 grid is produced without error
         kind: boundary
-        test: TestGenerateRandom_AcceptsMaxSize50
       - id: AC-003
         status: superseded
         superseded_by: AC-069
@@ -340,7 +420,6 @@ functional:
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
         kind: negative
-        test: TestGenerateRandom_RejectsSizeAbove50
       - id: AC-004
         status: superseded
         superseded_by: AC-070
@@ -352,7 +431,6 @@ functional:
         when: generation is requested
         then: the request is rejected with a size-range error and no grid is produced
         kind: negative
-        test: TestGenerateRandom_RejectsSizeBelow10
 
   - id: FR-002
     statement: >-
@@ -1858,22 +1936,42 @@ functional:
         then: each is accepted by validate_density and a grid is drawn
         kind: boundary
         test: TestGenerateRandom_AcceptsDensityOneAndNinetyNine
+      # `test:` DROPPED 2026-10-31 (CARD-316) from BOTH criteria of this
+      # alternative, AC-129 and AC-134. DEC-034 resolved 2026-09-12 by ADR-0027
+      # as `refuse_degenerate_density`, so these two state the branch the
+      # project did NOT take; the refuse branch's AC-128/AC-133 are the live
+      # pair. Neither dropped name was ever written -- zero `def`/`class` for
+      # either anywhere under src/ or tests/, by an `ast` index, not a text
+      # search -- so each key made a REJECTED alternative read as mechanically
+      # checked to forge:status and to the kanban AC/EC gate, which is the one
+      # defect being repaired. The criteria, their ids, their given/when/then
+      # and this tag all stay: they are the record of what the DEC chose
+      # against. Writing either test would assert rejected behaviour.
+      # NB FR-028's `_meta.dec_expected` above still reads `true` although
+      # DEC-034 is in resolved.yml. Not touched here, and not two: derived from
+      # the authority (every `_meta.dec_expected: true` in this file, checked
+      # against decisions/resolved.yml and open.yml) the family is SEVEN --
+      # FR-025, FR-026, FR-027, FR-028, FR-030, FR-035, FR-044 -- each with a
+      # resolved DEC behind it and none open. The orchestrator is cutting one
+      # card for all seven; CARD-316 only records the finding.
       # alternative: allow_degenerate_grids
       # NB CARD-032 uses AC-129 for a different criterion of its own (CARD-106)
       - id: AC-129
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a random-mode request at 20x20 with density 100
         when: it is generated with no difficulty requested
         then: an all-filled 20x20 grid is returned with solution_count 1
         kind: boundary
-        test: TestGenerateRandom_AcceptsDegenerateDensityAsUniqueEasyPuzzle
+      # `test:` dropped with AC-129's -- the same alternative, the same
+      # authority; see the block above AC-129.
       # alternative: allow_degenerate_grids
       # NB CARD-033 uses AC-134 for a different criterion of its own (CARD-106)
       - id: AC-134
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: the all-filled 20x20 grid accepted for density 100
         when: it is scored
         then: its tier is Easy
         kind: boundary
-        test: TestGenerateRandom_DegenerateGridScoresEasy
       # holds under every alternative
       # NB CARD-032 uses AC-130 for a different criterion of its own (CARD-106)
       - id: AC-130
@@ -2539,20 +2637,47 @@ functional:
         test: TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare
       # RETIRED 2026-09-22 (b) unimplemented — the wide-grid flag is dropped
       # (BK-3 amended); replaced by AC-241. Kept as the record.
+      # `test:` DROPPED 2026-10-31 (CARD-316), on AC-191 and AC-192 both.
+      # "unimplemented" and a `test:` key cannot both be true, and the key is
+      # the half a tool reads. The flag was never built, so neither name was
+      # ever written: zero `def`/`class` for either under src/ or tests/, by an
+      # `ast` index rather than a text search. What the model DOES assert about
+      # a wide grid is AC-241's `TestBookSelect_WideGridAboveFloorCarriesNoFlag`
+      # in tests/test_book_select_floor_tiles.py — live, and the opposite
+      # claim, which is why re-pointing these two was never an option. Both
+      # criteria stay as the record (CARD-318's F-009 in the negative: a
+      # criterion re-pointed at a test that asserts something else resolves,
+      # so nothing warns, while verifying nothing).
+      #
+      # THE BOUND ON THAT SENTENCE, measured in review cycle 1 and recorded
+      # here rather than left as a claim (ADR-0039/R1): nothing CHECKS it.
+      # Re-pointing a criterion at an existing, defined, already-declared test
+      # that asserts something else was planted and run — AC-379 given back a
+      # `test:` naming AC-205's live class-style ref — and the result was
+      # tests/test_check_ref_resolution.py 23 passed, ALL GREEN, while the
+      # validator of record went 88 -> 87, one warning OUT and nothing IN. The
+      # census does not move (the ref was already declared), the defined class
+      # does not move (it already had a definition), the honest-dead class does
+      # not move (it was never dead). So the combined gate strictly PREFERS
+      # that lie to the honest gap this card shipped, and the pins detect only
+      # a phantom ENTERING and a declaration LEAVING. Closing it needs a check
+      # that reads what a test ASSERTS, which no instrument on this board does;
+      # it is carded alongside CARD-333's item 2 and CARD-319, not built here.
       - id: AC-191
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a 30-wide x 15-tall puzzle available for a book
         when: the puzzle-selection step lists it
         then: its tile carries a wide-grid flag
         kind: happy
-        test: TestBookSelect_FlagsWideGrid
       # RETIRED 2026-09-22 (b) unimplemented — no wide-grid flag exists to
       # be absent (BK-3 amended). Kept as the record.
+      # `test:` dropped with AC-191's; see the block above it.
       - id: AC-192
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a 20x20 puzzle and a 15-wide x 30-tall puzzle available for a book
         when: the puzzle-selection step lists them
         then: neither tile carries a wide-grid flag
         kind: negative
-        test: TestBookSelect_SquareAndTallGridsNotFlaggedWide
       # New 2026-09-22 (b) — upright, never turned.
       - id: AC-240
         given: a Book 1 profile book holding a 30-wide x 15-tall puzzle
@@ -3083,20 +3208,42 @@ functional:
         then: the plan is 150 puzzles at 40/40/20 (60/60/30)
         kind: happy
         test: TestBookCreate_DefaultPlanIs150At40_40_20
+      # `test:` DROPPED 2026-10-31 (CARD-316) from AC-206 and AC-207 both.
+      # DEC-036 resolved 2026-09-22 by ADR-0034 as `fixed_150_at_40_40_20`:
+      # AC-205 directly above is the chosen criterion, it is the only one of
+      # the three with a written test (class
+      # TestBookCreate_DefaultPlanIs150At40_40_20 in
+      # tests/test_book_plan_storage.py), and the code agrees —
+      # src/nonogram/admin/book_plan.py:345 reads
+      # `DEFAULT_PLAN: DistributionPlan = prefill(150, Split(40, 40, 20))`
+      # (quoted as it stands, annotation included), and it is the only Split
+      # literal in src/. The absence claim is narrowed to the spelling actually
+      # searched: zero hits for `30, 45, 25` under src/. The string `30/45/25`
+      # DOES occur once there — book_plan.py:36's module docstring, a worked
+      # largest-remainder tie-break example — which is prose inside the
+      # resolution domain, this card's own subject.
+      # So the 30/45/25 both criteria below assert is the split the project
+      # chose AGAINST, and neither named test was ever written (zero
+      # `def`/`class` under src/ or tests/, by an `ast` index). Both criteria
+      # stay as the record of the alternatives; AC-205 is untouched.
+      # NB FR-035's `_meta.dec_expected` above still reads `true` although
+      # DEC-036 is in resolved.yml — one of the SEVEN enumerated in the NB
+      # above AC-129, not touched here.
       # alternative: fixed_research_mix_30_45_25
       - id: AC-206
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a new book created with no Print setup values entered
         when: its stored plan is read
         then: the split is 30/45/25
         kind: happy
-        test: TestBookCreate_DefaultSplitIsResearchMix30_45_25
       # alternative: derived_from_audience
+      # `test:` dropped with AC-206's; see the block above it.
       - id: AC-207
+        status: retired   # PROSE, not machinery; vocabulary and reason on FR-001's block
         given: a new book created with audience "enthusiast" and no Print setup values entered
         when: its stored plan is read
         then: the split is 30/45/25
         kind: happy
-        test: TestBookCreate_DefaultSplitDerivedFromAudience
 
   - id: FR-036
     # New 2026-09-22 (BK-UI-4..BK-UI-6, BK-4 display half). Today
@@ -3709,12 +3856,53 @@ functional:
       # OWED by CARD-226, which splits the two-up page into two equal slots.
       # Declared here rather than left implicit, so the card inherits a
       # criterion instead of a sentence in a docstring.
+      #
+      # `test:` DROPPED 2026-10-31 (CARD-316) — and this entry is the one of
+      # the seven that is an HONEST forward declaration rather than a rejected
+      # claim. The criterion is right; the test is simply unwritten because
+      # CARD-226 has not run. The only lie was that a `test:` key makes an
+      # OWED test read as a PERFORMED one (adr-check-refs-must-be-honest).
+      #
+      # CARD-316 asked for `kind: review-lens` here instead of a drop. That was
+      # MEASURED to be a no-op and is not what landed: on the validator of
+      # record (forge_1's architect-validate/scripts/validate.py, the copy
+      # meta/kanban/config.yml names), `_validate_ac_ec_test_refs` passes the
+      # LITERAL string "test" as the check kind for every AC `test:` ref and
+      # never reads the entry's own `kind:`. Planting `kind: review-lens` on
+      # this criterion and re-validating produced an EMPTY symmetric difference
+      # over the whole WARN set and left this very dead-ref warning in place.
+      # `review-lens` is a kind of a CON's or an ADR rule's `check:` mapping
+      # (VALID_CON_CHECK_KINDS), a shape an acceptance criterion does not have;
+      # an AC's `kind:` is its scenario kind and the validator does not check
+      # it at all. So the honest machine-readable form here is the same as for
+      # the other six: no `test:`, and the AC stands as an unverified example.
+      #
+      # The planned name is
+      # TestTwoUpSlots_EachSlotFloatsAtFortyTwoPercentOfItsOwnSpare. It is kept
+      # here rather than only in git history because CARD-226 needs it, and it
+      # is safe to spell: both resolvers — the validator's `git grep -w` and
+      # tests/test_check_ref_resolution.py's — exclude meta/architecture/
+      # outright, so a name in this file resolves nothing.
+      # The obligation to restore the `test:` key is carried by CARD-226's
+      # AC-8, not by this comment: a demotion with no card owing the flip is
+      # how a shim becomes an end state. That carrier is itself GATED today
+      # (`Revision pending: true`, and meta/kanban/board.md lists CARD-226
+      # among the gated cards): its blocker turns on ADR-0037/R2's device floor
+      # versus R7, an owner decision with NO CARD anywhere on the board. So the
+      # flip-back is owed, the owing is recorded, and the shim may stand for as
+      # long as that decision does.
+      #
+      # AND NO `status:` HERE, deliberately. The six retired criteria this card
+      # also touched take one (prose; see FR-001's block for the vocabulary and
+      # the measurement that it is prose). This one does not, because a forward
+      # declaration is not a retirement and the owner's 2026-10-31 decision
+      # reserves its exact form to CARD-333's item 4. Giving it `superseded`
+      # would record a retirement that did not happen.
       - id: AC-379
         given: a two-up page whose slots have been split and whose bottoms are aligned
         when: each slot is drawn
         then: each slot's drawing floats at 42% of that slot's own spare height, with 58% below, measured off the drawn ink
         kind: happy
-        test: TestTwoUpSlots_EachSlotFloatsAtFortyTwoPercentOfItsOwnSpare
     engineering_constraints:
       - id: EC-027
         statement: >-

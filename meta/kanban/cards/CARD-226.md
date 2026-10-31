@@ -66,6 +66,54 @@ real region.
   *then* the number of pages is recorded against the figure before this card, and any change
   is attributed — equal slots may admit or refuse a pair the old asymmetric layout did not.
   (test: `TestBookTwoUp_PageCountIsAttributed`)
+- **AC-8** (registry, the flip back this card owes): *Given* this card merged, *then*
+  `requirements.yml`'s **FR-040/AC-379** carries a `test:` key again, naming the test this
+  card writes for the per-slot 42% float, and that test asserts AC-379's own `then` — each
+  slot's drawing at 42% of **that slot's** spare height with 58% below, measured off the
+  drawn ink — not merely a name that resolves.
+  **AC-8 is TWO claims and they have two different kinds of control. Split, because a
+  `(test: …)` slot covering only the narrower one is exactly the defect this family
+  exists to catch, one layer up** (CARD-316 fix round 1, review cycle 1's F-003):
+
+  - **the RESOLUTION half — mechanically checked.** (test: the criterion's restored
+    `test:` key resolving to a real `def`/`class`, which
+    `tests/test_check_ref_resolution.py` measures: AC-379's ref leaves that module's
+    honest-dead class and enters its defined class, and its `CENSUS` baseline grows by
+    one.) This is a real, failing-capable control and it witnesses the resolution and
+    nothing more.
+  - **the ASSERTION half — `check: review-lens`, owner: whoever reviews CARD-226.** That
+    the restored test asserts AC-379's **own** `then` — 42% of *that slot's* spare
+    height, 58% below, measured off the drawn ink — has **no mechanical control on this
+    board and this card does not pretend otherwise**. Measured, in CARD-316's review
+    cycle 1: a criterion re-pointed at an existing, defined, already-declared test that
+    asserts something else leaves `tests/test_check_ref_resolution.py` at **23 passed,
+    all green**, and takes the validator of record from **88 to 87** — one warning out,
+    nothing in. So the combined gate is *cheaper* for that re-point than for an honest
+    missing key, and no pin can see it. The reviewer of CARD-226 must read the restored
+    test against AC-379's `then` and say so; a green suite is not evidence here
+    (`adr-check-refs-must-be-honest`, ADR-0039/R1).
+
+  <!-- Added 2026-10-31 by CARD-316. AC-379 was declared in requirements.yml as a forward
+  declaration for this card and carried a `test:` key naming a test nobody has written, so
+  an OWED test read as a PERFORMED one to forge:status and to the kanban AC/EC gate — one of
+  seven such keys CARD-316 withdrew. CARD-316's own brief asked for `kind: review-lens`
+  instead of a withdrawal; that was measured to be a no-op (the validator of record passes
+  the literal "test" as the check kind for every AC `test:` ref and never reads the entry's
+  `kind:`; planting the flip left the WARN set byte-identical), so the key was dropped like
+  the other six and the obligation moved here. The reason it is an AC and not a note:
+  a demotion with no card owing the flip is how a shim becomes an end state
+  (`adr-check-refs-must-be-honest`). AC-379's text and id are unchanged in the registry;
+  only its `test:` key is gone, and its comment block there records the planned name.
+
+  AND THE GATE ON THIS CARD, recorded where the obligation sits (CARD-316 fix round 1,
+  F-003): CARD-226 cannot start today. Its header carries `Revision pending: true` and
+  meta/kanban/board.md lists it among the gated cards; its blocker turns on an
+  architecture decision — ADR-0037/R2's device floor versus R7, which makes R2
+  inapplicable to the interior — and that decision has NO CARD anywhere on the board.
+  So AC-379's registry state is honest in the meantime (no key, a comment recording the
+  plan) but the flip-back is owed by a card whose own blocker is un-carded, and the shim
+  may stand for as long as that owner decision does. That is a weaker guarantee than
+  "the obligation is carried by a card" sounds, and it is stated rather than implied. -->
 
 ## Guardrails
 
