@@ -158,6 +158,52 @@ So the separation is deliberate and it protects this decision:
 **Print `~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf` at
 100 %** — the same 30×30 corner four ways at 1:1 — before ADR-0037 is revised.
 
+### And it does not resolve the device floor for interior **furniture**
+
+**Measured and recorded by CARD-330 (2026-10-31); the policy is still nobody's.**
+
+ADR-0037/R2 holds page furniture that must not drop out on press to its
+2-device-pixel floor — 0.169 mm at 300 DPI — *"for the dropout reason directly
+and not through R2"* (that ADR's own note on R2). **R7 in this ADR's Rules
+below makes that floor inapplicable to the interior**, *"because a
+content-stream line has no device pixel to clear"*.
+Those two sentences collide on interior furniture, and **the collision is
+unresolved for interior furniture**: nothing on the board owns it, and two
+cards wait on it — **CARD-208** (ruled boxes for clue numbers) and
+**CARD-226** (a two-up page split by a light rule); **CARD-215** was a third
+and is postponed. Both of the remaining two quote a *superseded* R2 in their
+System contract rows and need it re-derived whichever way this goes.
+
+What CARD-330 can contribute is the figure, and it is this: **R7's premise is
+true of the stream and false of the device the stream is printed on.** A
+content-stream line has no device pixel of its own, but every RIP gives it
+some, at its own resolution — and the 0.3 pt cell line, rendered by poppler at
+its declared 35 % grey (grey 89, never diluted by coverage), lands on:
+
+| resolution | 0.3 pt is | device pixels it inks |
+|------------|-----------|-----------------------|
+| 150 DPI    | 0.625 px  | **1**                 |
+| 300 DPI    | 1.25 px   | **2**                 |
+| 600 DPI    | 2.5 px    | **2**                 |
+| 1200 DPI   | 5.0 px    | **5**                 |
+
+So at the interior's own 300 DPI a vector hairline clears R2's 2 px floor
+*exactly* — and it clears it by the rasteriser's stroke adjustment, not by
+anything the writer declared, and it fails to clear it at 150. The realised
+width is the device's answer and not the document's, which is why a floor
+stated in device pixels cannot be read off a content stream in either
+direction.
+
+**This ADR does not turn that into a floor.** R7's own caveat stands: the owner
+judged renders, not paper; dot gain at 0.1058 mm and whether 35 % grey reads as
+guidance are measured by nobody; and the revisit trigger is the first printed
+book or proof. A reader of these two rules should take the question as **open**
+rather than infer a floor neither rule grants.
+
+**Dividers are untouched by all of this** — R2 makes the divider an exception by
+*scheduling* and not by technique, and CARD-231 redesigns that page to be *born*
+vector.
+
 ## Alternatives considered
 
 ### A PDF library — reportlab, fpdf2, weasyprint (DEC-048)
@@ -279,6 +325,43 @@ one remaining lever (width) for distinguishing furniture from grid ink.
 - **CON-019**, **CON-018/NFR-008**, **CON-020**.
 
 ## History
+
+- 2026-10-31: **The 0.169 mm the two media "disagreed" by is half a rule, not a
+  placement — and `EDGE_TOLERANCE_MM` was not widened.** CARD-330. CARD-309's
+  round measured the raster's ink and the vector's stream 2 device pixels apart
+  on all four edges of CARD-295's `Twin` fixture and routed the consequence to a
+  convention decision. Re-derived here against a position worked out from the
+  page spec alone — 24 pages, three trims, both parities, both arms of FR-032's
+  vertical placement, 96 edge readings — the premise is false: the specified
+  boundary, the stream's operand and the raster's rule *centreline* are one
+  number, and the 2 px is `page_ink.drawing_of`'s leading-ink-edge reading of a
+  rule centred on that boundary. It is `(width - 1) // 2`, so it is 1 px for the
+  3 px cell line and 2 px for the 6 px border — which is how it is told from a
+  quantisation step, and why its coincidence with ADR-0037/R2's 2 px device
+  floor is a coincidence of two different constants.
+
+  Three things are recorded rather than left in a card.
+
+  **(1) The canonical medium for a placed-edge claim is the content stream**,
+  because its coordinate *is* the specified boundary — see R6's note for the
+  table and for what a conversion actually moves (1 px / 0.0847 mm on the
+  grid's edges, inside the bound; 3 px / 0.254 mm on the drawing's own edges,
+  outside it, and a mitred frame corner rather than a placement).
+
+  **(2) The bound was not moved.** Loosening a placed-edge tolerance to admit a
+  mitre is how an instrument's artefact becomes the board's convention, which is
+  the hazard CARD-330 was cut to avoid. The raster's expectations are pinned to
+  the raster instead — derived, not declared — and CARD-322's conversion retires
+  them, which is the owner's steer of 2026-10-30 ("vector is the destination;
+  don't spend much time fixing-updating raster") carried out rather than argued
+  with.
+
+  **(3) The device floor is unresolved for interior furniture**, and that is now
+  written down in "What this does NOT decide" with the figure that makes the
+  question real: a 0.3 pt hairline inks 1 / 2 / 2 / 5 device pixels at
+  150 / 300 / 600 / 1200 DPI, at its declared tone throughout. R7's "no device
+  pixel to clear" is true of the stream and false of the press. The policy stays
+  with the owner at the first printed proof.
 
 - 2026-10-29: **The interior sheet's furniture exists in operators, drawn once,
   and the QR block's medium is decided: drawn rectangles.** CARD-306. Until this
@@ -753,6 +836,83 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # tests/property/test_book_two_up.py:682, one `getpixel` probe each.
   # NOT in the set and must stay out of it: :652's `same_page` on the COVER,
   # which is raster by R2, and the independent oracles R6's statement exempts.
+  #
+  # WHICH MEDIUM IS **CANONICAL FOR A PLACED-EDGE CLAIM**, and the
+  # measurement that settles it (CARD-330, 2026-10-31). The answer is the
+  # CONTENT STREAM, and it is canonical for one reason and not by preference:
+  # its coordinate IS the specified boundary. Measured over a seeded corpus of
+  # 24 puzzle pages across three trims, both parities and both arms of
+  # FR-032's vertical placement, 96 edge readings in all
+  # (`tests/test_book_pdf.py::TestEdgeOffset_*`):
+  #
+  #   | reading                               | where it lands           |
+  #   |---------------------------------------|--------------------------|
+  #   | specified (page spec, derived in mm)  | the boundary             |
+  #   | vector content stream (its operands)  | the boundary, < 1.5 px   |
+  #   | raster rule CENTRELINE (COMP-007)     | the boundary             |
+  #   | raster INK, `page_ink.drawing_of`     | boundary - 2 px          |
+  #   | vector INK, poppler at 300 DPI        | boundary - 3 px          |
+  #
+  # AMENDED 2026-10-31 (CARD-330 fix round 1, cycle 1's F-003): the stream
+  # row's `< 1.5 px` was the DERIVED ceiling of three half-pixel roundings,
+  # not a measurement, and it was the only control the claim had. Measured
+  # over the same corpus, the worst spec-against-stream disagreement is
+  # **1.0 px exactly** (0.0847 mm, `grid_bottom` in FR-032's footer-bound arm
+  # — the edge anchored on the rounded trim extent, as the derivation
+  # predicts), and the test now asserts **1.05 px** = 0.0889 mm, which is
+  # inside the 0.1 mm placed-edge bound this card declined to widen. The
+  # drawing's own outer edges are at **0.5437 px** (0.0460 mm), asserted at
+  # 0.6 px. The 1.5 px above remains true and is kept as the derivation's
+  # documented ceiling; it is no longer what anything is asserted against.
+  #
+  # **So CARD-309's "the two media place the same grid 2 device pixels apart"
+  # is not what was measured.** The two numbers it subtracted — ink
+  # `grid_left/right` 963/1849 against stream 965/1851 — are an ink EXTENT and
+  # a PATH COORDINATE: `drawing_of` reports a rule's first inked pixel line
+  # and a rule is centred on its boundary, so the reading sits
+  # `(width - 1) // 2` outside it. That is 2 px for the raster's 6 px border
+  # and 1 px for its 3 px cell line, which is how a half-rule is told from a
+  # quantisation step: a quantisation of the grid's POSITION would not change
+  # with the rule's weight, and this does. Re-derived on CARD-309's own
+  # fixture, the raster page's `Layout` places those two borders at **965 and
+  # 1851** — the stream's own figures to the pixel, and the raster's rule is
+  # centred there; 963 and 1849 are where its 6 px of ink begins. Neither
+  # medium is off spec, so there was never a convention to hold, and 0.1693 mm is NOT ADR-0037/R2's
+  # device floor arriving by another road — it is half of a 6 px rule, and
+  # that 6 px is twice the book's own 0.25 mm raster thin-rule floor (2.95 px,
+  # rounded up to 3). Two different constants, the same two pixels.
+  #
+  # **What a conversion really moves**, which is the figure CARD-322 inherits,
+  # read ink against ink by one oracle at one resolution:
+  #
+  #   * the grid's four edges: **1 device pixel, 0.0847 mm** — the two media
+  #     stroke different widths by design (R2's declared 1.3 pt against
+  #     COMP-007's proportional 6 px). This is INSIDE
+  #     `tests/test_book_pdf.py`'s `EDGE_TOLERANCE_MM = 0.1`.
+  #   * the drawing's own left/top edges — what every 25.45 mm assertion in
+  #     that module reads: **3 device pixels, 0.254 mm**, OUTSIDE the bound.
+  #     The raster is at the specified margin; the vector's ink is not,
+  #     because a framed drawing is one stroked `re` whose outer corner is
+  #     mitred, where Pillow strokes four butt-capped lines and the frame's
+  #     top side begins above where its left side starts. It is a corner, not
+  #     a placement: both writers put that side at the same coordinate.
+  #
+  # **`EDGE_TOLERANCE_MM` was therefore NOT widened** (CARD-330 AC-4/G-1, and
+  # the register `tests/test_book_pdf.py::EDGE_TOLERANCE_EXEMPTIONS` is empty
+  # and asserted empty). Widening a placed-edge bound to 0.3 mm would have
+  # admitted an instrument's mitre, which is the hazard that card was cut to
+  # avoid. What the 0.254 mm reading needs is an oracle that reads the frame
+  # rule's CENTRE rather than its first inked line — still a pixel oracle, so
+  # still exempt here (G-2) — and that belongs with the conversion, i.e. to
+  # CARD-322. Until then this module's placed-edge expectations are PINNED to
+  # the raster, mechanically: every assertion in `tests/test_book_pdf.py` that
+  # compares against `EDGE_TOLERANCE_MM` is derived to read its page through
+  # `drawing_of` and none through a content stream
+  # (`TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`), so a page
+  # converted under one of them reds until the site states its new medium.
+  #
+  # CARD-312 owns the per-site disposition of the 321 pixel-reading sites and
+  # CARD-329 the readers; neither needs to re-measure this.
   #
   # SECOND EXEMPTION ADDED 2026-10-25, when the owner's grid weights landed.
   # FR-033/AC-374 and CARD-227's AC-5/AC-6 assert that the three declared

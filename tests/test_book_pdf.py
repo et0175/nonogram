@@ -14,6 +14,11 @@
     AC-276  TestBookPdf_ParityNeverMovesTopEdge
     AC-287  TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
             (re-measured 2026-10-17 for CARD-206: interior page 6, left-hand)
+    CARD-330's own four classes carry no AC of this card's: TestEdgeOffset_*,
+            which measure where the raster and the vector media put the same
+            grid against a position derived from the page spec, and pin this
+            module's placed-edge expectations to the medium they were measured
+            in. See :data:`EDGE_TOLERANCE_MM`.
 
 Since CARD-128 the interior opens each non-empty level with a divider page,
 since CARD-200 a table-of-contents page (or pages) sits between the guide and
@@ -61,7 +66,9 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import random
 import re
+from dataclasses import dataclass
 from importlib import resources
 
 import numpy as np
@@ -117,6 +124,18 @@ SIX_BY_NINE_MM = (6 * 25.4, 9 * 25.4)
 PX_PER_MM = 300 / 25.4
 
 #: Tolerances the ACs state: the cell to 0.05 mm, a placed edge to 0.1 mm.
+#:
+#: **Every placed-edge expectation in this module is the RASTER interior's,
+#: measured on Pillow's bitmap at 300 DPI through
+#: ``page_ink.drawing_of``** — which reads a rule's first inked pixel line, so
+#: it sits half a rule outside the boundary the page spec states (CARD-330:
+#: 2 px for the 6 px border, 1 px for the 3 px cell line). The expectations are
+#: pinned to that medium rather than re-tuned for both, because the interior is
+#: going vector and **CARD-322's conversion retires them**; the pin is derived
+#: rather than declared, by
+#: :class:`TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`. The bound
+#: itself is NOT widened and the reason is measured — see
+#: :data:`EDGE_TOLERANCE_EXEMPTIONS`, which is empty.
 CELL_TOLERANCE_MM = 0.05
 EDGE_TOLERANCE_MM = 0.1
 
@@ -3891,3 +3910,1106 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         message = str(raised.value)
         assert "toc page is written as operators" in message, message
         assert "guide" not in message, message
+
+
+# --------------------------------------------------------------------------
+# CARD-330 — where the two media put the grid, measured against the spec
+# --------------------------------------------------------------------------
+#
+# CARD-309's round measured that the raster and the vector place "the same
+# grid 2 device pixels apart on all four edges" (ink ``grid_left/right``
+# 963/1849 against stream 965/1851) and routed the 0.169 mm that follows to a
+# convention decision. Re-derived here, over a seeded corpus and against a
+# position worked out from the page spec alone, **that premise is false**, and
+# the three numbers below say why: the specified boundary, the vector's stream
+# coordinate and the raster's own rule *centreline* are one number, and the
+# 2 px is :func:`tests.helpers.page_ink.drawing_of`'s **leading ink edge** of a
+# rule that is centred on that boundary, differenced against a centreline. The
+# two figures CARD-309 subtracted are an ink extent and a path coordinate —
+# two instruments with different domains — so neither medium is off spec and
+# there is nothing to hold a convention about.
+#
+# What a conversion really moves is measured here too, because that is the
+# figure CARD-322 inherits: read ink against ink, by one oracle at one
+# resolution, the grid's four edges differ by **1 device pixel** (0.0847 mm,
+# inside :data:`EDGE_TOLERANCE_MM`) and the drawing's own left/top edges by
+# **3** (0.254 mm, outside it). Both differences are rule-thickness
+# rasterisation, not placement: the raster strokes 6 whole pixels through
+# Pillow while the vector strokes ADR-0037/R2's declared 1.3 pt (5.4167 px)
+# through poppler, and a framed drawing's single stroked ``re`` mitres its
+# outer corner where four butt-capped Pillow lines do not.
+
+#: Poppler, which did not write the file, is the independent half of the
+#: vector reading (``tests/helpers/pdf_vector.py``'s own docstring). A host
+#: without it says so rather than passing quietly.
+_needs_poppler = pytest.mark.skipif(
+    pdf_vector.PDFTOPPM is None,
+    reason="poppler's pdftoppm is not installed, so the vector page cannot be rendered",
+)
+
+#: How much of the puzzle area's spare height goes above the drawing —
+#: FR-032 as amended 2026-10-17. Written out here, as this module writes every
+#: other figure out.
+_SPARE_ABOVE = 0.42
+
+#: Where the band's own rule is struck, as a share of the band measured down
+#: from the top margin: seven eighths of it, so the rule is lifted one eighth
+#: of the band off the band's foot (CARD-222). The puzzle area's top edge.
+_HEADER_RULE_SHARE = 1 - 1 / 8
+
+#: The footer strip the puzzle area stops above, in millimetres: the 20 mm QR
+#: slot, the 10 pt footer line and the two 9 pt gaps around them (CARD-248).
+_FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * 25.4 / 72
+
+#: The raster grid's thin rule, in whole device pixels: the book's 0.25 mm
+#: floor rounded **up** at 300 DPI. The heavy rule is exactly twice it, and
+#: at every cell a book trim can give, that floor is what binds.
+_RASTER_THIN_PX = 3
+_RASTER_HEAVY_PX = 2 * _RASTER_THIN_PX
+
+#: ADR-0037/R2's declared interior weights, in points.
+_DECLARED_BORDER_PT = 1.3
+_DECLARED_CELL_PT = 0.3
+
+#: How far the derived millimetre figure may sit from a renderer's own
+#: boundary. Three whole-pixel roundings separate them and none of them is a
+#: placement: the trim's own extent (a 235 mm trim is 2774 px, i.e. 234.86 mm),
+#: each boundary rounded once from exact fractions, and the committed pitch.
+#: Each contributes at most half a pixel, so 1.5 px is the derived ceiling.
+#: It is a bound on the *derivation*, not on a placed edge, and it is
+#: deliberately not :data:`EDGE_TOLERANCE_MM`.
+#:
+#: **This is the derivation's ceiling and no longer a live bound.** It is
+#: asserted only as the ceiling the two *measured* bounds below must stay
+#: under. Until CARD-330 cycle 1's F-003 it was AC-1's sole control, and
+#: measured it held nothing: tightening it to 1.05 px passed, and loosening it
+#: to 12.0 px passed too. It is also 0.127 mm — *wider* than the
+#: :data:`EDGE_TOLERANCE_MM` this card declined to widen, which is the
+#: asymmetry a reader re-deriving from this test used to inherit.
+_SPEC_ROUNDING_PX = 1.5
+
+#: The live bound on the grid edges' derived-against-stream agreement. The
+#: **measured** worst disagreement over the corpus below is 1.0 px exactly
+#: (``22x28 d1 page 16 on 190x235 mm``, ``grid_bottom`` — FR-032's
+#: footer-bound arm, the one anchored on the rounded trim extent, as the
+#: ceiling above predicts), so this bound is that figure plus 5 %. 1.05 px is
+#: 0.0889 mm, **inside** :data:`EDGE_TOLERANCE_MM`, and the span test asserts
+#: that relation so the derivation's bound can never again sit looser than the
+#: placed-edge bound it is not.
+_SPEC_MEASURED_PX = 1.05
+
+#: The same, for the drawing's own outer edges — where the raster's ink is
+#: *at* the specified margin and the only disagreement is sub-pixel rounding.
+#: Measured worst 0.5437 px (``16x25 d5 page 13 on 190x235 mm``,
+#: ``drawing_left``), so the bound is 0.6 px = 0.0508 mm. Two live bounds
+#: rather than one is F-003's other half: no single constant decides AC-1's
+#: answer any more.
+_SPEC_DRAWING_MEASURED_PX = 0.6
+
+#: The corpus's **floor**, asserted inside the tests that read it so the
+#: corpus cannot silently shrink — CLAUDE.md's test style in terms:
+#: "asserting a minimum case count inside the test itself so the corpus can't
+#: silently shrink. Prefer an independent second implementation over
+#: re-deriving a value with the same function you're testing." G-5 forbids
+#: lowering it.
+#:
+#: Both are **literals**, asserted equal to the enumerated span AC-1 names
+#: (``len(_EDGE_TRIMS) * len(_EDGE_PARITIES) * len(_EDGE_BOUNDS) *
+#: _EDGE_DRAWS_PER_COMBINATION``, and ``_MIN_EDGE_CASES * len(_GRID_EDGES)``)
+#: rather than computed from it, and deliberately **not** the constant the
+#: fixture counts with (:data:`_EDGE_CASE_COUNT`). Until CARD-330 cycle 1's
+#: F-001 the floor and the generator were one constant, which made both floor
+#: assertions satisfied by construction for any value of it: lowering it from
+#: 24 to 3 left all 24 tests green with 87.5 % of the corpus gone.
+_MIN_EDGE_CASES = 24
+_MIN_EDGE_READINGS = 96
+
+#: The four grid boundaries every reading carries, and the drawing's own two
+#: outer edges — the ones AC-274's 25.45 mm is read from.
+_GRID_EDGES = ("grid_left", "grid_right", "grid_top", "grid_bottom")
+_DRAWING_EDGES = ("drawing_left", "drawing_top")
+
+#: The three trims the corpus sweeps. Book 1's own 8.5 x 11 in first, then
+#: the two smaller trims the panel offers — the cell is fitted to the page,
+#: so a one-trim corpus would hold one cell.
+_EDGE_TRIMS = (
+    (BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM),
+    (7.5 * 25.4, 9.25 * 25.4),
+    (6.0 * 25.4, 9.0 * 25.4),
+)
+
+#: The other two dimensions of that span, enumerated for the same two
+#: reasons: the floor is asserted against them, and each is asserted against
+#: the drawn corpus as a set equality — so dropping a dimension reds the
+#: floor rather than quietly halving the corpus.
+_EDGE_PARITIES = (0, 1)
+_EDGE_BOUNDS = ("ratio", "footer")
+
+#: The quotient that takes the three structural dimensions to the corpus size:
+#: 24 / (3 trims x 2 parities x 2 bounds). **Not** a guarantee of two draws per
+#: combination, and this comment used to say it was (cycle 2's F-202). Trim and
+#: parity are structural, but the vertical bound is **emergent** from the seeded
+#: RNG, so the realized distribution over the 12 combinations is measured at
+#: 1/2/3 -- four combinations each -- rather than 2 apiece. All 12 *are*
+#: realized, which is better than the assertions guarantee; what is not true is
+#: that each is sampled twice. AC-1 claims span, not balance, and the span is
+#: asserted as a set equality per dimension, so F-001's anchor is unaffected:
+#: shrinking any dimension still reds.
+_EDGE_DRAWS_PER_COMBINATION = 2
+
+#: How many cases the fixture actually draws. Deliberately separate from
+#: :data:`_MIN_EDGE_CASES`: lowering this reds the floor instead of travelling
+#: with it, which is the whole point of the two not being one constant.
+_EDGE_CASE_COUNT = 24
+
+
+def _specified_grid_mm(
+    columns: int,
+    rows: int,
+    depth: int,
+    *,
+    width_mm: float,
+    height_mm: float,
+    page: int,
+) -> dict[str, float]:
+    """Where this page's grid boundaries **should** be, in millimetres.
+
+    A second implementation, written here from CON-018's profile, FR-030's
+    page fit and FR-032's centring, exactly as :func:`_expected_left_mm` and
+    :func:`_expected_cell_mm` are — and like them it reads neither renderer,
+    no ``compute_layout`` and no ``book_page_spec``. That is what makes it
+    usable as the *specified* column of the three numbers AC-1 asks for: a
+    position taken from either renderer could not tell which renderer was
+    right.
+
+    Horizontally this is :func:`_expected_left_mm`'s own arithmetic carried on
+    through the row-clue gutter to the grid's two borders. Vertically the
+    drawing floats at :data:`_SPARE_ABOVE` of the **puzzle area**'s spare
+    height — the strip between the band's own rule (:data:`_HEADER_RULE_SHARE`
+    of the band below the top margin) and the footer strip
+    (:data:`_FOOTER_STRIP_MM` up from the bottom margin) — and is held at the
+    band's foot instead on a drawing too deep to clear both rules, which is
+    FR-032's own "footer" bound.
+
+    Args:
+        columns: The grid's columns.
+        rows: The grid's rows.
+        depth: The clue gutter's depth, in cells, on both axes.
+        width_mm: The trim's width.
+        height_mm: The trim's height.
+        page: The interior page number, whose parity mirrors the margins.
+
+    Returns:
+        ``grid_left``/``grid_right``/``grid_top``/``grid_bottom`` and the
+        drawing's own ``drawing_left``/``drawing_top``, in millimetres from
+        the trim's top-left corner, plus the ``cell`` they were derived at and
+        the ``bound`` (``"ratio"`` or ``"footer"``) that placed the top edge.
+    """
+    usable_width = width_mm - GUTTER_MM - OUTSIDE_MM
+    usable_height = height_mm - TOP_MM - BOTTOM_MM - BAND_MM
+    cell = min(
+        STANDARD_CELL_MM,
+        usable_width / (depth + columns),
+        usable_height / (depth + rows),
+    )
+    right_hand = page % 2 == 1
+    left_margin = GUTTER_MM if right_hand else OUTSIDE_MM
+    spare_width = usable_width - (depth + columns) * cell
+    drawing_left = left_margin + max(spare_width, 0.0) / 2
+
+    area_top = TOP_MM + BAND_MM * _HEADER_RULE_SHARE
+    area_bottom = height_mm - BOTTOM_MM - _FOOTER_STRIP_MM
+    band_bottom = TOP_MM + BAND_MM
+    drawing_height = (depth + rows) * cell
+    spare_height = (area_bottom - area_top) - drawing_height
+    # The clearance each gap has to pay: half the drawing's own heavy rule,
+    # half the heavier of the two furniture rules, and the pixel that makes
+    # "clear" strict. The header's 0.6 pt is 3 px at 300 DPI and the footer's
+    # 0.4 pt is 2, so the heavier of the two is 3 — and both halves are
+    # rounded up, as a minimum is.
+    _furniture_px = 3
+    clearance_px = -(-_RASTER_HEAVY_PX // 2) + -(-_furniture_px // 2) + 1
+    clearance_mm = clearance_px / PX_PER_MM
+    gap_above = _SPARE_ABOVE * spare_height
+    if gap_above < clearance_mm or spare_height - gap_above < clearance_mm:
+        # One pixel of drawing past the footer rule, or the band's foot if
+        # that is lower on the page — whichever refuses the footer group.
+        drawing_top = max(band_bottom, area_bottom + 1 / PX_PER_MM - drawing_height)
+        bound = "footer"
+    else:
+        drawing_top = area_top + gap_above
+        bound = "ratio"
+
+    return {
+        "cell": cell,
+        "bound": bound,
+        "drawing_left": drawing_left,
+        "drawing_top": drawing_top,
+        "grid_left": drawing_left + depth * cell,
+        "grid_right": drawing_left + (depth + columns) * cell,
+        "grid_top": drawing_top + depth * cell,
+        "grid_bottom": drawing_top + (depth + rows) * cell,
+    }
+
+
+#: One ``m ... l S`` stroke of a content stream, and the ``w`` that set its
+#: width. Spelled here rather than imported from ``tests/helpers/pdf_vector``
+#: because what is wanted is the grid's two **border** rules and nothing else,
+#: which is a width comparison and not a mark taxonomy.
+_STREAM_NUMBER = r"-?\d+(?:\.\d+)?"
+_STREAM_WIDTH = re.compile(rf"^({_STREAM_NUMBER}) w$")
+_STREAM_STROKE = re.compile(
+    rf"^({_STREAM_NUMBER}) ({_STREAM_NUMBER}) m "
+    rf"({_STREAM_NUMBER}) ({_STREAM_NUMBER}) l S$"
+)
+
+
+def _stream_grid_mm(written: bytes) -> dict[str, float]:
+    """The grid's four boundaries as the **content stream** places them, in mm.
+
+    The stream's own operands, converted out of PDF points and flipped onto
+    the page's top-left origin — so this reads the written file and not the
+    geometry that wrote it. The grid's boundaries are its two
+    :data:`_DECLARED_BORDER_PT` rules on each axis, which are the heaviest
+    strokes a puzzle page sets; the frame's box is a single ``re`` and is not
+    a stroke this reads at all.
+
+    **The flip is against the page's own MediaBox and not against the stored
+    trim**, and that is not a detail: a PDF's y grows upward from the page
+    foot, the page's height is the trim rounded to whole device pixels (a
+    235 mm trim is 2774 px, i.e. 234.86 mm), and flipping 235 mm against a
+    234.86 mm page shifts every horizontal reading by 1.6 px. Measured: it
+    made the vertical edges of one trim in three read 3 px out instead of 2,
+    which is an instrument error that looks exactly like a medium
+    disagreeing.
+    """
+    (_left, _bottom, _right, top), *_rest = pdf_page_boxes(written)
+    height_mm = top * 25.4 / 72
+    (stream_text,) = pdf_vector.content_streams(written)
+    width: float | None = None
+    verticals: list[float] = []
+    horizontals: list[float] = []
+    for line in stream_text.splitlines():
+        line = line.strip()
+        setting = _STREAM_WIDTH.match(line)
+        if setting is not None:
+            width = float(setting.group(1))
+            continue
+        stroke = _STREAM_STROKE.match(line)
+        if stroke is None or width != _DECLARED_BORDER_PT:
+            continue
+        x1, y1, x2, y2 = (float(operand) for operand in stroke.groups())
+        if x1 == x2:
+            verticals.append(x1 * 25.4 / 72)
+        elif y1 == y2:
+            horizontals.append(height_mm - y1 * 25.4 / 72)
+    if len(verticals) < 2 or len(horizontals) < 2:
+        raise ValueError(
+            f"this stream sets no pair of {_DECLARED_BORDER_PT} pt border "
+            f"rules on each axis: {len(verticals)} vertical, "
+            f"{len(horizontals)} horizontal"
+        )
+    return {
+        "grid_left": min(verticals),
+        "grid_right": max(verticals),
+        "grid_top": min(horizontals),
+        "grid_bottom": max(horizontals),
+    }
+
+
+@dataclass(frozen=True)
+class _EdgeReading:
+    """One page's grid edges, read three ways, in millimetres.
+
+    Attributes:
+        label: The case, for a failure message.
+        page: The interior page number this was drawn as — its parity is what
+            mirrors the margins.
+        trim_mm: The trim it was drawn on, ``(width, height)``.
+        framed: Whether the raster page's drawing is closed off by a frame,
+            read off the page.
+        bound: What placed the drawing's top edge — ``"ratio"`` or
+            ``"footer"``, from the derivation and not from the renderer.
+        specified: :func:`_specified_grid_mm`'s answer — the page spec's own
+            arithmetic, which neither renderer was asked.
+        raster_ink: What ``page_ink.drawing_of`` reads off the **raster**
+            page: Pillow's bitmap at 300 DPI, measured as the first inked
+            pixel line of each rule.
+        vector_stream: What the written **content stream** places, from its
+            own operands (:func:`_stream_grid_mm`).
+        vector_ink: What the same ``drawing_of`` reads off a **poppler**
+            render of that stream at the same 300 DPI — the ink half of the
+            vector medium, by an engine that did not write the file.
+    """
+
+    label: str
+    page: int
+    trim_mm: tuple[float, float]
+    framed: bool
+    bound: str
+    specified: dict[str, float]
+    raster_ink: dict[str, float]
+    vector_stream: dict[str, float]
+    vector_ink: dict[str, float]
+
+
+def _edge_case(index: int, out_dir: pathlib.Path) -> _EdgeReading:
+    """Draw one puzzle page **both** ways and read all three numbers off it.
+
+    The same book, the same payload, the same puzzle number, the same interior
+    page and the same committed cell on both sides — the shape
+    ``tests/test_book_puzzle_page_vector.py``'s ``twin`` fixture takes, and for
+    its reason: the only difference between the two readings has to be the
+    medium, or a disagreement between them means nothing. ``cell_sizes`` is
+    the one call both media share, which is the point; no geometry is read
+    from it.
+    """
+    rng = random.Random(330 + index)
+    width_mm, height_mm = _EDGE_TRIMS[index % len(_EDGE_TRIMS)]
+    columns = rng.randrange(MIN_SIZE, MAX_SIZE + 1)
+    rows = rng.randrange(MIN_SIZE, MAX_SIZE + 1)
+    depth = rng.randrange(1, min(6, (min(columns, rows) + 1) // 2) + 1)
+    page = FIRST_PUZZLE_PAGE + index  # both parities, many pages
+    number = index + 1
+
+    generator = BookPDFGenerator(_book(width_mm=width_mm, height_mm=height_mm))
+    row = _puzzle(columns, rows, depth, name=f"Edge {index}")
+    payload = BookPDFGenerator._payload(row)
+    sizes = generator.cell_sizes([payload])
+
+    bitmap = generator._blank_page(payload, number, page, sizes)
+    ink = drawing_of(bitmap)
+
+    stream = generator.vector_puzzle_page(payload, number, page, sizes)
+    written = book_vector.write_vector_pdf([stream], 1).getvalue()
+    # ``out_dir`` because ``rendered_page`` writes the PDF and poppler's PNG
+    # beside each other and defaults to the CURRENT directory — which is the
+    # repo root under pytest, so every other caller in this tree hands it a
+    # tmp path and so does this one.
+    rendered = pdf_vector.rendered_page(written, 300, 1, out_dir=out_dir)
+    vector_ink = drawing_of(
+        rendered if isinstance(rendered, Image.Image) else Image.fromarray(rendered)
+    )
+
+    specified = _specified_grid_mm(
+        columns, rows, depth, width_mm=width_mm, height_mm=height_mm, page=page
+    )
+    return _EdgeReading(
+        label=f"{columns}x{rows} d{depth} page {page} on {width_mm:.0f}x{height_mm:.0f} mm",
+        page=page,
+        trim_mm=(width_mm, height_mm),
+        framed=ink.framed,
+        bound=specified["bound"],
+        specified={key: specified[key] for key in _GRID_EDGES + _DRAWING_EDGES},
+        raster_ink=_ink_edges_mm(ink),
+        vector_stream=_stream_grid_mm(written),
+        vector_ink=_ink_edges_mm(vector_ink),
+    )
+
+
+def _ink_edges_mm(drawing) -> dict[str, float]:
+    """A :class:`~tests.helpers.page_ink.Drawing`'s six edges in millimetres.
+
+    ``grid_*`` is the first inked pixel line of each border rule and ``left``
+    / ``top`` the drawing's own outer edges, so every one of these is an **ink
+    extent** and not a boundary — which is the whole finding of CARD-330, and
+    the reason this helper exists rather than the figures being read inline.
+    """
+    return {
+        "grid_left": _mm(drawing.grid_left),
+        "grid_right": _mm(drawing.grid_right),
+        "grid_top": _mm(drawing.grid_top),
+        "grid_bottom": _mm(drawing.grid_bottom),
+        "drawing_left": _mm(drawing.left),
+        "drawing_top": _mm(drawing.top),
+    }
+
+
+@pytest.fixture(scope="module")
+def edge_corpus(tmp_path_factory) -> list[_EdgeReading]:
+    """The seeded corpus, drawn once for the module.
+
+    Hand-built with :class:`random.Random` — ``hypothesis`` is not in the
+    dependency baseline (ADR-0006/R1) — and module-scoped because each case
+    draws a full bitmap page *and* shells out to poppler for the vector one,
+    which is the same reason ``tests/test_book_pdf_band.py`` gave its own
+    render fixture one.
+    """
+    out_dir = tmp_path_factory.mktemp("card330-edges")
+    return [
+        _edge_case(index, out_dir / str(index)) for index in range(_EDGE_CASE_COUNT)
+    ]
+
+
+@_needs_poppler
+class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
+    """AC-1 — specified, raster and vector, per edge, over a seeded corpus.
+
+    The *specified* column is :func:`_specified_grid_mm`, which reads the
+    trim, the margins, the band, the footer strip and the puzzle's own extents
+    and nothing else. That is what the card's first question needs: a position
+    taken from one of the two renderers could not say which renderer was
+    right, which is how "the two media disagree by 0.169 mm" came to be read
+    as a convention question in the first place.
+    """
+
+    def test_the_corpus_spans_trims_parities_and_both_vertical_bounds(
+        self, edge_corpus
+    ) -> None:
+        """The minimum, asserted here so the corpus cannot silently shrink.
+
+        **The floor is not the number the fixture counts with** (CARD-330
+        cycle 1, F-001: it was, so both floor assertions were satisfied by
+        construction for any value of it, and lowering it from 24 to 3 left
+        all of this card's tests green). It is a literal, checked here against
+        the enumerated span this corpus exists to cover — so lowering the
+        floor, or dropping one of the span's dimensions, reds *here*, while
+        shrinking :data:`_EDGE_CASE_COUNT` reds the floor itself. That is the
+        independent second implementation CLAUDE.md's test style asks for: the
+        span is enumerated, not re-derived from the generator.
+        """
+        span = (
+            len(_EDGE_TRIMS)
+            * len(_EDGE_PARITIES)
+            * len(_EDGE_BOUNDS)
+            * _EDGE_DRAWS_PER_COMBINATION
+        )
+        assert _MIN_EDGE_CASES == span, (_MIN_EDGE_CASES, span)
+        assert _MIN_EDGE_READINGS == _MIN_EDGE_CASES * len(_GRID_EDGES), (
+            _MIN_EDGE_READINGS,
+            _MIN_EDGE_CASES,
+            len(_GRID_EDGES),
+        )
+        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
+        assert len(edge_corpus) * len(_GRID_EDGES) >= _MIN_EDGE_READINGS
+        parities = {reading.page % 2 for reading in edge_corpus}
+        assert parities == set(_EDGE_PARITIES), parities
+        trims = {reading.trim_mm for reading in edge_corpus}
+        assert trims == set(_EDGE_TRIMS), trims
+        # Both arms of FR-032's vertical placement, so the derivation is
+        # exercised on the 42 % split *and* on the footer bound.
+        assert {reading.bound for reading in edge_corpus} == set(_EDGE_BOUNDS)
+        # F-003's second control: the derivation's live bounds are inside the
+        # derived ceiling AND inside the placed-edge bound this card refused
+        # to widen, so neither can drift back out to 0.127 mm unnoticed.
+        assert _SPEC_DRAWING_MEASURED_PX <= _SPEC_MEASURED_PX <= _SPEC_ROUNDING_PX, (
+            _SPEC_DRAWING_MEASURED_PX,
+            _SPEC_MEASURED_PX,
+            _SPEC_ROUNDING_PX,
+        )
+        # ``_STATED_EDGE_TOLERANCE_MM`` and not ``EDGE_TOLERANCE_MM``: the
+        # criteria's own figure, which AC-4's own site asserts the live
+        # constant equals — and naming the live one here would make this a
+        # placed-edge site for the medium pin below without its reading a
+        # page, which is the one thing that register exists to keep rare.
+        assert _SPEC_MEASURED_PX / PX_PER_MM < _STATED_EDGE_TOLERANCE_MM, (
+            _SPEC_MEASURED_PX / PX_PER_MM,
+            _STATED_EDGE_TOLERANCE_MM,
+        )
+
+    def test_every_edge_of_every_case_carries_all_three_numbers(
+        self, edge_corpus
+    ) -> None:
+        """Three readings per edge, in millimetres, none of them missing."""
+        for reading in edge_corpus:
+            for edge in _GRID_EDGES:
+                three = (
+                    reading.specified[edge],
+                    reading.raster_ink[edge],
+                    reading.vector_stream[edge],
+                )
+                assert all(isinstance(value, float) for value in three), (
+                    reading.label,
+                    edge,
+                    three,
+                )
+                assert all(value > 0 for value in three), (reading.label, edge, three)
+
+    def test_the_specified_position_is_where_the_content_stream_puts_the_grid(
+        self, edge_corpus
+    ) -> None:
+        """**The answer to the card's first question.**
+
+        The derived boundary and the vector's own operand are the same number
+        on every edge of every case, inside :data:`_SPEC_MEASURED_PX` — the
+        **measured** worst disagreement over this corpus plus 5 %, which is
+        0.0889 mm and therefore inside the placed-edge bound this card
+        declined to widen. So the vector writer is **not** placing the grid
+        off spec: CARD-330's G-4 is not triggered and no blocker is raised.
+
+        The bound used to be :data:`_SPEC_ROUNDING_PX`, the *derived* ceiling
+        of three half-pixel roundings; cycle 1's F-003 measured that 1.05 px
+        passed here and that 12.0 px passed too, so the one control AC-1 had
+        was 0.45 px looser than anything the corpus exercises and 0.127 mm
+        wide. The derivation is still written down above; what is asserted is
+        now what was measured.
+        """
+        worst = max(
+            (
+                (
+                    abs(reading.vector_stream[edge] - reading.specified[edge])
+                    * PX_PER_MM,
+                    reading.label,
+                    edge,
+                )
+                for reading in edge_corpus
+                for edge in _GRID_EDGES
+            ),
+        )
+        assert worst[0] < _SPEC_MEASURED_PX, worst
+
+    def test_the_specified_position_is_not_either_mediums_ink_reading(
+        self, edge_corpus
+    ) -> None:
+        """So the derived column cannot have been copied off a page.
+
+        Both media's ink sits a measurable distance outside the specified
+        boundary on **every** edge of every case — the raster's by more than
+        one device pixel and the vector's by more than two — which is what
+        tells a derivation from a reading. An ``_specified_grid_mm`` that had
+        quietly become a renderer's answer would read zero here.
+        """
+        for reading in edge_corpus:
+            for edge in _GRID_EDGES:
+                raster = (reading.specified[edge] - reading.raster_ink[edge]) * PX_PER_MM
+                vector = (reading.specified[edge] - reading.vector_ink[edge]) * PX_PER_MM
+                assert raster > 1, (reading.label, edge, raster)
+                assert vector > 2, (reading.label, edge, vector)
+
+
+@_needs_poppler
+class TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels:
+    """AC-2 — the gap is uniform, and it is not what CARD-309 read it as.
+
+    It **is** uniformly 2 device pixels, on all four edges and across the
+    corpus, between the raster's ink and the stream's coordinate. What it is
+    not is a disagreement about where the grid goes: those two readings have
+    different domains — one is the first inked pixel line of a rule, the other
+    is the rule's path — and the 2 px is half the rule that sits between them.
+    The control below is what separates those two readings of the same figure:
+    a *quantisation* of the grid's position would not change with the rule's
+    weight, and this does, exactly as ``(width - 1) // 2``.
+    """
+
+    def test_the_rasters_ink_is_two_device_pixels_outside_the_stream_on_every_edge(
+        self, edge_corpus
+    ) -> None:
+        offsets = {
+            round((reading.raster_ink[edge] - reading.vector_stream[edge]) * PX_PER_MM)
+            for reading in edge_corpus
+            for edge in _GRID_EDGES
+        }
+        assert offsets == {-2}, offsets
+        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
+
+    def test_that_two_pixels_is_half_a_rule_and_not_a_quantisation_step(
+        self, edge_corpus
+    ) -> None:
+        """The control: the offset tracks the **rule's weight**, not the grid.
+
+        A rule is centred on its boundary, so a reading taken at its first
+        inked line sits ``(width - 1) // 2`` outside that boundary — 2 px for
+        the raster's 6 px border and 1 px for its 3 px cell line. A
+        quantisation of the grid's *position* would be the same figure for
+        both. The two widths are read off the page here, so this is the page's
+        answer and not arithmetic restated.
+        """
+        assert (_RASTER_HEAVY_PX - 1) // 2 == 2
+        assert (_RASTER_THIN_PX - 1) // 2 == 1
+
+        page = _interior(_book(), [_puzzle(20, 20, 4)])[FIRST_PUZZLE_PAGE - 1]
+        mask = np.asarray(page.convert("L")) < 128
+        drawing = drawing_of(page)
+        # The middle of a cell ROW, so the scan crosses the grid's vertical
+        # rules and no horizontal one: a row landing on a horizontal rule
+        # reads one unbroken run the whole width of the grid, which is the
+        # reading this choice of row exists to avoid.
+        inside = drawing.grid_top + round(drawing.cell / 2)
+        # One cell past the right border, so the last rule's own run is whole:
+        # ``grid_right`` is its FIRST inked column, which is the reading this
+        # test is about, so a slice ending there would cut it to 1 px.
+        spans = [
+            len(group)
+            for group in _consecutive(
+                np.flatnonzero(
+                    mask[
+                        inside,
+                        drawing.grid_left : drawing.grid_right + round(drawing.cell),
+                    ]
+                )
+            )
+        ]
+        assert len(spans) == drawing.columns + 1, (len(spans), drawing.columns)
+
+        assert max(spans) == _RASTER_HEAVY_PX, spans
+        assert min(spans) == _RASTER_THIN_PX, spans
+        # And the offset the corpus measured is half the heavier of the two,
+        # which is the rule the grid's own borders are stroked at.
+        offsets = {
+            round((reading.raster_ink[edge] - reading.vector_stream[edge]) * PX_PER_MM)
+            for reading in edge_corpus
+            for edge in _GRID_EDGES
+        }
+        assert offsets == {-((max(spans) - 1) // 2)}, (offsets, spans)
+
+    def test_the_two_media_ink_differs_by_one_device_pixel_not_two(
+        self, edge_corpus
+    ) -> None:
+        """**The figure a conversion actually moves**, ink against ink.
+
+        One oracle, one resolution, one page: the vector's rendered grid edge
+        sits exactly one device pixel — 0.0847 mm — outside the raster's, on
+        all four edges of every case, because the two media stroke different
+        widths by design (ADR-0037/R2's declared 1.3 pt against COMP-007's
+        proportional 6 px). That is **inside** :data:`EDGE_TOLERANCE_MM`, so
+        the grid's own placed edges do not need the bound moved.
+        """
+        offsets = {
+            round((reading.vector_ink[edge] - reading.raster_ink[edge]) * PX_PER_MM)
+            for reading in edge_corpus
+            for edge in _GRID_EDGES
+        }
+        assert offsets == {-1}, offsets
+        assert 1 / PX_PER_MM < EDGE_TOLERANCE_MM, 1 / PX_PER_MM
+        assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
+
+    def test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance(
+        self, edge_corpus
+    ) -> None:
+        """And this is the figure CARD-322 inherits, which is 3 px and not 2.
+
+        ``Drawing.left`` / ``Drawing.top`` are what every 25.45 mm assertion
+        in this module reads, and there the raster's ink is **at** the
+        specified margin — Pillow strokes a framed drawing as four butt-capped
+        lines, so the frame's top side begins above where its left side does
+        and the reading lands on the path. Poppler strokes the frame as one
+        ``re`` and mitres its outer corner, which puts the same reading three
+        device pixels further out: 0.254 mm, **outside**
+        :data:`EDGE_TOLERANCE_MM`.
+
+        It is still not a placement: both writers put the frame's left side at
+        the same coordinate. It is a corner.
+        """
+        # The raster arm is a max rather than a per-reading assertion, so the
+        # message names the worst case and the bound is the measured figure
+        # (0.5437 px) rather than the derived ceiling — cycle 1's F-003.
+        worst_raster = max(
+            (
+                abs((reading.raster_ink[edge] - reading.specified[edge]) * PX_PER_MM),
+                reading.label,
+                edge,
+            )
+            for reading in edge_corpus
+            for edge in _DRAWING_EDGES
+        )
+        assert worst_raster[0] < _SPEC_DRAWING_MEASURED_PX, worst_raster
+        for reading in edge_corpus:
+            for edge in _DRAWING_EDGES:
+                vector = (reading.vector_ink[edge] - reading.raster_ink[edge]) * PX_PER_MM
+                assert round(vector) == -3, (reading.label, edge, vector)
+        assert 3 / PX_PER_MM > EDGE_TOLERANCE_MM, 3 / PX_PER_MM
+        # Every case is framed, which is what the mitre needs to exist: a
+        # placed book page is framed by default (PageSpec.framed), and an
+        # unframed one would be a different reading.
+        assert all(reading.framed for reading in edge_corpus)
+
+
+def _consecutive(indices: np.ndarray) -> list[list[int]]:
+    """``indices`` split into runs of consecutive values — one run per rule."""
+    groups: list[list[int]] = []
+    for index in indices.tolist():
+        if groups and index == groups[-1][-1] + 1:
+            groups[-1].append(index)
+        else:
+            groups.append([index])
+    return groups
+
+
+#: What :data:`EDGE_TOLERANCE_MM` admits **beyond** the 0.1 mm the ACs state,
+#: each entry naming what it lets through and the card that removes it.
+#:
+#: **Empty, deliberately (CARD-330, AC-4/G-1).** The card was written against
+#: the hazard of widening this bound to admit the vector medium, and the
+#: measurement above is why it is not widened: the figure a conversion moves
+#: on the grid's four edges is 1 device pixel (0.0847 mm), which 0.1 mm
+#: already admits, and the figure it moves on the drawing's own edges —
+#: 3 px, 0.254 mm — is a mitred frame corner read as a placed edge, so
+#: widening to 0.3 mm would be loosening a placed-edge bound to admit an
+#: instrument's artefact. What that reading needs is an oracle that reads the
+#: frame rule's **centre** rather than its first inked line, which keeps it a
+#: pixel oracle (G-2) and is CARD-322's to write with the conversion.
+EDGE_TOLERANCE_EXEMPTIONS: dict[str, str] = {}
+
+#: The placed-edge tolerance the ACs state, written out so a change to
+#: :data:`EDGE_TOLERANCE_MM` has something to be a change *from*.
+_STATED_EDGE_TOLERANCE_MM = 0.1
+
+
+def _tolerance_is_declared(bound_mm: float, exemptions: dict[str, str]) -> bool:
+    """Whether a placed-edge bound is one the board has actually declared.
+
+    The standing rule in one predicate: the bound is either the figure the ACs
+    state, with nothing exempted, or a wider one that ships **with** the
+    exemptions naming what it now admits. A bound moved on its own is neither,
+    and so is an exemption registered against the stated bound — a declaration
+    for a widening that did not happen.
+    """
+    if bound_mm < _STATED_EDGE_TOLERANCE_MM:
+        return False
+    at_the_stated_bound = bound_mm == _STATED_EDGE_TOLERANCE_MM
+    return at_the_stated_bound is not bool(exemptions)
+
+
+class TestEdgeOffset_ATolerenceChangeCarriesItsExemption:
+    """AC-4 — the bound is unchanged, and a change to it could not be silent.
+
+    The name is the AC's own spelling, kept so the criterion and its test can
+    be matched by search.
+    """
+
+    def test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt(
+        self,
+    ) -> None:
+        assert EDGE_TOLERANCE_MM == _STATED_EDGE_TOLERANCE_MM, EDGE_TOLERANCE_MM
+        assert EDGE_TOLERANCE_EXEMPTIONS == {}, EDGE_TOLERANCE_EXEMPTIONS
+        assert _tolerance_is_declared(EDGE_TOLERANCE_MM, EDGE_TOLERANCE_EXEMPTIONS)
+
+    def test_a_widening_without_its_exemption_is_refused(self) -> None:
+        """The control, on the predicate, so it is not dormant.
+
+        Both the figure that would admit the mitred corner and the smallest
+        widening there is are refused while the register is empty — the second
+        is the one that matters, because a bound creeps.
+        """
+        assert not _tolerance_is_declared(0.3, {})
+        assert not _tolerance_is_declared(_STATED_EDGE_TOLERANCE_MM + 1e-9, {})
+
+    def test_an_exemption_without_its_widening_is_refused_too(self) -> None:
+        """And the other direction, so the pair is a biconditional.
+
+        A register that filled up while the bound stayed at 0.1 mm would be a
+        declaration for a widening nobody made — which reads, to the next
+        card, as permission already granted.
+        """
+        assert not _tolerance_is_declared(
+            _STATED_EDGE_TOLERANCE_MM, {"CARD-322": "the mitred frame corner"}
+        )
+
+    def test_a_widening_that_carries_its_exemption_is_admitted(self) -> None:
+        """The arm AC-4 leaves open, asserted so the predicate is not a
+        constant ``False`` for everything but today's pair."""
+        assert _tolerance_is_declared(0.3, {"CARD-322": "the mitred frame corner"})
+
+    def test_a_narrower_bound_is_refused_rather_than_silently_admitted(self) -> None:
+        """Default-DENY on the third shape (ADR-0039/R2): a bound *below* the
+        stated one is not "safe", it is a figure nobody declared, and it would
+        red every placed-edge assertion in this module without saying why."""
+        assert not _tolerance_is_declared(0.05, {})
+        assert not _tolerance_is_declared(0.05, {"CARD-322": "a tighter bound"})
+
+
+class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
+    """The owner's steer, made mechanical: medium-**pinned**, not medium-aware.
+
+    *"Let's aim at switching on vector for the interior (not dividers) — don't
+    spend much time on fixing-updating raster."* So the raster's placed-edge
+    expectations are not re-tuned; they are pinned to the medium they were
+    measured in, and CARD-322's conversion retires them. A pin written in
+    prose would not notice a conversion, so it is derived instead: every
+    assertion in this module that compares against
+    :data:`EDGE_TOLERANCE_MM` must sit in a test that reads its page through
+    ``page_ink.drawing_of`` — the raster ink oracle — and none may read a
+    content stream. When CARD-322 converts a page under one of them, the
+    reading changes medium and this goes red until the site says so.
+
+    Default-DENY per ADR-0039/R2: a site whose medium cannot be determined is
+    a FAILURE, not a pass — and, since CARD-330 cycle 1's F-002, a site that
+    cannot be *told apart* is one too. The map is keyed on the
+    **class-qualified** name because this module holds two different tests
+    under one bare name, which keyed on the bare name silently dropped one of
+    them; the walk returns a list so the key count can be asserted equal to
+    the site count, and a future collision reds instead of shrinking the dict.
+    """
+
+    #: The reader that makes a site's medium the raster bitmap, and the ones
+    #: that would make it the content stream. Derived from this module's own
+    #: imports: ``drawing_of`` is the pixel oracle and ``pdf_vector``'s
+    #: readers are the stream half.
+    _RASTER_READER = "drawing_of"
+    _STREAM_READERS = frozenset(
+        {"content_streams", "operator_tokens", "operator_tally", "page_media"}
+    )
+
+    #: The two placed-edge sites this module holds under **one** bare
+    #: function name, in different classes. Keyed on the bare name, as the
+    #: walk below was until CARD-330 cycle 1's F-002, one of them was
+    #: overwritten and never checked — measured: converting the
+    #: right-hand one to a content-stream reader left all four assertions in
+    #: this class green, while the identical change to the left-hand one red
+    #: two. Both are named here so neither can go back to being invisible.
+    _COLLIDING_SITES = frozenset(
+        {
+            "TestBookPdf_DrawingCentredOnRightHandPage"
+            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
+            "TestBookPdf_DrawingCentredOnLeftHandPage"
+            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
+        }
+    )
+
+    @staticmethod
+    def _walk() -> list[tuple[str, str, set[str]]]:
+        """``(class-qualified name, bare name, the readers it calls)`` for
+        every ``EDGE_TOLERANCE_MM`` comparison in this module, as a **list**.
+
+        A list and not a dict, so :meth:`_sites`' own control can compare the
+        two lengths: two sites that collapsed into one key would otherwise
+        disappear rather than fail, which is exactly what ADR-0039/R2's
+        default-DENY forbids.
+        """
+        tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        found: list[tuple[str, str, set[str]]] = []
+
+        def visit(node: ast.AST, prefix: tuple[str, ...]) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.ClassDef):
+                    visit(child, prefix + (child.name,))
+                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    names = {
+                        inner.id
+                        for inner in ast.walk(child)
+                        if isinstance(inner, ast.Name)
+                    }
+                    if "EDGE_TOLERANCE_MM" in names:
+                        attributes = {
+                            inner.attr
+                            for inner in ast.walk(child)
+                            if isinstance(inner, ast.Attribute)
+                        }
+                        found.append(
+                            (
+                                "::".join(prefix + (child.name,)),
+                                child.name,
+                                names | attributes,
+                            )
+                        )
+                    visit(child, prefix + (child.name,))
+                else:
+                    visit(child, prefix)
+
+        visit(tree, ())
+        return found
+
+    @classmethod
+    def _sites(cls) -> dict[str, set[str]]:
+        """``{class-qualified function: the readers it calls}`` for every
+        ``EDGE_TOLERANCE_MM`` comparison in this module.
+
+        **Class-qualified**, because the bare name is not unique in this
+        module (see :data:`_COLLIDING_SITES`).
+        """
+        return {qualified: readers for qualified, _, readers in cls._walk()}
+
+    @classmethod
+    def _bare(cls, qualified: str) -> str:
+        """The function part of a key, for matching the exemption register —
+        which names tests, not classes."""
+        return qualified.rsplit("::", 1)[-1]
+
+    def test_the_walk_finds_the_sites_it_is_supposed_to_guard(self) -> None:
+        """The instrument's own control: a walk that found nothing would pass
+        every assertion below. The count is a floor, not a frozen number, so
+        a new placed-edge test does not red this on arrival."""
+        sites = self._sites()
+        assert len(sites) >= 10, sorted(sites)
+        assert "test_the_drawing_sits_25_45_mm_from_the_left_trim_edge" in {
+            self._bare(name) for name in sites
+        }
+
+    def test_no_two_sites_collapse_into_one_key(self) -> None:
+        """F-002's control: a collision is a FAILURE, not a silent merge.
+
+        The walk returns a list and the map is built from it, so the two
+        lengths differ exactly when two sites share a key. Keyed on the bare
+        function name this module already had one such pair, and the site it
+        dropped could have started reading a content stream with all of this
+        class's assertions still green. Both members of that pair are asserted
+        present by key, so the dict can only shrink by a deliberate rename
+        that G-6 forbids.
+        """
+        walked = self._walk()
+        sites = self._sites()
+        assert len(walked) == len(sites), (
+            len(walked),
+            len(sites),
+            sorted(qualified for qualified, _, _ in walked),
+        )
+        assert self._COLLIDING_SITES <= set(sites), sorted(
+            self._COLLIDING_SITES - set(sites)
+        )
+
+    #: The sites that name the bound without measuring a page with it:
+    #: CARD-330's own, which assert the bound itself or compare one medium's
+    #: figure against another's. Every site NOT listed here must read its
+    #: page through the raster ink oracle, so a new site that measures
+    #: nothing has to be added here deliberately — and every name listed is
+    #: asserted to still exist, so the list cannot rot into a blanket
+    #: exemption.
+    _BOUND_ONLY_SITES = frozenset(
+        {
+            "test_the_bound_is_the_figure_the_criteria_state_and_nothing_is_exempt",
+            "test_the_two_media_ink_differs_by_one_device_pixel_not_two",
+            "test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance",
+        }
+    )
+
+    def test_the_exemption_list_names_only_sites_that_exist(self) -> None:
+        """No dead entry: a renamed test would otherwise leave a name that
+        exempts nothing and hides the next site that takes it."""
+        sites = {self._bare(name) for name in self._sites()}
+        assert self._BOUND_ONLY_SITES <= sites, sorted(
+            self._BOUND_ONLY_SITES - sites
+        )
+
+    def test_every_site_reads_its_page_through_the_raster_ink_oracle(self) -> None:
+        for name, readers in self._sites().items():
+            if self._bare(name) in self._BOUND_ONLY_SITES:
+                continue
+            assert self._RASTER_READER in readers, (name, sorted(readers))
+
+    def test_no_site_reads_a_content_stream(self) -> None:
+        """G-2 and the pin together: these expectations are the raster's, and
+        a site that quietly started reading the stream would be asserting a
+        0.169 mm different number against the same bound."""
+        for name, readers in self._sites().items():
+            assert not (readers & self._STREAM_READERS), (
+                name,
+                sorted(readers & self._STREAM_READERS),
+            )
+
+
+class TestEdgeOffset_ThePixelOraclesStillReadPixels:
+    """AC-5 — ``drawing_of`` and ``two_up_ink`` are still oracles.
+
+    R6 exempts them by name as independent second implementations, and an
+    oracle that shared the subject's mechanism would have stopped being one
+    (CLAUDE.md's stated reason for having two). CARD-330 changed their
+    *documentation* and not their reading, and this is what says so.
+    """
+
+    _ORACLES = ("tests/helpers/page_ink.py", "tests/helpers/two_up_ink.py")
+
+    @staticmethod
+    def _module(path: str) -> ast.Module:
+        root = pathlib.Path(__file__).resolve().parent.parent
+        return ast.parse((root / path).read_text(encoding="utf-8"))
+
+    def test_neither_oracle_imports_the_content_stream_reader(self) -> None:
+        for path in self._ORACLES:
+            imported = {
+                name
+                for node in ast.walk(self._module(path))
+                for name in (
+                    [alias.name for alias in node.names]
+                    if isinstance(node, (ast.Import, ast.ImportFrom))
+                    else []
+                )
+            }
+            assert not {"pdf_vector", "tests.helpers.pdf_vector"} & imported, (
+                path,
+                sorted(imported),
+            )
+
+    #: What each oracle's own measuring entry point has to go through: the
+    #: ink mask, which *is* the pixel reading. ``two_up_ink``'s
+    #: :func:`~tests.helpers.two_up_ink.drawings_of` reaches it one step
+    #: further out — it finds the page's split row and hands each half to
+    #: ``page_ink``'s own reader — so the two functions named here are the
+    #: ones that touch a bitmap, and ``drawings_of`` is checked to still
+    #: delegate to the first of them.
+    _MASK_READERS = frozenset({"_dark", "ink_mask"})
+
+    def _calls(self, path: str, function: str) -> set[str]:
+        found = [
+            node
+            for node in ast.walk(self._module(path))
+            if isinstance(node, ast.FunctionDef) and node.name == function
+        ]
+        assert len(found) == 1, (path, function, len(found))
+        return {
+            inner.id for inner in ast.walk(found[0]) if isinstance(inner, ast.Name)
+        }
+
+    def test_the_measuring_functions_still_reduce_a_bitmap_to_a_mask(self) -> None:
+        """The positive half, on each oracle's own pixel-reading entry point."""
+        for path, function in (
+            ("tests/helpers/page_ink.py", "drawing_of"),
+            ("tests/helpers/two_up_ink.py", "split_row"),
+        ):
+            called = self._calls(path, function)
+            assert called & self._MASK_READERS, (path, function, sorted(called))
+
+    def test_the_two_up_reader_still_delegates_to_the_pixel_oracle(self) -> None:
+        """So ``two_up_ink`` cannot have grown a reading of its own that is
+        not ``page_ink``'s — the cross-check lives in having one reader."""
+        assert "drawing_of" in self._calls(
+            "tests/helpers/two_up_ink.py", "drawings_of"
+        )
+
+    def test_drawing_of_still_takes_a_page_and_not_a_file(self) -> None:
+        """Behaviourally, not just structurally: it reads an image, so bytes
+        are not a page it can measure."""
+        page = _interior(_book(), [_puzzle(15, 15, 7)])[FIRST_PUZZLE_PAGE - 1]
+        assert drawing_of(page).columns == 15
+        with pytest.raises((AttributeError, TypeError, ValueError)):
+            drawing_of(b"%PDF-1.4")
+
+
+class TestEdgeOffset_TheAdrRecordsTheCanonicalMedium:
+    """AC-3 — the answer lives in ADR-0042, in one place, for three cards.
+
+    CARD-312, CARD-322 and CARD-329 all read this decision, so it is recorded
+    where a rule is recorded rather than in a card's notes.
+    """
+
+    @staticmethod
+    def _adr() -> str:
+        root = pathlib.Path(__file__).resolve().parent.parent
+        path = (
+            root
+            / "meta/architecture/decisions/adr"
+            / "0042-book-interior-is-vector-cover-stays-raster.md"
+        )
+        assert path.exists(), path
+        return path.read_text(encoding="utf-8")
+
+    def test_it_names_the_canonical_medium_for_a_placed_edge_claim(self) -> None:
+        adr = self._adr().lower()
+        assert "card-330" in adr
+        assert "canonical for a placed-edge claim" in adr
+        # And names which medium it is, beside the question.
+        where = adr.index("canonical for a placed-edge claim")
+        assert "content stream" in adr[where : where + 400], adr[where : where + 400]
+
+    def test_it_records_the_three_numbers_and_what_the_gap_turned_out_to_be(
+        self,
+    ) -> None:
+        """The figures, not just the verdict: a reader who only has the
+        verdict re-measures, and this board has re-measured this one twice."""
+        adr = self._adr()
+        for figure in ("0.0847", "0.254", "1.3 pt"):
+            assert figure in adr, figure
+
+    def test_it_records_that_the_device_floor_is_unresolved_for_the_interior(
+        self,
+    ) -> None:
+        """ADR-0037/R2 holds furniture to a 2-device-pixel floor and
+        ADR-0042/R7 makes the floor inapplicable to the interior. Nothing on
+        the board owns the collision, two cards wait on it, and this ADR must
+        say so rather than let a reader infer a floor neither rule grants."""
+        adr = self._adr()
+        assert "unresolved for interior furniture" in adr
+        assert "ADR-0037/R2" in adr and "R7" in adr
+        assert "CARD-208" in adr and "CARD-226" in adr
+        # The figure that makes the question real, at the resolution it was
+        # measured at — an instrument's domain is part of its figure.
+        assert "150 DPI" in adr and "1200 DPI" in adr
