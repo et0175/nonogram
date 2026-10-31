@@ -186,12 +186,58 @@ max_concurrent_override: 2
 active:
 - id: CARD-329
   phase: review
-  cycle: 2
+  cycle: 3
   cycle1_score: 6.5
   fix_round: 2
   fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 scored 7.5
+  fix_round_2: reported 2026-10-31, all three closed + the inline item; cycle 3 dispatched
   cycle2_score: 7.5
   fix_findings: [F-008, F-009, F-010]
+  # FIX ROUND 2 REPORTED 2026-10-31, HEAD ea248582 -> d2a8f928 (63451728 the
+  # code and figures, d2a8f928 the plants and the card's record). CYCLE 3 IS THE
+  # LAST max_cycles ALLOWS.
+  # F-008 CLOSED and the hole reproduced in both directions, which is the only
+  # evidence that counts here: at the PRE-FIX lookup the colliding registered
+  # bare name leaves the whole pin GREEN -- 11 passed / 0 failed -- and with the
+  # fix it is KILLED on two cells. Two more plants close the obvious regressions:
+  # degrading the lookup back to the bare match is KILLED by a new control that
+  # resolves the degradation BY ast (no consulting cell may call the bare
+  # helper), and collapsing the register to empty is KILLED by a non-emptiness
+  # assertion, so it cannot pass vacuously. Plants now 24: 22 killed, 2 declared.
+  # THE INLINE ITEM WAS TAKEN AND IMPROVED. I asked for one assertion three
+  # frames deep; it measured the site's reachable set at 9/38/101/121/121 for
+  # depths 0-4, so the walk settles at FOUR rounds, and a hard stop at 2 now
+  # reds. The free scope limit cycle 2 declined to file is closed.
+  # THREE CORRECTIONS AGAINST MY OWN BRIEF, and I verified two of them:
+  #   1. 5.47x is wrong; it is 5.46x. 0.23133.../0.042333... = 5.46457, checked
+  #      with Decimal. The figure was in my brief AND in cycle 2's YAML -- so it
+  #      is the FOURTH carried figure in this one chain (cycle 1 -> fix round ->
+  #      cycle 2's correction -> my brief), and it slipped inside the correction
+  #      that existed to stop figures being carried.
+  #   2. The guardrail "EDGE_TOLERANCE occurrences in the diff = 0" IS NOT
+  #      REPRODUCIBLE AS SPELLED. Measured at HEAD: the loose command gives 5,
+  #      all five in scratchpad instruments (a docstring, the walk's own filter,
+  #      a comment, an assert, a comment); it reads 0 only under a narrower rule,
+  #      and three such rules all give 0 -- no assignment line in the diff, no
+  #      occurrence in the diff's tests/ half, no REMOVED occurrence. The
+  #      guardrail holds in substance and its WORDING would have reddened a
+  #      future round. A guardrail must name its rule like any other figure.
+  #   3. I wrote "drop the bare match from BOTH lookups"; there were THREE. The
+  #      existence cell also stripped the class. Had it fixed only the two I
+  #      named, that cell would have gone on resolving bare names against a
+  #      class-qualified register.
+  # AND A HAZARD IT WALKED INTO, worth more than the finding that caused it: its
+  # first plant draft INVENTED two class names and one test name, and the
+  # ref-pollution check went 0 orphans -> 3 -- inside an ALREADY-TRACKED file,
+  # so the "do not add a tracked scratchpad file" rule would not have caught it.
+  # Rewritten so both plants borrow a bare name tests/ already defines, under
+  # class names pytest does not collect; back to 0 orphans of 59 symbols, and
+  # the rule is now in the plant helper's docstring so the next plant inherits
+  # it. The better control came out of it too: registration is now the only
+  # variable between the pair, rather than "registered vs invented".
+  # Figures re-derived, nothing regressed: G-5 282 -> 310, 0 lost / 28 gained
+  # (one new cell); impact 347 passed / 0 failed / 0 skipped; validator 88 on
+  # both trees with the WARN sets symmetric-difference empty.
   # CYCLE 2 = 7.5, DOES NOT CERTIFY (min_score 8), and two Importants would block
   # the severity gate on their own. FIX ROUND 2 dispatched; CYCLE 3 IS THE LAST
   # ONE max_cycles ALLOWS -- it escalates there rather than looping.
@@ -330,8 +376,54 @@ active:
   phase: review
   cycle: 2
   cycle1_score: 6.0
-  fix_round: 1
-  fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 dispatched
+  fix_round: 2
+  fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 scored 8.5
+  cycle2_score: 8.5
+  fix_findings_round2: [F2-001, F2-002, F2-003, F2-004, F2-005]
+  # CYCLE 2 = 8.5, and it does NOT certify -- but on the SEVERITY GATE, not the
+  # score: 8.5 is above min_score 8 and the delta is +2.5 against
+  # min_improvement. ALL TWELVE cycle-1 findings CLOSED, every central figure
+  # reproduced exactly under instruments sharing no code with the ones reviewed.
+  # The one Important was INTRODUCED BY THE FIX ROUND, which is what cycle 2 is
+  # for: four passages in the card narrate FR-001's four criteria as STILL
+  # carrying their test: keys, in the commit that removed them, and one of the
+  # four is the card's own AC-2. All four were TRUE at the round-0 tip. The card
+  # also carries the correct outcome 200 lines away, so it asserts both states
+  # and the stale one is what a reader meets first. ADR-0039/R4 is mandatory and
+  # its last clause is "retracted EVERYWHERE it was written" -- the round applied
+  # that clause correctly to three INHERITED figures and not to its own change.
+  # Prose only: no code, no test, no registry change, moves no figure.
+  # F2-002 IS THE ONE WORTH THE INK, and it is the half of the vocabulary claim
+  # I asked cycle 2 to check. The card calls four criteria `rejected` on the
+  # grounds they were never adopted -- but ADR-0027:167 says "AC-129, AC-134
+  # (retired)" and ADR-0034:48 says "AC-206, AC-207 retired", and ADR-0034:41
+  # says they are "retired UNIMPLEMENTED, following the FR-004 / ADR-0027
+  # precedent". Orchestrator-verified at all three lines. So the ADRs' own
+  # vocabulary ALREADY covers the never-adopted case with the word `retired` and
+  # names a precedent for it; the card's two-word split is new, not borrowed,
+  # and overrides two accepted ADRs from a card. Fix round uses `retired` for
+  # all six. Inert today -- cycle 2 swept every `status` read in the validator
+  # tree and not one belongs to an acceptance criterion -- but it stops being
+  # inert the moment CARD-333 lands the change this comment says it owes.
+  # VALIDATOR MEASURED AT THREE TREES via detached worktrees rather than
+  # inferred: 0 errors / 88 warnings at main, at the round-0 tip, and at HEAD.
+  # And a correction to MY brief: the 4-out/4-in swap is the FIX-ROUND delta.
+  # Against main it is 11 OUT / 11 IN -- the four plus the seven round 0 withdrew.
+  # Both true of different baselines; I gave 4/4 without naming one.
+  # MUTANT 6 RE-FIRED BOTH WAYS, and cycle 2 went further than the round, which
+  # SIMULATED the pre-fix cell with a script. It RAN it -- main's module written
+  # over HEAD's with the plant still held -> 1 passed. So the widening catches a
+  # real regression on an EXECUTED counterfactual, not a modelled one. It also
+  # ran a third plant the round never did, isolating the glob arm that the
+  # round's mutant 7 had reddened for two reasons at once.
+  # FOUR NEW MINORS, none gating: the curated impact arm called enumerable, an
+  # index size two honest reconstructions bracket without hitting (11278 vs
+  # 11195 by ast and 11287 by the grep shape), and "11" naming two disjoint sets
+  # 22 lines apart.
+  # ON COMMITTING THREE scratchpad FILES: cycle 2 would land them, and measured
+  # why -- they are the only artefacts in the repo whose cleanliness a standing
+  # test asserts on every run, against 245-322 uncontrolled files elsewhere.
+  # That re-scoped CARD-335; see its own re-cut.
   fix_findings: [F-001, F-002, F-003, F-004, F-005, F-007, F-008, F-012]
   # 6.0, and the review was explicit the score is NOT a verdict on what shipped:
   # every central claim reproduced under an instrument sharing no code with the
@@ -459,7 +551,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T09:05:00Z'
+last_updated: '2026-10-31T10:05:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
