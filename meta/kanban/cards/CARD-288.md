@@ -74,8 +74,13 @@ different premise and a different AC set.
 
 **Unblocking condition.** Do not clear this flag on CARD-322's merge. Re-cut the card
 after CARD-322, against whatever `tests/property/test_book_pdf_geometry.py` then is —
-and see CARD-322's own scope note, because that file is **one of ten undeclared
-modules** in the same breakage class.
+and see CARD-322's own scope note. **Corrected the same day:** this file is **one of
+seven in CARD-329's population B** — modules that never import the one-image reader and
+reach the hazard through `interior_pages` / `interior` with their own pixel readers.
+**CARD-329's item 3 triages it**, deriving whether that card's change suffices or whether
+this file needs its own edit. So the successor to this card is most likely whatever
+CARD-329's triage names — wait for that classification before re-cutting, rather than
+cutting a second card blind.
 
 ## What to implement
 

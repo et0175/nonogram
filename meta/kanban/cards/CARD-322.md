@@ -180,7 +180,31 @@ same way, which is how EC-019's every-page-is-the-trim claims fail.
 | `tests/test_book_divider_pages_option.py` | 6 | 2 | — |
 | `tests/property/test_book_pairing.py` | 5 | 1 | — |
 
-**1 of 11 declared. Two more are spoken for, and eight have no card at all.**
+**1 of 11 declared — but "the other ten are unowned" is WRONG, and the correction
+changes what this card has to do.** Re-measured 2026-10-31, same session, by `ast`
+over the import graph rather than by the declaration list:
+
+- **4 of the 11 are CARD-329's population A** — they import `tests/helpers/pdf_pages.py`,
+  so **CARD-329's medium-aware reader fix reaches them at the helper**, not here:
+  `test_book_pdf.py`, `test_book_proof_pages.py`, `test_book_pdf_band.py`,
+  `test_book_pdf_memory.py`.
+- **7 are CARD-329's population B** — they never import the reader and reach the same
+  hazard through `interior_pages` / `interior` with their own pixel readers. **CARD-329's
+  item 3 owns their TRIAGE**, explicitly: *"Classify population B per module, don't
+  convert it wholesale … derive whether this card's change is enough or whether it needs
+  its own edit, and say which per module. A module that needs more is a finding about
+  scope, to be raised."*
+
+**So the per-module disposition this section originally asked THIS card to choose is
+CARD-329's output, not this card's job.** Do not redo it. **Run CARD-329 first and
+consume its per-module classification**; what remains for this card is the modules
+CARD-329's triage reports as needing their own edit. That list does not exist yet,
+which is the honest state — the repairs are unowned *until CARD-329 reports*, which is
+a different thing from unowned.
+
+The original claim in this section ("eight have no card at all") was the orchestrator's,
+made from CARD-322's declaration list without reading CARD-329's scope. It is retracted
+here rather than deleted, because this card's estimate was being re-priced against it.
 
 This is the subset of CARD-309's measured **189 failures + 75 errors across 22
 modules** that fails specifically by handing a content stream to a pixel reader —
