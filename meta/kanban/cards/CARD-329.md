@@ -465,6 +465,16 @@ is a **FAILURE**, not a silent pass.
     resolve from `scratchpad/`. It is why nothing in this round is a `.txt`
     census or a validator dump — the instruments are `.py` and the numbers
     live in this card.)
+- **[The impact run, on `main`'s rules with no probe]** All six runnable
+  `Touches` paths in one node-scoped call with `-o addopts=` and `-rs`:
+  **339 passed, 0 failed, 0 skipped.** Zero skips is the assertion, not an
+  observation — a skip keeps the collected count and removes the assertion, so
+  a green-with-skips reading would say nothing. (A full suite shows 27 skips,
+  26 DB-gated and 1 `setrlimit`; an impact run of these files touches neither
+  gate, and `-rs` printed no reason because there was none to print.) The full
+  suite was **not** run: that is the merge gate's job and it must not run
+  beside another card's pytest, which CARD-316's worktree had live throughout
+  this round.
 - **[What was deliberately NOT done]** The 16 residual reds were not forced
   green. Each needs its claim re-expressed against the content stream
   (ADR-0042/R6) or its expectation re-composed in the page's own medium, and
