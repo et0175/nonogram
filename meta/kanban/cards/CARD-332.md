@@ -1,6 +1,6 @@
 # CARD-332: The panel learns the player's domain — a print-setup field, and the real per-puzzle link beside each arranged puzzle
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/332-player-domain-and-puzzle-links
-**Worktree:** —
+**Branch:** `card/332-the-panel-learns-the-players-domain`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-332
 **Source:** owner, 2026-10-30, after the public player's first deploy ("I'd add an input field for a domain string there also (on print setup) and then on arrangement page add a link (read-only) next to a puzzle (e.g. https://nonogram.adverax.io/play/073280edd0)"). The deploy that makes a real link possible is recorded in `docs/deploy/player.md` ("What production is").
 **Idea:** —
-**Wave:** —
+**Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73's owner-named card, scheduled 2026-10-31 on "ok schedule it" and carried as NEXT TO START since. Premise re-checked at dispatch. Conflict profile measured EMPTY against CARD-338 and CARD-323. Declares the app.py hotspot, so any future card touching it serializes behind. OWES A RENDER: it changes owner-facing UI. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_setup_print_mobile.py, tests/test_player_bundle.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

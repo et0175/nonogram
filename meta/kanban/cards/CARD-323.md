@@ -1,6 +1,6 @@
 # CARD-323: The public player gains the Maybe brush — the fourth mark whose look already ships
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/323-the-public-player-gains-the-maybe-brush`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-323
 **Source:** owner request 2026-10-30 — "the player misses a lot of the player from the admin player: e.g. no maybe brush, no hints etc... I'd like both to reuse the same functionality", raised against a locally assembled site at `http://localhost:8081/play/00d5d88065`. The orchestrator measured the gap before carding it; this is the cheapest of the five cards it produced, and the only one whose styling already exists.
 **Idea:** —
-**Wave:** —
+**Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73, on the owner's "and some player card also". Chosen from five mutually-exclusive player cards -- all five touch player/play.js, play.html and player.css, so only one can run -- and chosen as the SMALLEST because its round establishes the house style the other four inherit. PREMISE VERIFIED AT DISPATCH: player/player.css:411 already carries .player-cell[data-state="maybe"] and player/play.js contains the string `maybe` ZERO times, so the look ships and the behaviour does not, exactly as the card claims. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_maybe.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

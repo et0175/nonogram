@@ -1,6 +1,6 @@
 # CARD-338: The instrument that can measure the end state does not exist, and the one that exists measures a fifth of it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 0.5d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/338-the-five-kind-probe-and-the-measured-floor`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-338
 **Source:** CARD-322's re-cut, 2026-10-31, judgement call 3. The re-cut found that CARD-329's session probe lifts `PageKind.PUZZLE` **alone**, built the two-line extension itself, ran the five-kind census, and then declined to absorb it — describing it in prose in all three resulting cards instead. It asked whether to card it. **Carded, because three cards describing the same undelivered instrument in prose is how CARD-309 happened.**
 **Idea:** —
-**Wave:** —
+**Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73. Head of the vector chain 338 -> 336 -> 337 -> 322, cut 2026-10-31 at CARD-322's re-cut. Dispatched FIRST in its family because CARD-336's 2d is priced against a one-kind lift and the five-kind census is 225 rather than 151 -- reviewing 336 before this lands would judge it against a figure already known wrong. Intersection EMPTY against every other card on the board. -->
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** scratchpad/card338/, meta/kanban/cards/CARD-336.md, meta/kanban/cards/CARD-337.md, meta/kanban/cards/CARD-322.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
