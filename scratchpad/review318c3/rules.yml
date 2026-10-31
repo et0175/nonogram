@@ -1,0 +1,209 @@
+rules:
+  - id: "ADR-0031/R1"
+    source_kind: adr
+    statement: "Tier has exactly three members — easy, medium, hard — and every one has a score band. classify takes the score alone; no module derives a tier from branch_nodes."
+    severity: mandatory
+    scope: ["src/nonogram/difficulty.py"]
+    check:
+      kind: "test"
+      ref: "TestTiers_ThreeBandsAndNoFourthTier"
+  - id: "ADR-0031/R2"
+    source_kind: adr
+    statement: "A solve that branched is reported as the `guess` strategy (solver.STRATEGY_GUESS) in FR-029's strategies list, never as a tier."
+    severity: mandatory
+    scope: ["src/nonogram/admin/puzzle_review.py", "src/nonogram/admin/regrade.py", "src/nonogram/orchestrator.py"]
+    check:
+      kind: "test"
+      ref: "TestTiers_BranchingIsAStrategyNotATier"
+  - id: "ADR-0031/R3"
+    source_kind: adr
+    statement: "A stored difficulty_tier of \"guess\" reads back as Tier.HARD and is never rewritten by this decision; no migration runs and no production database is touched."
+    severity: mandatory
+    scope: ["src/nonogram/difficulty.py"]
+    check:
+      kind: "test"
+      ref: "TestTiers_LegacyGuessRowReadsAsHard"
+  - id: "ADR-0038/R7"
+    source_kind: adr
+    statement: "Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. It is never added to project.dependencies or to the admin extra."
+    severity: mandatory
+    scope: ["pyproject.toml", "tests/**"]
+    check:
+      kind: "review-lens"
+  - id: "ADR-0038/R8"
+    source_kind: adr
+    statement: "Browser tests run locally, against Chromium installed by `playwright install chromium`. When Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium (playwright install chromium) before running them; until then there is no CI, and that is a known gap, not a met clause."
+    severity: mandatory
+    scope: ["tests/**"]
+    check:
+      kind: "review-lens"
+  - id: "ADR-0039/R1"
+    source_kind: adr
+    statement: "A set a guard consults needs a completeness test written before the set, and any claim the guard makes about what it catches needs a control that can fail: caught WITH the set member present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted."
+    severity: mandatory
+    scope: ["src/nonogram/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_the_control_for_each_spelling_depends_on_the_set"
+  - id: "ADR-0039/R2"
+    source_kind: adr
+    statement: "A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3."
+    severity: mandatory
+    scope: ["src/nonogram/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_the_guard_sets_are_derived_and_not_hand_written"
+  - id: "ADR-0039/R3"
+    source_kind: adr
+    statement: "An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT absorb — caught with the exemption removed, missed with it in place — is held to an equality against the sites that exist today, and records whatever it still cannot see as a measured bound with its own failing control."
+    severity: mandatory
+    scope: ["src/nonogram/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw"
+  - id: "ADR-0039/R4"
+    source_kind: adr
+    statement: "A figure is a claim, and the instrument that produced it is part of it. Every figure committed to code, to a card or to an artefact names its instrument, and that instrument must be executable on the host that recorded the figure and demonstrated to respond to what it measures: a POSITIVE control that it rises, and a NEGATIVE control that it does not rise on a near-miss. A reading that cannot distinguish \"the quantity is zero\" from \"the instrument is blind\" is not a measurement. A figure's DOMAIN — which population, which revision, which arm — is part of the figure; a ratio whose halves come from different instruments, different runs or different baselines is not a ratio. A figure recomputed and refuted is retracted everywhere it was written."
+    severity: mandatory
+    scope: ["meta/kanban/**", "meta/profiling/**", "src/nonogram/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_every_prescribed_host_cell_command_exits_zero, test_the_instrument_rises_on_a_real_pytest, test_the_instrument_does_not_rise_on_a_near_miss"
+  - id: "ADR-0041/R1"
+    source_kind: adr
+    statement: "A puzzle's public key is the first 10 lowercase hexadecimal characters of SHA-256 over the UTF-8 bytes of \"{width}x{height}:\" followed by the solution grid's cells row-major, '1' for filled and '0' for empty. Exactly one implementation computes it, and every public URL, bundle filename and index entry uses that key. Any change to the recipe — the prefix, the separator, the cell encoding, the algorithm, the truncation length or the case — is a breaking change to every printed book and requires a new ADR."
+    severity: mandatory
+    scope: ["player/**", "src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder"
+  - id: "ADR-0041/R2"
+    source_kind: adr
+    statement: "No public asset — nothing in player/, nothing in the exported bundle, nothing the assembled site serves — carries a solution grid or data from which any solution cell is recoverable, for any puzzle, on any export path. This restates ADR-0038/R6's clause for the public surface; the solved state is detected from clue satisfaction alone. EXEMPT, by owner decision 2026-10-28, and exempt by SCOPE rather than by safety: a book's own owner-authored display title, served verbatim on /b/<slug>, and carried in the bundle's own book/<slug>.json that the served file is built from — which it always has been, since player_bundle.BOOK_FILE_FIELDS is (\"puzzle_keys\", \"slug\", \"title\"). AMENDED 2026-10-28 (b): the first wording said \"and nowhere else\", which was false of the bundle on the day it was written. Naming only the served file would have left FR-045's bundle sentence reading false for a field that predates this decision entirely. It is the third such exemption beside the clues and the answer key, and like them it is a named channel with a DECLARED residual rather than a bounded one — 120 code points at log2(1112064) bits each, 2410.18 bits, 24.1x this surface's 100-bit ceiling and 2.68x the 900 cells of the largest publishable grid. So the honest statement of what this exemption admits is: an owner who writes the base-64 of a solution into a book's title publishes it, measured at 100 of 100 cells recovered, and no reachable character cap is a bound (one base-64 character already carries six bits). The exemption is bounded in WHERE it applies, not in WHAT it can carry. A puzzle's own title — the picture name — stays forbidden outright and is not covered here."
+    severity: mandatory
+    scope: ["player/**", "src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers, tests/test_public_player.py::test_served_tree_is_clean_of_answers, tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+  - id: "ADR-0041/R4"
+    source_kind: adr
+    statement: "The public player keeps play state in the visitor's browser localStorage only. For every interaction sequence the page issues zero write requests; there are no accounts and no server-side state of any kind."
+    severity: mandatory
+    scope: ["player/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_public_player.py::test_no_write_request_for_any_interaction"
+  - id: "ADR-0041/R5"
+    source_kind: adr
+    statement: "The player bundle is exported by an explicit admin-panel action, is read-only against the database (no INSERT/UPDATE/DELETE on any export path), takes its clues from compute_clues of the stored grid (the one encoder), and is deterministic: the same input produces byte-identical files."
+    severity: mandatory
+    scope: ["src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_player_bundle.py::test_export_is_readonly_and_deterministic"
+  - id: "ADR-0041/R6"
+    source_kind: adr
+    statement: "Nothing we ship stores, reads or transmits a visitor's IP address or any per-visitor identifier. Usage counting happens only through the cookieless hosted service this ADR names — GoatCounter — included as one script tag on the player pages, which must render and play correctly with it blocked or absent. Swapping the service is an ADR revision, not a code-only change."
+    severity: mandatory
+    scope: ["player/**", "scripts/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_public_player_pages.py::test_no_homegrown_tracking"
+  - id: "ADR-0041/R7"
+    source_kind: adr
+    statement: "A finalized book's public slug is the first 10 lowercase hexadecimal characters of SHA-256 over the UTF-8 bytes of \"book:\" followed by the book's puzzle keys in book order, concatenated with no separator (each key is exactly 10 characters by R1). The book's title is NOT an input: the slug is printed in a QR code that cannot be re-pointed, so an editorial title change must not move it. Exactly one implementation computes it. Any change to the prefix, the ordering, the absence of a separator, the algorithm, the truncation length or the case is a breaking change to every printed book and requires a new ADR."
+    severity: mandatory
+    scope: ["player/**", "src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder"
+  - id: "ADR-0042/R1"
+    source_kind: adr
+    statement: "Puzzle pages, answer pages, the table of contents and the guide are written as PDF content-stream operators. None of those pages references an image XObject, on any export path — the interior PDF, the proof sheet, or any future one. The cover and the section dividers are the declared raster exceptions and are governed by R2."
+    severity: mandatory
+    scope: ["src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "review-lens"
+  - id: "ADR-0042/R2"
+    source_kind: adr
+    statement: "A page may be raster only where it is declared with a reason, on a named authority, and with the card that removes it. The declarations are `nonogram.admin.book_pdf_generator._RASTER_DECLARATIONS` — that mapping is the authority, and this rule's business is that every bitmap page in a written file matches a live entry in it. Two entries are this ADR's own: the COVER, because it is a photograph, permanently; and the SECTION DIVIDERS, because CARD-231 redesigns that page and the new design should be born vector rather than the old one converted. Per-page mixing is a sanctioned end state, not a migration artefact — each PDF page is its own content stream. A page that is raster without a declaration is a defect, and so is a declaration whose reason has expired: once CARD-231 lands, the divider's exception goes with it."
+    severity: mandatory
+    scope: ["src/nonogram/admin/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_every_raster_page_is_declared_with_its_reason"
+  - id: "ADR-0042/R3"
+    source_kind: adr
+    statement: "The vector writer consumes positions and derives none. Every coordinate, width and tone it emits comes from COMP-007's Layout (or the pair-aware call for two-up pages) with the book's PageSpec; it computes no geometry of its own. This restates ADR-0036/R2 for the new writer, because a fresh renderer is exactly where geometry is re-derived by accident."
+    severity: mandatory
+    scope: ["src/nonogram/admin/**", "src/nonogram/export/**", "tests/**"]
+    check:
+      kind: "review-lens"
+  - id: "ADR-0042/R5"
+    source_kind: adr
+    statement: "Interior text is the project's own DejaVuSans, embedded whole and FlateDecoded once per file. Glyph subsetting is deliberately not done (it saves ~365 KB against a file that was 9 MB), and a PDF base-14 substitute is forbidden because every type measurement in this tree — type_px, the band face, the guide face, CON-020's floor — is DejaVu's."
+    severity: mandatory
+    scope: ["src/nonogram/admin/**", "src/nonogram/export/**", "tests/**"]
+    check:
+      kind: "test"
+      ref: "test_the_interior_embeds_the_projects_own_face"
+  - id: "ADR-0042/R6"
+    source_kind: adr
+    statement: "A claim about an interior page's geometry, rule widths or tone is asserted against the content stream of the written PDF, not against a rendered bitmap. Measuring ink to recover a number the generator stated exactly is forbidden for interior pages: it is a reconstruction, it needs tolerances, and today's pure-black assertions cannot even be made against the shipped file because the DCT round trip greys a rule's edges. Two kinds of claim are DECLARED EXEMPT, and each is exempt for a reason that names what it could not otherwise assert. First, independent second-implementation oracles (Sheet and its kind) are unaffected and still compared against — only the reading of the artefact changes. Second, a claim about what the DEVICE does with a declared width or tone — that two distinct declared widths resolve to distinguishable rendered widths, that none drops out, that a declared tone survives — is asserted on a render, because the content stream is precisely the thing it does not test: reading 0.3 pt back out of the operator that set it says nothing about whether 0.3 pt is visible. Such a claim must state the resolution it was measured at and must not be used to recover a width the generator stated."
+    severity: mandatory
+    scope: ["tests/**"]
+    check:
+      kind: "review-lens"
+  - id: "CON-005"
+    source_kind: con
+    statement: "The uniqueness check must never produce a false positive: a puzzle accepted as unique must never actually have 0 or more than 1 solutions. This is the mandatory correctness property the whole tool depends on."
+    severity: mandatory
+    scope: global
+    check:
+      kind: "test"
+      ref: "PropertyTest_Solver_NeverFalsePositiveUniqueness"
+  - id: "CON-009"
+    source_kind: con
+    statement: "The web UI's HTTP server binds its listening socket to 127.0.0.1 (loopback) only, and refuses connections arriving on any other interface. Restates NFR-003/AC-052 as a gate-enforced mandatory constraint — a `check:` the system contract actually collects — so BCON-0001's socket-reach half is discharged by more than a threshold visible only in requirements.yml."
+    severity: mandatory
+    scope: global
+    check:
+      kind: "test"
+      ref: "TestWebServer_BindsLoopbackOnlyByDefault"
+    bcon_ref: "BCON-0001"
+  - id: "CON-010"
+    source_kind: con
+    statement: "The web UI's HTTP server refuses any request the browser itself marks as cross-site (a Sec-Fetch-Site value other than same-origin/none, or an Origin header naming a non-loopback host), and refuses any absolute-form request target whose authority is not a loopback name (NFR-004). Restates NFR-004 as a gate-enforced mandatory constraint — a `check:` the system contract actually collects — so BCON-0001's browser-mediated-reach half is discharged too, not only its socket-reach half (CON-009): binding to 127.0.0.1 alone does not stop this, since a browser sets Host from the request's target url, not from the page's origin."
+    severity: mandatory
+    scope: global
+    check:
+      kind: "test"
+      ref: "PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest"
+    bcon_ref: "BCON-0001"
+  - id: "CON-011"
+    source_kind: con
+    statement: "Each grid side is 10 to 30 cells inclusive. 30 replaces 50 as MAX_SIZE project-wide and applies to every source mode (random, built-in library, uploaded image) and to both inbound adapters (CLI and web UI). This supersedes the 10..50 range FR-001 carried; FR-001 is marked status: superseded, superseded_by: FR-019, and FR-019 restates the behaviour over the narrowed range."
+    severity: mandatory
+    scope: global
+    check:
+      kind: "test"
+      ref: "PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30"
+  - id: "CON-012"
+    source_kind: con
+    statement: "A generation request whose grid aspect ratio differs from the uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision 2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x is refused with an explanatory error rather than converted (FR-021). The centred crop of FR-020 retains exactly min(r_src, r_tgt) / max(r_src, r_tgt) of the source with r = width/height, so this is exactly the rule \"never silently discard more than half the user's picture\". Retaining exactly 50% (a ratio difference of exactly 2x) is ACCEPTED — the boundary is inclusive."
+    severity: mandatory
+    scope: global
+    check:
+      kind: "test"
+      ref: "PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore"
+diagnostics:
+  unresolvable_scope: []
+  scope_unmapped_model: []
+  no_check: ["CON-004", "CON-006", "CON-007", "CON-008", "CON-013", "CON-017", "CON-018"]
+  dead_check_ref: []
+  tooling_failure: []
+  bcon_without_derived_con: []
+  sources_absent: ["threat-model.md", "business/constraints.md"]
+  unparseable_sources: []
+  check_refs_verified: true
+  card_scope: "touches"

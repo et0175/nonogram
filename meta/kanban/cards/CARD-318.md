@@ -1,6 +1,6 @@
 # CARD-318: FR-029's strategies criteria are ten unwritten tests reading as mechanically checked — the board's one real coverage gap
 
-**Status:** ready
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_solver_strategies.py (new or renamed), tests/test_batch_generator.py, tests/test_puzzle_review_*.py, tests/property/
-**Review score:** —
+**Review score:** 9.0 (cycle 3 of 3 — CERTIFIED; 7.0 → 8.5 → 9.0)
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -863,3 +863,61 @@ over the two line lists give **62 added lines, 57 of them comments, forming 6
 runs of consecutive line numbers**. The substantive half of the claim — nothing
 reflowed, nothing reordered, nothing renumbered, still parses — is what the 0/0
 confirms, and that is the half CARD-317 and CARD-316 depend on.
+
+## Review cycle 3 — CERTIFIED at 9.0, and the two residues it routes
+
+Cycle 3 is the last `max_cycles` allows, and it certifies: `min_score` met with
+**no open Critical or Important**. Every prior finding was re-derived on the
+reviewer's own instruments rather than accepted from the fix round's report —
+F-004's figures by a route that **uses no YAML parser at all** (a `-U0` diff
+with each removed line paired to the added line carrying the same key), which
+independently reproduces 5 changed values / 62 added lines / 57 comments / 6
+blocks, with `git diff --numstat` agreeing at 62/5.
+
+Y1/Y2/Y3 all re-fired: Y1 **killed** at `tests/test_strategies.py:560`, Y2
+**survives** (so the control is not a blanket red on any edit to the route),
+Y3 **killed** at `:557` (so the flash assertion stays a live, separate control
+and neither absorbs the other). The load-bearing regex was measured both ways:
+on a page listing nothing the committed `[\w-]+` gives `set()` while `[^/]+`
+gives `{'${escapeAttr(puzzle.id)}'}` — the looser pattern really would have
+defeated the control.
+
+**Two Minor findings are routed, not fixed, and neither blocks the merge.**
+
+- **F-010 — the admin list route's strategy wiring has no positive control.**
+  Nulling `strategy=strategy` in the `PuzzleFilter` construction at
+  `src/nonogram/admin/app.py:2304` stops the dropdown filtering **entirely**
+  and all 109 FR-029 tests stay green. The hole is *between* criteria rather
+  than inside one: AC-142 is about the *unknown* value, which is true by
+  construction under that plant; Y1 cannot reach it because its own site
+  becomes dead code; and AC-141's "exactly the 3 puzzles are listed" is
+  verified at the **service** seam (`service.filter_puzzles`), never at the
+  route. **Pre-existing** — `src/` is a 0-line diff across this whole branch —
+  and not an AC violation as worded. Owed by whichever card next touches the
+  admin list route: one `?strategy=guess` route-level assertion using the same
+  response-side helper, then kill the plant.
+- **F-011 — a committed instrument is blind.** `scratchpad/card318fix/probe_listing.py:37`
+  matches `[0-9a-fA-F-]+`, which cannot match `puzzle_000001`; run on this head
+  it prints `rows=[]` for all three queries on a page it then shows contains
+  both ids, with no positive control — the "cannot distinguish zero from blind"
+  shape ADR-0039/R4 rules out. **Not an R4 violation**, because the card cites
+  this file nowhere, so no committed figure rests on it, and the claim it
+  explored is independently true. Hygiene: fix the pattern with both controls,
+  or delete it.
+
+**Out-of-scope, recorded for the convention card after CARD-317/CARD-316:**
+ADR-0029 carries two `check:` refs in the `Property`/`Test_` family and
+**neither has a definition anywhere** — they resolve only through index lines in
+test-file *docstrings*. So the deterministic lens reports `dead_check_ref: []`
+while two ADR-0029 rules are mechanically unverified in substance. This is
+F-006's mechanism with fresh evidence, and it is the same shape as CON-019's
+ref, which is why it belongs with that family rather than here.
+
+**One measurement corrects a standing orchestrator note.** The "no `nonogram_test`
+database ⇒ DB-mode tests skip green" hazard, which this card's briefs carried
+three times, is **stale for this box**: CARD-244's `tests/db_name.resolve_test_database_url`
+derives a **per-worktree** database, and the 15 `[db]` node ids in
+`tests/test_puzzle_review_bulk_read.py` give **15 passed, 20 deselected, 0 skipped**.
+Confirmed independently by the orchestrator. The instruction (assert zero skips)
+was right; the stated cause was wrong, and a wrong cause sends the next round
+looking in the wrong place.

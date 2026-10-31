@@ -1,0 +1,46 @@
+test(CARD-318): FR-029's ten dead refs named tests that were never written — for behaviour CARD-072 had already built
+
+Step 1 of the card is a walk of `src/`, and it disconfirms the card's own
+premise. FR-029's behaviour is **not** missing: CARD-072 shipped all of it —
+`orchestrator.record_difficulty` appends `guess` off `branch_nodes`,
+`batch_generator.py:474` and `app.py:1993` both persist
+`list(puzzle.strategies)`, `json_export.py:117` carries the array, and
+`puzzle_review.py` filters on it in both storage modes — and covered it in
+`tests/test_strategies.py` under its own card-local names
+(`test_strategies_*`). The registry's `test:` refs were written against the
+pre-implementation design and never re-pointed, so ten criteria read as
+mechanically checked while naming symbols no definition ever had.
+
+So the repair is not ten new behaviours. It is one class per criterion, named
+exactly as `requirements.yml` names it, asserting that criterion's own
+`given`/`then`:
+
+  tests/test_solver_strategies.py        AC-135..AC-141, AC-143
+  tests/property/test_solve_strategies.py EC-017, EC-018
+
+Measured, and not what the brief said:
+
+* The dead-ref population for FR-029 is **eleven**, not ten. AC-135's ref is
+  equally absent from `tests/`; it does not warn only because the validator's
+  check is a text search and the name appears in eight review YAMLs and ten
+  kanban cards. Two of those YAMLs assert it "exists and passes".
+* AC-135's `given` (20x20, density 40, seed 42) **does not generate** — it
+  raises `GenerationAbandoned` after 30 attempts; other seeds at 20x20/40
+  raise `SolverTimeout`. Corrected to 15x15, `then` untouched.
+* AC-142's `then` ("refused ... and no puzzles are listed") **contradicts the
+  shipped route**, which reports the unknown value and then ignores it,
+  listing everything — deliberately, the CARD-066 shape. Left dead and
+  flagged for the owner rather than tested to whichever side is easier.
+* EC-017/EC-018's `PropertyTest_*` names are **structurally uncollectable**:
+  `pyproject.toml` leaves `python_classes` at pytest's default `Test*`, so
+  such a class never runs — no skip, no error, a green total. Re-pointed at
+  collectable names.
+* **Nothing is orphaned by CARD-106.** It decided explicitly *not* to
+  renumber; `requirements.yml` holds each of AC-135..AC-143 exactly once. The
+  `# NB` comments are the provenance banners that card produced, and the
+  collision is with the wave-0 web-UI cards' own local numbering.
+
+No `src/` change: nothing was built, so there is nothing to build-or-demote
+except AC-142, which is the owner's call (G-2).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

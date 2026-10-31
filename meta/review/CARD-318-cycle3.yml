@@ -1,0 +1,736 @@
+version: 1
+generated_at: "2026-10-31T00:00:00Z"
+target: "CARD-318 cycle 3 (final; max_cycles 3) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-318, branch card/318-fr-029-strategies-criteria, HEAD 4c8b58e4, fix-round-2 delta 2ee0be38..4c8b58e4, whole-card diff against merge-base ef242847"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+certifies: true
+certification_note: >-
+  CERTIFIES. min_score is 8 and the score is 9.0; there is no open critical or
+  important finding. F-009 (high) and F-004 (low) are both CLOSED, each
+  re-derived here on this reviewer's own instruments rather than accepted from
+  the round's report. The two new findings (F-010, F-011) are minor, both
+  pre-existing in substance, both routed, and neither blocks the merge. F-006 /
+  F-007 / F-008 remain info and belong to other cards.
+reviewer_version_note: >-
+  Cycle 2 recorded `unknown`. The skill's documented manifest path
+  (`<skill>/../../.claude-plugin/plugin.json`) does not exist in this install;
+  the executing manifest is `/Users/omelnikova/MyProjects/forge_1/forge/.claude-plugin/plugin.json`
+  and names version 2026.8.17. Correcting cycle 2's own record, not the card's.
+
+# ========================================================================
+# NOT A SOURCE OF CHECK REFS. Read this before anything else in this file.
+# ========================================================================
+# The architecture validator of record resolves a `check:`/`test:` ref with
+#   git grep -lw <name> -- . :(exclude)meta/architecture :(exclude)*.md
+# (forge_1 .../architect-validate/scripts/validators/utils.py:237, excludes
+# built at utils.py:336-338). That is a WORD-BOUNDARY TEXT search over TRACKED
+# files. It is NOT a search for a definition line, and `meta/review/` is NOT in
+# the exclude set — so a bare symbol name occurring ANYWHERE in a tracked
+# review YAML makes a dead ref resolve. 386 review YAMLs are tracked on this
+# branch, which is how cycle 1's F-007 arose.
+#
+# Therefore:
+#   * Nothing in this file is evidence that any symbol exists.
+#   * Every existence claim below was resolved by `ast` ClassDef/FunctionDef
+#     over tests/**/*.py (9,748 definition names indexed; the instrument was
+#     proven in BOTH directions — it finds a known test and rejects a nonsense
+#     control — in scratchpad/review318c3/defs.py).
+#   * Every name that has NO definition, or that resolves only through prose,
+#     is written SPLIT ACROSS A STRING BOUNDARY on purpose so that this file
+#     cannot revive it. Those appear as e.g. "Test" + "PuzzleReview_Rejects…".
+#   * No name anywhere in this file is written in a shape that could pass for
+#     a definition line (`def `/`class ` prefix). None was needed.
+
+premise_reversal: >-
+  Carried unchanged from cycles 1-2 and re-confirmed: CARD-318 disconfirmed its
+  own premise. FR-029's behaviour was not missing — CARD-072 shipped it and
+  covered it under card-local names, so the card's "one real coverage gap" was
+  a NAMING gap that read as a coverage gap. Nothing was demoted for absence;
+  nothing was built. The ten criteria turned out to be eleven. AC-142 alone was
+  demoted, on the owner's explicit decision, with zero production change.
+
+premise_reversal_evidence:
+  - "src/ untouched across the whole branch: `git diff ef242847..HEAD -- src/` produces 0 lines of output (re-run this cycle)."
+  - "The eleven FR-029 criteria rows (9 acceptance + 2 engineering constraints) all carry a `test:` whose name has a real ClassDef/FunctionDef in tests/**: 11/11 DEF OK, 0 phantom (scratchpad/review318c3/defs.py)."
+  - "G-3 honoured by the reviewer too: resolution was by DEFINITION via `ast`, never by `git grep -lw`."
+
+coverage:
+  read:
+    - "tests/test_strategies.py:489-561 (AC-142's ref, in full, plus the complete 2ee0be38..HEAD diff of the file)"
+    - "src/nonogram/admin/app.py:2255-2330 (the unknown-status and unknown-strategy branches and the PuzzleFilter construction they feed)"
+    - "src/nonogram/admin/templates/_puzzle_table.html (every /api/puzzle/<id>/grid occurrence: the Jinja row thumbnail at :53 and the JS-template literals at :262/:305/:348/:349)"
+    - "meta/architecture/requirements.yml FR-029 in full, plus the complete ef242847..HEAD diff of the file"
+    - "meta/kanban/cards/CARD-318.md in full (header, AC-1..AC-6, G-1..G-9, System contract, both fix-round sections, Shared-file etiquette, the standing 'Still open' paragraph)"
+    - "meta/review/CARD-318-cycle2.yml in full (findings, system_contract, gates, metrics)"
+    - "scratchpad/card318fix/y1_control.py, y_discrimination.py, probe_listing.py, final_mutants.py (read AND executed)"
+    - "tests/test_solver_strategies.py:709-739 (AC-141's named test, to establish which seam it exercises)"
+    - "tests/property/test_solve_strategies.py (EC-017/EC-018 class names and collection)"
+    - "tests/conftest.py:183-260, :584-620 (the DB-mode guard chain, for G-7/G-8)"
+    - "forge_1 architect-validate validators/utils.py:237-262, :336-341 (how a ref resolves; the exclude set)"
+  not_reached:
+    - "tests/test_batch_generator.py, tests/test_puzzle_review_book_filter.py, tests/test_puzzle_review_bulk_read.py bodies (RUN, not read in full this cycle — delta-clean: the fix delta touches no line in them)"
+    - "The 21 assembled system rules outside the card's declared subset (see system_contract.assembled_note) — src/ is untouched, so no eligible fact bears on them"
+    - "ADR-0029's own rule block beyond the two check refs sampled for F-006/F-007 evidence"
+  confidence: high
+
+metrics:
+  diff:
+    fix_round_2_delta: { files: 5, added: 482, removed: 4 }
+    whole_card_src: { files: 0, added: 0, removed: 0 }
+    whole_card_meta_architecture_since_7845cb5c: { files: 0, added: 0, removed: 0 }
+    requirements_yml_whole_branch: { files: 1, added: 62, removed: 5 }
+  max_fan_in:
+    symbol: "the /puzzles route's `strategy` local (src/nonogram/admin/app.py:2277-2284 -> :2304)"
+    callers: 1
+    note: >-
+      One consumer: the PuzzleFilter construction at app.py:2304. Counted by
+      reading the route, not by name-grep — `strategy` is too common a word for
+      a grep to be a caller count. No production symbol changed in this card, so
+      fan-in weights the TEST's blast radius only, which is why the score is not
+      weighted up for it.
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "not_applicable — the whole card changes no file under src/, so churn / defect-density on production code cannot weight any finding here"
+    cochange_missing: >-
+      not_applicable — same reason. The one co-change peer of tests/test_strategies.py
+      inside this card (meta/architecture/requirements.yml) is deliberately absent from
+      the fix delta, and that absence IS the round's stated scope decision; it was
+      verified empty (`git diff 7845cb5c..HEAD -- meta/architecture/` → 0 lines), not
+      assumed.
+
+# ------------------------------------------------------------------------
+# Step 8h — system contract
+# ------------------------------------------------------------------------
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — AC-142's claim now has a control that CAN fail, measured in both directions by this reviewer's own harness (scratchpad/review318c3/refire.py, written independently of the round's): with the route's strategy reset deleted the named node FAILS at tests/test_strategies.py:560 on `listed(unknown_body) == {plain, guessy}`; unmutated it PASSES (1 collected, 0 skipped); and the control is not a blanket red — the unrelated CARD-066 status reset three lines up can be deleted and the node stays green. Cycle 2's ✗ is cleared. Bounded claim: checked for the one criterion cycle 2 violated it on, plus the whole fix delta; the other ten criteria's controls were re-fired through the committed 13-run harness (see mutation_check.ac3_table_refired)."
+    - "ADR-0039/R2 ✓ holds — the guard's set is derived from an enumerable authority, re-derived here independently: FR-029's criteria were enumerated by parsing requirements.yml and walking for `id`, yielding ELEVEN rows (9 acceptance + 2 engineering constraints), not the card title's ten; each row's `test:` was resolved by `ast` definition lookup, 11/11 present, 0 phantom. No row was unclassifiable, so R2's deny-by-default clause was not reached."
+    - "ADR-0039/R3 ✓ holds — the exemption no longer absorbs anything silently. Fix round 1's 'Still open, and not this round's' paragraph is LEFT STANDING at CARD-318.md:385-391 and is annotated at :393-400 as itself being the finding, naming the mechanism (the exemption was granted against a `then` its own predecessor commit 7845cb5c had already replaced). What the exemption absorbed now carries a control that fails: the Y1 cell above. Cycle 2's ✗ is cleared. Epistemics: this is a prose exemption, so the control is the mutant, not a second test of the paragraph."
+    - "ADR-0006/R1 ✓ holds — the dependency baseline is untouched: `git diff ef242847..HEAD -- pyproject.toml` produces 0 lines; the only import the fix delta adds anywhere is `re` in tests/test_strategies.py:25, which is stdlib. The rule's declared `check:` is a phantom pointer whose repair is CARD-317's (card note at CARD-318.md:144), so the SUBSTANCE was verified, not the pointer."
+  assembled_note: >-
+    The card's `## System contract` section declares 4 rules, which is the N
+    above. For cross-check the deterministic lens was also run
+    (`system_rules.py --root meta/architecture --card CARD-318 --verify-refs`):
+    it assembles 25 rules and reports `check_refs_verified: true`,
+    `dead_check_ref: []`, `unresolvable_scope: []`, `scope_unmapped_model: []`,
+    `tooling_failure: []`. The 21 beyond the card's subset —
+    ADR-0031/R1, ADR-0031/R2, ADR-0031/R3, ADR-0038/R7, ADR-0038/R8,
+    ADR-0039/R4, ADR-0041/R1, ADR-0041/R2, ADR-0041/R4, ADR-0041/R5,
+    ADR-0041/R6, ADR-0041/R7, ADR-0042/R1, ADR-0042/R2, ADR-0042/R3,
+    ADR-0042/R5, ADR-0042/R6, CON-005, CON-009, CON-010, CON-011, CON-012 —
+    are all ⚠ unchecked / no_eligible_fact for the same single reason: their
+    scopes are production paths and this card changes nothing under src/
+    (0-line diff across the whole branch). Every id is named rather than
+    dismissed in a sentence. (That is 22 ids; ADR-0039/R4 is additionally
+    discussed under F-011, which is why it is listed here and also carries a
+    finding — the finding is minor and about an uncited instrument, not about a
+    figure the card stands on.)
+  checker_runs_cited:
+    - "architecture validator of record (meta/kanban/config.yml:38 → forge_1 .../architect-validate/scripts/validate.py --root meta/architecture --phase all), run on HEAD 4c8b58e4 in this worktree: `0 error(s), 90 warning(s), 0 info`, exit 0. This is the HEAD half of AC-6's figure, re-derived this cycle rather than pasted."
+    - "ADR-0039/R1-R3's declared test refs are LIVE (definitions present) and green on this head: the three node families run together give `15 passed, 10001 deselected, 0 skipped`. They are scoped to another card's guard, so they are cited as green-on-this-head, not as a derivation about AC-142; the AC-142 verdict rests on the mutants."
+
+# ------------------------------------------------------------------------
+# Mutation / certification evidence (Step 8f — RUN, not deferred:
+# this cycle opened with no gating findings, so certification was due)
+# ------------------------------------------------------------------------
+mutation_check:
+  ran: true
+  deferred: false
+  protocol: >-
+    Independently written harness, scratchpad/review318c3/refire.py, same
+    discipline as the card's: SHA-256 of the target asserted before each plant
+    and after each restore; restore from the in-memory original, never `git
+    checkout`; __pycache__/*.pyc swept both ends; PYTHONDONTWRITEBYTECODE=1;
+    plants located BY TEXT with the occurrence count asserted == 1 (never by
+    line number); `-o addopts=` as two UNQUOTED argv items; the collected count
+    asserted on EVERY run; and `0 skipped` asserted on every baseline. The full
+    environment is inherited via dict(os.environ, ...) with DATABASE_URL popped
+    — a stripped PATH has silently skipped whole files on this board and read as
+    "survived".
+  target_sha256_before_and_after: "403fb95713390ddbae6ebcf52b76f263a4dcb33eb8c994f5f74077de4e354ce4 (src/nonogram/admin/app.py, identical before the first plant and after the last restore)"
+  baselines:
+    - "named node, unmutated: 1 collected, 0 skipped, PASSED"
+    - "tests/test_strategies.py whole file, unmutated: 17 collected, 0 skipped, 17 passed"
+  cells_refired:
+    - id: Y1
+      plant: "app.py:2284 — `strategy = None` → `pass` (the unknown value becomes a real filter, so nothing is listed: the refusal AC-142's `then` rules out)"
+      verdict: KILLED
+      fires_at: "tests/test_strategies.py:560 — the listing assertion; the failure message is `assert set() == {'puzzle_000001', 'puzzle_000002'}`"
+      note: "Cycle 2 measured this same plant at this same site with this same spelling SURVIVING. It is now killed. This is the acceptance condition for F-009 and it is met."
+    - id: Y2
+      plant: "app.py:2272 — `status = None` → `pass`: the UNRELATED CARD-066 branch, same shape, three lines up"
+      verdict: SURVIVED
+      fires_at: null
+      note: "Required to survive. A control that reds on ANY edit to this route would be no evidence about the strategy filter. It discriminates."
+    - id: Y3
+      plant: "app.py:2281 — the flash's wording changed, the reset KEPT"
+      verdict: KILLED
+      fires_at: "tests/test_strategies.py:557 — the flash assertion"
+      note: "The flash assertion remains a live, DISTINCT control: the new listing assertion does not absorb it, and neither absorbs the other (Y1 reds :560 with :557 green; Y3 reds :557 with :560 green)."
+    - id: Y4
+      plant: "app.py:2304 — `strategy=strategy` → `strategy=None` in the PuzzleFilter construction (reviewer's own probe, not part of the round)"
+      verdict: SURVIVED
+      fires_at: null
+      note: "109 passed, 0 failed, 0 skipped across the whole FR-029 impact set. This is F-010 — see findings. Pre-existing; src/ is untouched by this card."
+  ac3_table_refired: >-
+    The card's committed 13-run harness scratchpad/card318fix/final_mutants.py
+    was re-executed in full on HEAD. Every cell reproduces the card's recorded
+    verdict, including the per-arm attribution (R1/R3 red the random arm and
+    leave the image arm green; R2/R4 the reverse; R5a is the documented
+    no-spurious-red control; R5b reds; R6 is recorded by the card as a FAILED
+    mutant and explicitly not a control; R7 and R8 red). "all targets pristine:
+    True", and the five target SHA-256s printed after the last restore match.
+  regex_control: >-
+    The load-bearing choice in `listed()` was verified empirically, not accepted
+    from the round's prose (scratchpad/review318c3/regex_probe.py). On a /puzzles
+    page listing NO puzzles: the committed strict pattern yields the empty set,
+    while a `[^/]+` pattern yields a one-member set containing the detail
+    modal's JS template literal, which is in the body whether or not a row is
+    listed. On a page listing two: the strict pattern yields EXACTLY the two
+    stored ids. On a genuinely filtered page (?status=approved): the empty set.
+    So (a) the strict pattern cannot match the script template, (b) a looser one
+    really would have defeated the control, and (c) the listing is read off the
+    RESPONSE, not out of the store — `re.findall` runs over the rendered body,
+    and the comparison values come from the store's own add, which is a second,
+    independent source.
+  restore_verified: true
+  whole_diff_sanity_check: "After every harness, `git status --porcelain -- src/ tests/ meta/architecture/` is empty and app.py's SHA-256 is unchanged. No file was left mutated."
+
+# ------------------------------------------------------------------------
+# Gates re-derived this cycle (every figure from the sets, none pasted)
+# ------------------------------------------------------------------------
+gates:
+  G1_no_test_written_to_retire_a_warning: "✓ — the delta adds no node id; it adds one assertion to an existing test, and that assertion is mutant-proven to fail (Y1). AC-142's ref points at CARD-072's own pre-existing test."
+  G2_no_feature_built_silently: "✓ — src/ diff is 0 lines across the whole branch. The AC-142 demotion is recorded in the card and in a 37-line comment block in requirements.yml as the owner's decision."
+  G3_refs_resolved_by_definition: "✓ — and honoured by this review: 11/11 FR-029 refs resolved by `ast` ClassDef/FunctionDef, instrument proven in both directions (positive control found, nonsense control rejected). `git grep -lw` was used ONLY to demonstrate F-007's mechanism, never as an existence verdict."
+  G4_no_hypothesis: "✓ — pyproject.toml unchanged; the only new import in the delta is stdlib `re`."
+  G5_independent_second_implementation: "✓ — the new control's two sides come from different sources (the store's returned ids vs. the rendered HTML), not from re-running the function under test."
+  G6_no_test_deleted_renamed_skipped_merged: "✓ — re-derived with `ast` from each revision's own blob: tests/test_strategies.py yields 17 test node ids at 2ee0be38, 17 at HEAD and 17 at ef242847, IDENTICAL as sorted sets (nothing added, nothing removed), with ZERO decorators on any of them, so no parametrize / skip / xfail. tests/test_solver_strategies.py is 16 at 2ee0be38 and 16 at HEAD, identical. pytest agrees: 17 and 16 collected, i.e. 33 across the two. The nested `listed()` helper is at tests/test_strategies.py:524, inside the test body, and is not a node id — confirmed by `ast` (it appears in no module-level or Test-class name list)."
+  G7_every_skip_attributed: "✓ — and it is a REAL zero, not a formality. The impact set runs 109 passed / 0 failed / 0 skipped, and `grep -c '^SKIPPED'` on the output is 0. The 15 `[db]` parametrizations in tests/test_puzzle_review_bulk_read.py were isolated and run on their own: 15 passed, 20 deselected, 0 skipped. They did not skip green: tests/conftest.py:600-602 skips DB mode when the test database is unusable, and it did not fire — a per-worktree `*_test` database (tests/db_name.resolve_test_database_url, CARD-244) resolves and is reachable on this host."
+  G8_no_production_database: "✓ — nothing this review ran could reach nonogram_poc. Every subprocess popped DATABASE_URL from the inherited environment; the fixed test itself does `monkeypatch.delenv(\"DATABASE_URL\", raising=False)` at tests/test_strategies.py:518 with the ten-minute-stall incident recorded in its own comment; and the DB-mode path is gated by tests/conftest.py:238-256, which parses the URL with SQLAlchemy's make_url and REFUSES, before any connection, any database whose name does not end in `_test`."
+  G9_validator_named_beside_every_figure: "✓ — validator of record named and re-run: forge_1 .../architect-validate/scripts/validate.py (meta/kanban/config.yml:38), NOT the plugin-cache copy whose ADR-0025 error is a regex artefact. HEAD 4c8b58e4: 0 error(s), 90 warning(s), 0 info."
+  AC1_partition_derived: "✓ carried (cycle 2, delta-clean) — the fix delta touches no file the partition was derived from, and the partition's output (eleven classified criteria) was re-confirmed structurally this cycle."
+  AC2_no_phantom_ref: "✓ re-derived — 11/11 FR-029 criteria refs have a definition in tests/**; 0 phantom. EC-017's and EC-018's renamed refs resolve to real classes at tests/property/test_solve_strategies.py:203 and :304, which pytest collects (5 node ids in that file)."
+  AC3_new_tests_can_fail: "✓ re-derived — the committed 13-run harness reproduces every cell on HEAD, and the new AC-142 control is killed by Y1 and discriminates under Y2/Y3."
+  AC4_property_corpora_pin_their_floors: "✓ carried (cycle 2, delta-clean) — tests/property/test_solve_strategies.py is untouched by both fix rounds."
+  AC5_nothing_built_in_silence: "✓ — src/ 0-line diff; the one product-level decision (AC-142's demotion) is recorded in the card and in requirements.yml with the owner named."
+  AC6_count_moves_only_downward: >-
+    ✓ on the half that could have moved. The HEAD figure was re-derived this
+    cycle: 0 err / 90 warn. The merge-base figure (0 err / 100 warn) and the
+    10-removed / 0-added SET difference were NOT re-measured here and are
+    carried from cycle 2, which is sound because `git diff 7845cb5c..HEAD --
+    meta/architecture/` is 0 lines: the model is byte-identical to the revision
+    the set diff was taken on. Re-measuring the base would have required a
+    `git checkout` over the tree, which this review's scope forbids outside the
+    mutation step. Two substantive sub-checks WERE run rather than carried,
+    because tests/ changed and ref resolution is a search over the code tree:
+    (a) AC-142's `then` was NOT widened — it contains exactly one occurrence of
+    " and ", below the validator's two-` and ` bundling threshold; (b) the
+    HEAD warning count is still 90, so nothing the delta added to tests/
+    revived or killed a ref. The ten removed are AC-136..AC-143 + EC-017 +
+    EC-018; CARD-317 and CARD-316 keep their queue position on this file.
+  impact_set:
+    per_file_collected:
+      "tests/test_strategies.py": 17
+      "tests/test_solver_strategies.py": 16
+      "tests/property/test_solve_strategies.py": 5
+      "tests/test_puzzle_review_book_filter.py": 20
+      "tests/test_puzzle_review_bulk_read.py": 35
+      "tests/test_batch_generator.py": 16
+    total_counted_from_the_rows: 109
+    run: "109 passed, 0 failed, 0 skipped, 0 SKIPPED lines, exit 0"
+    note: >-
+      Derived per file with --collect-only and summed, then compared against the
+      combined run's own total: 17+16+5+20+35+16 = 109 = the run's count. The
+      card's separate `88 passed` baseline for the four files cycle 2 used is
+      re-derived from the same per-file counts: 17+16+20+35 = 88.
+  figures_corrected:
+    - >-
+      Cycle 2's G-7 table attributed 16 node ids to tests/test_strategies.py and
+      17 to tests/test_batch_generator.py. Re-derived independently here, with
+      `ast` and again with pytest --collect-only, the two are THE OTHER WAY
+      ROUND: tests/test_strategies.py 17, tests/test_batch_generator.py 16. Fix
+      round 2's correction is RIGHT and cycle 2's table was WRONG. The 109 total
+      is unaffected, because the two swapped values are both inside it.
+    - >-
+      Cycle 2 recorded reviewer_version `unknown`. The executing manifest does
+      exist, one directory lower than the skill documents; it names 2026.8.17.
+  shell_traps_hit_and_recorded:
+    - >-
+      zsh does NOT word-split an unquoted variable. The first attempt at the
+      impact run passed all six test paths as ONE argv item: pytest exited 4
+      with `no tests ran`, and `grep -c '^SKIPPED'` on that output still
+      reported 0. A reviewer reading only the skip count would have recorded a
+      clean zero from a run that collected nothing. Every subsequent run went
+      through a Python runner with the collected count asserted. Recorded here
+      because the asserted-count protocol is the only reason it was caught.
+
+root_causes:
+  - id: RC-1
+    title: "The F-001 fix rewrote AC-142's `then` and nobody re-checked F-005 against the new text, so the criterion's only remaining clause was the one its named test did not assert"
+    finding_ids: [F-005, F-009]
+    status: resolved
+    resolution: >-
+      Closed at the cause, not at the symptom: the criterion now carries a
+      control that fails when the stated outcome stops being true (Y1 KILLED),
+      and the exemption that hid it is annotated as the finding rather than
+      deleted (ADR-0039/R3). Neither half was closed by re-pointing at the
+      flash — Y3 shows the flash is a separate control, and under Y1 the flash
+      still appears while the filter still applies, so the flash is satisfied by
+      BOTH semantics and can never stand in for the outcome.
+  - id: RC-2
+    title: "FR-029's route-layer criteria are verified at the service seam, so the admin route's own wiring of a known strategy value has no positive control"
+    finding_ids: [F-010]
+    status: open
+    resolution: null
+
+findings:
+  # ---------------- closed in earlier rounds, carried forward ----------------
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1970
+    title: "CLOSED (fix round 1, re-confirmed cycle 3) — AC-6 passes: 10 warnings removed, 0 added"
+    description: |
+      The first AC-142 demotion added a `'then' bundles several outcomes`
+      warning while removing a dead ref, so the TOTAL stayed at 91 while the
+      SET changed. Closed by commit 7845cb5c, which states one outcome rather
+      than rewording around the ` and ` count.
+      Re-confirmed this cycle on the only two axes the fix delta could have
+      moved: the `then` still contains exactly ONE " and " (threshold is two),
+      and the validator of record still reports 0 err / 90 warn on HEAD.
+    suggestion: |
+      None. Closed.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "7845cb5c"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 1516
+    title: "CLOSED (fix round 1, re-confirmed cycle 3) — the demotion reached trace.yml; all eleven names resolve by definition"
+    description: |
+      trace.yml had kept the pre-demotion names. Closed in 9329f1fb / 7845cb5c.
+      Re-confirmed this cycle by definition lookup rather than by text search:
+      all ELEVEN FR-029 criteria refs have a real ClassDef/FunctionDef in
+      tests/**, 0 phantom.
+    suggestion: |
+      None. Closed.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "7845cb5c"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_solver_strategies.py
+    line: 518
+    title: "CLOSED (fix round 1, re-confirmed cycle 3) — AC-139's two arms assert identity against an independently re-derived list"
+    description: |
+      The store's derive-on-empty fallback was hiding both AC-139 call sites, so
+      the assertion could not distinguish a real hand-off from the fallback.
+      Closed by spying on the hand-off boundary and asserting identity.
+      Re-confirmed this cycle by re-executing the committed 13-run harness on
+      HEAD: every cell reproduces its recorded verdict, including the per-arm
+      attribution (R1/R3 red the random arm only, R2/R4 the image arm only), the
+      documented no-spurious-red control R5a, and R6 which the card records as a
+      FAILED mutant rather than as a passing control.
+    suggestion: |
+      None. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "36d1692f, 55f5ef09, 29a3066a"
+    dismissed_reason: null
+    learned_pattern: null
+  # ---------------- closed in fix round 2 ----------------
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-318.md
+    line: 847
+    title: "CLOSED (fix round 2) — the Shared-file etiquette counts are now right, and they are right on a second, independent basis"
+    description: |
+      The sentence used to say "three `test:` values, one `given`, and four
+      comment blocks", omitting AC-142's `then` and two comment blocks. It now
+      says FIVE changed values and SIX comment blocks.
+
+      RE-DERIVED HERE ON A DELIBERATELY DIFFERENT BASIS. The round's basis was
+      yaml.safe_load + a leaf flattener keyed by `id`, with comments from
+      difflib SequenceMatcher opcodes. This reviewer used NO YAML parser for the
+      value count at all (scratchpad/review318c3/f004.py): `git diff -U0
+      ef242847..HEAD -- meta/architecture/requirements.yml`, every removed line
+      paired with the added line carrying the same key, each pair attributed to
+      an entry by walking the NEW file's text upward for the nearest `id:`; and
+      the comment figure as added lines whose strip() starts with '#', grouped
+      into maximal runs of CONSECUTIVE new-file line numbers.
+
+      Result, on that basis:
+        * 5 changed values, and exactly the five the card names —
+          AC-135.given, AC-142.then, AC-142.test, EC-017.test, EC-018.test
+        * 0 keys added, 0 keys removed (every removed line has a same-key
+          partner; nothing is a one-sided key change)
+        * 62 added lines, of which 57 are comments  (`git diff --numstat`
+          independently gives 62 / 5)
+        * 6 comment blocks, at new-file lines 1868-1873 (6), 1878-1881 (4),
+          1933-1969 (37), 1972-1977 (6), 1996-1998 (3), 2011 (1) — i.e. one on
+          FR-029's `evidence`, one on AC-135, TWO on AC-142 (separated by the
+          `then:`/`kind:` content lines, which is why they are two and not one),
+          one on EC-017 and one on EC-018.
+
+      Two independent routes, same two numbers. The card's figures hold.
+    suggestion: |
+      None. Closed. Worth keeping the per-block line ranges somewhere, since the
+      "6" is only unambiguous once you know the AC-142 comment splits in two.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "4c8b58e4"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1970
+    title: "CLOSED via F-009 — same criterion, same cause; it was RE-SCOPED in cycle 2 and is now resolved at the cause"
+    description: |
+      Cycle 1 raised this against a two-clause `then`, one clause of which the
+      named test did cover. Commit 7845cb5c removed that clause, so by cycle 2
+      the finding no longer described anything that existed and was re-scoped
+      into F-009. F-009 is now closed, so F-005 is closed with it — RC-1 is the
+      cause of both.
+      Not re-attributed: the cause is the orchestrator's commit 7845cb5c and
+      fix round 1's sequencing, not the implementer's work, and the card records
+      it that way. No history was rewritten and none should be.
+    suggestion: |
+      None. Closed.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "d71a3ea4"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_strategies.py
+    line: 560
+    title: "CLOSED (fix round 2) — AC-142's `then` now has a control that fails, verified by this reviewer's own independently written harness"
+    description: |
+      THE FINDING. AC-142's `then` — "the filter is ignored and every puzzle is
+      listed — the CARD-066 status-filter pattern, not a refusal" — was verified
+      by nothing. Its named test asserted status 200, the dropdown's presence,
+      one option value, and the flash text. None of those is a claim about what
+      is LISTED, and the flash cannot stand in for it, because the branch that
+      flashes is the branch that filters: the flash appears under BOTH semantics.
+
+      THE FIX, VERIFIED. tests/test_strategies.py:538-561 seeds two puzzles with
+      different ladders into the app's own in-memory store, fetches /puzzles and
+      /puzzles?strategy=LineLogic, and asserts both pages list exactly those two.
+      Re-fired independently (scratchpad/review318c3/refire.py):
+        * baseline — 1 collected, 0 skipped, PASSED
+        * Y1 (the route's strategy reset → `pass`, located by text at app.py:2284,
+          single occurrence asserted) — FAILED at tests/test_strategies.py:560,
+          `assert set() == {'puzzle_000001','puzzle_000002'}`. KILLED. Cycle 2
+          measured this same plant SURVIVING.
+        * Y2 (the unrelated CARD-066 status reset, same shape, three lines up) —
+          PASSED. The control discriminates; it is not a blanket red on the route.
+        * Y3 (flash wording changed, reset kept) — FAILED at :557. The flash
+          assertion is still a live, separate control, and neither assertion
+          absorbs the other.
+      app.py's SHA-256 was identical before the first plant and after the last
+      restore, and the working tree was left clean.
+
+      THE TWO THINGS I WAS ASKED TO SCRUTINISE RATHER THAN ACCEPT, BOTH HOLD.
+      (1) The regex is load-bearing and correct. Measured, not reasoned about
+      (scratchpad/review318c3/regex_probe.py): on a page listing nothing, the
+      committed pattern yields the empty set while a `[^/]+` pattern yields a
+      one-member set containing the detail modal's JS template literal — so a
+      looser pattern really would have defeated the control. On a page listing
+      two, the committed pattern yields EXACTLY the two stored ids; on a
+      genuinely filtered page, the empty set. The pattern cannot match the
+      script template because the character immediately after the url prefix in
+      the template is `$`, which the class excludes.
+      (2) The listing is genuinely read off the RESPONSE: `re.findall` runs over
+      the rendered body, and the values it is compared against come from the
+      store's own add — two independent sources, so the assertion is not
+      tautological.
+
+      ALSO CONFIRMED, as asked: the `then` was NOT widened (one " and ", below
+      the two-` and ` bundling threshold, so AC-6 is not re-triggered), and
+      F-009 was NOT closed via the flash.
+
+      CAUSE, NOT RE-ATTRIBUTED. The inversion was caused by commit 7845cb5c,
+      which correctly removed the one clause the named test did cover, leaving
+      exactly the clause nothing asserted; fix round 1 then exempted the
+      predecessor finding while describing it in its pre-7845cb5c form. That is
+      a sequencing failure in the fix rounds, not an implementation oversight,
+      and the card records it as such at CARD-318.md:385-400.
+    suggestion: |
+      None. Closed. The pattern worth promoting to a standing rule at the next
+      retrospective: when a demotion REMOVES a clause from a `then`, the
+      surviving clauses must be re-checked against the named test in the same
+      commit — the removal is exactly when a criterion can become uncontrolled
+      without any warning firing.
+    confidence: high
+    source: model
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "d71a3ea4"
+    dismissed_reason: null
+    learned_pattern: null
+  # ---------------- carried, info, routed elsewhere ----------------
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0029-difficulty-by-strategy-ladder.md
+    line: 496
+    title: "CARRIED unchanged, out-of-scope — the `Property` + `Test_*` ref population belongs to its own convention card"
+    description: |
+      pyproject.toml leaves `python_classes` at pytest's default prefix `Test`,
+      so a class named with the `Property` + `Test_` prefix is silently never
+      collected — no skip, no error. This card renamed its OWN two such refs
+      (EC-017, EC-018) to collected classes; the wider population is a
+      convention card sequenced after CARD-317/CARD-316.
+      New evidence measured this cycle, which strengthens the case without
+      changing the routing: ADR-0029 carries two `check:` refs in that naming
+      family, and NEITHER has a definition anywhere in tests/ or src/ — they
+      resolve only through index lines in test-file DOCSTRINGS (0 def/class
+      lines for either). So the lens reports `dead_check_ref: []` while two of
+      ADR-0029's rules are mechanically unverified in substance.
+    suggestion: |
+      Route to the convention card after CARD-317/CARD-316: either set
+      `python_classes` to include the prefix, or rename the population, and in
+      the same pass re-type ADR-0029's two refs — a ref that resolves only
+      through a docstring index line is a dead check that looks live.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: risk
+    file: meta/review/CARD-318-cycle1.yml
+    line: 1
+    title: "CARRIED unchanged, out-of-scope — review YAMLs can revive dead check refs, and the fix is not actionable from this worktree"
+    description: |
+      Re-derived from the validator's source this cycle rather than restated:
+      existence is decided by `git grep -lw <name> -- . :(exclude)meta/architecture
+      :(exclude)*.md` (utils.py:237, excludes at :336-338). `*.md` IS excluded,
+      so card prose is harmless; `meta/review/` is NOT, and 386 review YAMLs are
+      tracked on this branch. A bare symbol name anywhere in one of them makes a
+      ref resolve.
+      STATE ON THIS CARD, measured: both of this card's review YAMLs are still
+      UNTRACKED in the worktree, so `git grep` cannot see them and they have
+      revived NOTHING yet. Cycle 1's YAML does, however, spell AC-142's retired
+      ref whole; once synced and committed it will make that name resolve. That
+      is harmless in itself, because requirements.yml no longer names it — but it
+      is the mechanism, live, on this card.
+      Cycle 2's recommendation (add `meta/review` to forge_1's symbol_exists
+      exclude set) is UNACTIONABLE FROM HERE: /Users/omelnikova/MyProjects/forge_1
+      is read-only by standing rule.
+    suggestion: |
+      Needs a card that owns the forge_1 change (one pathspec added to the
+      exclude list built at validators/utils.py:336) plus a sweep of
+      meta/review/ for whole dead names. Until then, every review YAML on this
+      board should keep writing dead names split across a boundary, as cycle 2's
+      and this one do.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1874
+    title: "CARRIED unchanged, out-of-scope — FR-029's intake-era `evidence` block, flagged in place"
+    description: |
+      FR-029's `evidence:` list still holds the 2026-09-12 pre-CARD-072 line
+      numbers and claims. The card annotated it in place rather than editing it,
+      because trace.yml is auto-generated and the block is an intake record.
+      Unchanged this cycle.
+    suggestion: |
+      Leave as annotated; fold into whichever card next regenerates FR-029's
+      trace row.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  # ---------------- new this cycle ----------------
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2304
+    title: "The /puzzles route's strategy wiring has no positive control: it can be nulled and all 109 FR-029 tests stay green"
+    description: |
+      MEASURED, not reasoned about (scratchpad/review318c3/y4.py, same protocol
+      as the Y-cells: plant located by text with a single occurrence asserted,
+      SHA-256 before and after, collected count asserted, 0 skipped asserted).
+
+      Plant Y4: `strategy=strategy,` → `strategy=None,` in the PuzzleFilter
+      construction at app.py:2304 — i.e. the admin's strategy dropdown stops
+      filtering anything at all.
+      Result: 109 passed, 0 failed, 0 skipped. SURVIVED.
+
+      Why the existing controls cannot catch it. AC-142's new control is about
+      the UNKNOWN value, and under Y4 "ignored, everything listed" is true by
+      construction, so it passes. Y1 cannot catch it either: Y1 works by
+      deleting the reset so the value reaches the filter, but under Y4 nothing
+      reaches the filter, so Y1's site is dead code. And AC-141 — the criterion
+      whose `then` is "exactly the 3 puzzles are listed" — is verified at the
+      SERVICE seam: its named test calls `service.filter_puzzles(...)` directly
+      (tests/test_solver_strategies.py:736), never the route.
+
+      SCOPE AND WEIGHT, stated plainly. This is pre-existing, not introduced:
+      src/ has a 0-line diff across the whole branch. It is not an AC violation
+      as the ACs are worded — AC-141's `given` IS fully instantiated by its test
+      (3 guessing + 4 plain, asserted), so Step 8c's aspirational-green check
+      passes for it. The hole is between the criteria, not inside one. It must
+      not block this merge.
+    suggestion: |
+      One route-level positive control, in whichever card next touches the admin
+      list route: fetch /puzzles?strategy=guess against a seeded store and assert
+      the listing is the guessing subset, using the same response-side helper the
+      AC-142 control already has. Then kill Y4. If the board wants it governed,
+      it needs its own criterion — AC-141 as worded is satisfied at the service
+      seam and should not be retrofitted to mean the route.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "out-of-scope / pre-existing / other-card code — dismissed 3x on this board as belonging to a follow-up card rather than the card under review"
+      dismissed_count: 3
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scratchpad/card318fix/probe_listing.py
+    line: 37
+    title: "A committed instrument is blind: its id pattern cannot match this store's ids, so it reports an empty listing on a page that lists two puzzles"
+    description: |
+      probe_listing.py was committed in d71a3ea4 as the artefact establishing
+      "the per-row thumbnail url is one occurrence per listed puzzle and nothing
+      else in the page produces it". Its pattern is
+      `/api/puzzle/([0-9a-fA-F-]+)/grid` — hex and hyphen only — while this
+      store's ids are `puzzle_000001`, whose underscore the class excludes.
+
+      Executed on HEAD, it prints `rows=[]` for all three of its queries,
+      including the unfiltered one, on a page whose own later lines it then
+      prints showing both ids present. It carries no positive control, so a
+      later reader cannot distinguish "nothing was listed" from "the instrument
+      is blind" — exactly the reading ADR-0039/R4 says is not a measurement.
+
+      WHY THIS IS MINOR AND NOT A RULE VIOLATION. The card cites this file
+      NOWHERE (`grep probe_listing meta/kanban/cards/CARD-318.md` → no match),
+      so no committed figure rests on it, and ADR-0039/R4 is about figures and
+      their instruments. The substantive claim the probe was exploring is
+      independently TRUE and was re-measured this cycle by a different
+      instrument that does carry both controls (see mutation_check.regex_control).
+      So this is hygiene on a committed artefact, not an unsupported figure.
+    suggestion: |
+      Either fix the pattern to the one the test actually uses and add the
+      positive/negative controls (it rises on a listed page, it does not rise on
+      an empty one), or delete the file. A blind instrument left on disk is worse
+      than no instrument, because the next reader re-runs it and believes it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "out-of-scope / deferred / card-scope / follow-up — dismissed 3x on this board as a follow-up rather than the reviewed card's obligation"
+      dismissed_count: 3
+
+disclosures_judged:
+  - claim: "src/ untouched across the whole branch"
+    verdict: TRUE
+    basis: "`git diff ef242847..HEAD -- src/` produces 0 lines of output"
+  - claim: "meta/architecture/ untouched since 7845cb5c"
+    verdict: TRUE
+    basis: "`git diff 7845cb5c..HEAD -- meta/architecture/` produces 0 lines of output"
+  - claim: "fix round 2 is 5 files, +482/-4"
+    verdict: TRUE
+    basis: "`git diff --stat 2ee0be38..HEAD` → 5 files changed, 482 insertions(+), 4 deletions(-)"
+  - claim: "five changed values and six comment blocks in requirements.yml"
+    verdict: TRUE
+    basis: "re-derived on a different basis (no YAML parser) — see F-004"
+  - claim: "17 node ids before and after, identical as sorted sets, zero decorators; 16 unchanged in the sibling; 33 collected across the two"
+    verdict: TRUE
+    basis: "`ast` over each revision's own blob, cross-checked with pytest --collect-only"
+  - claim: "109 passed, 0 failed, 0 skipped, grep -c '^SKIPPED' = 0, with the [db] parametrizations really running"
+    verdict: TRUE
+    basis: "per-file collection summed to the run's total; the 15 [db] node ids isolated and run (15 passed, 0 skipped); the skip gate at conftest.py:600-602 did not fire because a per-worktree *_test database resolves on this host"
+  - claim: "Y1 killed, Y2 survives, Y3 kills at the flash"
+    verdict: TRUE
+    basis: "all three re-fired by an independently written harness; verdicts and failure sites identical to the card's table"
+  - claim: "cycle 2's G-7 table swapped two file totals"
+    verdict: TRUE
+    basis: "the round's correction is right: test_strategies.py 17, test_batch_generator.py 16 — derived twice, by ast and by pytest"
+  - claim: "the `then` was not widened"
+    verdict: TRUE
+    basis: "exactly one occurrence of \" and \" in the `then` at requirements.yml:1970; the validator's threshold is two"
+  - claim: "no production database was contacted"
+    verdict: TRUE
+    basis: "DATABASE_URL popped from every inherited environment; the test delenvs it; conftest.py:238-256 refuses any URL whose database name does not end in _test before opening a connection"
+  - claim: "AC-6's figure is unmoved (0 err / 100 warn → 0 err / 90 warn, 10 removed / 0 added as sets)"
+    verdict: "TRUE on the HEAD half, re-derived; the base half and the set difference are CARRIED, soundly"
+    basis: "validator of record on HEAD 4c8b58e4 → 0 error(s), 90 warning(s), 0 info. The base figure was not re-measured because the model is byte-identical to the revision it was measured on, and re-measuring would have required a tree-mutating checkout outside this review's scope. Stated as carried rather than claimed as fresh."
