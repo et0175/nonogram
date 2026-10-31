@@ -183,245 +183,53 @@ max_concurrent_override: 2
 # declaration owed by CARD-226. The owner's decision leaves its exact form to
 # CARD-333's item 4; until then a comment, no status.
 #
+#
+# CARD-329 CLOSED 2026-10-31. Merged 9db10da6, stamp 20d85d02. 6.5 -> 7.5 -> 9.0
+# CERTIFIED on cycle 3 of 3, two fix rounds, 4.1h wall-clock against a 2d
+# estimate. Gate green on the MERGED tree: 10101 passed / 0 failed / 27 skipped
+# / 1 xfailed in 1288s. Node-id delta 0 lost / 28 gained, derived by two
+# instruments whose GAINED SETS ARE BYTE-IDENTICAL.
+#   The skips were attributed rather than recalled, and the distinction this
+#   board has been guessing at is now measured: 26 from the BARE DATABASE_URL
+#   check at tests/conftest.py:207 and 1 from the setrlimit platform gate. The
+#   per-worktree *_test resolution gate DID NOT FIRE. Two gates, distinguishable
+#   in practice and not merely on paper.
+#   THE GATE PRODUCED A BETTER INSTRUMENT THAN THE ONE I ASKED FOR. I asked for
+#   a symbol census over the tracked scratchpad files this card adds. It also
+#   diffed the validator's WARN SETS across the merge and found the symmetric
+#   difference empty IN BOTH DIRECTIONS -- and the comm -23 half being empty is
+#   empirical proof that NO DEAD-REF WARNING DISAPPEARED, i.e. that merging
+#   those files revived nothing. That detects the CONSEQUENCE rather than the
+#   TOKEN, and CARD-335 should inherit it.
+#   F-011 closed by re-derivation at the gate, which found a site the review had
+#   not named: the stale census figure occurred TWICE and the review cited the
+#   LESS PROMINENT of the two, so fixing the cited one alone would have
+#   reproduced the finding's own shape. The card's own 346 also appears in
+#   CARD-331 as an unrelated total over different modules -- coincidence,
+#   correctly left alone.
+#   MY FOURTH UNVERIFIED FIGURE OF THE SESSION: I named main's tip as ce2765dd
+#   in the gate brief; it had advanced to 59eb2126 before the agent started. The
+#   delta was board.md + dispatcher.state only, no tests/ and no src/, so the
+#   node-id baseline was unaffected and it merged onto the real tip instead of
+#   resetting -- and said so rather than quietly correcting it.
+#   A NEW TRAP, AND IT IS A GOOD ONE: its wait-loops were `until ! pgrep -f
+#   "<the pytest command>"`, and the LOOP'S OWN ARGV CONTAINS THAT STRING, so
+#   each loop matched itself and could never exit. Eight permanent orphans,
+#   resolved by cwd via lsof and killed. The hazard for the next gate is that
+#   such a shell reddens a future card's "is the slot free?" pgrep check. A
+#   wait-loop must match something NARROWER than its own command line.
+#   Its three review YAMLs existed ONLY in the removed worktree and are not
+#   gitignored. Copied into meta/review/ and LEFT UNTRACKED rather than
+#   destroyed: untracked is outside git grep's reach, so it is safe for ref
+#   pollution and keeps the record the retrospective reads.
+#   CARD-322's LAST DEPENDENCY IS DISCHARGED. 309, 330, 331 and 329 are all
+#   done, verified against the card files. CARD-322 is unblocked and needs a
+#   DECOMPOSE pass, not a dispatch.
+#
 active:
-- id: CARD-329
-  phase: review
-  cycle: 3
-  cycle1_score: 6.5
-  fix_round: 2
-  fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 scored 7.5
-  fix_round_2: reported 2026-10-31, all three closed + the inline item; cycle 3 scored 9.0
-  cycle3_score: 9.0
-  certified: true
-  awaiting: merge gate -- blocked only on CARD-316's fix round releasing the full suite
-  # CYCLE 3 = 9.0, CARD CERTIFIES, no Critical and no Important. It does NOT
-  # escalate. One Minor open (F-011) and deliberately not gating.
-  # F-008 MEASURED SHUT IN BOTH DIRECTIONS at a temp worktree on the pre-fix
-  # commit: unplanted 11 passed; the colliding REGISTERED bare name 11 passed /
-  # 0 failed -- the whole pin green, the hole reproduced; the identical site
-  # UNREGISTERED 2 failed -- so registration is the only variable. Post-fix all
-  # four plants KILLED and the pin class 12 passed / 0 failed / 0 skipped.
-  # THE BEST THING IN THIS ROUND: it tried to EVADE its own ast control rather
-  # than trusting it. A plant reverting the register to bare names AND stripping
-  # the class INLINE in both denies, never calling the helper the ast check
-  # looks for, still reds TWO OTHER CELLS. So the hole cannot be reopened
-  # silently: the fix is closed in depth, not merely at the ast check.
-  # Depth sequence re-derived on its own instrument: 9/38/101/121/121, settling
-  # at 4 rounds on a fixed point of 121 names, and the depth-2 set of 101 does
-  # NOT contain the depth-3 name -- so the new assertion genuinely reds a hard
-  # stop at 2. Cycle 2's scope limit is closed.
-  # 5.46 CONFIRMED to five places (5.46457). My brief and cycle 2's YAML were
-  # both wrong at 5.47.
-  # TWO MORE CORRECTIONS AGAINST MY BRIEF, and both are mine:
-  #   My plant-scope sentence was INVERTED. I wrote "the 11 plants targeting
-  #   untouched files were not re-fired". It is 13 that target untouched files
-  #   (sound to carry, delta-clean), and 11 that target the file IN the delta --
-  #   of which 7 were NOT licensed to carry. The round fired all seven: six
-  #   KILLED and the declared survivor survived. All 11 in-delta plants are now
-  #   re-fired at HEAD.
-  #   My correction #3 was UPHELD ON THE COUNT AND REFUTED ON THE
-  #   CHARACTERISATION. Three cells did consult the register, but the existence
-  #   cell could NOT have gone on silently resolving bare names -- measured,
-  #   that degradation reds two cells. It was a FORCED co-change with a loud
-  #   failure mode, not a third silent hole; the two silent holes were the two
-  #   denies. That strengthens the fix rather than weakening it: the existence
-  #   cell is the backstop that makes the hole un-reopenable.
-  # F-011 (Minor, OPEN): three provenance figures left at round-1 values, each
-  # stale by exactly the increment the round itself caused -- impact 346 -> 347,
-  # a symbol count the same card states as 59 twenty lines earlier, and a census
-  # passed figure one node light. Every one off by one in the HARMLESS direction,
-  # none load-bearing for a disposition or a guardrail, and the one gate figure
-  # among them is BETTER at HEAD than claimed. Worth fixing before merge; not
-  # worth escalating a card over. FIX THESE AT THE MERGE GATE.
-  # ROUTED TO CARD-335: the plant-naming rule's standing half. Sufficient in a
-  # harness docstring for this card, insufficient as a project rule, because the
-  # detector is a script someone must remember to run rather than a cell or a
-  # gate step -- and CARD-335 already owns the same TEXT-search hazard across
-  # 245-322 files. The cheap next step there is to make the detector a gate step.
-  cycle2_score: 7.5
-  fix_findings: [F-008, F-009, F-010]
-  # FIX ROUND 2 REPORTED 2026-10-31, HEAD ea248582 -> d2a8f928 (63451728 the
-  # code and figures, d2a8f928 the plants and the card's record). CYCLE 3 IS THE
-  # LAST max_cycles ALLOWS.
-  # F-008 CLOSED and the hole reproduced in both directions, which is the only
-  # evidence that counts here: at the PRE-FIX lookup the colliding registered
-  # bare name leaves the whole pin GREEN -- 11 passed / 0 failed -- and with the
-  # fix it is KILLED on two cells. Two more plants close the obvious regressions:
-  # degrading the lookup back to the bare match is KILLED by a new control that
-  # resolves the degradation BY ast (no consulting cell may call the bare
-  # helper), and collapsing the register to empty is KILLED by a non-emptiness
-  # assertion, so it cannot pass vacuously. Plants now 24: 22 killed, 2 declared.
-  # THE INLINE ITEM WAS TAKEN AND IMPROVED. I asked for one assertion three
-  # frames deep; it measured the site's reachable set at 9/38/101/121/121 for
-  # depths 0-4, so the walk settles at FOUR rounds, and a hard stop at 2 now
-  # reds. The free scope limit cycle 2 declined to file is closed.
-  # THREE CORRECTIONS AGAINST MY OWN BRIEF, and I verified two of them:
-  #   1. 5.47x is wrong; it is 5.46x. 0.23133.../0.042333... = 5.46457, checked
-  #      with Decimal. The figure was in my brief AND in cycle 2's YAML -- so it
-  #      is the FOURTH carried figure in this one chain (cycle 1 -> fix round ->
-  #      cycle 2's correction -> my brief), and it slipped inside the correction
-  #      that existed to stop figures being carried.
-  #   2. The guardrail "EDGE_TOLERANCE occurrences in the diff = 0" IS NOT
-  #      REPRODUCIBLE AS SPELLED. Measured at HEAD: the loose command gives 5,
-  #      all five in scratchpad instruments (a docstring, the walk's own filter,
-  #      a comment, an assert, a comment); it reads 0 only under a narrower rule,
-  #      and three such rules all give 0 -- no assignment line in the diff, no
-  #      occurrence in the diff's tests/ half, no REMOVED occurrence. The
-  #      guardrail holds in substance and its WORDING would have reddened a
-  #      future round. A guardrail must name its rule like any other figure.
-  #   3. I wrote "drop the bare match from BOTH lookups"; there were THREE. The
-  #      existence cell also stripped the class. Had it fixed only the two I
-  #      named, that cell would have gone on resolving bare names against a
-  #      class-qualified register.
-  # AND A HAZARD IT WALKED INTO, worth more than the finding that caused it: its
-  # first plant draft INVENTED two class names and one test name, and the
-  # ref-pollution check went 0 orphans -> 3 -- inside an ALREADY-TRACKED file,
-  # so the "do not add a tracked scratchpad file" rule would not have caught it.
-  # Rewritten so both plants borrow a bare name tests/ already defines, under
-  # class names pytest does not collect; back to 0 orphans of 59 symbols, and
-  # the rule is now in the plant helper's docstring so the next plant inherits
-  # it. The better control came out of it too: registration is now the only
-  # variable between the pair, rather than "registered vs invented".
-  # Figures re-derived, nothing regressed: G-5 282 -> 310, 0 lost / 28 gained
-  # (one new cell); impact 347 passed / 0 failed / 0 skipped; validator 88 on
-  # both trees with the WARN sets symmetric-difference empty.
-  # CYCLE 2 = 7.5, DOES NOT CERTIFY (min_score 8), and two Importants would block
-  # the severity gate on their own. FIX ROUND 2 dispatched; CYCLE 3 IS THE LAST
-  # ONE max_cycles ALLOWS -- it escalates there rather than looping.
-  # ALL SEVEN CYCLE-1 FINDINGS CLOSED and all twenty plant verdicts re-fired and
-  # reproduced; tree verified pristine, three digests back to baseline. MUT-11's
-  # and MUT-16b's declared survivals, "edited, not repaired" and AC-6 all stand.
-  # F-001's closure control re-fired BOTH WAYS and behaves exactly as claimed:
-  # closure removed -> fails on the helper; taken at depth 1 and called a fixed
-  # point -> fails on the walk. One free scope limit taken inline (hard-stopped
-  # at 2 rounds it still passes, and the chain is three frames deep).
-  # F-008, the real one: the exemption register's lookup STRIPS THE CLASS while
-  # the register is keyed class-qualified -- and it is keyed that way precisely
-  # because bare names are not unique in this module, which has already had one
-  # collision. Measured with a matched control: the seam site under its own name
-  # is CAUGHT (2 failed), the same site with only its bare name collided with a
-  # registered entry goes ALL FIVE CELLS GREEN. So a site can dodge both the
-  # closed deny and the raster-oracle requirement. ~3 lines, and it lands on the
-  # pin protecting 30 of the 38 reds, against exactly the seam CARD-322 applies.
-  # F-009: one of the four residuals does not reproduce (:836 measures 0.23133,
-  # the card says 0.2887, which is absent from the measured set), and ALL FOUR
-  # are normalised against a bound that does not govern them. Orchestrator
-  # verified: EDGE_TOLERANCE occurs ZERO times in that module; the sites carry
-  # multiples of HALF_PIXEL_MM (= 0.042333) at 3/3/2/1, so the true ratios are
-  # 2.07x/2.36x/3.40x/5.47x and "larger than 0.254" is false at :836. THE
-  # DISPOSITION GETS STRONGER, not weaker -- all four exceed their real bound by
-  # more than claimed. A measurement-and-wording fix, not a re-plan.
-  # TWO PROVENANCE CORRECTIONS, one each way. Cycle 2 argued the figure was
-  # carried forward partly BECAUSE "the geometry module is not in the fix delta"
-  # -- it IS, at 19 insertions / 4 deletions, the _interior helper plus four
-  # re-pointed call sites, which I checked. So cycle 2 made in miniature the
-  # move it was reporting: a provenance inference stated as fact when one git
-  # command settles it. Its MEASUREMENT stands regardless. And the other way: I
-  # propagated the round's four numbers into cycle 2's brief without
-  # re-measuring as I wrote, which is subclass C of the premise family arriving
-  # in my own brief for the second time in one session.
-  # F-010 (Minor): the reader partition is REAL -- three independent derivations
-  # agree, union = public, intersection empty, 0 unclassified -- but it is 16
-  # crossing / 10 blind of 26, not 16 of 28 with 12. 16+12=28 is internally
-  # consistent arithmetic over a population of 26, which is why it reads derived
-  # when it is not. Fix derives the numbers at run time.
-  # NOT RE-RUN by cycle 2 and honestly recorded: the full 20-module probe
-  # census (5 of 20 re-measured, all exact, arithmetic closes independently).
-  # FIX ROUND 1 REPORTED 2026-10-31. Commits 7ee79b55 (F-001/002/003/007, code),
-  # b609e675 (F-004/005/006 + two self-raised corrections), ea248582 (card only).
-  # 20 plants, 18 killed, 2 DECLARED survivors (MUT-11 and MUT-16b).
-  # ORCHESTRATOR FIRED F-001's CENTRAL CLAIM MYSELF, because it is the one the
-  # fix stands or falls on and cycle 1 had watched the plant survive. Planting
-  # the medium crossing at the module's own page-source helper: BASELINE both
-  # cells pass; PLANTED the new closure deny KILLS and the depth-0 deny does
-  # NOT. So they are two assertions, not one written twice, and MUT-16b's
-  # declared survival is honest by construction. Tree restored, sha256 identical.
-  # It also CORRECTED CYCLE 1's FRAMING: the chain is THREE frames deep, not
-  # one -- site -> _mirrored_pages -> _interior -> interior_pages -- so the
-  # helper is depth 1 from the site, not depth 0. Cycle 1 picked the right
-  # plant site and the wrong depth.
-  # Scope and arithmetic verified before dispatch: src/ untouched, tree clean,
-  # and all three figures exact -- 66+2+38+29+16 = 151, 1088+108+20+7 = 1223,
-  # 339+7 = 346.
-  # TWO CORRECTIONS IT RAISED AGAINST ITS OWN CARD, which is the shape that
-  # cost it 6.5 in the first place: the geometry row's 0.254 mm was its own
-  # aliasing figure stated wider than measured -- the four residuals are
-  # 0.2626 / 0.2993 / 0.2880 / 0.2887 mm, LARGER than 0.254, so the aliasing
-  # measurement is a LOWER BOUND on what a conversion moves there and the
-  # disposition is strengthened, not weakened. And the validator hedge retired
-  # on both halves.
-  # DISCLOSED AGAINST ITSELF: it wrote placeholder hashes into the live
-  # meta/review/CARD-329-cycle1.yml by accident (a sed whose path literal spans
-  # two source lines, so it never matched a copy), caught it, and replaced them
-  # with the real hashes. Cycle 2 verifies that YAML's integrity.
-  # OPEN FOR CYCLE 2, the round's own one judgement call: the closure deny
-  # exempts _BOUND_ONLY_SITES, and both of its two media-comparison sites
-  # genuinely do reach the stream readers through the edge helper -- that is
-  # their job. It is the one place a future site could dodge the closed deny by
-  # being added to that register, and CARD-322 edits exactly these sites.
-  # 6.5, and the review's own summing-up: "unusually strong -- every load-bearing
-  # figure reproduces, the medium gap it found is real and its fix is proven by
-  # measurement in both directions, and its refusals to force things green are
-  # backed by the ADR rather than by rhetoric. It scores 6.5 because the three
-  # things it states slightly wider than it measured all land on the consumable
-  # CARD-322 reads next."
-  # MUT-11's declared survival UPHELD with no finding; "edited, not repaired"
-  # UPHELD and shown MECHANICALLY FORCED for pdf_levels, whose survivors assert
-  # exact tobytes() identity against a Pillow-composed raster. AC-6 judged MET.
-  # F-001 is the one that matters: the placed-edge pin's site walk closes at
-  # DEPTH 0, so the same medium crossing planted at the module's own page-source
-  # helper SURVIVES with the fix in place -- and that is exactly the seam shape
-  # CARD-322 would use, which would silently retire CARD-330's pin over 30 of
-  # the 38 reds it protects. The round had already learned this one walk over
-  # (its population walk needed a fixed point) and did not apply it to the pin.
-  # Validator question closed in the round's favour: 88 on both trees, comm
-  # empty both directions, so it cannot have moved a warning.
-  # The probe's red count WAS recorded before anything changed, which is what
-  # the re-cut existed to force: 20 of 20 modules RED, 259 failed+error, 1088
-  # passed, 1 skipped (setrlimit, read off -rs, not a DB gate). After:
-  # 17/20 red, 151 failed+error, 1214 passed -- 108 REDS CLEARED.
-  # AC-6's dispositions are honest rather than flattering: 80 -> 16, and only
-  # ONE module is "repaired" (cell_size 20 -> 0). Four are "EDITED, NOT
-  # REPAIRED" at 4 reds each, and the round says so rather than forcing them
-  # green. Orchestrator-verified on the one repair: at the merge base under the
-  # probe cell_size is 20 failed / 23 passed; on the branch 43 passed / 0
-  # failed, and still 43 passed WITHOUT the probe -- so the repair is
-  # medium-agnostic, not a swap.
-  # THE READER RETURNS rather than refuses, and the reasoning decided it:
-  # refusing satisfies AC-1's letter and moves nothing, because all 37
-  # KeyError reds are callers reading a page's PIXELS. It rasterises with
-  # poppler -- the engine must not be the one that wrote the file (CLAUDE.md:52)
-  # -- and refuses by name only when no DPI can be established or poppler is
-  # absent (ADR-0038/R8: a missing engine is a missing reading, never a skip).
-  # THREE FINDINGS AGAINST ITS OWN CARD: AC-4's "21 modules" is 20
-  # (book_corpus.py collects zero nodes); AC-4 and G-3 CANNOT BOTH HOLD, since
-  # difficulty_dots is red at 29 under the probe -- CARD-331's own designed 29 --
-  # and G-3 excludes it, so G-3 wins; and test_book_pdf.py's 38 reds ARE THE
-  # DESIGN, being CARD-330's placed-edge pin plus six assertions about
-  # _RASTER_DECLARATIONS which the probe lifts. Forcing either green would
-  # disable the pin and the registry guards.
-  # AND IT FOUND A GAP ITS OWN CHANGE OPENED: _STREAM_READERS decides whether a
-  # placed-edge site changed medium, and the new helper added three functions
-  # returning PIXELS from a content stream -- so a site could cross the medium
-  # with drawing_of still in its call set and the pin still passing. F-009 in
-  # miniature, closed default-DENY, with MUT-13 proving the plant is invisible
-  # to the pin without the fix.
-  # 15 plants, 14 killed, 1 DECLARED survivor: geometry has no green node to
-  # plant against, all four of its node ids being red before and after.
-  branch: card/329-one-image-reader-learns-the-stream
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-329
-  started: '2026-10-31T06:40:00Z'
-  note: >-
-    CARD-322's last open dependency, and re-cut the same day on the owner's call
-    so it REPAIRS population B rather than only triaging it: five modules, a
-    shared helper, and a verification mechanism. The two mechanisms for standing
-    the converted tree up without touching a production medium both exist on
-    main and the card names them -- interior_generator(book, pages=...) from the
-    assembly point CARD-309 merged, still with zero production call sites, and a
-    declaration-lifting session probe of the kind CARD-331 used.
 - id: CARD-316
   phase: review
-  cycle: 2
+  cycle: 3
   cycle1_score: 6.0
   fix_round: 2
   fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 scored 8.5
@@ -641,7 +449,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T11:00:00Z'
+last_updated: '2026-10-31T11:30:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
