@@ -85,9 +85,11 @@ active:
     be widened to admit the more accurate medium.
 - id: CARD-318
   phase: review
-  cycle: 1
-  fix_round: 1
-  fix_findings: [F-003]
+  cycle: 2
+  fix_rounds_done: 1
+  cycle1_score: 7.0
+  cycle1_closed: [F-001, F-002, F-003]
+  cycle1_open_by_design: [F-004, F-005]
   branch: card/318-fr-029-strategies-criteria
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
   started: '2026-10-30T20:56:08Z'
