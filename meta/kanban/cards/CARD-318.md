@@ -667,6 +667,22 @@ is flagged rather than rewritten by hand.
 ### Shared-file etiquette
 
 `meta/architecture/requirements.yml` is shared with CARD-317 and CARD-316, which
-rebase onto this. Changes are **additive and local to FR-029**: three `test:`
-values, one `given`, and four comment blocks. No untouched entry was reflowed,
-no key reordered, no id renumbered. `yaml.safe_load` parses the result.
+rebase onto this. Changes are **additive and local to FR-029**: **five
+changed values** — AC-135's `given`, AC-142's `then` *and* its `test:`, and
+EC-017's and EC-018's `test:` — and **six comment blocks**. No untouched entry
+was reflowed, no key reordered, no id renumbered. `yaml.safe_load` parses the
+result.
+
+Those two counts were wrong until fix round 2 (review cycle 2, F-004): the
+sentence said "three `test:` values, one `given`, and four comment blocks",
+omitting AC-142's `then` and two blocks. Both figures are **re-derived here,
+not copied from the review**: both revisions of the file parsed with
+`yaml.safe_load` and flattened to leaf paths keyed by `id` rather than by list
+index (so a reordered list cannot read as a change), then compared —
+`ef242847` → `2ee0be38` gives **0 keys added, 0 keys removed, 5 changed
+leaves**, exactly the five named above. The comment figure is text-level,
+because comments are not in the parsed tree: `difflib.SequenceMatcher` opcodes
+over the two line lists give **62 added lines, 57 of them comments, forming 6
+runs of consecutive line numbers**. The substantive half of the claim — nothing
+reflowed, nothing reordered, nothing renumbered, still parses — is what the 0/0
+confirms, and that is the half CARD-317 and CARD-316 depend on.

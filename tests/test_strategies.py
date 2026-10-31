@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from contextlib import contextmanager
 
 import pytest
@@ -495,6 +496,16 @@ def test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value(
     gave the status filter, and for the same reason: filtering on a name the
     vocabulary does not contain would show an empty page that reads as "your
     other filters matched nothing".
+
+    The flash is NOT the outcome, and asserting only the flash is what review
+    cycle 2 measured as a criterion with no control (F-009): deleting the
+    ``strategy = None`` reset in the route makes the unknown name a real
+    filter, so NOTHING is listed — the refusal AC-142 rules out — and the
+    flash still appears, because the branch that flashes is the branch that
+    filtered. So the page's own listing is compared against the unfiltered
+    one: "the filter is ignored and every puzzle is listed" is an assertion
+    about rows, and only an assertion about rows can fail when it stops
+    being true.
     """
     from nonogram.admin.app import create_app
 
@@ -510,12 +521,40 @@ def test_the_puzzle_list_route_offers_the_filter_and_ignores_an_unknown_value(
     app.config["TESTING"] = True
     client = app.test_client()
 
+    def listed(rendered: str) -> set[str]:
+        """The puzzles the table actually put on the page.
+
+        One per rendered row: `_puzzle_table.html` gives every row a
+        thumbnail at `/api/puzzle/<id>/grid`, so the ids in those urls ARE
+        the listing. Read off the response rather than from the store, which
+        is the whole point — the store is not what AC-142 is about.
+
+        The id pattern is deliberately an id and not `[^/]+`: the same page
+        also carries the detail modal's *script*, which builds that url from
+        a JS template (`${escapeAttr(puzzle.id)}`). That literal is in the
+        body whether or not a single puzzle is listed, so a looser pattern
+        would make this set non-empty on an empty page — it would defeat the
+        control the helper exists to be.
+        """
+        return set(re.findall(r"/api/puzzle/([\w-]+)/grid", rendered))
+
+    # Two puzzles, with different ladders, so that "every puzzle is listed"
+    # has something to count and a filter that really applied could not match
+    # both of them by accident.
+    plain = _stored(app.puzzle_review_service, ["simple_overlap"])
+    guessy = _stored(app.puzzle_review_service, ["line_dp", "guess"])
+
     page = client.get("/puzzles")
     body = page.get_data(as_text=True)
     assert page.status_code == 200
     assert 'id="strategy"' in body
     assert 'value="probe_contradiction"' in body
+    assert listed(body) == {plain, guessy}
 
     unknown = client.get("/puzzles?strategy=LineLogic", follow_redirects=True)
+    unknown_body = unknown.get_data(as_text=True)
     assert unknown.status_code == 200
-    assert "Unknown strategy" in unknown.get_data(as_text=True)
+    assert "Unknown strategy" in unknown_body
+    # AC-142's stated outcome: ignored, not refused. The unfiltered page is
+    # the control, so this fails if the unknown name is ever applied.
+    assert listed(unknown_body) == {plain, guessy}
