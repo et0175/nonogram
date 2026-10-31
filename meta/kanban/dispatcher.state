@@ -188,9 +188,52 @@ active:
   phase: review
   cycle: 2
   cycle1_score: 6.5
-  fix_round: 1
-  fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 dispatched
-  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-006, F-007]
+  fix_round: 2
+  fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 scored 7.5
+  cycle2_score: 7.5
+  fix_findings: [F-008, F-009, F-010]
+  # CYCLE 2 = 7.5, DOES NOT CERTIFY (min_score 8), and two Importants would block
+  # the severity gate on their own. FIX ROUND 2 dispatched; CYCLE 3 IS THE LAST
+  # ONE max_cycles ALLOWS -- it escalates there rather than looping.
+  # ALL SEVEN CYCLE-1 FINDINGS CLOSED and all twenty plant verdicts re-fired and
+  # reproduced; tree verified pristine, three digests back to baseline. MUT-11's
+  # and MUT-16b's declared survivals, "edited, not repaired" and AC-6 all stand.
+  # F-001's closure control re-fired BOTH WAYS and behaves exactly as claimed:
+  # closure removed -> fails on the helper; taken at depth 1 and called a fixed
+  # point -> fails on the walk. One free scope limit taken inline (hard-stopped
+  # at 2 rounds it still passes, and the chain is three frames deep).
+  # F-008, the real one: the exemption register's lookup STRIPS THE CLASS while
+  # the register is keyed class-qualified -- and it is keyed that way precisely
+  # because bare names are not unique in this module, which has already had one
+  # collision. Measured with a matched control: the seam site under its own name
+  # is CAUGHT (2 failed), the same site with only its bare name collided with a
+  # registered entry goes ALL FIVE CELLS GREEN. So a site can dodge both the
+  # closed deny and the raster-oracle requirement. ~3 lines, and it lands on the
+  # pin protecting 30 of the 38 reds, against exactly the seam CARD-322 applies.
+  # F-009: one of the four residuals does not reproduce (:836 measures 0.23133,
+  # the card says 0.2887, which is absent from the measured set), and ALL FOUR
+  # are normalised against a bound that does not govern them. Orchestrator
+  # verified: EDGE_TOLERANCE occurs ZERO times in that module; the sites carry
+  # multiples of HALF_PIXEL_MM (= 0.042333) at 3/3/2/1, so the true ratios are
+  # 2.07x/2.36x/3.40x/5.47x and "larger than 0.254" is false at :836. THE
+  # DISPOSITION GETS STRONGER, not weaker -- all four exceed their real bound by
+  # more than claimed. A measurement-and-wording fix, not a re-plan.
+  # TWO PROVENANCE CORRECTIONS, one each way. Cycle 2 argued the figure was
+  # carried forward partly BECAUSE "the geometry module is not in the fix delta"
+  # -- it IS, at 19 insertions / 4 deletions, the _interior helper plus four
+  # re-pointed call sites, which I checked. So cycle 2 made in miniature the
+  # move it was reporting: a provenance inference stated as fact when one git
+  # command settles it. Its MEASUREMENT stands regardless. And the other way: I
+  # propagated the round's four numbers into cycle 2's brief without
+  # re-measuring as I wrote, which is subclass C of the premise family arriving
+  # in my own brief for the second time in one session.
+  # F-010 (Minor): the reader partition is REAL -- three independent derivations
+  # agree, union = public, intersection empty, 0 unclassified -- but it is 16
+  # crossing / 10 blind of 26, not 16 of 28 with 12. 16+12=28 is internally
+  # consistent arithmetic over a population of 26, which is why it reads derived
+  # when it is not. Fix derives the numbers at run time.
+  # NOT RE-RUN by cycle 2 and honestly recorded: the full 20-module probe
+  # census (5 of 20 re-measured, all exact, arithmetic closes independently).
   # FIX ROUND 1 REPORTED 2026-10-31. Commits 7ee79b55 (F-001/002/003/007, code),
   # b609e675 (F-004/005/006 + two self-raised corrections), ea248582 (card only).
   # 20 plants, 18 killed, 2 DECLARED survivors (MUT-11 and MUT-16b).
@@ -416,7 +459,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T08:20:00Z'
+last_updated: '2026-10-31T09:05:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
