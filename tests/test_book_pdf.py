@@ -98,7 +98,13 @@ from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests import full_suite_lock
 from tests.helpers import pdf_vector
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
-from tests.helpers.pdf_pages import pdf_pages
+from tests.helpers.pdf_pages import (
+    PageMediumRefused,
+    interior_images,
+    page_image,
+    page_medium_of,
+    pdf_pages,
+)
 
 #: CON-018's Book 1 profile, in millimetres, written out here rather than
 #: imported: 8.5 x 11 in, 0.5 in gutter, 0.5 in outside, 0.55 in top,
@@ -5013,3 +5019,630 @@ class TestEdgeOffset_TheAdrRecordsTheCanonicalMedium:
         # The figure that makes the question real, at the resolution it was
         # measured at — an instrument's domain is part of its figure.
         assert "150 DPI" in adr and "1200 DPI" in adr
+
+
+# ==========================================================================
+# CARD-329 — the one-image reader learns the content stream
+#
+# ADR-0042/R1 writes an interior page as content-stream operators, and such a
+# page has NO image XObject. `tests/helpers/pdf_pages.py` indexed
+# `Resources/XObject` unconditionally, so a legal page came back as
+# `KeyError: b'XObject'` from a line that reads as a parse failure. These
+# three sections are AC-1, AC-2 and AC-3 of that card.
+#
+# Why the tests live HERE: this module already owns the book PDF's read-back
+# (see its own header) and already holds the only other call in this tree that
+# writes one `ContentStream` out and measures poppler's raster of it
+# (`_edge_reading`). `tests/helpers/pdf_pages.py` is in CARD-329's `Touches`
+# and so is this file.
+# ==========================================================================
+
+
+def _one_vector_page(page: int = FIRST_PUZZLE_PAGE):
+    """One puzzle page as operators, with the bitmap of the same page beside it.
+
+    Both from the same generator, the same payload and the same cell map, so
+    the only difference between the two is the medium -- the shape
+    `_edge_reading` above takes, and for its reason.
+    """
+    generator = BookPDFGenerator(_book())
+    payload = BookPDFGenerator._payload(_puzzle(10, 10, 2, name="Reader"))
+    sizes = generator.cell_sizes([payload])
+    bitmap = generator._blank_page(payload, 1, page, sizes)
+    stream = generator.vector_puzzle_page(payload, 1, page, sizes)
+    return generator, bitmap, stream
+
+
+#: The DPI every book page is drawn at (``BookPDFGenerator.dpi``'s default),
+#: named here because the reader's refusal control hands it back in.
+_READER_DPI = 300
+#: A pixel darker than this (0..255 grey) is ink -- the level
+#: ``tests/helpers/pdf_pages.py`` and ``page_ink.py`` both read at.
+_READER_INK_LEVEL = 128
+
+
+def _old_one_image_reader(data: bytes) -> list[bytes]:
+    """CARD-135's reader, reimplemented here: every page's decoded RGB bytes.
+
+    The **reference** AC-2 is measured against, and deliberately a second
+    implementation rather than a call to the helper under test: re-deriving
+    "unchanged" with the function whose change is in question proves nothing
+    (CLAUDE.md, "prefer an independent second implementation"). This is the
+    body `pdf_pages` had before CARD-329, reduced to the bytes it produced --
+    `Resources/XObject` indexed unconditionally, the one DCTDecode stream
+    decoded by Pillow, converted to RGB.
+    """
+    from io import BytesIO
+
+    from PIL import PdfParser
+
+    parser = PdfParser.PdfParser(buf=data)
+    try:
+        out = []
+        for ref in parser.pages:
+            page = parser.read_indirect(ref)
+            xobjects = page[b"Resources"][b"XObject"]
+            assert len(xobjects) == 1
+            (stream_ref,) = xobjects.values()
+            stream = parser.read_indirect(stream_ref)
+            assert stream.dictionary[b"Filter"] == b"DCTDecode"
+            image = Image.open(BytesIO(stream.buf))
+            image.load()
+            out.append(image.convert("RGB").tobytes())
+        return out
+    finally:
+        parser.close()
+
+
+class TestPdfPagesReader_AnOperatorsPageIsNotAKeyError:
+    """AC-1 — a page written as operators reads, and never as `KeyError`.
+
+    The exception the defect raised is the thing asserted against: a legal
+    page is not a parse failure. Three arms, because the reader has three
+    doors an operators page can arrive at -- a live page object, a page inside
+    a file, and the classification both go through.
+    """
+
+    def test_a_live_operators_page_reads_as_pixels_and_not_as_a_key_error(
+        self, tmp_path
+    ) -> None:
+        _generator, bitmap, stream = _one_vector_page()
+        # The defect, asserted as an absence: nothing in this call may raise
+        # KeyError, and in particular not on b"XObject".
+        try:
+            image = page_image(stream, out_dir=tmp_path)
+        except KeyError as key_error:  # pragma: no cover - the defect
+            raise AssertionError(
+                f"the reader still raises KeyError({key_error!r}) on a legal "
+                f"operators page"
+            ) from key_error
+        assert isinstance(image, Image.Image), type(image)
+        # Device pixels at the page's own DPI -- the same extent the bitmap of
+        # the same page has, which is what puts the two readings in one domain
+        # (CARD-330). Equality, not a tolerance: both are the same MediaBox
+        # at the same DPI, so a difference here is a scale error, not noise.
+        assert image.size == bitmap.size, (image.size, bitmap.size)
+        # And it really carries the drawing: a blank render would satisfy
+        # every assertion above.
+        assert np.asarray(image.convert("L")).min() < _READER_INK_LEVEL, "no ink"
+
+    def test_an_operators_page_inside_a_file_reads_beside_its_raster_pages(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """A file that mixes the media -- ADR-0042/R2's own sanctioned end
+        state, not a migration artefact -- read back in one call.
+
+        **The counterfactual, and why it has to be one.** Every one of the
+        seven page kinds is declared raster on `main`
+        (`_RASTER_DECLARATIONS`), so there is no kind this test could ask the
+        writer for that would come back as operators: a mixed file cannot be
+        built from the rules in force. So the declaration is lifted for the
+        duration of this one test -- `monkeypatch` puts it back -- which is
+        the mechanism CARD-329's own session probe uses for a whole run and
+        the state CARD-322's conversion will make permanent. Nothing on disk
+        changes and no page is converted (G-1): this test stands the
+        counterfactual up, it does not perform it.
+        """
+        monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.PUZZLE, raising=False)
+        assert page_medium(PageKind.COVER) is PageMedium.RASTER
+        assert page_medium(PageKind.PUZZLE) is PageMedium.VECTOR, (
+            "the lift did not take, so this test measures a raster file"
+        )
+        generator, bitmap, stream = _one_vector_page()
+        written = generator._write_pdf(
+            [bitmap, stream],
+            2,
+            mode="RGB",
+            kinds=[PageKind.COVER, PageKind.PUZZLE],
+        ).getvalue()
+
+        raster_page, vector_page = pdf_pages(written, out_dir=tmp_path)
+        assert raster_page.size == vector_page.size
+        # Both pages carry ink, and they are NOT the same array: this arm's
+        # control against a reader that read page 1 twice and called the
+        # second one page 2. Stated on the arrays rather than through
+        # `same_page`, because `same_page`'s tolerances were calibrated for a
+        # JPEG round trip and comparing a poppler render with a Pillow bitmap
+        # through them would be an instrument used outside its domain
+        # (CARD-330).
+        assert np.asarray(vector_page.convert("L")).min() < _READER_INK_LEVEL
+        assert raster_page.tobytes() != vector_page.tobytes()
+        # The raster half of a MIXED file is read exactly as the pre-CARD-329
+        # reader read an all-raster one: measured byte for byte against
+        # `_old_one_image_reader` over the same bitmap written on its own, so
+        # the comparison is one JPEG decode against another -- like with like
+        # (CARD-330), and no tolerance in sight.
+        raster_only = generator._write_pdf(
+            [bitmap], 1, mode="RGB", kinds=[PageKind.COVER]
+        ).getvalue()
+        (reference,) = _old_one_image_reader(raster_only)
+        assert raster_page.tobytes() == reference
+
+    def test_a_file_whose_dpi_cannot_be_established_is_refused_by_name(
+        self,
+    ) -> None:
+        """The one case the reader cannot answer, and it says so.
+
+        An all-operators file carries no raster page to derive a DPI from, so
+        there is no scale to rasterise at. ADR-0039/R2: a shape the reader
+        cannot analyse is a FAILURE -- named, not guessed at.
+        """
+        _generator, _bitmap, stream = _one_vector_page()
+        written = book_vector.write_vector_pdf([stream], 1).getvalue()
+        with pytest.raises(PageMediumRefused) as refused:
+            pdf_pages(written)
+        message = str(refused.value)
+        assert "operators" in message, message
+        assert "ADR-0042/R1" in message, message
+        assert "dpi=" in message, message
+
+    def test_the_same_file_reads_when_the_caller_names_the_dpi(
+        self, tmp_path
+    ) -> None:
+        """The matched control for the refusal above: the refusal is about a
+        missing scale and nothing else, so naming the scale reads the file."""
+        _generator, bitmap, stream = _one_vector_page()
+        written = book_vector.write_vector_pdf([stream], 1).getvalue()
+        (page,) = pdf_pages(written, dpi=_READER_DPI, out_dir=tmp_path)
+        assert page.size == bitmap.size, (page.size, bitmap.size)
+
+    def test_a_page_in_neither_medium_is_a_failure_not_a_silent_pass(self) -> None:
+        """ADR-0039/R2 at the classification itself."""
+        with pytest.raises(PageMediumRefused) as refused:
+            page_medium_of("a page is not a string")
+        assert "str" in str(refused.value)
+
+    def test_the_medium_of_each_page_is_named_rather_than_guessed(self) -> None:
+        _generator, bitmap, stream = _one_vector_page()
+        assert page_medium_of(bitmap) == "raster"
+        assert page_medium_of(stream) == "vector"
+
+
+class TestPdfPagesReader_ARasterPageIsUnchanged:
+    """AC-2 — the raster path behaves exactly as before, byte for byte.
+
+    The cover and the divider stay raster by ADR-0042/R2, so this is not a
+    legacy path: it is half of the end state. Measured against
+    `_old_one_image_reader`, a second implementation of CARD-135's reader,
+    rather than against the reader under test.
+    """
+
+    def test_an_all_raster_file_reads_byte_for_byte_as_it_did_before(self) -> None:
+        book = _book()
+        export = BookPDFGenerator(book).export_book(
+            [_puzzle(10, 10, 2, name="Raster")], book.metadata.title
+        )
+        data = export.cover.getvalue()
+        assert _old_one_image_reader(data), "the reference read nothing"
+        assert [page.tobytes() for page in pdf_pages(data)] == (
+            _old_one_image_reader(data)
+        )
+
+    def test_every_raster_page_of_a_whole_book_is_unchanged(self) -> None:
+        """The interior too, not just the one-page cover: on `main` every
+        interior page is a bitmap, so this is the regression AC-2 names."""
+        book = _book()
+        export = BookPDFGenerator(book).export_book(
+            [_puzzle(10, 10, 2, name="A"), _puzzle(12, 12, 2, name="B")],
+            book.metadata.title,
+        )
+        data = export.interior.getvalue()
+        reference = _old_one_image_reader(data)
+        assert len(reference) > 5, f"only {len(reference)} pages compared"
+        assert [page.tobytes() for page in pdf_pages(data)] == reference
+
+    def test_a_live_raster_page_is_handed_back_as_the_very_same_object(
+        self,
+    ) -> None:
+        """Identity, which is stronger than equal bytes and is what "exactly
+        as before" means for a caller that reads `tobytes()` off the page: the
+        reader did not convert, copy or re-encode it."""
+        _generator, bitmap, _stream = _one_vector_page()
+        assert page_image(bitmap) is bitmap
+        pages = interior_images([bitmap, bitmap])
+        assert pages[0] is bitmap and pages[1] is bitmap
+
+    def test_the_reference_reader_can_tell_a_changed_page(self) -> None:
+        """The control for both cells above: `_old_one_image_reader` is not
+        answering "equal" to everything. Without this the two byte-for-byte
+        assertions would pass against a reference that returned a constant."""
+        book = _book()
+        export = BookPDFGenerator(book).export_book(
+            [_puzzle(10, 10, 2, name="Raster")], book.metadata.title
+        )
+        cover = _old_one_image_reader(export.cover.getvalue())
+        interior = _old_one_image_reader(export.interior.getvalue())
+        assert cover != interior[:1]
+
+
+#: CARD-329 AC-3, population A's filter, as code: a module is in A when its
+#: own AST contains an ``ImportFrom`` of the one-image reader's module that
+#: names ``pdf_pages`` -- the reader itself. A module importing only
+#: ``pdf_page_count`` or ``same_page`` is NOT in A, because neither of those
+#: ever reaches an image XObject and so neither can meet the hazard.
+_READER_MODULE = "tests.helpers.pdf_pages"
+_READER_NAME = "pdf_pages"
+
+#: Population B's filter: the page SOURCE. A module in B never imports the
+#: reader and reaches the same hazard through one of these.
+_PAGE_SOURCES = frozenset({"interior", "interior_pages"})
+
+#: The PIL image surface a page is used *as an image* through. Reading any of
+#: these off a page is the hazard: a page written as operators is a
+#: ``ContentStream`` and has none of them.
+_PIL_IMAGE_SURFACE = frozenset(
+    {
+        "size", "width", "height", "mode", "getpixel", "crop", "convert",
+        "load", "resize", "reduce", "tobytes", "getbbox", "getdata",
+        "point", "split", "paste", "copy", "save", "transpose", "rotate",
+    }
+)
+
+#: The three files CARD-329 deliberately does not own (G-2, G-3). Each IS in
+#: a population -- they are excluded from the card's `Touches`, not from the
+#: derivation, which is the distinction ADR-0039/R2 turns on.
+_NOT_THIS_CARDS = {
+    "tests/test_book_difficulty_dots.py": "CARD-331 (G-3)",
+    "tests/helpers/round_ink.py": "CARD-331 (G-3)",
+    "tests/helpers/page_ink.py": "CARD-330 (G-2)",
+}
+
+#: The five population-B modules CARD-329 repairs (its `Touches`, less the
+#: helper and this file).
+_REPAIRED_BY_CARD_329 = frozenset(
+    {
+        "tests/test_book_pdf_levels.py",
+        "tests/test_book_pdf_two_up.py",
+        "tests/property/test_book_pdf_geometry.py",
+        "tests/test_book_puzzle_frame.py",
+        "tests/test_book_cell_size.py",
+    }
+)
+
+
+def _test_tree_modules() -> list[pathlib.Path]:
+    root = pathlib.Path(__file__).resolve().parent
+    return sorted(
+        path
+        for path in root.rglob("*.py")
+        if path.name != "__init__.py" and "fixtures" not in path.parts
+    )
+
+
+def _as_posix(path: pathlib.Path) -> str:
+    return path.relative_to(pathlib.Path(__file__).resolve().parents[1]).as_posix()
+
+
+def _helper_imports(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == _READER_MODULE:
+            names |= {alias.name for alias in node.names}
+    return names
+
+
+def _attrs(tree: ast.AST) -> set[str]:
+    return {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+
+
+def _calls(tree: ast.AST) -> set[str]:
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                out.add(node.func.id)
+            elif isinstance(node.func, ast.Attribute):
+                out.add(node.func.attr)
+    return out
+
+
+def _page_consuming_functions(trees: dict[str, ast.Module]) -> set[str]:
+    """Functions that use one of their own PARAMETERS as an image, **however
+    indirectly** -- to a fixed point.
+
+    Pass 1 of population B's derivation, and the reason the card's filter is
+    the **hazard** rather than a direct attribute: a module that hands its
+    page to one of these is exposed through it, and an attribute-only filter
+    does not see that module at all.
+
+    The closure is not an embellishment. Taken at depth 1 this walk does not
+    recognise ``tests/helpers/page_ink.py``'s ``drawing_of`` -- the tree's
+    central pixel oracle -- because it reads nothing off its own ``page``
+    parameter and passes it to ``_dark``, one frame further in. CARD-329
+    measured that: the depth-1 form left ``drawing_of`` out, so "however
+    indirectly" was a word in a docstring and not a property of the walk. A
+    fixed point is what makes the phrase true, and the cell
+    ``test_the_files_this_card_does_not_own_are_excluded_by_name_not_missed``
+    is what holds it.
+    """
+    consumers: set[str] = set()
+    functions: list[tuple[str, set[str], ast.AST]] = []
+    for tree in trees.values():
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.append(
+                    (
+                        node.name,
+                        {
+                            arg.arg
+                            for arg in (
+                                node.args.posonlyargs
+                                + node.args.args
+                                + node.args.kwonlyargs
+                            )
+                        },
+                        node,
+                    )
+                )
+
+    def reads_a_parameter(node: ast.AST, params: set[str]) -> bool:
+        for inner in ast.walk(node):
+            if (
+                isinstance(inner, ast.Attribute)
+                and inner.attr in _PIL_IMAGE_SURFACE
+                and isinstance(inner.value, ast.Name)
+                and inner.value.id in params
+            ):
+                return True
+        return False
+
+    def hands_a_parameter_on(node: ast.AST, params: set[str]) -> bool:
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            called = (
+                inner.func.id
+                if isinstance(inner.func, ast.Name)
+                else inner.func.attr
+                if isinstance(inner.func, ast.Attribute)
+                else None
+            )
+            if called not in consumers:
+                continue
+            handed = [argument for argument in inner.args] + [
+                keyword.value for keyword in inner.keywords
+            ]
+            for argument in handed:
+                if isinstance(argument, ast.Name) and argument.id in params:
+                    return True
+        return False
+
+    for name, params, node in functions:
+        if reads_a_parameter(node, params):
+            consumers.add(name)
+    # The closure. Bounded by the function count, and it terminates because
+    # `consumers` only grows and is a subset of the names enumerated above.
+    for _round in range(len(functions) + 1):
+        grown = {
+            name
+            for name, params, node in functions
+            if name not in consumers and hands_a_parameter_on(node, params)
+        }
+        if not grown:
+            break
+        consumers |= grown
+    return consumers
+
+
+class TestPdfPagesReader_BothReaderPopulationsAreDerived:
+    """AC-3 — both populations derived by AST, with nothing unclassified.
+
+    **The derivation is what is asserted, not the count.** Every cell below
+    states a property of the filter or of each member; the two totals are
+    reported in the card's notes, where a figure can carry its basis. One
+    count IS asserted -- a floor, so the walk cannot silently stop finding
+    modules -- and it is anchored to the enumerated set it came from rather
+    than to a literal a fixture could then build (CARD-330's gating finding:
+    a floor whose fixture built `range(THE_FLOOR)` enforced 3, not 24).
+
+    ADR-0039/R2: a module the walk cannot classify is a FAILURE.
+    """
+
+    @staticmethod
+    def _trees() -> dict[str, ast.Module]:
+        return {
+            _as_posix(path): ast.parse(path.read_text(), filename=str(path))
+            for path in _test_tree_modules()
+        }
+
+    @classmethod
+    def _populations(cls) -> tuple[dict[str, set[str]], dict[str, str], list[str]]:
+        trees = cls._trees()
+        consumers = _page_consuming_functions(trees)
+        population_a = {
+            name: _helper_imports(tree)
+            for name, tree in trees.items()
+            if _READER_NAME in _helper_imports(tree)
+        }
+        population_b: dict[str, str] = {}
+        unclassified: list[str] = []
+        for name, tree in trees.items():
+            if name in population_a:
+                continue
+            if not (_PAGE_SOURCES & (_attrs(tree) | _calls(tree))):
+                continue
+            direct = _PIL_IMAGE_SURFACE & _attrs(tree)
+            indirect = consumers & _calls(tree)
+            if direct:
+                population_b[name] = f"PIL surface {sorted(direct)[:3]}"
+            elif indirect:
+                population_b[name] = f"hands the page to {sorted(indirect)[:3]}"
+            else:
+                unclassified.append(name)
+        return population_a, population_b, unclassified
+
+    def test_nothing_the_walk_meets_is_left_unclassified(self) -> None:
+        """ADR-0039/R2, stated first because it is the one that can fail
+        silently: a module with a page source that the walk can neither place
+        in B nor rule out is an unanalysable shape, and that is a FAILURE."""
+        _a, _b, unclassified = self._populations()
+        assert unclassified == [], unclassified
+
+    def test_population_a_is_the_reader_and_not_a_mention(self) -> None:
+        """A's filter: the reader, not the module. CARD-309's own correction.
+
+        Every member imports `pdf_pages` by name, and every module that
+        imports something else from the same helper and not the reader is
+        OUTSIDE A -- which is the whole content of "a mention count is not a
+        reader count", and the reason the orchestrator's independent 14 and
+        this derivation's 12 are the same measurement at two filters.
+        """
+        trees = self._trees()
+        population_a, _b, _u = self._populations()
+        assert population_a, "population A came back empty"
+        for name, names in population_a.items():
+            assert _READER_NAME in names, (name, names)
+        mentions = {
+            name for name, tree in trees.items() if _helper_imports(tree)
+        }
+        outside = mentions - set(population_a)
+        assert outside, (
+            "no module imports from the helper WITHOUT importing the reader, "
+            "so this cell is no longer measuring the difference between the "
+            "two filters"
+        )
+        for name in outside:
+            assert _READER_NAME not in _helper_imports(trees[name]), name
+
+    def test_population_a_reproduces_a_second_independent_reading(self) -> None:
+        """The same set, derived a second way: a text scan for the import
+        statement rather than an AST walk.
+
+        Two implementations rather than the same one twice (CLAUDE.md). They
+        can disagree -- a commented-out import, an import inside a string --
+        and the point of the cell is that here they do not.
+        """
+        population_a, _b, _u = self._populations()
+        root = pathlib.Path(__file__).resolve().parents[1]
+        # Both forms of the statement, because CARD-329's own round measured
+        # the single-line form MISSING this very module: the import it added
+        # here is parenthesised over five lines, and a scan that stopped at
+        # the newline reported a disagreement the AST walk was right about.
+        # That is the whole reason for having two implementations.
+        pattern = re.compile(
+            r"^\s*from\s+"
+            + re.escape(_READER_MODULE)
+            + r"\s+import\s+(?:\(([^)]*)\)|([^(\n]*))",
+            re.M,
+        )
+        scanned = set()
+        for path in _test_tree_modules():
+            for parenthesised, plain in pattern.findall(path.read_text()):
+                imported = parenthesised or plain
+                if re.search(r"\b" + _READER_NAME + r"\b", imported):
+                    scanned.add(_as_posix(path))
+        assert scanned == set(population_a), (
+            scanned ^ set(population_a),
+            "the AST walk and the text scan disagree about population A",
+        )
+        del root
+
+    def test_every_population_b_member_reaches_the_hazard(self) -> None:
+        """B's filter: a page from `interior`/`interior_pages` is used as an
+        image downstream, **however indirectly**.
+
+        Each member is re-checked here against both halves of that filter, so
+        a member admitted by neither would red. The indirect half is the one
+        the orchestrator's attribute-only derivation did not have, and it is
+        why B is derived by the hazard rather than by the attribute.
+        """
+        trees = self._trees()
+        _a, population_b, _u = self._populations()
+        assert population_b, "population B came back empty"
+        consumers = _page_consuming_functions(trees)
+        for name, why in population_b.items():
+            tree = trees[name]
+            assert _PAGE_SOURCES & (_attrs(tree) | _calls(tree)), name
+            assert (_PIL_IMAGE_SURFACE & _attrs(tree)) or (
+                consumers & _calls(tree)
+            ), (name, why)
+
+    def test_the_two_populations_are_disjoint(self) -> None:
+        """B is defined as B \\ A -- a module that imports the reader is
+        classified by that, not counted twice."""
+        population_a, population_b, _u = self._populations()
+        assert set(population_a).isdisjoint(population_b)
+
+    def test_the_five_modules_this_card_repairs_are_all_in_population_b(
+        self,
+    ) -> None:
+        """The link between the derivation and CARD-329's `Touches`: the card
+        repairs population-B modules, so each of the five has to BE one. A
+        module in `Touches` that the derivation does not place in B would mean
+        the card is repairing something its own triage never found."""
+        _a, population_b, _u = self._populations()
+        assert _REPAIRED_BY_CARD_329 <= set(population_b), (
+            _REPAIRED_BY_CARD_329 - set(population_b)
+        )
+
+    def test_the_files_this_card_does_not_own_are_excluded_by_name_not_missed(
+        self,
+    ) -> None:
+        """G-2/G-3 are exclusions from `Touches`, not from the derivation.
+
+        `tests/test_book_difficulty_dots.py` is a population-B module and
+        CARD-331's; `tests/helpers/page_ink.py` and
+        `tests/helpers/round_ink.py` are the pixel oracles, which never
+        obtain a page themselves -- they are handed one, which is exactly why
+        they are the `_page_consuming_functions` that put other modules in B.
+        Either way none of the three is in this card's `Touches`.
+        """
+        _a, population_b, _u = self._populations()
+        for name, owner in _NOT_THIS_CARDS.items():
+            assert pathlib.Path(name).exists(), name
+            assert name not in _REPAIRED_BY_CARD_329, (name, owner)
+        assert "tests/test_book_difficulty_dots.py" in population_b, (
+            "CARD-331's module is a population-B module; if the derivation no "
+            "longer finds it, B's filter has narrowed"
+        )
+        consumers = _page_consuming_functions(self._trees())
+        assert "drawing_of" in consumers, (
+            "page_ink's oracle is no longer recognised as a page consumer, so "
+            "B's indirect half has gone dead"
+        )
+
+    def test_the_walk_finds_at_least_as_many_modules_as_it_is_handed(
+        self,
+    ) -> None:
+        """The floor, anchored to an enumerated authority.
+
+        Not a literal: the floor is the number of modules this card and its
+        two siblings NAME -- the five in `Touches` plus the three in
+        `_NOT_THIS_CARDS` -- which is a set written down for other reasons and
+        therefore cannot be quietly shrunk to match the walk. The walk has to
+        account for every one of them, in A, in B, or as a page consumer.
+        """
+        population_a, population_b, _u = self._populations()
+        named = _REPAIRED_BY_CARD_329 | set(_NOT_THIS_CARDS)
+        consumers = _page_consuming_functions(self._trees())
+        classified = set(population_a) | set(population_b)
+        for name in named:
+            if name in classified:
+                continue
+            tree = ast.parse(pathlib.Path(name).read_text(), filename=name)
+            assert _page_consuming_functions({name: tree}) & consumers, (
+                f"{name} is named by CARD-329 or a sibling and the walk "
+                f"places it in neither population nor among the page "
+                f"consumers"
+            )
+        assert len(classified) >= len(named), (len(classified), len(named))

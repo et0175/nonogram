@@ -56,6 +56,7 @@ from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 
 # --------------------------------------------------------------------------
@@ -206,8 +207,20 @@ def _puzzle(
 
 
 def _interior(puzzles: Sequence[dict]) -> list[Image.Image]:
-    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``."""
-    return BookPDFGenerator(_book()).interior_pages(list(puzzles))
+    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``.
+
+    **CARD-329: the medium is read here and nowhere else.** ADR-0042/R1 writes
+    the puzzle pages as content-stream operators, so this walk hands back a
+    ``ContentStream`` for them and an ``Image.Image`` for the kinds that stay
+    raster (the cover and the divider, ADR-0042/R2). Every claim below is
+    stated on *device pixels*, so the conversion is absorbed at this one seam:
+    ``interior_images`` returns a raster page unchanged and rasterises an
+    operators page with poppler at that page's own DPI, which puts both
+    readings in the one domain the assertions already read (CARD-330 — an
+    instrument has to say which domain it is in). No claim below was weakened
+    and no tolerance was widened to make this agree.
+    """
+    return interior_images(BookPDFGenerator(_book()).interior_pages(list(puzzles)))
 
 
 def _expected_answer_pages(puzzles: Sequence[dict]) -> int:

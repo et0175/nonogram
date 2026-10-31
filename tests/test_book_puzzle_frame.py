@@ -129,6 +129,7 @@ from nonogram.export.layout import (
 from nonogram.export.layout import _placed_drawing_top
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 # CARD-219: the readers the shared-render controls at the end of this file are
 # built on, which CARD-218 had to write out here and again in
@@ -920,12 +921,21 @@ def _book_pages() -> list[Image.Image]:
     is drawn on them, so a walk that stopped pairing would fail as a wrong page
     count rather than as a frame mysteriously missing from a single page.
     """
-    pages = BookPDFGenerator(_book()).interior_pages(
-        [
-            _book_puzzle(**UPPER_PUZZLE, puzzle_id="one"),
-            _book_puzzle(**LOWER_PUZZLE, puzzle_id="two"),
-            _book_puzzle(**SINGLE_PUZZLE, puzzle_id="three"),
-        ]
+    # CARD-329: the one page-source seam of this module. The puzzle pages
+    # arrive as content-stream operators under ADR-0042/R1 and the kinds that
+    # stay raster arrive as bitmaps (ADR-0042/R2); every criterion below is
+    # stated on *device pixels*, so `interior_images` puts both media in that
+    # one domain -- a raster page unchanged, an operators page rasterised by
+    # poppler at the page's own DPI (CARD-330: an instrument has to say which
+    # domain it is in). No criterion was weakened and no tolerance widened.
+    pages = interior_images(
+        BookPDFGenerator(_book()).interior_pages(
+            [
+                _book_puzzle(**UPPER_PUZZLE, puzzle_id="one"),
+                _book_puzzle(**LOWER_PUZZLE, puzzle_id="two"),
+                _book_puzzle(**SINGLE_PUZZLE, puzzle_id="three"),
+            ]
+        )
     )
     assert len(pages) == INTERIOR_PAGES, f"the book printed {len(pages)} pages"
     assert len(drawings_of(pages[TWO_UP_PAGE - 1])) == 2, "the pair really shares a page"

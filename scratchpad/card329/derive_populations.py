@@ -99,33 +99,76 @@ def _called_names(node: ast.AST) -> set[str]:
 
 
 def consumers(paths: list[Path]) -> set[str]:
-    """Pass 1: functions that use one of their own parameters as an image.
+    """Pass 1: functions that use one of their own parameters as an image,
+    **however indirectly** -- closed to a fixed point.
 
     A page handed to one of these is used as an image, so a module that only
     calls it is still exposed to the hazard. This is what the orchestrator's
     attribute-only filter missed.
+
+    The closure matters and was measured: at depth 1 this walk does NOT
+    recognise ``page_ink.drawing_of``, the tree's central pixel oracle, which
+    reads nothing off its own ``page`` and passes it to ``_dark`` one frame
+    in. Mirrors ``tests/test_book_pdf.py``'s
+    ``_page_consuming_functions`` -- the two are independent transcriptions
+    of one filter, and a disagreement between them is a finding.
     """
     found: set[str] = set()
+    functions = []
     for path in paths:
-        node = tree(path)
-        for item in ast.walk(node):
-            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            params = {
-                arg.arg
-                for arg in (
-                    item.args.posonlyargs + item.args.args + item.args.kwonlyargs
+        for item in ast.walk(tree(path)):
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.append(
+                    (
+                        item.name,
+                        {
+                            arg.arg
+                            for arg in (
+                                item.args.posonlyargs
+                                + item.args.args
+                                + item.args.kwonlyargs
+                            )
+                        },
+                        item,
+                    )
                 )
-            }
-            for inner in ast.walk(item):
-                if (
-                    isinstance(inner, ast.Attribute)
-                    and inner.attr in PIL_IMAGE_SURFACE
-                    and isinstance(inner.value, ast.Name)
-                    and inner.value.id in params
-                ):
-                    found.add(item.name)
-                    break
+
+    for name, params, node in functions:
+        for inner in ast.walk(node):
+            if (
+                isinstance(inner, ast.Attribute)
+                and inner.attr in PIL_IMAGE_SURFACE
+                and isinstance(inner.value, ast.Name)
+                and inner.value.id in params
+            ):
+                found.add(name)
+                break
+
+    def hands_on(node, params) -> bool:
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            called = (
+                inner.func.id
+                if isinstance(inner.func, ast.Name)
+                else getattr(inner.func, "attr", None)
+            )
+            if called not in found:
+                continue
+            for argument in list(inner.args) + [k.value for k in inner.keywords]:
+                if isinstance(argument, ast.Name) and argument.id in params:
+                    return True
+        return False
+
+    for _round in range(len(functions) + 1):
+        grown = {
+            name
+            for name, params, node in functions
+            if name not in found and hands_on(node, params)
+        }
+        if not grown:
+            break
+        found |= grown
     return found
 
 
