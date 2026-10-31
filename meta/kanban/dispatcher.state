@@ -95,6 +95,25 @@ active:
   phase: review
   cycle: 2
   cycle1_score: 8.5
+  cycle2_score: 8.0
+  fix_round: 2
+  fix_findings: [F-008, F-009, F-010, F-011, F-012]
+  # Does NOT certify, one cycle short: 8.0 clears min_score but cycle 2 found a
+  # new Important -- [BLOCKER] F-008 -- INSIDE F-003's own closure. All seven
+  # cycle-1 findings ARE closed and every closure was verified by measurement,
+  # including a survivor-to-kill flip (cycle 1's M10 survived at 189, kills now).
+  # F-008: the Do refusal row's stream is `q 100 0 0 100 0 0 cm /Im0 Do Q`, and
+  # it contains a `cm` -- itself refused -- so the stream raises whether or not
+  # Do is in the refused set. Do's refusal is NEVER MEASURED: dropping only BI
+  # kills, only sh kills, only Do SURVIVES. The reader is right (`q /Im0 Do Q`
+  # with no cm refuses, naming 'Do'); only the test's stream is wrong. It is the
+  # card's own AC-5 thesis turned on the cell its fix round wrote.
+  # Cycle 2 also ruled the round RIGHT to go against the orchestrator's suggested
+  # home for the operator binding, and supplied a fourth reason the round did not
+  # make: the co-change peer does not reference stream_marks AT ALL, so the guard
+  # would have sat in a module that never calls what it guards. And mutate.py
+  # hard-codes the module, so a peer cell literally cannot be a harness target.
+  # Cycle 3 is the LAST max_cycles allows.
   fix_rounds_done: 1
   cycle2_dispatched: true
   # Fix round 1 closed all 3 Important and all 4 Minor, 24 plants / 23 killed /
@@ -152,9 +171,34 @@ active:
     FAILURE. AC-4 is the card: a dead mechanism must red, with a mutant on each
     arm. One of CARD-322's four dependencies.
 - id: CARD-317
-  phase: review
+  phase: merge_gate_queued
   cycle: 2
   cycle1_score: 6.0
+  cycle2_score: 9.0
+  certified: true
+  # CERTIFIES at 9.0 on cycle 2 of 3. All five cycle-1 findings closed, each on
+  # evidence cycle 2 re-derived on instruments sharing NOTHING with the guard's
+  # (real yaml.safe_load, an ast index, a token scan -- not line regexes, git
+  # grep and the trie). All nine census classes reproduced exactly, count AND
+  # digest, at both commits. Both judgement calls endorsed; fixing ADR-0042/R4
+  # in-round called "mechanically forced", since reverting R4 alone reds the
+  # resolved-from-afar cell, so split off the repair was unprovable.
+  # Four new Minors, none gating. Two fixed by the orchestrator before the gate:
+  # a citation to :1533 where the def is :1536 (inside the note claiming each
+  # site was read off its own def line), and F-007 -- the hand-off band table,
+  # the THIRD wrong figure in that one paragraph, now DELETED rather than
+  # corrected again: the bands were exact for requirement lines and wrong for
+  # CRITERIA, which is CARD-316's unit (FR-001's four ACs moved +19/+22/+31/+38,
+  # not the "+0" claimed; AC-268 +73 against a +61 band). A table right at one
+  # granularity and wrong at another invites the offsetting its own heading
+  # forbids -- which is how the first two wrong figures here propagated.
+  # ROUTED, not fixed: trace.yml carries only the first of AC-269's two refs
+  # (latent -- that finding fires on `covered` and FR-042 is `partial`), and the
+  # two per-member digest sets have no count/digest pin, so a hand-deletion is
+  # silent in the module's own failure direction (a two-line pin would convert a
+  # recorded survivor into a kill; it needs its own mutant, so it needs a card).
+  # MERGE GATE QUEUED, not running: it is a full suite and must not run beside
+  # CARD-331's fix round. It starts when that round reports.
   fix_rounds_done: 1
   cycle2_dispatched: true
   # Fix round 1 closed all five. It also fixed ADR-0042/R4 unasked, for a
