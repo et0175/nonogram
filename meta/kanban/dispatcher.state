@@ -427,6 +427,49 @@ active:
   fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 scored 8.5
   cycle2_score: 8.5
   fix_findings_round2: [F2-001, F2-002, F2-003, F2-004, F2-005]
+  fix_round_2: reported 2026-10-31, all five fixed; cycle 3 queued behind CARD-329's merge gate
+  # FIX ROUND 2 REPORTED 2026-10-31. Commits bedec18c (the registry vocabulary
+  # + CARD-333's new item) and 8d9f27f2 (the retractions and the four figures).
+  # Cycle 2's YAML written back at 0 open findings; F2-006 DISMISSED with its
+  # reason rather than silently closed. No cycle-1 finding reopened.
+  # F2-002 settled the way the ADRs already had: the split is WITHDRAWN and all
+  # six criteria read `retired`, with FR-001's comment recording the word as
+  # BORROWED and citing all three lines, and stating that narrowing it would
+  # need an ADR amendment rather than a block comment. The inertness was
+  # re-measured rather than recalled -- every `status` read in the whole
+  # validator tree swept, and each one belongs to a trace entry, a CON, a DEC or
+  # an ADR, never an acceptance criterion. WARN set byte-identical, 88 -> 88.
+  # F2-001 RETRACTED AT FIVE SITES, NOT THE FOUR MY BRIEF NAMED. The fifth is
+  # in a TRACKED INSTRUMENT -- scratchpad/card316/derive_set.py -- whose
+  # docstring and printed box label both said FR-001's four were out of scope.
+  # That file is inside the resolver's domain, which is exactly why it matters
+  # and exactly the population CARD-335 now owns. No computation in it changed.
+  # Retraction proven to move nothing measured, both instruments before and
+  # after: validator 88 -> 88 with the WARN sets diff-clean, and 23 passed /
+  # 0 skipped / 23 collected, identical both times.
+  # THREE BASELINES, EACH MEASURED IN ITS OWN DETACHED WORKTREE rather than
+  # inferred: base -> round-0 tip 7 out / 7 in; round-0 tip -> HEAD (the fix
+  # round) 4/4; base -> HEAD (the whole card) 11/11. All three trees 0 errors /
+  # 88 warnings, and nothing but those pairs moves either way. My brief's 4/4
+  # was the fix-round delta quoted without its baseline; all three are now
+  # written together once, with the other sites pointing there.
+  # IT REFUTED ONE OF CYCLE 2'S OWN FINDINGS, and the shape is worth keeping:
+  # F2-004 said the index size 11278 "does not reproduce -- two honest
+  # reconstructions bracket it without hitting". It DOES reproduce -- 11278
+  # names / 12911 sites / 406 files at the merge base, identical at main, and
+  # 11282 at HEAD (+4, this card's own instruments), measured from the
+  # AUTHORITY's own domain with a positive control. Cycle 2's reconstructions
+  # missed because neither WAS the authority's domain (one was *.py only). So
+  # the finding about a carried figure was itself carried. The remedy was right
+  # and is applied: the construction is now written out beside the figure.
+  # TWO MORE FIGURES OF MINE CLEARED WHILE IN HAND: "330 modules" is the count
+  # SCANNED, of which only 312 carry a definition; and "421 criteria carrying a
+  # key" is the base-tree figure, 410 at HEAD -- which is why AC-2's surviving
+  # basis is 180 and not 191.
+  # F2-006 COULD NOT BE ROUTED INTO CARD-335's FILE, and it said so instead of
+  # closing quietly: CARD-335 was cut on main AFTER this branch's base, so no
+  # such file exists on the branch. Its figures are recorded in the card's
+  # fix-round notes pointing at CARD-335.
   # CYCLE 2 = 8.5, and it does NOT certify -- but on the SEVERITY GATE, not the
   # score: 8.5 is above min_score 8 and the delta is +2.5 against
   # min_improvement. ALL TWELVE cycle-1 findings CLOSED, every central figure
@@ -598,7 +641,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T10:35:00Z'
+last_updated: '2026-10-31T11:00:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

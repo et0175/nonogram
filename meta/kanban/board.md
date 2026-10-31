@@ -152,7 +152,7 @@ _(none — both of wave 72's cards are in `review`, listed below. The status fie
   reader. **Re-cut on the owner's call** from triage to repair; the re-cut found AC-4 **could not fail**
   (“all 21 modules pass” is satisfied by an empty diff while nothing is converted), so it now runs under a
   declaration-lifting probe and must record the red count **before** changing anything.
-- **CARD-316** P1 · **Seven acceptance criteria name tests that were never meant to exist** · `fix round 2` · cycle 1 **6.0** → cycle 2 **8.5**, held by the severity gate alone
+- **CARD-316** P1 · **Seven acceptance criteria name tests that were never meant to exist** · `review cycle 3 of 3 — queued` · **6.0 → 8.5 →** ? · fix round 2 closed all five; cycle 3 waits for the merge gate to release the suite
   `worktree: ../PythonProject4-card-316` · `branch: card/316-seven-phantom-acceptance-keys`
   Premise **verified at dispatch**: all seven ACs present, all seven named tests phantom by an `ast` index.
   The comment says not-to-be-built and the `test:` key says otherwise — **the key is the part the machine
