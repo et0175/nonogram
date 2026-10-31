@@ -424,12 +424,11 @@ MUTANTS: tuple[Mutant, ...] = (
         "`PDFTOPPM` to None before this round, so no control could reach "
         "this branch at all",
         path=HELPER,
-        old="""    if pdf_vector.PDFTOPPM is None:
-        raise PageMediumRefused(
-            "this page is written as content-stream operators (ADR-0042/R1) """",
-        new="""    if False:
-        raise PageMediumRefused(
-            "this page is written as content-stream operators (ADR-0042/R1) """",
+        # The leading newline pins the indentation: `pdf_pages`' own copy of
+        # this guard sits four spaces further in, and without it the shorter
+        # text would match inside that one too.
+        old="\n    if pdf_vector.PDFTOPPM is None:\n        raise PageMediumRefused(",
+        new="\n    if False:\n        raise PageMediumRefused(",
         nodes=(
             f"{READER_TESTS}::TestPdfPagesReader_AnOperatorsPageIsNotAKeyError"
             "::test_a_missing_poppler_is_a_missing_reading_and_never_a_skip",

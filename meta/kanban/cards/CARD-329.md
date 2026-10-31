@@ -335,14 +335,18 @@ is a **FAILURE**, not a silent pass.
   | `test_book_pdf_levels.py` | 10 | 4 | **EDITED, NOT REPAIRED.** The four survivors compare a page byte-for-byte with `expected_puzzle_page`, a **raster** page the module composes by hand. Cross-medium byte identity cannot hold; the expectation needs composing in the page's own medium, which re-opens what its independent form is. |
   | `test_book_pdf_two_up.py` | 24 | 4 | **EDITED, NOT REPAIRED.** Two survivors are the same byte-identity family as above; two are pixel-row claims about the upper slot's top edge. |
   | `test_book_puzzle_frame.py` | 22 | 4 | **EDITED, NOT REPAIRED.** All four are `TwoUp` stroke-weight and placed-edge claims: the two-up page reads weights `[2, 4, 6]` where it declares two, the third weight being a boundary-straddling rule read one pixel wider. |
-  | `property/test_book_pdf_geometry.py` | 4 | 4 | **EDITED, NOT REPAIRED.** All four node ids of the module are red before and after; the edit moved their cause from `AttributeError: 'ContentStream' object has no attribute 'size'` to a placed-edge disagreement of 0.254 mm. |
+  | `property/test_book_pdf_geometry.py` | 4 | 4 | **EDITED, NOT REPAIRED.** All four node ids of the module are red before and after; the edit moved their cause from `AttributeError: 'ContentStream' object has no attribute 'size'` (x3) and `…no attribute 'convert'` to a placed-edge disagreement — **re-measured at the fix round, four residuals of 0.2626 / 0.2993 / 0.2880 / 0.2887 mm** (`:435`, `:527`, `:660`, `:836`). This row used to say "0.254 mm", the aliasing figure, and that was the aliasing figure *stated wider than it was measured*: the residual here is **2.6x–3.0x `EDGE_TOLERANCE_MM`** and larger than 0.254, so the aliasing measurement is a **lower bound** on what a conversion moves at these four sites, not the whole of it. Which strengthens the disposition rather than weakening it: the widening that would close them is bigger than the card's own aliasing figure implies, and the frame-centre oracle is the only thing that closes them without one. |
   Total across the five: **80 → 16**. None of the 16 is green-because-unreached:
   every one is a measured red, named above.
 - **[Why the 16 are not a tolerance away, measured]**
   `scratchpad/card329/probe_aliasing.py` reads the SAME page in both media at
   300 DPI through the SAME oracle (`page_ink.drawing_of`):
   - the grid's four edges: **1 device pixel, 0.0847 mm**;
-  - the drawing's own left/top edges: **3 device pixels, 0.254 mm**;
+  - the drawing's own left/top edges: **3 device pixels, 0.254 mm** — a
+    LOWER BOUND on what a site sees, not the figure every site sees: the four
+    `test_book_pdf_geometry.py` residuals re-measured at the fix round are
+    0.2626-0.2993 mm, i.e. the aliasing accounts for most of each but not all
+    of any;
   - **identical with poppler's antialiasing on and off** (`-aa`/`-aaVector`),
     so it is not a halo; it is the two writers' line-placement conventions.
   These two numbers reproduce, independently, the two that
@@ -362,6 +366,11 @@ is a **FAILURE**, not a silent pass.
     `test_book_pdf_band.py`, `test_book_pdf_ink_mode.py`,
     `test_book_pdf_memory.py`, `test_book_proof_pages.py`,
     `test_book_solved_answer_key.py`. Each needs the same one-line seam edit.
+    *(Cycle 1 re-ran the probe over all 20 modules and confirmed this list of
+    seven is the correct one; the dispatcher's copy carried
+    `test_book_arrange_page_breaks.py` and dropped `test_book_pdf_ink_mode.py`,
+    which is red at 10 before and 10 after and does belong here. The
+    orchestrator's note has been corrected to this list.)*
   - **2 population-B modules** likewise: `property/test_book_pairing.py` (1
     red) and `test_book_divider_pages_option.py` (3 reds).
   - **`test_book_difficulty_dots.py` is red at 29 under the probe** — the same
@@ -373,8 +382,36 @@ is a **FAILURE**, not a silent pass.
     taken out"). The probe lifts a declaration and nothing else, so those
     guards are doing their job. They are not defects and must not be repaired
     here — CARD-322 updates registry, comment and card together.
-- **[AC-5, twelve plants, every control green with 0 skipped in the same run]**
-  `scratchpad/card329/mutate.py`. Eleven KILLED, one DECLARED SURVIVOR.
+  - **Two population-A modules are red for a reason that is NEITHER of the
+    above, and cycle 1's F-004 is that this list did not say so.** The note
+    undertakes to place the *whole* residue and these two landed in no bucket:
+    `test_book_arrange_page_breaks.py` (**1** red,
+    `ValueError: too many values to unpack (expected 1, got 2)` at `:753` — a
+    `two_up_ink` reading that finds two drawings where one is expected on a
+    poppler-rendered page) and `test_book_guide_page.py` (**1** red,
+    `AssertionError: (6, -62.0)` / `assert 2.944881889763778 <= 2` at
+    `:1682`). Both are **pixel-oracle readings of a converted page** — a
+    disagreement between the oracle and the rendered geometry, which is
+    CARD-312's per-site disposition and CARD-322's frame-centre oracle, **not
+    the one-line seam edit** the seven above need. Routing them with the seven
+    would be the wrong instruction, which is why they get their own bullet
+    rather than a longer list. *(The orchestrator's note now carries both with
+    this reasoning; this card and that note agree.)*
+  - **The arithmetic closes, so nothing is left for a reader to discover.**
+    The 151 residual reds, per module, summed from the final measurement
+    below: the nine routed modules **66** (`test_book_pdf_band.py` 23,
+    `test_book_pdf_memory.py` 23, `test_book_pdf_ink_mode.py` 10,
+    `property/test_book_export_interior.py` 2,
+    `test_book_export_interior_cover.py` 2, `test_book_proof_pages.py` 1,
+    `test_book_solved_answer_key.py` 1, `test_book_divider_pages_option.py` 3,
+    `property/test_book_pairing.py` 1) + the two just placed **2** +
+    `test_book_pdf.py` **38** + `test_book_difficulty_dots.py` **29** (G-3) +
+    the five modules this card repaired **16** = **151**. Three modules are at
+    0 and are the three that went green.
+- **[AC-5, twenty plants, every control green with 0 skipped in the same run]**
+  `scratchpad/card329/mutate.py`. **18 KILLED, 2 DECLARED SURVIVORS.** (Twelve
+  at the first pass, 13-15 at the gap this card's own helper opened, and
+  16/16b/17/18/19 at cycle 1's F-001, F-002 and F-003.)
   | plant | what it breaks | verdict | node it reds |
   |---|---|---|---|
   | MUT-1 | **inside the claim**: an operators page comes back as a raster page the reader already decoded | KILLED | `…AnOperatorsPageIsNotAKeyError::test_an_operators_page_inside_a_file_reads_beside_its_raster_pages` |
@@ -389,6 +426,14 @@ is a **FAILURE**, not a silent pass.
   | MUT-10 | `test_book_pdf_two_up.py`'s seam put back | KILLED | `…TwoSmallSameTierNeighboursShareAPage::test_both_puzzles_print_on_one_page` |
   | MUT-11 | `property/test_book_pdf_geometry.py`'s seam removed, **no probe** | **SURVIVED, declared** | — |
   | MUT-12 | `test_book_puzzle_frame.py`'s seam put back | KILLED | `…PairIsFramedOnThePrintedPage::test_both_slots_read_back_as_framed_drawings` |
+  | MUT-13 | a placed-edge site reads its page through `page_image` **inside its own body** | KILLED | `…EveryPlacedEdgeExpectationNamesItsMedium::test_no_site_reads_a_content_stream` |
+  | MUT-14 | a name defined nowhere joins the medium-blind exemption register | KILLED | `…::test_every_public_reader_of_the_two_owners_is_classified` |
+  | MUT-15 | `page_image` stops crossing the medium, so the set's *reason* goes false | KILLED | `…::test_the_pixel_returning_stream_readers_really_cross_the_medium` |
+  | MUT-16 | **the same crossing one frame in**, at `_interior` — the seam shape CARD-322 is handed. The plant cycle 1 fired and watched survive | KILLED | `…::test_no_site_reaches_a_stream_reader_through_a_helper_either` |
+  | MUT-16b | MUT-16 against the **depth-0** cell, which must not see it — otherwise the two cells are one assertion written twice | **SURVIVED, declared** | — |
+  | MUT-17 | the derivation is replaced by the retired hand-written set, dropping `rendered_page` and five more | KILLED | `…::test_every_public_reader_of_the_two_owners_is_classified` |
+  | MUT-18 | the poppler guard in `page_image` stops guarding: a missing engine reads a page instead of saying the reading is MISSING | KILLED | `…AnOperatorsPageIsNotAKeyError::test_a_missing_poppler_is_a_missing_reading_and_never_a_skip` |
+  | MUT-19 | raster pages at **disagreeing** DPIs settle a scale anyway — `_derived_dpi` pops one instead of refusing | KILLED | `…::test_raster_pages_at_disagreeing_dpis_are_refused_not_averaged` + `…::test_the_dpi_derivation_itself_answers_none_only_when_it_must` |
   **MUT-11 is where this card cannot meet AC-5, and it says so.** All four of
   `property/test_book_pdf_geometry.py`'s node ids are red under the probe both
   before and after the edit, so the module holds **no green node** to be a
@@ -400,31 +445,77 @@ is a **FAILURE**, not a silent pass.
 - **[G-5, derived]** Node-id set difference over all seven `Touches` paths
   against `f7ba9c96`, by `ast` (`scratchpad/card329/node_ids.py` — not
   `--collect-only`, which prints no node ids under this project's
-  `addopts = "-q"`): **282 → 300, 0 lost, 18 gained.** Nothing deleted,
-  renamed, skipped or merged.
+  `addopts = "-q"`): **282 → 309, 0 lost, 27 gained.** Nothing deleted,
+  renamed, skipped or merged. *(Re-derived at the fix round, which added 7
+  cells — 4 on the pin and the derivation, 3 on the refusal branches. The
+  reading this note first carried, "282 → 300, 18 gained", was taken before
+  `bd14c108` and was cycle 1's F-006: the node count was refreshed to 302 in
+  the note below and this one was not. Both now come from the same run of
+  `node_ids.py f7ba9c96`, and the arithmetic closes: 282 + 20 + 7 = 309.)
 - **[G-1/G-6 hold]** No page converted, no rule flipped, nothing under `src/`
   edited. Every one of the seven page kinds is declared raster on `main`, so a
   mixed-medium file cannot be built from the rules in force; the one test that
   needs one lifts PUZZLE's declaration under `monkeypatch` for its own
   duration, which is the session probe at test scope.
-- **[FINAL measurement under the probe, after the round]** 20 modules, one run
-  each: **17 of 20 RED (was 20 of 20), 151 failed+error (was 259), 1214 passed
-  (was 1088), 1 skipped** — the same `setrlimit` skip, attributed by `-rs`.
-  **108 reds cleared.** Three modules are now fully green under the probe:
-  `test_book_interior_face.py` (3 -> 0), `test_book_trim_persistence.py`
-  (2 -> 0) and `test_book_cell_size.py` (20 -> 0).
+- **[FINAL measurement under the probe, re-run at the fix round]** 20 modules,
+  one run each (`scratchpad/card329/measure_probe.py`): **17 of 20 RED (was 20
+  of 20), 151 failed+error (was 259), 1223 passed (was 1088), 1 skipped** — the
+  `setrlimit` skip at `tests/test_book_pdf_memory.py:1297`, attributed by `-rs`
+  and not from memory. **108 reds cleared.** Three modules are fully green
+  under the probe: `test_book_interior_face.py` (3 -> 0),
+  `test_book_trim_persistence.py` (2 -> 0) and `test_book_cell_size.py`
+  (20 -> 0).
+
+  **The passed count derives, which is cycle 1's F-006.** This note first said
+  **1214**, and the arithmetic says why that was wrong: 1088 + 108 cleared +
+  20 new cells = 1216, while 1214 is 1088 + 108 + **18**, the state before
+  `bd14c108` added the gap-closing pair. The fix round adds 7 more cells, so
+  **1088 + 108 + 20 + 7 = 1223**, which is what the run reports. A figure
+  refreshed beside one that was not is precisely the drift
+  `config.yml`'s "a count here is a DATED READING, never a current fact" exists
+  to catch, and it caught this one.
+  Per module, so the 151 is auditable rather than asserted: 2 / 1 / 2 / 1 / 0 /
+  **38** / 23 / 10 / 23 / 1 / 1 / 0 (population A, in `measure_probe.py`'s
+  order) and 1 / 4 / 0 / **29** / 3 / 4 / 4 / 4 (population B).
 - **[`tests/test_book_pdf.py` is red at 38 under the probe and SHOULD BE]** Its
   placed-edge expectations are pinned to the raster **by design**:
   `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium` derives every site
   comparing against `EDGE_TOLERANCE_MM` and requires it to read its page
   through `drawing_of` and through no stream reader, so — in that class's own
   words — "when CARD-322 converts a page under one of them, the reading
-  changes medium and this goes red until the site says so." Six more of the 38
-  are assertions *about* `_RASTER_DECLARATIONS` itself, which the probe lifts
-  and nothing else. **None of the 38 is a defect this card may repair**, and
+  changes medium and this goes red until the site says so."
+  **All 38 enumerated and classified**, because "none of them is a defect this
+  card may repair" reads as "all 38 belong to the pin or the registry" and
+  cycle 1's F-005 is that two of them belong to neither:
+  - **6** are assertions *about* `_RASTER_DECLARATIONS` itself, which the probe
+    lifts and nothing else. They are doing their job.
+  - **30** are the raster-pinned 25.45 mm placed-edge family and its
+    neighbours, every one reading its page through `page_ink`'s oracle.
+    ADR-0042's own `_RASTER_DECLARATIONS` note states the figure they disagree
+    by (3 device pixels / 0.254 mm on the drawing's own edges, outside
+    `EDGE_TOLERANCE_MM`), assigns the frame-centre oracle that closes them to
+    CARD-322, and says in as many words that CARD-329 owns the readers and
+    need not re-measure. Model-backed, not an excuse.
+  - **2 are this round's OWN new cells, and they are new debt this card hands
+    on**: `TestPdfPagesReader_ARasterPageIsUnchanged::test_every_raster_page_of_a_whole_book_is_unchanged`
+    and its control `…::test_the_reference_reader_can_tell_a_changed_page`.
+    They read a whole interior through `_old_one_image_reader`, the
+    pre-CARD-329 body, which indexes `Resources/XObject` unconditionally — so
+    they are **raster-only by construction** and will red *permanently* the
+    moment CARD-322 converts PUZZLE, not just under the probe. **Disposition
+    for CARD-322:** retire them at the conversion, or re-express them as
+    "every page the plan declares RASTER is unchanged", which survives it.
+    Either is safe, because AC-2's medium-durable half already exists beside
+    them — their `export.cover` sibling stays green under the probe, the cover
+    being a permanent raster by ADR-0042/R2. Saying this here is the point:
+    CARD-322 should read it, not discover it.
+
+  **None of the 38 is a defect this card may repair** — the 36 above by the
+  model, the 2 by being correct about a tree that is about to change — and
   `EDGE_TOLERANCE_EXEMPTIONS` is still empty.
-- **[A gap this card's own helper opened, found and closed]** `_STREAM_READERS`
-  — the set that decides whether a placed-edge site has changed medium — held
+- **[A gap this card's own helper opened, found and closed]** The set that
+  decides whether a placed-edge site has changed medium — `_STREAM_READERS` as
+  it was then, `_stream_readers()` as the fix round left it — held
   four names, all from `pdf_vector`. This card gave `pdf_pages` three
   functions that hand back **pixels from a content stream**, so a site reading
   through one of them crosses the medium with `drawing_of` still in its call
@@ -434,9 +525,87 @@ is a **FAILURE**, not a silent pass.
   the set (default-DENY, ADR-0039/R2), with one cell resolving each member to
   a `def` and one asserting the *reason* rather than the membership — MUT-14
   and MUT-15. That set's comment also claimed to be "derived from this
-  module's own imports" and never was; corrected.
-  Plants now **15: 14 KILLED, 1 declared SURVIVOR**. Node ids over the seven
-  `Touches` paths: **282 -> 302, 0 lost.**
+  module's own imports" and never was; corrected — and cycle 1's F-002 is that
+  the correction stopped one step short of actually deriving it.
+  **Cycle 1 re-fired MUT-13 both ways and upheld it — and then fired a third
+  variant that SURVIVED, which is F-001.** The site walk collected names from
+  the body of the `EDGE_TOLERANCE_MM`-bearing function only, so the identical
+  crossing written **one frame in**, at this module's own page-source helper
+  `_interior`, was invisible to the pin. That is not an exotic shape: it is
+  the one-line seam this card standardised across five modules and the one
+  CARD-322 is instructed to apply to nine more, so applying the house style
+  here would have silently retired CARD-330's pin over 30 of the 38 reds. And
+  the lesson was already on the board one walk over — `_page_consuming_functions`
+  needs a fixed point because `drawing_of` hands its page to `_dark` one frame
+  in. **The closure was applied to the population walk and not to the pin;
+  `_closed_sites()` is that correction**, following every name a site mentions
+  into that callable's body, and on, to a fixed point over this module and
+  `tests/helpers/**`. The page-source chain at the 25.45 mm site is three
+  frames deep: `_mirrored_pages` → `_interior` → `interior_pages`.
+  Measured in both directions, which is what makes the two cells two
+  assertions and not one written twice: **MUT-16** (the plant at `_interior`)
+  **KILLED** by the closed cell, naming all three readers it reaches
+  (`interior_images`, `page_image`, `rendered_page`); **MUT-16b**, the same
+  plant against the depth-0 cell, **SURVIVED as declared**; and **MUT-13**,
+  the depth-0 plant, **still KILLED**.
+  **The set itself is no longer hand-written, which is F-002.** It had a
+  control that every *listed* name was a real reader and none that a name
+  which *should* be listed was — and omission is the permissive direction
+  (ADR-0039/R2, this card's own system contract). Measured at the time:
+  `pdf_vector` defines 20 public functions, the set named 4, and the one its
+  own stated rationale names — `rendered_page`, the stream reader that returns
+  pixels and the one `page_image` itself delegates to — was absent.
+  `_stream_readers()` now derives it from the two owners' source: a function
+  crosses the medium when it reaches poppler, holds `/Contents` or
+  `/Resources`, or takes a decoded stream as a parameter — then, to a fixed
+  point, when it calls anything that does. **16 of the 28 public module-level
+  readers**, the hand-written 7 included. The other 12 are named in
+  `_MEDIUM_BLIND_READERS`, so the classification is a **partition with nothing
+  unclassified** rather than a filter whose omissions are invisible; a reader
+  added to either helper that the derivation does not recognise reds.
+  **MUT-17** puts the retired hand-written set back and is **KILLED** by the
+  completeness cell, which names the six readers it drops — `rendered_page`
+  among them, i.e. the plant reproduces exactly the shipped defect F-002
+  reported. **MUT-14** was re-aimed at the exemption register, now the only
+  hand-written half, and is **KILLED**.
+  Plants now **20: 18 KILLED, 2 declared SURVIVORS**. Node ids over the seven
+  `Touches` paths: **282 -> 309, 0 lost.**
+- **[AC-1's refusal half is now driven, not just implemented — cycle 1's
+  F-003]** AC-1 is a disjunction and both halves were written, but only one of
+  the three refusal branches had a control that could fail. ADR-0039/R1 is in
+  this card's own system contract, so this was the round failing its own
+  standard.
+  - **`pdf_vector.PDFTOPPM is None`** — the branch the card states as doctrine
+    ("a missing engine is a missing reading, never a skip", ADR-0038/R8) — was
+    reachable by nothing: `grep -rn PDFTOPPM tests/` found four `skipif`
+    markers in other modules and the two new raise sites, and no monkeypatch.
+    One `monkeypatch.setattr(pdf_vector, "PDFTOPPM", None)` now drives it
+    through **both** doors, `page_image` and `pdf_pages`. The cell's first
+    assertion is the matched control and is deliberately a **failure, not a
+    skip**, on a host without poppler: this card's reader depends on the
+    engine, so a cell that skipped itself away there would be the very thing
+    the doctrine forbids. **MUT-18** kills it.
+  - **`_derived_dpi`'s disagreeing-DPI arm** — stated in both the docstring and
+    the exception text, exercised by nothing; MUT-4 covered only the
+    zero-raster-page arm. It is now driven through the reader on a real file
+    **and** at the function in all three directions. **This tree's writer
+    cannot produce a disagreeing file** — Pillow's PDF writer takes one
+    resolution per file and derives every MediaBox from it, so pixel width
+    over box width is constant across the pages it writes — which is *why* the
+    branch needs an adversarial file rather than a counterfactual
+    declaration: one page's MediaBox width is halved **in the written bytes at
+    equal byte length**, so the xref offsets stay valid and only page 1's
+    physical extent moves (2550 px over 4.25 in beside 2550 px over 8.5 in).
+    `scratchpad/card329/probe_disagreeing_dpi.py` is that measurement.
+    **MUT-19** kills both cells.
+- **[`page_medium_of(page) is RASTER` became `==` — cycle 1's F-007]** The one
+  comparison in the new helper whose failure mode was silent and wrong rather
+  than loud: it worked only because the function returns that very `str`
+  object, and a RASTER page taking the vector branch would be handed to
+  `write_vector_pdf`. Every other comparison of the same value in the diff
+  already used `==`. Three plants (MUT-2, MUT-15 and MUT-18's neighbour)
+  quoted that line by text and were re-aimed with it — which is the whole
+  reason the plants are located by text with their occurrence count asserted.
 - **[The oracles' cross-check survives]** `pdf_pages.py` now imports
   `pdf_vector` — it is a reader and may. `tests/helpers/page_ink.py` and
   `two_up_ink.py`, the independent pixel oracles, import no stream reader and
@@ -445,19 +614,23 @@ is a **FAILURE**, not a silent pass.
 - **[The architecture validator, re-derived — and what the reading does NOT
   support]** `forge_1`'s `validate.py` (the validator of record,
   `meta/kanban/config.yml:38`) in this worktree: **0 error(s), 88 warning(s)**.
-  `config.yml` records 90, measured on main "after CARD-318 merged" — and
-  CARD-330 and CARD-331 have merged since, so **that figure is at least two
-  card-merges stale and the delta is not attributable to this round**. The set
-  diff with `comm` was NOT completed (the run contends with CARD-316's own
-  check-ref search and was stopped rather than loaded onto the host beside a
-  sibling's round), so the 88 is a total and nothing is claimed from it.
-  What IS established, mechanically, is the thing the set diff would have been
-  asked: **this round cannot have moved a warning either way.**
+  **De-staled 2026-10-31 at the fix round.** This note used to hedge against
+  `config.yml`'s 90, and both halves of the hedge are now resolved rather than
+  argued. (1) Main's `config.yml` no longer carries a current figure at all —
+  it carries a dated-readings log, whose last line is
+  `2026-10-31  forge_1  0 error(s), 88 warning(s)  (at f7ba9c96)`, i.e. **this
+  round's own figure at this card's merge base**. The 90 is this worktree's
+  stale copy, not main's claim. (2) The `comm` set diff this round declined to
+  run beside CARD-316 was completed by cycle 1: **0 errors / 88 warnings on
+  both trees, symmetric difference empty in both directions.** So the
+  substitute argument below was not a substitute — it was right, and for the
+  right reason: **this round cannot have moved a warning either way.**
   - It adds nothing under `meta/architecture`, which is the validator's input.
   - The check-ref search is a TEXT search over the repo, so a scratchpad
     mention can silence a dead ref. `scratchpad/card329/ref_pollution_check.py`
-    derives every test-like symbol the nine instruments mention — **46**, the
-    count re-derived after this instrument joined them — and
+    derives every test-like symbol the **eleven** instruments mention —
+    **50**, re-derived at the fix round after `derive_stream_readers.py`,
+    `derive_site_closure.py` and `probe_disagreeing_dpi.py` joined them — and
     resolves each to a `def`/`class` in `tests/`: **0 orphans**. Every one is
     already resolved by a real definition, so the scratchpad changes no ref's
     resolution. (This is the failure recorded in the orchestrator's notes: a
@@ -467,7 +640,9 @@ is a **FAILURE**, not a silent pass.
     live in this card.)
 - **[The impact run, on `main`'s rules with no probe]** All six runnable
   `Touches` paths in one node-scoped call with `-o addopts=` and `-rs`:
-  **339 passed, 0 failed, 0 skipped.** Zero skips is the assertion, not an
+  **346 passed, 0 failed, 0 skipped** (re-run at the fix round; 339 + the 7
+  cells it adds, so the figure derives rather than being retyped). Zero skips
+  is the assertion, not an
   observation — a skip keeps the collected count and removes the assertion, so
   a green-with-skips reading would say nothing. (A full suite shows 27 skips,
   26 DB-gated and 1 `setrlimit`; an impact run of these files touches neither

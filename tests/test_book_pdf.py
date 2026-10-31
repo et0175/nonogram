@@ -4736,6 +4736,23 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     under one bare name, which keyed on the bare name silently dropped one of
     them; the walk returns a list so the key count can be asserted equal to
     the site count, and a future collision reds instead of shrinking the dict.
+
+    **Two depths, and the difference is the point (CARD-329 cycle 1's
+    F-001).** The requirement that a site read through ``drawing_of`` is
+    stated on the site's **own body**, where the oracle call is written. The
+    prohibition on reading a content stream is stated **twice**: once on the
+    site's own body, and once on everything the site can *reach*, to a fixed
+    point (:meth:`_closed_sites`). The second is not a stronger spelling of
+    the first — it is the one that catches the shape the house style actually
+    produces, a one-line ``interior_images(...)`` seam at the module's
+    page-source helper rather than inside the test. Measured: the same
+    crossing written inside a site is killed by either cell; written at
+    ``_interior``, one frame in, only the closed one sees it.
+
+    The set of readers that count as crossing is **derived** from the two
+    owning helpers' source (:meth:`_stream_readers`), not written out — the
+    hand-written form had an existence control and none for omission, and
+    omission is the permissive direction.
     """
 
     #: The reader that makes a site's medium the raster bitmap.
