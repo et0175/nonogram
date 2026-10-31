@@ -288,6 +288,63 @@ MUTANTS: tuple[Mutant, ...] = (
         ),
         probe=True,
     ),
+    # ------------------------------------------------------------------
+    # The gap CARD-329's own helper opened in this module's placed-edge pin,
+    # and the three plants that prove it is closed. `_STREAM_READERS` is the
+    # set that decides whether a site under `EDGE_TOLERANCE_MM` has changed
+    # medium; `pdf_pages.page_image` hands back PIXELS from a content stream,
+    # so a site reading through it crosses the medium with `drawing_of` still
+    # in its call set. CARD-318's F-009 in miniature.
+    # ------------------------------------------------------------------
+    Mutant(
+        name="MUT-13",
+        what="INSIDE THE CLAIM: a placed-edge site starts reading its page "
+        "through `page_image`, i.e. through a poppler raster of a content "
+        "stream, while still calling `drawing_of`. Before CARD-329 added the "
+        "three pixel-returning readers to `_STREAM_READERS` this plant was "
+        "INVISIBLE to the pin",
+        path=READER_TESTS,
+        old="""    def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
+        page = _mirrored_pages()[FIRST_PUZZLE_PAGE]  # interior page 7, right-hand
+
+        left_mm = _mm(drawing_of(page).left)""",
+        new="""    def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
+        page = page_image(_mirrored_pages()[FIRST_PUZZLE_PAGE])
+
+        left_mm = _mm(drawing_of(page).left)""",
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_no_site_reads_a_content_stream",
+        ),
+    ),
+    Mutant(
+        name="MUT-14",
+        what="AT THE CLAIM'S EDGE: a name that reads like a reader and is "
+        "defined nowhere joins `_STREAM_READERS`. It forbids nothing, and "
+        "without the existence cell the set would rot into a list of words "
+        "while still reading as a guard",
+        path=READER_TESTS,
+        old='            "interior_images",\n            "pdf_pages",',
+        new='            "interior_images",\n            "pdf_pages",\n            "rendered_interior_pages",',
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_every_stream_reader_named_here_is_a_real_reader",
+        ),
+    ),
+    Mutant(
+        name="MUT-15",
+        what="the REASON the three pixel-returning readers are in the set "
+        "goes false: `page_image` stops crossing the medium and hands an "
+        "operators page straight back. A member justified by belief rather "
+        "than by behaviour would survive this",
+        path=HELPER,
+        old="    if page_medium_of(page) is RASTER:\n        return page\n    if pdf_vector.PDFTOPPM is None:",
+        new="    if page_medium_of(page) is RASTER:\n        return page\n    return page\n    if pdf_vector.PDFTOPPM is None:",
+        nodes=(
+            f"{READER_TESTS}::TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium"
+            "::test_the_pixel_returning_stream_readers_really_cross_the_medium",
+        ),
+    ),
 )
 
 COUNT = re.compile(r"(\d+) (passed|failed|error|errors|skipped)")

@@ -4738,12 +4738,38 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     """
 
     #: The reader that makes a site's medium the raster bitmap, and the ones
-    #: that would make it the content stream. Derived from this module's own
-    #: imports: ``drawing_of`` is the pixel oracle and ``pdf_vector``'s
-    #: readers are the stream half.
+    #: that would make it the content stream. A DECLARED set, not a derived
+    #: one — the comment here used to say "derived from this module's own
+    #: imports" and it never was; it is written out below and each member is
+    #: held to existing by
+    #: :meth:`test_every_stream_reader_named_here_is_a_real_reader`.
+    #:
+    #: **CARD-329 added the last three, and they are the subtle ones.**
+    #: ``pdf_vector``'s four readers hand back operators, so a site calling
+    #: one is plainly reading the stream. ``pdf_pages``' three hand back
+    #: *pixels* — and that is exactly why they belong here: since CARD-329
+    #: they rasterise an operators page through poppler, so a site reading
+    #: its page through one of them is reading **the stream, as pixels**, and
+    #: would sit under this bound with ``drawing_of`` still in its call set
+    #: and nothing to say the medium had moved. That is CARD-318's F-009 in
+    #: miniature — a guard whose names all resolve while the outcome it
+    #: states goes unverified — and it is a gap CARD-329's own helper opened.
+    #: Default-DENY (ADR-0039/R2): a reader that *can* cross the medium is
+    #: treated as crossing it, because a site cannot be classified by a
+    #: reader whose answer depends on the page it was handed.
     _RASTER_READER = "drawing_of"
     _STREAM_READERS = frozenset(
-        {"content_streams", "operator_tokens", "operator_tally", "page_media"}
+        {
+            # tests/helpers/pdf_vector.py — operators, as operators
+            "content_streams",
+            "operator_tokens",
+            "operator_tally",
+            "page_media",
+            # tests/helpers/pdf_pages.py — operators, as pixels (CARD-329)
+            "page_image",
+            "interior_images",
+            "pdf_pages",
+        }
     )
 
     #: The two placed-edge sites this module holds under **one** bare
@@ -4881,6 +4907,53 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
             if self._bare(name) in self._BOUND_ONLY_SITES:
                 continue
             assert self._RASTER_READER in readers, (name, sorted(readers))
+
+    def test_every_stream_reader_named_here_is_a_real_reader(self) -> None:
+        """No dead member: a name in :data:`_STREAM_READERS` that nothing in
+        the test tree defines would forbid nothing, and the set would rot into
+        a list of words while reading as a guard.
+
+        Each is resolved to a ``def`` in the helper that owns it — not to a
+        mention, which is the distinction CARD-309 had to correct and
+        CARD-329 re-derived (a check ref that resolves to a text hit warns
+        about nothing while verifying nothing).
+        """
+        root = pathlib.Path(__file__).resolve().parent
+        owners = {
+            "tests/helpers/pdf_vector.py",
+            "tests/helpers/pdf_pages.py",
+        }
+        defined: set[str] = set()
+        for path in owners:
+            tree = ast.parse((root.parent / path).read_text(encoding="utf-8"))
+            defined |= {
+                node.name
+                for node in ast.walk(tree)
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+        assert self._STREAM_READERS <= defined, sorted(
+            self._STREAM_READERS - defined
+        )
+
+    def test_the_pixel_returning_stream_readers_really_cross_the_medium(
+        self,
+    ) -> None:
+        """The reason the three ``pdf_pages`` members are in the set: each one
+        can be handed an operators page and hand back pixels.
+
+        Asserted on the reader, not on the list — a member added to
+        :data:`_STREAM_READERS` by belief rather than by behaviour would pass
+        the cell above and this one would not.
+        """
+        _generator, bitmap, stream = _one_vector_page()
+        assert page_medium_of(stream) == "vector"
+        crossed = page_image(stream)
+        assert isinstance(crossed, Image.Image), type(crossed)
+        assert crossed.size == bitmap.size
+        # And the raster side does NOT cross: the same call on a bitmap is the
+        # identity, which is what makes the medium the page's and not the
+        # reader's.
+        assert page_image(bitmap) is bitmap
 
     def test_no_site_reads_a_content_stream(self) -> None:
         """G-2 and the pin together: these expectations are the raster's, and
