@@ -1,6 +1,6 @@
 # CARD-331: The difficulty-dot accounting instrument measures a page the product will stop drawing — it needs a vector twin, and nobody owned that
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30, same reason as CARD-329: one of the three prerequisites of CARD-322, and the only one of CARD-309's four causes that had no owner at all before today. -->
 **Category:** tech-debt
 **Estimate:** 0.75d

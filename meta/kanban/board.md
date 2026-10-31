@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-31 (**WAVE 70 CLOSES TWO-FOR-TWO, BOTH AT 9.0 — and both cards' finding was that their own premise was false.** CARD-318 merged `884124f3`, CARD-330 merged `f7e5d764`; gates green at **10003** and **10028 passed / 27 skipped / 1 xfailed / 0 failed**. Re-derived from all 331 card files as a set per status: **279 done · 44 ready · 1 in progress · 1 in review · 1 parked · 4 blocked · 1 skipped = 331**. **CARD-330:** both media were always at spec — the specified boundary, the vector stream's operand and the raster rule's **centreline** are one number, and CARD-309's 2 px differenced an **ink extent** against a **path coordinate**. The discriminator is measured off the page: the offset is `(width - 1) // 2`, so it tracks the rule's **weight** (2 px for the 6 px border, 1 px for the 3 px cell line), which a quantisation of *position* could not do. Review found the raster renderer's own `Layout` borders at `965 / 1851`, identical to the stream's operands, with **no residual in the chain**, and killed **19 of 19** mutants. Two orchestrator claims retracted by measurement: the 0.169 mm is **not** ADR-0037/R2's device floor, and ink-against-ink the grid's edges differ by **1 px = 0.0847 mm, inside the bound** — what exceeds it is **3 px = 0.254 mm on `Drawing.left`/`top`**, a rasteriser **mitring** a stroked `re`'s corner, so **CARD-322 reds on the drawing's outer edges, not the grid's**. **CARD-318:** FR-029's behaviour was never missing — a **naming gap that read as a coverage gap** — and its cycle-3 certification moved six frozen censuses, every one re-derived against a real `def`/`class` line before a baseline changed (`defined` 395 → **406**, `honest-dead` 28 → **18**, `falsely-alive` 163 → **162**). Two of that +11 are classes renamed out of the `PropertyTest_` prefix: `python_classes` is matched as a **prefix, not a glob**, so **those two tests had never run at all**. **Wave 71 opens on CARD-331 + CARD-317** (intersection empty). _Was: both cards in review._)
+_Updated: 2026-10-31 (**WAVE 70 CLOSES TWO-FOR-TWO, BOTH AT 9.0 — and both cards' finding was that their own premise was false.** CARD-318 merged `884124f3`, CARD-330 merged `f7e5d764`; gates green at **10003** and **10028 passed / 27 skipped / 1 xfailed / 0 failed**. Re-derived from all 331 card files as a set per status: **279 done · 44 ready · 0 in progress · 2 in review · 1 parked · 4 blocked · 1 skipped = 331**. **CARD-330:** both media were always at spec — the specified boundary, the vector stream's operand and the raster rule's **centreline** are one number, and CARD-309's 2 px differenced an **ink extent** against a **path coordinate**. The discriminator is measured off the page: the offset is `(width - 1) // 2`, so it tracks the rule's **weight** (2 px for the 6 px border, 1 px for the 3 px cell line), which a quantisation of *position* could not do. Review found the raster renderer's own `Layout` borders at `965 / 1851`, identical to the stream's operands, with **no residual in the chain**, and killed **19 of 19** mutants. Two orchestrator claims retracted by measurement: the 0.169 mm is **not** ADR-0037/R2's device floor, and ink-against-ink the grid's edges differ by **1 px = 0.0847 mm, inside the bound** — what exceeds it is **3 px = 0.254 mm on `Drawing.left`/`top`**, a rasteriser **mitring** a stroked `re`'s corner, so **CARD-322 reds on the drawing's outer edges, not the grid's**. **CARD-318:** FR-029's behaviour was never missing — a **naming gap that read as a coverage gap** — and its cycle-3 certification moved six frozen censuses, every one re-derived against a real `def`/`class` line before a baseline changed (`defined` 395 → **406**, `honest-dead` 28 → **18**, `falsely-alive` 163 → **162**). Two of that +11 are classes renamed out of the `PropertyTest_` prefix: `python_classes` is matched as a **prefix, not a glob**, so **those two tests had never run at all**. **Wave 71 opens on CARD-331 + CARD-317** (intersection empty). _Was: both cards in review._)
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -141,11 +141,23 @@ _**⛔ 10 cards in this list are gated** (`Revision pending: true`, set by the 2
 
 ## In Progress
 
-- **CARD-331** P1 · **The difficulty-dot instrument measures a page the product will stop drawing** · `implementation`
+- **CARD-331** P1 · **The difficulty-dot instrument measures a page the product will stop drawing** · `implementation complete — cycle 1/3 dispatched`
   `worktree: ../PythonProject4-card-331` · `branch: card/331-difficulty-dot-instrument-vector`
-  27 cells monkeypatch the **raster** drawing site and key on page-image identity. On a vector page that site is
-  never called, so the instrument **passes silently** instead of erroring — ADR-0039/R2 wants a FAILURE. AC-4 is
-  the card: a dead mechanism must red, with a mutant on each arm. One of CARD-322's four dependencies.
+  **The premise is half false, and the false half changed the design.** The instrument does **not** pass silently
+  today: lift `PageKind.PUZZLE` out of `_RASTER_DECLARATIONS` and 27 cells red — but every one on the same
+  line with the same message, `'ContentStream' object has no attribute 'convert'`. **ADR-0039/R2 is already
+  satisfied by accident**, by a type error naming neither a dot nor a dead hook. **The silent pass is one
+  patch away, and it is the patch a converting card would write:** with the declaration lifted *and*
+  `interior_pages` filtered to bitmaps, **14 of the 27 go green** — among them three claims about what the
+  instrument *catches*, asserting on a tree whose puzzle pages have left the measurement. Orchestrator-
+  verified: 29 failed under the first probe, 15 under the second, three named cells flipping red→green. So
+  the deliverable is **an arm per `PageMedium`** plus a guard that reds when an arm's mechanism stops being
+  exercised whatever the page object's type is. Also measured: **neither medium draws the dots today** —
+  `_draw_difficulty_dots` has no production caller — so both arms are accounting instruments and the vector
+  arm is a **forward** one, said in code rather than glossed. 155 → 189 cells, 0 removed; 16 mutants killed
+  and **one declared negative control deliberately left surviving**. It also **declined to re-freeze**
+  `RENDER_HEAVY_SNAPSHOT` and rebuilt its corpus instead, and **narrowed one of its own claims** after two
+  measurements refuted it. One of CARD-322's four dependencies.
 - **CARD-317** P1 · **Six check refs name tests that exist under other names** · `implementation complete — cycle 1/3 dispatched`
   `worktree: ../PythonProject4-card-317` · `branch: card/317-check-refs-and-the-grid-bound`
   **Refuted its own card three times, and the third refutation is the valuable one.** FR-001's dead ref was

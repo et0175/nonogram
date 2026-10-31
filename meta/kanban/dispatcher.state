@@ -92,7 +92,24 @@ max_concurrent_override: 2
 #
 active:
 - id: CARD-331
-  phase: implementation
+  phase: review
+  cycle: 1
+  # Implementation found the premise HALF FALSE, and the false half changed the
+  # design. The instrument does NOT pass silently on a vector page today: lift
+  # PageKind.PUZZLE out of _RASTER_DECLARATIONS and 27 cells red -- but all on
+  # one line with one message, 'ContentStream' object has no attribute 'convert'.
+  # ADR-0039/R2 is satisfied BY ACCIDENT, by a type error naming neither a dot
+  # nor a dead hook. The silent pass is ONE PATCH away and it is the patch a
+  # converting card would write: with the declaration lifted AND interior_pages
+  # filtered to bitmaps, 14 of the 27 go GREEN -- including three claims about
+  # what the instrument CATCHES, asserting on a tree whose puzzle pages have left
+  # the measurement. Orchestrator-verified: 29 failed under the first probe,
+  # 15 under the second, and three named cells flip failed -> passed.
+  # So the deliverable is an arm per PageMedium plus a guard that reds when an
+  # arm's mechanism stops being exercised, whatever the page object's type is.
+  # Also measured: NEITHER medium draws the dots today (_draw_difficulty_dots has
+  # no production caller), so both arms are accounting instruments and the vector
+  # arm is a FORWARD one, stated in code rather than glossed.
   branch: card/331-difficulty-dot-instrument-vector
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-331
   started: '2026-10-31T04:00:00Z'
