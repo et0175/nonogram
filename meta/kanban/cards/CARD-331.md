@@ -1,6 +1,6 @@
 # CARD-331: The difficulty-dot accounting instrument measures a page the product will stop drawing — it needs a vector twin, and nobody owned that
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30, same reason as CARD-329: one of the three prerequisites of CARD-322, and the only one of CARD-309's four causes that had no owner at all before today. -->
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/331-difficulty-dot-instrument-vector`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-331
 **Source:** CARD-309's implementation round, 2026-10-30 — cause 3 of the four that blocked its AC-1, and the round's own words about it: *"its vector twin is carded nowhere."* It was the one cause with no owner anywhere on the board.
 **Idea:** —
-**Wave:** —
+**Wave:** 71 <!-- STAMPED 2026-10-31 at dispatch, opening wave 71 on the owner's pinned order. Measured free of CARD-317: tests/test_book_difficulty_dots.py + tests/helpers/round_ink.py against requirements.yml + trace.yml + two ADRs -- intersection EMPTY. Also free of CARD-329, which waits only because the cap is 2. One of CARD-322's four dependencies. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_difficulty_dots.py, tests/helpers/round_ink.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T02:39:21+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

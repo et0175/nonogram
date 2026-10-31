@@ -1,6 +1,6 @@
 # CARD-317: Six check refs name tests that exist under other names — and the dead ref on FR-001 has been hiding a grid bound the code abandoned
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/317-check-refs-and-the-grid-bound`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-317
 **Source:** CARD-307's fourth premise re-measurement, 2026-10-29. CARD-307 was cut; this is one of its four successors, and the only one with a live defect behind it. Cut by the orchestrator on owner decision.
 **Idea:** —
-**Wave:** —
+**Wave:** 71 <!-- STAMPED 2026-10-31 at dispatch. Opens the requirements chain's second link now that CARD-318 has merged and released meta/architecture/requirements.yml. CARD-316 serializes BEHIND this card on that same file (overlap 1.00 of its single entry). -->
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/0001-generation-time-thresholds.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/trace.yml
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-31T02:39:21+00:00
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

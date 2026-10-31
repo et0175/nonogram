@@ -1,0 +1,692 @@
+version: 1
+generated_at: "2026-10-31T00:00:00Z"
+target: "card/330-edge-offset-is-two-device-pixels @ 54e9e553 (cycle 1/3; cut db366763; 5 files, +1514/-5; src/ UNTOUCHED, re-derived: `git diff --name-only db366763..HEAD -- src/` is empty; tracked tree clean before and after every mutant)"
+card: CARD-330
+cycle: 1
+mode: full
+overall_score: 7.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+# ---------------------------------------------------------------------------
+# NOT A CHECK-REF FILE. Nothing in this YAML is a `check:` ref, a `test:` ref
+# or a definition line. Every test, class and function name quoted below is
+# quoted as PROSE EVIDENCE about code that lives elsewhere, and this file must
+# never be allowed to satisfy the architecture validator's check-ref search,
+# which is a TEXT search over the repository and has been measured silencing a
+# live dead-ref warning from a synced review YAML. Two precautions are taken:
+# (1) no name is written at the start of a line or after `def `/`class `;
+# (2) the ONE dead ref this review reports (CON-019's) is deliberately written
+#     TRUNCATED, as `PropertyTest_CliExports_ByteIdentical<...>`, so that a
+#     text search for the whole name cannot find it here. See F-104.
+# ---------------------------------------------------------------------------
+
+verdict: >-
+  THE PREMISE-FALSE CONCLUSION SURVIVES, and it survives because I re-derived
+  it from scratch rather than reading the card's tests. On CARD-295's own Twin
+  fixture, by my own probe: the raster page's ink reports grid_left/right
+  963/1849; the written content stream's 1.3 pt operands are 965/1851; and the
+  RASTER page's own `Layout` places those two vertical borders at 965 and 1851
+  — the same two numbers as the stream, to the pixel, with vertical rule
+  widths of exactly (thin 3, heavy 6). 965 - (6-1)//2 = 963. There is no
+  residual anywhere in that chain, so there is no room for a placement error
+  hiding inside the framing: the two media agree on the COORDINATE exactly,
+  and CARD-309's 2 px is `drawing_of`'s leading-ink-edge reading of a 6 px
+  rule centred on that coordinate, differenced against the coordinate itself.
+  CARD-309's "the two media place the same grid 2 device pixels apart" is
+  false as stated. The card took the right branch, for the right reason, and
+  G-4 is correctly not triggered.
+
+  BOTH RETRACTIONS OF THE BRIEF ARE CORRECT, and I checked them against source
+  and not against the card. (1) `RASTER_RULE_FLOOR_PX = 2` at
+  src/nonogram/export/layout.py:425 is a floor on a rule's THICKNESS — the
+  raise at :605 is `if pixels < RASTER_RULE_FLOOR_PX`. The 6 px border is
+  `_rule_widths` (:3163-:3166) returning `thin, thin * 2` with thin held up to
+  `_mm_to_px_at_least(0.25)` = ceil(2.9527) = 3. Two unrelated constants that
+  land on the same two pixels; the brief's "it IS the device floor" is wrong.
+  (2) Read ink against ink on the same fixture, by one oracle at one
+  resolution, my own numbers are: the four grid edges differ by exactly 1 px
+  (0.0847 mm, INSIDE the 0.1 mm bound) and `Drawing.left`/`Drawing.top` by
+  exactly 3 px (0.254 mm, OUTSIDE it). The brief's "every placed-edge
+  expectation changes value" is wrong, and the card's substitute figure is
+  right. The mechanism is also right: `drawing_of` takes `left`/`top` from
+  `_longest_run_start`, which on Pillow's butt-capped frame lines lands ON the
+  path and on poppler's mitred single `re` lands half a rule outside it.
+
+  THE ADR's DEVICE-FLOOR MEASUREMENT REPRODUCES EXACTLY. My own poppler renders
+  of a real vector puzzle page ink the 0.3 pt cell line at 1 / 2 / 2 / 5 device
+  pixels at 150 / 300 / 600 / 1200 DPI, and the run greys are 89 at every one
+  of the four resolutions — including the single pixel at 150 DPI, so "grey 89,
+  never diluted by coverage" holds of the cell line as written. R2's 2 px floor
+  is cleared at 300 exactly and missed at 150, as recorded.
+
+  THE CARD'S 8 MUTANTS REPRODUCE: 8 planted, 8 KILLED, 0 survivors, tree clean
+  after. So does the node-id claim (my AST set difference says 0 removed / 24
+  added, and the collected count moves 88 -> 112 with 3 `parametrize`
+  decorators accounting for the 4-id gap), the 112-passed module run, the
+  unchanged bound, the empty exemption register, the biconditional predicate,
+  and the skip attribution.
+
+  WHAT HOLDS THE SCORE BELOW min_score IS NOT THE CONCLUSION. It is two
+  controls that the card's own prose asserts are closed and which I measured
+  OPEN, each with a survived mutant and a matched killed control:
+  * the 24-case corpus floor is SELF-REFERENTIAL — the corpus is built as
+    `range(_MIN_EDGE_CASES)` and then asserted `>= _MIN_EDGE_CASES`. I lowered
+    that constant to 6 and then to 3 and all 24 of the card's tests stayed
+    green (87.5 % of the corpus silently gone). The card says "so it cannot
+    silently shrink". It can. F-001.
+  * the medium PIN's site map is keyed on a BARE function name, and this module
+    holds two different tests with the same name. I converted the first of that
+    pair into a content-stream reader and all four pin tests stayed green; the
+    same change to the second of the pair reds two of them. So the guard that
+    the card calls "default-DENY per ADR-0039/R2: a site whose medium cannot be
+    determined is a FAILURE" silently drops a site instead of failing. F-002.
+  Both are one-line fixes in the card's own file. Neither touches src, neither
+  changes a measured figure, and neither is a reason to doubt the finding — but
+  a card whose entire deliverable is evidence does not get to overstate two of
+  its own controls.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-330.md in full (503 lines), Worktree notes included"
+    - "the whole diff db366763..HEAD, every one of the 5 files, line by line (+1514/-5; the 5 deletions are the card's own status/branch/wave/started metadata lines)"
+    - "tests/test_book_pdf.py's +923 lines in full, and the module's constants block (:107-:140), `_book`/`_cm` (:155-:186), and both same-named placed-edge sites (:620, :661)"
+    - "tests/helpers/page_ink.py in full: the module docstring, `Drawing` and the card's +21 lines of comment, `ink_mask`/`_dark`, `_longest_run_start`, `_longest_runs`, `_rule_groups`, `_drawing_rows`/`_drawing_columns`, `_outer_rule_is_a_frames`, and `drawing_of`'s body (:347-:400)"
+    - "meta/architecture/decisions/adr/0042-*.md: the whole +148 diff, plus the `## Rules` block's R6 statement/scope/check and R1's check block"
+    - "src/nonogram/export/layout.py: RASTER_RULE_FLOOR_PX (:425), `rasterise_rule_px` (:560-:615), `_device_rule_px`, `_rule_widths` (:3140-:3166); src/nonogram/admin/book_page_spec.py's min_thin_rule_mm (:241, :318)"
+    - "tests/helpers/pdf_vector.py's module docstring and `rendered_page` (:445-:480); tests/test_book_grid_rules.py:200-:214; tests/test_book_pdf_memory.py:1288-:1302"
+    - "tests/test_book_puzzle_page_vector.py's `Twin`/`twin`/`_case` and its import block; meta/profiling/rank_durations.py's frozen render-heavy tuple"
+    - "scratchpad/card330/mutate.py in full before running it"
+  not_reached:
+    - "the full suite — impact scope; meta/kanban/.full-suite.lock absent throughout, never written, NONOGRAM_IGNORE_FULL_SUITE_LOCK never set"
+    - "the remaining 16 page_ink-reading modules the card reports as 1025 passed — I ran 7 of the impact set instead (see runs) and did not re-derive that figure"
+    - "a rendered-grid eyeball — there is no image-pipeline change here (src/ is empty in the diff), so the owner's visual gate does not apply to this card"
+    - "any database — no db_required node was collected or run"
+  confidence: high
+
+method_note: >-
+  Every figure in this review was measured by my own probes, written into the
+  SESSION scratchpad and never into the repository or into tests/ (G-7 is not
+  touched by this review's instruments either). The card worktree was
+  `git status --porcelain` EMPTY before the first mutant and after the last;
+  every mutant asserted its anchor unique before substitution, SHA-256 before
+  the plant and back to the identical digest after `git checkout -- <file>`,
+  with `*.pyc` and `__pycache__` swept before and after each, under
+  PYTHONDONTWRITEBYTECODE=1 and `-o addopts=''`. HEAD was already committed
+  (54e9e553) and the tree clean, so `git checkout --` could not discard work.
+  No process was left running; no sibling worktree (CARD-318) was touched.
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly (this worktree has no .venv), PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock absent for the whole cycle; no run refused; the env override never set"
+  results:
+    - "tests/test_book_pdf.py whole module -> 112 passed, 0 skipped (20.08s) — reproduces the card's figure"
+    - "tests/test_book_pdf.py -k EdgeOffset -> 24 passed, 88 deselected (6.8s) — a NON-ZERO count, so the green is a pass and not an empty selection"
+    - "tests/test_suite_profile.py + tests/test_check_ref_resolution.py -> 473 passed, 0 skipped (54.07s) — G-7's frozen render-heavy set and the check-ref resolver both green"
+    - "impact set (7 modules: test_book_pdf, test_book_puzzle_page_vector, test_book_page_frame, test_book_pdf_two_up, test_book_export_interior_cover, test_book_grid_rules, test_book_pdf_memory) with -rs -> 467 passed, 1 skipped (124.86s). The ONE skip is the platform gate named in skips_attributed; zero skips introduced by this card."
+    - "architecture validator OF RECORD (/Users/omelnikova/MyProjects/forge_1/.../validate.py --root meta/architecture --phase all): card worktree -> 0 error(s), 100 warning(s), 0 info; main -> 0 error(s), 100 warning(s), 0 info. IDENTICAL, so this card adds no validator finding. No printed count is carried as a frozen-registry figure: trace.yml and the browser-family censuses are outside this card's impact scope and nothing in them was re-stamped."
+  skips_attributed:
+    - "ZERO skips introduced by this card. The one skip in the impact set is tests/test_book_pdf_memory.py:1297, a platform gate on setrlimit(RLIMIT_AS) whose own message says the kernel refuses every soft limit on this host and names the resident-set sentry that carries THAT module's AC-2 executed half. Pre-existing, re-read at the line, and correctly attributed by the card as not its own."
+    - "The card's own `_needs_poppler` gate did NOT fire: /opt/homebrew/bin/pdftoppm is present. The card is right to flag this as a real exposure — on a poppler-less host 20 of its 24 tests skip and AC-1/AC-2 do not run. That is declared rather than hidden, and `-rs` names it."
+
+node_ids:
+  method: "ast.parse of `git show db366763:tests/test_book_pdf.py` against the file at HEAD, cross-checked against the collected count from `--collect-only`/a full run with `-o addopts=''`"
+  base_ast: 84
+  head_ast: 108
+  base_collected: 88
+  head_collected: 112
+  removed: 0
+  added: 24
+  verdict: >-
+    G-6 HOLDS, re-derived. The AST set difference is EMPTY in the removed
+    direction and the 24 added ids are exactly the card's four TestEdgeOffset_
+    classes. The 4-id gap between the AST count and the collected count is the
+    module's 3 pre-existing `parametrize` decorators and is the same on both
+    sides. Every new class carries the `Test` prefix, so none is silently
+    uncollected by pytest's default `python_classes` (the project configures
+    no `python_classes` key — the PropertyTest_* trap is real in this repo but
+    this card does not step in it).
+
+guardrails:
+  G-1: >-
+    HOLDS. tests/test_book_pdf.py:140 still reads the stated 0.1; the new
+    register is empty and asserted empty; the predicate refuses a widening
+    without an exemption, an exemption without a widening, AND a narrowing,
+    with the admitted arm asserted so it is not a constant False. The card's
+    two named mutants (0.3 and 0.1001) both KILLED in my re-run.
+  G-2: >-
+    HOLDS. The whole page_ink diff is +21 lines of COMMENT inside the `Drawing`
+    dataclass body (0 deletions); tests/helpers/two_up_ink.py is not in the
+    diff at all. `drawing_of` still reduces the page through `_dark`/`ink_mask`
+    and still returns first-inked-line coordinates. Two of the card's mutants
+    (the oracle importing pdf_vector; drawing_of building its own mask) both
+    KILLED in my re-run.
+  G-3: >-
+    HOLDS. `git diff --name-only db366763..HEAD -- src/` is empty, so no page
+    can have been converted; `_RASTER_DECLARATIONS` is not in the diff; the
+    ADR diff has ZERO deletions, so neither R1's nor R6's statement or check
+    could have been flipped (R6 still carries `check: {kind: review-lens}`).
+    The existing declaration test ran unmodified inside the 112-passed run.
+  G-4: "HOLDS. Zero src/ files in the diff; no admin/book_*.py edit; item 1's answer is 'neither medium is off spec', so the stop-and-raise arm was correctly not taken."
+  G-5: >-
+    HOLDS AS TO THE LETTER, FAILS AS TO THE GUARD. Nothing under
+    tests/fixtures/** is in the diff and no EXISTING corpus minimum was
+    lowered. But the card's own new minimum cannot detect its own lowering —
+    measured, not argued: see F-001.
+  G-6: "HOLDS — see node_ids, re-derived rather than carried."
+  G-7: >-
+    HOLDS. The only probe committed is scratchpad/card330/mutate.py, outside
+    tests/. tests/test_book_pdf.py is already a member of the frozen
+    render-heavy tuple in meta/profiling/rank_durations.py, so adding renders
+    to it moves no membership, and tests/test_suite_profile.py is green in my
+    own 473-passed run. My own review probes were written to the session
+    scratchpad and never into the repository.
+
+system_contract:
+  rules_checked: 6
+  holds: 4
+  unchecked: 1
+  violated: 1
+  verdicts:
+    - "ADR-0042/R6 ✓ holds — the ADR carries `check: {kind: review-lens}` for R6 (NOT the mechanical check the card's contract row implies; see F-105), so this is a read and it is a bounded one. The card asserts the specified/vector relation against the content stream (its own `m ... l S` operand reader), and every ink reading it takes is either through R6's first declared exemption (the independent oracle `drawing_of`, unchanged) or is an explicit DEVICE claim that states its resolution (300 DPI) and is used to show two quantities DIFFER rather than to recover a declared width — which is exactly what R6's second exemption admits. No ink reading in the diff recovers a number the generator stated."
+    - "ADR-0042/R1 ✓ holds — zero src/ files in the diff and zero deletions in the ADR, so no interior page's medium changed and no rule was flipped; the existing `_RASTER_DECLARATIONS` equality test ran unmodified and green inside my 112-passed module run."
+    - "ADR-0037/R2 ✓ holds — the floor constant is untouched (src/ empty in the diff) and the card invents no floor: ADR-0042's new section records the R2-vs-R7 collision as unresolved and says so in terms. I reproduced the figure it contributes (0.3 pt inks 1/2/2/5 device px at 150/300/600/1200 DPI, grey 89 throughout) with my own poppler renders."
+    - "ADR-0039/R1 ✗ violated — the rule is satisfied for every substantive claim in the card (AC-4's named pair KILLED; my own single-edge perturbation, heavy-rule widening and mitre-figure move all KILLED), but the card's CORPUS-SIZE claim has a control that CANNOT fail: tests/test_book_pdf.py:4300-:4301 asserts the corpus against the constant that generated it (:3988-:3989). Lowering that constant to 3 leaves all 24 tests green. Finding F-001."
+    - "ADR-0039/R2 ✗ violated (same report, second mechanism; filed as F-002 and counted once in the score) — the pin guard's set IS derived by ast, but it is collected into a dict keyed on the bare function name, and this module holds two tests with the same name. A site whose medium cannot be determined is therefore silently DROPPED, not failed: converting the first of that pair to a content-stream reader leaves all four pin tests green (mutant N8 SURVIVED), while the identical change to the second reds two of them (N9 KILLED)."
+    - "CON-019 ⚠ unchecked — check_ref_missing: the rule's named check, `PropertyTest_CliExports_ByteIdentical<...>` (truncated on purpose, see this file's header note), resolves to NO `def` or `class` line anywhere in the repository. Its only hits are a module docstring and a test docstring in tests/property/test_cli_exports_byte_identity.py, three registry files, and TWO previously synced review YAMLs — i.e. the validator's text search is currently satisfied by prose. The live test is the snake_case function in that file. Manual read of this diff found no violation and could not: src/ is untouched, so no CLI or web export byte can have moved. Pre-existing and NOT this card's to fix — recorded here because a dead ref is unverifiable, not satisfied. See F-104."
+  note: >-
+    The count line is 6 because the card's `## System contract` section carries
+    6 rows. ADR-0039/R1 and R2 are reported violated once each and scored once
+    in total (one root cause class, two mechanisms, two findings).
+
+metrics:
+  diff: { files: 5, added: 1514, removed: 5 }
+  max_fan_in:
+    symbol: "tests.helpers.page_ink.drawing_of"
+    callers: 91
+    note: "`grep -rn 'drawing_of' tests/ | wc -l` = 91 references across the test tree — the highest-fan-in symbol the diff touches, and the diff touches it with COMMENT ONLY (0 behavioural lines), which is why the blast radius of this card is bounded to the module it adds tests to."
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_book_pdf.py — 73 commits in the last 12 months (`git log --oneline --since=12.months -- tests/test_book_pdf.py | wc -l`), of which 12 carry fix/bug/hotfix in the subject: the highest-churn file in this diff and the one both new findings live in"
+    - "tests/helpers/page_ink.py — 26 commits, 5 fix-shaped"
+  cochange_missing:
+    - "tests/helpers/pdf_pages.py and tests/test_book_pdf_geometry.py co-change with tests/test_book_pdf.py but are correctly ABSENT here: this card converts nothing and reads nothing new through pdf_pages. Not a missing change."
+  unmeasured:
+    defect_density_attribution: "not_applicable — the fix-shaped commits on tests/test_book_pdf.py are other cards' geometry repairs; none is traceable to the lines this diff adds, so the figure weights the risk of the FILE and is not attributed to this card."
+    full_suite: "no_eligible_fact — test_scope is impact for this card and the full-suite lock was absent; the full suite was deliberately not run, by either the implementation round or this review."
+
+root_causes:
+  - id: RC-1
+    title: "A guard whose stated strength exceeds what it mechanically checks — asserted in prose, not in a control that can fail"
+    finding_ids: [F-001, F-002]
+    note: >-
+      Two different mechanisms (a self-referential constant; a dict keyed on a
+      non-unique name) producing the same failure class: the card's Worktree
+      notes and the tests' own docstrings claim a property the code does not
+      enforce. Both are one-line fixes. Scored as two findings because the
+      fixes are independent and in different tests.
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 4300
+    title: "The 24-case corpus floor is self-referential: the corpus can shrink to 3 cases with all 24 tests green"
+    description: |
+      `_MIN_EDGE_CASES = 24` (:3988) is BOTH the corpus generator's
+      bound and the floor asserted against it. The fixture at :4269 builds
+      `[_edge_case(index, ...) for index in range(_MIN_EDGE_CASES)]` (:4280),
+      and the guard is then `assert len(edge_corpus) >= _MIN_EDGE_CASES`
+      (:4300) with `assert len(edge_corpus) * len(_GRID_EDGES) >=
+      _MIN_EDGE_READINGS` (:4301), where `_MIN_EDGE_READINGS = 4 *
+      _MIN_EDGE_CASES` (:3989). Both comparisons are
+      satisfied by construction for ANY value of that constant.
+
+      MEASURED, not argued. Two mutants, same anchor, both in a clean tree
+      with SHA-256 asserted back afterwards:
+        * `_MIN_EDGE_CASES = 24` -> `6`:  24 passed, 88 deselected (2.17 s).
+          SURVIVED.
+        * `_MIN_EDGE_CASES = 24` -> `3`:  24 passed, 88 deselected (1.37 s).
+          SURVIVED. 87.5 % of the corpus gone, 96 edge readings down to 12,
+          every uniformity set-equality still green.
+        * `_MIN_EDGE_CASES = 24` -> `1`:  KILLED — but only by the SPAN
+          assertion (trims/parities/bounds), not by the floor. So the floor
+          this card actually enforces is 3, not 24.
+
+      This contradicts the card's own words twice: "minimum asserted inside the
+      test (`_MIN_EDGE_CASES = 24`, `_MIN_EDGE_READINGS = 96`), so it cannot
+      silently shrink" (Worktree notes) and the test's own docstring "The
+      minimum, asserted here so the corpus cannot silently shrink." It is also
+      the exact mechanism CLAUDE.md's test-style section exists to require
+      ("asserting a minimum case count inside the test itself so the corpus
+      can't silently shrink") and the thing G-5 forbids the NEXT card from
+      doing — with no control to notice if it does.
+    suggestion: |
+      Decouple the floor from the generator. Either assert literals in the
+      corpus test (`assert len(edge_corpus) >= 24` and
+      `>= 96` readings, with a comment that the literals are the floor and the
+      constant is the generator), or build the corpus from an explicit case
+      table and keep `_MIN_EDGE_CASES` as the floor only. Then plant the
+      control the claim needs: a mutant that lowers the floor must red.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 90d300ae
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_book_pdf.py
+    line: 4620
+    title: "The medium pin's site map is keyed on a bare function name, so one of two same-named placed-edge sites is silently dropped — and that one can read the content stream undetected"
+    description: |
+      The pin's walk (the static method at :4620, inside the class at :4592) returns `dict[str, set[str]]` keyed on `node.name`. This
+      module holds TWO distinct tests with the identical name
+      `test_the_drawing_sits_25_45_mm_from_the_left_trim_edge`, at :620
+      (interior page 7, right-hand) and :661 (interior page 6, left-hand), in
+      two different classes. Measured with ast: 15 functions in this module
+      name `EDGE_TOLERANCE_MM`, but the dict has only 14 keys. The reader set
+      of whichever of the pair is walked FIRST is overwritten and never
+      checked.
+
+      Exploitable, with a matched control. Two mutants, one anchor each:
+        * N8 — the FIRST of the pair (:620) has its
+          `_mm(drawing_of(page).left)` replaced by
+          `_mm(pdf_vector.content_streams(page))`, i.e. it stops reading the
+          raster ink oracle AND starts reading a content stream — the precise
+          condition both pin assertions exist to catch. Result: the pin class
+          is **4 passed**. SURVIVED.
+        * N9 — the identical change to the SECOND of the pair (:661).
+          Result: **2 failed, 2 passed**. KILLED.
+      So the guard's verdict depends on ast walk order, not on the code.
+
+      That directly refutes the class docstring's "Default-DENY per
+      ADR-0039/R2: a site whose medium cannot be determined is a FAILURE, not
+      a pass" and the other test's "a site that quietly started reading the
+      stream would be asserting a 0.169 mm different number against the same
+      bound" — at :620 it would not. It also weakens the one mechanical
+      artefact the owner's steer is implemented as: the pin is what is
+      supposed to red on CARD-322's arrival.
+    suggestion: |
+      Key the map on something unique — the class-qualified name, or
+      `(node.name, node.lineno)` — and keep `_BOUND_ONLY_SITES` matching on
+      the function part. Then make the collision itself a failure rather than
+      a silent merge: have the walk's own control assert the key count EQUALS
+      the number of `EDGE_TOLERANCE_MM`-naming functions (15 today), so a
+      future duplicate reds instead of disappearing. Re-run N8 as the
+      regression.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 90d300ae
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf.py
+    line: 3984
+    title: "AC-1's headline control is held at 1.5 px when 1.05 px passes — and 1.5 px (0.127 mm) is wider than the 0.1 mm bound the card refused to widen"
+    description: |
+      `_SPEC_ROUNDING_PX = 1.5` (:3984) is the entire bound on the card's answer to
+      its first question ("the specified position IS where the content stream
+      puts the grid") and on the raster's `Drawing.left`/`top` arm. The card
+      documents the measured worst disagreement as 1.0 px and derives 1.5 px
+      from three ≤0.5 px roundings.
+
+      Measured: tightening it to `1.05` leaves all 24 tests green (SURVIVED),
+      so 0.45 px — 0.038 mm — of the asserted slack is unused by any case in
+      the corpus. Loosening it to `12.0` (1 mm) ALSO leaves all 24 green
+      (SURVIVED), confirming that nothing else in the suite holds this
+      relation: this constant is the sole control on the card's central
+      measurement.
+
+      The asymmetry is worth naming rather than dismissing: 1.5 px is
+      0.127 mm, which is LARGER than the `EDGE_TOLERANCE_MM = 0.1` the card
+      correctly declined to widen. The conclusion is not weakened — the
+      measured figure (1.0 px = 0.0847 mm) is itself inside 0.1 mm, and the
+      card says in terms that this is a bound on the derivation and
+      deliberately not the placed-edge bound. But a reader who re-derives from
+      this test learns a looser fact than the card actually measured.
+    suggestion: |
+      Assert the measured ceiling and keep the derived one as the documented
+      headroom: e.g. keep `_SPEC_ROUNDING_PX = 1.5` for the comment's
+      derivation and add `assert worst[0] <= 1.0` (or a named
+      `_SPEC_MEASURED_PX = 1.05`) as the live bound, so a future half-pixel
+      regression in the derivation reds instead of being absorbed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 90d300ae
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-101
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf.py
+    line: 4658
+    title: "The pin has no honest exemption class for a site legitimately converted to the stream, which is the direction ADR-0042/R6 mandates"
+    description: |
+      The pin asserts that no `EDGE_TOLERANCE_MM` site may name a stream
+      reader. ADR-0042/R6 says the opposite for interior-page geometry claims:
+      they are to be asserted against the content stream. The card frames the
+      red as a deliberate tripwire ("the pin reds on arrival, by design, so
+      the medium has to be restated deliberately"), which is defensible — but
+      the only pre-built escape hatch is `_BOUND_ONLY_SITES`, whose declared
+      meaning is "sites that name the bound without measuring a page" and
+      whose companion test asserts every listed name exists. A site converted
+      per R6 DOES measure a page, so adding it there makes the register's own
+      documentation (:4658) false, and the honest move for CARD-312/CARD-322 is to
+      extend the guard's vocabulary rather than to add a name. Worth stating
+      now so the next card does not take the cheap road.
+    suggestion: |
+      Add a second, separately-named register for converted sites (e.g. a
+      `_STREAM_PINNED_SITES` with its own "exists" control), or make the pin's
+      predicate "a site names exactly one medium, and which one it names is
+      recorded" instead of "every site names the raster".
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      Real, and not this card's: the pin's exemption vocabulary for a legitimately converted site belongs with the conversion. Routed to CARD-322 and recorded with its measurement in the card's routed-residue section.
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf.py
+    line: 4006
+    title: "`_specified_grid_mm`'s vertical arm re-implements the renderer's clearance algorithm rather than deriving from the page spec"
+    description: |
+      The horizontal half of the derived column is genuinely independent: it
+      reads trim/gutter/outside/band/cell constants that this module writes out
+      itself (:107-:118, explicitly "written out here rather than imported")
+      and calls neither `compute_layout` nor `book_page_spec`. Confirmed.
+
+      The vertical half is weaker. It restates the renderer's own placement
+      RULE, not just the spec: `_SPARE_ABOVE = 0.42`, `_HEADER_RULE_SHARE`,
+      `_FOOTER_STRIP_MM`, and in particular the clearance arithmetic
+      `-(-_RASTER_HEAVY_PX // 2) + -(-_furniture_px // 2) + 1` with a
+      hard-coded `_furniture_px = 3` and a "+1 makes clear strict" pixel.
+      That is a second implementation of the algorithm rather than of the
+      specification, so it can inherit the same mistake, and the anti-copy
+      control (`...is_not_either_mediums_ink_reading`) only proves the column
+      is not a RENDERER READING — it cannot prove it is not a renderer rule
+      transcribed.
+      This does NOT affect the card's conclusion, which rests on
+      `Layout.position == stream operand` and `ink = position - (w-1)//2`,
+      both of which I verified directly without the derived column.
+    suggestion: |
+      Note the asymmetry in `_specified_grid_mm`'s docstring (the horizontal
+      arm is spec-derived, the vertical arm is rule-derived), or, cheaper,
+      state that the vertical arm's independence is bounded and that the
+      card's conclusion does not rest on it.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      Real, and not this card's: narrowing the vertical arm of the derivation is work on the geometry CARD-322 converts, and the card's conclusion does not rest on that arm. Routed to CARD-322 and recorded with its measurement in the card's routed-residue section.
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-330.md
+    line: 169
+    title: "AC-1 says the card records the three numbers in millimetres and sweeps page COUNTS; the card records relationships and sweeps page NUMBERS"
+    description: |
+      Two small AC-vs-body gaps, resolved by test and not by co-location:
+      * AC-1 asks for a corpus "spanning trims and page counts". The corpus
+        sweeps three trims, both parities, 24 interior page NUMBERS
+        (`FIRST_PUZZLE_PAGE + index`), grid sizes and clue depths — one book,
+        one puzzle per case. Page COUNT is not a swept variable. The
+        geometrically operative variable (parity) IS swept and is asserted as
+        a set equality, so the AC's intent is met; its wording is not.
+      * AC-1 also asks that "the card records specified / raster / vector in
+        millimetres". The card's three-number table (:259-:266) has an `mm`
+        column that is empty for three of its five rows; what the card records
+        is the RELATION (both land on the boundary; the ink readings land
+        2 px and 3 px outside), with mm given only for the two offsets. The
+        per-edge millimetre figures exist only inside the test.
+      Neither is a reason to fail an AC; both are reasons the next reader
+      should not expect a table of 96 x 3 millimetre values in the card.
+    suggestion: |
+      Either amend AC-1's wording ("page numbers and parities", and "records
+      the relation the three numbers stand in, in millimetres") or fill the
+      table's `mm` column with one worked case. Do not weaken the test to
+      match the looser reading.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: be52ba31
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 6547
+    title: "CON-019's check ref resolves to no definition line — the validator's text search is satisfied by docstrings and by two synced review YAMLs"
+    description: |
+      PRE-EXISTING, NOT CARD-330's, reported because this review had to give
+      CON-019 a verdict and could not honestly give it a `holds`. The rule's
+      named check (truncated here on purpose: `PropertyTest_CliExports_
+      ByteIdentical<...>`) has no `def` and no `class` anywhere in the
+      repository. Its hits are: a module docstring and a test docstring in
+      tests/property/test_cli_exports_byte_identity.py (:3, :157), three
+      registry files (requirements.yml twice, trace.yml, handoff.md), and TWO
+      previously synced review YAMLs under meta/review/. The live test is the
+      snake_case function in that same file. This is exactly the
+      "review YAMLs revive dead check refs" mechanism: the text search cannot
+      distinguish a docstring or a review note from a definition.
+    suggestion: |
+      Not this card's to fix. For whoever owns CON-019: point the check at the
+      snake_case function that exists, or re-type the check to
+      `kind: review-lens` so the contract stops claiming a mechanical check it
+      does not have. Whoever does it should also re-check the other
+      `PropertyTest_*` refs in requirements.yml, since this repo configures no
+      `python_classes` and a class by that name would never be collected.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      Pre-existing and out of scope: CON-019's dead check ref belongs to the dead-ref family CARD-316 / CARD-317 / CARD-319 own. Recorded in the card; no review YAML was edited to change what the validator's text search finds.
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-330.md
+    line: 222
+    title: "The card's System contract row for ADR-0042/R6 names a check the ADR does not carry"
+    description: |
+      The row reads "(check: CARD-299's; this card disposes of two of those
+      oracles)". The ADR's R6 block carries `check: {kind: review-lens}`, and
+      its own comment records that CARD-299 was dispatched to flip the check to
+      a planned test and deliberately did NOT. A reader of the card's contract
+      row would take R6 as mechanically checked by a CARD-299 test; it is a
+      review lens, which is why this review had to read it rather than cite a
+      run. Same failure shape as F-104, one layer out, and the board already
+      has a standing rule about it ("a planned test ref reads as mechanically
+      checked; use review-lens plus a named card owing the flip").
+    suggestion: |
+      Restate the row as "(check: review-lens; CARD-299 owes the flip)".
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: be52ba31
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/helpers/pdf_vector.py
+    line: 460
+    title: "Both incidental findings the card reports are real, and both were correctly left alone"
+    description: |
+      CONFIRMED, independently. (1) `rendered_page`'s `directory = out_dir or
+      Path(".")` at :460 does default to the cwd, which under pytest is the
+      repo root; the function then writes `vector.pdf` and poppler's PNG
+      there. (2) tests/test_book_grid_rules.py:210 does fall back:
+      `(self._tmp_path or Path(".")) / f"{self.label}-{dpi}"`. I counted the
+      call sites myself: FIVE pre-existing (pdf_vector_primitives :163 and
+      :729, grid_rules :211, solved_answer_key :3680 and :3711), all passing
+      an `out_dir` — the card's count is exact — plus the card's own at
+      test_book_pdf.py:4229, which passes a tmp path and says why in a
+      comment.
+
+      Judgement: correctly left alone. Both files are outside the card's
+      `Touches`, neither is reachable from `src`, and fixing a helper's
+      default signature mid-card would have put a sixth file in a diff the
+      card kept at five. The honest disposition is the one taken: measure it,
+      write it down for whoever next touches the file. The card does not
+      overstate it.
+    suggestion: |
+      No action for this card. Whoever next edits tests/helpers/pdf_vector.py
+      should make `out_dir` required, or raise on `None`, rather than default
+      it to the cwd.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      Confirmation that the card was right; the reviewer's own judgement is that both dispositions were correct. No action for this card.
+    learned_pattern: null
+
+  - id: F-107
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf.py
+    line: 4107
+    title: "The instrument error the card documents is gone from the tests, and the figure it quotes is exactly right"
+    description: |
+      CHECKED, because an instrument error that looks like a medium
+      disagreeing is this card's own subject. No surviving test flips a stream
+      y against the stored trim: `_stream_grid_mm` (:4107) reads the MediaBox via
+      `pdf_page_boxes` and flips against `top`, and its docstring says so.
+      The arithmetic in that docstring is also exactly right, which is worth
+      recording because it reads like a rounding slip and is not: `_cm()` at
+      :155 stores a trim as centimetres to 2 dp, so the 7.5 x 9.25 in trim's
+      234.95 mm really IS stored as 235.0 mm; and I measured that trim's
+      rendered page at 2250 x **2774** px (the only one of the three trims
+      that is not a whole pixel count — 8.5x11 gives 3300, 6x9 gives 2700).
+      235 mm against 2774 px is 1.64 px, the figure the card quotes as 1.6.
+    suggestion: "None."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      Confirmation that the card was right about its own instrument error and its figure. No action.
+    learned_pattern: null
+
+mutation:
+  protocol: "clean tree at 54e9e553; anchor asserted unique; SHA-256 before plant and after `git checkout -- <file>`; *.pyc and __pycache__ swept before and after each; PYTHONDONTWRITEBYTECODE=1; -o addopts='' -p no:randomly; `git status --porcelain` empty after every batch"
+  card_mutants_rerun:
+    total: 8
+    killed: 8
+    survived: 0
+    detail:
+      - "M1 KILLED (1 failed) — EDGE_TOLERANCE_MM 0.1 -> 0.3, inside the claimed region"
+      - "M2 KILLED (1 failed) — 0.1 -> 0.1001, the smallest widening there is"
+      - "M3 KILLED (2 failed) — min_thin_rule_mm 0.25 -> 0.5 in src, border 12 px"
+      - "M4 KILLED (2 failed) — 0.25 -> 0.2541, the smallest floor that rounds up to 4 px"
+      - "M5 KILLED (1 failed) — a new function naming the bound and reading no page"
+      - "M6 KILLED (2 failed) — one character off an exempted site's name"
+      - "M7 KILLED (1 failed) — the oracle imports pdf_vector"
+      - "M8 KILLED (1 failed) — drawing_of builds its own mask instead of going through the shared ink reading"
+  reviewer_mutants:
+    total: 11
+    killed: 4
+    survived: 7
+    detail:
+      - "N1 SURVIVED — `_MIN_EDGE_CASES` 24 -> 6: 24 passed. F-001."
+      - "P1 SURVIVED — `_MIN_EDGE_CASES` 24 -> 3: 24 passed (1.37 s against 6.8 s). F-001."
+      - "P2 KILLED — `_MIN_EDGE_CASES` 24 -> 1: the SPAN assertion reds, not the floor. Bounds the hole at 3."
+      - "N2 SURVIVED (expected, not a defect) — the derived offset `{-((max(spans)-1)//2)}` replaced by a literal `{-2}`: equivalent at today's rule weights, so nothing can red."
+      - "P3 KILLED (3 failed) — the literal `{-2}` AND the heavy rule widened by 2 px together. So the weight-dependence claim has MORE than one control: the derived form, the `max(spans) == _RASTER_HEAVY_PX` read-off-the-page assertion, and the ink-vs-ink 1 px set equality all red. The orchestrator's reading of this test as a genuine empirical discriminator is confirmed — `spans` really is run-length-measured off the bitmap."
+      - "N3 KILLED (3 failed) — `_rule_widths` returns `thin, thin*2 + 2` in src: the offset must move to 3 and does."
+      - "N4 KILLED (2 failed) — ONE edge only: `grid_left=vertical[0][0] - 1` in page_ink. The 'uniform on all four edges' set equality has a real control and a per-edge perturbation cannot hide in it."
+      - "N5 KILLED (1 failed) — the mitre figure moved from -3 to -2: the 3 px is measured, not asserted into existence."
+      - "N6 SURVIVED — `_SPEC_ROUNDING_PX` 1.5 -> 1.05: 24 passed. F-003."
+      - "N7 SURVIVED — `_SPEC_ROUNDING_PX` 1.5 -> 12.0: 24 passed. Nothing else holds the derivation; this constant is the sole control."
+      - "N8 SURVIVED — the FIRST of two same-named placed-edge sites (:620) converted to a content-stream reader: all 4 pin tests pass. F-002."
+      - "N9 KILLED (2 failed) — the SECOND of the same pair (:661), identical change. The matched control that makes N8 a measurement and not a guess."
+    note: >-
+      11 planted, 13 rows above (N2/N2b were the same anchor run twice and are
+      counted once; P1/P2/P3 are the second batch). Every file restored to its
+      exact HEAD digest; the worktree was `git status --porcelain` empty after
+      each batch.
+
+independently_confirmed:
+  - "ink grid_left/right 963/1849 and stream 965/1851 on CARD-295's Twin — my own probe, exactly CARD-309's figures"
+  - "the RASTER page's own Layout places those borders at 965 and 1851 — the pivot of the whole conclusion, and the one number CARD-309 never read"
+  - "the Layout's vertical rule widths are exactly (3, 6), so (6-1)//2 = 2 = 965-963 with no residual"
+  - "ink against ink: grid edges differ by exactly 1 px, Drawing.left/top by exactly 3 px, on a fixture the card's corpus does not contain"
+  - "min_thin_rule_mm 0.25 mm -> ceil(2.9527) = 3 px -> heavy 6 px, from `_rule_widths`' own source; RASTER_RULE_FLOOR_PX = 2 is a THICKNESS floor (the raise at layout.py:605). Two unrelated constants."
+  - "poppler inks the 0.3 pt cell line at 1/2/2/5 device px at 150/300/600/1200 DPI, at grey 89 at every one of the four — the ADR's table, my renders"
+  - "the 2774 px page of the 7.5 x 9.25 in trim and the 235 mm stored trim, hence the card's 1.6 px instrument error"
+  - "112 passed on the module; 24 passed on -k EdgeOffset with a non-zero count; 473 passed on test_suite_profile + test_check_ref_resolution"
+  - "node ids 0 removed / 24 added; the card's 8 mutants all killed; validator identical to main (0 errors, 100 warnings)"
+could_not_confirm:
+  - "the card's 834-passed and 1025-passed runs over the other 16 page_ink readers — not re-derived; I ran a 7-module impact set instead"
+  - "the full suite — out of scope for impact, lock absent, deliberately not run by either side"
+  - "that no OTHER module in the tree differences an ink extent against a coordinate the way CARD-309 did — the card names this as CARD-312's 321-site job and I did not enumerate it"
+
+blockers: []
+
+premise_verdict: >-
+  SURVIVES. The card concluded its own premise false and therefore needed no
+  src change, which is the shape a rationalisation takes — and it is not one
+  here. The decisive evidence is a number CARD-309 never read and the card
+  did: the raster renderer's OWN Layout position. It equals the vector stream's
+  operand exactly, on every edge, so the two media do not disagree about where
+  the grid goes by 2 px or by anything else; and the raster's ink begins
+  exactly (6-1)//2 = 2 px before it, which the thin rule's own 1 px offset and
+  my heavy-rule mutant both confirm is a function of the rule's WEIGHT and not
+  of the grid's position. Nothing is left over for a placement error to hide
+  in. The one sub-pixel asymmetry I found and chased — a 6 px rule centred on
+  965 inks 963..968, whose centre is 965.5 — is the inherent even-width
+  centring offset, is exactly what `-(w-1)//2` encodes, and is not a defect.

@@ -1,6 +1,6 @@
 # CARD-318: FR-029's strategies criteria are ten unwritten tests reading as mechanically checked — the board's one real coverage gap
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -19,9 +19,9 @@
 **Touches:** meta/architecture/requirements.yml, meta/architecture/trace.yml, tests/test_solver_strategies.py (new or renamed), tests/test_batch_generator.py, tests/test_puzzle_review_*.py, tests/property/
 **Review score:** 9.0 (cycle 3 of 3 — CERTIFIED; 7.0 → 8.5 → 9.0)
 **Started:** 2026-10-30T20:55:22Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-31T02:37:24+00:00
+**Actual:** 5.7h wall-clock against a 1d estimate (measured from Started, not estimated)
+**Merge commit:** `884124f3` — gate green on ebfb9d84 — 10003 passed / 27 skipped / 1 xfailed / 0 failed
 **Blocked by:** —
 
 ## Why this card exists

@@ -1,0 +1,634 @@
+version: 1
+generated_at: "2026-10-31T00:00:00Z"
+target: "card/330-edge-offset-is-two-device-pixels @ be52ba31 (cycle 2/3, CONFIRMATION mode; fix delta 54e9e553..be52ba31 = 90d300ae + be52ba31, 5 files, +782/-65; whole card db366763..be52ba31 = 7 files, +2236/-10; src/ UNTOUCHED across the whole card, re-derived: `git diff --name-only db366763..HEAD -- src/ | wc -l` = 0; tracked tree `git status --porcelain` clean before the first mutant and after the last)"
+card: CARD-330
+cycle: 2
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+# ---------------------------------------------------------------------------
+# NOT A CHECK-REF FILE. Nothing in this YAML is a `check:` ref, a `test:` ref
+# or a definition line. Every test, class and function name quoted below is
+# quoted as PROSE EVIDENCE about code that lives elsewhere, and this file must
+# never be allowed to satisfy the architecture validator's check-ref search,
+# which is a TEXT search over the repository and has been measured silencing a
+# live dead-ref warning from a synced review YAML. Precautions, same as
+# cycle 1's: no name is written at the start of a line or after `def ` /
+# `class `; every name is embedded mid-sentence inside backticks; and
+# CON-019's own dead ref is deliberately written TRUNCATED below so this file
+# cannot become the prose that satisfies the search for it.
+# ---------------------------------------------------------------------------
+
+summary: >-
+  A confirmation cycle, as cycle 1 recommended. All three gating cycle-1
+  findings (F-001, F-002, F-003) are fixed, and each was re-derived here by
+  measurement rather than read off the fix round's claims: 19 mutants planted,
+  19 killed, 0 survived, every run with the FULL environment inherited and
+  `0 skipped` asserted. Both of F-003's claimed worst cases reproduced to the
+  digit; F-002's pre-fix walk-order asymmetry was reproduced and is now gone
+  symmetrically; F-001's floor reds on all six ways of shrinking the corpus or
+  its span. The card's central conclusion was settled at cycle 1 and was not
+  re-litigated. Two NEW findings, both Minor and both documentation accuracy
+  in the "a declaration says more than was measured" family this card is
+  itself about — neither gates. The card certifies.
+
+coverage:
+  read:
+    - "the fix delta 54e9e553..be52ba31 in full, all 5 files line by line (+782/-65)"
+    - "tests/test_book_pdf.py's constants block as amended (:3975-:4056), the corpus generator (:4280-:4330), the span/floor test, the three conclusion-bearing tests of the uniform-gap class (:4472-:4600), the whole medium-pin class incl. the new walk, the collision control and the exemption register (:4700-:4870), and the untouched tolerance biconditional (:4633-:4700)"
+    - "meta/kanban/cards/CARD-330.md: AC-1 as amended, the Guardrails block, the System contract's 6 rows, both three-number tables with their new mm columns, the [Routed residue] subsection and the [Declarations re-derived] subsection"
+    - "meta/architecture/decisions/adr/0042-*.md: the +12 amendment in full, the kept three-number table it sits beside, and R6's statement / scope / check block with its CARD-299 comment"
+    - "scratchpad/card330/one_worked_case.py and mutate_fixround.py's mutant definitions, before running my own instruments"
+    - "/Users/omelnikova/PycharmProjects/PythonProject4/CLAUDE.md's Test style paragraph, to check the quote in the floor comment character for character"
+    - "meta/review/CARD-330-cycle1.yml in full: all 10 findings, their dispositions and the cycle-1 system-contract verdicts"
+  not_reached:
+    - "the full suite — impact scope; meta/kanban/.full-suite.lock was absent throughout, never written, and NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set"
+    - "a rendered-grid eyeball — src/ is empty across the whole card, so the owner's visual gate does not apply"
+    - "any database — no db_required node was collected or run"
+    - "the card's central conclusion — SETTLED at cycle 1 by independent re-derivation; deliberately not re-litigated, per the confirmation-mode brief"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 782, removed: 65 }
+  max_fan_in:
+    symbol: "tests.helpers.page_ink.drawing_of"
+    callers: 91
+    note: "unchanged from cycle 1 and NOT touched by this fix round at all (`git diff --numstat 54e9e553 be52ba31 -- tests/helpers/page_ink.py` is empty), so the fix delta's blast radius is one test module plus two docs"
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_book_pdf.py — the only code file in the fix delta and the highest-churn file of the card; the whole delta is test-side"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the fix delta changes one test module and two documents; no module in the tree imports from tests/test_book_pdf.py (grep confirms only sibling-module imports such as tests.test_book_pdf_memory), so there is no co-change peer a test-only delta could have missed. Verified by running the 5-module impact set: 351 passed, 0 skipped."
+    churn_since_cycle1: "not_applicable — the fix delta is two commits old; a 12-month churn window re-measured here would return cycle 1's figure for the same file and says nothing new about the delta."
+
+runs:
+  - "baseline, module: `tests/test_book_pdf.py -o addopts= -p no:randomly` -> 113 passed, 0 skipped, 19.56s. The `0 skipped` is the load-bearing part: pdftoppm resolves at /opt/homebrew/bin/pdftoppm and the 8 poppler-gated EdgeOffset tests RAN. SHA-256 of the module at baseline and after every restore: 7a80e992acaa288c4d3dd186107ec870edd009d3892f0b61a76b416f1b4ee3ef"
+  - "EdgeOffset selection: 25 passed, 88 deselected, 0 skipped"
+  - "impact set, 5 modules (test_book_pdf, test_book_puzzle_frame, test_book_pdf_two_up, test_book_grid_rules, test_book_puzzle_page_vector): 351 passed, 0 skipped, 33.68s"
+  - "collected ids: 113 at be52ba31; 109 ast `test_`-prefixed defs + 4 from the module's 3 parametrize decorators. At 54e9e553: 108 ast defs, i.e. 112 collected — G-6's figures reproduce exactly"
+  - "architecture validator (the forge_1 copy named at meta/kanban/config.yml:38, run with the project venv for ruamel.yaml): 0 error(s), 100 warning(s), 0 info on the WORKTREE, and byte-identical totals on MAIN. Re-derived here, not re-stamped from cycle 1."
+
+mutation_check:
+  ran: true
+  deferred: false
+  note: >-
+    This is the stable cycle the certification half was deferred to, so it ran
+    in full. 19 mutants, 19 KILLED, 0 SURVIVED. Discipline on every one:
+    PYTHONDONTWRITEBYTECODE=1, __pycache__ swept both ends, anchor asserted to
+    occur EXACTLY once and located by text (never by line number), SHA-256
+    asserted before the plant and byte-identical after the restore, restore in
+    a `finally` block, and the full environment inherited via
+    `dict(os.environ, ...)` so the poppler gate could not skip the very tests
+    the verdict depends on. `-o addopts=` passed as two separate argv items.
+    A non-zero collected count was asserted on EVERY run; this caught one of
+    my own bad `-k` selectors that would otherwise have exited 0 and read as a
+    pass. No `git checkout` was used to revert anything. HEAD was committed
+    and the tree clean throughout.
+  mutants:
+    - "M1  F-001 `_EDGE_CASE_COUNT` 24->23, the smallest possible corpus shrink with the floor untouched -> KILLED, 3 failing (the span/floor test plus the two uniform-gap tests that carry their own `>= _MIN_EDGE_CASES` guard). Reproduces the caller's own measurement exactly."
+    - "M2  F-001 drop the third entry of `_EDGE_TRIMS` (span 24->16) -> KILLED, 2 failing"
+    - "M3  F-001 halve the floor, `_MIN_EDGE_CASES` 24->12 — the move G-5 forbids -> KILLED, 1 failing"
+    - "M4  F-001 drop a parity, `_EDGE_PARITIES` (0,1)->(0,) -> KILLED, 1 failing"
+    - "M5  F-001 drop a vertical bound, `_EDGE_BOUNDS` ('ratio','footer')->('ratio',) -> KILLED, 1 failing"
+    - "M6  F-001 halve the readings floor, `_MIN_EDGE_READINGS` 96->48 -> KILLED, 1 failing"
+    - "M7  F-001 `_EDGE_DRAWS_PER_COMBINATION` 2->1 -> KILLED, 1 failing"
+    - "M8  F-002 revert the dict key from the class-qualified name to the bare `child.name` -> KILLED, 1 failing: the new collision control, and ONLY it. The control is live and it is the thing that fails."
+    - "C1  F-002 convert the RIGHT-hand member of the colliding pair to a content-stream reader, run scoped to the pin class alone -> KILLED, 2 failing"
+    - "C2  F-002 the IDENTICAL change to the LEFT-hand member -> KILLED, 2 failing. Symmetric, which is the point: pre-fix these two were not symmetric."
+    - "P1/P2 F-002 the same two conversions against the PRE-FIX module content (54e9e553, written into place with capture/SHA-restore, never `git checkout`): RIGHT SURVIVED (4 passed, zero failures), LEFT KILLED (2 failing). Cycle 1's walk-order asymmetry independently reproduced, and the fix provably removed it."
+    - "M9  F-003 loosen `_SPEC_MEASURED_PX` 1.05->12.0 (the figure cycle 1 showed the old ceiling tolerated) -> KILLED by the new span control"
+    - "M10 F-003 `_SPEC_MEASURED_PX` 1.05->1.3: UNDER the 1.5 px ceiling but OVER 0.1 mm -> KILLED. This is the discriminating mutant: it proves the mm-tolerance arm of the span control is live INDEPENDENTLY of the ceiling arm, so the two assertions are not one assertion written twice."
+    - "M11 F-003 loosen `_SPEC_DRAWING_MEASURED_PX` 0.6->1.5 -> KILLED"
+    - "T1  G-1 widen the LIVE `EDGE_TOLERANCE_MM` 0.1->0.3 alone -> KILLED, 2 failing"
+    - "T2  G-1 widen the live AND the stated constant together -> KILLED, 3 failing (the biconditional predicate's own arms)"
+    - "T3  G-1 widen the stated constant alone -> KILLED, 3 failing"
+    - "T4  G-1 adversarial two-step: DELETE the equality assertion that ties the two constants, then widen the stated one -> KILLED, 3 failing. The predicate catches it even with its equality guard removed."
+
+measurements:
+  f003_worst_cases: >-
+    Re-measured myself by planting a 0.0 bound and reading the assertion
+    message, which carries the max() tuple. GRID edges:
+    `0.9999999999999634 px`, case `22x28 d1 page 16 on 190x235 mm`, edge
+    `grid_bottom` — i.e. 1.0 px exactly, and the claimed case and edge, to the
+    digit. DRAWING edges: `0.5437007874013707 px`, case
+    `16x25 d5 page 13 on 190x235 mm`, edge `drawing_left` — again exact. The
+    asserted bounds sit just above each (1.05 = 1.0 + 5 %; 0.6 > 0.5437), and
+    1.05 px / 11.811 px-per-mm = 0.0889 mm < 0.1 mm, so F-003 tightened a
+    DIFFERENT constant and widened nothing.
+  f002_reconciliation: >-
+    Checked, and it holds — but only once the measurement frame is read
+    correctly, which is worth recording because the figures look wrong
+    otherwise. On the POST-fix tree the four bases give 15/15, 15/14, 18/17
+    and 22/21; the round's stated 17/16 and 19/18 are the PRE-fix (54e9e553)
+    figures for its third and fourth bases, which is the right frame, since
+    those are the numbers cycle 1 and the orchestrator were working from. I
+    re-derived all four on the pre-fix tree: the guard's own ast walk gives 15
+    sites / 14 bare keys and 15/15 class-qualified; `test_`-prefixed by source
+    text gives 17/16; all functions by source text gives 19/18. Every basis
+    loses EXACTLY ONE key, and on every basis it is the same site. The reason
+    the text bases run higher than the ast bases is that a plain substring
+    search also matches `_STATED_EDGE_TOLERANCE_MM`; with a word boundary the
+    pre-fix text bases collapse to 15/14 and 16/15. The round described its
+    bases as "by source text", which is accurate.
+  worked_case: >-
+    Re-derived independently by running the card's own instrument. Case 0 is
+    `29x12 d1 page 6 on 216x279 mm`, bound `ratio`, framed — and ALL 22
+    figures in the card's table match the instrument's output exactly:
+    grid_left 19.050 / 19.050 / 18.881 / 18.796; grid_right 203.200 / 203.200
+    / 203.031 / 202.946; grid_top 85.657 / 85.683 / 85.513 / 85.429;
+    grid_bottom 161.857 / 161.883 / 161.713 / 161.629; drawing_left 12.700 /
+    blank / 12.700 / 12.446; drawing_top 79.307 / blank / 79.333 / 79.079.
+    The arithmetic: 19.050 - 18.881 = 0.169 mm = 2 px; a further 18.881 -
+    18.796 = 0.085 mm = 1 px; 12.700 - 12.446 = 0.254 mm = 3 px, against
+    1 device px = 25.4/300 = 0.084667 mm. The blank stream column for the two
+    drawing edges is blank by construction (a framed drawing's outer edge is
+    the `re`, not a border rule), as the card states, and the instrument
+    confirms it prints nothing there.
+  adr_amendment: >-
+    Insertion-only, confirmed: `git diff --numstat 54e9e553 be52ba31 --
+    meta/architecture/` = `12  0`, and across the whole card `160  0`. Zero
+    deletions. The kept `< 1.5 px` row is still TRUE beside the new measured
+    one (worst measured 1.0 px < 1.5 px), and the amendment re-labels it
+    explicitly as the derivation's documented ceiling that nothing is asserted
+    against any more. Its mm figures all check out: 1.0 px = 0.0847 mm,
+    1.05 px = 0.0889 mm, 0.5437 px = 0.0460 mm.
+  corpus_distribution: >-
+    Measured, because `_EDGE_DRAWS_PER_COMBINATION` is the one span factor not
+    pinned by the generator's structure. Trim is structural
+    (`index % len(_EDGE_TRIMS)`, 8 each) and parity is structural
+    (`FIRST_PUZZLE_PAGE + index`, 12 each), but the vertical bound is EMERGENT
+    from the seeded random grid size and depth. Re-deriving all 24 cases'
+    (trim, parity, bound): all 12 combinations ARE realized — better than the
+    set-equality assertions guarantee — but the distribution is 1/2/3 (four
+    combinations each), not 2 apiece. See F-202.
+
+guardrails:
+  - "G-1 ✓ holds — `EDGE_TOLERANCE_MM = 0.1` at tests/test_book_pdf.py:140 and `EDGE_TOLERANCE_EXEMPTIONS: dict[str, str] = {}` unchanged; the fix round touched neither (no hunk in the delta reaches the predicate or its class). The biconditional is intact with all four arms INCLUDING the narrowing arm. Measured, not just read: mutants T1-T4 above, all KILLED, including the two-step that deletes the equality guard first. F-003 tightened `_SPEC_MEASURED_PX`, a different constant, and widened nothing."
+  - "G-2 ✓ holds — tests/helpers/page_ink.py is `+21 / -0` across the whole card (comment only) and UNTOUCHED by this fix round (`git diff --numstat 54e9e553 be52ba31 -- tests/helpers/page_ink.py` is empty). tests/helpers/two_up_ink.py is likewise untouched by the whole card. Neither oracle was converted."
+  - "G-3 ✓ holds — zero src/ files across the whole card, re-derived: `git diff --name-only db366763..HEAD -- src/ | wc -l` = 0. No page converted, no rule flipped."
+  - "G-4 ✓ holds — same measurement; src/nonogram/admin/book_*.py untouched, and the card raises no blocker because the vector writer was found to be at spec."
+  - "G-5 ✓ holds — no corpus minimum lowered. F-001 RAISED the effective floor from 3 (what the self-referential constant actually enforced) to 24 (what is now asserted against the enumerated span). Mutants M3 and M6, both KILLED, are the controls."
+  - "G-6 ✓ holds — ast `test_`-prefixed defs 108 -> 109 across the fix delta, with 0 removed and exactly 1 added, and the single new id is the collision control. Collected 112 -> 113. The 4-id ast-to-collected gap is the module's 3 parametrize decorators, as claimed. NEITHER colliding test was renamed — both bare names are still present and the register's exists-control passes."
+  - "G-7 ✓ holds — the three instruments are all under scratchpad/card330/; the fix delta adds no file under tests/ (only tests/test_book_pdf.py and tests/helpers/page_ink.py are modified across the whole card, and the latter not this round). My own instruments were written to the session scratchpad, never into the repository."
+
+system_contract:
+  rules_checked: 6
+  holds: 5
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — WAS ✗ violated at cycle 1 (F-001). The corpus-size claim now has a control that CAN fail: the floor is the literal 24, asserted equal to `len(_EDGE_TRIMS) * len(_EDGE_PARITIES) * len(_EDGE_BOUNDS) * _EDGE_DRAWS_PER_COMBINATION`, while the fixture counts from a separate constant. Re-derived by mutation, not by reading: six independent shrinks (corpus 24->23, a trim dropped, floor 24->12, a parity dropped, a bound dropped, readings floor 96->48) ALL red, where cycle 1's 24->3 plant left everything green. Mutants M1-M7, 7 planted, 7 killed."
+    - "ADR-0039/R2 ✓ holds — WAS ✗ violated at cycle 1 (F-002). An unanalysable shape is a FAILURE again: the walk returns a list, the map is built from it, and the key count is asserted equal to the site count, with both members of the known collision asserted present by key. Re-derived: converting EITHER member of the pair to a content-stream reader now reds two pin tests (C1, C2), where pre-fix the right-hand one SURVIVED and only the left-hand one red (P1/P2, reproduced here against the 54e9e553 content). Reverting the key to the bare name reds the new control and only it (M8)."
+    - "ADR-0042/R6 ✓ holds — re-verified rather than carried, because the fix delta edited this rule's own contract row. The ADR's R6 block still carries `check: {kind: review-lens}` (read at the ADR's Rules block), so this remains a lens read and a bounded one. No ink reading in the delta recovers a number the generator stated: the delta adds no reading at all — it tightens two bounds, re-keys a dict and adds one ast-only control. The two declared exemptions are untouched: the independent oracle is byte-identical this round, and the device claims still state their 300 DPI resolution. Caveat recorded as F-201: the row now names the wrong card as owing the flip."
+    - "ADR-0042/R1 ✓ holds — re-derived: zero src/ files across the whole card and zero deletions in the ADR, so no interior page's medium changed and no rule was flipped. The declarations-equality test ran unmodified and green inside my 113-passed module run."
+    - "ADR-0037/R2 ✓ holds — the device floor is untouched (src/ empty across the card) and the delta invents no floor. The fix round's only numeric moves are two TEST bounds (1.5 -> 1.05 px on grid edges, 1.5 -> 0.6 px on drawing edges), both tightenings toward measured values, and the ADR amendment that records them deletes nothing."
+    - "CON-019 ⚠ unchecked — check_ref_missing, UNCHANGED from cycle 1 and not this card's to fix. The rule's named check (a `PropertyTest_CliExports_...` CamelCase name, written truncated on purpose per this file's header note) still resolves to no `def` or `class` line anywhere in the repository; its hits are prose. Manual read of this delta found no violation and could not find one: src/ is untouched, so no CLI or web export byte can have moved. Confirmed separately that the fix round edited NO review YAML (`git diff --name-only db366763..HEAD -- meta/review/` is empty, and cycle 1's own YAML is untracked), which is the one move that would make this dead ref look alive again. Belongs to the CARD-316 / CARD-317 / CARD-319 dead-ref family. See F-104."
+  note: >-
+    The count line is 6 because the card's `## System contract` section carries
+    6 rows. Both cycle-1 violations are now holds, each re-derived by mutation
+    rather than by re-reading the fixed code. Net movement cycle 1 -> cycle 2:
+    holds 4 -> 5, violated 1 -> 0 (ADR-0039/R1 and R2 were reported as two
+    mechanisms of one violation at cycle 1), unchecked 1 -> 1.
+
+root_causes:
+  - id: RC-1
+    title: "A control asserted against the thing it was supposed to constrain (cycle 1's root cause) — CLOSED"
+    finding_ids: [F-001, F-002, F-003]
+    status: closed
+    note: >-
+      All three symptoms shared one shape: a guard whose reference value came
+      from the subject it guarded (the floor from its own generator; the pin's
+      key space from a non-unique name; AC-1's bound from a derivation rather
+      than a measurement). The fix round addressed the SHAPE in each place —
+      a separate literal, a class-qualified key with a count control, and two
+      measured bounds with the derived one demoted to a documented ceiling —
+      rather than patching the three values. Verified closed by 19 mutants.
+  - id: RC-2
+    title: "A declaration that says slightly more than was measured"
+    finding_ids: [F-103, F-105, F-201, F-202]
+    status: open
+    note: >-
+      The family cycle 1 named in F-103/F-105 and the fix round addressed well
+      in both places. The two new Minor findings are fresh instances of the
+      same family introduced by, or left standing in, the fix round itself:
+      one names the wrong owing card, one states a design factor that the
+      emergent distribution does not realize. Both are documentation-accuracy
+      issues with no mechanical check behind them, and neither gates.
+
+findings:
+  # ---- cycle-1 findings, every one carried forward with an explicit status ----
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 4051
+    title: "CLOSED — the corpus floor is no longer self-referential and the anchor is the enumerated span"
+    description: |
+      Cycle 1: the floor and the generator were one constant, so both floor
+      assertions were satisfied by construction and lowering it from 24 to 3
+      left all 24 tests green with 87.5 % of the corpus gone.
+
+      Confirmed fixed, by measurement and not by reading the fix. The floor is
+      now the literal 24 (and 96 readings), asserted equal to
+      `len(_EDGE_TRIMS) * len(_EDGE_PARITIES) * len(_EDGE_BOUNDS) *
+      _EDGE_DRAWS_PER_COMBINATION` = 3*2*2*2, while the fixture counts from a
+      separate `_EDGE_CASE_COUNT`. I planted all six independent shrinks the
+      anchor is supposed to catch and all six red: corpus 24->23 (3 failing —
+      the caller's own figure reproduced), a trim dropped (2), the floor
+      halved to 12 (1), a parity dropped (1), a bound dropped (1), the
+      readings floor halved to 48 (1), and the draws factor 2->1 (1). The
+      CLAUDE.md quote in the floor's comment is character-for-character exact
+      against CLAUDE.md's Test style paragraph.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "90d300ae"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_book_pdf.py
+    line: 4760
+    title: "CLOSED — the medium pin's map is class-qualified and a collision now fails instead of dropping a site"
+    description: |
+      Cycle 1: the map was keyed on the bare function name, this module holds
+      two placed-edge tests under one such name, and the dropped site could
+      have started reading a content stream with every pin assertion green.
+
+      Confirmed fixed, and confirmed by the harder measurement the brief asked
+      for rather than by the control's existence. Post-fix, converting EITHER
+      member of the colliding pair to a content-stream reader reds two pin
+      tests — symmetrically, 2 failing each. Pre-fix, reproduced here by
+      writing the 54e9e553 module content into place under SHA-guarded
+      capture/restore, the RIGHT-hand member SURVIVED (4 passed, zero
+      failures) and only the LEFT-hand one red: the walk-order dependence was
+      real, and it is gone. Reverting the key to the bare name reds the new
+      collision control and ONLY it. Neither colliding test was renamed, so
+      G-6 holds and the exemption register's exists-control still passes.
+      The four-basis reconciliation checks out (see `measurements`): every
+      basis loses exactly one key and it is the same site on all four.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "90d300ae"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 3999
+    title: "CLOSED — AC-1's control is now two measured bounds, with the derived 1.5 px kept only as a documented ceiling"
+    description: |
+      Cycle 1: `_SPEC_ROUNDING_PX = 1.5` was AC-1's sole control, it was a
+      derivation rather than a measurement, and at 0.127 mm it was WIDER than
+      the 0.1 mm placed-edge bound the card refused to widen.
+
+      Confirmed fixed. Both measured bounds are live and I re-measured both
+      worst cases myself by planting a 0.0 bound: grid edges
+      `0.9999999999999634 px` at `22x28 d1 page 16 on 190x235 mm`,
+      `grid_bottom`; drawing edges `0.5437007874013707 px` at
+      `16x25 d5 page 13 on 190x235 mm`, `drawing_left`. Both match the claimed
+      case, edge and figure to the digit. The second control is live in BOTH
+      arms, which matters: loosening the bound to 12.0 px reds (M9), and so
+      does 1.3 px (M10) — which is under the 1.5 px ceiling but over 0.1 mm,
+      so the mm-tolerance arm is not a restatement of the ceiling arm.
+
+      On the deliberate choice the round flagged — naming
+      `_STATED_EDGE_TOLERANCE_MM` rather than the live `EDGE_TOLERANCE_MM`:
+      I judge it RIGHT, not a dodge, and settled it by measurement rather
+      than argument. The stated reason is sound (the pin's walk collects by
+      exact ast Name id, so naming the live constant WOULD make the span test
+      a placed-edge site that reads no page, forcing a fourth entry into a
+      register F-101 already shows is strained — and I confirmed the walk
+      finds exactly the 15 sites the guard reports, with
+      `_STATED_EDGE_TOLERANCE_MM` correctly not among them). More
+      importantly the coupling is not lost, only transitive, and every way of
+      breaking the transitivity reds: widening the live constant alone (T1),
+      widening both (T2), widening the stated one alone (T3), and even
+      deleting the equality assertion that ties them and then widening (T4) —
+      4 planted, 4 killed, 2-3 tests each. The biconditional predicate is the
+      backstop that makes the indirection safe.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "90d300ae"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-101
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 4845
+    title: "ROUTING CONFIRMED HONEST — no exemption class for a site legitimately converted per ADR-0042/R6; CARD-322's"
+    description: |
+      Carried forward from cycle 1 as routed, not fixed. The routing is
+      honest and I confirmed its one checkable figure: the register
+      `_BOUND_ONLY_SITES` holds exactly THREE names (the card's re-count off
+      the register is right; the earlier text said two), every one asserted to
+      exist, and the pin's predicate is indeed "every non-exempt site names the
+      raster" rather than "every site names exactly one medium and which one".
+      A converted site does measure a page, so parking it in a register
+      documented as "names the bound without measuring a page" would make that
+      register's own documentation false — the card's reasoning for not
+      inventing the hatch here is correct, and the pin redding on arrival is
+      the desired behaviour. Belongs with the conversion.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Routed to CARD-322 with the conversion it belongs to; confirmed at cycle 2 that the register is as described (3 names, all existence-checked) and that the pin fails loudly rather than silently on a converted site."
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf.py
+    line: 4121
+    title: "ROUTING CONFIRMED HONEST — the vertical arm re-implements the clearance algorithm, and the conclusion provably does not rest on it; CARD-322's"
+    description: |
+      Carried forward as routed. The load-bearing claim that makes this routed
+      rather than gating — "the card's conclusion rests on
+      `Layout.position == stream operand` and `ink = position - (w-1)//2`, not
+      on the vertical arm" — I verified independently, and it holds. The three
+      tests that establish the mechanism of the conclusion (the raster ink
+      being two device pixels outside the stream on every edge; the control
+      that the offset tracks the RULE'S WEIGHT rather than the grid position,
+      with both widths read off the page; and the two media's ink differing by
+      one device pixel) reference `reading.specified` NOWHERE in their bodies.
+      They compare raster ink against the stream operand and against vector
+      ink only, so they do not touch `_specified_grid_mm` at all, vertical arm
+      included. The re-implementation is real — a hard-coded `_furniture_px =
+      3` and a "+1 makes clear strict" pixel — and the horizontal arm is
+      genuinely spec-derived (confirmed: `grid_left`/`grid_right` agree with
+      the stream to 0.0000 px in the worked case, where the vertical edges sit
+      at +0.3035 px).
+
+      One nuance worth recording for the next card rather than filed as a
+      defect: the vertical arm IS what sets the live bound, since the worst
+      spec-against-stream case (1.0 px, `grid_bottom`) is a vertical edge. So
+      `_SPEC_MEASURED_PX = 1.05` should be expected to TIGHTEN when CARD-322
+      narrows that arm, and it is not a device fact. The card's own text
+      already frames 1.05 as a corpus measurement rather than a constant of
+      nature, so this is a pointer, not a correction.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Routed to CARD-322, correctly: re-verified at cycle 2 that the three conclusion-bearing tests never reference the derived column, so the conclusion is independent of the vertical arm and this is not gating."
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-330.md
+    line: 196
+    title: "CLOSED — AC-1 no longer overstates, both tables carry mm columns, and the worked case re-derives exactly"
+    description: |
+      Confirmed fixed, with the one figure that mattered re-derived. AC-1 now
+      reads "page NUMBERS at both parities" (page count never was a swept
+      variable) and "records the RELATION those three stand in — in
+      millimetres, with one worked case", and it gained the clause that the
+      floor is asserted against the enumerated span rather than the generator.
+      An inline AMENDED comment records what it said before.
+
+      Both three-number tables gained `mm` columns and every figure in them
+      checks out against 1 device px = 25.4/300 = 0.084667 mm (1.0 px ->
+      0.0847; 2 px -> 0.1693; 3 px -> 0.254; 0.5437 px -> 0.0460). The worked
+      case re-derives EXACTLY: I ran the card's own instrument and all 22
+      figures match, including the two deliberately blank stream cells, and
+      the three subtractions the card reads off it are right
+      (19.050-18.881 = 0.169 mm = 2 px; a further 0.085 mm = 1 px;
+      12.700-12.446 = 0.254 mm = 3 px).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "be52ba31"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 1
+    title: "CARRIED, unchanged — CON-019's dead check ref stays with the CARD-316/317/319 family, and no review YAML was edited"
+    description: |
+      Pre-existing, out of scope, deliberately not repaired, and still
+      correctly characterised. The rule's named check resolves to no
+      definition line in the repository; its hits are prose. Re-verified the
+      one thing this round could have got wrong: NO review YAML was edited or
+      added by the card (`git diff --name-only db366763..HEAD --
+      meta/review/` is empty, and cycle 1's own YAML is untracked, so it was
+      never synced from this branch). That is the move that would have made
+      the validator's text search find the ref alive again. This cycle's own
+      YAML carries the same precaution in its header.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Pre-existing dead-ref family owned by CARD-316/317/319; confirmed at cycle 2 that this card neither repaired nor silenced it."
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-330.md
+    line: 235
+    title: "FIXED in substance, with one new defect in the fixed row — see F-201"
+    description: |
+      The substance is fixed: the row read "(check: CARD-299's)", which reads
+      as a mechanical check, and now reads "check: **review-lens**", which is
+      what the ADR actually carries. I verified that against the ADR's own R6
+      block, which does carry `check: {kind: review-lens}`, so the board's
+      standing rule (a planned test ref reads as mechanically checked, so use
+      review-lens plus a named card owing the flip) is now met on its first
+      and more important half. The row also gained an inline CORRECTED
+      comment recording what it said before.
+
+      The second half — the NAMED CARD — is wrong; filed separately as F-201.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: "be52ba31"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/helpers/pdf_vector.py
+    line: 445
+    title: "CARRIED — incidental findings confirmed at cycle 1, nothing to do"
+    description: |
+      Unchanged and untouched by the fix delta. Cycle 1 independently
+      reproduced both incidental findings the card reports and judged both
+      dispositions correct. The corpus generator's own comment still records
+      why it hands the renderer a tmp path.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Confirmed at cycle 1; the fix delta does not touch it."
+    learned_pattern: null
+
+  - id: F-107
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf.py
+    line: 4180
+    title: "CARRIED — the documented instrument error stays documented"
+    description: |
+      Unchanged. The stream reader still flips against the page's own MediaBox
+      rather than the stored trim, and its docstring still records the 1.6 px
+      error that the other choice caused. Untouched by the fix delta.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Confirmed at cycle 1; the fix delta does not touch it."
+    learned_pattern: null
+
+  # ---- NEW at cycle 2 ----
+  - id: F-201
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-330.md
+    line: 235
+    title: "F-105's fixed row names CARD-299 as owing the R6 flip, but the card's own G-3 and the fix's own comment say CARD-312 owns it"
+    description: |
+      NEW, introduced by the fix round in the exact row it rewrote. The
+      System-contract row now reads "check: **review-lens**; CARD-299 owes the
+      flip", but three other places say otherwise and agree with each other:
+
+        * the card's G-3 guardrail: "CARD-322 owns the conversions and R1;
+          **CARD-312 owns R6's flip**";
+        * the HTML comment the fix round attached to this very row: "the lens
+          MUST survive CARD-299 by the same decision, and **the flip is
+          CARD-312's**";
+        * ADR-0042's R6 comment, which records that CARD-299 was dispatched to
+          flip this check and deliberately DID NOT, for four stated reasons.
+
+      So CARD-299's obligation was discharged by a reasoned refusal — it
+      precisely does NOT owe the flip any more, which is the whole point of
+      the ADR comment the fix round cited. Naming it in the live, present-tense
+      contract row reads as "still pending with CARD-299" and sends a reader
+      chasing R6's flip to the wrong card, which is the same class of staleness
+      F-105 was raised to remove.
+
+      Not gating: R6's check is `review-lens` either way, so no mechanical
+      check is misrepresented and the substance of F-105 is fixed; the ADR
+      remains canonical and correct, and G-3 carries the right owner.
+    suggestion: |
+      In the System-contract row, change "CARD-299 owes the flip" to name
+      CARD-312, which is the owner G-3 and the row's own comment both give —
+      optionally as "CARD-312 owes the flip; CARD-299 was dispatched and
+      refused (see ADR-0042/R6's comment)", which keeps the history the
+      comment is there to preserve.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf.py
+    line: 4050
+    title: "`_EDGE_DRAWS_PER_COMBINATION = 2` is the mean of an emergent distribution, not the enumerated design factor its comment describes"
+    description: |
+      NEW, and a small overstatement in one of F-001's own new constants. Its
+      comment reads "Draws per combination of (trim, parity, vertical bound):
+      two, so a combination is sampled at more than one grid size and clue
+      depth." Two of those three dimensions are structural in the generator —
+      trim is `index % len(_EDGE_TRIMS)` (8 each) and parity is
+      `FIRST_PUZZLE_PAGE + index` (12 each) — but the vertical BOUND is
+      emergent from the seeded random columns, rows and depth, and nothing
+      asserts its distribution beyond a set equality that both arms appear.
+
+      Measured, by re-deriving all 24 cases' (trim, parity, bound) without
+      rendering: all 12 combinations are realized, which is BETTER than the
+      assertions guarantee — but the distribution is 1/2/3, four combinations
+      each, not 2 apiece. So for the four combinations drawn once, the stated
+      reason ("sampled at more than one grid size and clue depth") does not
+      hold, and the factor functions as the arithmetic quotient
+      24 / (3*2*2) rather than as an independently enumerated design property.
+
+      Why this is Minor and not a dent in F-001: the anchor's JOB is to make a
+      shrinking corpus red, and it does — M1-M7 all killed, including this
+      factor's own 2->1 mutant. AC-1 claims span, not balance, and the span is
+      genuinely covered (12/12 combinations). This is a comment that claims a
+      design, filed in the same family as F-103/F-105.
+    suggestion: |
+      Either reword the comment to what is true — "the quotient that makes the
+      span product equal the corpus size; the (trim, parity) pairs are
+      structural and the vertical bound is emergent, asserted only as a set
+      equality" — or, if the 2-per-combination design is wanted as a property,
+      assert it: a Counter over the corpus's (trim, parity, bound) triples
+      asserting 12 distinct combinations is one line and would currently pass,
+      turning the measured 12/12 into a guarded claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verdict:
+  certifies: true
+  risk_level: low
+  key_concerns:
+    - "None gating. All three cycle-1 gating findings are fixed and each was re-derived here by mutation rather than accepted on the fix round's report: 19 mutants, 19 killed, 0 survived."
+    - "F-201 (Minor): the row F-105 fixed names the wrong card as owing ADR-0042/R6's flip — CARD-299, which refused it, rather than CARD-312, which the card's own G-3 and the fix's own comment both name."
+    - "F-202 (Minor): one of F-001's new span factors is documented as a design property the generator's emergent bound distribution does not realize (12/12 combinations covered, but 1/2/3 apiece, not 2)."
+  approve_conditions:
+    - "Nothing blocking. The two Minor findings are documentation-accuracy nits with no mechanical check behind either; both can be folded into this card as a one-line text change each, or carried to CARD-322 with the rest of the routed residue."
+  next_cycle_required: false
+  blockers: []

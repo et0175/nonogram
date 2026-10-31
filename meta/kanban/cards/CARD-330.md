@@ -1,6 +1,6 @@
 # CARD-330: The 0.169 mm the two media disagree by is 2 raster pixels — measure which one is at the specified margin before calling it a convention
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -19,9 +19,9 @@
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** 9.0 (cycle 2 of 3 — CERTIFIED; 7.5 → 9.0)
 **Started:** 2026-10-30T23:16:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-31T02:37:24+00:00
+**Actual:** 3.3h wall-clock against a 1d estimate (measured from Started, not estimated)
+**Merge commit:** `f7e5d764` — gate green on f7e5d764 — 10028 passed / 27 skipped / 1 xfailed / 0 failed
 **Blocked by:** —
 
 ## Why this card exists — and why it is NOT the card CARD-309's round asked for

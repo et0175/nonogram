@@ -1,4 +1,4 @@
-wave: 70
+wave: 71
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -66,61 +66,55 @@ max_concurrent_override: 2
 # this board with no guard over it. Repaired by reconstructing CARD-318's header
 # from its card file and worktree; a parse check is now part of closing a wave.
 #
+#
+# WAVE 70 CLOSED 2026-10-31, two for two, both at 9.0:
+#   CARD-318  merge 884124f3  cycle 3/3 (7.0 -> 8.5 -> 9.0)  gate 10003 passed / 0 failed
+#   CARD-330  merge f7e5d764  cycle 2/3 (7.5 -> 9.0)         gate 10028 passed / 0 failed
+# Both cards' finding was that THEIR OWN PREMISE WAS FALSE. That is the wave's
+# pattern rather than a coincidence, and it is worth the retro's attention: two
+# cards cut from measurements that were themselves instrument artefacts.
+#
+# PARSE CHECK, now part of closing a wave (this file did not parse for a day in
+# wave 70): ruamel safe-load succeeds and len(active) <= the cap.
+#
+# WAVE 71 OPENS on the owner's pinned order -- CARD-331, then CARD-317, CARD-329,
+# CARD-316, tails CARD-278 and CARD-320, destination CARD-322.
+# The pairing is MEASURED: CARD-331 declares tests/test_book_difficulty_dots.py
+# and tests/helpers/round_ink.py; CARD-317 declares requirements.yml, trace.yml
+# and two ADRs. Intersection EMPTY, no shared conflict.hotspots entry. So one
+# vector card runs beside one requirements card, as in wave 70.
+# Serialization that still binds: CARD-317 <-> CARD-316 on requirements.yml
+# (overlap 1.00 of 316's single entry), so 316 waits. CARD-329 is free of
+# CARD-331 and waits only on the cap of 2; it declares tests/test_book_pdf.py,
+# which CARD-330's merge has just released.
+# CARD-322 now has two of four deps done (CARD-309, CARD-330); it still needs
+# CARD-329 and CARD-331, which is why those two come before the tails.
+#
 active:
-- id: CARD-330
-  phase: review
-  cycle: 2
-  cycle1_score: 7.5
-  fix_rounds_done: 1
-  cycle1_fixed: [F-001, F-002, F-003, F-103, F-105]
-  routed_to_card_322: [F-101, F-102]
-  routed_dead_ref_family: [F-104]
-  branch: card/330-edge-offset-is-two-device-pixels
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-330
-  started: '2026-10-30T23:18:51Z'
+- id: CARD-331
+  phase: implementation
+  branch: card/331-difficulty-dot-instrument-vector
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-331
+  started: '2026-10-31T04:00:00Z'
   note: >-
-    Took the slot CARD-309 freed at merge. It could not start earlier: this card
-    and CARD-329 both touch tests/test_book_pdf.py, which CARD-309 also touched,
-    so all three conflicted and CARD-318 opened the wave instead. Measured free
-    of CARD-318 -- intersection EMPTY -- which is the pairing the owner asked
-    for: one vector card beside one generator/solver card. NARROWED by the
-    owner's steer: if the raster is the medium that is off spec, it is NOT
-    fixed; its expectations are pinned as legacy and CARD-322's conversion
-    retires them. The named hazard stands regardless: EDGE_TOLERANCE_MM may not
-    be widened to admit the more accurate medium.
-- id: CARD-318
-  phase: review
-  cycle: 3
-  cycle1_score: 7.0
-  cycle2_score: 8.5
-  fix_rounds_done: 2
-  cycle2_fixed: [F-009, F-004]
-  # Cycle 3 is the LAST max_cycles allows: it certifies or the card lands as a
-  # declaration on the owner's call.
-  # min_score 8 is MET at 8.5; certification also needs no open Important, and
-  # F-009 is one. Cycle 3 follows and is the LAST max_cycles allows.
-  cycle2_closed: [F-001, F-002, F-003]
-  cycle2_accepted_open_low: [F-004]
-  cycle2_rescoped: {F-005: F-009}
-  f009_cause: orchestrator commit 7845cb5c, not the implementer
-  branch: card/318-fr-029-strategies-criteria
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
-  started: '2026-10-30T20:56:08Z'
+    Opens wave 71. 27 cells monkeypatch the RASTER drawing site and key on
+    page-image identity; on a vector page that site is never called, so the
+    instrument PASSES SILENTLY instead of erroring -- ADR-0039/R2 wants a
+    FAILURE. AC-4 is the card: a dead mechanism must red, with a mutant on each
+    arm. One of CARD-322's four dependencies.
+- id: CARD-317
+  phase: implementation
+  branch: card/317-check-refs-and-the-grid-bound
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-317
+  started: '2026-10-31T04:00:00Z'
   note: >-
-    Wave 70 opens on the owner's "start these cards together with cards for
-    generator/solver" -- the vector interior path AND the generator/solver
-    family in ONE wave. Measured: the two groups have ZERO cross-conflicts,
-    so every vector x gen/solver pairing is free and the wave is exactly the
-    shape asked for. Each group serializes INTERNALLY:
-      vector      CARD-330 <-> CARD-329 share tests/test_book_pdf.py (0.50);
-                  CARD-331 is free of both
-      gen/solver  CARD-318 <-> CARD-317 <-> CARD-316 all share
-                  requirements.yml (0.50-1.00)
-    This card goes first of its chain. It starts NOW, while CARD-309 is still
-    in review, because its intersection with CARD-309 is EMPTY -- whereas
-    CARD-330 and CARD-329 BOTH collide with CARD-309 on tests/test_book_pdf.py
-    and must wait for it to close. That is why the wave does not open on its
-    own blocker.
+    The requirements chain's second link, dispatchable now that CARD-318 has
+    merged and released requirements.yml. It carries a LIVE DEFECT behind a dead
+    ref: AC-002/AC-003 and ADR-0001 say 50x50 where tests/test_sourcing_random.py
+    :107 asserts MAX_SIZE == 30. It re-points the refs and RECORDS the
+    contradiction in the ADR rather than deciding the bound -- a quiet edit would
+    turn a visible contradiction into an invisible one, which is the failure mode
+    this whole card family exists to stop.
 queued:
 # ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
 # now and then according to plan", after agreeing the set as 318 + 330 + 331.
