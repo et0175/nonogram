@@ -1283,7 +1283,31 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 # FR-001's four refs are deliberately NOT re-pointed and stay in this class;
 # they are four of the 16, and FR-001's block comment in requirements.yml says
 # why re-pointing them would falsify a retired criterion rather than repair it.
-HONEST_DEAD = (16, "8723fc2092e3a735")
+#
+# CARD-316, **16 -> 9: OUT 7, IN 0** — the same seven :data:`CENSUS` lost, the
+# same method, re-derived as a set difference rather than pasted. They were this
+# class's whole requirements.yml-declared remainder apart from FR-001's four:
+# before the change this class held FR-001's four (still here, still deliberate),
+# the seven CARD-316 withdrew, and five declared by trace.yml alone, which this
+# card does not touch. 4 + 5 = 9 is the class today, and it is derived from the
+# sets rather than from the subtraction.
+#
+# A ref leaving here is normally a validator warning disappearing. These seven
+# are the case where it is NOT: dropping an AC's `test:` trades the dead-ref
+# warning for "acceptance criterion has no 'test'", one for one, on the same
+# criterion — measured on the validator of record, WARN sets diffed with
+# `comm`: 88 -> 88, seven out, seven in, nothing else moved. The repair is in
+# what the model CLAIMS, not in the count: a criterion with no `test:` reads as
+# an unverified example to forge:status and to the kanban AC/EC gate, where one
+# naming a test nobody wrote read as mechanically checked.
+#
+# :data:`HONEST_DEAD_MEMBERS` is deliberately NOT trimmed, per its own note: all
+# seven departures are WITHDRAWALS, so nothing in today's population hashes to
+# their digests and :func:`_refuse_unexplained_departures` reports them as the
+# documented honest residual — a count, as a `UserWarning`, with this cell's own
+# exact pin as the gate. Verified: the helper's `losses` assertion stays empty
+# because not one of the seven still reads alive to the validator.
+HONEST_DEAD = (9, "e109f654427454a9")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -1412,7 +1436,30 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 #        requirements.yml alone declares.
 # 586 - 10 + 4 = 580. The count alone would have read 586 -> 580 whichever refs
 # moved, which is the whole reason the SETS were diffed.
-CENSUS = (580, "a2b8a5783a9f7f5a")
+#
+# CARD-316, **580 -> 573: OUT 7, IN 0** — re-derived as the symmetric difference
+# of the whole census before and after the change (scratchpad/card316/
+# census_snapshot.py, which reproduced all nine stored baselines, count AND
+# digest, on the unchanged tree before anything was edited). NOT pasted from the
+# failure message this cell offers.
+#   OUT  the seven `test:` keys CARD-316 WITHDREW from requirements.yml,
+#        identified by site and not by name (G-2): FR-028/AC-129's and AC-134's,
+#        FR-032/AC-191's and AC-192's, FR-035/AC-206's and AC-207's, and
+#        FR-040/AC-379's. Each named a test nobody is to write — four state a
+#        DEC branch the project rejected (DEC-034/ADR-0027,
+#        DEC-036/ADR-0034), two a feature the model retired as unimplemented,
+#        one a test CARD-226 still owes.
+#   IN   nothing. No declaration was added.
+# This is a WITHDRAWAL, which is the distinction the note above insists on: the
+# seven did not stop being resolved, they stopped being DECLARED. All seven had
+# zero `def`/`class` lines anywhere under src/ or tests/ before the change (an
+# `ast` index of 11005 symbols, read off definition nodes, not a text search),
+# so none of them could have been a repair-by-definition and none was lost to
+# erosion either. Each was declared by requirements.yml ALONE — zero mentions in
+# trace.yml and zero in the ADRs — which is why the census loses exactly seven
+# and the overlap terms above do not change. :data:`TRACE_TESTS` (507) and
+# :data:`DEFINED` (409) stood still, measured, both directions empty.
+CENSUS = (573, "2e0233d69e413369")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a

@@ -66,6 +66,26 @@ real region.
   *then* the number of pages is recorded against the figure before this card, and any change
   is attributed — equal slots may admit or refuse a pair the old asymmetric layout did not.
   (test: `TestBookTwoUp_PageCountIsAttributed`)
+- **AC-8** (registry, the flip back this card owes): *Given* this card merged, *then*
+  `requirements.yml`'s **FR-040/AC-379** carries a `test:` key again, naming the test this
+  card writes for the per-slot 42% float, and that test asserts AC-379's own `then` — each
+  slot's drawing at 42% of **that slot's** spare height with 58% below, measured off the
+  drawn ink — not merely a name that resolves.
+  (test: the criterion's restored `test:` key resolving to a real `def`/`class`, which
+  `tests/test_check_ref_resolution.py` measures: AC-379's ref leaves that module's
+  honest-dead class and enters its defined class, and its `CENSUS` baseline grows by one.)
+
+  <!-- Added 2026-10-31 by CARD-316. AC-379 was declared in requirements.yml as a forward
+  declaration for this card and carried a `test:` key naming a test nobody has written, so
+  an OWED test read as a PERFORMED one to forge:status and to the kanban AC/EC gate — one of
+  seven such keys CARD-316 withdrew. CARD-316's own brief asked for `kind: review-lens`
+  instead of a withdrawal; that was measured to be a no-op (the validator of record passes
+  the literal "test" as the check kind for every AC `test:` ref and never reads the entry's
+  `kind:`; planting the flip left the WARN set byte-identical), so the key was dropped like
+  the other six and the obligation moved here. The reason it is an AC and not a note:
+  a demotion with no card owing the flip is how a shim becomes an end state
+  (`adr-check-refs-must-be-honest`). AC-379's text and id are unchanged in the registry;
+  only its `test:` key is gone, and its comment block there records the planned name. -->
 
 ## Guardrails
 
