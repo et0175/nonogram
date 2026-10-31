@@ -3976,17 +3976,53 @@ _DECLARED_CELL_PT = 0.3
 #: placement: the trim's own extent (a 235 mm trim is 2774 px, i.e. 234.86 mm),
 #: each boundary rounded once from exact fractions, and the committed pitch.
 #: Each contributes at most half a pixel, so 1.5 px is the derived ceiling.
-#: **Measured over the corpus below, the largest disagreement is 1.0 px**, on
-#: the grid's bottom edge in FR-032's footer-bound arm — which is the one
-#: anchored on the rounded trim extent, as that ceiling predicts. It is a
-#: bound on the *derivation*, not on a placed edge, and it is deliberately not
-#: :data:`EDGE_TOLERANCE_MM`.
+#: It is a bound on the *derivation*, not on a placed edge, and it is
+#: deliberately not :data:`EDGE_TOLERANCE_MM`.
+#:
+#: **This is the derivation's ceiling and no longer a live bound.** It is
+#: asserted only as the ceiling the two *measured* bounds below must stay
+#: under. Until CARD-330 cycle 1's F-003 it was AC-1's sole control, and
+#: measured it held nothing: tightening it to 1.05 px passed, and loosening it
+#: to 12.0 px passed too. It is also 0.127 mm — *wider* than the
+#: :data:`EDGE_TOLERANCE_MM` this card declined to widen, which is the
+#: asymmetry a reader re-deriving from this test used to inherit.
 _SPEC_ROUNDING_PX = 1.5
 
-#: The corpus's floor, asserted inside the tests that read it so it cannot
-#: silently shrink (CLAUDE.md's test style; G-5 forbids lowering it).
+#: The live bound on the grid edges' derived-against-stream agreement. The
+#: **measured** worst disagreement over the corpus below is 1.0 px exactly
+#: (``22x28 d1 page 16 on 190x235 mm``, ``grid_bottom`` — FR-032's
+#: footer-bound arm, the one anchored on the rounded trim extent, as the
+#: ceiling above predicts), so this bound is that figure plus 5 %. 1.05 px is
+#: 0.0889 mm, **inside** :data:`EDGE_TOLERANCE_MM`, and the span test asserts
+#: that relation so the derivation's bound can never again sit looser than the
+#: placed-edge bound it is not.
+_SPEC_MEASURED_PX = 1.05
+
+#: The same, for the drawing's own outer edges — where the raster's ink is
+#: *at* the specified margin and the only disagreement is sub-pixel rounding.
+#: Measured worst 0.5437 px (``16x25 d5 page 13 on 190x235 mm``,
+#: ``drawing_left``), so the bound is 0.6 px = 0.0508 mm. Two live bounds
+#: rather than one is F-003's other half: no single constant decides AC-1's
+#: answer any more.
+_SPEC_DRAWING_MEASURED_PX = 0.6
+
+#: The corpus's **floor**, asserted inside the tests that read it so the
+#: corpus cannot silently shrink — CLAUDE.md's test style in terms:
+#: "asserting a minimum case count inside the test itself so the corpus can't
+#: silently shrink. Prefer an independent second implementation over
+#: re-deriving a value with the same function you're testing." G-5 forbids
+#: lowering it.
+#:
+#: Both are **literals**, asserted equal to the enumerated span AC-1 names
+#: (``len(_EDGE_TRIMS) * len(_EDGE_PARITIES) * len(_EDGE_BOUNDS) *
+#: _EDGE_DRAWS_PER_COMBINATION``, and ``_MIN_EDGE_CASES * len(_GRID_EDGES)``)
+#: rather than computed from it, and deliberately **not** the constant the
+#: fixture counts with (:data:`_EDGE_CASE_COUNT`). Until CARD-330 cycle 1's
+#: F-001 the floor and the generator were one constant, which made both floor
+#: assertions satisfied by construction for any value of it: lowering it from
+#: 24 to 3 left all 24 tests green with 87.5 % of the corpus gone.
 _MIN_EDGE_CASES = 24
-_MIN_EDGE_READINGS = 4 * _MIN_EDGE_CASES
+_MIN_EDGE_READINGS = 96
 
 #: The four grid boundaries every reading carries, and the drawing's own two
 #: outer edges — the ones AC-274's 25.45 mm is read from.
@@ -4001,6 +4037,22 @@ _EDGE_TRIMS = (
     (7.5 * 25.4, 9.25 * 25.4),
     (6.0 * 25.4, 9.0 * 25.4),
 )
+
+#: The other two dimensions of that span, enumerated for the same two
+#: reasons: the floor is asserted against them, and each is asserted against
+#: the drawn corpus as a set equality — so dropping a dimension reds the
+#: floor rather than quietly halving the corpus.
+_EDGE_PARITIES = (0, 1)
+_EDGE_BOUNDS = ("ratio", "footer")
+
+#: Draws per combination of (trim, parity, vertical bound): two, so a
+#: combination is sampled at more than one grid size and clue depth.
+_EDGE_DRAWS_PER_COMBINATION = 2
+
+#: How many cases the fixture actually draws. Deliberately separate from
+#: :data:`_MIN_EDGE_CASES`: lowering this reds the floor instead of travelling
+#: with it, which is the whole point of the two not being one constant.
+_EDGE_CASE_COUNT = 24
 
 
 def _specified_grid_mm(
@@ -4277,7 +4329,7 @@ def edge_corpus(tmp_path_factory) -> list[_EdgeReading]:
     """
     out_dir = tmp_path_factory.mktemp("card330-edges")
     return [
-        _edge_case(index, out_dir / str(index)) for index in range(_MIN_EDGE_CASES)
+        _edge_case(index, out_dir / str(index)) for index in range(_EDGE_CASE_COUNT)
     ]
 
 
@@ -4296,16 +4348,56 @@ class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
     def test_the_corpus_spans_trims_parities_and_both_vertical_bounds(
         self, edge_corpus
     ) -> None:
-        """The minimum, asserted here so the corpus cannot silently shrink."""
+        """The minimum, asserted here so the corpus cannot silently shrink.
+
+        **The floor is not the number the fixture counts with** (CARD-330
+        cycle 1, F-001: it was, so both floor assertions were satisfied by
+        construction for any value of it, and lowering it from 24 to 3 left
+        all of this card's tests green). It is a literal, checked here against
+        the enumerated span this corpus exists to cover — so lowering the
+        floor, or dropping one of the span's dimensions, reds *here*, while
+        shrinking :data:`_EDGE_CASE_COUNT` reds the floor itself. That is the
+        independent second implementation CLAUDE.md's test style asks for: the
+        span is enumerated, not re-derived from the generator.
+        """
+        span = (
+            len(_EDGE_TRIMS)
+            * len(_EDGE_PARITIES)
+            * len(_EDGE_BOUNDS)
+            * _EDGE_DRAWS_PER_COMBINATION
+        )
+        assert _MIN_EDGE_CASES == span, (_MIN_EDGE_CASES, span)
+        assert _MIN_EDGE_READINGS == _MIN_EDGE_CASES * len(_GRID_EDGES), (
+            _MIN_EDGE_READINGS,
+            _MIN_EDGE_CASES,
+            len(_GRID_EDGES),
+        )
         assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
         assert len(edge_corpus) * len(_GRID_EDGES) >= _MIN_EDGE_READINGS
         parities = {reading.page % 2 for reading in edge_corpus}
-        assert parities == {0, 1}, parities
+        assert parities == set(_EDGE_PARITIES), parities
         trims = {reading.trim_mm for reading in edge_corpus}
         assert trims == set(_EDGE_TRIMS), trims
         # Both arms of FR-032's vertical placement, so the derivation is
         # exercised on the 42 % split *and* on the footer bound.
-        assert {reading.bound for reading in edge_corpus} == {"ratio", "footer"}
+        assert {reading.bound for reading in edge_corpus} == set(_EDGE_BOUNDS)
+        # F-003's second control: the derivation's live bounds are inside the
+        # derived ceiling AND inside the placed-edge bound this card refused
+        # to widen, so neither can drift back out to 0.127 mm unnoticed.
+        assert _SPEC_DRAWING_MEASURED_PX <= _SPEC_MEASURED_PX <= _SPEC_ROUNDING_PX, (
+            _SPEC_DRAWING_MEASURED_PX,
+            _SPEC_MEASURED_PX,
+            _SPEC_ROUNDING_PX,
+        )
+        # ``_STATED_EDGE_TOLERANCE_MM`` and not ``EDGE_TOLERANCE_MM``: the
+        # criteria's own figure, which AC-4's own site asserts the live
+        # constant equals — and naming the live one here would make this a
+        # placed-edge site for the medium pin below without its reading a
+        # page, which is the one thing that register exists to keep rare.
+        assert _SPEC_MEASURED_PX / PX_PER_MM < _STATED_EDGE_TOLERANCE_MM, (
+            _SPEC_MEASURED_PX / PX_PER_MM,
+            _STATED_EDGE_TOLERANCE_MM,
+        )
 
     def test_every_edge_of_every_case_carries_all_three_numbers(
         self, edge_corpus
@@ -4331,10 +4423,18 @@ class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
         """**The answer to the card's first question.**
 
         The derived boundary and the vector's own operand are the same number
-        on every edge of every case, inside :data:`_SPEC_ROUNDING_PX` — which
-        is the renderer's own whole-pixel rounding of each boundary and
-        nothing else. So the vector writer is **not** placing the grid off
-        spec: CARD-330's G-4 is not triggered and no blocker is raised.
+        on every edge of every case, inside :data:`_SPEC_MEASURED_PX` — the
+        **measured** worst disagreement over this corpus plus 5 %, which is
+        0.0889 mm and therefore inside the placed-edge bound this card
+        declined to widen. So the vector writer is **not** placing the grid
+        off spec: CARD-330's G-4 is not triggered and no blocker is raised.
+
+        The bound used to be :data:`_SPEC_ROUNDING_PX`, the *derived* ceiling
+        of three half-pixel roundings; cycle 1's F-003 measured that 1.05 px
+        passed here and that 12.0 px passed too, so the one control AC-1 had
+        was 0.45 px looser than anything the corpus exercises and 0.127 mm
+        wide. The derivation is still written down above; what is asserted is
+        now what was measured.
         """
         worst = max(
             (
@@ -4348,7 +4448,7 @@ class TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge:
                 for edge in _GRID_EDGES
             ),
         )
-        assert worst[0] < _SPEC_ROUNDING_PX, worst
+        assert worst[0] < _SPEC_MEASURED_PX, worst
 
     def test_the_specified_position_is_not_either_mediums_ink_reading(
         self, edge_corpus
@@ -4482,11 +4582,22 @@ class TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels:
         It is still not a placement: both writers put the frame's left side at
         the same coordinate. It is a corner.
         """
+        # The raster arm is a max rather than a per-reading assertion, so the
+        # message names the worst case and the bound is the measured figure
+        # (0.5437 px) rather than the derived ceiling — cycle 1's F-003.
+        worst_raster = max(
+            (
+                abs((reading.raster_ink[edge] - reading.specified[edge]) * PX_PER_MM),
+                reading.label,
+                edge,
+            )
+            for reading in edge_corpus
+            for edge in _DRAWING_EDGES
+        )
+        assert worst_raster[0] < _SPEC_DRAWING_MEASURED_PX, worst_raster
         for reading in edge_corpus:
             for edge in _DRAWING_EDGES:
-                raster = (reading.raster_ink[edge] - reading.specified[edge]) * PX_PER_MM
                 vector = (reading.vector_ink[edge] - reading.raster_ink[edge]) * PX_PER_MM
-                assert abs(raster) < _SPEC_ROUNDING_PX, (reading.label, edge, raster)
                 assert round(vector) == -3, (reading.label, edge, vector)
         assert 3 / PX_PER_MM > EDGE_TOLERANCE_MM, 3 / PX_PER_MM
         # Every case is framed, which is what the mitre needs to exist: a
@@ -4604,7 +4715,12 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     reading changes medium and this goes red until the site says so.
 
     Default-DENY per ADR-0039/R2: a site whose medium cannot be determined is
-    a FAILURE, not a pass.
+    a FAILURE, not a pass — and, since CARD-330 cycle 1's F-002, a site that
+    cannot be *told apart* is one too. The map is keyed on the
+    **class-qualified** name because this module holds two different tests
+    under one bare name, which keyed on the bare name silently dropped one of
+    them; the walk returns a list so the key count can be asserted equal to
+    the site count, and a future collision reds instead of shrinking the dict.
     """
 
     #: The reader that makes a site's medium the raster bitmap, and the ones
@@ -4616,29 +4732,80 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         {"content_streams", "operator_tokens", "operator_tally", "page_media"}
     )
 
+    #: The two placed-edge sites this module holds under **one** bare
+    #: function name, in different classes. Keyed on the bare name, as the
+    #: walk below was until CARD-330 cycle 1's F-002, one of them was
+    #: overwritten and never checked — measured: converting the
+    #: right-hand one to a content-stream reader left all four assertions in
+    #: this class green, while the identical change to the left-hand one red
+    #: two. Both are named here so neither can go back to being invisible.
+    _COLLIDING_SITES = frozenset(
+        {
+            "TestBookPdf_DrawingCentredOnRightHandPage"
+            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
+            "TestBookPdf_DrawingCentredOnLeftHandPage"
+            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge",
+        }
+    )
+
     @staticmethod
-    def _sites() -> dict[str, set[str]]:
-        """``{enclosing function: the readers it calls}`` for every
-        ``EDGE_TOLERANCE_MM`` comparison in this module."""
+    def _walk() -> list[tuple[str, str, set[str]]]:
+        """``(class-qualified name, bare name, the readers it calls)`` for
+        every ``EDGE_TOLERANCE_MM`` comparison in this module, as a **list**.
+
+        A list and not a dict, so :meth:`_sites`' own control can compare the
+        two lengths: two sites that collapsed into one key would otherwise
+        disappear rather than fail, which is exactly what ADR-0039/R2's
+        default-DENY forbids.
+        """
         tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
-        sites: dict[str, set[str]] = {}
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            names = {
-                inner.id
-                for inner in ast.walk(node)
-                if isinstance(inner, ast.Name)
-            }
-            attributes = {
-                inner.attr
-                for inner in ast.walk(node)
-                if isinstance(inner, ast.Attribute)
-            }
-            if "EDGE_TOLERANCE_MM" not in names:
-                continue
-            sites[node.name] = names | attributes
-        return sites
+        found: list[tuple[str, str, set[str]]] = []
+
+        def visit(node: ast.AST, prefix: tuple[str, ...]) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.ClassDef):
+                    visit(child, prefix + (child.name,))
+                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    names = {
+                        inner.id
+                        for inner in ast.walk(child)
+                        if isinstance(inner, ast.Name)
+                    }
+                    if "EDGE_TOLERANCE_MM" in names:
+                        attributes = {
+                            inner.attr
+                            for inner in ast.walk(child)
+                            if isinstance(inner, ast.Attribute)
+                        }
+                        found.append(
+                            (
+                                "::".join(prefix + (child.name,)),
+                                child.name,
+                                names | attributes,
+                            )
+                        )
+                    visit(child, prefix + (child.name,))
+                else:
+                    visit(child, prefix)
+
+        visit(tree, ())
+        return found
+
+    @classmethod
+    def _sites(cls) -> dict[str, set[str]]:
+        """``{class-qualified function: the readers it calls}`` for every
+        ``EDGE_TOLERANCE_MM`` comparison in this module.
+
+        **Class-qualified**, because the bare name is not unique in this
+        module (see :data:`_COLLIDING_SITES`).
+        """
+        return {qualified: readers for qualified, _, readers in cls._walk()}
+
+    @classmethod
+    def _bare(cls, qualified: str) -> str:
+        """The function part of a key, for matching the exemption register —
+        which names tests, not classes."""
+        return qualified.rsplit("::", 1)[-1]
 
     def test_the_walk_finds_the_sites_it_is_supposed_to_guard(self) -> None:
         """The instrument's own control: a walk that found nothing would pass
@@ -4646,7 +4813,31 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         a new placed-edge test does not red this on arrival."""
         sites = self._sites()
         assert len(sites) >= 10, sorted(sites)
-        assert "test_the_drawing_sits_25_45_mm_from_the_left_trim_edge" in sites
+        assert "test_the_drawing_sits_25_45_mm_from_the_left_trim_edge" in {
+            self._bare(name) for name in sites
+        }
+
+    def test_no_two_sites_collapse_into_one_key(self) -> None:
+        """F-002's control: a collision is a FAILURE, not a silent merge.
+
+        The walk returns a list and the map is built from it, so the two
+        lengths differ exactly when two sites share a key. Keyed on the bare
+        function name this module already had one such pair, and the site it
+        dropped could have started reading a content stream with all of this
+        class's assertions still green. Both members of that pair are asserted
+        present by key, so the dict can only shrink by a deliberate rename
+        that G-6 forbids.
+        """
+        walked = self._walk()
+        sites = self._sites()
+        assert len(walked) == len(sites), (
+            len(walked),
+            len(sites),
+            sorted(qualified for qualified, _, _ in walked),
+        )
+        assert self._COLLIDING_SITES <= set(sites), sorted(
+            self._COLLIDING_SITES - set(sites)
+        )
 
     #: The sites that name the bound without measuring a page with it:
     #: CARD-330's own, which assert the bound itself or compare one medium's
@@ -4666,14 +4857,14 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     def test_the_exemption_list_names_only_sites_that_exist(self) -> None:
         """No dead entry: a renamed test would otherwise leave a name that
         exempts nothing and hides the next site that takes it."""
-        sites = set(self._sites())
+        sites = {self._bare(name) for name in self._sites()}
         assert self._BOUND_ONLY_SITES <= sites, sorted(
             self._BOUND_ONLY_SITES - sites
         )
 
     def test_every_site_reads_its_page_through_the_raster_ink_oracle(self) -> None:
         for name, readers in self._sites().items():
-            if name in self._BOUND_ONLY_SITES:
+            if self._bare(name) in self._BOUND_ONLY_SITES:
                 continue
             assert self._RASTER_READER in readers, (name, sorted(readers))
 
