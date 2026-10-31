@@ -120,6 +120,33 @@ legacy instead of re-tuning them**, so this card's conversion is what *retires* 
 expect to delete raster expectations here, not satisfy them. Same for **CARD-331**'s
 raster arm of the difficulty-dot accounting: its lifetime ends with this card.
 
+<!-- ORCHESTRATOR CORRECTION 2026-10-31, measured during CARD-331's review cycle 1
+     (F-005) and verified here. THE SENTENCE ABOVE IS HALF FALSE, AND THIS CARD'S
+     OWN NEXT PARAGRAPH REFUTES IT: "Dividers stay raster, unchanged."
+
+     CARD-331's accounting now carries one arm per PageMedium, and PageMedium keeps
+     RASTER for the cover and the divider. The arm is enumerated on the MEDIUM, not
+     on the puzzle page, so the medium survives this conversion and the arm must
+     survive with it. Deleting the arm REDS CARD-331's arm-per-medium cell
+     (tests/test_book_difficulty_dots.py, the TheVectorArmReadsTheStream /
+     AnArmWhoseMechanismIsDeadFails classes).
+
+     THE INSTRUCTION THIS CARD INHERITS, stated once: RE-POINT, DO NOT RETIRE.
+     Keep the raster arm; change its kind from PageKind.PUZZLE to a kind
+     `_RASTER_DECLARATIONS` still declares raster, and move with it the 27 cells of
+     that module which read the interior as bitmaps.
+
+     Expect ONE deliberate red on arrival, by design, not by drift:
+     `test_each_arms_mechanism_is_still_exercised[raster]` is built to fail the day
+     this card converts the puzzle page, and its message is a work order naming the
+     arm, its mechanism and the remedy. Satisfy it by re-pointing. DO NOT WIDEN IT.
+
+     CARD-331's F-005 also fixed its own remedy string, which had offered
+     "retire this arm" -- an option its own guard forbids -- so the work order you
+     will read is now the corrected one. This card owes the repair of the sentence
+     above; it is left in place rather than rewritten so the record shows what was
+     claimed when. -->
+
 **Dividers stay raster**, unchanged: ADR-0042/R2 makes the divider an exception by
 scheduling rather than technique, and CARD-231 redesigns that page to be *born* vector.
 So "switch the interior to vector" means the four remaining kinds **and not the

@@ -93,10 +93,20 @@ max_concurrent_override: 2
 active:
 - id: CARD-331
   phase: review
-  cycle: 1
+  cycle: 2
   cycle1_score: 8.5
-  fix_round: 1
-  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-006, F-007]
+  fix_rounds_done: 1
+  cycle2_dispatched: true
+  # Fix round 1 closed all 3 Important and all 4 Minor, 24 plants / 23 killed /
+  # 1 declared survivor, baseline 189 -> 195 passed. Orchestrator-verified: a
+  # rect under `2 0 0 2 0 0 cm` is now REFUSED where it used to read its
+  # untransformed box, `/Im0 Do` and `/Sh0 sh` refused, and `q`/`Q` without a
+  # transform still accepted as the control.
+  # It went AGAINST the orchestrator's suggested home for the operator binding,
+  # with the argument that a cell in the co-change peer sits outside all three
+  # instruments that would catch a regression (the node-id gate, the 195-cell
+  # baseline, the mutant harness) -- "F-002's defect in a different costume".
+  # Cycle 2 is asked to rule on that rather than take either side on authority.
   # 8.5 PASSES min_score but 3 Important are open, so it cannot certify yet.
   # The round was confirmed sound: both premise probes reproduced exactly
   # (29/160 and 15/174), the floors proved NOT self-referential three ways, node
@@ -143,10 +153,22 @@ active:
     arm. One of CARD-322's four dependencies.
 - id: CARD-317
   phase: review
-  cycle: 1
+  cycle: 2
   cycle1_score: 6.0
-  fix_round: 1
-  fix_findings: [F-001, F-002, F-003, F-004, F-005]
+  fix_rounds_done: 1
+  cycle2_dispatched: true
+  # Fix round 1 closed all five. It also fixed ADR-0042/R4 unasked, for a
+  # mechanical reason: that node id's ONLY other declaration was there, so
+  # repairing ADR-0006/R1 alone would have left the ref in RESOLVED_FROM_AFAR
+  # and grown the census -- the repair would have been unprovable by the card's
+  # own instrument. The class moves 4 -> 3.
+  # F-002's retraction is backed by a FIRED MUTANT, re-fired by the orchestrator:
+  # a nonsense ref in ADR-0006/R1's check: takes the validator from 88 warnings
+  # with no ADR-0006/R1 finding to 89 WITH the named WARN. So CARD-319's
+  # Defect 2 is refuted by measurement, not by reading.
+  # It pushed back on one sub-claim of cycle 1's and was right to: pruning
+  # meta/review/ does NOT flip R1 to a dead-ref WARN for either ref form at this
+  # HEAD. F-001 stands, but its mechanism is the guard's class, not a warning.
   # Cycle 1 CONFIRMED all three premise refutations and verified every numeric
   # claim the round made as exact -- and still scored 6.0 on three Important
   # defects, two of them one root cause: the round re-measured everything handed

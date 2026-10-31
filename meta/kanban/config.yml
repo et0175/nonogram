@@ -15,10 +15,23 @@ implementation_skill: python-pro
 tdd: false            # not the project's practice; cards opt in via `TDD: true`
 # THE VALIDATOR OF RECORD. There are two copies of the architecture validator on
 # this box and they disagree, so a figure without a binary attached is not a
-# figure. Measured 2026-10-29, identical on main and on a card worktree:
+# figure.
 #
-#   forge_1       0 error(s), 102 warning(s), 0 info
-#   plugin cache  1 error(s), 102 warning(s), 0 info
+# CURRENT, re-measured 2026-10-31 on main after CARD-318 merged (which closed ten
+# dead refs, 100 -> 90 as sets):
+#
+#   forge_1       0 error(s), 90 warning(s), 0 info
+#
+# The 102 below was measured 2026-10-29 and went stale the moment a card closed a
+# ref. It is kept, dated, rather than overwritten, because two rounds quoted it
+# as current and a reader needs to see which figure they were holding:
+#
+#   forge_1       0 error(s), 102 warning(s), 0 info   <- STALE 2026-10-29
+#   plugin cache  1 error(s), 102 warning(s), 0 info   <- STALE 2026-10-29
+#
+# A count here is a DATED READING, never a current fact: re-derive before citing
+# it, and diff the WARN sets with `comm` rather than comparing totals, because a
+# +1/-1 pair hides inside an unchanged total.
 #
 # The plugin cache's single error is a REGEX ARTEFACT, not a finding:
 #   [ERROR] ADR-0025 circular supersession: ADR-0025 -> ADR-0031 -> ADR-0025
