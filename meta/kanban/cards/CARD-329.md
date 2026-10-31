@@ -640,9 +640,9 @@ is a **FAILURE**, not a silent pass.
     live in this card.)
 - **[The impact run, on `main`'s rules with no probe]** All six runnable
   `Touches` paths in one node-scoped call with `-o addopts=` and `-rs`:
-  **346 passed, 0 failed, 0 skipped** (re-run at the fix round; 339 + the 7
-  cells it adds, so the figure derives rather than being retyped). Zero skips
-  is the assertion, not an
+  **346 passed, 0 failed, 0 skipped**, measured at `b609e675` after the fix
+  round's last edit (339 + the 7 cells it adds, so the figure derives rather
+  than being retyped). Zero skips is the assertion, not an
   observation — a skip keeps the collected count and removes the assertion, so
   a green-with-skips reading would say nothing. (A full suite shows 27 skips,
   26 DB-gated and 1 `setrlimit`; an impact run of these files touches neither
