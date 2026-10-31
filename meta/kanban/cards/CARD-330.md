@@ -1,6 +1,6 @@
 # CARD-330: The 0.169 mm the two media disagree by is 2 raster pixels — measure which one is at the specified margin before calling it a convention
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d

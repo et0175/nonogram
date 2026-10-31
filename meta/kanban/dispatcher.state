@@ -42,9 +42,34 @@ max_concurrent_override: 2
 # (uncommitted), and the diff touches two files outside its Touches
 # (test_browser_fixture_scope.py +164 new, test_puzzle_solver_page.py +6)
 # while NOT touching tokens.css, which its Touches predicted.
+#
+# 2026-10-31, CARD-330 HANDED BACK and took review cycle 1; CARD-318 is in fix
+# round 1 on F-003. Both at the cap, so nothing new opens until one closes.
+#
+# CARD-330 answered on its THIRD branch: the premise is FALSE. Both media are at
+# spec -- the specified boundary, the stream's operand and the raster rule's
+# CENTRELINE are one number -- and CARD-309's 2 px differenced an ink extent
+# against a path coordinate. Two orchestrator claims are RETRACTED by its
+# measurement: the 0.169 mm is NOT ADR-0037/R2's device floor (a coincidence of
+# two constants; R2's floor is a minimum THICKNESS), and ink-against-ink the
+# grid's edges differ by 1 px = 0.0847 mm, INSIDE the bound. The figure that
+# exceeds it is 3 px = 0.254 mm on Drawing.left/top, a rasteriser mitring a
+# stroked `re`'s corner against Pillow's butt caps. CARD-322 therefore reds on
+# the DRAWING's outer edges, not the grid's, and its repair is a centre-reading
+# oracle rather than a wider tolerance.
+#
+# THIS FILE DID NOT PARSE until today. CARD-318's entry had lost its `- id:`,
+# `phase:`, `branch:` and `worktree:` lines when it was dispatched, so its
+# `started`/`note` collapsed into CARD-330's entry and ruamel refused the whole
+# file with a DuplicateKeyError. Nothing read it in that state, which is why it
+# went unnoticed for a day -- the dispatcher's own record is the one artefact on
+# this board with no guard over it. Repaired by reconstructing CARD-318's header
+# from its card file and worktree; a parse check is now part of closing a wave.
+#
 active:
 - id: CARD-330
-  phase: implementation
+  phase: review
+  cycle: 1
   branch: card/330-edge-offset-is-two-device-pixels
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-330
   started: '2026-10-30T23:18:51Z'
@@ -58,6 +83,13 @@ active:
     fixed; its expectations are pinned as legacy and CARD-322's conversion
     retires them. The named hazard stands regardless: EDGE_TOLERANCE_MM may not
     be widened to admit the more accurate medium.
+- id: CARD-318
+  phase: review
+  cycle: 1
+  fix_round: 1
+  fix_findings: [F-003]
+  branch: card/318-fr-029-strategies-criteria
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-318
   started: '2026-10-30T20:56:08Z'
   note: >-
     Wave 70 opens on the owner's "start these cards together with cards for
