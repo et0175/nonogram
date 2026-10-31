@@ -82,10 +82,21 @@ for i, line in enumerate(pathlib.Path("meta/architecture/requirements.yml")
   This is the one place the three readings are written together; the others point here:**
   - `main` `9932bb07` → the round-0 tip `51a6b1e4`: **seven out, seven in** (this card's
     seven criteria);
-  - `51a6b1e4` → HEAD `50256f93`, the **fix-round delta**: **four out, four in**
+  - `51a6b1e4` → **HEAD**, the **fix-round delta**: **four out, four in**
     (FR-001/AC-001..AC-004);
-  - `main` `9932bb07` → HEAD `50256f93`, the **whole-card delta**: **eleven out, eleven
+  - `main` `9932bb07` → **HEAD**, the **whole-card delta**: **eleven out, eleven
     in** (the seven plus FR-001's four).
+
+  **The HEAD label is deliberately not a sha now (fix round 3, F3-003).** This table used
+  to write "HEAD `50256f93`", and `50256f93` is fix round 1's tip: it was already two
+  commits behind when cycle 3 read it and is **three** behind the tip that reaches this
+  gate. The figures themselves held at every one of those trees — it was a stale label on
+  a correct number — but the same paragraph credits a **fix-round-2** re-measurement, and
+  fix round 2's commits (`bedec18c`, `8d9f27f2`) *postdate* `50256f93`, so the label named
+  a tree the measurement was not taken at. Each reading above is therefore anchored on the
+  endpoint that does not move (`9932bb07`, `51a6b1e4`) and on HEAD by name; the tree HEAD
+  resolved to when the figures were last re-derived is recorded once, in the card's
+  closing stamp, together with the merge commit.
 
   All three are 88 → 88 on the same binary, and **nothing else moves in either direction
   at any of them**. Re-measured in fix round 2 with `comm` over sorted WARN sets, each
@@ -294,10 +305,16 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
   AC-129, AC-134, AC-191, AC-192, AC-206, AC-207 **and AC-379** still exist with their
   `given`/`when`/`then` and their comments intact — only the `test:` key is gone.
   **Met, and verified mechanically at the diff level rather than by a test** (stated as
-  the weaker control it is): in `git diff -U0` over `requirements.yml`, every removed
-  non-comment line is one of the seven `test:` keys and the set of **added** non-comment
-  lines is **empty**. The YAML was re-parsed afterwards and all seven still carry
-  `given`/`when`/`then` with `test: None`. AC-379 is in the list because AC-4's lens
+  the weaker control it is) — **and the control is baseline-dependent, so it is stated
+  here with its revision range, which two earlier wordings omitted (fix round 3, F3-001):**
+  over **`c0802fba` alone**, in `git diff -U0` over `requirements.yml`, every removed
+  non-comment line is one of the **seven** `test:` keys and the set of **added**
+  non-comment lines is **empty** (7 removed / 0 added). Over the **whole branch**,
+  `9932bb07..HEAD`, the same filter reports **11 removed / 6 added**: the seven plus
+  FR-001/AC-001..AC-004, against the six `status: retired` keys fix round 2 added — so the
+  "adds none" clause is true of the commit and **false of the branch**, and the sentence
+  now says which. Re-derived at this card's merge gate. The YAML was re-parsed afterwards
+  and all eleven still carry `given`/`when`/`then` with `test: None`. AC-379 is in the list because AC-4's lens
   was refuted; G-3's AC-205 is untouched by the same reading.
 - **AC-4** (AC-379's obligation is carried by a card): *Given* the branch, *then*
   ~~AC-379 is `kind: review-lens` naming CARD-226~~ AC-379 carries **no `test:`
@@ -424,8 +441,17 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
 
 ## Worktree notes
 
-**Round 0, 2026-10-31.** Two commits: `b4dd33f7` (the instruments, deliberately first)
-and `5d3674a6` (the repair). `meta/kanban/config.yml` and this card follow in a third.
+**Round 0, 2026-10-31.** Two commits: the instruments, deliberately first, then the
+repair. **Their shas are corrected here (fix round 3, F3-003):** this note first named
+them `b4dd33f7` and `5d3674a6`, which are the **pre-rebase objects** — fix round 1
+rebased the branch onto `main` `9932bb07` and both were orphaned; `git merge-base
+--is-ancestor` puts neither on HEAD. The commits that are on this branch are
+**`ecba9638`** (the instruments) and **`c0802fba`** (the repair), same subjects, and the
+rest of this card refers to those. The sentence that followed — "`meta/kanban/config.yml`
+and this card follow in a third" — **never happened on this branch** and is withdrawn:
+`git diff 9932bb07..HEAD -- meta/kanban/config.yml` is **0 lines**, because the rebase
+conflict below was resolved by taking main's version whole, and the config.yml retraction
+this bullet meant landed on **`main`** as **`a29c3c96`**, not here.
 
 ---
 
@@ -548,7 +574,9 @@ eleven**, this card's seven plus these four, each criterion trading its dead-ref
 for a no-`test` warning. **Nothing else moved in either direction at either baseline** —
 the six new `status:` keys moved nothing at all. The same one-for-one trade as the seven,
 for the same reason. Re-measured in fix round 2 at all three trees (`9932bb07`,
-`51a6b1e4`, HEAD `50256f93`): **0 errors / 88 warnings at each**.
+`51a6b1e4`, and HEAD): **0 errors / 88 warnings at each**. *(This site also wrote
+"HEAD `50256f93`" and is corrected with the premise block — fix round 3, F3-003. Cycle 3
+cited the stale label at one site; the gate's sweep for the figure found it at two.)*
 
 **The premise held; the card's *partition* did not, and that is the finding to carry.**
 The card says "three different situations, two different repairs" over seven entries. The
@@ -700,11 +728,16 @@ counterfactual measured rather than reasoned.
 
 **Controls this round does NOT have, stated rather than implied.** AC-3 ("the six keep
 their given/when/then and their comments intact") has no test and is not worth one; it is
-discharged mechanically at the diff level, which is weaker and labelled as such: every
-removed non-comment line in `requirements.yml` is one of the seven `test:` keys, and the
-set of **added** non-comment lines is **empty** (`git diff -U0`, filtered). G-3 (AC-205
-untouched) falls out of the same reading. A reviewer should re-run that filter rather than
-take this sentence for it.
+discharged mechanically at the diff level, which is weaker and labelled as such — **and
+the reading is only as good as its revision range, which this sentence used to omit
+(fix round 3, F3-001):** over **`c0802fba` alone**, every removed non-comment line in
+`requirements.yml` is one of the **seven** `test:` keys and the set of **added**
+non-comment lines is **empty** (7 removed / 0 added, `git diff -U0`, filtered). Over the
+**whole branch**, `9932bb07..HEAD`, it is **11 removed / 6 added** — the eleven `test:`
+keys against the six `status: retired` keys of fix round 2. G-3 (AC-205 untouched) falls
+out of the same reading at both baselines. A reviewer should re-run that filter rather
+than take this sentence for it — cycle 3 did, found the unscoped version refuted, and
+this is the fix.
 
 **G-2 re-verified mechanically before each commit**, because this is the rule the family
 has broken by accident: a trie over the **union** of the census before and after the
@@ -880,10 +913,35 @@ the three ADR lines are cited at the registry's own site and in the card, and th
 vocabulary question is **routed to CARD-333's "What to implement" item 5**, because
 CARD-333 owes the validator change that would make the marker real. The reason it is safe
 today is re-measured rather than recalled: an acceptance criterion's `status` is read
-**nowhere** in the validator of record — `_validate_criterion` does not read it,
-`_validate_con_lifecycle`'s single call site is the constraints loop, and every other
-`status` read in the tree (`trace.py:62`, `:188`; `decisions.py:57`, `:152`;
-`adr_integrity.py:213`; `utils.py:361`) is over a trace entry, a CON, a DEC or an ADR.
+**nowhere** in the validator of record — `_validate_criterion` does not read it and
+`_validate_con_lifecycle`'s single call site is the constraints loop.
+
+**The sweep behind that, with its domain and its size, because the first wording gave
+neither (fix round 3, F3-002).** Instrument: an `ast` walk collecting every
+`x["status"]` subscript and every `x.get("status", …)` call, then resolving the object
+each site reads by hand. Domain: the **21** `*.py` files of the validator-of-record tree
+(`forge_1/forge/skills/architect-validate/scripts/`, recursively, `__pycache__`
+excluded). It finds **28** such sites tree-wide, of which **26** are reads and 2 are
+writes (`system_rules.py:541`, `:555`); **14** of the reads are inside `validators/`,
+which is the population this claim is about. The card used to name **seven** of those
+fourteen and call them "every other `status` read in the tree" — an enumeration stated as
+exhaustive that was a subset. The full fourteen, with the object each reads:
+
+- **named before, and still correct** — `requirements.py:511` (`_validate_con_lifecycle`,
+  a CON), `trace.py:62`, `:188` (trace entries), `decisions.py:57`, `:152` (DECs),
+  `adr_integrity.py:213` (an ADR/DEC open-shadow item), `utils.py:361`
+  (`con_is_superseded`, a CON);
+- **omitted before** — `requirements.py:826` (`_trace_covered_tests`, a trace entry),
+  `docs_trace.py:215` (a docs-trace story entry), `market.py:256` (a persona), `:284`
+  (a bet), `business.py:342` (an SOP), `:513` (a BCON), `:607` (a business-ledger entry).
+  Five of those seven object kinds are **not** covered by the old predicate "a trace
+  entry, a CON, a DEC or an ADR", and `business.py` **is** reachable on this board —
+  `meta/business/` holds assumptions, evidence and stories.
+
+**The conclusion is unchanged and now rests on the whole set: not one of the fourteen
+reads a `status` on an acceptance criterion.** `requirements.py:101` is a false positive
+and is excluded by construction — the word "status" is a member of the module-level
+`OBSERVABLE_TOKENS` tuple, a heuristic over a criterion's `then` prose, not a dict read.
 Measured consequence of the change: WARN set identical, 88 → 88.
 
 **F2-003 — one arm was curated while all three were called enumerable.** Arm A (15) and
@@ -914,7 +972,9 @@ markered-but-prose-resolved phantoms` (18 − this card's 7, a set that does not
 to 0) each say at first use that they are not the other.
 
 **F2-006 is out of scope and already carded** — the G-2 revival surface on `main` is
-CARD-335's, cut from this very finding at `7b42ab05` and held out of wave 72. Its figures
+CARD-335's, cut from this very finding at **`4b4b407a`** and held out of wave 72.
+*(This said `7b42ab05`; verified at the gate with `git log --diff-filter=A` — `7b42ab05`
+added `CARD-334.md`, and `CARD-335.md` was added by `4b4b407a`. Fix round 3, F3-003.)* Its figures
 (322 in-domain files outside `tests/` and `src/` resolving at least one declared ref, four
 `meta/profiling/` duration dumps spelling 290–302 each, and one committed review YAML
 spelling 84) belong to that card's input, not to this one; this card's "three tracked
@@ -960,3 +1020,70 @@ pre-existing strict marker at `tests/test_nfr001_generation_time.py:226`
 (`test_20x20_p95_is_under_5s`, AC-037), in a file this branch does not touch. The full
 suite was NOT run, `NONOGRAM_FULL_SUITE_LOCK` was not touched and the ignore flag was not
 set.
+
+---
+
+### Fix round 3, 2026-10-31 — the merge gate, after review cycle 3 (9.0 CERTIFIED)
+
+Cycle 3 left **three non-gating Minors** and recommended closing them at the gate, on the
+precedent CARD-329's F-011 set. All three are prose or provenance, none touches the
+registry, the tests or the instruments, and **every figure below was re-derived at the
+gate rather than copied from the review**.
+
+**One root cause, not three typos (cycle 3's RC-1, and it is the lesson worth keeping).**
+This round applied **ADR-0039/R4's domain clause — a figure's domain is *which revision*,
+and the domain is part of the figure** — rigorously to the WARN-set numbers: five sites
+were swept in fix round 2 and each now names its baseline. It did **not** apply the same
+clause to the card's own history. Every one of the three Minors is that asymmetry:
+a diff-level control restated without the range that makes it true (F3-001), a sweep
+restated without the domain that bounds it (F3-002), and three provenance shas written
+once and never re-derived as the branch moved under them (F3-003). The discipline was
+spent on what the card measured and withheld from how the card describes itself.
+
+- **F3-001 — AC-3's diff-level control, scoped at both sites that omitted the range.**
+  The claim is "every removed non-comment line is one of the seven `test:` keys and the
+  set of added non-comment lines is empty". Re-measured at the gate: true over
+  **`c0802fba`** alone (**7 removed / 0 added**) and **false over the branch** —
+  `9932bb07..HEAD` is **11 removed / 6 added**, the eleven `test:` keys (this card's seven
+  plus FR-001/AC-001..AC-004) against the six `status: retired` keys fix round 2 added.
+  `:213` already said "the commit" and was always true; the two unscoped restatements now
+  carry both readings. **AC-3's substance is untouched** — the YAML re-parse confirms all
+  eleven criteria still carry `given`/`when`/`then` and their comment blocks, and the only
+  subtractions anywhere in the registry diff are the eleven keys, the only additions the
+  six `status:` keys and comments. This was a scoping fix, and `:707`'s instruction to
+  re-run the filter rather than trust the sentence is what caught it — the control worked
+  as designed.
+- **F3-002 — the `status`-read sweep, given its instrument, its domain and its size, in
+  *both* files that carry it.** The card named **7** reads and called them "every other
+  `status` read in the tree". Re-swept at the gate with an independent `ast` walk over the
+  **21** `*.py` files of the validator-of-record tree: **28** `status` dict sites
+  tree-wide, **26** reads and 2 writes, of which **14** reads are inside `validators/`.
+  The seven omitted objects — a trace entry, a docs-trace story entry, a persona, a bet,
+  an SOP, a BCON and a business-ledger entry — are five object kinds the old predicate did
+  not cover, and `business.py` is live on this board. **The conclusion is upheld and now
+  rests on the whole fourteen: not one reads a `status` on an acceptance criterion**, so
+  the retired markers are inert exactly as claimed and CARD-333 is still the card that
+  makes them real. Fixed in `CARD-316.md` **and** in `CARD-333.md` item 5, where the
+  sentence is that card's inherited warrant — a warrant another card inherits must not be
+  the stale copy.
+- **F3-003 — three provenance shas, each verified rather than taken.** (1) Round 0's
+  commits were named `b4dd33f7` / `5d3674a6`; `git merge-base --is-ancestor` puts
+  **neither** on HEAD — they are pre-rebase orphans, and the branch carries **`ecba9638`**
+  / **`c0802fba`** with the same subjects. The same bullet's "config.yml … follow in a
+  third" is withdrawn: 0 lines of `config.yml` on this branch, and the retraction it meant
+  landed on main as **`a29c3c96`**. (2) The premise block's canonical baseline table —
+  which three other sites point at — labelled HEAD **`50256f93`**, fix round 1's tip,
+  **three** commits behind this gate's tip and already two behind at the reviewed commit;
+  worse, the same paragraph credits a fix-round-2 re-measurement and fix round 2
+  (`bedec18c`, `8d9f27f2`) *postdates* that sha. The label is removed rather than
+  refreshed: the readings are anchored on the endpoints that do not move and on HEAD by
+  name, and the resolved tree is recorded once in the closing stamp. **The figures
+  themselves held at every one of those trees** — this was a stale label on a correct
+  number. (3) CARD-335 was said to be cut at `7b42ab05`; `git log --diff-filter=A` shows
+  `7b42ab05` added `CARD-334.md` and `CARD-335.md` was added by **`4b4b407a`**.
+
+**The gate swept for each corrected figure instead of trusting the review's citation, and
+it mattered once.** Cycle 3 cited the stale `50256f93` label at `:84-89`; the sweep found
+it at a **third** site, `:551` ("0 errors / 88 warnings at each"), inside the fix-round-1
+WARN-set narrative. Fixing only the cited site would have reproduced the finding's own
+shape one paragraph later — the same trap CARD-329's gate hit with its census figure.
