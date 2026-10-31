@@ -3,8 +3,8 @@
 **Status:** ready
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-30 on the owner's "move from raster to vector first". It is on the critical path to CARD-322, which is the card that finally gives the vector interior a reader -- nothing in `src/` turns an interior page into operators until it lands. CARD-330 was already P1; these three are one front and a split priority would have the dispatcher take them in the wrong order. -->
 **Category:** tech-debt
-**Estimate:** 0.75d
-**Complexity:** standard
+**Estimate:** 2d <!-- RE-CUT 2026-10-31 from 0.75d on the owner's "re-cut 329". 0.75d priced the helper fix plus a triage; this card now also REPAIRS the population-B modules its triage names, and builds the verification that makes AC-4 capable of failing. Five modules, a helper, and a harness. -->
+**Complexity:** moderate <!-- RAISED from `standard` at the re-cut: the card now spans a shared helper, five test modules and a verification mechanism, and its conflict surface is what sequences it against CARD-322. -->
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
@@ -16,13 +16,64 @@
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/helpers/pdf_pages.py, tests/test_book_pdf.py
+**Touches:** tests/helpers/pdf_pages.py, tests/test_book_pdf.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_cell_size.py <!-- WIDENED 2026-10-31 at the re-cut, by the five unowned population-B modules. DELIBERATELY EXCLUDED: tests/test_book_difficulty_dots.py and tests/helpers/round_ink.py (CARD-331's, G-3) and tests/helpers/page_ink.py (CARD-330's, G-2). -->
 **Review score:** —
 **Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## [Re-cut 2026-10-31] — the owner's call, and the vacuity it exposed
+
+**Re-cut at the decompose station on the owner's instruction ("re-cut 329"), before
+dispatch.** The question put to them was whether this card should also *repair* the
+population-B modules it classifies, or only triage them; they chose repair. What the
+re-cut changed:
+
+| | was | now |
+|---|---|---|
+| item 3 | classify B, raise scope findings | classify B **and repair** the five it owns |
+| AC-4 | "all 21 modules pass" | passes **under a declaration-lifting probe** |
+| AC-5 | two mutants on the helper | **plus one per repaired module** |
+| AC-6 | — | **new**: the five are repaired, with a stated disposition each |
+| `Touches` | 2 paths | **7** — the five unowned population-B modules added |
+| estimate | 0.75d | **2d** |
+| complexity | standard | moderate |
+
+**The re-cut found a defect worth more than the scope change: AC-4 could not fail.**
+It read "all 21 modules pass" without naming a converted tree — and on `main` nothing
+is converted, so all 21 pass with an empty diff; the suite is green at 10,033. That is
+this family's signature failure, recorded in the orchestrator's own notes after four
+consecutive cards hit it: **a premise about a tree that does not exist, asserted as
+though it did.** The difference here is that it was caught at the decompose station
+rather than in the round, which is where the four earlier ones were caught, and the
+fix is the mechanism rather than the wording — AC-4 now runs under a probe, and the
+round's first job is to record the red count **before changing anything**.
+
+**What this card is NOT, after the re-cut.** It still converts no page and flips no
+rule; CARD-322 performs the conversion. It does not touch the three files owned by
+CARD-330 and CARD-331. And its triage may still report a module outside `Touches` that
+needs an edit — that remains a scope finding to raise, not a licence to widen.
+
+**Conflict graph re-measured at the re-cut** (the widened `Touches` is what changes
+it): CARD-329 ∩ **CARD-331 is EMPTY** and CARD-329 ∩ **CARD-316 is EMPTY**, so this
+card runs concurrently with either. Its one edge is **CARD-329 ∩ CARD-322 =
+`tests/test_book_pdf.py`**, which serializes them in the order already intended —
+this card lands first, and CARD-322 consumes its AC-6 output. No
+`conflict.hotspots` entry is in the widened set.
+
+**Two downstream records already point here, and both were corrected to do so:**
+- **CARD-322's scope note.** It had asked CARD-322 to choose a disposition per module
+  for eleven modules. That per-module disposition is **this card's** AC-6 output, so
+  CARD-322 consumes it rather than producing it. Of the eleven: four are population A
+  (the helper fix reaches them), five are the population-B modules now in this card's
+  `Touches`, one is CARD-331's and one is CARD-330's.
+- **CARD-288**, gated the same day because its performance premise dissolved into
+  CARD-322. Its file (`property/test_book_pdf_geometry.py`) is now in **this** card's
+  `Touches`, so this card is the likely successor for the half that matters — making
+  that module survive the conversion. CARD-288's own subject, not materialising 3,820
+  bitmaps, stays dissolved: after the conversion there are no bitmaps to avoid.
 
 ## Why this card exists
 
@@ -70,14 +121,27 @@ is a **FAILURE**, not a silent pass.
    assertions; `tests/helpers/page_ink.py` holds the independent pixel oracles and is
    **CARD-330's, not this card's** (G-2). Do not fold them together — they exist
    separately on purpose.
-3. **Classify population B per module, don't convert it wholesale.** Nine modules
-   reach the hazard by a different road. For each, derive whether this card's change
-   is enough or whether it needs its own edit, and **say which per module**. A module
-   that needs more is a finding about scope, to be raised.
-4. **Do not convert any page.** This card makes the readers survive a conversion that
-   CARD-322 performs. It can be verified against a page written as operators by a
-   test fixture without changing any production medium (CARD-309's branch shows the
-   assembly point is already injectable for exactly this).
+3. **Classify population B per module, then REPAIR the ones this card owns.**
+   *Re-cut 2026-10-31 on the owner's decision: triage alone was the deliverable and is
+   no longer.* For each population-B module, derive whether item 1's helper change is
+   enough or whether the module needs its own edit — and then **make that edit**, for
+   every module in `Touches`. Three are deliberately **not** this card's and stay
+   excluded by G-2/G-3: `tests/test_book_difficulty_dots.py` and
+   `tests/helpers/round_ink.py` are CARD-331's, `tests/helpers/page_ink.py` is
+   CARD-330's. A module outside `Touches` that the triage finds needs an edit is still
+   a scope finding to be raised, not a silent widening.
+4. **Do not convert any page**, and **verify against a tree where one is converted.**
+   This card makes the readers survive a conversion CARD-322 performs. Two mechanisms
+   exist **on main** for standing that counterfactual up without touching a production
+   medium, and the card must use them rather than reason about the converted tree:
+   - `nonogram.admin.book_interior_vector.interior_generator(book, pages=…)` — merged
+     with CARD-309 and still with **zero production call sites**; its `pages` override
+     exists precisely so a test can hand in a writer set instead of mutating the thing
+     under test, and its own docstring says so. `src/` is **read, never edited** (G-6).
+   - **A declaration-lifting session probe**, the mechanism CARD-331 used to measure a
+     converted tree (29 failed / 160 passed) from a scratchpad plugin that lifts
+     `PageKind.PUZZLE` out of `_RASTER_DECLARATIONS` for one run. Build this card's own;
+     do **not** import a sibling card's scratchpad.
 
 ## Acceptance criteria
 
@@ -93,16 +157,57 @@ is a **FAILURE**, not a silent pass.
   card records population A and population B\A **derived by AST** with their counts,
   and every module is classified — nothing unclassified (ADR-0039/R2). The expected
   counts re-derive CARD-309's: **A = 12**, **B\A = 9**. A different number is a
-  finding, and the derivation is what is asserted, not the number. (test:
+  finding, and the derivation is what is asserted, not the number.
+
+  **A different number has already turned up, so resolve it first.** The orchestrator
+  derived these independently on 2026-10-31 and got **A = 14, B\A = 6**. Neither pair
+  is "right" — they are different *bases*, and the card's own warning that *a mention
+  count is not a reader count* is the reason:
+  - **A = 14** counts modules importing **anything** from the helper; **A = 12** counts
+    modules importing the **reader**. The card already records the gap (`book_corpus.py`
+    imports only `pdf_page_count`, `test_book_toc.py` only `same_page`), so 14 and 12
+    are the same measurement at two filters, and **12 is the one AC-3 means**.
+  - **B\A = 6 vs 9** is not reconciled. The orchestrator's filter required both a
+    page source (`interior`/`interior_pages`) **and** a direct PIL attribute use, which
+    misses a module that hands a page to a helper instead of touching it. **Derive B by
+    the hazard, not by the attribute**: a module reaches it if a page from that source
+    is used as an image anywhere downstream, however indirectly.
+  State the filter for each population in one sentence beside its number, and if the
+  reconciled figure is neither 9 nor 6, that is the finding AC-3 asks for. (test:
   `TestPdfPagesReader_BothReaderPopulationsAreDerived`)
-- **AC-4** (every reader in both populations passes): *Given* the change, *then* all
-  21 modules pass, with **every skip attributed by name** — this suite's skips are
-  `DATABASE_URL`-gated and the browser fixtures refuse loudly without Chromium
-  (ADR-0038/R8), so green-with-skips must not read as verified. (test: the modules
-  themselves, run by node id with `-o addopts=''`)
-- **AC-5** (the change can fail): **Two mutants** — one that makes the reader return
-  a wrong page for an operators page, one at the edge that makes it mis-handle the
-  raster path — both killed. (evidence: the mutant table in `## Worktree notes`)
+- **AC-4** (every reader in both populations passes **on a converted tree**): *Given*
+  a run under this card's declaration-lifting probe — a tree where `PageKind.PUZZLE`
+  is written as operators — *then* every module of population A and population B
+  passes, with **every skip attributed by name** (this suite's skips are
+  `DATABASE_URL`-gated and the browser fixtures refuse loudly without Chromium,
+  ADR-0038/R8, so green-with-skips must not read as verified). (test: the modules
+  themselves, run by node id with `-o addopts=''`, under the probe)
+
+  **THIS AC WAS VACUOUS AS FIRST WRITTEN AND THAT IS WHY IT CHANGED.** It said "all 21
+  modules pass" with no mention of a converted page — and on `main` nothing is
+  converted, so **every one of the 21 passes by doing nothing**: the whole suite is
+  green at 10,033 passed. An AC satisfied by an empty diff is narrative, not coverage
+  (ADR-0039/R1), and it is the same shape this card family keeps producing — a claim
+  about a tree that does not exist, asserted as though it did. The probe is what makes
+  the criterion capable of failing: **run it before changing anything and record the
+  red count**, because that number is the card's starting measurement and its absence
+  is how this AC passed review as written.
+
+- **AC-6** (the population-B modules this card owns are repaired, not just classified):
+  *Given* the probe's run, *then* each of the five population-B modules named in
+  `Touches` — `test_book_pdf_levels.py`, `test_book_pdf_two_up.py`,
+  `property/test_book_pdf_geometry.py`, `test_book_puzzle_frame.py`,
+  `test_book_cell_size.py` — passes under it, and the card states **per module** which
+  of three dispositions it took and why: the helper change sufficed, the module was
+  edited, or the module's claims were retired with a named survivor. A module left
+  green only because the probe does not reach it is **not** repaired, and saying so is
+  the AC. (test: the five modules, by node id, under the probe)
+- **AC-5** (the change can fail): **Two mutants on the helper** — one that makes the
+  reader return a wrong page for an operators page, one at the edge that makes it
+  mis-handle the raster path — both killed. **Plus one mutant per repaired module**
+  (AC-6's five): a plant that re-breaks that module's own repair, each killed, each
+  with its matched control measured green in the same run. A repair with no plant is
+  a claim, not a fix. (evidence: the mutant table in `## Worktree notes`)
 
 ## Guardrails
 
@@ -117,9 +222,12 @@ is a **FAILURE**, not a silent pass.
   `tests/fixtures/**`. No baseline moves in this card.
 - **G-5: no test deleted, renamed, skipped or merged**, `parametrize` ids included
   (gate: node-id set difference with `-o addopts=''`).
-- **G-6: do not edit `src/nonogram/admin/**`.** CARD-309's worktree is open on
-  `book_pdf_generator.py` and `book_interior_vector.py`; this card is test-side only
-  and its `Touches` says so.
+- **G-6: do not edit `src/nonogram/admin/**`.** This card is test-side only and its
+  `Touches` says so. *(De-staled 2026-10-31: the original reason was "CARD-309's
+  worktree is open on those files" — CARD-309 **merged** as `db366763`, so that reason
+  is gone and the guardrail is not. It stands on its own: this card makes readers
+  survive a conversion, and CARD-322 performs the conversion. `interior_generator` and
+  the declaration probe are both read-only uses of `src/`.)*
 - **G-7: probes stay OUT of `tests/`** (`RENDER_HEAVY_SNAPSHOT`).
 
 ## System contract
