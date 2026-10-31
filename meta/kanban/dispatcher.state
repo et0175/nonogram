@@ -190,7 +190,54 @@ active:
   cycle1_score: 6.5
   fix_round: 2
   fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 scored 7.5
-  fix_round_2: reported 2026-10-31, all three closed + the inline item; cycle 3 dispatched
+  fix_round_2: reported 2026-10-31, all three closed + the inline item; cycle 3 scored 9.0
+  cycle3_score: 9.0
+  certified: true
+  awaiting: merge gate -- blocked only on CARD-316's fix round releasing the full suite
+  # CYCLE 3 = 9.0, CARD CERTIFIES, no Critical and no Important. It does NOT
+  # escalate. One Minor open (F-011) and deliberately not gating.
+  # F-008 MEASURED SHUT IN BOTH DIRECTIONS at a temp worktree on the pre-fix
+  # commit: unplanted 11 passed; the colliding REGISTERED bare name 11 passed /
+  # 0 failed -- the whole pin green, the hole reproduced; the identical site
+  # UNREGISTERED 2 failed -- so registration is the only variable. Post-fix all
+  # four plants KILLED and the pin class 12 passed / 0 failed / 0 skipped.
+  # THE BEST THING IN THIS ROUND: it tried to EVADE its own ast control rather
+  # than trusting it. A plant reverting the register to bare names AND stripping
+  # the class INLINE in both denies, never calling the helper the ast check
+  # looks for, still reds TWO OTHER CELLS. So the hole cannot be reopened
+  # silently: the fix is closed in depth, not merely at the ast check.
+  # Depth sequence re-derived on its own instrument: 9/38/101/121/121, settling
+  # at 4 rounds on a fixed point of 121 names, and the depth-2 set of 101 does
+  # NOT contain the depth-3 name -- so the new assertion genuinely reds a hard
+  # stop at 2. Cycle 2's scope limit is closed.
+  # 5.46 CONFIRMED to five places (5.46457). My brief and cycle 2's YAML were
+  # both wrong at 5.47.
+  # TWO MORE CORRECTIONS AGAINST MY BRIEF, and both are mine:
+  #   My plant-scope sentence was INVERTED. I wrote "the 11 plants targeting
+  #   untouched files were not re-fired". It is 13 that target untouched files
+  #   (sound to carry, delta-clean), and 11 that target the file IN the delta --
+  #   of which 7 were NOT licensed to carry. The round fired all seven: six
+  #   KILLED and the declared survivor survived. All 11 in-delta plants are now
+  #   re-fired at HEAD.
+  #   My correction #3 was UPHELD ON THE COUNT AND REFUTED ON THE
+  #   CHARACTERISATION. Three cells did consult the register, but the existence
+  #   cell could NOT have gone on silently resolving bare names -- measured,
+  #   that degradation reds two cells. It was a FORCED co-change with a loud
+  #   failure mode, not a third silent hole; the two silent holes were the two
+  #   denies. That strengthens the fix rather than weakening it: the existence
+  #   cell is the backstop that makes the hole un-reopenable.
+  # F-011 (Minor, OPEN): three provenance figures left at round-1 values, each
+  # stale by exactly the increment the round itself caused -- impact 346 -> 347,
+  # a symbol count the same card states as 59 twenty lines earlier, and a census
+  # passed figure one node light. Every one off by one in the HARMLESS direction,
+  # none load-bearing for a disposition or a guardrail, and the one gate figure
+  # among them is BETTER at HEAD than claimed. Worth fixing before merge; not
+  # worth escalating a card over. FIX THESE AT THE MERGE GATE.
+  # ROUTED TO CARD-335: the plant-naming rule's standing half. Sufficient in a
+  # harness docstring for this card, insufficient as a project rule, because the
+  # detector is a script someone must remember to run rather than a cell or a
+  # gate step -- and CARD-335 already owns the same TEXT-search hazard across
+  # 245-322 files. The cheap next step there is to make the detector a gate step.
   cycle2_score: 7.5
   fix_findings: [F-008, F-009, F-010]
   # FIX ROUND 2 REPORTED 2026-10-31, HEAD ea248582 -> d2a8f928 (63451728 the
@@ -551,7 +598,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T10:05:00Z'
+last_updated: '2026-10-31T10:35:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
