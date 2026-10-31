@@ -853,6 +853,18 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   #   | raster INK, `page_ink.drawing_of`     | boundary - 2 px          |
   #   | vector INK, poppler at 300 DPI        | boundary - 3 px          |
   #
+  # AMENDED 2026-10-31 (CARD-330 fix round 1, cycle 1's F-003): the stream
+  # row's `< 1.5 px` was the DERIVED ceiling of three half-pixel roundings,
+  # not a measurement, and it was the only control the claim had. Measured
+  # over the same corpus, the worst spec-against-stream disagreement is
+  # **1.0 px exactly** (0.0847 mm, `grid_bottom` in FR-032's footer-bound arm
+  # — the edge anchored on the rounded trim extent, as the derivation
+  # predicts), and the test now asserts **1.05 px** = 0.0889 mm, which is
+  # inside the 0.1 mm placed-edge bound this card declined to widen. The
+  # drawing's own outer edges are at **0.5437 px** (0.0460 mm), asserted at
+  # 0.6 px. The 1.5 px above remains true and is kept as the derivation's
+  # documented ceiling; it is no longer what anything is asserted against.
+  #
   # **So CARD-309's "the two media place the same grid 2 device pixels apart"
   # is not what was measured.** The two numbers it subtracted — ink
   # `grid_left/right` 963/1849 against stream 965/1851 — are an ink EXTENT and

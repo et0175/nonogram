@@ -167,11 +167,24 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
 ## Acceptance criteria
 
 - **AC-1** (the three numbers exist, per edge, derived): *Given* a seeded corpus
-  spanning trims and page counts, *then* for every edge of every case the card
-  records **specified / raster / vector** in millimetres, with the specified value
-  derived from the page spec rather than read from either renderer, and a minimum
-  case count asserted inside the test. (test:
+  spanning trims, interior **page numbers at both parities** and both arms of
+  FR-032's vertical placement, *then* for every edge of every case the test
+  reads **specified / raster / vector** in millimetres, the card records the
+  **relation** those three stand in — in millimetres, with one worked case
+  carrying the per-edge figures — the specified value is derived from the page
+  spec rather than read from either renderer, and a minimum case count is
+  asserted inside the test **against the enumerated span rather than against
+  the generator that built the corpus**. (test:
   `TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge`)
+  <!-- AMENDED 2026-10-31, fix round 1, cycle 1's F-103: this read "spanning
+  trims and page counts" and "the card records specified / raster / vector in
+  millimetres". Page *count* is not a swept variable and never was — the
+  corpus sweeps 24 interior page NUMBERS, whose parity is the geometrically
+  operative part, and asserts that parity as a set equality. And what the card
+  records is the relation, with the per-edge millimetre figures living in the
+  test; one worked case is now in the table below so a reader does not have to
+  run it. The final clause is new in the same round, from F-001: a floor read
+  off the generator is not a minimum. -->
 - **AC-2** (the offset is characterised, not assumed): *Given* those numbers, *then*
   the card states whether the gap is **uniformly 2 px at the render DPI** on all four
   edges and across the corpus, or is not — and if it is not uniform, that is recorded
@@ -219,7 +232,15 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
 
 ## System contract
 
-- ADR-0042/R6 — a claim about an interior page is asserted against the content stream, with the independent oracles exempt by name (check: CARD-299's; this card disposes of two of those oracles)
+- ADR-0042/R6 — a claim about an interior page is asserted against the content stream, with the independent oracles exempt by name (check: **review-lens**; CARD-299 owes the flip; this card disposes of two of those oracles)
+  <!-- CORRECTED 2026-10-31, fix round 1, cycle 1's F-105: this row read
+  "(check: CARD-299's)", which reads as mechanically checked. Re-derived from
+  the ADR: R6's block carries `check: {kind: review-lens}`, and its own
+  comment records that CARD-299 was dispatched to flip the check to the
+  planned test and deliberately did NOT — the lens MUST survive CARD-299 by
+  the same decision, and the flip is CARD-312's. The board's standing rule is
+  the one being met: a planned test ref reads as mechanically checked, so use
+  review-lens plus a named card owing the flip. -->
 - ADR-0042/R1 — interior pages are operators (check: review-lens — **this card does not flip it**)
 - ADR-0037/R2 — the device floor (check: review-lens; the 2 px figure is a device fact and R2's own subject)
 - ADR-0039/R1 — a claim needs a control that CAN fail (check: AC-4's mutant pair)
@@ -241,9 +262,18 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
 **Measured 2026-10-31.** Corpus: 24 puzzle pages, hand-built with
 `random.Random(330 + index)`, over three trims (8.5x11, 7.5x9.25, 6x9 in), both
 parities, both arms of FR-032's vertical placement (`ratio` and `footer`), every
-page framed. **96 grid-edge readings**, minimum asserted inside the test
-(`_MIN_EDGE_CASES = 24`, `_MIN_EDGE_READINGS = 96`), so it cannot silently
-shrink. `tests/test_book_pdf.py::TestEdgeOffset_*`, 24 tests, all green.
+page framed. **96 grid-edge readings.** `tests/test_book_pdf.py::TestEdgeOffset_*`,
+**25 tests** (24 at cycle 1, one added in fix round 1), all green.
+
+The minimum is asserted inside the test, and **fix round 1 is what made that
+sentence true**: at cycle 1 the floor was the same constant the fixture counted
+with, so `len(corpus) >= _MIN_EDGE_CASES` was satisfied by construction for any
+value of it — re-measured, lowering it to 3 left all 24 tests green with 87.5 %
+of the corpus gone. The floor is now the literals `_MIN_EDGE_CASES = 24` and
+`_MIN_EDGE_READINGS = 96`, asserted **equal to the enumerated span** AC-1 names
+(3 trims x 2 parities x 2 vertical bounds x 2 draws, and 24 x `len(_GRID_EDGES)`),
+with the fixture counting from a separate `_EDGE_CASE_COUNT`. See the fix-round
+section below for the mutants.
 
 **Instruments, with their domains** — this is the whole finding:
 
@@ -257,22 +287,52 @@ shrink. `tests/test_book_pdf.py::TestEdgeOffset_*`, 24 tests, all green.
 **The three numbers per edge.** Uniform over all 24 cases and all four edges —
 these are set equalities in the tests, not averages:
 
-| reading | where it lands | mm |
+| reading | where it lands | mm from the boundary |
 |---|---|---|
-| **specified** (derived) | the boundary | — |
-| **vector**, content stream | the boundary, worst gap **1.0 px** over the corpus | — |
-| raster rule **centreline** (`Layout.position`) | the boundary | — |
-| **raster**, ink (`drawing_of`) | boundary **- 2 px** | -0.1693 |
-| vector, ink (poppler 300 DPI) | boundary **- 3 px** | -0.254 |
+| **specified** (derived) | the boundary | 0 — it *is* the boundary |
+| **vector**, content stream | the boundary, worst gap **1.0 px** over the corpus | ≤ **0.0847** |
+| raster rule **centreline** (`Layout.position`) | the boundary | 0.0000, to the pixel |
+| **raster**, ink (`drawing_of`) | boundary **- 2 px** | **-0.1693** |
+| vector, ink (poppler 300 DPI) | boundary **- 3 px** | **-0.254** |
+
+1 device pixel at the interior's own 300 DPI is `25.4 / 300` = **0.084667 mm**,
+which is where every figure in the `mm` column comes from.
+
+**And one worked case, per edge, in millimetres** — F-103 asked for this
+rather than the relation alone. Derived, not retyped: printed by
+`scratchpad/card330/one_worked_case.py 0`, which calls the test module's own
+`_edge_case`. Case 0 is `29x12 d1 page 6 on 216x279 mm`, vertical bound
+`ratio`, framed. The content stream carries no `drawing_*` operand — a framed
+drawing's outer edge is the `re`, not a grid rule — so that column is blank by
+construction and not by omission:
+
+| edge | specified | stream | raster ink | vector ink |
+|---|---|---|---|---|
+| `grid_left` | 19.050 | 19.050 | 18.881 | 18.796 |
+| `grid_right` | 203.200 | 203.200 | 203.031 | 202.946 |
+| `grid_top` | 85.657 | 85.683 | 85.513 | 85.429 |
+| `grid_bottom` | 161.857 | 161.883 | 161.713 | 161.629 |
+| `drawing_left` | 12.700 | — | 12.700 | 12.446 |
+| `drawing_top` | 79.307 | — | 79.333 | 79.079 |
+
+Read off that one case: `19.050 - 18.881 = 0.169` mm (2 px) on the grid's left
+edge, a further 0.085 mm (1 px) to the vector's ink, and `12.700 - 12.446 =
+0.254` mm (3 px) on the drawing's own left edge — the three figures of the
+table above, in one page's numbers.
 
 and on the drawing's own outer edges — `Drawing.left`/`top`, which is what every
 25.45 mm assertion in `tests/test_book_pdf.py` actually reads:
 
-| reading | where it lands |
-|---|---|
-| **specified** | the margin |
-| **raster**, ink | the margin, within 1.0 px (sub-pixel rounding only) |
-| vector, ink | the margin **- 3 px** = **0.254 mm** |
+| reading | where it lands | mm from the margin |
+|---|---|---|
+| **specified** | the margin | 0 — it *is* the margin |
+| **raster**, ink | the margin, within **0.5437 px** (sub-pixel rounding only) | ≤ **0.0460** |
+| vector, ink | the margin **- 3 px** | **-0.254** |
+
+The raster figure was "within 1.0 px" at cycle 1, which was the *derived*
+ceiling and not a measurement; fix round 1 measured the worst case over the
+corpus at **0.5437 px** (`16x25 d5 page 13 on 190x235 mm`, `drawing_left`) and
+the test now asserts 0.6 px rather than 1.5 (F-003).
 
 **Re-derived on CARD-309's own fixture, so the card's own figure is not taken on
 trust:** ink `grid_left/right` **963/1849**, stream **965/1851** — exactly as
@@ -334,12 +394,36 @@ re-tuned. They are **pinned**, and the pin is mechanical so that a conversion
 cannot slip past it: `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`
 walks this module with `ast`, finds every function that names
 `EDGE_TOLERANCE_MM`, and requires each to read its page through `drawing_of` and
-none through a content-stream reader. Default-DENY per ADR-0039/R2. Two named
-exemptions (sites that assert the bound or compare two media rather than
+none through a content-stream reader. Default-DENY per ADR-0039/R2. **Three**
+named exemptions (sites that assert the bound or compare two media rather than
 measuring a page), and a second test asserts every exempted name still exists,
 so the list cannot rot into a blanket exemption. `EDGE_TOLERANCE_MM` itself
 carries the one-line statement of which medium it was measured in and which card
 retires it.
+
+**Fix round 1 made the walk's key unique, and that is what makes the
+default-DENY sentence above true.** At cycle 1 the map was keyed on the bare
+function name, and this module holds two different tests called
+`test_the_drawing_sits_25_45_mm_from_the_left_trim_edge` — one on the
+right-hand page, one on the left. One of the two was overwritten and never
+checked, so the guard's verdict depended on `ast` walk order rather than on the
+code: converting the right-hand site to a content-stream reader left all four
+pin assertions green, while the identical change to the left-hand one red two.
+The key is now the **class-qualified** name, the walk returns a list so the key
+count can be asserted equal to the site count, both members of that collision
+are named in `_COLLIDING_SITES` and asserted present, and the exemption
+register matches on the function part. Neither test was renamed (G-6).
+
+**Re-derived counts, with the basis stated** — the figure differs by basis and
+the defect does not, so both are recorded:
+
+| basis | naming functions | distinct keys |
+|---|---|---|
+| the guard's own walk (`ast.Name` id is `EDGE_TOLERANCE_MM`), bare key | **15** | **14** |
+| the same set, class-qualified key | **15** | **15** |
+| `test_`-prefixed functions whose source *text* mentions it, bare key | **17** | **16** |
+
+Exactly one site is lost on either basis, and it is the same one.
 
 ### [`EDGE_TOLERANCE_MM`: unchanged]
 
@@ -451,6 +535,197 @@ insertions.
 No rule flipped, no page converted, `_RASTER_DECLARATIONS` untouched; AC-6's
 evidence is the existing `test_no_declaration_outlives_the_cards_that_remove_it`
 run unmodified, green in the 834-passed run above.
+
+### [Fix round 1 — two guards stop asserting a strength they do not have]
+
+**Cycle 1 scored 7.5** (min_score 8) and did not dent the conclusion: the
+reviewer re-derived the premise-false finding from scratch, found the raster
+renderer's own `Layout` placing the vertical borders at **965 / 1851** —
+identical to the stream's operands, ink at 963 / 1849, no residual anywhere in
+the chain — and confirmed both retractions from source. **Nothing in this round
+changes a measured figure.** What it changes is two controls whose prose said
+closed and whose mechanism was open, plus three cheap documentation gaps.
+`src/` is still untouched (`git diff --name-only db366763..HEAD -- src/` is
+empty), no page is converted, no rule is flipped, and the ADR diff is still
+**zero deletions** (160 insertions now, 12 of them this round).
+
+**F-001 — the corpus floor was self-referential, and it enforced 3, not 24.**
+The fixture built the corpus as `range(_MIN_EDGE_CASES)` and the guard then
+asserted `len(corpus) >= _MIN_EDGE_CASES`; `_MIN_EDGE_READINGS` restated the
+same tautology. Both sides read one constant, so neither assertion could fail
+for any value of it. The floor is now the literals 24 and 96, asserted **equal
+to the enumerated span AC-1 names** — `len(_EDGE_TRIMS) * len(_EDGE_PARITIES) *
+len(_EDGE_BOUNDS) * _EDGE_DRAWS_PER_COMBINATION`, and `_MIN_EDGE_CASES *
+len(_GRID_EDGES)` — and the fixture counts with its own `_EDGE_CASE_COUNT`.
+Dropping a span dimension reds the floor; shrinking the corpus reds the floor;
+lowering the floor reds the span equality. This is **CLAUDE.md's test style**
+in terms, not merely ADR-0039/R1: *"'property' tests instead build large seeded
+corpora by hand with stdlib `random.Random`, asserting a minimum case count
+inside the test itself so the corpus can't silently shrink. Prefer an
+independent second implementation over re-deriving a value with the same
+function you're testing."* The span is enumerated; it is not the generator
+re-read. **G-5 is honoured in the direction it points: no minimum was lowered,
+one was made real.**
+
+**F-002 — the medium pin dropped a site instead of failing.** Keyed on
+`node.name`, and this module holds two different tests named
+`test_the_drawing_sits_25_45_mm_from_the_left_trim_edge` (right-hand page, and
+left-hand page, in two classes). The key is now class-qualified, the walk
+returns a list so the key count is asserted equal to the site count, both
+colliding keys are named and asserted present, and `_BOUND_ONLY_SITES` matches
+on the function part. **No test was renamed** (G-6) — renaming was the obvious
+shortcut and is the one the guardrail forbids. See the counts-by-basis table
+above; the defect is exactly one lost site on every basis.
+
+**F-003 — AC-1's only control was 1.5 px, which is 0.127 mm.** Wider than the
+0.1 mm this card refused to widen, and the reviewer measured both 1.05 and
+12.0 passing, so that one constant decided AC-1's answer. There are now **two**
+live bounds, both measured rather than derived: `_SPEC_MEASURED_PX = 1.05` on
+the grid edges (measured worst **1.0 px** exactly) and
+`_SPEC_DRAWING_MEASURED_PX = 0.6` on the drawing's own edges (measured worst
+**0.5437 px**). `_SPEC_ROUNDING_PX = 1.5` stays as the *documented* derived
+ceiling and is asserted to be a ceiling; the span test also asserts
+`_SPEC_MEASURED_PX / PX_PER_MM < _STATED_EDGE_TOLERANCE_MM`, so the
+derivation's bound can never drift back out past the placed-edge bound it is
+not. **F-003 was not permission to widen anything, and nothing was widened:
+`EDGE_TOLERANCE_MM` is still `0.1` and `EDGE_TOLERANCE_EXEMPTIONS` is still
+empty (G-1).**
+
+**F-105** — the System contract's R6 row said "check: CARD-299's". Re-derived
+from the ADR: R6 carries `check: {kind: review-lens}` and its own comment
+records that CARD-299 was dispatched to flip it and deliberately did not. The
+row now says review-lens with CARD-299 owing the flip.
+
+**F-103** — AC-1 said "page counts" where the corpus sweeps page *numbers* and
+their parities, and said the card records the three numbers in millimetres
+where the `mm` column was empty in three of five rows. AC-1 is amended and the
+tables above now carry the millimetre figures plus **one worked case**, derived
+by `scratchpad/card330/one_worked_case.py` rather than retyped.
+
+#### [Fix-round mutants — 8 planted, matched pre and post]
+
+Protocol as cycle 1's: committed **before** mutating (`90d300ae`; for the
+`pre` phase the fix sat in `git stash`, not in the working tree, so
+`git checkout --` could not discard it), anchors located by **text** and
+asserted unique in both phases, SHA-256 before each plant and back to the
+identical digest after restore, `*.pyc`/`__pycache__` swept before and after
+each, `PYTHONDONTWRITEBYTECODE=1`, `-o addopts=` with `-p no:randomly`, and a
+**non-zero count asserted on every run** (a `-k` that selects nothing exits 0).
+Driver `scratchpad/card330/mutate_fixround.py`, committed beside cycle 1's.
+
+| # | finding | mutation | region | **pre** (54e9e553) | **post** (90d300ae) | what reds now |
+|---|---|---|---|---|---|---|
+| R1 | F-001 | the corpus shrinks to 3 cases, floor untouched | inside | **SURVIVED** 24 passed, 1.39 s | **KILLED** 3 failed | the span test + both uniformity floors |
+| R2 | F-001 | 24 -> 23: the smallest shrink there is | edge | **SURVIVED** 24 passed, 6.49 s | **KILLED** 3 failed | the same three |
+| R3 | F-001 | the **floor** halved to 12 | edge | **SURVIVED** 24 passed, 3.65 s | **KILLED** 1 failed | the span equality |
+| R4 | F-002 | the **first** colliding site reads a content stream | inside | **SURVIVED** 4 passed | **KILLED** 2 failed | the raster-oracle and no-stream pins |
+| R5 | F-002 | the **second** of the pair, identical change | edge | **KILLED** 2 failed | **KILLED** 2 failed | the same two — the matched control that makes R4 a measurement |
+| R6 | F-002 | the key reverts to the bare function name | inside | *no anchor* (it mutates the fix) | **KILLED** 1 failed | the new collision control |
+| R7 | F-003 | the derived column moves 0.3 px (worst gap 1.3 px) | inside | **SURVIVED** 24 passed | **KILLED** 2 failed | both derivation arms |
+| R8 | F-003 | 0.06 px: the smallest move the measured bound catches | edge | **SURVIVED** 24 passed | **KILLED** 1 failed | the grid-edge arm |
+
+The nodes each one reds, by id (all under `tests/test_book_pdf.py`):
+
+* R1, R2 — `TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge::test_the_corpus_spans_trims_parities_and_both_vertical_bounds`, `TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels::test_the_rasters_ink_is_two_device_pixels_outside_the_stream_on_every_edge`, `…::test_the_two_media_ink_differs_by_one_device_pixel_not_two`
+* R3 — the span test alone (the floor's own control, which is the point)
+* R4, R5 — `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium::test_every_site_reads_its_page_through_the_raster_ink_oracle` and `…::test_no_site_reads_a_content_stream`
+* R6 — `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium::test_no_two_sites_collapse_into_one_key`
+* R7 — `TestEdgeOffset_TheThreeNumbersAreDerivedPerEdge::test_the_specified_position_is_where_the_content_stream_puts_the_grid` and `TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels::test_the_drawings_own_edge_is_where_the_media_pass_the_tolerance`
+* R8 — the grid-edge arm alone
+
+**R1/R2/R3 are the control F-001 said was missing**: a plant that shrinks the
+corpus, or lowers the floor, with nothing else touched. All three were absorbed
+silently before this round and all three red now.
+
+#### [Fix round 1 — node ids, and the run]
+
+`ast` set difference on `tests/test_book_pdf.py`, test-prefixed functions,
+class-qualified, cross-checked against `--collect-only -q` with `-o addopts=`:
+
+| from | to | ast ids | removed | added | collected |
+|---|---|---|---|---|---|
+| `db366763` (the cut) | `90d300ae` | 84 -> 109 | **0** | **25** | 88 -> 113 |
+| `54e9e553` (cycle 1) | `90d300ae` | 108 -> 109 | **0** | **1** | 112 -> 113 |
+
+The one added id is
+`TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium::test_no_two_sites_collapse_into_one_key`.
+The 4-id gap between the `ast` count and the collected count is the module's 3
+pre-existing `parametrize` decorators and is the same on both sides. **G-6
+holds: nothing deleted, renamed, skipped or merged.**
+
+| run | result | skips |
+|---|---|---|
+| `tests/test_book_pdf.py` whole module | **113 passed** | **0** |
+| the 9-module impact set (`test_book_pdf`, `test_book_puzzle_page_vector`, `test_book_page_frame`, `test_book_pdf_two_up`, `test_book_export_interior_cover`, `test_book_grid_rules`, `test_book_pdf_memory`, `test_suite_profile`, `test_check_ref_resolution`), `-rs` | **941 passed** | **1** |
+
+**Skip attribution — the same one skip, and it is still not this card's.**
+`tests/test_book_pdf_memory.py:1297`, the `setrlimit(RLIMIT_AS)` cell: a
+**platform** gate whose own message says the kernel refuses every soft limit on
+this host. Pre-existing, in a module this card touches only through a comment in
+`page_ink`. **Zero skips introduced by this round.** `meta/kanban/.full-suite.lock`
+absent throughout and never written; `NONOGRAM_IGNORE_FULL_SUITE_LOCK` never
+set; the full suite was not run (impact scope).
+
+#### [Routed residue — real, and not this card's]
+
+* **F-101 → CARD-322.** The pin has no honest exemption class for a site
+  *legitimately* converted to the stream, which is the direction ADR-0042/R6
+  mandates. The only pre-built hatch is `_BOUND_ONLY_SITES`, whose declared
+  meaning is "names the bound without measuring a page" — a converted site does
+  measure a page, so adding it there would make that register's own
+  documentation false. **Measured as part of this round**: the register has 3
+  names, every one asserted to exist, and the pin's predicate is "every
+  non-exempt site names the raster", not "every site names exactly one medium
+  and which one is recorded". The honest move is the second predicate, or a
+  separately-named `_STREAM_PINNED_SITES` with its own exists-control. It
+  belongs with the conversion: CARD-322 owns it, and the pin reds on arrival
+  by design so the medium has to be restated deliberately.
+* **F-102 → CARD-322.** `_specified_grid_mm`'s **vertical** arm re-implements
+  the renderer's clearance *algorithm* rather than the specification:
+  `-(-_RASTER_HEAVY_PX // 2) + -(-_furniture_px // 2) + 1`, with a hard-coded
+  `_furniture_px = 3` and a "+1 makes clear strict" pixel. So it can inherit
+  the same mistake, and the anti-copy control
+  (`…is_not_either_mediums_ink_reading`) only proves the column is not a
+  renderer *reading*, not that it is not a renderer *rule transcribed*. The
+  **horizontal** arm is genuinely spec-derived (trim/gutter/outside/band/cell,
+  written out in this module rather than imported) and was confirmed as such.
+  **The card's conclusion does not rest on the vertical arm**: it rests on
+  `Layout.position == stream operand` and `ink = position - (w-1)//2`, both
+  verified without the derived column at all. Recorded here rather than
+  repaired, because narrowing the derivation is work on the geometry CARD-322
+  converts.
+* **F-104 — pre-existing and out of scope, deliberately not repaired.**
+  CON-019's check ref resolves to no `def` or `class` line anywhere in the
+  repository; its hits are two docstrings, three registry files and **two
+  previously synced review YAMLs**, so the validator's text search is currently
+  satisfied by prose. That is the dead-ref family CARD-316 / CARD-317 /
+  CARD-319 own. **No review YAML was edited in this round**, which is the one
+  move that would make the ref look alive again.
+* **F-106 / F-107 — confirmations, nothing to do.** The reviewer independently
+  reproduced both incidental findings (`pdf_vector.rendered_page` defaulting
+  `out_dir` to the cwd; `test_book_grid_rules.py:210`'s own fallback) and the
+  documented instrument error (the stored 235 mm trim against the 2774 px
+  MediaBox = 1.64 px), and judged both dispositions correct.
+
+#### [Declarations re-derived in this round]
+
+* **F-001** — the Worktree notes' "minimum asserted inside the test … so it
+  cannot silently shrink" and the span test's own docstring both now say what
+  the code does, and say what it did before. AC-1 gained the clause that a
+  floor is asserted against the span and not the generator.
+* **F-002** — the pin class's "Default-DENY per ADR-0039/R2" docstring now also
+  covers a site that cannot be *told apart*, and the disposition section says
+  the key is class-qualified and why. The exemption count in that section was
+  "two"; it is three, re-counted off the register.
+* **F-003** — `_SPEC_ROUNDING_PX`'s own comment says it is the derivation's
+  ceiling and no longer a live bound; ADR-0042's three-number table gained a
+  zero-deletion amendment recording the measured 1.0 px / 0.5437 px and the
+  asserted 1.05 px / 0.6 px, because the ADR's `< 1.5 px` row was the looser
+  fact a reader would have inherited. The card's own two tables carry the
+  figures.
+* **F-105 / F-103** — the card's System contract row and AC-1, both corrected
+  against the artefact they describe rather than reworded.
+* **No `src/` declaration changed**, because no `src/` behaviour did.
 
 ### [Findings for other cards]
 
