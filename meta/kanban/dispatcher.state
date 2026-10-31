@@ -69,10 +69,10 @@ max_concurrent_override: 2
 active:
 - id: CARD-330
   phase: review
-  cycle: 1
+  cycle: 2
   cycle1_score: 7.5
-  fix_round: 1
-  fix_findings: [F-001, F-002, F-003, F-103, F-105]
+  fix_rounds_done: 1
+  cycle1_fixed: [F-001, F-002, F-003, F-103, F-105]
   routed_to_card_322: [F-101, F-102]
   routed_dead_ref_family: [F-104]
   branch: card/330-edge-offset-is-two-device-pixels
@@ -90,11 +90,13 @@ active:
     be widened to admit the more accurate medium.
 - id: CARD-318
   phase: review
-  cycle: 2
+  cycle: 3
   cycle1_score: 7.0
   cycle2_score: 8.5
-  fix_round: 2
-  fix_findings: [F-009]
+  fix_rounds_done: 2
+  cycle2_fixed: [F-009, F-004]
+  # Cycle 3 is the LAST max_cycles allows: it certifies or the card lands as a
+  # declaration on the owner's call.
   # min_score 8 is MET at 8.5; certification also needs no open Important, and
   # F-009 is one. Cycle 3 follows and is the LAST max_cycles allows.
   cycle2_closed: [F-001, F-002, F-003]
