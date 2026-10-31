@@ -186,10 +186,43 @@ max_concurrent_override: 2
 active:
 - id: CARD-329
   phase: review
-  cycle: 1
+  cycle: 2
   cycle1_score: 6.5
   fix_round: 1
+  fix_round_1: reported 2026-10-31, all seven findings fixed; cycle 2 dispatched
   fix_findings: [F-001, F-002, F-003, F-004, F-005, F-006, F-007]
+  # FIX ROUND 1 REPORTED 2026-10-31. Commits 7ee79b55 (F-001/002/003/007, code),
+  # b609e675 (F-004/005/006 + two self-raised corrections), ea248582 (card only).
+  # 20 plants, 18 killed, 2 DECLARED survivors (MUT-11 and MUT-16b).
+  # ORCHESTRATOR FIRED F-001's CENTRAL CLAIM MYSELF, because it is the one the
+  # fix stands or falls on and cycle 1 had watched the plant survive. Planting
+  # the medium crossing at the module's own page-source helper: BASELINE both
+  # cells pass; PLANTED the new closure deny KILLS and the depth-0 deny does
+  # NOT. So they are two assertions, not one written twice, and MUT-16b's
+  # declared survival is honest by construction. Tree restored, sha256 identical.
+  # It also CORRECTED CYCLE 1's FRAMING: the chain is THREE frames deep, not
+  # one -- site -> _mirrored_pages -> _interior -> interior_pages -- so the
+  # helper is depth 1 from the site, not depth 0. Cycle 1 picked the right
+  # plant site and the wrong depth.
+  # Scope and arithmetic verified before dispatch: src/ untouched, tree clean,
+  # and all three figures exact -- 66+2+38+29+16 = 151, 1088+108+20+7 = 1223,
+  # 339+7 = 346.
+  # TWO CORRECTIONS IT RAISED AGAINST ITS OWN CARD, which is the shape that
+  # cost it 6.5 in the first place: the geometry row's 0.254 mm was its own
+  # aliasing figure stated wider than measured -- the four residuals are
+  # 0.2626 / 0.2993 / 0.2880 / 0.2887 mm, LARGER than 0.254, so the aliasing
+  # measurement is a LOWER BOUND on what a conversion moves there and the
+  # disposition is strengthened, not weakened. And the validator hedge retired
+  # on both halves.
+  # DISCLOSED AGAINST ITSELF: it wrote placeholder hashes into the live
+  # meta/review/CARD-329-cycle1.yml by accident (a sed whose path literal spans
+  # two source lines, so it never matched a copy), caught it, and replaced them
+  # with the real hashes. Cycle 2 verifies that YAML's integrity.
+  # OPEN FOR CYCLE 2, the round's own one judgement call: the closure deny
+  # exempts _BOUND_ONLY_SITES, and both of its two media-comparison sites
+  # genuinely do reach the stream readers through the edge helper -- that is
+  # their job. It is the one place a future site could dodge the closed deny by
+  # being added to that register, and CARD-322 edits exactly these sites.
   # 6.5, and the review's own summing-up: "unusually strong -- every load-bearing
   # figure reproduces, the medium gap it found is real and its fix is proven by
   # measurement in both directions, and its refusals to force things green are
@@ -252,9 +285,10 @@ active:
     declaration-lifting session probe of the kind CARD-331 used.
 - id: CARD-316
   phase: review
-  cycle: 1
+  cycle: 2
   cycle1_score: 6.0
   fix_round: 1
+  fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 dispatched
   fix_findings: [F-001, F-002, F-003, F-004, F-005, F-007, F-008, F-012]
   # 6.0, and the review was explicit the score is NOT a verdict on what shipped:
   # every central claim reproduced under an instrument sharing no code with the
@@ -287,6 +321,40 @@ active:
   # to ALL ELEVEN criteria -- its own seven plus FR-001's four from CARD-317 --
   # with AC-379 excepted, being a FORWARD declaration owed by CARD-226 rather
   # than a retirement.
+  # FIX ROUND 1 REPORTED 2026-10-31, HEAD 50256f93. All eight dispatched
+  # findings plus four more (F-006/F-009/F-010/F-011). Two commits, 930afc94
+  # and 50256f93, on a branch REBASED onto main's 9932bb07.
+  # F-002 verified closed by the orchestrator: `git diff -- meta/kanban/config.yml`
+  # is 0 lines, so the branch's edit is gone rather than merely reconciled, and
+  # 9932bb07 really is an ancestor. src/ 0 files; 7 files, +1283/-93.
+  # ORCHESTRATOR EXPECTATION REFUTED, AND THE ROUND IS RIGHT. I briefed it to
+  # expect CENSUS 573 -> 569 and HONEST_DEAD 9 -> 5 when the four phantom keys
+  # went. It measured 573 -> 573 and 9 -> 9, because the same four refs are
+  # ALSO declared by meta/architecture/trace.yml, which this card does not
+  # touch. Checked myself: trace.yml:109-113 carries them on the superseded
+  # FR row, and the card's diff against that file is 0 lines. So dropping a key
+  # removes a declaration SITE, not the DECLARATION -- and a census counts refs,
+  # not sites. This is the same confusion that produced the vector family's
+  # false premises, arriving this time in my own brief.
+  # The retirement landed as THREE words, not one, and the two new ones were
+  # chosen rather than invented: `rejected` for four never-adopted DEC
+  # alternatives, `retired` for two adopted-then-amended-away (the word ADR-0027
+  # and ADR-0034 already use), `superseded` kept for FR-001's four. AC-379
+  # excepted as the owner decided. Validator 88 -> 88, with the WARN set moving
+  # 4 OUT (dead ref) and 4 IN (no test:) and nothing else either way -- exactly
+  # the net-zero trade CARD-317 measured and this entry predicted.
+  # F-004 RECORDED AS A BOUND, no guard built, as the finding asked: the pins
+  # see a phantom enter and a declaration leave, and do NOT see a re-point at a
+  # resolving test that asserts something else. Mutant 4 adds a second bound --
+  # for a ref a second authority still declares, they cannot see the key come
+  # BACK either.
+  # IT COMMITS THREE scratchpad/card316/*.py FILES, which is the shape that
+  # reddened CARD-318's merge gate. Round claims G-2 re-derived with a positive
+  # control: zero hits across all three instruments. Cycle 2 re-derives it.
+  # AND IT FOUND THE G-2 HAZARD ALREADY LIVE ON MAIN: three tracked files under
+  # scratchpad/card318fix/ each spell a live declared ref as a whole token.
+  # Named by site and routed rather than fixed by reddening another card's
+  # artefacts.
   branch: card/316-seven-phantom-acceptance-keys
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-316
   started: '2026-10-31T06:40:00Z'
@@ -338,13 +406,17 @@ queued:
 # CARD-309, CARD-318, CARD-330 and CARD-329 -- so it fills whichever gap opens
 # first. CARD-330 and CARD-329 cannot start while CARD-309 lives, because all
 # three touch tests/test_book_pdf.py.
-- id: CARD-331   # P1 0.75d free of EVERY card above; held only by the cap.
-- id: CARD-317   # P1 0.5d  after CARD-318 (shared requirements.yml); carries a real FR-001 generator finding.
-- id: CARD-329   # P1 0.75d after CARD-330 (shared test_book_pdf.py).
-- id: CARD-316   # P1 0.25d last of the requirements chain.
+#
+# PRUNED 2026-10-31. The four entries removed from this list were not dropped:
+# CARD-331 (36099a5d) and CARD-317 (8e2ce9ed) MERGED and closed wave 71
+# two-for-two; CARD-329 and CARD-316 are in `active` above, so a queue row for
+# them was a second copy of a running card. The order the owner confirmed on
+# 2026-10-30 is now fully consumed down to its two named tails.
+- id: CARD-332   # P2 1d   NEXT TO START. Scheduled on the owner's word; premise checked, conflict-free, owes a render. See the block above `queued:`.
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
-last_updated: '2026-10-30T23:18:51Z'
+- id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
+last_updated: '2026-10-31T08:20:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
