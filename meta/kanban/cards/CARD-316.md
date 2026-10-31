@@ -140,12 +140,35 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
 1. **Derive the set, do not copy the table above.** ~~Walk `requirements.yml` for
    entries whose `test:` names a symbol with no `class`/`def` definition in `tests/`,
    and partition them by the marker in the comment lines directly above the entry.~~
-   **THAT RECIPE IS REFUTED — it selects 191 entries, not seven, and 21 once
-   intersected with the three markers.** Measured: an `ast` index of 11005 definition
-   nodes over `src/` and `tests/` finds no `def`/`class` for 191 of the 421 AC/EC
-   `test:` keys, because the validator resolves a ref by **`git grep -w` over tracked
-   files, excluding only `meta/architecture/` and `*.md`** — so a name spelled in a
-   `.py` comment table or a committed `.txt` duration dump resolves. The authority
+   **THAT RECIPE IS REFUTED — it selects 191 entries by the recipe's own reading and
+   175 by the authority's, not seven; 18 once intersected with the three markers.**
+   **Every figure here now names the matching rule it was measured under
+   (ADR-0039/R4), because the family below was first reported under one rule and
+   attributed to another.** Of the 421 AC/EC `test:` keys at `f7ba9c96`:
+   - **191** have no `def`/`class` under **EXACT NAME equality** against an `ast`
+     index of **11005 distinct definition NAMES** over `src/` + `tests/` (330
+     modules; the node count is **12418** — the index maps a name to a *list* of
+     sites, so "definition nodes" was the wrong noun for 11005). This is
+     `scratchpad/card316/derive_phantoms.py:84`'s rule, `if name in idx`, and the
+     figure the sentence above now owns.
+   - **175** have none under **the authority's rule**, which is
+     `tests/test_check_ref_resolution.py`'s `_strict_resolution` (`:1001-1007`):
+     for a bare ref it tests **substring containment** (`declared.ref in symbol`)
+     over the whole **in-domain** definition index (11278 names), deliberately,
+     because this board's convention is a `def test_<RefName>` wrapper. The
+     authority is stricter about what counts as defined, so it finds 16 fewer
+     phantoms. The refutation's direction is unaffected either way.
+   - **18**, not 21, once intersected with the three markers — and this one is a
+     **miscount, not an arm mismatch**: re-run, `derive_phantoms.py`'s own output at
+     the base classifies 13 `# alternative:` + 4 `# RETIRED` + 1 `# OWED` = **18**,
+     and the authority's substring rule gives **18** as well (the 16 refs the two
+     rules disagree about are all unmarkered). 18 − this card's 7 = **11**, which is
+     exactly the list enumerated below — so the "14" in that sentence was the same
+     miscount carried forward.
+   The gap is the validator's resolution rule, which is a **text search**:
+   `git grep -w` over tracked files, excluding only `meta/architecture/` and
+   `*.md` — so a name spelled in a `.py` comment table or a committed `.txt`
+   duration dump resolves. The authority
    that does select seven is **dead on BOTH resolvers**, and
    `scratchpad/card316/derive_set.py` states it that way, importing
    `tests/test_check_ref_resolution.py`'s own `_loose_resolution` and
@@ -182,7 +205,10 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
   skipped. **Met** by `scratchpad/card316/derive_set.py`: 11 dead AC refs, boxed
   4/2/1/4, 0 unclassifiable, non-zero exit on an unboxable entry; and after the repair
   it reports **in scope: 0**. The `tests/`-definitions wording is corrected in step 1
-  — it selects 191, which is why the authority had to be the pair of resolvers.
+  — it selects 191 by exact-name equality over `tests/`+`src/`, 175 under the
+  authority's substring rule, and 18 under either once intersected with the markers,
+  which is why the authority had to be the pair of resolvers. Figures and rules are
+  paired in step 1.
 - **AC-2** (no phantom key survives): *Given* the branch, *then* no `test:` key in
   `requirements.yml` names a symbol with no definition in `tests/` — asserted by a
   test, so the property holds for entries added later.
@@ -193,11 +219,34 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
   statement that nothing verifies a retired criterion". A test asserting AC-2's
   universal would red on this branch the day it was written, and writing it would mean
   reversing a sibling card's decision by side effect. What the card actually wants —
-  *the property holds for entries added later* — **is already enforced, exactly and in
-  both directions**, by `tests/test_check_ref_resolution.py`'s pinned `HONEST_DEAD`
-  (9, re-derived) and `CENSUS` (573, re-derived): an eighth phantom cannot enter
-  `requirements.yml` without reddening both, and both were mutated this round to prove
-  they can. No new test was written, deliberately. **The residue is a real gap and it
+  *the property holds for entries added later* — **is enforced in the two directions
+  that matter here and in no others, and the third direction is a measured bound rather
+  than a claim (ADR-0039/R1, fix round 1's F-004)** — by
+  `tests/test_check_ref_resolution.py`'s pinned `HONEST_DEAD` (9, re-derived) and
+  `CENSUS` (573, re-derived): an eighth phantom cannot ENTER `requirements.yml`, and a
+  declaration cannot LEAVE, without reddening both, and both were mutated this round to
+  prove they can.
+
+  **THE BOUND, measured in review cycle 1 and not closed by this card.** The pins do
+  **not** detect a criterion **re-pointed** at an existing, defined, already-declared
+  test that asserts something else — which is the cheaper and more tempting regression
+  of the two. Planted and run: AC-379 given back a `test:` key naming AC-205's live
+  class-style ref, a test about a default distribution plan rather than a slot float.
+  Result: **23 passed, every cell green**, and the validator of record **88 → 87**, one
+  warning OUT (`has no 'test'`) and **nothing IN**, because the name resolves. `CENSUS`
+  does not move (the ref was already declared), `DEFINED` does not move (it already had
+  a definition), `HONEST_DEAD` does not move (it was never dead). **So the combined gate
+  — nine pinned classes plus the warning count — strictly PREFERS that lie to the honest
+  gap this card shipped.** This card's own new comment above AC-191 diagnoses exactly
+  that shape in prose ("a criterion re-pointed at a test that asserts something else
+  resolves, so nothing warns, while verifying nothing") and had **no control for it**;
+  the bound is now recorded at both sites — beside `HONEST_DEAD` and `CENSUS` in the
+  module, and in the registry above AC-191. **No guard is built here, deliberately:**
+  catching it needs a check that reads what a test ASSERTS, which no instrument on this
+  board does, and building one would widen this card past its subject. It is the
+  registry-side twin of CARD-333's item 2 and of CARD-319's text-search defect — all
+  three wait on the same forge_1 decision — and it is routed to the orchestrator to card
+  alongside them rather than left in a review YAML. No new test was written, deliberately. **The residue is a real gap and it
   is the owner's call, not this card's:** the four FR-001 refs, where CARD-316's thesis
   and CARD-317's decision disagree.
 - **AC-3** (~~the six~~ **all seven** keep their ACs): *Given* the branch, *then*
@@ -259,10 +308,21 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
     reporting "acceptance criterion has no 'test'". Measured one-for-one, on the
     same seven criteria, and proved reversible — restoring AC-191's key alone
     flips exactly that one warning back and leaves the total at 88.
-  - Both severities are WARN because `load_stage` finds no `.skills.yml` in this
-    repo and returns `None`. **Note for whoever adds one:** at `stage: quality`
-    BOTH of these become ERROR, so this trade is only severity-neutral while that
-    file is absent.
+  - Both severities are WARN, and **the first version of this note drew the wrong
+    conclusion from a right premise (fix round 1, F-008).** The premise holds:
+    `_dead_ref_severity` (`validators/requirements.py:593-598`) and the no-`test`
+    branch (`:215`) both read `Severity.ERROR if stage == "quality" else
+    Severity.WARN`; `stage` has one source, `load_stage` (`validators/utils.py:74-89`),
+    which searches three directories for `.skills.yml` and returns `None` here
+    because no such file exists or is tracked in either tree. What does **not**
+    follow is "at `stage: quality` this trade stops being neutral". **Both sides of
+    the trade are gated on the same condition and flip together**, so at
+    `stage: quality` the change is seven ERRORs out and seven ERRORs in — still
+    one-for-one, still net zero, identical before and after this card. What
+    `stage: quality` would change is the BOARD: these seven criteria (and FR-001's
+    four) would be ERRORs rather than WARNs, whoever had edited them. One further
+    precision: the gate is `stage != "quality"`, not "stage is `None`", so any
+    other stage value also leaves both at WARN.
 
   The repair this card delivers is therefore not in the count and never could
   have been. It is in what the model CLAIMS: a criterion with no `test:` reads as
@@ -291,8 +351,8 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
-- ADR-0039/R1 — a claim needs a control that CAN fail (check: review-lens)
-- ADR-0039/R2 — a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE (check: review-lens)
+- ADR-0039/R1 — a claim needs a control that CAN fail (check: **test**, `tests/test_suite_profile.py::…::test_the_control_for_each_spelling_depends_on_the_set` at `:4127`) — **corrected: this card first labelled R1 and R2 `review-lens`, which would have had a reviewer treat two mechanically-checked `mandatory` rules as reviewer judgement.** Both refs are live (`def` lines read directly) and both cells ran green in this round's impact set
+- ADR-0039/R2 — a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE (check: **test**, `tests/test_suite_profile.py::…::test_the_guard_sets_are_derived_and_not_hand_written` at `:4215`)
 - ADR-0006/R1 — the dependency baseline (check: **the ref is a phantom pointer; the RULE is tested at `tests/test_export_pdf.py:1249`** — verify the substance; the pointer repair is **CARD-317's**)
 
 ## Architecture context
@@ -314,16 +374,109 @@ as the six and the flip-back obligation moves to CARD-226's AC-8. See AC-4.**
 **Round 0, 2026-10-31.** Two commits: `b4dd33f7` (the instruments, deliberately first)
 and `5d3674a6` (the repair). `meta/kanban/config.yml` and this card follow in a third.
 
+---
+
+### Fix round 1, 2026-10-31 — after review cycle 1 (6.0)
+
+**The branch was rebased onto `main` at `9932bb07`** (merge base was `f7ba9c96`; `main`
+moved twice under this round, and both moves bear on this card). The three commits
+replay as `ecba9638` + `c0802fba` + `51a6b1e4`.
+
+**`meta/kanban/config.yml` is no longer touched by this branch at all (F-002).** The
+conflict the review predicted is real and was observed: the rebase stopped on
+`meta/kanban/config.yml` with content conflict markers, in the exact hunk `main`'s
+`a29c3c96` had rewritten in the opposite direction. It was resolved by taking **main's
+version whole** — `git diff 9932bb07..HEAD -- meta/kanban/config.yml` is now **empty** —
+because main's block is strictly better: it carries no current figure at all, it states
+the method (run the validator of record, diff the WARN **sets** with `comm`, never the
+totals), and it already records this card's own 88 at `f7ba9c96` as one of four **dated
+readings**. Resolving it the branch's way would have restored, forty minutes later, the
+very practice the orchestrator had removed — on reasoning this card's own ADR-0039/R4
+retraction agrees with. The measurement is worth recording and is recorded **here**,
+dated, where a figure is allowed to be a reading rather than a fact.
+
+**The owner's retirement-shape decision of 2026-10-31 (`366e5ffc`) is executed in full
+(F-001).** The decision was taken on the contradiction this round surfaced, settled it in
+this card's favour, and routed the registry work to this fix round because this branch
+already owns `requirements.yml`. Against the five points:
+
+1. **Drop the key.** Done for the seven in round 0; done now for FR-001's four.
+2. **A `status:` stays for the HUMAN record, labelled as prose.** Done — this was the
+   half that was missing. Six of the seven now carry one; the vocabulary, the reason for
+   each value, and the *measurement* that it is prose are written once, in FR-001's own
+   block comment, with the other sites pointing there rather than repeating it.
+3. **The planned test name in a comment, not a key.** Already done for AC-379; FR-001's
+   four withdrawn names are likewise kept as prose, as the record of what the keys
+   claimed.
+4. **CARD-317's four are CONVERTED to match.** Done: `FR-001/AC-001..AC-004` lose their
+   `test:` keys and keep `status: superseded`, `superseded_by`, `superseded_at` and
+   `superseded_note`, so the supersession stays reversible and the record is unchanged.
+5. **CARD-333 cut and blocked.** The orchestrator's, not this round's.
+
+**AC-379 still has no `status:`, deliberately,** and the registry now says why in terms:
+a forward declaration is not a retirement, and the owner's decision reserves its exact
+form to CARD-333's item 4.
+
+**Why the `status:` values are `rejected` and `retired` rather than `superseded`.** The
+review asked for a deliberate choice rather than a silent invention, and here it is. The
+validator reads an acceptance criterion's `status` **not at all** — measured, not
+assumed: `_validate_criterion` (`validators/requirements.py:196-235`) reads the id,
+`given`/`when`/`then`, the `test:` key and the wording heuristics and nothing else, and
+the lifecycle check that *does* read `status` (`_validate_con_lifecycle`, `:501`) has
+exactly **one** call site, `:460`, inside the constraints loop. So no vocabulary is
+enforced for an AC and nothing honours the marker; it is prose until CARD-333 lands, and
+it is labelled as prose at every site. This file's AC vocabulary before today was
+`superseded` (9 keys) and `unmet` (1). `superseded` fits FR-001's four, which each name a
+successor. It fits neither family of the six, so two words are added and the registry
+says so: **`rejected`** for AC-129, AC-134, AC-206, AC-207 (each states the branch a
+resolved DEC chose *against* — nothing superseded them, because they were never adopted),
+and **`retired`** for AC-191, AC-192 (adopted under BK-3 and then amended away; it is the
+word ADR-0027, ADR-0034 and the registry's own comment above AC-191 already use).
+Corroborating that the choice is free: the validator run after the six were added is
+byte-for-byte the same WARN set as before them — an unknown AC `status` raises nothing.
+
+**The review's expected pin movement is REFUTED, and this is the round's own finding
+against itself.** Cycle 1 expected the conversion to take `CENSUS` 573 → 569 and
+`HONEST_DEAD` 9 → 5, on the premise that FR-001's four refs were "the whole of
+`HONEST_DEAD`'s `requirements.yml` remainder". Measured: **all nine classes have an EMPTY
+symmetric difference before and after the conversion** — `CENSUS` 573 → 573,
+`HONEST_DEAD` 9 → 9, every other class unmoved, re-derived with
+`scratchpad/card316/census_snapshot.py` (which reproduced all nine stored baselines,
+count *and* digest, on the rebased tree before anything was edited). The cause is
+mechanical and resolved against the authority rather than argued: **each of the four is
+also declared by `meta/architecture/trace.yml` at `:110-113`**, which this card does not
+touch, so dropping the `requirements.yml` key removes a declaration **site**, not the
+**declaration**. A census counts refs, not sites. Each of the four was then resolved
+individually against a `def`/`class` under **both** matching rules — exact name and the
+authority's substring containment — over an independent `ast` index (11005 distinct
+definition names, 330 modules, positive control on a name known to be defined): **zero
+definitions for all four**, so all four stay undefined, stay declared, and stay members
+of `HONEST_DEAD`. Nothing was pasted from a failure message; the pins never fired.
+
+**What the validator did, measured on the validator of record.** `88 → 88`, and the sets
+were diffed with `comm` after **asserting both line counts non-zero** (88 and 88 — the
+reviewer's own first `comm` compared nothing with nothing because the validator indents
+its WARN lines two spaces and `^\[WARN` matched nothing). OUT: the four dead-ref
+warnings on `FR-001/AC-001..AC-004`. IN: four `acceptance criterion has no 'test'` on the
+same four criteria. **Nothing else moved in either direction** — the six new `status:`
+keys moved nothing at all. The same one-for-one trade as the seven, for the same reason.
+
 **The premise held; the card's *partition* did not, and that is the finding to carry.**
 The card says "three different situations, two different repairs" over seven entries. The
 population is right, but the card's own recipe for deriving it — *"entries whose `test:`
 names a symbol with no `class`/`def` definition in `tests/`"* — **does not select seven.
-It selects 191**, of 421 AC/EC `test:` keys (an `ast` index of 11005 definition nodes
-over `src/` and `tests/`; `scratchpad/card316/derive_phantoms.py`). Intersect that with
-the three markers and it still selects **21**, not six. The gap is the validator's
-resolution rule, which is a **text search**: `git grep -w` over tracked files, excluding
-only `meta/architecture/` and `*.md`. So 14 markered phantoms are *equally* unwritten and
-do **not** warn, because their names sit in prose a tool cannot tell from a definition:
+It selects 191** by the recipe's own exact-name rule, of 421 AC/EC `test:` keys (an
+`ast` index of **11005 distinct definition NAMES** — 12418 nodes — over `src/` and
+`tests/`; `scratchpad/card316/derive_phantoms.py:84`, `if name in idx`), and **175**
+under the authority's rule, `_strict_resolution`'s substring containment over the whole
+in-domain index. Intersect either with the three markers and it still selects **18**, not
+six — **corrected from 21, which was a miscount of the instrument's own output** (13
+`# alternative:` + 4 `# RETIRED` + 1 `# OWED`, re-run at the base). The gap is the
+validator's resolution rule, which is a **text search**: `git grep -w` over tracked
+files, excluding only `meta/architecture/` and `*.md`. So **11** markered phantoms —
+18 − this card's 7, which is the count of the list below rather than a separate figure —
+are *equally* unwritten and do **not** warn, because their names sit in prose a tool
+cannot tell from a definition:
 
 - **AC-128 / AC-133** (FR-028's *surviving* refuse-branch pair, the control this card
   leans on) are resolved by an AC/test-id comment table in `tests/test_sourcing_random.py`
@@ -357,7 +510,7 @@ identical either way. Flagged, not reconciled.
 |---|---|---|
 | all seven ACs present, all seven tests phantom | **holds** | `ast` index, 0 `def`/`class` each; `derive_set.py` |
 | AC-206/207 assert 30/45/25 against AC-205's 40/40/20 | **holds** | the three criteria read directly |
-| `src/nonogram/admin/book_plan.py:345` says `Split(40, 40, 20)` | **holds, line exact** | `DEFAULT_PLAN = prefill(150, Split(40, 40, 20))`; no `30, 45, 25` anywhere in `src/` |
+| `src/nonogram/admin/book_plan.py:345` says `Split(40, 40, 20)` | **holds, line exact; quotation corrected** | the line reads `DEFAULT_PLAN: DistributionPlan = prefill(150, Split(40, 40, 20))` — quoted as it stands, the annotation no longer dropped — and it is the only `Split` literal in `src/`. Absence narrowed to the spelling searched: zero hits for `30, 45, 25` under `src/`; the string `30/45/25` **does** occur once there, in `book_plan.py:36`'s module docstring as a worked largest-remainder example, which is prose inside the resolution domain and so this card's own subject |
 | AC-205 is live and tested | **holds** | `class TestBookCreate_DefaultPlanIs150At40_40_20`, `tests/test_book_plan_storage.py` |
 | 30/45/25 was chosen against | **holds** | DEC-036 → ADR-0034, `fixed_150_at_40_40_20`, 2026-09-22 |
 | AC-129/134 describe a rejected branch | **holds** | DEC-034 → ADR-0027, `refuse_degenerate_density`, 2026-09-12 |
@@ -367,10 +520,39 @@ identical either way. Flagged, not reconciled.
 | "100 → 93", main at 100, main at 90 | **REFUTED** | main is 88, branch is 88. See AC-5 |
 | every table line number | **REFUTED twice** | right at dispatch, wrong again after this card's own commit. See the premise block |
 
-Two further stalenesses found and **recorded rather than edited**, because they are
-record changes outside this card's set: `FR-028._meta.dec_expected` and
-`FR-035._meta.dec_expected` both still read `true` although DEC-034 and DEC-036 are in
-`resolved.yml`. Noted in each criterion's new comment block.
+**A staleness family found and recorded rather than edited**, because it is a record
+change outside this card's set. The round first reported it as **two** —
+`FR-028._meta.dec_expected` and `FR-035._meta.dec_expected`, both still `true` although
+DEC-034 and DEC-036 are in `resolved.yml` — and **two was the count of what was in front
+of the reader, which is the very defect this card convicts its own brief of.** Derived
+from the authority instead (every `_meta.dec_expected: true` in `requirements.yml`,
+checked against `decisions/resolved.yml` and `decisions/open.yml`), the family is
+**SEVEN**, and every one has a resolved DEC behind it with none open:
+**FR-025** (DEC-029 → ADR-0024), **FR-026** (DEC-030 → ADR-0025), **FR-027** (DEC-032 →
+ADR-0026), **FR-028** (DEC-034 → ADR-0027), **FR-030** (DEC-035 → ADR-0036),
+**FR-035** (DEC-036 → ADR-0034) and **FR-044** (DEC-040/DEC-041 → ADR-0038). At two it
+reads as a footnote; at seven it is a card, which is why the count mattered. **The
+orchestrator is cutting that card and this one only points at it** — the registry's two
+NB comments now name the seven rather than the two, and nothing in `_meta` is edited
+here.
+
+**The digest cross-check is CORROBORATION, not the mechanism (fix round 1, F-011).**
+The departure helper's withdrawal count went 5 → 12, exactly +7, by digest matching
+rather than set difference, and the review re-derived it independently and agrees. But
+it **gates nothing**: `_refuse_unexplained_departures` reports that count through
+`warnings.warn`, `pyproject.toml`'s `[tool.pytest.ini_options]` sets no
+`filterwarnings = error`, and the assertion beside it renders only for a departure the
+helper CAN name — which, for a pure withdrawal, is none. Observed live in the green run:
+the module passes while emitting *"the 'honest-dead' class lost 12 member(s) whose digest
+matches no ref the model declares today"*. **The cell that actually gates this move is
+the `CENSUS` pin** (`test_the_trace_tests_lists_agree_with_an_independent_reading`),
+which mutant 1 reds. And the snapshot is decaying, which is now recorded as a measured
+bound beside `HONEST_DEAD_MEMBERS` rather than left to be re-derived: of its 28 stored
+digests **9** are still members, **19** have departed, and only **7** of those 19 are
+still recoverable by name — the other **12** are unrecoverable, because the declaration
+left with the membership. Not trimming the snapshot is still right (erasing a digest
+makes that retirement unrecoverable by name); the cost of not trimming is that
+paragraph.
 
 **AC-2 is discharged by the guard that already exists, not by a new test.** As written
 ("no `test:` key in `requirements.yml` names a symbol with no definition in `tests/`") it
@@ -411,6 +593,31 @@ has broken by accident: a trie over the **union** of the census before and after
 change (580 names) finds **zero** in `tests/test_check_ref_resolution.py` and zero in all
 three instruments, and the trie was proved in the positive direction on a known declared
 ref in the same run. Refs in the new baseline notes are identified by criterion id.
+
+**And four of those five files had nothing that re-ran the check (fix round 1, F-012).**
+The suite's own G-2 cell read `Path(__file__)` — its own module and nothing else — so
+`meta/kanban/config.yml` and the three scratchpad instruments were tracked, in domain and
+uncovered. The cell's domain is now `_G2_DOMAIN`: this module, `meta/kanban/config.yml`
+and `scratchpad/card316/*.py`, **globbed rather than enumerated** so a new instrument
+under the card's scratchpad is covered on arrival (ADR-0039/R2), with a floor assertion
+so a collapsed domain cannot pass it vacuously. Measured after widening: **0 resolved
+refs in all five files, 23 passed**.
+
+**Deliberately NOT widened to all of `scratchpad/`, and the reason is a finding.**
+Measured at this commit, a blanket `scratchpad/*/*.py` glob **reds immediately** on three
+tracked files belonging to earlier cards — `scratchpad/card318fix/final_mutants.py`,
+`y1_control.py` and `y_discrimination.py` — each of which spells **one live declared ref**
+as a whole token. So the revival hazard this cell exists to catch is **already in the wild
+on `main`**, outside this card's subject. Recorded and routed, not fixed by widening a
+glob until the suite reds.
+
+**The second limit is stated rather than closed.** `_G2_DOMAIN`'s trie is built from
+`_declared_refs()` — the census **as it stands at run time** — so a ref this card
+**withdrew** is outside the cell's reach *by construction*: spelling one of the seven in
+any file in the domain passes the cell and still revives the name for the validator's
+`git grep -w`, because the validator reads text and not the census. Covering it would mean
+storing the withdrawn names, which G-2 forbids in that module. It is a measured bound and
+is written beside the cell as one.
 
 **Impact run.** Two batches, both file-scoped with the count read by pattern:
 

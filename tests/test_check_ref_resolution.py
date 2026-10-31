@@ -1307,6 +1307,39 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 # documented honest residual — a count, as a `UserWarning`, with this cell's own
 # exact pin as the gate. Verified: the helper's `losses` assertion stays empty
 # because not one of the seven still reads alive to the validator.
+#
+# CARD-316 FIX ROUND 1, **9 -> 9: OUT 0, IN 0** — and the zero is the finding.
+# The round converted FR-001's AC-001..AC-004 to the same shape on the owner's
+# 2026-10-31 decision, dropping their four `test:` keys from requirements.yml.
+# Review cycle 1 expected that to take this class to 5 and :data:`CENSUS` to
+# 569, on the premise that those four refs were "the whole of HONEST_DEAD's
+# requirements.yml remainder". MEASURED, and the premise is REFUTED: each of
+# the four is ALSO declared by trace.yml (:110-113), which this card does not
+# touch, so dropping the requirements.yml key removes a DECLARATION SITE and
+# not the DECLARATION. All four stay declared, stay undefined and stay in this
+# class; the symmetric difference of all nine classes before and after the
+# conversion is EMPTY, re-derived with scratchpad/card316/census_snapshot.py
+# and cross-checked against an independent `ast` index (11005 distinct
+# definition names over src/ + tests/, 330 modules) which finds zero
+# definitions for all four under BOTH matching rules -- exact name and the
+# substring containment `_strict_resolution` actually uses.
+# What DID move is the validator, one-for-one as before: four dead-ref warnings
+# OUT and four "acceptance criterion has no 'test'" warnings IN, WARN sets
+# diffed with `comm` on the validator of record, both sets asserted non-empty
+# first (88 lines each), total unmoved at 88.
+#
+# THE BOUND ON THIS PIN, measured in review cycle 1 and recorded rather than
+# claimed (ADR-0039/R1): it detects a phantom ENTERING and a declaration
+# LEAVING. It does NOT detect a criterion RE-POINTED at an existing, defined,
+# already-declared test that asserts something else. Planted and run: one
+# criterion given back a `test:` naming another criterion's live class-style
+# ref -> this module 23 passed, ALL GREEN, and the validator 88 -> 87, one
+# warning out and nothing in. The census does not move (already declared),
+# :data:`DEFINED` does not move (already defined), this class does not move
+# (never dead). So the combined gate is CHEAPER for that lie than for the
+# honest gap this card shipped. Closing it needs a check that reads what a test
+# ASSERTS; no instrument on this board does, and it is carded rather than built
+# here.
 HONEST_DEAD = (9, "e109f654427454a9")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
@@ -1459,6 +1492,16 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # trace.yml and zero in the ADRs — which is why the census loses exactly seven
 # and the overlap terms above do not change. :data:`TRACE_TESTS` (507) and
 # :data:`DEFINED` (409) stood still, measured, both directions empty.
+#
+# CARD-316 FIX ROUND 1, **573 -> 573: OUT 0, IN 0.** The round withdrew four
+# more `test:` keys -- FR-001/AC-001..AC-004, on the owner's 2026-10-31
+# decision -- and this census did not move, because a census counts DECLARED
+# REFS and not declaration SITES: all four are also declared by trace.yml
+# (:110-113). The expectation that it would fall to 569 was cycle 1's, and it
+# is refuted by measurement rather than argued down; see :data:`HONEST_DEAD`,
+# where the same four stay members. Re-derived as the symmetric difference of
+# the whole census before and after, not read off this cell's failure message
+# -- which never fired, which is the point.
 CENSUS = (573, "2e0233d69e413369")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
@@ -1700,6 +1743,21 @@ BOOKKEEPING_ONLY_MEMBERS = frozenset(
 #: :func:`_refuse_unexplained_departures` would have named both by itself --
 #: which is the measurement behind taking review cycle 2's counter-example
 #: rather than restating the refusal.
+#:
+#: **THE DECAY, MEASURED at CARD-316 fix round 1** -- recorded here as a bound
+#: so the next reader does not have to re-derive it to know how much of this
+#: snapshot is still usable. Of the 28 stored digests: 9 are still members of
+#: :data:`HONEST_DEAD`, 19 have departed, and of those 19 only 7 are still
+#: RECOVERABLE by name (their ref is still declared somewhere in the model) --
+#: the other 12 are unrecoverable, because the declaration left with the class
+#: membership and nothing in today's population hashes to them. So the stated
+#: purpose, naming a departed ref without storing one, covers 7 of 19
+#: departures today and the share is falling. Not trimming is still the right
+#: call for the reason above; the cost of not trimming is this paragraph.
+#: Note also what the recovery path is NOT: it is a ``UserWarning``, and
+#: ``pyproject.toml``'s ``[tool.pytest.ini_options]`` sets no
+#: ``filterwarnings = error``, so the 12 are reported and gate nothing. The
+#: gate for a withdrawal is :data:`CENSUS`'s exact pin, not this helper.
 HONEST_DEAD_MEMBERS = frozenset(
     {
         "036d0ebf4aa2", "0df83fbf2e09", "10c62d9a9310", "18b227c7c63e",
@@ -2292,6 +2350,30 @@ def test_a_ref_whose_only_prose_hit_shares_its_definitions_file_stays_green() ->
 # --- G-2 / this module revives nothing --------------------------------------
 
 
+#: The files G-2 is asserted over: this module plus the other in-domain,
+#: non-Markdown artefacts THIS CARD'S OWN PIPELINE writes by hand, where a ref
+#: name is typed by a person rather than produced by code. GLOBBED, not
+#: enumerated, so a new instrument under the card's scratchpad is covered on
+#: arrival rather than when somebody remembers to list it (ADR-0039/R2).
+#:
+#: Deliberately NOT widened to all of ``scratchpad/``: measured at this commit,
+#: a blanket ``scratchpad/*/*.py`` glob reds immediately on three tracked files
+#: belonging to earlier cards -- ``scratchpad/card318fix/final_mutants.py``,
+#: ``y1_control.py`` and ``y_discrimination.py``, identified by site and not by
+#: ref name (G-2 applies to this comment too). Each spells one LIVE declared
+#: ref as a whole token, so the revival hazard this cell exists to catch is
+#: already in the wild on ``main``, outside this card's subject. Recorded here
+#: and carded rather than fixed by widening a glob until the suite reds.
+_G2_DOMAIN: tuple[str, ...] = (
+    "tests/test_check_ref_resolution.py",
+    "meta/kanban/config.yml",
+    *sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (REPO_ROOT / "scratchpad" / "card316").glob("*.py")
+    ),
+)
+
+
 def test_this_module_resolves_no_verifying_ref_at_all() -> None:
     """G-2. The detector is not one of the resolvers it detects.
 
@@ -2304,29 +2386,56 @@ def test_this_module_resolves_no_verifying_ref_at_all() -> None:
     names. CARD-291's cycle-1 reviewer split one token, verified the split, and
     still revived refs: the ones it had not thought about. A per-ref check that
     only covers the refs you remembered is the check that already failed.
+
+    Asserted over :data:`_G2_DOMAIN` rather than over ``__file__`` alone, which
+    is CARD-316 fix round 1 (review cycle 1's F-012): the round's own G-2
+    verification covered five files by hand and only one of them had anything
+    that re-ran it, so four hand-written in-domain artefacts could acquire a ref
+    name with nothing reddening.
+
+    **THE BOUND, and it is not closed here.** The trie is built from
+    :func:`_declared_refs` -- the census AS IT STANDS AT RUN TIME. A ref that
+    has been WITHDRAWN from the model is outside this cell's reach *by
+    construction*: spelling one of CARD-316's seven withdrawn names in any file
+    below passes this cell and still revives the name for the validator's
+    ``git grep -w``, because the validator reads the text and not the census.
+    Covering that would mean storing the withdrawn names, which G-2 forbids in
+    this module; so it is stated as a measured bound rather than claimed shut.
     """
-    this_file = Path(__file__).resolve().relative_to(REPO_ROOT).as_posix()
-    # Applied to this file's text directly, NOT through _loose_resolution()'s
+    refs = tuple(declared.ref for declared in _declared_refs())
+    pattern = _trie_pattern(refs)
+    assert _G2_DOMAIN and len(_G2_DOMAIN) >= 4, (
+        f"the G-2 domain collapsed to {_G2_DOMAIN} -- an empty or shrunken "
+        f"domain passes this cell vacuously, which is the failure mode the "
+        f"instrument controls below exist for"
+    )
+    # Applied to each file's text directly, NOT through _loose_resolution()'s
     # tracked-file pass. git ls-files cannot see an untracked file, so routing
     # the self-check through the tracked domain would make it pass vacuously for
     # exactly as long as the file is new -- which is the window in which the
     # mistake gets made. Measured: before this was changed, the test passed on an
     # uncommitted file that it had not read.
-    refs = tuple(declared.ref for declared in _declared_refs())
-    pattern = _trie_pattern(refs)
-    resolved = sorted(
-        {match.group(0) for match in pattern.finditer(Path(__file__).read_text(encoding="utf-8"))}
+    offenders: dict[str, list[str]] = {}
+    for name in _G2_DOMAIN:
+        path = REPO_ROOT / name
+        assert path.is_file(), f"{name} is in the G-2 domain but does not exist"
+        resolved = sorted(
+            {match.group(0) for match in pattern.finditer(path.read_text(encoding="utf-8"))}
+        )
+        if resolved:
+            offenders[name] = resolved
+    assert not offenders, (
+        f"{len(offenders)} file(s) in the G-2 domain resolve verifying ref(s) "
+        f"and so revive them for the validator: "
+        + "; ".join(f"{name} -> {hits}" for name, hits in sorted(offenders.items()))
+        + ". Spell them in pieces joined at run time, or derive them instead of "
+        "naming them."
     )
-    assert not resolved, (
-        f"{this_file} resolves {len(resolved)} verifying ref(s) and so revives "
-        f"them for the validator: {resolved}. Spell them in pieces joined at run "
-        f"time, or derive them instead of naming them."
-    )
-    # And the same once it is tracked, which is the state that actually feeds
+    # And the same once they are tracked, which is the state that actually feeds
     # the validator.
-    assert this_file not in {
-        hit for hits in _loose_resolution().values() for hit in hits
-    }, f"{this_file} is a tracked resolver of at least one verifying ref"
+    tracked_resolvers = {hit for hits in _loose_resolution().values() for hit in hits}
+    revived = sorted(set(_G2_DOMAIN) & tracked_resolvers)
+    assert not revived, f"{revived} are tracked resolvers of at least one verifying ref"
 
 
 def test_the_two_pinned_refs_are_spelled_in_pieces() -> None:
