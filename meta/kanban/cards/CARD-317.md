@@ -16,8 +16,8 @@
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/0001-generation-time-thresholds.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/trace.yml
-**Review score:** —
+**Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/0001-generation-time-thresholds.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/trace.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- ADDED fix round 1: ADR-0042/R4 declared the identical node id F-001 retires from ADR-0006/R1, and was that string's only other declaration -- see the fix-round-1 notes for why splitting it off would have made the repair unprovable. -->
+**Review score:** 9.0 (cycle 2 of 3 — CERTIFIED; 6.0 → 9.0)
 **Started:** 2026-10-31T02:39:21+00:00
 **Closed:** —
 **Actual:** —
@@ -150,8 +150,17 @@ quiet edit of the number.
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
-- ADR-0039/R1 — a claim needs a control that CAN fail (check: review-lens)
-- ADR-0039/R2 — a guard's set is derived from an enumerable authority; an unanalysable shape is a FAILURE (check: review-lens)
+- ADR-0039/R1 — a claim needs a control that CAN fail. **`check: {kind: test}`**,
+  not `review-lens` as this list said at dispatch: the model declares
+  `test_the_control_for_each_spelling_depends_on_the_set`, whose `def` is at
+  `tests/test_suite_profile.py:4127` and which resolves. Corrected in fix round 1
+  (review cycle 1) — a check ref must be honest about whether it is mechanically
+  checked, in both directions, and calling a live test a lens is the same defect
+  as calling a lens a test.
+- ADR-0039/R2 — a guard's set is derived from an enumerable authority; an
+  unanalysable shape is a FAILURE. **`check: {kind: test}`** likewise:
+  `test_the_guard_sets_are_derived_and_not_hand_written`, `def` at
+  `tests/test_suite_profile.py:4215`, resolves.
 - ADR-0001 — the generation-time thresholds and the supported grid range (check: **this card's subject** — the ADR's own text is one side of the contradiction)
 - ADR-0006/R1 — the dependency baseline (check: **this card re-points the pointer**; the RULE is tested at `tests/test_export_pdf.py:1249`)
 
@@ -162,3 +171,387 @@ quiet edit of the number.
   with; no `src/` change is expected unless the decision goes the other way.
 - **Trace:** FR-001's row is re-stamped once its ACs name live tests; FR-042's row is
   re-read after AC-268/269 resolve.
+
+## Worktree notes
+
+### Which way the bound went, and that this card did not decide it
+
+**The bound is 30.** It was decided on **2026-08-30** by the owner
+(raw-requirements.md lines 83-88, US-016) and formalized the same day as
+CON-011 / FR-019 / INV-004, with AC-038 superseded by AC-084.
+`src/nonogram/limits.py` has read `MAX_SIZE = 30` for as long as this
+repository's history goes back. **This card decided nothing**: it found the
+decision already made and recorded, and reconciled the one artefact that had
+never been told — ADR-0001, last revised 2026-08-28, two days before.
+
+ADR-0001's new History entry states the chosen bound, both alternatives not
+taken (restoring 50x50; editing "50x50" to "30x30" in place with no note), and
+the date the divergence began. The code-side date is **not recoverable**: the
+earliest commit touching the constant (96da6ac4, 2026-09-08) already carries
+30 and `MAX_SIZE = 50` appears nowhere in this repository's history. Said so
+rather than guessed.
+
+### The card's central premise is false, and the measurement
+
+> "the dead ref on FR-001 has been hiding a grid bound the code abandoned"
+
+**It was not hiding it.** `requirements.yml` records the 50 -> 30 narrowing
+**five times**: the 2026-08-30 delta header (lines 12, 14, 25), FR-001's own
+11-line supersession block (which maps AC-001 -> AC-066, AC-002 -> AC-068,
+AC-003 -> AC-069, AC-004 -> AC-070 by name), FR-019's statement, NFR-001's
+`threshold` comment and AC-038's supersession note. FR-001 itself carries
+`status: superseded`. Nothing there was invisible.
+
+**What WAS hidden is FR-019's refs — the live requirement for the bound.** All
+six (AC-066..AC-070 and EC-005) named class-style symbols with **zero**
+`def`/`class` lines anywhere, and raised **no warning of any kind**, because
+each resolved through the validator's text search by appearing in the
+docstring of the very test that covers it. That is strictly worse than
+FR-001's four, which at least warn. CON-011's `check:` named the same phantom
+as EC-005 and, like it, carried pytest's never-collected `PropertyTest_`
+prefix.
+
+So the re-pointing job the card describes is real, and it belongs to FR-019,
+not FR-001. **FR-001's four refs are deliberately not re-pointed.** AC-002's
+`then` is "a 50x50 grid is produced without error", which is FALSE at
+MAX_SIZE=30; the only tests that exist assert the opposite, so pointing at one
+would make a false criterion read as verified (CARD-318's F-009, repeated).
+AC-001/AC-003/AC-004 are still true but are *preserved historical records*,
+and re-pointing a record rewrites it. They now carry `status: superseded` +
+`superseded_by` + `superseded_at` instead — the form the registry already uses
+for exactly this case (AC-009, AC-038, AC-303, AC-304) and which FR-001's
+comment claimed in prose that no tool could read.
+
+### AC-6 is refuted: two fewer warnings, not six
+
+Measured with the validator of record (`meta/kanban/config.yml:38`, the
+`forge_1` copy), warning **sets** diffed line by line inside one worktree:
+**0 err / 90 warn -> 0 err / 88 warn, 2 removed, 0 added.** The two are
+FR-042/AC-268 and FR-042/AC-269, the only honestly dead refs in the card's
+set.
+
+FR-001's four **cannot** be retired without a lie or a swap, and this is
+mechanical, not a judgement call. `_validate_ac_ec_test_refs` applies the
+dead-ref check to every criterion carrying a `test:`, with **no exemption for
+`status: superseded`** — AC-009's and AC-038's equivalents are silent only
+because a review report or a duration log happens to spell their names, which
+is the accident this card family exists to stop relying on. The validator's
+own suggested fix (drop the `test:`) trades one warning for the "acceptance
+criterion has no 'test'" warning, net zero, and would break AC-6's "no warning
+of any kind added" as well. **Routed, not fixed here:** the model-side change
+is to exempt a `status: superseded` criterion from the dead-ref check, which
+is forge-side (`validators/requirements.py`) and `forge_1` is read-only by
+standing rule.
+
+The brief's "main is now 0 errors / 100 warnings" is also wrong: main at
+b18fd397 measures **90**. 100 was the pre-CARD-318 figure, consistent with the
+brief's own "100 -> 90" for that card.
+
+### The twelve `**DEAD REF**` notes about ADR-0006/R1 are now true
+
+Said here once, per the card's item 6, instead of editing twelve live cards.
+ADR-0006/R1's `check:` now names
+`tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`,
+whose `def` is at `tests/test_export_pdf.py:1249` and which parses
+`pyproject.toml` and asserts `project.dependencies == {pillow, numpy}` — R1 by
+substance, the whole runtime list and not a denylist. The retired name had
+**112** text resolvers at b18fd397 (ADR-0039's prose says ~110; both figures
+are re-derivable and neither is a constant, so the ADR's wording now says so).
+The docstring line at `tests/test_export_pdf.py:1250` that spells the retired
+name is left alone: it is the human-readable record of what the ref was, and
+it now resolves nothing because nothing declares that name any more.
+
+### Out of scope, measured, routed
+
+- **FR-042's trace row** lists 28 test names, most of them still "planned
+  names from requirements.yml" and several defining nothing — measured, not
+  assumed: AC-261's, AC-263's and AC-264's refs are falsely alive with zero
+  `def`/`class` lines, and bookkeeping-only besides. Only AC-268's and
+  AC-269's were swapped. The rest is that row's own standing debt.
+- **AC-269 is verified in substance and under-verified in form.** Its new ref
+  asserts that the per-book title, not the picture's name, is what the answer's
+  caption carries — with a control — but no test reads the rendered caption
+  string back for the custom-title case. Written beside the criterion rather
+  than passed off as coverage.
+- **CON-019's ref and the two ADR-0029 `check:` refs** resolve only through
+  docstrings and synced review YAMLs, as the dispatch brief said. Confirmed,
+  not touched.
+
+### Traps paid for in this round
+
+- A new test module in `tests/` is inside the validator's **loose-resolution
+  domain**, and so is `scratchpad/`. Every instrument this round committed
+  derives ref names at run time and spells none, and that property was
+  **measured** before the commit by running the whole declared population's
+  trie over all four new files (0 hits, trie proved in both directions). The
+  census was re-derived after the commit to confirm the new tracked files
+  moved nothing.
+- `MAX_SIZE = 30 -> 29` is **not** a usable mutant: it breaks
+  `tests/conftest.py`'s import, because `book_proof.py` validates a proof
+  fixture against the range at module scope. It reds every control too, which
+  makes the mutant unanalysable (ADR-0039/R2). `MIN_SIZE = 10 -> 9` widens the
+  range, leaves every fixture legal and still breaks the comparison.
+- `_strict_resolution` matches a bare ref as a **substring** of a definition's
+  name, so renaming `def X` to `def X_renamed` leaves the ref resolving and a
+  rename mutant survives for the wrong reason. The AC-2 control mutant renames
+  to a name that does not contain the old one.
+- A **3-part node id** (`path::Class::method`) resolves in neither instrument:
+  the guard's `_strict_resolution` partitions on the first `::` and looks up
+  `Class::method` as a symbol. Both re-pointed FR-042 tests are methods, so
+  they are referenced by **bare name**, which resolves at the `def` line in
+  the guard and in the validator alike. That is also why FR-019's six are bare
+  names rather than node ids: the validator resolves a node id only by finding
+  that literal string somewhere in the tree (AC-037's lives in two review
+  reports and four profiling logs), which is the text-search accident this
+  family is about.
+
+## Fix round 1 — review cycle 1 (6.0, three Important + two Minor)
+
+`meta/review/CARD-317-cycle1.yml`. The review verified **every** numeric claim
+round 0 made and confirmed all three premise refutations; the defects were one
+blind spot, named exactly: the round **re-measured everything handed to it as a
+number and trusted what was handed to it as a mechanism**. Two of the three
+Important findings are that one root cause. Nothing below revisits a figure the
+review certified.
+
+### F-001 — the headline repair had landed in its own erosion class
+
+ADR-0006/R1's repaired `check:` was a **2-part node id**. Measured at
+`f70c2d84` under the validator's own pathspec (`git grep -lw <ref> -- .
+':(exclude)meta/architecture' ':(exclude)*.md'`, so `meta/review/**` and
+`meta/profiling/**` are **inside** the domain):
+
+| ref form | tracked resolvers | includes the module holding the `def`? |
+|---|---|---|
+| `tests/test_export_pdf.py::test_…closed` | **58** — 52 `meta/review/*.yml`, 4 `meta/profiling/*.txt`, `meta/kanban/backlog-scored.yml`, `tests/test_admin_serving.py:134` | **no** |
+| bare `test_…closed` | **82** — those 58 + 24 more review reports + `tests/test_export_pdf.py` | **yes**, the `def` at :1249 |
+
+So the pointer resolved by bookkeeping, just a smaller pile. Fixed to the bare
+name. Prune `meta/review/` + `meta/profiling/` + `backlog-scored.yml` and the
+bare form still resolves at its `def`; **one honest correction to the review's
+wording**, measured: the node-id form does not go fully dead there, it falls to
+**exactly one** file — the docstring line at `tests/test_admin_serving.py:134`,
+in a module that defines nothing. That strengthens rather than weakens F-001:
+the surviving resolver is itself an instance of the accident.
+
+**ADR-0042/R4 carried the identical string and was fixed in the same change.**
+Not routed to another card, and the reason is mechanical rather than tidiness:
+at the base ADR-0042/R4 was that string's **only** declaration, so repairing
+ADR-0006/R1 alone would have left the ref in `RESOLVED_FROM_AFAR` and grown the
+census by one — the repair would have been unprovable by this card's own
+instrument. Fixing both empties the declaration and the class moves **4 → 3**.
+The fix is the 26-character prefix deletion that ADR-0042/R5's own comment
+specified on 2026-10-25 and routed, in prose, to "whoever next touches R4";
+nothing has owned it since, and prose-only routing is what this card family
+exists to stop. **Scope added deliberately:** `Touches` gains
+`meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md`.
+R4's statement, scope and severity are untouched.
+
+### F-002 — a false claim about the validator, retracted in place
+
+The comment read *"ADR rule refs are in any case not yet verified at all by the
+validator (CARD-319)."* **False, and verified in the validator of record**
+(`meta/kanban/config.yml:38`, the `forge_1` copy, read-only):
+`validators/requirements.py:169` — `run()` calls
+`_validate_adr_rule_check_refs(a, stage, cs)`, **one line above** the AC/EC
+check at `:170` the round read correctly; that function (`:729`) walks every
+**Accepted** ADR's `## Rules` block and hands each `check:` to the same
+`_check_ref_findings`; ADR-0006 is `**Status:** Accepted` and its Rules block
+parses, so R1 is reached. Retracted in full rather than softened, with the call
+site and the function name cited beside it, because an accepted ADR's claim must
+be as legible retracted as it was asserted.
+
+**Consequence routed, not re-derived by the next reader:** the claim came from
+**CARD-319**, whose *"Defect 2 — ADR rule check refs are never checked"* is
+therefore **refuted at this HEAD**; the orchestrator has marked CARD-319's board
+entry as needing re-measurement before it is unblocked. Only the second half of
+the retracted sentence survives, and for a different reason than it gave — the
+pointer resolved falsely because `_check_ref_findings` asks existence with a
+**text** search, not because nothing asked.
+
+### F-003 — AC-269's `then` is now asserted, not narrated
+
+Option **(a)**, the close, not the mark. The review was exactly right that
+"verified in substance, under-verified in form" was accurate and that recording
+it was right; the defect was that **no card owed the closure**, so the net
+effect was a visibility regression — a dead-ref WARN a reader met every run,
+replaced by prose. AC-269 now declares **two** comma-separated refs (the form
+`requirements.yml:5447` already uses):
+
+1. the wiring test (`tests/test_book_solved_answer_key.py:308`), kept;
+2. **new** — `tests/test_book_pdf_band.py:1536`, which composes the caption
+   from that module's `ANSWER_CAPTION` template literal (`:182`, a deliberate
+   second implementation, not `book_answer_key.answer_caption` run twice),
+   asserts that line of ink is on the answer page **exactly once at a size
+   other than the band's**, and asserts the picture's own name is printed
+   **nowhere** on it.
+
+Why (a) rather than a tool-readable mark plus an owing card: the gap was four
+lines wide and the technique already existed in the sibling re-point, so
+marking it would have bought a card and a second round to spend what one cell
+spends now. The wiring test cannot see this: both sides of its byte comparison
+compose the caption through the same primitive, so `"Winter Star — Puzzle 1"`,
+or a dropped number, or a dropped em dash would all have kept it green.
+
+### F-004 — the ADR-agreement cell is sentence-scoped now
+
+The cell shipped **line**-scoped while its docstring claimed what sentence scope
+buys, and ADR-0001's paragraphs are single lines over a thousand characters —
+so one cue anywhere in a paragraph exempted every stale extent in it, and the
+**Decision** paragraph (which already carries `narrowed` and `History`) is
+exactly where a future reaffirmation would be written. Now split on terminal
+punctuation, and the cue must occur in the **same sentence** as the stale
+extent. One cue added, measured and not guessed: the sentence scan over the real
+file reports **six** sentences holding a stale extent, and the History entry's
+two rejected-alternative sentences are retracted by the phrase *"alternative not
+taken"* alone — their paragraph's `retired` and `narrowed` sit in other
+sentences. The docstring now also states what is still **not** caught: an extent
+spliced inside an existing cue-bearing sentence, and a paragraph written as one
+sentence. Sentence scope is the narrowest unit a text scan can draw without a
+parser.
+
+### F-005 — the six baseline notes are class-specific
+
+Round 0 wrote one union block and pasted it into five notes, so each claimed the
+other four's movements. The counts and digests were exact; the attribution was
+not. Split, with the **shared method stated once** above the baselines (base,
+set diff not count diff, independent `ast` index, nothing pasted from the
+failure message, refs by site only). Re-derived against `main` at **b18fd397**,
+whose own **nine** stored baselines this derivation reproduces exactly — which
+is what makes it a base rather than a nearby commit:
+
+| class | main → HEAD | OUT | IN |
+|---|---|---|---|
+| bookkeeping-only | 11 → 11 | 0 | 0 |
+| falsely-alive | 162 → 155 | 7 | 0 |
+| falsely-dead | 13 → 13 | 0 | 0 |
+| honest-dead | 18 → 16 | 2 | 0 |
+| resolved-from-afar | **4 → 3** | 1 | 0 |
+| same-file-prose | 19 → 19 | 0 | 0 |
+| census | **586 → 580** | 10 | 4 |
+| trace-tests | 513 → 507 | **8** | 2 |
+| defined | **406 → 409** | 1 | 4 |
+
+**`TRACE_TESTS` is OUT 8, not 7** — the round-0 summary said seven and the
+baseline (513 − 8 + 2 = 507) was right, so only the prose was wrong. The eight:
+FR-019's five criteria refs, the phantom its EC-005 and CON-011's `check:`
+share (**two declaration sites, one name**, withdrawn from `trace.yml:993` and
+`trace.yml:1226`), and FR-042/AC-268's and AC-269's old refs. Corrected in the
+guard's own note too.
+
+Also fixed in that module, flagged out-of-scope by the review but re-derived by
+this round anyway: `HONEST_DEAD_MEMBERS`'s docstring opened *"The 28 members of
+`HONEST_DEAD`"* while the class is 16 (already wrong by 2 on `main`). The
+**sentence** now describes the stored **snapshot** and why the gap is the point
+of the set; the **set is unchanged**. `HONEST_DEAD_MEMBERS` and
+`BOOKKEEPING_ONLY_MEMBERS` are deliberately left as they are — erasing a digest
+makes that retirement unrecoverable by name, and the `UserWarning` ("lost 5
+member(s)", up from `main`'s 3) is the documented honest-residual path and
+cannot fail a gate (no `filterwarnings` anywhere in this tree).
+
+### Hand-off to CARD-316, which serializes behind this card on `requirements.yml`
+
+**Re-derive. Do not offset.** The round-0 hand-off figure ("+27 below FR-001 and
++19 below FR-019") was wrong and has been retracted by the orchestrator; it was
+a single pair of offsets where the real shift is **cumulative across five
+insertion sites**, and this round moved it again. Measured off the `  - id:`
+lines at `b18fd397` and at this HEAD, the file being 6867 → **6985** lines:
+
+**The band table that stood here is DELETED, not corrected** — cycle 2's F-007,
+and it is the third wrong figure this one paragraph has carried. The bands were
+exact for **requirement** lines and wrong for **criteria**, which is the unit
+CARD-316 actually touches: FR-001's four ACs moved **+19 / +22 / +31 / +38**,
+not the "+0" its band claimed, and AC-268 moved **+73** where the band said
++61. A table of offsets that is right at one granularity and wrong at another
+does not inform the next card — it invites exactly the offsetting the heading
+forbids, which is how the first two wrong figures here propagated.
+
+So there is no table. The handle is the `  - id:` line:
+
+```python
+import re, pathlib
+for i, line in enumerate(pathlib.Path("meta/architecture/requirements.yml")
+                         .read_text().splitlines(), 1):
+    if re.match(r"^\s*- id: AC-268\s*$", line):
+        print(i)
+```
+
+Only two figures here are stable enough to state, and only because they are
+whole-file: the registry went **6867 → 6985** lines, and it holds **496**
+`- id:` entries at both commits (nothing added or removed, five values changed).
+
+Those are the figures **at this commit only**. CARD-316 touches seven criteria
+across the same registry; a line number is not a stable handle here and
+offsetting one is how the previous figure came to be wrong. Find each criterion
+by its `- id:` line.
+
+### Gates re-measured for this round
+
+* **Validator of record** (`meta/kanban/config.yml:38`, the `forge_1` copy):
+  **0 err / 88 warn**, against `main` b18fd397's **0 err / 90 warn**. WARN
+  **sets** diffed with `comm` inside identical `meta/review/` file sets
+  (verified equal with `git ls-files`): **2 removed, 0 added** — FR-042/AC-268's
+  and AC-269's dead-ref warnings, unchanged from round 0. Fix round 1 added no
+  warning of any kind.
+* **G-4, node-id set difference** (`-o addopts=''`, `--collect-only -q`):
+  **10,056 → 10,061**, **0 removed**, 5 added — round 0's four new cells plus
+  this round's one. No test deleted, renamed, skipped or merged.
+* **G-2 / the hard rule**: the guard module names **0 of the 580** declared
+  refs, re-verified mechanically after the edits with the module's own trie,
+  proved in both directions (finds a known ref, rejects a nonsense one). The
+  new band-module cell names its sibling ref **by site** for the same reason.
+
+### Fix round 1's mutants — each finding's claim, with a control that was green
+
+Harness discipline: committed before mutating (`28692ca8`),
+`PYTHONDONTWRITEBYTECODE=1`, `__pycache__` swept both ends, SHA-256 of the
+target asserted identical after restore, every plant located **by text** with
+its single occurrence asserted, the **collected count asserted equal** on the
+control and the mutant run, `0 skipped` asserted on both (a stripped `PATH`
+turns a surviving mutant into a skip, which reads as a pass), the environment
+inherited, and `-rfsE` so a failure prints its node id. `MAX_SIZE 30 → 29` was
+**not** used: it breaks `tests/conftest.py`'s import, exits rc=4 with no count
+line, and is unanalysable (ADR-0039/R2).
+
+| # | finding | plant | control (unmutated) | mutant | node it reds |
+|---|---|---|---|---|---|
+| M1 | F-001 | ADR-0006/R1's `check:` back to the 2-part node id | 23 passed / 0 failed / 0 skipped | 20 / 3 / 0 | `…::test_a_node_id_ref_resolved_only_from_outside_its_own_module_is_pinned` (+ the ref-definition and trace-reading cells) |
+| M1b | F-001 | ADR-0042/R4's `check:` back to the node id, **alone** | 23 / 0 / 0 | 20 / 3 / 0 | the same three — so each declaration is held independently |
+| M3 | F-002 | a nonsense ref in ADR-0006/R1's `check:` | validator: **0** `ADR-0006/R1` warnings | **`[WARN] ADR-0006/R1 rule ADR-0006/R1: check names test 'zzz_no_such_test_card317_fix_round1' but no definition was found`**, 88 → 89 warn | the validator of record itself — **ADR rule check refs ARE verified**, and CARD-319's Defect 2 is refuted |
+| M4 | F-003 | `answer_caption` composed **title-first** (`src/nonogram/admin/book_answer_key.py:244`) | 2 / 0 / 0 | 1 / 1 / 0 — the **wiring test stays green** | only the new caption read-back cell. This is the finding's whole point: both sides of the wiring test's byte comparison compose the caption through the same primitive |
+| M9 | F-003 | `custom_titles()` returns `{}` | 1 / 0 / 0 | 0 / 1 / 0 | the new cell's **negative** half — the picture's own name becomes the ink |
+| M11 | F-003 | AC-269's **second** comma-separated ref replaced by a nonsense name | 23 / 0 / 0 | 20 / 3 / 0 | the EC, ref-definition and trace cells — so the second ref is in the declared population and **mechanically** checked, not decoration |
+| M5 | F-004 | the reviewer's surviving sentence, appended **inside the Decision paragraph** | 4 / 0 / 0 | 3 / 1 / 0 | `…::test_adr_0001_names_no_bare_maximum_other_than_the_constant` |
+| M5 ctrl | F-004 | **the identical plant against `f70c2d84`'s line-scoped cell** | 4 / 0 / 0 | **4 / 0 / 0 — SURVIVED** | nothing. The matched control proving the cell was weaker than its docstring |
+| M5b | F-004 | a cue-free **new line** before `## Alternatives considered` | 4 / 0 / 0 | 3 / 1 / 0 | the same cell — the positive direction the fix had to keep |
+| M6 | F-005 / G-2 | one declared ref **spelled** in a new class-specific note | 23 / 0 / 0 | 22 / 1 / 0 | `…::test_this_module_resolves_no_verifying_ref_at_all` — the hard rule is guarded over the new text |
+| M7 | F-005 | `RESOLVED_FROM_AFAR` reverted to `(4, "358bfdc4…")` | 23 / 0 / 0 | 22 / 1 / 0 | the resolved-from-afar cell |
+| M8 | F-005 | `CENSUS` reverted to `(579, "90e075cf…")` | 23 / 0 / 0 | 22 / 3 / 0 | the trace-reading cell and the partition |
+| M10 | — | two digests deleted from `HONEST_DEAD_MEMBERS` | 23 / 0 / 0 | **23 / 0 / 0 — SURVIVED** | nothing, **as documented**: a deleted digest only shrinks the `UserWarning`'s "lost N member(s)", and that warning cannot fail a gate (no `filterwarnings` in this tree). The set was left untouched on exactly that understanding, and no claim of this round rests on it. Recorded rather than hidden. |
+
+**One honest refinement to F-001, measured rather than asserted.** The review's
+consequence — "prune `meta/review/` and ADR-0006/R1 flips to a dead-ref WARN" —
+does not hold for **either** form at this HEAD, and the reason is F-002's
+surviving half: with the `def` renamed to a non-substring name *and* its
+docstring record dropped, the validator still reports **88** warnings and says
+nothing about R1, because the bare name has 80 bookkeeping resolvers left and
+the module itself spells it twice more in comments (`tests/test_export_pdf.py`
+:623 and :745). The bare form's merit is therefore **not** that it makes the
+validator honest; it is that the ref resolves **at its own definition**, so it
+is not in the class whose entire definition is "alive only because of files
+that are about the card". Under a prune of `meta/review/` + `meta/profiling/` +
+`backlog-scored.yml` the bare name resolves from its own module and the node id
+resolves from **one** docstring line in a module that defines nothing
+(`tests/test_admin_serving.py:134`) — itself an instance of the accident. F-001
+stands; its mechanism is the guard's class, not the validator's warning.
+
+### Impact scope, re-run after every mutant was restored
+
+`tests/test_check_ref_resolution.py`, `test_grid_bound_agreement.py`,
+`test_book_pdf_band.py`, `test_book_solved_answer_key.py`,
+`test_book_answer_key.py`, `test_export_pdf.py`, `test_book_solved_page.py`,
+`test_full_suite_lock.py` → **397 passed, 0 failed, 0 skipped**;
+`tests/test_suite_profile.py` (ADR-0039/R1 and R2's own checks) and
+`tests/test_cli.py` (the component map and the layering guard) → **585 passed,
+0 failed, 0 skipped**. **982 in scope, no skip to attribute.** The full-suite
+lock was neither needed nor touched.

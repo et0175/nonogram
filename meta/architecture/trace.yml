@@ -117,6 +117,14 @@ links:
     supersession stays reversible; FR-019's row carries the live contract.
     Size range is a domain rule, not an argparse type check — ADR-0010
     keeps AC-003/AC-004 validation inward of COMP-001.
+    2026-10-31 (CARD-317): AC-001..AC-004 now carry status: superseded in
+    requirements.yml, so their retirement is readable by a tool and not only
+    by this note. The four test names above are kept listed, dead, on the
+    same rule FR-003's row states: the old test name stays until the
+    superseded criterion is retired with it. They are the historical record
+    of what the criteria claimed, not a coverage claim — AC-002's outcome
+    ("a 50x50 grid is produced without error") is FALSE at MAX_SIZE=30, so
+    there is no test it could honestly name.
   status: partial
 
 - req: FR-002
@@ -545,6 +553,11 @@ links:
     can no longer exercise the deadline. tests/test_timeout.py uses size=50 in
     four places and tests/test_sourcing_image.py:312 pins MAX_SIZE == 50; the
     replacement fixture inside 30x30 must be MEASURED, not assumed.
+    2026-10-31 (CARD-317): the two figures in the sentence above are RETRACTED
+    and the work they scheduled is done — tests/test_timeout.py uses size=50
+    nowhere and carries TestGenerate_30x30_RespectsTimeoutBound at line 200
+    (AC-084's ref, live), and tests/test_sourcing_image.py pins MAX_SIZE == 30
+    at line 560.
     The deadline is computed by COMP-002 and enforced cooperatively
     inside COMP-005 at each propagation fixed point and branch node
     (ADR-0011); SolverTimeout is converted to the EVT-012 abandonment
@@ -991,12 +1004,6 @@ links:
   components: [COMP-003, COMP-001]
   adrs: [ADR-0006, ADR-0010, ADR-0012, ADR-0015]
   tests:
-  - TestGenerateRandom_ProducesRequestedDimensions
-  - TestGenerateRandom_ProducesRectangularGrid
-  - TestGenerateRandom_AcceptsMaxSide30
-  - TestGenerateRandom_RejectsSideAbove30
-  - TestGenerateRandom_RejectsSideBelow10
-  - PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
   - test_generate_random_produces_requested_dimensions
   - test_generate_random_produces_rectangular_grid
   - test_generate_random_accepts_max_side_30
@@ -1010,6 +1017,12 @@ links:
     deliberately NOT listed: both are already rectangle-native (verified
     empirically — an 8x14 grid solves uniquely and round-trips, a 3x5 computes
     correct clues), so this requirement asks nothing of them.
+    2026-10-31 (CARD-317): the six class-style names this row used to list
+    beside the function-style ones are removed. None of them had a `def` or a
+    `class` anywhere in the tree; they were the phantoms AC-066..AC-070 and
+    EC-005 named, and those criteria are re-pointed at the function-style
+    tests above, which are where the assertions live. The row now lists one
+    name per criterion instead of two, only one of which resolved.
   status: partial
 
 - req: FR-020
@@ -1224,14 +1237,16 @@ links:
   components: [COMP-003, COMP-001, COMP-008]
   adrs: [ADR-0010]
   tests:
-  - PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30
   - test_every_source_mode_rejects_every_side_outside_ten_to_thirty
   - test_every_source_mode_accepts_every_extent_inside_ten_to_thirty
   - test_no_public_boundary_reduces_a_grid_to_one_scalar
   notes: >-
     Supersedes the 10..50 range FR-001 carried. The check is LIVE as of
     CARD-027 (2026-09-02): tests/property/test_grid_dimensions.py exists and
-    passes over all three source modes. Still `partial`, not `covered`, for one
+    passes over all three source modes. 2026-10-31 (CARD-317): the
+    class-style name this row listed first is removed — it defined nothing,
+    and "the check is LIVE" was true of the test and never of that pointer.
+    CON-011's own `check:` ref is re-pointed to the function below. Still `partial`, not `covered`, for one
     reason only — COMP-008 (the web adapter) is listed above and does not exist
     yet. The range itself is a pure domain function every mode already reaches,
     so CARD-028 should inherit it rather than re-implement it; what is missing
@@ -2145,8 +2160,8 @@ links:
   - TestBookAnswerKey_ThirtyInFourUpTileCellSize
   - TestBookAnswerKey_LongestSideTwentyStaysSixUp
   - TestBookAnswerKey_AnswerDrawsGridOnlyNoClues
-  - TestBookAnswerKey_CaptionPuzzleNumberAndTitle
-  - TestBookAnswerKey_CaptionUsesCustomBookTitle
+  - test_the_search_finds_an_answer_caption_at_its_own_size
+  - test_a_custom_book_title_wins_over_the_pictures_own_name
   - TestBookAnswerKey_DefaultPlanTakesThirtyPages
   - TestBookFinalise_PageCountIncludesAnswerKeyPages
   - PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook
@@ -2182,6 +2197,11 @@ links:
     answer pages feed the page count AC-179's finalise check reads. Replaces
     today's one-answer-page-per-puzzle loop in book_pdf_generator.py. Planned
     test names from requirements.yml; no code yet.
+    2026-10-31 (CARD-317): AC-268's and AC-269's two names are replaced by
+    the tests that actually assert them (see those criteria's comments in
+    requirements.yml, including what AC-269's test does NOT assert). The rest
+    of this list is untouched and most of it is still planned names — several
+    define nothing — which is this row's own standing debt, not CARD-317's.
   status: partial
 
 - req: FR-043

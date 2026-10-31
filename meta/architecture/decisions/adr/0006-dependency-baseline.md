@@ -167,33 +167,101 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 - id: ADR-0006/R1
   statement: The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party package joins the installed dependencies without revising this ADR. Non-executable static assets (fonts and similar data files) may ship as package data instead, and doing so is not a dependency change.
   scope: {code: ["pyproject.toml", "src/nonogram/**"]}
-  check: {kind: test, ref: TestDependencyBaseline_IsExactlyPillowAndNumpy}
-  # THE RULE IS TESTED AND THIS POINTER IS DEAD — two different findings, and a
-  # reader who arrives here from the validator's warning needs both (CARD-308).
-  # The ref above has ZERO `def`/`class` definitions anywhere in the repo. It
-  # resolves only because `code_search` is a TEXT search and ~110 tracked
-  # non-Markdown files — synced review reports, duration logs, the scored
-  # backlog, and a comment in tests/test_export_pdf.py and a docstring in
-  # tests/test_puzzle_editor_ui.py — spell the string while merely talking about
-  # it. So "went LIVE 2026-09-01" below describes the TEST, not the pointer: the
-  # pointer has never resolved to a definition, and it read as mechanically
-  # checked for months on the strength of files that only mention it.
-  # The rule's content IS checked, exactly and today:
-  # Check ref went LIVE 2026-09-01 with CARD-032 (merge 5bd126a):
-  # tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed parses
-  # pyproject and pins the installed set to exactly {pillow, numpy}. The rule's
-  # first implementation is that same card's bundled font — the case the rule was
-  # written to permit.
-  # Do NOT read the validator's warning about this rule as "the dependency
-  # baseline is unverified" — that overstatement is the more dangerous of the two
-  # errors and it has been made on this board repeatedly. Pointing this `check:`
-  # at the node id above is CARD-307's one-line repair; the detector that stops
-  # the resolution being eroded further is tests/test_check_ref_resolution.py,
-  # and ADR-0039 carries the full argument.
-  # The limit case, measured and worth knowing before anyone "cleans up": that
-  # test's own docstring spells the dead ref in full on its second line, so
-  # tests/test_export_pdf.py is itself one of the ~110 resolvers — sitting in the
-  # module that holds the real assertion. It is not removable: that line is the
-  # only human-readable link between this rule and its test.
+  check: {kind: test, ref: test_the_dependency_baseline_is_still_closed}
+  # POINTER REPAIRED 2026-10-31 by CARD-317. The ref above now resolves to a
+  # real definition — `def test_the_dependency_baseline_is_still_closed` at
+  # tests/test_export_pdf.py:1249 — which parses `pyproject.toml` and asserts
+  # `project.dependencies` is exactly {pillow, numpy}. That is R1's statement
+  # by substance and not by name: the whole runtime list is pinned, so the
+  # rule is stronger than a denylist of the three PDF libraries CARD-014 was
+  # told not to reach for. The rule's first implementation is CARD-032's
+  # bundled font — the case the rule was written to permit — and the check
+  # went live with that card on 2026-09-01 (merge 5bd126a).
+  #
+  # WRITTEN AS THE BARE TEST NAME, not as the `file::name` node id, and that
+  # is the repair rather than a spelling preference. Measured at f70c2d84
+  # under the validator's own pathspec -- `git grep -lw <ref> -- .
+  # ":(exclude)meta/architecture" ":(exclude)*.md"`, which puts `meta/review/**`
+  # and `meta/profiling/**` INSIDE the search domain:
+  #   node id `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`
+  #     -> 58 tracked files: 52 `meta/review/*.yml`, 4 `meta/profiling/*.txt`,
+  #     `meta/kanban/backlog-scored.yml`, and one docstring line in
+  #     `tests/test_admin_serving.py:134`. NONE of the 58 is the module that
+  #     holds the `def`, and none of them is a definition.
+  #   bare name `test_the_dependency_baseline_is_still_closed`
+  #     -> 82 tracked files: those 58 plus 24 more review reports AND
+  #     `tests/test_export_pdf.py` itself, the module carrying the `def` at
+  #     :1249.
+  # So the node-id spelling read as checked only because the pipeline had
+  # written it down. Prune or stop syncing `meta/review/` and
+  # `meta/profiling/` and the node id falls back to a single docstring line in
+  # a module that defines nothing, while the bare name still resolves at its
+  # own `def`.
+  #
+  # This was CARD-317's own review cycle 1, F-001: the first repair landed in
+  # the one erosion class the card was commissioned to drain -- the
+  # resolved-from-afar cell of `tests/test_check_ref_resolution.py` held this
+  # very string as a member, and the class did not move because ADR-0042/R4
+  # had declared the identical node id. Both were corrected in the same
+  # change, which is why that class moves 4 -> 3 rather than standing still.
+  # Every other live `kind: test` ref in this model is a bare name for the
+  # same reason (ADR-0042/R5 carries the argument in full).
+  #
+  # What the previous pointer was, and why it mattered (CARD-308, CARD-307's
+  # fourth premise re-measurement): the ref read
+  # `TestDependencyBaseline_IsExactlyPillowAndNumpy`, which had ZERO
+  # `def`/`class` definitions anywhere in the repo. It resolved anyway, and so
+  # raised no warning, because `code_search` is a TEXT search: CARD-317
+  # measured 112 tracked non-Markdown files spelling the string while merely
+  # talking about it — synced review reports, duration logs, the scored
+  # backlog, the dispatcher state, plus a comment in tests/test_export_pdf.py
+  # and a docstring in tests/test_puzzle_editor_ui.py. ADR-0039's own prose
+  # says ~110; 112 is the figure at this commit, so neither number is a
+  # constant and both are re-derivable.
+  #
+  # RETRACTED 2026-10-31 -- CARD-317 review cycle 1, F-002, an ADR-0039/R4
+  # violation on this card's own work. This comment used to end: *"ADR rule
+  # refs are in any case not yet verified at all by the validator (CARD-319),
+  # so this pointer would have resolved falsely even if they were."* **The
+  # first half of that sentence is FALSE.** It was taken on trust from
+  # CARD-319 (status: blocked) and written into an accepted ADR without
+  # running the instrument -- the one input class that round did not measure.
+  # What is true, read in the validator of record named at
+  # `meta/kanban/config.yml:38` (the `forge_1` copy, not the plugin cache):
+  #   * `validators/requirements.py:169` -- `run()` calls
+  #     `_validate_adr_rule_check_refs(a, stage, cs)`, ONE LINE ABOVE the
+  #     AC/EC check at :170 that the same round read correctly.
+  #   * `_validate_adr_rule_check_refs` (:729) walks the `## Rules` block of
+  #     every ADR whose `**Status:**` begins "accepted" and hands each rule's
+  #     `check:` to the same `_check_ref_findings` the AC/EC path uses. Its
+  #     own docstring: "this is purely the existence question, kept next to
+  #     the other check-ref verifications so the whole contract is covered by
+  #     one rule and one technique."
+  #   * ADR-0006 is `**Status:** Accepted` and its `## Rules` block parses, so
+  #     R1 is reached. A nonsense ref in an accepted ADR's rule `check:` does
+  #     raise `WARN rule ADR-NNNN/R1: check names test '...' but no definition
+  #     was found in the code`.
+  # ADR rule refs ARE verified. Only the sentence's second half survives, and
+  # for a different reason than it gave: the retired pointer resolved falsely
+  # because `_check_ref_findings` asks existence with a TEXT search, not
+  # because nothing asked. CARD-319's "Defect 2 -- ADR rule check refs are
+  # never checked" is refuted at this HEAD and that card needs re-measuring
+  # before it is unblocked; the consequence is routed on the board and in
+  # CARD-317's worktree notes rather than re-derived by the next reader here.
+  #
+  # Two readings to keep apart, because the board has repeatedly collapsed
+  # them: the RULE was tested throughout, and the POINTER never resolved to a
+  # definition. Do NOT read any warning about this rule as "the dependency
+  # baseline is unverified" — that overstatement is the more dangerous of the
+  # two errors. The detector that stops the resolution being eroded again is
+  # tests/test_check_ref_resolution.py, and ADR-0039 carries the full
+  # argument.
+  #
+  # The limit case, still true of the retired name: that test's own docstring
+  # spells it in full on its second line, so tests/test_export_pdf.py was
+  # itself one of the resolvers, sitting in the module that holds the real
+  # assertion. The line is left in place as the human-readable record of what
+  # the ref used to be; it now resolves nothing, because nothing declares the
+  # retired name any more.
   severity: mandatory
 ```
