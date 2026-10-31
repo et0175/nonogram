@@ -7585,8 +7585,13 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         XObject's ``/Matrix`` (reached by ``Do``), an inline image's
         unit-square map (``BI``) and a shading (``sh``) — are each refused
         above. And the non-refusal is load-bearing rather than merely safe:
-        adding ``q``/``Q`` to the refused set is **KILLED**, by the ``q/Q``
-        control below (MUT-25).
+        adding ``q``/``Q`` to the refused set is **KILLED** by this cell
+        (MUT-25) — and killed by the row loop, not by the ``q``/``Q`` control
+        at the bottom: with ``q`` refused, the ``Do`` row's stream raises on
+        its ``q`` and the refusal names ``'q'``, so the names-its-own-operator
+        assertion reds first. Named precisely because a kill site asserted
+        from the shape of the code rather than read off the run is this round's
+        F-009.
         """
         rect = "10 10 20 20 re f"
         (plain,) = stream_marks(rect)

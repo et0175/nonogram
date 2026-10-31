@@ -578,9 +578,11 @@ _REFUSED_PATH_OPERATORS = frozenset({"v", "y"})
 #: inline image's unit-square map (``BI``), and a shading (``sh``). So refusing
 #: ``cm`` closes the ``q``/``Q`` dependency outright, instead of this reader
 #: asserting the writer's absence of them — and the non-refusal is load-bearing
-#: rather than merely safe: adding ``q``/``Q`` to this set is KILLED by the
-#: ``q``/``Q`` control in
-#: ``test_an_operator_the_reader_would_misread_is_refused_not_ignored``.
+#: rather than merely safe: adding ``q``/``Q`` to this set is KILLED by
+#: ``test_an_operator_the_reader_would_misread_is_refused_not_ignored``
+#: (MUT-25), at that cell's names-its-own-operator assertion rather than at its
+#: ``q``/``Q`` box control — ``q`` refused makes the ``Do`` row raise on its
+#: own ``q``, which the row then reports as not being its control.
 #:
 #: Bound to the writer's own **measured** emission set, not to this comment, by
 #: ``tests/test_book_difficulty_dots.py``'s

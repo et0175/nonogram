@@ -382,7 +382,10 @@ MUTANTS: tuple[Mutant, ...] = (
         name="MUT-25",
         what="F-008's other side: q/Q are ADDED to the refused set. The cell's "
         "q/Q non-refusal is load-bearing, not merely safe -- the docstring now "
-        "claims this plant is KILLED, so it is a plant",
+        "claims this plant is KILLED, so it is a plant. Measured kill site: the "
+        "row loop's names-its-own-operator assertion on the Do row (q refused "
+        "makes `q /Im0 Do Q` raise on its own q), NOT the q/Q box control at "
+        "the bottom of the cell",
         path=HELPER,
         old='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})',
         new='_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI", "q", "Q"})',
