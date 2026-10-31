@@ -1138,7 +1138,18 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 #: was then put to :func:`_refuse_unexplained_departures`, which recovered all
 #: three by name from :data:`BOOKKEEPING_ONLY_MEMBERS`'s digests alone and judged
 #: each one a repair.
-BOOKKEEPING_ONLY = (12, "16acfad2b066a66d")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# One departure: the generation-path class FR-029 declares, which gained a real
+# definition at tests/test_solver_strategies.py:204.
+BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
@@ -1156,7 +1167,17 @@ BOOKKEEPING_ONLY = (12, "16acfad2b066a66d")
 #: refs with no definition, 163 of them additionally loose-alive -- was
 #: re-derived at d7eec7e7 and is unchanged by the repair, so the coincidence
 #: that 163 is now *also* this whole class's size is just that.
-FALSELY_ALIVE = (163, "755f56056ce50a09")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# The same single departure as BOOKKEEPING_ONLY, for the same reason.
+FALSELY_ALIVE = (162, "b387d06007d3a3c4")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1179,7 +1200,19 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 #: mechanism this module exists to detect, detecting itself, unprompted; and it
 #: is the departure :data:`HONEST_DEAD_MEMBERS` now makes mechanical instead of
 #: leaving to a reader who has only a digest and a paste-ready line.
-HONEST_DEAD = (28, "87d4c53c6c34b01b")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# -10, and both reasons are repairs: seven gained real definitions in
+# tests/test_solver_strategies.py, and three left because their DECLARATION was
+# retired or re-pointed, so there is no longer a ref there to be dead.
+HONEST_DEAD = (18, "e8063a08cd898607")
 
 #: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
 #: nowhere near it -- the module holding the ``def`` does not spell the
@@ -1251,7 +1284,18 @@ RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
 #: three stored baselines (583, 510, 392) exactly, which is what makes it the
 #: defensible base rather than merely a nearby commit. Unnamed here (G-2); all
 #: three are defined, so :data:`DEFINED` moves by the same three.
-CENSUS = (586, "8e863f4f1a052454")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# Count unchanged at 586, digest moved: the same three retired declarations out
+# and their three defined replacements in.
+CENSUS = (586, "00b3e6b1747a7111")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1266,7 +1310,19 @@ CENSUS = (586, "8e863f4f1a052454")
 #: symmetric difference of this class against the base, using this module's own
 #: :func:`_declared_refs`: exactly three refs enter and **nothing leaves**.
 #: Unnamed here (G-2); see :data:`DEFINED` for where each one is defined.
-TRACE_TESTS = (513, "873011178a1d2828")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# Count unchanged at 513, digest moved: three out, three in. The three departures
+# are defined nowhere (two retired property spellings and AC-142's retired
+# target); all three entrants have a definition line.
+TRACE_TESTS = (513, "921647301c1714c7")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1318,7 +1374,22 @@ TRACE_TESTS = (513, "873011178a1d2828")
 #: :data:`TRACE_TESTS` stays 513 -- so the two halves of the measurement are
 #: independent, and a derivation that could not tell those trees apart would
 #: not be one.
-DEFINED = (395, "49c718f918f22b2c")
+# RE-DERIVED 2026-10-31 at CARD-318's merge -- measured, not pasted from the
+# failure message. Each move was resolved against a real def/class line by an ast
+# index of tests/ and src/ before this line changed. CARD-318's whole subject was
+# registry refs that resolved only by prose, so these classes moving is the card
+# working rather than drift.
+#
+# NO REF IS NAMED IN THESE NOTES, deliberately: naming one here RESOLVES it and so
+# revives it for the validator's text search -- this module's own cell caught that
+# when a first draft of this comment spelled one out. Refs are identified by site.
+# +11, all in CARD-318's own files: eight classes written to carry the registry's
+# exact names (tests/test_solver_strategies.py), the two property classes renamed
+# out of the never-collected prefix (python_classes is matched as a PREFIX, not a
+# glob, so the old spelling was silently never collected -- :203 and :304 of
+# tests/property/test_solve_strategies.py now are), and AC-142's re-pointed
+# function at tests/test_strategies.py:490.
+DEFINED = (406, "ab9946b256c9cc93")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
