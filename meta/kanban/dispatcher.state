@@ -94,6 +94,28 @@ active:
 - id: CARD-331
   phase: review
   cycle: 1
+  cycle1_score: 8.5
+  fix_round: 1
+  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-006, F-007]
+  # 8.5 PASSES min_score but 3 Important are open, so it cannot certify yet.
+  # The round was confirmed sound: both premise probes reproduced exactly
+  # (29/160 and 15/174), the floors proved NOT self-referential three ways, node
+  # ids 155->189 with 0 removed, validator set-identical at 0/90, no tolerance
+  # widened, and four of its five judgement calls endorsed outright.
+  #   F-001/F-002 cluster as RC-1: prose in the diff still carrying a claim the
+  #          round's own measurements retired. F-002 is sharp -- AC-5's evidence
+  #          table has 4 of 5 line numbers stale, broken by the card's OWN commit
+  #          order, and AC-5 is the one AC whose only verifier is that prose.
+  #   F-003  ADR-0039/R2, and it is this card's thesis one layer down:
+  #          orchestrator-verified by calling stream_marks directly, a rect under
+  #          `2 0 0 2 0 0 cm` reads its UNTRANSFORMED box (20x20, identical to no
+  #          transform) and `/Im0 Do` and `/Sh0 sh` are accepted as zero marks --
+  #          while `v` and a truncated `re` correctly refuse. The reader DEPENDS
+  #          on three facts about the writer and asserts none of them.
+  #   F-005  a CROSS-CARD contradiction: the raster remedy offers "retire this
+  #          arm", which reds the arm-per-medium cell (PageMedium keeps RASTER for
+  #          cover+divider), while CARD-322.md:118-121 says "delete" where this
+  #          guard requires "re-point". CARD-322 must inherit ONE instruction.
   # Implementation found the premise HALF FALSE, and the false half changed the
   # design. The instrument does NOT pass silently on a vector page today: lift
   # PageKind.PUZZLE out of _RASTER_DECLARATIONS and 27 cells red -- but all on
