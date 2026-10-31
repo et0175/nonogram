@@ -230,12 +230,55 @@ active:
 - id: CARD-316
   phase: review
   cycle: 3
+  cycle3_score: 9.0
+  certified: true
+  awaiting: merge gate -- three Minors to close there, per CARD-329's F-011 precedent
   cycle1_score: 6.0
   fix_round: 2
   fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 scored 8.5
   cycle2_score: 8.5
   fix_findings_round2: [F2-001, F2-002, F2-003, F2-004, F2-005]
-  fix_round_2: reported 2026-10-31, all five fixed; cycle 3 queued behind CARD-329's merge gate
+  fix_round_2: reported 2026-10-31, all five fixed; cycle 3 scored 9.0 CERTIFIED
+  # CYCLE 3 = 9.0, CARD CERTIFIES, 0 Critical and 0 Important. It does NOT
+  # escalate. Three Minors, all prose/provenance, each a one-edit fix -- closed
+  # at the merge gate on CARD-329's F-011 precedent. 14 independent
+  # re-derivations, every one exact; 21 findings carried; system contract 9
+  # checked, 5 holds, 4 unchecked, 0 VIOLATED.
+  # F2-001's RISKIEST CLAIM IS PROVEN, and proven the right way. The round said
+  # it retracted the prose of a tracked instrument without changing its
+  # computation. Cycle 3 compared the pre-fix and HEAD copies BY ast WITH
+  # DOCSTRINGS STRIPPED: exactly ONE difference, a printed box label. Every
+  # computing expression identical -- and it then ran the PRE-FIX instrument
+  # against the HEAD tree for the same reading. Changing an instrument while
+  # retracting its prose would have been far worse than the defect being fixed.
+  # F2-004's REFUTATION OF CYCLE 2 IS UPHELD, rebuilt on an implementation
+  # sharing no code with the authority: 11278 names / 12911 sites / 406 files at
+  # the base, 11282 / 12917 / 409 at HEAD -- +4 names being exactly the three
+  # scratchpad instruments. Cycle 2's finding was a carried DOMAIN error (one
+  # reconstruction was *.py only), which is this card's own failure mode
+  # arriving inside the correction that existed to stop it, for the second time
+  # in one chain.
+  # THE 11/11 WARN TRADE IS ITSELF THE G-2 PROOF AT THE CONSEQUENCE LEVEL, which
+  # is the instrument CARD-329's gate found and this round applied unprompted:
+  # had any of the three tracked instruments revived some OTHER dead ref, a
+  # warning would have vanished with no replacement and OUT would exceed IN. It
+  # does not. It also re-ran the validator after writing its own review YAML:
+  # byte-identical WARN set, so its artefact revived nothing either.
+  # BOTH JUDGEMENT CALLS I ASKED FOR WENT AGAINST THE SIMPLE READING, with
+  # reasons I accept. The one stamp left un-retracted is CORRECT: ADR-0039/R4's
+  # retraction clause governs a figure recomputed and refuted, and this is a
+  # DECISION RECORD overridden by an owner -- and striking it would do to
+  # CARD-317's record exactly what FR-001's own first comment forbids doing to
+  # FR-001's statement, a convention that pre-dates this card. And
+  # `dismissed`-with-reason on the unroutable finding is right: `open` would gate
+  # this card on another card's work and `wontfix` would assert nobody will do
+  # it, which is false.
+  # MY SIXTH UNMEASURED FIGURE: I named main's tip as 20d85d02; it is b26bdd62,
+  # the parent. Verified. The delta is board.md + dispatcher.state only, so no
+  # figure moved, and it measured against the real main throughout. It also
+  # parse-checked dispatcher.state while there, unasked.
+  # AND IT CORRECTED A FACT ABOUT MY OWN COMMITS: CARD-335.md was added by
+  # 4b4b407a, not 7b42ab05 -- which added CARD-334.md. Verified both.
   # FIX ROUND 2 REPORTED 2026-10-31. Commits bedec18c (the registry vocabulary
   # + CARD-333's new item) and 8d9f27f2 (the retractions and the four figures).
   # Cycle 2's YAML written back at 0 open findings; F2-006 DISMISSED with its
@@ -449,7 +492,7 @@ queued:
 - id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 - id: CARD-322   # P1 ?d   NOT a straight dispatch: needs a DECOMPOSE pass first. Three orchestrator corrections were written onto it that it was never estimated for -- the re-point-do-not-retire instruction, the eleven-module scope gap with measured red counts, and CARD-331's N-1 obligation to DERIVE the arm set's completeness rather than extend the list. Its last open dependency is CARD-329.
-last_updated: '2026-10-31T11:30:00Z'
+last_updated: '2026-10-31T12:10:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
