@@ -90,176 +90,54 @@ max_concurrent_override: 2
 # CARD-322 now has two of four deps done (CARD-309, CARD-330); it still needs
 # CARD-329 and CARD-331, which is why those two come before the tails.
 #
+#
+# CARD-317 MERGED 8e2ce9ed at 9.0 on 2026-10-31, gate 10033 passed / 0 failed.
+# Worktree removed, branch deleted, artefacts archived outside the repo.
+#
+# CARD-288 GATED (Revision pending: true) 2026-10-31 on the owner's question
+# "does it make sense to take 288, or not, as we're going to get rid of most
+# raster". Measured answer: no, and not for the loose reason. BOTH halves of its
+# value are bitmap-count value and CARD-322 removes the bitmaps.
+#   - interior_pages already returns List[Union[Image.Image, ContentStream]], so
+#     a vector-declared kind is a cheap stream TODAY. Its 2.71 GiB / 115.3 page
+#     bitmaps counts the kinds still raster; after CARD-322 the only interior
+#     kind still raster is the DIVIDER -- one bitmap per book where it measured
+#     thirteen. The 3,820-pages-drawn figure falls with it.
+#   - its own fix is SUBSUMED: "walk the stream, not the book" is what the vector
+#     path already does (interior_stream, one page alive at a time, since
+#     CARD-145).
+#   - and the four tests do not get SLOW after CARD-322, they get BROKEN -- pixel
+#     readers on a ContentStream, the failure CARD-331 measured.
+# Not skipped: the page census is a real measurement and the file still needs
+# work, just not that work. Flag must NOT be cleared on CARD-322's merge; the
+# card is re-cut after it, against whatever that file then is.
+#
+# CARD-322 SCOPE GAP recorded 2026-10-31, measured read-only over tests/**:
+# ELEVEN test modules both read ink with a raster reader AND take pages from
+# interior_pages/interior. CARD-322 declares ONE of them (tests/test_book_pdf.py).
+# Two more are spoken for -- CARD-331 deliberately (its raster arm reds on
+# arrival with a work order) and CARD-288, now gated -- and EIGHT have no card.
+# This is the subset of CARD-309's 189 failures / 75 errors across 22 modules
+# that fails by handing a content stream to a pixel reader. CARD-322 is budgeted
+# 1d for five page kinds plus one test module; the measured consequence is 11.
+# PRICE THAT BEFORE STARTING, and choose per module: convert, retire with a
+# named survivor, or pin as legacy (CARD-330's choice for what it owned).
+#
 active:
 - id: CARD-331
   phase: review
-  cycle: 2
+  cycle: 3
   cycle1_score: 8.5
   cycle2_score: 8.0
-  fix_round: 2
-  fix_findings: [F-008, F-009, F-010, F-011, F-012]
-  # Does NOT certify, one cycle short: 8.0 clears min_score but cycle 2 found a
-  # new Important -- [BLOCKER] F-008 -- INSIDE F-003's own closure. All seven
-  # cycle-1 findings ARE closed and every closure was verified by measurement,
-  # including a survivor-to-kill flip (cycle 1's M10 survived at 189, kills now).
-  # F-008: the Do refusal row's stream is `q 100 0 0 100 0 0 cm /Im0 Do Q`, and
-  # it contains a `cm` -- itself refused -- so the stream raises whether or not
-  # Do is in the refused set. Do's refusal is NEVER MEASURED: dropping only BI
-  # kills, only sh kills, only Do SURVIVES. The reader is right (`q /Im0 Do Q`
-  # with no cm refuses, naming 'Do'); only the test's stream is wrong. It is the
-  # card's own AC-5 thesis turned on the cell its fix round wrote.
-  # Cycle 2 also ruled the round RIGHT to go against the orchestrator's suggested
-  # home for the operator binding, and supplied a fourth reason the round did not
-  # make: the co-change peer does not reference stream_marks AT ALL, so the guard
-  # would have sat in a module that never calls what it guards. And mutate.py
-  # hard-codes the module, so a peer cell literally cannot be a harness target.
-  # Cycle 3 is the LAST max_cycles allows.
-  fix_rounds_done: 1
-  cycle2_dispatched: true
-  # Fix round 1 closed all 3 Important and all 4 Minor, 24 plants / 23 killed /
-  # 1 declared survivor, baseline 189 -> 195 passed. Orchestrator-verified: a
-  # rect under `2 0 0 2 0 0 cm` is now REFUSED where it used to read its
-  # untransformed box, `/Im0 Do` and `/Sh0 sh` refused, and `q`/`Q` without a
-  # transform still accepted as the control.
-  # It went AGAINST the orchestrator's suggested home for the operator binding,
-  # with the argument that a cell in the co-change peer sits outside all three
-  # instruments that would catch a regression (the node-id gate, the 195-cell
-  # baseline, the mutant harness) -- "F-002's defect in a different costume".
-  # Cycle 2 is asked to rule on that rather than take either side on authority.
-  # 8.5 PASSES min_score but 3 Important are open, so it cannot certify yet.
-  # The round was confirmed sound: both premise probes reproduced exactly
-  # (29/160 and 15/174), the floors proved NOT self-referential three ways, node
-  # ids 155->189 with 0 removed, validator set-identical at 0/90, no tolerance
-  # widened, and four of its five judgement calls endorsed outright.
-  #   F-001/F-002 cluster as RC-1: prose in the diff still carrying a claim the
-  #          round's own measurements retired. F-002 is sharp -- AC-5's evidence
-  #          table has 4 of 5 line numbers stale, broken by the card's OWN commit
-  #          order, and AC-5 is the one AC whose only verifier is that prose.
-  #   F-003  ADR-0039/R2, and it is this card's thesis one layer down:
-  #          orchestrator-verified by calling stream_marks directly, a rect under
-  #          `2 0 0 2 0 0 cm` reads its UNTRANSFORMED box (20x20, identical to no
-  #          transform) and `/Im0 Do` and `/Sh0 sh` are accepted as zero marks --
-  #          while `v` and a truncated `re` correctly refuse. The reader DEPENDS
-  #          on three facts about the writer and asserts none of them.
-  #   F-005  a CROSS-CARD contradiction: the raster remedy offers "retire this
-  #          arm", which reds the arm-per-medium cell (PageMedium keeps RASTER for
-  #          cover+divider), while CARD-322.md:118-121 says "delete" where this
-  #          guard requires "re-point". CARD-322 must inherit ONE instruction.
-  # Implementation found the premise HALF FALSE, and the false half changed the
-  # design. The instrument does NOT pass silently on a vector page today: lift
-  # PageKind.PUZZLE out of _RASTER_DECLARATIONS and 27 cells red -- but all on
-  # one line with one message, 'ContentStream' object has no attribute 'convert'.
-  # ADR-0039/R2 is satisfied BY ACCIDENT, by a type error naming neither a dot
-  # nor a dead hook. The silent pass is ONE PATCH away and it is the patch a
-  # converting card would write: with the declaration lifted AND interior_pages
-  # filtered to bitmaps, 14 of the 27 go GREEN -- including three claims about
-  # what the instrument CATCHES, asserting on a tree whose puzzle pages have left
-  # the measurement. Orchestrator-verified: 29 failed under the first probe,
-  # 15 under the second, and three named cells flip failed -> passed.
-  # So the deliverable is an arm per PageMedium plus a guard that reds when an
-  # arm's mechanism stops being exercised, whatever the page object's type is.
-  # Also measured: NEITHER medium draws the dots today (_draw_difficulty_dots has
-  # no production caller), so both arms are accounting instruments and the vector
-  # arm is a FORWARD one, stated in code rather than glossed.
-  branch: card/331-difficulty-dot-instrument-vector
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-331
-  started: '2026-10-31T04:00:00Z'
-  note: >-
-    Opens wave 71. 27 cells monkeypatch the RASTER drawing site and key on
-    page-image identity; on a vector page that site is never called, so the
-    instrument PASSES SILENTLY instead of erroring -- ADR-0039/R2 wants a
-    FAILURE. AC-4 is the card: a dead mechanism must red, with a mutant on each
-    arm. One of CARD-322's four dependencies.
-- id: CARD-317
-  phase: merge_gate_queued
-  cycle: 2
-  cycle1_score: 6.0
-  cycle2_score: 9.0
-  certified: true
-  # CERTIFIES at 9.0 on cycle 2 of 3. All five cycle-1 findings closed, each on
-  # evidence cycle 2 re-derived on instruments sharing NOTHING with the guard's
-  # (real yaml.safe_load, an ast index, a token scan -- not line regexes, git
-  # grep and the trie). All nine census classes reproduced exactly, count AND
-  # digest, at both commits. Both judgement calls endorsed; fixing ADR-0042/R4
-  # in-round called "mechanically forced", since reverting R4 alone reds the
-  # resolved-from-afar cell, so split off the repair was unprovable.
-  # Four new Minors, none gating. Two fixed by the orchestrator before the gate:
-  # a citation to :1533 where the def is :1536 (inside the note claiming each
-  # site was read off its own def line), and F-007 -- the hand-off band table,
-  # the THIRD wrong figure in that one paragraph, now DELETED rather than
-  # corrected again: the bands were exact for requirement lines and wrong for
-  # CRITERIA, which is CARD-316's unit (FR-001's four ACs moved +19/+22/+31/+38,
-  # not the "+0" claimed; AC-268 +73 against a +61 band). A table right at one
-  # granularity and wrong at another invites the offsetting its own heading
-  # forbids -- which is how the first two wrong figures here propagated.
-  # ROUTED, not fixed: trace.yml carries only the first of AC-269's two refs
-  # (latent -- that finding fires on `covered` and FR-042 is `partial`), and the
-  # two per-member digest sets have no count/digest pin, so a hand-deletion is
-  # silent in the module's own failure direction (a two-line pin would convert a
-  # recorded survivor into a kill; it needs its own mutant, so it needs a card).
-  # MERGE GATE QUEUED, not running: it is a full suite and must not run beside
-  # CARD-331's fix round. It starts when that round reports.
-  fix_rounds_done: 1
-  cycle2_dispatched: true
-  # Fix round 1 closed all five. It also fixed ADR-0042/R4 unasked, for a
-  # mechanical reason: that node id's ONLY other declaration was there, so
-  # repairing ADR-0006/R1 alone would have left the ref in RESOLVED_FROM_AFAR
-  # and grown the census -- the repair would have been unprovable by the card's
-  # own instrument. The class moves 4 -> 3.
-  # F-002's retraction is backed by a FIRED MUTANT, re-fired by the orchestrator:
-  # a nonsense ref in ADR-0006/R1's check: takes the validator from 88 warnings
-  # with no ADR-0006/R1 finding to 89 WITH the named WARN. So CARD-319's
-  # Defect 2 is refuted by measurement, not by reading.
-  # It pushed back on one sub-claim of cycle 1's and was right to: pruning
-  # meta/review/ does NOT flip R1 to a dead-ref WARN for either ref form at this
-  # HEAD. F-001 stands, but its mechanism is the guard's class, not a warning.
-  # Cycle 1 CONFIRMED all three premise refutations and verified every numeric
-  # claim the round made as exact -- and still scored 6.0 on three Important
-  # defects, two of them one root cause: the round re-measured everything handed
-  # to it as a NUMBER and trusted what was handed to it as a MECHANISM.
-  #   F-001  the headline repair landed in the card's own erosion class: the new
-  #          ADR-0006/R1 ref is a 2-part NODE ID resolving from 58 bookkeeping
-  #          files and NOT from the module holding its def. The bare name
-  #          resolves from 82 INCLUDING its definition module. One-line fix.
-  #   F-002  a FALSE claim committed into an accepted ADR ("ADR rule refs are
-  #          not yet verified at all by the validator"). Orchestrator-verified in
-  #          the source: validators/requirements.py:169 calls
-  #          _validate_adr_rule_check_refs, which walks every Accepted ADR's
-  #          Rules block through the same _check_ref_findings. Violates
-  #          ADR-0039/R4. CONSEQUENCE BEYOND THIS CARD: CARD-319's Defect 2 is
-  #          refuted at this HEAD and that card must be re-measured before it is
-  #          unblocked -- recorded on its board entry.
-  #   F-003  AC-269 went from "honestly dead, one WARN every run" to "resolves,
-  #          validator silent, gap in prose only" with NO card owing the form --
-  #          CARD-318's F-009 in a milder form. Standing rule set here: a
-  #          partly-asserted criterion may ship, but only with a named card
-  #          owing the form or a tool-readable mark. Never on prose.
-  # The review also corrected TRACE_TESTS to OUT 8 (not 7; 513-8+2=507, so the
-  # committed baseline was right and only the summary was off) and corrected an
-  # orchestrator figure: the requirements.yml hand-off shifts are CUMULATIVE
-  # across five sites -- FR-001 +0, FR-019 +44, FR-042 +61, NFR-001 +87,
-  # CON-011 +97 -- not the +27/+19 I committed to the board. Retracted there.
-  # Implementation REFUTED the card three times over: FR-001's dead ref was
-  # hiding nothing (the 50->30 narrowing is recorded five times in
-  # requirements.yml); the re-pointing job is FR-019's, whose six refs resolved
-  # only through the docstrings of the tests that cover them and warned about
-  # NOTHING; and FR-001's four must NOT be re-pointed, because AC-002's `then`
-  # ("a 50x50 grid is produced without error") is IMPOSSIBLE at MAX_SIZE = 30 --
-  # pointing a test at it would have recreated CARD-318's F-009 exactly.
-  # Verified by the orchestrator: MAX_SIZE is 30, so that `then` is false.
-  # AC-6 also refuted: two fewer warnings, not six, because the validator has no
-  # `status: superseded` exemption for an AC dead ref. Routed to a forge_1 card.
-  branch: card/317-check-refs-and-the-grid-bound
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-317
-  started: '2026-10-31T04:00:00Z'
-  note: >-
-    The requirements chain's second link, dispatchable now that CARD-318 has
-    merged and released requirements.yml. It carries a LIVE DEFECT behind a dead
-    ref: AC-002/AC-003 and ADR-0001 say 50x50 where tests/test_sourcing_random.py
-    :107 asserts MAX_SIZE == 30. It re-points the refs and RECORDS the
-    contradiction in the ADR rather than deciding the bound -- a quiet edit would
-    turn a visible contradiction into an invisible one, which is the failure mode
-    this whole card family exists to stop.
+  fix_rounds_done: 2
+  # Cycle 3 is the LAST max_cycles allows. Fix round 2 closed the [BLOCKER] and
+  # all four Minors: 28 plants, 27 killed, 1 declared survivor. The drop-only-Do
+  # plant FLIPPED from surviving (cycle 2) to killed, orchestrator-verified, and
+  # the red names the silent pass. Every refusal row now asserts the message
+  # names its own operator, so a fifth row cannot repeat F-008.
+  # It also self-caught an F-009-class defect in its OWN round-2 prose -- it had
+  # stated a plant's kill site from the shape of the code, measured the real one,
+  # and committed the correction alone. That is the discipline, unprompted.
 queued:
 # ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
 # now and then according to plan", after agreeing the set as 318 + 330 + 331.

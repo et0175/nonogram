@@ -1,6 +1,6 @@
 # CARD-317: Six check refs name tests that exist under other names — and the dead ref on FR-001 has been hiding a grid bound the code abandoned
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -19,9 +19,9 @@
 **Touches:** meta/architecture/requirements.yml, meta/architecture/decisions/adr/0001-generation-time-thresholds.md, meta/architecture/decisions/adr/0006-dependency-baseline.md, meta/architecture/trace.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- ADDED fix round 1: ADR-0042/R4 declared the identical node id F-001 retires from ADR-0006/R1, and was that string's only other declaration -- see the fix-round-1 notes for why splitting it off would have made the repair unprovable. -->
 **Review score:** 9.0 (cycle 2 of 3 — CERTIFIED; 6.0 → 9.0)
 **Started:** 2026-10-31T02:39:21+00:00
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-31T05:46:29+00:00
+**Actual:** 3.1h wall-clock against a 0.5d estimate (measured from Started)
+**Merge commit:** `8e2ce9ed` — gate green on 10033 passed / 27 skipped / 1 xfailed / 0 failed
 **Blocked by:** —
 
 ## Why this card exists, and why it is not bookkeeping

@@ -1,0 +1,542 @@
+# NOT A SOURCE OF CHECK REFS. Nothing in this file is a `check:` ref, a `test:`
+# ref or a declaration of any symbol. It is a review record, and it lives inside
+# the architecture validator's loose-resolution domain (`git grep -lw`, which
+# excludes meta/architecture and every *.md and NOTHING ELSE), so a ref name
+# spelled here would RESOLVE and revive a dead pointer for that search, and
+# could move a pinned census class.
+#
+# Therefore: every ref the model DECLARES is named BY SITE below
+# (requirements.yml / trace.yml / ADR id + criterion id + line) and never
+# spelled. The test names that do appear are the guard modules' OWN cells,
+# mechanically verified in this cycle to be declared by no authority and to
+# contain no declared ref as a token (so naming them resolves nothing and moves
+# no class); they are written inline in prose, never at the start of a line and
+# never after `def`/`class`, so none can be read as a definition line.
+version: 1
+generated_at: "2026-10-31T00:00:00Z"
+target: "CARD-317 cycle 2 (confirmation) — branch card/317-check-refs-and-the-grid-bound, HEAD d185a94a, fix commits 28692ca8 + d185a94a on f70c2d84, merge base b18fd397. Card diff 13 files +1738/-65; fix delta 9 files +989/-209."
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_check_ref_resolution.py          # all nine baselines + every note, and the full non-comment diff
+    - tests/test_grid_bound_agreement.py          # the sentence-scoped cell and its three siblings
+    - tests/test_book_pdf_band.py                 # the new AC-269 cell, its sibling, the module literal
+    - tests/test_book_solved_answer_key.py        # AC-269's wiring cell
+    - tests/test_export_pdf.py                    # the def ADR-0006/R1 + ADR-0042/R4 now point at
+    - tests/test_admin_serving.py                 # the one resolver that survives a bookkeeping prune
+    - tests/test_suite_profile.py                 # ADR-0039/R1 and R2's own check refs, def lines verified
+    - meta/architecture/requirements.yml          # AC-269, FR-001's four criteria, the band arithmetic
+    - meta/architecture/trace.yml                 # FR-019's and FR-042's rows
+    - meta/architecture/decisions/adr/0001-generation-time-thresholds.md
+    - meta/architecture/decisions/adr/0006-dependency-baseline.md
+    - meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+    - meta/kanban/cards/CARD-317.md               # fix round 1 notes, gates, mutant table, hand-off
+    - meta/review/CARD-317-cycle1.yml             # all five findings carried forward
+    - /Users/omelnikova/MyProjects/forge_1/.../validators/requirements.py   # F-002's three citations
+  not_reached:
+    - the full 10,061-node suite                  # impact scope only (982 nodes, 10 modules); full-suite lock never touched
+    - src/ beyond the two caption primitives      # mutated and restored, not read end to end
+  confidence: high
+
+metrics:
+  diff: { files: 13, added: 1738, removed: 65 }
+  fix_delta: { files: 9, added: 989, removed: 209 }
+  tests_cover_change: true
+  hotspots:
+    - tests/test_check_ref_resolution.py          # nine frozen censuses; three baselines moved this round
+    - meta/architecture/requirements.yml          # CARD-316 serializes behind this card on it
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: >-
+      not_applicable — the fix delta exports no symbol; the two src/ files were
+      touched only as mutation targets and restored to identical SHA-256. The
+      cross-file couplings are declarative (a `test:`/`check:` ref, a trace row)
+      and were enumerated exactly instead: ten declarations withdrawn, four
+      added, re-derived as set differences on an independent instrument.
+    cochange_missing: >-
+      no_eligible_fact — the 12-month co-change peers of the touched
+      meta/architecture files are the card files and review YAMLs the pipeline
+      writes for every card; none is a missing-change candidate here. One real
+      asymmetry was found by direct cross-authority comparison instead and is
+      filed as F-008.
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — every claim this round makes carries a control that CAN fail, re-derived rather than read: 16 mutant runs this cycle over 14 distinct plants, each with its own unmutated control, the collected count asserted equal on both runs, `0 skipped` asserted on both, and SHA-256 identical after every restore. 11 of the round's 13 mutants re-fired and every one reproduced its recorded verdict exactly (M1, M1b, M11, M6, M4, M9, M5, M5-ctrl, M5b, M3, M10); 3 of my own fired for the directions the round did not claim (MY1, MY2, MY3b) and all behaved as the artefacts predict. Mechanically checked ref: the rule's own check (`check: {kind: test}`) has a real `def` at tests/test_suite_profile.py:4127 and runs green inside the 982-node impact scope."
+    - "ADR-0039/R2 ✓ holds — an unanalysable shape is a FAILURE: the guard's own refusal type still raises for an unreadable `check:`/declaration key (its shape-refusal cells are green in all 23), and the ADR-agreement cell still raises rather than returning empty for a requirement block it cannot find. The `MAX_SIZE 30 -> 29` plant was NOT used (rc=4, no count line, unanalysable). The rule's check (`check: {kind: test}`) has a real `def` at tests/test_suite_profile.py:4215 and runs green in the impact scope."
+    - "ADR-0039/R4 ✓ holds — cycle 1's violation is CLOSED. The false sentence about the validator of record is retracted in place at meta/architecture/decisions/adr/0006-dependency-baseline.md:201-230, quoting the old wording, naming which half is false and why, and citing validators/requirements.py:169 (the call), :170 (the AC/EC check one line below), :729 (the function and its docstring) and the Accepted-status filter. All four citations verified in the forge_1 copy named at meta/kanban/config.yml:38. Instrument re-run by me, not inherited: planting a nonsense ref in that rule's `check:` takes the validator from 88 warnings with zero ADR-0006/R1 findings to 89 WITH the dead-ref WARN; tree restored to identical SHA-256. CARD-319's 'Defect 2' is refuted at this HEAD and the consequence is routed on the board."
+    - "ADR-0001 ✓ holds — neither threshold is reopened and no bound is edited away. ADR-0001's bytes are IDENTICAL at f70c2d84 and d185a94a (SHA-256 117d4797bb00afe0 on both), so this round changed the cell and not the ADR. Re-derived independently with my own sentence scan: exactly 6 sentences in the file hold a stale square extent and all 6 carry a retraction cue; exactly 2 of them (the History entry's rejected alternatives) are retracted by 'alternative not taken' alone, which is the measurement that justified adding that cue. Mutation-checked in both directions: a cue-free stale sentence inside the Decision paragraph is now killed, and the same plant against the pre-fix cell survives."
+    - "ADR-0006/R1 ✓ holds — the dependency-baseline RULE is tested and the POINTER now resolves at a definition, which are the two readings the ADR's own comment insists on keeping apart. The rule's test (def at tests/test_export_pdf.py:1249) is green inside the 982-node impact scope; the `check:` ref at adr/0006-dependency-baseline.md:170 is now the bare name, and its resolution is held AT that def: renaming the def to a non-substring name (my MY1) reds two of the guard's cells (the defined class and the two-directions EC), where the retired node-id spelling was held only by bookkeeping."
+
+root_causes:
+  - id: RC-1
+    title: >-
+      Claims about ref resolution inherited from sibling cards instead of
+      re-measured (cycle 1's cluster) — RESOLVED: both members are closed, and
+      the round's own refinement of F-001's mechanism is correct
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: >-
+      Site citations and hand-off figures written at a coarser granularity than
+      the artefact they must be re-derived against — one line number off by
+      three, one shift table keyed on requirements while its consumer works on
+      criteria
+    finding_ids: [F-006, F-007]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/decisions/adr/0006-dependency-baseline.md
+    line: 170
+    title: "ADR-0006/R1's repaired pointer still resolves only from bookkeeping — the card's own erosion class"
+    description: |
+      CLOSED, and confirmed on an independent instrument rather than on the
+      round's claim.
+
+      * The `check:` at :170 is now the bare name (verified), and ADR-0042/R4's
+        identical declaration at adr/0042-...:650 was fixed in the same change,
+        leaving the retired node-id string declared nowhere.
+      * Re-derived with my own census (a real YAML parse of the two registry
+        files, an `ast` definition index, and a token-level loose scan — none of
+        them the guard's instrument): at the base the node-id form resolved from
+        58 tracked files, NOT ONE of them the module holding the `def`; the bare
+        form resolves from 82 INCLUDING that module, whose `def` is at
+        tests/test_export_pdf.py:1249. After pruning meta/review/ +
+        meta/profiling/ + backlog-scored.yml the bare form keeps 2 resolvers
+        (one of them its own module) and the node-id form kept exactly 1.
+      * The class moves 4 -> 3 exactly, with the node id as the single
+        departure and nothing entering (my set difference, both counts and both
+        SHA-256 digests reproduced).
+      * The round's decision to fix ADR-0042/R4 IN ROUND is mechanically
+        forced, not tidiness, and I verified the premise it rests on: at
+        b18fd397 that ADR rule was the node id's ONLY declaration (my base
+        census: sources = adr/0042 alone). M1b — reverting ADR-0042/R4 ALONE —
+        reds the resolved-from-afar cell, which is the counterfactual: had the
+        card split the ADR-0042 edit off, the class would have stayed at 4 and
+        the repair would have been unprovable by the card's own gate. The edit
+        itself is one declaration line plus comments; R4's statement, scope and
+        severity are untouched, and `Touches` records the addition visibly.
+      * The round's REFINEMENT of this finding is right and my own measurement
+        confirms it: with the `def` renamed to a non-substring name the
+        validator still reports 88 warnings and says nothing about R1 (I ran
+        it), so cycle 1's stated consequence — "prune meta/review/ and R1 flips
+        to a dead-ref WARN" — is false for BOTH ref forms. The merit of the
+        bare form is not that it makes the validator honest; it is that the ref
+        resolves at its own definition, which is what MY1 holds mechanically.
+        Cycle 1's finding stands; its mechanism is the guard's class, not the
+        validator's warning.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 28692ca8
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: meta/architecture/decisions/adr/0006-dependency-baseline.md
+    line: 201
+    title: "A false claim about the validator of record, committed into an accepted ADR without running the instrument"
+    description: |
+      CLOSED. Retracted in place rather than deleted: the block quotes the old
+      sentence verbatim, states that its first half is FALSE, says where the
+      claim came from (a blocked sibling card) and why writing it was the
+      defect, then lists the measurement — validators/requirements.py:169 is
+      the call site, :170 the AC/EC check one line below, :729 the function
+      with its docstring quoted, and the Accepted-status filter is what scopes
+      it. I verified all four citations in the forge_1 copy named at
+      meta/kanban/config.yml:38.
+
+      Only the half that is true survives, and the block says so explicitly,
+      with the corrected REASON attached ("the pointer resolved falsely because
+      existence is asked with a TEXT search, not because nothing asked") — so
+      the surviving half no longer carries the false premise that used to
+      justify it. It also keeps the two readings apart that the board had
+      collapsed (the rule was tested throughout; the pointer never resolved to
+      a definition) and warns against the more dangerous overstatement.
+      Legibility: the retraction is longer and more specific than the claim it
+      replaces, dated, and attributed to this card's own review cycle.
+
+      Instrument re-run by me rather than inherited: a nonsense ref in that
+      rule's `check:` takes the validator from 88 warnings with ZERO
+      ADR-0006/R1 findings to 89 WITH `[WARN ] ADR-0006/R1 ... DEAD check ref`.
+      Tree restored to identical SHA-256; working tree clean afterwards.
+    suggestion: ""
+    confidence: high
+    source: model
+    violates: ADR-0039/R4
+    root_cause: RC-1
+    status: fixed
+    fixed_in: 28692ca8
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 4218
+    title: "FR-042/AC-269 re-pointed to a test that does not assert its `then`, with no card owing the assertion"
+    description: |
+      CLOSED by option (a) — the assertion, not a mark — and the choice is the
+      right one, for a reason I measured rather than accepted.
+
+      The criterion now declares two comma-separated refs (a form the registry
+      already uses): the wiring cell at tests/test_book_solved_answer_key.py:308
+      and a new cell at tests/test_book_pdf_band.py:1536 (see F-006 — the round
+      cites :1533). The new cell composes the caption from that module's own
+      template literal at :182, asserts it is the ink on the answer page
+      exactly once at a non-band size, and asserts the picture's own name is
+      printed nowhere.
+
+      M4 re-fired and it is decisive: with the production caption composed
+      TITLE-FIRST, the two-cell scope goes 2 passed / 0 failed to 1 passed / 1
+      failed — and the cell that stays GREEN is the wiring test. So the gap was
+      real (both sides of the wiring comparison compose the caption through the
+      same primitive) and the new cell is the only thing that closes it. M9
+      (custom_titles -> {}) reds the negative half. M11 (the second ref
+      nonsensed) reds three guard cells, so the new ref is inside the declared
+      population and mechanically checked, not decoration.
+
+      Two further checks of my own, because a second implementation that is not
+      compared is a tautology: MY2 removes the em dash from the module's own
+      literal and BOTH band cells red — the literal is genuinely compared
+      against production ink. And the choice of (a) over a mark-plus-owing-card
+      does not violate G-2 ("no new test for behaviour already covered")
+      precisely because M4 demonstrates the behaviour was NOT covered.
+    suggestion: ""
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 28692ca8
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_grid_bound_agreement.py
+    line: 186
+    title: "The ADR-agreement cell is line-scoped, so a stale maximum added to an already-cue-bearing paragraph is invisible"
+    description: |
+      CLOSED, with the best-shaped evidence in this round: a matched control.
+
+      The cell now splits each line on terminal punctuation and requires the
+      cue in the SAME sentence as the stale extent. Re-fired:
+
+      * cycle 1's surviving plant (the stale sentence appended inside the
+        Decision paragraph, which carries `narrowed` and `History` in other
+        sentences): 4 passed / 0 failed -> 3 passed / 1 failed. KILLED.
+      * the IDENTICAL plant against f70c2d84's line-scoped cell, in a separate
+        detached worktree: 4 passed. SURVIVED. ADR-0001's bytes are identical
+        at both commits (same SHA-256 before the plant), so the difference is
+        the cell and nothing else.
+      * M5b (a cue-free NEW line) still reds — the positive direction was kept.
+
+      The added cue was measured, and I reproduced the measurement with my own
+      scan: exactly 6 sentences in ADR-0001 hold a stale square extent, and
+      exactly 2 of them are retracted by "alternative not taken" alone.
+
+      The docstring's new statement of what is NOT caught is accurate in both
+      directions I tested: splicing a stale extent into a CUE-FREE sentence is
+      killed (my MY3), and splicing one into a CUE-BEARING sentence survives
+      (my MY3b) — exactly the hole the docstring now names. The docstring no
+      longer claims more than its control, which was the finding.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 28692ca8
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_check_ref_resolution.py
+    line: 1105
+    title: "Five of the six baseline notes carry the same union block, so each describes departures and entrants that are not its own"
+    description: |
+      CLOSED. The pasted union blocks are gone, the shared method is stated
+      once under its own header, and each class carries its own OUT/IN block
+      with its own member sites.
+
+      I re-derived all nine classes at the base and at this HEAD on an
+      independent instrument (real YAML parse instead of the guard's line
+      regexes, `ast` instead of `git grep -nE`, token scan instead of the
+      trie), as set differences, and reproduced every stored baseline — count
+      AND digest — on BOTH sides:
+
+        class                base -> head   OUT  IN   claimed   verdict
+        bookkeeping-only      11 ->  11      0   0    0/0       exact
+        falsely-alive        162 -> 155      7   0    7/0       exact
+        falsely-dead          13 ->  13      0   0    -         exact
+        honest-dead           18 ->  16      2   0    2/0       exact
+        resolved-from-afar     4 ->   3      1   0    1/0       exact
+        same-file-prose       19 ->  19      0   0    -         exact
+        census               586 -> 580     10   4    10/4      exact
+        trace-tests          513 -> 507      8   2    8/2       exact
+        defined              406 -> 409      1   4    1/4       exact
+
+      Every mover resolved against my own `ast` index: the ten departures have
+      ZERO def/class lines (the one exception is the node-id spelling, a form
+      change whose definition is untouched), and the four entrants each have a
+      real def at tests/test_export_pdf.py:1249,
+      tests/test_book_pdf_band.py:1483, tests/test_book_solved_answer_key.py:308
+      and tests/test_book_pdf_band.py:1536 (the round cites :1533 for the last
+      one — F-006). Every member SITE the notes cite was spot-checked and is
+      exact: requirements.yml:1098/:1104/:1136/:4109/:4118 and
+      trace.yml:993/:1226/:2140 at the base, trace.yml:2155 at HEAD,
+      adr/0006-...:170 and adr/0042-...:650.
+
+      Regression check on the biggest file in the delta: the ONLY non-comment
+      change in this module across the fix round is the three moved baseline
+      tuples. No cell was retargeted, no assertion weakened, no member set
+      edited; the two per-member digest sets are byte-identical.
+
+      The M10 survivor is recorded honestly and its stated reason is true (I
+      verified there is no `filterwarnings` anywhere in this tree, and no `-W`
+      in addopts), but it leaves one artefact un-gated — filed separately as
+      F-009 rather than re-opening this finding.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 28692ca8
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_check_ref_resolution.py
+    line: 1539
+    title: "The one site this round added to the DEFINED note is off by three lines, in a note that claims each site was read off its own `def` line"
+    description: |
+      The DEFINED baseline note lists its four entrants' sites and says they
+      were "each read off its own `def` line rather than searched for". Three
+      are exact (tests/test_export_pdf.py:1249,
+      tests/test_book_pdf_band.py:1483, tests/test_book_solved_answer_key.py:308
+      — all verified against my own `ast` index). The fourth,
+      tests/test_book_pdf_band.py:1533, is not: the `def` is at :1536, and
+      :1533 is a class attribute inside the same cell's class body (the class
+      statement is at :1500). It was never right — the line is :1536 at
+      28692ca8, the commit that added the cell — so this is a mis-citation and
+      not drift.
+
+      The same wrong site appears a second time at
+      meta/kanban/cards/CARD-317.md:382 ("2. **new** — ...:1533"), which is the
+      sentence the next reader will use.
+
+      Nothing gates on it: the ref itself resolves to a real definition, and
+      M11 shows the declaration is mechanically checked. It is filed because
+      this card family's whole subject is that a cited pointer must be
+      re-derivable by the next reader, and a site citation inside the artefact
+      F-005 produced is exactly where that standard applies to the card's own
+      work.
+    suggestion: |
+      Change both occurrences to :1536 (or to the class statement at :1500 if
+      the intent was the cell's class rather than its method, which would also
+      make the two citations of the sibling consistent — the AC-268 entrant is
+      cited at its method's `def`). One-line edit in each file; no baseline,
+      count or digest moves, so the 23 guard cells stay green.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/kanban/cards/CARD-317.md
+    line: 425
+    title: "The CARD-316 hand-off shift table is keyed on requirement ids while its consumer works on criteria, and is wrong for five of them"
+    description: |
+      The hand-off replaces a retracted +27/+19 figure with six cumulative
+      bands, labelled by requirement id and introduced as "measured off the
+      `  - id:` lines". Re-derived (496 `- id:` lines on both sides, joined by
+      id, file 6867 -> 6985 lines — both figures exact):
+
+        FR-001                  +0     claimed +0      exact for the FR line
+          AC-001                +19    inside the "+0" band
+          AC-002                +22    inside the "+0" band
+          AC-003                +31    inside the "+0" band
+          AC-004                +38    inside the "+0" band
+        FR-002 ... FR-019       +44    claimed +44     exact
+        AC-066 ... AC-267       +61    claimed +61     exact
+          AC-268                +73    inside the "+61" band (FR-042's own AC)
+          AC-269 ... AC-038    +101    the "+101" band starts here, not at FR-043
+        AC-084 ... CON-011     +111    claimed +111    exact (starts at AC-084,
+                                                       before NFR-002's own line)
+        CON-012 and below      +118    claimed +118    exact
+
+      So the six bands are exact at REQUIREMENT granularity and wrong for five
+      CRITERIA: FR-001's four (which this card edited — they carry the new
+      `status: superseded`) and AC-268. CARD-316 "touches seven criteria across
+      the same registry", so the unit of the consumer is exactly the unit the
+      table gets wrong.
+
+      Mitigated, which is why this is Minor and not Important: the same
+      paragraph says "Re-derive. Do not offset." and "Find each criterion by
+      its `- id:` line", and the retracted predecessor is named as the reason.
+    suggestion: |
+      Replace the six rows with the eleven measured above (or drop the table
+      and keep only the instruction to find each criterion by its `- id:`
+      line). A table that is right for requirements and wrong for criteria is
+      the shape that invites the offsetting the paragraph forbids.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/trace.yml
+    line: 2155
+    title: "AC-269's second ref is declared in requirements.yml but not listed in FR-042's trace row — a latent dead declaration asymmetry"
+    description: |
+      The fix round added a second ref to AC-269 in requirements.yml:4218 and
+      did not add it to FR-042's `tests:` list at trace.yml:2155, which was
+      updated in the same card for the first ref. Measured: of the four refs
+      that entered the census this round, three are declared by both
+      authorities and this one is declared by requirements.yml alone (which is
+      also why TRACE_TESTS gains 2 and not 3 — the arithmetic in the notes is
+      consistent, it is the model that is asymmetric).
+
+      Nothing warns today, and I verified why rather than assuming: the
+      validator's "declared on an AC ... is not listed in this covered entry's
+      tests:" finding fires on `covered` entries, and FR-042 is `status:
+      partial`. So this is latent: the day FR-042 goes `covered` the new ref
+      produces that warning, on a criterion this card closed. The trace row's
+      own new note says "AC-268's and AC-269's two names are replaced by the
+      tests that actually assert them", which is now one name short of what
+      requirements.yml declares.
+    suggestion: |
+      Add the second ref to FR-042's `tests:` list at trace.yml:2155 and
+      re-derive TRACE_TESTS and CENSUS (the baseline moves by one in each, and
+      the guard will red until it is re-derived — the intended behaviour). Or,
+      if the convention is deliberately one ref per criterion in the trace row,
+      say so in that row's note so the next reader does not read the gap as an
+      omission.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_check_ref_resolution.py
+    line: 1656
+    title: "The per-member digest sets have no size or digest pin, so deleting members is silent (M10's recorded survivor)"
+    description: |
+      M10 re-fired and SURVIVED exactly as recorded: deleting two digests from
+      the honest-dead member set leaves all 23 cells green. The round's reason
+      is accurate and I verified both halves of it — a shrunken member set only
+      shortens the "lost N member(s)" UserWarning, and there is no
+      `filterwarnings` configuration anywhere in this tree and no `-W` in
+      addopts, so that warning cannot fail a gate. Recording the survivor with
+      its reason is the honest move and is what keeps this a Minor.
+
+      What remains un-gated is narrow and worth stating: these two sets are the
+      only artefacts in the module that are NOT pinned by a count and a digest,
+      and they are the ones the departure diagnostic reads. A member removed by
+      hand (or in a merge) is invisible, and the direction it fails in is the
+      module's own failure mode — the diagnostic silently stops being able to
+      name a departed ref. The class itself stays pinned, so no claim of this
+      round rests on it.
+    suggestion: |
+      Pin each member set the same way the classes are pinned: one assertion
+      that `len(...)` and a digest over the sorted set equal stored constants
+      (28 members for the honest-dead set at this HEAD). That is a two-line
+      cell, stores no ref, and converts M10 from a survivor into a killed
+      mutant. If the sets are meant to be freely prunable, say so beside them —
+      at the moment the comment explains why they are kept, not why they may
+      shrink.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_check_ref_resolution.py
+    line: 1580
+    title: "Out of scope: a second stale-figure sentence in the same module, pre-existing at the base"
+    description: |
+      A present-tense sentence beside the per-member digest sets states the
+      sizes of four classes as "163, 580, 389 and 510 members". Measured, they
+      are 155, 580, 409 and 507 at this HEAD — and they were 162, 586, 406 and
+      513 at b18fd397, so the sentence was already stale before this card and
+      is byte-identical at base and HEAD (`git diff` over this card's range
+      matches it zero times). Not introduced here, never gating, and the second
+      occurrence a few lines below is a deliberate quotation of the withdrawn
+      tautology argument, where the old numbers belong.
+
+      Noted only because this round re-derived all nine classes and rewrote
+      every per-class note in this file, so it is the cheapest moment to close
+      it; and because it is the same defect family (a figure stated in the
+      module that no longer describes what it names) that F-005 was about.
+      Advisory: it neither gates the verdict nor lowers the score.
+    suggestion: |
+      Either re-derive the four figures in that sentence (they are already
+      derived four hundred lines above) or make it count-free ("the other four
+      classes are hundreds of members each"), which cannot go stale. Mark it as
+      a follow-up on whichever card next touches this module rather than
+      widening this one again.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

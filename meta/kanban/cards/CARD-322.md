@@ -154,6 +154,59 @@ divider**, which is exactly the scope this card already carries — and R1's fli
 still only legal once the five temporary entries are gone, which ADR-0042's own Rules
 comment states.
 
+
+## [Scope gap] — eleven test modules break this way; this card declares one
+
+**Measured 2026-10-31 by the orchestrator**, read-only census over `tests/**/*.py`:
+the modules that **both** read ink with a raster reader (`drawing_of`, `drawings_of`,
+`ink_regions`, `page_ink`, `two_up_ink`) **and** obtain pages from `interior_pages`
+or `interior(`. Those two together are the failure: `interior_pages` returns
+`List[Union[Image.Image, ContentStream]]`, so converting a kind hands a content
+stream to a pixel reader, and CARD-331 measured the result —
+`'ContentStream' object has no attribute 'convert'`. A page's `.size` is gone the
+same way, which is how EC-019's every-page-is-the-trim claims fail.
+
+| module | raster readers | page sources | owned? |
+|---|---|---|---|
+| `tests/test_book_pdf.py` | 72 | 5 | **declared by this card** |
+| `tests/test_book_puzzle_frame.py` | 37 | 2 | — |
+| `tests/test_book_proof_pages.py` | 21 | 1 | — |
+| `tests/test_book_pdf_two_up.py` | 20 | 1 | — |
+| `tests/test_book_cell_size.py` | 18 | 1 | — |
+| `tests/property/test_book_pdf_geometry.py` | 12 | 4 | CARD-288, **premise dissolved, now gated** |
+| `tests/test_book_pdf_band.py` | 11 | 2 | — |
+| `tests/test_book_difficulty_dots.py` | 10 | 2 | CARD-331, **deliberately** |
+| `tests/test_book_pdf_memory.py` | 7 | 6 | — |
+| `tests/test_book_divider_pages_option.py` | 6 | 2 | — |
+| `tests/property/test_book_pairing.py` | 5 | 1 | — |
+
+**1 of 11 declared. Two more are spoken for, and eight have no card at all.**
+
+This is the subset of CARD-309's measured **189 failures + 75 errors across 22
+modules** that fails specifically by handing a content stream to a pixel reader —
+so the figure is not new, but its distribution across *cards* is.
+
+**What this does to the estimate.** This card is 1d, budgeted as five page kinds plus
+one test module. The measured consequence is eleven. **Price that before starting**,
+and decide explicitly which of the three dispositions each undeclared module gets:
+converted to a stream reader, retired with a named survivor, or pinned as legacy —
+the choice CARD-330 already made for the placed-edge expectations it owns.
+
+**Two of the eleven are already handled and are the pattern to copy, not re-derive:**
+
+- **`test_book_difficulty_dots.py` (CARD-331)** does the right thing by design. Its
+  `test_each_arms_mechanism_is_still_exercised[raster]` is **built to red the day this
+  card converts the puzzle page**, and its message is a work order naming the arm, its
+  mechanism and the remedy. **Expect that red; satisfy it by re-pointing. Do not widen
+  it.** See the correction above: *re-point, do not retire.*
+- **`test_book_pdf.py` (CARD-330)** pinned its placed-edge expectations to the raster
+  medium rather than re-tuning them for both, precisely so this card's conversion is
+  what retires them. Its `EDGE_TOLERANCE_MM` stays `0.1` behind a biconditional, and
+  the figure that will red here is **3 px = 0.254 mm on `Drawing.left`/`top`** — a
+  rasteriser mitring a stroked `re`'s corner — **not** the grid's own edges, which sit
+  at 1 px = 0.0847 mm, inside the bound. **The repair is a centre-reading oracle, not a
+  wider tolerance.**
+
 ## What to implement
 
 1. **One kind at a time, each removal complete.** For TITLE, GUIDE, TOC and ANSWER: wire the vector

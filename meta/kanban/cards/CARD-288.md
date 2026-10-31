@@ -5,7 +5,7 @@
 **Category:** tech-debt
 **Estimate:** 1d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** true <!-- GATED 2026-10-31 by the orchestrator, on the owner's question "does it make sense to take 288, or not, as we're going to get rid of most raster". The premise is dissolved by the card this one waits on -- see [Why this card must be re-cut] below. NOT skipped: its page census is a real measurement and the file still needs work, just not THIS work. -->
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/288-walk-the-stream-not-the-book
@@ -23,6 +23,59 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## [Why this card must be re-cut] — the premise is consumed by CARD-322
+
+**Measured 2026-10-31, on the owner's question of whether to take this card now.**
+The answer is no, and the reason is not "raster is going away" in the loose sense —
+it is that **both halves of this card's measured value are bitmap-count value, and
+the card it depends on removes the bitmaps.**
+
+**1. The memory half — the half this card calls "the half with a card behind it" —
+is already conditional on the medium.** `interior_pages`' signature is
+`List[Union[Image.Image, ContentStream]]`: a page whose kind is declared vector
+comes back as a content stream *today*, not a 25.2 MB bitmap. The 2.71 GiB RSS this
+card measured (115.3 page bitmaps) is a count of the kinds still declared raster.
+After CARD-322 converts title, guide, TOC, answer and puzzle, the only interior kind
+still raster is the **divider** — roughly one bitmap per book where this card
+measured thirteen. The 3,820-pages-drawn figure falls with it.
+
+**2. The time half is raster render cost.** 13.8 ms/page is drawing a bitmap and
+scanning its ink. A vector page is *written*, not rendered.
+
+**3. This card's own fix is subsumed.** "Walk the stream, not the book" — its branch
+name — is what the vector path already does: `interior_stream` walks one page alive
+at a time, which is why the export path stopped using `interior_pages` at CARD-145.
+A converted test obtains pages one at a time *by nature*, so the page-walk question
+answers itself on the way.
+
+**4. And the four tests do not get slow after CARD-322 — they get BROKEN.** They
+take pages from `interior_pages` and read them with `drawing_of` / `drawings_of`,
+which are pixel readers. CARD-331 measured the exact failure: `'ContentStream' object
+has no attribute 'convert'`. `DrawingFitsUsableArea` is worse off still, since it
+asserts `page.size` on every page for EC-019 and a content stream has no `.size`
+either. So the work this file needs is a **conversion or a retirement**, with a
+different premise and a different AC set.
+
+### What a successor inherits, and what it must not re-derive
+
+- **The page census is kept** (`meta/profiling/card-288-page-census.md`): 3,820 drawn
+  / 1,033 read / 27.0 %, and the per-test split. It is a counter, not a stopwatch,
+  and it was honest about its own domain — the **20.4 s is an UPPER BOUND from a
+  single instrument** that attributes all of a test's time to drawing, including the
+  ink scan and the oracle arithmetic. A converted file's cost must be re-measured
+  from scratch; do not carry the 20.4 s forward.
+- **The four pixel claims are correct and load-bearing**, and this card never
+  proposed converting an assertion. That stays true for the successor: the question
+  is which medium the claims are read in, not whether they hold.
+- `DrawingFitsUsableArea` wastes **no** render — it asserts `page.size` on all 1,512
+  pages for EC-019 — so its saving was always memory only. That distinction survives
+  the conversion and is the one piece of the design worth keeping.
+
+**Unblocking condition.** Do not clear this flag on CARD-322's merge. Re-cut the card
+after CARD-322, against whatever `tests/property/test_book_pdf_geometry.py` then is —
+and see CARD-322's own scope note, because that file is **one of ten undeclared
+modules** in the same breakage class.
 
 ## What to implement
 
