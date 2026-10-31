@@ -6946,21 +6946,33 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
     rather than a plan.
     """
 
-    def test_the_recomputed_layout_is_the_page_the_writer_wrote(
+    def test_the_page_extent_this_arm_flips_y_about_is_the_streams_own(
         self, arm_page: ArmPage
     ) -> None:
-        """The band box rests on a layout this file recomputed — so check it.
+        """The one figure the vector accounting takes on trust, checked.
 
-        The writer does not hand its ``Layout`` back, so :func:`_arm_page`
-        recomputes one from the same spec; if that drifted, every declared dot
-        below would be in the wrong place and the accounting would still
-        balance, because the plant and the declaration would drift together.
-        The stream's own ``MediaBox`` is the independent reading that refuses
-        it.
+        :func:`_declared_in_points` flips a declared box's y about
+        :attr:`ArmPage.height_px`, which :func:`_arm_page` reads off a
+        ``Layout`` it recomputed rather than off the page the writer wrote. The
+        stream's own ``MediaBox`` is the independent reading of the same
+        extent, and it refuses a disagreement — which matters, because a wrong
+        height is a declared box in the wrong place with the counts still
+        agreeing, and that is the failure MUT-15 plants.
+
+        **Narrowly this and nothing more.** It is *not* a check that the
+        recomputed layout is the writer's in every respect: measured, taking
+        the spec for the next interior position instead leaves the band's
+        centre and the glyph's box bit-identical (the trim and
+        ``center_x = width / 2`` are the same on both parities), so a
+        page-number drift is invisible here and this test does not claim to
+        see it. What it holds is the extent the conversion is done against.
         """
         _, _, width_pt, height_pt = arm_page.stream.media_box
+        assert round(height_pt, 3) == round(arm_page.height_px * PT_PER_PX, 3), (
+            "the page height this arm flips y about is not the stream's own, "
+            "so every declared box is in the wrong place by the difference"
+        )
         assert round(width_pt, 3) == round(arm_page.width_px * PT_PER_PX, 3)
-        assert round(height_pt, 3) == round(arm_page.height_px * PT_PER_PX, 3)
 
     def test_the_corpus_is_one_page_per_puzzle_of_both_books(
         self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]

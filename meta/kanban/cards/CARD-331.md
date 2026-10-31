@@ -197,7 +197,7 @@ Both arms therefore reach **three distinct** assertions under three distinct
 wrongnesses: liveness, count, verdict. MUT-7/MUT-8 alone would have left the
 verdict assertion unmeasured, which is exactly the short-circuit AC-5 names.
 
-### [The full mutant round: 14 killed, 1 declared negative control survived]
+### [The full mutant round: 16 killed, 1 declared negative control survived]
 
 `scratchpad/card331/mutate.py`. Every plant located by text with its
 occurrence count asserted to be exactly 1; every control measured green in the
@@ -224,6 +224,8 @@ after the restore; `__pycache__` swept before and after each run;
 | MUT-13 | **declared negative control**: an arm is renamed and nothing else — it must SURVIVE, because the guard claims one arm per medium and not a set of spellings | (survived, as declared) |
 | MUT-14 | AC-5 raster, verdict | `…::test_a_declared_glyph_is_found_as_ink_and_accounted_for` |
 | MUT-15 | AC-5 vector, verdict | `…::test_a_declared_glyph_is_found_in_the_stream_and_accounted_for` |
+| MUT-16 | the page extent the vector accounting flips y about drifts from the stream's own | `…::test_the_page_extent_this_arm_flips_y_about_is_the_streams_own` |
+| MUT-17 | **the control's own control**: the raster arm's probe stops noticing that the medium has moved | `…::test_each_arms_probe_reports_death_when_its_mechanism_goes` |
 
 ### [The frozen render-heavy set: a hazard met and avoided, with the reason]
 
@@ -284,6 +286,31 @@ and the grep finds **0** of the eight names in either touched file.
 | Bézier flattening cost **3.96e-4** of the `fill` ratio | 0.999859 at 32 segments, 1.000255 at 256 where it has converged; 0.33 % of `ROUND_FILL_TOLERANCE`, and the test moves the segment count so the measurement is of the flattening |
 | **1.1369e-13 pt** worst path-vs-declared disagreement | 200-case seeded sweep of dots on integer pixels; eleven orders inside the 1/1000 pt the stream writes at, which is why the accounting rounds to three places and matches **exactly** rather than tolerating a gap |
 | outlined dot: `fill` **0.999851** in the stream, **0.4100** as ink | the two arms' one measured disagreement — a stroked circle's *path* encloses a disc, its *ink* is a ring. Asserted on one glyph, both ways |
+
+### [One claim this round wrote and then had to narrow, with the measurement]
+
+The first version of `test_the_page_extent_this_arm_flips_y_about_is_the_streams_own`
+was called `test_the_recomputed_layout_is_the_page_the_writer_wrote` and said
+that if the recomputed layout drifted, *"every declared dot below would be in
+the wrong place and the accounting would still balance"*. Two measurements say
+that is wider than the test:
+
+- **the glyph's box does not land on paper.** The band box carries **855 ink
+  pixels** on the bitmap and one stroked subpath crosses it in the stream (the
+  header rule, at y 722.64 pt ≈ device row 289, which is below the dots at
+  rows 215..256 and does not touch them). So a "the box is clear" check — the
+  obvious way to hold the recomputation — is simply false here, and the
+  accounting does not need it.
+- **a page-number drift is invisible to this test.** Taking the spec for the
+  next interior position instead leaves the band's centre and the glyph's box
+  **bit-identical** (`band_center 1275,236`, `box (154, 165, 438, 306)` on both
+  page 4 and page 5): the trim is the same on both parities and
+  `header_band`'s `center_x` is `width / 2`.
+
+So the claim was narrowed to the one figure the test really holds — the page
+**extent** the y-flip is done against, which MUT-16 reds on a one-pixel drift
+and MUT-15 shows matters to the accounting — and the docstring now says out
+loud what it does **not** see.
 
 ### [What was NOT done, and why]
 
