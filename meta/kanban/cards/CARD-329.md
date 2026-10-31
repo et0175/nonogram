@@ -442,6 +442,29 @@ is a **FAILURE**, not a silent pass.
   `two_up_ink.py`, the independent pixel oracles, import no stream reader and
   were not touched; `TestEdgeOffset_ThePixelOraclesStillReadPixels` is what
   says so, and it is green. That is G-2's reason, intact.
+- **[The architecture validator, re-derived — and what the reading does NOT
+  support]** `forge_1`'s `validate.py` (the validator of record,
+  `meta/kanban/config.yml:38`) in this worktree: **0 error(s), 88 warning(s)**.
+  `config.yml` records 90, measured on main "after CARD-318 merged" — and
+  CARD-330 and CARD-331 have merged since, so **that figure is at least two
+  card-merges stale and the delta is not attributable to this round**. The set
+  diff with `comm` was NOT completed (the run contends with CARD-316's own
+  check-ref search and was stopped rather than loaded onto the host beside a
+  sibling's round), so the 88 is a total and nothing is claimed from it.
+  What IS established, mechanically, is the thing the set diff would have been
+  asked: **this round cannot have moved a warning either way.**
+  - It adds nothing under `meta/architecture`, which is the validator's input.
+  - The check-ref search is a TEXT search over the repo, so a scratchpad
+    mention can silence a dead ref. `scratchpad/card329/ref_pollution_check.py`
+    derives every test-like symbol the nine instruments mention — **46**, the
+    count re-derived after this instrument joined them — and
+    resolves each to a `def`/`class` in `tests/`: **0 orphans**. Every one is
+    already resolved by a real definition, so the scratchpad changes no ref's
+    resolution. (This is the failure recorded in the orchestrator's notes: a
+    commit of measurement text reddened a merge gate by making dead refs
+    resolve from `scratchpad/`. It is why nothing in this round is a `.txt`
+    census or a validator dump — the instruments are `.py` and the numbers
+    live in this card.)
 - **[What was deliberately NOT done]** The 16 residual reds were not forced
   green. Each needs its claim re-expressed against the content stream
   (ADR-0042/R6) or its expectation re-composed in the page's own medium, and
