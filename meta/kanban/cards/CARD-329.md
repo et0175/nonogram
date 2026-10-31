@@ -407,6 +407,41 @@ is a **FAILURE**, not a silent pass.
   mixed-medium file cannot be built from the rules in force; the one test that
   needs one lifts PUZZLE's declaration under `monkeypatch` for its own
   duration, which is the session probe at test scope.
+- **[FINAL measurement under the probe, after the round]** 20 modules, one run
+  each: **17 of 20 RED (was 20 of 20), 151 failed+error (was 259), 1214 passed
+  (was 1088), 1 skipped** — the same `setrlimit` skip, attributed by `-rs`.
+  **108 reds cleared.** Three modules are now fully green under the probe:
+  `test_book_interior_face.py` (3 -> 0), `test_book_trim_persistence.py`
+  (2 -> 0) and `test_book_cell_size.py` (20 -> 0).
+- **[`tests/test_book_pdf.py` is red at 38 under the probe and SHOULD BE]** Its
+  placed-edge expectations are pinned to the raster **by design**:
+  `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium` derives every site
+  comparing against `EDGE_TOLERANCE_MM` and requires it to read its page
+  through `drawing_of` and through no stream reader, so — in that class's own
+  words — "when CARD-322 converts a page under one of them, the reading
+  changes medium and this goes red until the site says so." Six more of the 38
+  are assertions *about* `_RASTER_DECLARATIONS` itself, which the probe lifts
+  and nothing else. **None of the 38 is a defect this card may repair**, and
+  `EDGE_TOLERANCE_EXEMPTIONS` is still empty.
+- **[A gap this card's own helper opened, found and closed]** `_STREAM_READERS`
+  — the set that decides whether a placed-edge site has changed medium — held
+  four names, all from `pdf_vector`. This card gave `pdf_pages` three
+  functions that hand back **pixels from a content stream**, so a site reading
+  through one of them crosses the medium with `drawing_of` still in its call
+  set and the pin passing. Measured, not supposed: MUT-13 plants that on
+  `TestBookPdf_DrawingCentredOnRightHandPage::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge`
+  and it is invisible to the pin without the fix. The three names are now in
+  the set (default-DENY, ADR-0039/R2), with one cell resolving each member to
+  a `def` and one asserting the *reason* rather than the membership — MUT-14
+  and MUT-15. That set's comment also claimed to be "derived from this
+  module's own imports" and never was; corrected.
+  Plants now **15: 14 KILLED, 1 declared SURVIVOR**. Node ids over the seven
+  `Touches` paths: **282 -> 302, 0 lost.**
+- **[The oracles' cross-check survives]** `pdf_pages.py` now imports
+  `pdf_vector` — it is a reader and may. `tests/helpers/page_ink.py` and
+  `two_up_ink.py`, the independent pixel oracles, import no stream reader and
+  were not touched; `TestEdgeOffset_ThePixelOraclesStillReadPixels` is what
+  says so, and it is green. That is G-2's reason, intact.
 - **[What was deliberately NOT done]** The 16 residual reds were not forced
   green. Each needs its claim re-expressed against the content stream
   (ADR-0042/R6) or its expectation re-composed in the page's own medium, and
