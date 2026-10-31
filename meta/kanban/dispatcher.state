@@ -152,6 +152,37 @@ max_concurrent_override: 2
 # it carries "re-derive, do not offset" with the measured actuals beside it.
 # It is the THIRD card in a row to inherit a stale requirements.yml line figure.
 #
+#
+# OWNER DECISION 2026-10-31 — the retirement shape for an acceptance criterion.
+#
+# CARD-316 and CARD-317 gave the same situation two shapes 48 minutes apart:
+# CARD-317 kept the phantom test: key and added status: superseded (4 criteria);
+# CARD-316 dropped the key and added no status (7 criteria). Both mean "nothing
+# verifies this" and cost ONE warning each -- measured net zero, 7 dead-ref
+# warnings out and 7 no-test warnings in, total unmoved at 88.
+#
+# Measured before the decision was put: for an AC the validator reads `status`
+# NOT AT ALL -- the lifecycle is CON-only. So CARD-317's marker is prose no tool
+# reads, which is this card family's own defect class.
+#
+# THE OWNER CHOSE: drop the key, and card the validator fix.
+#   1. CARD-316's shape is the standard. No phantom test: key on a criterion
+#      nothing verifies, so nothing reads as mechanically checked.
+#   2. A status stays for the HUMAN record, LABELLED AS PROSE until CARD-333
+#      lands -- not presented as something the validator honours.
+#   3. The planned test name goes in a comment, not a key.
+#   4. CARD-317's four are CONVERTED to match.
+#   5. CARD-333 cut and blocked on the forge_1 decision, same blocker as
+#      CARD-319: extend the CON lifecycle to ACs so the marker becomes real.
+#
+# WHERE THE REGISTRY WORK GOES: CARD-316's FIX ROUND, after its review cycle 1
+# reports. Not a parallel orchestrator edit -- that card's branch already owns
+# requirements.yml and a second edit of the same file would only conflict. The
+# round covers ALL ELEVEN criteria: its own seven plus FR-001's four.
+# AC-379 IS NOT A RETIREMENT and must not be given `superseded`: it is a FORWARD
+# declaration owed by CARD-226. The owner's decision leaves its exact form to
+# CARD-333's item 4; until then a comment, no status.
+#
 active:
 - id: CARD-329
   phase: implementation
