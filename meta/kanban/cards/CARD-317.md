@@ -486,3 +486,58 @@ by its `- id:` line.
   refs, re-verified mechanically after the edits with the module's own trie,
   proved in both directions (finds a known ref, rejects a nonsense one). The
   new band-module cell names its sibling ref **by site** for the same reason.
+
+### Fix round 1's mutants — each finding's claim, with a control that was green
+
+Harness discipline: committed before mutating (`28692ca8`),
+`PYTHONDONTWRITEBYTECODE=1`, `__pycache__` swept both ends, SHA-256 of the
+target asserted identical after restore, every plant located **by text** with
+its single occurrence asserted, the **collected count asserted equal** on the
+control and the mutant run, `0 skipped` asserted on both (a stripped `PATH`
+turns a surviving mutant into a skip, which reads as a pass), the environment
+inherited, and `-rfsE` so a failure prints its node id. `MAX_SIZE 30 → 29` was
+**not** used: it breaks `tests/conftest.py`'s import, exits rc=4 with no count
+line, and is unanalysable (ADR-0039/R2).
+
+| # | finding | plant | control (unmutated) | mutant | node it reds |
+|---|---|---|---|---|---|
+| M1 | F-001 | ADR-0006/R1's `check:` back to the 2-part node id | 23 passed / 0 failed / 0 skipped | 20 / 3 / 0 | `…::test_a_node_id_ref_resolved_only_from_outside_its_own_module_is_pinned` (+ the ref-definition and trace-reading cells) |
+| M1b | F-001 | ADR-0042/R4's `check:` back to the node id, **alone** | 23 / 0 / 0 | 20 / 3 / 0 | the same three — so each declaration is held independently |
+| M3 | F-002 | a nonsense ref in ADR-0006/R1's `check:` | validator: **0** `ADR-0006/R1` warnings | **`[WARN] ADR-0006/R1 rule ADR-0006/R1: check names test 'zzz_no_such_test_card317_fix_round1' but no definition was found`**, 88 → 89 warn | the validator of record itself — **ADR rule check refs ARE verified**, and CARD-319's Defect 2 is refuted |
+| M4 | F-003 | `answer_caption` composed **title-first** (`src/nonogram/admin/book_answer_key.py:244`) | 2 / 0 / 0 | 1 / 1 / 0 — the **wiring test stays green** | only the new caption read-back cell. This is the finding's whole point: both sides of the wiring test's byte comparison compose the caption through the same primitive |
+| M9 | F-003 | `custom_titles()` returns `{}` | 1 / 0 / 0 | 0 / 1 / 0 | the new cell's **negative** half — the picture's own name becomes the ink |
+| M11 | F-003 | AC-269's **second** comma-separated ref replaced by a nonsense name | 23 / 0 / 0 | 20 / 3 / 0 | the EC, ref-definition and trace cells — so the second ref is in the declared population and **mechanically** checked, not decoration |
+| M5 | F-004 | the reviewer's surviving sentence, appended **inside the Decision paragraph** | 4 / 0 / 0 | 3 / 1 / 0 | `…::test_adr_0001_names_no_bare_maximum_other_than_the_constant` |
+| M5 ctrl | F-004 | **the identical plant against `f70c2d84`'s line-scoped cell** | 4 / 0 / 0 | **4 / 0 / 0 — SURVIVED** | nothing. The matched control proving the cell was weaker than its docstring |
+| M5b | F-004 | a cue-free **new line** before `## Alternatives considered` | 4 / 0 / 0 | 3 / 1 / 0 | the same cell — the positive direction the fix had to keep |
+| M6 | F-005 / G-2 | one declared ref **spelled** in a new class-specific note | 23 / 0 / 0 | 22 / 1 / 0 | `…::test_this_module_resolves_no_verifying_ref_at_all` — the hard rule is guarded over the new text |
+| M7 | F-005 | `RESOLVED_FROM_AFAR` reverted to `(4, "358bfdc4…")` | 23 / 0 / 0 | 22 / 1 / 0 | the resolved-from-afar cell |
+| M8 | F-005 | `CENSUS` reverted to `(579, "90e075cf…")` | 23 / 0 / 0 | 22 / 3 / 0 | the trace-reading cell and the partition |
+| M10 | — | two digests deleted from `HONEST_DEAD_MEMBERS` | 23 / 0 / 0 | **23 / 0 / 0 — SURVIVED** | nothing, **as documented**: a deleted digest only shrinks the `UserWarning`'s "lost N member(s)", and that warning cannot fail a gate (no `filterwarnings` in this tree). The set was left untouched on exactly that understanding, and no claim of this round rests on it. Recorded rather than hidden. |
+
+**One honest refinement to F-001, measured rather than asserted.** The review's
+consequence — "prune `meta/review/` and ADR-0006/R1 flips to a dead-ref WARN" —
+does not hold for **either** form at this HEAD, and the reason is F-002's
+surviving half: with the `def` renamed to a non-substring name *and* its
+docstring record dropped, the validator still reports **88** warnings and says
+nothing about R1, because the bare name has 80 bookkeeping resolvers left and
+the module itself spells it twice more in comments (`tests/test_export_pdf.py`
+:623 and :745). The bare form's merit is therefore **not** that it makes the
+validator honest; it is that the ref resolves **at its own definition**, so it
+is not in the class whose entire definition is "alive only because of files
+that are about the card". Under a prune of `meta/review/` + `meta/profiling/` +
+`backlog-scored.yml` the bare name resolves from its own module and the node id
+resolves from **one** docstring line in a module that defines nothing
+(`tests/test_admin_serving.py:134`) — itself an instance of the accident. F-001
+stands; its mechanism is the guard's class, not the validator's warning.
+
+### Impact scope, re-run after every mutant was restored
+
+`tests/test_check_ref_resolution.py`, `test_grid_bound_agreement.py`,
+`test_book_pdf_band.py`, `test_book_solved_answer_key.py`,
+`test_book_answer_key.py`, `test_export_pdf.py`, `test_book_solved_page.py`,
+`test_full_suite_lock.py` → **397 passed, 0 failed, 0 skipped**;
+`tests/test_suite_profile.py` (ADR-0039/R1 and R2's own checks) and
+`tests/test_cli.py` (the component map and the layering guard) → **585 passed,
+0 failed, 0 skipped**. **982 in scope, no skip to attribute.** The full-suite
+lock was neither needed nor touched.
