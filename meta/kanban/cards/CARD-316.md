@@ -1,6 +1,6 @@
 # CARD-316: Seven acceptance criteria name tests that were never meant to exist — rejected alternatives, retired features and one forward declaration, each reading as mechanically checked
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/architecture/requirements.yml
-**Review score:** —
+**Review score:** 6.0 → 8.5 → **9.0 CERTIFIED** (cycle 3 of 3, the last allowed; 0 Critical, 0 Important, three non-gating Minors closed at the merge gate)
 **Started:** 2026-10-31T06:47:15+00:00
 **Closed:** —
 **Actual:** —
