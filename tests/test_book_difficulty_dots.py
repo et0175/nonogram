@@ -34,6 +34,21 @@ rather than inherited:
           with a control
     AC-6  meta/profiling/card-243-two-threshold-cost.md
 
+and CARD-331, which is the same accounting again for the medium ADR-0042/R1
+is converting the interior to. Everything above reads a bitmap; a page written
+as operators has no pixels, and an instrument pointed at one measures nothing
+rather than measuring a lighter page. So the accounting is **two arms, one per
+medium, each naming the mechanism its reading comes out of**, and the card's
+whole point is that an arm whose mechanism stops firing must RED:
+
+    AC-1  TestDifficultyDots_TheClaimIsAboutThePageNotTheCall
+    AC-2  TestDifficultyDots_TheVectorArmReadsTheStream
+    AC-3  TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct
+    AC-4  TestDifficultyDots_AnArmWhoseMechanismIsDeadFails
+    AC-5  the per-assertion mutant table in CARD-331's ## Worktree notes
+    AC-6  tests/test_book_pdf.py's own
+          test_no_declaration_outlives_the_cards_that_remove_it, unmodified
+
 What is under test, and in which half
 -------------------------------------
 The glyph is two halves, as ADR-0036/R2 requires: ``export/layout.py``'s
@@ -75,6 +90,7 @@ import ast
 import inspect
 import math
 import random
+import textwrap
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -90,11 +106,16 @@ from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_pdf_generator import (
     _MIN_BAND_FONT_RATIO,
     _SOLVED_GRID_GRAY,
+    GUIDE_PAGE_COUNT,
+    TITLE_PAGE_COUNT,
     BookPDFGenerator,
+    PageKind,
+    PageMedium,
     _band_font,
     _draw_difficulty_dots,
 )
 from nonogram.admin.book_plan import TIERS
+from nonogram.admin import book_vector
 from nonogram.admin.book_vector import ContentStream
 from nonogram.difficulty import TIER_BANDS, Tier
 from nonogram.export.layout import (
@@ -109,6 +130,7 @@ from nonogram.export.layout import (
     OrientationPolicy,
     PageParity,
     PageSpec,
+    compute_layout,
     compute_packed_solved_layout,
     difficulty_dots,
     header_band,
@@ -123,9 +145,29 @@ from tests.helpers.round_ink import (
     ROUND_ASPECT_TOLERANCE,
     ROUND_FILL_TOLERANCE,
     InkRegion,
+    StreamMark,
     ink_regions,
     mark_regions,
     round_marks,
+    round_stream_marks,
+    stream_marks,
+)
+
+# The writer's own operator surface, **as the module that measures it reports
+# it** rather than as this one would re-list it (ADR-0039/R2).
+# ``_DOOR_EMITS`` is what ``_content_stream_doors`` records when it drives every
+# public ``ContentStream`` member; ``_UNCLASSIFIED_DOORS`` is the members its
+# probe table cannot call, and must be empty for the union of the first to be
+# the whole surface; ``_PATH_OPERATORS`` is that surface partitioned into the
+# operators that put a path on a page. Imported across the test tree the way
+# ``tests/test_book_cell_size.py`` and sixteen other modules import a sibling's
+# measurement: the import CLAUDE.md forbids is a lateral one inside
+# ``src/nonogram``, and this is the test tree, which is exactly where that rule
+# says a cross-check belongs.
+from tests.test_book_solved_answer_key import (
+    _DOOR_EMITS as _WRITER_DOOR_EMITS,
+    _PATH_OPERATORS as _WRITER_PATH_OPERATORS,
+    _UNCLASSIFIED_DOORS as _WRITER_UNCLASSIFIED_DOORS,
 )
 
 # --------------------------------------------------------------------------
@@ -5907,3 +5949,2149 @@ class TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly:
             f"really closes disagree: it carries {sorted(carried)} while the "
             f"page closes {sorted(closed)}"
         )
+
+
+# ==========================================================================
+# CARD-331 — the dots' claim, and one instrument arm per medium, each able
+# to die loudly
+#
+#     AC-1  TestDifficultyDots_TheClaimIsAboutThePageNotTheCall
+#     AC-2  TestDifficultyDots_TheVectorArmReadsTheStream
+#     AC-3  TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct
+#     AC-4  TestDifficultyDots_AnArmWhoseMechanismIsDeadFails
+#     AC-5  the per-assertion mutant table in CARD-331's ``## Worktree notes``
+#     AC-6  the existing ``test_no_declaration_outlives_the_cards_that_remove_it``
+#           in ``tests/test_book_pdf.py``, unmodified — nothing here converts a
+#           page or touches ``_RASTER_DECLARATIONS``
+#
+# Why this section exists, and what the card's premise turned out to be
+# ---------------------------------------------------------------------
+# Everything above measures a **bitmap**. :func:`_interior_ink` renders the
+# interior and hooks two module attributes to do it, and ADR-0042/R1 is
+# converting the interior to pages written as operators — so the card's
+# question was what those 27 cells do on a page the product stops drawing.
+#
+# **The card's premise was that they pass silently. Measured on this branch,
+# they do not — and the measurement matters, because it says what this section
+# has to add and what it does not.** Lifting ``PageKind.PUZZLE`` out of
+# ``_RASTER_DECLARATIONS`` (``scratchpad/card331/probe_puzzle_vector.py``) reds
+# **27** of this module's 155 cells, every one of them at the same line and
+# with the same message: ``'ContentStream' object has no attribute 'convert'``.
+# The accounting never runs at all; the render loop dies on the page object's
+# type first. That is a failure and not a silent pass, so ADR-0039/R2 is
+# satisfied *today* — by accident, by a type mismatch whose message names
+# neither a dot nor a dead hook.
+#
+# **What is a silent pass is the next step, and it is one patch away.** The
+# obvious way to make the instrument medium-tolerant is to stop reading the
+# pages it cannot read. Doing exactly that
+# (``scratchpad/card331/probe_medium_tolerant.py``: the declaration lifted and
+# ``interior_pages`` filtered to the bitmaps) leaves **13** of the 27 red and
+# turns **14 green** — on a book whose puzzle pages are no longer in the
+# measurement. The 13 that survive are the ones the author floored by hand
+# (``plants >= 6``, ``pages >= 13``, :data:`REGION_FLOOR`); the 14 that go
+# green include ``test_every_spelling_is_caught``,
+# ``test_every_route_the_table_says_is_closed_is_caught_on_the_page`` and
+# ``test_the_limits_list_is_exactly_the_routes_no_instrument_closes`` — three
+# claims about what the instrument catches, passing on four answer-page bands
+# with nothing saying that the puzzle pages left the corpus. Both node lists
+# are in ``scratchpad/card331/``.
+#
+# So what this section adds is not a louder failure for a type error. It is
+# the thing neither probe produced: an arm **per medium**, each naming the
+# mechanism its accounting comes out of, and a guard that reds when an arm's
+# mechanism stops being exercised — whatever the page object's type turns out
+# to be on the day it stops.
+#
+# The two arms are **different instruments with different domains**, and
+# nothing here differences one against the other (CARD-330): the raster arm
+# accounts ink extents in device pixels against declared boxes in device
+# pixels, and the vector arm accounts path coordinates in points against
+# declared boxes converted to points. Where the two arms' verdicts on one
+# glyph differ, that difference is measured and asserted rather than tolerated
+# — see
+# :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_a_stroked_ring_is_round_to_this_arm_and_hollow_to_the_other`.
+# ==========================================================================
+
+#: Points per device pixel at :data:`DPI` — this file's own conversion, for
+#: the same reason :data:`DPI` and :func:`_px` are written out here.
+#:
+#: At 300 DPI it is 0.24 pt exactly, which is an exact multiple of the
+#: 1/1000 pt a content stream rounds its operands to
+#: (``book_vector._PLACES``), so a dot box on an integer pixel reaches the
+#: stream **exactly** and the vector arm's accounting needs no tolerance at
+#: all. That is a property of this resolution and not of the writer:
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_an_integer_pixel_reaches_the_stream_exactly`
+#: derives it, so a book drawn at a DPI where it stops being true reds here
+#: rather than failing to match by a thousandth of a point.
+PT_PER_PX = 72.0 / DPI
+
+
+# --------------------------------------------------------------------------
+# AC-1 — the claim, written in terms of the page
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DotClaim:
+    """What must be true of **the page** for one difficulty (AC-1).
+
+    Not "which function was called": every field below is something a reader
+    of the printed page could check with a ruler, and every one of them is
+    asserted on a real page of **each** medium in
+    :class:`TestDifficultyDots_TheClaimIsAboutThePageNotTheCall`.
+
+    Attributes:
+        tier: The difficulty this row of dots is about.
+        solid: How many of the row's dots are filled in — the rank a reader
+            counts. Stated as the tier's own 1-based position on
+            :data:`~nonogram.admin.book_plan.TIERS`, the project's one ladder,
+            which is where :func:`_rank` reads it and where the drawing site
+            reads it; there is deliberately no second ladder here.
+        dots: How many dots the row has in all, filled and outlined together
+            — ``len(TIERS)``, so the glyph reads as *n of three* and the total
+            cannot drift from the ladder's length.
+    """
+
+    tier: Tier
+    solid: int
+    dots: int
+
+
+#: The dots' claim, per difficulty — one row per tier of the project's own
+#: ladder, in the ladder's order.
+#:
+#: Built from :data:`~nonogram.admin.book_plan.TIERS` rather than written out,
+#: so a tier added to the project arrives here with it; the covering check is
+#: :meth:`TestDifficultyDots_TheClaimIsAboutThePageNotTheCall.test_the_claim_covers_every_tier_the_project_has_exactly_once`,
+#: which holds this table to that enumeration in both directions and to its
+#: own length, so a row dropped or a row duplicated reds independently of the
+#: table that built it.
+THE_CLAIM: tuple[DotClaim, ...] = tuple(
+    DotClaim(tier=tier, solid=index + 1, dots=len(TIERS))
+    for index, tier in enumerate(TIERS)
+)
+
+#: What the claim is about, beside the counts: the three page facts that are
+#: the same on both media, written as prose a reader can check and read back
+#: by
+#: :meth:`TestDifficultyDots_TheClaimIsAboutThePageNotTheCall.test_the_claim_is_stated_about_the_page_and_names_no_function`.
+#:
+#: Each is measured, on each medium, by the test named beside it.
+CLAIM_PLACEMENT = (
+    "every dot of a row lies inside the box the row was given, in one "
+    "horizontal line, and no two of them touch"
+)
+CLAIM_SIZE = (
+    "every dot of a row is the same size, and square: its footprint is as "
+    "wide as it is tall"
+)
+CLAIM_COUNT = (
+    "a row carries one dot per tier the project has, and the tier's own "
+    "1-based position on that ladder is how many of them are filled in"
+)
+
+#: The three statements above, as the table AC-1's test reads.
+THE_CLAIMS_PROSE = (CLAIM_COUNT, CLAIM_PLACEMENT, CLAIM_SIZE)
+
+#: The names a statement of the claim must **not** carry: the drawing sites,
+#: the media's primitives and the hooks. A claim that names one of these is a
+#: claim about a call, which is the shape this card exists to replace.
+#:
+#: They are the names of real things in this tree, so the list cannot be
+#: checked against nothing:
+#: :meth:`TestDifficultyDots_TheClaimIsAboutThePageNotTheCall.test_the_forbidden_names_are_things_that_really_exist`
+#: resolves every one of them to an attribute of the module that owns it.
+CALL_NAMES_THE_CLAIM_MAY_NOT_USE = (
+    "_draw_difficulty_dots",
+    "_set_band",
+    "round_mark",
+    "ellipse",
+    "monkeypatch",
+)
+
+
+# --------------------------------------------------------------------------
+# The two arms, and the one page each of them reads
+# --------------------------------------------------------------------------
+#
+# Both arms read **the same puzzle page of the same book**, written twice: the
+# raster twin through ``_blank_page`` and the vector twin through
+# ``vector_puzzle_page``. Writing one page both ways is what the assembly
+# point already makes possible (AC-6) and it converts nothing: ``page_medium``
+# is not consulted here and ``_RASTER_DECLARATIONS`` is not touched, so the
+# book this branch ships is byte-for-byte the book ``main`` ships.
+
+
+@dataclass(frozen=True)
+class ArmPage:
+    """One puzzle page of the baseline book, written as both media.
+
+    Attributes:
+        bitmap: The page ``_blank_page`` draws — the raster arm's reading.
+        stream: The page ``vector_puzzle_page`` writes — the vector arm's.
+        box: The box a difficulty glyph would occupy in that page's band, as
+            :func:`_plant_box` gives it: the same box the legacy harness
+            plants in, so the two arms and the 27 cells are measuring one
+            place on one page.
+        width_px: The page's width in device pixels.
+        height_px: The page's height in device pixels — the vector arm's only
+            conversion, because a content stream counts y **up** from the
+            page's bottom edge and a ``Layout`` counts it down from the top.
+    """
+
+    bitmap: Image.Image
+    stream: ContentStream
+    box: tuple[int, int, int, int]
+    width_px: int
+    height_px: int
+
+
+def _arm_page() -> ArmPage:
+    """The baseline book's first single-puzzle page, written as both media.
+
+    The layout is recomputed here, from the same ``_puzzle_page_spec`` and the
+    same ``compute_layout`` the writer calls, because the band's own geometry
+    is what a glyph's box is measured in and the writer does not hand it back.
+    That recomputation is **checked** rather than trusted, and checked
+    narrowly:
+    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_page_extent_this_arm_flips_y_about_is_the_streams_own`
+    holds the stream's own ``MediaBox`` to it, so the **extent** the y-flip is
+    done against cannot drift unnoticed.
+
+    Read that as exactly what it says. It is *not* a check that the recomputed
+    layout is the writer's in every respect, and the wider sentence this
+    docstring used to carry — that a drifted layout "would red instead of
+    putting the declared dots in the wrong place" — is **retracted**: this
+    round measured it false. A one-pixel drift of the recomputed extent reds
+    one cell and one only (that one), because :func:`_appended` builds its
+    scratch stream from the same figure, so the accounting stays
+    self-consistent and the declared dots are *not* put in the wrong place; and
+    a page-number drift leaves the band's centre and the glyph's box
+    bit-identical, so it is invisible here altogether. The cell's own docstring
+    states both limits (ADR-0039/R4: a refuted figure is retracted everywhere
+    it was written).
+
+    A **single**-puzzle page, not a two-up one: a two-up sheet carries two
+    bands and the accounting would then be about which of them a plant landed
+    in, which is a second question. The two-up page is where this arm would go
+    next, and it is not in this card. So the page is composed directly, one
+    puzzle on one sheet at one interior position, exactly as
+    ``tests/test_book_puzzle_page_vector.py``'s own ``twin`` fixture composes
+    it — the pairing walk is not consulted, and :data:`FIRST_PUZZLE_PAGE` says
+    where the sheet sits.
+    """
+    generator = BookPDFGenerator(corpus_book())
+    payloads = [
+        BookPDFGenerator._payload(row)
+        for row in book_pdf_generator.print_order(baseline_puzzles())
+    ]
+    sizes = generator.cell_sizes(payloads)
+    payload = payloads[0]
+    spec = generator._puzzle_page_spec(
+        FIRST_PUZZLE_PAGE, sizes.get(generator._grid_size(payload))
+    )
+    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+    placement = layout.page
+    assert placement is not None, "a book page is a placed page"
+    box = _plant_box(
+        header_band(layout), placement.usable_right - placement.usable_left
+    )
+    assert box is not None, "the baseline book's band is big enough for a glyph"
+    return ArmPage(
+        bitmap=generator._blank_page(payload, 1, FIRST_PUZZLE_PAGE, sizes),
+        stream=generator.vector_puzzle_page(payload, 1, FIRST_PUZZLE_PAGE, sizes),
+        box=box,
+        width_px=layout.width,
+        height_px=layout.height,
+    )
+
+
+@pytest.fixture(scope="module")
+def arm_page() -> ArmPage:
+    """:func:`_arm_page`, once for the module: the bitmap half is 25 MB."""
+    return _arm_page()
+
+
+def _stream_text(stream: ContentStream) -> str:
+    """``stream``'s operators as the one string the vector reader takes."""
+    return "\n".join(stream.operators)
+
+
+def _declared_in_points(
+    dot: tuple[int, int, int, int], height_px: int
+) -> tuple[float, float, float, float]:
+    """``dot``'s box, in the **stream's** domain: points, y up from the bottom.
+
+    The one conversion the vector arm makes, and it is a conversion of a
+    *declared boundary* into the units a *stated boundary* is written in — not
+    an ink extent turned into a path coordinate, which is the differencing
+    CARD-330 measured as an artefact. ``dot`` is Pillow's inclusive box and
+    ``round_mark`` is handed its centre and radius, so the path's extent is
+    ``left..right`` and ``top..bottom`` with no half-pixel in it either way.
+    """
+    left, top, right, bottom = dot
+    return (
+        left * PT_PER_PX,
+        (height_px - bottom) * PT_PER_PX,
+        right * PT_PER_PX,
+        (height_px - top) * PT_PER_PX,
+    )
+
+
+def _write_the_glyph(
+    stream: ContentStream,
+    dots: DifficultyDots,
+    *,
+    solid: int | None = None,
+) -> None:
+    """Write ``dots`` into ``stream`` through the medium's own round primitive.
+
+    The vector twin of what :func:`_the_declared_site` does on a bitmap, and
+    **test code on purpose**: the package has no vector drawing site for this
+    glyph (CARD-207 is the card that puts one on the puzzle page), which the
+    static walk above already pins — ``round_mark(`` appears in no module but
+    the vocabulary's own. So this arm is a *forward* instrument: it is the
+    accounting a vector dot site will be measured by, standing ready, and
+    until then its own declared route is the only thing that can declare.
+
+    ``solid`` overrides how many dots are filled, for AC-5's wrong-count
+    mutant; by default the glyph's own verdict is used.
+    """
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        filled = dots.is_filled(index) if solid is None else index < solid
+        stream.round_mark(
+            (left + right) / 2.0,
+            (top + bottom) / 2.0,
+            (right - left) / 2.0,
+            paint="fill" if filled else "stroke",
+        )
+
+
+# --------------------------------------------------------------------------
+# AC-4 — an arm whose mechanism the page no longer exercises must RED
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ArmLiveness:
+    """Whether one arm's accounting mechanism is still being exercised.
+
+    Attributes:
+        alive: Whether the mechanism produced anything to account for.
+        units: How many accounting units it produced — ink regions for the
+            raster arm, painted subpaths for the vector one. The denominator
+            that keeps "nothing undeclared" from being a statement about a
+            page nobody drew.
+        what: What the arm found, in one line, for the failure message. A
+            dead arm's message has to tell the next reader which arm died and
+            on what, because that reader is three cards away and will be
+            holding a diff that converted a page.
+    """
+
+    alive: bool
+    units: int
+    what: str
+
+
+def _raster_arm_liveness(medium: PageMedium, page: object) -> ArmLiveness:
+    """The raster arm's mechanism, probed — **its inputs as arguments**.
+
+    Taken as arguments rather than read from the product inside, for the same
+    reason :func:`_round_mark_sites` takes its sources that way: a probe that
+    can only be handed the live state has no control, and ADR-0039/R1 wants
+    one that CAN fail. :meth:`TestDifficultyDots_AnArmWhoseMechanismIsDeadFails.test_each_arms_probe_reports_death_when_its_mechanism_goes`
+    hands it the dead state.
+
+    Two ways this arm dies, and they are **not** the same event:
+
+    * the product stops writing this page kind as a bitmap (``medium``) — the
+      day CARD-322 lands, and the day the 27 cells above stop measuring the
+      product's own puzzle page;
+    * the page object it is handed is not a bitmap at all (``page``) — which
+      is what reds today, loudly and for the wrong reason.
+
+    A medium that has moved is reported even when a bitmap is still in hand,
+    because a bitmap the product does not print is exactly the page this card
+    is about.
+    """
+    if medium is not PageMedium.RASTER:
+        return ArmLiveness(
+            False,
+            0,
+            f"the product now writes a puzzle page as {medium.value}, so a "
+            "bitmap of one is a page it does not print",
+        )
+    if not isinstance(page, Image.Image):
+        return ArmLiveness(
+            False, 0, f"the puzzle page arrived as {type(page).__name__}, not a bitmap"
+        )
+    units = len(ink_regions(page, MARK_LEVEL))
+    return ArmLiveness(units > 0, units, f"{units} ink regions on the bitmap page")
+
+
+def _vector_arm_liveness(page: object) -> ArmLiveness:
+    """The vector arm's mechanism, probed — its input as an argument.
+
+    This arm dies when the stream it accounts from stops carrying painted
+    paths: a writer that emits nothing, a page handed over as a bitmap, or a
+    content stream whose shapes all left. It does **not** depend on
+    ``page_medium``: the arm reads a page a fixture writes as operators (AC-6),
+    so it is alive before the declaration is lifted and stays alive after.
+    """
+    if not isinstance(page, ContentStream):
+        return ArmLiveness(
+            False,
+            0,
+            f"the puzzle page arrived as {type(page).__name__}, not a content stream",
+        )
+    units = len(stream_marks(_stream_text(page)))
+    return ArmLiveness(units > 0, units, f"{units} painted subpaths in the stream")
+
+
+@dataclass(frozen=True)
+class InstrumentArm:
+    """One medium's half of the difficulty-dot accounting.
+
+    Attributes:
+        name: What this arm is called, in a failure message.
+        medium: The medium it reads. There is one arm per
+            :class:`~nonogram.admin.book_pdf_generator.PageMedium`, held to
+            that enumeration by
+            :meth:`TestDifficultyDots_AnArmWhoseMechanismIsDeadFails.test_there_is_one_arm_per_medium_the_product_can_write`,
+            so a third medium cannot arrive without an arm.
+        kind: The page kind its accounting source is a page of.
+        mechanism: The source of its accounting, in one line, naming the
+            domain the reading is in.
+        remedy: What the next reader must do when this arm dies. A guard that
+            reds without saying what to do gets widened rather than answered.
+        probe: Its liveness probe, handed the page pair.
+    """
+
+    name: str
+    medium: PageMedium
+    kind: PageKind
+    mechanism: str
+    remedy: str
+    probe: object
+
+    def liveness(self, page: ArmPage) -> ArmLiveness:
+        return self.probe(page)
+
+
+#: The two arms. **One per medium the product can write**, not one per page
+#: kind and not one per instrument: the thing that died under the old shape
+#: was a medium, so the medium is the axis the arms are enumerated on.
+ARMS: tuple[InstrumentArm, ...] = (
+    InstrumentArm(
+        name="raster",
+        medium=PageMedium.RASTER,
+        kind=PageKind.PUZZLE,
+        mechanism=(
+            "ink extents, in device pixels, of the connected regions of a "
+            "bitmap puzzle page the product draws through _blank_page"
+        ),
+        remedy=(
+            "the product no longer draws this page as a bitmap: RE-POINT this "
+            "arm at a page kind _RASTER_DECLARATIONS still declares raster — "
+            "the cover and the divider, which keep their bitmaps under "
+            "ADR-0042/R2 — and move the 27 cells of this module that read the "
+            "interior as bitmaps with it. Retiring the arm is NOT one of the "
+            "options while PageMedium keeps RASTER: an arm set that loses a "
+            "medium reds test_there_is_one_arm_per_medium_the_product_can_write"
+        ),
+        probe=lambda page: _raster_arm_liveness(
+            book_pdf_generator.page_medium(PageKind.PUZZLE), page.bitmap
+        ),
+    ),
+    InstrumentArm(
+        name="vector",
+        medium=PageMedium.VECTOR,
+        kind=PageKind.PUZZLE,
+        mechanism=(
+            "path coordinates, in points, of the painted subpaths of a "
+            "puzzle page written as operators by vector_puzzle_page"
+        ),
+        remedy=(
+            "the writer this arm accounts from stopped emitting painted "
+            "paths: find out what draws the page now and account from that, "
+            "rather than widening this arm until it agrees"
+        ),
+        probe=lambda page: _vector_arm_liveness(page.stream),
+    ),
+)
+
+
+class TestDifficultyDots_AnArmWhoseMechanismIsDeadFails:
+    """AC-4, and the card's standing contribution.
+
+    The defect this card was opened for is an accounting whose mechanism can
+    stop firing without anything saying so. The fix is not a louder exception
+    — the measurement in this section's header shows the exception is already
+    loud, and already useless — it is an **arm per medium, each naming its
+    own mechanism, each with a probe that can report death**.
+
+    Each arm's probe takes its inputs as arguments, so the two directions are
+    both tested here: the live state reports alive, and a fabricated dead
+    state reports dead. Neither direction alone is the claim — a probe that
+    always says "alive" passes the first, and one that always says "dead"
+    passes the second.
+    """
+
+    @pytest.mark.parametrize("arm", ARMS, ids=[arm.name for arm in ARMS])
+    def test_each_arms_mechanism_is_still_exercised(
+        self, arm: InstrumentArm, arm_page: ArmPage
+    ) -> None:
+        """The guard itself: an arm reading a page nobody draws reds here."""
+        liveness = arm.liveness(arm_page)
+        assert liveness.alive, (
+            f"the {arm.name} arm of the difficulty-dot accounting is DEAD: "
+            f"{liveness.what}. Its mechanism is {arm.mechanism}. "
+            f"{arm.remedy}"
+        )
+        assert liveness.units > 0, (
+            f"the {arm.name} arm found nothing to account for, so its verdict "
+            "would be a statement about an empty page"
+        )
+
+    def test_there_is_one_arm_per_medium_the_product_can_write(self) -> None:
+        """Held to :class:`PageMedium`, so a third medium cannot arrive unarmed.
+
+        **What this cell deliberately does not pin, and what does.** It is a
+        claim about the set of *media*, not about the arms' spellings, so
+        renaming an arm must leave it green — the round's declared negative
+        control (MUT-13) and the reason it survived. That is only half the
+        reason the survival is legitimate. The other half is that
+        :attr:`InstrumentArm.name` feeds the ``ids=`` of the two parametrized
+        cells in this class, so a rename moves a node id from ``[raster]`` to
+        whatever it was renamed to — and node ids are pinned, by G-5's node-id
+        gate, a different instrument at a different layer. So a rename is
+        caught; it is caught *there* rather than here. Without that second
+        half, a reader cannot tell this declared negative control from a claim
+        quietly narrowed until its mutant stopped failing.
+        """
+        assert {arm.medium for arm in ARMS} == set(PageMedium), (
+            "a medium the product can write has no arm of this accounting: "
+            f"{sorted(medium.value for medium in set(PageMedium) - {a.medium for a in ARMS})}"
+        )
+        # Key count == source count. CARD-330's medium pin keyed a dict on a
+        # bare test name, two tests shared one, and the guard silently lost a
+        # member; an arm set that collapsed two arms into one medium would
+        # lose one the same way.
+        assert len(ARMS) == len(set(PageMedium)), (
+            f"{len(ARMS)} arms for {len(set(PageMedium))} media"
+        )
+        assert len({arm.name for arm in ARMS}) == len(ARMS), "two arms share a name"
+        assert len({arm.medium for arm in ARMS}) == len(ARMS), "two arms share a medium"
+
+    def test_exactly_one_arm_reads_the_medium_the_product_writes_today(self) -> None:
+        """Which arm is the live one is **derived**, so the day it flips is visible.
+
+        Not asserted as "the raster arm": asserted as "the arm whose medium is
+        the one ``page_medium`` returns for its own page kind", which is the
+        raster arm today and the vector arm after CARD-322. What is pinned is
+        that it is **exactly one** — two arms claiming the product's medium,
+        or none, is an accounting nobody can read.
+        """
+        live = [
+            arm for arm in ARMS if book_pdf_generator.page_medium(arm.kind) is arm.medium
+        ]
+        assert len(live) == 1, (
+            "exactly one arm reads the medium the product writes for its page "
+            f"kind; {[arm.name for arm in live]} do"
+        )
+        assert live[0].medium is book_pdf_generator.page_medium(PageKind.PUZZLE)
+
+    def test_no_arms_remedy_offers_an_option_this_section_forbids(self) -> None:
+        """A work order cannot offer a route its own sibling cell reds.
+
+        The raster arm's remedy used to begin "retire this arm, or re-point
+        it…". Taking the first option **reds**
+        :meth:`test_there_is_one_arm_per_medium_the_product_can_write`, because
+        ``PageMedium`` keeps ``RASTER`` for the cover and the divider
+        (ADR-0042/R2) — so the remedy sent its reader down a path that fails
+        for a reason the remedy did not mention, in a string whose whole
+        purpose is that a guard which reds without saying what to do gets
+        widened rather than answered.
+
+        The forbiddenness is **derived** here, not stated: dropping any arm
+        from the set leaves a medium the product can write with no arm of this
+        accounting. Then the remedies are held to it.
+        """
+        for arm in ARMS:
+            rest = tuple(other for other in ARMS if other is not arm)
+            assert {other.medium for other in rest} != set(PageMedium), (
+                f"retiring the {arm.name} arm would leave every medium armed, "
+                "so this cell's premise no longer holds and the remedies below "
+                "may offer retirement again"
+            )
+
+        # The one place retirement may be named is as the option it is not.
+        forbidden_named_as_forbidden = "Retiring the arm is NOT one of the options"
+        (raster_arm,) = [arm for arm in ARMS if arm.medium is PageMedium.RASTER]
+        assert forbidden_named_as_forbidden in raster_arm.remedy, (
+            "the raster arm's remedy no longer says that retiring it is "
+            "forbidden, and CARD-322 reads that string as its work order"
+        )
+        for arm in ARMS:
+            offered = arm.remedy.replace(forbidden_named_as_forbidden, "")
+            for verb in ("retire", "retiring"):
+                assert verb not in offered.lower(), (
+                    f"the {arm.name} arm's remedy OFFERS {verb!r}, which reds "
+                    "test_there_is_one_arm_per_medium_the_product_can_write: "
+                    f"{arm.remedy!r}"
+                )
+
+    def test_both_reds_of_this_section_name_the_mechanism_and_the_remedy(
+        self,
+    ) -> None:
+        """The card's claim about this section's two reds, machine-checked.
+
+        Under the declaration lift exactly two of this module's new cells red,
+        and the card says both name the arm, its mechanism and its remedy. One
+        did; its sibling red on its live-state loop with the arm's name and
+        nothing else, so the claim was half true and a reader of that red got
+        no work order.
+
+        Derived rather than re-read: the two cells' assert **messages** are
+        taken off their own source, and each must carry both attributes. A
+        message that drops either one reds here.
+        """
+        for leaf in (
+            "test_each_arms_mechanism_is_still_exercised",
+            "test_each_arms_probe_reports_death_when_its_mechanism_goes",
+        ):
+            messages = " ".join(
+                _assert_messages_of(
+                    "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails", leaf
+                )
+            )
+            for attribute in ("arm.name", "arm.mechanism", "arm.remedy"):
+                assert attribute in messages, (
+                    f"{leaf} can red without naming {attribute}, so a reader of "
+                    "that failure is told an arm is dead and not what to do"
+                )
+
+    def test_each_arms_probe_reports_death_when_its_mechanism_goes(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The control, both arms, each fed the death its own mechanism has.
+
+        Three deaths, because the two arms do not die of the same thing: the
+        raster arm dies of a medium that moved **and** of a page that is not a
+        bitmap, and the vector arm dies of a page that carries no painted
+        path. Each is constructed here rather than caused, so the control
+        costs no render and converts nothing.
+        """
+        moved = _raster_arm_liveness(PageMedium.VECTOR, arm_page.bitmap)
+        assert not moved.alive and moved.units == 0, (
+            "the raster arm's probe called itself alive while holding a bitmap "
+            "of a page the product writes as operators"
+        )
+        assert "vector" in moved.what
+
+        wrong_type = _raster_arm_liveness(PageMedium.RASTER, arm_page.stream)
+        assert not wrong_type.alive, (
+            "the raster arm's probe called itself alive on a content stream"
+        )
+
+        empty = ContentStream(width_px=100.0, height_px=100.0, dpi=DPI)
+        gone = _vector_arm_liveness(empty)
+        assert not gone.alive and gone.units == 0, (
+            "the vector arm's probe called itself alive on a stream with no "
+            "painted path in it"
+        )
+
+        # And the live state, in the same test, so neither direction can be
+        # passing because the probe is stuck. The message carries the mechanism
+        # and the remedy, as its sibling cell's does: cycle 1 of this card's
+        # review found the card claiming both reds name them and only one
+        # doing so, and a red here is read by the same person for the same
+        # reason — a guard that reds without saying what to do gets widened
+        # rather than answered.
+        for arm in ARMS:
+            live = arm.liveness(arm_page)
+            assert live.alive, (
+                f"the {arm.name} arm is not alive: {live.what}. Its mechanism "
+                f"is {arm.mechanism}. {arm.remedy}"
+            )
+
+
+# --------------------------------------------------------------------------
+# The accounting, once, for both arms
+# --------------------------------------------------------------------------
+#
+# The *matching rule* is :func:`_unaccounted` above, unchanged and shared: a
+# multiset, matched per page and exactly. What differs between the arms is the
+# reading each one brings it — ink extents in device pixels, or path
+# coordinates in points — and that difference is the whole of the two arms'
+# separation. One rule, two readings; not one reading stretched over two
+# media, which is the shape that died.
+
+#: The PDF paint operators that **fill** a path, as against stroking its
+#: outline. Held to :mod:`tests.helpers.round_ink`'s own painting set by
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_filling_paints_are_a_subset_of_the_readers_own_set`,
+#: so a paint operator the reader learns about cannot be silently missing here.
+PAINTS_THAT_FILL = frozenset({"f", "F", "f*", "B", "B*", "b", "b*"})
+
+
+def _writer_operators() -> frozenset[str]:
+    """Every operator the book's vector writer is **measured** to emit.
+
+    The union of :data:`_WRITER_DOOR_EMITS`' values — one entry per public
+    ``ContentStream`` member, each one *driven* and its output read, which is
+    the enumerable authority ADR-0039/R2 asks a guard's set to be derived from.
+    Not ``dir(ContentStream)`` directly: a member's *name* says nothing about
+    which operators it writes, and the module next door already pays the cost
+    of finding out.
+    """
+    return frozenset(
+        token for tokens in _WRITER_DOOR_EMITS.values() for token in tokens
+    )
+
+
+#: :func:`_writer_operators`' answer, **recorded**, so the vocabulary guard
+#: below is a statement about a known surface rather than a tautology over
+#: whatever the writer happens to emit today. 17 operators, measured off
+#: ``ContentStream``'s 18 public members (``to_points``, ``media_box``,
+#: ``operators`` and ``render`` emit none; ``line``, ``rectangle``,
+#: ``round_mark`` and ``text`` emit several each).
+WRITER_OPERATORS_RECORDED = frozenset(
+    {
+        "BMC",
+        "BT",
+        "EMC",
+        "ET",
+        "G",
+        "S",
+        "Td",
+        "Tf",
+        "Tj",
+        "c",
+        "f",
+        "g",
+        "h",
+        "l",
+        "m",
+        "re",
+        "w",
+    }
+)
+
+#: The operators of that surface the stream reader deliberately **passes over**,
+#: with what each one is: state the paper never sees, or type, which is the
+#: reader's one stated bound (a glyph is not a path — the asymmetry
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_a_typed_round_mark_is_outside_this_arms_reach`
+#: controls).
+#:
+#: An entry here is a **recorded** pass-over, which is the whole difference the
+#: cycle-1 review found: ``cm``, ``Do`` and ``sh`` used to be passed over too,
+#: and were in no list at all, so the reader answered with the wrong box or
+#: with silence and nothing said so. They are refused now
+#: (:data:`round_ink._REFUSED_STATE_OPERATORS`), and this dict is what keeps the
+#: remaining pass-overs from growing the same way.
+WRITER_OPERATORS_NOT_A_PATH = {
+    "G": "sets the stroke tone; state, not a mark",
+    "g": "sets the fill tone; state, not a mark",
+    "w": "sets the stroke width; state, and CARD-330's subject, not a path",
+    "BT": "opens a text object",
+    "Tf": "selects a font inside one",
+    "Td": "moves the text line inside one",
+    "Tj": "shows a string — TYPE, this reader's stated bound",
+    "ET": "closes a text object",
+    "BMC": "CARD-314's marked-content bracket; paints nothing",
+    "EMC": "closes one; paints nothing",
+}
+
+
+def _at_the_streams_places(
+    box: tuple[float, float, float, float]
+) -> tuple[float, float, float, float]:
+    """``box`` rounded to the 1/1000 pt a content stream writes its operands at.
+
+    The vector arm's accounting key. Rounding rather than a tolerance, because
+    a stream's coordinates **are** three-place decimals: the reading and the
+    declaration are then the same canonical number and the match is exact, as
+    the raster arm's is, instead of resting on a tolerance nobody measured.
+    That it is lossless for a dot on integer pixels at :data:`DPI` is derived
+    by
+    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_an_integer_pixel_reaches_the_stream_exactly`
+    — worst case 1.1369e-13 pt over its own 200-case seeded sweep, eleven
+    orders inside the place being rounded to.
+    """
+    return tuple(round(value, 3) for value in box)  # type: ignore[return-value]
+
+
+def _raster_arm_reading(
+    page: Image.Image, box: tuple[int, int, int, int], plant: object
+) -> tuple[tuple[Mark, ...], tuple[Mark, ...]]:
+    """``(found, declared)`` for one bitmap page with ``plant`` drawn in ``box``.
+
+    **No monkeypatch** (AC-3). ``plant`` is called with the page's own draw
+    object and its box, and whatever geometry it returns is what it declared —
+    the site's own return value, as the legacy spy recorded, obtained by
+    calling it instead of by replacing it. A hook was only ever needed because
+    the legacy harness let the *interior walk* reach the site; this arm draws
+    the page and then the glyph, so the caller is in hand.
+
+    ``found`` is :func:`round_marks` — **ink extents, device pixels**.
+    ``declared`` is the filled dots' boxes, which on this medium are ink
+    extents too: a dot stroked by ``draw.ellipse`` inks precisely its own box.
+    An outlined dot is not declared here, because its ink is a ring and a ring
+    is not round to this reading — the raster instrument's stated hollow
+    bound, and the one place the two arms' verdicts on one glyph differ.
+    """
+    drawn = plant(ImageDraw.Draw(page), box)
+    declared: list[Mark] = []
+    if isinstance(drawn, DifficultyDots):
+        declared = [
+            (0, dot)
+            for index, dot in enumerate(drawn.dots)
+            if drawn.is_filled(index)
+        ]
+    found = [(0, mark.box) for mark in round_marks(page)]
+    return tuple(found), tuple(declared)
+
+
+def _vector_arm_reading(
+    text: str, declared_dots: Sequence[tuple[int, int, int, int]], height_px: int
+) -> tuple[tuple[Mark, ...], tuple[Mark, ...]]:
+    """``(found, declared)`` for one page written as operators.
+
+    ``found`` is every **round painted subpath** of ``text`` — path
+    coordinates, points, at the stream's own three places. ``declared`` is
+    ``declared_dots`` put into that same domain by :func:`_declared_in_points`.
+    Path against path: nothing here is differenced against an ink extent.
+
+    Every dot is declared on this medium, filled or outlined, and that is not
+    an oversight: a stroked circle's **path** encloses a full disc, so this
+    reading calls it round where the raster reading calls it hollow. The
+    difference is measured in
+    :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_a_stroked_ring_is_round_to_this_arm_and_hollow_to_the_other`.
+    """
+    found = [
+        (0, _at_the_streams_places(mark.box)) for mark in round_stream_marks(text)
+    ]
+    declared = [
+        (0, _at_the_streams_places(_declared_in_points(dot, height_px)))
+        for dot in declared_dots
+    ]
+    return tuple(found), tuple(declared)
+
+
+def _appended(page: ArmPage, write: object) -> str:
+    """``page``'s stream with whatever ``write`` records appended to it.
+
+    A content stream **is** its operators in order, so appending text is
+    appending operators; writing into a fresh stream of the same extent and
+    concatenating keeps the module-scoped fixture's own page unmutated, which
+    a plant drawn straight into it would not.
+    """
+    extra = ContentStream(
+        width_px=page.width_px, height_px=page.height_px, dpi=DPI
+    )
+    write(extra)
+    return _stream_text(page.stream) + "\n" + _stream_text(extra)
+
+
+#: How many connected ink regions one bitmap puzzle page of the baseline book
+#: must still carry — the raster arm's denominator, the twin of
+#: :data:`REGION_FLOOR` for a single page. 85, just under the 91 measured on
+#: this branch — a puzzle page is a grid of rules, a frame, a band, a folio
+#: and a QR group, and its ink merges into far fewer regions than the whole
+#: interior's 2640. The same 91 at both measured thresholds, because an
+#: unsolved puzzle page draws nothing in the book's own grey: the solved grid
+#: is the answer pages'.
+RASTER_ARM_MIN_REGIONS = 85
+
+
+def _declaring_plant(
+    draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]
+) -> DifficultyDots | None:
+    """The honest raster route: the one drawing site, **called**, not replaced.
+
+    :func:`_the_declared_site` with its return value kept. That one line is
+    the whole of AC-3's "without a monkeypatch": the legacy harness needs a
+    spy because the *interior walk* makes the call, and this arm does not
+    because it makes the call itself.
+    """
+    return book_pdf_generator._draw_difficulty_dots(draw, PLANTED_TIER, *box)
+
+
+def _rogue_plant(
+    draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]
+) -> DifficultyDots | None:
+    """A second glyph in the same place, drawn by nobody who declares it.
+
+    :func:`_rogue_ellipse`, which the static walk above *can* see, with
+    nothing declared — the raster arm's counterpart to the vector arm's
+    32-gon. Which spelling it is does not matter to this arm (that is
+    :class:`TestRoundMarkOnThePage_SameVerdictForEverySpelling`'s subject);
+    what matters is that it declares nothing.
+    """
+    _rogue_ellipse(draw, box)
+    return None
+
+
+
+# --------------------------------------------------------------------------
+# The vector arm's corpus: every puzzle page two books plan, as operators
+# --------------------------------------------------------------------------
+
+#: Where the first puzzle page of an interior sits, as an interior position:
+#: the expression ``vector_puzzle_page``'s own caller uses for its default
+#: first page, read off this module's two page-count constants rather than
+#: written as a 4. Both arms' page and every page of the vector corpus are
+#: numbered from here, consecutively, so **both page parities occur** in the
+#: sweep (FR-043 gives an odd and an even page different gutters) — which is
+#: asserted rather than assumed, in
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_corpus_is_one_page_per_puzzle_of_both_books`.
+FIRST_PUZZLE_PAGE = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+
+#: The books the vector corpus is built from, by name, each with the callable
+#: that enumerates its rows. Two, and not one: the baseline corpus is built
+#: from ``_gutter_grid``, where no two filled cells ever touch, and the
+#: picture corpus (:func:`_picture_puzzles`) carries the deliberately round
+#: blob — the same pairing AC-2's raster sweep makes, so the two arms sweep
+#: the same puzzles.
+#:
+#: The callable is held here rather than its result, because the **row count
+#: is the corpus's authority**: one vector page per puzzle, so a page missing
+#: from the sweep is a row missing from the book, and
+#: :meth:`TestDifficultyDots_TheVectorArmReadsTheStream.test_the_corpus_is_one_page_per_puzzle_of_both_books`
+#: compares the two rather than comparing the sweep with a constant it built
+#: itself (CARD-330's corpus guard asserted a floor against a fixture built
+#: from the same constant, so it could not fail for any value).
+VECTOR_CORPUS_SOURCES: tuple[tuple[str, object], ...] = (
+    ("baseline", baseline_puzzles),
+    ("pictures", _picture_puzzles),
+)
+
+#: How many vector puzzle pages the corpus must hold at the least, and how
+#: many painted subpaths they must carry between them.
+#:
+#: Floors just under a measured value, and **neither is the assertion that
+#: keeps the corpus honest** — that one is the equality against each book's
+#: own row count above. Measured on this branch: 13 pages, 4 from the
+#: baseline book and 9 from the picture book, carrying 588 painted subpaths
+#: of which 182 have extent on both axes — the rest are the grid's own rules,
+#: which enclose nothing and so cannot be round.
+VECTOR_CORPUS_MIN_PAGES = 12
+VECTOR_CORPUS_MIN_SUBPATHS = 560
+VECTOR_CORPUS_MIN_SHAPED = 170
+
+
+def _vector_pages(puzzles: Sequence[dict]) -> list[ContentStream]:
+    """One vector puzzle page per row of ``puzzles``, in print order.
+
+    Composed one sheet at a time through
+    :meth:`BookPDFGenerator.vector_puzzle_page`, from
+    :data:`FIRST_PUZZLE_PAGE` upwards — **the pairing walk is deliberately not
+    consulted**, for two reasons that both matter here:
+
+    * this arm is about a single-puzzle sheet's band (:func:`_arm_page` says
+      why), and a paired sheet carries two of them;
+    * one page per row makes the **row count** the corpus's authority, which
+      is a stronger anchor than a pairing verdict: a dropped page is then a
+      dropped puzzle and nothing else.
+
+    Consecutive positions, so the sweep carries both page parities.
+    """
+    generator = BookPDFGenerator(corpus_book())
+    payloads = [
+        BookPDFGenerator._payload(row)
+        for row in book_pdf_generator.print_order(puzzles)
+    ]
+    sizes = generator.cell_sizes(payloads)
+    return [
+        generator.vector_puzzle_page(
+            payload, number, FIRST_PUZZLE_PAGE + number - 1, sizes
+        )
+        for number, payload in enumerate(payloads, start=1)
+    ]
+
+
+@pytest.fixture(scope="module")
+def vector_corpus() -> dict[str, tuple[int, list[ContentStream]]]:
+    """``{book: (its row count, one vector page per row)}``, once."""
+    return {
+        name: (len(rows()), _vector_pages(rows()))
+        for name, rows in VECTOR_CORPUS_SOURCES
+    }
+
+
+# --------------------------------------------------------------------------
+# AC-3's structural half: this arm hooks nothing
+# --------------------------------------------------------------------------
+
+
+def _production_hooks(sources: Mapping[str, str]) -> list[str]:
+    """Every place ``sources`` rebinds an attribute of a production module.
+
+    ``sources`` is ``{what it is called: its text}``, taken as an argument for
+    the reason :func:`_round_mark_sites` takes its sources that way: a
+    detector that can only be pointed at the real thing has no control.
+
+    Three shapes, because a hook has three spellings and a guard that caught
+    one would be the kind of claim this file exists to stop making:
+    ``module.attribute = value``, ``setattr(module, ...)`` and a
+    ``monkeypatch`` parameter. ``module`` is any name this test module has
+    bound to a module of the ``nonogram`` package, read off this module's own
+    globals — which is what makes "production" a measurement here rather than
+    a list somebody has to keep.
+    """
+    production = {
+        name
+        for name, value in globals().items()
+        if inspect.ismodule(value)
+        and getattr(value, "__name__", "").split(".")[0] == "nonogram"
+    }
+    assert production, "this module binds no nonogram module that could be hooked"
+    findings: list[str] = []
+    for where, text in sources.items():
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, (ast.Assign, ast.AugAssign)):
+                targets = (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+                for target in targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id in production
+                    ):
+                        findings.append(
+                            f"{where} rebinds {target.value.id}.{target.attr}"
+                        )
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "setattr"
+            ):
+                findings.append(f"{where} calls setattr")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if any(
+                    argument.arg == "monkeypatch" for argument in node.args.args
+                ):
+                    findings.append(f"{where} takes the monkeypatch fixture")
+    return findings
+
+
+#: Every function the raster arm's accounting is made of, by name. The list
+#: :func:`_production_hooks` is pointed at, and the reason the arm's claim
+#: "it hooks nothing" is a measurement over a named set rather than a hope
+#: about a whole 6000-line module — the legacy harness in the same file
+#: *does* hook, deliberately, and still does.
+#:
+#: The two **plant** functions are in it, and were not until cycle 1 of this
+#: card's review proved the hole with a mutant: a plant that inserted
+#: ``book_pdf_generator._NOT_A_REAL_ATTRIBUTE = 1`` into
+#: :func:`_declaring_plant`'s body — a textbook production rebind, the exact
+#: shape the detector's own first control catches when handed it as a string —
+#: left the module at 189 passed and the detector never saw it. They are not
+#: part of the 6000-line module's noise the narrowing exists to exclude; they
+#: are the arm's own moving parts, and ``_raster_arm_reading`` reads nothing
+#: without the one it is handed.
+RASTER_ARM_FUNCTIONS = (
+    "_arm_page",
+    "_raster_arm_reading",
+    "_raster_arm_liveness",
+    "_declaring_plant",
+    "_rogue_plant",
+)
+
+
+def _raster_arm_sources() -> dict[str, str]:
+    """:data:`RASTER_ARM_FUNCTIONS`' own text, off this module."""
+    return {
+        name: inspect.getsource(globals()[name]) for name in RASTER_ARM_FUNCTIONS
+    }
+
+
+class TestDifficultyDots_TheClaimIsAboutThePageNotTheCall:
+    """AC-1: the claim, stated as page facts, and measured as page facts.
+
+    The instrument's shape has been standing in for the claim: "the one
+    drawing site declared these dots" is a statement about a call, and a twin
+    built from it inherits the coupling that is this card's subject. So
+    :data:`THE_CLAIM` and the three prose statements beside it say what must
+    be true of **the paper** — how many dots, how many of them filled, where
+    they sit, what size they are — and every one of those is then measured on
+    a real page of **each** medium below.
+
+    The "names no function" half is not decoration either: it has a mutant on
+    each arm. A claim rewritten to name the drawing site reds
+    :meth:`test_the_claim_is_stated_about_the_page_and_names_no_function`, and
+    a forbidden name that names nothing real reds
+    :meth:`test_the_forbidden_names_are_things_that_really_exist` — so the
+    list cannot be padded with words to make the first test pass.
+    """
+
+    def test_the_claim_covers_every_tier_the_project_has_exactly_once(self) -> None:
+        assert tuple(row.tier for row in THE_CLAIM) == tuple(TIERS), (
+            "the claim's rows are not the project's ladder, in its order"
+        )
+        assert len(THE_CLAIM) == len(TIERS)
+        assert len({row.tier for row in THE_CLAIM}) == len(THE_CLAIM), (
+            "two rows of the claim are about one tier"
+        )
+
+    def test_the_claims_counts_are_the_ladder_and_not_a_second_one(self) -> None:
+        """One filled dot per rank, no gap, and one total — read off ``TIERS``."""
+        assert [row.solid for row in THE_CLAIM] == list(range(1, len(TIERS) + 1))
+        assert {row.dots for row in THE_CLAIM} == {len(TIERS)}
+        assert [row.solid for row in THE_CLAIM] == [_rank(tier) for tier in TIERS]
+
+    def test_the_claim_is_stated_about_the_page_and_names_no_function(self) -> None:
+        """No statement of the claim names a call, a hook or a primitive."""
+        for statement in THE_CLAIMS_PROSE:
+            for name in CALL_NAMES_THE_CLAIM_MAY_NOT_USE:
+                assert name not in statement, (
+                    f"the claim names {name!r}, which is a call and not "
+                    f"something true of the page: {statement!r}"
+                )
+        assert len(THE_CLAIMS_PROSE) == 3, (
+            "the claim is count, placement and size; a statement has gone"
+        )
+
+    def test_the_forbidden_names_are_things_that_really_exist(self) -> None:
+        """The list cannot be padded: every name on it resolves to a real thing."""
+        real = {
+            "_draw_difficulty_dots": lambda: book_pdf_generator._draw_difficulty_dots,
+            "_set_band": lambda: book_pdf_generator._set_band,
+            "round_mark": lambda: ContentStream.round_mark,
+            "ellipse": lambda: ImageDraw.ImageDraw.ellipse,
+            "monkeypatch": lambda: pytest.MonkeyPatch,
+        }
+        assert set(real) == set(CALL_NAMES_THE_CLAIM_MAY_NOT_USE), (
+            "a forbidden name has no resolution here, so nothing says it names "
+            "anything at all"
+        )
+        for name, resolve in real.items():
+            assert resolve() is not None, f"{name} resolves to nothing"
+
+    @pytest.mark.parametrize("row", THE_CLAIM, ids=[row.tier.value for row in THE_CLAIM])
+    def test_the_claims_counts_hold_on_a_bitmap_page(
+        self, row: DotClaim, arm_page: ArmPage
+    ) -> None:
+        """Count and placement, measured off the ink of a real raster page."""
+        page = arm_page.bitmap.copy()
+        drawn = book_pdf_generator._draw_difficulty_dots(
+            ImageDraw.Draw(page), row.tier, *arm_page.box
+        )
+        assert drawn is not None, "the band of a real book page declined the glyph"
+        regions = {region.box: region for region in ink_regions(page, MARK_LEVEL)}
+        present = [dot for dot in drawn.dots if dot in regions]
+        assert len(present) == row.dots, (
+            f"{row.tier.value} put {len(present)} dots on the paper, not {row.dots}"
+        )
+        solid = [dot for dot in present if regions[dot].is_round]
+        assert len(solid) == row.solid, (
+            f"{row.tier.value} filled {len(solid)} of {row.dots} dots on the "
+            f"paper, not {row.solid}"
+        )
+        # Placement and size, as the prose states them: one line, inside the
+        # box, equal and square, none touching. "None touching" is carried by
+        # `len(present) == row.dots`: ink is measured in connected regions, so
+        # two dots that touched would be one region and one box short.
+        left, top, right, bottom = arm_page.box
+        for dot in present:
+            region = regions[dot]
+            assert left <= region.left and region.right <= right
+            assert top <= region.top and region.bottom <= bottom
+            assert region.width == region.height, "a dot's footprint is not square"
+        assert len({regions[dot].width for dot in present}) == 1, "the dots differ in size"
+        assert len({regions[dot].top for dot in present}) == 1, "the dots are not in one line"
+
+    @pytest.mark.parametrize("row", THE_CLAIM, ids=[row.tier.value for row in THE_CLAIM])
+    def test_the_claims_counts_hold_on_a_page_written_as_operators(
+        self, row: DotClaim, arm_page: ArmPage
+    ) -> None:
+        """The same claim, the same page, measured in the content stream."""
+        dots = difficulty_dots(
+            *arm_page.box, filled=row.solid, total=row.dots
+        )
+        assert dots is not None, "the band of a real book page declined the glyph"
+        before = len(stream_marks(_stream_text(arm_page.stream)))
+        text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
+        written = stream_marks(text)[before:]
+        assert len(written) == row.dots, (
+            f"{row.tier.value} put {len(written)} subpaths in the stream, not "
+            f"{row.dots}"
+        )
+        solid = [mark for mark in written if mark.paint in PAINTS_THAT_FILL]
+        assert len(solid) == row.solid, (
+            f"{row.tier.value} filled {len(solid)} of {row.dots} dots in the "
+            f"stream, not {row.solid}"
+        )
+        box = _declared_in_points(arm_page.box, arm_page.height_px)
+        for mark in written:
+            assert box[0] <= round(mark.x0, 3) and round(mark.x1, 3) <= box[2]
+            assert box[1] <= round(mark.y0, 3) and round(mark.y1, 3) <= box[3]
+            assert round(mark.width, 3) == round(mark.height, 3), (
+                "a dot's path is not as wide as it is tall"
+            )
+        assert len({round(mark.width, 3) for mark in written}) == 1, "the dots differ in size"
+        assert len({round(mark.y0, 3) for mark in written}) == 1, "the dots are not in one line"
+
+
+class TestDifficultyDots_TheVectorArmReadsTheStream:
+    """AC-2: the dots accounted from the content stream, per ADR-0042/R6.
+
+    The 27 cells' equivalents, on the medium they will be measured on — the
+    quiet verdict on the book's own pages with a denominator under it, a
+    measured margin, a declared glyph found and paid for, a rogue glyph
+    caught, and the reader's own two bounds each with a control. The count of
+    pages swept is **derived from the generator's own page plan** and not
+    listed, so dropping a page or a whole book reds here rather than shrinking
+    the sweep quietly.
+
+    **What this arm is not.** It is not a reading of a page the product writes
+    today: ``_RASTER_DECLARATIONS`` still declares ``PageKind.PUZZLE`` raster
+    and nothing here lifts it (AC-6, G-1). It is the accounting a vector
+    puzzle page will be measured by, standing ready and exercised against the
+    page ``vector_puzzle_page`` already writes — which is what makes it an arm
+    rather than a plan.
+    """
+
+    def test_the_page_extent_this_arm_flips_y_about_is_the_streams_own(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The one figure the vector accounting takes on trust, checked.
+
+        :func:`_declared_in_points` flips a declared box's y about
+        :attr:`ArmPage.height_px`, which :func:`_arm_page` reads off a
+        ``Layout`` it recomputed rather than off the page the writer wrote. The
+        stream's own ``MediaBox`` is the independent reading of the same
+        extent, and it refuses a disagreement — which matters, because a wrong
+        height is a declared box in the wrong place with the counts still
+        agreeing, and that is the failure MUT-15 plants.
+
+        **Narrowly this and nothing more.** It is *not* a check that the
+        recomputed layout is the writer's in every respect: measured, taking
+        the spec for the next interior position instead leaves the band's
+        centre and the glyph's box bit-identical (the trim and
+        ``center_x = width / 2`` are the same on both parities), so a
+        page-number drift is invisible here and this test does not claim to
+        see it. What it holds is the extent the conversion is done against.
+        """
+        _, _, width_pt, height_pt = arm_page.stream.media_box
+        assert round(height_pt, 3) == round(arm_page.height_px * PT_PER_PX, 3), (
+            "the page height this arm flips y about is not the stream's own, "
+            "so every declared box is in the wrong place by the difference"
+        )
+        assert round(width_pt, 3) == round(arm_page.width_px * PT_PER_PX, 3)
+
+    def test_the_corpus_is_one_page_per_puzzle_of_both_books(
+        self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]
+    ) -> None:
+        """The corpus floor, anchored to each book's rows rather than to itself."""
+        assert sorted(vector_corpus) == sorted(
+            name for name, _ in VECTOR_CORPUS_SOURCES
+        )
+        assert len(vector_corpus) == len(VECTOR_CORPUS_SOURCES), (
+            "a book of the corpus was keyed onto another book's name"
+        )
+        for name, (rows, pages) in vector_corpus.items():
+            assert rows > 0, f"the {name} book holds no puzzle at all"
+            assert len(pages) == rows, (
+                f"the {name} book holds {rows} puzzles and the sweep holds "
+                f"{len(pages)} pages"
+            )
+        pages = sum(len(streams) for _, streams in vector_corpus.values())
+        assert pages == sum(rows for rows, _ in vector_corpus.values())
+        assert pages >= VECTOR_CORPUS_MIN_PAGES, (
+            f"the vector corpus has shrunk to {pages} pages"
+        )
+        # And both page parities are in it, which consecutive numbering from
+        # FIRST_PUZZLE_PAGE gives and which nothing else would notice losing.
+        parities = {
+            book_pdf_generator.page_is_right_hand(FIRST_PUZZLE_PAGE + offset)
+            for _, streams in vector_corpus.values()
+            for offset in range(len(streams))
+        }
+        assert parities == {True, False}, (
+            "the sweep is all one page parity, so a gutter-dependent "
+            "placement could not be wrong in it"
+        )
+
+    def test_the_books_own_vector_sheets_carry_no_round_mark(
+        self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]
+    ) -> None:
+        """ADR-0042/R6's half of the declared check, with its denominator."""
+        subpaths = 0
+        shaped = 0
+        rogue: list[tuple[str, int, tuple[float, float, float, float]]] = []
+        for name, (_, streams) in vector_corpus.items():
+            for number, stream in enumerate(streams):
+                marks = stream_marks(_stream_text(stream))
+                subpaths += len(marks)
+                shaped += sum(1 for mark in marks if not mark.is_degenerate)
+                rogue.extend(
+                    (name, number, mark.box) for mark in marks if mark.is_round
+                )
+        assert subpaths >= VECTOR_CORPUS_MIN_SUBPATHS, (
+            f"only {subpaths} painted subpaths across the corpus — these pages "
+            "have stopped carrying the shapes this test exists to tolerate"
+        )
+        assert shaped >= VECTOR_CORPUS_MIN_SHAPED, (
+            f"only {shaped} of {subpaths} subpaths have extent on both axes, so "
+            "passing says little: the rest are rules, which cannot be round"
+        )
+        assert rogue == [], (
+            f"a vector puzzle page paints a round mark nobody declared: {rogue[:4]}"
+        )
+
+    def test_the_closest_a_vector_page_comes_to_a_round_mark_is_derived(
+        self, vector_corpus: Mapping[str, tuple[int, list[ContentStream]]]
+    ) -> None:
+        """The margin, and it is a **derivation** rather than a recorded number.
+
+        The closest shaped subpath on every page of the corpus is a square
+        filled rectangle — a QR placeholder module, 11.28 x 11.28 pt. A
+        rectangle's enclosed area is exactly its box's, so its ``fill`` is
+        exactly ``4 / pi`` whatever its size, and the margin is therefore
+        ``(4 / pi - 1) / ROUND_FILL_TOLERANCE`` = 2.276996 by arithmetic and
+        not by measurement. What is measured is that **this** is the shape
+        that sets it: ``aspect`` exactly 1.0, so the whole margin rests on
+        ``fill`` — the same hand the raster reading's margin rests in on the
+        book's own pages, for the same reason.
+        """
+        derived = (4.0 / math.pi - 1.0) / ROUND_FILL_TOLERANCE
+        closest: StreamMark | None = None
+        margin = float("inf")
+        for _, streams in vector_corpus.values():
+            for stream in streams:
+                for mark in stream_marks(_stream_text(stream)):
+                    if mark.is_degenerate:
+                        continue
+                    distance = max(
+                        abs(mark.aspect - 1.0) / ROUND_ASPECT_TOLERANCE,
+                        abs(mark.fill - 1.0) / ROUND_FILL_TOLERANCE,
+                    )
+                    if distance < margin:
+                        margin, closest = distance, mark
+        assert closest is not None
+        assert margin == pytest.approx(derived, abs=1e-9), (
+            f"the closest subpath is {margin} tolerances off, not the "
+            f"{derived} a square filled rectangle is"
+        )
+        assert closest.paint in PAINTS_THAT_FILL, "the closest shape is not filled"
+        assert closest.aspect == pytest.approx(1.0, abs=1e-9), (
+            "the margin no longer rests on fill alone: the closest shape's "
+            f"footprint is {closest.aspect} rather than square"
+        )
+        assert closest.fill == pytest.approx(4.0 / math.pi, abs=1e-6), (
+            "the closest shape no longer encloses its own box, so it is not a "
+            "rectangle and this derivation does not describe it"
+        )
+        assert margin > 1.0, "a page of the corpus is one tolerance from round"
+
+    def test_a_declared_glyph_is_found_in_the_stream_and_accounted_for(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The honest route: a glyph written as operators, found and paid for."""
+        dots = difficulty_dots(
+            *arm_page.box, filled=_rank(PLANTED_TIER), total=len(TIERS)
+        )
+        assert dots is not None
+        text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
+        found, declared = _vector_arm_reading(text, dots.dots, arm_page.height_px)
+        assert len(declared) == len(dots.dots), (
+            "every dot is declared on this medium, filled or outlined"
+        )
+        assert len(found) == len(dots.dots), (
+            f"{len(dots.dots)} dots were written and {len(found)} round "
+            "subpaths are in the stream"
+        )
+        assert _unaccounted(found, declared) == (), (
+            "a dot written through the medium's own round primitive is not "
+            "matched by its own declared box"
+        )
+        # And the same page without the glyph declares nothing and finds
+        # nothing, so the balance above is not a balance of two empty sets.
+        bare_found, bare_declared = _vector_arm_reading(
+            _stream_text(arm_page.stream), (), arm_page.height_px
+        )
+        assert bare_found == () and bare_declared == ()
+
+    def test_a_rogue_glyph_in_the_stream_is_unaccounted(
+        self, arm_page: ArmPage
+    ) -> None:
+        """A 32-gon per dot: the route no vertex bound can refuse, caught here.
+
+        ``tests/helpers/pdf_vector.subpath_vertices``' own docstring records
+        that a bound over a subpath's vertex count cannot close this route and
+        names an instrument over **filled subpaths** as what would. This is
+        that instrument: the polygon is measured for the shape it is, not for
+        the operators it is spelled with, so it is caught at 32 sides and the
+        glyph's own Bezier circles are caught at four curves.
+        """
+        dots = difficulty_dots(
+            *arm_page.box, filled=_rank(PLANTED_TIER), total=len(TIERS)
+        )
+        assert dots is not None
+
+        def rogue(stream: ContentStream) -> None:
+            for dot in dots.dots:
+                left, top, right, bottom = dot
+                middle_x, middle_y = (left + right) / 2, (top + bottom) / 2
+                radius = (right - left) / 2
+                corners = [
+                    (
+                        middle_x + radius * math.cos(step * math.tau / 32),
+                        middle_y + radius * math.sin(step * math.tau / 32),
+                    )
+                    for step in range(32)
+                ]
+                stream.begin_path(*corners[0])
+                for corner in corners[1:]:
+                    stream.line_to(*corner)
+                stream.close_path()
+                stream.paint("fill")
+
+        text = _appended(arm_page, rogue)
+        found, declared = _vector_arm_reading(text, (), arm_page.height_px)
+        assert declared == (), "a rogue route declares nothing"
+        assert len(found) == len(dots.dots), (
+            f"{len(dots.dots)} polygons were painted and {len(found)} measure round"
+        )
+        assert _unaccounted(found, declared) == found, (
+            "every one of them is undeclared, so every one is the verdict"
+        )
+
+    def test_a_stroked_ring_is_round_to_this_arm_and_hollow_to_the_other(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The two arms' one measured disagreement, asserted rather than tolerated.
+
+        A stroked circle's **path** encloses a full disc, so this reading calls
+        it round; its **ink** is a ring with paper inside, so the raster
+        reading calls it hollow (a bound that module's docstring states). Both
+        numbers are measured here, on one glyph, so the difference is a
+        property of the two domains and not a disagreement about the page.
+        """
+        dots = difficulty_dots(*arm_page.box, filled=1, total=len(TIERS))
+        assert dots is not None
+        outlined = [
+            dot for index, dot in enumerate(dots.dots) if not dots.is_filled(index)
+        ]
+        assert outlined, "the glyph draws no outlined dot at this rank"
+
+        text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
+        before = len(stream_marks(_stream_text(arm_page.stream)))
+        written = stream_marks(text)[before:]
+        rings = [mark for mark in written if mark.paint not in PAINTS_THAT_FILL]
+        assert len(rings) == len(outlined)
+        for ring in rings:
+            assert ring.is_round, (
+                f"a stroked circle's path encloses fill {ring.fill}, which this "
+                "reading does not call round"
+            )
+
+        page = arm_page.bitmap.copy()
+        book_pdf_generator._draw_difficulty_dots(
+            ImageDraw.Draw(page), TIERS[0], *arm_page.box
+        )
+        regions = {region.box: region for region in ink_regions(page, MARK_LEVEL)}
+        for dot in outlined:
+            assert dot in regions, "an outlined dot put no ink on the page"
+            assert not regions[dot].is_round, (
+                "the raster reading calls a ring round, so the hollow bound "
+                "this file states has gone"
+            )
+            assert regions[dot].fill < 1.0 - ROUND_FILL_TOLERANCE
+
+    def test_a_typed_round_mark_is_outside_this_arms_reach(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The arm's other bound, with the raster arm as its control.
+
+        Type is not a path: a round glyph set as a character reaches the file
+        inside a text object, so this arm reads none of it. Two measurements,
+        because the bound turned out to be narrower on this medium than on the
+        other and saying only the first would overstate it:
+
+        * **the glyph's own dingbat cannot be typed here at all.** ``\u25cf``
+          is outside the interior's cp1252 encoding and the writer refuses it
+          (``UnrepresentableText``), so the raster route's typed spelling is
+          closed by the medium rather than by this reader;
+        * **the bound still stands**, because a round-ish character the
+          encoding *does* carry — ``\u00b7``, the middle dot the band itself
+          is set with — reaches the stream as a string and this reader
+          measures no subpath for it.
+
+        The control is the **other** arm: the same dingbat, drawn as type on a
+        bitmap, is a round ink region. That is why both arms are kept rather
+        than one widened.
+        """
+        with pytest.raises(book_vector.UnrepresentableText):
+            _appended(
+                arm_page,
+                lambda stream: stream.text("\u25cf", 100.0, 100.0, 24.0),
+            )
+
+        before = len(stream_marks(_stream_text(arm_page.stream)))
+        text = _appended(
+            arm_page,
+            lambda stream: stream.text("\u00b7", 100.0, 100.0, 24.0),
+        )
+        assert "\u00b7" in text, "the typed mark never reached the stream"
+        assert len(stream_marks(text)) == before, (
+            "this reader measured a subpath for a glyph set as type, which it "
+            "reads none of"
+        )
+        found, _ = _vector_arm_reading(text, (), arm_page.height_px)
+        assert found == ()
+
+        page = arm_page.bitmap.copy()
+        _rogue_typed_dingbat(ImageDraw.Draw(page), arm_page.box)
+        assert round_marks(page), (
+            "the raster arm cannot see the typed mark either, so this bound "
+            "has no control"
+        )
+
+    def test_the_filling_paints_are_a_subset_of_the_readers_own_set(self) -> None:
+        """:data:`PAINTS_THAT_FILL` cannot name an operator the reader ignores."""
+        painting = {
+            operator
+            for operator, paints in round_ink._PAINT_OPERATORS.items()
+            if paints
+        }
+        assert PAINTS_THAT_FILL <= painting, (
+            f"{sorted(PAINTS_THAT_FILL - painting)} fill nothing the reader reads"
+        )
+        assert "S" in painting and "S" not in PAINTS_THAT_FILL, (
+            "a stroke is a paint and is not a fill"
+        )
+
+    def test_the_readers_vocabulary_covers_every_operator_the_writer_emits(
+        self,
+    ) -> None:
+        """The cell above, widened from paints to the **whole** vocabulary.
+
+        ADR-0039/R2. The reader's own comments carried a claim about the
+        product — "this project's writer emits neither ``v`` nor ``y``" — and
+        nothing bound it to the writer, while three operator classes the reader
+        passed over (``cm``, ``Do``, ``sh``) were in no list at all. That is the
+        shape this card's whole thesis is about, one layer down: the liveness
+        probe stays green on 588 painted subpaths of grid rules while a dot
+        drawn through a route the reader cannot see goes unaccounted.
+
+        So the vocabulary is held to an **enumerated authority** instead:
+        :func:`_writer_operators` is the union of what
+        ``_content_stream_doors`` records when it *drives* every public
+        ``ContentStream`` member. Every operator in it must be understood,
+        refused, or a recorded pass-over — and the day the writer grows one, it
+        is in none of the three and this cell reds.
+        """
+        # The authority is only the whole surface if its probe could call every
+        # member. That module asserts this too; it is restated here because
+        # *this* cell's "every operator the writer emits" rests on it.
+        assert _WRITER_UNCLASSIFIED_DOORS == (), (
+            "the writer has a public member nothing drives, so the operator "
+            f"set below is not its whole surface: {_WRITER_UNCLASSIFIED_DOORS}"
+        )
+        emitted = _writer_operators()
+        assert emitted == WRITER_OPERATORS_RECORDED, (
+            "the writer's measured operator surface moved: "
+            f"gained {sorted(emitted - WRITER_OPERATORS_RECORDED)}, "
+            f"lost {sorted(WRITER_OPERATORS_RECORDED - emitted)}"
+        )
+
+        understood = set(round_ink._PATH_OPERANDS) | set(round_ink._PAINT_OPERATORS)
+        refused = set(round_ink._REFUSED_PATH_OPERATORS) | set(
+            round_ink._REFUSED_STATE_OPERATORS
+        )
+        passed_over = set(WRITER_OPERATORS_NOT_A_PATH)
+
+        # The three classifications are a partition, not three overlapping
+        # opinions: an operator in two of them makes the verdict below depend
+        # on which branch of the reader happens to run first.
+        assert not understood & refused, sorted(understood & refused)
+        assert not understood & passed_over, sorted(understood & passed_over)
+        assert not refused & passed_over, sorted(refused & passed_over)
+
+        unknown = emitted - understood - passed_over - refused
+        assert not unknown, (
+            f"the writer emits {sorted(unknown)}, which tests/helpers/round_ink.py "
+            "neither understands, refuses, nor records as a pass-over — so the "
+            "vector arm's reading of a page carrying it is wrong or short, and "
+            "the liveness probe would stay green either way"
+        )
+        collides = emitted & refused
+        assert not collides, (
+            f"the writer emits {sorted(collides)}, which the reader now REFUSES: "
+            "every stream of the corpus raises StreamShapeError"
+        )
+
+        # And the pass-over list is held down as well as up: an entry naming an
+        # operator the writer does not emit is a pass-over nobody measured, and
+        # is how this list would start absorbing the next cm.
+        stale = passed_over - emitted
+        assert not stale, (
+            f"{sorted(stale)} are recorded as pass-overs the writer emits, and "
+            "it does not emit them"
+        )
+
+        # The other half of the authority: the surface partitioned into the
+        # operators that put a PATH on a page. All of them are understood —
+        # which is the claim the reader's comments made and did not check.
+        assert set(_WRITER_PATH_OPERATORS) <= understood, (
+            f"{sorted(set(_WRITER_PATH_OPERATORS) - understood)} put a path on "
+            "a page and this reader does not understand them"
+        )
+        assert emitted & set(_WRITER_PATH_OPERATORS), (
+            "the writer emits no path operator at all, so this cell is "
+            "measuring an empty intersection"
+        )
+
+    def test_an_operator_the_reader_would_misread_is_refused_not_ignored(
+        self,
+    ) -> None:
+        """``cm``, ``Do``, ``sh`` and ``BI``, each with its matched control.
+
+        Cycle 1 of this card's review measured all three of the first against
+        the reader as committed: a ``10 10 20 20 re f`` under
+        ``2 0 0 2 0 0 cm`` reported its **untransformed** box, bit-identical to
+        the same rect with no transform; ``/Im0 Do`` and ``/Sh0 sh`` each
+        reported 0 marks and raised nothing. Tolerating them is not a missing
+        mark, it is the **wrong** mark — and the wrong direction is the
+        dangerous one, because a path-space ellipse printed as a circle by a
+        non-uniform ``cm`` is a round mark the no-round-mark cells would not
+        find.
+
+        The control is the same stream without the operator, read and measured,
+        so "refused" is a change of verdict rather than a reader that refuses
+        everything. Each row is **its own** control: the refusal it raises has
+        to name the row's own operator, so a stream carrying a *second* refused
+        operator cannot stand in for the one the row is about. That is not a
+        hypothetical — fix round 2's F-003 cell shipped the ``Do`` row as
+        ``q 100 0 0 100 0 0 cm /Im0 Do Q``, which carries a ``cm`` and so
+        refused whether or not ``Do`` was refused; dropping ``Do`` alone from
+        :data:`round_ink._REFUSED_STATE_OPERATORS` left this cell **green**
+        while ``/Im0 Do`` went back to reporting 0 marks silently (fix round 2,
+        F-008). Naming the operator in the assertion makes the next row added
+        unable to repeat it.
+
+        ``q``/``Q`` is the second control and the reason that set does not list
+        them, and the argument is stronger than "nothing moved the CTM in
+        between": ``cm`` is refused at **any** position in the stream, and
+        ``cm`` is PDF's only in-stream CTM operator, so for every stream this
+        reader finishes the CTM is provably the identity from the first token
+        to the last — the "in between" qualifier is unnecessary. The three
+        other routes by which an operand could land somewhere else — a Form
+        XObject's ``/Matrix`` (reached by ``Do``), an inline image's
+        unit-square map (``BI``) and a shading (``sh``) — are each refused
+        above. And the non-refusal is load-bearing rather than merely safe:
+        adding ``q``/``Q`` to the refused set is **KILLED** by this cell
+        (MUT-25) — and killed by the row loop, not by the ``q``/``Q`` control
+        at the bottom: with ``q`` refused, the ``Do`` row's stream raises on
+        its ``q`` and the refusal names ``'q'``, so the names-its-own-operator
+        assertion reds first. Named precisely because a kill site asserted
+        from the shape of the code rather than read off the run is this round's
+        F-009.
+        """
+        rect = "10 10 20 20 re f"
+        (plain,) = stream_marks(rect)
+        assert (plain.x0, plain.y0, plain.x1, plain.y1) == (10.0, 10.0, 30.0, 30.0)
+
+        for stream, operator, what in (
+            (f"2 0 0 2 0 0 cm {rect}", "cm", "a transform (cm)"),
+            ("q /Im0 Do Q", "Do", "an external object (Do)"),
+            ("/Sh0 sh", "sh", "a shading (sh)"),
+            ("BI /W 1 /H 1 /CS /G /BPC 8 ID z EI", "BI", "an inline image (BI)"),
+        ):
+            try:
+                tolerated = stream_marks(stream)
+            except round_ink.StreamShapeError as refusal:
+                assert repr(operator) in str(refusal), (
+                    f"{what} was refused, but by something else in the same "
+                    f"stream: the message is {str(refusal)!r} and names no "
+                    f"{operator!r}, so this row is not a control for "
+                    f"{operator!r}'s refusal and dropping it from "
+                    "_REFUSED_STATE_OPERATORS would leave this cell green"
+                )
+                continue
+            raise AssertionError(
+                f"{what} passed this reader silently; it reported "
+                f"{len(tolerated)} marks "
+                f"{[(m.x0, m.y0, m.x1, m.y1) for m in tolerated]}, and a "
+                "silent pass is what ADR-0039/R2 refuses"
+            )
+
+        # q/Q alone: read, not refused, and the same box as without them.
+        (bracketed,) = stream_marks(f"q {rect} Q")
+        assert (bracketed.x0, bracketed.y0, bracketed.x1, bracketed.y1) == (
+            plain.x0,
+            plain.y0,
+            plain.x1,
+            plain.y1,
+        ), "q/Q moved a box, so refusing cm is not enough to close the CTM"
+
+        # And every recorded pass-over, in one stream with the rect: still read,
+        # still one mark, still the same box — the control for the other half of
+        # the vocabulary cell above.
+        state_and_type = (
+            "0 g 0 G 1 w BT /F1 10 Tf 1 1 Td (x) Tj ET "
+            f"/ClueDigit BMC {rect} EMC"
+        )
+        (through_state,) = stream_marks(state_and_type)
+        assert (
+            through_state.x0,
+            through_state.y0,
+            through_state.x1,
+            through_state.y1,
+        ) == (plain.x0, plain.y0, plain.x1, plain.y1)
+
+    def test_an_integer_pixel_reaches_the_stream_exactly(self) -> None:
+        """Why the accounting rounds to three places instead of tolerating a gap.
+
+        A seeded sweep of dots on integer pixels, written and read back: the
+        worst disagreement between the path's own box and the declared box
+        converted to points is **1.137e-13 pt**, eleven orders inside the
+        1/1000 pt the stream writes at. So rounding both sides to the stream's
+        own places is lossless, and the match can be exact.
+
+        The worst case over this test's own 200-case sweep is **1.1369e-13
+        pt**, which is where the recorded figure comes from.
+        """
+        generator = random.Random(331)
+        worst = 0.0
+        cases = 0
+        for _ in range(200):
+            left = generator.randrange(0, 2400)
+            top = generator.randrange(0, 3200)
+            side = generator.randrange(8, 120)
+            right, bottom = left + side, top + side
+            stream = ContentStream(width_px=2550.0, height_px=3300.0, dpi=DPI)
+            stream.round_mark(
+                (left + right) / 2.0,
+                (top + bottom) / 2.0,
+                (right - left) / 2.0,
+                paint="fill",
+            )
+            (mark,) = stream_marks(_stream_text(stream))
+            declared = _declared_in_points((left, top, right, bottom), 3300)
+            worst = max(
+                worst, max(abs(a - b) for a, b in zip(mark.box, declared))
+            )
+            assert _at_the_streams_places(mark.box) == _at_the_streams_places(declared)
+            cases += 1
+        assert cases == 200, "the sweep lost cases"
+        assert worst < 5e-4, (
+            f"a dot on integer pixels misses its declared box by {worst} pt, "
+            "which the stream's own three places no longer absorb"
+        )
+
+    def test_the_flattening_costs_far_less_than_the_tolerance_it_is_read_against(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``_BEZIER_SEGMENTS``' price, derived at three segment counts.
+
+        A ``round_mark`` circle's ``fill`` reads 0.999859 at 32 segments and
+        1.000255 at 256, where it has converged; the flattening's own error is
+        therefore 3.96e-4 of the ratio, which is 0.33 % of
+        :data:`ROUND_FILL_TOLERANCE`. Measured by moving the segment count,
+        which is also the control: a flattening coarse enough to matter would
+        move the number.
+
+        Moved through ``monkeypatch.context()`` rather than by rebinding the
+        global and restoring it in a ``finally``. The ``finally`` was correct
+        serially and the cell re-asserted the restored value, but
+        ``round_ink._BEZIER_SEGMENTS`` is reachable from **two** test modules —
+        this one and ``tests/test_book_solved_answer_key.py``, the only two that
+        import the helper — and a sibling reading a round mark while
+        this cell held 8 would get a ``fill`` 0.9 % off — inside
+        :data:`ROUND_FILL_TOLERANCE`, so **silent** rather than loud.
+
+        **RETRACTED 2026-10-31, cycle 3's F-014.** This sentence said "reachable
+        from 21 test modules through the ``page_ink`` hop". **There is no hop:**
+        ``tests/helpers/page_ink.py`` imports only ``dataclasses``, ``numpy`` and
+        ``PIL``, and names ``round_ink`` in two *docstring* lines only, so nothing
+        reaches ``_BEZIER_SEGMENTS`` through it. Real reachability is the two
+        direct importers above — which is the same measurement this round used to
+        justify its narrower impact set, three lines from the claim it refutes.
+        The remedy is unchanged and right either way: a shared global rebound
+        under ``monkeypatch.context()`` rather than a ``finally``. Only the
+        number was wrong, and ADR-0039/R4 wants it retracted where it was
+        written. Nothing in
+        this repo runs workers in parallel today; a scoped patch is what keeps
+        that from being the reason (engineering-standards §6).
+        """
+        stream = ContentStream(width_px=1000.0, height_px=1000.0, dpi=DPI)
+        stream.round_mark(500.0, 500.0, 50.0, paint="fill")
+        text = _stream_text(stream)
+        readings: dict[int, float] = {}
+        for segments in (8, round_ink._BEZIER_SEGMENTS, 256):
+            with monkeypatch.context() as patched:
+                patched.setattr(round_ink, "_BEZIER_SEGMENTS", segments)
+                (mark,) = stream_marks(text)
+                readings[segments] = mark.fill
+        assert round_ink._BEZIER_SEGMENTS == 32, "the flattening's value moved"
+        cost = abs(readings[256] - readings[32])
+        assert cost == pytest.approx(3.96e-4, abs=1e-5), (
+            f"the flattening's error is {cost}, not the 3.96e-4 recorded"
+        )
+        assert cost < ROUND_FILL_TOLERANCE / 100, (
+            "the flattening now costs more than a hundredth of the tolerance "
+            "it is read against"
+        )
+        assert abs(readings[8] - readings[256]) > cost, (
+            "a coarse flattening reads the same as a fine one, so this "
+            "measurement is not measuring the flattening"
+        )
+        for reading in readings.values():
+            assert abs(reading - 1.0) <= ROUND_FILL_TOLERANCE
+
+    def test_a_shape_the_reader_cannot_analyse_is_a_failure(self) -> None:
+        """ADR-0039/R2, in the reader itself: it refuses rather than skipping."""
+        with pytest.raises(round_ink.StreamShapeError):
+            stream_marks("10 10 m 20 20 30 30 y f")
+        with pytest.raises(round_ink.StreamShapeError):
+            stream_marks("10 10 m 20 20 30 30 v S")
+        with pytest.raises(round_ink.StreamShapeError):
+            stream_marks("f")
+        with pytest.raises(round_ink.StreamShapeError):
+            stream_marks("10 m")
+        # And the control: the shapes it does understand are read, not refused.
+        assert len(stream_marks("0 0 10 10 re f 20 20 m 30 20 l 30 30 l h f")) == 2
+
+    def test_a_wrong_count_in_the_stream_reds_this_arm(
+        self, arm_page: ArmPage
+    ) -> None:
+        """AC-5 on this medium: a dot too few, and a dot too many.
+
+        Both directions, because the accounting is a multiset and the two are
+        not the same failure: an undeclared mark lands in the verdict, and a
+        declaration nobody drew leaves the verdict empty while the counts
+        disagree. A guard that only compared the verdict would pass the
+        second.
+        """
+        dots = difficulty_dots(
+            *arm_page.box, filled=_rank(PLANTED_TIER), total=len(TIERS)
+        )
+        assert dots is not None
+        text = _appended(arm_page, lambda stream: _write_the_glyph(stream, dots))
+
+        # one dot too few declared: the undeclared one is the verdict
+        found, short = _vector_arm_reading(
+            text, dots.dots[:-1], arm_page.height_px
+        )
+        assert len(_unaccounted(found, short)) == 1
+
+        # one dot too many declared: the verdict is empty and the counts are not
+        over = dots.dots + (dots.dots[0],)
+        found, declared = _vector_arm_reading(text, over, arm_page.height_px)
+        assert _unaccounted(found, declared) == ()
+        assert len(found) != len(declared), (
+            "a declaration nobody drew is invisible to the verdict alone, which "
+            "is why the count is asserted beside it"
+        )
+
+
+class TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct:
+    """AC-3: the same accounting on a bitmap page, and nothing is hooked.
+
+    The legacy harness above hooks two module attributes — a spy on
+    ``_draw_difficulty_dots`` so the interior walk's own calls are declared,
+    and a wrapper on ``_set_band`` so a plant reaches a real band. **Those
+    hooks stay**, and the one-line justification AC-3 asks for is this: the
+    legacy harness measures the *interior walk*, which calls the drawing site
+    itself and hands this file no caller to read a return value from, so
+    removing its spy would mean rebuilding the walk's accounting rather than
+    the hook — work that belongs to whichever card re-points those 27 cells.
+
+    This arm needs no hook at all, and that is the point. It draws the page,
+    then calls the drawing site itself: the declaration is the site's own
+    return value, obtained by calling it. :meth:`test_this_arm_hooks_no_production_attribute`
+    holds that structurally over the arm's own named functions, with a
+    detector that has a control each way.
+    """
+
+    def test_this_arm_hooks_no_production_attribute(self) -> None:
+        """No rebinding, no ``setattr``, no ``monkeypatch`` in the arm's own text."""
+        assert _production_hooks(_raster_arm_sources()) == []
+        assert set(_raster_arm_sources()) == set(RASTER_ARM_FUNCTIONS), (
+            "a function of the arm has no source to read"
+        )
+
+    def test_the_hook_detector_can_fire(self) -> None:
+        """Its control: the three spellings of a hook, each caught; honest text, not.
+
+        And the legacy harness is the fourth case, and the one that matters:
+        the detector is pointed at :func:`_interior_ink`, which really does
+        hook, and must report it — so "this arm hooks nothing" is a
+        measurement against an instrument that *can* say otherwise, in this
+        same file.
+        """
+        assert _production_hooks(
+            {"rebind": "book_pdf_generator._draw_difficulty_dots = spy\n"}
+        ) == ["rebind rebinds book_pdf_generator._draw_difficulty_dots"]
+        assert _production_hooks({"setattr": "setattr(book_pdf_generator, 'x', 1)\n"}) == [
+            "setattr calls setattr"
+        ]
+        assert _production_hooks(
+            {"fixture": "def test_it(monkeypatch) -> None:\n    pass\n"}
+        ) == ["fixture takes the monkeypatch fixture"]
+        assert _production_hooks({"honest": "dots = _draw_difficulty_dots(draw, t, 0, 0, 1, 1)\n"}) == []
+        legacy = _production_hooks({"legacy": inspect.getsource(_interior_ink)})
+        assert legacy, (
+            "the detector reports nothing against the harness that admits to "
+            "hooking two attributes, so it cannot report anything"
+        )
+        assert any("_draw_difficulty_dots" in finding for finding in legacy)
+        assert any("_set_band" in finding for finding in legacy)
+
+    def test_the_bitmap_page_carries_no_round_mark_of_its_own(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The quiet verdict on this medium, with its own denominator."""
+        regions = ink_regions(arm_page.bitmap, MARK_LEVEL)
+        assert len(regions) >= RASTER_ARM_MIN_REGIONS, (
+            f"only {len(regions)} ink regions on the bitmap puzzle page — it "
+            "has stopped carrying the marks this test exists to tolerate"
+        )
+        assert [region.box for region in regions if region.is_round] == [], (
+            "the bitmap puzzle page carries a round mark nobody declared"
+        )
+
+    def test_a_declared_glyph_is_found_as_ink_and_accounted_for(
+        self, arm_page: ArmPage
+    ) -> None:
+        """The honest route, with no hook: the site is called, not replaced."""
+        page = arm_page.bitmap.copy()
+        found, declared = _raster_arm_reading(page, arm_page.box, _declaring_plant)
+        assert len(declared) == _rank(PLANTED_TIER), (
+            "the filled dots are what this medium declares: a ring is not "
+            f"round to it, so {_rank(PLANTED_TIER)} were expected"
+        )
+        assert len(found) == len(declared), (
+            f"{len(declared)} filled dots were drawn and {len(found)} round ink "
+            "regions are on the page"
+        )
+        assert _unaccounted(found, declared) == (), (
+            "a dot the one drawing site drew is not matched by its own box"
+        )
+
+    def test_a_rogue_glyph_on_the_bitmap_page_is_unaccounted(
+        self, arm_page: ArmPage
+    ) -> None:
+        """And the arm can fail on its own medium (AC-5, the raster half)."""
+        page = arm_page.bitmap.copy()
+        found, declared = _raster_arm_reading(page, arm_page.box, _rogue_plant)
+        assert declared == (), "a rogue route declares nothing"
+        assert len(found) >= _rank(PLANTED_TIER), (
+            f"the rogue glyph put {len(found)} round marks on the page"
+        )
+        assert _unaccounted(found, declared) == found
+
+    def test_a_wrong_count_on_the_bitmap_reds_this_arm(
+        self, arm_page: ArmPage
+    ) -> None:
+        """AC-5 on this medium: a dot too few declared, and one too many."""
+        page = arm_page.bitmap.copy()
+        found, declared = _raster_arm_reading(page, arm_page.box, _declaring_plant)
+        assert len(found) >= 2, "the glyph draws fewer than two filled dots"
+        assert len(_unaccounted(found, declared[:-1])) == 1
+        assert _unaccounted(found, declared + (declared[0],)) == ()
+        assert len(found) != len(declared) + 1
+
+
+# --------------------------------------------------------------------------
+# AC-5's own evidence, derived instead of transcribed
+# --------------------------------------------------------------------------
+#
+# AC-5 declared its verifier as "the per-assertion table in `## Worktree
+# notes`" — prose. Three commits after that table was written, 4 of its 5
+# distinct line numbers pointed at other code: the table was transcribed out of
+# a `--tb=line` run, and the commit that renamed a cell shifted every line
+# below it. Nothing re-derived it, so nothing noticed.
+#
+# The table is DATA here, and what it cites is what cannot drift: the cell by
+# name and the assertion by its own source text, normalised through
+# `ast.unparse` so whitespace and line breaks do not enter into it. The card's
+# table now points at this cell instead of carrying line numbers, which is the
+# standing rule this board adopted on CARD-317's F-003 — a criterion verified
+# only by prose is a visibility regression.
+
+
+def _assertions_of(owner: str, leaf: str) -> list[str]:
+    """Every ``assert``'s own tested expression in ``owner.leaf``, in order.
+
+    Source text, normalised by ``ast.unparse``: an assertion cited this way
+    survives every reformatting and every line shift, and stops being citable
+    the moment the assertion itself changes — which is the point.
+    """
+    target = getattr(globals()[owner], leaf)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(target)))
+    return [
+        ast.unparse(node.test)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assert)
+    ]
+
+
+def _assert_messages_of(owner: str, leaf: str) -> list[str]:
+    """Every ``assert``'s own failure message in ``owner.leaf``, as source text."""
+    target = getattr(globals()[owner], leaf)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(target)))
+    return [
+        ast.unparse(node.msg)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assert) and node.msg is not None
+    ]
+
+
+#: AC-5's evidence: one row per plant of this round, naming the **wrongness**
+#: it introduces, the cell it reds, and the assertion inside that cell it
+#: reaches. ``(arm, mutant, wrongness, kind, class, method, assertion)``.
+#:
+#: Three kinds per arm, because a test short-circuits at its first failing
+#: assert and a surviving mutant looks exactly like a never-reached assertion:
+#: *liveness* (the arm's source is gone), *count* (the declaration and the
+#: reading disagree in number) and *verdict* (they agree in number and not in
+#: place). MUT-7/MUT-8 alone would have left the verdict assertion unmeasured.
+AC5_PER_ASSERTION: tuple[tuple[str, str, str, str, str, str, str], ...] = (
+    (
+        "raster",
+        "MUT-2",
+        "the page arrives as operators",
+        "liveness",
+        "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails",
+        "test_each_arms_mechanism_is_still_exercised",
+        "liveness.alive",
+    ),
+    (
+        "raster",
+        "MUT-7",
+        "one dot too few is declared",
+        "count",
+        "TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct",
+        "test_a_declared_glyph_is_found_as_ink_and_accounted_for",
+        "len(declared) == _rank(PLANTED_TIER)",
+    ),
+    (
+        "raster",
+        "MUT-14",
+        "the declared boxes are shifted one device pixel, so the counts agree",
+        "verdict",
+        "TestDifficultyDots_TheRasterArmHoldsWithoutHookingTheProduct",
+        "test_a_declared_glyph_is_found_as_ink_and_accounted_for",
+        "_unaccounted(found, declared) == ()",
+    ),
+    (
+        "vector",
+        "MUT-1",
+        "the writer emits an empty stream",
+        "liveness",
+        "TestDifficultyDots_AnArmWhoseMechanismIsDeadFails",
+        "test_each_arms_mechanism_is_still_exercised",
+        "liveness.alive",
+    ),
+    (
+        "vector",
+        "MUT-8",
+        "one dot too few is declared",
+        "count",
+        "TestDifficultyDots_TheVectorArmReadsTheStream",
+        "test_a_declared_glyph_is_found_in_the_stream_and_accounted_for",
+        "len(declared) == len(dots.dots)",
+    ),
+    (
+        "vector",
+        "MUT-15",
+        "the declared boxes are flipped about the wrong page height, so the "
+        "counts agree",
+        "verdict",
+        "TestDifficultyDots_TheVectorArmReadsTheStream",
+        "test_a_declared_glyph_is_found_in_the_stream_and_accounted_for",
+        "_unaccounted(found, declared) == ()",
+    ),
+)
+
+
+class TestDifficultyDots_AC5ReachesADistinctAssertionPerWrongness:
+    """AC-5's evidence, re-derived off the cells rather than read off a table.
+
+    This class is the whole of F-002's remedy. AC-5's claim is not "both arms
+    have a failing test" — it is "each wrongness reaches **its own**
+    assertion", which is a claim about the structure of two cells, and a claim
+    about structure can be derived from the structure.
+    """
+
+    def test_each_wrongness_ac5_names_reaches_its_own_assertion(self) -> None:
+        """Every row of :data:`AC5_PER_ASSERTION` names an assertion that exists.
+
+        The citation is the assertion's **source text**, so this cell reds both
+        ways: an assertion that is edited or deleted stops matching, and a row
+        kept for a cell that no longer carries it stops matching too. Neither
+        failure mode is available to a line number, which is what went stale.
+        """
+        assert len(AC5_PER_ASSERTION) == 6, len(AC5_PER_ASSERTION)
+        for arm, mutant, wrongness, kind, owner, leaf, assertion in (
+            AC5_PER_ASSERTION
+        ):
+            assert owner in globals(), f"{mutant} names a class that is gone: {owner}"
+            assert hasattr(globals()[owner], leaf), (
+                f"{mutant} names a cell that is gone: {owner}::{leaf}"
+            )
+            tests = _assertions_of(owner, leaf)
+            assert tests.count(assertion) == 1, (
+                f"{mutant} ({arm}, {kind}: {wrongness}) cites "
+                f"{assertion!r} in {owner}::{leaf}, which carries it "
+                f"{tests.count(assertion)} times. Its assertions are {tests}"
+            )
+
+    def test_the_count_and_the_verdict_are_two_assertions_not_one(self) -> None:
+        """The separation itself, per arm, and in the order that makes it matter.
+
+        A fused ``assert count and verdict`` would satisfy every row above and
+        measure one thing: the short-circuit AC-5 exists to name. So the two
+        are required to be **distinct** assert statements of the same cell,
+        with the count strictly **earlier** — which is what makes "MUT-7 alone
+        would have left the verdict unmeasured" a fact about this code rather
+        than a story about it.
+        """
+        for arm in ("raster", "vector"):
+            rows = {
+                kind: (owner, leaf, assertion)
+                for row_arm, _, _, kind, owner, leaf, assertion in AC5_PER_ASSERTION
+                if row_arm == arm
+            }
+            assert set(rows) == {"liveness", "count", "verdict"}, (
+                f"the {arm} arm reaches {sorted(rows)}, not three distinct "
+                "wrongnesses"
+            )
+            count_owner, count_leaf, count_assertion = rows["count"]
+            verdict_owner, verdict_leaf, verdict_assertion = rows["verdict"]
+            assert (count_owner, count_leaf) == (verdict_owner, verdict_leaf), (
+                f"the {arm} arm's count and verdict are in different cells, so "
+                "neither can short-circuit the other and this cell is vacuous"
+            )
+            assert count_assertion != verdict_assertion
+            tests = _assertions_of(count_owner, count_leaf)
+            # Both present before either is located, so a fused or deleted
+            # assertion reds with a message rather than raising ValueError out
+            # of ``list.index`` — a crash reads as a broken instrument, and
+            # this cell's whole job is to be readable when it fires.
+            missing = [
+                assertion
+                for assertion in (count_assertion, verdict_assertion)
+                if assertion not in tests
+            ]
+            assert not missing, (
+                f"the {arm} arm's {count_owner}::{count_leaf} no longer carries "
+                f"{missing} as an assertion of its own — fused into another "
+                f"assert, or gone. Its assertions are {tests}"
+            )
+            assert tests.index(count_assertion) < tests.index(verdict_assertion), (
+                f"the {arm} arm's verdict assertion runs BEFORE its count "
+                f"assertion in {count_owner}::{count_leaf}, so the count is "
+                "the one a short-circuit hides"
+            )
+            # And the liveness assertion is elsewhere: the arm's source going
+            # dead is not a wrongness the accounting cells can see at all,
+            # which is this card's whole subject.
+            assert rows["liveness"][:2] != (count_owner, count_leaf)

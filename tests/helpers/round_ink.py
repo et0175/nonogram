@@ -203,6 +203,8 @@ are each measured with the darker control beside it.
 from __future__ import annotations
 
 import math
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -217,10 +219,18 @@ __all__ = [
     "ROUND_ASPECT_TOLERANCE",
     "ROUND_FILL_TOLERANCE",
     "InkRegion",
+    "StreamMark",
+    "StreamShapeError",
     "ink_regions",
     "mark_regions",
     "round_marks",
+    "round_stream_marks",
+    "stream_marks",
 ]
+
+#: A PDF number as a content stream writes one: no exponent form, because
+#: ``nonogram.admin.book_vector._number`` refuses to emit one.
+_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 
 #: Where a **mark** begins, as against where ink begins: a pixel darker than
 #: this (0..255 grey) is something a reader of the printed page would see,
@@ -451,3 +461,437 @@ def round_marks(page: Image.Image, level: int = MARK_LEVEL) -> list[InkRegion]:
         level: The darkness threshold a region must reach to be measured.
     """
     return [region for region in ink_regions(page, level) if region.is_round]
+
+
+# --------------------------------------------------------------------------
+# The vector twin: the same two numbers, read off a content stream (CARD-331)
+# --------------------------------------------------------------------------
+#
+# Everything above reads a **bitmap**. A page written as operators
+# (ADR-0042/R1) has no pixels to read, and a raster instrument pointed at one
+# does not measure a lighter page — it measures nothing at all. CARD-331's
+# subject is what that costs: the difficulty-dot accounting hooked the raster
+# drawing site, and a hook on a function the page never calls never fires.
+#
+# ``stream_marks`` below is the twin, and it is deliberately a **different
+# instrument with a different domain**, not the same one widened:
+#
+# * ``ink_regions`` measures **ink extents** in device pixels — where the
+#   raster actually put dark pixels, which for a stroked shape sits
+#   ``(width - 1) // 2`` outside the boundary that was asked for (CARD-330).
+# * ``stream_marks`` measures **path coordinates** in PDF points — the
+#   boundary the stream *states*, before any rasteriser has decided which
+#   pixel to darken.
+#
+# So a figure from one is not a figure from the other, and differencing them
+# produces an artefact that reads exactly like a placement disagreement
+# (CARD-309 lost a round to that). Every call site here must say which domain
+# its reading is in, and an accounting must match path against path or ink
+# against ink — never one against the other.
+
+#: Every PDF path-construction operator this reader understands, and how many
+#: operands each takes. ``h`` closes the current subpath and takes none.
+#:
+#: ``v`` and ``y`` — the two shorthand Bézier operators — are deliberately
+#: **absent**: this project's writer emits neither
+#: (``nonogram.admin.book_vector.ContentStream``), and a reader that guessed
+#: at a shape it had never been shown would be the silent pass ADR-0039/R2
+#: refuses. :func:`stream_marks` raises on them instead.
+#:
+#: That "the writer emits neither" is a **measurement**, not this comment's
+#: word: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_readers_vocabulary_covers_every_operator_the_writer_emits``
+#: drives every public ``ContentStream`` member, takes the union of what each
+#: one emits, and holds it to this set, :data:`_PAINT_OPERATORS`,
+#: :data:`_REFUSED_PATH_OPERATORS` and :data:`_REFUSED_STATE_OPERATORS`
+#: together — so an operator the writer grows reds there rather than being
+#: read by whichever of this module's branches happens to swallow it.
+_PATH_OPERANDS = {"m": 2, "l": 2, "c": 6, "re": 4, "h": 0}
+
+#: The PDF path-painting operators, and whether each one paints. ``n`` ends a
+#: path without painting it, so it puts no mark on the paper and is not one.
+#: The rest are PDF 1.7 §8.5.3's full set, so a painted path cannot reach this
+#: reader as an operator it has no opinion about.
+_PAINT_OPERATORS = {
+    "S": True,
+    "s": True,
+    "f": True,
+    "F": True,
+    "f*": True,
+    "B": True,
+    "B*": True,
+    "b": True,
+    "b*": True,
+    "n": False,
+}
+
+#: The operators that construct a path but that this reader refuses to guess
+#: at — see :data:`_PATH_OPERANDS`.
+_REFUSED_PATH_OPERATORS = frozenset({"v", "y"})
+
+#: The operators that would make this reader's answer **wrong** rather than
+#: merely unfamiliar, and which it therefore refuses outright.
+#:
+#: Every other token it does not recognise is passed over by clearing the
+#: operand stack, which is why ``v``, ``y``, a starved operand and an unknown
+#: token between coordinates all end in a refusal anyway. These four are
+#: refused because each one either moves the coordinate system the operands are
+#: read in or paints a mark that is not a path at all, so tolerating one means
+#: answering with the **wrong** number instead of a missing one.
+#:
+#: The pass-over is **not** safe for every token outside this set, and this
+#: comment used to claim it was ("every other token only sets state"). Two
+#: measured counter-examples, both *wrong* rather than short: ``W`` clips, so
+#: ``q 0 0 5 5 re W n 10 10 20 20 re f Q`` is read as the **unclipped**
+#: (10,10)–(30,30) box; and ``gs`` can set ``/ca 0`` or an ``/SMask``, so an
+#: **invisible** mark is reported as a mark. Neither has a consequence today,
+#: and the reason is a binding rather than luck: the vocabulary guard in
+#: ``tests/test_book_difficulty_dots.py`` holds the writer's measured emission
+#: set *equal* to ``WRITER_OPERATORS_RECORDED``, which contains neither, so the
+#: day the writer can emit one that cell reds before any corpus is read
+#: (MUT-20 dies on exactly that equality). They are therefore deliberately
+#: **not** added here: refusing an operator no writer in reach can emit buys
+#: nothing and costs a refusal nothing measures.
+#:
+#: Measured before this set existed, which is why it exists: a
+#: ``10 10 20 20 re f`` under ``2 0 0 2 0 0 cm`` read its *untransformed* box,
+#: bit-identical to the same rect with no ``cm`` at all; ``/Im0 Do`` and
+#: ``/Sh0 sh`` each read **0 marks and said nothing**.
+#:
+#: * ``cm`` concatenates a transform onto the CTM. A non-uniform one prints a
+#:   path-space circle as an ellipse (a false round mark) or a path-space
+#:   ellipse as a circle — a **missed** round mark, which is the direction the
+#:   no-round-mark-on-the-book's-own-sheets accounting depends on.
+#: * ``Do`` paints an external object, form or image, whose own marks live in a
+#:   stream this reader is never handed.
+#: * ``sh`` paints a shading, which has no path to measure.
+#: * ``BI`` opens an inline image, whose data is not tokens at all.
+#:
+#: ``q`` and ``Q`` are deliberately **not** here, and that is an argument
+#: rather than an omission. The argument does not need an "in between"
+#: qualifier: ``cm`` is refused at **any** position in the stream, and ``cm``
+#: is PDF's only in-stream CTM operator, so for every stream this reader
+#: finishes the CTM is provably the identity from the first token to the last —
+#: a saved and restored graphics state can therefore move nothing. The three
+#: other routes by which an operand could land somewhere else are each refused
+#: above as well: a Form XObject's ``/Matrix`` (reached only by ``Do``), an
+#: inline image's unit-square map (``BI``), and a shading (``sh``). So refusing
+#: ``cm`` closes the ``q``/``Q`` dependency outright, instead of this reader
+#: asserting the writer's absence of them — and the non-refusal is load-bearing
+#: rather than merely safe: adding ``q``/``Q`` to this set is KILLED by
+#: ``test_an_operator_the_reader_would_misread_is_refused_not_ignored``
+#: (MUT-25), at that cell's names-its-own-operator assertion rather than at its
+#: ``q``/``Q`` box control — ``q`` refused makes the ``Do`` row raise on its
+#: own ``q``, which the row then reports as not being its control.
+#:
+#: Bound to the writer's own **measured** emission set, not to this comment, by
+#: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_readers_vocabulary_covers_every_operator_the_writer_emits``,
+#: which drives every public ``ContentStream`` member and reds if the writer
+#: grows an operator this reader would refuse — or one it would pass over
+#: without that having been recorded (ADR-0039/R2).
+_REFUSED_STATE_OPERATORS = frozenset({"cm", "Do", "sh", "BI"})
+
+#: How many straight segments one cubic Bézier is flattened into before its
+#: box and its enclosed area are measured.
+#:
+#: 32, and what it costs is **measured** rather than assumed. A circle written
+#: by ``ContentStream.round_mark`` is four cubics; flattened at 32 segments
+#: each its ``fill`` reads 0.999859, and at 256 — eight times as fine, where
+#: the number has converged to five places — 1.000255. So the flattening's own
+#: error is **3.96e-4 of the ratio, 0.33 % of**
+#: :data:`ROUND_FILL_TOLERANCE`, and it points the ratio *down*, towards the
+#: cautious side. The figures are re-derived, at three segment counts, by
+#: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_flattening_costs_far_less_than_the_tolerance_it_is_read_against``.
+#:
+#: A circle's **box** does not depend on this number at all: each quadrant arc
+#: of a Bézier circle has its extremes at its own endpoints, which every
+#: flattening includes exactly.
+_BEZIER_SEGMENTS = 32
+
+
+class StreamShapeError(Exception):
+    """A content stream carried a shape this reader cannot analyse.
+
+    ADR-0039/R2: an unanalysable shape is a FAILURE and never a silent pass.
+    Raised rather than skipped, because a subpath quietly dropped is a round
+    mark quietly unaccounted for.
+    """
+
+
+@dataclass(frozen=True)
+class StreamMark:
+    """One painted subpath of a content stream, in the stream's own domain.
+
+    **PDF user-space points, y counted up from the page's bottom edge** — the
+    operands as the stream writes them, converted by nothing. That is the
+    *stated boundary* of the shape and not an ink extent: see this section's
+    header for why the two are different instruments.
+
+    Attributes:
+        x0: The subpath's smallest x.
+        y0: Its smallest y.
+        x1: Its largest x.
+        y1: Its largest y.
+        area: The absolute area its outline encloses, by the shoelace formula
+            over the subpath flattened to straight segments. Signed area is
+            deliberately not kept: a path's winding direction is how a viewer
+            decides what is a hole, and this reader measures one subpath at a
+            time and claims nothing about a composite.
+        paint: The painting operator that painted it.
+    """
+
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    area: float
+    paint: str
+
+    @property
+    def box(self) -> tuple[float, float, float, float]:
+        """``(x0, y0, x1, y1)``, in points."""
+        return (self.x0, self.y0, self.x1, self.y1)
+
+    @property
+    def width(self) -> float:
+        return self.x1 - self.x0
+
+    @property
+    def height(self) -> float:
+        return self.y1 - self.y0
+
+    @property
+    def is_degenerate(self) -> bool:
+        """Whether the subpath has no extent on one axis at all.
+
+        An axis-aligned rule is exactly that — ``m``/``l``/``S`` between two
+        points of the same y — and it is the commonest subpath on an interior
+        page. It encloses nothing, so neither :attr:`aspect` nor :attr:`fill`
+        is a number about it, and both refuse rather than return one. A sweep
+        looking for the page's *closest* thing to a round mark has to skip
+        this population and say that it did.
+        """
+        return self.width <= 0 or self.height <= 0
+
+    @property
+    def aspect(self) -> float:
+        """The box's width over its height: 1.0 for a square footprint.
+
+        Raises:
+            StreamShapeError: the subpath is :attr:`is_degenerate`.
+        """
+        if self.is_degenerate:
+            raise StreamShapeError(
+                f"a subpath of {self.width} x {self.height} pt has no aspect: "
+                "it has no extent on one axis"
+            )
+        return self.width / self.height
+
+    @property
+    def fill(self) -> float:
+        """The enclosed area over an inscribed ellipse's: 1.0 for a circle.
+
+        The same ratio :attr:`InkRegion.fill` is, over the same inscribed
+        ellipse — and over a different measurement of "how much is inside".
+        :class:`InkRegion` counts dark pixels, which is why a *stroked* ring
+        reads far below 1 there; this counts the area the outline encloses,
+        which for the same ring is a full disc. The vector reading is
+        therefore **wider** on a hollow mark and the raster reading wider on a
+        mark that is not a path at all (a typed dingbat). Each difference has
+        a control in ``tests/test_book_difficulty_dots.py``'s
+        ``TestDifficultyDots_TheVectorArmReadsTheStream``.
+
+        Raises:
+            StreamShapeError: the subpath is :attr:`is_degenerate`.
+        """
+        if self.is_degenerate:
+            raise StreamShapeError(
+                f"a subpath of {self.width} x {self.height} pt has no fill "
+                "ratio: an inscribed ellipse of it has no area"
+            )
+        return self.area / (math.pi / 4 * self.width * self.height)
+
+    @property
+    def is_round(self) -> bool:
+        """Whether this subpath is a round mark, by the same two tolerances."""
+        if self.is_degenerate:
+            return False
+        return (
+            abs(self.aspect - 1.0) <= ROUND_ASPECT_TOLERANCE
+            and abs(self.fill - 1.0) <= ROUND_FILL_TOLERANCE
+        )
+
+
+def _without_strings(stream: str) -> str:
+    """``stream`` with every literal string replaced by a space.
+
+    A ``(…) Tj`` operand is text, so an operand that happens to read ``0 0 m``
+    is a word on the page and not a path. Written here rather than imported
+    from ``tests/helpers/pdf_vector.py`` for the reason this module imports no
+    ``nonogram``: it is the independent second reader, and a shared scanner
+    would make the two one.
+    """
+    return re.sub(r"\((?:\\.|[^()\\])*\)", " ", stream)
+
+
+def _flatten(points: Sequence[tuple[float, float]]) -> list[tuple[float, float]]:
+    """One cubic Bézier's four control points as :data:`_BEZIER_SEGMENTS` + 1 points."""
+    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = points
+    out = []
+    for step in range(_BEZIER_SEGMENTS + 1):
+        t = step / _BEZIER_SEGMENTS
+        u = 1.0 - t
+        out.append(
+            (
+                u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+                u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+            )
+        )
+    return out
+
+
+def _shoelace(points: Sequence[tuple[float, float]]) -> float:
+    """The absolute area the closed polygon through ``points`` encloses."""
+    total = 0.0
+    for index in range(len(points)):
+        x0, y0 = points[index]
+        x1, y1 = points[(index + 1) % len(points)]
+        total += x0 * y1 - x1 * y0
+    return abs(total) / 2.0
+
+
+def _mark(points: Sequence[tuple[float, float]], paint: str) -> StreamMark:
+    xs = [x for x, _ in points]
+    ys = [y for _, y in points]
+    return StreamMark(
+        x0=min(xs),
+        y0=min(ys),
+        x1=max(xs),
+        y1=max(ys),
+        area=_shoelace(points),
+        paint=paint,
+    )
+
+
+def stream_marks(stream: str) -> list[StreamMark]:
+    """Every **painted** subpath of ``stream``, in the order it was painted.
+
+    The vector twin of :func:`ink_regions`, and the instrument the difficulty
+    dots' vector arm accounts from (ADR-0042/R6: a claim about an interior
+    page is asserted against the content stream).
+
+    One :class:`StreamMark` per subpath, not per path: a path with two
+    ``m``\\ s paints two shapes, and an accounting that reported the pair as
+    one box would have a round mark hiding inside a rectangle's. Each subpath
+    is flattened — a ``c`` into :data:`_BEZIER_SEGMENTS` straight segments, a
+    ``re`` into its four corners — and then measured for a box and an enclosed
+    area.
+
+    **What it does not see.** Only paths. Type is not a path here: a
+    ``chr(0x25CF)`` set as a glyph reaches the file as a string inside a text
+    object, so it is invisible to this reader and visible to
+    :func:`ink_regions` on a rendered page. That asymmetry is the vector arm's
+    stated bound and it has a control.
+
+    Args:
+        stream: A decoded content stream — ``ContentStream.operators`` joined,
+            or what ``tests/helpers/pdf_vector.content_streams`` reads back
+            out of a written file.
+
+    Raises:
+        StreamShapeError: the stream paints a path built with an operator this
+            reader does not understand, paints one with no subpath open, runs
+            out of operands mid-operator, or uses one of
+            :data:`_REFUSED_STATE_OPERATORS` — an operator that would leave the
+            reading *wrong* rather than short. An unanalysable shape is a
+            FAILURE (ADR-0039/R2).
+    """
+    tokens = _without_strings(stream).split()
+    marks: list[StreamMark] = []
+    subpaths: list[list[tuple[float, float]]] = []
+    operands: list[float] = []
+    for token in tokens:
+        if _NUMBER.fullmatch(token):
+            operands.append(float(token))
+            continue
+        if token in _REFUSED_PATH_OPERATORS:
+            raise StreamShapeError(
+                f"the stream builds a path with {token!r}, a shorthand Bezier "
+                "this reader has never been shown and will not guess at: an "
+                "unanalysable shape is a FAILURE (ADR-0039/R2)"
+            )
+        if token in _REFUSED_STATE_OPERATORS:
+            raise StreamShapeError(
+                f"the stream uses {token!r}, which this reader would have to "
+                "ignore to carry on — and ignoring it does not lose a mark, it "
+                "reports the wrong one: see _REFUSED_STATE_OPERATORS for the "
+                "measurement. An unanalysable stream is a FAILURE "
+                "(ADR-0039/R2)"
+            )
+        if token in _PATH_OPERANDS:
+            wanted = _PATH_OPERANDS[token]
+            if len(operands) < wanted:
+                raise StreamShapeError(
+                    f"{token!r} wants {wanted} operands and the stream offered "
+                    f"{len(operands)}"
+                )
+            taken = operands[len(operands) - wanted :] if wanted else []
+            operands = []
+            if token == "m":
+                subpaths.append([(taken[0], taken[1])])
+            elif token == "re":
+                x, y, width, height = taken
+                subpaths.append(
+                    [
+                        (x, y),
+                        (x + width, y),
+                        (x + width, y + height),
+                        (x, y + height),
+                    ]
+                )
+            elif token == "h":
+                continue
+            else:
+                if not subpaths:
+                    raise StreamShapeError(
+                        f"{token!r} extends a subpath that was never opened"
+                    )
+                if token == "l":
+                    subpaths[-1].append((taken[0], taken[1]))
+                else:
+                    start = subpaths[-1][-1]
+                    subpaths[-1].extend(
+                        _flatten(
+                            [
+                                start,
+                                (taken[0], taken[1]),
+                                (taken[2], taken[3]),
+                                (taken[4], taken[5]),
+                            ]
+                        )[1:]
+                    )
+            continue
+        if token in _PAINT_OPERATORS:
+            if _PAINT_OPERATORS[token]:
+                if not subpaths:
+                    raise StreamShapeError(
+                        f"{token!r} paints a path with no subpath in it"
+                    )
+                marks.extend(_mark(points, token) for points in subpaths)
+            subpaths = []
+            operands = []
+            continue
+        operands = []
+    return marks
+
+
+def round_stream_marks(stream: str) -> list[StreamMark]:
+    """Every subpath of ``stream`` that measures as a round mark.
+
+    The whole vector instrument in one call, and the twin of
+    :func:`round_marks`. The reading is in **points** and is of a *stated*
+    boundary; :func:`round_marks` answers in device pixels and about ink.
+    """
+    return [mark for mark in stream_marks(stream) if mark.is_round]
