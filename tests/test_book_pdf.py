@@ -4045,8 +4045,16 @@ _EDGE_TRIMS = (
 _EDGE_PARITIES = (0, 1)
 _EDGE_BOUNDS = ("ratio", "footer")
 
-#: Draws per combination of (trim, parity, vertical bound): two, so a
-#: combination is sampled at more than one grid size and clue depth.
+#: The quotient that takes the three structural dimensions to the corpus size:
+#: 24 / (3 trims x 2 parities x 2 bounds). **Not** a guarantee of two draws per
+#: combination, and this comment used to say it was (cycle 2's F-202). Trim and
+#: parity are structural, but the vertical bound is **emergent** from the seeded
+#: RNG, so the realized distribution over the 12 combinations is measured at
+#: 1/2/3 -- four combinations each -- rather than 2 apiece. All 12 *are*
+#: realized, which is better than the assertions guarantee; what is not true is
+#: that each is sampled twice. AC-1 claims span, not balance, and the span is
+#: asserted as a set equality per dimension, so F-001's anchor is unaffected:
+#: shrinking any dimension still reds.
 _EDGE_DRAWS_PER_COMBINATION = 2
 
 #: How many cases the fixture actually draws. Deliberately separate from

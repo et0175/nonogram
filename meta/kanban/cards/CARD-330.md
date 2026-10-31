@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** —
+**Review score:** 9.0 (cycle 2 of 3 — CERTIFIED; 7.5 → 9.0)
 **Started:** 2026-10-30T23:16:41Z
 **Closed:** —
 **Actual:** —
@@ -232,13 +232,19 @@ an exception by scheduling, not technique, and CARD-231 redesigns the page to be
 
 ## System contract
 
-- ADR-0042/R6 — a claim about an interior page is asserted against the content stream, with the independent oracles exempt by name (check: **review-lens**; CARD-299 owes the flip; this card disposes of two of those oracles)
+- ADR-0042/R6 — a claim about an interior page is asserted against the content stream, with the independent oracles exempt by name (check: **review-lens**; **CARD-312** owes the flip; this card disposes of two of those oracles)
   <!-- CORRECTED 2026-10-31, fix round 1, cycle 1's F-105: this row read
   "(check: CARD-299's)", which reads as mechanically checked. Re-derived from
   the ADR: R6's block carries `check: {kind: review-lens}`, and its own
   comment records that CARD-299 was dispatched to flip the check to the
   planned test and deliberately did NOT — the lens MUST survive CARD-299 by
-  the same decision, and the flip is CARD-312's. The board's standing rule is
+  the same decision, and the flip is CARD-312's -- whose own title is
+  "ADR-0042/R6's guard ... and the flip R6 has been owed since October",
+  Status: ready, while CARD-299 is done BY REFUSAL. Cycle 2's F-201: the
+  VISIBLE half of this row still said "CARD-299 owes the flip" while this
+  comment said CARD-312 -- a contradiction inside one edit, and the exact
+  staleness class F-105 existed to remove. The row now matches.
+  The board's standing rule is
   the one being met: a planned test ref reads as mechanically checked, so use
   review-lens plus a named card owing the flip. -->
 - ADR-0042/R1 — interior pages are operators (check: review-lens — **this card does not flip it**)
