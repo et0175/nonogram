@@ -151,9 +151,13 @@ Measured, it does not — and the measurement is what this round is built on.
   module's 155 cells** (`scratchpad/card331/probe_puzzle_vector.py`, a session
   plugin so the declaration is gone before any module imports). Every one of
   the 27 reds at the **same line with the same message**:
-  `'ContentStream' object has no attribute 'convert'`, from
-  `tests/test_book_difficulty_dots.py:3918`, which is `_interior_ink`'s render
-  loop. The accounting never runs at all. So the 27 the card counted *are* the
+  `'ContentStream' object has no attribute 'convert'`, raised from the
+  `page.convert("L")` of **`_interior_ink`'s own render loop** — cited by name,
+  because the line number moves and this sentence used to cite one that never
+  held it: `:3918` is `return dots` inside the legacy spy at HEAD and at both
+  earlier commits of this branch, while the render loop is `tests/test_book_difficulty_dots.py:3960` at HEAD and `:3942` at `308bbded` (fix round 2,
+  F-012 — a line number used as a citation fifty lines above this card's own
+  explanation of why that does not work). The accounting never runs at all. So the 27 the card counted *are* the
   cells that fall, and ADR-0039/R2 is satisfied **today** — by accident, by a
   type error whose message names neither a dot nor a dead hook, and before the
   monkeypatch's not-firing can matter.
@@ -174,9 +178,29 @@ So the deliverable is **not** a louder exception for a type error. It is the
 thing neither probe produced: an arm per `PageMedium`, each naming the
 mechanism its reading comes out of, and a guard that reds when an arm's
 mechanism stops being exercised — whatever the page object's type is on the
-day it stops. With the declaration lifted, the new section's 34 cells report
-**exactly 2 red**, both naming the raster arm, its mechanism and the remedy;
-the vector arm's 32 are green on the converted tree.
+day it stops. With the declaration lifted, the new section reports **exactly 2
+red**, both naming the raster arm, its mechanism and the remedy, and every
+other cell of it green on the converted tree.
+
+> **Fix round 2 (F-011).** That sentence used to read "the new section's **34**
+> cells report exactly 2 red … the vector arm's **32** are green". Fix round 1
+> added six cells and falsified it, and nothing re-derived it — F-002's root
+> cause surviving *outside* AC-5's table. The substance held; the figures are
+> **derived** now rather than retyped, and the derivation is the point:
+>
+> - The section is the **node-id set difference against the merge base**:
+>   **195** collected at HEAD, **155** at `b18fd397`, so **40 added, 0
+>   removed** (both collected file-scoped, `-o addopts= --collect-only -q`, the
+>   base from a `b18fd397` worktree; this is also G-5's own measurement).
+> - `scratchpad/card331/probe_puzzle_vector.py` then reports **29 failed / 166
+>   passed**, and intersecting its 29 failing node ids with the two sets splits
+>   them with nothing left over: **27** are among the 155 pre-existing cells —
+>   the bitmap readers of the interior, which is the same 27 the premise
+>   correction above counts — and **2** are among the 40 added:
+>   `…AnArmWhoseMechanismIsDeadFails::test_each_arms_mechanism_is_still_exercised[raster]`
+>   and `…AnArmWhoseMechanismIsDeadFails::test_each_arms_probe_reports_death_when_its_mechanism_goes`.
+> - So the section is **40 cells / 2 red / 38 green**, and 27 + 2 = 29 is why
+>   the probe's total is 29. All six cells fix round 1 added are in the 38.
 
 > **Fix round 1 (F-006).** That sentence was half true when it was written:
 > the mechanism-still-exercised cell carried arm + mechanism + remedy, and its
@@ -234,7 +258,7 @@ same harness run *before* its plant; SHA-256 asserted before the plant and
 after the restore; `__pycache__` swept before and after each run;
 `PYTHONDONTWRITEBYTECODE=1`; the full environment inherited
 (`dict(os.environ, …)`); `-o addopts=` passed as two argv items; and
-**0 skipped asserted on the baseline** (**195** passed, 0 skipped, 0 failed; 189 before fix round 1 added six cells).
+**0 skipped asserted on the baseline** (**195** passed, 0 skipped, 0 failed; 189 before fix round 1 added six cells). **28 plants, 27 killed, 1 declared survivor** — MUT-25 to MUT-28 are fix round 2's.
 
 | # | the plant | node it reds |
 |---|---|---|
@@ -257,11 +281,15 @@ after the restore; `__pycache__` swept before and after each run;
 | MUT-17 | **the control's own control**: the raster arm's probe stops noticing that the medium has moved | `…::test_each_arms_probe_reports_death_when_its_mechanism_goes` |
 | MUT-18 | **F-004, the reviewer's own M10 re-fired**: the arm hooks a production attribute inside its *plant* function — it SURVIVED cycle 1 at 189 passed | `…TheRasterArmHoldsWithoutHookingTheProduct::test_this_arm_hooks_no_production_attribute` |
 | MUT-19 | **F-003**: the reader goes back to *ignoring* `cm`/`Do`/`sh` — the committed cycle-1 behaviour | `…TheVectorArmReadsTheStream::test_an_operator_the_reader_would_misread_is_refused_not_ignored` |
-| MUT-20 | **F-003, the binding itself**: the *writer* grows an operator the reader refuses (`stroke_width` emits a `cm`) | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
-| MUT-21 | **F-003, the other direction**: an operator is recorded as a pass-over the writer does not emit — how that list would absorb the next `cm` | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
+| MUT-20 | **F-003, the binding itself**: the *writer* grows an operator the reader refuses (`stroke_width` emits a `cm`). Reds at the **equality** assertion, `:7497` `emitted == WRITER_OPERATORS_RECORDED` — the writer's surface moving hits that first; **not** at the `collides` assertion, which is where fix round 1 said it died (fix round 2, F-009's class) | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
+| MUT-21 | **F-003, the other direction**: an operator is recorded as a pass-over the writer does not emit — how that list would absorb the next `cm`. Because the operator planted is `cm`, which is **refused**, it reds at the refused-vs-pass-over **disjointness** assertion, `:7514`, and never reaches `stale` at `:7533` (fix round 2, F-009). MUT-28 is the plant that reaches `stale` | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
 | MUT-22 | **F-002**: the raster count and verdict are fused into ONE assert — the short-circuit AC-5 exists to measure | `…AC5ReachesADistinctAssertionPerWrongness::test_each_wrongness_ac5_names_reaches_its_own_assertion` + `test_the_count_and_the_verdict_are_two_assertions_not_one` |
 | MUT-23 | **F-006**: the second red's message goes back to naming the arm and nothing else | `…::test_both_reds_of_this_section_name_the_mechanism_and_the_remedy` |
 | MUT-24 | **F-005**: the raster remedy offers "retire this arm" again | `…::test_no_arms_remedy_offers_an_option_this_section_forbids` |
+| MUT-25 | **F-008's other side**: `q`/`Q` are **added** to the refused set, so the non-refusal is measured as load-bearing rather than merely safe. Killed at the row loop's names-its-own-operator assertion, not at the `q`/`Q` box control — with `q` refused, the `Do` row's stream raises on its own `q` | `…TheVectorArmReadsTheStream::test_an_operator_the_reader_would_misread_is_refused_not_ignored` |
+| MUT-26 | **F-008 re-fired**: **only** `Do` is dropped from the refused set. Cycle 2 measured this **SURVIVING at 1 passed**; it now reds with *"an external object (Do) passed this reader silently; it reported 0 marks"* | `…::test_an_operator_the_reader_would_misread_is_refused_not_ignored` |
+| MUT-27 | **F-008's structural half**: the refusal **stays** and its message stops naming the operator, which is the state that let the `Do` row pass | `…::test_an_operator_the_reader_would_misread_is_refused_not_ignored` |
+| MUT-28 | **F-009**: `gs` is recorded as a pass-over the writer does not emit. Unlike MUT-21's `cm` it is in no refused set, so every disjointness assertion passes and `stale` is the one that reds | `…::test_the_readers_vocabulary_covers_every_operator_the_writer_emits` |
 
 ### [The frozen render-heavy set: a hazard met and avoided, with the reason]
 
@@ -373,6 +401,22 @@ loud what it does **not** see.
   bands, so the accounting would become a question about which band a plant
   landed in. Named as the arm's next step rather than half-built.
 - **`RENDER_HEAVY_SNAPSHOT` not re-frozen** — see above.
+- **`RASTER_ARM_FUNCTIONS`' completeness is still underived** (fix round 2,
+  N-1). Fix round 1's F-004 extended a **list**, not the mechanism: the guard
+  checks that every name listed has a source, and it cannot catch a name that
+  *should* be listed — which is exactly the hole cycle 1's M10 used to survive
+  (MUT-18 is that hole re-fired, inside a function that *was* listed). Cycle 2
+  filed this as a note rather than a finding because cycle 1 had already ruled
+  on the shape, and lowered its own confidence accordingly. **CARD-322 is the
+  imminent exposure**, being the next card to touch this arm: a function it
+  adds to the arm and forgets to list is unguarded, and nothing here says so.
+- **The refused set deliberately carries no `cm`/`Do`/`sh` row in the BOUNDS
+  cell, and the reason is structural rather than merely defensible** (fix round
+  2, N-2). The bounds cell asserts `all(bound.caught is False …)` at `:5780`,
+  and a refused operator **is** caught — so adding a `cm`, `Do` or `sh` row
+  there reds that cell. Written down because a later reader would otherwise
+  "helpfully" add the rows for symmetry, and the red would arrive without its
+  reason.
 
 ## Fix round 1 — cycle 1 scored 8.5, three Important and four Minor
 
@@ -392,7 +436,7 @@ reproduced exactly:
 |---|---|---|
 | `10 10 20 20 re f` | accepted, 1 mark, box (10,10,30,30) | accepted, 1 mark, box (10,10,30,30) |
 | the same rect under `2 0 0 2 0 0 cm` | **accepted, 1 mark, the UNTRANSFORMED box** — bit-identical to no transform | **refused** `StreamShapeError` |
-| `q 100 0 0 100 0 0 cm /Im0 Do Q` | **accepted, 0 marks, silent** | **refused** `StreamShapeError` |
+| `q /Im0 Do Q` | **accepted, 0 marks, silent** | **refused** `StreamShapeError`, naming `'Do'` |
 | `/Sh0 sh` | **accepted, 0 marks, silent** | **refused** `StreamShapeError` |
 | `BI /W 1 /H 1 … ID … EI` | accepted, 0 marks, silent | **refused** `StreamShapeError` |
 | `q 10 10 20 20 re f Q` (control) | accepted, 1 mark | accepted, 1 mark, the same box |
@@ -401,12 +445,21 @@ reproduced exactly:
 | `0 0 10 re f` (starved) | refused | refused |
 
 `q`/`Q` are deliberately **not** in the refused set, and that is an argument
-rather than an omission: a saved and restored graphics state changes where an
-operand lands only if something moved the CTM in between, and the only
-operator that can is `cm`. So refusing `cm` closes the `q`/`Q` dependency
-too — two of the three facts the reader used to *depend on* collapse into one
-refusal, and the third (`write_vector_page` refuses a `Do`) stops being a
-dependency at all.
+rather than an omission. Cycle 2 endorsed the non-refusal and found the
+argument **weaker than the truth**, so it is restated at full strength here
+and in the reader's own comment: the first version said a saved state moves an
+operand only if something moved the CTM *in between*. The "in between"
+qualifier is unnecessary — `cm` is refused at **any** position, and `cm` is
+PDF's **only** in-stream CTM operator, so for every stream this reader
+finishes the CTM is provably the identity from the first token to the last.
+The three other routes by which an operand could land somewhere else are each
+refused too: a Form XObject's `/Matrix` (reached only by `Do`), an inline
+image's unit-square map (`BI`), and a shading (`sh`). So refusing `cm` closes
+the `q`/`Q` dependency outright — two of the three facts the reader used to
+*depend on* collapse into one refusal, and the third (`write_vector_page`
+refuses a `Do`) stops being a dependency at all. And the non-refusal is
+load-bearing, not merely safe: adding `q`/`Q` to the set is **KILLED**
+(MUT-25).
 
 **The vocabulary is bound to the enumerable authority** (ADR-0039/R2):
 `_DOOR_EMITS` from `tests/test_book_solved_answer_key.py`, which *drives* every
@@ -415,18 +468,34 @@ operators; `_UNCLASSIFIED_DOORS == ()` is restated here because this claim
 rests on it. Every one of the 17 must be **understood**, **refused**, or a
 **recorded pass-over**, the three sets held disjoint — and the pass-over list
 is held down as well as up, because an entry naming an operator the writer does
-not emit is exactly how that list would absorb the next `cm` (MUT-21).
+not emit is exactly how that list would absorb the next `cm` (**MUT-28**, `gs`
+recorded as a pass-over, which is the plant that reaches that assertion;
+MUT-21 plants `cm`, which is refused, so it reds one assertion earlier at the
+disjointness — fix round 2, F-009).
 
 **Home: `tests/test_book_difficulty_dots.py`, not the co-change peer.** The
 reviewer suggested `tests/test_book_pdf_vector_primitives.py` (this diff's one
 unguardrailed co-change peer, 5 of 12 months) and the judgement went the other
-way, for three reasons. The failure mode is an **under-measurement of this
+way, for **four** reasons — cycle 2 ruled the judgement right and supplied the
+fourth, which this card had not made: **that module does not reference
+`stream_marks` at all**, so the guard would have sat in a module that never
+calls the thing it guards (measured: `grep -c stream_marks
+tests/test_book_pdf_vector_primitives.py` is 0). The failure mode is an **under-measurement of this
 card's accounting** — the vector arm is `stream_marks`' only consumer, and the
 symptom is a dot the arm cannot see while liveness stays green on 588 grid-rule
 subpaths. Every instrument that would catch a regression in it is pointed at
 this module: G-5's node-id gate, the 195-cell baseline, and the mutant harness.
 A cell in the peer module would sit outside all three — which is precisely
-F-002's defect in a different costume. And the cell it widens, the
+F-002's defect in a different costume, and sharper than "outside": cycle 2
+called this reason accurate because `scratchpad/card331/mutate.py` hard-codes
+`MODULE = "tests/test_book_difficulty_dots.py"`, so a peer cell **literally
+cannot be a target of this harness**. The cross-module import this costs is
+ordinary rather than novel, and fix round 1 understated how ordinary: **93
+import statements across 46 files** under `tests/` name a peer `test_*` module
+(an `ast` walk over `tests/**/*.py` counting `Import`/`ImportFrom` nodes; 45 of
+those files are modules other than this one — which brackets cycle 2's
+independently measured 45 files / 95 lines, the residue being statements
+counted against lines). And the cell it widens, the
 `PAINTS_THAT_FILL`-is-a-subset cell, is already in this module's vector-arm
 class, so the general guard sits beside the narrow one it generalises.
 
@@ -494,6 +563,68 @@ can write unarmed — and then holds every remedy to it (MUT-24).
 | figure | base |
 |---|---|
 | **195 passed / 0 skipped** on `tests/test_book_difficulty_dots.py` | the whole module, `-o addopts=`, `-rs`; 189 before this round, +6 cells |
-| **23 killed / 1 declared survivor** over 24 plants | `scratchpad/card331/mutate.py`, every control green in the same run |
+| **27 killed / 1 declared survivor** over 28 plants | `scratchpad/card331/mutate.py`, every control green in the same run (23/24 before fix round 2 added MUT-25 to MUT-28) |
 | the writer's measured surface: **17 operators** | the union of `_DOOR_EMITS`, which drives all 18 public `ContentStream` members |
-| the validator: **0 err / 90 warn** | `meta/architecture/` is byte-identical to `b18fd397` (`git diff b18fd397..HEAD -- meta/architecture/` is empty), so set-identity is a property of the diff and not of a run. `meta/kanban/config.yml:17-22` carries a stale 2026-10-29 comment saying 102; it is wrong and is not this card's file to correct |
+| the validator: **0 err / 90 warn** | `meta/architecture/` is byte-identical to `b18fd397` (`git diff b18fd397..HEAD -- meta/architecture/` is empty), so set-identity is a property of the diff and not of a run. `meta/kanban/config.yml` has since been **re-dated on main** (fix round 2, N-3): it now states 90 as current, re-measured 2026-10-31 after CARD-318 closed ten dead refs, with the stale 2026-10-29 reading of 102 kept and dated beside it. The figure and the file now agree |
+
+## Fix round 2 — cycle 2 scored 8.0, one Important inside F-003's own closure
+
+Cycle 2 closed all seven of cycle 1's findings, each by measurement, and did
+not certify because F-003's closure had shipped a refusal row **with no control
+that can fail**. It also endorsed three non-actions and corrected three
+attributions; the corrections are folded into the sections above rather than
+restated here, and the four Minors it filed are fixed in place.
+
+### [F-008 — the `Do` refusal had no control that could fail]
+
+The refusal cell loops over four streams, one per refused operator. The `Do`
+row's stream was `q 100 0 0 100 0 0 cm /Im0 Do Q` — **it carries a `cm`**,
+which is itself refused, so that stream raised whether or not `Do` was in
+`_REFUSED_STATE_OPERATORS`. **`Do`'s refusal was never measured.** Cycle 2
+proved it with this harness's own discipline: dropping only `BI` kills,
+dropping only `sh` kills, **dropping only `Do` survived at 1 passed** — and
+`Do` is one of the three classes cycle 1 measured as *silently* passing
+(`/Im0 Do` → 0 marks, nothing raised). A future edit dropping `Do` would have
+re-opened exactly that silent pass with the suite green. It is this card's own
+AC-5 thesis — a surviving mutant and a never-reached assertion look
+identical — turned on the cell fix round 1 wrote, which is why it is Important
+and not Minor (ADR-0039/R1).
+
+**The reader was correct; only the test's stream was wrong.** `q /Im0 Do Q`
+refuses, naming `'Do'`. That is the row now, and **MUT-26 flipped from
+SURVIVED at 1 passed to KILLED**, reading:
+
+> `test_book_difficulty_dots.py:7617: AssertionError: an external object (Do)`
+> `passed this reader silently; it reported 0 marks [], and a silent pass is`
+> `what ADR-0039/R2 refuses`
+
+**And the structural fix, not just the one-line fix.** Each row now carries its
+own operator and asserts the refusal's message **names it**, so a stream
+carrying a *second* refused operator cannot stand in for the one the row is
+about. All four rows are per-case controls **by construction**, and the next
+row added cannot repeat F-008. The plant for that is **MUT-27**: the refusal
+stays in place and its message goes generic — killed at `:7609`, *"a transform
+(cm) was refused, but by something else in the same stream … and names no
+'cm'"*. **MUT-25** is the third plant here: `q`/`Q` added to the refused set,
+killed — so the non-refusal is measured as load-bearing rather than merely
+safe.
+
+### [The four Minors]
+
+| # | what it was | what it is | what holds it |
+|---|---|---|---|
+| F-009 | `CARD-331.md` and `mutate.py` credited **MUT-21** with reaching the `stale` assertion. It does not: it plants `cm`, which is refused, so it reds at the refused-vs-pass-over disjointness (`:7514`) one assertion earlier | both attributions corrected, and the assertion is no longer unplanted: **MUT-28** records `gs` as a pass-over the writer does not emit — in no refused set, so every disjointness passes and `stale` (`:7533`) is what reds | MUT-28, red at *"['gs'] are recorded as pass-overs the writer emits, and it does not emit them"* |
+| F-010 | `round_ink.py`'s refusal comment claimed *"every other token it does not recognise only sets state"* | **refuted and narrowed.** Measured: `W` clips, so `q 0 0 5 5 re W n 10 10 20 20 re f Q` reads as the **unclipped** (10,10)–(30,30) box; `gs` can set `/ca 0` or an `/SMask`, so an **invisible** mark is reported as a mark. Both *wrong*, not short — this set's own criterion. Neither is **added** to the refused set, and the comment now says why: the vocabulary guard holds the writer's measured surface *equal* to `WRITER_OPERATORS_RECORDED`, which contains neither, so the day the writer can emit one that cell reds before any corpus is read | the equality assertion at `:7497`, which is where MUT-20 dies |
+| F-011 | *"the new section's **34** cells report exactly 2 red … the vector arm's **32** are green"* — falsified by fix round 1's own +6 cells, and nothing re-derived it | **derived**: 40 / 2 red / 38 green, from the node-id set difference (195 − 155) intersected with the probe's 29 failing ids. The derivation is written beside the claim | the G-5 collection and `probe_puzzle_vector`, both re-run this round |
+| F-012 | `tests/test_book_difficulty_dots.py:3918` cited as `_interior_ink`'s render loop. It **never** carried it at any commit on this branch — `:3918` is `return dots` inside the legacy spy at HEAD and at both earlier commits | cited **by name** (`_interior_ink`'s `page.convert("L")`), with the line dated: `:3960` at HEAD, `:3942` at `308bbded` | nothing mechanical — it is prose, and the remedy is to stop asking a line number to be a citation |
+
+### [Figures, fix round 2, with their bases]
+
+| figure | base |
+|---|---|
+| **195 passed / 0 skipped** on `tests/test_book_difficulty_dots.py` | the whole module, `-o addopts=`, `-rs`; unchanged by this round, which added no cell |
+| **27 killed / 1 declared survivor** over **28** plants | `scratchpad/card331/mutate.py`, baseline asserted at 195 passed / 0 skipped / 0 failed, every control green in the same run |
+| **G-5: 155 → 195, 40 added, 0 removed** | node ids collected file-scoped at HEAD and in a `b18fd397` worktree, `-o addopts= --collect-only -q`, sorted and `comm`-differenced. This also settles that the pre-card module was exactly 155 and this card's section is exactly **40** — the number fix round 1's prose had as 34 |
+| the new section under the converted tree: **40 / 2 red / 38 green** | `probe_puzzle_vector` reports 29 failed / 166 passed; the 29 intersect the base set in **27** and the added set in **2**, with nothing left over |
+| **346 passed / 0 skipped** over the impact set | the set is the **two** test modules that import the changed helper — `grep -E '^(from\|import).*round_ink'` over `tests/` matches `tests/test_book_difficulty_dots.py` (195) and `tests/test_book_solved_answer_key.py` (151), and nothing else; `tests/helpers/page_ink.py` names `round_ink` only in prose. Skips: **zero**, asserted rather than assumed. Cycle 2's own figure was 962 over its own six modules; this is this round's set and its own total, not a reconciliation |
+| the cross-module import precedent: **93 statements / 46 files** | an `ast` walk over `tests/**/*.py` counting `Import`/`ImportFrom` nodes that name a peer `test_*` module; 45 of the 46 files are modules other than this one |
