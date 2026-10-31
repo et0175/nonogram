@@ -162,3 +162,136 @@ quiet edit of the number.
   with; no `src/` change is expected unless the decision goes the other way.
 - **Trace:** FR-001's row is re-stamped once its ACs name live tests; FR-042's row is
   re-read after AC-268/269 resolve.
+
+## Worktree notes
+
+### Which way the bound went, and that this card did not decide it
+
+**The bound is 30.** It was decided on **2026-08-30** by the owner
+(raw-requirements.md lines 83-88, US-016) and formalized the same day as
+CON-011 / FR-019 / INV-004, with AC-038 superseded by AC-084.
+`src/nonogram/limits.py` has read `MAX_SIZE = 30` for as long as this
+repository's history goes back. **This card decided nothing**: it found the
+decision already made and recorded, and reconciled the one artefact that had
+never been told — ADR-0001, last revised 2026-08-28, two days before.
+
+ADR-0001's new History entry states the chosen bound, both alternatives not
+taken (restoring 50x50; editing "50x50" to "30x30" in place with no note), and
+the date the divergence began. The code-side date is **not recoverable**: the
+earliest commit touching the constant (96da6ac4, 2026-09-08) already carries
+30 and `MAX_SIZE = 50` appears nowhere in this repository's history. Said so
+rather than guessed.
+
+### The card's central premise is false, and the measurement
+
+> "the dead ref on FR-001 has been hiding a grid bound the code abandoned"
+
+**It was not hiding it.** `requirements.yml` records the 50 -> 30 narrowing
+**five times**: the 2026-08-30 delta header (lines 12, 14, 25), FR-001's own
+11-line supersession block (which maps AC-001 -> AC-066, AC-002 -> AC-068,
+AC-003 -> AC-069, AC-004 -> AC-070 by name), FR-019's statement, NFR-001's
+`threshold` comment and AC-038's supersession note. FR-001 itself carries
+`status: superseded`. Nothing there was invisible.
+
+**What WAS hidden is FR-019's refs — the live requirement for the bound.** All
+six (AC-066..AC-070 and EC-005) named class-style symbols with **zero**
+`def`/`class` lines anywhere, and raised **no warning of any kind**, because
+each resolved through the validator's text search by appearing in the
+docstring of the very test that covers it. That is strictly worse than
+FR-001's four, which at least warn. CON-011's `check:` named the same phantom
+as EC-005 and, like it, carried pytest's never-collected `PropertyTest_`
+prefix.
+
+So the re-pointing job the card describes is real, and it belongs to FR-019,
+not FR-001. **FR-001's four refs are deliberately not re-pointed.** AC-002's
+`then` is "a 50x50 grid is produced without error", which is FALSE at
+MAX_SIZE=30; the only tests that exist assert the opposite, so pointing at one
+would make a false criterion read as verified (CARD-318's F-009, repeated).
+AC-001/AC-003/AC-004 are still true but are *preserved historical records*,
+and re-pointing a record rewrites it. They now carry `status: superseded` +
+`superseded_by` + `superseded_at` instead — the form the registry already uses
+for exactly this case (AC-009, AC-038, AC-303, AC-304) and which FR-001's
+comment claimed in prose that no tool could read.
+
+### AC-6 is refuted: two fewer warnings, not six
+
+Measured with the validator of record (`meta/kanban/config.yml:38`, the
+`forge_1` copy), warning **sets** diffed line by line inside one worktree:
+**0 err / 90 warn -> 0 err / 88 warn, 2 removed, 0 added.** The two are
+FR-042/AC-268 and FR-042/AC-269, the only honestly dead refs in the card's
+set.
+
+FR-001's four **cannot** be retired without a lie or a swap, and this is
+mechanical, not a judgement call. `_validate_ac_ec_test_refs` applies the
+dead-ref check to every criterion carrying a `test:`, with **no exemption for
+`status: superseded`** — AC-009's and AC-038's equivalents are silent only
+because a review report or a duration log happens to spell their names, which
+is the accident this card family exists to stop relying on. The validator's
+own suggested fix (drop the `test:`) trades one warning for the "acceptance
+criterion has no 'test'" warning, net zero, and would break AC-6's "no warning
+of any kind added" as well. **Routed, not fixed here:** the model-side change
+is to exempt a `status: superseded` criterion from the dead-ref check, which
+is forge-side (`validators/requirements.py`) and `forge_1` is read-only by
+standing rule.
+
+The brief's "main is now 0 errors / 100 warnings" is also wrong: main at
+b18fd397 measures **90**. 100 was the pre-CARD-318 figure, consistent with the
+brief's own "100 -> 90" for that card.
+
+### The twelve `**DEAD REF**` notes about ADR-0006/R1 are now true
+
+Said here once, per the card's item 6, instead of editing twelve live cards.
+ADR-0006/R1's `check:` now names
+`tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`,
+whose `def` is at `tests/test_export_pdf.py:1249` and which parses
+`pyproject.toml` and asserts `project.dependencies == {pillow, numpy}` — R1 by
+substance, the whole runtime list and not a denylist. The retired name had
+**112** text resolvers at b18fd397 (ADR-0039's prose says ~110; both figures
+are re-derivable and neither is a constant, so the ADR's wording now says so).
+The docstring line at `tests/test_export_pdf.py:1250` that spells the retired
+name is left alone: it is the human-readable record of what the ref was, and
+it now resolves nothing because nothing declares that name any more.
+
+### Out of scope, measured, routed
+
+- **FR-042's trace row** lists 28 test names, most of them still "planned
+  names from requirements.yml" and several defining nothing — measured, not
+  assumed: AC-261's, AC-263's and AC-264's refs are falsely alive with zero
+  `def`/`class` lines, and bookkeeping-only besides. Only AC-268's and
+  AC-269's were swapped. The rest is that row's own standing debt.
+- **AC-269 is verified in substance and under-verified in form.** Its new ref
+  asserts that the per-book title, not the picture's name, is what the answer's
+  caption carries — with a control — but no test reads the rendered caption
+  string back for the custom-title case. Written beside the criterion rather
+  than passed off as coverage.
+- **CON-019's ref and the two ADR-0029 `check:` refs** resolve only through
+  docstrings and synced review YAMLs, as the dispatch brief said. Confirmed,
+  not touched.
+
+### Traps paid for in this round
+
+- A new test module in `tests/` is inside the validator's **loose-resolution
+  domain**, and so is `scratchpad/`. Every instrument this round committed
+  derives ref names at run time and spells none, and that property was
+  **measured** before the commit by running the whole declared population's
+  trie over all four new files (0 hits, trie proved in both directions). The
+  census was re-derived after the commit to confirm the new tracked files
+  moved nothing.
+- `MAX_SIZE = 30 -> 29` is **not** a usable mutant: it breaks
+  `tests/conftest.py`'s import, because `book_proof.py` validates a proof
+  fixture against the range at module scope. It reds every control too, which
+  makes the mutant unanalysable (ADR-0039/R2). `MIN_SIZE = 10 -> 9` widens the
+  range, leaves every fixture legal and still breaks the comparison.
+- `_strict_resolution` matches a bare ref as a **substring** of a definition's
+  name, so renaming `def X` to `def X_renamed` leaves the ref resolving and a
+  rename mutant survives for the wrong reason. The AC-2 control mutant renames
+  to a name that does not contain the old one.
+- A **3-part node id** (`path::Class::method`) resolves in neither instrument:
+  the guard's `_strict_resolution` partitions on the first `::` and looks up
+  `Class::method` as a symbol. Both re-pointed FR-042 tests are methods, so
+  they are referenced by **bare name**, which resolves at the `def` line in
+  the guard and in the validator alike. That is also why FR-019's six are bare
+  names rather than node ids: the validator resolves a node id only by finding
+  that literal string somewhere in the tree (AC-037's lives in two review
+  reports and four profiling logs), which is the text-search accident this
+  family is about.

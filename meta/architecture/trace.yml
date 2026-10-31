@@ -553,6 +553,11 @@ links:
     can no longer exercise the deadline. tests/test_timeout.py uses size=50 in
     four places and tests/test_sourcing_image.py:312 pins MAX_SIZE == 50; the
     replacement fixture inside 30x30 must be MEASURED, not assumed.
+    2026-10-31 (CARD-317): the two figures in the sentence above are RETRACTED
+    and the work they scheduled is done — tests/test_timeout.py uses size=50
+    nowhere and carries TestGenerate_30x30_RespectsTimeoutBound at line 200
+    (AC-084's ref, live), and tests/test_sourcing_image.py pins MAX_SIZE == 30
+    at line 560.
     The deadline is computed by COMP-002 and enforced cooperatively
     inside COMP-005 at each propagation fixed point and branch node
     (ADR-0011); SolverTimeout is converted to the EVT-012 abandonment

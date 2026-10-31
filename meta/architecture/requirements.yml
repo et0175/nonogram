@@ -5621,6 +5621,16 @@ non_functional:
         # fixture, and tests/test_sourcing_image.py:312 pins MAX_SIZE == 50
         # directly. A replacement fixture inside 30x30 that genuinely exceeds
         # the deadline must be MEASURED, not assumed — see AC-084.
+        # BOTH CONSEQUENCES DISCHARGED, and the two figures above RETRACTED
+        # 2026-10-31 by CARD-317 (ADR-0039/R4 — a refuted figure is retracted
+        # where it was written, not only where it was found). Measured at this
+        # commit: tests/test_timeout.py uses size=50 in ZERO places (its four
+        # remaining "50"s are densities and prose) and carries
+        # `class TestGenerate_30x30_RespectsTimeoutBound` at line 200, so
+        # AC-084's measured replacement fixture landed; and
+        # tests/test_sourcing_image.py pins `MAX_SIZE == 30`, at line 560, not
+        # 50 at 312. The same two sentences are retracted on NFR-001's
+        # trace.yml row.
         status: superseded
         superseded_by: AC-084
         given: a 50x50 random-grid generation request (the largest supported size)
