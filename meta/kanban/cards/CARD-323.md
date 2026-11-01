@@ -16,7 +16,7 @@
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_maybe.py
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_maybe.py, tests/test_public_player.py, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, docs/how-it-works/01-domain/puzzle-creation/README.md <!-- the last three added in round 1: the EC-050 walk reds on an unwalked control, and the two docs carry three-brush sentences this card makes false -->
 **Review score:** —
 **Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
@@ -179,3 +179,67 @@ had already moved once.
   styling already exists, so it is the natural first slot — it proves the
   public player's test harness and the four-tool DOM before the larger cards
   build on them.
+
+## [Round 1, 2026-11-01] What shipped, the pattern it sets, and the one finding
+
+**The premise held, re-measured at this worktree's base `f407c350`**:
+`player/player.css` carried `.player-cell[data-state="maybe"]` (one rule), and
+`player/play.js` contained the string `maybe` **zero** times. `main` moved to
+`7c987f67` during the round and touched none of this card's files
+(`git diff --stat f407c350..main` over `player/`, the two test modules and the
+two docs is empty).
+
+**The pattern this round sets for CARD-324..327**, since all five are one JS
+feature plus one test module over the same three files:
+
+1. **One test module per card**, named for the feature
+   (`tests/test_public_player_maybe.py`), **importing the harness** —
+   `bundle` / `site` / `host` and the `_open` / `_tap` / `_state` helpers —
+   from `tests/test_public_player.py` by name, which is the mechanism that
+   file already uses for CARD-160's browser fixtures. No second server, so
+   every card measures the site the assembler really builds, and ADR-0038/R8's
+   loud refusal comes along for free rather than being re-implemented per card.
+2. **One class per AC**, named exactly as the card's AC names it
+   (`TestPublicMaybe_<claim>`), so a check ref resolves to a class and
+   "attribute by test, not by file" is answerable without reading the module.
+3. **Two tiers, split on what a browser adds.** A claim about *files* (the
+   markup's order, the stylesheet's rules) is a tree test; a claim about *the
+   running page* (the mark, the radio group, the reload) is a browser test.
+   The tree tier is where the cheap, total, mutation-controlled checks live.
+4. **The authority for a shared fact is the other side's file**, never a list
+   spelled twice: the tool order is read from `templates/puzzle_solve.html`,
+   the state values from `solver_state.js`'s own `export const` lines, the
+   corpus floor from the page's own tool count.
+5. **Every tree-tier claim ships its mutant table** — the same reading
+   function run over planted text, asserted to report the plant.
+6. **The EC-050 walk in `tests/test_public_player.py` must be extended** by any
+   card that adds a control. It is derived from `play.html` and reds on three
+   assertions at once otherwise; that is a feature, and it fired on this card.
+
+**The one finding, measured and NOT fixed here (out of this card's AC-4):**
+the two players disagree about what a "?" looks like. `admin.css` draws a "?"
+glyph in the accent token on both the cell and the swatch; `player.css` draws a
+tint and no glyph. Contrast, computed from `tokens.css`:
+
+| pair | ratio |
+|---|---|
+| maybe cell vs a blank cell | **1.169:1** |
+| maybe swatch vs the Clear swatch | **1.018:1** |
+| the admin's "?" glyph on a cell | 7.258:1 |
+
+So the shipped mark is very nearly invisible and the Maybe brush button is very
+nearly the Clear button — visible in `~/Documents/nonogram-reviews/CARD-323/`.
+AC-4 pins the cell's look to the one pre-existing rule and makes re-declaring
+it a finding against this card, so this round did not touch it; the
+`test_public_player_agreement.py` docstring says a disagreement between the two
+players is "a finding for the owner" and not a worktree call. **The fix is one
+line** — the pre-existing cell rule's value — and the swatch follows it
+automatically, because `TestPublicMaybe_TheLookIsDeclaredOnce` asserts the two
+declarations are **equal** rather than asserting each separately. A follow-up
+card should carry that single rule, and the owner decides whether the public
+page gains the admin's glyph or the admin loses it.
+
+**Also outside `Touches` and necessarily edited:**
+`tests/test_public_player.py` (the EC-050 walk, see 6 above) and two
+`docs/how-it-works/01-domain/puzzle-creation/` files, whose "three brushes"
+sentences this card makes false. The card's `Touches` was incomplete, not wrong.

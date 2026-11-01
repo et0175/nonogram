@@ -140,7 +140,7 @@ guard or the package ships.
 
 | Path | Lines | Role |
 |---|---|---|
-| `player/play.js` | 579 | the `/play/<key>` glue: fetch, draw, three brushes, drag strokes, undo/redo, the localStorage save, `isClueSolved` |
+| `player/play.js` | 590 | the `/play/<key>` glue: fetch, draw, four brushes, drag strokes, undo/redo, the localStorage save, `isClueSolved` |
 | `player/pages.js` | 364 | the two listing pages' glue (`/library`, `/b/<slug>`) |
 | `player/player.css` | 461 | the player's own stylesheet; the empty cell's dot and the solved reveal live here |
 | `player/play.html` · `library.html` · `book.html` | 100 · 95 · 99 | one hand-written document per door |
