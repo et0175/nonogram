@@ -215,34 +215,48 @@ repository. Today a **smaller** batch takes 140 s. That is roughly a **340× reg
 against the figure the budget was set from, and no one has been in a position to notice,
 because the failure mode is extra warnings rather than a crash.
 
-### The cause is NOT this card's population — the orchestrator predicted wrong
+### RETRACTED, and then re-measured: the cause IS this card's population
 
-I expected the ref-spelling files this card already owns (`meta/review/`,
-`meta/profiling/`) to be the cause, and said so before measuring. **They are not.**
-The resolver's search domain — tracked files, excluding `meta/architecture` and `*.md` —
-is **1,454 files and 179.3 MB**, and it is dominated by two corpora that spell **no ref
-name at all**:
+**This section previously said "the cause is NOT this card's population — the orchestrator
+predicted wrong", and blamed two large binary corpora. That is retracted: it was measured
+in the wrong unit and the conclusion was false.** It is kept as a retraction rather than
+deleted, per ADR-0039/R4, because the wrong reasoning was acted on — 422 files were
+untracked on the strength of it.
 
-| bytes | files | path | matches a ref? |
-|---|---|---|---|
-| **76.63 MB** | 254 | `silhouette/animals/` (PDFs, JPGs) | **no** — pure scan cost |
-| **56.01 MB** | 168 | `nonogram-web/.next/` (a Next.js **build** directory) | **no** — pure scan cost |
-| 12.05 MB | 15 | `meta/profiling/` | yes |
-| 9.35 MB | 396 | `meta/review/` | yes |
+**What the byte argument got wrong.** It ranked the search domain by *bytes*, where
+`silhouette/animals/` (76.6 MB) and `nonogram-web/.next/` (56.0 MB) dominate at 74 %. But
+git grep skips a binary file on a NUL byte in its first 8 kB, so those bytes were never
+being paid. Untracking all 132.7 MB of them moved the batch from **140.1 s to 140.9 s** —
+a 0.6 % change, i.e. nothing — and the validator still read 525.
 
-The first two are **132.6 MB, 74 % of everything the resolver reads**, and every batched
-grep pays for them on every run while matching nothing in them. This card's own
-population is **21.4 MB, 12 %**.
+**Measured properly, varying one thing at a time, the driver is an interaction:**
 
-**So the two harms have different dominant populations, and a round that fixes one does
-not fix the other.** Keep them separate:
+| patterns | corpus | time | budget | |
+|---|---|---|---|---|
+| 200 | full | **140.9 s** | 30 s | **over 4.7×** |
+| 200 | **minus `meta/review` + `meta/profiling`** | **0.7 s** | 30 s | **201× faster** |
+| 160 | full | 53.2 s | 26 s | over |
+| 140 | full | 40.0 s | 24 s | over |
+| **120** | full | **10.5 s** | 22 s | **ok** |
+| 100 | full | 8.6 s | 20 s | ok |
+| 80 | full | 7.4 s | 18 s | ok |
+| 60 | full | 3.9 s | 16 s | ok |
+| 50 | full | 0.3 s | 15 s | ok |
 
-- **Harm A (this card's original subject): revival.** A tracked file *spelling* a dead
-  ref makes it resolve, so its warning silently disappears. Driven by `meta/review/` and
-  `meta/profiling/`. Fixing it is the convention decision this card already carries.
-- **Harm B (new): scan cost.** A tracked file *being large* blows the resolver's batch
-  budget, which poisons hundreds of refs with `None`. Driven by two binary corpora that
-  this card's convention decision would not touch at all.
+Two facts fall out, and both matter:
+
+1. **There is a cliff between 120 and 140 patterns.** Below it the cost is near-linear and
+   comfortably inside budget; at 140 it quadruples. `BATCH_SIZE = 200` sits well past it.
+   The budget formula `10.0 + 0.1 × N` models cost as **linear in N**, which is true below
+   the cliff and false above it — so the budget is least generous exactly where the cost
+   explodes.
+2. **The cliff only exists because of `meta/review/` + `meta/profiling/`.** With those two
+   excluded, even 200 patterns runs in **0.7 s**. They are 40 % of the domain's 592,810
+   text lines, and they are this card's own population — the files that spell ref names.
+
+**So the original prediction was right and its correction was wrong.** The ref-spelling
+corpus is the cause; it just does not work through bytes. It works by giving a large
+alternation of word-bounded patterns an enormous number of near-matches to resolve.
 
 ### What is actually actionable, and what is the owner's
 
@@ -252,11 +266,29 @@ not fix the other.** Keep them separate:
   output** is committed against the repo's own stated intent. Untracking it
   (`git rm -r --cached`) leaves every file on disk and is reversible. This is the one
   clearly accidental item.
-- **`silhouette/animals/` is the owner's own PDF/JPG corpus**, not an artefact of any
-  round. **It is not this board's to restructure** — the standing rule about the owner's
-  picture corpora applies. If its scan cost is to be addressed at all, the
-  non-destructive levers are a `.gitattributes` `binary`/`-diff` marking or widening the
-  resolver's exclude pathspecs, and **the choice is the owner's**.
+- **`silhouette/animals/` was also untracked**, on the owner's explicit instruction
+  (254 files, 76.6 MB, all still on disk). Recorded because it changes a property rather
+  than a detail: **git is no longer the backup for those files.** History retains them and
+  re-adding restores the status quo, but a fresh clone will not carry them.
+- **Neither untracking fixed anything**, and the commit (`7c987f67`) says so in its own
+  message rather than claiming a win. Both stand on repository hygiene; the timeout was
+  untouched by them.
+
+### The two fixes that WOULD work, and only one is this board's
+
+- **Reduce the batch size below the cliff.** At 120 patterns the full corpus costs 10.5 s
+  against a 22 s budget. This lives in `BATCH_SIZE` in **`forge_1`**, which this board
+  never edits — so it is not available here, only reportable. Worth reporting: the budget's
+  linear model is what hides this, and a batch of 200 is the only size at which the
+  resolver silently stops answering.
+- **Take `meta/review/` + `meta/profiling/` out of the resolver's domain** — which is
+  **exactly the convention decision this card already carries for harm A.** With them
+  excluded, 200 patterns costs 0.7 s. So one decision closes both harms, which is the
+  strongest argument yet for making it: the same change that stops dead refs being revived
+  also stops the resolver timing out.
+
+**That convergence is the headline for whoever takes this card.** Harm A and harm B looked
+like two problems with two populations. Measured, they are one population and one fix.
 - The resolver's exclude list lives in `forge_1`, which this board never edits, so a
   wider exclude is **not available here** — the same constraint this card already records.
 
