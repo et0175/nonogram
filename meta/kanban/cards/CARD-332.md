@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73's owner-named card, scheduled 2026-10-31 on "ok schedule it" and carried as NEXT TO START since. Premise re-checked at dispatch. Conflict profile measured EMPTY against CARD-338 and CARD-323. Declares the app.py hotspot, so any future card touching it serializes behind. OWES A RENDER: it changes owner-facing UI. -->
 **Depends on:** —
-**Touches:** src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_setup_print_mobile.py, tests/test_player_bundle.py
+**Touches:** src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_manager.py, src/nonogram/db/models.py, migrations/versions/018_book_player_domain.py, src/nonogram/admin/player_bundle.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/static/admin.css, docs/deploy/player.md, tests/test_book_player_domain.py, tests/test_player_bundle.py <!-- WIDENED 2026-11-01 in the round: the decompose-time Touches was under-specified, not the work. Three of the four ACs require the domain to be STORED with the book (AC-1 "stored with the book's print setup", AC-2 "a book with a stored domain", AC-3 "a book with no stored domain"), so a column — models.py, book_manager.py and a migration — was always what the ACs asked for, and player_bundle.py is where the one key recipe lives that the link must be built through. -->
 **Review score:** —
 **Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
@@ -197,4 +197,106 @@ the AC gate will hold the work to.**
 
 ## Worktree notes
 
-—
+### The decision: (a), and the rule that keeps two sources from being two authorities
+
+**(a) was taken** — the base is a **book attribute**, stored beside the trim by the
+same Print setup submission, and the arrangement page builds each link from the
+**book's own** value and from nothing else. The owner's reason is the one that
+decided it: a printed run records *what was printed*, and a book printed before a
+domain change cannot be fixed. A base read from the deploy page at print time
+would be right for the deploy and wrong for the book.
+
+The card demanded a stated rule for which source wins where, and a test that
+holds it. The rule, written into `docs/deploy/player.md` itself (G-2) so the page
+no longer asserts something the code has stopped honouring:
+
+* **For a book** — the book's stored `player_domain` wins, always. Nothing else
+  is consulted, not even as a fallback.
+* **For the deploy** — `docs/deploy/player.md`'s `qr-url-shapes` block wins, and
+  keeps the meaning it always had: the shapes production serves and the base it
+  serves them at **today**. It is what the owner copies into Print setup; no code
+  reads it.
+* The two **may** disagree once a domain moves, and that is the intended state:
+  books printed before the move keep the base they were printed with.
+
+What holds it: `tests/test_book_player_domain.py::TestPlayerDomain_ABookWithNoDomainSaysSo`
+is the test that the page is **not** a fallback — a book with no stored base shows
+no URL at all, and `test_no_url_is_rendered_from_a_missing_base` names both
+spellings of the failure (`None/play/<key>` and `/play/None`) so a future reader
+sees they were checked. `tests/test_public_player_pages.py`'s existing block test
+still passes unchanged, so G-2's mechanism is intact.
+
+### Three states, and why there is no hidden companion field
+
+CARD-305's divider checkbox needed `interior_divider_pages_present` because an
+unticked box posts **nothing**, so "off" and "this form has no such control"
+arrive identically. A **text input always posts its name**, so the field is its
+own marker and three states arrive distinguishably:
+
+| the submission | the column |
+|---|---|
+| no `player_domain` field at all | unchanged (a client built before this control) |
+| `player_domain=` (blank) | cleared — no domain stored |
+| `player_domain=https://...` | the owner's base, normalised |
+
+The discriminating cell is
+`test_a_submission_without_the_field_leaves_the_stored_base_alone`, **driven from
+a base that is SET** — from "no base" it could not fail, because absent and
+cleared both leave NULL. Measured: deleting the route's marker guard
+(`if "player_domain" in request.form:` -> `if True:`) and deleting
+`book_manager._apply_print_spec`'s `if spec.player_domain is not None:` guard each
+red exactly that cell, in both storage modes.
+
+### Touches was under-specified; the migration is not scope creep
+
+The decompose-time Touches named no `models.py` and no `migrations/`, and the
+round was briefly flagged for writing one. Three of the four ACs require the
+value to be **stored** ("stored with the book's print setup", "a book with a
+stored domain", "a book with no stored domain"), so a column was always what
+they asked for. Touches was widened in the round rather than the work narrowed.
+
+Migration **018** deliberately departs from 013 and 017: **no server default and
+no backfill**. Those two columns have a value every existing book already *is*
+(every book printed black-and-white; every book printed its dividers), so a
+default states the truth. Nobody has ever chosen a domain for any book — the
+public player's first deploy was 2026-10-30 — so NULL means exactly "no base was
+ever chosen", and the screen says so rather than printing a guess.
+
+### ADR-0041/R2, checked rather than assumed
+
+The link is `{base}` + `/play/` + the R1 key and nothing else. R2 governs
+**public assets**; the arrangement screen is behind the panel's CON-015/CON-016
+door and is not one, and the only solution-derived value this card adds anywhere
+is the key, which R1 sanctions by name as a public projection ("one-way, so the
+URL reveals nothing about the solution"). AC-4 is held by a **whitelist on what
+the rendered fragment carries**, not a scan for leak shapes — CARD-282's own
+lesson — and its ability to fail is measured by two planted leaks (a title in an
+attribute, the grid's cells in a query string), not assumed.
+
+### The key: one recipe, one caller
+
+`player_bundle.puzzle_key_of_record` was added so the panel's screens, which hold
+*records* rather than grids, reach R1's one implementation through the module
+that owns it instead of respelling the hash in a route or a template. It reuses
+the exporter's `_grid_of`, which is also what refuses a stored value that is not
+a grid — a string is sliceable and would otherwise hash as a column of cells.
+`play_url` joins the base to `docs/deploy/player.md`'s `play` shape and refuses a
+blank base, which is the `None/play/<key>` failure the card's own bounds named.
+`TestPlayerDomain_OneRecipe` holds `sha256`/`hexdigest` in `admin/` to
+`player_bundle.py` and `puzzle_review.py` (whose `_grid_fingerprint` is a
+different value for the same cells and is named rather than tolerated).
+
+### One thing the first render caught that no test would have
+
+The link went into `.item-info`, a flex row — and a 43-character URL widened that
+column until the title box and the row's buttons were pushed out of the card. The
+suite was green through it. It is now a third grid row (`.play-link`), which cost
+two lines of `admin.css`, and the re-render is clean. Renders are in
+`~/Documents/nonogram-reviews/CARD-332/`.
+
+### Carried forward for CARD-210
+
+The base it prints is `print_specs.stored_player_domain(book)`; the URL it encodes
+is `player_bundle.play_url(base, key)`. Neither needs re-deciding, and a book with
+no stored base must print no QR code rather than a guessed one — the same posture
+this screen takes.
