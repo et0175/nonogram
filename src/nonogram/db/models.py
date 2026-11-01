@@ -231,6 +231,22 @@ class Book(Base):
     interior_divider_pages = Column(
         Boolean, nullable=True, default=True, server_default=text('true')
     )
+    # CARD-332 (migration 018): the base of the public player this book's
+    # puzzles are read at — an absolute https:// origin with no trailing
+    # slash, e.g. 'https://nonogram.adverax.io'. It sits beside the trim and
+    # the ink mode because it is the same kind of fact: something about the
+    # printed book the owner chooses once, which the panel shows and
+    # CARD-210's printed QR codes will carry.
+    #
+    # Nullable with **no** default and **no** backfill, which is where it
+    # differs from interior_ink_mode and interior_divider_pages above, and
+    # the difference is the point: those two have a value every existing book
+    # already is, while nobody has ever chosen a domain for any book, and
+    # there is no base a book can be given that nobody chose. NULL means "no
+    # domain set", print_specs.stored_player_domain reads it as None, and the
+    # arrangement screen says so plainly rather than printing a guess
+    # (CARD-332 AC-3). A wrong domain is wrong in every printed copy.
+    player_domain = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

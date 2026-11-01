@@ -217,11 +217,19 @@ class TestBookCreate_StoresBook1PrintProfile:
         # stripping four pages out of a book. A ``True`` here would mean
         # every caller that omits the field asserts the default, which is
         # exactly what that guard refuses to let it do.
+        # ``player_domain`` is CARD-332's, is not part of CON-018 either, and
+        # is ``None`` here for the same reason ``interior_divider_pages``
+        # above is: ``create_spec`` deliberately does not default it. There
+        # is no base a book can be given that nobody chose, and ``None`` is
+        # "the caller named none", which leaves the book's stored domain
+        # alone. A value here would mean every caller that omits the field
+        # asserts a domain — which is how a wrong one gets printed.
         assert spec.to_dict() == {
             **CON018_COLUMNS,
             "outside_margin_bleed_cm": None,
             "interior_ink_mode": "bw",
             "interior_divider_pages": None,
+            "player_domain": None,
         }
         assert PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM == BOOK1_PROFILE.trim_width_cm
 

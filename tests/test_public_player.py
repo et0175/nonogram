@@ -2914,12 +2914,38 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     assert len(files) >= 8, files
     for forbidden in ("package.json", "node_modules", "package-lock.json"):
         assert not (PLAYER_DIR / forbidden).exists(), forbidden
-    sources = (REPO_ROOT / "src").rglob("*.py")
-    offenders = [
-        path.relative_to(REPO_ROOT).as_posix()
-        for path in sources
-        if "assemble" in path.read_text(encoding="utf-8") and "player" in path.read_text(encoding="utf-8")
-    ]
+    # "Nothing under ``src/`` imports it", resolved by ``ast`` rather than by
+    # a text search (CARD-332). This read `"assemble" in text and "player" in
+    # text` over each whole file, which is not a reading of the claim: it
+    # fires on any module whose PROSE happens to carry both words, and
+    # ``book_manager.py`` — which imports nothing of the kind — tripped it the
+    # first time a comment there mentioned the player, with the word
+    # "assembled" already in a docstring six hundred lines away. A guard that
+    # reds on a sentence cannot be the one that says what the code does. The
+    # assembler is loaded by path and is not importable as a module, so the
+    # two ways to reach it are an import statement naming it and a literal
+    # naming its file; both are checked.
+    offenders = []
+    for path in (REPO_ROOT / "src").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        where = path.relative_to(REPO_ROOT).as_posix()
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if "assemble" in node.value and "player" in node.value:
+                    offenders.append(f"{where}: names {node.value!r}")
+                continue
+            else:
+                continue
+            for name in names:
+                if any(
+                    part == "assemble" or part.startswith("assemble_player")
+                    for part in name.split(".")
+                ):
+                    offenders.append(f"{where}: imports {name}")
     assert offenders == [], offenders
     manifest = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "player/" not in manifest and '"player"' not in manifest
