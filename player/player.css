@@ -145,6 +145,25 @@ body {
 .player-swatch[data-state="filled"] { background: var(--grid-ink); }
 .player-swatch[data-state="empty"] { background: var(--grid-paper); }
 .player-swatch[data-state="unknown"] { background: var(--color-surface-sunken); }
+/* CARD-323's one CSS line. The Maybe brush's cell look already shipped — the
+   single .player-cell[data-state="maybe"] rule further down, which this card
+   does not touch and must not re-declare (its AC-4) — but that selector is
+   CELL-scoped, so a .player-swatch carrying the same state resolved to the
+   base rule's paper and the brush button previewed the wrong mark. This is
+   the swatch half of the same look, and it is deliberately the SAME
+   declaration as the cell's: the swatch is a preview of the cell, so a swatch
+   that showed something else would lie.
+
+   What it is NOT: the admin player draws "?" in the accent token on both its
+   cell and its swatch (admin.css's two ::after rules). This page draws
+   neither, which means the two players disagree about what a Maybe mark looks
+   like — the mark is a tint one step off the paper on a sheet whose hover and
+   sunken surfaces are within a hair of each other, so it reads as almost
+   nothing and as almost the Clear swatch. That is a FINDING for the owner and
+   not a worktree call (tests/test_public_player_agreement.py's docstring says
+   so in as many words, and deciding which side is right is the architect's);
+   CARD-323's report carries it. */
+.player-swatch[data-state="maybe"] { background: var(--color-surface-hover); }
 
 .player-brush-run { display: inline-flex; gap: 1px; }
 

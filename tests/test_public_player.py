@@ -2427,6 +2427,10 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     controls = {
         "brush-black": lambda: page.click('[data-player-tool="filled"]'),
         "brush-white": lambda: page.click('[data-player-tool="empty"]'),
+        # CARD-323's fourth brush. It is here because the sibling test below
+        # derives this table from play.html's buttons and reds on a brush that
+        # is not walked — which is exactly what it did when the brush landed.
+        "brush-maybe": lambda: page.click('[data-player-tool="maybe"]'),
         "brush-clear": lambda: page.click('[data-player-tool="unknown"]'),
         "region": toggle_region,
         "tap": lambda: _tap(page, rng.randrange(MIN_SIZE), rng.randrange(MIN_SIZE)),
@@ -2502,7 +2506,9 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     the actions by ``data-player-action``, Region by its own attribute — and
     insists every one of them is walked. A fourth brush or a new action added
     to the page reds here, which is the completeness half ADR-0039/R1 asks for
-    before the set is trusted.
+    before the set is trusted. That is not hypothetical: CARD-323 added the
+    Maybe brush and this test red on three assertions at once — the tool set,
+    the control count and the walk's own table — until the brush was walked.
 
     The two keyboard paths are the exception the rule allows: they are not
     elements, so they are listed rather than derived, and they are named in
@@ -2523,6 +2529,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     walked = {
         "brush-black": "filled",
         "brush-white": "empty",
+        "brush-maybe": "maybe",
         "brush-clear": "unknown",
     }
     tools = set(re.findall(r'data-player-tool="([a-z]+)"', page_html))
@@ -2537,7 +2544,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
         | {f"{action}-button" for action in actions if action != "reset"}
         | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
     )
-    assert len(expected) == 11, sorted(expected)
+    assert len(expected) == 12, sorted(expected)
     assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
     assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
     source = Path(__file__).read_text(encoding="utf-8")
