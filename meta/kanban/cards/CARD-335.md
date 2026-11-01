@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 1d
+**Estimate:** 1d <!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
@@ -188,3 +188,84 @@ original card was a tidy-up of four files, this one carries a convention decisio
 **Not scheduled into wave 72 deliberately.** Two cards are in review against `main`
 right now and both measure census and validator figures off it; moving refs on `main`
 mid-review would invalidate their baselines. This card waits for the wave to close.
+
+---
+
+## A SECOND HARM, measured 2026-11-01 — and it refutes the orchestrator's guess about its cause
+
+While verifying CARD-316's merge gate, the validator of record went from its stable
+**0 errors / 88 warnings** to **0 errors / 525 warnings** on the same commit, minutes
+apart. Every one of the 437 new warnings reads *"existence could not be determined — the
+search tool itself failed"*.
+
+**It is a timeout, and it is reproducible.** The resolver's batched path
+(`validators/utils.py`'s `_grep_batch`) runs one `git grep -ow` carrying up to 200 `-e`
+patterns, under a budget of `BATCH_TIMEOUT_BASE_S + BATCH_TIMEOUT_PER_NAME_S × N`
+= **10.0 + 0.1 × 200 = 30 s**. Measured on this repository today, that same 200-name
+batch takes **140.1 s** — over budget by **4.7×**. A single *per-name* grep, by contrast,
+is **0.12 s**, so nothing is wrong with `git grep` itself.
+
+**One timeout poisons the whole run.** `symbols_exist` assigns `None` to *every* name
+still pending the moment a batch fails and returns immediately, so one blown batch is
+worth hundreds of warnings. That is why the count moves 88 → 525 rather than by a few.
+
+**The budget was calibrated against a repository that no longer exists.** The constant's
+own sibling comment records *"one 482-name batch takes 0.41 s"*, measured on this
+repository. Today a **smaller** batch takes 140 s. That is roughly a **340× regression**
+against the figure the budget was set from, and no one has been in a position to notice,
+because the failure mode is extra warnings rather than a crash.
+
+### The cause is NOT this card's population — the orchestrator predicted wrong
+
+I expected the ref-spelling files this card already owns (`meta/review/`,
+`meta/profiling/`) to be the cause, and said so before measuring. **They are not.**
+The resolver's search domain — tracked files, excluding `meta/architecture` and `*.md` —
+is **1,454 files and 179.3 MB**, and it is dominated by two corpora that spell **no ref
+name at all**:
+
+| bytes | files | path | matches a ref? |
+|---|---|---|---|
+| **76.63 MB** | 254 | `silhouette/animals/` (PDFs, JPGs) | **no** — pure scan cost |
+| **56.01 MB** | 168 | `nonogram-web/.next/` (a Next.js **build** directory) | **no** — pure scan cost |
+| 12.05 MB | 15 | `meta/profiling/` | yes |
+| 9.35 MB | 396 | `meta/review/` | yes |
+
+The first two are **132.6 MB, 74 % of everything the resolver reads**, and every batched
+grep pays for them on every run while matching nothing in them. This card's own
+population is **21.4 MB, 12 %**.
+
+**So the two harms have different dominant populations, and a round that fixes one does
+not fix the other.** Keep them separate:
+
+- **Harm A (this card's original subject): revival.** A tracked file *spelling* a dead
+  ref makes it resolve, so its warning silently disappears. Driven by `meta/review/` and
+  `meta/profiling/`. Fixing it is the convention decision this card already carries.
+- **Harm B (new): scan cost.** A tracked file *being large* blows the resolver's batch
+  budget, which poisons hundreds of refs with `None`. Driven by two binary corpora that
+  this card's convention decision would not touch at all.
+
+### What is actually actionable, and what is the owner's
+
+- **`nonogram-web/.next/` is already gitignored and still tracked.** `.gitignore` carries
+  **three** matching rules — `:38 .next/`, `:39 .next/cache/`, `:45 nonogram-web/.next/` —
+  and `.gitignore` does not untrack what is already in the index. So 56 MB of **build
+  output** is committed against the repo's own stated intent. Untracking it
+  (`git rm -r --cached`) leaves every file on disk and is reversible. This is the one
+  clearly accidental item.
+- **`silhouette/animals/` is the owner's own PDF/JPG corpus**, not an artefact of any
+  round. **It is not this board's to restructure** — the standing rule about the owner's
+  picture corpora applies. If its scan cost is to be addressed at all, the
+  non-destructive levers are a `.gitattributes` `binary`/`-diff` marking or widening the
+  resolver's exclude pathspecs, and **the choice is the owner's**.
+- The resolver's exclude list lives in `forge_1`, which this board never edits, so a
+  wider exclude is **not available here** — the same constraint this card already records.
+
+### Credit where it is due: the validator behaved correctly
+
+Its existence check is deliberately three-valued, and its docstring says why: *"None is
+never coerced to either answer; True would let a broken grep silently revive dead refs,
+False would let it fabricate drift ERRORs."* Under a tool failure it reported
+**tooling failure, not a verdict** — on 437 refs at once. A two-valued check would have
+silently declared them all dead, or all alive. **This is the single best argument on the
+board for three-valued existence**, and it should be cited wherever that design is
+questioned.
