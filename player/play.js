@@ -16,7 +16,7 @@
 // What IS here is the UI glue, rewritten rather than shared: solver.js is
 // built around a Flask-rendered page with an embedded payload, a brush menu,
 // zoom controls, an error count, a hint button and a progress percent. This
-// page fetches its puzzle, has three brushes and no counters.
+// page fetches its puzzle, has the same four brushes and no counters.
 //
 // THE PAGE NEVER HAS THE ANSWER (ADR-0038/R6, ADR-0041/R2)
 // -------------------------------------------------------
@@ -60,7 +60,7 @@
 //   saveKey        the localStorage key this puzzle's save lives under
 
 import {
-  UNKNOWN, FILLED, EMPTY, CELL_STATES,
+  UNKNOWN, FILLED, EMPTY, MAYBE, CELL_STATES,
   createBoard, createHistory, record, undo, redo,
   applyStroke, clickStroke, dragStroke, resetStroke,
   gesturePaints, nextRegion,
@@ -76,11 +76,20 @@ const MAJOR_EVERY = 5;
 // same choice for the admin player's save and gives the reason.
 const SAVE_VERSION = 1;
 
-// The three brushes this page offers. solver_state.js knows four cell states;
-// MAYBE ("?") is the admin player's fourth and is not offered here, so a cell
-// reachable from this page is one of these three (CARD-283, "three cell
-// states"). The order is the DOM's.
-const TOOLS = [FILLED, EMPTY, UNKNOWN];
+// The four brushes this page offers: solver_state.js's four cell states, all
+// of them. MAYBE ("?") was withheld until CARD-323 — not because the page
+// could not reach it (every transition it needs is in the module this page
+// already shares, and player.css already carried the mark's look) but as a
+// scope choice, which the owner reversed on 2026-10-30. What stays out is the
+// three features that take `solution`, named in the header above; a brush is
+// not one of them, so a cell reachable from this page is any of the four.
+//
+// The order is the DOM's, and it is the ADMIN player's menu order —
+// filled, empty, maybe, unknown (templates/puzzle_solve.html's
+// .player-tool-menu). Matching it is the point of the card, and
+// tests/test_public_player_maybe.py reads that template rather than a list
+// spelled twice, so a reorder on either side reds.
+const TOOLS = [FILLED, EMPTY, MAYBE, UNKNOWN];
 
 const majorAfter = (index, count) => (index + 1) % MAJOR_EVERY === 0 && index + 1 !== count;
 
@@ -148,8 +157,9 @@ export function readPayload(data, key) {
 
 // The lengths of `cells`'s runs of FILLED cells, left to right — [0] when
 // there are none, the same convention a clue uses. Every state that is not
-// FILLED (EMPTY, UNKNOWN and the "?" the admin player can leave behind in a
-// save) breaks a run, so this reads the marks exactly as a printed line reads.
+// FILLED (EMPTY, UNKNOWN and MAYBE, the "?" — since CARD-323 this page's own
+// brush leaves it, and before that only a save from the admin player could)
+// breaks a run, so this reads the marks exactly as a printed line reads.
 export function runsOf(cells) {
   const runs = [];
   let run = 0;

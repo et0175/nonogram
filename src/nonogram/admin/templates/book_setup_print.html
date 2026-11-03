@@ -126,6 +126,45 @@
                         </small>
                     </div>
 
+                    {#- CARD-332 (owner, 2026-10-30): the base of the public
+                        player this book's puzzles are read at. It is stored
+                        with the book, beside the trim, because a printed run
+                        records what was printed: a book printed before a
+                        domain change cannot be corrected, so the base travels
+                        with the book and not only with the deploy page.
+
+                        The refusal follows the plan fields' own pattern — an
+                        alert with a page-local id, `is-invalid` on the box and
+                        `aria-describedby` pointing at the words — so the
+                        reason is readable and not a red border on its own.
+
+                        No `required`: a book may have no domain yet, and the
+                        arrangement step says so plainly rather than showing a
+                        link built from nothing. -#}
+                    {% if player_domain_error %}
+                    <div class="alert alert-danger" role="alert" id="player-domain-error">
+                        <strong>Player domain not saved:</strong> {{ player_domain_error }}. Nothing was stored; your entry is kept below for correcting.
+                    </div>
+                    {% endif %}
+                    <div class="mb-4">
+                        <label for="player_domain" class="form-label">Player domain</label>
+                        <input type="text" class="form-control{% if player_domain_error %} is-invalid{% endif %}"
+                               id="player_domain" name="player_domain"
+                               value="{{ player_domain }}"
+                               placeholder="https://nonogram.adverax.io"
+                               inputmode="url" autocomplete="off" spellcheck="false"
+                               aria-describedby="player-domain-help{% if player_domain_error %} player-domain-error{% endif %}"
+                               {% if player_domain_error %}aria-invalid="true"{% endif %}>
+                        <small class="d-block mt-2 text-muted" id="player-domain-help">
+                            Where a reader opens this book's puzzles online — the address
+                            on its own, with no path: <span class="num">https://nonogram.adverax.io</span>.
+                            The arrangement step shows each puzzle's link built from it, and
+                            it is the base a printed QR code will carry. Leave it empty if
+                            this book has no online edition. The address production serves
+                            today is recorded in <span class="num">docs/deploy/player.md</span>.
+                        </small>
+                    </div>
+
                     <div class="alert alert-secondary mb-4">
                         <strong>Limits.</strong>
                         <ul class="mb-0 mt-1">

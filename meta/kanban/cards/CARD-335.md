@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 1d
+**Estimate:** 1d <!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
@@ -188,3 +188,116 @@ original card was a tidy-up of four files, this one carries a convention decisio
 **Not scheduled into wave 72 deliberately.** Two cards are in review against `main`
 right now and both measure census and validator figures off it; moving refs on `main`
 mid-review would invalidate their baselines. This card waits for the wave to close.
+
+---
+
+## A SECOND HARM, measured 2026-11-01 — and it refutes the orchestrator's guess about its cause
+
+While verifying CARD-316's merge gate, the validator of record went from its stable
+**0 errors / 88 warnings** to **0 errors / 525 warnings** on the same commit, minutes
+apart. Every one of the 437 new warnings reads *"existence could not be determined — the
+search tool itself failed"*.
+
+**It is a timeout, and it is reproducible.** The resolver's batched path
+(`validators/utils.py`'s `_grep_batch`) runs one `git grep -ow` carrying up to 200 `-e`
+patterns, under a budget of `BATCH_TIMEOUT_BASE_S + BATCH_TIMEOUT_PER_NAME_S × N`
+= **10.0 + 0.1 × 200 = 30 s**. Measured on this repository today, that same 200-name
+batch takes **140.1 s** — over budget by **4.7×**. A single *per-name* grep, by contrast,
+is **0.12 s**, so nothing is wrong with `git grep` itself.
+
+**One timeout poisons the whole run.** `symbols_exist` assigns `None` to *every* name
+still pending the moment a batch fails and returns immediately, so one blown batch is
+worth hundreds of warnings. That is why the count moves 88 → 525 rather than by a few.
+
+**The budget was calibrated against a repository that no longer exists.** The constant's
+own sibling comment records *"one 482-name batch takes 0.41 s"*, measured on this
+repository. Today a **smaller** batch takes 140 s. That is roughly a **340× regression**
+against the figure the budget was set from, and no one has been in a position to notice,
+because the failure mode is extra warnings rather than a crash.
+
+### RETRACTED, and then re-measured: the cause IS this card's population
+
+**This section previously said "the cause is NOT this card's population — the orchestrator
+predicted wrong", and blamed two large binary corpora. That is retracted: it was measured
+in the wrong unit and the conclusion was false.** It is kept as a retraction rather than
+deleted, per ADR-0039/R4, because the wrong reasoning was acted on — 422 files were
+untracked on the strength of it.
+
+**What the byte argument got wrong.** It ranked the search domain by *bytes*, where
+`silhouette/animals/` (76.6 MB) and `nonogram-web/.next/` (56.0 MB) dominate at 74 %. But
+git grep skips a binary file on a NUL byte in its first 8 kB, so those bytes were never
+being paid. Untracking all 132.7 MB of them moved the batch from **140.1 s to 140.9 s** —
+a 0.6 % change, i.e. nothing — and the validator still read 525.
+
+**Measured properly, varying one thing at a time, the driver is an interaction:**
+
+| patterns | corpus | time | budget | |
+|---|---|---|---|---|
+| 200 | full | **140.9 s** | 30 s | **over 4.7×** |
+| 200 | **minus `meta/review` + `meta/profiling`** | **0.7 s** | 30 s | **201× faster** |
+| 160 | full | 53.2 s | 26 s | over |
+| 140 | full | 40.0 s | 24 s | over |
+| **120** | full | **10.5 s** | 22 s | **ok** |
+| 100 | full | 8.6 s | 20 s | ok |
+| 80 | full | 7.4 s | 18 s | ok |
+| 60 | full | 3.9 s | 16 s | ok |
+| 50 | full | 0.3 s | 15 s | ok |
+
+Two facts fall out, and both matter:
+
+1. **There is a cliff between 120 and 140 patterns.** Below it the cost is near-linear and
+   comfortably inside budget; at 140 it quadruples. `BATCH_SIZE = 200` sits well past it.
+   The budget formula `10.0 + 0.1 × N` models cost as **linear in N**, which is true below
+   the cliff and false above it — so the budget is least generous exactly where the cost
+   explodes.
+2. **The cliff only exists because of `meta/review/` + `meta/profiling/`.** With those two
+   excluded, even 200 patterns runs in **0.7 s**. They are 40 % of the domain's 592,810
+   text lines, and they are this card's own population — the files that spell ref names.
+
+**So the original prediction was right and its correction was wrong.** The ref-spelling
+corpus is the cause; it just does not work through bytes. It works by giving a large
+alternation of word-bounded patterns an enormous number of near-matches to resolve.
+
+### What is actually actionable, and what is the owner's
+
+- **`nonogram-web/.next/` is already gitignored and still tracked.** `.gitignore` carries
+  **three** matching rules — `:38 .next/`, `:39 .next/cache/`, `:45 nonogram-web/.next/` —
+  and `.gitignore` does not untrack what is already in the index. So 56 MB of **build
+  output** is committed against the repo's own stated intent. Untracking it
+  (`git rm -r --cached`) leaves every file on disk and is reversible. This is the one
+  clearly accidental item.
+- **`silhouette/animals/` was also untracked**, on the owner's explicit instruction
+  (254 files, 76.6 MB, all still on disk). Recorded because it changes a property rather
+  than a detail: **git is no longer the backup for those files.** History retains them and
+  re-adding restores the status quo, but a fresh clone will not carry them.
+- **Neither untracking fixed anything**, and the commit (`7c987f67`) says so in its own
+  message rather than claiming a win. Both stand on repository hygiene; the timeout was
+  untouched by them.
+
+### The two fixes that WOULD work, and only one is this board's
+
+- **Reduce the batch size below the cliff.** At 120 patterns the full corpus costs 10.5 s
+  against a 22 s budget. This lives in `BATCH_SIZE` in **`forge_1`**, which this board
+  never edits — so it is not available here, only reportable. Worth reporting: the budget's
+  linear model is what hides this, and a batch of 200 is the only size at which the
+  resolver silently stops answering.
+- **Take `meta/review/` + `meta/profiling/` out of the resolver's domain** — which is
+  **exactly the convention decision this card already carries for harm A.** With them
+  excluded, 200 patterns costs 0.7 s. So one decision closes both harms, which is the
+  strongest argument yet for making it: the same change that stops dead refs being revived
+  also stops the resolver timing out.
+
+**That convergence is the headline for whoever takes this card.** Harm A and harm B looked
+like two problems with two populations. Measured, they are one population and one fix.
+- The resolver's exclude list lives in `forge_1`, which this board never edits, so a
+  wider exclude is **not available here** — the same constraint this card already records.
+
+### Credit where it is due: the validator behaved correctly
+
+Its existence check is deliberately three-valued, and its docstring says why: *"None is
+never coerced to either answer; True would let a broken grep silently revive dead refs,
+False would let it fabricate drift ERRORs."* Under a tool failure it reported
+**tooling failure, not a verdict** — on 437 refs at once. A two-valued check would have
+silently declared them all dead, or all alive. **This is the single best argument on the
+board for three-valued existence**, and it should be cited wherever that design is
+questioned.

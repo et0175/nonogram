@@ -112,7 +112,7 @@ from nonogram.admin.image_manager import (
     get_image_manager,
 )
 from nonogram.admin.grid_renderer import grid_to_svg
-from nonogram.admin.print_specs import PrintSpecValidator
+from nonogram.admin.print_specs import PrintSpecValidator, stored_player_domain
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
@@ -3661,6 +3661,10 @@ def create_app(debug=None):
 
         plan_error = None
         plan_error_fields = frozenset()
+        # CARD-332: the player-domain refusal and the field it belongs to.
+        # A separate pair from the plan's because they are separate verdicts:
+        # a bad domain beside a good plan must mark one box and not the other.
+        domain_error = None
         submitted = None
 
         if request.method == "POST":
@@ -3697,6 +3701,36 @@ def create_app(debug=None):
                         # plan-less book still happens.
                         if new_plan == current:
                             new_plan = None
+
+                # CARD-332 (owner, 2026-10-30): the base of the public player
+                # this book is read at. Checked here, beside the plan, so a
+                # submission that is wrong in two ways says so in both
+                # places at once rather than one refusal at a time.
+                #
+                # **A text input is its own marker**, which is why there is no
+                # hidden companion field like the divider checkbox's: an
+                # unticked box posts nothing, but a text input always posts
+                # its name, so three states arrive distinguishably —
+                #
+                #   field absent -> this submission does not carry the
+                #                   control (a client built before it, or
+                #                   another form posting here): the stored
+                #                   base is left alone
+                #   field blank  -> the owner cleared it: no domain is stored
+                #   field filled -> the owner's base, validated below
+                #
+                # The verdict is `print_specs`' pure function, inward of this
+                # route, and it is made **once**: `create_spec` below is
+                # handed the value only when it passed, so one bad entry is
+                # reported once, by the branch that can also mark the field.
+                player_domain_input = None
+                if "player_domain" in request.form:
+                    player_domain_input = request.form.get("player_domain") or ""
+                    domain_valid, domain_refusal = (
+                        PrintSpecValidator.validate_player_domain(player_domain_input)
+                    )
+                    if not domain_valid:
+                        domain_error = domain_refusal
 
                 # A blank trim field is refused here, before create_spec —
                 # which cannot tell one from a caller that named no trim at
@@ -3775,11 +3809,17 @@ def create_app(debug=None):
                             (width_input, height_input) if unit == "inches" else None
                         ),
                         interior_divider_pages=divider_input,
+                        # CARD-332: only when it passed above; a refused base
+                        # is reported by `domain_error`, not a second time
+                        # here.
+                        player_domain=(
+                            player_domain_input if domain_error is None else None
+                        ),
                     )
 
                 if error:
                     flash(f"Error: {error}", "error")
-                elif plan_error is None:
+                elif plan_error is None and domain_error is None:
                     if new_plan is not None:
                         # CARD-124 (owner's decision): the plan is what the
                         # readiness gate measures the selection against, so
@@ -3919,12 +3959,23 @@ def create_app(debug=None):
         ):
             interior_divider_pages = bool(submitted.get("interior_divider_pages"))
 
+        # CARD-332: the base the book is stored on, so reopening Print setup
+        # shows what its links are built from — and after a refused
+        # submission, what the owner typed, in the two trim fields' own
+        # posture (F-003): nothing was stored, so nothing is thrown away.
+        player_domain = stored_player_domain(book) or ""
+        if submitted is not None:
+            player_domain = submitted.get("player_domain", player_domain)
+
         context = {
             "book": book,
             "default_width": default_width,
             "default_height": default_height,
             "unit_preference": unit_preference,
             "plan_error": plan_error,
+            # CARD-332: the base, and the refusal that marks its box.
+            "player_domain": player_domain,
+            "player_domain_error": domain_error,
             "interior_ink_mode": interior_ink_mode,
             "interior_ink_modes": list(InkMode),
             "interior_divider_pages": interior_divider_pages,
@@ -5007,6 +5058,15 @@ def create_app(debug=None):
         titled = book_mgr.get_book(book_id)
         titles = titled.puzzle_titles if titled else {}
 
+        # CARD-332 (owner, 2026-10-30): the base this book's reader links are
+        # built from — the book's **own** stored domain and nothing else. The
+        # deploy page's base (``docs/deploy/player.md``) is not consulted as a
+        # fallback: a book records the domain it was printed with, and a base
+        # nobody chose for *this* book is the one thing that must not end up
+        # beside its puzzles. ``None`` here is "no domain set", which the page
+        # says plainly (AC-3).
+        player_base = stored_player_domain(book)
+
         puzzles_in_book = []
         level_groups = []
         for tier, ids in levels:
@@ -5029,6 +5089,36 @@ def create_app(debug=None):
                     # is confined to — `order` above is the book-wide one, and
                     # typing that would invite the move INV-009 refuses.
                     puzzle["level_position"] = position + 1
+                    # CARD-332 (AC-2, EC): the key beside this row, computed
+                    # from the stored grid on every render through
+                    # ADR-0041/R1's one implementation — never cached, never
+                    # respelled here or in the template. The URL is built only
+                    # when the book has a base; a key is still computed
+                    # without one, so the two questions ("what is this
+                    # puzzle's key" and "where would a reader open it") stay
+                    # separate and the recipe has one caller either way.
+                    #
+                    # A stored grid that is not a grid costs this row its
+                    # link and nothing else — ``player_bundle``'s own posture
+                    # for the same value ("one damaged row must not cost the
+                    # owner the whole bundle"), and here the alternative is a
+                    # 500 on the arrangement screen of a book with one bad
+                    # row.
+                    try:
+                        puzzle["play_key"] = player_bundle.puzzle_key_of_record(puzzle)
+                    except ValueError as e:
+                        app.logger.warning(
+                            "No player key for puzzle %s in book %s: %s",
+                            puzzle_id,
+                            book_id,
+                            e,
+                        )
+                        puzzle["play_key"] = None
+                    puzzle["play_url"] = (
+                        player_bundle.play_url(player_base, puzzle["play_key"])
+                        if player_base and puzzle["play_key"]
+                        else None
+                    )
                     rows.append(puzzle)
                     puzzles_in_book.append(puzzle)
             level_groups.append(
@@ -5123,6 +5213,9 @@ def create_app(debug=None):
             "position_error": position_error,
             "position_error_puzzle": position_error_puzzle,
             "position_error_value": position_error_value,
+            # CARD-332: the book's stored player base, or None when it has
+            # none — which is what the page says instead of a URL (AC-3).
+            "player_base": player_base,
             # CARD-192: the band in force (or None), the bands the filter
             # offers, and the band's plan figures (or None).
             "band": shown_band,

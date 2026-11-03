@@ -1,6 +1,6 @@
 # CARD-316: Seven acceptance criteria name tests that were never meant to exist — rejected alternatives, retired features and one forward declaration, each reading as mechanically checked
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -19,9 +19,9 @@
 **Touches:** meta/architecture/requirements.yml
 **Review score:** 6.0 → 8.5 → **9.0 CERTIFIED** (cycle 3 of 3, the last allowed; 0 Critical, 0 Important, three non-gating Minors closed at the merge gate)
 **Started:** 2026-10-31T06:47:15+00:00
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-01T05:15:00+00:00
+**Actual:** 22.5h wall-clock against a 0.25d estimate — but the clock is not the work: the round spanned a weekly rate-limit reset, and its merge gate died mid-verification and was re-run by the orchestrator the next day
+**Merge commit:** `1bc02500` — **gate re-run and verified 2026-11-01 on main `ce7fb503`**, because the original gate merged and then died on the weekly limit before recording any suite result or stamping this card. Full suite on the merged tree: **10101 passed / 0 failed / 27 skipped / 1 xfailed**, exit 0, zero FAILED and zero ERROR lines. Skips attributed from `-rfs` rather than recalled: **26** from the bare `DATABASE_URL` check at `tests/conftest.py:207`, **1** from the `setrlimit(RLIMIT_AS)` platform gate at `tests/test_book_pdf_memory.py:1297`; the per-worktree `*_test` resolution gate did **not** fire. Collection **10129 both sides of the merge — 0 gained, 0 lost**, confirming cycle 3's unusual prediction that this card's +198 lines landed *inside existing cells* (23 node ids at main, 23 at HEAD). Validator of record **0 errors / 88 warnings** on both the merge's first parent `9e717605` and on merged main, WARN sets compared with `comm` after asserting both at 88 non-empty lines: **11 OUT / 11 IN and nothing else either direction**, and the OUT and IN id sets are **identical**, so every dead-ref warning that left has its "no `test`" counterpart on the same criterion. That one-for-one is the proof the three tracked `scratchpad/card316/*.py` instruments revived nothing: a revived ref would make a warning vanish **without** a replacement and push OUT past IN.
 **Blocked by:** —
 
 ## [Premise verified at dispatch, 2026-10-31] — and every line number in the table is stale

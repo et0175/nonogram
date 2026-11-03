@@ -106,6 +106,12 @@ class Book:
     # existed before the column did. Read it through ``book_divider_pages``
     # and not off this field, so the default is applied in one place.
     interior_divider_pages: Optional[bool] = None
+    # CARD-332 (migration 018): the base of the public player this book's
+    # puzzles are read at — an absolute ``https://`` origin, or ``None`` for
+    # "no domain set", which is every book that existed before the column.
+    # Read it through ``print_specs.stored_player_domain`` and not off this
+    # field, so one place decides that a blank column is no domain.
+    player_domain: Optional[str] = None
     # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.75 mm
     # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
     # rather than off the book, so both storage modes answer the same way.
@@ -731,6 +737,10 @@ class BookManager:
             interior_divider_pages=getattr(
                 book_row, "interior_divider_pages", None
             ),
+            # CARD-332: NULL is a row from before migration 018 — and also
+            # every row after it, until the owner sets one: there is no
+            # backfill, because no base was ever chosen for any book.
+            player_domain=getattr(book_row, "player_domain", None),
             # NULL is a row from before migration 012: no override was ever
             # given, which is the reading that keeps the floor closed.
             floor_overrides=list(book_row.floor_overrides or []),
@@ -978,6 +988,17 @@ class BookManager:
         )
         if not is_valid:
             raise ValueError(f"a book's interior ink mode cannot be stored: {refusal}")
+
+        # CARD-332: and the player domain, at the same boundary and for the
+        # same reason — ``PrintSpec`` has no validating construction, so its
+        # type proves nothing, and a base the column's reader would refuse
+        # must not reach it. Checked **here**, before anything is written, so
+        # ``save_plan`` cannot store a plan beside a domain it then refuses.
+        is_valid, refusal = PrintSpecValidator.validate_player_domain(
+            spec.player_domain
+        )
+        if not is_valid:
+            raise ValueError(f"a book's player domain cannot be stored: {refusal}")
         # Normalised to the column's own spelling, and None when the caller
         # named none — which leaves the stored mode where it is.
         return (
@@ -991,7 +1012,8 @@ class BookManager:
         """Write a checked ``spec`` onto ``book`` (a :class:`Book` or a ``books`` row).
 
         The trim columns, the ink mode when one was named, the divider-pages
-        choice when one was named, and ``updated_at`` — nothing else (see
+        choice when one was named, the player domain when the submission
+        carried the field, and ``updated_at`` — nothing else (see
         :meth:`set_print_spec`).
         """
         book.trim_width_cm = spec.trim_width_cm
@@ -1004,6 +1026,17 @@ class BookManager:
         # off by omission. Stored as a real bool, never as the form's string.
         if spec.interior_divider_pages is not None:
             book.interior_divider_pages = bool(spec.interior_divider_pages)
+        # CARD-332: three states, not two. ``None`` is "the caller named
+        # none" and leaves the column alone, as the two settings above do;
+        # the empty string is "the owner cleared the field" and writes NULL,
+        # which a checkbox could not have said and a text input can.
+        # ``player_domain_as_stored`` cannot refuse anything here —
+        # ``_checked_print_spec`` has already made that verdict, before any
+        # of these writes.
+        if spec.player_domain is not None:
+            book.player_domain = PrintSpecValidator.player_domain_as_stored(
+                spec.player_domain
+            )
         book.updated_at = datetime.utcnow()
 
     def floor_overrides(self, book_id: str) -> List[str]:

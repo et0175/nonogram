@@ -2427,6 +2427,10 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     controls = {
         "brush-black": lambda: page.click('[data-player-tool="filled"]'),
         "brush-white": lambda: page.click('[data-player-tool="empty"]'),
+        # CARD-323's fourth brush. It is here because the sibling test below
+        # derives this table from play.html's buttons and reds on a brush that
+        # is not walked — which is exactly what it did when the brush landed.
+        "brush-maybe": lambda: page.click('[data-player-tool="maybe"]'),
         "brush-clear": lambda: page.click('[data-player-tool="unknown"]'),
         "region": toggle_region,
         "tap": lambda: _tap(page, rng.randrange(MIN_SIZE), rng.randrange(MIN_SIZE)),
@@ -2502,7 +2506,9 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     the actions by ``data-player-action``, Region by its own attribute — and
     insists every one of them is walked. A fourth brush or a new action added
     to the page reds here, which is the completeness half ADR-0039/R1 asks for
-    before the set is trusted.
+    before the set is trusted. That is not hypothetical: CARD-323 added the
+    Maybe brush and this test red on three assertions at once — the tool set,
+    the control count and the walk's own table — until the brush was walked.
 
     The two keyboard paths are the exception the rule allows: they are not
     elements, so they are listed rather than derived, and they are named in
@@ -2523,6 +2529,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     walked = {
         "brush-black": "filled",
         "brush-white": "empty",
+        "brush-maybe": "maybe",
         "brush-clear": "unknown",
     }
     tools = set(re.findall(r'data-player-tool="([a-z]+)"', page_html))
@@ -2537,7 +2544,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
         | {f"{action}-button" for action in actions if action != "reset"}
         | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
     )
-    assert len(expected) == 11, sorted(expected)
+    assert len(expected) == 12, sorted(expected)
     assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
     assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
     source = Path(__file__).read_text(encoding="utf-8")
@@ -2914,12 +2921,59 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     assert len(files) >= 8, files
     for forbidden in ("package.json", "node_modules", "package-lock.json"):
         assert not (PLAYER_DIR / forbidden).exists(), forbidden
-    sources = (REPO_ROOT / "src").rglob("*.py")
-    offenders = [
-        path.relative_to(REPO_ROOT).as_posix()
-        for path in sources
-        if "assemble" in path.read_text(encoding="utf-8") and "player" in path.read_text(encoding="utf-8")
-    ]
+    # "Nothing under ``src/`` imports it", resolved by ``ast`` rather than by
+    # a text search (CARD-332). This read `"assemble" in text and "player" in
+    # text` over each whole file, which is not a reading of the claim: it
+    # fires on any module whose PROSE happens to carry both words, and
+    # ``book_manager.py`` — which imports nothing of the kind — tripped it the
+    # first time a comment there mentioned the player, with the word
+    # "assembled" already in a docstring six hundred lines away. A guard that
+    # reds on a sentence cannot be the one that says what the code does. The
+    # assembler is loaded by path and is not importable as a module, so the
+    # two ways to reach it are an import statement naming it and a literal
+    # naming its file; both are checked, in every spelling an import has —
+    # including ``from scripts import assemble_player_site``, where the name
+    # is in an alias rather than in ``node.module`` (cycle 1, F-001: the
+    # first version of this walk read only ``node.module`` and let that one
+    # through, which the substring guard it replaced had caught). What is
+    # NOT checked is a name assembled at run time out of pieces, as in
+    # ``importlib.import_module("scripts" + ".assemble" + "_player_site")``:
+    # no literal there carries both words, and a guard that chased string
+    # arithmetic would be back to reading prose. That hole is deliberate and
+    # is named here rather than left to be discovered as a claim of
+    # completeness this walk does not have.
+    offenders = []
+    for path in (REPO_ROOT / "src").rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        where = path.relative_to(REPO_ROOT).as_posix()
+        for node in ast.walk(ast.parse(text)):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                # The module an alias is imported FROM is not the only name an
+                # ``ImportFrom`` carries: ``from scripts import
+                # assemble_player_site`` puts it in ``node.names``, and
+                # ``scripts/`` has no ``__init__.py`` but is a PEP 420
+                # namespace package, so that import really resolves from the
+                # repo root — which is where both the suite and the panel run.
+                # Each alias is therefore read qualified by its module.
+                prefix = node.module or ""
+                names = [prefix] + [
+                    f"{prefix}.{alias.name}" if prefix else alias.name
+                    for alias in node.names
+                ]
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if "assemble" in node.value and "player" in node.value:
+                    offenders.append(f"{where}: names {node.value!r}")
+                continue
+            else:
+                continue
+            for name in names:
+                if any(
+                    part == "assemble" or part.startswith("assemble_player")
+                    for part in name.split(".")
+                ):
+                    offenders.append(f"{where}: imports {name}")
     assert offenders == [], offenders
     manifest = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "player/" not in manifest and '"player"' not in manifest

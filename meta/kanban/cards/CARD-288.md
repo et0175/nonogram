@@ -15,7 +15,8 @@
 **Wave:** —
 **Created wave:** 57
 **Deferred waves:** 0
-**Depends on:** CARD-322 <!-- RE-POINTED 2026-10-30 from CARD-309, at that card's re-cut. CARD-309 no longer converts the puzzle page -- it was narrowed to the assembly point -- so it does NOT unblock this card. Re-measured by CARD-309's own round: this card's four tests obtain their pages through `BookPDFGenerator.interior_pages()`, which is cause 2 of the conversion breakage, and that mechanism changes when the kind converts. The card that converts the puzzle page is now CARD-322, so the premise moves there intact. -->
+**Depends on:** CARD-322
+<!--RE-POINTED 2026-10-30 from CARD-309, at that card's re-cut. CARD-309 no longer converts the puzzle page -- it was narrowed to the assembly point -- so it does NOT unblock this card. Re-measured by CARD-309's own round: this card's four tests obtain their pages through `BookPDFGenerator.interior_pages()`, which is cause 2 of the conversion breakage, and that mechanism changes when the kind converts. The card that converts the puzzle page is now CARD-322, so the premise moves there intact. -->
 **Touches:** tests/property/test_book_pdf_geometry.py, meta/profiling/card-288-page-census.md
 **Review score:** —
 **Started:** —
