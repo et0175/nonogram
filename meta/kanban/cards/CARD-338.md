@@ -189,3 +189,127 @@ floor.
 measures belongs to CARD-336 (the placed-edge mechanism), CARD-337 (the seams and the
 non-seam mechanisms) or CARD-322 (the conversion itself). Its deliverable is a number each
 of them can trust and a probe each of them can run.
+
+## Worktree notes
+
+**Measured at `f407c350`** (this branch's cut; `main` has since moved on kanban and
+repo-hygiene commits that touch no `src/` or `tests/` file, so the tree under measurement
+is main's). Instrument: `scratchpad/card338/probe_five_kinds.py` +
+`census_five_kinds.py`, one file-scoped pytest run per module, `-o addopts=` as two argv
+items, `-rfs` as one flag, the full environment inherited, bytecode off and `__pycache__`
+swept at both ends. Two interruptions cost this round its first two attempts; the figures
+below survived because they were written down before the third.
+
+### Item 1 — the table re-derived
+
+| over CARD-329's 20 modules | `PUZZLE` only | all five kinds |
+|---|---|---|
+| modules red | 17 / 20 | **18 / 20** |
+| failed + error | **151** | **225** |
+| passed | 1224 | **1150** |
+| skipped | 1 | 1 |
+
+**Every figure the re-cut pass reported reproduced**, including the sharpest row —
+`tests/test_book_interior_face.py` is **0 (green)** under the PUZZLE-only probe and **2**
+under five kinds — and the per-module +74: `export_interior` +5, `arrange_page_breaks` +1,
+`export_interior_cover` +13, `guide_page` +4, `interior_face` +2, `pdf` +8, `pdf_band` +3,
+`pdf_ink_mode` 0, `pdf_memory` +6, `proof_pages` 0, `solved_answer_key` +32,
+`trim_persistence` 0. Population B is unchanged module for module. The one skip is the
+`setrlimit(RLIMIT_AS)` gate at `tests/test_book_pdf_memory.py:1297`, attributed from
+`-rfs`; neither database gate fired, because every run is file-scoped.
+
+**Three figures did not reproduce**, and each is written into the cards that shared it:
+
+1. **The end-state residue is 233, not 228.** The 22nd module is red at **3** under the
+   PUZZLE-only probe (reproducing the pass) and at **8** under five kinds; the 228 added
+   its one-kind reading to the five-kind 225.
+2. **The `delitem` artefact is 0, and the claim was wrong in direction** — see item 3
+   below.
+3. **Seven uncontaminated modules move, not six** (ten population-A modules carry no
+   `delitem` site; seven moved). Their deltas still sum to **+61**.
+
+### Item 2 — AC-1, proved rather than asserted
+
+`prove_refusals.py`, nine cases, each against a copy of `src/` mutated **on disk** and
+imported via `-o pythonpath=`, each verifying the module really came from the copy before
+trusting its verdict. Eight refuse and name what they could not do: the five
+kind-already-absent cases (*"found no declaration to lift for [X]"*), the renamed
+rebinding target (*"cannot rebind … no such name"*), a partial writer set (*"has no writer
+for ['guide']"*), and the one a `hasattr` check would pass straight through — a
+constructor that has stopped reading the global (*"does not hold the rebound writer set …
+measures nothing"*). The ninth is a control on the unmutated tree, accepted, so "refuses
+everything" cannot pass as "refuses the right things".
+
+### Item 3 — AC-2, and the half the re-cut could not do
+
+`fidelity_to_the_end_state.py` stands the end state up a second way, on disk, without the
+probe: **E1** = the five entries deleted; **E2** = E1 plus the default writer set
+assembled.
+
+| module | E0 as committed | E1 drop | E2 drop+assemble | probe |
+|---|---|---|---|---|
+| `tests/property/test_book_export_interior.py` | 0 | 7 (5 KE) | 7 (5 KE) | **7 (5 KE)** |
+| `tests/test_book_interior_type_floor.py` | 0 | **25** (1 KE) | 8 (1 KE) | **8 (1 KE)** |
+
+Two readings follow, and both matter more than the census:
+
+* **The probe is faithful: probe − E2 = ±0 on both modules.** The in-process instrument
+  reproduces the on-disk end state exactly.
+* **The `delitem` `KeyError`s are the conversion's residue, not the probe's shadow.** E1
+  carries them with no probe loaded. Calling them an instrument artefact under-prices
+  CARD-322 by up to 13.
+* **E1 − E2 = 17 reds in one module**, which is the finding below.
+
+### Item 4 — AC-3, no "other" group
+
+`classify_reds.py` maps every red to a named mechanism with an owning card and **exits
+non-zero on a cause no rule matches**. 210 of the 233 print a `--tb=line` cause and all
+210 classify into fifteen groups. The largest are the medium-blind read that returns empty
+(**64**) and the pixel oracle handed a `ContentStream` (**38** via `tests/helpers/page_ink.py`,
+**27** in CARD-331's module, **23** in the test modules themselves, **2** via
+`two_up_ink.py`); the reader seam proper is **11** unprotected `KeyError: b'XObject'` plus
+**2** of CARD-329's named `PageMediumRefused`. The expected-side gap the pass sampled is
+**1 red**, not a family.
+
+**The other 23 were an instrument blind spot, found and closed rather than bucketed.**
+`-rfs` leaves ERRORs out of the short summary and `--tb=line` prints them in another shape,
+so a walk that reads only `--tb=line` saw 210 of 233. Re-run with `-rEfs`: all 23 are
+fixture-raised ERRORs (`pdf_band` 10, `pdf_memory` 13) of mechanisms already named — 21 ×
+`AttributeError: 'ContentStream' object has no attribute 'tobytes'/'width'` and 2 ×
+`assert 5 == (14 + 1)`. `census_five_kinds.py` now prints `unaccounted` as its own column
+so the gap can never again sit between two totals.
+
+### Item 5 — AC-4, derived and proved to red
+
+`derive_medium_population.py`'s filter is *a module whose AST names the medium decision
+itself* (`page_medium`, `PageMedium`, `_RASTER_DECLARATIONS`). Four modules name it;
+`test_book_export_interior.py` and `test_book_pdf.py` are in population A,
+`test_book_difficulty_dots.py` in B, and **`test_book_interior_type_floor.py` is the one in
+neither** — the third population, derived, not listed. The assertion runs in the direction
+that catches a module which *should* be in the population, and it was proved to red: a
+synthetic module naming `page_medium`, added to an **overlay copy** of `tests/` (G-2 — the
+real tree is not edited), makes the derivation fail with *"a module reaches the medium
+hazard through the medium decision and no card has priced it"*.
+
+### The finding that is not a figure
+
+**`interior_generator` has ZERO call sites in `src/`.** Production builds
+`BookPDFGenerator(book)` at `app.py:841`, `:960`, `:5580`, `:5759`, `book_proof.py:764` and
+`pdf_generator.py:344`, and `:5580` is `generator.export_interior(puzzles)` — the interior
+download path. So CARD-322's re-cut §2 — *"the `src/` change is the five registry entries,
+and nothing else"* — is **false as measured**: the E1/E2 column above prices the difference
+at 17 reds in a single module, every one of them `_drawn_downstream`'s refusal. Written
+into CARD-322 §2 as an inline correction. **G-1 held**: this card edited no `src/` file; it
+raised the question instead of answering it, which is what G-1 asks for.
+
+### Guardrails
+
+`src/` untouched; `tests/` untouched (the AC-4 proof used an overlay copy); no census dump
+committed — only `.py` under `scratchpad/card338/`, and the committed files name test
+*modules* only, every one of which is already tracked on `main` in
+`scratchpad/card329/measure_probe.py`, `meta/profiling/` and `meta/review/`, so the
+resolver's search space gains no name. Validator of record (the `forge_1` copy, read-only,
+run in this worktree): **0 errors / 525 warnings before and after** — the 525 is CARD-335's
+batched-grep timeout, reproducible and predating this card — with the WARN **sets** matched
+by `comm` in both directions over 525 non-empty lines a side, `^\s*\[WARN` not `^\[WARN`,
+and **both halves empty**. The full suite was never run; every census call is file-scoped.
