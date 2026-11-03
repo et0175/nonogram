@@ -144,12 +144,17 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
 
 * **A test that lifts a declaration itself meets a key that is already gone.** By `ast`,
   **three** modules reference `_RASTER_DECLARATIONS` with **17** `monkeypatch.delitem`
-  sites; only two (`tests/test_book_pdf.py:5670`, `:5794`) pass `raising=False`; of the
-  other 15, two are `DIVIDER` (not lifted), so **13** can raise. Under the five-kind probe
-  that is **13 reds** across the 21 modules, and the component of the **+74** it accounts
-  for is **+11**, not +13 — the 13 is a *site* count. **Do not price these out as the
-  probe's shadow:** CARD-338 measured the identical `KeyError` on a tree whose five entries
-  are deleted in `src/` with no probe loaded, so they are residue the conversion owns.
+  sites; **2** pass `raising=False` (`tests/test_book_pdf.py:5670`, `:5794`) and **15** can
+  raise; of those 15, **two** name `DIVIDER`, which the probe does not lift — leaving **13
+  sites that can raise**. **Separately measured, the census counts 13 reds** from them:
+  `property/test_book_export_interior.py` **5**, `test_book_interior_type_floor.py` **1**,
+  `test_book_pdf.py` **7**. **Two different quantities, neither derived from the other** —
+  one literal site produces 5 reds alone, and two of the 15 (`test_book_pdf.py:3747`,
+  `:3774`) sit inside `for kind in self._interior_kinds()` loops covering 4+ kinds each, so
+  their agreeing on 13 is a coincidence of this tree. The component of the **+74** these
+  reds account for is **+11**, not +13. **Do not price them out as the probe's shadow:**
+  CARD-338 measured the identical `KeyError` on a tree whose five entries are deleted in
+  `src/` with no probe loaded, so they are residue the conversion owns.
 * **`tests/test_book_interior_type_floor.py` is in neither of CARD-329's populations** —
   CARD-338 derives it as a third population reaching the hazard through the medium
   decision itself. It is red at **3** under the PUZZLE-only probe and at **8** under five

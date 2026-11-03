@@ -16,7 +16,7 @@
 **Wave:** —
 **Created wave:** 72
 **Deferred waves:** 0
-**Depends on:** CARD-329, CARD-336
+**Depends on:** CARD-329, CARD-336, CARD-338 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 **Touches:** tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py, tests/test_book_proof_pages.py, tests/test_book_solved_answer_key.py, tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_arrange_page_breaks.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/test_book_interior_type_floor.py
 **Review score:** —
 **Started:** —
@@ -150,15 +150,24 @@ kind-already-absent cases, a renamed rebinding target, a partial writer set, and
 constructor that has stopped reading the global, all proved against mutated trees by
 `scratchpad/card338/prove_refusals.py`.
 
-**Trap 1 is not a trap, and that is a correction this card inherits.** By `ast`, **three**
-modules reference `_RASTER_DECLARATIONS` with **17** `monkeypatch.delitem` sites; only two
-(`tests/test_book_pdf.py:5670`, `:5794`) pass `raising=False`; of the other 15, two are
-`DIVIDER` and are not lifted, so **13** can raise. Under the five-kind probe that is **13
-reds** over the 21 modules, and the share of the **+74** they account for is **+11**, not
-+13 — the 13 is a *site* count. **But they are not the instrument's shadow.** CARD-338
-measured the identical `KeyError` count on the E1 tree — five entries deleted in `src/`,
-no probe loaded at all — so these are reds the **conversion** produces and owns. Two of the
-three colliding modules are in this card's `Touches`; price them as work, not as noise.
+**Trap 1 is not a trap, and that is a correction this card inherits.** By `ast`, **three** modules reference `_RASTER_DECLARATIONS` with **17**
+`monkeypatch.delitem` sites; **2** pass `raising=False` and **15** can raise; of those 15,
+**two** name `DIVIDER`, which the five-kind probe does not lift — leaving **13 sites that
+can raise** (`scratchpad/card338/derive_delitem_sites.py`). **Separately measured, the
+census counts 13 reds** from them: `property/test_book_export_interior.py` **5**,
+`test_book_interior_type_floor.py` **1**, `test_book_pdf.py` **7**. **Those are two
+different quantities and neither is derived from the other** — one literal site produces 5
+reds by itself, and two of the 15 (`test_book_pdf.py:3747`, `:3774`) are `delitem` calls
+inside `for kind in self._interior_kinds()` loops covering 4+ kinds each, printed as
+`LOOP:kind` by the derivation because `ast` cannot know the kind. Their agreeing on 13 is a
+coincidence of this tree; quote each from its own instrument. (The re-cut's original
+"≤13 artefact cap" had no stated step at all: 17 − 2 = **15**, not 13.) The two `raising=False` sites are
+`tests/test_book_pdf.py:5670` and `:5794`. The share of the **+74** these reds account for
+is **+11**, not +13, because `test_book_pdf.py` already carries one of them PUZZLE-only.
+**And they are not the instrument's shadow.** CARD-338 measured the identical `KeyError`
+count on the E1 tree — five entries deleted in `src/`, no probe loaded at all — so these
+are reds the **conversion** produces and owns. Two of the three colliding modules are in
+this card's `Touches`; price them as work, not as noise.
 
 **Trap 2 — the scale, re-derived 2026-11-03 at `f407c350`.** Over CARD-329's 20 modules the
 five-kind probe reads **18/20 red, 225 failed+error, 1150 passed, 1 skipped** against the
