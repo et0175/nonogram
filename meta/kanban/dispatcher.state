@@ -338,9 +338,46 @@ max_concurrent_override: 2
 #   maybe cell rule and player/play.js spells the word ZERO times, so the look
 #   ships and the behaviour does not, exactly as claimed.
 #
+#
+# TWO LANDED CARDS CLEARED FROM `active` 2026-11-03 -- found by CARD-323's own
+# merge gate, not by me. The list held FOUR entries against a cap of 2 and two
+# of them were `done`.
+#   WHY THIS IS NOT TIDYING: a gate reads this list to answer "is a slot free".
+#   A landed card left in `active` makes the board look at its cap when it is
+#   not -- the one misreading that stops work rather than starting it. CARD-332's
+#   gate was queued behind exactly this.
+#
+#   CARD-316 CLOSED: merged 1bc02500, stamped at 9.0 on cycle 3 of 3, two fix
+#   rounds, 6.0 -> 8.5 -> 9.0. Its gate was re-run a day late because the first
+#   one merged and then died on a rate limit before recording a suite result --
+#   10101 passed / 0 failed / 27 skipped, collection 10129 both sides, 0 gained
+#   and 0 lost, and the validator's WARN sets trading 11 OUT for 11 IN on an
+#   IDENTICAL id set, which is the proof its tracked instruments revived nothing.
+#
+#   CARD-323 CLOSED: merged efa9d0e0, stamped 12f4ce5c, 6.5 -> 8.5 CERTIFIED on
+#   cycle 2 of 3, one fix round. Gate on the rebased tree: 10119 passed / 0
+#   failed / 0 errors / 27 skipped / 1 xfailed, exit 0, 1526s -- and NOT vacuous:
+#   passed + skipped + xfailed = 10147 = the collected count exactly. Node ids
+#   10129 -> 10147, +18, ZERO LOST, all 18 the new module.
+#     A CORRECTION TO MY OWN GATE BRIEF: I expected "the new module's cells PLUS
+#     whatever the EC-050 walk gained". The walk gained NOTHING -- its extension
+#     landed inside existing cells, so that module reads 34 on both sides and the
+#     delta is +18 exactly.
+#     Skips attributed with -rEfs rather than recalled: 26 bare-DATABASE_URL at
+#     conftest.py:207, 1 setrlimit at test_book_pdf_memory.py:1297; the
+#     per-worktree *_test gate did not fire.
+#     THE FOURTH PARSED-FIELD CASE, AND THE GENERALISATION THAT MATTERS: the
+#     card's own Touches carried a comment INSIDE the parsed value -- 8 globs,
+#     two corrupt, a declared path welded to the comment's opening so it no
+#     longer matched itself. My board-wide sweep an hour earlier counted THREE
+#     live cases; there were four. It could not have seen this one, because a
+#     body-sweep reads main and that edit existed only in the worktree. The
+#     gate's own words: THE SET OF CARDS A BODY-SWEEP CAN SEE IS EXACTLY THE SET
+#     NOBODY IS WORKING ON. CARD-341 must read branch copies, or run at the gate.
+#
 active:
 - id: CARD-332
-  phase: implementation
+  phase: merge-gate
   branch: card/332-the-panel-learns-the-players-domain
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-332
   started: '2026-10-31T13:10:00Z'
@@ -353,7 +390,7 @@ active:
     but that is a fact about what moved rather than a guarantee: the round is
     told to RE-DERIVE every one and never offset a stale one.
 - id: CARD-338
-  phase: implementation
+  phase: review
   branch: card/338-the-five-kind-probe-and-the-measured-floor
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-338
   started: '2026-10-31T13:10:00Z'
@@ -365,233 +402,13 @@ active:
     run green over a tree it did not change, and it must be PROVEN by a
     renamed-target run. Its characteristic failure mode is measuring nothing
     while reading green, which is this board's recurring one.
-- id: CARD-323
-  phase: implementation
-  branch: card/323-the-public-player-gains-the-maybe-brush
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-323
-  started: '2026-10-31T13:10:00Z'
-  note: >-
-    First of five mutually exclusive player cards, taken smallest-first so its
-    round sets the pattern the other four inherit. Owes a visual check via the
-    browser tooling into ~/Documents/nonogram-reviews/CARD-323/, because the
-    owner validates player changes by looking at them. ADR-0041/R2 binds hardest
-    here: no public asset may carry a solution grid or data from which any
-    solution cell is recoverable, and this board has already shipped a leak at
-    exactly this seam.
-- id: CARD-316
-  phase: review
-  cycle: 3
-  cycle3_score: 9.0
-  certified: true
-  awaiting: merge gate -- three Minors to close there, per CARD-329's F-011 precedent
-  cycle1_score: 6.0
-  fix_round: 2
-  fix_round_1: reported 2026-10-31, twelve findings closed; cycle 2 scored 8.5
-  cycle2_score: 8.5
-  fix_findings_round2: [F2-001, F2-002, F2-003, F2-004, F2-005]
-  fix_round_2: reported 2026-10-31, all five fixed; cycle 3 scored 9.0 CERTIFIED
-  # CYCLE 3 = 9.0, CARD CERTIFIES, 0 Critical and 0 Important. It does NOT
-  # escalate. Three Minors, all prose/provenance, each a one-edit fix -- closed
-  # at the merge gate on CARD-329's F-011 precedent. 14 independent
-  # re-derivations, every one exact; 21 findings carried; system contract 9
-  # checked, 5 holds, 4 unchecked, 0 VIOLATED.
-  # F2-001's RISKIEST CLAIM IS PROVEN, and proven the right way. The round said
-  # it retracted the prose of a tracked instrument without changing its
-  # computation. Cycle 3 compared the pre-fix and HEAD copies BY ast WITH
-  # DOCSTRINGS STRIPPED: exactly ONE difference, a printed box label. Every
-  # computing expression identical -- and it then ran the PRE-FIX instrument
-  # against the HEAD tree for the same reading. Changing an instrument while
-  # retracting its prose would have been far worse than the defect being fixed.
-  # F2-004's REFUTATION OF CYCLE 2 IS UPHELD, rebuilt on an implementation
-  # sharing no code with the authority: 11278 names / 12911 sites / 406 files at
-  # the base, 11282 / 12917 / 409 at HEAD -- +4 names being exactly the three
-  # scratchpad instruments. Cycle 2's finding was a carried DOMAIN error (one
-  # reconstruction was *.py only), which is this card's own failure mode
-  # arriving inside the correction that existed to stop it, for the second time
-  # in one chain.
-  # THE 11/11 WARN TRADE IS ITSELF THE G-2 PROOF AT THE CONSEQUENCE LEVEL, which
-  # is the instrument CARD-329's gate found and this round applied unprompted:
-  # had any of the three tracked instruments revived some OTHER dead ref, a
-  # warning would have vanished with no replacement and OUT would exceed IN. It
-  # does not. It also re-ran the validator after writing its own review YAML:
-  # byte-identical WARN set, so its artefact revived nothing either.
-  # BOTH JUDGEMENT CALLS I ASKED FOR WENT AGAINST THE SIMPLE READING, with
-  # reasons I accept. The one stamp left un-retracted is CORRECT: ADR-0039/R4's
-  # retraction clause governs a figure recomputed and refuted, and this is a
-  # DECISION RECORD overridden by an owner -- and striking it would do to
-  # CARD-317's record exactly what FR-001's own first comment forbids doing to
-  # FR-001's statement, a convention that pre-dates this card. And
-  # `dismissed`-with-reason on the unroutable finding is right: `open` would gate
-  # this card on another card's work and `wontfix` would assert nobody will do
-  # it, which is false.
-  # MY SIXTH UNMEASURED FIGURE: I named main's tip as 20d85d02; it is b26bdd62,
-  # the parent. Verified. The delta is board.md + dispatcher.state only, so no
-  # figure moved, and it measured against the real main throughout. It also
-  # parse-checked dispatcher.state while there, unasked.
-  # AND IT CORRECTED A FACT ABOUT MY OWN COMMITS: CARD-335.md was added by
-  # 4b4b407a, not 7b42ab05 -- which added CARD-334.md. Verified both.
-  # FIX ROUND 2 REPORTED 2026-10-31. Commits bedec18c (the registry vocabulary
-  # + CARD-333's new item) and 8d9f27f2 (the retractions and the four figures).
-  # Cycle 2's YAML written back at 0 open findings; F2-006 DISMISSED with its
-  # reason rather than silently closed. No cycle-1 finding reopened.
-  # F2-002 settled the way the ADRs already had: the split is WITHDRAWN and all
-  # six criteria read `retired`, with FR-001's comment recording the word as
-  # BORROWED and citing all three lines, and stating that narrowing it would
-  # need an ADR amendment rather than a block comment. The inertness was
-  # re-measured rather than recalled -- every `status` read in the whole
-  # validator tree swept, and each one belongs to a trace entry, a CON, a DEC or
-  # an ADR, never an acceptance criterion. WARN set byte-identical, 88 -> 88.
-  # F2-001 RETRACTED AT FIVE SITES, NOT THE FOUR MY BRIEF NAMED. The fifth is
-  # in a TRACKED INSTRUMENT -- scratchpad/card316/derive_set.py -- whose
-  # docstring and printed box label both said FR-001's four were out of scope.
-  # That file is inside the resolver's domain, which is exactly why it matters
-  # and exactly the population CARD-335 now owns. No computation in it changed.
-  # Retraction proven to move nothing measured, both instruments before and
-  # after: validator 88 -> 88 with the WARN sets diff-clean, and 23 passed /
-  # 0 skipped / 23 collected, identical both times.
-  # THREE BASELINES, EACH MEASURED IN ITS OWN DETACHED WORKTREE rather than
-  # inferred: base -> round-0 tip 7 out / 7 in; round-0 tip -> HEAD (the fix
-  # round) 4/4; base -> HEAD (the whole card) 11/11. All three trees 0 errors /
-  # 88 warnings, and nothing but those pairs moves either way. My brief's 4/4
-  # was the fix-round delta quoted without its baseline; all three are now
-  # written together once, with the other sites pointing there.
-  # IT REFUTED ONE OF CYCLE 2'S OWN FINDINGS, and the shape is worth keeping:
-  # F2-004 said the index size 11278 "does not reproduce -- two honest
-  # reconstructions bracket it without hitting". It DOES reproduce -- 11278
-  # names / 12911 sites / 406 files at the merge base, identical at main, and
-  # 11282 at HEAD (+4, this card's own instruments), measured from the
-  # AUTHORITY's own domain with a positive control. Cycle 2's reconstructions
-  # missed because neither WAS the authority's domain (one was *.py only). So
-  # the finding about a carried figure was itself carried. The remedy was right
-  # and is applied: the construction is now written out beside the figure.
-  # TWO MORE FIGURES OF MINE CLEARED WHILE IN HAND: "330 modules" is the count
-  # SCANNED, of which only 312 carry a definition; and "421 criteria carrying a
-  # key" is the base-tree figure, 410 at HEAD -- which is why AC-2's surviving
-  # basis is 180 and not 191.
-  # F2-006 COULD NOT BE ROUTED INTO CARD-335's FILE, and it said so instead of
-  # closing quietly: CARD-335 was cut on main AFTER this branch's base, so no
-  # such file exists on the branch. Its figures are recorded in the card's
-  # fix-round notes pointing at CARD-335.
-  # CYCLE 2 = 8.5, and it does NOT certify -- but on the SEVERITY GATE, not the
-  # score: 8.5 is above min_score 8 and the delta is +2.5 against
-  # min_improvement. ALL TWELVE cycle-1 findings CLOSED, every central figure
-  # reproduced exactly under instruments sharing no code with the ones reviewed.
-  # The one Important was INTRODUCED BY THE FIX ROUND, which is what cycle 2 is
-  # for: four passages in the card narrate FR-001's four criteria as STILL
-  # carrying their test: keys, in the commit that removed them, and one of the
-  # four is the card's own AC-2. All four were TRUE at the round-0 tip. The card
-  # also carries the correct outcome 200 lines away, so it asserts both states
-  # and the stale one is what a reader meets first. ADR-0039/R4 is mandatory and
-  # its last clause is "retracted EVERYWHERE it was written" -- the round applied
-  # that clause correctly to three INHERITED figures and not to its own change.
-  # Prose only: no code, no test, no registry change, moves no figure.
-  # F2-002 IS THE ONE WORTH THE INK, and it is the half of the vocabulary claim
-  # I asked cycle 2 to check. The card calls four criteria `rejected` on the
-  # grounds they were never adopted -- but ADR-0027:167 says "AC-129, AC-134
-  # (retired)" and ADR-0034:48 says "AC-206, AC-207 retired", and ADR-0034:41
-  # says they are "retired UNIMPLEMENTED, following the FR-004 / ADR-0027
-  # precedent". Orchestrator-verified at all three lines. So the ADRs' own
-  # vocabulary ALREADY covers the never-adopted case with the word `retired` and
-  # names a precedent for it; the card's two-word split is new, not borrowed,
-  # and overrides two accepted ADRs from a card. Fix round uses `retired` for
-  # all six. Inert today -- cycle 2 swept every `status` read in the validator
-  # tree and not one belongs to an acceptance criterion -- but it stops being
-  # inert the moment CARD-333 lands the change this comment says it owes.
-  # VALIDATOR MEASURED AT THREE TREES via detached worktrees rather than
-  # inferred: 0 errors / 88 warnings at main, at the round-0 tip, and at HEAD.
-  # And a correction to MY brief: the 4-out/4-in swap is the FIX-ROUND delta.
-  # Against main it is 11 OUT / 11 IN -- the four plus the seven round 0 withdrew.
-  # Both true of different baselines; I gave 4/4 without naming one.
-  # MUTANT 6 RE-FIRED BOTH WAYS, and cycle 2 went further than the round, which
-  # SIMULATED the pre-fix cell with a script. It RAN it -- main's module written
-  # over HEAD's with the plant still held -> 1 passed. So the widening catches a
-  # real regression on an EXECUTED counterfactual, not a modelled one. It also
-  # ran a third plant the round never did, isolating the glob arm that the
-  # round's mutant 7 had reddened for two reasons at once.
-  # FOUR NEW MINORS, none gating: the curated impact arm called enumerable, an
-  # index size two honest reconstructions bracket without hitting (11278 vs
-  # 11195 by ast and 11287 by the grep shape), and "11" naming two disjoint sets
-  # 22 lines apart.
-  # ON COMMITTING THREE scratchpad FILES: cycle 2 would land them, and measured
-  # why -- they are the only artefacts in the repo whose cleanliness a standing
-  # test asserts on every run, against 245-322 uncontrolled files elsewhere.
-  # That re-scoped CARD-335; see its own re-cut.
-  fix_findings: [F-001, F-002, F-003, F-004, F-005, F-007, F-008, F-012]
-  # 6.0, and the review was explicit the score is NOT a verdict on what shipped:
-  # every central claim reproduced under an instrument sharing no code with the
-  # one under review, all NINE census classes matched at both commits in count
-  # AND fingerprint, and all seven movers were confirmed WITHDRAWALS not erosion.
-  # Its own M5 is the structural finding: re-point a phantom at an existing,
-  # defined, already-declared test that asserts something else and the suite is
-  # 23 passed ALL GREEN while the validator goes 88 -> 87, one warning OUT.
-  # THE COMBINED GATE STRICTLY PREFERS THE LIE TO THE HONEST GAP THIS CARD
-  # SHIPPED. Recorded as a bound, not built into a guard here.
-  # F-002 is mine to answer for: the branch writes "CURRENT ... 88 warnings"
-  # into the exact hunk where main's a29c3c96 wrote "THERE IS NO CURRENT FIGURE
-  # HERE". merge-tree confirms a conflict. The branch's config.yml edit is
-  # dropped and it rebases; main's block is strictly better.
-  # Fix round also executes the owner's retirement decision across ALL ELEVEN.
-  # Implementation reported; review cycle 1 dispatched. Its round refuted THREE
-  # of its own card's claims, the central one being the card's derivation
-  # recipe: it selects 191 of 421 declared refs, and 21 once intersected with
-  # the three markers, not 6 -- because the validator resolves by `git grep -w`
-  # over tracked files excluding only meta/architecture/ and *.md, so fourteen
-  # equally-unwritten criteria resolve from PROSE comment tables and AC-252
-  # resolves from a committed .txt duration dump. The honest authority is dead
-  # on BOTH resolvers: 11 dead AC refs, 0 unclassifiable, 0 in scope after the
-  # repair.
-  # It also measured `kind: review-lens` on an AC to be a NO-OP (planted,
-  # re-validated, WARN-set symmetric difference EMPTY) -- F-009's shape caught
-  # before shipping -- and caught the orchestrator's 90, measuring 88.
-  # PENDING FOR ITS FIX ROUND: the owner's decision of 2026-10-31 on the
-  # retirement shape, which this round's work made necessary. Apply the standard
-  # to ALL ELEVEN criteria -- its own seven plus FR-001's four from CARD-317 --
-  # with AC-379 excepted, being a FORWARD declaration owed by CARD-226 rather
-  # than a retirement.
-  # FIX ROUND 1 REPORTED 2026-10-31, HEAD 50256f93. All eight dispatched
-  # findings plus four more (F-006/F-009/F-010/F-011). Two commits, 930afc94
-  # and 50256f93, on a branch REBASED onto main's 9932bb07.
-  # F-002 verified closed by the orchestrator: `git diff -- meta/kanban/config.yml`
-  # is 0 lines, so the branch's edit is gone rather than merely reconciled, and
-  # 9932bb07 really is an ancestor. src/ 0 files; 7 files, +1283/-93.
-  # ORCHESTRATOR EXPECTATION REFUTED, AND THE ROUND IS RIGHT. I briefed it to
-  # expect CENSUS 573 -> 569 and HONEST_DEAD 9 -> 5 when the four phantom keys
-  # went. It measured 573 -> 573 and 9 -> 9, because the same four refs are
-  # ALSO declared by meta/architecture/trace.yml, which this card does not
-  # touch. Checked myself: trace.yml:109-113 carries them on the superseded
-  # FR row, and the card's diff against that file is 0 lines. So dropping a key
-  # removes a declaration SITE, not the DECLARATION -- and a census counts refs,
-  # not sites. This is the same confusion that produced the vector family's
-  # false premises, arriving this time in my own brief.
-  # The retirement landed as THREE words, not one, and the two new ones were
-  # chosen rather than invented: `rejected` for four never-adopted DEC
-  # alternatives, `retired` for two adopted-then-amended-away (the word ADR-0027
-  # and ADR-0034 already use), `superseded` kept for FR-001's four. AC-379
-  # excepted as the owner decided. Validator 88 -> 88, with the WARN set moving
-  # 4 OUT (dead ref) and 4 IN (no test:) and nothing else either way -- exactly
-  # the net-zero trade CARD-317 measured and this entry predicted.
-  # F-004 RECORDED AS A BOUND, no guard built, as the finding asked: the pins
-  # see a phantom enter and a declaration leave, and do NOT see a re-point at a
-  # resolving test that asserts something else. Mutant 4 adds a second bound --
-  # for a ref a second authority still declares, they cannot see the key come
-  # BACK either.
-  # IT COMMITS THREE scratchpad/card316/*.py FILES, which is the shape that
-  # reddened CARD-318's merge gate. Round claims G-2 re-derived with a positive
-  # control: zero hits across all three instruments. Cycle 2 re-derives it.
-  # AND IT FOUND THE G-2 HAZARD ALREADY LIVE ON MAIN: three tracked files under
-  # scratchpad/card318fix/ each spell a live declared ref as a whole token.
-  # Named by site and routed rather than fixed by reddening another card's
-  # artefacts.
-  branch: card/316-seven-phantom-acceptance-keys
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-316
-  started: '2026-10-31T06:40:00Z'
-  note: >-
-    Seven acceptance criteria carry a test: key naming a test nobody should
-    write; the comment beside each says not-to-be-built and the key says
-    otherwise, and the key is the part the machine reads. Expect the warning
-    count to move by LESS than seven: CARD-317 measured that the validator has no
-    status: superseded exemption and that dropping a test: trades the dead-ref
-    warning for a no-test: warning, net zero. Derive what it does; do not predict.
+#
+# NOTE 2026-11-03: the block below was briefly removed by the orchestrator while
+# clearing two landed cards from `active`, because the removal walked an entry's
+# span by indentation and a standalone comment block reads as entry body. It is
+# restored verbatim -- it is the record that CARD-332's premise was checked
+# BEFORE it was queued, which is the step this board added after five cards in a
+# row found their own premise false.
 #
 # CARD-332 SCHEDULED 2026-10-31 on the owner's "ok schedule it", while wave 72's
 # two slots were full. NEXT TO START when one frees. Wave stamped at dispatch.
@@ -653,7 +470,7 @@ queued:
 - id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: '2026-10-31T13:10:00Z'
+last_updated: '2026-11-03T17:40:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
