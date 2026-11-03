@@ -8,9 +8,20 @@ printed** — black-and-white or colour (:class:`~nonogram.admin.book_page_spec.
 on Print setup, stores on the book, and the export obeys. Carrying it here is
 what lets one submission of that form store the trim and the mode in one write,
 so a refused plan stores neither (AC-197's posture, extended to the mode).
+
+And since CARD-332 it carries the **player domain** — the base of the public
+player a reader of the printed book would open (``https://nonogram.adverax.io``).
+It is the same kind of fact again: chosen on Print setup, stored on the book,
+and read by what the book shows and prints. It is stored **with the book**
+rather than read from the deploy page at print time because a printed run
+records what was printed: a book printed before a domain change cannot be
+fixed, so the base belongs beside the trim it was printed on (the decision
+CARD-332 was told not to duck; see that card's worktree notes for the rule
+about which source wins where).
 """
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Literal, Optional, Tuple
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, InvalidOperation
@@ -45,6 +56,17 @@ class PrintSpec:
     #: the same reason: a caller built before this field must not silently
     #: turn a book's dividers off.
     interior_divider_pages: Optional[bool] = None
+    #: The base of the public player this book's puzzles are read at
+    #: (CARD-332), as stored: an absolute ``https://`` origin with no trailing
+    #: slash, or ``None`` for "the caller named none", which leaves the
+    #: stored value unchanged — the posture :attr:`interior_divider_pages`
+    #: takes, and for the same reason. The **empty string** is the third
+    #: state and the one a text input makes necessary: "the owner cleared the
+    #: field", which stores no domain at all. A checkbox cannot say that, so
+    #: CARD-305 needed a hidden companion field; a text input always posts
+    #: its name, so the field's presence in the submission is its own marker
+    #: and ``""`` can mean "cleared" without ambiguity.
+    player_domain: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
@@ -56,7 +78,55 @@ class PrintSpec:
             "outside_margin_bleed_cm": self.outside_margin_bleed_cm,
             "interior_ink_mode": self.interior_ink_mode,
             "interior_divider_pages": self.interior_divider_pages,
+            "player_domain": self.player_domain,
         }
+
+
+#: The ``books`` column the player domain is stored in (CARD-332). Named once
+#: so a test and a migration can say which column they mean without spelling
+#: it, as ``book_page_spec.DIVIDER_PAGES_COLUMN`` is named for its own.
+PLAYER_DOMAIN_COLUMN = "player_domain"
+
+#: The only scheme a player domain may carry. Not a preference: the public
+#: player is served over TLS and a printed ``http://`` base would be a printed
+#: downgrade nobody can correct (ADR-0041's printed-asset posture — a base in
+#: a book is as permanent as the key beside it).
+PLAYER_DOMAIN_SCHEME = "https://"
+
+#: One label of a host name: alphanumerics and inner hyphens.
+_HOST_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+
+#: What may follow :data:`PLAYER_DOMAIN_SCHEME`: a host name and an optional
+#: port, and **nothing else**. No path, query, fragment, credentials or
+#: whitespace, because the stored value is joined to ``/play/<key>`` and a
+#: base carrying any of those makes a URL that is not the player's door.
+_PLAYER_ORIGIN = re.compile(
+    rf"(?P<host>{_HOST_LABEL}(?:\.{_HOST_LABEL})*)(?::(?P<port>[0-9]{{1,5}}))?"
+)
+
+#: The highest port number there is. A refusal rather than a silent store: a
+#: printed base nobody can reach is the failure this whole family guards.
+_MAX_PORT = 65535
+
+
+def stored_player_domain(book) -> Optional[str]:
+    """``book``'s stored player domain, or ``None`` when it has none (CARD-332).
+
+    The one door onto the column, so Print setup and the arrangement screen
+    cannot disagree about whether a book has a base. A row from before the
+    column, a NULL, and a column holding only whitespace all answer ``None``
+    — "no domain set" — which is what every book that existed before CARD-332
+    is, and what the arrangement screen says plainly rather than building a
+    URL from (AC-3).
+
+    Takes a :class:`~nonogram.admin.book_manager.Book` or a ``books`` row:
+    both carry the attribute and neither is imported here (``print_specs``
+    sits inward of both).
+    """
+    value = getattr(book, PLAYER_DOMAIN_COLUMN, None)
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
 
 
 @dataclass(frozen=True)
@@ -216,6 +286,96 @@ class PrintSpecValidator:
         return True, None
 
     @staticmethod
+    def validate_player_domain(domain: Optional[str]) -> Tuple[bool, Optional[str]]:
+        """Validate one submitted player domain (CARD-332, AC-1).
+
+        ``None`` and a blank string are valid. They are **not** the same
+        thing, and only the caller can tell them apart: ``None`` is "the
+        submission did not carry the field" (leave the stored value alone) and
+        ``""`` is "the owner cleared it" (store no domain). Neither is a
+        refusal, so neither is this method's business — see
+        :attr:`PrintSpec.player_domain`.
+
+        Anything else must be an absolute ``https://`` origin: the scheme,
+        a host name, an optional port, and nothing after it. A path, a query,
+        a fragment, credentials, a space, a bare host or an ``http://`` base
+        are all refused, because the stored value is joined to ``/play/<key>``
+        and printed into a book: a base that is wrong is wrong in every copy
+        and cannot be corrected after the run.
+
+        Returns:
+            Tuple of (is_valid, error_message).
+        """
+        if domain is None or (isinstance(domain, str) and not domain.strip()):
+            return True, None
+        if not isinstance(domain, str):
+            return False, "Player domain must be text"
+
+        text = domain.strip()
+        if not text.lower().startswith(PLAYER_DOMAIN_SCHEME):
+            return (
+                False,
+                f"Player domain must start with {PLAYER_DOMAIN_SCHEME} and name the "
+                f"player's address, like https://nonogram.adverax.io — not '{text}'",
+            )
+
+        rest = text[len(PLAYER_DOMAIN_SCHEME):]
+        # One trailing slash is the shape a browser's address bar hands over,
+        # so it is accepted and dropped rather than refused; a second slash,
+        # or anything after it, is a path and is not a base.
+        if rest.endswith("/"):
+            rest = rest[:-1]
+        match = _PLAYER_ORIGIN.fullmatch(rest)
+        if not match:
+            return (
+                False,
+                f"Player domain must be {PLAYER_DOMAIN_SCHEME} followed by a host name "
+                "and an optional port, with nothing after it — no path, query, "
+                f"fragment, credentials or spaces: '{text}'",
+            )
+        port = match.group("port")
+        if port is not None and not 1 <= int(port) <= _MAX_PORT:
+            return (
+                False,
+                f"Player domain's port must be between 1 and {_MAX_PORT}: '{text}'",
+            )
+        return True, None
+
+    @staticmethod
+    def player_domain_as_stored(domain: Optional[str]) -> Optional[str]:
+        """``domain`` in the one form the column holds (CARD-332).
+
+        The scheme and host lower-cased (a host name is case-insensitive and
+        two spellings of one domain must not become two stored bases), the
+        port as typed, and no trailing slash — so ``{base}/play/{key}`` is one
+        join with exactly one slash in it, wherever the base came from.
+
+        ``None`` for both "named none" and "cleared": the caller has already
+        told those apart (:attr:`PrintSpec.player_domain`), and from here on
+        they are one column value.
+
+        Raises:
+            ValueError: ``domain`` is a value
+                :meth:`validate_player_domain` refuses. Normalising is not a
+                second verdict and has no way to express one, so it refuses
+                rather than returning something plausible: a base nobody
+                checked is exactly what must not reach a printed book.
+        """
+        if domain is None or not str(domain).strip():
+            return None
+        is_valid, refusal = PrintSpecValidator.validate_player_domain(domain)
+        if not is_valid:
+            raise ValueError(refusal)
+        text = str(domain).strip()
+        rest = text[len(PLAYER_DOMAIN_SCHEME):]
+        if rest.endswith("/"):
+            rest = rest[:-1]
+        match = _PLAYER_ORIGIN.fullmatch(rest)
+        host = match.group("host").lower()
+        port = match.group("port")
+        return f"{PLAYER_DOMAIN_SCHEME}{host}" + (f":{port}" if port else "")
+
+    @staticmethod
     def validate_trim_size(
         width_cm: str,
         height_cm: str,
@@ -366,6 +526,7 @@ class PrintSpecValidator:
         *,
         entered_inches: Optional[Tuple[str, str]] = None,
         interior_divider_pages: Optional[bool] = None,
+        player_domain: Optional[str] = None,
     ) -> Tuple[Optional[PrintSpec], Optional[str]]:
         """Create a print spec with validation.
 
@@ -388,6 +549,13 @@ class PrintSpecValidator:
                 defaulted here: a form that omits the field must not be read
                 as "turn them off", and the book's own stored value is the
                 only thing that may answer for it.
+            player_domain: The base of the public player (CARD-332), or
+                ``None`` for "the caller named none", which leaves the stored
+                value unchanged, or ``""`` for "the owner cleared it", which
+                stores no domain. Like ``interior_divider_pages`` it is
+                **not** defaulted here: there is no base a book can be given
+                that nobody chose, and inventing one is how a wrong domain
+                gets printed.
 
         Returns:
             Tuple of (PrintSpec or None, error_message or None)
@@ -422,6 +590,13 @@ class PrintSpecValidator:
             PrintSpecValidator.DEFAULT_INTERIOR_INK_MODE
         )
 
+        # CARD-332: and the player domain, for the same reason — a value the
+        # column's reader would refuse must not reach it. The verdict is made
+        # here; the normalisation below is what the column holds.
+        is_valid, error = PrintSpecValidator.validate_player_domain(player_domain)
+        if not is_valid:
+            return None, error
+
         spec = PrintSpec(
             trim_width_cm=f"{float(width_cm):.2f}",
             trim_height_cm=f"{float(height_cm):.2f}",
@@ -435,6 +610,17 @@ class PrintSpecValidator:
                 None
                 if interior_divider_pages is None
                 else bool(interior_divider_pages)
+            ),
+            # CARD-332: ``None`` ("named none") is carried through as given,
+            # and so is ``""`` ("cleared") — the two are told apart by the
+            # storage boundary, not here. A real base is normalised, so the
+            # column holds one spelling of one domain.
+            player_domain=(
+                None
+                if player_domain is None
+                else (
+                    PrintSpecValidator.player_domain_as_stored(player_domain) or ""
+                )
             ),
         )
 

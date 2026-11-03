@@ -149,6 +149,23 @@ library = {base}/library
 ```
 <!-- END qr-url-shapes -->
 
+**Since CARD-332 this page is no longer the only place a base is written down,
+so here is the rule for which one wins where.** The panel's Print setup stores a
+**player domain on each book**, and the arrangement screen builds that book's
+reader links from the book's own value and from nothing else — this block is not
+read as a fallback, and a book with no stored domain shows no link at all rather
+than one built from a base nobody chose for it. CARD-210 prints from the same
+stored value. So:
+
+* **For a book** — what the book stores wins, always. A printed run records what
+  was printed, and a book printed before a domain change cannot be corrected.
+* **For the deploy** — this block wins, and keeps the meaning it always had: the
+  shapes production serves, and the base it serves them at today. It is what the
+  owner copies into a book's Print setup, not what any code reads.
+
+The two can therefore disagree, and that is the intended state once a domain
+moves: the books printed before the move keep the base they were printed with.
+
 The `base` above is the owner's **custom domain**, registered on 2026-10-30 and
 **observed serving this site the same day**: `/library`, `/play/<key>`, `/b/<slug>`
 and `puzzle/<key>.json` all answer 200 on it, the served puzzle file carries the same

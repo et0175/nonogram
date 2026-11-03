@@ -2645,3 +2645,104 @@ def test_no_other_book_action_writes_the_bundle(panel, tmp_path, path, data):
     client.post(path.format(book_id=book_id), data=data)
 
     assert not (tmp_path / "bundle").exists()
+
+
+# --------------------------------------------------------------------------
+# CARD-332 — the panel's two doors onto this module
+# --------------------------------------------------------------------------
+#
+# The admin panel shows a reader's URL beside each arranged puzzle. Both
+# halves of it are ADR-0041's, so both are answered here rather than respelled
+# in a route or a template: `puzzle_key_of_record` keys a stored row through
+# R1's one implementation, and `play_url` joins a base to the `play` shape
+# `docs/deploy/player.md` records. The expectations below are written from the
+# ADR's words and from that page, never read back from the functions.
+
+
+class TestPlayUrl_TheShapeTheDeployPageRecords:
+    """``{base}/play/{key}`` — one slash, whatever the base was typed as."""
+
+    #: The owner's own example, from the request CARD-332 came from.
+    OWNER_EXAMPLE = "https://nonogram.adverax.io/play/073280edd0"
+
+    def test_it_builds_the_owner_s_own_example(self) -> None:
+        built = player_bundle.play_url("https://nonogram.adverax.io", "073280edd0")
+
+        assert built == self.OWNER_EXAMPLE
+
+    def test_a_trailing_slash_on_the_base_does_not_double(self) -> None:
+        assert (
+            player_bundle.play_url("https://nonogram.adverax.io/", "073280edd0")
+            == self.OWNER_EXAMPLE
+        )
+
+    def test_the_segment_is_the_one_the_deploy_page_records(self) -> None:
+        """``play`` is ``vercel.json``'s rewrite source, not this module's choice."""
+        assert player_bundle.PLAY_PATH == "play"
+
+    @pytest.mark.parametrize("base", ["", "   ", None])
+    def test_it_refuses_to_build_a_url_with_no_base(self, base) -> None:
+        """``None/play/<key>`` rendered as an address is the failure it exists for."""
+        with pytest.raises(ValueError, match="no base"):
+            player_bundle.play_url(base, "073280edd0")
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "073280EDD0",  # upper case: R1 says lowercase
+            "073280edd",  # nine characters
+            "073280edd00",  # eleven
+            "073280edgz",  # not hex
+            "",
+            None,
+        ],
+    )
+    def test_it_refuses_a_key_that_is_not_r1_s(self, key) -> None:
+        """A key of another shape was computed by something that is not R1's one implementation."""
+        with pytest.raises(ValueError, match="puzzle key"):
+            player_bundle.play_url("https://nonogram.adverax.io", key)
+
+
+class TestPuzzleKeyOfRecord_OneRecipeForARow:
+    """The panel holds records; the recipe stays in one place anyway."""
+
+    #: ADR-0041/R1's own example — a 2x2 with only its top-left cell filled
+    #: hashes the bytes of "2x2:1000". Written out, not computed by the module.
+    ADR_EXAMPLE_GRID = [[True, False], [False, False]]
+
+    def _by_hand(self, grid) -> str:
+        cells = "".join("1" if cell else "0" for row in grid for cell in row)
+        text = f"{len(grid[0])}x{len(grid)}:{cells}"
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+
+    def test_a_record_keys_to_the_adr_s_own_recipe(self) -> None:
+        keyed = player_bundle.puzzle_key_of_record({"grid": self.ADR_EXAMPLE_GRID})
+
+        assert keyed == self._by_hand(self.ADR_EXAMPLE_GRID)
+
+    def test_stored_integers_key_the_same_as_stored_booleans(self) -> None:
+        """A row stores 1 and 0; the recipe reads filled and empty."""
+        as_ints = {"grid": [[1, 0], [0, 0]]}
+
+        assert player_bundle.puzzle_key_of_record(as_ints) == self._by_hand(
+            self.ADR_EXAMPLE_GRID
+        )
+
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            "not a grid",  # sliceable, and would hash as a column of cells
+            [],
+            [[]],
+            [[True, False], [True]],  # ragged
+            None,
+        ],
+    )
+    def test_it_refuses_a_stored_value_that_is_not_a_grid(self, stored) -> None:
+        """A key nobody can recompute from the printed book is worse than none."""
+        with pytest.raises(ValueError):
+            player_bundle.puzzle_key_of_record({"grid": stored})
+
+    def test_a_record_with_no_grid_is_refused_rather_than_keyed(self) -> None:
+        with pytest.raises(ValueError):
+            player_bundle.puzzle_key_of_record({"width": 2, "height": 2})

@@ -75,6 +75,15 @@
                     some of its rows. Remove and title editing stay. -#}
                 <p class="text-muted" id="reorder-off">Reordering is off while one size is shown. Show all sizes to move puzzles or sort them.</p>
                 {% endif %}
+                {#- CARD-332 (AC-3): a book with no stored player domain shows
+                    no reader links and says so once, here, rather than N times
+                    beside N puzzles — and says where the domain is set. Nothing
+                    is guessed: the deploy page's base is not this book's, and a
+                    link built from a base nobody chose for this book is the
+                    failure this notice exists instead of. -#}
+                {% if not player_base %}
+                <p class="text-muted" id="no-player-domain">No player domain is set for this book, so no reader links are shown. <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Set it in Print setup</a> (step {{ stepper.book_step_number(1) }}).</p>
+                {% endif %}
                 {# CARD-140: the page plan could not be built for this book, so
                    there are no breaks to draw — and a list with no labels is
                    exactly what a book with no page structure would look like,
@@ -178,6 +187,7 @@
                                 <span class="text-muted">of {{ level.count }}</span>
                             </form>
                             {% endif %}
+
                         </div>
 
                         <div class="item-title">
@@ -192,6 +202,61 @@
                                        onchange="this.form.submit()">
                             </form>
                         </div>
+
+                        {#- CARD-332 (AC-2/AC-4): the URL a reader would
+                            open for this puzzle — `{base}/play/{key}`,
+                            the book's own stored base and ADR-0041/R1's
+                            key, both worked out by the route. Read-only:
+                            text and a copy button, never an input, so
+                            there is nothing here to submit.
+
+                            The link carries the key and nothing else. No
+                            title, no size, no grid and no cell of the
+                            answer is in the URL, in an attribute or in
+                            what Copy puts on the clipboard — the copy
+                            target IS this element's text. -#}
+                        {% if puzzle.play_url %}
+                        <div class="play-link small">
+                            {#- The URL and its button share one flex line; the
+                                live region below does NOT (cycle 2, F-203).
+                                It used to be a fourth item on this line, and
+                                a flex item that long squeezed ``.play-url``
+                                from 98.98 px to 30.50 px at 390 px while it
+                                spoke. No overflow came of it, but the two
+                                failure branches never clear — their words are
+                                an instruction to act on, not a transient
+                                "Copied" — so the squeeze was permanent on an
+                                insecure context. Off the line, the region
+                                cannot take width from the URL at all, in any
+                                branch: bounded rather than merely reset, and
+                                the instruction stays readable. -#}
+                            <div class="play-link-row d-flex align-items-center gap-2">
+                                <span class="visually-hidden">Reader link for puzzle {{ puzzle.order }}</span>
+                                <code class="play-url">{{ puzzle.play_url }}</code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        onclick="copyPlayUrl(this)"
+                                        aria-label="Copy the reader link for puzzle {{ puzzle.order }}"
+                                        title="Copy this link">Copy</button>
+                            </div>
+                            {#- Where Copy says what happened (cycle 1, F-007).
+                                The outcome used to live in the button's
+                                ``title`` alone, which a screen reader does not
+                                announce and a touch user never sees: on the
+                                no-clipboard branch the button looked inert.
+                                A live region is read out when its text
+                                changes, and the words are the same ones.
+                                ``d-block``: its own line, per F-203 above. An
+                                empty block adds no height, so a silent row
+                                measures exactly as it did before. -#}
+                            <span class="play-copy-said text-muted d-block" role="status" aria-live="polite"></span>
+                        </div>
+                        {% elif player_base and not puzzle.play_key %}
+                        {#- The book has a base, so a link was expected
+                            here: this puzzle's stored grid could not be
+                            keyed. One damaged row costs its own link and
+                            nothing else (the exporter's own posture). -#}
+                        <p class="play-link small text-muted mb-0" data-no-play-key="true">No reader link: this puzzle's stored grid could not be read.</p>
+                        {% endif %}
 
                         <div class="item-actions">
                             {# A move stays inside its level, so the controls
@@ -258,6 +323,34 @@
         </div>
     </div>
 </div>
+
+{#- CARD-332: Copy puts the link beside the button on the clipboard, read
+    from the element the owner can see. Nothing else is stored anywhere for it
+    to read — no data attribute holding a second copy of the URL, and nothing
+    about the puzzle but the URL itself. -#}
+<script>
+function copyPlayUrl(button) {
+    // ``closest``, not ``parentElement``: since F-203 the button's own parent
+    // is the flex row inside ``.play-link`` and the live region is the row's
+    // sibling, so the block that holds both is what has to be found here.
+    const link = button.closest('.play-link');
+    const url = link.querySelector('.play-url').textContent.trim();
+    const status = link.querySelector('.play-copy-said');
+    const hint = button.title;
+    // Every outcome is said in the live region AND in the title: the region is
+    // what a screen reader announces and a touch user can read, the title is
+    // the hover affordance it has always been (cycle 1, F-007).
+    const say = (text) => { status.textContent = text; button.title = text; };
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(
+            () => { say('Copied'); setTimeout(() => { status.textContent = ''; button.title = hint; }, 1500); },
+            () => say('Copy failed — select the link and copy it')
+        );
+    } else {
+        say('Copying needs a secure connection — select the link and copy it');
+    }
+}
+</script>
 
 <div class="actions mt-2">
     <a href="/book/{{ book.book_id }}/select-puzzles" class="btn btn-outline-secondary">{{ icons.icon('arrow-left') }} Back to puzzle selection</a>

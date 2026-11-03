@@ -98,6 +98,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,10 +117,13 @@ __all__ = [
     "PUZZLE_CLUES_FIELDS",
     "PUZZLE_FILE_FIELDS",
     "SOLUTION_DERIVED_FIELDS",
+    "PLAY_PATH",
     "book_slug",
     "default_output_dir",
     "export_bundle",
+    "play_url",
     "puzzle_key",
+    "puzzle_key_of_record",
 ]
 
 # --------------------------------------------------------------------------
@@ -252,6 +256,70 @@ def puzzle_key(grid: Sequence[Sequence[bool]]) -> str:
     cells = "".join("1" if cell else "0" for row in grid for cell in row)
     text = f"{width}x{height}:{cells}"
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:KEY_LENGTH]
+
+
+#: The one path segment the player's per-puzzle door sits behind. It is
+#: ``vercel.json``'s own rewrite source, recorded in ``docs/deploy/player.md``'s
+#: ``qr-url-shapes`` block as ``play = {base}/play/{key}`` — the block
+#: ``tests/test_public_player_pages.py`` holds to that file. Named here once so
+#: the panel builds the shape rather than spelling it (CARD-332).
+PLAY_PATH = "play"
+
+#: What a key is allowed to be: exactly :data:`KEY_LENGTH` lowercase hex
+#: characters (ADR-0041/R1). Spelled as a *check*, never as a second way to
+#: compute one — :func:`puzzle_key` remains the only implementation.
+_KEY_SHAPE = re.compile(f"[0-9a-f]{{{KEY_LENGTH}}}")
+
+
+def play_url(base: str, key: str) -> str:
+    """The URL a reader opens for the puzzle ``key`` names — CARD-332, AC-2.
+
+    ``{base}/play/{key}``: ``docs/deploy/player.md``'s ``play`` shape, joined
+    with exactly one slash however the base was typed.
+
+    The **base** is not this module's to choose. It is whatever the caller
+    stored — for the panel, the book's own ``player_domain``, because a
+    printed book records the domain it was printed with (CARD-332's decision).
+    This function only joins, and refuses to join nothing:
+
+    Raises:
+        ValueError: ``base`` is empty or blank, or ``key`` is not
+            :data:`KEY_LENGTH` lowercase hex characters. A blank base is the
+            one failure CARD-332 exists to prevent — ``None/play/<key>``
+            rendered as if it were an address — and a key of the wrong shape
+            is a key computed by something other than :func:`puzzle_key`,
+            which ADR-0041/R1 forbids. Neither is turned into a plausible
+            URL.
+    """
+    if not isinstance(base, str) or not base.strip():
+        raise ValueError(
+            "refusing to build a play URL with no base: a reader's address "
+            "cannot be guessed, and a book with no stored domain has none"
+        )
+    if not isinstance(key, str) or not _KEY_SHAPE.fullmatch(key):
+        raise ValueError(
+            f"refusing to build a play URL for {key!r}: a puzzle key is "
+            f"{KEY_LENGTH} lowercase hex characters (ADR-0041/R1)"
+        )
+    return f"{base.strip().rstrip('/')}/{PLAY_PATH}/{key}"
+
+
+def puzzle_key_of_record(record: Mapping[str, Any]) -> str:
+    """:func:`puzzle_key` of the grid ``record`` stores — the one door for a caller holding a row.
+
+    The panel's screens hold puzzle *records*, not grids, and the shortest
+    route from one to a key is the one thing ADR-0041/R1 forbids: a second
+    spelling of the recipe. So this is the recipe's own module answering the
+    question, through :func:`_grid_of` — the same coercion the exporter makes,
+    which is also what refuses a stored value that is not a grid at all (a
+    string is sliceable and would otherwise hash as a column of cells).
+
+    Raises:
+        ValueError: ``record`` holds no grid, or one that is not a non-empty
+            rectangle. The caller decides what a screen does about one
+            damaged row; it is not keyed on a guess.
+    """
+    return puzzle_key(_grid_of(record))
 
 
 def book_slug(puzzle_keys: Iterable[str]) -> str:
