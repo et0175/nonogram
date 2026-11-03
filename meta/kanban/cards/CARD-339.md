@@ -16,7 +16,7 @@
 **Created wave:** 73
 **Deferred waves:** 0
 **Depends on:** CARD-323
-**Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_maybe.py <!-- test_public_player_maybe.py is NOT optional: CARD-323's cell-look guard treats a `?` glyph as a defect to catch, so AC-1 cannot land without teaching it the new expected shape. See G-2. -->
+**Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_maybe.py, docs/how-it-works/01-domain/puzzle-creation/README.md, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md <!-- The two docs files added 2026-11-03 from CARD-323's cycle 2: this card inherits obligations in both, and without them in Touches it would land leaving a finding described as open after it was closed. See 'What this card inherits'. --><!-- test_public_player_maybe.py is NOT optional: CARD-323's cell-look guard treats a `?` glyph as a defect to catch, so AC-1 cannot land without teaching it the new expected shape. See G-2. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -73,6 +73,36 @@ is only its symptom.
 
 **So fixing the look without widening the surface would leave the mechanism exactly as it
 is, and the next mark to drift would drift the same way.**
+
+## What this card inherits from CARD-323 — added 2026-11-03 from its cycle 2
+
+CARD-323 measured this divergence, routed it, and recorded the hand-off **on its card and in
+one assertion message**. Its cycle-2 review found the finding's **other carriers still describe
+a state that is now superseded**, and they are yours to retract, because they only become false
+when you land:
+
+1. **`player/player.css:162`** — the comment beside the Maybe swatch rule still says the
+   disagreement *"is a FINDING for the owner and not a worktree call"*. Once you add the glyph,
+   the owner has decided and this card is the worktree call. Retract it where it stands.
+2. **`docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md:119`** — describes the
+   public page as drawing *"a tint one step off the paper"* with the disagreement open. It
+   becomes false on your merge, and **CARD-323 could not fix it**, because the state it
+   describes was true then.
+3. **`docs/how-it-works/01-domain/puzzle-creation/README.md`** — its file-table row for
+   `player/player.css` reads **482**, and you change that file. CARD-323's round chose the
+   policy for these rows, recorded for CARD-324..327: *a file-table line-count row for a file
+   the card itself changed is updated in the card's own round; a bare `path:line` cross-reference
+   in prose stays `/forge:explain`'s.* You are the first card to inherit it.
+
+**Both docs files are now in `Touches` for exactly this reason.** Without them the card would
+land correct code and leave three records saying the question is still open.
+
+**One limit of that policy, measured by the same review and worth knowing before you apply it:
+nothing reds when such a row goes stale.** It is an ungated convention, so the next card that
+forgets reproduces the defect. The review named a third option neither CARD-323 nor this card
+has taken — **retire the figure**, as `config.yml` did for the validator's warning count and
+CLAUDE.md did for the duplicated component map (CARD-261). **If you find yourself updating that
+row a second time, retire it instead and say so.**
 
 ## What to implement
 
