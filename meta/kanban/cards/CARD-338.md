@@ -12,7 +12,17 @@
 **Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-338
 **Source:** CARD-322's re-cut, 2026-10-31, judgement call 3. The re-cut found that CARD-329's session probe lifts `PageKind.PUZZLE` **alone**, built the two-line extension itself, ran the five-kind census, and then declined to absorb it — describing it in prose in all three resulting cards instead. It asked whether to card it. **Carded, because three cards describing the same undelivered instrument in prose is how CARD-309 happened.**
 **Idea:** —
-**Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73. Head of the vector chain 338 -> 336 -> 337 -> 322, cut 2026-10-31 at CARD-322's re-cut. Dispatched FIRST in its family because CARD-336's 2d is priced against a one-kind lift and the five-kind census is 225 rather than 151 -- reviewing 336 before this lands would judge it against a figure already known wrong. Intersection EMPTY against every other card on the board. -->
+**Wave:** 73
+<!-- CARD-338's Wave: note, moved OFF the field line 2026-11-03 at the merge gate. It sat
+     INSIDE the parsed value (`parse_card_fields` strips no HTML comment), so `Wave` read as
+     `73 <!-- STAMPED ... -->` and `compute_poached`'s equality test (`fields.get("Wave") !=
+     own_wave`) could match no other card's wave. This was the one live case this card's own
+     census of 17 contaminated `Wave:` fields found, and it was its own.
+     STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73. Head of the vector chain
+     338 -> 336 -> 337 -> 322, cut 2026-10-31 at CARD-322's re-cut. Dispatched FIRST in its
+     family because CARD-336's 2d is priced against a one-kind lift and the five-kind census
+     is 225 rather than 151 -- reviewing 336 before this lands would judge it against a
+     figure already known wrong. Intersection EMPTY against every other card on the board. -->
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** —
@@ -215,9 +225,24 @@ of them can trust and a probe each of them can run.
 
 ## Worktree notes
 
-**Measured at `f407c350`** (this branch's cut; `main` has since moved on kanban and
-repo-hygiene commits that touch no `src/` or `tests/` file, so the tree under measurement
-is main's). Instrument: `scratchpad/card338/probe_five_kinds.py` +
+**Measured at `f407c350`** (this branch's cut). <!-- AMENDED 2026-11-03 at the merge gate
+(cycle-3 M-204). This parenthesis read "`main` has since moved on kanban and repo-hygiene
+commits that touch no `src/` or `tests/` file, so the tree under measurement is main's".
+That was true when written and is NOT true now: CARD-323 and CARD-332 both landed during
+this card's review. -->
+**`main`'s `src/` and `tests/` HAVE since moved, and the figures were re-checked against
+the move rather than assumed safe.** Between `f407c350` and main's tip `fd9cbdfa`, eight
+commits from CARD-323 and CARD-332 change **14** files under `src/`/`tests/`
+(`admin/app.py` +97, `book_manager.py`, `player_bundle.py`, `print_specs.py`,
+`db/models.py`, `static/admin.css`, two templates, and six test modules), derived with
+`git diff --name-only f407c350..fd9cbdfa -- src tests`. **What was checked, and found
+unaffected:** all **21** census modules (CARD-329's 20 plus
+`tests/test_book_interior_type_floor.py`) and both modules every figure here is about
+(`book_pdf_generator.py`, `book_interior_vector.py`) are in that diff **zero** times, so no
+number on this card moves. What DID move is `app.py`'s line numbering — see the
+cite-by-spelling note under *The finding that is not a figure* and in CARD-322 item 1's
+table. This is a stronger statement than the sentence it replaces, which claimed safety by
+asserting main had not moved. Instrument: `scratchpad/card338/probe_five_kinds.py` +
 `census_five_kinds.py`, one file-scoped pytest run per module, `-o addopts=` as two argv
 items, `-rfs` as one flag, the full environment inherited, bytecode off and `__pycache__`
 swept at both ends. Two interruptions cost this round its first two attempts; the figures
@@ -317,9 +342,13 @@ hazard through the medium decision and no card has priced it"*.
 ### The finding that is not a figure
 
 **`interior_generator` has ZERO call sites in `src/`.** Production builds
-`BookPDFGenerator(book)` at `app.py:841`, `:960`, `:5580`, `:5759`, `book_proof.py:764` and
-`pdf_generator.py:344`, and `:5580` is `generator.export_interior(puzzles)` — the interior
-download path. So CARD-322's re-cut §2 — *"the `src/` change is the five registry entries,
+`BookPDFGenerator(book)` at four sites in `app.py`, one in `book_proof.py` and the bookless
+module-level `_pdf_generator = BookPDFGenerator()` in `pdf_generator.py`, and the `app.py`
+site **whose next statement is `return generator.export_interior(puzzles)`** is the interior
+download path. <!-- CITED BY SPELLING, 2026-11-03 at this card's merge gate (cycle-3 M-204):
+this sentence carried `app.py:841`, `:960`, `:5580`, `:5759` and CARD-332's merge moved the
+last two to `:5673` and `:5852` — the `export_interior` one among them. CARD-322 item 1's
+table is the enumeration of record. --> So CARD-322's re-cut §2 — *"the `src/` change is the five registry entries,
 and nothing else"* — is **false as measured**: the E1/E2 column above prices the difference
 at 17 reds in a single module, every one of them `_drawn_downstream`'s refusal. Written
 into CARD-322 §2 as an inline correction. **G-1 held**: this card edited no `src/` file; it
@@ -332,10 +361,57 @@ committed — only `.py` under `scratchpad/card338/`, and the committed files na
 *modules* only, every one of which is already tracked on `main` in
 `scratchpad/card329/measure_probe.py`, `meta/profiling/` and `meta/review/`, so the
 resolver's search space gains no name. Validator of record (the `forge_1` copy, read-only,
-run in this worktree): **0 errors / 525 warnings before and after** — the 525 is CARD-335's
-batched-grep timeout, reproducible and predating this card — with the WARN **sets** matched
-by `comm` in both directions over 525 non-empty lines a side, `^\s*\[WARN` not `^\[WARN`,
-and **both halves empty**. The full suite was never run; every census call is file-scoped.
+run in this worktree): **0 errors / 525 warnings before and after**, deterministic, with the
+WARN **sets** matched by `comm` in both directions over 525 non-empty lines a side,
+`^\s*\[WARN` not `^\[WARN`, and **both halves empty**.
+
+**What the 525 are, corrected and measured at the merge gate (cycle-3 M-202).** This note
+first said "the 525 is CARD-335's batched-grep timeout". The attribution to CARD-335 is
+withdrawn — that card owns the opposite mechanism (a committed artefact making a *dead* ref
+resolve) and its baseline is a different population at a different magnitude (108 → 107
+dead-ref warnings). What the 525 are: **436** of them read *"existence could not be
+determined — the search tool itself failed (git grep error)"*, from forge's own batched code
+search; the remaining **89** are real warnings.
+
+**And it IS a timeout — the gate measured it rather than asserting it either way, because
+cycle 3 reported the opposite.** Cycle 3 observed that batches of 50/100 answer cleanly
+while 150/200 return every name as `None`, and read that as proof it is *not* a timeout,
+since a hand-run `git grep` with 200 patterns exits rc 0. Both halves of the observation
+reproduce; the inference does not. `validators/utils._grep_batch` passes
+`timeout=BATCH_TIMEOUT_BASE_S + BATCH_TIMEOUT_PER_NAME_S * len(names)` = **`10 + 0.1N`** to
+`subprocess.run` and swallows the `TimeoutExpired` in a bare `except Exception: return
+None, set()` — so a blown budget IS the all-`None` regime, and rc 0 from a hand-run grep is
+expected, because `subprocess.run(timeout=)` kills the child the hand-run keeps.
+
+Timed on this repository with **391** real check-ref-shaped names, the raw argv the
+validator builds run with **no** timeout, beside `symbols_exist` run with the budget:
+
+| N | raw `git grep -ow` | budget `10 + 0.1N` | `symbols_exist` wall | answers |
+|---|---|---|---|---|
+| 50 | 0.52 s | 15.0 s | 0.15 s | 50 True, **0 None** |
+| 100 | 7.97 s | 20.0 s | 7.30 s | 100 True, **0 None** |
+| 150 | **44.44 s** | 25.0 s | **25.01 s** | **150 None** |
+| 200 | **141.24 s** | 30.0 s | **30.01 s** | **200 None** |
+
+Every raw run exits **rc 0** with real matches (170 / 606 / 1997 / 5323 match lines), so the
+tool is not failing — it is being killed. **`symbols_exist`'s wall time at the two failing
+sizes equals its own budget to 0.01 s**, which is the timeout firing and nothing else, and
+cycle 3's threshold sits exactly where the cost curve crosses the budget (under it at
+N=100, 2.2× over it at N=150). `BATCH_SIZE` is **200**, so every real validator run on this
+repository batches straight into the blown regime. The cost is super-linear in N because
+`-ow` prints one line per occurrence.
+
+**None of this weakens G-4**, and that is why it stays a Minor. G-4's claim is set
+EQUALITY — *nothing was revived* — and a revived ref would change its own warning line and
+make `comm -23` non-empty. The claim the blindness would degrade is the absolute one
+("no dead refs"), which this card never makes. Raised as O-201 for whoever owns forge's
+batching; a `BATCH_SIZE` at or below 100 would answer this repository cleanly today.
+<!-- MEASURED 2026-11-03 at the merge gate, not inherited: the instrument is
+     /private/tmp/.../scratchpad/m202/time2.py for the session, and the two constants and
+     the bare `except Exception` are read from
+     forge_1/forge/skills/architect-validate/scripts/validators/utils.py (read-only, G-6).
+     The brief that ordered this fix predicted 8.6 s at N=100 and ~40 s at N=150; measured
+     7.97 s and 44.44 s. Same conclusion, and the figures here are mine. --> The full suite was never run; every census call is file-scoped.
 
 ### Fix round 1 (cycle 1 scored 7.5, nothing a blocker) — three propagation defects
 
@@ -350,9 +426,15 @@ execute.**
 * **F-001, CARD-322's item 1.** The blocker above was written into §2 and into item 0, not
   into item 1 — the one step that performs the `src/` change, which still claimed the walk
   already reaches the writers and routed the refutation back out as *"a finding about
-  CARD-309"*. Item 1 now names the decision as CARD-322's own (move the six call sites to
-  `interior_generator`, or change the generator's default) and the CARD-309 routing is
-  dropped for the downstream-writer case, kept only for a cause this card did not measure.
+  CARD-309"*. Round 1 made item 1 name the decision as CARD-322's own — move the
+  generator's construction sites to `interior_generator`, or change the generator's
+  default — and dropped the CARD-309 routing for the downstream-writer case, keeping it
+  only for a cause this card did not measure.
+  <!-- CORRECTED 2026-11-03 at the merge gate (cycle-3 M-201b). This bullet said, in the
+       present tense, that item 1 "now names the decision … (move the SIX call sites …)".
+       Item 1 carries NO count, which is the right fix — the restatement was the stale copy,
+       and in the present tense it read as a description of the live text rather than as a
+       record of a round. Put in the past tense and the count dropped, as item 1 drops it. -->
 * **F-002, the instrument.** ADR-0039/R4's retraction clause was applied to four card
   bodies and to `classify_reds.py`'s M1 rule, and not to `census_five_kinds.py`, which is
   the one place a downstream round reads a NUMBER from: it printed
@@ -441,7 +523,7 @@ sites; here a parser counted commas, not paths.
   `grep -rn 'BookPDFGenerator(' src/`: **seven** construction sites outside
   `interior_generator`, six `(book)` and one bookless. Item 1 now carries the sites as a
   table with what each builds, and §2's blockquote is corrected in place. Nothing in the
-  conclusion moves — and one thing in the **costing** does: **only `app.py:5580` reaches a
+  conclusion moves — and one thing in the **costing** does: **only the `export_interior` site reaches a
   downstream interior write**, so option A is a larger edit than the refusal requires.
   `book_pdf_generator.py` was already declared, so the omitted site widens nothing.
 * **M-103, upgraded on measurement: the leaf property is a LIVE TEST, not only prose.**
@@ -543,3 +625,96 @@ today**, and that is measured rather than assumed: **0** of the 17 have `Status:
 17. The general shape, for whoever fixes it: the parser hands a field's comment to every
 consumer as part of the value, and each consumer then fails in its own idiom — `Touches`
 silently drops a declared path, `Wave` silently stops matching.
+
+### Fix round 3 (cycle 3 scored 9.0, CERTIFIED — zero Critical, zero Important, `system_contract_verdict: pass`) — the merge gate, and one finding half overruled on measurement
+
+Cycle 3's four Minors are closed here. None of them moved a figure; two of them moved a
+*claim about an instrument*, which is this card's subject, so both were re-measured rather
+than edited.
+
+* **M-201, three stale restatements of a refuted count.** CARD-322 §2's blockquote said
+  *"those six call sites"* four lines after the same blockquote enumerated **seven** — now
+  "those **seven** construction sites", with the "six `(book)` spellings" defence closed off
+  in place (`interior_generator(book=None, pages=None)` takes no argument, so the bookless
+  site converts too). §2's **heading** asserted the refuted clause unmarked while the
+  `Touches:` copy was struck through — now struck, with a pointer to the correction
+  blockquote below it. And this card's own fix-round-1 record described item 1, in the
+  present tense, as naming "the six call sites"; item 1 carries **no** count, which is the
+  right fix, so the record is in the past tense and the count is dropped. Item 1's table is
+  the enumeration of record and was right throughout.
+* **M-202, and the gate measured it rather than taking either side's word.** Half the
+  finding stands: the **436 / 89** split is new, correct and kept, and the attribution to
+  "CARD-335's batched-grep timeout" is withdrawn. Half does not: cycle 3's *"it is not a
+  timeout"* is **refuted by measurement**, and the refutation is the finding's own threshold
+  read correctly — `10 + 0.1N` against a super-linear cost curve, with `symbols_exist`'s
+  wall time equal to its budget to 0.01 s at both failing sizes. The table is in the
+  Guardrails note above. The brief that ordered this fix offered the budget explanation and
+  invited its refutation by measurement; it was measured, it held, and two of the brief's
+  own figures (8.6 s, ~40 s) are replaced by this gate's (7.97 s, 44.44 s).
+* **M-203, the refusal discriminator is now per case.** `prove_refusals.py` scored a case
+  `ok` on `bool(named)` — any member of one flat eight-phrase list, found anywhere on the
+  assertion surface. That is set membership, not a discriminator: all five drop cases were
+  satisfied by the same `'found no'`, and a case refusing for another reason still scored
+  OK. `CASES` now carries a fourth element, each case's **own** expected phrase, and the
+  five drop phrases carry the kind name (`found no declaration to lift for ['TOC']`), which
+  makes them **mutually non-satisfiable** — asserted, not just claimed. One thing the fix
+  needed that the finding did not name: pytest wraps a traceback at 80 columns and gutters
+  each continuation with `E`, so a 43-character phrase is routinely split mid-phrase and a
+  literal `in surface` test would have produced a **false negative** — the direction that
+  lies. `flattened()` strips the gutter and collapses whitespace, still scoped to the
+  assertion surface that cycle 1's F-005 bought.
+* **And the re-run this card recorded as owed is now done.** Fix round 2 could not re-run
+  `prove_refusals.py`'s nine substantive cases, because CARD-323's gate held the full-suite
+  lock. This round holds it, so the lock refusal does not fire and the cases execute:
+  **`AC-1 PROVED: 9 cases, 8 refusals each naming ITS OWN mechanism and 1 control
+  accepted`**, exit 0, every case verified to have imported the generator from its own
+  mutated copy. The eight refusals exit 3, the control exits 0.
+* **M-204, two line citations that rotted mid-review — and the rule applied rather than the
+  numbers patched.** CARD-332 merged while cycle 3 was reviewing and moved `app.py` by +97
+  lines: `:5580` became `:5673` and `:5759` became `:5852`, re-derived here with
+  `grep -rn 'BookPDFGenerator(' src/` on main's tip. `:5580` was the row item 1 marks *"the
+  one site that writes an interior"*, so the **load-bearing** citation was the one that
+  rotted, and silently. The sites are therefore cited by **spelling** — "the `app.py` build
+  whose next statement is `return generator.export_interior(puzzles)`" — in CARD-322 item
+  1's table, in §2's blockquote and in this card's *finding that is not a figure*; the line
+  numbers survive only as a dated convenience line that is expected to rot. A name is
+  stable across edits and self-verifying; a line number rots without a sound. The one place
+  a rotted number is **kept** is the quotation of the withdrawn sentence, because a
+  quotation of a retracted claim is history, and that is said where it sits.
+* **The worktree note's premise was false and is replaced by a stronger one.** It said main
+  "has since moved on kanban and repo-hygiene commits that touch no `src/` or `tests/`
+  file". Measured, `git diff --name-only f407c350..fd9cbdfa -- src tests` is **14** files
+  over eight commits from CARD-323 *and* CARD-332 (the brief said 13; 14 is what the diff
+  says, the extra being that six test modules moved, not four). **What makes the figures
+  safe is the check, not the claim:** all **21** census modules and both modules every
+  figure here is about appear in that diff **zero** times.
+
+**The gate's own finding, and it is a field, not a figure.** Checked before merging, as this
+card's own lesson demands. `Wave:` carried its stamp comment **inside** the parsed value —
+this card's census of 17 contaminated `Wave:` fields had already named it as one of the 17,
+and it was the one live case left after main's `fd9cbdfa` sweep. Moved to its own line.
+Then the same check on the three cards this branch edits found something the census had
+*not* reached: main's `fd9cbdfa` repaired `Depends on` **board-wide** after a comment there
+closed a real cycle (CARD-336's comment named CARD-337, which really depends on CARD-336),
+and this card's fix round 1 wrote **new** inline comments into CARD-322's and CARD-337's
+`Depends on` — authored after that repair, and landing into a field main had just cleaned.
+`establish_dependencies_resolved` token-scans that value with `CARD-\d+`, so a card id in a
+comment is an edge.
+
+**Measured before repairing, in both readings, over all 340 cards:** the comment-stripped
+reading gives 340 ordered / no cycle and the token scan gives 337 / cycle, **identically on
+main's tip and on the merged tree** — this card adds **no** phantom edge, because its
+comments spell the chain as bare `338 -> 336 -> 337 -> 322` and every `CARD-NNN` token in
+them is already a real edge. So it was inert, by luck and not by design, exactly as this
+card said of the `Wave:` family. Both lines are normalised to main's convention anyway.
+The residual cycle (337 of 340) is pre-existing on main, confined to `done` cards
+(CARD-218, CARD-220, the latter naming **itself**), and is outside this card's scope —
+CARD-341 owns the lint. So are CARD-322's `Priority:`, `Estimate:` and `Complexity:`, which
+carry comments on main and are untouched here.
+
+**Scope held at the gate.** `src/` **0 files** and `tests/` **0 files** over the whole
+branch, including this round. The node-id delta over the merged tree is **0 gained / 0
+lost** — **10235** node ids collected on main's tip `fd9cbdfa` and **10235** on the merged
+tree, `comm` empty in both directions with both sides asserted non-empty first. That is the
+strong form of G-1 and G-2, and it is what a card touching neither directory must show:
+anything else would mean the branch carried something its guardrails say it does not.

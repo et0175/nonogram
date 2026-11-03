@@ -170,15 +170,37 @@ def stop_reading_the_global(tree: Path) -> None:
     )
 
 
+#: One case: ``(name, mutate, must_refuse, expected_phrase)``.
+#:
+#: ``expected_phrase`` is the fourth element and it is THE POINT (cycle-3 M-203).
+#: Until it existed, ``main()`` scored a refusal case ``ok`` on
+#: ``bool(named)`` -- ANY member of one flat eight-phrase list, found anywhere on
+#: the assertion surface. That is SET MEMBERSHIP, not a discriminator: a case
+#: that refused for a different reason than the one it mutates still scored OK,
+#: and all five drop cases were satisfied by the same ``"found no"``. The card's
+#: own Item-2 note is per-case, so the script was weaker than the claim it
+#: backed.
+#:
+#: Each phrase is a literal slice of ONE of ``probe_five_kinds.py``'s assertion
+#: messages, and the five drop phrases carry the KIND NAME, which makes them
+#: mutually non-satisfiable -- the property the card claims and this is what
+#: asserts it. ``None`` for the control, which must not refuse at all.
 CASES = [
-    (f"declaration {kind} already absent", lambda t, k=kind: drop_declaration(t, k), True)
+    (f"declaration {kind} already absent",
+     lambda t, k=kind: drop_declaration(t, k),
+     True,
+     f"found no declaration to lift for ['{kind}']")
     for kind in ("PUZZLE", "TITLE", "GUIDE", "TOC", "ANSWER")
 ] + [
-    ("writer-rebinding target renamed", rename_target, True),
-    ("assembly point's writer set is partial", partial_writers, True),
+    ("writer-rebinding target renamed", rename_target, True,
+     "cannot rebind nonogram.admin.book_pdf_generator.NO_DOWNSTREAM_WRITERS: "
+     "no such name"),
+    ("assembly point's writer set is partial", partial_writers, True,
+     "has no writer for ['guide']"),
     ("constructor stops reading the global (rebinding is a no-op)",
-     stop_reading_the_global, True),
-    ("CONTROL: the unmutated tree", lambda tree: None, False),
+     stop_reading_the_global, True,
+     "does not hold the rebound writer set"),
+    ("CONTROL: the unmutated tree", lambda tree: None, False, None),
 ]
 
 IMPORTED_FROM = re.compile(r"^CARD338-IMPORTED-FROM (.*)$", re.M)
@@ -212,6 +234,24 @@ def assertion_surface(out: str) -> str:
         if "AssertionError" in line:
             keep.update(range(index, min(index + 3, len(lines))))
     return "\n".join(lines[index] for index in sorted(keep))
+
+
+def flattened(surface: str) -> str:
+    """The assertion surface as ONE line, for phrase matching.
+
+    Needed by the per-case phrases (cycle-3 M-203). pytest wraps a traceback at
+    80 columns and prefixes each continuation with ``E``, so a phrase as short
+    as ``found no declaration to lift for ['PUZZLE']`` is routinely split
+    mid-phrase -- and a phrase that cannot be found reads as a refusal that did
+    not name itself, which is a FALSE NEGATIVE in the direction this card keeps
+    finding. Strip the ``E`` gutter, join, collapse runs of whitespace; every
+    phrase in CASES is written with single spaces so it matches this form.
+
+    Still SCOPED to the assertion surface, which is what cycle-1's F-005 bought:
+    flattening widens the matcher within those lines, never beyond them.
+    """
+    ungutter = (re.sub(r"^E\s*", "", line) for line in surface.splitlines())
+    return re.sub(r"\s+", " ", " ".join(ungutter)).strip()
 
 
 def run(tree: Path) -> tuple[int, str]:
@@ -255,7 +295,7 @@ def main() -> int:
     )
 
     failures = []
-    for name, mutate, must_refuse in CASES:
+    for name, mutate, must_refuse, expected_phrase in CASES:
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
         tree = fresh_copy(slug)
         mutate(tree)
@@ -290,25 +330,25 @@ def main() -> int:
         #
         # Scoped to the ASSERTION SURFACE, not to the whole of stdout+stderr: a
         # phrase found on an unrelated line would score the case "named" while
-        # the assertion itself said nothing. Each phrase below is a literal
-        # slice of one of probe_five_kinds.py's own assertion messages -- the
-        # bare "declares" this list used to carry matched almost any English
-        # sentence pytest could print.
+        # the assertion itself said nothing. That scoping is cycle-1 F-005's and
+        # it stands.
+        #
+        # What changed at cycle-3 M-203: the match is PER CASE, not set
+        # membership. `expected_phrase` is the slice of the one assertion this
+        # case's mutation is supposed to trip, carried in CASES beside
+        # `must_refuse`. The flat eight-phrase list this block used to scan
+        # scored a case OK for refusing for ANY named reason, so a case that
+        # refused for ANOTHER reason still passed as proof of this one, and all
+        # five drop cases were satisfiable by the same `"found no"`. Flattened
+        # first, because pytest wraps the message and a split phrase would read
+        # as a refusal that did not name itself.
         surface = assertion_surface(out)
-        named = [
-            phrase
-            for phrase in (
-                "found no", "cannot rebind", "cannot read", "has no writer for",
-                "does not hold the rebound", "measures nothing",
-                "in expires_with and the census is",
-                "the registry declares",
-            )
-            if phrase in surface
-        ]
+        flat = flattened(surface)
+        named = bool(expected_phrase) and expected_phrase in flat
         ok = (
             from_copy
             and refused == must_refuse
-            and (bool(named) if must_refuse else True)
+            and (named if must_refuse else True)
         )
         verdict = "OK  " if ok else "FAIL"
         print(f"{verdict} [{'refuse' if must_refuse else 'accept'}] {name}")
@@ -322,7 +362,10 @@ def main() -> int:
             ]
             for line in quoted[:3]:
                 print(f"       message: {line[:200]}")
-            print(f"       phrases naming what it could not do: {named}")
+            print(f"       expected phrase: {expected_phrase!r}")
+            print(f"       named it: {named}")
+            if not named:
+                print(f"       surface (flattened): {flat[:400]!r}")
         if not ok:
             failures.append((name, code, out[-4000:]))
         shutil.rmtree(tree, ignore_errors=True)
@@ -335,7 +378,8 @@ def main() -> int:
             print(f"\n########## FAILED CASE: {name} (exit {code})\n{out}")
         print(f"AC-1 NOT PROVED: {len(failures)} of {len(CASES)} cases wrong")
         return 1
-    print(f"AC-1 PROVED: {len(CASES)} cases, 8 refusals named and 1 control accepted")
+    print(f"AC-1 PROVED: {len(CASES)} cases, 8 refusals each naming ITS OWN "
+          f"mechanism and 1 control accepted")
     return 0
 
 

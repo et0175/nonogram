@@ -27,7 +27,19 @@
 **Wave:** —
 **Created wave:** 68
 **Deferred waves:** 0
-**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
+**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338
+<!-- MOVED OFF THE FIELD LINE 2026-11-03 at CARD-338's merge gate. It sat INSIDE the
+     parsed `Depends on` value, and that field's consumer (`readiness_score.
+     establish_dependencies_resolved`) TOKEN-SCANS the value with `CARD-\d+`, so every
+     card id inside a comment becomes a dependency -- the mechanism main's `fd9cbdfa`
+     repaired board-wide after it closed a real cycle (CARD-336's comment named
+     CARD-337, which really depends on CARD-336). This card's own comment was measured
+     INERT (it spells the chain as bare `338 -> 336 -> 337 -> 322`, so the only
+     `CARD-NNN` tokens in it are already real edges, and both readings of the 340-card
+     graph agree), but it was authored by CARD-338 AFTER main's repair and would have
+     landed a field main had just cleaned. Normalised to main's own convention. The note
+     it carried follows, unchanged, as its own comment. -->
+<!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 <!-- WIDENED 2026-10-30 at CARD-309's re-cut, from `CARD-309` alone. CARD-309 implemented this card's conversion to measure it and reverted it: 189 failures + 75 errors across 22 modules, four causes. Three of them are now cards and every one of them is a PREREQUISITE, not a sibling -- CARD-329 (the one-image reader), CARD-330 (the 0.169 mm the media disagree by, which changes the VALUE of every placed-edge expectation), CARD-331 (the difficulty-dot instrument, which on a vector page measures a page the product no longer draws and does so SILENTLY). Converting before CARD-330 decides its question means re-deriving every edge expectation twice. WIDENED AGAIN 2026-10-31 at this card's own re-cut by CARD-336 (the frame-centre oracle) and CARD-337 (the twelve modules CARD-329's triage left owed, plus the one its filters could not see) -- both split OUT of this card, both land before any page converts, and both share a file with this one, so they are serialized ahead of it rather than run beside it. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/app.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/pdf_generator.py, tests/test_book_pdf.py, tests/test_book_difficulty_dots.py, tests/test_book_solved_answer_key.py, tests/test_book_puzzle_page_vector.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 <!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`, `book_toc_vector.py`, `book_answer_vector.py`: measured, the walk ALREADY reaches all four downstream writers through CARD-309's `InteriorPageWriters` (`book_pdf_generator.py:7885/7934/8031/8051`) and the title page through its own `vector_title_page` (`:5266`, gated at `:7863`), so no writer module is edited -- ~~the src/ change is the five registry entries~~ [WITHDRAWN, see the next comment]. ADDED the four files the re-cut's own items need: `book_puzzle_vector.py:43` (the F-307 docstring consumer), `test_book_difficulty_dots.py` (CARD-331's arm re-point), `test_book_solved_answer_key.py:3783` (CARD-297's clip divergence) and `test_book_puzzle_page_vector.py:1950` (the F-307 rename itself). -->
@@ -69,7 +81,7 @@ the "Why this card exists" paragraph below and item 1. **Corrected in the title;
 paragraph below is left standing with this pointer, per this card's convention of carrying
 its corrections inline so the record shows what was claimed when.**
 
-### 2. The src/ change is the five registry entries, and nothing else
+### 2. ~~The src/ change is the five registry entries, and nothing else~~ [WITHDRAWN 2026-11-03, CARD-338 — see the correction blockquote below]
 
 Measured by reading the walk: `book_pdf_generator.py` already reaches **all four**
 downstream writers through CARD-309's `InteriorPageWriters` (`:7885`, `:7934`, `:8031`,
@@ -84,16 +96,20 @@ that deletion*, which is the fact the 1d estimate was missing.
 > downstream writers only *through the writer set the generator was built with*, and
 > `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS` — a full
 > default-DENY. **`interior_generator`, the one call that builds an assembled generator,
-> has ZERO call sites in `src/`**: production builds the generator at `app.py:841`,
-> `:960`, `:5580`, `:5759`, `book_proof.py:764`, `book_pdf_generator.py:1912` and
-> `pdf_generator.py:344` — **seven** sites, six of them `BookPDFGenerator(book)` and the
-> last a bookless module-level singleton. <!-- CORRECTED 2026-11-03 by CARD-338 (fix round
+> has ZERO call sites in `src/`**: production builds the generator at **seven** sites in
+> `src/` outside `interior_generator` — four in `app.py`, one in `book_proof.py`, one
+> inside `book_pdf_generator.puzzle_page_plan` and the bookless module-level
+> `_pdf_generator = BookPDFGenerator()` in `pdf_generator.py` — six of them
+> `BookPDFGenerator(book)` and the last that bookless singleton. **Item 1's table is the
+> enumeration of record**, and it names each site by its spelling rather than its line
+> (cycle-3 M-204: `main` moved `app.py` mid-review and two of the four line citations
+> rotted). <!-- CORRECTED 2026-11-03 by CARD-338 (fix round
 > 2, cycle-2 M-102): this blockquote first said "six", spelled `pdf_generator.py:344` as a
 > `(book)` build (it is `_pdf_generator = BookPDFGenerator()`, evaluated at import) and
 > omitted `book_pdf_generator.py:1912` altogether. See item 1's re-measured table, which is
 > the enumeration of record. The conclusion is unchanged. -->
-> And `app.py:5580` is `generator.export_interior(puzzles)` — the download path, and the
-> only one of the seven that writes an interior. So the day
+> And the `app.py` site whose next statement is `return generator.export_interior(puzzles)`
+> is the download path, and the only one of the seven that writes an interior. So the day
 > the `GUIDE`/`TOC`/`ANSWER` entries are deleted, that path hits `_drawn_downstream`'s
 > refusal: *"a guide page is written as operators (ADR-0042/R1) and this generator was
 > built with no downstream writer for it"*. **Measured, not reasoned:** CARD-338's
@@ -101,8 +117,14 @@ that deletion*, which is the fact the 1d estimate was missing.
 > on-disk trees — five entries deleted and nothing else (**25 reds**), versus the same plus
 > the default writer set assembled (**8 reds**). **Seventeen reds in one module are that
 > refusal.** The `src/` change is therefore the five dict entries **plus** either moving
-> those six call sites to `interior_generator` or changing the generator's default — a
-> decision this card has to make and did not know it had. It is also CARD-309's pattern
+> those **seven** construction sites to `interior_generator` or changing the generator's
+> default — a decision this card has to make and did not know it had.
+> <!-- CORRECTED 2026-11-03 at CARD-338's merge gate (cycle-3 M-201a): this sentence said
+> "those six call sites" four lines after the same blockquote enumerated SEVEN, so the
+> blockquote contradicted itself. Item 1's table is the enumeration of record and is right.
+> "Six" is not defensible as "the six `(book)` spellings" either: `interior_generator(book=
+> None, pages=None)` accepts no argument, so the bookless site converts too and all seven
+> move under option A. --> It is also CARD-309's pattern
 > repeating exactly as CARD-336's dependency note feared: *writers with zero call sites*.
 
 ### 3. The residue is 225 reds, not 151 — and the 151 is nonetheless honest
@@ -687,7 +709,8 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
    <!-- CORRECTED 2026-11-03 by CARD-338 (fix round 2, cycle-2 M-102). The sentence above
         read "either move the six `BookPDFGenerator(book)` call sites (`app.py:841`,
         `:960`, `:5580`, `:5759`, `book_proof.py:764`, `pdf_generator.py:344`) to
-        `interior_generator`". Re-measured with `grep -rn 'BookPDFGenerator('` over `src/`,
+        `interior_generator`" -- the withdrawn list, quoted as it was written and NOT
+        re-pointed, because a quotation of a retracted sentence is history. Re-measured with `grep -rn 'BookPDFGenerator('` over `src/`,
         that list MISLABELS one member and OMITS another, and the count "six" was right
         only by coincidence. The enumeration below replaces it. -->
 
@@ -696,20 +719,35 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
    `interior_generator`'s own `return BookPDFGenerator(...)`
    (`book_interior_vector.py:141`):
 
+   <!-- CITED BY SPELLING, NOT BY LINE, 2026-11-03 at CARD-338's merge gate (cycle-3
+        M-204). This table first carried `app.py:841 / :960 / :5580 / :5759`. CARD-332
+        merged into `main` DURING CARD-338's cycle-3 review and moved `app.py` by +97
+        lines: `:5580` became `:5673` and `:5759` became `:5852` — and `:5580` was the row
+        marked "the one site that writes an interior", so the load-bearing citation was the
+        one that rotted, silently. A line number rots without a sound; a spelling is stable
+        across edits and self-verifying, which is this board's rule. The sites are therefore
+        named by what the call is, re-derived on main at `fd9cbdfa` with
+        `grep -rn 'BookPDFGenerator(' src/`; the "re-derive at dispatch" line below is now
+        a convenience, not the only defence. -->
+
    | site | spelling | what it builds for |
    |---|---|---|
-   | `app.py:841` | `BookPDFGenerator(book)` | `.section_plan(...)` — a page plan |
-   | `app.py:960` | `BookPDFGenerator(book)` | interior counts |
-   | `app.py:5580` | `BookPDFGenerator(book)` | **`generator.export_interior(puzzles)` — the download path, the one site that writes an interior** |
-   | `app.py:5759` | `BookPDFGenerator(book)` | `.section_plan(rows)` — a page plan |
-   | `book_proof.py:764` | `BookPDFGenerator(book)` | the proof sheet |
-   | `book_pdf_generator.py:1912` | `BookPDFGenerator(book)` | `puzzle_page_plan` — **omitted from the first list entirely** |
-   | `pdf_generator.py:344` | `BookPDFGenerator()` | **bookless, a module-level singleton evaluated at import** — not a per-request build, and not the `(book)` spelling the first list claimed |
+   | `app.py`, the `BookPDFGenerator(book).section_plan(list(puzzles))` one-liner | `BookPDFGenerator(book)` | `.section_plan(...)` — a page plan |
+   | `app.py`, the build followed by the interior-count read | `BookPDFGenerator(book)` | interior counts |
+   | `app.py`, **the build whose next statement is `return generator.export_interior(puzzles)`** | `BookPDFGenerator(book)` | **the download path, the one site that writes an interior** |
+   | `app.py`, the build followed by `.section_plan(rows)` | `BookPDFGenerator(book)` | `.section_plan(rows)` — a page plan |
+   | `book_proof.py`, in the proof-sheet build | `BookPDFGenerator(book)` | the proof sheet |
+   | `book_pdf_generator.py`, inside `puzzle_page_plan` | `BookPDFGenerator(book)` | `puzzle_page_plan` — **omitted from the first list entirely** |
+   | `pdf_generator.py`, the module-level `_pdf_generator = BookPDFGenerator()` | `BookPDFGenerator()` | **bookless, a module-level singleton evaluated at import** — not a per-request build, and not the `(book)` spelling the first list claimed |
+
+   *Line numbers as of `main` `fd9cbdfa`, for convenience only and expected to rot:*
+   `app.py:841`, `:960`, **`:5673`** (the interior write, `export_interior` at `:5677`),
+   `:5852`, `book_proof.py:764`, `book_pdf_generator.py:1912`, `pdf_generator.py:344`.
 
    **Nothing in the conclusion moves, and two things in the costing do.**
    `interior_generator(book=None, pages=None)` accepts no argument, so the bookless site
    converts too; and `book_pdf_generator.py` is already in `Touches:`, so the omitted site
-   widens the field no further. What does move: **only `app.py:5580` reaches a downstream
+   widens the field no further. What does move: **only the `export_interior` site reaches a downstream
    interior write at all** — the other six build plans, counts or a proof sheet — so option A
    is a larger edit than the refusal strictly requires. Weigh that against option B before
    choosing, and take the count from this table, not from the withdrawn sentence.

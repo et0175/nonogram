@@ -16,7 +16,19 @@
 **Wave:** —
 **Created wave:** 72
 **Deferred waves:** 0
-**Depends on:** CARD-329, CARD-336, CARD-338 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
+**Depends on:** CARD-329, CARD-336, CARD-338
+<!-- MOVED OFF THE FIELD LINE 2026-11-03 at CARD-338's merge gate. It sat INSIDE the
+     parsed `Depends on` value, and that field's consumer (`readiness_score.
+     establish_dependencies_resolved`) TOKEN-SCANS the value with `CARD-\d+`, so every
+     card id inside a comment becomes a dependency -- the mechanism main's `fd9cbdfa`
+     repaired board-wide after it closed a real cycle (CARD-336's comment named
+     CARD-337, which really depends on CARD-336). This card's own comment was measured
+     INERT (it spells the chain as bare `338 -> 336 -> 337 -> 322`, so the only
+     `CARD-NNN` tokens in it are already real edges, and both readings of the 340-card
+     graph agree), but it was authored by CARD-338 AFTER main's repair and would have
+     landed a field main had just cleaned. Normalised to main's own convention. The note
+     it carried follows, unchanged, as its own comment. -->
+<!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 **Touches:** tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py, tests/test_book_proof_pages.py, tests/test_book_solved_answer_key.py, tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_arrange_page_breaks.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/test_book_interior_type_floor.py
 **Review score:** —
 **Started:** —
