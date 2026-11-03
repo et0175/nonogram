@@ -1,14 +1,32 @@
-"""CARD-338 AC-2: the probe's own shadow, derived — every
+"""CARD-338 AC-2: the ``delitem`` sites, derived — every
 ``monkeypatch.delitem`` site on the raster registry, and whether it passes
 ``raising=False``.
 
 Not a test and not under ``tests/`` (G-2). Read-only over the tree.
 
 A site **without** ``raising=False`` raises ``KeyError: <PageKind.X: 'x'>``
-inside ``_pytest/monkeypatch.py`` once this card's probe has already popped the
-key, and presents as a red. It is the **instrument's** red, not the
-conversion's, and AC-2 is that the census reports both numbers and names these
-sites so a downstream card prices the conversion and not the probe.
+inside ``_pytest/monkeypatch.py`` once the key it names is gone, and presents
+as a red. **This script used to call that red the instrument's and not the
+conversion's. That framing is measured FALSE and is withdrawn**
+(ADR-0039/R4 — a refuted figure is retracted everywhere it was written, the
+executable places included): ``fidelity_to_the_end_state.py`` counted the
+**identical** ``KeyError`` on the E1 tree, five entries deleted in ``src/``
+with no probe loaded at all, so the probe's artefact is **0** and these are
+reds the conversion owns. AC-2 is that the census labels the share and names
+these sites, so a downstream card prices them as work rather than discounting
+them as noise.
+
+**A SITE IS NOT A RED, and this is where that confusion starts.** Of the 17
+sites, 2 pass ``raising=False`` and 15 can raise; of those 15, two name
+``DIVIDER``, which this card's probe does not lift, leaving **13 sites that can
+raise**. The census separately measures **13 reds**. The two figures agreeing
+is a coincidence of this tree and not a derivation: one site
+(``tests/property/test_book_export_interior.py:1388``) produces **5** reds, and
+two sites (``tests/test_book_pdf.py:3747``, ``:3774``) are ``delitem`` calls
+inside ``for kind in self._interior_kinds()`` loops covering **4+ kinds each**
+— printed below as ``LOOP:<var>`` rather than as a kind, because the kind is
+not knowable by ``ast``. Quote the 13 reds from the census; quote the 13 sites
+from here; never derive one from the other.
 
 Derived with ``ast`` and not with ``git grep``: ``git grep -E`` does not honour
 ``\\b``, and a text search cannot tell a call from a docstring that quotes one
@@ -50,11 +68,23 @@ def registry_argument(node: ast.AST) -> bool:
 
 
 def kind_of(node: ast.AST) -> str:
+    """The kind a site names, or ``LOOP:<var>`` when it names a variable.
+
+    A lowercase ``Name`` is a loop or parameter variable, so the site covers
+    every kind the loop yields -- which is why this derivation reports SITES
+    and the census reports REDS, and why the two are never divided into each
+    other. Returning a bare ``?`` here (as this did) hid exactly that.
+    """
     for item in ast.walk(node):
         if isinstance(item, ast.Attribute) and item.attr.isupper():
             return item.attr
         if isinstance(item, ast.Name) and item.id.isupper():
             return item.id
+    for item in ast.walk(node):
+        if isinstance(item, ast.Name):
+            return f"LOOP:{item.id}"
+        if isinstance(item, ast.Attribute):
+            return f"LOOP:{item.attr}"
     return "?"
 
 
@@ -106,12 +136,16 @@ def main() -> int:
         f"\nmonkeypatch.delitem({REGISTRY}, ...) sites: {total} "
         f"in {len(by_module)} modules"
     )
-    print(f"    with raising=False (no artefact red): {safe_total}")
-    print(f"    WITHOUT raising=False (artefact cap): {total - safe_total}")
+    print(f"    with raising=False (cannot raise): {safe_total}")
+    print(f"    WITHOUT raising=False (can raise): {total - safe_total}")
+    print("    NOTE: these are SITES, not reds. A LOOP: site covers every kind "
+          "its loop yields,")
+    print("          and one literal site was measured at 5 reds -- take the "
+          "red count from the census.")
     for name, sites in sorted(by_module.items()):
         print(f"\n  {name}")
         for lineno, kind, safe in sorted(sites):
-            flag = "raising=False" if safe else "RAISES -> artefact red"
+            flag = "raising=False" if safe else "RAISES -> can red"
             print(f"      {name}:{lineno}  {kind:16} {flag}")
     return 0
 

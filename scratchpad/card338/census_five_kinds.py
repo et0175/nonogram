@@ -1,5 +1,6 @@
 """CARD-338 AC-2/AC-3: the five-kind census over CARD-329's 20 modules plus
-the 22nd, with the probe's own shadow split out of every number.
+the 22nd, with the ``delitem`` residue labelled as its own share of every
+number -- a share OF the conversion's cost, never a deduction from it.
 
 Not a test and not under ``tests/`` (G-2). Run from the worktree root::
 
@@ -10,8 +11,8 @@ Not a test and not under ``tests/`` (G-2). Run from the worktree root::
 
 ``scratchpad/card329/measure_probe.py`` is the pattern; this is not an import
 of it (a sibling card's scratchpad is not a dependency) and it adds the two
-things this card owes: the five-kind probe, and the **split** between a red the
-conversion causes and a red the instrument causes.
+things this card owes: the five-kind probe, and the **split** of the
+``delitem`` residue out of a number that is the conversion's in full.
 
 Discipline, every item of which has cost this board a round:
 
@@ -23,30 +24,49 @@ Discipline, every item of which has cost this board a round:
 * every call is file-scoped, and a zero collected count is an ERROR, not a
   pass (``-k`` selecting nothing exits 0, and a nodeless pytest call collects
   the whole suite);
-* ``-rfs`` as **one** flag — ``-rf -rs`` as two silences the first — so every
-  skip is attributed by the reason the gate printed, never named from memory;
+* ``-rEfs`` as **one** flag — ``-rf -rs`` as two silences the first, and
+  ``-rfs`` without the ``E`` leaves ERRORs out of the short summary, which is
+  how this card's own first walk under-counted 233 reds as 210 — so every skip
+  is attributed by the reason the gate printed, never named from memory, and
+  every error is in the summary as well as in the ERRORS section;
 * ``PYTHONDONTWRITEBYTECODE=1`` and ``__pycache__`` swept at both ends;
 * the counts are located by pattern, never by reading the last line.
 
-**``unaccounted``, and why it is a column.** Under ``--tb=line`` a *failure*
-prints one ``path:lineno: Exception`` line, which the walk below reads. An
-*error* -- one raised in a fixture or at setup -- prints in another shape
-(``E   Exception`` under an ERRORS heading), which this walk does **not**
-read, and ``-rfs`` leaves errors out of the short summary as well (``-rEfs``
-puts them back). So a module's reds can exceed the causes the walk saw. That
-difference is printed as ``unaccounted`` rather than left as a silent gap
-between two totals: AC-3 forbids an "other" bucket, and a red the classifier
-never sees is the quietest "other" there is. Resolve any non-zero
-``unaccounted`` by re-running that module with ``-rEfs`` and reading the
-ERRORS section; measured on 2026-11-01, all 23 were fixture-raised errors of
-mechanisms the failures already name (band 10, memory 13).
+**``unaccounted``, why it is a column, and why it is now a GATE.** Under
+``--tb=line`` a *failure* prints one ``path:lineno: Exception`` line, which
+``causes()`` reads. An *error* -- one raised in a fixture, at setup or at
+teardown -- prints in another shape (``E   Exception`` under an ERRORS
+heading), which that walk does **not** read, and ``-rfs`` without the ``E``
+leaves errors out of the short summary as well. That is how this card's own
+first walk saw 210 of 233 reds: 23 fixture-raised errors (band 10, memory 13)
+printed where nothing was looking.
 
-**The artefact split (AC-2).** ``monkeypatch.delitem(_RASTER_DECLARATIONS,
-kind)`` raises ``KeyError`` when the probe has already removed the key, unless
-the site passes ``raising=False``. That red is the instrument's shadow and not
-the conversion's, so a downstream card prices the conversion and not the probe.
-Every red is classified from its ``--tb=line`` entry; the sites themselves are
-derived by ``ast`` in ``derive_delitem_sites.py``.
+Both halves are closed here rather than disclosed in prose. ``error_causes()``
+parses the ERRORS section into the **same** ``x<n> [tag] <cause>`` dump shape
+the failures use, so ``classify_reds.py`` sees every red and an unclassified
+one exits non-zero there; and ``unaccounted`` -- reds this walk could attribute
+to no cause at all -- makes **this** script exit non-zero. AC-3 forbids an
+"other" bucket, and a red the classifier never sees is the quietest "other"
+there is, so neither number is advisory text any more.
+
+**The ``delitem`` split (AC-2), and the framing this card RETRACTED.**
+``monkeypatch.delitem(_RASTER_DECLARATIONS, kind)`` raises ``KeyError`` when
+the key it names is already gone, unless the site passes ``raising=False``.
+This script used to call that red "the instrument's shadow and not the
+conversion's" and print ``conversion = red - artefact``. **That framing is
+measured FALSE and is withdrawn** (ADR-0039/R4: a figure recomputed and refuted
+is retracted everywhere it was written, the executable places included):
+``fidelity_to_the_end_state.py`` ran the same modules against a tree whose five
+entries are **deleted in src/ with no probe loaded at all** and counted the
+**identical** KeyErrors. The probe's own artefact is therefore **0**, and these
+reds are the conversion's residue -- a downstream card that subtracts them
+under-prices itself by 13 over the 21 modules (5 + 1 + 7).
+
+So the column below is named for what it counts, ``delitem``, and it is printed
+beside a ``conversion`` figure that is the **full** red count, not the
+difference. ``classify_reds.py``'s M1 rule carries the same verdict with the
+same attribution. The sites themselves are derived by ``ast`` in
+``derive_delitem_sites.py``.
 """
 
 from __future__ import annotations
@@ -106,9 +126,18 @@ COUNT = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed)"
 SKIP_LINE = re.compile(r"^SKIPPED \[(\d+)\] (.+)$", re.M)
 TB_LINE = re.compile(r"^(/?\S*\.py):(\d+): (.*)$", re.M)
 
-#: The instrument's own shadow: a ``delitem`` site without ``raising=False``
-#: reaching a key the probe has already popped.
-ARTEFACT = re.compile(r"monkeypatch\.py:\d+: KeyError: <PageKind\.")
+#: The ``delitem`` residue: a site without ``raising=False`` reaching a key
+#: that is gone. **Not** the instrument's shadow -- measured identical on a
+#: tree with the five entries deleted in src/ and no probe loaded, so this is a
+#: labelled SHARE of the conversion's cost and never a deduction from it.
+DELITEM = re.compile(r"monkeypatch\.py:\d+: KeyError: <PageKind\.")
+
+#: The reds that print under the ERRORS heading instead of as a ``--tb=line``
+#: entry, parsed so the classifier sees them too (see the docstring).
+ERRORS_HEADING = re.compile(r"^=+ ERRORS =+$", re.M)
+HEADING = re.compile(r"^=+ [^=\n]+ =+$", re.M)
+ERROR_HEAD = re.compile(r"^_+ ERROR (?P<what>.+?) _+$", re.M)
+ERROR_MESSAGE = re.compile(r"^E\s{3}(?P<message>.*)$", re.M)
 
 
 def sweep() -> None:
@@ -118,7 +147,9 @@ def sweep() -> None:
 
 def run(path: str, probe: str | None) -> str:
     sweep()
-    argv = [str(PYTHON), "-m", "pytest", "-o", "addopts=", "-q", "-rfs", "--tb=line"]
+    # ``-rEfs`` as ONE flag: the ``E`` is this card's own finding -- ``-rfs``
+    # omits ERRORs from the short summary, which under-counted 233 as 210.
+    argv = [str(PYTHON), "-m", "pytest", "-o", "addopts=", "-q", "-rEfs", "--tb=line"]
     if probe:
         argv += ["-p", probe]
     argv.append(path)
@@ -145,6 +176,32 @@ def causes(text: str) -> collections.Counter:
     found: collections.Counter = collections.Counter()
     for where, lineno, message in TB_LINE.findall(text):
         found[f"{Path(where).name}:{lineno}: {message.strip()}"] += 1
+    return found
+
+
+def error_causes(text: str, path: str) -> collections.Counter:
+    """The ERRORS section's causes, in the SAME shape ``causes()`` returns.
+
+    One entry per ``ERROR at <phase> of <node>`` header, keyed by the first
+    ``E   `` line under it and by the module (every run here is file-scoped, so
+    the module is the path that was run). The node is deliberately **left out**
+    of the key so identical mechanisms group instead of splitting one per test.
+    """
+    found: collections.Counter = collections.Counter()
+    module = Path(path).name
+    start = ERRORS_HEADING.search(text)
+    if not start:
+        return found
+    rest = text[start.end():]
+    following = HEADING.search(rest)
+    block = rest[: following.start()] if following else rest
+    heads = list(ERROR_HEAD.finditer(block))
+    for index, head in enumerate(heads):
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(block)
+        message = ERROR_MESSAGE.search(block[head.end():end])
+        phase = head.group("what").split(" of ")[0]
+        said = message.group("message").strip() if message else "<no E line printed>"
+        found[f"{module}: ERROR {phase}: {said}"] += 1
     return found
 
 
@@ -183,19 +240,25 @@ def main() -> int:
         )
         red = counts.get("failed", 0) + counts.get("error", 0) + counts.get("errors", 0)
         found = causes(out)
-        artefact = sum(n for cause, n in found.items() if ARTEFACT.search(cause))
+        found.update(error_causes(out, path))
+        delitem = sum(n for cause, n in found.items() if DELITEM.search(cause))
         skips = SKIP_LINE.findall(out)
         accounted = sum(found.values())
-        rows.append((path, counts, red, artefact, found, skips, accounted))
+        rows.append((path, counts, red, delitem, found, skips, accounted))
         mark = "RED " if red else "gree"
-        # ``unaccounted`` is reds that printed no ``--tb=line`` entry this walk
-        # could read -- an ERROR raised outside a test body prints in another
-        # shape. AC-3 forbids an "other" bucket, and a red the classifier never
-        # SEES is the quietest possible "other", so it is a column here rather
-        # than a silent difference between two totals.
+        # ``delitem`` is a labelled SHARE of ``conversion``, not a deduction
+        # from it: the artefact framing that printed ``red - artefact`` here is
+        # withdrawn (see the docstring), so ``conversion`` is the full red count
+        # and these two columns are not meant to add up to it.
+        #
+        # ``unaccounted`` is reds this walk could attribute to no cause at all,
+        # now that the ERRORS section is parsed as well as the ``--tb=line``
+        # entries. AC-3 forbids an "other" bucket and a red the classifier never
+        # SEES is the quietest possible "other", so it is both a column and this
+        # script's exit code.
         print(
-            f"{mark} {path:52} red={red:<4} artefact={artefact:<3} "
-            f"conversion={red - artefact:<4} unaccounted={red - accounted:<4}"
+            f"{mark} {path:52} red={red:<4} delitem={delitem:<3} "
+            f"conversion={red:<4} unaccounted={red - accounted:<4}"
             f" passed={counts.get('passed', 0):<5}"
             f" skipped={counts.get('skipped', 0)}"
         )
@@ -203,26 +266,36 @@ def main() -> int:
             print(f"        SKIP x{number}: {reason}")
         if args.causes:
             for cause, number in found.most_common():
-                tag = "ARTEFACT" if ARTEFACT.search(cause) else "conversion"
+                tag = "delitem" if DELITEM.search(cause) else "conversion"
                 print(f"        x{number:<4} [{tag}] {cause[:160]}")
 
     total_red = sum(row[2] for row in rows)
-    total_artefact = sum(row[3] for row in rows)
+    total_delitem = sum(row[3] for row in rows)
     total_pass = sum(row[1].get("passed", 0) for row in rows)
     total_skip = sum(row[1].get("skipped", 0) for row in rows)
     total_unaccounted = sum(row[2] - row[6] for row in rows)
     reds = [row[0] for row in rows if row[2]]
     print(f"\n=== {label}")
     print(f"    modules red:  {len(reds)} / {len(rows)}")
-    print(f"    failed+error: {total_red}  (conversion {total_red - total_artefact}"
-          f" + probe artefact {total_artefact})")
-    print(f"    unaccounted:  {total_unaccounted}  (reds with no --tb=line "
-          f"entry this walk could read -- investigate, never bucket)")
+    print(f"    failed+error: {total_red}  (ALL {total_red} the conversion's; "
+          f"{total_delitem} of them delitem residue, measured identical with the "
+          f"five entries deleted in src/ and NO probe loaded -- a share, not a "
+          f"deduction)")
+    print(f"    unaccounted:  {total_unaccounted}  (reds this walk could "
+          f"attribute to no cause -- investigate, never bucket)")
     print(f"    passed:       {total_pass}")
     print(f"    skipped:      {total_skip}")
     for path in reds:
         print(f"    RED {path}")
     sweep()
+    if total_unaccounted:
+        print(f"\nFAIL: {total_unaccounted} red(s) carry no cause this walk could "
+              f"read, so the classifier cannot see them. Re-run the module(s) above "
+              f"with -rEfs and read the ERRORS section; a red nobody classifies is "
+              f"the 'other' bucket AC-3 forbids.")
+        return 1
+    print("\nOK: every red carries a cause the classifier can read "
+          "(unaccounted=0).")
     return 0
 
 

@@ -89,16 +89,48 @@ def drop_declaration(tree: Path, kind: str) -> None:
 
 
 def rename_target(tree: Path) -> None:
+    """Rename the global the probe rebinds.
+
+    A rename touches every occurrence by design, so the pin here cannot be
+    ``count == 1`` on the name. It is ``count == 1`` on each of the two sites
+    that make the case mean anything -- the definition and the constructor's
+    read -- plus "nothing is left behind": a plant that silently matched a
+    docstring and not the code would otherwise score as a proof.
+    """
     path = tree / GENERATOR
-    path.write_text(
-        path.read_text().replace("NO_DOWNSTREAM_WRITERS", "NO_WRITERS_AT_ALL")
+    source = path.read_text()
+    for phrase in (
+        "NO_DOWNSTREAM_WRITERS = InteriorPageWriters()",
+        "self.pages = NO_DOWNSTREAM_WRITERS if pages is None else pages",
+    ):
+        assert source.count(phrase) == 1, (
+            f"{GENERATOR}: expected EXACTLY ONE `{phrase}`, found "
+            f"{source.count(phrase)} -- re-read the module before trusting "
+            "this case"
+        )
+    renamed = source.replace("NO_DOWNSTREAM_WRITERS", "NO_WRITERS_AT_ALL")
+    assert "NO_DOWNSTREAM_WRITERS" not in renamed, (
+        f"{GENERATOR}: the rename left the old name behind, so the probe could "
+        "still find its target and this case would prove nothing"
     )
+    path.write_text(renamed)
 
 
 def partial_writers(tree: Path) -> None:
+    """Shadow the assembly point's writer set with a partial one.
+
+    Pinned the same way: the name this append re-binds must be defined
+    exactly once above, or the "partial set" is a new name nothing reads.
+    """
     path = tree / ASSEMBLY
+    source = path.read_text()
+    assert source.count("DOWNSTREAM_WRITERS = ") == 1, (
+        f"{ASSEMBLY}: expected EXACTLY ONE `DOWNSTREAM_WRITERS = ` to shadow, "
+        f"found {source.count('DOWNSTREAM_WRITERS = ')} -- re-read the module "
+        "before trusting this case"
+    )
     path.write_text(
-        path.read_text()
+        source
         + "\n\n# CARD-338 prove_refusals: the assembly point lost a writer.\n"
         "DOWNSTREAM_WRITERS = InteriorPageWriters(\n"
         "    guide=None,\n"
@@ -115,9 +147,10 @@ def stop_reading_the_global(tree: Path) -> None:
     path = tree / GENERATOR
     source = path.read_text()
     old = "self.pages = NO_DOWNSTREAM_WRITERS if pages is None else pages"
-    assert old in source, (
-        f"{GENERATOR} no longer contains the constructor line this case "
-        "mutates -- re-read it before trusting any case here"
+    assert source.count(old) == 1, (
+        f"{GENERATOR}: expected EXACTLY ONE constructor line this case mutates "
+        f"(`{old}`), found {source.count(old)} -- `str.replace` would plant in "
+        "all of them and the case would no longer be the one named"
     )
     path.write_text(
         source.replace(old, "self.pages = InteriorPageWriters() if pages is None else pages")
@@ -136,6 +169,22 @@ CASES = [
 ]
 
 IMPORTED_FROM = re.compile(r"^CARD338-IMPORTED-FROM (.*)$", re.M)
+
+
+def assertion_surface(out: str) -> str:
+    """The lines a refusal's own message can be on, and no others.
+
+    Every line carrying ``AssertionError`` plus the two after it, because an
+    assertion message long enough to wrap continues on them. Searching the
+    whole of stdout+stderr instead is how a case gets scored "named" on an
+    unrelated line.
+    """
+    lines = out.splitlines()
+    keep: set[int] = set()
+    for index, line in enumerate(lines):
+        if "AssertionError" in line:
+            keep.update(range(index, min(index + 3, len(lines))))
+    return "\n".join(lines[index] for index in sorted(keep))
 
 
 def run(tree: Path) -> tuple[int, str]:
@@ -190,14 +239,23 @@ def main() -> int:
         refused = code != 0
         # The refusal must NAME what it could not do: an AssertionError with no
         # message would satisfy "non-zero exit" and teach a reader nothing.
+        #
+        # Scoped to the ASSERTION SURFACE, not to the whole of stdout+stderr: a
+        # phrase found on an unrelated line would score the case "named" while
+        # the assertion itself said nothing. Each phrase below is a literal
+        # slice of one of probe_five_kinds.py's own assertion messages -- the
+        # bare "declares" this list used to carry matched almost any English
+        # sentence pytest could print.
+        surface = assertion_surface(out)
         named = [
             phrase
             for phrase in (
                 "found no", "cannot rebind", "cannot read", "has no writer for",
                 "does not hold the rebound", "measures nothing",
-                "declarations name", "declares",
+                "in expires_with and the census is",
+                "the registry declares",
             )
-            if phrase in out
+            if phrase in surface
         ]
         ok = (
             from_copy
@@ -211,7 +269,7 @@ def main() -> int:
         if must_refuse:
             quoted = [
                 line.strip()
-                for line in out.splitlines()
+                for line in surface.splitlines()
                 if "AssertionError" in line or "measures nothing" in line
             ]
             for line in quoted[:3]:

@@ -13,6 +13,17 @@ script has no default group: a cause no rule below matches makes it exit
 non-zero and print the cause verbatim. Adding a catch-all here would be the
 defect the AC exists to prevent.
 
+**Three ways a red could have escaped that guarantee, all closed.** (1) A red
+printing under the ERRORS heading rather than as a ``--tb=line`` entry: the
+census now parses those into the same ``x<n> [tag] <cause>`` shape
+(``error_causes()``), so they reach the ``RULES`` table and the same non-zero
+exit. (2) A dump line *shaped* like a cause line but not matching ``LINE``:
+silently skipped before, now collected and reported as malformed with the same
+non-zero exit. (3) Coverage asserted from the census's own figures rather than
+from this walk: the classified total is cross-checked against the ``red=``
+column of every module header, and a shortfall exits non-zero. Before these,
+this script printed "no 'other' group" while blind to 23 of 233 reds (10%).
+
 **The rules are ordered and the first match wins**, so a more specific
 mechanism is written above a more general one. Each rule carries the card that
 owns the repair, which is what a downstream card needs — a count without an
@@ -167,10 +178,31 @@ RULES: list[tuple[str, str, str]] = [
         "tests/test_book_interior_type_floor.py's share is the third population, "
         "also CARD-337's",
     ),
+    # ---------------------------------------------------------------- M11
+    (
+        # Read off a real ERRORS-section cause, never guessed: this is one of
+        # the 23 reds the pre-``error_causes()`` walk could not see (the other
+        # 21 are the ContentStream AttributeError M7d already names).
+        r"test_book_pdf_band\.py: ERROR at setup: assert \d+ == \(\d+ \+ 1\)",
+        "M11 raster page-write counter collapses IN A FIXTURE: band_draws "
+        "asserts len(writes) == ONCE_PAGE_COUNT + 1 over _write_page calls, and "
+        "a vector interior writes its pages as operators, so only the cover's "
+        "write is counted (5 of 15) -- a medium-blind read that ERRORS its "
+        "whole class instead of failing one cell",
+        "CARD-337 (tests/test_book_pdf_band.py is in its population A; the "
+        "module fixture's seam, not a cell's)",
+    ),
 ]
 
-LINE = re.compile(r"^\s*x(\d+)\s+\[(ARTEFACT|conversion)\]\s+(.*)$")
+LINE = re.compile(r"^\s*x(\d+)\s+\[(delitem|conversion)\]\s+(.*)$")
+#: Anything shaped like a cause line. A line matching this but NOT ``LINE`` is
+#: a malformed dump entry, reported rather than skipped -- the silent
+#: ``continue`` it replaces is how 23 reds went unseen.
+CAUSE_SHAPED = re.compile(r"^\s*x\d+\s+\[")
 MODULE = re.compile(r"^(RED|gree)\s+(\S+)")
+#: The census's own red count per module, used to cross-check this walk's
+#: coverage instead of trusting it.
+MODULE_RED = re.compile(r"\bred=(\d+)\b")
 
 
 def classify(cause: str) -> tuple[str, str] | None:
@@ -189,14 +221,20 @@ def main() -> int:
     groups: collections.Counter = collections.Counter()
     owners: dict[str, str] = {}
     unclassified: list[tuple[str, str, int]] = []
+    malformed: list[str] = []
+    census_red = 0
     total = 0
     for raw in text.splitlines():
         header = MODULE.match(raw)
         if header:
             module = header.group(2)
+            said = MODULE_RED.search(raw)
+            census_red += int(said.group(1)) if said else 0
             continue
         found = LINE.match(raw)
         if not found:
+            if CAUSE_SHAPED.match(raw):
+                malformed.append(raw.strip())
             continue
         count, _tag, cause = int(found.group(1)), found.group(2), found.group(3)
         total += count
@@ -209,7 +247,7 @@ def main() -> int:
         owners[mechanism] = owner
 
     print(f"dump: {dump}")
-    print(f"reds classified from --tb=line causes: {total}\n")
+    print(f"reds classified: {total}  (census counted {census_red})\n")
     for mechanism, count in groups.most_common():
         print(f"  x{count:<5} {mechanism}")
         print(f"          owner: {owners[mechanism]}")
@@ -219,7 +257,20 @@ def main() -> int:
         for module, cause, count in unclassified:
             print(f"  x{count:<4} {module}\n        {cause[:200]}")
         return 1
-    print("\nOK: every red carries a mechanism and an owner; no 'other' group")
+    if malformed:
+        print(f"\nMALFORMED ({len(malformed)} dump lines look like cause lines "
+              f"and do not parse) -- skipping these silently is how a red hides")
+        for raw in malformed:
+            print(f"  {raw[:200]}")
+        return 1
+    if census_red and total != census_red:
+        print(f"\nSHORTFALL: this walk classified {total} reds, the census "
+              f"counted {census_red}. The difference is unseen, not 'other' "
+              f"(AC-3). Re-run the census -- it exits non-zero on any "
+              f"unaccounted red of its own.")
+        return 1
+    print(f"\nOK: every red carries a mechanism and an owner; no 'other' group "
+          f"({total} classified, {census_red} counted by the census)")
     return 0
 
 
