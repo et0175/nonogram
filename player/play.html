@@ -69,6 +69,7 @@
     <div class="player-tools" role="group" aria-label="Marking tool">
       <button type="button" class="btn player-tool-item" role="radio" data-player-tool="filled" aria-checked="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
       <button type="button" class="btn player-tool-item" role="radio" data-player-tool="empty" aria-checked="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
+      <button type="button" class="btn player-tool-item" role="radio" data-player-tool="maybe" aria-checked="false"><span class="player-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
       <button type="button" class="btn player-tool-item" role="radio" data-player-tool="unknown" aria-checked="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Clear</button>
       <button type="button" class="btn player-region" data-player-region aria-pressed="false" aria-label="Region"><span class="player-brush-run" aria-hidden="true"><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span></span></button>
     </div>
@@ -90,7 +91,8 @@
 
   <p class="player-hint" data-player-hint hidden>
     Tap a cell to mark it with the selected brush; tap it again to go on
-    (Black: black, white, blank). Drag along a row or column to mark several.
+    (Black: black, white, blank). With Maybe, a tap marks ? and a second tap
+    clears it. Drag along a row or column to mark several.
     On a touch screen, press Region first so a drag marks instead of scrolling
     the page.
   </p>
