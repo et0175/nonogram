@@ -69,3 +69,9 @@ meta/kanban/.full-suite.lock
 # and is ignored there by _files_under_guard (CARD-239, F-306); this line is
 # the other half of that decision.
 .card238-tracked
+
+# forge:review step 5a writes its impact set here. Never tracked (0 files on main,
+# measured 2026-11-03), and it must stay that way: an untracked-but-unignored
+# artefact inflates a Touches re-derivation (CARD-332 cycle 2 measured 16 vs 15)
+# and is one loose pathspec away from the committed-artefact harm CARD-335 owns.
+meta/impact/
