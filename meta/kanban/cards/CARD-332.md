@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73's owner-named card, scheduled 2026-10-31 on "ok schedule it" and carried as NEXT TO START since. Premise re-checked at dispatch. Conflict profile measured EMPTY against CARD-338 and CARD-323. Declares the app.py hotspot, so any future card touching it serializes behind. OWES A RENDER: it changes owner-facing UI. -->
 **Depends on:** —
-**Touches:** src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_manager.py, src/nonogram/db/models.py, migrations/versions/018_book_player_domain.py, src/nonogram/admin/player_bundle.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/static/admin.css, docs/deploy/player.md, tests/test_book_player_domain.py, tests/test_player_bundle.py <!-- WIDENED 2026-11-01 in the round: the decompose-time Touches was under-specified, not the work. Three of the four ACs require the domain to be STORED with the book (AC-1 "stored with the book's print setup", AC-2 "a book with a stored domain", AC-3 "a book with no stored domain"), so a column — models.py, book_manager.py and a migration — was always what the ACs asked for, and player_bundle.py is where the one key recipe lives that the link must be built through. -->
+**Touches:** docs/deploy/player.md, migrations/versions/018_book_player_domain.py, src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/player_bundle.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/db/models.py, tests/test_book_arrange_play_link.py, tests/test_book_page_spec.py, tests/test_book_player_domain.py, tests/test_player_bundle.py, tests/test_public_player.py <!-- DERIVED 2026-11-03 in fix round 1 from `git diff --name-only main...HEAD` plus the working tree's own adds, minus this card file and the review YAML. Hand-editing is what left it wrong twice: the round widened it once (models.py, migrations/, and dropping tests/test_book_setup_print_mobile.py, which this card really does not touch and leaves passing as a G-3 control), and cycle 1 then measured two files still missing from it (tests/test_book_page_spec.py, tests/test_public_player.py). THE ONE OUT-OF-SCOPE ENTRY IS tests/test_public_player.py: this card repairs the guard that mechanically enforces ADR-0041/R3 there (see the fix-round note below), which is a shared file, so it belongs in any conflict graph measured over this wave. tests/test_book_arrange_play_link.py is new in fix round 1 (F-003). Three of the four ACs require the domain to be STORED with the book (AC-1 "stored with the book's print setup", AC-2 "a book with a stored domain", AC-3 "a book with no stored domain"), so a column — models.py, book_manager.py and a migration — was always what the ACs asked for, and player_bundle.py is where the one key recipe lives that the link must be built through. -->
 **Review score:** —
 **Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
@@ -254,6 +254,10 @@ round was briefly flagged for writing one. Three of the four ACs require the
 value to be **stored** ("stored with the book's print setup", "a book with a
 stored domain", "a book with no stored domain"), so a column was always what
 they asked for. Touches was widened in the round rather than the work narrowed.
+Cycle 1 then measured the widened field **still** missing two files it had
+changed, so it is no longer edited by hand at all: it is derived from
+`git diff --name-only main...HEAD` plus the working tree's own adds (see the
+field's own note).
 
 Migration **018** deliberately departs from 013 and 017: **no server default and
 no backfill**. Those two columns have a value every existing book already *is*
@@ -262,16 +266,30 @@ default states the truth. Nobody has ever chosen a domain for any book — the
 public player's first deploy was 2026-10-30 — so NULL means exactly "no base was
 ever chosen", and the screen says so rather than printing a guess.
 
-### ADR-0041/R2, checked rather than assumed
+### ADR-0041/R2 applies to this diff, and holds
 
-The link is `{base}` + `/play/` + the R1 key and nothing else. R2 governs
-**public assets**; the arrangement screen is behind the panel's CON-015/CON-016
-door and is not one, and the only solution-derived value this card adds anywhere
-is the key, which R1 sanctions by name as a public projection ("one-way, so the
-URL reveals nothing about the solution"). AC-4 is held by a **whitelist on what
-the rendered fragment carries**, not a scan for leak shapes — CARD-282's own
-lesson — and its ability to fail is measured by two planted leaks (a title in an
-attribute, the grid's cells in a query string), not assumed.
+**Corrected in fix round 1 (cycle 1, F-006): the verdict was right and the
+reasoning was not.** This section used to argue that R2 "governs public assets;
+the arrangement screen is behind the panel's CON-015/CON-016 door and is not
+one" — i.e. that R2 does not reach here. It does. R2 declares
+`scope: {code: ["player/**", "src/nonogram/admin/**", "tests/**"]}`, so
+`src/nonogram/admin/**` is inside its own stated scope, and for a reason: that
+is where the exporter producing the public bundle lives. A reader who took the
+old wording literally would conclude R2 never reaches `admin/`, which would
+exempt the exporter itself — exactly the inference a later card would reuse.
+
+**R2 applies, and it holds.** The link is `{base}` + `/play/` + the R1 key and
+nothing else; the only solution-derived value this card adds anywhere is that
+key, which R1 sanctions by name as a public projection ("one-way, so the URL
+reveals nothing about the solution"); and nothing added reaches `player/`, the
+exported bundle or the served site. The panel door (CON-015/CON-016) is why
+this screen is not itself a public asset — a true and separate fact, and not
+the reason R2 is satisfied.
+
+AC-4 is held by a **whitelist on what the rendered fragment carries**, not a
+scan for leak shapes — CARD-282's own lesson — and its ability to fail is
+measured by two planted leaks (a title in an attribute, the grid's cells in a
+query string), not assumed.
 
 ### The key: one recipe, one caller
 
@@ -293,6 +311,68 @@ column until the title box and the row's buttons were pushed out of the card. Th
 suite was green through it. It is now a third grid row (`.play-link`), which cost
 two lines of `admin.css`, and the re-render is clean. Renders are in
 `~/Documents/nonogram-reviews/CARD-332/`.
+
+**And nothing held those two lines until fix round 1.** Cycle 1 measured it as a
+surviving mutant: with both declarations deleted — the whole render-found fix
+reverted — 159 tests across six modules still passed, because the markup is
+byte-identical with the CSS gone and only the geometry regresses. A defect found
+by a render and guarded by nothing is a defect found once.
+`tests/test_book_arrange_play_link.py` now measures it in Chromium, on the
+harness `tests/test_book_setup_print_mobile.py` established, and each
+declaration is independently killed: deleting `.play-link`'s placement reds two
+cells (the link leaves the title column), deleting `.play-url`'s wrapping reds
+two more (the URL's 316 px line ends 149 px outside the card at 390 px), and the
+reviewer's both-at-once mutant reds four.
+
+### Fix round 1 (cycle 1 at 7.5): what changed, and the two things it is honest about
+
+* **F-001 — the repaired R3 guard was incomplete.** This card replaced
+  `tests/test_public_player.py`'s substring guard (which red on *prose*: a
+  comment in `book_manager.py` tripped it) with an `ast` walk. The walk read
+  only `node.module` for an `ImportFrom`, so `from scripts import
+  assemble_player_site` — the most idiomatic spelling of the thing R3 forbids,
+  and one `scripts/`'s PEP 420 namespace package really resolves — passed it,
+  though the old guard had caught it. The repair removed a false positive and
+  narrowed the true-positive surface at the same time; that is now closed (each
+  alias is read qualified by its module), and all four plants red. A name
+  assembled at run time from string pieces still survives, deliberately, and
+  the guard's comment says so instead of claiming "both are checked".
+* **F-003 — the render-found CSS fix is guarded** (see the section above).
+* **F-007 — Copy now says what happened where it can be heard.** The outcome
+  lived in `button.title` alone: not announced by a screen reader, invisible
+  without a pointer, and on the no-`navigator.clipboard` branch nothing a user
+  could perceive happened at all — the button looked inert. It is written to a
+  `role="status" aria-live="polite"` region beside the button as well, and the
+  AC-4 whitelist states the new region's vocabulary (`role`, `aria-live`,
+  `status`, `polite`, the class) rather than tolerating it. Two Chromium cells
+  hold both branches, and the pre-fix behaviour (title only) reds both.
+* **F-004/F-005/F-008 — test-side.** AC-4's page-wide cell no longer excuses an
+  href because it contains the base (the base is removed from the haystack
+  instead); `play_links`' docstring states the one constraint its non-greedy
+  regex has; and the port corpus now carries `:1`, `:65535` and `:65536`, which
+  kills both one-character boundary mutants (`< _MAX_PORT`, `2 <= port`) that
+  the 599-case corpus had let through.
+* **F-009 — the registry entry is deliberately deferred, and CARD-210 owes it.**
+  All four ACs here come from the owner, not from `requirements.yml`: FR-037
+  (book print setup) gained no AC for the player-domain field and FR-045 covers
+  the public player rather than the panel's authoring of it. Nothing is added to
+  the registry from this card — a requirement written to match code just landed
+  is not a requirement — but this card is deleted at `done`, and **CARD-210 is
+  the card that owes FR-037 (or FR-045) the delta**, because it is the next
+  reader of `print_specs.stored_player_domain` and `player_bundle.play_url` and
+  will want something to trace to.
+
+### Estimate: 0.5d, under by about 3x — a datum against the estimator, not against the round
+
+Recorded here because a retro reads cards, not review YAMLs. Cycle 1 priced the
++1721 lines: 892 of them (52 %) are one test file, and genuine executable
+production Python is **about 130 lines** plus a ~12-line migration, two templates
+and two CSS declarations. The verdict was that 0.5d is **under-estimated by
+roughly 3x and not because the work over-reached** — the card's own text mandated
+every expensive part, and three of its four ACs say "stored", which is a column,
+a migration and two storage modes to test. The calibration signal belongs to
+whoever prices the next card of this shape: *a card whose ACs say "stored" is
+never 0.5d.*
 
 ### Carried forward for CARD-210
 
