@@ -41,7 +41,13 @@ test builds as `BookPDFGenerator(book)` has no downstream writers and refuses th
 non-puzzle vector kinds. CARD-309's assembly point already exports the full set
 (`book_interior_vector.py:116`, `DOWNSTREAM_WRITERS`), and that module is a **leaf that
 nothing in `src/` imports**, which is what keeps the dependency a direction rather than a
-loop. Rebinding the module global in a session probe makes every default-constructed
+loop. <!-- STILL TRUE AT THIS WRITING, and now carries a pointer (fix round 2, cycle-2
+M-103): the leaf property is not only prose here and on CARD-309:597 — it is ASSERTED by
+`tests/test_book_pdf.py:3656`
+(`TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`,
+measured green, that class 5 passed). CARD-322 item 1's option A ends it and reds that
+cell; item 1 now names the consequence. If CARD-322 takes option A, this sentence and
+CARD-309:597 are what must be re-pointed. --> Rebinding the module global in a session probe makes every default-constructed
 generator assembled. Two lines.
 
 **Why that matters more than its size.** Three cards — CARD-336, CARD-337 and the
@@ -334,9 +340,12 @@ and **both halves empty**. The full suite was never run; every census call is fi
 ### Fix round 1 (cycle 1 scored 7.5, nothing a blocker) — three propagation defects
 
 Cycle 1 broke nothing: every figure it re-fired reproduced to the digit, all six
-guardrails held, and no figure in the diff was wrong. All three Importants were the same
-shape — **the round measured the right thing and then did not carry one correction into
-the places that execute.**
+guardrails held, and no figure in the diff was wrong. Cycle 1 graded **two `high`
+(F-001, F-002) and one `medium` (F-003)** — this note first said "all three Importants",
+which is one notch high on F-003 and was the single number in it that did not match its
+source (cycle-2 M-105). All three are nonetheless the same **shape** — **the round
+measured the right thing and then did not carry one correction into the places that
+execute.**
 
 * **F-001, CARD-322's item 1.** The blocker above was written into §2 and into item 0, not
   into item 1 — the one step that performs the `src/` change, which still claimed the walk
@@ -368,3 +377,158 @@ carry all 23: `unaccounted=0`, 55 classified against 55 counted, both scripts ex
 **G-1 and G-2 held again** (0 files under `src/`, `tests/` not edited) and **G-4 was
 re-measured both sides of this round**: 0 errors / 525 warnings, 525 unique `^\s*\[WARN`
 lines a side, `comm -23` and `comm -13` both empty.
+
+### Fix round 2 (cycle 2 scored 8.5, nothing a blocker) — the propagation set includes the fields
+
+Cycle 2 unwound nothing: both census figures re-fired to the digit (`red=8 … conversion=8`
+and `red=46 … conversion=46`), the unaccounted gate fires in four directions, 6/6 mutants
+were killed, all three `validator` refs resolve, and the one Important was a metadata edit.
+Cycle 2's one failing circuit was `system_contract_verdict` on a **fourth** instance of the
+clause ADR-0039/R4 required retracted everywhere.
+
+**The lesson, and it is this round's most transferable output.**
+
+> **The propagation set for a retraction includes a card's METADATA FIELDS and the comments
+> attached to them, not just its prose sections.**
+
+Three passes read CARD-322's body for the refuted clause *"so no writer module is edited —
+the src/ change is the five registry entries"* — cycle 1, fix round 1, and cycle 2 — and
+**none of them read the `Touches:` field**, where a fourth copy sat. Prose sections are what
+a reader scans; a metadata field is what a *program* reads, so it is the copy that can do
+damage while looking like bookkeeping. The habit this round adds: after retracting a claim,
+grep the card's **fields** for it before declaring the propagation complete.
+
+**And the field was worse than unretracted — it was unparseable, which this round measured
+and fixed.** `card_lint.parse_card_fields` strips no HTML comment and
+`card_lint.extract_touches` splits on **commas**, so an inline `<!-- … -->` note sitting on
+the `Touches:` line is read as part of the VALUE. Measured on CARD-322: **15 "globs" instead
+of 8**, seven of them prose fragments, and the eighth was the declared ADR path concatenated
+with the comment's opening — so `compute_excess` reported
+`meta/architecture/decisions/adr/0042-…md` as **excess although the field declares it**, on
+a card whose item 3 edits exactly that file. Moving the comment to its own line restores it:
+**15 → 11 clean globs after the widening, `excess == []` for the full option-A file set.**
+This is the same family as the card's own trap list — a census counts refs, not declaration
+sites; here a parser counted commas, not paths.
+
+* **F-101 (Important), both halves, closed at the field.** (a) The clause is struck through
+  in place with an adjacent `WITHDRAWN` note pointing at §2's correction, per this card's
+  carry-it-inline convention. (b) `Touches:` is **widened** by
+  `src/nonogram/admin/app.py`, `book_proof.py` and `pdf_generator.py` rather than left
+  narrow with a warning in item 1 — **chosen, not defaulted**: the field is read
+  mechanically *at dispatch*, before item 1's decision is made, and forge's own
+  `compute_excess` penalizes **under**-declaration only (an edited, undeclared file becomes
+  `excess` → `grown`/`runaway`) while costing nothing for a declared file left untouched.
+  Over-declaring is therefore the error that cannot red, so the conservative direction is to
+  declare. The comment marks all three live only on option A, and tells a later round to
+  narrow the field if option B is taken. The `CONFLICT EDGES` comment is re-derived and now
+  records the **CARD-332** edge on `app.py` (CARD-332 declares it; wave 73, `in_progress`).
+  Measured, that edge reaches **no** automatic consumer: `compute_poached` subtracts
+  `conflict.hotspots` (which names `app.py`) from the sibling's set first, and only looks at
+  siblings whose `Status` is `ready` AND whose `Wave` equals the card's — CARD-332 is
+  `in_progress` and CARD-322's wave is `—`, so it is skipped twice over. The comment is the
+  only record, which is why it is written as one.
+* **M-101, the third instrument in the family.** `fidelity_to_the_end_state.py`'s docstring
+  quoted AC-2 by the wording this card's own fix round 1 deleted, and its constant was still
+  `ARTEFACT`. The question is kept in the form it was asked — that is what the experiment
+  tested — under an **Asked / Answered** split that records the answer beside it, AC-2 is
+  quoted as it now reads, and the constant is `DELITEM`, as `census_five_kinds.py` already
+  renamed its own. Rename verified by `ast` over the file's `Name` nodes, not by text.
+* **M-102, and the count was right only by coincidence.** The enumeration of
+  "six `BookPDFGenerator(book)` call sites" **mislabels one member and omits another**:
+  `pdf_generator.py:344` is `_pdf_generator = BookPDFGenerator()` — bookless, a
+  module-level singleton evaluated at import — and the list missed
+  **`book_pdf_generator.py:1912`** (`puzzle_page_plan`) entirely. Re-measured by
+  `grep -rn 'BookPDFGenerator(' src/`: **seven** construction sites outside
+  `interior_generator`, six `(book)` and one bookless. Item 1 now carries the sites as a
+  table with what each builds, and §2's blockquote is corrected in place. Nothing in the
+  conclusion moves — and one thing in the **costing** does: **only `app.py:5580` reaches a
+  downstream interior write**, so option A is a larger edit than the refusal requires.
+  `book_pdf_generator.py` was already declared, so the omitted site widens nothing.
+* **M-103, upgraded on measurement: the leaf property is a LIVE TEST, not only prose.**
+  Cycle 2 called this "not a defect, no cycle results". Measured, option A reds
+  `tests/test_book_pdf.py:3656`
+  (`TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`,
+  `importers == []`; that class measured **5 passed**), whose own docstring calls it the
+  "load-bearing" one of CARD-309 AC-5's three facts. So option A owes CARD-309's AC-5 an
+  argument, not a quiet edit. Item 1 names it. **Two further corrections to the finding
+  itself:** the second card stating the property is **CARD-309:597** (`done`), **not
+  CARD-337**, which states the rebinding and not the leaf — measured by
+  `grep -rnE 'nothing in .?src/.? imports' meta/kanban/cards/` (two hits: CARD-338:43,
+  CARD-309:597); and no import **cycle** results, so the cost is the guard and the claim.
+* **M-104, proven session-independent.** Both instruments defaulted `CARD338_SCRATCH` to one
+  session's `/private/tmp/claude-501/…/<session uuid>/` path while three cards tell a reader
+  to run them. The default is now
+  `Path(tempfile.gettempdir()) / f"card338-scratch-{ROOT.name}"` — `gettempdir()` honours
+  `TMPDIR`, which macOS sets per-user, and the worktree's own name keeps two worktrees apart.
+  Deterministic rather than `mkdtemp()` on purpose: the mutated trees are meant to be
+  inspectable after a run, and each script removes its own. Proven by importing both modules:
+  default resolves under `/var/folders/…/T/card338-scratch-PythonProject4-card-338`, asserted
+  free of `claude-501` and of the session uuid, and `CARD338_SCRATCH` still overrides.
+* **M-105.** The fix-round-1 record's "all three Importants" is corrected to two `high` and
+  one `medium`, by id, above.
+
+**One defect this round found in its OWN instrument, by running it — and the cheapest
+finding of the card.** Mid-round, CARD-323's merge gate took
+`meta/kanban/.full-suite.lock` (absent when this round opened, held from
+`2026-11-03T16:54:46Z`). Run under a held lock, `prove_refusals.py` built nine mutated
+trees, had every `pytest` call refused by the repository conftest, and printed
+**"AC-1 NOT PROVED: 9 of 9 cases wrong"** — because for the eight refusal cases
+`refused == must_refuse` held while `named` was empty (the lock message carries none of the
+probe's assertion phrases), and the CONTROL refused when it must accept. **An environmental
+refusal reported as a verdict about the instrument** — this card's own failure family, in
+this card's own tooling, and the direction that lies: it manufactures nine findings out of
+zero. Fixed: `prove_refusals.py` now carries `LOCK_REFUSAL` and, on seeing it, stops at the
+**first** case, prints `COULD NOT MEASURE -- this is not a result about the probe`, echoes
+the lock's own holder/why/worktree/age lines, and exits **3** — still non-zero, so the AC's
+`validator` check correctly reads "not proved", but naming what it could not do, which is
+AC-1's own standard applied to AC-1's own harness. **Proved against the real held lock, not
+a simulation** (output above is CARD-323's gate). `fidelity_to_the_end_state.py` needed no
+change: its `assert collected` already fails loudly with the subprocess output rather than
+computing a number from nothing — confirmed by reading, and that is the asymmetry worth
+keeping in mind, one instrument fails safe and its sibling did not.
+
+**What this round could NOT re-verify, stated as a limit and not a pass.** Because the lock
+was taken mid-round, `prove_refusals.py`'s **nine substantive cases were not re-run** after
+the `CARD338_SCRATCH` change. What IS measured: both instruments import cleanly, the new
+default resolves session-independently and is still overridable, `fresh_copy` built the
+mutated tree under the new path and the `where_from` plugin confirmed the generator was
+imported **from that copy** (`CARD338-IMPORTED-FROM /var/folders/…/T/card338-scratch-PythonProject4-card-338/trees/control-the-unmutated-tree/src/…`),
+so the path change is exercised end to end up to the point pytest was refused. The nine
+verdicts themselves are owed one re-run once the lock clears; nothing about them changed in
+this round, and the exit code is non-zero either way.
+
+**Two mechanisms recorded rather than fixed, both costumes of the same trap.**
+
+1. **A `validator` check ref is live against DELETION and blind to a RENAME.** A path-shaped
+   ref resolves through `git grep -lw <ref>`, which matches the ref inside the file's **own
+   docstring** — so the file proves its own existence. Delete the file and the ref dies
+   loudly; rename the symbol the ref is about and nothing notices. Recorded per cycle 2's
+   instruction; the resolver is forge's and not this card's to change. Another instance of
+   *a census counts refs, not declaration sites.*
+2. **`git grep -E` honours neither `\b` nor `\s` — and cycle 2's own reviewer tripped on it
+   while auditing this card, and said so.** `git grep -lnE '^\s*(def|class) …'` returned no
+   hits; re-run with `[[:space:]]` it found a live `def`. The conclusion did not move, but the
+   first answer was a **false negative produced by the tool**, on the exact quirk one of this
+   card's instruments warns about. The warning is correct and insufficiently loud: a tool
+   quirk that returns *fewer* rows is the dangerous direction, because an empty result reads
+   as a clean bill of health. Every grep in this round used `[[:space:]]` or `ast`.
+
+**Scope held.** `src/` **0 files** and `tests/` **0 files** over the whole branch and over
+this round's delta (G-1, G-2); the round edited two card bodies and two instruments. The
+full suite was NOT run — a sibling's merge gate owned it — and the only pytest call that
+RAN was one file-scoped class (`TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden`,
+5 passed), named because M-103's upgrade depends on it; it ran in the window before
+CARD-323's gate took the lock, and every call after that was refused by the conftest, which
+is how the instrument defect above was found. `__pycache__` swept, `PYTHONDONTWRITEBYTECODE=1`,
+every edit applied by exact text with its occurrence asserted `== 1` and SHA-256 recorded
+either side.
+
+**For the architect, out of this card's scope (recorded, not actioned).** Beyond cycle 2's
+O-101 and O-102: the `Touches:` inline-comment collision above is **not** CARD-322's alone.
+Censused over all **337** cards by running `extract_touches` on each: **20** cards have a
+`<!--` inside the parsed `Touches:` value, of which **2 are not `done`/`skipped`** —
+CARD-322 (fixed here) and **CARD-273** (`ready`, untouched: out of scope). The other 18 are
+closed cards whose fields are now history. A first guess of "110 cards" came from a looser
+heuristic in this round's own census and is **withdrawn**: it counted multi-word globs and
+other fields' comments. The durable fix is in the parser or a card-lint rule, not in 20 card
+bodies.
