@@ -42,6 +42,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,8 +51,20 @@ HERE = Path(__file__).resolve().parent
 SCRATCH = Path(
     os.environ.get(
         "CARD338_SCRATCH",
-        "/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/"
-        "24ca6817-b2be-4fe1-a096-514edd138cf0/scratchpad/card338",
+        # Session-INDEPENDENT by construction (CARD-338 fix round 2, cycle-2
+        # M-104). This defaulted to one authoring session's ephemeral
+        # ``/private/tmp/claude-501/.../<session uuid>/`` path, and three cards
+        # tell a reader to run this instrument. The path is
+        # ``mkdir(parents=True)``-ed, so a later run never crashed -- it wrote
+        # mutated copies of ``src/`` into a FOREIGN session's directory, and the
+        # override was discoverable only by reading this line.
+        #
+        # ``gettempdir()`` honours ``TMPDIR``, which macOS sets per-user, so the
+        # default is private without being tied to one run; the worktree's own
+        # directory name keeps two worktrees' trees apart. Deterministic rather
+        # than ``mkdtemp()`` on purpose: these mutated trees are meant to be
+        # inspectable after the run, and this script removes its own.
+        str(Path(tempfile.gettempdir()) / f"card338-scratch-{ROOT.name}"),
     )
 )
 #: One cheap, file-scoped target. The refusal happens in ``pytest_configure``,
@@ -170,6 +183,20 @@ CASES = [
 
 IMPORTED_FROM = re.compile(r"^CARD338-IMPORTED-FROM (.*)$", re.M)
 
+#: The repository conftest's own refusal when a SIBLING WORKTREE holds the
+#: full-suite lock. Added CARD-338 fix round 2, and measured against a real
+#: held lock (CARD-323's merge gate) rather than a simulated one.
+#:
+#: Without this, every ``pytest`` call below exits non-zero carrying this text
+#: and none of our assertion phrases, so all eight refusal cases score FAIL for
+#: an empty ``named`` list, the CONTROL scores FAIL for refusing, and the script
+#: prints "AC-1 NOT PROVED: 9 of 9 cases wrong". That is a refusal of the
+#: ENVIRONMENT reported as a verdict about the INSTRUMENT -- the exact confusion
+#: this card exists to close, in this card's own tooling. "Could not measure" is
+#: not "measured and wrong", and AC-1's own standard is that a refusal must name
+#: what it could not do.
+LOCK_REFUSAL = "another worktree holds the full-suite lock"
+
 
 def assertion_surface(out: str) -> str:
     """The lines a refusal's own message can be on, and no others.
@@ -233,6 +260,27 @@ def main() -> int:
         tree = fresh_copy(slug)
         mutate(tree)
         code, out = run(tree)
+        if LOCK_REFUSAL in out:
+            # Stop at the FIRST case: the remaining eight would each repeat this
+            # one environmental cause, and a list of nine identical FAILs reads
+            # as nine findings.
+            shutil.rmtree(tree, ignore_errors=True)
+            (SCRATCH / "where_from.py").unlink(missing_ok=True)
+            sweep(ROOT)
+            print()
+            print("COULD NOT MEASURE -- this is not a result about the probe.")
+            print(f"  pytest refused to start at case {name!r}:")
+            print(f"  {LOCK_REFUSAL}.")
+            for line in out.splitlines():
+                stripped = line.strip()
+                if stripped.startswith(("holder:", "why:", "worktree:", "at:",
+                                        "age:", "lock:")):
+                    print(f"    {stripped}")
+            print("  Every case would score FAIL for this one cause and the")
+            print("  summary would read 'AC-1 NOT PROVED', which would be a")
+            print("  FALSE NEGATIVE. Nothing has been proved or disproved.")
+            print("  Wait for the lock file to disappear and re-run.")
+            return 3
         where = IMPORTED_FROM.search(out)
         imported = where.group(1) if where else "<not reported>"
         from_copy = imported.startswith(str(tree))

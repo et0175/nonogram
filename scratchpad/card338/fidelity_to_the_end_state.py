@@ -5,12 +5,30 @@ Not a test and not under ``tests/`` (G-2). Run from the worktree root::
 
     python scratchpad/card338/fidelity_to_the_end_state.py tests/test_book_pdf.py
 
-AC-2 asks for the probe's own shadow to be split out of the census. The re-cut
-pass named one shadow — the ``KeyError`` from ``monkeypatch.delitem`` sites
-without ``raising=False`` — and bounded it at ≤13. **A shadow is a red the
-conversion would not produce**, so the only way to know whether a red is one is
-to stand the conversion up a second way, without the probe, and compare. That
-is what this script does.
+**AC-2, as it now reads**, asks for *"the per-module failed+error counts … with
+the ``delitem`` residue split out as its own column and the sites named — and
+… reported as a share OF the conversion's cost, not as a probe artefact
+deducted from it"*. **This script is the reason it reads that way.** The
+question it was built to settle is kept below in the form it was asked, because
+that is what the experiment tested — but it is SETTLED, and the answer is
+recorded beside it so the question is not re-read as open.
+
+**Asked.** AC-2 once asked for the probe's own shadow to be split out of the
+census. The re-cut pass named one shadow — the ``KeyError`` from
+``monkeypatch.delitem`` sites without ``raising=False`` — and bounded it at
+≤13. **A shadow is a red the conversion would not produce**, so the only way to
+know whether a red is one is to stand the conversion up a second way, without
+the probe, and compare. That is what this script does.
+
+**Answered, and it went the other way: the artefact is 0.** The counts agree on
+a tree whose five entries are deleted in ``src/`` with no probe loaded, so those
+13 reds are the CONVERSION's residue and not the probe's shadow. That is why
+``census_five_kinds.py`` renamed its own column from ``artefact`` to ``delitem``
+and prints it beside a ``conversion=`` that is the FULL red count, and why the
+constant below is ``DELITEM``; it was named for the refuted framing until
+CARD-338's fix round 2 (cycle-2 M-101) — the same rename for the same reason,
+one instrument later. The printed verdict at the end of this script has always
+said this; only this docstring and that constant still carried the old framing.
 
 Three trees, each a copy of ``src/`` mutated on disk and imported in place of
 the real one via ``-o pythonpath=`` (``src/`` itself is never edited — G-1):
@@ -29,7 +47,8 @@ The comparison answers two questions a downstream card is pricing against:
    and E2 the key is absent from the module's own dict, so a test that pops it
    raises the same ``KeyError`` with no probe anywhere. If the counts agree,
    those reds are **residue the conversion owns**, not the probe's, and a card
-   that discounts them is under-priced.
+   that discounts them is under-priced. **Measured: they agree, so they are
+   residue — see "Answered" above. This question is closed.**
 2. **What does the writer rebinding itself move?** E2 minus E1 is exactly the
    rebinding's effect, which is the shadow this card's own extension adds and
    the one nobody has bounded.
@@ -42,6 +61,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,8 +70,20 @@ HERE = Path(__file__).resolve().parent
 SCRATCH = Path(
     os.environ.get(
         "CARD338_SCRATCH",
-        "/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/"
-        "24ca6817-b2be-4fe1-a096-514edd138cf0/scratchpad/card338",
+        # Session-INDEPENDENT by construction (CARD-338 fix round 2, cycle-2
+        # M-104). This defaulted to one authoring session's ephemeral
+        # ``/private/tmp/claude-501/.../<session uuid>/`` path, and three cards
+        # tell a reader to run this instrument. The path is
+        # ``mkdir(parents=True)``-ed, so a later run never crashed -- it wrote
+        # mutated copies of ``src/`` into a FOREIGN session's directory, and the
+        # override was discoverable only by reading this line.
+        #
+        # ``gettempdir()`` honours ``TMPDIR``, which macOS sets per-user, so the
+        # default is private without being tied to one run; the worktree's own
+        # directory name keeps two worktrees' trees apart. Deterministic rather
+        # than ``mkdtemp()`` on purpose: these mutated trees are meant to be
+        # inspectable after the run, and this script removes its own.
+        str(Path(tempfile.gettempdir()) / f"card338-scratch-{ROOT.name}"),
     )
 )
 GENERATOR = "src/nonogram/admin/book_pdf_generator.py"
@@ -59,7 +91,7 @@ KINDS = ("PUZZLE", "TITLE", "GUIDE", "TOC", "ANSWER")
 
 COUNT = re.compile(r"(\d+) (passed|failed|error|errors|skipped|xfailed|xpassed)")
 TB_LINE = re.compile(r"^(/?\S*\.py):(\d+): (.*)$", re.M)
-ARTEFACT = re.compile(r"monkeypatch\.py:\d+: KeyError: <PageKind\.")
+DELITEM = re.compile(r"monkeypatch\.py:\d+: KeyError: <PageKind\.")
 
 
 def sweep(where: Path) -> None:
@@ -121,7 +153,7 @@ def run(target: str, *, src: Path | None, probe: str | None) -> tuple[dict, int,
     keyerrors = sum(
         1
         for where, lineno, message in TB_LINE.findall(out)
-        if ARTEFACT.search(f"{Path(where).name}:{lineno}: {message}")
+        if DELITEM.search(f"{Path(where).name}:{lineno}: {message}")
     )
     return counts, red, keyerrors
 
