@@ -73,6 +73,13 @@ the pass bounded it rather than guessing:
   `monkeypatch.delitem` sites, of which only **two** pass `raising=False`. The rest raise
   `KeyError` once the probe has removed the key — an **instrument artefact**, capped at
   **+13**.
+  <!-- REFUTED 2026-11-03 by this card's own item 3; recorded here as the pass's claim.
+       The artefact is 0: the identical KeyErrors fire on the E1 tree with no probe loaded.
+       And "+13" has no stated step — 17 − 2 = 15 SITES that can raise, of which two name
+       DIVIDER, leaving 13 sites; the census separately counts 13 REDS (export_interior 5,
+       type_floor 1, pdf 7). Two quantities, neither derived from the other: one site
+       produces 5 reds and two (test_book_pdf.py:3747, :3774) are loop delitems over 4+
+       kinds each. The +74 share is +11. -->
 - In the **six** population-A modules with no `delitem` site at all, the four extra kinds
   add **+61 measured reds**: `solved_answer_key` **1 → 33**, `export_interior_cover`
   **2 → 15**, `pdf_memory` 23 → 29, `guide_page` 1 → 5, `pdf_band` 23 → 26, and
@@ -110,10 +117,17 @@ at the real end state.
    rebinds a global that has been renamed, or lifts a kind already absent, must **fail
    loudly**, never run green over a tree it did not change. Prove it by running the probe
    against a tree where the rebinding target is renamed, and showing it refuses.
-3. **Separate the instrument artefact from the measurement.** The `KeyError` reds from
-   `delitem` sites without `raising=False` are the probe's own shadow, not the
-   conversion's. Report the census **with them excluded and with them included**, and name
-   the sites, so a downstream card prices the conversion and not the probe.
+3. **Separate the `delitem` residue from the rest of the measurement — and MEASURE which
+   side it is on rather than assuming.** <!-- CORRECTED 2026-11-03 by this card's own
+   execution; the brief's premise was that these reds are the probe's shadow, and the first
+   thing item 3 did was refute it. -->
+   The `KeyError` reds from `delitem` sites without `raising=False` were briefed as the
+   probe's own shadow. **They are not:** `fidelity_to_the_end_state.py` counted the
+   identical KeyErrors on the E1 tree — five entries deleted in `src/`, no probe loaded at
+   all — so the probe's artefact is **0** and these are the conversion's residue. Report
+   the census with the residue **labelled as its own share** and the sites named, so a
+   downstream card prices it as work; do **not** report a `conversion = red − residue`
+   column, which is the under-pricing this item exists to prevent.
 4. **Classify the +74 by cause, not by count.** Run with `--tb=line` and group by message.
    The pass sampled exactly one cause and it was **new** — `test_book_export_interior.py:546`
    reds with *"no vector guide writer is reachable from BookPDFGenerator … the card that
@@ -131,19 +145,22 @@ at the real end state.
   declarations is already absent, or where the writer-rebinding target does not exist by
   name, then it **fails with a message naming what it could not do**, and does not run the
   session green.
-  `check: {kind: test}`
+  `check: {kind: validator, ref: scratchpad/card338/prove_refusals.py}`
 - **AC-2** — Given the extended probe over CARD-329's 20 modules, when the census runs,
-  then the per-module failed+error counts are reported for all five kinds lifted, **split
-  into conversion reds and probe-artefact reds**, with the `delitem` sites named.
-  `check: {kind: test}`
+  then the per-module failed+error counts are reported for all five kinds lifted, with the
+  **`delitem` residue split out as its own column and the sites named** — and, per item 3
+  and the `Item 3` worktree note below, reported as a *share of* the conversion's cost, not
+  as a probe artefact deducted from it.
+  `check: {kind: review-lens}` — owner: whoever reviews this card. The census **reports**;
+  it asserts no pass/fail, so a `validator` ref here would be the dishonest kind.
 - **AC-3** — Given the census, when the reds are grouped by message, then each group names
   a mechanism and an owning card, and **no group is left as "other"** — an unclassified
   group is a finding to raise, not a bucket to leave.
-  `check: {kind: test}`
+  `check: {kind: validator, ref: scratchpad/card338/classify_reds.py}`
 - **AC-4** — Given the third population (modules reaching the medium decision itself), when
   it is derived, then its membership is **derived rather than listed**, and the derivation
   reds when a new such module is added.
-  `check: {kind: test}`
+  `check: {kind: validator, ref: scratchpad/card338/derive_medium_population.py}`
 - **AC-5** — Given CARD-336, CARD-337 and CARD-322, when this card lands, then each carries
   the measured floor and none describes this instrument as something it will build.
   `check: {kind: review-lens}` — owner: whoever reviews this card.
@@ -313,3 +330,41 @@ run in this worktree): **0 errors / 525 warnings before and after** — the 525 
 batched-grep timeout, reproducible and predating this card — with the WARN **sets** matched
 by `comm` in both directions over 525 non-empty lines a side, `^\s*\[WARN` not `^\[WARN`,
 and **both halves empty**. The full suite was never run; every census call is file-scoped.
+
+### Fix round 1 (cycle 1 scored 7.5, nothing a blocker) — three propagation defects
+
+Cycle 1 broke nothing: every figure it re-fired reproduced to the digit, all six
+guardrails held, and no figure in the diff was wrong. All three Importants were the same
+shape — **the round measured the right thing and then did not carry one correction into
+the places that execute.**
+
+* **F-001, CARD-322's item 1.** The blocker above was written into §2 and into item 0, not
+  into item 1 — the one step that performs the `src/` change, which still claimed the walk
+  already reaches the writers and routed the refutation back out as *"a finding about
+  CARD-309"*. Item 1 now names the decision as CARD-322's own (move the six call sites to
+  `interior_generator`, or change the generator's default) and the CARD-309 routing is
+  dropped for the downstream-writer case, kept only for a cause this card did not measure.
+* **F-002, the instrument.** ADR-0039/R4's retraction clause was applied to four card
+  bodies and to `classify_reds.py`'s M1 rule, and not to `census_five_kinds.py`, which is
+  the one place a downstream round reads a NUMBER from: it printed
+  `conversion = red − artefact`, understating `test_book_interior_type_floor.py` as 7
+  (it is 8) and `test_book_pdf.py` as 39 (it is 46), 13 reds over the 21 modules. The
+  column is now `delitem=` beside a `conversion=` that is the full red count.
+  `derive_delitem_sites.py` carried the identical framing and was not named by cycle 1;
+  R4 says *everywhere*, so it is corrected too.
+* **F-003, this card's own ACs.** AC-1..AC-4 carried `check: {kind: test}` with no `ref:`,
+  unreachable under G-2 by construction, and `kind: test` is the one kind a reader takes
+  as mechanically verified. Re-typed: three `validator` refs naming the instruments that
+  exit non-zero, and `review-lens` for AC-2, whose census reports and asserts nothing. All
+  three `validator` refs resolve under the resolver's own command
+  (`git grep -lw <ref> -- . ':(exclude)meta/architecture' ':(exclude)*.md'`), 1 file each.
+
+**AC-3's mechanical reach went from 210/233 to all of it.** The 23 ERROR-shaped reds were
+disclosed honestly in prose and attributed by hand; they are now parsed by the census into
+the same dump shape (`-rEfs`, `error_causes()`), classified by the same `RULES` table, and
+any red still unattributed exits the census non-zero. Measured on the two modules that
+carry all 23: `unaccounted=0`, 55 classified against 55 counted, both scripts exit 0.
+
+**G-1 and G-2 held again** (0 files under `src/`, `tests/` not edited) and **G-4 was
+re-measured both sides of this round**: 0 errors / 525 warnings, 525 unique `^\s*\[WARN`
+lines a side, `comm -23` and `comm -13` both empty.
