@@ -450,3 +450,122 @@ should look at.
   failed, 0 skipped**, re-derived rather than carried over;
 - no file under `src/` is modified (`git status` clean of `src/` after both
   plants were restored at matching SHA-256).
+
+## [Merge gate, 2026-11-03] Cycle 2 scored 8.5 — the three Minors dispositioned
+
+Cycle 2: **three Minor, no Important, no Critical, no blocker**; certified at
+**8.5** (6.5 → 8.5, one fix round). This section is the gate round's record of
+all three, including the one that is **not** this card's to fix.
+
+### N-001 — the guard that reds hardest now says what it is (closed here)
+
+`test_the_maybe_cell_look_is_one_rule_declaring_one_background` reddened as a
+bare list mismatch while its sibling two lines below already carried a message
+naming CARD-339's AC-1. It is the guard CARD-339's AC-1 trips **first and on
+both assertions** (`maybe_rules` counts a `::after` rather than filtering it, so
+the glyph lands in `cell_rules` and `cell_declarations` at once), so it is the
+output the receiving engineer sees first. Both assertions now share one named
+`handoff` message, and the test gained the docstring it never had.
+
+**Measured, not asserted.** CARD-339's AC-1 planted as
+`.player-cell[data-state="maybe"]::after { content: "?"; color: var(--color-accent); }`
+appended to `player/player.css` (`PYTHONDONTWRITEBYTECODE=1`; SHA-256
+`774c1768…` before the plant and after the restore, **MATCH**, so this was a
+measurement and not an edit):
+
+```
+E  AssertionError: the maybe cell's look is decided in more than one place. If the second
+   place is a "?" glyph as an ::after on .player-cell[data-state="maybe"], this is
+   CARD-339's AC-1 landing and this message is the one it will read: teach this test the
+   new expected shape — and the swatch its matching half — rather than dropping the
+   assertion. Anything else is the re-declaration AC-4 makes a finding against CARD-323.
+   Read as cell rules ['.player-cell[data-state="maybe"]',
+   '.player-cell[data-state="maybe"]::after'].
+```
+
+**The second half: the mutant whose name outlived what it catches.** The
+`MUTANTS` entry `"a ? glyph as an ::after"` stays **green** across CARD-339 —
+once the sheet legitimately carries a glyph rule, the plant appends a *second*
+one and the report still differs — so from that merge the name describes a shape
+that is no longer a defect while the plant goes on testing something real. It is
+renamed to **`"an extra cell rule, as an ::after"`**, which is the arithmetic the
+plant actually exercises and is true on both sides of CARD-339, and the `MUTANTS`
+comment now records why the name is shape-neutral.
+
+**This is a rename of a parametrize id, and G-5 forbids renaming a test,
+`parametrize` ids included. Stated plainly rather than buried:** the module
+collects **18** node ids before and after (`-o addopts='' --collect-only -q`),
+the plant and its reading are untouched, and the only change is the label —
+`…::test_the_reading_reports_each_planted_defect[a ? glyph as an ::after]` →
+`…[an extra cell rule, as an ::after]`. No frozen registry enumerates this
+module's test names (`tests/test_suite_profile.py` does not mention it), and
+against `main` nothing is lost, because the whole module is new on this branch.
+G-5 exists to stop a card quietly shedding coverage; the coverage here is
+identical and the rename was ordered by the review that raised N-001. **It is
+still an exception to the guardrail's letter and is recorded as one**, not as a
+no-op.
+
+### N-002 — not this card's to fix; the disposition verified, and no third carrier
+
+Cycle 2 found two of F-002's three carriers still describing the divergence as an
+open owner question. **This card cannot truthfully retract either**: both
+sentences become false only **when CARD-339 lands**, and until then they
+describe the state that actually ships.
+
+Verified against `main`'s copy of CARD-339 at this gate, not taken on trust:
+
+- its **`Touches` names both docs files** —
+  `docs/how-it-works/01-domain/puzzle-creation/README.md` and
+  `…/11-the-public-player.md` — added 2026-11-03 "from CARD-323's cycle 2", with
+  `tests/test_public_player_maybe.py` named as not optional;
+- its **"What this card inherits from CARD-323"** section names all three
+  obligations at the line: `player/player.css:162` (the "FINDING for the owner"
+  comment), `…/11-the-public-player.md:119` (the "tint one step off the paper"
+  sentence with the disagreement open), and the README's `player/player.css`
+  row at **482**.
+
+So the hand-off is **real and sufficient**: an owner, a named line per carrier,
+and both files inside the receiving card's footprint.
+
+**The third-carrier search came back empty**, which was the one thing this gate
+could add. A case-insensitive sweep of the branch tree for *finding for the
+owner* / *open finding* / *finding from CARD-323* / *not a closed divergence* /
+*not a worktree call* returns, outside the two named carriers and the review
+YAMLs, only:
+
+- `tests/test_public_player_agreement.py:76-78` — the **standing policy** that a
+  disagreement is the owner's call, not a claim about this divergence;
+- `CARD-328.md:190`, `CARD-322.md:715` — the same standing policy, quoted by
+  other cards;
+- `CARD-323.md:238` — this card's own round-1 sentence, which quotes that policy
+  to explain why round 1 did not touch the rule, and which the corrected
+  paragraph below it already supersedes.
+
+`docs/.../README.md` carries no divergence sentence at all (its only stake is the
+line-count row, which is N-003's subject).
+
+### N-003 — the F-005 policy's two unstated limits, recorded to agree with CARD-339
+
+The policy stands as written in F-005 above — *a file-table line-count row for a
+file the card itself changed is updated in the card's own round; a bare
+`path:line` cross-reference in prose stays `/forge:explain`'s*. Two limits it did
+not state, recorded here in the **same terms CARD-339 already carries** rather
+than in new ones:
+
+- **(a) Nothing reds when such a row goes stale.** It is an **ungated
+  convention** — no mechanical check anywhere — so the next card that forgets
+  reproduces F-005 exactly. The policy buys consistency by discipline only.
+- **(c) There was a third option, and neither card took it: retire the figure.**
+  The board's own remedy for a number that moves on every merge is to stop
+  carrying it — `meta/kanban/config.yml` did exactly that for the validator's
+  warning count, and `CLAUDE.md` did it for the duplicated component map
+  (CARD-261). A `Lines` column in a docs file-table is the same class of number.
+  **CARD-339 carries the instruction**: if it finds itself updating that row a
+  second time, it retires the column instead and says so.
+
+Cycle 2's limit **(b)** — that the policy created an obligation the receiving
+card was not carrying — **is closed by fact, not by promise**: CARD-339 changes
+`player/player.css`, so the `482` written this round is wrong at its merge, and
+`docs/how-it-works/01-domain/puzzle-creation/README.md` **is now in CARD-339's
+`Touches`** with the inherited row named explicitly as item 3 of its "What this
+card inherits" section. Verified at this gate.

@@ -362,9 +362,30 @@ class TestPublicMaybe_TheLookIsDeclaredOnce:
     """
 
     def test_the_maybe_cell_look_is_one_rule_declaring_one_background(self) -> None:
+        """One cell rule, declaring one property — the shape the look shipped in.
+
+        This is the guard CARD-339's AC-1 trips **first, and on both
+        assertions**: :func:`maybe_rules` counts a ``::after`` rather than
+        filtering it, so the glyph lands in ``cell_rules`` and in
+        ``cell_declarations`` at once. Both messages name that hand-off, for
+        the same reason the swatch assertion below does — a hand-off that reds
+        as a bare list mismatch reads as a regression.
+        """
         report = look_report(PUBLIC_CSS.read_text(encoding="utf-8"))
-        assert report["cell_rules"] == ['.player-cell[data-state="maybe"]'], report["cell_rules"]
-        assert [sorted(d) for d in report["cell_declarations"]] == [["background"]], report
+        handoff = (
+            "the maybe cell's look is decided in more than one place. If the second place is "
+            'a "?" glyph as an ::after on .player-cell[data-state="maybe"], this is CARD-339\'s '
+            "AC-1 landing and this message is the one it will read: teach this test the new "
+            "expected shape — and the swatch its matching half — rather than dropping the "
+            "assertion. Anything else is the re-declaration AC-4 makes a finding against "
+            "CARD-323. Read as "
+        )
+        assert report["cell_rules"] == ['.player-cell[data-state="maybe"]'], (
+            f"{handoff}cell rules {report['cell_rules']}."
+        )
+        assert [sorted(d) for d in report["cell_declarations"]] == [["background"]], (
+            f"{handoff}cell declarations {report['cell_declarations']}."
+        )
 
     def test_the_swatch_previews_the_cell_with_the_cells_own_value(self) -> None:
         """One swatch rule, and its value is the cell's.
@@ -389,12 +410,20 @@ class TestPublicMaybe_TheLookIsDeclaredOnce:
 
     #: The plants this class is held to, each as ``(name, mutate)``. Every one
     #: is a defect somebody could really ship: the two cell plants are the two
-    #: ways to re-declare the mark, and the two swatch plants are losing the
-    #: card's own line and getting its value wrong.
+    #: ways to re-declare the mark — flat, and as a pseudo-element — and the two
+    #: swatch plants are losing the card's own line and getting its value wrong.
+    #:
+    #: The ``::after`` plant is named for the *arithmetic* it exercises, not for
+    #: the ``?`` glyph, and deliberately: once CARD-339 lands, a glyph rule is
+    #: the sheet's legitimate second cell rule, so this plant then appends a
+    #: THIRD and still reports — green, but catching a duplicate rather than a
+    #: forbidden shape. The name holds in both worlds; "a ? glyph as an
+    #: ``::after``", which it was called before, stops describing it on that
+    #: merge.
     MUTANTS = {
         "a second cell rule": lambda css: css
         + '\n.player-cell[data-state="maybe"] { background: var(--grid-ink); }\n',
-        "a ? glyph as an ::after": lambda css: css
+        "an extra cell rule, as an ::after": lambda css: css
         + '\n.player-cell[data-state="maybe"]::after { content: "?"; color: var(--color-accent); }\n',
         "the swatch rule deleted": lambda css: css.replace(
             '.player-swatch[data-state="maybe"] { background: var(--color-surface-hover); }', ""
