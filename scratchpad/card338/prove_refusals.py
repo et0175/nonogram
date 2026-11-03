@@ -1,0 +1,237 @@
+"""CARD-338 AC-1: the probe cannot silently measure nothing — **proved** by
+running it against trees it must refuse.
+
+Not a test and not under ``tests/`` (G-2). Run from the worktree root::
+
+    python scratchpad/card338/prove_refusals.py
+
+AC-1 is the card: a probe that rebinds a global that has been renamed, or lifts
+a kind already absent, must fail with a message naming what it could not do,
+and must never run the session green over a tree it did not change. An
+assertion nobody has seen fire is a claim, so this script **stands each failure
+up** and checks the refusal.
+
+**How a mutated tree is made without touching ``src/`` (G-1).** ``src/`` is
+copied into a scratch directory, the copy is mutated, and pytest is run with
+``-o pythonpath=<copy>`` — which pytest inserts at ``sys.path[0]``, ahead of
+the editable install's ``.pth`` entry for the real tree. Every case asserts
+that the module actually imported came **from the copy** before trusting its
+verdict, because a refusal proved against the unmutated tree would prove
+nothing.
+
+The cases, each a way this instrument could go quiet:
+
+1-5. one of the five declarations is already absent (the tree is partly
+     converted: CARD-322 has landed that kind);
+6.   the writer-rebinding target is renamed, so the generator's default writer
+     set cannot be found by name;
+7.   the assembly point's writer set is partial, so the kinds it does not
+     cover would be refused rather than drawn;
+8.   the constructor stops reading the module global, so rebinding it is a
+     **no-op** — the quietest failure of all, and the one a ``hasattr`` check
+     alone would miss;
+9.   the control: the unmutated tree, which must be accepted. Without it the
+     eight refusals above would also be satisfied by a probe that refuses
+     everything.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+PYTHON = Path("/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python")
+HERE = Path(__file__).resolve().parent
+SCRATCH = Path(
+    os.environ.get(
+        "CARD338_SCRATCH",
+        "/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/"
+        "24ca6817-b2be-4fe1-a096-514edd138cf0/scratchpad/card338",
+    )
+)
+#: One cheap, file-scoped target. The refusal happens in ``pytest_configure``,
+#: before collection, so the target only has to exist — but a nodeless pytest
+#: call collects the whole suite, so one is always passed.
+TARGET = "tests/test_book_interior_face.py"
+GENERATOR = "src/nonogram/admin/book_pdf_generator.py"
+ASSEMBLY = "src/nonogram/admin/book_interior_vector.py"
+
+
+def sweep(where: Path) -> None:
+    for cache in where.rglob("__pycache__"):
+        shutil.rmtree(cache, ignore_errors=True)
+
+
+def fresh_copy(name: str) -> Path:
+    """``src/`` copied to a scratch directory, ready to be mutated."""
+    into = SCRATCH / "trees" / name
+    if into.exists():
+        shutil.rmtree(into)
+    into.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(ROOT / "src", into / "src")
+    sweep(into)
+    return into
+
+
+def drop_declaration(tree: Path, kind: str) -> None:
+    """Make the copy a tree where ``kind`` is already converted."""
+    path = tree / GENERATOR
+    path.write_text(
+        path.read_text()
+        + f"\n\n# CARD-338 prove_refusals: {kind} is already converted here.\n"
+        f"_RASTER_DECLARATIONS.pop(PageKind.{kind}, None)\n"
+    )
+
+
+def rename_target(tree: Path) -> None:
+    path = tree / GENERATOR
+    path.write_text(
+        path.read_text().replace("NO_DOWNSTREAM_WRITERS", "NO_WRITERS_AT_ALL")
+    )
+
+
+def partial_writers(tree: Path) -> None:
+    path = tree / ASSEMBLY
+    path.write_text(
+        path.read_text()
+        + "\n\n# CARD-338 prove_refusals: the assembly point lost a writer.\n"
+        "DOWNSTREAM_WRITERS = InteriorPageWriters(\n"
+        "    guide=None,\n"
+        "    toc=toc_page_stream,\n"
+        "    answer=answer_page,\n"
+        "    packed_answer=packed_answer_page,\n"
+        ")\n"
+    )
+
+
+def stop_reading_the_global(tree: Path) -> None:
+    """The constructor no longer reads the module global, so rebinding it does
+    nothing at all and a ``hasattr`` check would still pass."""
+    path = tree / GENERATOR
+    source = path.read_text()
+    old = "self.pages = NO_DOWNSTREAM_WRITERS if pages is None else pages"
+    assert old in source, (
+        f"{GENERATOR} no longer contains the constructor line this case "
+        "mutates -- re-read it before trusting any case here"
+    )
+    path.write_text(
+        source.replace(old, "self.pages = InteriorPageWriters() if pages is None else pages")
+    )
+
+
+CASES = [
+    (f"declaration {kind} already absent", lambda t, k=kind: drop_declaration(t, k), True)
+    for kind in ("PUZZLE", "TITLE", "GUIDE", "TOC", "ANSWER")
+] + [
+    ("writer-rebinding target renamed", rename_target, True),
+    ("assembly point's writer set is partial", partial_writers, True),
+    ("constructor stops reading the global (rebinding is a no-op)",
+     stop_reading_the_global, True),
+    ("CONTROL: the unmutated tree", lambda tree: None, False),
+]
+
+IMPORTED_FROM = re.compile(r"^CARD338-IMPORTED-FROM (.*)$", re.M)
+
+
+def run(tree: Path) -> tuple[int, str]:
+    sweep(ROOT)
+    env = dict(
+        os.environ,
+        PYTHONDONTWRITEBYTECODE="1",
+        PYTHONPATH=f"{HERE}{os.pathsep}{SCRATCH}",
+    )
+    done = subprocess.run(
+        [
+            str(PYTHON), "-m", "pytest",
+            "-o", "addopts=",
+            "-o", f"pythonpath={tree / 'src'}",
+            "-q", "-rfs", "--tb=short", "--collect-only",
+            "-p", "probe_five_kinds",
+            "-p", "where_from",
+            TARGET,
+        ],
+        cwd=str(ROOT), env=env, capture_output=True, text=True,
+    )
+    sweep(ROOT)
+    sweep(tree)
+    return done.returncode, done.stdout + done.stderr
+
+
+def main() -> int:
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    # A one-line plugin that reports which tree was actually imported, so a
+    # case cannot be "proved" against the unmutated source. It is written into
+    # the SESSION scratchpad, not beside this file: G-3 keeps the card's own
+    # scratchpad to committed instruments only.
+    (SCRATCH / "where_from.py").write_text(
+        '"""CARD-338: report which tree the generator was imported from.\n\n'
+        "Loaded with ``-p`` BEFORE ``probe_five_kinds`` in\n"
+        "``prove_refusals.py``, so the line below is printed even when the\n"
+        "probe then refuses. A refusal proved against the unmutated tree\n"
+        'proves nothing, and this is what makes that checkable."""\n\n'
+        "from nonogram.admin import book_pdf_generator as _generator\n\n"
+        'print("CARD338-IMPORTED-FROM " + _generator.__file__)\n'
+    )
+
+    failures = []
+    for name, mutate, must_refuse in CASES:
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        tree = fresh_copy(slug)
+        mutate(tree)
+        code, out = run(tree)
+        where = IMPORTED_FROM.search(out)
+        imported = where.group(1) if where else "<not reported>"
+        from_copy = imported.startswith(str(tree))
+        refused = code != 0
+        # The refusal must NAME what it could not do: an AssertionError with no
+        # message would satisfy "non-zero exit" and teach a reader nothing.
+        named = [
+            phrase
+            for phrase in (
+                "found no", "cannot rebind", "cannot read", "has no writer for",
+                "does not hold the rebound", "measures nothing",
+                "declarations name", "declares",
+            )
+            if phrase in out
+        ]
+        ok = (
+            from_copy
+            and refused == must_refuse
+            and (bool(named) if must_refuse else True)
+        )
+        verdict = "OK  " if ok else "FAIL"
+        print(f"{verdict} [{'refuse' if must_refuse else 'accept'}] {name}")
+        print(f"       imported from the copy: {from_copy}  ({imported})")
+        print(f"       exit {code}, refused={refused}")
+        if must_refuse:
+            quoted = [
+                line.strip()
+                for line in out.splitlines()
+                if "AssertionError" in line or "measures nothing" in line
+            ]
+            for line in quoted[:3]:
+                print(f"       message: {line[:200]}")
+            print(f"       phrases naming what it could not do: {named}")
+        if not ok:
+            failures.append((name, code, out[-4000:]))
+        shutil.rmtree(tree, ignore_errors=True)
+
+    (SCRATCH / "where_from.py").unlink(missing_ok=True)
+    sweep(ROOT)
+    print()
+    if failures:
+        for name, code, out in failures:
+            print(f"\n########## FAILED CASE: {name} (exit {code})\n{out}")
+        print(f"AC-1 NOT PROVED: {len(failures)} of {len(CASES)} cases wrong")
+        return 1
+    print(f"AC-1 PROVED: {len(CASES)} cases, 8 refusals named and 1 control accepted")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
