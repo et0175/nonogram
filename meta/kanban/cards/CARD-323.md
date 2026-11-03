@@ -1,6 +1,6 @@
 # CARD-323: The public player gains the Maybe brush — the fourth mark whose look already ships
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -16,12 +16,13 @@
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_maybe.py, tests/test_public_player.py, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, docs/how-it-works/01-domain/puzzle-creation/README.md <!-- the last three added in round 1: the EC-050 walk reds on an unwalked control, and the two docs carry three-brush sentences this card makes false -->
-**Review score:** —
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_maybe.py, tests/test_public_player.py, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, docs/how-it-works/01-domain/puzzle-creation/README.md
+<!-- The last three added in round 1: the EC-050 walk reds on an unwalked control, and the two docs carry three-brush sentences this card makes false. MOVED OUT OF THE PARSED VALUE at the merge gate, 2026-11-03, by the same one-line move `e4bac95c` applied to CARD-339 and CARD-273: `parse_card_fields` strips no HTML comment and `extract_touches` splits on commas, so a comment inside the value concatenates with the last real path and adds a phantom glob. Measured with the real parser before the move -- 8 globs, the README path welded to the comment's opening and a second glob that is pure comment fragment; after, 7 clean paths. That sweep could not see this card: the comment existed only in the worktree copy, so a board-wide census reading `main` counted three live cases and this was a fourth. -->
+**Review score:** 8.5 (cycle 2 of 3 — CERTIFIED; 6.5 → 8.5, one fix round; 0 Critical, 0 Important, three non-gating Minors — N-001 and N-003 closed at the merge gate, N-002 dispositioned to CARD-339 and its hand-off verified there)
 **Started:** 2026-10-31T12:18:26+00:00
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-03T17:27:31+00:00
+**Actual:** 77.2h wall-clock against a 0.25d estimate — and the clock is emphatically not the work: the implementation round ran 2026-10-31 and the fix round 2026-11-03, three days apart, so the span measures the board's queue and not this card's size (measured from `Started`, not estimated)
+**Merge commit:** `efa9d0e0` — merged onto `e4bac95c` with the branch rebased onto `f574ceed` (merge-base `f407c350`; main moved 429 files under this card with **zero** overlap with its footprint, so the rebase took no conflict). Full suite on the gated tree `fafbb8f6`: **10119 passed / 0 failed / 0 errors / 27 skipped / 1 xfailed**, exit 0, 1526s. **Not vacuous**: 10119 executed, and passed + skipped + xfailed = **10147 = the collected count exactly**. Skips attributed from **`-rEfs`, not `-rfs`** (CARD-338 measured that `-rfs` omits ERRORs from the short summary — a 10% undercount on a red census): **26** from the bare `DATABASE_URL` check at `tests/conftest.py:207` ("Database not reachable: DATABASE_URL is not set") and **1** from the `setrlimit(RLIMIT_AS)` platform gate at `tests/test_book_pdf_memory.py:1297`; the per-worktree `*_test` resolution gate did **not** fire. G-5 by whole-suite collection with `-o addopts=''`: **10129 → 10147, 0 lost and 18 gained**, and all 18 are the new module — the EC-050 walk's extension landed **inside existing cells** (two table entries and a floor 11 → 12), so `tests/test_public_player.py` collects **34 on both sides**. Validator of record (the forge_1 copy, read-only): **0 errors / 525 warnings** on main and on the merged tree, WARN **sets** compared with `comm` after asserting both sides non-zero and matching `^[[:space:]]*\[WARN` (a bare `^\[WARN` matches nothing — the validator indents two spaces — and `comm` would then compare empty with empty and report clean): **empty symmetric difference, 0 out and 0 in**. The 525 is CARD-335's batched-grep timeout and has stood on main for days, **not** a regression — and because all 436 ref warnings are tooling failures, `check_refs_verified` is false on both sides, so comm-equality alone does not prove nothing was revived. The actual evidence is the **token census**: every `path::name` token this diff adds resolves to a real `def`/`class` by `ast` (five new classes in the maybe module, three pre-existing tests named in prose), so no dead check ref is revived. Landed tree differs from the gated tree only by `e4bac95c`'s three unrelated card bodies (CARD-273, CARD-339, CARD-341).
 **Blocked by:** —
 
 ## Why this card exists, and why it is this small
