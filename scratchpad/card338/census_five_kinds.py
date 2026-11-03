@@ -288,11 +288,20 @@ def main() -> int:
     for path in reds:
         print(f"    RED {path}")
     sweep()
-    if total_unaccounted:
+    if total_unaccounted > 0:
         print(f"\nFAIL: {total_unaccounted} red(s) carry no cause this walk could "
               f"read, so the classifier cannot see them. Re-run the module(s) above "
               f"with -rEfs and read the ERRORS section; a red nobody classifies is "
               f"the 'other' bucket AC-3 forbids.")
+        return 1
+    if total_unaccounted < 0:
+        # The other direction, gated for the same reason: more causes than reds
+        # means the walk is reading a `path.py:NN:` line that is not a red -- a
+        # defect in THIS instrument, and one a count comparison would otherwise
+        # hide inside a per-module column nobody adds up.
+        print(f"\nFAIL: this walk read {-total_unaccounted} more cause(s) than "
+              f"there are reds, so at least one `path.py:NN:` line it counted is "
+              f"not a red. Fix the walk before quoting any number here.")
         return 1
     print("\nOK: every red carries a cause the classifier can read "
           "(unaccounted=0).")
