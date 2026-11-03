@@ -101,12 +101,23 @@ against the same module.
 What is *not* shared is the UI glue, and the reason is in `play.js:16`: `solver.js`
 is built around a Flask-rendered page with an embedded payload, a brush menu, zoom,
 an error count, a hint button and a progress percent. This page fetches its puzzle,
-has three brushes and no counters.
+has the same four brushes and no counters.
 
-## Marking: three brushes, and the mark that had drifted
+## Marking: four brushes, and the mark that had drifted
 
-The public page offers `TOOLS = [FILLED, EMPTY, UNKNOWN]` (`play.js:83`) — the
-`MAYBE` ("?") brush is the admin player's fourth and is not offered here.
+The public page offers `TOOLS = [FILLED, EMPTY, MAYBE, UNKNOWN]` — all four of
+`solver_state.js`'s cell states, in the admin brush menu's own order (locate the
+constant by name: `play.js`'s `TOOLS`). `MAYBE` ("?") was withheld until CARD-323,
+and the reason was never that the page could not reach it: every transition it
+needs is in the shared module and `player.css` already carried the mark's look. It
+was a scope choice, which the owner reversed on 2026-10-30. What stays out is the
+three features that take `solution` — the error count, the progress percent and
+hints — because those the page genuinely cannot reach.
+
+The two players do **not** yet agree on what a "?" looks like: `admin.css` draws a
+"?" glyph in the accent token on the cell and on the swatch, while `player.css`
+draws a tint one step off the paper and no glyph. That is an open finding from
+CARD-323, not a closed divergence.
 
 An empty cell is drawn as a **centred dot**, 28% of the cell, as an `::after`
 (`player.css:425`) — the mark `admin.css` draws for the same state. It was two
