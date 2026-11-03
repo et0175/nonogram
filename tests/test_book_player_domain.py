@@ -166,7 +166,18 @@ _PLAY_LINK = re.compile(r'<div class="play-link[^"]*">.*?</div>', re.S)
 
 
 def play_links(markup: str) -> list[str]:
-    """Every reader-link fragment on the page, in document order."""
+    """Every reader-link fragment on the page, in document order.
+
+    **The fragment must contain no nested ``<div>``.** :data:`_PLAY_LINK` is
+    non-greedy, so a nested element's ``</div>`` would end the match early and
+    everything after it — a leak included — would be invisible to
+    :func:`unexpected_in_link` (cycle 1, F-005). The shape fails loudly rather
+    than silently today: :func:`shown_urls` would find no ``<code
+    class="play-url">`` inside the truncated fragment and raise, reddening
+    every AC-2 cell. Keep the link flat, or parse it with :class:`_Tokens`
+    below instead of with the regex — do not "fix" ``shown_urls`` to tolerate
+    a truncated fragment, which would leave the whitelist blind.
+    """
     return _PLAY_LINK.findall(markup)
 
 
@@ -228,6 +239,11 @@ def inventory(url: str, order: int) -> set[str]:
         "onclick",
         "aria-label",
         "title",
+        "role",
+        "aria-live",
+        "status",
+        "polite",
+        "play-copy-said text-muted",
         "play-link d-flex align-items-center gap-2 small",
         "visually-hidden",
         "play-url",
@@ -421,6 +437,12 @@ TAILS = [
     ("", True),
     ("/", True),
     (":8443", True),
+    # The bound itself, from both sides, and the lowest port there is: an
+    # off-by-one in ``1 <= port <= _MAX_PORT`` is a one-character edit that
+    # ":0" and ":99999" alone would not have caught (cycle 1, F-008).
+    (":1", True),
+    (":65535", True),
+    (":65536", False),
     (":0", False),
     (":99999", False),
     (":", False),
@@ -688,8 +710,15 @@ class TestPlayerDomain_NothingButTheKeyReachesTheLink:
         hrefs = re.findall(r'href="([^"]*)"', markup)
         assert hrefs, "no links on the page at all: the check measured nothing"
         for href in hrefs:
-            assert "Sleeping" not in href
-            assert "angel" not in href.lower() or "adverax" in href.lower()
+            # The base is the one thing a reader link is allowed to carry, so
+            # it is REMOVED from the haystack rather than used to excuse the
+            # href that carries it: `or "adverax" in href` passed every href
+            # this card emits without reading it (cycle 1, F-004). What is
+            # searched is what the base does not account for.
+            tail = href.replace(BASE, "")
+            assert "Sleeping" not in tail, href
+            for name in ("angel", "star"):
+                assert name not in tail.lower(), href
         for name in ("angel", "star"):
             cells = "".join(
                 "1" if cell else "0" for row in GRIDS[name] for cell in row

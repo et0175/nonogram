@@ -2924,7 +2924,17 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     # reds on a sentence cannot be the one that says what the code does. The
     # assembler is loaded by path and is not importable as a module, so the
     # two ways to reach it are an import statement naming it and a literal
-    # naming its file; both are checked.
+    # naming its file; both are checked, in every spelling an import has —
+    # including ``from scripts import assemble_player_site``, where the name
+    # is in an alias rather than in ``node.module`` (cycle 1, F-001: the
+    # first version of this walk read only ``node.module`` and let that one
+    # through, which the substring guard it replaced had caught). What is
+    # NOT checked is a name assembled at run time out of pieces, as in
+    # ``importlib.import_module("scripts" + ".assemble" + "_player_site")``:
+    # no literal there carries both words, and a guard that chased string
+    # arithmetic would be back to reading prose. That hole is deliberate and
+    # is named here rather than left to be discovered as a claim of
+    # completeness this walk does not have.
     offenders = []
     for path in (REPO_ROOT / "src").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -2933,7 +2943,18 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
             if isinstance(node, ast.Import):
                 names = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
-                names = [node.module or ""]
+                # The module an alias is imported FROM is not the only name an
+                # ``ImportFrom`` carries: ``from scripts import
+                # assemble_player_site`` puts it in ``node.names``, and
+                # ``scripts/`` has no ``__init__.py`` but is a PEP 420
+                # namespace package, so that import really resolves from the
+                # repo root — which is where both the suite and the panel run.
+                # Each alias is therefore read qualified by its module.
+                prefix = node.module or ""
+                names = [prefix] + [
+                    f"{prefix}.{alias.name}" if prefix else alias.name
+                    for alias in node.names
+                ]
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
                 if "assemble" in node.value and "player" in node.value:
                     offenders.append(f"{where}: names {node.value!r}")

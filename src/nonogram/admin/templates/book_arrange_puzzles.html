@@ -223,6 +223,14 @@
                                     onclick="copyPlayUrl(this)"
                                     aria-label="Copy the reader link for puzzle {{ puzzle.order }}"
                                     title="Copy this link">Copy</button>
+                            {#- Where Copy says what happened (cycle 1, F-007).
+                                The outcome used to live in the button's
+                                ``title`` alone, which a screen reader does not
+                                announce and a touch user never sees: on the
+                                no-clipboard branch the button looked inert.
+                                A live region is read out when its text
+                                changes, and the words are the same ones. -#}
+                            <span class="play-copy-said text-muted" role="status" aria-live="polite"></span>
                         </div>
                         {% elif player_base and not puzzle.play_key %}
                         {#- The book has a base, so a link was expected
@@ -304,13 +312,21 @@
     about the puzzle but the URL itself. -#}
 <script>
 function copyPlayUrl(button) {
-    const url = button.parentElement.querySelector('.play-url').textContent.trim();
-    const said = button.title;
-    const done = () => { button.title = 'Copied'; setTimeout(() => { button.title = said; }, 1500); };
+    const link = button.parentElement;
+    const url = link.querySelector('.play-url').textContent.trim();
+    const status = link.querySelector('.play-copy-said');
+    const hint = button.title;
+    // Every outcome is said in the live region AND in the title: the region is
+    // what a screen reader announces and a touch user can read, the title is
+    // the hover affordance it has always been (cycle 1, F-007).
+    const say = (text) => { status.textContent = text; button.title = text; };
     if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(done, () => { button.title = 'Copy failed — select the link and copy it'; });
+        navigator.clipboard.writeText(url).then(
+            () => { say('Copied'); setTimeout(() => { status.textContent = ''; button.title = hint; }, 1500); },
+            () => say('Copy failed — select the link and copy it')
+        );
     } else {
-        button.title = 'Copying needs a secure connection — select the link and copy it';
+        say('Copying needs a secure connection — select the link and copy it');
     }
 }
 </script>
