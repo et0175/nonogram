@@ -33,24 +33,53 @@ Measured on `CARD-322.md` by CARD-338's fix round: **15 "globs" instead of 8**, 
 prose fragments, and `compute_excess` reported a declared ADR path as **excess although the
 field declares it** — on a card whose own work edits that file.
 
-**This is not one card's typo.** Measured across the board 2026-11-03:
+**This is not one card's typo, and it is not confined to `Touches`.** Re-measured
+2026-11-03 after CARD-332's gate refuted a narrower sweep of mine:
 
 | | count |
 |---|---|
-| cards with `<!--` inside the parsed `Touches:` value | **21** |
-| of those, not `done`/`skipped` | **3** — CARD-273, CARD-322, CARD-339 |
-| cards with `<!--` inside the parsed `Wave:` value | **17** |
-| of those, `ready` (the only status `compute_poached` considers) | **0** |
+| cards with a comment inside **some** parsed field | **45** |
+| distinct fields affected | **11** |
+| `Touches` / `Wave` / `Depends on` / `Estimate` / others | 19 / 16 / 13 / 8 / 10 |
 
-All three live ones were damaged in the same way and have been repaired by hand:
-`CARD-339` parsed to **4 real paths out of 7** (the orchestrator's own card, written hours
-after the lesson that produced it), and `CARD-273`'s eaten glob was **`tests/**`** — a card
-declaring the whole test tree, with that declaration corrupted. `CARD-322`'s repair rides
-CARD-338's branch.
+**The severity is per-CONSUMER, not per-field, and that is the finding.** Measured against
+the real consumers rather than assumed:
 
-The `Wave:` instances are **inert today** rather than safe: that field is compared by
-**equality**, which is more brittle than a comma split, and nothing but the current statuses
-keeps it harmless.
+- **`Touches` is genuinely broken.** `card_lint.extract_touches` is a plain
+  `value.split(",")` with **no comment stripping**, so fragments become globs and the last
+  real path is welded to the comment's opening. CARD-332's gate measured **28 "globs" where
+  15 are declared**, and quantified the live harm on CARD-322 (`ready`, the status
+  `compute_poached` reads): its denominator becomes 15 instead of 8, so a partial poach of
+  3-of-8 files scores **0.20 against a 0.3 threshold** where honestly it is 0.375 — **a
+  partial poach silently hidden**.
+- **`Depends on` survives corruption but INVENTS EDGES.** Its consumer scans the value for
+  `CARD-\d+` tokens rather than splitting, so a comment cannot break it — but **every card id
+  named inside the comment becomes a dependency**. Measured: **10 cards gained phantom edges,
+  8 of them `ready`**.
+- **`Revision pending` has no programmatic consumer found** — it appears only in
+  `card_lint`'s field-name list, so the gate it controls is applied by an agent reading the
+  card, which reads `true <!-- … -->` correctly. Benign today, and benign *by luck* rather
+  than by design.
+
+### The live harm this already caused, and the instrument that hid it
+
+The phantom edges put a **cycle** in the board's dependency graph: CARD-336's comment named
+CARD-337, and **CARD-337 really depends on CARD-336**. Measured over all 340 cards:
+
+| reading | result |
+|---|---|
+| comment-stripped (the orchestrator's own Kahn script) | 340 ordered, **no cycle** |
+| token-scan (what the consumer actually does) | **324 ordered, 16 unordered — CYCLE** |
+
+**Every "Kahn clean, no cycle" reported during wave 73 was measured with the stripping
+script**, so the instrument was more forgiving than the consumer and hid the defect for the
+whole wave. That is the transferable lesson and it is worth more than the repair: **an
+instrument more permissive than the consumer reports health the consumer will not see.**
+
+Repaired by hand on `main`: the three live `Touches` cases, and the **eight `ready` cards**
+whose `Depends on` produced phantom edges. Both readings now agree at 340/340, no cycle.
+Still outstanding: the `done` cards (records, deliberately untouched) and CARD-322's
+`Touches`, whose repair rides CARD-338's unmerged branch.
 
 ## Why hand-repair is the wrong fix
 
