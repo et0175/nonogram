@@ -324,6 +324,18 @@ _RECORD_SAID = """() => {
 #: thirty.
 _SAID_TIMEOUT_MS = 2000
 
+#: How long Copy may take to become clickable (cycle 2, F-204). Every
+#: ``click()`` in this module passes it, and the bound is measured rather than
+#: defensive: deleting ``.play-url``'s ``overflow-wrap`` declaration reds
+#: **five** cells here, not the three the round claimed, and two of the five
+#: fail as Playwright click timeouts — the unbroken URL widens its row until
+#: ``card-body`` covers the button, so the click retries for the default 30 s
+#: (57 attempts) and the module's run goes 7.53 s -> 66.91 s. The cause is in
+#: the first retry's message ("card-body ... intercepts pointer events"); the
+#: other 56 only cost time. Bounded, that shape reports in two seconds with
+#: the same readable cause.
+_CLICK_TIMEOUT_MS = 2000
+
 
 @pytest.mark.browser
 class TestArrangePlayLink_CopySaysWhatHappened:
@@ -356,7 +368,7 @@ class TestArrangePlayLink_CopySaysWhatHappened:
         # template's own 1.5 s reset: "Copied" is transient by design.
         desktop_page.evaluate(_RECORD_SAID)
 
-        link.locator("button").click()
+        link.locator("button").click(timeout=_CLICK_TIMEOUT_MS)
 
         desktop_page.wait_for_function("() => window.__said.length > 0", timeout=_SAID_TIMEOUT_MS)
         assert desktop_page.evaluate("() => window.__said")[0] == COPIED
@@ -373,7 +385,53 @@ class TestArrangePlayLink_CopySaysWhatHappened:
         )
         link, said = self._first_link(desktop_page)
 
-        link.locator("button").click()
+        link.locator("button").click(timeout=_CLICK_TIMEOUT_MS)
 
         assert said.inner_text().strip() == NO_CLIPBOARD
         assert link.locator("button").get_attribute("title") == NO_CLIPBOARD
+
+    def test_what_the_region_says_takes_no_width_from_the_url(self, phone_page) -> None:
+        """The spoken region is off the URL's flex line (cycle 2, F-203).
+
+        Measured at 390 px, where the column is narrowest, on the longest of
+        the three messages — and on the branch that never clears, which is why
+        geometry is worth a cell of its own here. ``copyPlayUrl`` resets the
+        success message after 1.5 s; the two failure branches do not, because
+        their words are an instruction to act on rather than a transient
+        "Copied". So while the region was a fourth item on the URL's flex
+        line, an insecure context squeezed ``.play-url`` from 98.98 px to
+        30.50 px and left it there for as long as the page stayed open.
+
+        The fix bounds rather than resets: the region cannot take width from
+        the URL in any branch. This asserts the geometry the sibling cell
+        above does not — it reads text, at 1024 px only — so a future return
+        of the region to that line reds here instead of passing.
+        """
+        phone_page.evaluate(
+            "() => Object.defineProperty(navigator, 'clipboard',"
+            " {value: undefined, configurable: true})"
+        )
+        before = [row["url"]["width"] for row in _rows(phone_page)]
+        link, said = self._first_link(phone_page)
+
+        link.locator("button").click(timeout=_CLICK_TIMEOUT_MS)
+
+        # It really is speaking the longest message, so the width below was
+        # measured under the load that used to move it.
+        assert said.inner_text().strip() == NO_CLIPBOARD
+        after = [row["url"]["width"] for row in _rows(phone_page)]
+        assert len(after) == len(before) == MEMBERS, (before, after)
+        moved = [
+            (was, now) for was, now in zip(before, after)
+            if abs(now - was) > EDGE_SLACK_PX
+        ]
+        assert moved == [], moved
+        # And the URL is still contained and still wrapped while it speaks:
+        # an unsqueezed column would also be had by letting the row spill.
+        spilled = [
+            (row["url"], row["row"])
+            for row in _rows(phone_page)
+            if row["url"]["right"] > row["row"]["right"] + EDGE_SLACK_PX
+            or row["urlScrollWidth"] > row["urlClientWidth"] + EDGE_SLACK_PX
+        ]
+        assert spilled == [], spilled

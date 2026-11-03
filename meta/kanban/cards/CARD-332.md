@@ -12,9 +12,11 @@
 **Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-332
 **Source:** owner, 2026-10-30, after the public player's first deploy ("I'd add an input field for a domain string there also (on print setup) and then on arrangement page add a link (read-only) next to a puzzle (e.g. https://nonogram.adverax.io/play/073280edd0)"). The deploy that makes a real link possible is recorded in `docs/deploy/player.md` ("What production is").
 **Idea:** —
-**Wave:** 73 <!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73's owner-named card, scheduled 2026-10-31 on "ok schedule it" and carried as NEXT TO START since. Premise re-checked at dispatch. Conflict profile measured EMPTY against CARD-338 and CARD-323. Declares the app.py hotspot, so any future card touching it serializes behind. OWES A RENDER: it changes owner-facing UI. -->
+**Wave:** 73
+<!-- STAMPED 2026-10-31 at dispatch, opening wave 73. Wave 73's owner-named card, scheduled 2026-10-31 on "ok schedule it" and carried as NEXT TO START since. Premise re-checked at dispatch. Conflict profile measured EMPTY against CARD-338 and CARD-323. Declares the app.py hotspot, so any future card touching it serializes behind. OWES A RENDER: it changes owner-facing UI. -->
 **Depends on:** —
-**Touches:** docs/deploy/player.md, migrations/versions/018_book_player_domain.py, src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/player_bundle.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/db/models.py, tests/test_book_arrange_play_link.py, tests/test_book_page_spec.py, tests/test_book_player_domain.py, tests/test_player_bundle.py, tests/test_public_player.py <!-- DERIVED 2026-11-03 in fix round 1 from `git diff --name-only main...HEAD` plus the working tree's own adds, minus this card file and the review YAML. Hand-editing is what left it wrong twice: the round widened it once (models.py, migrations/, and dropping tests/test_book_setup_print_mobile.py, which this card really does not touch and leaves passing as a G-3 control), and cycle 1 then measured two files still missing from it (tests/test_book_page_spec.py, tests/test_public_player.py). THE ONE OUT-OF-SCOPE ENTRY IS tests/test_public_player.py: this card repairs the guard that mechanically enforces ADR-0041/R3 there (see the fix-round note below), which is a shared file, so it belongs in any conflict graph measured over this wave. tests/test_book_arrange_play_link.py is new in fix round 1 (F-003). Three of the four ACs require the domain to be STORED with the book (AC-1 "stored with the book's print setup", AC-2 "a book with a stored domain", AC-3 "a book with no stored domain"), so a column — models.py, book_manager.py and a migration — was always what the ACs asked for, and player_bundle.py is where the one key recipe lives that the link must be built through. -->
+**Touches:** docs/deploy/player.md, migrations/versions/018_book_player_domain.py, src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/player_bundle.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/db/models.py, tests/test_book_arrange_play_link.py, tests/test_book_page_spec.py, tests/test_book_player_domain.py, tests/test_player_bundle.py, tests/test_public_player.py
+<!-- DERIVED 2026-11-03 in fix round 1 from `git diff --name-only main...HEAD` plus the working tree's own adds, minus this card file and the review YAML. Hand-editing is what left it wrong twice: the round widened it once (models.py, migrations/, and dropping tests/test_book_setup_print_mobile.py, which this card really does not touch and leaves passing as a G-3 control), and cycle 1 then measured two files still missing from it (tests/test_book_page_spec.py, tests/test_public_player.py). THE ONE OUT-OF-SCOPE ENTRY IS tests/test_public_player.py: this card repairs the guard that mechanically enforces ADR-0041/R3 there (see the fix-round note below), which is a shared file, so it belongs in any conflict graph measured over this wave. tests/test_book_arrange_play_link.py is new in fix round 1 (F-003). Three of the four ACs require the domain to be STORED with the book (AC-1 "stored with the book's print setup", AC-2 "a book with a stored domain", AC-3 "a book with no stored domain"), so a column — models.py, book_manager.py and a migration — was always what the ACs asked for, and player_bundle.py is where the one key recipe lives that the link must be built through. -->
 **Review score:** —
 **Started:** 2026-10-31T12:18:26+00:00
 **Closed:** —
@@ -380,3 +382,68 @@ The base it prints is `print_specs.stored_player_domain(book)`; the URL it encod
 is `player_bundle.play_url(base, key)`. Neither needs re-deciding, and a book with
 no stored base must print no QR code rather than a guessed one — the same posture
 this screen takes.
+
+### [Merge gate 2026-11-03] cycle 2's two low findings closed, and three recorded
+
+**Its own `Touches:` carried the parsed-field defect CARD-341 names, and so did
+`Wave:`.** Found by running `card_lint.parse_card_fields` over this file rather
+than reading it: an inline `<!-- -->` is stripped by no parser, and
+`extract_touches` splits on commas, so the comment's prose became **28 "globs"
+where 15 were declared** — and `tests/test_public_player.py`, the last real
+entry, arrived concatenated with the comment's opening and **no longer matched
+itself**, which is how `compute_excess` reports a declared file as excess.
+`Wave:` parsed as the whole comment instead of `73`, and
+`find_runtime_field_format_issues` reported it malformed. Both comments now sit
+on their own line; re-measured, `Wave` is `'73'` and `Touches` is 15 globs with
+no fragment. The one remaining malformed field is `Branch`, whose backticks are
+**board-wide convention** (CARD-316, 323, 329 and 338 all carry them) and not
+this card's to change.
+
+**F-203 — bounded, not reset.** The live region was a fourth item on
+`.play-url`'s flex line, and the squeeze it caused is reproduced here exactly as
+cycle 2 measured it: **98.984375 px -> 30.5 px** at 390 px. The choice was
+between resetting the two failure branches and bounding the region, and
+**bounding won on the text's own purpose**: `copyPlayUrl` clears only `Copied`,
+which is transient by design, while both failure branches end in *"select the
+link and copy it"* — an instruction to act on. A timer that erased it would undo
+what F-007 added for exactly the user who cannot see the button's `title`. So
+the region moved off that line instead: `.play-link` is now a block holding a
+`.play-link-row` flex line (URL + button) and the region beneath it as
+`d-block`. The squeeze cannot now *occur* in any branch, which is stronger than
+cannot *persist*, and the message stays readable. An empty block adds no height,
+so a silent row measures as it did before. `copyPlayUrl` had to move from
+`button.parentElement` to `button.closest('.play-link')`, since the button's
+parent is now the inner row.
+
+Measured both ways. `test_what_the_region_says_takes_no_width_from_the_url` is
+new and is the geometry cell the round did not have — at **390 px**, on the
+longest message, on the branch that never clears (the existing cell reads text,
+at 1024 px only). Edge mutant: putting the region back on the flex line reds
+**that cell and only that cell**, with `[(98.984375, 30.5)]`.
+
+**F-204 — the click is bounded at 2 s, the module's own precedent.**
+`_CLICK_TIMEOUT_MS`, beside `_SAID_TIMEOUT_MS`, on both existing clicks and the
+new one. Re-measured after: deleting `.play-url`'s declaration now reds **6**
+cells (the five cycle 2 measured, plus the new one, which fails the same way) in
+**10.31 s** against a **9.95 s** clean baseline — where the round measured
+**66.91 s** against 7.53 s. The cause is unchanged and now arrives at once:
+*"`card-body` ... subtree intercepts pointer events"*. The 57 retries bought no
+information; only the first message ever had any.
+
+**Recorded, not fixed.** F-201: the round's "25 modules / 1744 passed" named no
+modules and so was not re-derivable from the card; cycle 2's own figures and
+module list are in `meta/review/CARD-332-cycle2.yml`. F-202: the DB arming is
+load-bearing for **6 cells in four other modules**, not for this card's own
+module, whose `[db]` cells run on a shared SQLite fixture. F-207:
+`_PLAYER_ORIGIN` bounds the port but neither the host label nor the host length,
+so a 300-character host would be stored and printed. F-205 is closed on main —
+`meta/impact/` is gitignored there (`.gitignore:77`); it still showed untracked
+in this worktree only because the branch forked before that commit, and the
+merge carries it.
+
+**Not a finding of cycle 2's and not fixed here:** this card adds
+`tests/test_book_arrange_play_link.py` and appends **no row** to
+`tests/README.md`, which `meta/kanban/config.yml` names as a hotspot on the
+grounds that "every card with tests appends a line". Nothing enforces it
+mechanically, so the suite is green either way, and adding it would widen a
+`Touches:` this round has already had wrong twice. Left to the board.
