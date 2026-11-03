@@ -532,3 +532,14 @@ closed cards whose fields are now history. A first guess of "110 cards" came fro
 heuristic in this round's own census and is **withdrawn**: it counted multi-word globs and
 other fields' comments. The durable fix is in the parser or a card-lint rule, not in 20 card
 bodies.
+
+**And the mechanism is not specific to `Touches:`** — no field is stripped, so this
+generalises to any field carrying an inline comment. Censused the same way: **17** cards
+have a `<!--` inside the parsed **`Wave:`** value, and `Wave` is compared by **equality**
+(`fields.get("Wave") != own_wave` in `compute_poached`), which is more brittle than
+`Touches`' comma split — a contaminated wave can equal no other card's. It is **inert
+today**, and that is measured rather than assumed: **0** of the 17 have `Status: ready`, and
+`ready` is the only status `compute_poached` considers. CARD-338's own `Wave` is one of the
+17. The general shape, for whoever fixes it: the parser hands a field's comment to every
+consumer as part of the value, and each consumer then fails in its own idiom — `Touches`
+silently drops a declared path, `Wave` silently stops matching.
