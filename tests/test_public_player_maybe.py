@@ -122,6 +122,15 @@ PUBLIC_CSS = PLAYER_DIR / "player.css"
 #: One ``data-player-tool="…"`` attribute, wherever it sits.
 _TOOL_ATTR = re.compile(r'data-player-tool="([a-z]+)"')
 
+#: The hook :func:`admin_tool_order` slices the admin's brush menu on. Named
+#: rather than inlined because it is the one string whose disappearance makes
+#: this module's authority unreadable, and the failure has to say so: four
+#: public-player test modules (CARD-323..327) each re-read this block, so a
+#: rename on the written side turns into four failures at once and every one of
+#: them has to name the cause. Declaring the coupling on the WRITTEN side is
+#: CARD-324's obligation (see CARD-323's amended pattern point 4).
+_ADMIN_MENU_HOOK = 'class="player-tool-menu"'
+
 
 # ==========================================================================
 # Reading the two authorities: the admin's menu, and the module's state set
@@ -144,11 +153,30 @@ def admin_tool_order() -> list[str]:
     template, so a future ``data-player-tool`` on the trigger button (or
     anywhere else on that page) cannot silently join the sequence this card is
     held to.
+
+    Every way the slice can fail names its cause, which is the point and not a
+    courtesy: this reads a file in the **other** tree, four sibling modules
+    will read the same block, and whoever breaks it is on the written side with
+    none of this in front of them. A reorder reds as ``public [...] != admin
+    [...]``; a wrapper ``div`` inside the menu truncates the slice and reds on
+    the floor below; a rename of the hook reds on :data:`_ADMIN_MENU_HOOK`'s
+    own assertion rather than as a bare ``ValueError: substring not found``,
+    which is what ``str.index`` gave before CARD-323's round-1 fix.
     """
     text = ADMIN_TEMPLATE.read_text(encoding="utf-8")
-    start = text.index('class="player-tool-menu"')
-    menu = text[start : text.index("</div>", start)]
-    order = tool_order(menu)
+    start = text.find(_ADMIN_MENU_HOOK)
+    assert start != -1, (
+        f"{_ADMIN_MENU_HOOK!r} is not in {ADMIN_TEMPLATE.name}: the admin brush menu's class "
+        f"was renamed or moved, so the authority this module reads the tool order from is "
+        f"gone. Re-point _ADMIN_MENU_HOOK at the block carrying the data-player-tool buttons "
+        f"(the public player's test modules read it; this is not a defect in the admin page)."
+    )
+    end = text.find("</div>", start)
+    assert end != -1, (
+        f"{_ADMIN_MENU_HOOK!r} in {ADMIN_TEMPLATE.name} opens a block that never closes, so "
+        f"the brush menu cannot be sliced out of it"
+    )
+    order = tool_order(text[start:end])
     assert len(order) >= 4, f"the admin menu reads as {order}, so it is not the authority"
     return order
 
@@ -348,7 +376,13 @@ class TestPublicMaybe_TheLookIsDeclaredOnce:
         """
         report = look_report(PUBLIC_CSS.read_text(encoding="utf-8"))
         assert report["swatch_rules"] == ['.player-swatch[data-state="maybe"]'], report["swatch_rules"]
-        assert report["swatch_declarations"] == report["cell_declarations"], report
+        assert report["swatch_declarations"] == report["cell_declarations"], (
+            "the swatch stopped previewing the cell: the brush button's maybe look reads as "
+            f"{report['swatch_declarations']} and the cell's as {report['cell_declarations']}. "
+            "A card that gives the cell a second place its look is decided — a \"?\" glyph as "
+            "an ::after, say — owes the swatch the same addition; that is CARD-339's AC-1, and "
+            "this message is the one it will read."
+        )
         # Tokens only (G-4): the value is a var(), not a colour.
         value = report["cell_declarations"][0]["background"]
         assert re.fullmatch(r"var\(--[a-z0-9-]+\)", value), value
@@ -473,6 +507,12 @@ class TestPublicMaybe_TheBrushMarksACell:
         assert [_state(page, 6, col) for col in (1, 2, 3)] == ["maybe"] * 3
 
 
+#: How many draws the seeded walk takes per tool the page offers. Six rather
+#: than one because the claim is about *transitions* between tools, and a walk
+#: of one draw per tool cannot reach most of the ordered pairs.
+_MIN_DRAWS_PER_TOOL = 6
+
+
 @pytest.mark.browser
 class TestPublicMaybe_OneToolIsCheckedAtATime:
     """AC-3 — the radio group still behaves with a fourth member in it.
@@ -541,10 +581,15 @@ class TestPublicMaybe_OneToolIsCheckedAtATime:
         assert set(seen) == set(tools), sorted(set(tools) - set(seen))
 
 
-#: How many draws the seeded walk takes per tool the page offers. Six rather
-#: than one because the claim is about *transitions* between tools, and a walk
-#: of one draw per tool cannot reach most of the ordered pairs.
-_MIN_DRAWS_PER_TOOL = 6
+#: The save's whole key set, and one stroke's, spelled out. Deliberately
+#: literals and not read back out of ``play.js``: the thing under test IS
+#: ``serialize``, and a set derived from it would grow with it — which is
+#: exactly how the first version of this test came to pass against a planted
+#: ``fingerprint`` field. Held the same way the served ``puzzle/<key>.json``
+#: is held at the end of this class, and derived once from ``serialize``'s own
+#: object literal (``player/play.js:216-223``) when written.
+_SAVE_FIELDS = ["columns", "done", "height", "key", "rows", "undone", "v", "width"]
+_STROKE_FIELDS = ["cells", "state"]
 
 
 @pytest.mark.browser
@@ -594,10 +639,24 @@ class TestPublicMaybe_AReloadRestoresMaybeMarks:
 
         A Maybe mark is the player's own note and is not derived from any
         solution (the page has none to derive from). What a guard can still
-        check is that the save's **shape** did not grow: the key set of a save
-        made with Maybe is compared with the key set of one made with Black,
-        and a stroke's keys likewise. A new field — a fingerprint, a hint
-        count, anything — reds, whatever its value.
+        check is that the save's **shape** did not grow, and it is checked in
+        **two arms, in this order**:
+
+        * the **closed** arm — the save's key set and a stroke's key set are
+          held to the literals :data:`_SAVE_FIELDS` and :data:`_STROKE_FIELDS`.
+          Any new field reds here, whatever its value and *however* it got in;
+        * the **differential** arm — the Maybe save's shape against the Black
+          save's. This is not the closure (two outputs of the same
+          ``serialize`` call share any field added unconditionally, so this arm
+          alone passes a planted ``fingerprint``, measured); it is what proves
+          the literal above was matched against two **real** saves of the same
+          puzzle rather than one save read twice.
+
+        The round-1 review of CARD-323 measured the differential-only version:
+        ``fingerprint: payload.key.length`` planted into ``serialize``'s object
+        literal survived at 218 passed, 0 failed. The literals are what ends
+        that, and the docstring no longer claims a closure the comparison does
+        not have.
         """
         page = browser_page
         url, _, keys = host
@@ -623,11 +682,15 @@ class TestPublicMaybe_AReloadRestoresMaybeMarks:
 
         black = save_after("filled")
         with_maybe = save_after("maybe")
-        assert sorted(with_maybe) == sorted(black), (sorted(with_maybe), sorted(black))
+        # Arm one, the closed one. Both saves, so a field that only the fourth
+        # brush's path adds and one that every path adds red alike.
+        for tool, save in (("maybe", with_maybe), ("filled", black)):
+            assert sorted(save) == _SAVE_FIELDS, (tool, sorted(save))
+            assert sorted(save["done"][0]) == _STROKE_FIELDS, (tool, save["done"][0])
+        # Arm two, the differential: the control for the comparison itself. It
+        # is reading two real saves of the same puzzle — the stroke's state is
+        # the one thing that differs, and everything else matches.
         assert with_maybe["done"][0]["state"] == "maybe" != black["done"][0]["state"], with_maybe
-        assert sorted(with_maybe["done"][0]) == sorted(black["done"][0]), with_maybe["done"][0]
-        # The control for the comparison itself: it is reading two real saves
-        # of the same puzzle, so everything but the stroke's state matches.
         assert {k: v for k, v in with_maybe.items() if k != "done"} == {
             k: v for k, v in black.items() if k != "done"
         }

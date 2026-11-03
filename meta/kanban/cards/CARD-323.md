@@ -114,7 +114,7 @@ reverses the scope choice and leaves the three answer-dependent features out.
 - ADR-0041/R3 — the board-state module and the design tokens are reused by byte-identical build-time copy, never edited (check: `player/assemble.py`'s `COPIED_FROM_ADMIN`, plus its test-tree half)
 - ADR-0041/R4 / CON-021 — play state persists only in this browser's localStorage, per puzzle; nothing server-side (check: review-lens)
 - ADR-0038/R1 — hand-written JS/CSS, no framework or build step (check: review-lens)
-- ADR-0038/R2 — no network request per mark (check: `TestSolverMarking_NoRequestPerMark`'s public-side equivalent)
+- ADR-0038/R2 — no network request per mark (check: `tests/test_public_player.py::test_no_write_request_for_any_interaction`) <!-- round 1 named the admin test's "public-side equivalent", which is not a resolvable ref: the validator resolves a check ref by TEXT search for the whole path::name string, so a prose paraphrase reads as a dead ref however green the test is. The real public-side test is the one now named; this card extends it with brush-maybe and it is green in the 249-test impact scope. -->
 - ADR-0038/R8 — a browser test refuses LOUDLY when Chromium is absent, never skips green (check: CARD-160's fixtures, imported by `tests/test_public_player.py`)
 
 ## Architecture context
@@ -209,7 +209,10 @@ feature plus one test module over the same three files:
 4. **The authority for a shared fact is the other side's file**, never a list
    spelled twice: the tool order is read from `templates/puzzle_solve.html`,
    the state values from `solver_state.js`'s own `export const` lines, the
-   corpus floor from the page's own tool count.
+   corpus floor from the page's own tool count. **Amended by fix round 1 —
+   read the amended wording in the Fix round 1 section below, not this one:
+   the declaration also has to exist on the WRITTEN side, and the reader has
+   to fail with a named message.**
 5. **Every tree-tier claim ships its mutant table** — the same reading
    function run over planted text, asserted to report the plant.
 6. **The EC-050 walk in `tests/test_public_player.py` must be extended** by any
@@ -235,11 +238,215 @@ it a finding against this card, so this round did not touch it; the
 players is "a finding for the owner" and not a worktree call. **The fix is one
 line** — the pre-existing cell rule's value — and the swatch follows it
 automatically, because `TestPublicMaybe_TheLookIsDeclaredOnce` asserts the two
-declarations are **equal** rather than asserting each separately. A follow-up
-card should carry that single rule, and the owner decides whether the public
-page gains the admin's glyph or the admin loses it.
+declarations are **equal** rather than asserting each separately.
+
+**Where that finding actually went — corrected 2026-11-03, because the round's
+own commit overstated it.** Commit `95f3a2c3`'s subject says the disagreement
+was *"carded as a measurement"*. **When it was written that was false**: there
+was no backlog entry and no card file, and the finding's only carriers were
+this section, the comment block at `player/player.css:147-164` and one sentence
+in `docs/.../11-the-public-player.md`. Cycle 1 measured that and was right to
+raise it. What is true, and true only by a **later** act outside this worktree:
+
+- the finding was **measured and routed here**, which is the part the round did
+  do and which was the right call for a card whose AC-4 makes re-declaring that
+  rule a finding against *itself*;
+- **the owner decided on 2026-11-03**: the public player gains the "?" glyph,
+  the admin keeps what it has;
+- **the decision is carried by CARD-339**, cut and committed on `main` — *"The
+  public player gains the '?' glyph — and the mark that drifted enters the
+  guard that exists to stop drift"*, `Depends on: CARD-323`, `Touches:
+  player/player.css, tests/test_public_player_agreement.py,
+  tests/test_public_player_maybe.py`.
+
+So the claim is true today and was not true when it was made; this paragraph,
+not the commit subject, is this card's record of it.
 
 **Also outside `Touches` and necessarily edited:**
 `tests/test_public_player.py` (the EC-050 walk, see 6 above) and two
 `docs/how-it-works/01-domain/puzzle-creation/` files, whose "three brushes"
 sentences this card makes false. The card's `Touches` was incomplete, not wrong.
+
+## [Fix round 1, 2026-11-03] Cycle 1 scored 6.5 — what was mechanised, what was owned elsewhere
+
+Cycle 1: three Important, two Minor, **no Critical and no blocker**; its own
+summary was *"the feature itself is correct, well tested, and `src/` is
+untouched. Every finding is in the evidence and the disposition, not the
+behaviour."* `main` was `382a8ac1` when this round ran.
+
+### F-001 — the save's "closed set" was a self-comparison, and is now closed
+
+`test_the_save_gains_no_field_for_the_fourth_brush` compared the key sets of
+**two outputs of the same `serialize()` call**, so a field added
+*unconditionally* appeared on both sides and every equality still held. Cycle 1
+measured it: `fingerprint: payload.key.length` planted into `serialize()`'s
+object literal survived at **218 passed, 0 failed**. The docstring's claim —
+*"A new field — a fingerprint, a hint count, anything — reds, whatever its
+value"* — was therefore **false**: it red only for a field added *conditionally
+on the brush*.
+
+The save is now held to a **literal** key set, the way the served
+`puzzle/<key>.json` half of the same class already was, with the differential
+kept as the **second** arm (it is what proves the literal was matched against
+two real saves rather than one save read twice):
+
+```python
+_SAVE_FIELDS = ["columns", "done", "height", "key", "rows", "undone", "v", "width"]
+_STROKE_FIELDS = ["cells", "state"]
+```
+
+**Derived, not pasted — and the difference mattered.** Cycle 1's suggested
+literal was `["columns","done","height","key","rows","undone","v"]`, **seven
+keys**. `serialize()` returns **eight**: `v, key, width, height, rows, columns,
+done, undone` (`player/play.js:216-223`). Pasting the review's list would have
+red the test on `width` on the first run. The literals are deliberately *not*
+read back out of `play.js` either: the thing under test **is** `serialize`, and
+a set derived from it grows with it, which is precisely how the first version
+came to pass against the plant.
+
+**The mutant re-fired, and it now reds** (`PYTHONDONTWRITEBYTECODE=1`,
+`__pycache__` swept both ends, plant by text with occurrence asserted `== 1`,
+SHA-256 `fce02577…` before the plant and after the restore, **MATCH**):
+
+```
+>  assert sorted(save) == _SAVE_FIELDS, (tool, sorted(save))
+E  AssertionError: ('maybe', ['columns', 'done', 'fingerprint', 'height', 'key', 'rows', ...])
+   1 failed
+```
+
+The docstring now states the two arms and says which one is the closure — and
+records that the differential arm alone is **not** one.
+
+### F-002 / F-003 — one root cause (RC-1), now owned by CARD-339
+
+Both findings said the same thing: the contrast divergence was parked without
+being owned. It is owned now, by an act outside this worktree, and the
+correction to this card's own record is in the Round 1 section above. The
+remaining half is F-003's registry entry:
+
+- the divergence is **absent from `DECLARED_DIVERGENCES`**, and round 1 cited
+  that module's docstring as authority to defer *without using its mechanism*;
+- **CARD-339 owns the registry entry.** Its `Touches` names
+  `tests/test_public_player_agreement.py`, its AC-2 requires a planted
+  divergence to red in both directions, and its AC-3 requires the Maybe mark to
+  be **in** the compared surface with every remaining declared divergence
+  carrying a reason and a measured residue. So the reviewer's *"it must be
+  assigned, not left unowned"* is satisfied by a **named owner**, not a promise;
+- and the shape of the defect, measured independently at this round:
+  `tests/test_public_player_agreement.py` contains the string `maybe`
+  **zero times**. The mark was never in the compared surface, so it did **not**
+  diverge *past* a guard — it diverged **where no guard was looking**. CARD-339
+  says exactly this, and nothing on this card contradicts it. The registry entry
+  may well end up unnecessary (if nothing must legitimately differ once the
+  glyph lands, the better outcome is no entry at all) — which is CARD-339's AC-3
+  to settle, not this card's.
+
+`tests/test_public_player_agreement.py` is outside this card's `Touches` and
+editing it here would be the wrong card doing CARD-339's first task.
+
+### F-004 — pattern point 4, split because half of it collides with G-6
+
+Point 4 (*"the authority for a shared fact is the other side's file"*) is right
+for `solver_state.js`, which ADR-0041/R3 already makes a byte-identical copy.
+It was **under-built for the admin template**: `admin_tool_order()` does a
+brace-free HTML slice, and cycle 1 measured three admin-side changes giving
+three different outcomes — a **reorder** reds informatively, a **wrapper div**
+truncates the slice and fires the floor with a named cause (genuinely
+default-deny), and a **class rename** gave a bare `ValueError: substring not
+found` with no diagnosis. Over four modules each re-reading that template, one
+rename yields four uninformative failures at once.
+
+**(ii) The reader is hardened here.** `str.index` is replaced by `str.find`
+plus a named assertion per failure mode, and `_ADMIN_MENU_HOOK` names the one
+string whose disappearance makes this module's authority unreadable. Proven by
+planting the rename `player-tool-menu` → `player-brush-menu` in the admin
+template (SHA-256 `8e8b3a24…` before and after the restore, **MATCH**; `git
+status` clean of `src/`, so **G-6 holds** — a plant that is measured and
+restored is a measurement, not an edit):
+
+```
+E  AssertionError: 'class="player-tool-menu"' is not in puzzle_solve.html: the admin
+   brush menu's class was renamed or moved, so the authority this module reads the tool
+   order from is gone. Re-point _ADMIN_MENU_HOOK at the block carrying the
+   data-player-tool buttons (the public player's test modules read it; this is not a
+   defect in the admin page).
+```
+
+**(i) Declaring the coupling on the written side is NOT done here — it touches
+`src/nonogram/admin/**` and G-6 forbids it. It is an obligation for CARD-324's
+brief**, and it is the amended pattern point, which supersedes point 4 above for
+CARD-324..327:
+
+> **4 (amended).** The authority for a shared fact is the other side's file,
+> never a list spelled twice — **and a shared fact read from the other side's
+> file must be declared on the written side and read through a reader that fails
+> with a named message.** Reading side only is half a declaration: the person who
+> renames the class is on the written side, and today sees none of the three
+> records (`templates/puzzle_solve.html` carries no note that the public
+> player's tests read it, `player/assemble.py`'s `COPIED_FROM_ADMIN` — the one
+> declared channel between the two trees — does not list it, and this card
+> deliberately does not update `trace.yml`). CARD-324 owes the written-side
+> declaration: a comment at the `.player-tool-menu` block naming the public-player
+> test modules that read it, or a non-copying entry beside `COPIED_FROM_ADMIN`.
+
+### F-005 — one policy for line-count rows, applied to all three
+
+Round 1 updated the `play.js` row of
+`docs/how-it-works/01-domain/puzzle-creation/README.md` (579 → 590) and left two
+rows of the **same table** stale for files this card changed, while the commit
+message said bare line numbers are *"left alone, `/forge:explain` owns them"* —
+so the stated policy covered all three rows and the opposite policy was applied
+to one.
+
+**The policy, chosen and recorded for CARD-324..327: a file-table line-count row
+for a file the card itself changed is updated in the card's own round; a bare
+`path:line` cross-reference in prose is left to `/forge:explain`.** The
+alternative (revert `play.js` to 579 and leave all three) buys consistency by
+writing a number that is known to be false, which is the worse of the two. So:
+
+| row | was | now | actual |
+|---|---|---|---|
+| `player/play.js` | 590 | 590 | 590 ✓ (round 1, already right) |
+| `player/player.css` | 461 | **482** | 482 ✓ |
+| `player/play.html` · `library.html` · `book.html` | 100 · 95 · 99 | **102** · 95 · 99 | 102 · 95 · 99 ✓ |
+
+### F-006 — the corpus floor moved above its consumer
+
+`_MIN_DRAWS_PER_TOOL` now sits above `TestPublicMaybe_OneToolIsCheckedAtATime`,
+beside the module's other shared constants (`_TOOL_ATTR`, `_ADMIN_MENU_HOOK`,
+`_MAYBE_ATTR`, `_MAYBE_IN_PAGE`), which all already precede their consumers.
+
+### The lesson for CARD-324..327: an AC that a near-invisible control satisfies
+
+Cycle 1's sharpest structural point, and it is **not** a defect in the
+implementation: **this card passes AC-1 as written while shipping a control a
+user cannot distinguish from the adjacent one.** AC-1's *then* is about
+`data-state="maybe"` and the recorded history and says **nothing about
+perceptibility**; the Maybe swatch measures 1.018:1 against the Clear swatch.
+The implementation did what the AC asked. The defect is **in the AC**.
+
+> **A card delivering a visible control owes a perceptibility clause** — an AC
+> whose *then* says the control can be told apart from its neighbours, measured
+> as a figure rather than asserted. CARD-339's AC-4 is the first instance of it
+> on this board ("distinguishable from both a blank cell and the Clear swatch —
+> measured as a contrast figure, not asserted, and the figure recorded"), and
+> CARD-324..327 each ship a visible control and each owe one.
+
+**Also fixed, not a finding:** a future card that gives the cell a `::after`
+glyph without the swatch would have red in
+`test_the_swatch_previews_the_cell_with_the_cells_own_value` as a bare
+declarations-dict mismatch — desired behaviour, unreadable message. **CARD-339
+is exactly that card**, so the assertion now says what it means ("the swatch
+stopped previewing the cell…") and names CARD-339's AC-1 as the thing the reader
+should look at.
+
+### Measurement, this round
+
+- impact scope, the six modules unchanged from cycle 1:
+  `pytest -o addopts='' -rfs tests/test_public_player.py tests/test_public_player_maybe.py tests/test_public_player_agreement.py tests/test_public_player_pages.py tests/test_player_bundle.py tests/test_browser_fixture_scope.py`
+  → **249 passed, 0 failed, 0 skipped** (asserted: `-rfs` as **one** flag, and
+  the browser tests really ran — 0 skipped is the assertion, not a side note);
+- the frozen-registry family `tests/test_suite_profile.py` → **450 passed, 0
+  failed, 0 skipped**, re-derived rather than carried over;
+- no file under `src/` is modified (`git status` clean of `src/` after both
+  plants were restored at matching SHA-256).
