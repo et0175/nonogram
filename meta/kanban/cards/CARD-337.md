@@ -125,37 +125,51 @@ discover", is true of the 20 modules it chose and not of the tree.** Raised as a
 about that card's derivation, not absorbed: the defect is the filter, and the fix is this
 card's population-C sweep.
 
-## The probe this card needs, and the two traps in extending it
+## The probe this card runs — CARD-338 built it — and what it measures
 
-`scratchpad/card329/probe_puzzle_operators.py` lifts **`PageKind.PUZZLE` alone**, and its
-docstring says lifting the other four kinds "would measure a REFUSAL, not a converted
-page". **Measured 2026-10-31, that is no longer true and the extension is two lines:** the
-refusal comes from `BookPDFGenerator.__init__` defaulting `pages` to
-`NO_DOWNSTREAM_WRITERS`, so rebinding that module-level default to
-`book_interior_vector.DOWNSTREAM_WRITERS` makes every `BookPDFGenerator(book)` an
-assembled generator, and the tree then writes a real five-kind vector interior with
-nothing refusing. `src/` is read, never edited — the mutation is to imported module
-objects for one process.
+<!-- REWRITTEN 2026-11-03 by CARD-338. This section used to describe the five-kind
+     extension as two lines for THIS card to write, and called the delitem KeyErrors an
+     artefact of the instrument. CARD-338 owns the instrument, committed it, re-derived
+     every figure, and MEASURED that the KeyError framing was wrong in direction. -->
 
-**Trap 1 — a test that lifts a declaration itself collides with the probe.** Derived by
-`ast`: **three** modules reference `_RASTER_DECLARATIONS` directly with **17**
-`monkeypatch.delitem` sites, and only two (`tests/test_book_pdf.py:5670`, `:5794`,
-CARD-329's own) pass `raising=False`. The rest raise
-`KeyError: <PageKind.TITLE: 'title'>` at `_pytest/monkeypatch.py:302` once the probe has
-removed the key — a red that is an **artefact of the instrument**. Measured on
-`tests/property/test_book_export_interior.py` with the four non-puzzle kinds lifted:
-**6 failed, 5 of them that KeyError and 1 genuine.** Two of the three colliding modules are
-in this card's `Touches`. **Make the two distinguishable before counting anything**, and
-state the mechanism you chose.
+**The instrument exists: `scratchpad/card338/probe_five_kinds.py`**, with
+`scratchpad/card338/census_five_kinds.py` as its census and
+`scratchpad/card338/classify_reds.py` as its triage. Run it; do not rebuild it. It lifts
+the five kinds whose `expires_with` names CARD-322 — derived from the registry, not listed
+— and rebinds `book_pdf_generator.NO_DOWNSTREAM_WRITERS` to
+`book_interior_vector.DOWNSTREAM_WRITERS`, so every `BookPDFGenerator(book)` in the tree is
+assembled and the four downstream kinds are drawn rather than refused. `src/` is read,
+never edited: both mutations are to imported module objects for one process.
 
-**Trap 2 — what the five-kind probe says about the scale, and what it does not.** Run over
-the same 20 modules at the decompose station, the five-declaration probe puts population A
-at **176** reds where the PUZZLE-only probe puts it at 102, while **population B is
-unchanged module for module** (`pdf_geometry` 4→4, `cell_size` 0→0, `difficulty_dots`
-29→29, `divider_pages_option` 3→3, `pdf_levels` 4→4). Part of the +74 is Trap 1's
-artefact, and part is real: in the **six** population-A modules that contain no
-`delitem` site at all, and where therefore no artefact can account for it, the four extra
-kinds add **+61** measured reds —
+**It is faithful to the end state, measured rather than asserted.**
+`scratchpad/card338/fidelity_to_the_end_state.py` stands the end state up a second way — a
+copy of `src/` with the five entries deleted on disk and the default writer set assembled,
+imported via `-o pythonpath=` — and the probe's red count matches it **exactly (±0)** on
+both modules tested. It also refuses by name rather than measuring nothing: five
+kind-already-absent cases, a renamed rebinding target, a partial writer set, and a
+constructor that has stopped reading the global, all proved against mutated trees by
+`scratchpad/card338/prove_refusals.py`.
+
+**Trap 1 is not a trap, and that is a correction this card inherits.** By `ast`, **three**
+modules reference `_RASTER_DECLARATIONS` with **17** `monkeypatch.delitem` sites; only two
+(`tests/test_book_pdf.py:5670`, `:5794`) pass `raising=False`; of the other 15, two are
+`DIVIDER` and are not lifted, so **13** can raise. Under the five-kind probe that is **13
+reds** over the 21 modules, and the share of the **+74** they account for is **+11**, not
++13 — the 13 is a *site* count. **But they are not the instrument's shadow.** CARD-338
+measured the identical `KeyError` count on the E1 tree — five entries deleted in `src/`,
+no probe loaded at all — so these are reds the **conversion** produces and owns. Two of the
+three colliding modules are in this card's `Touches`; price them as work, not as noise.
+
+**Trap 2 — the scale, re-derived 2026-11-03 at `f407c350`.** Over CARD-329's 20 modules the
+five-kind probe reads **18/20 red, 225 failed+error, 1150 passed, 1 skipped** against the
+PUZZLE-only probe's **17/20, 151, 1224, 1**; the one skip is the `setrlimit(RLIMIT_AS)`
+platform gate at `tests/test_book_pdf_memory.py:1297`, attributed from `-rfs`, and neither
+database gate fired. **Population B is unchanged module for module** (`pairing` 1→1,
+`pdf_geometry` 4→4, `cell_size` 0→0, `difficulty_dots` 29→29, `divider_pages_option` 3→3,
+`pdf_levels` 4→4, `pdf_two_up` 4→4, `puzzle_frame` 4→4), so the whole +74 is in population
+A. **Seven** population-A modules with no `delitem` site move, and their deltas sum to
+**+61** — the figure this card carried, with one correction: it is seven modules, not six
+(ten population-A modules have no `delitem` site at all; seven of them moved).
 
 | module | PUZZLE only | all five | delta |
 |---|---|---|---|
@@ -168,9 +182,32 @@ kinds add **+61** measured reds —
 | `tests/test_book_arrange_page_breaks.py` | 1 | **2** | +1 |
 
 **`tests/test_book_interior_face.py` is one of the three modules CARD-329 reports as fully
-green under the probe, and it is red at 2 under the real end state.** That is the clearest
-statement available of what the PUZZLE-only probe cannot see, and it is why this card
-verifies under the five-kind probe and not CARD-329's.
+green under the probe, and it is red at 2 under the real end state.** Re-derived by
+CARD-338 and confirmed to the digit. That is the clearest statement available of what the
+PUZZLE-only probe cannot see, and it is why this card verifies under the five-kind probe
+and not CARD-329's.
+
+**The third population, and the number this card inherits for it.**
+`tests/test_book_interior_type_floor.py` is in neither of CARD-329's populations;
+`scratchpad/card338/derive_medium_population.py` **derives** it rather than listing it — the
+filter is a module whose AST names the medium decision itself (`page_medium`, `PageMedium`,
+`_RASTER_DECLARATIONS`), four modules name it and this is the one outside the census — and
+the derivation reds when a module that should be in that population is not. It reads **3**
+under the PUZZLE-only probe and **8** under five kinds. **So the end-state residue over the
+21 modules is 233, not the 228 that was carried here**: the 228 added this module's
+PUZZLE-only 3 to the five-kind 225.
+
+**All 233 reds carry a mechanism and an owner, with no "other" group**
+(`scratchpad/card338/classify_reds.py`, which exits non-zero on an unmatched cause rather
+than bucketing it). The two largest families this card owns are the medium-blind read that
+returns empty (**64**) and the pixel oracle handed a `ContentStream` (**38** through
+`tests/helpers/page_ink.py`, **23** in the test modules themselves, **27** in CARD-331's
+module, **2** through `tests/helpers/two_up_ink.py`); the reader seam proper is **11**
+unprotected `KeyError: b'XObject'` plus **2** of CARD-329's named `PageMediumRefused`.
+**One caution about the instrument:** `-rfs` leaves ERRORs out of the short summary and
+`--tb=line` prints them in another shape, so a census that reads only `--tb=line` saw 210
+of the 233. The missing 23 are fixture-raised ERRORs (`pdf_band` 10, `pdf_memory` 13),
+resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
 
 ## What to implement
 
@@ -201,8 +238,9 @@ verifies under the five-kind probe and not CARD-329's.
 
 ## Acceptance criteria
 
-- **AC-1** (the nine are repaired, with a disposition each): *Given* a run under the
-  five-declaration probe, *then* each of the nine routed modules passes, and the card
+- **AC-1** (the nine are repaired, with a disposition each): *Given* a run under
+  CARD-338's five-kind probe (`scratchpad/card338/probe_five_kinds.py`), *then* each of
+  the nine routed modules passes, and the card
   states **per module** which of three dispositions it took and why — the seam sufficed,
   the module needed more, or a claim was retired with a named survivor. **A module left
   green only because the probe does not reach it is not repaired, and saying so is the
@@ -228,7 +266,9 @@ verifies under the five-kind probe and not CARD-329's.
   **every skip attributed by name from `-rfs` as ONE flag** (two database gates coexist
   here and `-rf -rs` as two flags silences the first), and the probe's own
   `monkeypatch.delitem` collision is separated from genuine reds with the separation
-  shown. A figure read off the brief rather than off a run is the defect this board has
+  shown — **and the separation now has a measured answer to start from: those 13 reds are
+  the conversion's, not the probe's** (CARD-338 measured them identical on a tree with the
+  five entries deleted in `src/` and no probe loaded). A figure read off the brief rather than off a run is the defect this board has
   hit five times.
 - **AC-5** (the change can fail): **one plant per repaired module**, each re-breaking that
   module's own repair, each killed, each with its matched control measured green **in the
@@ -316,8 +356,8 @@ verifies under the five-kind probe and not CARD-329's.
 - **[The estimate, and the calibration behind it]** 2d. CARD-329 did **five** seam edits,
   a shared helper, 24 plants and a probe harness at **2d estimated / 4.1h actual**. This
   card does **nine** seams plus four non-seam mechanisms plus a population sweep, with
-  the probe harness already designed (two lines past CARD-329's) and the seam shape
-  already proven. The nine seams are the cheap two-thirds; the four mechanisms are the
+  the probe harness **already built and committed by CARD-338**
+  (`scratchpad/card338/`) rather than merely designed, and the seam shape already proven. The nine seams are the cheap two-thirds; the four mechanisms are the
   expensive third, and the byte-identity one carries a design question
   (*what is the independent vector form of a hand-composed page?*) that could alone run a
   day. 2d is the honest ceiling.
@@ -337,9 +377,13 @@ verifies under the five-kind probe and not CARD-329's.
   BookPDFGenerator, so this reading has nothing to compare the shipped page against — the
   card that converts the guide page (CARD-309) owes the expected side here"*. That is an
   **expected-side gap**, not a reader seam, and its message names a stale card. **What
-  would measure it:** run the five-kind probe over the nine with `--tb=line` and classify
-  the reds by message before estimating the repair. If the expected-side family is large,
-  it is a fourth mechanism and a finding about this card's own scope.
+  would measure it:** done by CARD-338 — `scratchpad/card338/classify_reds.py` groups all
+  233 reds by message into named mechanisms with no "other" bucket. **The expected-side
+  family is 1 red, not a fourth mechanism**, and its site is
+  `tests/property/test_book_export_interior.py:546`, whose expected side looks for a
+  `BookPDFGenerator.vector_guide_page` **method** that CARD-309 never created (it injects
+  the writer as `self.pages.guide`). The large families are the medium-blind empty read
+  (64) and the pixel oracle handed a `ContentStream` (90 across four sites).
 - **[The `solved_answer_key` figure is the one to watch]** 1 red under PUZZLE-only, **33**
   under all five, and no `delitem` site in the module — so the jump is real and it is the
   ANSWER page's. That module also holds CARD-297's `_DECLARED_CLIP_DIVERGENCE` at

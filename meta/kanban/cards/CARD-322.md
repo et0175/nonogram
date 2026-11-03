@@ -73,6 +73,25 @@ is edited and the production conversion is the deletion of five dict entries.** 
 is corrected accordingly. *Everything expensive about this card is on the other side of
 that deletion*, which is the fact the 1d estimate was missing.
 
+> **[CORRECTION 2026-11-03, CARD-338 — the claim above is FALSE as measured, and it is the
+> one thing in this card that is not a test-side cost.]** The walk reaches the four
+> downstream writers only *through the writer set the generator was built with*, and
+> `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS` — a full
+> default-DENY. **`interior_generator`, the one call that builds an assembled generator,
+> has ZERO call sites in `src/`**: production builds `BookPDFGenerator(book)` at
+> `app.py:841`, `:960`, `:5580`, `:5759`, `book_proof.py:764` and `pdf_generator.py:344`,
+> and `app.py:5580` is `generator.export_interior(puzzles)` — the download path. So the day
+> the `GUIDE`/`TOC`/`ANSWER` entries are deleted, that path hits `_drawn_downstream`'s
+> refusal: *"a guide page is written as operators (ADR-0042/R1) and this generator was
+> built with no downstream writer for it"*. **Measured, not reasoned:** CARD-338's
+> `fidelity_to_the_end_state.py` ran `tests/test_book_interior_type_floor.py` against two
+> on-disk trees — five entries deleted and nothing else (**25 reds**), versus the same plus
+> the default writer set assembled (**8 reds**). **Seventeen reds in one module are that
+> refusal.** The `src/` change is therefore the five dict entries **plus** either moving
+> those six call sites to `interior_generator` or changing the generator's default — a
+> decision this card has to make and did not know it had. It is also CARD-309's pattern
+> repeating exactly as CARD-336's dependency note feared: *writers with zero call sites*.
+
 ### 3. The residue is 225 reds, not 151 — and the 151 is nonetheless honest
 
 The brief this re-cut was given carried **151** in five buckets. **Re-derived here, that
@@ -111,9 +130,17 @@ directly with **17** `monkeypatch.delitem` sites, and only two
 raise `KeyError: <PageKind.TITLE: 'title'>` at `_pytest/monkeypatch.py:302` once the probe
 has removed the key, which presents as a red and is the instrument's artefact. Only two of
 those three modules are in the census, and they account for **+13** of the +74
-(`property/test_book_export_interior.py` 2→7, `test_book_pdf.py` 38→46). In the **six**
-population-A modules with no `delitem` site at all — where no artefact can account for
-anything — the four extra kinds add **+61 measured reds**:
+(`property/test_book_export_interior.py` 2→7, `test_book_pdf.py` 38→46).
+<!-- WITHDRAWN 2026-11-03 by CARD-338, in this card's own convention of carrying its
+     corrections inline: "the instrument's artefact" is wrong in DIRECTION. Under the real
+     end state the key is absent from the module's own dict, so the identical KeyError
+     fires with no probe loaded -- measured on the E1 tree by
+     scratchpad/card338/fidelity_to_the_end_state.py. These are this card's residue. The
+     instrument-shaped share of the +74 is 0; had it existed it would have been +11, since
+     13 is a SITE count and test_book_pdf.py already carries 1 of them PUZZLE-only. -->
+In the **six** population-A modules with no `delitem` site at all — **seven**, re-derived
+2026-11-03; ten carry no site and seven of them moved — the four extra kinds add
+**+61 measured reds**:
 
 | module | PUZZLE only | all five | delta |
 |---|---|---|---|
@@ -139,9 +166,17 @@ of that card's filters are blind to. Derived by `ast`, that population is 4 modu
 this is the one outside the 21-file census. **So CARD-329's closing claim — "the
 arithmetic closes, so nothing is left for a reader to discover" — is true of the 20
 modules it chose and not of the tree.** Raised as a finding about that card's derivation,
-and owned by **CARD-337**. The honest residue under the PUZZLE-only probe is **154**, and
-under this card's end state **228** (225 + 3), of which at most 13 can be instrument
-artefact.
+and owned by **CARD-337**. The honest residue under the PUZZLE-only probe is **154**.
+<!-- CORRECTED 2026-11-03 by CARD-338: the end-state figure below was 228 (225 + 3), which
+     added this module's PUZZLE-only reading to the five-kind total. Under five kinds the
+     module is 8, and the artefact share is 0, not ≤13 -- both re-derived, see item 0. -->
+Under this card's end state it is **233** (225 + 8), **of which none is instrument
+artefact**: the 13 `delitem` reds were measured identical on a tree with the five entries
+deleted in `src/` and no probe loaded, so they are this card's residue.
+Its population is **derived**, not listed, by
+`scratchpad/card338/derive_medium_population.py`, whose filter is a module whose AST names
+the medium decision itself and whose assertion reds when a module that should be in the
+population is not.
 
 ### 5. What was split out, and why those seams
 
@@ -206,14 +241,24 @@ board guard, for no measurement gained.
 ### 7. Premises stated as UNMEASURED, with what would measure each
 
 * *That the residue this card still faces after CARD-336 and CARD-337 land is small.*
-  **Unmeasured, and unmeasurable today** — it is an inference about a tree that does not
-  exist until those two cards merge, which is this card family's signature failure mode.
-  **What would measure it:** re-run the five-kind probe over the 20 modules plus
-  `test_book_interior_type_floor.py` on the merged tree, before converting anything, and
-  record the count. That is this round's first job, and the number is this card's floor.
+  **Still unmeasured** — it remains an inference about a tree that does not exist until
+  those two cards merge. **What is no longer unmeasured is the floor before they land:
+  233** (CARD-338, `f407c350`, item 0 above). The instrument that measures the rest exists
+  and is committed, so this premise is now one re-run away rather than one card away: run
+  `scratchpad/card338/census_five_kinds.py --third` on the merged tree before converting
+  anything.
 * *That the +61 measured in the six uncontaminated modules is more cells of the mechanisms
-  already named rather than new mechanisms.* **Unmeasured — the census measures counts, not
-  causes.** The one cause sampled at the re-cut was new:
+  already named rather than new mechanisms.* **MEASURED 2026-11-03 by CARD-338 and the
+  answer is yes, with two corrections.** All 233 reds are grouped by message into named
+  mechanisms with an owning card each and **no "other" group**
+  (`scratchpad/card338/classify_reds.py`); the expected-side gap sampled below is **1 red**,
+  not a family. Correction one: it is **seven** uncontaminated modules that move, not six
+  (ten population-A modules carry no `delitem` site; seven of them moved), and their deltas
+  still sum to +61. Correction two: a mechanism nobody had named did turn up, and it is one
+  red — `book_pdf_generator.py`'s `RuntimeError` for a glyph outside the interior's cp1252
+  encoding, which **only becomes reachable once the page is drawn as operators**. That is a
+  product behaviour change on this card's path, not a test repair. The cause sampled at the
+  re-cut was:
   `property/test_book_export_interior.py:546` reds with *"interior page 2 is written as
   operators but no vector guide writer is reachable from `BookPDFGenerator`, so this
   reading has nothing to compare the shipped page against — the card that converts the
@@ -558,15 +603,44 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
      per-module disposition) are CARD-336's and CARD-337's. Item 0 is new and is
      the thing whose absence made CARD-329's AC-4 vacuous. -->
 
-0. **Measure first, before a line of the tree changes.** Stand up the five-declaration
-   probe — CARD-329's `probe_puzzle_operators.py` plus the two lines that rebind
-   `book_pdf_generator.NO_DOWNSTREAM_WRITERS` to `book_interior_vector.DOWNSTREAM_WRITERS`
-   — run it over CARD-329's 20 modules **plus `tests/test_book_interior_type_floor.py`**,
-   and record the red count on the merged tree. **That number is this card's floor**, and
-   its absence is how an AC in this family passed review while being satisfiable by an
-   empty diff. Separate the probe's own `monkeypatch.delitem` collision from genuine reds
-   and show the separation; the re-cut bounded the artefact at ≤13 of 74 and did not
-   eliminate it.
+0. **The floor is MEASURED — CARD-338 did it, and this item is now a re-run, not a
+   derivation.** <!-- SATISFIED 2026-11-03 by CARD-338, which this card depends on. The
+   instrument and the number are below; what is left here is one re-run on the merged
+   tree, because the figure is dated to a tree, not to this card. -->
+   The instrument is `scratchpad/card338/probe_five_kinds.py` with
+   `scratchpad/card338/census_five_kinds.py`; it lifts the five kinds whose `expires_with`
+   names this card (derived from the registry, not listed) and rebinds
+   `book_pdf_generator.NO_DOWNSTREAM_WRITERS` to
+   `book_interior_vector.DOWNSTREAM_WRITERS`. Measured at `f407c350` over CARD-329's 20
+   modules **plus `tests/test_book_interior_type_floor.py`**:
+
+   | | `PUZZLE` only | all five kinds |
+   |---|---|---|
+   | modules red | 18 / 21 | **19 / 21** |
+   | failed + error | 154 | **233** |
+   | passed | 1272 | 1193 |
+   | skipped | 1 | 1 |
+
+   **This card's floor is 233** — not the 228 this card's own re-cut carried, which added
+   the 22nd module's *PUZZLE-only* 3 to the five-kind 225; under five kinds that module is
+   **8**. The one skip is the `setrlimit(RLIMIT_AS)` platform gate at
+   `tests/test_book_pdf_memory.py:1297`, attributed from `-rfs` as one flag; neither
+   database gate fired. **Re-run the census on the merged tree before converting anything**
+   and state the number you get; a different number is the finding.
+
+   **The `monkeypatch.delitem` separation is done, and it goes the other way.** 13 reds
+   come from `delitem` sites meeting a key that is gone — but `scratchpad/card338/`
+   `fidelity_to_the_end_state.py` measured the identical count on a tree whose five entries
+   are **deleted in `src/` with no probe loaded**, so **they are this card's residue and
+   not the instrument's shadow**. The re-cut's "≤13 of 74 is artefact" is withdrawn: the
+   artefact is **0**, and the instrument-shaped share of the +74 would have been +11 in any
+   case (13 is a *site* count). The probe's red count matches the on-disk end state **±0**.
+
+   **Every one of the 233 carries a mechanism and an owner, with no "other" group**
+   (`scratchpad/card338/classify_reds.py`, which exits non-zero on an unmatched cause).
+   This card's own families: the registry-derived guards (**7**), CARD-331's raster arm
+   declaring itself dead (**2**), `_write_pdf`'s representation refusal reached (**2**), the
+   expected-side gap (**1**), and the 13 above.
 1. **One kind at a time, each removal complete — and there are FIVE.** For `TITLE`,
    `GUIDE`, `TOC`, `ANSWER` and `PUZZLE`: delete that kind's entry from
    `_RASTER_DECLARATIONS` and let `_write_pdf`'s representation refusal prove the removal —
