@@ -16,7 +16,7 @@
 **Created wave:** 73
 **Deferred waves:** 0
 **Depends on:** CARD-323
-**Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_maybe.py
+**Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_maybe.py <!-- test_public_player_maybe.py is NOT optional: CARD-323's cell-look guard treats a `?` glyph as a defect to catch, so AC-1 cannot land without teaching it the new expected shape. See G-2. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -117,10 +117,23 @@ is, and the next mark to drift would drift the same way.**
 - **G-1** — `src/` is not touched. The admin sheet keeps what it has; the owner's decision
   was that the public page gains the glyph, not that the admin loses it. An edit to
   `admin.css` is out of scope and a finding against this card.
-- **G-2** — **Do not re-declare CARD-323's rules.** That card's AC-4 pins the cell's look to
-  the single pre-existing declaration and makes re-declaring it a finding against *it*; this
-  card **adds** a glyph rule alongside, and must not duplicate or restate the background
-  declaration either card already owns.
+- **G-2** — **Do not re-declare CARD-323's background declarations** — not for the cell, not
+  for the swatch. This card **adds** a glyph; it must not duplicate or restate a background
+  value either card already owns.
+
+  **But G-2 does NOT mean you leave CARD-323's test module alone, and the first draft of this
+  guardrail wrongly implied it did.** Corrected 2026-11-03, measured in CARD-323's worktree:
+  that card's `test_the_maybe_cell_look_is_one_rule_declaring_one_background` is deliberately
+  **pseudo-element-blind**, and its mutant table plants *"a `?` glyph added as an `::after`"*
+  as something that **must change the report** — it is listed there as a defect to catch,
+  because at the time no card was allowed to add one. **So AC-1 of this card trips that guard
+  by design.** You must teach it that the glyph is now the expected shape, and that edit is the
+  designed hand-off, **not a CARD-323 regression**. `Touches` already covers
+  `tests/test_public_player_maybe.py`. Say so in the commit, or the first gate will read as a
+  regression in a merged card.
+
+  The same module's `test_the_swatch_previews_the_cell_with_the_cells_own_value` was pointed at
+  this card's AC-1 by CARD-323's fix round, so its failure message already names you.
 - **G-3** — The `DECLARED_DIVERGENCES` registry may gain an entry only with a reason and a
   measured residue. **An exemption added to make this card green is the defect it exists to
   fix**, arriving one level up.
