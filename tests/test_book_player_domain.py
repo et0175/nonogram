@@ -243,8 +243,16 @@ def inventory(url: str, order: int) -> set[str]:
         "aria-live",
         "status",
         "polite",
-        "play-copy-said text-muted",
-        "play-link d-flex align-items-center gap-2 small",
+        # The three class attributes the link's markup carries, restated at
+        # the merge gate when F-203 moved the live region off the URL's flex
+        # line: ``.play-link`` became a plain block, the flex line moved into
+        # a ``.play-link-row`` child, and the region gained ``d-block``. This
+        # is the rename this helper's own docstring promises will red here,
+        # and stating the new names is the whole of the fix — the four cells
+        # that caught it are AC-4's leakage check doing its job.
+        "play-copy-said text-muted d-block",
+        "play-link small",
+        "play-link-row d-flex align-items-center gap-2",
         "visually-hidden",
         "play-url",
         "btn btn-sm btn-outline-secondary",

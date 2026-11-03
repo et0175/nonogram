@@ -447,3 +447,33 @@ merge carries it.
 grounds that "every card with tests appends a line". Nothing enforces it
 mechanically, so the suite is green either way, and adding it would widen a
 `Touches:` this round has already had wrong twice. Left to the board.
+
+### [Merge gate 2026-11-03] the first gate was RED, by my own hand, and AC-4's inventory is what caught it
+
+Recorded because a gate that reds and is then made green silently is worse than
+one that never red. Full suite on the merged tree, run 1: **4 failed / 10229
+passed / 1 skipped / 1 xfailed**, exit 1, 1568 s. All four in this card's own
+new module, both parametrisations of two cells in
+`TestPlayerDomain_NothingButTheKeyReachesTheLink`.
+
+The cause was **F-203's template restructure**, three commits earlier in this
+same gate. `inventory()` is AC-4's exhaustive allow-list of the link markup's
+vocabulary — tag names, attribute names, attribute **values** and text — and its
+own docstring promises the consequence: *"A stylesheet change that renames a
+class reds the test using this, and the fix is to state the new name."* Moving
+the live region off the flex line renamed all three class attributes
+(`play-link d-flex align-items-center gap-2 small` -> `play-link small`, a new
+`play-link-row d-flex align-items-center gap-2`, and `d-block` onto the region),
+so the check fired exactly as designed. The fix is the three names, stated.
+
+Verified exact rather than merely green: an `ast` read of the literal against
+the class attributes the template emits shows **6 of 6 allowed and no stale
+class-shaped entry** — an allow-list keeping a name the markup no longer emits
+would permit a shape nobody renders.
+
+**The process lesson is mine.** Before merging I ran the module I had edited
+(`tests/test_book_arrange_play_link.py`, 9 green) and not the card's impact
+scope. The leakage inventory lives in a *different* module from the template it
+describes, so the one module I chose could not see the break. Run 2 covered the
+five `Touches` test modules together — **300 passed** — before the full suite was
+re-run.
