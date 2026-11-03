@@ -29,8 +29,13 @@
 **Deferred waves:** 0
 **Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 <!-- WIDENED 2026-10-30 at CARD-309's re-cut, from `CARD-309` alone. CARD-309 implemented this card's conversion to measure it and reverted it: 189 failures + 75 errors across 22 modules, four causes. Three of them are now cards and every one of them is a PREREQUISITE, not a sibling -- CARD-329 (the one-image reader), CARD-330 (the 0.169 mm the media disagree by, which changes the VALUE of every placed-edge expectation), CARD-331 (the difficulty-dot instrument, which on a vector page measures a page the product no longer draws and does so SILENTLY). Converting before CARD-330 decides its question means re-deriving every edge expectation twice. WIDENED AGAIN 2026-10-31 at this card's own re-cut by CARD-336 (the frame-centre oracle) and CARD-337 (the twelve modules CARD-329's triage left owed, plus the one its filters could not see) -- both split OUT of this card, both land before any page converts, and both share a file with this one, so they are serialized ahead of it rather than run beside it. -->
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_puzzle_vector.py, tests/test_book_pdf.py, tests/test_book_difficulty_dots.py, tests/test_book_solved_answer_key.py, tests/test_book_puzzle_page_vector.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md <!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`, `book_toc_vector.py`, `book_answer_vector.py`: measured, the walk ALREADY reaches all four downstream writers through CARD-309's `InteriorPageWriters` (`book_pdf_generator.py:7885/7934/8031/8051`) and the title page through its own `vector_title_page` (`:5266`, gated at `:7863`), so no writer module is edited -- the src/ change is the five registry entries. ADDED the four files the re-cut's own items need: `book_puzzle_vector.py:43` (the F-307 docstring consumer), `test_book_difficulty_dots.py` (CARD-331's arm re-point), `test_book_solved_answer_key.py:3783` (CARD-297's clip divergence) and `test_book_puzzle_page_vector.py:1950` (the F-307 rename itself). -->
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/app.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/pdf_generator.py, tests/test_book_pdf.py, tests/test_book_difficulty_dots.py, tests/test_book_solved_answer_key.py, tests/test_book_puzzle_page_vector.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+<!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`, `book_toc_vector.py`, `book_answer_vector.py`: measured, the walk ALREADY reaches all four downstream writers through CARD-309's `InteriorPageWriters` (`book_pdf_generator.py:7885/7934/8031/8051`) and the title page through its own `vector_title_page` (`:5266`, gated at `:7863`), so no writer module is edited -- ~~the src/ change is the five registry entries~~ [WITHDRAWN, see the next comment]. ADDED the four files the re-cut's own items need: `book_puzzle_vector.py:43` (the F-307 docstring consumer), `test_book_difficulty_dots.py` (CARD-331's arm re-point), `test_book_solved_answer_key.py:3783` (CARD-297's clip divergence) and `test_book_puzzle_page_vector.py:1950` (the F-307 rename itself). -->
+<!-- WITHDRAWN 2026-11-03 by CARD-338 (fix round 2, cycle-2 F-101a): the struck clause above, "the src/ change is the five registry entries", is FALSE AS MEASURED. Read §2's `[CORRECTION 2026-11-03, CARD-338]` and item 1 before reading this field: the walk reaches those four writers only through the writer set the generator was BUILT with, `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS`, and `interior_generator` has zero call sites in `src/` -- so the `src/` change is the five entries PLUS a decision about the generator's default. The sentence is left standing, struck through, per this card's convention of carrying its corrections inline so the record shows what was claimed when. This was the THIRD site of that clause and the only one no earlier pass looked at, because it is a metadata field rather than a prose section. -->
+<!-- MOVED OFF THE `Touches:` LINE 2026-11-03 by CARD-338 (fix round 2), and that is not cosmetic. `card_lint.parse_card_fields` strips no HTML comment and `card_lint.extract_touches` splits the field on COMMAS, so while the note above sat on the field's own line the parser read it as part of the VALUE: measured, 15 "globs" instead of 8, seven of them prose fragments, and the eighth was `...0042-...-raster.md <!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`` as ONE glob -- which destroyed the ADR path this card declares. `compute_excess` then reported `meta/architecture/decisions/adr/0042-...md` as EXCESS although the field names it, on a card whose item 3 edits exactly that file. Measured both ways on this card: 15 globs -> 8, and the ADR leaves `excess` the moment the comment is on its own line. Keep every comment on its own line here. -->
+<!-- WIDENED 2026-11-03 by CARD-338 (fix round 2, cycle-2 F-101b), by `src/nonogram/admin/app.py`, `src/nonogram/admin/book_proof.py` and `src/nonogram/admin/pdf_generator.py`. These three are live ONLY on option A of item 1's decision (moving the construction sites to `interior_generator`); option B (changing the generator's default) touches none of them. They are declared anyway, deliberately, in the conservative direction -- because this field is read MECHANICALLY and is read AT DISPATCH, before item 1's decision is made. Measured in forge's own `review_cycle_ops`: `compute_excess` penalizes UNDER-declaration only (a file edited and undeclared becomes `excess`, and the verdict degrades to `grown`/`runaway`) and costs nothing for a declared file left untouched, so over-declaring is the error that cannot red. `app.py` and `book_pdf_generator.py` are in `meta/kanban/config.yml`'s `conflict.hotspots`, which is what serializes this card intentionally rather than by arithmetic accident; `book_proof.py` and `pdf_generator.py` are NOT hotspots, and those two are where an undeclared edit would have been a silent collision. If item 1 settles on option B, narrow this field back and say so here. -->
 <!-- CONFLICT EDGES, measured at the re-cut: this card INTERSECTS CARD-336 on `tests/test_book_pdf.py` and CARD-337 on `tests/test_book_solved_answer_key.py`, which is why both are `Depends on` rather than same-wave siblings. It intersects CARD-316's live worktree NOWHERE. -->
+<!-- CONFLICT EDGES RE-DERIVED 2026-11-03 by CARD-338 (fix round 2), because the widening above changes the enumeration rather than merely extending it: this card now also intersects **CARD-332** on `src/nonogram/admin/app.py`, which CARD-332 declares in its own `Touches:` (wave 73, `in_progress` at this re-derivation). That edge is conditional on option A, and `app.py` is a declared hotspot, so the serialization is intentional rather than accidental. Note what does NOT catch this edge: `compute_poached` subtracts `conflict.hotspots` from the sibling's Touches FIRST, and only considers siblings whose `Status` is `ready` AND whose `Wave` equals this card's -- CARD-332 is `in_progress` and this card's `Wave` is `—`, so it is skipped twice over, and `app.py` would be subtracted even if it were not. This comment is the only place that edge is recorded, which is why it is recorded here. -->
 <!-- `expires_with` NEEDS NO EDIT AT THIS SPLIT, and that is deliberate: all five temporary entries name ("CARD-299", "CARD-322") and this card still removes all five, so `test_no_declaration_outlives_the_cards_that_remove_it` -- which reds when EVERY card an entry names has reached a terminal status while the entry remains -- stays green through CARD-336's and CARD-337's merges. Splitting the CONVERSION by kind instead would have forced a per-kind `expires_with` re-point in `src/` and a second re-recording of the 19 live baselines; see the re-cut section for why that was rejected. -->
 <!-- `tests/fixtures/book_baseline_*.json` is 23 FILES but 19 LIVE BASELINES: 21 `.json` of which `card128` and `card145` carry `superseded_by`, plus 2 `.jpg` (`card200_guide_page1/2`). The 5 `tests/fixtures/proof_baseline_*.json` are ALL LIVE and ADR-0042/R1 names the proof sheet as an export path it governs -- item 5 must decide them explicitly rather than inherit "21". -->
 <!-- All four original dependencies are `done` (CARD-309, CARD-329 `9db10da6`, CARD-330, CARD-331), verified against the card files at the re-cut; the two new ones are `ready` and themselves unblocked. -->
@@ -79,9 +84,16 @@ that deletion*, which is the fact the 1d estimate was missing.
 > downstream writers only *through the writer set the generator was built with*, and
 > `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS` — a full
 > default-DENY. **`interior_generator`, the one call that builds an assembled generator,
-> has ZERO call sites in `src/`**: production builds `BookPDFGenerator(book)` at
-> `app.py:841`, `:960`, `:5580`, `:5759`, `book_proof.py:764` and `pdf_generator.py:344`,
-> and `app.py:5580` is `generator.export_interior(puzzles)` — the download path. So the day
+> has ZERO call sites in `src/`**: production builds the generator at `app.py:841`,
+> `:960`, `:5580`, `:5759`, `book_proof.py:764`, `book_pdf_generator.py:1912` and
+> `pdf_generator.py:344` — **seven** sites, six of them `BookPDFGenerator(book)` and the
+> last a bookless module-level singleton. <!-- CORRECTED 2026-11-03 by CARD-338 (fix round
+> 2, cycle-2 M-102): this blockquote first said "six", spelled `pdf_generator.py:344` as a
+> `(book)` build (it is `_pdf_generator = BookPDFGenerator()`, evaluated at import) and
+> omitted `book_pdf_generator.py:1912` altogether. See item 1's re-measured table, which is
+> the enumeration of record. The conclusion is unchanged. -->
+> And `app.py:5580` is `generator.export_interior(puzzles)` — the download path, and the
+> only one of the seven that writes an interior. So the day
 > the `GUIDE`/`TOC`/`ANSWER` entries are deleted, that path hits `_drawn_downstream`'s
 > refusal: *"a guide page is written as operators (ADR-0042/R1) and this generator was
 > built with no downstream writer for it"*. **Measured, not reasoned:** CARD-338's
@@ -664,14 +676,69 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
    `interior_generator` has **zero call sites in `src/`**, so the day the `GUIDE`/`TOC`/
    `ANSWER` entries go, the download path hits `_drawn_downstream`'s refusal — **17 reds in
    `tests/test_book_interior_type_floor.py` alone (E1 25 → E2 8)**. **So this item carries a
-   decision and must make it: either move the six `BookPDFGenerator(book)` call sites
-   (`app.py:841`, `:960`, `:5580`, `:5759`, `book_proof.py:764`, `pdf_generator.py:344`) to
+   decision and must make it: either move the generator's construction sites to
    `interior_generator`, or change the generator's default writer set.** That decision is
    **this card's**, in `src/`, alongside the five deletions — it is **not** a finding to
    raise about CARD-309, and re-raising it is precisely the inference-instead-of-measurement
    loop CARD-338 exists to close. A kind's page walk failing to reach its writer for some
    **other** reason — one CARD-338 did not measure — is still a finding about CARD-309,
    raised and not absorbed.
+
+   <!-- CORRECTED 2026-11-03 by CARD-338 (fix round 2, cycle-2 M-102). The sentence above
+        read "either move the six `BookPDFGenerator(book)` call sites (`app.py:841`,
+        `:960`, `:5580`, `:5759`, `book_proof.py:764`, `pdf_generator.py:344`) to
+        `interior_generator`". Re-measured with `grep -rn 'BookPDFGenerator('` over `src/`,
+        that list MISLABELS one member and OMITS another, and the count "six" was right
+        only by coincidence. The enumeration below replaces it. -->
+
+   **The construction sites, re-measured (this replaces the "six call sites" list this item
+   first carried).** There are **seven** construction sites in `src/` outside
+   `interior_generator`'s own `return BookPDFGenerator(...)`
+   (`book_interior_vector.py:141`):
+
+   | site | spelling | what it builds for |
+   |---|---|---|
+   | `app.py:841` | `BookPDFGenerator(book)` | `.section_plan(...)` — a page plan |
+   | `app.py:960` | `BookPDFGenerator(book)` | interior counts |
+   | `app.py:5580` | `BookPDFGenerator(book)` | **`generator.export_interior(puzzles)` — the download path, the one site that writes an interior** |
+   | `app.py:5759` | `BookPDFGenerator(book)` | `.section_plan(rows)` — a page plan |
+   | `book_proof.py:764` | `BookPDFGenerator(book)` | the proof sheet |
+   | `book_pdf_generator.py:1912` | `BookPDFGenerator(book)` | `puzzle_page_plan` — **omitted from the first list entirely** |
+   | `pdf_generator.py:344` | `BookPDFGenerator()` | **bookless, a module-level singleton evaluated at import** — not a per-request build, and not the `(book)` spelling the first list claimed |
+
+   **Nothing in the conclusion moves, and two things in the costing do.**
+   `interior_generator(book=None, pages=None)` accepts no argument, so the bookless site
+   converts too; and `book_pdf_generator.py` is already in `Touches:`, so the omitted site
+   widens the field no further. What does move: **only `app.py:5580` reaches a downstream
+   interior write at all** — the other six build plans, counts or a proof sheet — so option A
+   is a larger edit than the refusal strictly requires. Weigh that against option B before
+   choosing, and take the count from this table, not from the withdrawn sentence.
+
+   **Option A has two consequences the decision must name. Neither is a reason not to take
+   it; both are reasons not to take it silently.** <!-- ADDED 2026-11-03 by CARD-338 (fix
+   round 2, cycle-2 M-103 and F-101b). -->
+
+   1. **It ends the leaf property — and that property is ASSERTED BY A LIVE TEST, not only
+      claimed in prose.** `tests/test_book_pdf.py:3656`,
+      `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`,
+      asserts `importers == []` for `nonogram.admin.book_interior_vector`. Option A makes
+      four `src/` modules import that module, so **that cell reds** — measured green at this
+      writing (that class: 5 passed). Its own docstring calls this the "load-bearing" one of
+      AC-5's three facts (*"without it a later card could import the assembly point from
+      `app.py` and from `book_guide_vector`, and the cycle would be back with an extra
+      module in it"*), so re-pointing or retiring it is an argument CARD-309's AC-5 is owed,
+      not an edit to make in passing. `tests/test_book_pdf.py` IS in this card's `Touches:`,
+      so the card may legally edit it — the point is that it must not do so quietly. No
+      import CYCLE results (`app.py` and `book_proof.py` already import
+      `book_pdf_generator`, which `book_interior_vector` sits downstream of), so the cost is
+      the guard and the claim, not a loop. The prose statements of the same property are
+      **CARD-338.md:42-43** and **CARD-309.md:597** — two cards, measured by
+      `grep -rnE 'nothing in .?src/.? imports'` over `meta/kanban/cards/`, and neither of
+      them is CARD-337, which states the rebinding and not the leaf.
+   2. **It widens `Touches:` and the conflict edges**, which is why the field at the top of
+      this card now declares `app.py`, `book_proof.py` and `pdf_generator.py` and records the
+      **CARD-332** edge on `app.py`. Option B is what narrows them back; if you take it, say
+      so in the field.
 2. **Re-point CARD-331's raster arm, and DERIVE `RASTER_ARM_FUNCTIONS` rather than
    extending it.** `test_each_arms_mechanism_is_still_exercised[raster]` is built to red
    the day this card converts the puzzle page, and its `remedy` string is the work order:
