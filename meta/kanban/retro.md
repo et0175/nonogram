@@ -1764,7 +1764,7 @@ in `backlog-scored.yml`'s `config` block. Corrected here._
 
 - cards: 3, escalated: **0**, split: 0 — every card certified, none reached `max_cycles` without converging
 - total_estimate: **null on the cycles scale** (0 of 3 cards carry an `Nc` term — all three
-  predate ADR-0055's unit on this board); 1.25d on the legacy day scale (3 of 3)
+  predate forge_1's ADR-0055 (upstream, not this board's — see CARD-367)'s unit on this board); 1.25d on the legacy day scale (3 of 3)
 - **avg_accuracy: NOT COMPUTED — and this is a deliberate exclusion, not missing data.**
   The owner ruled the wall-clock `Actual:` figures unusable for calibration: CARD-323 recorded
   **77.2 h against 0.25 d** and CARD-332 **78.3 h against 0.5 d**, which would have exported
@@ -1857,7 +1857,7 @@ two cards unpromoted).
 ### Calibration signals
 
 **None exportable this wave.** Cycles-scale coverage is 0 of 3 (no card carries an `Nc`
-estimate), and the day-scale ratios are excluded by the owner's ruling above. Per ADR-0055 the
+estimate), and the day-scale ratios are excluded by the owner's ruling above. Per forge_1's ADR-0055 (upstream, not this board's — see CARD-367) the
 two series are not interchangeable, so nothing is written to either. `python-pro` carries all
 three cards but produces no signal.
 

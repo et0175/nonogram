@@ -512,7 +512,7 @@ active:
 #      the owner ruled unusable 2026-11-03. Re-grounded on the derived size
 #      datum with the exclusion stated.
 #
-# ESTIMATES RESTATED IN REVIEW CYCLES (ADR-0055): CARD-336 2c (2d), CARD-278
+# ESTIMATES RESTATED IN REVIEW CYCLES (forge_1's ADR-0055 (upstream, not this board's — see CARD-367)): CARD-336 2c (2d), CARD-278
 # 1c (0.25d). Wave 73's retrospective could export NO calibration signal at
 # 0-of-3 cycle coverage; opening wave 74 on days-only estimates reproduces that
 # dead end, so the unit was fixed at the open rather than after the fact.
@@ -4029,7 +4029,7 @@ last_updated: 2026-11-04T14:14:00Z
 #     bug; the card says read CARD-349 before concluding, and say so if they share
 #     a cause rather than fixing it twice.
 #
-#   Estimate restated in review cycles per ADR-0055: 2c (0.5d). An open
+#   Estimate restated in review cycles per forge_1's ADR-0055 (upstream, not this board's — see CARD-367): 2c (0.5d). An open
 #     investigation whose reproduction costs a full suite per attempt, so 2c is
 #     the honest figure rather than the 1c its day estimate would suggest.
 #

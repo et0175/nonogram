@@ -121,4 +121,4 @@ decision the owner already made.**
   without a declared meaning (check: review-lens)
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate
   (check: review-lens)
-- ADR-0055 — review cycles are the estimate unit (check: review-lens)
+- forge_1's ADR-0055 (upstream, not this board's — see CARD-367) — review cycles are the estimate unit (check: review-lens)

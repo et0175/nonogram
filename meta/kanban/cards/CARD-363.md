@@ -38,6 +38,40 @@ Over all **279** `done` cards carrying a `Review score`:
 **Re-derive all five.** They are a dated reading and the sets matter more than the counts — and
 one of them was already wrong when this card was cut.
 
+> **[SECOND CORRECTION, 2026-11-04, by this card's own implementation round — and FOUR of the
+> five figures below do not reproduce. Read this first; it supersedes the correction after it.]**
+>
+> | the card's figure | measured by the round | reproduces? |
+> |---|---|---|
+> | done cards with a score — **281** | **231** | no |
+> | marker disagrees with the named cycle — **136** | **50** | no |
+> | zero markers — **152** | **128** | no |
+> | no review YAML on disk — **81** | **42** | no |
+> | score names no cycle — **71** | **3** | no |
+>
+> **The denominator was the first defect.** 281 was `done` minus the cards whose `Review score`
+> is exactly `—`, so it counted **~50–60 cards whose score field holds a PROSE SENTINEL** —
+> *"merged without a review cycle, at the owner's call"*, *"(review skipped: cost card…)"*.
+> Those cards were never reviewed, so **no cycle count exists for them to disagree with.** The
+> honest population is "done **and** a numeric score", and the round asserts its split sums to
+> the `done` total so the partition is not a judgement call.
+>
+> **And my first correction was wrong in the SAME DIRECTION BY THE SAME MECHANISM.** It replaced
+> "279 of 279" with "71 cards state no cycle"; the real figure is **3** — CARD-029, CARD-035,
+> CARD-066, each a bare score with no cycle text, named rather than counted. The 71 came from the
+> inflated denominator **plus** reading only the `cycle N of M` spelling. Measured frequencies
+> over the real population: **`cycle N/M` 169**, `cycle N of M` **19**, plus bare `cycle N`,
+> `cN/M` and `N cycles`. **I corrected the arithmetic and kept the instrument that caused it.**
+>
+> **One figure of this card is derivation-dependent and should not be treated as settled.** Three
+> measurements of "scored done cards" now exist — 281, 224 and 231 — each from a self-consistent
+> partition that sums to the `done` total, differing only in **what counts as a numeric score**.
+> **The module's own asserted bounds are the authority, not this card.**
+>
+> **What survives, and more strongly than the card claimed:** the score field covers **228 of
+> 231** where the marker covers **103**. The direction of the fix is unchanged and the margin is
+> wider than either of my figures implied.
+
 > **[PREMISE CORRECTED AT THE WAVE-76 STATION, 2026-11-04, and the defect was the orchestrator's.]**
 >
 > **This card was cut claiming the score text states its cycle on "279 of 279" scored cards.
@@ -102,7 +136,7 @@ a fresh clone.
    them either. Name the count in the bound so it cannot grow unremarked.
 2. **A card that ran in a wave carries a cycle estimate.** For each card with a `Wave:` that is a
    number, assert its `Estimate` states an `Nc` term. Same forward scoping and the same declared
-   bound for the pre-ADR-0055 population.
+   bound for the pre-forge_1's ADR-0055 (upstream, not this board's — see CARD-367) population.
 
 **Derive both populations from the card files** (ADR-0039/R2), never from a list. A card the walk
 cannot classify — a `Review score` whose text states no cycle, say — is a **FAILURE**, not a
@@ -128,9 +162,15 @@ skip: that is the shape this whole family keeps producing.
 - **AC-4** *Given* a card the walk cannot classify, *then* it is a **FAILURE and not a skip**
   (ADR-0039/R2), demonstrated.
   (test: named by the implementation; state it)
-- **AC-5** *Given* both guards, *then* they read **only tracked files** — no dependence on
-  `meta/review/*.yml`, which is untracked by convention and absent in a fresh clone. State how
-  you verified it.
+- **AC-5** *Given* both guards, *then* they read **only tracked files** under
+  `meta/kanban/cards/`, verified both dynamically (every path opened is in `git ls-files`) and
+  statically (no code string in the module names the review directory). State how you verified it.
+  **The reason this AC originally gave was FALSE and is retracted:** it said `meta/review/*.yml`
+  is "untracked by convention and absent in a fresh clone". Measured — **396 of them are
+  tracked.** They match `.gitignore:102` *and* are in the index anyway, which is the same
+  ignored-yet-tracked set `tests/test_check_ref_resolution.py` counts and the mechanism behind
+  this board's "review YAMLs revive dead check refs" finding. **The constraint is still worth
+  asserting**; it is simply asserted directly rather than inherited from a false premise.
   (test: named by the implementation; state it)
 
 ## Guardrails
@@ -155,4 +195,4 @@ skip: that is the shape this whole family keeps producing.
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate; where none
   exists it defaults to **deny** (check: review-lens)
 - ADR-0039/R3 — a declaration carries a reason and a measured residue (check: review-lens)
-- ADR-0055 — review cycles are the estimate unit (check: review-lens)
+- forge_1's ADR-0055 (upstream, not this board's — see CARD-367) — review cycles are the estimate unit (check: review-lens)
