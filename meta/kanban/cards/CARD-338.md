@@ -718,3 +718,118 @@ lost** — **10235** node ids collected on main's tip `fd9cbdfa` and **10235** o
 tree, `comm` empty in both directions with both sides asserted non-empty first. That is the
 strong form of G-1 and G-2, and it is what a card touching neither directory must show:
 anything else would mean the branch carried something its guardrails say it does not.
+
+### The merge gate, and the one red it had to attribute
+
+**Run 1 was RED at five cells and the cause is MEASURED, not guessed** — which matters
+because the first explanation offered was wrong, and a wrong cause written into a card
+becomes a fact nobody re-checks.
+
+The five were one parametrized test:
+`tests/test_admin_binding.py::TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine::test_a_request_addressed_to_this_machine_is_served`
+over `localhost`, `localhost:5000`, `127.0.0.1`, `127.0.0.1:8888`, `[::1]:5000`. The
+offered explanation was **port contention** — the gate started shortly after a sibling's,
+and the parameters look like ports. **That is refuted on the mechanism, not merely by
+absence:** the test calls `client.get("/", headers={"Host": host})` on a Flask
+`FlaskClient`, which is an **in-process WSGI call that binds no socket at all**; the host
+is a header on a synthetic request. Port contention cannot reach it. (Measured anyway:
+nothing listens on 8888, and `:5000` is macOS `ControlCenter`/AirPlay, permanent on this
+box and present during the green runs too.)
+
+**What it actually was, from the failure's own traceback:**
+`psycopg2.errors.UndefinedColumn: column books.player_domain does not exist`, surfacing as
+`sqlalchemy.exc.ProgrammingError`, in all five cells. `player_domain` is added by
+**CARD-332's migration `018_book_player_domain.py`**, which landed on `main` the same day.
+This worktree's per-worktree `*_test` database predated it.
+
+**And the reason an early test saw a stale schema at all is a real, reportable gate
+hazard.** `tests/conftest.py:540`'s `_test_database_tables` is `scope="session"` **and
+lazy**: it drops and re-migrates `public` to head (`_rebuild_public_schema`, `alembic
+upgrade head` in a subprocess) on **first request**, not at session start.
+`tests/test_admin_binding.py` sorts early and its `client` fixture never requests
+`db_session`, so it queried the database in whatever state the previous session left it —
+one migration behind. The first `db_session` later rebuilt the schema, which is why the
+database read `alembic_version = 018` with `books.player_domain` present by the time the
+run ended.
+
+**Five confirmations, each in a different direction:**
+
+1. The class re-run on the **merged tree with `DATABASE_URL` armed**, after the rebuild:
+   **14 passed**.
+2. The same class with **`DATABASE_URL` unset**: **14 passed** — the cells are
+   database-sensitive through the ambient variable, and green without it.
+3. The same class on **`main`'s tip with `DATABASE_URL` armed**: **14 passed** — so it is
+   not the branch, which is what a 0-file `src/`/`tests/` diff already said.
+4. The database read `018` and carried `player_domain` **after** the run, having not
+   carried it during the early test.
+5. The suite **re-run whole** on the same tree: **0 failed**.
+
+**So it is self-healing after one armed run, and it reds the FIRST armed gate in any
+worktree whose test database predates the newest migration.** That is the transferable
+part, and it generalises past this card: a gate that arms `DATABASE_URL` is exposing every
+early non-`db_session` test to the leftover schema of the previous session. Whoever owns
+the suite's database fixtures can close it by making the rebuild eager, or by refusing a
+database whose `alembic_version` is behind `head`. Recorded here, not actioned: this card
+edits no `tests/` file (G-2).
+
+**The gate was re-run whole rather than patched**, which is the precedent CARD-332's own
+gate set when its run 1 red for a reason that was not the tree.
+
+**The three runs, and why there were three.** Run 1 (19:08–19:33Z, main `fd9cbdfa`):
+**5 failed / 10228 passed / 1 skipped / 1 xfailed**, the five attributed above. Run 2
+(19:34–19:59Z, same tree, database now at head): **10233 passed / 0 failed / 0 errors /
+1 skipped / 1 xfailed**, exit 0. Run 3 (02:55–03:20Z, after `main` moved to `e18b0134`
+and was merged again, branch tip `cbd1107e`): **10233 passed / 0 failed / 0 errors /
+1 skipped / 1 xfailed**, exit 0, 1495.43s. Run 3 exists because the gate's session died
+between runs, the lock was released as stale, and `main` moved while it was down — so the
+tree under test was re-derived rather than carried. The one new commit touches
+`meta/kanban/board.md` and `meta/kanban/dispatcher.state` only
+(`git diff --name-only fd9cbdfa..e18b0134 -- src tests` empty), so no figure here moves,
+but it was merged rather than assumed.
+
+**Not vacuous:** passed + skipped + xfailed = **10235 = the collected count exactly**, on
+runs 2 and 3 both. **Skips read with `-rEfs`, not `-rfs`: exactly 1**, the
+`setrlimit(RLIMIT_AS)` platform gate at `tests/test_book_pdf_memory.py:1297`, whose own
+message records that the kernel refuses the bound on this machine. **`DATABASE_URL` armed**
+at the per-worktree `*_test` URL (`nonogram_pythonproject4_card_338_3fa9dd79a4e3_test`,
+reachability and `alembic_version = 018` both checked *before* the run, after run 1 taught
+why that check is worth making), so the **26** bare-`DATABASE_URL` skips that several
+earlier gates recorded did **not** appear — those cells really executed — and the
+per-worktree `*_test` resolution gate did not fire either. **G-8 held:** never the live
+panel's `nonogram_poc`; the URL's database name is this worktree's own and ends `_test`,
+which is what `conftest.py` refuses by URL text before connecting.
+
+**The environment was recorded at both ends of every run, as deltas rather than
+absolutes.** `rival_pytest` **0** at the start and end of all three. Load was 6.24 at run
+1's start and 2.57 at run 3's — which is the box, not the board: `config.yml` records that
+this machine's idle load is 4.6–14.4 because it is the owner's desktop, so load is logged
+and **not** used as a gate condition. The lock was taken over a **stability window** —
+six readings five seconds apart, `rival_pytest` 0 in every one — rather than a single
+reading, because a gate's chained runs leave a gap a one-shot check can land inside.
+
+**G-4 at the gate, both sides, with the trap run as a control.** Validator of record (the
+`forge_1` copy, `meta/kanban/config.yml`'s `architecture_validator`, read-only per G-6):
+**0 errors / 525 warnings** on `main` `e18b0134` **and** on the merged tree, **525** unique
+`^[[:space:]]*\[WARN` lines a side, **both asserted non-zero before comparing**, and the
+WARN **sets** diffed with `comm` in both directions: **`comm -23` 0 and `comm -13` 0** — an
+empty symmetric difference, which is the proof nothing was revived. **The anchored
+`^\[WARN` was run beside it as a control and matches 0 on both sides**, and `comm` over
+those two empty sets duly reports 0 and 0: a clean bill of health on nothing at all. That
+is G-4's whole reason for naming the pattern, demonstrated rather than described.
+
+The 525 split **436** `git grep error` tooling failures to **89** real warnings, identically
+on both sides — see the Guardrails note above for the measurement that shows the 436 are
+the batch budget being blown, not a mystery.
+
+**And because all 436 are tooling failures, set-equality alone cannot carry the whole claim
+— so G-3 is closed a second, independent way, by census.** Over the whole branch against
+`main`, restricted to the files the resolver can actually see
+(`git diff e18b0134..HEAD -- . ':(exclude)*.md' ':(exclude)meta/architecture'` — seven
+`.py` files under `scratchpad/card338/`, no `.md`, nothing else), the diff adds **21**
+check-ref-shaped tokens, every one a census **module stem** (`test_book_pdf`,
+`test_book_interior_type_floor`, …) and **not one** a test function or class name. Each was
+then put to **the resolver's own command** on main,
+`git grep -lw <token> -- . ':(exclude)meta/architecture' ':(exclude)*.md'`: all 21 already
+resolve, in 7 to 89 tracked files each. **Tokens new to the resolver's search space: 0.**
+So no dead check ref can have been revived by this branch, and that is measured by the
+resolver's query rather than argued from the diff's shape.
