@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P2
 **Category:** feature
-**Estimate:** 0.5d
+**Estimate:** 2c (0.5d)
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** CARD-323's round, 2026-11-01, which measured the divergence, refused to fix it (its own AC-4 makes re-declaring that rule a finding *against* it), and routed it to the owner. **The owner decided 2026-11-03: the public page gains the glyph.** The second half of this card is the orchestrator's, measured at the decompose station — see below.
 **Idea:** —
-**Wave:** —
+**Wave:** 74
 **Created wave:** 73
 **Deferred waves:** 0
 **Depends on:** CARD-323
