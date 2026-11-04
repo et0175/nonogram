@@ -1,6 +1,6 @@
 # CARD-335: Committed measurement artefacts revive dead check refs — and the review YAMLs the reviews themselves write are the worst of them
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -20,11 +20,11 @@
 **Depends on:** —
 **Touches:** meta/review/, meta/profiling/, scratchpad/, .gitignore, .gitattributes, tests/test_check_ref_resolution.py
 <!-- .gitattributes ADDED mid-round, 2026-11-04: it is the only lever measured to bound harm B that keeps every artefact tracked, on disk and readable by the suite. Nothing was committed under meta/review/ or meta/profiling/ — see Worktree notes. -->
-**Review score:** —
+**Review score:** 8.0 (cycle 1 of 3 — CERTIFIED)
 **Started:** 2026-11-04T08:33Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-04T12:18Z
+**Actual:** A **derived size datum**, not a clock reading. Landed on main: **4 files, 680 insertions / 30 deletions** — `tests/test_check_ref_resolution.py` **348/0**, `meta/kanban/cards/CARD-335.md` **256/30**, `.gitattributes` **49/0**, `.gitignore` **27/0** — with **3 test functions / 3 node ids added, 0 lost** and **0 lines of `src/`** (G-1). The sharper datum is the ratio the deliverable has to itself: of the **76** lines added to the two config files, **4 are rules** — `meta/review/*.yml`, `meta/profiling/*.txt` and `scratchpad/` in `.gitignore`, and `meta/profiling/*.txt binary` in `.gitattributes` — derived by stripping comment and blank lines from the added side of the diff rather than by trusting a count. The other 72 are the reasoning; the 348 test lines are three cells and their controls. So **680 insertions buy four lines of configuration and three cells**, and everything else is the measurement that establishes *which* four lines — this card's own thesis, that a figure is nothing without its instrument, applied to itself. **The wall-clock figure is excluded**, under the owner's standing ruling that wall-clock actuals are unusable for estimate calibration because the clock measures the **queue** rather than the work: this gate spent ~11 minutes blocked on CARD-337's implementation round holding the full-suite lock, and `main` advanced twice underneath it (`d4aa00ae` → `494c0aa2` → `b95e1a34`), costing three rebases; none of that is work done on this card. The size datum above substitutes for it, and this sentence is here so a reader **meets** the exclusion rather than noticing an omission. **Estimated 2c (1d) and certified on cycle 1 of a 3-cycle budget, so the cycle ratio is 1 / 2 = 0.500 — OVERESTIMATED.** That is the **first non-1.000 cycle ratio on this board**: CARD-278 (1c, cycle 1), CARD-339 (2c, cycle 2) and CARD-336 (1c, cycle 1) were each exact, so wave 74 went three-for-three and its calibration signal could only say the estimates were right. **This is the first one that points anywhere**, and it is recorded as a datum, not as a criticism of the estimate — a card re-opened for re-estimation on a second, independently measured harm, carrying a convention decision about 396 files, was honestly priced at two cycles and then certified on the first. The one duration recorded anywhere here is the gate suite's own wall-clock as pytest printed it, quoted as a gate fact; **nothing in this card's code was timed, and correction 4 is why — five such figures were removed from `.gitattributes` in this very round.**
+**Merge commit:** `9a6b8e89` — merged `--no-ff` onto `ec42e9fd`, **one kanban-only commit past the `b95e1a34` the gated tree was rebased onto** (`board.md` plus CARD-322/358/364); it touches no `tests/`, no `src/` and none of the branch's three files, so the gated baseline is unaffected and no re-run was owed. Gated tree `a94e098b`; merge-base `b95e1a34`. **The rebase took NO conflict — not in the card file, not anywhere** — because the branch never committed under `meta/kanban/**`: INV-023 holding, rather than a gate working around it. **Full suite on the frozen gated tree, `DATABASE_URL` armed, `-o addopts=` as two argv items and `-rEfs`, under the board's own lock held as this worktree: 10281 passed / 0 failed / 0 errors / 1 skipped / 1 xfailed, exit 0, 1485.01s.** **Not vacuous:** passed + skipped + xfailed = 10281 + 1 + 1 = **10283 = the collected count exactly**. **Skip attributed from `-rEfs`, never recalled, and the count is 1 rather than an unarmed gate's 27:** the single skip is the `setrlimit(RLIMIT_AS)` platform gate in `tests/test_book_pdf_memory.py`. The bare-`DATABASE_URL` check fired **zero** times and no `Database not reachable` skip appeared at all — the positive evidence that the arming took, i.e. the 26 tests that skip unarmed were **executed**. **Neither CARD-349 hazard was live, checked BEFORE the run rather than diagnosed after:** the derived database `…_card_335_efaa212effb1_test` already existed, so the missing-database red could not fire, and its `alembic_version` was **018** against a single migration head of **018**, so the stale-schema red could not either. **G-8 honoured** — the URL names a `*_test` database on localhost, never production. **Node-id delta, two instruments agreeing on the SET and not merely the total: 10280 → 10283, 0 lost and 3 gained**, all three in `tests/test_check_ref_resolution.py`. Instrument A is whole-suite collection with `-o addopts=` on both sides; instrument B is an `ast` walk of the two blobs git holds for every `.py` file the branch touches, which names the same three and nothing else. **G-1/G-2 on the merged tree:** `git diff --name-only ec42e9fd HEAD -- src/` empty and `git status --porcelain src/` clean. **G-5 reads correctly and does not fire:** the validator of record on merged `main` is **0 errors / 89 warnings**, the standing baseline unmoved — nothing was untracked, so no revived ref lost its resolver, which also confirms on `main` that marking the dumps `binary` is answer-preserving. The force-add census on merged `main` measures **477**, equal to the baseline the cell pins.
 **Blocked by:** —
 
 
@@ -681,31 +681,41 @@ push the defective version back over the stamped one.
 `scratchpad/` is ignored from this card forward, so a probe that must be tracked is a
 deliberate `git add -f` and **reds the force-add census at 477 → 478** — which is the guard
 working, not a defect. Tracked `scratchpad/` commits are live practice on this board, so the
-next card that commits a probe will meet this. The practice figure needs its instrument,
-because the two obvious readings differ by a factor of two —
-`git log --since="30 days ago" … -- scratchpad/` counts **39** commits that *touched* the
-directory, while adding `--diff-filter=A` counts **19** that *added* a file to it (121 files
-across those 19). Cycle 1's "19" is the add reading. Most recent either way: today
-(`83728599`, CARD-336's own merge gate).
+next card that commits a probe will meet this.
 
-**The review's account of the refusal directions is wrong, and the gate measured it both
-ways** (`git add -n` in the worktree, and real `git add` in a throwaway repo with the same
-rule; git 2.50.1). Cycle 1 reports that `git add <dir>/` exits 0 and silently adds nothing.
-It does not:
+**The determinant is the RULE SHAPE, not the `git add` form — and that reconciles cycle 1's
+reading with the gate's, which flatly contradicted each other.** Cycle 1's F-10 records that
+`git add <dir>/` "and `git add -A` both rc 0 **AND SILENTLY ADD NOTHING**". The gate measured
+`git add scratchpad/` at **rc 1, loud, naming `-f`**. Both are correct, of **different
+rules**, and this card ships both shapes:
 
-| form | rc | behaviour |
+| `git add` form | `scratchpad/` — a **directory** rule | `meta/review/*.yml`, `meta/profiling/*.txt` — **glob-inside** rules |
 |---|---|---|
-| `git add <explicit path>` | **1** | refuses loudly, names `-f` |
-| shell glob `git add <dir>/*.txt` | **1** | refuses loudly, names `-f` |
-| `git add <dir>/` | **1** | **refuses loudly, names `-f`** — the review says 0 and silent |
-| `git add <parent>/` | **1** | refuses loudly, names `-f` |
-| `git add -A` | 0 | **exits 0, adds nothing, says nothing** |
-| `git add -f <path>` | 0 | adds it — the deliberate act the convention wants |
+| explicit file path | **rc 1, loud**, names `-f` | **rc 1, loud**, names `-f` |
+| shell-expanded glob | **rc 1, loud**, names `-f` | **rc 1, loud**, names `-f` |
+| `<dir>/` | **rc 1, loud**, names `-f` | **rc 0, SILENT** |
+| `-A` | rc 0, silent | rc 0, silent |
+| `-f <path>` | rc 0, adds it — the deliberate act the convention wants | same |
 
-So the silent direction is **`git add -A` alone**, not three forms out of four. That matters
-for the brief this hands the next wave: "use an explicit pathspec and you will be told" is
-true, and this board's standing rule already forbids `git add -A` — which turns out to be
-the *only* way to lose a probe silently.
+**Nothing is staged in any cell but the last.** The mechanism: naming `scratchpad/` names a
+path the rules match, so git refuses the pathspec; naming `meta/review/` names a path they do
+**not** match, so git walks in and skips the ignored files without comment. Measured with
+real `git add` in a throwaway repository carrying this card's own three rules verbatim (git
+2.50.1), cross-checked with `git add -n` in the card worktree.
+
+**Why this matters for the brief it hands the next wave:** cycle 1's flat claim is true for
+two of the three populations and **false for the one its own finding is about**. A next card
+told "the directory form is silent" would expect silence from `git add scratchpad/` and get a
+refusal — or, worse, read silence from `git add meta/review/` as success. The rule that
+transfers: **for `scratchpad/`, every explicit form tells you; `git add -A` never does.** This
+board's standing rule already forbids `-A`, which turns out to be the only way to lose a
+`scratchpad/` probe silently.
+
+The practice figure also needs its instrument, because the two obvious readings differ by a
+factor of two — `git log --since="30 days ago" … -- scratchpad/` counts **39** commits that
+*touched* the directory, while adding `--diff-filter=A` counts **19** that *added* a file to
+it (121 files across those 19). Cycle 1's "19" is the add reading. Most recent either way:
+today (`83728599`, CARD-336's own merge gate).
 
 ### Finding 8 — 16 of the 477 census entries are not artefacts at all
 
