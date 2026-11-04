@@ -1,4 +1,4 @@
-wave: 73
+wave: 73   # CLOSED 2026-11-04, three for three
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -400,20 +400,42 @@ max_concurrent_override: 2
 #   under the token-scanning reading the consumer actually performs, and hidden
 #   from my own Kahn script because it strips comments. 340/340 both ways now.
 #
-active:
-- id: CARD-338
-  phase: merge-gate
-  branch: card/338-the-five-kind-probe-and-the-measured-floor
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-338
-  started: '2026-10-31T13:10:00Z'
-  note: >-
-    Head of the vector chain. Its deliverable is a number three cards can trust:
-    CARD-329's probe lifts one kind of five, and the two-line extension turns
-    three unmeasured premises into a measured floor. AC-1 is the card -- a probe
-    that rebinds a renamed global or lifts an absent kind must FAIL LOUDLY, never
-    run green over a tree it did not change, and it must be PROVEN by a
-    renamed-target run. Its characteristic failure mode is measuring nothing
-    while reading green, which is this board's recurring one.
+#
+# WAVE 73 CLOSED 2026-11-04 — THREE FOR THREE. CARD-323 8.5, CARD-332 9.0,
+# CARD-338 9.0. Every card certified; none escalated.
+#   CARD-338 CLOSED: merged 25da0b86, stamped fafd6f7f, 7.5 -> 8.5 -> 9.0 on
+#   cycle 3 of 3, two fix rounds. Gate run 3: 10233 passed / 0 failed / 1
+#   skipped / 1 xfailed, not vacuous (10233+1+1 = 10235 = collected). Node-id
+#   delta 0 gained / 0 lost, which is what a card touching no src/ and no tests/
+#   should produce.
+#   ITS FIRST GATE RUN WAS RED AND THE CAUSE WAS NOT WHAT I REACHED FOR. I
+#   hypothesised port contention; the round refuted it ON THE MECHANISM — the
+#   failing test drives Flask's FlaskClient, an in-process WSGI call that BINDS
+#   NO SOCKET. The real cause was psycopg2 UndefinedColumn on
+#   books.player_domain: CARD-332's migration 018 had landed that day, the
+#   per-worktree test DB predated it, and conftest's table rebuild is
+#   SESSION-SCOPED AND LAZY — so a module that sorts early and never requests
+#   db_session read the previous session's schema.
+#   THE SHAPE TO RECOGNISE: it reds the FIRST armed run and SELF-HEALS. By the
+#   time anything re-runs, the rebuild has happened — the signature that trains
+#   people to re-run rather than look. The round added an alembic_version check
+#   before the run. The durable fix (eager rebuild, or refuse a DB behind head)
+#   is unowned.
+#   IT ALSO CAUGHT A PRE-MERGE BLOCKER I MISSED: its own fix round 1 wrote NEW
+#   inline comments into CARD-322's and CARD-337's `Depends on` AFTER main's
+#   fd9cbdfa had repaired that field board-wide — landing into a field main had
+#   just cleaned. Measured in both readings before repairing: no phantom edge
+#   was added, so inert BY LUCK rather than by design. Normalised anyway.
+#   AND IT SETTLED M-202 BY MEASUREMENT, replacing two of my predicted figures
+#   with measured ones: at N=150 raw grep is 44.44s against a 25.0s budget and
+#   symbols_exist returns at 25.01s with 150 None; at N=200, 141.24s against
+#   30.0s, returning at 30.01s with 200 None. THE WALL TIME EQUALS THE BUDGET TO
+#   0.01s AT BOTH FAILING SIZES, and every raw run exits rc 0 with real matches —
+#   the tool is not failing, it is being killed, and _grep_batch swallows the
+#   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
+#
+active: []   # wave 73 closed 2026-11-04; an explicit empty list, not a bare key —
+             # `active:` alone parses as NULL and a consumer iterating it raises.
 #
 # NOTE 2026-11-03: the block below was briefly removed by the orchestrator while
 # clearing two landed cards from `active`, because the removal walked an entry's
@@ -482,7 +504,7 @@ queued:
 - id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: '2026-11-03T19:05:00Z'
+last_updated: '2026-11-04T03:05:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
