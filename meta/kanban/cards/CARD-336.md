@@ -1,6 +1,6 @@
 # CARD-336: The frame-centre oracle — one boundary-reading mechanism for the 5 measured placed-edge cells in 2 modules
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -20,11 +20,11 @@
 <!--CARD-338 ADDED 2026-10-31 by the orchestrator, answering the re-cut's own judgement call 3. The re-cut built the five-kind probe extension, ran the census, and then described the instrument in prose in this card, CARD-337 and CARD-322 rather than carding it. Three cards quoting the same undelivered instrument is how CARD-309 happened -- five `expires_with` entries nobody owned, four cards that built writers with zero call sites. CARD-338 owns it, and its deliverable is the measured floor this card's premise needs: CARD-329's probe lifts PageKind.PUZZLE ALONE, so every figure this card inherits is measured against one fifth of the conversion. -->
 **Touches:** tests/helpers/page_ink.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py
 <!--RE-CUT 2026-11-04 on the owner's instruction, after this card's own round measured its population. tests/test_book_pdf.py REMOVED: its 30 placed-edge cells fail before any edge comparison and its own pin records that CARD-322's conversion RETIRES them rather than repairing them -- see CARD-342. tests/test_book_guide_page.py REMOVED: its one cell is 0 under the five-kind filter and what is red there is a different mechanism -- see CARD-343. -->
-**Review score:** —
+**Review score:** 8.6 (cycle 1 of 3 — CERTIFIED)
 **Started:** 2026-11-04T03:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-04T08:24Z
+**Actual:** A **derived size datum**, not a clock reading. Landed on main: **20 files, 2334 insertions / 33 deletions** — `tests/test_book_puzzle_frame.py` **731/5**, `meta/kanban/cards/CARD-336.md` **230/8**, `tests/helpers/page_ink.py` **193/0**, `tests/property/test_book_pdf_geometry.py` **94/18**, the ADR **35/2**, and `scratchpad/card336/` **15 files, 1051/0** (all `.py`/`.sh`, G-7) — with **12 test functions / 14 node ids added, 0 lost**, the geometry module's node-id set **unmoved at 4**, and **0 lines of `src/`** (G-2). The sharper datum is the shape of the deliverable: the oracle itself is **193 lines and 3 top-level names** (`FrameCentre`, `frame_centre_of`, `_refuse_unless_a_frames_rule`), **added beside `drawing_of` with nothing removed and no existing definition or constant of that file changed**, and it closes **4 cells across 2 modules** while the 5th is declared. So 2334 insertions buy one helper, four closed cells and one measured refusal; the rest is the guard class, the declaration, the plants and the records. **The wall-clock figure is excluded**, under the owner's standing ruling that wall-clock actuals are unusable for estimate calibration because the clock measures the **queue** rather than the work — this round waited roughly 90 minutes on CARD-339's and CARD-278's gates holding the full-suite lock, took no lock of its own and ran no full suite, and its reviewer could run no pytest at all for the same reason; none of that is work done on this card. The size datum above substitutes for it, and this sentence is here so a reader **meets** the exclusion rather than noticing an omission. **Estimated 1c (0.5d) and certified on cycle 1 of a 3-cycle budget, so the cycle estimate was exact** — the **third exact cycle estimate on this board**, after CARD-278's 1c-on-cycle-1 and CARD-339's 2c-on-cycle-2, both verified in their own cards rather than carried from a brief. *Note for the retrospective: the `## Worktree notes` bullet "[The estimate, and the calibration behind it]" argues **2d** — that is the PRE-re-cut figure, superseded by the header's 1c (0.5d) when the owner re-cut this card on 2026-11-04; it is left standing as the record of what was priced, not as this card's estimate.* The one duration recorded anywhere here is the gate suite's own wall-clock as pytest printed it (1469.19s), quoted as a gate fact; **nothing in this card's code was timed**.
+**Merge commit:** ad8b132b
 **Blocked by:** —
 
 ## Why this card exists, and why it is not a sub-item of the conversion
@@ -368,6 +368,21 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
 
 ## Worktree notes
 
+<!-- MARKER WRITTEN AT THE MERGE GATE 2026-11-04, same provenance as the ones the
+     orchestrator wrote post-hoc onto CARD-278 and CARD-339 in 2f10b507. The retrospective
+     derives `cycles_used` by counting EXACTLY the `[Review N/max] Score:` line that
+     cmd-review-cycle.md's SYNC POINT writes once per completed cycle. This card's review was
+     dispatched directly as an agent rather than through that command, so no marker was ever
+     written -- the same data-quality defect in its second consecutive wave. It is written
+     here at close rather than left for a third post-hoc pass.
+     ONE HONEST DIFFERENCE from those two cards' markers: they cite a review YAML under
+     meta/review/, which exists for each of them (untracked). **No CARD-336 review YAML
+     exists** -- not on main, not untracked, not under any cycle name. So this marker cites
+     no artefact, because citing one that is not there is how a dead reference gets born. The
+     verdict's only other record is the `Review score` field above. -->
+
+[Review 1/3] Score: 8.6 — CERTIFIED on cycle 1 of a 3-cycle budget. 0 gating findings; all ten of the round's self-raised findings verified true, two of them (F-1 the failing field, F-2 the half-rule) refuting the commissioning brief's own figures. Four corrections and one AC amendment folded in at the merge gate. Review artefact: NONE WRITTEN — see the note above.
+
 - **[Why this is its own card — the re-cut's reasoning, 2026-10-31]** CARD-322 was 1d,
   priced against "five page kinds plus one test module". The measured residue is 154
   reds, and splitting followed CARD-309's own stated principle — *"one kind at a time,
@@ -473,7 +488,7 @@ record reads as a decision while no card owes the fix, so R6 now cites CARD-351 
 one sentence and keeps only the two facts that are about the oracle (the six-line width /
 2.5 px half rule, and the reader-set decision of F-6).
 
-**F-4 — one of the card's 5 cells cannot be closed, with the measurement.** The two-up
+**F-4 — one of the card's 5 cells cannot be closed, with the measurement. THIS CARD THEREFORE CLOSES AS 4 + 1 DECLARED, NOT 5**, and that is recorded here rather than left to be inferred from the AC's "5". The two-up
 site in `..._two_up_pages` is bound by **one** `HALF_PIXEL_MM` — half a device pixel —
 and that is below the quantisation of any reading of a binary ink mask. The frame rule
 inks six lines, so its centre is a half-integer whose side is the rasteriser's (Pillow inks
@@ -602,6 +617,10 @@ content**, SHA-256 taken before the plant and after the restore, `0 skipped` ass
 an **unplanted baseline run over the same node ids in the same medium** — because under the
 probe some cells are already red for reasons that are not this card's, and a control is
 green relative to that baseline. Harness: `scratchpad/card336/plants.py`.
+
+> **[Corrected at the merge gate, 2026-11-04.]** The harness registered the key this table and the review both call **(c1)** as **`"c"`**, so
+> `python scratchpad/card336/plants.py c1` asserted `no such plant: ['c1']` and a later reader could not re-run the plant the table names. Renamed to `c1`, and **verified by running it** rather than by reading the diff: it reds
+> `TestEdgeOffset_ThePixelOraclesStillReadPixels::test_neither_oracle_imports_the_content_stream_reader`, leaves `TestFrameCentre_EveryPlacedEdgeSiteIsClassified` and the placed-edge pin green, `0 skipped`, and the sha256 of `page_ink.py` reads `d5573c01…48ab7a` both before the plant and after the restore — the digest this table already records.
 
 | key | file | mutates | new reds | control green in the same run | skipped | sha256 before == after |
 |---|---|---|---|---|---|---|
