@@ -1749,3 +1749,128 @@ in `backlog-scored.yml`'s `config` block. Corrected here._
 - **Review false positives (7.5e):** no `.claude/fix-suppress.yaml`, and no wave-63–65
   report carries a `status: dismissed` finding.
 - **Process shortcuts (4a):** owner answered none.
+
+## Wave 73 — 2026-11-04
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Initial | Final | Signal |
+|------|-------|-----|--------|----------|--------|---------|-------|--------|
+| CARD-323 | The public player gains the Maybe brush | 0.25d | *excluded* | — | 2/3 | 6.5 | 8.5 | accurate (cycles, unestimated) |
+| CARD-332 | The panel learns the player's domain | 0.5d | *excluded* | — | 2/3 | 7.5 | 9.0 | accurate (cycles, unestimated) |
+| CARD-338 | The five-kind probe and the measured floor | 0.5d | *excluded* | — | 3/3 | 7.5 | 9.0 | more complex (cycles, unestimated) |
+
+### Metrics
+
+- cards: 3, escalated: **0**, split: 0 — every card certified, none reached `max_cycles` without converging
+- total_estimate: **null on the cycles scale** (0 of 3 cards carry an `Nc` term — all three
+  predate ADR-0055's unit on this board); 1.25d on the legacy day scale (3 of 3)
+- **avg_accuracy: NOT COMPUTED — and this is a deliberate exclusion, not missing data.**
+  The owner ruled the wall-clock `Actual:` figures unusable for calibration: CARD-323 recorded
+  **77.2 h against 0.25 d** and CARD-332 **78.3 h against 0.5 d**, which would have exported
+  ratios near **13×** and **6.5×** into a series that feeds `forge:roadmap`. The span is
+  **queue time, not work time** — the wave crossed a weekly rate-limit reset *and* a spend
+  cap, with rounds resumed from saved transcripts days later. Both cards say so in their own
+  stamps. Excluded here rather than silently dropped.
+- **substituted size datum** (derived from the diff, the way CARD-332's cycle 2 established it
+  rather than from a clock): of CARD-332's **1,721 added lines, 892 are one test file**, and
+  the genuine executable production Python is **≈130 lines plus a ~12-line migration**.
+  Verdict: **0.5d under by ~3×, and NOT because the work over-reached** — the card's own text
+  mandated every expensive part, since three of its four ACs say "stored", which means a
+  column, a migration, both storage modes and an AC each. **Transferable form: a card whose
+  ACs say "stored" is never 0.5d.**
+- avg_cycles: **2.33 / 3** (3 of 3 — see the data-quality note below on where the count came from)
+- avg_final_score: **8.83** (↓ −0.03 vs waves 63–65's 8.86 — stable)
+- score_improvement: **+1.67** (initial 7.17 → final 8.83) — identical to waves 63–65's +1.67
+- gating findings: **9 across the wave, and ZERO in every card's final cycle**
+- fix-induced share: **1 of 1** gating finding raised after cycle 1 (CARD-338's F-101(b), which
+  that round's own fix created). A small denominator, reported as such.
+- test cost: full suite ~1495 s at the gates; CARD-332's and CARD-338's gates each ran it twice
+  (one red, one green), so the wave paid ~5 full-suite runs for 3 cards
+
+### Complexity breakdown
+
+- trivial (1 card): avg cycles 2.0, avg score 8.5, 0 escalated
+- standard (2 cards): avg cycles 2.5, avg score 9.0, 0 escalated
+- architectural (0 cards) → verdict omitted (insufficient data — accumulating)
+
+### Capacity vs plan
+
+Omitted — `meta/kanban/config.yml` carries no `capacity:` block, so no drift verdict is
+computable. Not reported as under-spend on any category.
+
+### Trend vs Waves 63–65
+
+- Quality:  8.86 → **8.83**  → stable
+- Cycles:   2.00 → **2.33**  ↓ slightly more iteration
+- Accuracy: 1.87× → **not computed** (exclusion above) — the series does not advance this wave
+
+### Finding families
+
+Nine gating findings cluster into **two families, and neither needs a new rule** — both are
+already standing rules that did not bite, which is a different and more useful finding.
+
+- **A retraction must reach every copy, including the ones a program reads** — **4 gating,
+  2 cards, ≥2 cycles in one** (CARD-338 c1 ×2 + c2 ×1, CARD-323 c1 ×1). Qualifies on both
+  promotion counts. **Already covered by ADR-0039/R4**, which the executability lens classifies
+  **executable** — so this is not a missing rule but a rule whose reach is short. Two measured
+  gaps: its `scope.code` globs **do not include `scratchpad/**`**, where this board keeps every
+  instrument (CARD-338 cycle 2), and nothing in its reach covers a card's **metadata fields**,
+  where the wave's sharpest instance hid — an inline comment *inside* a parsed `Touches:` value,
+  invisible to three passes that all read the body. → **scope fix on R4, not a new rule.**
+- **A guard whose claim is wider than its mechanism** — **4 gating, 2 cards** (CARD-323 c1
+  F-001, CARD-332 c1 F-001 and F-003, plus CARD-338's own instrument reporting "AC-1 NOT
+  PROVED: 9 of 9" when what had happened was that it could not measure at all). Qualifies.
+  **ADR-0039/R1 covers "a claim needs a control that CAN fail"** — and every one of these
+  *had* a control that could fail, just not for the claim as written: a closed-set assertion
+  comparing two outputs of the same call, a repaired guard that lost a path it used to catch,
+  a render-found fix with no guard at all. → **sharpen R1's wording** rather than add a rule:
+  the control must be able to fail *for the stated claim*, not merely able to fail.
+- *watch (below threshold, and not a card family):* **cite by name, not by position.** Three
+  instances this wave, all in the orchestrator's own briefs rather than in card findings — a
+  seven-key literal for an eight-key object, a mutation plant cited at a line that had moved,
+  and a branch commit named as a merge-base. Recorded in memory; promote only if it reaches
+  card findings.
+
+**Rule executability (read, not recomputed):** **76% — 68 executable / 21 prose-lens of 89
+classified rules**, zero registry defects, **promotion ratchet clean** (no review-lens rule bit
+two cards unpromoted).
+
+### Data quality — four findings about this wave's own instrumentation
+
+1. **`cycles_used` reads 0 on all three cards.** The `[Review N/M] Score:` marker that
+   `cmd-review-cycle.md` writes once per completed cycle is **absent board-wide for this wave**,
+   because the reviews were dispatched directly rather than through that command. The counts
+   above (2 / 2 / 3) were read from each card's `Review score` field, which states them
+   explicitly. **A future retro re-reading these cards by the documented rule will get null.**
+2. **The retro journal was eight waves behind** — its previous entry is Waves 63–65, so waves
+   **66 through 72 were never retrospected**. This wave's trend line therefore compares against
+   a six-wave-old baseline, which is stated rather than hidden.
+3. **The metrics capture REFUSED** (exit 2) with its own reason: *"the signal definitions
+   registry is missing: meta/metrics/signal-definitions.yml — an absent registry is not an empty
+   one"* (ADR-0032). No snapshot exists for wave 73.
+4. **7 of 409 review YAMLs on main do not parse** (DuplicateKeyError ×3, ScannerError ×2,
+   ParserError ×1, plus `CARD-328-cycle1.yml`). Pre-existing, not this wave's, and the
+   executability lens excludes them from its denominator — so they are invisible to every
+   consumer that reads only the share.
+
+### Calibration signals
+
+**None exportable this wave.** Cycles-scale coverage is 0 of 3 (no card carries an `Nc`
+estimate), and the day-scale ratios are excluded by the owner's ruling above. Per ADR-0055 the
+two series are not interchangeable, so nothing is written to either. `python-pro` carries all
+three cards but produces no signal.
+
+### Suggestions
+
+- **ADR-0039/R4 scope fix** — widen `scope.code` to reach `scratchpad/**` and state that a
+  retraction's propagation set includes a card's metadata fields. Four gating findings this
+  wave trace to the rule's reach, not to its content.
+- **ADR-0039/R1 wording** — a control must be able to fail *for the claim as stated*. Four
+  gating findings passed R1 as written.
+- **CARD-341** already owns the parsed-field lint; its cycle-3 evidence says the lint must read
+  **branch copies or run at the gate**, because a body-sweep of `main` can only see the cards
+  nobody is working on.
+- **Re-instrument the review cycle** so `[Review N/M] Score:` is written even when a review is
+  dispatched directly, or this board's cycle counts stay unreadable to its own retro.
+- Not effort calibration, so `calibrate` ignores all four.
