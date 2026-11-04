@@ -103,24 +103,60 @@ is built around a Flask-rendered page with an embedded payload, a brush menu, zo
 an error count, a hint button and a progress percent. This page fetches its puzzle,
 has the same four brushes and no counters.
 
-## Marking: four brushes, and the mark that had drifted
+## Marking: four brushes, and the mark that drifted
 
 The public page offers `TOOLS = [FILLED, EMPTY, MAYBE, UNKNOWN]` — all four of
 `solver_state.js`'s cell states, in the admin brush menu's own order (locate the
 constant by name: `play.js`'s `TOOLS`). `MAYBE` ("?") was withheld until CARD-323,
 and the reason was never that the page could not reach it: every transition it
-needs is in the shared module and `player.css` already carried the mark's look. It
-was a scope choice, which the owner reversed on 2026-10-30. What stays out is the
-three features that take `solution` — the error count, the progress percent and
+needs is in the shared module and `player.css` already carried the mark's cell
+background. It was a scope choice, which the owner reversed on 2026-10-30. What
+stays out is the three features that take `solution` — the error count, the progress percent and
 hints — because those the page genuinely cannot reach.
 
-The two players do **not** yet agree on what a "?" looks like: `admin.css` draws a
-"?" glyph in the accent token on the cell and on the swatch, while `player.css`
-draws a tint one step off the paper and no glyph. That is an open finding from
-CARD-323, not a closed divergence.
+The two players did **not** agree on what a "?" looks like, and the story of that
+disagreement is the clearest example in this document of how a drift is actually
+caught here. `admin.css` drew a "?" glyph in the accent token on the cell and on
+the swatch; `player.css` drew a tint one step off the paper and no glyph, and the
+tint measures 1.169:1 against a blank cell — invisible. CARD-328's agreement guard
+exists to stop these two sheets drifting, and it did not report this, because the
+Maybe mark was never in the surface it compares: the mark did not diverge *past* a
+guard, it diverged where no guard was looking, so it reached a render before it
+reached a test. CARD-323 measured it and routed it to the owner rather than
+deciding a rendered mark in a worktree; the owner chose the admin's glyph on
+2026-11-03; CARD-339 added it to both hooks and **widened the compared surface**,
+which is the half of that card that was not one line of CSS.
+
+Two things are worth carrying away from it. The glyph is matched to the admin's by
+*derivation* rather than by copy — `tests/test_public_player_agreement.py` reads
+both sheets and holds the two declaration sets to each other, which is also why
+`player.css` now declares `--player-numeral-min`: the admin's `font-size` reads
+that token, it lives in `admin.css` rather than in the byte-identically copied
+`tokens.css`, and a declaration this page could not resolve would render the glyph
+at the body size. And the marks are no longer *assumed* to agree: the same module
+censuses every state `solver_state.js` declares against both hooks and both
+sheets, and every fact of it has to be compared, agreeing, or routed to the owner
+with a figure. Of the sixteen facts, three are compared, seven agree and **six
+are routed**; the two Maybe *papers* are among the six, because the admin's Maybe
+cell has no background rule at all and draws the glyph on the board's paper at
+7.258:1 where this page draws it on the tint at 6.207:1. Nobody has decided that,
+so it is routed rather than exempted — which means the census holds it to **keep
+diverging**, and (for these two, by written-out values) to keep the values it
+has. **"These two" is two facts but only three of their four sides**, and the
+difference matters if you are relying on the word "pinned": the written-out
+values are the *cell*'s, both sides of it; the *swatch*'s public side comes
+along transitively, because the guard also claims this page's swatch paper
+equals its cell paper (the button previews the cell). The swatch's **admin**
+side is held only to *differing from this page's* — `admin.css` declares no
+background on its Maybe swatch, so a background planted there moves the census
+with every arm green. That was measured by plant in this card's cycle 2, and
+the fourth side is CARD-346's too. The other four routed facts are held to
+diverging and no further; the derived residue that would close both gaps, the
+counterpart of the one `DECLARED_DIVERGENCES` already carries, is CARD-346's.
 
 An empty cell is drawn as a **centred dot**, 28% of the cell, as an `::after`
-(`player.css:425`) — the mark `admin.css` draws for the same state. It was two
+(`player.css`'s `.player-cell[data-state="empty"]::after`) — the mark
+`admin.css` draws for the same state. It was two
 `linear-gradient` strokes here (a cross) until 2026-10-30, so the same mark meant
 one thing in the panel and another on the public page; the owner chose the dot and
 the divergence is closed. Like everything else shared between the two players, it
@@ -132,7 +168,9 @@ is reimplemented rather than imported: R3's byte-identical copy covers
 
 On the transition into solved, the banner settles in and the filled cells flash the
 success colour in a diagonal sweep before ending in ink — about 0.8 s in all
-(`player.css:440`-`456`). The sweep's per-cell delay reads `--player-wave`, which
+(`player.css`'s `@keyframes player-solved-in` and `player-solved-flash`, and the
+`body[data-solved="true"] .player-cell[data-state="filled"]` rule that plays
+them). The sweep's per-cell delay reads `--player-wave`, which
 `play.js:352` sets to `row + col` when it draws each cell, exactly as `solver.js`
 sets it for `admin.css`'s copy of the same animation.
 

@@ -35,6 +35,18 @@
   --player-cell-max: 34px;
   --player-rule: 1px;
   --player-rule-major: 2px;
+  /* The Maybe glyph's floor (CARD-339). admin.css writes the "?" at
+     `max(var(--player-numeral-min), calc(var(--player-cell) * 0.6))`, and that
+     token is declared in admin.css itself — not in the tokens.css ADR-0041/R3
+     copies byte-identically — so the declaration this page has to MATCH would
+     be invalid here without it, and an invalid font-size draws the glyph at the
+     inherited body size instead. The value is held to the admin's own by
+     tests/test_public_player_agreement.py's `numeral-floor.value`, so the two
+     cannot drift apart while the declarations still read equal. It never binds
+     on this page: --player-cell-min above is 28px, so 0.6 x cell never falls
+     under 16.8px. It is carried because the DECLARATION is the thing that
+     agrees, not because the floor is reachable here. */
+  --player-numeral-min: 12px;
 }
 
 body {
@@ -140,6 +152,14 @@ body {
   height: 1em;
   border: var(--player-rule) solid var(--color-border-strong);
   background: var(--grid-paper);
+  /* The Maybe swatch's glyph is `position: absolute; inset: 0` (CARD-339,
+     matching admin.css's rule), so this box has to be the containing block it
+     resolves against — admin.css's own .player-swatch carries `position:
+     relative` for exactly that reason. Without it the glyph would resolve
+     against the initial containing block and land in the page's top-left
+     corner. It changes nothing else: a relatively positioned box with no
+     offsets occupies the same space it did. */
+  position: relative;
 }
 
 .player-swatch[data-state="filled"] { background: var(--grid-ink); }
@@ -154,16 +174,42 @@ body {
    declaration as the cell's: the swatch is a preview of the cell, so a swatch
    that showed something else would lie.
 
-   What it is NOT: the admin player draws "?" in the accent token on both its
-   cell and its swatch (admin.css's two ::after rules). This page draws
-   neither, which means the two players disagree about what a Maybe mark looks
-   like — the mark is a tint one step off the paper on a sheet whose hover and
-   sunken surfaces are within a hair of each other, so it reads as almost
-   nothing and as almost the Clear swatch. That is a FINDING for the owner and
-   not a worktree call (tests/test_public_player_agreement.py's docstring says
-   so in as many words, and deciding which side is right is the architect's);
-   CARD-323's report carries it. */
+   The glyph this page did NOT draw was that finding, and it is now closed:
+   the owner decided on 2026-11-03 that the public page gains the "?", and
+   CARD-339 added it to the cell and to this swatch, matched to admin.css's own
+   two ::after rules and held there by
+   tests/test_public_player_agreement.py's `maybe.cell.glyph.declarations` and
+   `maybe.swatch.glyph.declarations`. The background below is untouched by that
+   card (its G-2) and stays what CARD-323 made it: the tint the cell carries,
+   so the button still previews the cell. What CARD-339 measured and did NOT
+   decide is the tint itself — the admin's Maybe cell has no background rule at
+   all, so it draws the glyph on the paper (7.258:1) where this page draws it
+   on the hover surface (6.207:1). That residual divergence is the owner's, not
+   a worktree call, and
+   TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption
+   pins it. Read "pins" narrowly: the census holds every routed fact to KEEP
+   diverging, and the Maybe PAPER additionally has values written out — but for
+   the CELL, not for the swatch below, so "a change here reds" needs one more
+   clause and this comment is the worst place to leave it off. The arm writes
+   its two literals for .player-cell[data-state="maybe"] only; the line below
+   is held transitively, by the arm's closing claim that this swatch's paper
+   equals the cell's (CARD-323's "the button previews the cell"), so changing
+   THIS declaration does red. What is NOT held is the same selector's ADMIN
+   counterpart: admin.css declares no background on its Maybe swatch, so that
+   side falls through to .player-swatch's --grid-paper and is held only to
+   differing from this page's. Plant a background there and the census moves
+   with every arm green — measured in CARD-339 cycle 2, by plant. So of the two
+   Maybe papers' four sides, three are pinned by value and the admin swatch's
+   is pinned only as diverging. The other four routed facts are held to
+   diverging and nothing more — CARD-346 owes that table the derived residue,
+   the admin swatch's side included. */
 .player-swatch[data-state="maybe"] { background: var(--color-surface-hover); }
+/* The Maybe mark's glyph on the brush button, matching admin.css's rule of the
+   same selector (CARD-339, the owner's decision of 2026-11-03). --text-xs here
+   and 0.6 x the cell on the board, exactly as the admin sizes its two: the
+   swatch is 1em of button chrome and the cell is a board cell, so the glyph is
+   sized from the box it sits in and only the mark it draws is shared. */
+.player-swatch[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 600; line-height: 1; color: var(--color-accent); }
 
 .player-brush-run { display: inline-flex; gap: 1px; }
 
@@ -428,6 +474,14 @@ body {
 .player-cell[data-state="empty"] { background: var(--grid-paper); }
 .player-cell[data-state="unknown"] { background: var(--grid-paper); }
 .player-cell[data-state="maybe"] { background: var(--color-surface-hover); }
+/* The Maybe mark's glyph on a cell: "?" in the accent token, 0.6 x the cell
+   side with --player-numeral-min as its floor — admin.css's own rule for this
+   selector, which CARD-186 measured and CARD-193 gave the floor. Reimplemented
+   rather than imported for the reason stated at the dot below (ADR-0041/R3
+   copies solver_state.js and tokens.css and nothing else), and held to the
+   admin's by tests/test_public_player_agreement.py so a change to either sheet
+   reds until the other matches or the difference is declared there. */
+.player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
 
 /* CARD-328: the dot and the solved reveal below are held to admin.css's own by tests/test_public_player_agreement.py — change either here and that guard reds until the panel's matches or the difference is declared there with its reason. */
 
