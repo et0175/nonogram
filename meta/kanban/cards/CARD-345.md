@@ -70,7 +70,14 @@ CARD-278's review measured that it holds today — every caller of `propagate` /
    definition of "branch checkpoint" that does not reduce to "lives in `search.py`"), or
    declare the bound as permanent and pin it with a control. **A bound declared without a
    control that can fail is the defect this card family keeps finding** — if you declare, pin.
-3. **Do not weaken CARD-278's two existing deny arms.** They fire on planted violations today
+3. **Also correct `_blind_propagation`'s own docstring, which keeps the singular.** Measured
+   by CARD-278's merge gate (its finding 5): the helper's summary line says *"leaving only the
+   branch one"* and its body *"only the branch checkpoint can have produced it"*. That is the
+   **same defect** the gate's M-2 fixed one function up, and the gate deliberately did **not**
+   touch it — M-2 named a specific clause, the card was certified, and widening the edit set
+   after certification is what CARD-278's own `Source` warns against. It is one clause, and
+   this card already holds the file.
+4. **Do not weaken CARD-278's two existing deny arms.** They fire on planted violations today
    (a derived site absent from the search module's namespace; one carrying no `deadline`
    parameter), and both were independently re-fired by its reviewer.
 

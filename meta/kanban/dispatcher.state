@@ -449,12 +449,6 @@ active:   # wave 74, two entries, exactly at the owner's cap. An explicit list â
     started: 2026-11-04T03:41Z
     estimate: 2c (2d)
     cut_from: d1a18baa
-  - card: CARD-278
-    branch: card/278-the-timeout-cards-tail
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-278
-    started: 2026-11-04T03:41Z
-    estimate: 1c (0.25d)
-    cut_from: d1a18baa
   - card: CARD-339
     branch: card/339-the-public-player-gains-the-glyph
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-339
@@ -3812,3 +3806,61 @@ last_updated: '2026-11-04T03:05:00Z'
 #
 # GRAPH RE-CHECKED after the cut, real consumer's reading: 343 cards, 343
 # ordered, NO cycle, NO dangling dependency.
+#
+# CARD-278 LANDED 2026-11-04. Merge `5f702d65` onto `9913c3b5`, closure `99c23d63`,
+# gated tree `142f8867`, merge-base `d1a18baa`. Certified 8.8 on cycle 1 of 3.
+# Removed from `active` here; worktree removed; lock released and immediately
+# taken by CARD-339 cycle 2, which is the sequential rule working rather than a
+# collision.
+#
+#   THE BOARD'S FIRST EXACT CYCLE ESTIMATE: 1c estimated, certified on cycle 1.
+#     That is the calibration datum wave 73's retrospective could not export at
+#     0-of-3 cycle coverage, and it exists because the estimate was restated in
+#     REVIEW CYCLES at the wave open rather than left in days.
+#
+#   THE GATE'S FIRST RUN WAS RED AT 5 CELLS AND IT WAS NOT THE CARD. All five
+#     were one parametrized class in tests/test_admin_binding.py, a file
+#     byte-identical to main's, in a card whose whole footprint is
+#     tests/test_timeout.py. Cause MEASURED, not guessed: that class carries no
+#     `db_required` marker, so conftest.py's create-if-missing path -- which is
+#     gated on that marker -- never covered it; it read the armed DATABASE_URL,
+#     enabled persistence and connected BEFORE any marked test created the
+#     database. Re-run after creation: 14 passed.
+#     DISTINGUISHED FROM THE STALE-SCHEMA HAZARD rather than assumed: a migration
+#     HAD landed recently (CARD-332, 2026-11-01), which is exactly when that
+#     hazard is live, but the signature is a missing DATABASE, not CARD-338's
+#     missing COLUMN, and information_schema showed books.player_domain already
+#     present. Carded as CARD-349. Both hazards red the first run and SELF-HEAL,
+#     which is the signature that trains a re-run instead of a look.
+#
+#   MY OWN SKIP BASELINE WAS SELF-CONTRADICTORY and I corrected it mid-run: I
+#     told the gate to ARM DATABASE_URL and, in the same paragraph, to expect
+#     "27 skips -- 26 from the bare-DATABASE_URL check". Those are mutually
+#     exclusive: the 26 skip BECAUSE it is unset. Armed, the gate measured ONE
+#     skip (the setrlimit platform gate), with zero from either DB gate -- which
+#     is the positive evidence the arming took. 27 is the UNARMED baseline. The
+#     memory file both facts came from has been corrected at source.
+#
+#   CARD-278 HAD NO REVIEW YAML ANYWHERE ON DISK -- the gate reported its absence
+#     as a finding rather than fabricating one, which was right. Written out
+#     afterwards from the reviewer's own report as meta/review/CARD-278-cycle1.yml
+#     and left UNTRACKED, matching the five other recent cycle files: the
+#     check-ref resolver is a TEXT search over tracked files, and a tracked review
+#     YAML has been measured on this board silencing a live dead-ref warning.
+#
+#   RESIDUALS CARDED RATHER THAN FOLDED IN, both on the wave-48 rule that a
+#     widening added after certification ships its final edit uncertified:
+#     CARD-345 (the blind set splits by module co-location, so the same defect
+#     escapes one module to the left -- the reviewer falsified the round's own
+#     "pins so neither sheet can change unremarked" claim with a plant in solve's
+#     prologue; also now carries the gate's finding 5, the sibling singular
+#     docstring one function up) and CARD-349 (above).
+#
+#   THE BOARD CENSUS WAS CORRUPTED BY CARD-341'S DEFECT WHILE BEING RE-DERIVED,
+#     which is worth recording because it is the first time that defect has bitten
+#     a measurement rather than a reading: `Revision pending: true <!-- GATED ... -->`
+#     carries an INLINE comment, so an equality test on the parsed value read
+#     CARD-288 as un-gated and the derivation disagreed with the board. The BOARD
+#     was right. Stripping comments restores the partition to 10 gated + 39 ready
+#     + 3 wave-bearing = 52, matching the status census exactly. Two cards carry
+#     an inline comment on a parsed field here: CARD-288 and CARD-322.
