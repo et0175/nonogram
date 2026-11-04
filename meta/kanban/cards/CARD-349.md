@@ -165,6 +165,82 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
 
 ## Worktree notes
 
+[Review 1/3 — SECOND READER] Score: **7.5 — NOT CERTIFIED, changes requested.** Artefact:
+`meta/review/CARD-349-cycle1-second-reader.yml` (44 KB), **uncommitted** for the dead-ref reason. Two
+**independent** readings of `8c108047` now exist and they disagree — 9.0/`fail` and 7.5/NOT
+CERTIFIED — with different findings. The first reviewer **declared a conflict of interest** (it wrote
+the implementation brief) and asked for a reader anchored elsewhere; this is that reader, dispatched
+separately and told only that a prior reading existed, with its verdict withheld. **The independence
+paid for itself: the second reader found the most severe finding on this card, and the first did
+not.**
+
+[Review 1/3 — SECOND READER] **F-001, Important, and MEASURED WITH A MATCHED CONTROL — a blast-radius
+regression in the card about blast radius.** `_rebuild_public_schema` sets `lock_timeout = '10s'` and
+then `DROP SCHEMA public CASCADE`; a connection holding a lock turns that into
+`sqlalchemy.exc.OperationalError` — **neither a skip nor a fail**, so the new catch misses it. The
+alembic call adds `subprocess.TimeoutExpired`, the `pg_tables` query a third class. **Before this
+diff such an error reached only the items that asked for the schema — the 26 `db_required` tests.
+After it, it comes out of a session-scoped autouse fixture, and pytest re-raises a session fixture's
+cached outcome to every later requester — which is now every test in the suite.** Measured: holding
+one transaction's lock on a table in `public`, armed, running a file with **zero** `db_required`
+tests gives **26 errors on the branch and 26 passed on main**, including a test that reads a
+JavaScript file. **And the attribution is the sharp part, this card's own subject: all 10394 errors
+would name `_armed_database_is_ready`, so a held lock on a per-worktree database reads as this
+card's fix being broken.** The fixture's docstring asserts the hole shut — *"Both ways
+`_test_database_tables` can stop are caught"* — and there are at least three. **Not G-2** (nothing
+was made quieter); a blast-radius regression plus a docstring that claims completeness.
+Its suggested fix is measured rather than reasoned: catching broadly cannot hide anything from
+`db_session` or `pytest_runtest_setup`, because pytest caches and re-raises a session fixture's
+outcome to a later direct requester — demonstrated in a synthetic project.
+
+[Review 1/3 — SECOND READER] **It also detected the two-actor collision itself (F-000, Important)**
+— that the worktree was being written by another agent during its review and during its armed suite.
+Independent of the other agent reaching the same conclusion.
+
+[Review 1/3 — SECOND READER] Its other findings: **F-002** (medium) the armed-selection schema
+rebuild, which the other reader filed as Minor — two readers, same mechanism, different severity;
+**F-004** the comment above the import still describes the mechanism the diff replaced; **F-005**
+AC-3 was refuted and left standing, and **no AC names its test although all five ACs ask**;
+**F-006** a declared bound of 2 against a measured 19 is wider than its stated reason.
+
+[Review 1/3 — SECOND READER] **F-003 is about THE ORCHESTRATOR'S OWN RECORD, and it is upheld in
+full** (ADR-0039/R4). I wrote above, in this card's round record and in `3c834922`'s message, that
+hazard B *"explains CARD-258's waves 47/48/50 reds, which carried the `relation \"puzzles\" does not
+exist` signature."* **Both halves are wrong and both are retracted:**
+• **CARD-258 explicitly declines a third hypothesis.** Verified at its own text: *"So the next step
+is not a third hypothesis. It is to make the next occurrence diagnostic,"* preceded by
+*"remain unexplained; this is that sentence being right."* I offered precisely the third hypothesis
+that card refuses — and the shipped tree cannot produce it anyway.
+• **`relation "puzzles" does not exist` is NOT the stale-schema twin's signature.** This card's own
+table gives the twin as missing **column** (`UndefinedColumn: books.player_domain`). A missing
+**table** is a **third** signature, owned by CARD-258, and the committed docstrings mislabel it too.
+**The correct statement:** hazard B is a candidate mechanism for a red CARD-258 records as
+unexplained, it is not the cause under the code as shipped, and CARD-258's own F-003 configuration is
+the shipped route to that signature. **I had asked the first reviewer to check this exact
+attribution** — *"the kind of tidy cross-reference that is often approximately right and specifically
+wrong"* — and it did not; the second reader did.
+
+[Review 1/3] **CYCLE 2 WAS STARTED AND IS PARTIAL.** The round committed **`0b6a13e7`**, test-only,
+one file, `tests/conftest.py` untouched — closing the first reader's F-001 (`_ARMED_SETUP` recording)
+with a control that fails: `_fixture_body` resolves the function behind the fixture object and
+**refuses with a message naming the pytest version** rather than guessing a fourth spelling, which is
+ADR-0039/R2 applied the right way round. Five tests parametrised over both exception classes the
+`except` clause names; `asked == []` makes the G-1 "nothing is created" claim failable; the round
+reproduced the surviving mutant **before** accepting it, then killed it, and planted two edge mutants
+of its own. **Verified by reading, not by re-running** — the mutant kill is not independently
+confirmed and a clean armed suite on `0b6a13e7` is still owed.
+
+[Review 1/3] **The orchestrator stopped its own second reader and removed its own stale lock.** That
+run was verifying `8c108047` while the working tree had moved to `0b6a13e7`, so its suite result was
+void on three counts — pytest runs the working tree, the round edited files under it, and most
+seriously **both actors in one worktree derive the same database name** while `_test_database_tables`
+does `DROP SCHEMA public CASCADE` + rebuild, so a suite can have its schema pulled out from under it
+and the resulting red carries the **missing-table** signature. Confirmed before removing: no live
+process owned that worktree, so the lock was genuinely stale; a copy was kept. **Cross-worktree
+isolation is intact** — measured, main derives `…_543f9f3f05e1_test` and card-349 derives
+`…_card_349_34c3628d36d8_test`. The hazard is specifically **two actors inside one worktree**, which
+narrows the other agent's framing. Carded as **CARD-377** and **CARD-378**.
+
 [Review 1/3] Score: **9.0**, `overall_verdict: fail` — **BACK TO THE ROUND.** Above `min_score: 8`,
 but one Important finding and a failing circuit, and certification was `deferred(cost)` with
 `mutation_check: true` live, so the card cannot merge on it. Artefact:
