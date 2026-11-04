@@ -26,6 +26,33 @@
 
 ## The defect, measured at a gate rather than theorised
 
+> **PREMISE VERIFIED AT THE STATION, 2026-11-04 — and it is SHARPER than this card states.**
+>
+> Measured in `tests/conftest.py` by name, not by line number: the whole create-and-migrate path
+> sits inside `if 'db_required' in markers:` in the skip hook, and the `os.getenv("DATABASE_URL")`
+> read plus its `pytest.skip` are **inside that same block**. So the card's wording — "gates the
+> create-if-missing path but not the reading of `DATABASE_URL`" — is right about the asymmetry but
+> wrong about where it lives: **conftest does not read the env var for an unmarked test at all.**
+>
+> The real asymmetry is between conftest and the test tree. Creation happens **only** for marked
+> tests, while an **unmarked** test is free to read `DATABASE_URL` in its own code and connect — and
+> many do. Measured: of the test modules referencing `DATABASE_URL`, a large set carry **no**
+> `db_required` marker anywhere, the `test_admin_*` family prominent among them. **Re-derive that set
+> rather than carrying this sentence**; it is the population the fix has to speak about, and a
+> census counts references, not declaration sites.
+>
+> **Two live confirmations, both from gates rather than theory.** CARD-336's gate met this hazard
+> and pre-empted it by running the 26 `db_required` tests first to take the create path. CARD-348's
+> gate met the **twin** — a per-worktree database at `alembic_version` 017 against a head of 018 —
+> in `test_admin_binding.py`, a module that sorts early, never requests `db_session`, and therefore
+> read the previous session's schema. Distinguish the two by signature: **missing database** is this
+> card; **missing column** is the stale-schema twin. Both self-heal, which is why each reds a first
+> run and reads as flakiness.
+>
+> **Serialization, measured.** `tests/conftest.py` is the highest-blast-radius file in the tree and
+> **CARD-320 also touches it**, which is why the owner scheduled both solo and this one first. Do not
+> pair this card with anything.
+
 `conftest.py`'s create-if-missing path for the per-worktree test database is gated on the
 **`db_required` marker**. The *reading* of `DATABASE_URL` is not. So a test that reads
 `DATABASE_URL` without carrying `db_required` enables DB persistence and **connects** before
