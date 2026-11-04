@@ -33,6 +33,8 @@ every card since carries an `Nc (Md)` double entry because of it.
 
 **It has no ADR on this board.** Measured: the local series is `0001` … **`0042`**.
 
+**And ADR-0055 is a real, accepted ADR — upstream.** Measured 2026-11-04 by CARD-363's cycle-2 review and confirmed read-only: `/Users/omelnikova/MyProjects/forge_1/forge/meta/architecture/decisions/adr/0055-estimate-in-review-cycles.md` exists, 11833 bytes, status **accepted**, titled *«Единица оценки карточки — ожидаемые циклы ревью, не дни»*. So the decision **is** formally recorded — in the tool's own architecture, not in this board's. That makes this card's remit **narrower and clearer** than the title suggests: the gap is not "nobody wrote it down" but "this board adopted an upstream decision without recording the adoption". Any guard that promises to red "the day someone writes the ADR" is already void — it is written, and the pin will stay green forever.
+
 **Where the citation came from.** `forge_1`'s retrospective skill documents its own estimate-unit
 change as *"since ADR-0055 (switch_to_review_cycles, DEC-058)"*, and `switch_to_review_cycles`
 appears in **forge_1's own** test suite and CI baseline. So **ADR-0055 is the TOOL's architecture

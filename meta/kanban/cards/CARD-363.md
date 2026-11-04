@@ -270,6 +270,127 @@ current tip (which had moved — CARD-348's certification landed) and identical 
 
 [Review 1/3] Score: 7.75 — BACK TO THE ROUND (threshold 8.0). 1 Critical (F-001), 3 Important (F-002/003/004), 3 Minor. Artefact: `meta/review/CARD-363-cycle1.yml`. Merge-base `c021a10f`.
 
+[Review 2/3] Score: 7.5 — **BACK TO THE ROUND** (threshold 8.0). 1 Critical gating (F-101),
+1 Important (F-102), 3 Minor (F-103/104/105). Artefact: `meta/review/CARD-363-cycle2.yml`.
+**Cycle 3 is the last `max_cycles` allows.**
+
+**⚠ This marker is written BELOW the cycle-1 line deliberately.** F-101(a) measured that the new
+re-entry check compares *consecutive written ordinals*, so placing a later ordinal above an earlier
+one reds the module — and this card's notes are ordered newest-first, which is the placement its own
+history establishes. Until F-101(a) is fixed, the closing stamp must be **single-ordinal AND written
+below** the preceding Score line.
+
+[Review 2/3] **All seven cycle-1 findings are genuinely closed**, each verified by re-firing its own
+control rather than by reading the report. The score is flat against 7.75 only because the gating
+class this cycle existed to close **survived**.
+
+[Review 2/3] **Item 1 ruled: the F-001 fix is a REAL fix and provably information-preserving.** The
+three historical classes stay equalities, unclassifiable stays `== ()`, sentinel stays `== 60`, so
+any growth in `scored` can only land in AGREES and the two new floors are **derivable** from the
+surviving cells: `scored >= 181 + 50 = 231`, `done >= 231 + 60 = 291`. All seven plants re-fired and
+killed; the compensating plant is caught by **four** cells, not the one the round claimed. Decisive
+confirmation on the live tree: `db4febab` against main's current cards → 61 passed; `287f1982`
+(pre-fix) against the same cards → **3 failed / 58 passed**, exactly cycle 1's three.
+
+[Review 2/3] **Item 2 ruled: the round was RIGHT to refuse its reviewer, and is credited for it.**
+`by_class` initialises one bucket per declared class and `classification` returns one of five
+constants on every path, so an unknown class would `KeyError` — the reviewer's
+`== len(scored_cards(tree))` is a **tautology, a loosening dressed as a fix**. The replacement
+`128 + 50 + 3 == 181` is closure-invariant, proven identical on the branch tree and on main's tip
+**across CARD-348's real closure**, and red in three of fourteen plants. The cited
+`tests/test_book_pdf.py` precedent is **real** (≥300 card files / ≥200 done / ≥10 not-done); one
+precision — the CARD-261 comment sits on the adjacent registry floor, not on the card-census lines.
+
+[Review 2/3] **F-101 (Critical, gates) — the module still reds on CORRECT board operations, in two
+places the round's closure-framed hunt could not reach.**
+**(a)** The new re-entry check is **order-sensitive**: this card closed with the house-style
+`8.5 (cycle 2/3 — CERTIFIED)` reds if the Score line is written *above* the cycle-1 line and passes
+if written *below*. Nothing but position differs. The round's merge-gate warning
+("write it single-ordinal") is therefore **not sufficient** — a second, undisclosed constraint on
+*placement* decides whether main reds.
+**(b)** Three equalities grow **at the next WAVE OPEN, not at a closure**: `len(waved) == 251`,
+`len(with_cycles) == 7`, `{wave for with_cycles} == {74,75,76}`. Stamping `Wave: 77` on CARD-369 —
+whose estimate is already `1c (0.5d)`, so the plant is the convention *working* — reds with the bare
+message **`252`** and no explanation: the same "correct card accused with no explanation" defect the
+round had just fixed for F-007. CARD-367…373 are cut and unwaved. Sharpest statement: **the module
+contains both spellings of the same seven cards** — `>= 7` as an anti-vacuity floor in one test,
+`== 7` as a bound in another.
+
+[Review 2/3] **Item 3 ruled: the deliberately-strict cell IS a trap, but Minor, and a narrower
+replacement exists.** It bans a *spelling* on which `max` is provably right and which the module's
+own message admits is right. The round's G-4 reasoning fails: G-4 forbids loosening a guard to
+accommodate the **historical population**, and this cell is not a historical bound but a proxy for
+"guard 1 does not rest on the heuristic" — and the proxy is wrong, since CARD-020 lands in
+`first_wrong` too and there `max` really does misread. Replacement: for every in-scope card, the
+distinct marker ordinals are exactly `1..max` and the score's `max` equals that maximum — order-free,
+spelling-free, and it folds into F-101(a)'s fix.
+
+[Review 2/3] **F-006's audit has the teeth claimed PLUS four escape routes.** It wraps only
+`Path.read_text` and `builtins.open`; measured in this interpreter (3.14.3), **`Path.open`,
+`Path.read_bytes`, `io.open` and `os.open` all escape** — `io.open is builtins.open` is True, but
+`Path.open` resolves `io.open` as a *module attribute*, which rebinding `builtins.open` never
+reaches. The audit's own behaviour proves it: one `read_text` records **one** entry, not two. Four of
+six routes escape and the one a helper would naturally write is among them. One extra spy line fixes
+it.
+
+[Review 2/3] **F-102 — four prose claims the record or the measurement refutes, and one is
+remarkable.**
+**(i)** **A fabricated quotation of this card.** A test docstring reads: *CARD-363 states "two cards
+carry an inline comment on a parsed field today"*. **That sentence has never existed in CARD-363, in
+any version, or anywhere under `meta/`** — a pickaxe search finds it in exactly one commit,
+`287f1982`, the module's own first. In the module whose subject is records that do not say what they
+claim.
+**(ii)** **Comment stripping is INERT and cycle 1 endorsed the opposite.** Under the module's *own*
+anchored regexes, stripping changes **0 of 365** Wave readings, 0 of 365 Estimate and 0 of 365
+Review-score. `^(\d+)\b` reads `68 <!-- … -->` as 68 with the comment intact. Cycle 1 put this in
+`verified_correct` by substituting a **bare-integer** reading for the module's anchored one.
+**(iii)** `_MARKER`'s comment calls it "the ONE marker … writes once per completed review cycle"
+while the module's own docstring forty lines above measures three upstream write sites and "a cycle
+that reaches its threshold emits two". Both live, no retraction — the CARD-316 shape.
+**(iv)** "The decision has no ADR file" is **false**: `forge_1`'s own
+`adr/0055-estimate-in-review-cycles.md` exists, accepted. The true claim is the narrower one the test
+measures — *this* repo tops out at 0042 — which is what CARD-367 and `dd380092` already say. The
+pin's stated trigger ("the day someone writes it") is therefore already void.
+
+[Review 2/3] **F-103/104/105 and the rest.** `Estimate: 0c` **passes** guard 2 (`0c`, `0c (0.5d)`,
+`0.0c` all → `0.0`, which is not `None`) while the matched control `0.5d` reds — and a zero
+denominator *is* no denominator, in the message's own words. `len(scored) + len(sentinel) ==
+len(done)` is a **tautology** (sentinel is *defined* as `done` minus `is_scored`) presented as "what
+keeps the pair honest under growth"; its structural twin is correctly flagged and this one is not.
+The re-entry message **misattributes the board's measured dominant cause**: it fires on
+`later <= earlier`, so a *duplicated* ordinal triggers it — which is upstream's threshold
+double-write, the thing this module measures on 49 cards — and reports it as "the signature of a
+manual review re-entry".
+
+[Review 2/3] **The degradation NO cell catches**, which is the question a plant list cannot answer by
+construction: every bound but population 3 is a **count**, not a set. Planting CARD-002 losing both
+true markers while CARD-005 gains one fabricated marker matching its named cycle leaves every count
+unchanged (128/50/3/181/60/16/251/7) and **all thirteen tree-tests green**. Not a regression from the
+fix — the old absolutes would not have moved either — but the standing limit of a count-based bound,
+and it deserves one sentence of disclosure.
+
+[Review 2/3] **A figure of the ROUND's does not reproduce, and it is mine too — I relayed it.** The
+round claimed every figure identical on the branch tree and main's tip. **Five differ**: done
+291→292, scored 231→232, agreeing 50→51, blind 209→210, `cycle N/M` census 169→170, because
+CARD-348 really closed between the two readings. Every cell the round argued is *closure-invariant*
+**is** identical. So the claim is wrong in letter and right in substance — and main's tip is live
+proof the fix was needed.
+
+[Review 2/3] **A dispatch convention finding, and it is the orchestrator's to fix.** The branch
+worktree's copy of `CARD-363.md` is **byte-identical to the merge-base copy** (sha256-verified),
+because INV-023 keeps `meta/kanban` off the card branch. So a round reading its own card from its own
+worktree reads a brief with **no cycle-1 verdict and none of main's later corrections** — which is
+why the fabricated-quotation finding is priced as prose rather than as a process failure. Either the
+brief must carry the card's current text, or the round must read the card from main.
+
+[Review 2/3] Full suite, unarmed, **under the lock for its whole length**: **10329 passed / 27
+skipped / 1 xfailed / 0 failed / 0 errors**, exit 0. Skips read off `-rEfs` as exactly two SKIPPED
+lines — `[26] tests/conftest.py:207` + `[1] tests/test_book_pdf_memory.py:1297` = 27, the **unarmed**
+reading (an armed run reading 27 would itself be a finding). **Zero lock refusals anywhere in the
+output**, which settles CARD-370 a second time: cycle 1's `10292 + 37 = 10329` equals this clean pass
+count. Module selection: 61 passed / 0 skipped on the branch, and 61 passed / 0 skipped against
+main's current cards.
+
 **This section did not exist and the marker was written by the orchestrator, not by the review's sync point.** That is the defect this very card asserts the absence of, and it occurred on this card — the strongest available evidence for the card's own premise. Counted as ONE cycle: this cycle did not reach its threshold, so the double-Score-line shape measured in F-002 does not apply.
 
 [Review 1/3] **The title's figures were refuted and are retracted here** (ADR-0039/R4): it said `152 of 279 closed cards`; measured, it is **128 of the 231 scored cards**, against **291** done. The `279` denominator never existed — see CARD-369 and the fourth derivation it records.
