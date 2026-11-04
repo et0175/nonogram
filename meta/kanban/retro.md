@@ -2046,3 +2046,143 @@ wave's real output: three cards closed and twelve defects named, measured and ow
 - **Watch for "certifying earlier at slightly lower scores"** in wave 75 — the cycles/score drift
   above is innocent on three cards and would look identical if it were not.
 - Nothing here is effort calibration beyond the first bullet, so `calibrate` ignores the rest.
+
+---
+
+## Wave 75 — two for two, the first signal that points somewhere, and five instrument failures
+
+Closed 2026-11-04. **CARD-335 8.0** (cycle 1 of 3), **CARD-337 8.5** (cycle 1 of 3). None escalated.
+Back at the owner's standing cap of 2 after wave 74's one-wave override.
+
+### The estimate signal, and it finally disagrees with itself
+
+| card | estimate | cycles | ratio | reading |
+|---|---|---|---|---|
+| CARD-335 | 2c | 1 | **0.500** | overestimated |
+| CARD-337 | 1c | 1 | **1.000** | accurate |
+
+**Mean 0.750 at 2-of-2 coverage** — and this is the first wave whose signal is *not* a flat 1.000,
+which makes it the first that could in principle argue for a correction. **It should not.** The
+0.500 is one card re-opened on a second measured harm, carrying a convention decision over 396
+files, honestly priced at 2c and certified on the first cycle. A scale correction drawn from a
+single overestimate on an unusually shaped card would be fitting noise.
+
+| | wave 72 | wave 73 | wave 74 | wave 75 |
+|---|---|---|---|---|
+| cards | 2 | 3 | 3 | **2** |
+| avg final score | 9.00 | 8.83 | 8.60 | **8.25** |
+| avg cycles | 3.00 | 2.33 | 1.33 | **1.00** |
+| escalations | 0 | 0 | 0 | **0** |
+| ratio coverage | 0/2 | 0/3 | 3/3 | **2/2** |
+
+**The drift wave 74 flagged as "watch" has now run four consecutive waves in both columns:
+scores 9.00 → 8.83 → 8.60 → 8.25, cycles 3.00 → 2.33 → 1.33 → 1.00.** Two readings fit and they
+have opposite implications:
+
+- **Benign:** cards are being re-cut hard at the station — CARD-336 once, CARD-337 **twice** — so
+  they arrive narrow and close in one cycle. Fewer cycles is the premise discipline working, and a
+  narrower card has less surface on which to earn a 9.
+- **Not benign, and the one to watch for:** once an estimate is stated in cycles, a round that
+  knows it has 1c has an incentive to certify in 1. That is Goodhart on the estimate, and it would
+  look **exactly** like the benign reading.
+
+**The discriminator is available and cheap: a wave whose cards are not re-cut.** If scores recover
+when cards arrive at full scope, the drift is scoping. If they keep falling, it is the estimate.
+**Do not calibrate the scale until that reading exists** — a correction applied now would bake in
+whichever cause is real.
+
+### The dominant finding family is NEW, and it is mine: a verification that cannot fail
+
+**Five instrument failures this wave, three of them mine**, and they are a different species from
+wave 74's carried figures. A wrong figure is wrong once. **A wrong instrument produces confident
+wrong answers indefinitely.**
+
+- **A check for inline comments that stripped comments before checking.** It passed on a field that
+  still carried one — `'2c (1d) <!-- … -->'` — and that field is what a gate divides to get a cycle
+  ratio. A merge gate found it, not me.
+- **A memory script using `if anchor in s:` instead of an assertion.** The anchor missed, the write
+  vanished, and the script **printed "three traps added"**. I relayed the three.
+- **A census check using `git check-ignore` without `--no-index`**, which read **0** on a tree whose
+  own guard pins the tracked-yet-ignored census at **477**.
+- **And twice more while writing this entry**: a score parser that took the *first* number in a
+  progression-format field (`6.0 → 8.5 → 9.0`), computing wave 72 at 7.50 against the 9.00 wave
+  74's retro correctly recorded; caught only because the two disagreed.
+
+**The two gates caught their own in the same shape and said so** — a two-dot diff read as
+three-dot, and a dispatcher parse-checked with a JSON parser against a YAML file. Both corrected
+the **instrument** rather than the conclusion, which is the behaviour to copy.
+
+**The rule, now in memory: a verification whose construction guarantees it passes is not a
+verification.** Assert on the raw value; use an assertion, not a conditional; count the result
+rather than trusting the print.
+
+### Second family: a rule recorded is not a rule applied
+
+**I measured the review-record gap, carded its guards as CARD-363, wrote the fix to memory — and
+then dispatched a merge gate an hour later without carrying the rule into the brief.** That gate
+wrote no marker, and I wrote CARD-335's by hand: the **sixth** review artefact reconstructed after
+the fact in two waves, and the first where the rule preventing it already existed.
+
+**What did work is the half that moved the write to whoever holds the data:** CARD-337's reviewer
+wrote its own `meta/review/CARD-337-cycle1.yml`, the first on this board rather than one I
+transcribe. **The fix that relocates a duty held; the fix that relies on me remembering did not.**
+That is a design lesson, not a diligence one.
+
+### Third family: the same figure in three places, two of them stale
+
+**CARD-337's estimate existed in three copies and the board disagreed with the card.** The card
+said `1c (0.5d)` — re-estimated at the re-cut when scope fell from thirteen modules to one.
+`board.md` said `2c`. `dispatcher.state` said `2c (2d)`. Both were written before the re-cut, **by
+me.**
+
+**A retrospective reading the board rather than the card would have computed 0.500 for a card
+priced and delivered at one cycle** — and this entry's own table would have carried it. The card is
+the authority; the gate found the disagreement by hand, because **CARD-363, which exists to catch
+exactly this, is still `ready`.** That is live evidence for its priority, measured rather than
+argued.
+
+### What the wave produced besides two closed cards
+
+**13 cards cut** (CARD-354 … CARD-366), every one from a finding. Ten are the module-sliced
+partition of CARD-337's residue, created after its round measured that a **mechanism**-sliced cut
+could not run concurrently at all — nine of thirteen modules split across mechanisms, one file
+needing five separate cards. **The axis changed because a round measured the partition, not because
+anyone preferred it.**
+
+The other three are each a defect that became visible only once something else was fixed: the
+`status: covered` blind spot (CARD-361), the review-record guards (CARD-363), and the metrics
+registry (CARD-366).
+
+### Process notes worth keeping
+
+- **A gate refused to merge on a red and did the attribution properly.** CARD-337's first suite
+  attempt failed on a browser timeout; it did not relay the result, found that this board had
+  diagnosed that exact failure twice before, met CARD-271's three-isolated-reruns standard *and*
+  CARD-238's whole-suite precedent, established zero `src/` lines and no import path, observed that
+  **1 of 4 parametrize cases failed while three passed against identical code**, and re-ran clean.
+  **That is the standard for an unattributed red.**
+- **A convention landing mid-review created a merge blocker**, and it was mine: CARD-335's
+  gitignore merged while CARD-337 had 11 tracked files under the newly-ignored path. The gate
+  resolved it by **measuring the growth harmless before moving the pin**, which is the right order,
+  and grounded the choice in `.gitignore`'s own note that a tracked artefact is a *visible act*
+  rather than a prohibition.
+- **A record lived only in an untracked file.** CARD-337's AC-6 names "the plant table in
+  `## Worktree notes`" as its evidence; that section was empty and the table existed only in the
+  review YAML, which the new gitignore keeps untracked — one `rm` from gone. Transcribed at the
+  gate.
+- **Metrics capture REFUSED for the third consecutive wave.** Carded as CARD-366 rather than noted
+  a fourth time. Waves 73–75 have no snapshot and cannot be recovered; the series starts at 76 with
+  a declared hole.
+
+### Suggestions
+
+- **Do not calibrate the effort scale.** Mean 0.750 over two cards, one of them an unusually shaped
+  overestimate. Wait for a wave whose cards are not re-cut.
+- **Prefer fixes that relocate a duty over fixes that rely on the orchestrator remembering.** The
+  reviewer-writes-its-YAML change held on first contact; the write-the-marker-at-close change
+  failed within the hour.
+- **CARD-363 is the wave's highest-value unstarted card** — the estimate's three-copy disagreement
+  is exactly its subject and was found by hand.
+- **Watch for score recovery on an un-re-cut wave.** That single reading distinguishes scoping
+  discipline from Goodhart on the estimate, and nothing else does.
+- Nothing here is effort calibration beyond the first bullet, so `calibrate` ignores the rest.
