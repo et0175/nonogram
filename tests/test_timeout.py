@@ -57,18 +57,25 @@ unchanged).
 
 from __future__ import annotations
 
+import ast
+import functools
+import inspect
+import pathlib
 import random
 import time
+from collections.abc import Callable
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from nonogram import orchestrator
+from nonogram import solver as solver_package
 from nonogram.clues import compute_clues
 from nonogram.errors import ExportRejected, SolverTimeout
 from nonogram.orchestrator import GenerationRequest, Puzzle, generate
 from nonogram.solver import solve
-from nonogram.solver.propagate import Board, LineCache, check_deadline, propagate
+from nonogram.solver.propagate import Board, check_deadline, propagate
 from nonogram.sourcing import random_grid
 
 # --------------------------------------------------------------------------
@@ -421,34 +428,319 @@ def test_propagation_stops_at_the_sweep_after_the_deadline_passes(
         propagate(board, dirty_rows, dirty_columns, _FakeClock.DEADLINE)
 
 
-def _blind_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Disable ADR-0011's *first* checkpoint, leaving only the branch one.
+# --------------------------------------------------------------------------
+# What a blinding helper has to cover, derived rather than listed
+# --------------------------------------------------------------------------
+#
+# CARD-278. ``_blind_propagation`` below used to stub ``propagate`` and nothing
+# else, and the test named for the branch checkpoint then passed with all four
+# branch-side checks deleted: ``solve``'s ADR-0029 level-1 prologue calls
+# ``propagate_overlap`` with the real deadline, that function carries its own
+# check, and it raises first. A mock is a claim about what is reachable, and
+# that one had never been measured against the call graph.
+#
+# So the blind set is not written down here. It is derived from the solver's
+# own sources on every call, and the derivation defaults to deny: a deadline
+# check in a new propagation-side function makes the helper raise instead of
+# silently escaping it (ADR-0039/R2).
+
+#: The function every deadline raise in the solver goes through — the single
+#: ``raise SolverTimeout`` site. That it *is* single, and that it is this one,
+#: is asserted by
+#: :func:`test_the_blind_set_is_derived_from_the_solvers_own_call_graph`
+#: rather than trusted, because the whole derivation below reduces "can raise
+#: on the deadline" to "calls this".
+_DEADLINE_GATE = "check_deadline"
+
+#: The entry point the blinded tests below call, and so the root the blind set
+#: is derived from. Deliberately ``solve`` and not ``_search``: the search is
+#: *entered* through ``solve``, whose own prologue reaches the deadline before
+#: the first branch node is ever visited, and that prologue is exactly the path
+#: CARD-278 found unblinded. Rooting the derivation at ``_search`` reproduces
+#: the original defect — ``propagate_overlap`` is not reachable from there.
+_BLINDING_ENTRY_POINT = "solve"
+
+
+def _solver_sources() -> dict[str, ast.Module]:
+    """Every module of :mod:`nonogram.solver`, parsed. The derivation's authority."""
+    package = pathlib.Path(solver_package.__file__).parent
+    return {
+        path.name: ast.parse(path.read_text(encoding="utf-8"))
+        for path in sorted(package.rglob("*.py"))
+    }
+
+
+def _raised_name(node: ast.Raise) -> str | None:
+    """The exception class name a ``raise`` statement names, if it names one."""
+    exc = node.exc
+    target = exc.func if isinstance(exc, ast.Call) else exc
+    if isinstance(target, ast.Name):
+        return target.id
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return None
+
+
+def _solver_timeout_raise_sites() -> list[tuple[str, int]]:
+    """Where in the solver ``SolverTimeout`` is raised, as ``(file, line)`` pairs."""
+    return [
+        (filename, node.lineno)
+        for filename, tree in _solver_sources().items()
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Raise) and _raised_name(node) == "SolverTimeout"
+    ]
+
+
+def _solver_top_level_functions() -> list[tuple[str, str]]:
+    """``(module file, function name)`` for every top-level function in the package."""
+    return [
+        (filename, node.name)
+        for filename, tree in _solver_sources().items()
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+
+
+def _solver_call_graph() -> tuple[dict[str, set[str]], dict[str, str]]:
+    """Walk :mod:`nonogram.solver`'s own sources and return its call graph.
+
+    Returns ``(calls, home)``: ``calls`` maps each top-level function in the
+    package to the package functions it calls, and ``home`` maps each of those
+    names to the module that defines it.
+
+    Two deliberate approximations, both in the safe direction for a guard that
+    must default to deny:
+
+    * a nested function folds into the top-level function enclosing it, so a
+      call made from a closure counts as a call by its owner;
+    * a callee is resolved by *name* across the package, which is sound only
+      while no two of its modules define the same top-level name — asserted,
+      not assumed, by the test below.
+
+    ``ast`` and not a text search, for the reason CARD-278's own count needed
+    re-deriving: ``git grep -E`` honours neither ``\\b`` nor ``\\s``, so a
+    word-boundary grep here silently misreads.
+    """
+    home = {name: filename for filename, name in _solver_top_level_functions()}
+    trees = _solver_sources()
+
+    calls: dict[str, set[str]] = {name: set() for name in home}
+    for tree in trees.values():
+        for top in tree.body:
+            if not isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for inner in ast.walk(top):
+                if not isinstance(inner, ast.Call):
+                    continue
+                func = inner.func
+                callee: str | None = None
+                if isinstance(func, ast.Name):
+                    callee = func.id
+                elif isinstance(func, ast.Attribute):
+                    callee = func.attr
+                if callee is not None and callee in home:
+                    calls[top.name].add(callee)
+    return calls, home
+
+
+def _deadline_raise_sites_reachable_from(entry: str) -> tuple[set[str], dict[str, str]]:
+    """Every package function reachable from ``entry`` that can raise on the deadline.
+
+    "Can raise on the deadline" is "calls :data:`_DEADLINE_GATE`", which is the
+    whole criterion because the gate is the solver's only ``raise
+    SolverTimeout``.
+    """
+    calls, home = _solver_call_graph()
+    assert entry in calls, f"{entry!r} is not a top-level function of nonogram.solver"
+
+    reached: set[str] = set()
+    pending = [entry]
+    while pending:
+        name = pending.pop()
+        if name in reached:
+            continue
+        reached.add(name)
+        pending.extend(calls.get(name, ()))
+
+    return {name for name in reached if _DEADLINE_GATE in calls.get(name, ())}, home
+
+
+def _propagation_side_deadline_sites() -> set[str]:
+    """The sites a branch-checkpoint test has to blind, derived.
+
+    The complement of the branch-side ones: of everything reachable from
+    :data:`_BLINDING_ENTRY_POINT` that can raise on the deadline, the sites
+    defined *outside* the module the search itself lives in. Those are the
+    other explanation for a raise, and they are what the helper removes; the
+    ones defined alongside the search are the checkpoint under test and stay
+    live.
+
+    Two bounds this split carries, neither of them guarded here: a new
+    *non-branch* deadline check added **inside** the search module is assumed
+    to be the checkpoint under test and so escapes the blinding; and a derived
+    site is asserted to be an attribute of the search module, but never that
+    all of that site's reachable callers are defined there — true today
+    (``solve``, ``_probe``, ``_lookahead``), not guarded. CARD-345 owns
+    closing both.
+    """
+    sites, home = _deadline_raise_sites_reachable_from(_BLINDING_ENTRY_POINT)
+    search_module_name = home[_BLINDING_ENTRY_POINT]
+    return {name for name in sites if home[name] != search_module_name}
+
+
+def _branch_side_deadline_sites() -> set[str]:
+    """The other half of the same partition: the checkpoint under test."""
+    sites, home = _deadline_raise_sites_reachable_from(_BLINDING_ENTRY_POINT)
+    search_module_name = home[_BLINDING_ENTRY_POINT]
+    return {name for name in sites if home[name] == search_module_name}
+
+
+#: Marker set on a substituted function, so "what did the helper actually
+#: blind" is observable instead of inferred.
+_BLINDED_MARKER = "_card_278_deadline_blinded"
+
+
+def _deadline_blind(real: Callable[..., Any]) -> Callable[..., Any]:
+    """``real``, with whatever it is handed for ``deadline`` replaced by ``None``.
+
+    Signature-driven rather than retyped, so one wrapper covers every
+    propagation entry point the derivation turns up and a changed parameter
+    list cannot leave a stale stub silently forwarding a live deadline. Every
+    other argument — including CARD-018's per-solve ``cache`` memo — is
+    forwarded untouched, so the substitution changes exactly one thing and the
+    search still runs at its normal speed underneath.
+    """
+    signature = inspect.signature(real)
+    assert "deadline" in signature.parameters, (
+        f"{real.__name__} reaches the deadline gate but takes no 'deadline' "
+        f"parameter, so it cannot be blinded by substitution"
+    )
+
+    @functools.wraps(real)
+    def blind(*args: Any, **kwargs: Any) -> Any:
+        bound = signature.bind(*args, **kwargs)
+        bound.apply_defaults()
+        bound.arguments["deadline"] = None
+        return real(*bound.args, **bound.kwargs)
+
+    setattr(blind, _BLINDED_MARKER, real)
+    return blind
+
+
+def _blinded_names(module: object) -> set[str]:
+    """Which of ``module``'s attributes are currently blinded substitutes."""
+    return {
+        name
+        for name, value in vars(module).items()
+        if getattr(value, _BLINDED_MARKER, None) is not None
+    }
+
+
+def _blind_propagation(monkeypatch: pytest.MonkeyPatch) -> set[str]:
+    """Disable every propagation-side checkpoint, leaving only the branch one.
 
     Every deadline test that goes through ``solve`` is ambiguous without this.
     The search calls propagation once per guess, and propagation checks the
     deadline before its first sweep — so an expired deadline is caught either
     way, and a test that only asserts "it raised" would still pass with the
-    branch-node check deleted. Handing propagation ``deadline=None`` from
-    inside ``search`` removes that second explanation: whatever the two tests
-    below observe, only the branch checkpoint can have produced it.
+    branch-node check deleted. Handing *every* propagation entry point
+    ``deadline=None`` from inside the search module removes that second
+    explanation: whatever the two tests below observe, only the branch
+    checkpoint can have produced it.
+
+    "Every" is :func:`_propagation_side_deadline_sites`, derived from the
+    solver's call graph on each call, not a list maintained here. The helper
+    defaults to deny twice over: a derived site that is not an attribute of the
+    search module cannot be substituted through it, and one that takes no
+    ``deadline`` parameter cannot be blinded at all — either fails loudly here
+    instead of leaving a live raise site behind a docstring that denies it.
+
+    Returns the set it blinded, so a caller can assert on it.
     """
     from nonogram.solver import search as search_module
 
-    real_propagate = search_module.propagate
+    required = _propagation_side_deadline_sites()
+    assert required, (
+        "no propagation-side deadline site was derived at all — the derivation "
+        "is broken, and a blinding helper that blinds nothing would make every "
+        "test using it vacuous"
+    )
 
-    def deadline_blind_propagate(
-        board: Board,
-        dirty_rows: list[bool],
-        dirty_columns: list[bool],
-        deadline: float | None = None,
-        cache: LineCache | None = None,
-    ) -> bool:
-        # ``cache`` is CARD-018's per-solve line memo: forwarded untouched, so
-        # the substitution changes exactly one thing — the deadline — and the
-        # search still runs at its normal speed underneath.
-        return real_propagate(board, dirty_rows, dirty_columns, None, cache)
+    for name in sorted(required):
+        real = getattr(search_module, name, None)
+        assert real is not None, (
+            f"{name} can raise on the deadline inside a solve but is not an "
+            f"attribute of nonogram.solver.search, so this helper cannot blind "
+            f"it; blind it where it is reached instead of narrowing the claim"
+        )
+        monkeypatch.setattr(search_module, name, _deadline_blind(real))
 
-    monkeypatch.setattr(search_module, "propagate", deadline_blind_propagate)
+    blinded = _blinded_names(search_module)
+    assert blinded == required, f"blinded {sorted(blinded)}, needed {sorted(required)}"
+    return blinded
+
+
+def test_the_blind_set_is_derived_from_the_solvers_own_call_graph(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC-2: the isolation :func:`_blind_propagation` claims is the one it provides.
+
+    Four claims, in the order they hold each other up.
+
+    1. The solver has exactly one ``raise SolverTimeout``, and it is
+       :data:`_DEADLINE_GATE`. This is what licenses the derivation's reduction
+       of "can raise on the deadline" to "calls that function"; if a second
+       raise site ever appears, the reduction is wrong and this says so.
+    2. The call graph's name-based resolution is sound — no two modules of the
+       package define the same top-level name.
+    3. The derived set partitions into a propagation side and a branch side,
+       both non-empty, and the helper blinds *exactly* the propagation side:
+       nothing less (a live second explanation) and nothing more (blinding the
+       checkpoint under test would make the tests below unfalsifiable).
+    4. ``propagate_overlap`` is in the propagation side. That is the control
+       this test exists for, in ADR-0039/R1's shape: it is the site the
+       hand-written helper missed, so a derivation that regressed to "just
+       ``propagate``" fails here rather than quietly at the next mutant run.
+       Naming it is sound because it is an assertion *about the derivation's
+       output*, never an input to it — the guard's set stays derived.
+    """
+    from nonogram.solver import search as search_module
+
+    raise_sites = _solver_timeout_raise_sites()
+    assert len(raise_sites) == 1, f"the solver raises SolverTimeout from {raise_sites}"
+
+    _, home = _solver_call_graph()
+    assert _DEADLINE_GATE in home, "the deadline gate is not a solver function"
+    assert raise_sites[0][0] == home[_DEADLINE_GATE], (
+        f"SolverTimeout is raised from {raise_sites[0][0]}, not from the module "
+        f"that defines {_DEADLINE_GATE}"
+    )
+
+    names = [name for _, name in _solver_top_level_functions()]
+    assert len(names) == len(set(names)), (
+        "two modules of nonogram.solver define the same top-level function "
+        "name, so resolving callees by name is no longer sound"
+    )
+
+    propagation_side = _propagation_side_deadline_sites()
+    branch_side = _branch_side_deadline_sites()
+    assert branch_side, "no branch-side deadline check was derived"
+    assert "propagate_overlap" in propagation_side, (
+        "propagate_overlap reaches the deadline from inside a solve and is the "
+        "site CARD-278's defect was: it must be blinded, not assumed absent"
+    )
+    assert not propagation_side & branch_side, (
+        "a deadline site was counted on both sides of the partition, so the "
+        "'blind everything but the branch checkpoint' split is not a split"
+    )
+
+    assert _blinded_names(search_module) == set(), "something was blinded already"
+    blinded = _blind_propagation(monkeypatch)
+    assert blinded == propagation_side
+    assert blinded & branch_side == set(), (
+        "the helper blinded the checkpoint the tests below are about, which "
+        "would make them pass for no reason at all"
+    )
 
 
 def test_the_search_checks_the_deadline_at_every_branch_node(
@@ -479,10 +771,24 @@ def test_the_branch_checkpoint_alone_stops_a_search_propagation_would_not(
     """The second checkpoint is load-bearing on its own, not a duplicate.
 
     Same blinding, an already-expired deadline, and a clue set that reaches the
-    search: the only thing left that can raise is the branch-node check. The
-    sanity solve first shows the blinded solver still answers normally when no
-    deadline is given, so the raise below is the checkpoint firing and not the
-    substitution breaking the search.
+    search: the only thing left that can raise is the search module's own
+    branch-side checks, and the raise is attributable to those four
+    collectively rather than to any one of them — this test passes with only
+    ``_search``'s site live *and* with ``_search``'s site dead and the other
+    three live, and one of the four, ``_probe_fixed_point``, is ADR-0029
+    level-3 probing rather than a branch node. The sanity solve first shows the
+    blinded solver still answers normally when no deadline is given, so the
+    raise below is those checks firing and not the substitution breaking the
+    search.
+
+    That "only thing left" is a claim about the call graph, so
+    :func:`_blind_propagation` derives its blind set from the call graph rather
+    than naming functions, and
+    :func:`test_the_blind_set_is_derived_from_the_solvers_own_call_graph` holds
+    the one to the other. Until CARD-278 the claim was false: the helper
+    blinded ``propagate`` and ``solve``'s level-1 ``propagate_overlap``
+    prologue raised first, so this test survived the deletion of all four
+    branch-side checks.
     """
     rows, columns = _branching_clues()
     _blind_propagation(monkeypatch)

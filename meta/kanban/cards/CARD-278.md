@@ -82,7 +82,7 @@ against the set the helper blinds.
 - **AC-2** *Given* the same test, *then* its docstring's isolation claim is true of the helper as
   shipped: every deadline-raise site reachable from `_search` other than the branch checkpoint is
   blinded, and the set was **derived from the code** rather than listed by hand (ADR-0039/R2).
-  (test: named by the implementation; state it)
+  (test: `test_the_blind_set_is_derived_from_the_solvers_own_call_graph`)
 - **AC-3** *Given* the six `check_deadline` call sites, *then* the card states the count it measured and
   the method it measured it with — and the figure is **re-derived**, not copied from this card.
   (evidence: the card's own measurement)
@@ -125,9 +125,38 @@ against the set the helper blinds.
 
 - **[The mutant that found it, so it can be re-run rather than re-invented]** Neutralise all four of
   `search.py:1180`, `:1259`, `:1418`, `:1728` at once (`check_deadline(deadline)` → `pass  # MUTANT: …`,
-  preserving the line count) and run `tests/test_timeout.py` alone. Today: **17 passed, exit 0**. After
+  preserving the line count) and run `tests/test_timeout.py` alone. ~~Today: **17 passed, exit 0**.~~
+  (**Retracted — see the AC-3 note below.**) After
   this card: that test must red. The single-site version of the same mutant on `propagate.py:983` already
   reds two other tests today, which is how the propagation-side checkpoint is pinned — leave that intact.
+- **[AC-3: the figures, re-derived — and one of this card's own retracted (ADR-0039/R4)]** Method: an
+  `ast` walk of `src/nonogram/solver/**/*.py` — `ast.Call` nodes whose `func` resolves by `Name.id` or
+  `Attribute.attr` to `check_deadline`, and `ast.Raise` nodes whose exception resolves to
+  `SolverTimeout`. Never a text grep: `git grep -E` is POSIX ERE and honours neither `\b` nor `\s`, so a
+  word-boundary grep here misreads in silence.
+  - `check_deadline`: **1 definition** (`propagate.py`, `check_deadline`) and **6 call sites** —
+    `propagate.propagate`, `propagate.propagate_overlap`, `search._search`, `search._expand`,
+    `search._descend`, `search._probe_fixed_point`. **This card's six was right.** CARD-264's four was
+    the wrong figure; this is an independent re-derivation, not an inheritance of the correction.
+  - `SolverTimeout`: raised from **exactly one** place in the solver package, inside `check_deadline`.
+    Right. That is what licenses reducing "can raise on the deadline" to "calls `check_deadline`", and
+    the implementation asserts it rather than assuming it.
+  - **Retracted figure:** the note above claimed the combined four-site mutant left
+    `tests/test_timeout.py` at *"17 passed, exit 0"*. Re-run on the implementation commit **before any
+    edit**, that same mutant gives **1 failed, 16 passed, exit 1**. The red is the *neighbouring*
+    counting test `test_the_search_checks_the_deadline_at_every_branch_node`, at
+    `assert clock.reads >= result.signals.branch_nodes` (4 >= 6) — the clock reads it still saw were
+    `propagate_overlap`'s, through the very leak this card is about. The card's **central** claim
+    survives untouched and is what the fix addresses: the named test
+    `test_the_branch_checkpoint_alone_stops_a_search_propagation_would_not` itself **passed** under the
+    mutant. Read this paragraph, not the struck figure.
+  - **AC-2 names the wrong root.** Derived from `_search`, the reachable deadline sites are
+    `{propagate, _search, _expand, _descend}` — `propagate_overlap` is **not** among them, because it
+    is called from `solve`'s ADR-0029 level-1 prologue, *before* the search is entered. A derivation
+    rooted literally at `_search`, as AC-2 words it, reproduces the defect. The implementation roots at
+    `solve`, the entry point the test actually calls; that yields all six and is a strict superset of
+    AC-2's set, so AC-2 is met and exceeded. The card body's own item 4 already says the right thing —
+    "the raise sites reachable from *the code under test*".
 - **[Why single-site mutants hid this]** Each of the five non-`propagate.py:983` sites survives alone,
   which looks like five uncovered sites and is not: the branch checkpoint is pinned **collectively** —
   either `search.py:1180` or `:1418` alone satisfies the counting test. Only the *combined* mutant
@@ -138,10 +167,75 @@ against the set the helper blinds.
   backups with the manifest built up front, a shell `trap` armed on the restore, and restoration verified
   by `shasum -a 256 -c` **and** `diff -q` **and** `git status --porcelain`. The skeptic that found this
   did exactly that and its evidence is in CARD-264's notes.
-- **[Do not run the full suite]** Export `NONOGRAM_FULL_SUITE_LOCK` to a scratch path for every pytest so
-  the board's own lock is never read, written or created. The merge gate runs the full suite.
+- **[Do not run the full suite]** Leave `NONOGRAM_FULL_SUITE_LOCK` **unset** for file-scoped runs;
+  redirect it only to probe the lock mechanism itself. An earlier version of this note said to redirect
+  it to a scratch path for *every* pytest — wrong advice, though it harmed nothing on this card:
+  `tests/conftest.py`'s `pytest_configure` calls `tests/full_suite_lock.py`'s `pytest_configure`
+  unconditionally, so the guard fires for **any** selection and not only a full suite, and a redirect
+  therefore blinds a file-scoped run to a gate that *is* holding the lock. `tests/README.md` already
+  says the switch "is not a thing to reach for by hand". The merge gate runs the full suite, under the
+  real lock.
 - **[Use the committed instrument]** `tests/kill_matrix.py`, documented in `tests/README.md` from line
   453. Do not write another. Both passes, ANY-RED, and report the **domain** of every figure — the
   denominator is the target file's `ast.Assert` node count, never the collected-test count. In the
   recording pass a mutant can exit pytest 0 while the matrix records FAIL cells; CARD-264 hit that six
   times.
+- **[Item 3: the body was widened to the docstring, not the docstring narrowed to the body]** The
+  isolation sentence — *"the only thing left that can raise is …"* — is kept and made **true**, which is
+  the only option G-2 leaves: narrowing it would have satisfied the docstring by deleting the control.
+  The round kept the clause *verbatim*, ending it at "the branch-node check"; the merge gate's M-2
+  replaced that singular attribution with the branch-side checks named **collectively**, because the
+  raise is attributable to all four and one of them is level-3 probing rather than a branch node — the
+  phrasing AC-1 had used all along. The test's body is unchanged by that edit. `_blind_propagation` now blinds every propagation-side deadline
+  site reachable from `solve`, and the prose added around it says what the helper derives and why
+  `solve` and not `_search` is the root. One neighbouring docstring became honest with **no edit at
+  all**: `test_the_search_checks_the_deadline_at_every_branch_node`'s *"every clock read during this
+  solve comes from the top of the search loop"* was false at HEAD for the same reason, and is now true.
+- **[Item 4: measured, and shipped rather than proposed]** The standing form the card asks to cost out
+  is the derivation itself, and AC-2 already requires it ("derived from the code rather than listed by
+  hand"), so there was no cheaper variant to propose. Cost, as a **size** datum (G-5 forbids a clock
+  reading): **312 insertions / 19 deletions in one file**, of which **134 lines are code** with
+  docstrings excluded — 98 lines of derivation helpers and substitution machinery and 36 lines of the
+  standing control, `test_the_blind_set_is_derived_from_the_solvers_own_call_graph`. No new dependency,
+  no `src/` change, no new skip. **Declared bounds on the derivation — five, of which the last two were
+  undeclared when the round closed and were added at the merge gate (review I-1):**
+  - it resolves callees by name across the package (sound only while no two solver modules share a
+    top-level name — asserted);
+  - it folds nested functions into their enclosing top-level function (an over-approximation, the
+    deny-safe direction);
+  - it sees only *syntactic* calls, so a deadline check reached through a function held in a variable
+    would escape it;
+  - **the co-location split itself.** `_propagation_side_deadline_sites` partitions the derived set by
+    module co-location: a site defined outside the search module is blinded, one defined alongside the
+    search is *assumed to be* the checkpoint under test. So a new **non-branch** deadline check added
+    *inside* the search module escapes the blinding. Demonstrated, not argued: a planted
+    `check_deadline` in `solve`'s prologue leaves the branch-checkpoint test **green** under the
+    four-site branch mutant;
+  - **the caller premise.** The helper asserts that a derived site **is** an attribute of the search
+    module; it never asserts that **all of that site's reachable callers** are defined there. True
+    today — every caller of `propagate` / `propagate_overlap` in the solve path (`solve`, `_probe`,
+    `_lookahead`) lives in `search.py`, so substituting through that one namespace blinds every path —
+    but **true, not guarded**.
+  **CARD-345 owns closing both of the last two.** Where a derived site cannot be blinded — absent from
+  the search module's namespace, or carrying no `deadline` parameter — the helper raises rather than
+  proceeding (ADR-0039/R2's default-to-deny).
+- **[Kill-matrix readings, both passes, with their domain]** Instrument: `tests/kill_matrix.py` (no
+  second one written). Selection: the named test alone. Mutant `BRANCH4`: the four branch-side calls
+  neutralised together, line-count preserving.
+  - **WITHOUT the fix** (HEAD's helper, restored from captured content afterwards): `BRANCH4` **exit 0
+    with 1 reached and 0 FAIL** in *both* passes — a true survivor, which is the defect.
+  - **WITH the fix:** `BRANCH4` **exit 1 with 6 reached and 0 FAIL** in both passes. `SHIPPED` is
+    `0 FAIL of 6 reached, pytest exit 0` either way.
+  - **Domain of those figures:** the denominator is the target file's `ast.Assert` node count — 26 at
+    HEAD, 41 after — never a collected-test count (1). The `0 FAIL` at exit 1 is the instrument's own
+    documented out-of-domain kill: this test fails inside a `pytest.raises` block, which is not an
+    `ast.Assert`, so no cell can account for it. `exit 1 / 0 FAIL` and `exit 0 / 0 FAIL` are the two
+    readings that must not be conflated, and they are what separates WITH from WITHOUT here.
+  - A plain `-rEfs` run of the file agrees: **18 passed** unmutated; under `BRANCH4`, **3 failed,
+    15 passed** — the named test, the neighbouring counting test, and the new control (whose
+    `assert branch_side` premise correctly reports that the branch checkpoint no longer exists).
+  - The propagation-side pin is intact: the single-site mutant on `propagate`'s own checkpoint still
+    reds exactly `test_propagation_checks_the_deadline_at_every_fixed_point_sweep` and
+    `test_propagation_stops_at_the_sweep_after_the_deadline_passes` (**2 failed, 16 passed**).
+  - Every `src/` restore verified byte-identical by `shasum -a 256` **and** `diff -q` **and**
+    `git status --porcelain src/` (empty).
