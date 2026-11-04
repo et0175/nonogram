@@ -201,6 +201,73 @@ skip: that is the shape this whole family keeps producing.
 
 ## Worktree notes
 
+[Fix round, commit `db4febab`] **All seven cycle-1 findings closed**, one file
+(`tests/test_kanban_review_record.py`), INV-023 clean, no `src/` change, stdlib only, `forge_1`
+untouched. Module selection **61 passed / 0 skipped / 0 failed**. Full suite, unarmed, **lock held
+for the duration**: **10329 passed / 27 skipped / 1 xfailed / 0 failed / 0 errors** — 27 being
+26 bare-`DATABASE_URL` + 1 `setrlimit`, the unarmed reading exactly.
+
+[Fix round] **CARD-370's cause is now MEASURED, not presumed.** Cycle 1's `10292 passed + 37 failed
+= 10329` equals this run's clean pass count, so all 37 were lock refusals and nothing else. The
+round waited ~28 minutes for CARD-348's **merge gate** (not its reviewer) to release, wrote the lock
+itself before its own suite with all five fields and no pid, and removed it via an `EXIT` trap.
+Neither override env var was touched.
+
+[Fix round] **The round verified the reviewer's proposed F-001 shape instead of applying it, and one
+part of it was wrong.** Making the partition sum `== len(scored_cards(tree))` with no absolute
+**defangs it into a tautology**: `by_class` buckets every scored card by construction and an unknown
+class raises `KeyError` rather than being dropped, so the sum can never differ — the `== 231` was its
+only teeth, which is why the review measured it red in six of eleven plants. Replaced with the
+**historical total `128 + 50 + 3 == 181`**, all three closure-invariant (a correctly closed card
+lands in `AGREES`), biting on exactly what the absolute bit on. **House precedent supports this:**
+`tests/test_book_pdf.py`'s card census already uses floors (`>= 300`, `>= 200`, `>= 10`) for this
+reason, citing CARD-261's drift from a restated count — so the module is now consistent with the
+tree rather than an exception to it.
+
+[Fix round] Each loosened cell was shown to still kill its own degradation — **7 plants, 7 killed**:
+done floor (291→290), scored floor (231→230), historical total (181→182), the names-a-cycle
+identity, blind floor (209→206), first-ordinal floor (11→10), and a **compensating** plant holding
+the total at 181 so only the names-a-cycle identity can catch it. The three historical bounds
+(128 / 50 / 3) stayed equalities. F-001's own plant reproduced at **3 failed / 58 passed** before and
+**61 passed** after, both for the reviewer's stamp and for the realistic house-style cycle-2 stamp.
+
+[Fix round] **Five figures refuted, three of them mine or the reviewer's.**
+**(a)** "Four asserted equalities grow by one" is **six** — and the review's own evidence paragraph
+lists six while its headline said four; the orchestrator propagated "four" into the fix brief.
+**(b)** The true count is **eight**: two further cells (`first_wrong == 11` and the
+in-scope-ambiguity assertion) fire only if the closing score is written in **progression** style
+(`7.75 (c1) → 8.5 (c2/3)`) rather than the single-ordinal house style, which plant H happened to
+use, so neither showed. `first_wrong` is now a floor; the in-scope assertion was left
+**deliberately strict**, with the cause and remedy in its message, because widening it would be the
+loosening G-4 forbids. **⚠ CONSEQUENCE FOR THE MERGE GATE: write this card's closing score
+single-ordinal.**
+**(c)** The review's `spelling_census` "`cN` 5" is **4** cards (CARD-228, 239, 261, 264); its
+companion "all 14 non-`cycle N` matches" reproduces exactly. Nothing in the module stated a `cN`
+count, so nothing needed fixing.
+**(d)** The module's **own** unflagged slip, which the reviewer missed: its docstring called the
+291−231 gap "50 prose sentinels". The gap is **60** = 50 prose + 10 bare em-dash. The assertion was
+already `== 60`; only the prose was wrong.
+**(e)** **A defect in the round's own fix, caught by its own control:** the F-007 re-entry check was
+first placed *after* `assert marker_disagreements(tree) == []`, so a planted re-entry (markers
+1,2,1,2 — true count 4, `max` reads 2) redded guard 1 first **with no message at all** and a correct
+card was accused with no explanation. Reordered before the guard and re-proven.
+
+[Fix round] F-006 was **handled rather than narrowed**: the audit now wraps `Path.read_text` and
+`open` and asserts the opened set is **exactly** the returned set. Proven to have teeth the old half
+lacked — a planted stray `read_text` of `pyproject.toml` inside `read_card_tree` **passes** the old
+returned-paths check (the file is tracked) and **reds** the new audit.
+
+[Fix round] F-002 corrected the prose and changed no guard, re-deriving every figure (50 / 49 / 48 /
+50→2 with CARD-192 and CARD-262 surviving / 0 regressions / era CARD-113..CARD-192, nothing after)
+and attributing the measurement to CARD-369. F-004's reason restated as the module's own, confirmed
+against `forge/skills/retrospective/SKILL.md`. F-005's base corrected — **212** of 231 are blind,
+209 is of the **228** that name a cycle, `209 + 19 = 228`. F-007 disclosed in `cycle_named`'s
+docstring with "not live" **measured** by a new assertion over in-scope cards' ordinals rather than
+recalled in a comment.
+
+[Fix round] Everything else reproduced exactly, re-derived on **both** the branch tree and main's
+current tip (which had moved — CARD-348's certification landed) and identical on both.
+
 [Review 1/3] Score: 7.75 — BACK TO THE ROUND (threshold 8.0). 1 Critical (F-001), 3 Important (F-002/003/004), 3 Minor. Artefact: `meta/review/CARD-363-cycle1.yml`. Merge-base `c021a10f`.
 
 **This section did not exist and the marker was written by the orchestrator, not by the review's sync point.** That is the defect this very card asserts the absence of, and it occurred on this card — the strongest available evidence for the card's own premise. Counted as ONE cycle: this cycle did not reach its threshold, so the double-Score-line shape measured in F-002 does not apply.
