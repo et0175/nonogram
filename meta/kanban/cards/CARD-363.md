@@ -279,6 +279,69 @@ current tip (which had moved — CARD-348's certification landed) and identical 
 failure**, and the escalation is recorded as real rather than papered over: three consecutive cycles
 each found the F-001/F-101 class surviving in cells the previous reviewer had not pointed at.
 
+[Fourth pass, commit `91f18bed`] **The remit was met: 141 `assert` statements across 30 test
+functions, every one classified.** **68 passed on BOTH trees** — the branch and main's cards — which
+is the number that matters, since the branch alone was structurally incapable of showing F-201.
+Pre-fix for comparison, same commit `d5273798`: 67 on the branch, **2 failed / 65 on main's cards**,
+reproducing exactly. How main's tree was read: a detached `git worktree` on main with the branch's
+module copied in, so `REPO_ROOT` (derived from `__file__`) resolves against main's checkout.
+
+[Fourth pass] Verdicts: **21 floors / ceilings / subsets** (moved by a correct closure, wave open,
+re-stamp, re-estimate or re-cut), **28 one-sided refusals** whose only mover is the defect the module
+guards, **7 census equalities each with its written reason**, **5 structural identities flagged as
+such**, plus anti-vacuity guards, fixture preconditions, plant assertions and literals. Three
+equalities were converted that no prior cycle had named: `len(sentinel)`, `len(est)` and `len(wave)`.
+
+[Fourth pass] **Simulation 2b is a finding nobody had listed, me included — a THIRD red cell.**
+`len(without) == 244` is also moved by a correct board operation: **CARD-310 is `ready`, `Wave: 67`,
+`Estimate: 0.5d`**, so dispatching it as the convention prescribes — re-stamp the wave forward, re-price
+in review cycles — takes the set to 243. Verified independently by the orchestrator: the set is 244,
+its maximum wave is 73, and CARD-310 is in it. Now a **ceiling**: growth is still the defect guard 2
+reds, a shrink is the convention working. **This is the same fact as wave 76's retro note** that
+CARD-310 carries a stale `Wave: 67` while `ready` — reached from the opposite direction.
+
+[Fourth pass] **A consequence of INV-023 that the orchestrator's brief did not cover: a floor must
+carry the MERGE-BASE figure, not main's.** Where the two trees disagree, `>= 16` would red on the
+branch for no board reason. So the `Wave`-comment floor is `>= 15` with 16 named in the message, and
+the rule is stated in the module docstring and applied to `done`, `scored`, `AGREES` and
+`n_of_m_blind`.
+
+[Fourth pass] **Five simulations, eight variants, all green against main's card tree** — closure (two
+shapes), wave open (two), re-stamp, re-estimate (two), re-cut. Each on a git-initialised detached
+worktree, restored from captured content, `git status` of the cards dir clean both ends. **No board
+card was ever written.**
+
+[Fourth pass] **⚠ CLOSURE SHAPE, measured:** simulation 1a (three markers, score naming **cycle 3**)
+and 1b (a fourth `[Review 4/3]` marker with a score naming **cycle 4**) **both pass**. What is **not**
+safe is a fourth marker with a score still naming cycle 3. This card carries markers 1, 2, 3, so its
+closing score must name **cycle 3**.
+
+[Fourth pass] **My own restatement of F-202 was off by one, in the same direction as the figure it
+corrected.** Measured on main: of the 49 duplicated-ordinal cards, **39 duplicate only the maximum,
+9 duplicate the maximum AND a value below, and exactly 1 (CARD-192, ordinals `1,1,2`) duplicates
+below without duplicating it.** I wrote "10 duplicate the maximum and something below"; it is **9**.
+The 48-of-49 clause reproduces. The no-discriminator ruling still rests on the stronger ground.
+
+[Fourth pass] **A better ground for retiring the spelling ban than any card.** On main's unmodified
+tree the ban's live **in-scope set is EMPTY** — so it was green and unreachable, an **ADR-0039/R1
+gap**: a claim with no control that can fail. That is a stronger reason than CARD-020 or CARD-228,
+and it supersedes my framing entirely. What the two out-of-scope cards still show is kept: order and
+correctness are independent in both directions, on real cards.
+
+[Fourth pass] **The `cN` census has THREE numbers, not two:** **4** by the module's own
+`_CYCLE_ORDINAL`; **5** if the trailing `\b` is dropped, admitting CARD-026's commit sha `c08fe50`;
+**6** if the `(?<![\w.])` lookbehind goes too, adding CARD-219. The module asserts none and the
+docstring now says which regex each number belongs to.
+
+[Fourth pass] F-203 closed by making the static half collect strings used as path **segments** (an
+operand of `/`, an argument to `Path(…)`/`.joinpath(…)`) rather than scanning substrings — deliberately
+scoped, because the violation messages say "review cycle" in prose and a substring scan would be the
+self-seeing inspection one level up. F-204 disclosed with a method caveat: the plant must be placed on
+a card whose score is **not** `cycle N of M`, or it reds for an unrelated reason. F-205's third refusal
+arm now has its own control. Full suite at `91f18bed` under the lock: **10336 passed / 27 skipped /
+1 xfailed / 0 failed / 0 errors**, unarmed (no local Postgres answers, so arming would have *errored*
+the 26 rather than passing them), attribution 26 + 1 = 27.
+
 [Review 3/3] **CONTINUATION PAST THE CEILING AUTHORISED BY THE OWNER**, 2026-11-04, with a
 **changed remit** — not another pointed fix. Precedent: CARD-091 ran 20 true cycles against an
 aggregate ceiling of 12 on human authorisation. The new remit is **exhaustive classification**: every
