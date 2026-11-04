@@ -2,7 +2,12 @@ wave: 74   # OPENED 2026-11-04T03:41Z on the owner's "open the next wave on 336"
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
-max_concurrent_override: 2
+max_concurrent_override: 3
+# RAISED from 2 to 3 for WAVE 74 ONLY, 2026-11-04, on the owner's explicit "go
+# ahead" when asked whether a player's card could be added. The STANDING cap is
+# 2; this is a per-wave override, not a new standing value -- restore 2 when
+# wave 74 closes. Merges still run SEQUENTIALLY and never with concurrent full
+# suites, so the third card's GATE queues even though its work does not.
 #
 # 2026-10-30, WAVE 69 OPENED on the owner's "we've agreed before to take 309+268".
 # Two cards, exactly at the cap. The pair was checked for serialization before
@@ -450,6 +455,12 @@ active:   # wave 74, two entries, exactly at the owner's cap. An explicit list â
     started: 2026-11-04T03:41Z
     estimate: 1c (0.25d)
     cut_from: d1a18baa
+  - card: CARD-339
+    branch: card/339-the-public-player-gains-the-glyph
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-339
+    started: 2026-11-04T03:50Z
+    estimate: 2c (0.5d)
+    cut_from: 0ead085d
 #
 # WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
 # commit that STAMPED their Wave field -- not off main's tip before it. A
@@ -3671,3 +3682,49 @@ last_updated: '2026-11-04T03:05:00Z'
 #   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-304
 # queued: [CARD-220]
 # 
+#
+# CARD-339 ADDED to wave 74 as a THIRD slot, 2026-11-04T03:50Z, on the owner's "go ahead".
+# Cut off `0ead085d`, its own stamping commit.
+#
+#   WHY THIS CARD AND NOT ANOTHER PLAYER CARD: it is the named receiver of a
+#     VERIFIED hand-off -- CARD-323's merge record reads "N-002 dispositioned to
+#     CARD-339 and its hand-off verified there" -- and the owner had already
+#     decided its substance ("the public page gains the glyph", 2026-11-03).
+#
+#   THE PUBLIC-PLAYER FAMILY IS A QUEUE, NOT A FAN-OUT, measured at the open:
+#     CARD-324 (zoom), CARD-325 (crosshair), CARD-326 (circled clues) and
+#     CARD-327 (deriving hint) ALL touch player/play.html, player/play.js and
+#     player/player.css -- every pair of them intersects on all three. Those
+#     four 0.5d cards can only ever run ONE AT A TIME, which is a roadmap fact
+#     and not a wave-74 one. CARD-339 is the only player card touching NEITHER
+#     play.html NOR play.js (it overlaps the family on player.css alone), which
+#     is why it slots in without joining that contention and leaves the
+#     324..327 queue unblocked behind it.
+#
+#   CONFLICT PROFILE: intersection EMPTY against both running cards. CARD-336 is
+#     the book interior's ink oracle (tests/helpers/page_ink.py + four book test
+#     modules), CARD-278 is tests/test_timeout.py alone, CARD-339 is
+#     player/player.css + two player test modules + two docs files.
+#
+#   PREMISE VERIFIED NINE FOR NINE at the station -- the first card in this
+#     stretch whose premise fully held. The central claim,
+#     tests/test_public_player_agreement.py containing `maybe` ZERO times, was
+#     measured at zero: the Maybe mark diverged where no guard was looking
+#     rather than past one.
+#     TWO THINGS THE CHECK FOUND THAT THE CARD DOES NOT CLAIM:
+#       (a) CARD-323 PRE-WIRED the hand-off -- tests/test_public_player_maybe.py's
+#           own assertion text already names CARD-339, and a comment there reads
+#           "once CARD-339 lands, a glyph rule is ...". So G-2's warning that
+#           tripping that guard is the DESIGNED hand-off and not a CARD-323
+#           regression is backed by the guard's own text, not only by this card.
+#       (b) The README file-table row for player/player.css reads 482 and the
+#           file IS 482 lines -- accurate TODAY, false on merge. That is exactly
+#           why the card carries it as an inherited obligation.
+#     Card line numbers have ROTTED by 8 (admin.css 655/782 are now 663/790).
+#     Resolved by content; the round is told to do the same.
+#
+#   ONE TRAP HIT WHILE WRITING THIS BLOCK, recorded because it is the file's own
+#     shape: `max_concurrent_override: 2` occurs 27 TIMES in this file -- once as
+#     the live key and 26 times inside its own history comments. An unanchored
+#     text replace would have rewritten history rather than the setting. The
+#     edit was anchored to `^max_concurrent_override: 2$`, which matches once.

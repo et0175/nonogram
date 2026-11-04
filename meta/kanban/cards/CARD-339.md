@@ -1,6 +1,6 @@
 # CARD-339: The public player gains the "?" glyph — and the mark that drifted enters the guard that exists to stop drift
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** general-purpose
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/339-the-public-player-gains-the-glyph`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-339
 **Source:** CARD-323's round, 2026-11-01, which measured the divergence, refused to fix it (its own AC-4 makes re-declaring that rule a finding *against* it), and routed it to the owner. **The owner decided 2026-11-03: the public page gains the glyph.** The second half of this card is the orchestrator's, measured at the decompose station — see below.
 **Idea:** —
 **Wave:** 74
@@ -19,7 +19,7 @@
 **Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_maybe.py, docs/how-it-works/01-domain/puzzle-creation/README.md, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md
 <!-- The two docs files added 2026-11-03 from CARD-323's cycle 2: this card inherits obligations in both, and without them in Touches it would land leaving a finding described as open after it was closed. See 'What this card inherits'. --><!-- test_public_player_maybe.py is NOT optional: CARD-323's cell-look guard treats a `?` glyph as a defect to catch, so AC-1 cannot land without teaching it the new expected shape. See G-2. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T03:50Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
