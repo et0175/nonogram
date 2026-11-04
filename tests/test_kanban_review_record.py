@@ -1,8 +1,9 @@
 """CARD-363 — the two inputs of the retrospective's cycle ratio, guarded.
 
 ``forge:retrospective``'s ``accuracy_ratio`` is ``cycles_used /
-estimate_cycles`` (ADR-0055, cited on the board — see "The decision has no ADR
-file" below). Both terms are read out of a card file, and until this module
+estimate_cycles`` (``forge_1``'s ADR-0055 — upstream's decision, not this
+board's; see "The ADR is upstream's, and this repository's series does not hold
+it" below). Both terms are read out of a card file, and until this module
 existed neither was checked:
 
 **The numerator.** ``cycles_used`` is the COUNT of ``[Review N/M] Score:``
@@ -72,15 +73,35 @@ guard over the board's bookkeeping should not depend on a path the project
 deliberately ignores — but it holds for a reason the card got wrong, so it is
 asserted here directly rather than inherited.
 
-The decision has no ADR file
-============================
-``ADR-0055`` is cited by ``meta/kanban/board.md``,
-``meta/kanban/dispatcher.state``, ``meta/kanban/retro.md``, CARD-363 and
-CARD-366. **There is no such file**: ``meta/architecture/decisions/adr/`` tops
-out at ``0042``. So the forward boundary below is named after the measured
-convention rather than after the dangling ref, and
-:func:`test_the_estimate_unit_decision_still_has_no_adr_file` pins the absence
-so that writing the ADR reds here and sends its author to the constant.
+The ADR is upstream's, and this repository's series does not hold it
+===================================================================
+**RETRACTED, not edited away.** An earlier version of this section was headed
+"The decision has no ADR file" and said "**There is no such file**". That is
+false. The file exists — ``forge_1``'s
+``forge/meta/architecture/decisions/adr/0055-estimate-in-review-cycles.md``,
+status *accepted*, dated 2026-09-05, titled for exactly this decision (the
+estimate unit is expected review cycles, not days). Verified read-only; that
+tree is not editable from here.
+
+What is true is the narrower claim
+:func:`test_the_estimate_unit_decision_still_has_no_adr_file` actually
+measures: the ADR is **upstream's**, and *this* repository's series tops out at
+``0042``, so a bare ``ADR-0055`` ref resolves to nothing here. It is cited that
+way by ``meta/kanban/board.md``, ``meta/kanban/dispatcher.state``,
+``meta/kanban/retro.md``, CARD-363, CARD-366 and CARD-367 — and CARD-367 is
+where the cross-repository category error is recorded and owned. The forward
+boundary below is named after the measured convention for that reason.
+
+**The old pin's trigger was void and the pin is restated.** It promised to "red
+the day someone writes it"; the ADR was already written, and dated
+2026-09-05 — before the pin was. This board will never number a *local* ADR
+0055 for an upstream decision, so that assertion was green and would have
+stayed green forever. What CAN fire is the collision: if this repository's own
+series ever reaches 0055, six artefacts silently start resolving a ref about
+estimate units to a local ADR about something else. That is what is pinned,
+and the series head is declared as a floor so that writing an unrelated
+ADR-0043 — a correct board operation — does not red it. The function name is
+left alone deliberately: CARD-367's AC-4 names it and owns its update.
 
 Two parsing traps, both measured on this tree
 =============================================
@@ -94,6 +115,23 @@ means asserting on the RAW value, because a check that strips before looking
 cannot see what it is looking for. Both halves are asserted:
 :func:`test_an_inline_comment_contaminates_the_raw_field_value` reads raw,
 :func:`test_the_wave_and_estimate_readings_strip_comments_first` reads stripped.
+
+**And the stripping is INERT on this tree today — measured, and the claim it
+replaces was false.** This module used to say that "without stripping, 15 cards
+would read as unscheduled and drop out of guard 2's population entirely". They
+would not. Both wave patterns are anchored ``^(\\d+)\\b``, so ``68 <!-- … -->``
+reads **68** with the comment still in it. Re-derived with the module's own
+regexes: stripping changes **0 of 372** ``Wave`` readings, **0 of 372**
+``Estimate`` readings and **0 of 372** ``Review score`` cycle readings on
+main's tree (0 of 365 on this branch's older copy of it). The code is still
+right and still defensive — ``Estimate: 0.5d <!-- re-estimated from 2c -->``
+really would be misread without it, and
+:func:`test_comment_stripping_discriminates_on_the_shape_the_tree_lacks` is the
+one control in this module that actually separates the two readings, because no
+value on the real tree does. The claim of *present* necessity was the thing
+that was wrong, and no number here is asserted against the tree: an assertion
+that stripping changes nothing would itself red the day a card correctly gained
+a comment that mentions an ``Nc`` term.
 
 **2. The score field has at least five cycle spellings, and neither the first
 nor the last number in it is the answer.** Measured frequencies over the 231
@@ -147,6 +185,27 @@ not a score at all) combined with a ``cycle N of M`` reading that misses the
 survives intact: the score field covers 228 of 231 where the marker covers
 103, so the score remains much the better source.
 
+Which figures move when a card closes, and which do not
+=======================================================
+Every absolute in this module is one or the other, and the distinction is
+**measured across a real closure** rather than argued. CARD-348 closed on main
+between two readings of the same cells. **Five figures moved**: ``done``
+291→292, ``scored`` 231→232, :data:`AGREES` 50→51, the ``cycle N of M``-blind
+count 209→210, and the ``cycle N/M`` spelling census 169→170. **Every cell this
+module states as an equality held identical across that closure**: sentinel 60,
+no-marker 128, disagreeing 50, naming-no-cycle 3 by name, historical total 181,
+``without`` 244, misplaced 16, the comment counts 7 and 15, first-wrong 11,
+last-wrong 10, readable 19. An earlier note of this round claimed every figure
+was "identical on both trees"; that was wrong in letter — the five above differ
+— and right only about the cells it argued were closure-invariant. So the rule this
+module follows is: **a cell that grows when a card closes, or when a wave
+opens, is a floor with its measured figure in the message; a cell that cannot
+move without a card moving between classes is an equality.** Waves are the
+second event, and they were missed once: ``len(waved)`` and
+``len(with_cycles)`` grow at a **wave open**, not at a closure, and stamping
+``Wave: 77`` on an already-``1c``-estimated CARD-369 — the convention working —
+red this module with the bare message ``252`` before cycle 3 fixed it.
+
 The figures asserted below are this module's own measurements. **Re-derive
 them; never paste a failure's printed number back in** — that is how this
 board's censuses rot.
@@ -156,6 +215,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import io
 import re
 import shutil
 import subprocess
@@ -173,7 +233,8 @@ CARDS_DIR = REPO_ROOT / "meta" / "kanban" / "cards"
 #: estimates were restated as ``Nc`` at the wave open — a decision made before
 #: any work happened — and that, not the writing of markers, is why wave 74 is
 #: the first wave from which a cycle ratio was computable. Named after the
-#: measured convention rather than after ``ADR-0055``, which has no file.
+#: measured convention rather than after ``ADR-0055``, which is ``forge_1``'s
+#: decision and has no file in THIS repository's series — see the docstring.
 ESTIMATE_UNIT_FIRST_WAVE = 74
 
 # --------------------------------------------------------------------------
@@ -183,11 +244,19 @@ ESTIMATE_UNIT_FIRST_WAVE = 74
 _FIELD_LINE = re.compile(r"^\*\*([A-Za-z][A-Za-z ]*):\*\*\s*(.*)$")
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
-#: The ONE marker ``cmd-review-cycle``'s sync point writes once per completed
-#: review cycle, and the one quantity ``cycles_used`` counts. A leading list
-#: bullet is tolerated (older cards bullet their notes); a marker that drops or
-#: displaces the ``/M`` denominator is not matched, which is the retrospective
-#: extraction's own disclosed rule, restated here rather than widened.
+#: The marker ``cmd-review-cycle`` writes at each of its **three** Score write
+#: sites, so a cycle that reaches its threshold emits **two** — see the module
+#: docstring, which measured that and names the three sites. It is the one
+#: quantity ``cycles_used`` counts. A leading list bullet is tolerated (older
+#: cards bullet their notes); a marker that drops or displaces the ``/M``
+#: denominator is not matched, which is the retrospective extraction's own
+#: disclosed rule, restated here rather than widened.
+#:
+#: **RETRACTED:** this comment used to call it "the ONE marker … writes once per
+#: completed review cycle", forty lines under a docstring that had measured the
+#: opposite and was right. The stale half is retracted here rather than quietly
+#: replaced, because two live contradictory sentences in one file is the defect
+#: this module exists to catch on cards.
 _MARKER = re.compile(r"^\s*(?:[-*+]\s+)?\[Review (\d+)/(\d+)\] Score:")
 
 #: A numeric score in the ``Review score`` field. Its absence is what separates
@@ -211,7 +280,9 @@ _CYCLE_N_OF_M_ONLY = re.compile(r"\bcycle\s+(\d+)\s+of\s+(\d+)\b", re.I)
 
 _LEADING_WAVE = re.compile(r"^(\d+)\b")
 
-#: An ``Nc`` term in ``Estimate``: ``2c (1d)``, ``1c (0.25d)``.
+#: An ``Nc`` term in ``Estimate``: ``2c (1d)``, ``1c (0.25d)``. Presence only —
+#: :func:`estimate_cycles` is what rejects a term of **zero**, because the regex
+#: matching ``0c`` is how ``0c`` used to pass guard 2.
 _ESTIMATE_CYCLES = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s*c\b")
 
 _WORKTREE_NOTES_HEADING = re.compile(r"^## Worktree notes\s*$", re.M)
@@ -337,9 +408,22 @@ def cycle_named(score: str) -> int | None:
 
 
 def estimate_cycles(estimate: str) -> float | None:
-    """The ``Nc`` term of an ``Estimate``, comments stripped, or ``None``."""
+    """The ``Nc`` term of an ``Estimate``, comments stripped, or ``None``.
+
+    **A term of zero is ``None``, and that is a fix, not a convenience.**
+    Guard 2's own violation message says ``accuracy_ratio`` "has no
+    denominator", and a zero denominator *is* no denominator — the ratio is
+    undefined, exactly as it is when the term is absent. Measured before the
+    fix: planting ``0c (0.5d)`` on an in-scope card left every test in this
+    module green while the matched control ``0.5d`` on the same card red guard
+    2, because the regex asked only that an ``Nc`` term be *present*.
+    :func:`test_a_planted_zero_cycle_estimate_reds_by_name` is the control.
+    """
     match = _ESTIMATE_CYCLES.search(strip_comments(estimate))
-    return float(match.group(1)) if match else None
+    if match is None:
+        return None
+    cycles = float(match.group(1))
+    return cycles if cycles > 0 else None
 
 
 def card_wave(wave: str) -> int | None:
@@ -514,14 +598,26 @@ def marker_disagreements(
 def waves_without_a_cycle_estimate(
     cards: tuple[Card, ...], first_wave: int = ESTIMATE_UNIT_FIRST_WAVE
 ) -> list[str]:
-    """Guard 2 — a card that ran in a wave carries a cycle estimate."""
+    """Guard 2 — a card that ran in a wave carries a *positive* cycle estimate.
+
+    The two refusals are reported apart, because their remedies differ: a
+    day-only estimate has to be re-priced in the unit, while ``0c`` is a term
+    that is present and still unusable (see :func:`estimate_cycles`).
+    """
     violations = []
     for card in ran_in_a_wave(cards, first_wave):
         if estimate_cycles(card.raw_estimate) is None:
+            clean = strip_comments(card.raw_estimate)
+            zero = _ESTIMATE_CYCLES.search(clean)
+            fault = (
+                f"states {zero.group(1)}c, a ZERO cycle estimate"
+                if zero
+                else "states no 'Nc' term"
+            )
             violations.append(
                 f"{card.name}: ran in wave {card.wave} with "
-                f"Estimate {strip_comments(card.raw_estimate)!r}, which states "
-                f"no 'Nc' term — accuracy_ratio has no denominator"
+                f"Estimate {clean!r}, which {fault} — accuracy_ratio has no "
+                "denominator"
             )
     return violations
 
@@ -594,13 +690,30 @@ def test_the_marker_count_agrees_with_the_cycle_the_score_names(
     whose population silently empties passes forever. Stated as a floor and
     not an equality so that closing a card does not red it.
 
-    The last assertion holds :func:`cycle_named`'s third disclosed failure
-    mode to "not live": upstream's cycle counter restarts at 1 on a manual
-    review re-entry, so a re-entered card's markers read ``1, 2, 3, 1, 2``
-    and its true count is the sum while ``max`` over the score field reads
-    only the longest invocation. Every in-scope card is single-invocation
-    today, which is **measured here** rather than asserted in a comment, so
-    guard 1 cannot start resting on that without this reddening first.
+    The two pre-checks hold :func:`cycle_named`'s third disclosed failure mode
+    to "not live": upstream's cycle counter restarts at 1 on a manual review
+    re-entry, so a re-entered card's markers read ``1, 2, 3, 1, 2`` and its
+    true count is the sum while ``max`` over the score field reads only the
+    longest invocation. Every in-scope card is single-invocation today, which
+    is **measured here** rather than asserted in a comment, so guard 1 cannot
+    start resting on that without this reddening first.
+
+    **Both pre-checks are order-free, and the stated reason for that is a
+    measurement, not a preference** — see the comment below. Measured on main's
+    tree after the fix: every in-scope card's ordinals are exactly ``1..max``
+    with no repeat (``[1]`` four times, ``[1, 2]`` for CARD-339, ``[1]`` for
+    CARD-348), and this card's own closure is green with its cycle-2 Score line
+    written on *either* side of the cycle-1 line.
+
+    **What an order-free comparison cannot do, disclosed.** It cannot tell
+    upstream's threshold double-write from a true re-entry: both are a repeated
+    ordinal, and position does not separate them either — 39 of the 49 cards
+    carrying a duplicate duplicate the maximum and 10 duplicate below it, so
+    "the duplicate is the last cycle" is not a discriminator. The message
+    therefore names both causes with the measured dominant one first, rather
+    than a check deciding between them from evidence that cannot settle it.
+    The order-sensitive spelling *appeared* to separate them, but what it read
+    was where a human had typed a line.
     """
     in_scope = [
         c
@@ -613,29 +726,72 @@ def test_the_marker_count_agrees_with_the_cycle_the_score_names(
         f"{ESTIMATE_UNIT_FIRST_WAVE} onwards is done-and-scored. Population: "
         f"{population}"
     )
-    # BEFORE the guard, deliberately. A re-entered card reds the guard too --
-    # marker count 4 against a score naming cycle 2 -- but it reds it with a
-    # bare `marker_disagreements(tree) == []`, which says the record is wrong
-    # when the record is right. Measured: planting a re-entry on CARD-339
-    # (markers 1,2,1,2) reds the guard assertion with no message at all. This
-    # check runs first so the explanation arrives instead of the accusation.
-    restarted = {}
+    # BEFORE the guard, deliberately. A card whose ordinals are not a clean
+    # 1..max reds the guard too -- marker count 4 against a score naming cycle
+    # 2 -- but it reds it with a bare `marker_disagreements(tree) == []`, which
+    # says the record is wrong when the record may be right. Measured: planting
+    # a re-entry on CARD-339 (markers 1,2,1,2) reds the guard assertion with no
+    # message at all. These checks run first so the explanation arrives instead
+    # of the accusation.
+    #
+    # Compared ORDER-FREE. The first spelling of this check compared
+    # CONSECUTIVE WRITTEN ordinals and refused on any non-increase, which made
+    # its verdict depend on where in `## Worktree notes` a line was inserted:
+    # measured on main's tree, closing THIS card with its `[Review 2/3] Score:`
+    # line written ABOVE the cycle-1 line red, and the identical closure with
+    # that line written BELOW was green, nothing but the position differing --
+    # while this card's own notes are ordered newest-first. A guard whose
+    # greenness depends on the insertion position of a note is not a guard on
+    # the record. Neither shape it looks for needs the order: a re-entry and a
+    # double-write are both a REPEATED ordinal, and a lost marker is a GAP.
+    ordinals_by_card = {}
     for card in in_scope:
         section = worktree_notes(card.text) or ""
-        ordinals = [
+        ordinals_by_card[card.name] = [
             int(found.group(1))
             for line in section.splitlines()
             if (found := _MARKER.match(line))
         ]
-        if any(later <= earlier for earlier, later in zip(ordinals, ordinals[1:])):
-            restarted[card.name] = ordinals
-    assert restarted == {}, (
-        "an in-scope card's marker ordinals do not increase, which is the "
-        "signature of a manual review re-entry: upstream's counter restarts "
-        "at 1, so the true cycle count is the SUM of the Score lines while "
-        "cycle_named's `max` over the score field reads only the longest "
-        "invocation. The card is RIGHT and guard 1 below is about to call it "
-        f"wrong. See cycle_named's docstring. {restarted}"
+    repeated = {
+        name: found
+        for name, found in ordinals_by_card.items()
+        if len(found) != len(set(found))
+    }
+    gapped = {
+        name: found
+        for name, found in ordinals_by_card.items()
+        if found and sorted(set(found)) != list(range(1, max(found) + 1))
+    }
+    # A repeated ordinal has TWO causes and the message used to name only the
+    # rarer one. Upstream's threshold double-write is the board's measured
+    # dominant cause: 49 scored cards carry a duplicated ordinal, and planted
+    # in-scope ordinals 1,2,2 -- which is what upstream's own flow emits
+    # unaided -- fired this check with "the signature of a manual review
+    # re-entry" when no re-entry had occurred.
+    assert repeated == {}, (
+        "an in-scope card writes the same '[Review N/M]' ordinal twice, so its "
+        "marker COUNT exceeds the cycles it ran and guard 1 below is about to "
+        "call a possibly-correct record wrong. TWO causes, and they cannot be "
+        "told apart from the ordinals alone — both are a repeated ordinal, and "
+        "the duplicate's position does not separate them either (of the 49 "
+        "scored cards on this board carrying one, 39 duplicate the maximum and "
+        "10 duplicate below it). (1) UPSTREAM'S THRESHOLD DOUBLE-WRITE, the "
+        "dominant cause here: cmd-review-cycle writes a Score line at each of "
+        "three write sites, so a cycle that reaches its threshold emits two. "
+        "The record is right, the counting rule is wrong, and the fix is "
+        "upstream's (CARD-369) — meanwhile write a closing stamp "
+        "single-ordinal. (2) A MANUAL REVIEW RE-ENTRY: upstream's counter "
+        "restarts at 1 per invocation, so the true cycle count is the SUM of "
+        "the Score lines while cycle_named's `max` over the score field reads "
+        f"only the longest invocation — see its docstring. {repeated}"
+    )
+    assert gapped == {}, (
+        "an in-scope card's '[Review N/M]' ordinals do not cover 1..max, so a "
+        "cycle's Score marker is MISSING and the count under-reads the cycles "
+        "the card ran — a different defect from a repeat, with a different "
+        "remedy (write the missing marker). The historical instance is "
+        "CARD-262, whose only ordinal is 3; it is out of scope. "
+        f"{gapped}"
     )
 
     assert marker_disagreements(tree) == []
@@ -717,7 +873,14 @@ def test_a_planted_card_with_no_notes_section_reds_by_name(tmp_path: Path) -> No
 def test_a_card_that_ran_in_a_wave_carries_a_cycle_estimate(
     tree: tuple[Card, ...],
 ) -> None:
-    """AC-2 — guard 2 on the real tree, with the same anti-vacuity floor."""
+    """AC-2 — guard 2 on the real tree, with the same anti-vacuity floor.
+
+    The floor here and the bound in
+    :func:`test_declared_bound_the_waves_estimated_in_days_not_cycles` speak
+    about the same seven cards, and cycle 2 found this module asserting ``>= 7``
+    here and ``== 7`` there. The equality was the wrong one of the two: this
+    population gains a member at every wave open. Both are floors now.
+    """
     population = ran_in_a_wave(tree, ESTIMATE_UNIT_FIRST_WAVE)
     assert len(population) >= 7, (
         "guard 2 has gone vacuous: no card is stamped with a wave at or after "
@@ -740,6 +903,34 @@ def test_a_planted_day_only_estimate_reds_by_name(tmp_path: Path) -> None:
     assert len(found) == 1, found
     assert found[0].startswith("CARD-337.md:"), found
     assert "no 'Nc' term" in found[0] and "'0.5d'" in found[0], found
+
+
+def test_a_planted_zero_cycle_estimate_reds_by_name(tmp_path: Path) -> None:
+    """AC-2's third refusal arm: a term that is present and still unusable.
+
+    ``0c`` is not a day-only estimate and not a missing one — it is an ``Nc``
+    term that divides nothing. Measured before the fix, and this is why the arm
+    exists: planting ``0c (0.5d)`` on CARD-337 left **every** test in this
+    module green, while the matched control ``0.5d`` on the same card red guard
+    2 in the same run. Guard 2's own message said ``accuracy_ratio`` "has no
+    denominator" about the second and nothing at all about the first.
+    """
+    cards_dir = _copy_tree(tmp_path, ("CARD-337.md", "CARD-339.md"))
+    assert waves_without_a_cycle_estimate(read_card_tree(cards_dir)) == []
+
+    _replace_field(cards_dir / "CARD-337.md", "Estimate", "0c (0.5d)")
+    cards = read_card_tree(cards_dir)
+    card = next(c for c in cards if c.name == "CARD-337.md")
+    assert "0c" in card.raw_estimate, "the plant must survive the raw parse"
+    assert estimate_cycles(card.raw_estimate) is None, card.raw_estimate
+
+    found = waves_without_a_cycle_estimate(cards)
+    assert len(found) == 1, found
+    assert found[0].startswith("CARD-337.md:"), found
+    # reported by name as a zero, NOT as the absent term it is not
+    assert "a ZERO cycle estimate" in found[0], found
+    assert "no 'Nc' term" not in found[0], found
+    assert "no denominator" in found[0], found
 
 
 def test_a_cycle_estimate_hidden_behind_an_inline_comment_still_counts(
@@ -781,14 +972,26 @@ def test_the_scored_population_is_the_one_the_guards_speak_about(
 
     **Both totals are FLOORS, and that is load-bearing.** ``done`` and
     ``scored`` each grow by one every time a card is correctly closed — this
-    card's own merge gate moves them to 292/232 — so an equality here would
-    red the suite on main for doing the right thing. The measured figures stay
-    in the message, so the bound is still declared (ADR-0039/R3) and a
-    *shrinking* population still reds. The identity below is what keeps the
-    pair honest under growth: the two classes must still partition ``done``.
-    ``sentinel`` stays an equality on purpose — a correctly reviewed closure
-    does not land there, so a 61st owner's-call merge is exactly the event
-    that should be remarked rather than absorbed.
+    card's own merge gate moves them again — so an equality here would red the
+    suite on main for doing the right thing. The floors carry this branch's
+    reading of the tree; main's tip already reads 292/232, because CARD-348
+    closed there. That closure is the live proof rather than a prediction: the
+    pre-fix module, run against main's cards, reds three tests. The measured
+    figures stay in the message, so the bound is still declared (ADR-0039/R3)
+    and a
+    *shrinking* population still reds. ``sentinel`` stays an equality on
+    purpose — a correctly reviewed closure does not land there, so a 61st
+    owner's-call merge is exactly the event that should be remarked rather
+    than absorbed.
+
+    **The partition identity below is STRUCTURAL and is not what keeps the pair
+    honest.** It used to be presented as "what keeps the pair honest under
+    growth", which it cannot be: ``sentinel`` is *defined* two lines above it as
+    ``done`` minus ``is_scored``, so ``scored + sentinel == done`` is true by
+    construction and can never fail. The same shape this module flags plainly
+    at the class partition was left unflagged here. What actually carries this
+    test is the ``sentinel == 60`` equality and the no-smuggled-score check
+    under it.
     """
     done = [c for c in tree if c.status == "done"]
     scored = scored_cards(tree)
@@ -796,6 +999,8 @@ def test_the_scored_population_is_the_one_the_guards_speak_about(
     assert len(done) >= 291, f"{len(done)} done cards; the measured floor is 291"
     assert len(scored) >= 231, f"{len(scored)} scored cards; the measured floor is 231"
     assert len(sentinel) == 60, len(sentinel)
+    # structural, and said to be: `sentinel` is `done` minus `is_scored`, so
+    # this cannot fail. Kept as documentation of the split, not as a control.
     assert len(scored) + len(sentinel) == len(done)
     # and no sentinel card smuggles a score in behind a comment
     assert all(not _SCORE_VALUE.search(c.raw_score) for c in sentinel)
@@ -811,6 +1016,24 @@ def test_declared_bound_the_cards_carrying_no_review_cycle_marker(
     The residue assertion is what makes this a bound and not an excuse — the
     population must be **entirely** behind the forward boundary, because a
     single in-scope member would mean guard 1 is being quietly weakened.
+
+    **What a COUNT does not see, disclosed rather than fixed (ADR-0039/R3).**
+    Every bound in this module except population 3 is a count, not a set, so a
+    *compensating* move between two classes is invisible to all of them.
+    Measured, on a copy of main's tree: CARD-002 loses both its true Score
+    markers (``AGREES`` → ``NO_MARKER``) while CARD-005 gains one fabricated
+    marker matching the cycle its score names (``NO_MARKER`` → ``AGREES``), and
+    **every count is unchanged** — 128, 50, 3, 51 agreeing, 181 historical, 16
+    misplaced — with all thirteen tree-tests green. One half of that plant is
+    the history fabrication G-2 forbids. This is not a regression from making
+    the growing cells floors: the absolutes those replaced would not have moved
+    either. It is the standing limit of a count. Pinning the two large
+    populations by name or by hash would be a bound nobody can maintain across
+    a board whose populations move at every closure, so the limit is stated
+    here instead: **these bounds detect that a population moved, never which
+    cards moved inside it.** Population 3 is named member-by-member precisely
+    because it is small enough to be, and it is the one cell that would catch
+    such a swap if it touched those three cards.
     """
     population = by_class(tree)[NO_MARKER]
     assert len(population) == 128, (
@@ -854,6 +1077,10 @@ def test_declared_bound_the_cards_whose_marker_disagrees_with_the_score(
     This bound still counts Score *lines*, deliberately: that is the quantity
     the retrospective extracts, so it is the quantity worth guarding. The
     correction is a finding for upstream (CARD-369), not a change here.
+
+    This is a count and not a set, with the consequence disclosed in
+    :func:`test_declared_bound_the_cards_carrying_no_review_cycle_marker`: it
+    sees that the population moved, never which cards moved inside it.
     """
     population = by_class(tree)[MARKER_DISAGREES]
     assert len(population) == 50, (
@@ -904,16 +1131,52 @@ def test_declared_bound_the_waves_estimated_in_days_not_cycles(
     after wave :data:`ESTIMATE_UNIT_FIRST_WAVE`, and all 244 are before it —
     which is what identifies the boundary as the convention's start rather
     than an arbitrary cut.
+
+    **Three of these cells grow at a WAVE OPEN, which is the second correct
+    board operation this module red on.** ``waved`` and ``with_cycles`` gain a
+    card every time one is stamped with a wave, and the wave *set* gains a
+    member every time a wave opens. Measured before the fix: stamping
+    ``Wave: 77`` on CARD-369 — a card whose estimate is already ``1c (0.5d)``,
+    so the plant is the estimate convention *working* — red this test with the
+    bare message ``252`` and no explanation at all, which is the same "a
+    correct card accused with no reason" defect this round had just fixed
+    elsewhere. CARD-367 through CARD-373 are cut and unwaved, so wave 77's open
+    is the next board operation that touches this. So the two counts are now
+    floors carrying their measured figures, and the wave set is a **subset**
+    check.
+
+    **``len(without) == 244`` stays an equality, and so does the boundary
+    check**, because neither can move at a closure or at a wave open: every
+    card from wave :data:`ESTIMATE_UNIT_FIRST_WAVE` on carries an ``Nc`` term,
+    so a newly waved card lands in ``with_cycles``. A 245th member means a card
+    ran in a wave without a cycle estimate — which guard 2 itself reds — or a
+    pre-74 card was re-stamped, and both deserve a stop. ``min(...) == 74`` is
+    kept as the half of the old equality that has teeth: it is what forbids a
+    cycle estimate appearing *behind* the boundary and so what keeps the
+    boundary identified rather than assumed.
     """
     waved = [c for c in tree if c.wave is not None]
     with_cycles = [c for c in waved if estimate_cycles(c.raw_estimate) is not None]
     without = [c for c in waved if estimate_cycles(c.raw_estimate) is None]
-    assert len(waved) == 251, len(waved)
-    assert len(with_cycles) == 7, [c.name for c in with_cycles]
+    assert len(waved) >= 251, (
+        f"{len(waved)} cards carry a numeric Wave; the measured floor is 251. "
+        "A floor, because a wave open adds to this. A SHRINK means a Wave "
+        "stamp was removed or stopped parsing."
+    )
+    assert len(with_cycles) >= 7, (
+        f"{len(with_cycles)} waved cards state an 'Nc' estimate; the measured "
+        f"floor is 7. {[(c.name, c.wave) for c in with_cycles]}"
+    )
     assert len(without) == 244, len(without)
-    assert {c.wave for c in with_cycles} == {74, 75, 76}, [
-        (c.name, c.wave) for c in with_cycles
-    ]
+    assert {74, 75, 76} <= {c.wave for c in with_cycles}, (
+        "a wave that was measured to estimate in cycles no longer has a "
+        f"cycle-estimated card: {sorted({c.wave for c in with_cycles})}"
+    )
+    assert min(c.wave for c in with_cycles) == ESTIMATE_UNIT_FIRST_WAVE, (
+        "a cycle estimate appears BEHIND the forward boundary, so wave "
+        f"{ESTIMATE_UNIT_FIRST_WAVE} is no longer where the convention starts: "
+        f"{sorted((c.name, c.wave) for c in with_cycles)[:5]}"
+    )
     assert max(c.wave for c in without) < ESTIMATE_UNIT_FIRST_WAVE, [
         (c.name, c.wave) for c in without if c.wave >= ESTIMATE_UNIT_FIRST_WAVE
     ]
@@ -1061,9 +1324,23 @@ def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
     opened some other file and returned nothing from it would not appear in
     that list at all, and only a review-directory-shaped *literal* would have
     been caught, by the static half. So the reader is now run inside an audit
-    that wraps :meth:`pathlib.Path.read_text` and :func:`open`, and the set of
-    paths recorded is asserted to be **exactly** the set returned — an extra
-    open reds, a missing one reds.
+    that wraps :meth:`pathlib.Path.read_text`, :func:`io.open` and
+    :func:`builtins.open`, and the set of paths recorded is asserted to be
+    **exactly** the set returned — an extra open reds, a missing one reds.
+
+    **Which read routes the audit sees, measured rather than assumed.** With
+    only ``Path.read_text`` and ``builtins.open`` wrapped, four of the six ways
+    this interpreter (3.14.3) opens a file escaped it: ``Path.open``,
+    ``Path.read_bytes``, ``io.open`` and ``os.open``. ``io.open is
+    builtins.open`` is ``True``, but ``Path.open`` resolves ``io.open`` as a
+    *module attribute*, which rebinding ``builtins.open`` never reaches — and
+    the audit's own behaviour proved it, since one ``read_text`` recorded one
+    entry rather than two. Wrapping ``io.open`` as well brings it to **five of
+    six**: ``Path.open``, ``Path.read_bytes``, ``io.open``, ``builtins.open``
+    and ``Path.read_text`` (which now records twice, harmlessly, because the
+    recorded paths are compared as a set). **``os.open`` still escapes** — it
+    is a raw file descriptor and no Python-level rebinding sees it — so the
+    audit's reach is stated at five routes rather than at "every read".
     """
     tracked = _tracked_paths()
     assert tracked, "git ls-files returned nothing; the dynamic half is vacuous"
@@ -1073,7 +1350,7 @@ def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
     assert all(p.startswith("meta/kanban/cards/") for p in read), read
 
     opened: list[str] = []
-    real_read_text, real_open = Path.read_text, builtins.open
+    real_read_text, real_open, real_io_open = Path.read_text, builtins.open, io.open
 
     def spy_read_text(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         opened.append(str(self))
@@ -1085,11 +1362,14 @@ def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
 
     Path.read_text = spy_read_text  # type: ignore[method-assign]
     builtins.open = spy_open  # type: ignore[assignment]
+    # the line that closes four of the six escape routes -- see the docstring
+    io.open = spy_open  # type: ignore[assignment]
     try:
         audited_tree = read_card_tree()
     finally:
         Path.read_text = real_read_text  # type: ignore[method-assign]
         builtins.open = real_open  # type: ignore[assignment]
+        io.open = real_io_open  # type: ignore[assignment]
 
     assert opened, "the open audit recorded nothing, so its assertions are vacuous"
     assert len(audited_tree) == len(tree), (
@@ -1143,19 +1423,48 @@ def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
 
 
 def test_the_estimate_unit_decision_still_has_no_adr_file() -> None:
-    """The dangling ref, pinned — and this reds the day someone writes it.
+    """The ref is upstream's, THIS series does not reach it — and that can fire.
 
-    ``ADR-0055`` is cited by five board artefacts and resolves to no file:
-    ``meta/architecture/decisions/adr/`` tops out at 0042. That is why
-    :data:`ESTIMATE_UNIT_FIRST_WAVE` is named after the measured convention.
-    This assertion is the measured residue of that finding (ADR-0039/R3); when
-    the ADR is written, it fails here and points its author at the constant.
+    **The name of this test says "no ADR file" and that is scoped to this
+    repository, which is the only thing it measures.** The decision does have
+    an ADR: ``forge_1``'s 0055, accepted, see the module docstring, where the
+    old flat claim is retracted. The name is left as it is because CARD-367's
+    AC-4 names this function and owns updating it; renaming it from here would
+    dangle that reference.
+
+    **The pin's trigger is restated, because the old one was void.** It
+    asserted ``max(numbers) == 42`` plus ``55 not in numbers`` and promised to
+    "red the day someone writes it". The ADR was already written and dated
+    2026-09-05, before the pin was; and this board will never number a
+    *local* ADR 0055 for an upstream decision, so that arm was green and would
+    have stayed green — a pin with no reachable failure is the gap
+    ADR-0039/R1 names. Worse, the ``== 42`` arm would have red on a correct
+    board operation: writing an unrelated ADR-0043.
+
+    What can fire, and should: the **collision**. Six artefacts
+    (``board.md``, ``dispatcher.state``, ``retro.md``, CARD-363, CARD-366,
+    CARD-367) cite a bare ``ADR-0055`` meaning upstream's. The day this
+    repository's own series reaches 0055, every one of those refs silently
+    starts resolving to a local ADR about something else, and this test is
+    where that is caught. The series head stays declared as a floor, so the
+    measured residue (ADR-0039/R3) is still on the record without reddening a
+    correct write.
     """
     adr_dir = REPO_ROOT / "meta" / "architecture" / "decisions" / "adr"
     numbers = sorted(int(p.name[:4]) for p in adr_dir.glob("[0-9][0-9][0-9][0-9]-*.md"))
     assert numbers, adr_dir
-    assert max(numbers) == 42, numbers
-    assert 55 not in numbers, "ADR-0055 now exists; re-point ESTIMATE_UNIT_FIRST_WAVE"
+    assert max(numbers) >= 42, (
+        f"this repository's ADR series now tops out at {max(numbers)}; the "
+        "measured head when this was written is 0042, and a SHRINK means an "
+        "ADR file was removed or renamed"
+    )
+    assert max(numbers) < 55, (
+        f"this repository's ADR series has reached {max(numbers)}, so the bare "
+        "`ADR-0055` refs on this board (board.md, dispatcher.state, retro.md, "
+        "CARD-363, CARD-366, CARD-367) now resolve LOCALLY, to an ADR that is "
+        "not the upstream estimate-unit decision they mean. Re-point them and "
+        "re-point ESTIMATE_UNIT_FIRST_WAVE's comment; see CARD-367"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -1250,9 +1559,16 @@ def test_cycle_named_beats_both_naive_readings_on_the_real_tree(
     readings, and neither naive one can be reached by narrowing the other.
 
     ``max`` over a free-text field is still a heuristic, and the last
-    assertion is what keeps the guards from resting on it: none of the 21 is
-    inside guard 1's forward scope. Every card the heuristic could be wrong
-    about is in a declared historical bound, not in a live assertion.
+    assertion is what keeps the guards from resting on it — **restated in
+    cycle 3 to measure agreement instead of banning a spelling**: for every
+    in-scope card, ``max`` over the score field and the highest ordinal the
+    card's own markers carry name the same cycle. Two independently written
+    records of one fact, compared. It is order-free and spelling-free, so a
+    correct closure cannot red it, and it still fails the day the heuristic
+    becomes load-bearing — which is more than the old spelling ban could say,
+    since its set holds a correct progression closure and CARD-020's genuine
+    misread side by side. See the comment at the assertion for both
+    measurements.
 
     **The three counts are floors; the disjointness and the in-scope check are
     not.** Every count in this loop grows when a card is closed — a score
@@ -1316,20 +1632,57 @@ def test_cycle_named_beats_both_naive_readings_on_the_real_tree(
         f"only {len(n_of_m_readable)} cards spell it `cycle N of M`; the "
         "measured floor is 19, and 209 + 19 = 228"
     )
-    # no card the heuristic could be wrong about is in guard 1's scope
-    ambiguous = set(first_wrong) | set(last_wrong)
-    in_scope = [
-        c.name for c in ran_in_a_wave(tree, ESTIMATE_UNIT_FIRST_WAVE) if c.name in ambiguous
-    ]
-    assert in_scope == [], (
-        "a card whose cycle ordinals are written out of order is inside "
-        f"guard 1's scope, so the guard now rests on the heuristic: {in_scope}. "
-        "If this is a card that just closed, the cause is the SPELLING of its "
-        "Review score, not the card: a progression score ('7.75 (c1) -> 8.5 "
-        "(c2/3)') names two ordinals out of order, while every other wave-74+ "
-        "card names one ('8.4 (cycle 2 of 3 - CERTIFIED)'). `max` reads both "
-        "correctly; this assertion is deliberately stricter than `max` needs, "
-        "so re-spell the score rather than widening it."
+    # Guard 1 must not rest on the heuristic, and THIS is the honest proxy for
+    # it: for every in-scope card, `max` over the free-text score field reads
+    # the same cycle the card's own markers do. Order-free and spelling-free.
+    #
+    # What stood here before cycle 3 banned a SPELLING -- no in-scope card's
+    # ordinals may be written out of order -- and admitted in its own message
+    # that it was "deliberately stricter than `max` needs". That was a trap,
+    # and removing it is not the loosening G-4 forbids, because it is not a
+    # historical bound: it is a proxy for "the guard does not rest on the
+    # heuristic", and `first_wrong | last_wrong` is the wrong proxy, because
+    # that set holds both kinds of card at once. Measured: a progression score
+    # '7.75 (c1) -> 8.5 (c2/3)' lands in first_wrong (ordinals 1,2) and `max`
+    # reads 2, which is RIGHT -- a correct closure the ban reds; CARD-020's
+    # '7.5 (cycle 2; cycle 1 4.5; cycle 3 fixes applied, terminal)' lands in
+    # the same set (ordinals 2,1,3) and there `max` reads 3 for a card that
+    # scored on cycle 2 -- a genuine misread. One set, two opposite verdicts,
+    # so membership in it says nothing about whether `max` is safe, and the
+    # ban's remedy ("re-spell the score") is wrong advice for the first.
+    # Spelling is not the thing to test. Agreement between the two
+    # independently written records of the same cycle is: this check is green
+    # on the progression closure and red on the CARD-020 shape.
+    read_by_markers = {}
+    for card in ran_in_a_wave(tree, ESTIMATE_UNIT_FIRST_WAVE):
+        if card.status != "done" or not card.is_scored:
+            continue
+        section = worktree_notes(card.text) or ""
+        ordinals = [
+            int(found.group(1))
+            for line in section.splitlines()
+            if (found := _MARKER.match(line))
+        ]
+        if ordinals:
+            read_by_markers[card.name] = (card.cycle_named, max(ordinals))
+    assert read_by_markers, (
+        "no in-scope card carries a marker, so the check below is vacuous and "
+        "guard 1 could be resting on the heuristic unobserved"
+    )
+    disagreeing = {
+        name: (named, highest)
+        for name, (named, highest) in read_by_markers.items()
+        if named != highest
+    }
+    assert disagreeing == {}, (
+        "`max` over an in-scope card's Review score names a different cycle "
+        "than the card's own highest marker ordinal, so guard 1 now RESTS on "
+        "the heuristic: the two independent records of the same cycle "
+        "disagree, and only one of them can be what the retrospective should "
+        "read. Re-read the score field before touching this: the shape to "
+        "fear is CARD-020's, where an earlier cycle is named after a later one "
+        "and a THIRD number ('cycle 3 fixes applied') is not a cycle the card "
+        f"ran at all. {disagreeing}"
     )
 
 
@@ -1363,11 +1716,51 @@ def test_the_marker_regex_is_the_quantity_the_retrospective_counts() -> None:
         ("2c (1d) <!-- RE-OPENED on a second measured harm -->", 2.0),
         ("—", None),
         ("1.5c (0.5d)", 1.5),
+        # a term that is PRESENT and still no denominator -- all three of these
+        # passed guard 2 before cycle 3
+        ("0c", None),
+        ("0c (0.5d)", None),
+        ("0.0c", None),
+        # the one row in this corpus whose reading DEPENDS on stripping: the
+        # `Nc` term is inside the comment, and the value outside it is days
+        ("0.5d <!-- re-estimated from 2c at the re-cut -->", None),
     ],
 )
 def test_estimate_cycles_reads_the_nc_term(value: str, expected: float | None) -> None:
-    """Including the two shapes the comment trap produces."""
+    """Including the zero term, and the one row stripping actually changes."""
     assert estimate_cycles(value) == expected, value
+
+
+def test_comment_stripping_discriminates_on_the_shape_the_tree_lacks() -> None:
+    """The module's only control that separates the two comment readings.
+
+    Comment stripping is **measured inert** on this board — 0 of 372 ``Wave``,
+    ``Estimate`` and ``Review score`` readings change with the comments left in
+    (see the module docstring). So no row of any corpus here, and no plant on
+    any real card, can show that the stripping does anything: the two
+    parametrized rows once advertised as "the two shapes the comment trap
+    produces" return the same value either way, and so does the planted
+    comment-behind-an-estimate card in
+    :func:`test_a_cycle_estimate_hidden_behind_an_inline_comment_still_counts`.
+    A mechanism with no control that can fail is the gap ADR-0039/R1 names, and
+    this is the control: a day-only estimate whose **comment** mentions an
+    ``Nc`` term, where the unstripped read takes the retired number out of the
+    comment and the stripped read correctly sees no cycle estimate at all.
+
+    This is the shape the stripping exists for, and it is a plausible next
+    board write — ``Estimate: 0.5d <!-- re-estimated from 2c -->`` is how this
+    board already annotates a re-estimate on other fields.
+    """
+    value = "0.5d <!-- re-estimated from 2c at the re-cut -->"
+    unstripped = _ESTIMATE_CYCLES.search(value)
+    assert unstripped is not None and float(unstripped.group(1)) == 2.0, value
+    assert _ESTIMATE_CYCLES.search(strip_comments(value)) is None, value
+    assert estimate_cycles(value) is None, value
+    # and the contrast: the trap row that does NOT discriminate, kept to show
+    # which of the two kinds each corpus row is
+    inert = "0.75d  <!-- was 0.25d; raised by the CARD-264 fold -->"
+    assert _ESTIMATE_CYCLES.search(inert) is None, inert
+    assert estimate_cycles(inert) is None, inert
 
 
 @pytest.mark.parametrize(
@@ -1403,8 +1796,25 @@ def test_an_inline_comment_contaminates_the_raw_field_value(
     both that the comment is there and that an equality test against the
     intended value **fails** on it.
 
-    CARD-363 states "two cards carry an inline comment on a parsed field
-    today". Measured: **7** on ``Estimate`` and **15** on ``Wave``.
+    **7** cards carry a comment on ``Estimate`` and **15** on ``Wave``. That is
+    this module's own measurement and it is attributed to nobody else.
+
+    **A quotation is retracted here.** This docstring used to read: *CARD-363
+    states "two cards carry an inline comment on a parsed field today"*.
+    CARD-363 never said it — not in any version of the card; a pickaxe search
+    over all history finds that sentence in exactly one commit, this module's
+    own first one. What the board really says, and what the figure 2 came
+    from, is a ``meta/kanban/dispatcher.state`` note from CARD-278's board
+    pass: an inline comment on ``Revision pending`` made an equality test read
+    CARD-288 as un-gated and corrupted a census while it was being re-derived,
+    and "two cards carry an inline comment on a parsed field here: CARD-288 and
+    CARD-322". That note is about a **different field** and a **different
+    census**, and it is right about its own: CARD-288 still carries the comment
+    on ``Revision pending`` (the only card that does today) and CARD-322's has
+    since moved to ``Estimate``. So the 2 was never a claim about ``Estimate``
+    and ``Wave``, and the 7 and the 15 do not correct it — they measure
+    something else. In a module whose subject is records that do not say what
+    they claim, a quotation put in a card's mouth is the defect itself.
     """
     est = sorted(c.name for c in tree if "<!--" in c.raw_estimate)
     wave = sorted(c.name for c in tree if "<!--" in c.raw_wave)
@@ -1428,13 +1838,50 @@ def test_the_wave_and_estimate_readings_strip_comments_first(
 ) -> None:
     """The other half: every contaminated value is still interpretable.
 
-    Without stripping, 15 cards would read as unscheduled and drop out of
-    guard 2's population entirely — a guard shrinking its own set is the
-    failure mode ADR-0039/R1 names, and it would be silent.
+    **The claim this docstring used to make is RETRACTED as false.** It said:
+    "Without stripping, 15 cards would read as unscheduled and drop out of
+    guard 2's population entirely". They would not. ``_LEADING_WAVE`` is
+    anchored ``^(\\d+)\\b`` and reads ``68 <!-- … -->`` as 68 with the comment
+    still in it, so **none** of the 15 drops out, and stripping changes 0 of
+    372 ``Wave`` readings, 0 of 372 ``Estimate`` readings and 0 of 372 cycle
+    readings on main's tree. Cycle 1 of this card's review endorsed the false
+    version by substituting a *bare-integer* reading for the module's anchored
+    one — a different parser than the one that ships here.
+
+    Stripping is kept because it is right for a shape the tree does not carry
+    yet, and that shape now has the module's only discriminating control:
+    :func:`test_comment_stripping_discriminates_on_the_shape_the_tree_lacks`.
+    What is asserted *here* is what is true of the real values — every
+    contaminated one is still interpretable, and no comment sits where it would
+    change an already-readable number.
     """
     contaminated = [c for c in tree if "<!--" in c.raw_wave]
     assert contaminated, "vacuous: no contaminated Wave field on the tree"
-    assert all(_LEADING_WAVE.match(c.raw_wave) is None for c in contaminated) is False
+
+    def unstripped_wave(raw: str) -> int | None:
+        found = _LEADING_WAVE.match(raw.strip())
+        return int(found.group(1)) if found else None
+
+    # What stood here was `all(... is None for ...) is False`, which asserts
+    # only that at least ONE contaminated raw value still starts with a digit
+    # -- true, and the opposite of what the docstring claimed stripping buys.
+    # The assertion that has teeth and cannot red on a correct board operation
+    # is one-sided: where the naive reading does produce a number, stripping
+    # must not CHANGE it. A comment can only alter an anchored reading by
+    # sitting at the start of the value (naive reads None, not a different
+    # number) or INSIDE the leading digit run -- `Wave: 7<!--x-->6`, which
+    # would read 7 naively and 76 stripped. That is a real trap and not a
+    # thing a correct stamp does.
+    shifted = [
+        (c.name, unstripped_wave(c.raw_wave), c.wave)
+        for c in contaminated
+        if (naive := unstripped_wave(c.raw_wave)) is not None and naive != c.wave
+    ]
+    assert shifted == [], (
+        "an inline comment sits inside a Wave value's leading digits, so the "
+        "stripped and unstripped readings are two different numbers rather "
+        f"than one number and None: {shifted}"
+    )
     naive = [c.name for c in contaminated if not re.fullmatch(r"\d+", c.raw_wave)]
     assert len(naive) == len(contaminated), naive
     assert all(c.wave is not None for c in contaminated)
