@@ -210,6 +210,24 @@ body {
    swatch is 1em of button chrome and the cell is a board cell, so the glyph is
    sized from the box it sits in and only the mark it draws is shared. */
 .player-swatch[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 600; line-height: 1; color: var(--color-accent); }
+/* The White mark's dot on the brush button, matching admin.css's rule of the
+   same selector (CARD-348). The admin's White swatch has previewed the cell's
+   dot since the panel player shipped and this page's drew nothing, so the
+   brush button showed a plain square for a mark the board draws a dot for —
+   CARD-339's defect exactly, one state over, and found by that card's mark
+   census rather than by a render. The declarations below are DERIVED from
+   admin.css's own rule, not retyped, and
+   tests/test_public_player_agreement.py's `empty.swatch.glyph.declarations`
+   holds the two sides equal from here on; the fact moved out of
+   SIBLING_FINDINGS into MARKS_IN_THE_COMPARED_SURFACE in the same change.
+
+   `position: absolute; inset: 0` with `margin: auto` is how the admin centres
+   it, and it needs .player-swatch to be its containing block: that box already
+   carries `position: relative` (added by CARD-339 for the "?" glyph, which is
+   positioned the same way), so nothing re-declares it here — G-2. The paper
+   under the dot is the .player-swatch[data-state="empty"] line above, equally
+   untouched; this rule adds a mark and paints no swatch. */
+.player-swatch[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 
 .player-brush-run { display: inline-flex; gap: 1px; }
 
