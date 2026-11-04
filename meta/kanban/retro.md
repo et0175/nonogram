@@ -1874,3 +1874,158 @@ three cards but produces no signal.
 - **Re-instrument the review cycle** so `[Review N/M] Score:` is written even when a review is
   dispatched directly, or this board's cycle counts stay unreadable to its own retro.
 - Not effort calibration, so `calibrate` ignores all four.
+
+---
+
+## Wave 74 — three for three, and the first calibration signal this board has been able to export
+
+Closed 2026-11-04. **CARD-278 8.8** (cycle 1 of 3), **CARD-336 8.6** (cycle 1 of 3),
+**CARD-339 8.4** (cycle 2 of 3). None escalated. Opened on the owner's *"open the next wave on
+336"*, with a third card added mid-wave on their *"go ahead"*, which raised their standing
+concurrency cap of 2 to 3 for this wave only. Restored to 2 at close.
+
+### The estimate signal, which is the point of this retrospective
+
+| card | estimate | cycles used | ratio | complexity |
+|---|---|---|---|---|
+| CARD-278 | 1c (0.25d) | 1 | **1.000** | trivial |
+| CARD-336 | 1c (0.5d) | 1 | **1.000** | architectural |
+| CARD-339 | 2c (0.5d) | 2 | **1.000** | standard |
+
+**`accuracy_ratio` mean 1.000, unit `review_cycles`, coverage 3 of 3.** Every card landed on
+its cycle estimate exactly, and the three span the **whole complexity range** — trivial,
+standard and architectural, one each. That last part is the load-bearing observation: the day
+scale never generalised across complexity on this board, and three-for-three across all three
+bands is the first evidence that the cycle scale might.
+
+**Wave 73 could export no signal at all** (0-of-3 coverage, wall-clock excluded by the owner's
+ruling). The difference is not better estimating — it is that the estimates were **restated in
+review cycles at the wave open** rather than left in days, which is a decision made before any
+work happened. `calibrate` has a real input for the first time, and its honest reading is **no
+correction**: a mean of exactly 1.000 says leave the scale alone.
+
+| | wave 72 | wave 73 | wave 74 |
+|---|---|---|---|
+| cards | 2 | 3 | 3 |
+| avg final score | 9.00 | 8.83 | **8.60** |
+| avg cycles | 2.00 | 2.33 | **1.33** |
+| escalations | 0 | 0 | 0 |
+| exportable estimate signal | none | none | **1.000 at 3/3** |
+
+**A drift worth watching rather than concluding on:** cycles fell by a full point while the
+average score fell 0.23. Three cards is far too few to call, and the obvious benign reading is
+that two of them genuinely certified first time. But the shape to watch in wave 75 is
+*certifying earlier at slightly lower scores*, because that would look exactly like this.
+
+### The dominant finding family, by a distance: carried figures
+
+Nine instances, and they are not evenly distributed — **five were mine**:
+
+- **CARD-339** carried three into one commit whose own thesis is that a carried figure has no
+  control: the README row (`521` against 524), "the two Maybe papers" (three of four
+  fact-sides), and "cites it twice" (once). Its reviewer's phrasing is the keeper: *"the card's
+  own argument landing on the card."*
+- **CARD-336's AC-3** carried two its own round had refuted — `drawing.top` where the cell is
+  `drawing.left`, and a 2.71 px half rule where both media ink the 1.3 pt rule as **six** pixel
+  lines, making it 2.5. The round recorded the refutation in its notes and left the **acceptance
+  criterion** standing, which is the one place a later reader treats as binding.
+- **CARD-278** carried one (309 insertions against 312).
+- **Mine:** a premise correction predicting the population would grow when it shrank by one; the
+  2.504 px figure relayed with the wrong field attribution; a skip baseline that armed
+  `DATABASE_URL` *and* expected the 26 unarmed skips, in one paragraph; a `--collect-only -q`
+  warning I have been putting in **every brief for months** that measurement shows is false; and
+  a `CARD-347` scope note naming four locations where its `Touches` reached two.
+
+**The transferable half.** Every one of these was caught by recomputation and none by reading.
+The instruments that caught them were: a round told to re-derive rather than trust, a reviewer
+told to plant rather than read, and `ADR-0039/R4`'s *"retracted everywhere it was written"* —
+which was the rule that finally found the 2.71 still live in `dispatcher.state` after both the
+card and `CARD-344` had been corrected. **R4's reach is the thing to keep**: two of three
+propagation sites is a half-retraction that reads like a whole one.
+
+### Second family: defaults that hand every caller a plausible answer
+
+Four instances, and three now have cards:
+
+- `**Status:** in progress` — outside `_BOARD_STATUSES` (`in_progress`), so the tripwire
+  defaulted to deny and redded the suite on `main` for **all three in-flight cards at once**.
+  **My error at the stamping station**, and the spelling census is why it was unambiguous: those
+  three were the only cards in 352 using the spaced form, and no earlier in-flight card survives
+  to show the convention.
+- `Drawing.framed: bool = False` reporting False on **94 of 136** framed answer pages → CARD-351.
+- the placed-edge classifier falling through to `no_extent` where ADR-0039/R2 wants **failure** →
+  CARD-352.
+- `db_required` gating `conftest.py`'s create-if-missing path but **not** the reading of
+  `DATABASE_URL`, so an unmarked test connects before any marked test creates the database →
+  CARD-349.
+
+All four read as "fine" to every consumer. **The rule this board already had covers it** —
+ADR-0039/R2's deny-by-default — so no new rule is owed; what is owed is applying it to
+*defaults*, not only to guard sets.
+
+### Third family: a first-failure attribution reads exactly like a complete one
+
+CARD-336's card named four failing cells and all four were real — and **two were the second
+assertion in their test**, invisible until the first closed. Closing them unmasked an
+unowned page-size family (poppler rasterises a 282.1 mm trim to 3333 px where the density gives
+3331.890, so 1.110 px over a 0.5 px bound) → CARD-350, which carries an AC asking how many
+*other* tests in that module mask a later assertion. **Nothing in the suite or the census
+distinguishes "fails for one reason" from "fails for the first of several."**
+
+### Process, and two things that cost real time
+
+**Lock contention serialised the wave.** `tests/full_suite_lock.py`'s `pytest_configure` raises
+on **any** run from a foreign worktree, not only full-suite ones. Consequences, both measured:
+CARD-336's round waited ~90 minutes and ran no suite at all; **two reviewers could run no pytest
+whatsoever** and verified by direct measurement and by driving AST guards as pure functions.
+Both were right to wait — overriding would have reproduced the incident the lock exists to
+prevent — and **I briefed one of them wrongly**, telling it to use file-scoped runs when the
+CARD-278 review had already told me the guard fires for any selection.
+
+**What worked and should become standard:** CARD-339's gate **checked both DB hazards before the
+run rather than diagnosing after** (database exists? `alembic_version` against `head`?), and
+CARD-336's gate went further — found CARD-349's hazard **live**, pre-empted it by running the 26
+`db_required` tests first to take the create-and-migrate path, then ruled out its stale-schema
+twin. Both gates also **rebased before running**, so the suite measured the tree that landed.
+
+### Data quality
+
+- **`[Review N/M] Score:` markers absent on all three cards. Second consecutive wave**, and
+  wave 73's retrospective ended by asking for exactly this to be fixed. The marker is the only
+  thing `cycles_used` counts, so the retro would have read null again. Written post-hoc from the
+  score fields and the review YAMLs, with provenance noted on each card — **a post-hoc marker is
+  weaker evidence than one the review cycle wrote live, and a reader should be able to tell.**
+- **No review YAML existed for any of the three cards** — four cycles in total. CARD-278's gate
+  reported the absence rather than fabricating one; CARD-336's gate wrote its marker citing **no
+  artefact**, *"because citing one that is not there is how a dead reference gets born."* All
+  four written afterwards from the reviewers' reports, untracked by design (the check-ref
+  resolver is a text search over tracked files).
+- **Metrics capture REFUSED, second consecutive wave**, verbatim: *"the signal definitions
+  registry is missing: meta/metrics/signal-definitions.yml. An absent registry is not an empty
+  one — no signal has a declared meaning, so none may be captured or exported (ADR-0032)."* Two
+  waves with no snapshot means no trend series exists for any signal.
+- **Wall-clock excluded on all three cards** per the owner's ruling, each substituting a derived
+  size datum **with the exclusion stated in the field** rather than merely omitted. CARD-336's
+  is the sharpest: *2334 insertions buy one helper, four closed cells and one measured refusal.*
+
+### Throughput
+
+**12 cards cut during the wave** (CARD-342 … CARD-353), every one from a finding rather than
+from planning, and none dispatched. Ten came from CARD-336's round and review alone. That is the
+wave's real output: three cards closed and twelve defects named, measured and owned.
+
+### Suggestions
+
+- **Do not calibrate the effort scale.** Ratio mean is exactly 1.000 at 3-of-3 coverage across
+  all three complexity bands. `calibrate` should change nothing.
+- **Re-instrument the review cycle** so `[Review N/M] Score:` is written when a review is
+  dispatched directly, and write the cycle YAML at the same point. Asked for by wave 73's
+  retrospective, not done, and it cost this wave three post-hoc reconstructions. **This is now
+  the oldest open process item in this journal.**
+- **Create `meta/metrics/signal-definitions.yml`** or accept that no metrics series will ever
+  exist. Two refusals is a decision being made by default.
+- **Extend ADR-0039/R2's deny-by-default from guard sets to DEFAULTS**, where the second finding
+  family lives. Four instances this wave; the rule already exists and only its reach is short.
+- **Watch for "certifying earlier at slightly lower scores"** in wave 75 — the cycles/score drift
+  above is innocent on three cards and would look identical if it were not.
+- Nothing here is effort calibration beyond the first bullet, so `calibrate` ignores the rest.
