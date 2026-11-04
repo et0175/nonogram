@@ -186,8 +186,11 @@ body {
    all, so it draws the glyph on the paper (7.258:1) where this page draws it
    on the hover surface (6.207:1). That residual divergence is the owner's, not
    a worktree call, and
-   TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark::test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption
-   pins it so it cannot change in either sheet unremarked. */
+   TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption
+   pins it. Read "pins" narrowly: the census holds every routed fact to KEEP
+   diverging, and this one of the six also has its two values written out, so
+   a change here reds. The other four routed facts are held to diverging and
+   nothing more — CARD-346 owes that table the derived residue. */
 .player-swatch[data-state="maybe"] { background: var(--color-surface-hover); }
 /* The Maybe mark's glyph on the brush button, matching admin.css's rule of the
    same selector (CARD-339, the owner's decision of 2026-11-03). --text-xs here

@@ -194,7 +194,8 @@ row a second time, retire it instead and say so.**
   `solver_state.js` declares (the authority, ADR-0039/R2) against both hooks and both sheets,
   and `TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_every_census_fact_is_compared_routed_or_agreeing` requires every fact of it to
   be compared, agreeing, or **routed** in `SIBLING_FINDINGS` with a reason and a measured
-  figure. Five facts are routed, none closed here — see "What this round decided" below.
+  figure. The census is **16 facts = 3 compared + 7 agreeing + 6 routed**; none of the six is
+  closed here and every one is named with an owner — see "What this round decided" below.
 
 ## Guardrails
 
@@ -250,8 +251,9 @@ background rule at all, so it draws the glyph on the board's paper where this pa
    was widened to catch.
 3. compare **the glyph** — which is what `compared_surface` already does for the Empty mark
    (`dot.declarations` is the `::after` and not the paper under it) — and route the tint as a
-   **measured, undecided finding** that is pinned so it cannot change in either sheet
-   unremarked. Taken, because this module's own standing rule is that two players disagreeing
+   **measured, undecided finding**, pinned as *diverging* (and, for these two papers alone,
+   by written-out values — see the retraction below, which is narrower than this line's first
+   draft was). Taken, because this module's own standing rule is that two players disagreeing
    about a mark is a finding for the owner and deciding which side is right is not a worktree
    call. It is the rule CARD-323 followed to produce this card.
 
@@ -259,32 +261,91 @@ background rule at all, so it draws the glyph on the board's paper where this pa
 *outside* the compared surface, nothing is permitted by being in it, and an entry that stops
 diverging reds as loudly as a new one.
 
-**Item 4 — the other three marks. Reported, not taken.** The census says the compared surface
-covers the Empty **cell** mark (the dot) and, from this card, both Maybe glyphs. Five facts
-diverge and are routed, each with an owner named below:
+**Retraction, cycle 1 F-3 — what "routed" pins, narrowly.** The first draft of this card and
+of `RoutedFinding`'s docstring said the guard pins a routed fact so neither sheet can change it
+unremarked. **That is false for four of the six**, and it was falsified by plant, not by
+reading: change the admin's filled-swatch `border-color` to another token, or repaint the
+public Clear swatch in `--grid-ink` — a rendered pixel — and each fact still *diverges*, so
+`test_every_census_fact_is_compared_routed_or_agreeing` stays green. What is mechanised, and it
+is real: **a routed fact is pinned as _diverging_, in both directions — its content is not
+held.** A seventh fact that starts diverging reds as unclassified; a routed fact that stops
+diverging reds as stale. Value-pinning exists only for the two Maybe papers, and only through
+hand-written literals in
+`test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`.
+
+`DECLARED_DIVERGENCES` already carries the counterpart this table lacks — `RESIDUE_CONTROLS`,
+which exists because **CARD-328's cycle-1 review raised it as IMP-1**, the same lesson one
+registry over. **CARD-346 owes `SIBLING_FINDINGS` the derived residue**; this card owes the
+retraction, which is the paragraph you are reading, and the matching ones in
+`tests/test_public_player_agreement.py` (module docstring, `RoutedFinding`, the classification
+arm and the Maybe-paper arm), `player/player.css` and `11-the-public-player.md`.
+
+**Item 4 — the other three marks. Reported, not taken.** The census is **total at 16 facts**
+(4 states x 2 hooks x {paper, glyph}) and splits **3 compared + 7 agreeing + 6 routed**.
+Cycle 1's first draft of this section said "5 routed" and "8 agreeing" — wrong in two
+cancelling terms, which is why the total still checked out (cycle-1 F-2), and one short of the
+registry the code actually ships (F-1). Re-derived 2026-11-04 by calling `mark_census` on the
+live sheets; the split below is that output, not a recount of the prose.
+
+**Compared (3):** `.player-cell.empty.glyph` (the dot, `dot.declarations`),
+`.player-cell.maybe.glyph` and `.player-swatch.maybe.glyph` (this card).
+
+**Agreeing (7), named rather than counted** — three agree on a *value* and four on *neither
+sheet drawing a glyph there*, which is a real answer and not an absence:
+
+| agreeing fact | both sheets |
+|---|---|
+| `.player-cell.empty.paper` | `background: var(--grid-paper)` |
+| `.player-cell.unknown.paper` | `background: var(--grid-paper)` |
+| `.player-swatch.empty.paper` | `background: var(--grid-paper)` |
+| `.player-cell.filled.glyph` | neither draws one |
+| `.player-cell.unknown.glyph` | neither draws one |
+| `.player-swatch.filled.glyph` | neither draws one |
+| `.player-swatch.unknown.glyph` | neither draws one |
+
+**Routed (6), each with an owner named below:**
 
 | routed fact | what differs | measured |
 |---|---|---|
 | `.player-cell.maybe.paper` | the tint, under the glyph this card added | 1.169:1 tint vs a blank cell; the glyph reads 6.207:1 here against 7.258:1 in the admin |
 | `.player-swatch.maybe.paper` | the swatch half of the same tint (CARD-323's line) | 1.018:1 against the Clear swatch |
-| `.player-swatch.empty.glyph` | **the admin's White swatch previews the cell's dot; this page's draws nothing** | the dot is 6.144:1 on the swatch's paper; without it, White and Clear are two squares 1.19:1 apart |
+| `.player-swatch.empty.glyph` | **the admin's White swatch previews the cell's dot; this page's draws nothing** | the dot is 6.144:1 on the swatch's paper; without it, White and Clear are two plain squares 1.19:1 apart — a hair **above** the 1.169:1 the owner already called indistinguishable, and in the same indistinguishable band as it |
 | `.player-swatch.unknown.paper` | the Clear swatch is `--color-surface-sunken` here, `--grid-paper` in the admin | 1.19:1 |
 | `.player-cell.filled.paper` | CARD-270's inset hairline, admin-only | 1 px of `box-shadow` in `--player-thin`, a token `admin.css` declares and no public asset is served |
+| `.player-swatch.filled.paper` | the admin sinks the Black swatch's border into its fill (`border-color: var(--grid-ink)`); here the base `--color-border-strong` edge stays around the ink | one declaration: `border-color: var(--grid-ink)` present there, absent here, so the border stays #7f755f (3.9:1 on surface) around a #1c2333 fill |
 
-**Owner for all five: the board owner, via this card's reviewer.** None is taken here, because
+**Owner for all six: the board owner, via this card's reviewer.** None is taken here, because
 each is a rendered mark on a page the owner validates by looking, and the card's own
 instruction is not to widen silently past the Maybe mark. **The strongest follow-up candidate
 is `.player-swatch.empty.glyph`**: it is this card's defect one state over — a brush button
 showing a plain square for a mark the board draws a dot for — and it is visible in this round's
-render at `02-the-four-swatches.png`, beside the Maybe swatch that now works.
+render at `02-the-four-swatches.png`, beside the Maybe swatch that now works. **Cut as
+CARD-348**, with both figures and the render confirmed in cycle-1 review.
+
+**Three cards carry what this one names and does not take:** CARD-346 (the derived residue
+control for `SIBLING_FINDINGS`), CARD-347 (retire the README line-count column, rename
+`test_the_maybe_cell_look_is_one_rule_declaring_one_background`, and take `CARD-323.md` with
+it), CARD-348 (the White swatch's dot). Nothing further is filed from this round.
 
 **The README line-count row: UPDATED, not retired.** The policy CARD-323 recorded says the
 first card to change a file updates its row, and this is the first card to inherit it, so
 following it as written is also the measurement the policy needs — the datum is now one, not
 zero. `player/player.css` moved 482 → 521 and the row says so; its "Covers" text gained the
 Maybe mark's "?". The retirement option stands for the **next** card that finds itself updating
-it, exactly as the card instructs, and this round adds one piece of evidence for it: the row
-was stale-by-construction the moment the edit landed and nothing would have reddened.
+it, exactly as the card instructs — and it is now **CARD-347's**, with three pieces of evidence
+from this round rather than one:
+
+1. the row was stale-by-construction the moment the edit landed, and nothing would have
+   reddened;
+2. the sibling convention for *prose* `path:line` refs, which the same policy assigns to
+   `/forge:explain`, produced two freshly-widened false refs in a file this card had open
+   (cycle-1 F-4) — fixed here by retiring them to names;
+3. **and those two were already false on `main` before this branch existed**, measured in
+   cycle 2 rather than relayed: `11-the-public-player.md` claimed the dot `::after` at
+   `player.css:425` where `main` has it at `:446` (21 lines out) and the solved reveal at
+   `:440` where `main` has `@keyframes player-solved-in` at `:470` (30 out). This card did not
+   rot them; it widened a rot nothing reds on. An ungated convention does not decay at the
+   moment someone edits the file — it is already decayed, and the edit only makes it visible.
 
 **Size datum, for calibration, in place of a wall-clock actual.** The clock measures the
 queue rather than the work (owner's standing call), so no wall-clock figure is recorded and
@@ -294,6 +355,59 @@ from `admin.css`, `position: relative` on `.player-swatch` so the swatch glyph h
 containing block, and the `--player-numeral-min` the admin's `font-size` reads. Everything
 else in the diff is the guard, the census and the records. That ratio is the card's own claim
 — "the estimate is 0.5d and the glyph is one line of it" — measured rather than asserted.
+
+## Worktree notes
+
+**Why the code is shaped this way, for whoever reads it next.**
+
+**The glyph is written into `player.css` by a script that read `admin.css`, not by hand.** AC-1
+asks for the admin's declarations "derived rather than retyped", and in CSS there is no import
+to derive through — ADR-0041/R3 copies `solver_state.js` and `tokens.css` byte-identically and
+nothing else, so the admin's rule is *the look this matches, not a file this one reads*. The
+derivation therefore lives in two places: the rule bodies were lifted programmatically out of
+`admin.css` at authoring time, and the standing derivation is the agreement guard, which parses
+both sheets and holds the declaration sets to each other so neither can move alone.
+
+**`--player-numeral-min` is in `player.css` because the derivation demanded it, not as a
+nicety.** The admin's cell glyph reads `max(var(--player-numeral-min), calc(var(--player-cell)
+* 0.6))`, and that token is declared in `admin.css`, *not* in the copied `tokens.css`. Copy the
+declaration without the token and `max()` is invalid, `font-size` is invalid, and the glyph
+renders at body size — a silent visual defect that every declaration-set comparison would call
+agreement. Once each sheet declares its own copy, the two `font-size` strings can read equal
+while rendering at different sizes, so the token's value is compared as its own fact
+(`numeral-floor.value`). It never binds here: `--player-cell-min` is 28px, so 0.6 x cell never
+falls under 16.8px. It is carried because the *declaration* is what agrees.
+
+**`position: relative` on `.player-swatch` is load-bearing, not tidying.** The swatch glyph is
+`position: absolute; inset: 0`, matching the admin's; without a positioned ancestor it resolves
+against the initial containing block and the "?" lands in the page's top-left corner. The
+admin's own `.player-swatch` carries `position: relative` for exactly this reason.
+
+**Why the Maybe *glyph* is compared and the Maybe *paper* is not.** This is the one judgement
+call in the round and it looks arbitrary until you see the precedent: `compared_surface` has
+always treated the Empty mark as its `::after` alone (`dot.declarations`), never the paper
+under it — the public sheet writes `.player-cell[data-state="empty"] { background: … }` and the
+admin writes no such rule at all. The Maybe mark follows that precedent exactly. The paper that
+is left over genuinely diverges, nobody has decided it, and this module's own standing rule is
+that deciding which side is right is not a worktree call. So it is routed, not exempted and not
+silently dropped. See the retraction above for what routing does and does not pin.
+
+**Why `cell_states()` is reimplemented here rather than imported.**
+`tests/test_public_player_maybe.py` already reads `CELL_STATES`, but that module imports this
+one's CSS parser, so importing its reader back would be a cycle. Thirteen lines of regex is the
+trade CLAUDE.md's `mask_runs` precedent names.
+
+**Why the plants live in memory.** Every permanent control substitutes on text read from disk
+and never writes to `src/` — G-1 is structural here, not a promise. The on-disk plants in the
+round's report were one-off measurements, restored from captured content and SHA-256 verified.
+
+**The cascade a planted divergence causes, so a future gate reader does not misread it.** Any
+live undeclared divergence also reds the six pre-existing
+`test_real_drift_inside_a_declared_divergence_is_reported[…]` cells and
+`test_a_fourth_divergence_in_the_compared_surface_is_reported`, because those arms assert the
+key-level table *still absorbs* their own plant. That is designed — the guard's own failure
+message says to read `test_the_disagreements_are_exactly_the_declared_ones` first — and it is
+not collateral damage.
 
 ## Notes
 

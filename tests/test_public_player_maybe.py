@@ -89,7 +89,9 @@ One nit left standing deliberately:
 now reads as a claim about the **paper** rule only, which is still one rule
 declaring one background. The name is not renamed here because
 ``meta/kanban/cards/CARD-323.md`` cites it twice by name and that file is
-outside CARD-339's ``Touches``; a card that takes both can rename it.
+outside CARD-339's ``Touches`` — and a rename would go dead under a check-ref
+resolver that is a TEXT search. **CARD-347 takes both files and owes the
+rename**; this note is the interim.
 
 Tests, by node id (FR-045, CARD-323's ACs)
 ------------------------------------------

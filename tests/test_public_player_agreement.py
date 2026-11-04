@@ -102,10 +102,23 @@ mark agrees" from being read as "the marks agree".
 the difference is worth stating because the two look alike. A declared
 divergence is a fact **inside** the compared surface that is *allowed* to
 differ for a decided reason. A routed finding is a fact **outside** it that
-*does* differ, that nobody has decided, and that this guard pins so it cannot
-change in either sheet unremarked. Nothing is exempted by being routed: the
-compared surface stays exactly as wide as it is, and the census is what makes
-its edge visible.
+*does* differ, that nobody has decided, and that this guard pins **as
+diverging**. Nothing is exempted by being routed: the compared surface stays
+exactly as wide as it is, and the census is what makes its edge visible.
+
+**What "pinned" buys, stated narrowly because a first draft of this paragraph
+overclaimed it** (CARD-339 cycle 1, F-3, falsified by plant rather than by
+reading). The classification is held in both directions — a seventh fact that
+starts diverging reds as unclassified, and a routed fact that *stops* diverging
+reds as a stale entry. The **content** of a routed divergence is NOT held:
+changing the admin's filled-swatch ``border-color``, or repainting the public
+Clear swatch in ink, leaves each fact diverging and the arm green. Only the two
+Maybe papers are value-pinned, and only by hand-written literals in
+:meth:`TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed.test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`.
+:data:`DECLARED_DIVERGENCES` has the counterpart this table lacks —
+:data:`RESIDUE_CONTROLS`, which exists because CARD-328's cycle-1 review raised
+it as IMP-1 — and **CARD-346 owes this registry the same**, derived rather than
+written down. Until it lands, "routed" means classified, not pinned by value.
 
 What this module does **not** do
 --------------------------------
@@ -1089,8 +1102,11 @@ class RoutedFinding:
     * a :class:`Divergence` is a fact **inside** the compared surface that is
       *allowed* to differ, because somebody decided it should;
     * a :class:`RoutedFinding` is a fact **outside** it that *does* differ,
-      that nobody has decided, and that this guard pins so neither sheet can
-      change it unremarked.
+      that nobody has decided, and that this guard pins **as diverging — its
+      content is not held**. Do not read the word "pinned" more widely than
+      that: see the module docstring's paragraph on what it buys, and
+      **CARD-346**, which owes this table the derived residue control
+      :data:`RESIDUE_CONTROLS` already gives the other one.
 
     Nothing is exempted by being routed. The compared surface is exactly as
     wide as it was; the census is what makes its edge visible, and these
@@ -1165,8 +1181,11 @@ SIBLING_FINDINGS: dict[str, RoutedFinding] = {
             "The dot the admin's swatch draws is --color-text-secondary #5c6070 at 28% of "
             "the box, 6.144:1 on the swatch's paper. Without it, this page's White and Clear "
             "swatches are two plain squares 1.19:1 apart (--grid-paper #fffdf8 vs "
-            "--color-surface-sunken #efe9dc) — below the 1.169:1 the owner already called "
-            "indistinguishable for the Maybe cell."
+            "--color-surface-sunken #efe9dc) — a hair ABOVE the 1.169:1 the owner already "
+            "called indistinguishable for the Maybe cell, and in the same indistinguishable "
+            "band as it. (The comparative ran backwards in CARD-339's first draft, which "
+            "said 'below'. Both figures were right and the word was not; the arm below "
+            "checks a `measured` field for a digit and cannot catch a wrong comparative.)"
         ),
     ),
     ".player-swatch.unknown.paper": RoutedFinding(
@@ -1678,6 +1697,14 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
         rather than about the one that already happened. A routed finding that
         stops diverging is the stale-exemption shape: somebody fixed it and
         left the queue entry standing.
+
+        **What this arm does NOT establish**, said here because the word
+        "routed" invites the wider reading and CARD-339's cycle 1 caught it
+        being made: it compares the **classification**, never the value. A
+        routed fact whose two sides change — the admin's filled-swatch
+        ``border-color`` taking another token, the public Clear swatch
+        repainted in ink — still diverges, and this stays green. The derived
+        residue that would close that is **CARD-346**.
         """
         compared = set(MARKS_IN_THE_COMPARED_SURFACE)
         diverging = {key for key, pair in census.items() if pair[0] != pair[1]}
@@ -1731,6 +1758,12 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
         contrast ratio or a count is. CARD-339's G-3 asks a declared
         divergence for a reason and a measured residue; this holds the routed
         table to the same two things, so routing is not the cheaper door.
+
+        **Its floor is a digit, and that is all it is.** A figure that is right
+        and a sentence that reads it backwards both pass here — which happened
+        once, in the `.player-swatch.empty.glyph` entry above, and was caught
+        by a reviewer rather than by this arm. Stated rather than left to be
+        rediscovered.
         """
         thin = sorted(
             key
@@ -1761,6 +1794,13 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
         table means "allowed, for a decided reason", and nobody has decided
         this; an entry there would be the exemption CARD-339's G-3 names as
         the defect it exists to fix, arriving one level up.
+
+        **And this is the ONLY value-pinning in the routed table**, which is
+        worth knowing before trusting the word "pinned" elsewhere: the two
+        literals below are written out by hand, they cover two of the six
+        routed facts, and the other four are held to diverging and nothing
+        more. **CARD-346** owes the table a derived residue per entry, the way
+        :data:`RESIDUE_CONTROLS` does for :data:`DECLARED_DIVERGENCES`.
         """
         for key in (".player-cell.maybe.paper", ".player-swatch.maybe.paper"):
             assert key in SIBLING_FINDINGS, key

@@ -136,13 +136,19 @@ that token, it lives in `admin.css` rather than in the byte-identically copied
 at the body size. And the marks are no longer *assumed* to agree: the same module
 censuses every state `solver_state.js` declares against both hooks and both
 sheets, and every fact of it has to be compared, agreeing, or routed to the owner
-with a figure. Five facts are routed today, the two Maybe *papers* among them —
-the admin's Maybe cell has no background rule at all, so it draws the glyph on the
-board's paper at 7.258:1 where this page draws it on the tint at 6.207:1. Nobody
-has decided that, so it is pinned rather than exempted.
+with a figure. Of the sixteen facts, three are compared, seven agree and **six
+are routed**; the two Maybe *papers* are among the six, because the admin's Maybe
+cell has no background rule at all and draws the glyph on the board's paper at
+7.258:1 where this page draws it on the tint at 6.207:1. Nobody has decided that,
+so it is routed rather than exempted — which means the census holds it to **keep
+diverging**, and (for these two, by written-out values) to keep the values it
+has. The other four routed facts are held to diverging and no further; the
+derived residue that would close that gap, the counterpart of the one
+`DECLARED_DIVERGENCES` already carries, is CARD-346's.
 
 An empty cell is drawn as a **centred dot**, 28% of the cell, as an `::after`
-(`player.css:425`) — the mark `admin.css` draws for the same state. It was two
+(`player.css`'s `.player-cell[data-state="empty"]::after`) — the mark
+`admin.css` draws for the same state. It was two
 `linear-gradient` strokes here (a cross) until 2026-10-30, so the same mark meant
 one thing in the panel and another on the public page; the owner chose the dot and
 the divergence is closed. Like everything else shared between the two players, it
@@ -154,7 +160,9 @@ is reimplemented rather than imported: R3's byte-identical copy covers
 
 On the transition into solved, the banner settles in and the filled cells flash the
 success colour in a diagonal sweep before ending in ink — about 0.8 s in all
-(`player.css:440`-`456`). The sweep's per-cell delay reads `--player-wave`, which
+(`player.css`'s `@keyframes player-solved-in` and `player-solved-flash`, and the
+`body[data-solved="true"] .player-cell[data-state="filled"]` rule that plays
+them). The sweep's per-cell delay reads `--player-wave`, which
 `play.js:352` sets to `row + col` when it draws each cell, exactly as `solver.js`
 sets it for `admin.css`'s copy of the same animation.
 
