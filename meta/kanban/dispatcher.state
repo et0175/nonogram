@@ -578,6 +578,12 @@ queued:
 # CARD-336's entry also carried its REFUTED pre-re-cut summary -- "39 placed-edge
 # reds, ONE mechanism, four modules" -- so it was a stale figure as well as a
 # stale entry. The card closed as 4 cells + 1 declared across TWO modules.
+# CARD-337 REMOVED from `queued` 2026-11-04: it is ACTIVE in wave 75, and a card
+# sitting in both `active` and `queued` is the same shape CARD-336's merge gate
+# found last wave (two MERGED cards still listed here). Caught at the open this
+# time rather than at a gate. `queued` is the forward plan; a card that has
+# started is not in it. CARD-320 is next and runs ALONE -- see the block at the
+# end of this file for why, and do not pair it.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
@@ -588,7 +594,6 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
 last_updated: 2026-11-04T08:33:00Z
 
