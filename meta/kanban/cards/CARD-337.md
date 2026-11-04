@@ -432,20 +432,82 @@ resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
 
 ## Acceptance criteria
 
-- **AC-1** (the nine are repaired, with a disposition each): *Given* a run under
+> **[RESTATED 2026-11-04 for the re-cut scope, on the owner's instruction — and the provenance
+> matters, so read it before the criteria.]**
+>
+> **These were written AFTER the implementation round ran**, because the re-cut shrank the card
+> from thirteen modules to one and nobody restated its criteria at the time. **So they are not
+> what that round was aiming at**, and a reader judging it against them should know that. They
+> are derived from the **re-cut's own scope statement** — one module, its 10 reds, and the
+> ADR-0042/R6 question — and not from the round's report; writing criteria out of a report is
+> grading the homework that produced it.
+>
+> **The superseded set is preserved verbatim below**, because it is the record of what the
+> thirteen-module card required and of where each of its clauses went. **Every clause of the old
+> AC-1, AC-2 and AC-3 is now owned by another card** — CARD-354 … CARD-360 by module, plus
+> CARD-322, CARD-343 and CARD-352 by mechanism — so nothing in it was dropped, only re-homed.
+
+- **AC-1** (the module's reds are closed, with a route stated per claim): *Given* a run under
+  CARD-338's five-kind probe, *then* `tests/test_book_pdf_ink_mode.py` carries **zero** reds, the
+  count is stated **before and after**, and **each affected claim names its ADR-0042/R6 route** —
+  re-expressed against the content stream, or retired with a named survivor — **with the
+  measurement that chose it.** A module left green because the probe does not reach it is not
+  repaired, and saying so is the AC.
+  (test: the module by node id, under the probe, with `-o addopts=` as two argv items)
+- **AC-2** (the medium split is measured, not assumed): *Given* the interior, *then* the
+  **per-page** raster/vector split is derived at runtime from the file rather than inferred from
+  `_RASTER_DECLARATIONS` alone, and a page the reader cannot classify is a **FAILURE**
+  (ADR-0039/R2). **This is the AC the re-cut most needed and did not have:** the orchestrator's
+  brief asserted that a vector page declares no colour space *and therefore the claim has no
+  subject*, which is true per page and **false of the interior**, because at least one interior
+  kind is still declared raster. A card that accepted the brief would have retired a claim with a
+  live subject.
+  (test: named by the implementation; state it)
+- **AC-3** (a re-expression is not weaker than what it replaces): *Given* each claim taken by
+  route 1, *then* the card states **what it asserted before and what it asserts now**, and shows
+  the new form is **at least as strong** — a re-expression that admits something the old form
+  caught is a weakening and a finding against the card. Where the new form rests on a forbidden
+  set, that set is **derived** and not hand-listed (ADR-0039/R2).
+  (test: named by the implementation; state it)
+- **AC-4** (a retirement has a survivor that can fail): *Given* each claim taken by route 2,
+  *then* its survivor is **named and asserted** — not commented — and **a plant that empties the
+  surviving arm makes the module RED**, demonstrated. **A retirement whose survivor cannot fail is
+  a deletion**, and this AC is the only thing separating the two.
+  (test: named by the implementation; state it)
+- **AC-5** (the repair holds in both media): *Given* the module, *then* it is green **under the
+  five-kind probe AND on the committed raster tree**, both stated. A repair green in one medium is
+  the defect ADR-0042/R6 exists to prevent.
+  (test: the module, both ways)
+- **AC-6** (the change can fail, and the post-repair census is re-run): *Given* the repair, *then*
+  **at least one plant per route**, each killed, each with its matched control measured green **in
+  the same run** and `0 skipped` asserted; any plant into `src/` restored **byte-identically**
+  with the SHA-256 pair shown. **And the module is re-censused AFTER the repair** — `pdf_band`
+  gained three byte-identity reds only once its seam was planted, so a pre-repair census is not a
+  statement about the post-repair tree.
+  (evidence: the plant table in `## Worktree notes`)
+- **AC-7** (the measurement is the instrument's): *Given* the five-kind probe, *then* every skip
+  is attributed **by name from `-rEfs` as ONE flag** — two database gates coexist here, `-rf -rs`
+  as two flags silences the first, and **`-rfs` omits ERRORs**, which matters because a large
+  share of this family's reds are fixture-raised. A figure read off a brief rather than off a run
+  is the defect this board has now hit six times.
+  (evidence: the run output)
+
+### Superseded set — the thirteen-module card's criteria, preserved
+
+- **[SUPERSEDED] AC-1** (the nine are repaired, with a disposition each): *Given* a run under
   CARD-338's five-kind probe (`scratchpad/card338/probe_five_kinds.py`), *then* each of
   the nine routed modules passes, and the card
   states **per module** which of three dispositions it took and why — the seam sufficed,
   the module needed more, or a claim was retired with a named survivor. **A module left
   green only because the probe does not reach it is not repaired, and saying so is the
   AC.** (test: the nine modules by node id, under the probe, with `-o addopts=''`)
-- **AC-2** (the four non-seam mechanisms each have a stated disposition): *Given* the
+- **[SUPERSEDED] AC-2** (the four non-seam mechanisms each have a stated disposition): *Given* the
   branch, *then* `test_book_pdf_levels.py`'s and `test_book_pdf_two_up.py`'s
   byte-identity survivors, `test_book_arrange_page_breaks.py`'s segmentation red and
   `test_book_interior_type_floor.py`'s three each carry a disposition naming the
   mechanism, not a repair naming the symptom. **The byte-identity half additionally
   states how its expectation stays independent of the writer under test.**
-- **AC-3** (the populations are derived and total, including the one the census missed):
+- **[SUPERSEDED] AC-3** (the populations are derived and total, including the one the census missed):
   *Given* `tests/**`, *then* populations A, B and **C** (the medium-decision references)
   are derived by `ast` with their filters stated in one sentence each, nothing is
   unclassified (ADR-0039/R2), and **every module of the union is green under the
@@ -455,7 +517,7 @@ resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
   (CARD-336), `tests/test_book_difficulty_dots.py` (CARD-322's arm re-point),
   `tests/test_book_guide_page.py` (CARD-336). Each exclusion is **named with its owner**,
   not left as a residue.
-- **AC-4** (the measurement is the instrument's, and the instrument is controlled):
+- **[SUPERSEDED] AC-4** (the measurement is the instrument's, and the instrument is controlled):
   *Given* the five-kind probe, *then* the round records the red count before and after,
   **every skip attributed by name from `-rfs` as ONE flag** (two database gates coexist
   here and `-rf -rs` as two flags silences the first), and the probe's own
@@ -464,12 +526,13 @@ resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
   the conversion's, not the probe's** (CARD-338 measured them identical on a tree with the
   five entries deleted in `src/` and no probe loaded). A figure read off the brief rather than off a run is the defect this board has
   hit five times.
-- **AC-5** (the change can fail): **one plant per repaired module**, each re-breaking that
+- **[SUPERSEDED] AC-5** (the change can fail): **one plant per repaired module**, each re-breaking that
   module's own repair, each killed, each with its matched control measured green **in the
   same run** and `0 skipped` asserted. **A repair with no plant is a claim, not a fix.**
   Where a module holds no green node to be a matched control, declare the survivor and
   say why — CARD-329's MUT-11 is the precedent, not an excuse. (evidence: the plant table
   in `## Worktree notes`)
+
 
 ## Engineering constraints
 
