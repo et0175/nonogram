@@ -274,7 +274,9 @@ current tip (which had moved — CARD-348's certification landed) and identical 
 1 Important (F-102), 3 Minor (F-103/104/105). Artefact: `meta/review/CARD-363-cycle2.yml`.
 **Cycle 3 is the last `max_cycles` allows.**
 
-**⚠ This marker is written BELOW the cycle-1 line deliberately.** F-101(a) measured that the new
+**⚠ RETRACTED — the placement constraint is lifted** (ADR-0039/R4). This marker was written below the cycle-1 line deliberately, and the paragraph below states why. The cycle-3 fix round (`d5273798`) made the ordinal comparison **order-free** and measured **both** placements green, so the constraint no longer exists. It is retracted here rather than deleted, because leaving it standing would be the exact defect this card charges elsewhere — a document asserting both states with the stale one first. **What survives: single-ordinal is still necessary.** The repeated-ordinal arm fires on upstream's threshold double-write, which is a real guard-1 violation, so the closing cycle must emit **one** `[Review N/M] Score:` line, not two. The superseded reasoning follows.
+
+**⚠ [SUPERSEDED] This marker is written BELOW the cycle-1 line deliberately.** F-101(a) measured that the new
 re-entry check compares *consecutive written ordinals*, so placing a later ordinal above an earlier
 one reds the module — and this card's notes are ordered newest-first, which is the placement its own
 history establishes. Until F-101(a) is fixed, the closing stamp must be **single-ordinal AND written

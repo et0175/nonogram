@@ -1,4 +1,4 @@
-# CARD-367: This board estimates in review cycles and has no ADR saying so — the decision is recorded only in the tool that reads it
+# CARD-367: This board estimates in review cycles with no ADR of its own saying so — the decision is recorded upstream, and this board never recorded adopting it
 
 **Status:** ready
 **Priority:** P2
@@ -10,7 +10,7 @@
 **TDD:** false
 **Branch:** —
 **Worktree:** —
-**Source:** Found by CARD-363's implementation round, 2026-11-04, which pinned the absence with a test rather than reporting it: `ADR-0055` is cited by five of this board's artefacts and the local ADR series tops out at **0042**. Traced at the station to a cross-repository category error of the orchestrator's — see below.
+**Source:** Found by CARD-363's implementation round, 2026-11-04, which pinned the absence with a test rather than reporting it: `ADR-0055` is cited by **six** of this board's artefacts (the five below plus this card itself) and the local ADR series tops out at **0042**. **Two corrections since, both measured by CARD-363's later cycles:** the ADR **does exist** upstream, accepted — so the decision is not "recorded only in the tool that reads it", it is recorded in the tool's own architecture, and this board's gap is an **unrecorded adoption** rather than an unwritten decision; and the citing count was five when written and is now six. Traced at the station to a cross-repository category error of the orchestrator's — see below.
 **Idea:** —
 **Wave:** —
 **Created wave:** 76
