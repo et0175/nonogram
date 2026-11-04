@@ -24,6 +24,31 @@
 **Merge commit:** —
 **Blocked by:** —
 
+> **[SCOPE CHANGED 2026-11-04 by CARD-348, which is in review now — read before the figures.]**
+>
+> **`SIBLING_FINDINGS` is down to FIVE entries, not six.** CARD-348 moved
+> `.player-swatch.empty.glyph` out of the routed table and into `compared_surface` by giving the
+> public White swatch the dot the admin's draws. Verified at the station: five entries remain —
+> `.player-cell.maybe.paper`, `.player-swatch.maybe.paper`, `.player-swatch.unknown.paper`,
+> `.player-cell.filled.paper`, `.player-swatch.filled.paper`.
+>
+> **So this card's "four of six are unpinned" becomes three of five**, and its round should
+> **re-derive the split rather than adjust the arithmetic** — this board has twice now corrected a
+> figure while keeping the instrument that produced it.
+>
+> **CARD-348 also fixed the prose counts in the module** ("two of the six" → "two of the five",
+> "the other four" → "the other three", "a seventh fact" → "a sixth fact"), so no stale count
+> survives there. It built **no** content-pinning and relied on none, so this card's subject is
+> untouched.
+>
+> **And it added something this card should not duplicate:**
+> `test_the_swatch_is_the_containing_block_both_marks_resolve_against`. CARD-348 found that
+> dropping `position: relative` from `.player-swatch` sends **both** swatch marks to the page's
+> top-left **while every declaration-set equality stays green**, because the two sheets would
+> still agree about the `::after`. That is a hole of exactly this card's shape — a guard agreeing
+> about content while the rendered result is wrong — and it is already closed. Read it before
+> designing the residue control; it is the worked example.
+
 ## The defect, falsified rather than argued
 
 CARD-339 added a `SIBLING_FINDINGS` registry of facts that **do** differ between the two
