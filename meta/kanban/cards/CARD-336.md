@@ -29,7 +29,7 @@
 
 ## Why this card exists, and why it is not a sub-item of the conversion
 
-**It is one mechanism serving four modules, and the modules were measured.** Re-derived
+**It is one mechanism serving two modules, and the modules were measured.** Re-derived
 at the decompose station on 2026-10-31 under CARD-329's own probe
 (`scratchpad/card329/measure_probe.py`, `probe_puzzle_operators.py`, run on `b26bdd62`),
 the whole 20-module census reproduces that card's figures to the digit — **17 of 20 red,
@@ -282,10 +282,20 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   green **in the same run**, and `0 skipped` asserted. (evidence: the plant table in
   `## Worktree notes`)
 
+  **Plants (c) and AC-4's pin both target `tests/test_book_pdf.py`, which the 2026-11-04
+  re-cut REMOVED from `Touches`. That is deliberate and not a contradiction**, so it is
+  stated here rather than left for a reviewer to read as a scope violation: `Touches`
+  governs the files this card **changes as a deliverable**. A mutant is planted and then
+  **restored from captured content**, so the file is byte-identical afterwards and nothing
+  is delivered in it — the SHA-256 before plant and after restore is the evidence. Planting
+  into a module outside `Touches` to measure a pin is a measurement, and this card's own
+  round already did exactly that twice with the hashes recorded. **What is forbidden is
+  leaving an edit there**, which AC-4's byte-identity check is what proves.
+
 ## Engineering constraints
 
 - **EC(ADR-0039/R2):** the population of re-expressed cells is **derived** and the
-  partition is total — every placed-edge cell in the four modules lands in exactly one
+  partition is total — every placed-edge cell in the two modules lands in exactly one
   class (re-expressed · already a coordinate comparison · a declared device-fact claim
   R6 exempts) and an unclassifiable one fails.
 - **EC(ADR-0042/R6):** the new reading is a pixel oracle and therefore stays inside R6's
@@ -384,7 +394,7 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   that it "can land before any page converts". A site it classes exempt is a site it does
   not repair. The segmentation red is **CARD-337's**.
 - **[Expect the merge gate to find a frozen registry]** This card adds public functions to
-  `tests/helpers/page_ink.py` and changes node ids in four modules. `_stream_readers()`
+  `tests/helpers/page_ink.py` and changes node ids in two modules. `_stream_readers()`
   derives over **both** owner helpers' public surface and `_MEDIUM_BLIND_READERS` is the
   hand-written other half of that partition, so a new public reader lands in one of them
   or the completeness cell reds. Derive which registries your diff touches and run them
