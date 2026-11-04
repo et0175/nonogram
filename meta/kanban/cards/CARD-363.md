@@ -1,6 +1,6 @@
 # CARD-363: The retrospective's two inputs are unguarded — the cycle marker is absent on 128 of the 231 scored cards, and nothing requires a wave's estimate to be in the unit the ratio needs
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 2c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_kanban_review_record.py
-**Review score:** —
+**Review score:** 7.75 (cycle 3/3 — NOT CERTIFIED, ⚠ max cycles reached) — merged on the owner's instruction after a FOURTH pass with a changed remit, which is not a review cycle: cycles_used stays 3
 **Started:** 2026-11-04T14:14Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-04T20:19Z
+**Actual:** 3c — ratio 3/2 = **1.500**, NOT certified. **This is the board's first cycle ratio that is neither 1.000 nor 0.500**, which is exactly what this card's own `Wave` re-stamp note predicted it would contribute, and it therefore carries information about the SHAPE of the estimate error rather than only its presence: the card was priced at 2 review cycles and consumed 3 before escalating. The fourth pass is deliberately NOT counted — it ran past `max_cycles` on the owner's authorisation with a changed remit and wrote no `[Review N/M] Score:` marker, so `cycles_used` as the extractor reads it stays **3** and the marker count agrees with the cycle the score names. Counting it would have been this module's own defect committed on this module's own card. Sized by derived datum, **wall-clock excluded** per the owner's standing ruling that the clock measures the queue rather than the work: three review cycles and a fourth pass queued behind other cards' full-suite locks, and two 25-minute suites of this card's own are queue time by the same rule. Datum: 1 file, +2311/−0 (`tests/test_kanban_review_record.py`, new); **+68 test arms, 0 → 68**; 141 assertions across 30 test functions, every one classified against the five correct board operations.
+**Merge commit:** `63f246a2`
 **Blocked by:** —
 
 ## The measurement
@@ -200,6 +200,53 @@ skip: that is the shape this whole family keeps producing.
 - forge_1's ADR-0055 (upstream, not this board's — see CARD-367) — review cycles are the estimate unit (check: review-lens)
 
 ## Worktree notes
+
+[Merge gate, merged `63f246a2`] **CLOSED, NOT CERTIFIED — and the gate's own finding is that
+the three review cycles could not have caught what the fourth pass found.** INV-023 freezes
+`meta/kanban` on a card branch at the merge base, so this module's tree reader read cards that
+predated every board write since the cut. Measured at the same commit, same module: **67 passed on
+the branch, 2 failed / 65 passed against main's cards.** Three green cycles coexisted with a module
+that would have turned main red on merge. Resolved at this gate by merging main into the branch
+FIRST (`98d5e488`), after which the branch reads the real board and is green — the procedure every
+future card touching a board census should inherit.
+
+**What the fourth pass changed, under one rule applied to all 141 assertions** — can a correct board
+operation move this value? Five cells moved off equality, each because the board writes it as a
+correct operation: the `Wave`-comment census (**16 against `== 15`** on main, because wave 76's close
+re-stamped this card's own `Wave` 76 → 77), the `Estimate`-comment census, an in-scope ban that
+forbade the **dispatch convention by construction** while conceding in its own comment that it had no
+members, `len(without) == 244` → a ceiling (CARD-310 is `ready` at `Wave: 67` with `0.5d`, so
+dispatching it correctly re-prices it to 243), and `sentinel == 60` → a floor (an owner's-call merge
+is a correct operation with 60 precedents). Every equality that remains carries the reason it cannot
+move, written beside it.
+
+**Proved by simulation rather than argument:** five correct board operations in eight variants —
+closure, wave open on a `ready` card and on a pre-74 one, re-stamp, re-estimate in and out of scope,
+re-cut with a new tracked card — each on a **git-initialised** copy of main's cards, each leaving the
+module green, cards restored byte-clean. The same eight against the previous module red, the pre-74
+wave open with a **third** failure nobody had listed, which is how `len(without)` became a ceiling.
+
+**Four findings closed, each re-derived rather than carried:** F-202's 39/10 split restated as
+**39 / 9 / 1** — 39 duplicate only the maximum, 9 the maximum and a value below, and exactly one
+(CARD-192, ordinals `1,1,2`) below without it, so **48 of 49** and ONE counterexample rather than ten;
+F-203's static half, measured blind to the module's own segment-built path idiom (a planted
+`REPO_ROOT / "meta" / "review"` left all 67 green) and now segment-aware; F-204's capability loss,
+disclosed per ADR-0039/R3 and measured on in-scope CARD-348 (the CARD-020 misread shape with markers
+forged to agree is **fully green**, the matched control reds 4); F-205's missing control for guard 1's
+third refusal arm, which is **live** — a bare `9.0` on in-scope CARD-348 reds five tests.
+
+**Two of the orchestrator's framings retracted in place rather than edited away:** the CARD-020
+citation (the retired spelling ban was **in-scope-only** and CARD-020 is **wave 13**, and the ban's
+live in-scope set measures **EMPTY**, which is the stronger ADR-0039/R1 ground for removing it), and
+the `cN` census, which is 4, 5 or 6 depending on the regex and now says which.
+
+**MERGE GATE on the merged tree:** **10348 passed / 0 failed / 27 skipped / 1 xfailed**, skips the
+baseline exactly and attributed off `-rEfs` — 26 bare-`DATABASE_URL` + 1 `setrlimit`, unarmed because
+no local Postgres answers, so arming would have ERRORED the 26 rather than passing them. Reconciles
+three ways: 10348 + 27 + 1 = **10376** = the branch's collection; 10376 − 10308 (main's) = **68**; and
+68 is this module's own collection. Main's tree after the merge is byte-identical to the gated tree,
+so this run is wave 77's smoke test by identity. Lock written by the gate (holder / why / absolute
+worktree / commit / at, **no pid**), released by an `EXIT` trap and verified gone.
 
 [Fix round, commit `db4febab`] **All seven cycle-1 findings closed**, one file
 (`tests/test_kanban_review_record.py`), INV-023 clean, no `src/` change, stdlib only, `forge_1`
