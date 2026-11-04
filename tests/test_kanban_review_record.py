@@ -13,6 +13,28 @@ carrying a numeric score, **128 carry no marker at all** and **50 carry a
 number that disagrees** with the cycle their score states. The marker is the
 weaker record of the two — and it is the only one the extractor reads.
 
+**Why the 50 disagree, measured — and it is NOT that the cards are wrong.**
+This module first described them as cards that "disagree with themselves, so
+the retrospective's ``cycles_used`` and the card's own prose cannot both be
+right". That reading is refuted by the cards. 49 of the 50 carry a marker
+count *greater* than the cycle their score names, and the cause is upstream's
+counting rule: ``cmd-review-cycle``'s sync point writes a ``Score`` line at
+each of its **three** write sites, so a cycle that reaches its threshold emits
+**two**. Counting distinct ``[Review N/M]`` **ordinals** instead of Score
+*lines* takes the 50 down to **2** — CARD-192 and CARD-262 — with **zero**
+regressions among the 50 cards that currently agree. 49 cards carry a
+duplicated ordinal and they are one bounded era, **CARD-113 through
+CARD-192, with nothing after it**. So the cards are fine and the rule is
+wrong.
+
+This module nonetheless **keeps counting what the extractor counts**, because
+that count is the input it exists to guard: a guard that reads the field
+better than its subject does stops reporting its subject's defect. The
+measured correction is the finding handed upstream (G-3), alongside "read the
+score field instead" and "five recent cards write their markers under a later
+heading where the extraction cannot see them" — not an edit to ``forge_1``,
+which is read-only. The measurement is carded as CARD-369.
+
 **The denominator.** ``estimate_cycles`` is an ``Nc`` term in ``Estimate``.
 Nothing required a card that ran in a wave to carry one. Waves 71–73 exported
 no calibration signal for exactly this reason: they had the cycle count all
@@ -133,6 +155,7 @@ board's censuses rot.
 from __future__ import annotations
 
 import ast
+import builtins
 import re
 import shutil
 import subprocess
@@ -231,9 +254,22 @@ def strip_comments(value: str) -> str:
 def worktree_notes(text: str) -> str | None:
     """The ``## Worktree notes`` section, or ``None`` if the card has none.
 
-    ``None`` is not "no markers": it is a card whose marker count the
-    retrospective's extraction has nowhere to read, and this module classifies
-    it :data:`UNCLASSIFIABLE` rather than folding it in as zero.
+    ``None`` is not ``0``, and the distinction is **this module's own**, not an
+    inherited claim about what the retrospective does with each. A card with
+    no notes section has nowhere for a marker count to be read *from* — the
+    record is unreadable. A card with a notes section holding no marker is
+    readable and says zero. Those are different defects with different fixes
+    (write the section; write the marker), so this module classifies the first
+    :data:`UNCLASSIFIABLE` and the second :data:`NO_MARKER` instead of
+    collapsing them.
+
+    **It is not justified by the retrospective's arithmetic, which does
+    collapse them.** Upstream maps both shapes to one null — ``cycles_used``
+    is null when a card carries no ``[Review N/M] Score:`` line *at all* —
+    and a card with a null count is *skipped* from every mean, sum and ratio
+    that reads it, "never folded in as 0". An earlier draft of this docstring
+    said the retrospective "folds the second into a mean"; the upstream spec
+    denies that twice. The distinction below is kept on its own merits.
     """
     heading = _WORKTREE_NOTES_HEADING.search(text)
     if heading is None:
@@ -273,6 +309,28 @@ def cycle_named(score: str) -> int | None:
     wrong on real cards of this board, in opposite directions, and
     :func:`test_cycle_named_beats_both_naive_readings_on_the_real_tree`
     measures how often.
+
+    **``max`` has a THIRD failure mode, and it is disclosed rather than
+    handled.** Upstream's per-invocation counter ``for cycle in
+    1..max_cycles`` restarts at 1 on every manual ``/kanban review``
+    re-entry, so a card reviewed across two invocations has a true cycle count
+    equal to the *sum* of its Score lines, which ``max`` under-reads — the
+    same reason upstream rejects "the N of the last Score line". Upstream's
+    own case is CARD-091: six invocations of lengths 5/3/3/5/3/1, each
+    restarting at ``1/6``, 20 true Score lines, where ``max`` reads 5 and
+    "last" reads 1. Guard 1 compares the marker count (which sums across
+    invocations) against this reading, so on a re-entered card it would red a
+    **correct** record.
+
+    Not handled, and the reason is the module's standing one: detecting a
+    re-entry means reading the marker ordinals as something other than what
+    the extractor counts, and no card this guard speaks about is re-entered,
+    so the handling would be code with no case. Not live is *measured* rather
+    than recalled —
+    :func:`test_the_marker_count_agrees_with_the_cycle_the_score_names`
+    asserts that no in-scope card's marker ordinals restart, so the day one
+    does, that assertion reds and sends its author here instead of leaving
+    guard 1 to red on a card that did nothing wrong.
     """
     ordinals = cycle_ordinals(score)
     return max(ordinals) if ordinals else None
@@ -535,17 +593,51 @@ def test_the_marker_count_agrees_with_the_cycle_the_score_names(
     The floor assertion is the control against vacuity (ADR-0039/R1): a guard
     whose population silently empties passes forever. Stated as a floor and
     not an equality so that closing a card does not red it.
+
+    The last assertion holds :func:`cycle_named`'s third disclosed failure
+    mode to "not live": upstream's cycle counter restarts at 1 on a manual
+    review re-entry, so a re-entered card's markers read ``1, 2, 3, 1, 2``
+    and its true count is the sum while ``max`` over the score field reads
+    only the longest invocation. Every in-scope card is single-invocation
+    today, which is **measured here** rather than asserted in a comment, so
+    guard 1 cannot start resting on that without this reddening first.
     """
-    population = [
-        c.name
+    in_scope = [
+        c
         for c in ran_in_a_wave(tree, ESTIMATE_UNIT_FIRST_WAVE)
         if c.status == "done" and c.is_scored
     ]
+    population = [c.name for c in in_scope]
     assert len(population) >= 5, (
         "guard 1 has gone vacuous: no card from wave "
         f"{ESTIMATE_UNIT_FIRST_WAVE} onwards is done-and-scored. Population: "
         f"{population}"
     )
+    # BEFORE the guard, deliberately. A re-entered card reds the guard too --
+    # marker count 4 against a score naming cycle 2 -- but it reds it with a
+    # bare `marker_disagreements(tree) == []`, which says the record is wrong
+    # when the record is right. Measured: planting a re-entry on CARD-339
+    # (markers 1,2,1,2) reds the guard assertion with no message at all. This
+    # check runs first so the explanation arrives instead of the accusation.
+    restarted = {}
+    for card in in_scope:
+        section = worktree_notes(card.text) or ""
+        ordinals = [
+            int(found.group(1))
+            for line in section.splitlines()
+            if (found := _MARKER.match(line))
+        ]
+        if any(later <= earlier for earlier, later in zip(ordinals, ordinals[1:])):
+            restarted[card.name] = ordinals
+    assert restarted == {}, (
+        "an in-scope card's marker ordinals do not increase, which is the "
+        "signature of a manual review re-entry: upstream's counter restarts "
+        "at 1, so the true cycle count is the SUM of the Score lines while "
+        "cycle_named's `max` over the score field reads only the longest "
+        "invocation. The card is RIGHT and guard 1 below is about to call it "
+        f"wrong. See cycle_named's docstring. {restarted}"
+    )
+
     assert marker_disagreements(tree) == []
 
 
@@ -555,6 +647,18 @@ def test_a_planted_marker_disagreement_reds_by_name(tmp_path: Path) -> None:
     CARD-339 ran in wave 74, scores *cycle 2 of 3* and carries two markers.
     Deleting one makes the record claim a cycle it cannot evidence — exactly
     the shape the retrospective would read as ``cycles_used = 1``.
+
+    **The restored marker is inserted after the notes HEADING, not appended at
+    end of file**, and the count it produces is asserted rather than left to a
+    substring. Appending was this round's own defect: CARD-339's
+    ``## Worktree notes`` is followed by a later ``## Notes``, so an appended
+    marker lands *outside* the section, the in-notes count is **0**, and the
+    message reads ``0 … marker(s)``. The two assertions passed anyway because
+    they only looked for the substrings ``marker(s)`` and ``cycle 2``. The
+    archetypal AC-1 shape — ``0 < count != named``, which is what all 50
+    historical members of population 2 look like — was then demonstrated by no
+    plant at all. The `marker_count == 1` assertion below is what makes that
+    unrepeatable.
     """
     cards_dir = _copy_tree(tmp_path, ("CARD-339.md", "CARD-337.md"))
     control = read_card_tree(cards_dir)
@@ -563,19 +667,31 @@ def test_a_planted_marker_disagreement_reds_by_name(tmp_path: Path) -> None:
 
     planted = cards_dir / "CARD-339.md"
     lines = planted.read_text(encoding="utf-8").splitlines(keepends=True)
-    dropped = [line for line in lines if not _MARKER.match(line)]
-    assert len(lines) - len(dropped) == 2
-    planted.write_text("".join(dropped + [lines[-1]]), encoding="utf-8")
-    # put exactly one marker back, so the count is 1 against a named cycle 2
+    kept = [line for line in lines if not _MARKER.match(line)]
+    assert len(lines) - len(kept) == 2, "the fixture must carry exactly two markers"
     one_back = next(line for line in lines if _MARKER.match(line))
+    heading = next(
+        i for i, line in enumerate(kept) if _WORKTREE_NOTES_HEADING.match(line)
+    )
     planted.write_text(
-        planted.read_text(encoding="utf-8") + one_back, encoding="utf-8"
+        "".join(kept[: heading + 1] + [one_back] + kept[heading + 1 :]),
+        encoding="utf-8",
     )
 
-    found = marker_disagreements(read_card_tree(cards_dir))
+    cards = read_card_tree(cards_dir)
+    card = next(c for c in cards if c.name == "CARD-339.md")
+    assert card.marker_count == 1, (
+        "the restored marker must land INSIDE '## Worktree notes'; a count of "
+        f"0 means it was appended past the later heading. Got {card.marker_count}"
+    )
+    assert card.cycle_named == 2, card.raw_score
+    assert card.classification == MARKER_DISAGREES, card.classification
+
+    found = marker_disagreements(cards)
     assert len(found) == 1, found
     assert found[0].startswith("CARD-339.md:"), found
-    assert "marker(s)" in found[0] and "cycle 2" in found[0], found
+    assert "1 '[Review N/M] Score:' marker(s)" in found[0], found
+    assert "cycle 2" in found[0], found
 
 
 def test_a_planted_card_with_no_notes_section_reds_by_name(tmp_path: Path) -> None:
@@ -658,15 +774,27 @@ def test_the_scored_population_is_the_one_the_guards_speak_about(
 ) -> None:
     """The denominator every AC-3 figure below is a share of.
 
-    **231**, not CARD-363's 281. The difference is 50 ``done`` cards whose
-    ``Review score`` holds a prose sentinel rather than a score, and they are
-    counted here separately so the gap is visible rather than argued.
+    **231**, not CARD-363's 281. The difference is **60** ``done`` cards whose
+    ``Review score`` is not a score: 50 hold a prose sentinel (*"merged
+    without a review cycle, at the owner's call"*) and 10 are a bare ``—``.
+    They are counted here separately so the gap is visible rather than argued.
+
+    **Both totals are FLOORS, and that is load-bearing.** ``done`` and
+    ``scored`` each grow by one every time a card is correctly closed — this
+    card's own merge gate moves them to 292/232 — so an equality here would
+    red the suite on main for doing the right thing. The measured figures stay
+    in the message, so the bound is still declared (ADR-0039/R3) and a
+    *shrinking* population still reds. The identity below is what keeps the
+    pair honest under growth: the two classes must still partition ``done``.
+    ``sentinel`` stays an equality on purpose — a correctly reviewed closure
+    does not land there, so a 61st owner's-call merge is exactly the event
+    that should be remarked rather than absorbed.
     """
     done = [c for c in tree if c.status == "done"]
     scored = scored_cards(tree)
     sentinel = [c for c in done if not c.is_scored]
-    assert len(done) == 291, len(done)
-    assert len(scored) == 231, len(scored)
+    assert len(done) >= 291, f"{len(done)} done cards; the measured floor is 291"
+    assert len(scored) >= 231, f"{len(scored)} scored cards; the measured floor is 231"
     assert len(sentinel) == 60, len(sentinel)
     assert len(scored) + len(sentinel) == len(done)
     # and no sentinel card smuggles a score in behind a comment
@@ -705,12 +833,27 @@ def test_declared_bound_the_cards_carrying_no_review_cycle_marker(
 def test_declared_bound_the_cards_whose_marker_disagrees_with_the_score(
     tree: tuple[Card, ...],
 ) -> None:
-    """AC-3, population 2 — **50** scored cards disagree with themselves.
+    """AC-3, population 2 — **50** scored cards whose marker count disagrees.
 
-    Each carries at least one marker and a score naming a different cycle, so
-    the retrospective's ``cycles_used`` and the card's own prose cannot both
-    be right. CARD-363 reports 136 here; measured, it is 50, and the gap is
-    the same denominator and the same narrow cycle regex as everywhere else.
+    Each carries at least one marker and a score naming a different cycle.
+    CARD-363 reports 136 here; measured, it is 50, and the gap is the same
+    denominator and the same narrow cycle regex as everywhere else.
+
+    **The cards are not the defect; the counting rule is.** Measured: 49 of
+    the 50 carry a count *greater* than the cycle their score names, because
+    upstream's sync point writes a ``Score`` line at each of its three write
+    sites and a threshold-reaching cycle therefore emits two. Counting
+    distinct ``[Review N/M]`` ordinals instead of Score lines takes 50 to
+    **2** (CARD-192, CARD-262) with **zero** regressions among the 50
+    agreeing cards, and the 49 cards carrying a duplicated ordinal are one
+    bounded era: **CARD-113 to CARD-192, nothing after it**. The earlier
+    reading here — that these cards "disagree with themselves" and "cannot
+    both be right" — was a cause asserted about a record rather than read off
+    it, in a module whose subject is exactly that.
+
+    This bound still counts Score *lines*, deliberately: that is the quantity
+    the retrospective extracts, so it is the quantity worth guarding. The
+    correction is a finding for upstream (CARD-369), not a change here.
     """
     population = by_class(tree)[MARKER_DISAGREES]
     assert len(population) == 50, (
@@ -810,24 +953,72 @@ def test_every_scored_card_lands_in_exactly_one_class(tree: tuple[Card, ...]) ->
     The partition identity is the real guard here: if a future spelling
     escapes every branch, the sum stops matching the population and this reds,
     rather than a card quietly vanishing from a mean.
+
+    **The identity is stated against the live population and not against an
+    absolute**, and the agreeing class is a floor, for the reason given in
+    :func:`test_the_scored_population_is_the_one_the_guards_speak_about`: a
+    correctly closed card adds one to ``scored`` and lands in
+    :data:`AGREES`, so ``== 231`` and ``== 50`` would both red on main the
+    moment this card merges. The identity loses nothing by dropping the
+    absolute — it was never the absolute that caught an escaping spelling.
+
+    The names-a-cycle count is stated as ``scored`` minus the **three**
+    declared members of :data:`SCORE_NAMES_NO_CYCLE` rather than as 228. That
+    is closure-invariant and still has teeth: a fourth card whose score names
+    no cycle reds it, which is the whole point of population 3.
+
+    **Where the teeth went, stated plainly.** The sum identity on its own is
+    *structural*: :func:`by_class` buckets every scored card by construction,
+    and an unknown class would ``KeyError`` rather than be dropped, so the sum
+    can never differ. It was the ``== 231`` that made this the module's
+    strongest assertion, and dropping the absolute without replacing it would
+    have been a loosening dressed as a fix. The replacement is the
+    **historical total**: the three declared classes sum to ``128 + 50 + 3 =
+    181``, every one of them closure-invariant, because a correctly closed
+    card lands in :data:`AGREES` and in none of them. That equality bites on
+    exactly what the absolute used to bite on — any card moving between
+    classes — and does not move when a card closes.
     """
     buckets = by_class(tree)
     assert set(buckets) == set(CLASSES)
-    assert sum(len(v) for v in buckets.values()) == len(scored_cards(tree)) == 231
-    assert len(buckets[AGREES]) == 50, len(buckets[AGREES])
+    # structural, and said to be: by_class cannot drop a card, so this cannot
+    # fail. The two assertions after it are what carry this test.
+    assert sum(len(v) for v in buckets.values()) == len(scored_cards(tree))
     assert buckets[UNCLASSIFIABLE] == (), buckets[UNCLASSIFIABLE]
+
+    historical = {
+        name: len(buckets[name])
+        for name in (NO_MARKER, MARKER_DISAGREES, SCORE_NAMES_NO_CYCLE)
+    }
+    assert sum(historical.values()) == 181, (
+        f"the three declared historical classes now hold {sum(historical.values())} "
+        "scored cards; the measured total is 181 (128 no-marker + 50 "
+        "disagreeing + 3 naming no cycle). Every one of the three is "
+        "closure-invariant, so a change here is a card that closed badly or a "
+        f"population that moved, not a card that closed. {historical}"
+    )
+    assert len(buckets[AGREES]) >= 50, (
+        f"{len(buckets[AGREES])} scored cards agree; the measured floor is 50"
+    )
     # every scored card names a cycle or is one of the three declared
     named = len(scored_cards(tree)) - len(buckets[SCORE_NAMES_NO_CYCLE])
-    assert named == 228, named
+    assert named == len(scored_cards(tree)) - 3, (
+        f"{len(buckets[SCORE_NAMES_NO_CYCLE])} scored cards name no review "
+        "cycle; the declared population is 3 (measured at 228 of 231 naming "
+        f"one). Members: {sorted(buckets[SCORE_NAMES_NO_CYCLE])}"
+    )
 
 
 def test_an_unclassifiable_card_is_a_failure_and_not_a_skip(tmp_path: Path) -> None:
     """AC-4's control: a scored card with no ``## Worktree notes`` section.
 
-    Its marker count is neither zero nor a number — "no record" and "a record
-    saying zero" are different facts, and the retrospective folds the second
-    into a mean. ADR-0039/R2 makes the shape a refusal, so the walk reports it
-    and the partition assertion above fails. It is never passed over.
+    Its marker count is neither zero nor a number. "No record" and "a record
+    saying zero" are different facts **by this module's own reckoning** —
+    unreadable against readable-and-empty, see :func:`worktree_notes` — and
+    not because of anything the retrospective does with them; upstream maps
+    both to one null and folds neither. ADR-0039/R2 makes the unreadable shape
+    a refusal, so the walk reports it and the partition assertion above fails.
+    It is never passed over.
     """
     cards_dir = _copy_tree(tmp_path, ("CARD-337.md",))
     control = read_card_tree(cards_dir)
@@ -859,10 +1050,20 @@ def test_an_unclassifiable_card_is_a_failure_and_not_a_skip(tmp_path: Path) -> N
 def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
     """AC-5, verified two ways: dynamically and statically.
 
-    Dynamic — every file :func:`read_card_tree` actually opened is in
+    Dynamic — every file :func:`read_card_tree` actually **opened** is in
     ``git ls-files``. Static — no string literal in this module's executable
     code names ``meta/review``, so nothing can reach the review YAMLs on a
     path this test's dynamic half does not walk.
+
+    **The dynamic half observes the opens, it does not re-derive the
+    returns.** It first checked the paths of the cards the tree reader
+    *returned*, which is a weaker claim than the one made: a helper that
+    opened some other file and returned nothing from it would not appear in
+    that list at all, and only a review-directory-shaped *literal* would have
+    been caught, by the static half. So the reader is now run inside an audit
+    that wraps :meth:`pathlib.Path.read_text` and :func:`open`, and the set of
+    paths recorded is asserted to be **exactly** the set returned — an extra
+    open reds, a missing one reds.
     """
     tracked = _tracked_paths()
     assert tracked, "git ls-files returned nothing; the dynamic half is vacuous"
@@ -870,6 +1071,49 @@ def test_the_guards_read_only_tracked_files(tree: tuple[Card, ...]) -> None:
     assert read, "no card was read; the assertion below would be vacuous"
     assert [p for p in read if p not in tracked] == []
     assert all(p.startswith("meta/kanban/cards/") for p in read), read
+
+    opened: list[str] = []
+    real_read_text, real_open = Path.read_text, builtins.open
+
+    def spy_read_text(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        opened.append(str(self))
+        return real_read_text(self, *args, **kwargs)
+
+    def spy_open(file, *args, **kwargs):  # type: ignore[no-untyped-def]
+        opened.append(str(file))
+        return real_open(file, *args, **kwargs)
+
+    Path.read_text = spy_read_text  # type: ignore[method-assign]
+    builtins.open = spy_open  # type: ignore[assignment]
+    try:
+        audited_tree = read_card_tree()
+    finally:
+        Path.read_text = real_read_text  # type: ignore[method-assign]
+        builtins.open = real_open  # type: ignore[assignment]
+
+    assert opened, "the open audit recorded nothing, so its assertions are vacuous"
+    assert len(audited_tree) == len(tree), (
+        f"the audited read returned {len(audited_tree)} cards and the fixture "
+        f"{len(tree)}; the two are not reading the same tree"
+    )
+
+    def relative(raw: str) -> str:
+        resolved = Path(raw).resolve()
+        try:
+            return resolved.relative_to(REPO_ROOT).as_posix()
+        except ValueError:  # outside the repo: fails both assertions below
+            return resolved.as_posix()
+
+    audited = sorted({relative(p) for p in opened})
+    assert audited == sorted(read), (
+        "read_card_tree opened a set of paths that is not the set of cards it "
+        f"returned. Opened and not returned: {sorted(set(audited) - set(read))}; "
+        f"returned and not opened: {sorted(set(read) - set(audited))}"
+    )
+    assert [p for p in audited if p not in tracked] == [], (
+        f"an untracked path was opened: {[p for p in audited if p not in tracked]}"
+    )
+    assert all(p.startswith("meta/kanban/cards/") for p in audited), audited
 
     module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
     docstrings = {
@@ -1009,8 +1253,25 @@ def test_cycle_named_beats_both_naive_readings_on_the_real_tree(
     assertion is what keeps the guards from resting on it: none of the 21 is
     inside guard 1's forward scope. Every card the heuristic could be wrong
     about is in a declared historical bound, not in a live assertion.
+
+    **The three counts are floors; the disjointness and the in-scope check are
+    not.** Every count in this loop grows when a card is closed — a score
+    written in the progression style (``7.75 (c1) → 8.5 (c2)``) adds to
+    ``first_wrong``, one written ``8.5 (cycle 2/3)`` adds to
+    ``n_of_m_blind`` — so equalities here red the suite on main for a correct
+    closure, which is the defect this round came back on. A floor keeps the
+    control's actual job, which is that neither naive reading may quietly stop
+    discriminating, and the identity below keeps the loop honest: the blind and
+    readable halves must still cover every card the loop considered.
+
+    **The base of the blind figure is the cards that NAME a cycle, not the
+    whole scored population.** The loop ``continue``\\ s past the three that
+    name none before the check is reached, so 209 is 209 of **228** — and
+    209 + 19 = 228 exactly. Over all 231, the figure is 212. Stating it
+    against 231 was a declared bound naming a denominator that was not its
+    own.
     """
-    first_wrong, last_wrong, n_of_m_blind = [], [], []
+    first_wrong, last_wrong, n_of_m_blind, n_of_m_readable = [], [], [], []
     for card in scored_cards(tree):
         score = strip_comments(card.raw_score)
         ordinals = cycle_ordinals(score)
@@ -1023,17 +1284,37 @@ def test_cycle_named_beats_both_naive_readings_on_the_real_tree(
             last_wrong.append(card.name)
         if _CYCLE_N_OF_M_ONLY.search(score) is None:
             n_of_m_blind.append(card.name)
+        else:
+            n_of_m_readable.append(card.name)
 
-    assert len(first_wrong) == 11, f"first-ordinal reading is wrong on {first_wrong}"
-    assert len(last_wrong) == 10, f"last-ordinal reading is wrong on {last_wrong}"
+    assert len(first_wrong) >= 11, (
+        f"first-ordinal reading is wrong on only {len(first_wrong)} cards "
+        f"(measured floor 11), so it has stopped discriminating: {first_wrong}"
+    )
+    assert len(last_wrong) >= 10, (
+        f"last-ordinal reading is wrong on only {len(last_wrong)} cards "
+        f"(measured floor 10), so it has stopped discriminating: {last_wrong}"
+    )
     assert set(first_wrong).isdisjoint(last_wrong), (
         "the two naive readings now share a counterexample, so one of them "
         f"could be reached by narrowing the other: {set(first_wrong) & set(last_wrong)}"
     )
-    # the spelling CARD-363's premise was measured with is blind to 209 of 231
-    assert len(n_of_m_blind) == 209, (
+    # the spelling CARD-363's premise was measured with is blind to 209 of the
+    # 228 that name a cycle at all -- NOT of the 231 scored (that figure is 212)
+    considered = len(n_of_m_blind) + len(n_of_m_readable)
+    assert considered == len(scored_cards(tree)) - 3, (
+        f"the loop considered {considered} cards but {len(scored_cards(tree))} "
+        "are scored and 3 name no cycle; the blind/readable split no longer "
+        "covers the population it is a share of"
+    )
+    assert len(n_of_m_blind) >= 209, (
         f"`cycle N of M` alone cannot read {len(n_of_m_blind)} of the "
-        f"{len(scored_cards(tree))} scored cards; declared bound is 209"
+        f"{considered} scored cards that NAME a cycle; the measured floor is "
+        "209 of 228 (and 212 of all 231 scored)"
+    )
+    assert len(n_of_m_readable) >= 19, (
+        f"only {len(n_of_m_readable)} cards spell it `cycle N of M`; the "
+        "measured floor is 19, and 209 + 19 = 228"
     )
     # no card the heuristic could be wrong about is in guard 1's scope
     ambiguous = set(first_wrong) | set(last_wrong)
@@ -1042,7 +1323,13 @@ def test_cycle_named_beats_both_naive_readings_on_the_real_tree(
     ]
     assert in_scope == [], (
         "a card whose cycle ordinals are written out of order is inside "
-        f"guard 1's scope, so the guard now rests on the heuristic: {in_scope}"
+        f"guard 1's scope, so the guard now rests on the heuristic: {in_scope}. "
+        "If this is a card that just closed, the cause is the SPELLING of its "
+        "Review score, not the card: a progression score ('7.75 (c1) -> 8.5 "
+        "(c2/3)') names two ordinals out of order, while every other wave-74+ "
+        "card names one ('8.4 (cycle 2 of 3 - CERTIFIED)'). `max` reads both "
+        "correctly; this assertion is deliberately stricter than `max` needs, "
+        "so re-spell the score rather than widening it."
     )
 
 
