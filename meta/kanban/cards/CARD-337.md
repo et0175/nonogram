@@ -1,10 +1,10 @@
-# CARD-337: The twelve modules CARD-329's triage left owed — the seam for nine, and a stated disposition for the four mechanisms that are not a seam
+# CARD-337: The reader seam — the 11 reds that are actually an unprotected page read, out of the 143 this card was cut against
 
 **Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2c (2d)
-**Complexity:** moderate
+**Estimate:** 1c (0.5d)
+**Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
@@ -29,13 +29,63 @@
      landed a field main had just cleaned. Normalised to main's own convention. The note
      it carried follows, unchanged, as its own comment. -->
 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
-**Touches:** tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py, tests/test_book_proof_pages.py, tests/test_book_solved_answer_key.py, tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_arrange_page_breaks.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/test_book_interior_type_floor.py
+**Touches:** tests/test_book_pdf_band.py, tests/test_book_solved_answer_key.py, tests/property/test_book_pairing.py
+<!--RE-CUT 2026-11-04 on the owner's instruction after this card's own item 0 refuted its premise three ways. Thirteen modules -> THREE, and the basis is the MECHANISM census rather than seam-applicability: the reader seam proper (M6 unprotected KeyError b'XObject' + M6b PageMediumRefused) is 11 of 143 reds, and these are the three modules where a module-level page source exists to wrap (class S1). The other 120 reds are other mechanisms and are routed to CARD-354..357, CARD-322, CARD-343 and CARD-352 -- see the re-cut block. -->
 **Review score:** —
 **Started:** 2026-11-04T08:33Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+> **[RE-CUT 2026-11-04 on the owner's instruction, AFTER the refutation below. Read this first.]**
+>
+> **This card is now the reader seam and nothing else: M6 + M6b, 11 of the 143 reds**, in the
+> three modules where a module-level page source exists to wrap (`tests/test_book_pdf_band.py`,
+> `tests/test_book_solved_answer_key.py`, `tests/property/test_book_pairing.py`). 2c → **1c**,
+> thirteen modules → **three**.
+>
+> **The re-cut is based on the MECHANISM census, not on seam-applicability**, and that is the
+> change that makes the card closable. The round classified all 143 with `classify_reds.py`,
+> no "other" group and no shortfall, and the decomposition is:
+>
+> | mechanism | reds | owner after this re-cut |
+> |---|---|---|
+> | M10 medium-blind empty read | **57** | **CARD-354** |
+> | M7d in-module `ContentStream` read | **40** | **CARD-355** |
+> | M7 `page_ink` + M7b `two_up_ink` | **14** | **CARD-356** |
+> | **M6 unprotected `KeyError: b'XObject'` + M6b `PageMediumRefused`** | **11** | **THIS CARD** |
+> | M9 byte identity + M11 fixture write-counter | **9** | **CARD-357** |
+> | M1 delitem / M3 / M3b cp1252 / M2 expected-side gap | **10** | **CARD-322** (already) |
+> | M8 placed-edge | **2** | **CARD-352** — CARD-336 closed, so these needed re-routing |
+>
+> **Why the old shape could not close, measured rather than argued:** the seam closes **10 of
+> 59** reds on the two largest modules where it applies (`pdf_band` 26 → 19,
+> `solved_answer_key` 33 → 30) — **17 %**, against CARD-329's 80 %. It is structurally
+> **inapplicable** in five of thirteen modules, whose pages come from `pdf_pages(data)` over
+> exported bytes with no page object to wrap. And in two families **the seam is the cause**: a
+> purity test reads `[0, 89, 255]` because poppler anti-aliases a vector rule, and the
+> thin-rule-floor test's own docstring says it measures *the raster path's floor*. **A card
+> asked to make thirteen modules green could not have, under its own G-1.**
+>
+> **Three corrections this card now carries rather than asserting the old claims:**
+> 1. **The byte-identity family includes `pdf_band`** (3 cells), which the old AC-2 assigned
+>    only to `pdf_levels` and `pdf_two_up`. Its enumeration was incomplete before it started.
+>    → CARD-357.
+> 2. **`arrange_page_breaks`'s five-kind reds are a BLANK rasterised page**
+>    (`two_up_ink.py: ValueError: the page carries no ink at all`), not the region-segmentation
+>    failure this card was partly named for. That segmentation question is an artefact of the
+>    narrower `PUZZLE`-only probe. The blank-page mechanism is **CARD-343's**.
+> 3. **One red in `pdf_band` is a product behaviour change G-1 forbids this card from touching** —
+>    `book_pdf_generator.py` refuses a Greek title outside cp1252 once the page is drawn as
+>    operators. It is **CARD-322's** (M3b).
+>
+> **One tooling hazard to know before pointing an instrument at a narrower dump:**
+> `classify_reds.py` is **not filter-agnostic**. On the five-kind dump it is faithful (143/143,
+> exit 0). On a `PUZZLE`-only dump of the same thirteen modules it leaves **13 of 78
+> unclassified and exits 1** — loud, but only if the exit code is read. CARD-338 built it for
+> the five-kind frame and it is correct for that frame; a card pointing it elsewhere must check
+> the exit code, not the report.
 
 > **[ITEM 0 RAN AND THE PREMISE FAILED — 2026-11-04. Read this before anything below it.]**
 >
