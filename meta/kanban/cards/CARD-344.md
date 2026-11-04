@@ -32,13 +32,33 @@
 _EDGE_OVERHANG = 3   # the heaviest rule the book strokes is 6 px, so 3 px is the overhang, exactly
 ```
 
-and it is load-bearing in `_drawing_rows`. The comment's arithmetic is right for a **raster**
-page and wrong for a **vector** one: the heavy rule is 1.3 pt, which at 300 DPI rasterises to
-**5.42 px**, so the half is **2.71 px**, not 3.
+and it is load-bearing in `_drawing_rows`.
 
-So the existing reader carries exactly the medium-dependent constant that CARD-336's item 1
-forbids the *new* reader from using. **The word "exactly" in that comment is the tell**: it is
-exact only in one medium, and nothing in the file says which.
+> **[PREMISE CORRECTED 2026-11-04 by CARD-336's round, which built the oracle and measured the
+> page instead of computing from the declaration. ADR-0039/R4 retraction — read this before
+> the paragraph below it.]**
+>
+> **This card was cut saying the half rule is 2.71 px** — 1.3 pt at 300 DPI is 5.4167 px, so
+> half is 2.71 — **and that is refuted.** CARD-336 measured both media: **poppler inks the
+> declared 1.3 pt as SIX pixel lines, exactly as Pillow does** (`left_rule_px ==
+> top_rule_px == 6`, confirmed structurally — for one boundary `c`, Pillow inks `c-2..c+3`
+> and poppler `c-3..c+2`). So the width **read off the page** is 6 and the half rule is
+> **2.5 px**, not 2.71.
+>
+> **And the constant is wrong in a different way than this card claimed.** `_EDGE_OVERHANG = 3`
+> is exact in **neither** medium *as a half rule*: 3.000 px is the **ink-to-coordinate offset
+> in vector** and **0 px in raster**. The original framing — "exact only in one medium" — is
+> therefore also wrong; it is exact in neither, and it happens to equal a real vector offset,
+> which is why it has survived.
+>
+> **What this does to the card: the defect is still real and the reason is better.** The
+> constant is a hard-coded pixel figure standing in for something the page can be asked. What
+> changed is that **CARD-336's `frame_centre_of` holds no half-rule constant at all** — it
+> reports the run's own centre — so item 2's "replace the constant with the derivation
+> CARD-336 establishes" now has a concrete mechanism to copy rather than a figure to
+> recompute. **Do not carry 2.71, 5.42 or 3 into an assertion. Re-derive by recounting the
+> run on the page, which is what that card's
+> `test_the_rule_width_is_the_pages_and_not_the_declared_figure` does.**
 
 ## Why this is small but not a nit
 
@@ -53,8 +73,11 @@ would mean inventing the mechanism twice.
 
 ## What to implement
 
-1. **Re-derive the heavy rule's rasterised width** rather than trusting either 6 or 5.42.
-   State the figure and how it was measured. Both numbers in this card are carried figures.
+1. **Re-derive the heavy rule's rasterised width by recounting the run on the page**, in
+   **both** media, rather than trusting 6, 5.42, 2.71, 2.5 or 3 — every one of those is a
+   carried figure and two of them have already been refuted once. CARD-336's
+   `test_the_rule_width_is_the_pages_and_not_the_declared_figure` recounts it independently at
+   a mid-cell row and asserts it is **not** the declared figure; copy that technique.
 2. **Replace the constant with the derivation CARD-336 establishes**, or — if the reader
    genuinely only ever sees raster pages — **say so and pin that**, so the next reader is not
    left guessing which medium the "exactly" refers to. Either outcome is acceptable; leaving
