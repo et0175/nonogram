@@ -16,7 +16,8 @@
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** meta/review/, meta/profiling/, scratchpad/, .gitignore, tests/test_check_ref_resolution.py
+**Touches:** meta/review/, meta/profiling/, scratchpad/, .gitignore, .gitattributes, tests/test_check_ref_resolution.py
+<!-- .gitattributes ADDED mid-round, 2026-11-04: it is the only lever measured to bound harm B that keeps every artefact tracked, on disk and readable by the suite. Nothing was committed under meta/review/ or meta/profiling/ — see Worktree notes. -->
 **Review score:** —
 **Started:** 2026-11-04T08:33Z
 **Closed:** —
@@ -334,3 +335,168 @@ False would let it fabricate drift ERRORs."* Under a tool failure it reported
 silently declared them all dead, or all alive. **This is the single best argument on the
 board for three-valued existence**, and it should be cited wherever that design is
 questioned.
+
+## Worktree notes
+
+*(2026-11-04, implementation round 1. Nothing in this section is committed: `kanban
+done` step 2d / INV-023 refuses a card branch that commits under `meta/kanban/**` or
+`meta/review/**`, which is also the first finding below.)*
+
+### The population, re-derived, with the instrument named
+
+**Instrument:** `tests/test_check_ref_resolution.py` — this repository's own
+reimplementation of the resolver (`_in_domain_files` = `git ls-files` minus
+`meta/architecture/` and `*.md`; `_loose_resolution` = a trie with `git grep -w`'s word
+boundaries over every in-domain file's bytes; `_strict_resolution` = a `def`/`class`
+line). It is the resolver's own question asked over the resolver's own domain, and it
+has its own controls (`test_the_loose_resolver_agrees_with_git_grep_itself`,
+`test_the_definition_search_finds_a_definition_known_to_exist`).
+
+| derivation | unit | figure |
+|---|---|---|
+| **refs REVIVED — active silencing (this round, the only unit AC-1 names)** | refs | **10** |
+| of them, by `meta/review/*.yml` | refs | 9 |
+| of them, by `meta/profiling/*.txt` | refs | 1 |
+| of them, by `scratchpad/**` | refs | **0** |
+| bookkeeping-only class (the module's own gate) | refs | 11 |
+| the card's cut derivation, re-run today (files resolving ≥1 ref outside `tests/`+`src/`) | files | **310** (was 245) |
+| the station's derivation, re-run today (`git ls-files` − `tests/` − `src/` − `*.md` − model) | files | **626** (reproduced exactly) |
+| the resolver's whole domain | files | 1058 |
+| files resolving ≥1 declared ref | files | 438 |
+
+**The figure is derivation-dependent and the four existing figures are four different
+questions**, not four answers: 245 and 310 count *files with hits outside the code
+roots*, 626 counts *files in the domain outside the code roots* (it does not ask about
+refs at all), 322 counted files against a wider ref set. None of them is a count of
+harm. **10 is.** `scratchpad/` — the directory this card was originally cut to clean —
+revives **nothing**: its 55 tracked files are the revival-*hazard* class CARD-316 cycle 2
+already identified, not the active-silencing class.
+
+### The convention, and what it is not
+
+**Chosen:** `.gitignore` the three populations by the extension that carries the harm —
+`meta/review/*.yml`, `meta/profiling/*.txt`, `scratchpad/` — so the next artefact lands
+**outside** the resolver's domain by default and a tracked one is a visible `git add -f`.
+Held by `test_no_new_artefact_file_is_force_added_into_the_resolver_domain`, whose
+authority is `git check-ignore --no-index` over `git ls-files` — the repository's own
+ignore rules, enumerated at run time (ADR-0039/R2), not a list in a test.
+
+**Scoped by extension and not by directory, deliberately:** the `.md` records under both
+directories are already outside the resolver's domain and are read by the suite
+(`tests/test_guard_integrity.py` reads `meta/review/CARD-239-claim-sweep.md`), and the
+`.py` tools under `meta/profiling/` are code that `test_guard_integrity.py`'s
+`GUARDED_DIRECTORIES` is answerable for — ignoring that directory wholesale would quietly
+move a future tool **outside** a guard, which is R2 inverted.
+
+**NOT chosen — untracking what is revived (the card's item 2), because it is not
+available to a card branch and is not reversible for consumers:**
+
+1. **INV-023.** `kanban done` step 2d diffs `<merge-into>...HEAD -- meta/kanban meta/review`
+   and **refuses** on any path. 9 of the 10 revived refs live under `meta/review/*.yml`.
+   A card branch cannot touch them at all; retiring them is an owner action on `main`.
+2. **A merge turns untracking into deletion.** Measured in a throwaway repository: branch
+   `git rm -r --cached meta/review` + `.gitignore`, merge into `main` → the files are
+   **gone from `main`'s working tree** (`meta/` removed entirely). "Untrack in place" is
+   true only in the branch; for every other working copy it is `rm`. The review YAMLs are
+   the only record of four of wave 74's cycles.
+3. **The suite reads the dumps.** `tests/test_suite_profile.py` globs
+   `suite-durations-*.txt` and asserts it finds one; `test_browser_fixture_scope.py` and
+   `test_admin_local_cost.py` read five more `meta/profiling/*.txt` by name; this module's
+   own `_G2_DOMAIN` globs `scratchpad/card316/*.py` and reds if the domain collapses below
+   four files. Untracking any of the three populations therefore reds the suite on `main`
+   one merge later, by the mechanism in (2).
+
+**NOT chosen — renaming to an excluded extension (the card's third option): refuted.**
+`forge_1` reads `meta/review/*.yml` by glob in at least four places (`done`'s canonical-report
+refusal, `review_copies.py`, `release_notes.py`, `parse_review.py`), and the suite pins the
+`.txt` dump names above. A rename breaks the consumers; it is strictly worse than leaving
+the files where they are.
+
+### Harm B: fixed, and the attribution in the card is wrong
+
+`.gitattributes`: `meta/profiling/*.txt binary`. One line.
+
+| N=200 (`BATCH_SIZE`), budget 30.0 s | elapsed |
+|---|---|
+| full in-domain corpus | **117.38 s** (over 3.9×) |
+| minus `meta/profiling` | **0.55 s** |
+| minus `meta/review` (396 files) | **115.41 s** |
+| minus `scratchpad` | **123.30 s** |
+| minus all three | 0.39 s |
+| **full corpus, `meta/profiling/*.txt` marked `binary`** | **1.10 s** |
+
+**The card's claim that the cliff "only exists because of `meta/review/` + `meta/profiling/`",
+that they are "40 % of the domain's text lines" and that "harm A and harm B are one
+population and one fix" is RETRACTED (ADR-0039/R4).** Varied one directory at a time, the
+entire cost is the **10 machine-written `.txt` duration dumps**; removing all 396 review
+YAMLs buys 2 %. Harm A is 9/10 under `meta/review/` and harm B is 100 % under
+`meta/profiling/*.txt`: **two populations, two fixes**, and the convergence argument the
+card calls "the headline for whoever takes this card" does not hold.
+
+`binary` is **answer-preserving**, which is why it is this and not a rename or an
+untracking. Measured on a token present only in those dumps: `git grep -lw` (the
+per-name path, which reads the exit code) still lists all three files, so the ref still
+resolves; the batched path prints `Binary file … matches`, so no name is recovered from
+the chunk and the resolver leaves those names to the per-name path — the case
+`symbols_exist`'s own docstring already documents (CARD-133 cycle-1 F-002).
+
+**Validator of record, before → after** (`forge_1`, read-only, `--phase all`):
+**0 errors / 525 warnings → 0 errors / 89 warnings**, wall 97 s → 8.3 s. WARN **sets**
+compared with `comm` on `^[[:space:]]*\[WARN`, both sides asserted non-empty (525 and 89
+unique lines): **436 disappeared, all 436 of them "existence could not be determined —
+the search tool itself failed"; 0 appeared; 89 identical.** The drop is the tooling-failure
+class and nothing else, so it is repair and not blindness. 525 = 89 + 436.
+
+**G-5 ("expect MORE warnings") does not fire, and that is correct:** nothing was
+untracked, so no revived ref lost its resolver and no suppressed warning came back. The
+10 revived refs are still revived. Harm A is **diagnosed and bounded, not repaired**.
+
+### Is a blown batch loud now?
+
+**On this board, yes:** `test_the_resolver_batch_answers_inside_its_own_budget` runs the
+resolver's own `git grep -ow` at `BATCH_SIZE` under the resolver's own budget and reds by
+name when it does not answer, with an in-run control (a 0.05 s budget must report failure,
+so the cell cannot be a function that returns `True`). Cost ~1 s green, bounded by the
+30 s budget when red.
+
+**Inside `forge_1`, no — and the defect is narrower than "silent".** `_grep_batch` catches
+`TimeoutExpired` in a bare `except Exception` and returns `(None, set())`;
+`symbols_exist` then assigns `None` to every pending name. The validator *does* report
+that — 436 typed WARNs saying the search tool failed — so the signal is not lost. What is
+lost is the **cause**: a timeout, an uncompilable pattern and an `OSError` are collapsed
+into one untyped `None` with no message and no stderr, which is why two reviewers had to
+re-measure by hand to find out it was a timeout. Two findings for `forge_1`, which this
+board does not edit (G-4): the swallow (ADR-0038/R8) and `BATCH_SIZE = 200` sitting past
+the cliff while the budget models cost as linear in N.
+
+### The control: a planted dead ref, both directions, on disk
+
+`meta/architecture/trace.yml` sha256 `737466b6…cff31` clean, `982e5553…9848` planted;
+probe file sha256 `22733bb3…9cdb`. Restored byte-identical (`git diff --exit-code` clean).
+
+| state | tree | errors | warnings | the planted ref |
+|---|---|---|---|---|
+| 0 | clean | 0 | 89 | — |
+| 1 | a never-defined ref added to FR-015's `covered` tests | **1** | 89 | reported: "dead link: the test was renamed/removed, or never written" |
+| 2 | **+ one force-added `scratchpad/card335/revival_probe.txt` spelling it** | **0** | 89 | **gone — revived by one tracked artefact** |
+| 3 | that file untracked again | **1** | 89 | reported again |
+| 4 | model restored | 0 | 89 | — |
+
+State 2 is CARD-308's 108 → 107 reproduced by hand, with the direction and the mechanism
+visible: one file, no code written, the error retired. At state 2 the new census cell
+**redded by name** and it is green in every other state — so the guard catches the cause
+and the detector still detects a dead ref. The `git add` at state 2 needed `-f`, which is
+the convention being in force.
+
+### Residual, owned by nobody yet
+
+* **9 refs still actively silenced** by 5 tracked review YAMLs (`…CARD-139-cycle1` revives
+  6 of them, `…CARD-134-cycle3` 2, `…CARD-117-cycle1` 1, `…CARD-305-cycle1/2` 2). Their
+  declarations cluster at `requirements.yml:4310–4452` plus `:4609`, and one more at
+  `:3847` is the `meta/profiling` one. Identified by `_digest_of` in the round's report,
+  never by name (G-2/G-3). Retiring them means untracking 396 files on `main` with an
+  out-of-repo copy taken first — an owner action, outside a card branch, and the merge
+  mechanism in (2) above is why the copy has to come first.
+* **`meta/kanban/dispatcher.state`** keeps one more bookkeeping-only ref alive and is
+  board state that must stay tracked. No pathspec convention reaches it; this is the limit
+  case the module's docstring already argues only a definition-based resolver can close.
