@@ -1,9 +1,9 @@
 # CARD-335: Committed measurement artefacts revive dead check refs — and the review YAMLs the reviews themselves write are the worst of them
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 1d <!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. -->
+**Estimate:** 2c (1d) <!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** CARD-316's fix round 1, 2026-10-31, F-012, then **re-scoped twice the same day** — once by CARD-316's review cycle 2, which measured the surface the hazard actually occupies, and once by the orchestrator confirming it on `main`. The original cut was wrong about where the problem lives. See *What this card got wrong when it was cut*. It measured that a blanket `scratchpad/**` glob reds its own G-2 guard immediately on three tracked files from an earlier card, named them by site, and routed the hazard rather than fixing it by reddening another card's artefacts — the right call for that card's scope. Re-measured at the decompose station, where the population turned out to be larger than three. See below.
 **Idea:** —
-**Wave:** —
+**Wave:** 75
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** —
@@ -23,6 +23,39 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+
+> **[POPULATION RE-MEASURED AT THE WAVE-75 STATION, 2026-11-04 — the card's cut figures are
+> stale, and the direction is GROWTH.]**
+>
+> | | at the card's cut | measured today |
+> |---|---|---|
+> | files in the resolver's surface | 245 | **626** |
+> | under `meta/review/` | 231 | **396** |
+> | under `meta/profiling/` | 6 | **15** |
+> | under `scratchpad/` | 4 | **33**, across three card directories |
+>
+> **But that is a THIRD derivation, and the card already contains two.** The 245 was this
+> card's own; CARD-316's cycle 2 measured **322** from a different ref derivation, and the card
+> already records that *"the two bracket and neither is the number"*. Today's 626 is `git
+> ls-files` minus `tests/`, `src/`, `*.md` and `meta/architecture` — a **fourth** way of asking
+> the question, not the answer. **Re-derive the population with the RESOLVER'S OWN instrument
+> and state which derivation produced your figure.** The transferable point is that this card's
+> subject is a number nobody can quote without naming an instrument.
+>
+> **What is not derivation-dependent, and is the reason this card is P1 today:** the surface is
+> **growing every wave**, and wave 74 added to it on both axes. `scratchpad/card336/` committed
+> **15** files; `meta/profiling/` more than doubled. `scratchpad` is **still not in
+> `.gitignore`** (verified). And two of wave 74's reviewers had to run the resolver's own
+> instrument **by hand** to prove nothing had been revived, because the validator's 525
+> warnings mean its dead-ref detector is effectively blind — which is this card's other half.
+>
+> **One hazard this card must not trip, stated because its `Touches` includes `meta/review/`:**
+> the per-card review YAMLs under there are **what the retrospective reads**, and wave 74 had
+> to reconstruct four of them from reviewers' reports because none had been written. They are
+> deliberately **untracked**, which already puts them outside `git grep`'s reach and therefore
+> outside this card's problem. **A fix that deletes or relocates them destroys the record this
+> board's own retro depends on.** Gitignoring the directory is fine; emptying it is not.
 
 ## Why this card exists
 

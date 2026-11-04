@@ -1,9 +1,9 @@
 # CARD-337: The twelve modules CARD-329's triage left owed — the seam for nine, and a stated disposition for the four mechanisms that are not a seam
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2d
+**Estimate:** 2c (2d)
 **Complexity:** moderate
 **Revision pending:** false
 **Skill:** python-pro
@@ -13,7 +13,7 @@
 **Source:** split from CARD-322 at the decompose station, 2026-10-31, on the owner's re-cut instruction. This is the list CARD-322's scope-gap section said "does not exist yet" and CARD-329's AC-6 round produced: the nine modules its triage reports as needing their own edit, plus the residue of the five it edited but could not repair. CARD-329's own words: *"Within this card's seven `Touches` paths that is unreachable, and the measurement says where the rest lives."*
 **Split from:** CARD-322
 **Idea:** —
-**Wave:** —
+**Wave:** 75
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** CARD-329, CARD-336, CARD-338
@@ -38,6 +38,47 @@
 **Blocked by:** —
 
 ## What this card is handed, measured, and re-derived at the decompose station
+
+> **[PREMISE NOTE, wave-75 station, 2026-11-04 — read before the figures below.]**
+>
+> **The 151 and this card's 68 are `PageKind.PUZZLE`-ONLY readings**, taken at `b26bdd62`
+> under CARD-329's `probe_puzzle_operators.py`, which lifts that one kind. CARD-338 measured
+> the five-kind floor of the same 20 modules at **225**. So every figure this card inherits is
+> measured against one fifth of the conversion — **the identical defect CARD-336 carried**, and
+> the reason that card was re-cut mid-wave.
+>
+> **Whether the 68 moves under five kinds is UNMEASURED, and this note deliberately does NOT
+> predict a direction.** At the wave-74 station the orchestrator wrote into CARD-336 that its
+> population would GROW under the five-kind filter; the round measured it and it **shrank by
+> one** (39 → 38), because the module totals moved while the *subpopulation* did not. A parent
+> total and a subpopulation of it are different quantities. **Item 0 below measures this card's
+> own population. Do not expect growth, do not expect stability, and report what you measure.**
+>
+> **What CARD-336's round did establish about this family, which you should read before
+> trusting any inherited figure:** the *figure* reproduced exactly while its *composition* was
+> wrong — of 38 placed-edge cells only 5 were closable by the mechanism the card was named for,
+> 30 failed before any edge comparison, and 3 were a different mechanism entirely. **So a
+> figure reproducing is not the premise holding.** Check what the population is made of.
+
+### Item 0 — measure this card's population before implementing anything
+
+Run **`scratchpad/card338/census_five_kinds.py`** (the driver; it drives
+`probe_five_kinds.py`). **Run it, do not rebuild it** — CARD-338 owns, committed and
+refusal-proved that instrument, and three cards describing one undelivered instrument is how
+CARD-309 happened. Re-derive, for the 13 modules in `Touches`:
+
+1. the **total** red count under `PUZZLE`-only and under all five kinds, side by side;
+2. this card's **own 68**, derived by the mechanism each red actually exhibits rather than by
+   the module it sits in — CARD-336's round classified by the *cause line the gate printed*,
+   which is the technique to copy;
+3. the **composition** of that 68: how many are the seam this card is named for, and how many
+   are something else. **If the seam share is materially smaller than 68, say so and stop** —
+   that is the finding, and it is what re-cut CARD-336.
+
+**The estimate was priced against 68 and against "nine seams plus four non-seam mechanisms".**
+If item 0 refutes either, raise it before implementing rather than absorbing it.
+
+
 
 **The whole 20-module census was re-run on `b26bdd62`** under CARD-329's own probe
 (`scratchpad/card329/measure_probe.py` + `probe_puzzle_operators.py`) and reproduces that
