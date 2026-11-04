@@ -72,6 +72,21 @@ compared surface is excused — it is an **overclaimed queue**.
    the board owner, not this card. If a fact turns out to need no routing at all, that is a
    finding to report, not a move to make.
 
+## Also owed here — MIN-3: the census has no committed plant on a glyph fact
+
+**Measured by CARD-339's review cycle 2.** Both `CENSUS_PLANTS` entries target `.paper` facts,
+so the census's **glyph reader has no committed control** — which matters most for the four
+facts CARD-339 newly labelled as *agreeing because neither sheet draws a glyph there*.
+
+**It is a missing control, not a live hole, and that distinction was established by hand:** the
+reviewer planted a real `::after { content: "Z" }` on each of the four absent facts on each
+sheet and got **8 of 8** unilateral directions moving the census and reding the classification
+arm; a total glyph-reader death is separately caught by the anti-vacuity floor (`drawn` 12 → 8
+against a floor of ≥ 10). So the reader is not blind — nothing *committed* proves it.
+
+**Add a third `CENSUS_PLANTS` entry on a glyph fact**, and re-derive the 8-of-8 rather than
+trusting it.
+
 ## Acceptance criteria
 
 - **AC-1** *Given* each of the routed facts, *then* changing its value in **either** sheet
@@ -91,6 +106,10 @@ compared surface is excused — it is an **overclaimed queue**.
 - **AC-5** *Given* the docstring of `RoutedFinding`, *then* its claim matches what the code
   does, and if any gap remains it is stated rather than implied.
   (check: review-lens)
+- **AC-6** *Given* `CENSUS_PLANTS`, *then* it carries at least one entry on a **glyph** fact,
+  and planting it reds the classification arm — so the glyph reader has a committed control and
+  not only a hand-measured one (MIN-3).
+  (test: named by the implementation; state it)
 
 ## Guardrails
 
