@@ -50,6 +50,28 @@ CARD-357, which hold 45 M10 reds between them.
 **So treat the split as this card's primary deliverable, not a precondition of it.** Report the
 histogram even if the repair turns out trivial.
 
+## Two taxonomy findings from CARD-337's round, which bear directly on your split
+
+Measured while classifying its own single M10 red, and both are reasons the label is not a
+diagnosis:
+
+1. **M10's label is wrong for at least one member.** The rule's description is *"medium-blind
+   read returns EMPTY"*, and CARD-337's M10 red is a read that returns a **full 2550×3300
+   bitmap**. Nothing is empty. It matched M10 only via the alternation
+   `'is the blank title page'` — a string from the cause line, not a mechanism. **So when you
+   split your 7, expect the label to describe some members and not others, and say which.**
+2. **M11 is keyed on a MODULE FACT standing in for a mechanism.** Its rule is anchored on the
+   literal `test_book_pdf_band.py`, so CARD-337's red — *mechanically the identical
+   `_write_page`-counter collapse* — could not match it and fell through to M10. Both routes
+   happened to land on the card owning that module, so nothing mis-routed this time. **The next
+   one will.** If your split finds a write-counter collapse, this is why it will not be labelled
+   one.
+
+**Recommend re-keying M11 by mechanism** rather than by module, and report whether your 7 contain
+anything the taxonomy would mis-key the same way. `scratchpad/card338/classify_reds.py` holds the
+rules; **CARD-338 is closed, so a change there is a finding with a measurement, not an edit you
+make silently.**
+
 ## What to implement
 
 1. **Split the 7 M10 reds by cause signature** and report the histogram. State whether they
