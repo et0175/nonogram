@@ -1,6 +1,6 @@
 # CARD-336: The frame-centre oracle — one boundary-reading mechanism for the placed-edge cells four modules read as first-inked-line
 
-**Status:** in progress
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (2d)

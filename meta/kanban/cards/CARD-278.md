@@ -1,6 +1,6 @@
 # CARD-278: `_blind_propagation` blinds one propagation path of two, so the test named for the branch checkpoint passes without it
 
-**Status:** in progress
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)

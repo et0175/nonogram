@@ -1,6 +1,6 @@
 # CARD-339: The public player gains the "?" glyph — and the mark that drifted enters the guard that exists to stop drift
 
-**Status:** in progress
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d)
