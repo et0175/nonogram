@@ -3,7 +3,9 @@
 **Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2c (1d) <!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. -->
+**Estimate:** 2c (1d)
+<!-- Comment moved to its own line at the merge gate: the SAME CARD-341 defect the transplant commit fixed on `Touches` was still live here, and `parse_card_fields` was returning the whole comment as part of the Estimate value — so any census reading this field read the estimate as the string "2c (1d) <!-- RE-OPENED ... -->". The field now parses at `2c (1d)`. -->
+<!-- RE-OPENED FOR RE-ESTIMATION 2026-11-01: a SECOND, independent harm was measured (the resolver's batch budget blown 4.7x by 132.6 MB of binary corpora that match no ref), with a DIFFERENT dominant population from this card's own. The 1d prices harm A only. Do not start this card without re-pricing it, and see the owner question at the end. NOTE: the attribution in this comment is itself retracted — the bytes were never being paid (git grep skips a binary file on a NUL byte in its first 8 kB) and the 4.7x is a wall-clock ratio that has since been read five different ways. See *A SECOND HARM* and correction 2. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** general-purpose
@@ -279,14 +281,22 @@ a 0.6 % change, i.e. nothing — and the validator still read 525.
 
 Two facts fall out, and both matter:
 
-1. **There is a cliff between 120 and 140 patterns.** Below it the cost is near-linear and
-   comfortably inside budget; at 140 it quadruples. `BATCH_SIZE = 200` sits well past it.
-   The budget formula `10.0 + 0.1 × N` models cost as **linear in N**, which is true below
-   the cliff and false above it — so the budget is least generous exactly where the cost
-   explodes.
-2. **The cliff only exists because of `meta/review/` + `meta/profiling/`.** With those two
-   excluded, even 200 patterns runs in **0.7 s**. They are 40 % of the domain's 592,810
-   text lines, and they are this card's own population — the files that spell ref names.
+1. ~~**There is a cliff between 120 and 140 patterns.**~~ **STRUCK by review cycle 1 and
+   re-measured at the merge gate (ADR-0039/R4 — kept, not deleted, because it was acted on:
+   it produced the `BATCH_SIZE = 120` recommendation below). There is no cliff.** The curve
+   is smooth, monotone and **super-linear** — re-derived at the gate on the full-text corpus
+   with the resolver's own argv (N=50 1.8 s · 80 8.8 s · 100 17.5 s · 110 23.0 s ·
+   120 30.3 s · 140 51.7 s · 160 65.6 s · 200 109.3 s), an exponent near N^3 across the
+   whole range with no step anywhere in it. The cycle-1 reading is the same shape with
+   different constants (N^2.7–2.9). What the "cliff" actually was: the budget line
+   `10.0 + 0.1 × N` crossing a super-linear cost curve once. **The real finding is the
+   SHAPE** — see *Review cycle 1 — corrections*, correction 2.
+2. ~~**The cliff only exists because of `meta/review/` + `meta/profiling/`.**~~ Half right,
+   and the half that is wrong is the one the card leaned on: measured one directory at a
+   time (round 1, confirmed at the gate) the cost is **`meta/profiling/*.txt` alone** —
+   withholding all 396 review YAMLs leaves the batch indistinguishable from the full
+   corpus. The "40 % of the domain's 592,810 text lines" figure counts lines, not cost. See
+   *Harm B: fixed, and the attribution in the card is wrong*, below.
 
 **So the original prediction was right and its correction was wrong.** The ref-spelling
 corpus is the cause; it just does not work through bytes. It works by giving a large
@@ -310,19 +320,36 @@ alternation of word-bounded patterns an enormous number of near-matches to resol
 
 ### The two fixes that WOULD work, and only one is this board's
 
-- **Reduce the batch size below the cliff.** At 120 patterns the full corpus costs 10.5 s
-  against a 22 s budget. This lives in `BATCH_SIZE` in **`forge_1`**, which this board
-  never edits — so it is not available here, only reportable. Worth reporting: the budget's
-  linear model is what hides this, and a batch of 200 is the only size at which the
-  resolver silently stops answering.
+- ~~**Reduce the batch size below the cliff.** At 120 patterns the full corpus costs 10.5 s
+  against a 22 s budget.~~ **WITHDRAWN at the merge gate: the figure does not work, and no
+  fixed `BATCH_SIZE` can.** N=120 has now been read **five** times on this one tree —
+  10.5 s (the card) · 31.55 s (round 1) · 41.76 s (cycle 1) · **30.3 s and 30.6 s (the
+  gate, two instruments)** — and at four of the five readings it is **over** its own 22 s
+  budget, so handing `forge_1` "lower it to 120" would hand it a constant that is already
+  blown. The argument that survives is stronger than a constant: **a linear budget against
+  a super-linear cost fails at some N for any constants, and the crossing moves with the
+  corpus and with the host** — cycle 1 measured it already crossed at N=100, the gate
+  measured N=100 still inside (0.90×) and N=110 over (1.09×), on the same tree. **So
+  "calibrate N against the clock" is a figure that expires, not a repair**, and the budget's
+  SHAPE is the finding. That is an argument *for* what this card did: the corpus fix takes
+  N=200 from over three times its budget to **1.0 s against 30 s**, a margin of more than an
+  order of magnitude, which no re-measurement is going to eat.
+- **The two honest `forge_1` findings, then, are:** (a) the bare `except Exception` in
+  `_grep_batch` collapsing timeout, uncompilable pattern and `OSError` into one untyped
+  `None`, so the cause is lost while the signal survives; and (b) the budget's **shape** —
+  `BATCH_TIMEOUT_BASE_S + BATCH_TIMEOUT_PER_NAME_S × N` models a cost that is not linear
+  in N. **Not a new constant.**
 - **Take `meta/review/` + `meta/profiling/` out of the resolver's domain** — which is
   **exactly the convention decision this card already carries for harm A.** With them
   excluded, 200 patterns costs 0.7 s. So one decision closes both harms, which is the
   strongest argument yet for making it: the same change that stops dead refs being revived
   also stops the resolver timing out.
 
-**That convergence is the headline for whoever takes this card.** Harm A and harm B looked
-like two problems with two populations. Measured, they are one population and one fix.
+~~**That convergence is the headline for whoever takes this card.** Harm A and harm B looked
+like two problems with two populations. Measured, they are one population and one fix.~~
+**RETRACTED by the implementation round and confirmed at the gate — two populations, two
+fixes.** Harm A is 9/10 under `meta/review/`; harm B is 100 % under `meta/profiling/*.txt`.
+See *Harm B: fixed, and the attribution in the card is wrong*.
 - The resolver's exclude list lives in `forge_1`, which this board never edits, so a
   wider exclude is **not available here** — the same constraint this card already records.
 
@@ -361,8 +388,16 @@ has its own controls (`test_the_loose_resolver_agrees_with_git_grep_itself`,
 | bookkeeping-only class (the module's own gate) | refs | 11 |
 | the card's cut derivation, re-run today (files resolving ≥1 ref outside `tests/`+`src/`) | files | **310** (was 245) |
 | the station's derivation, re-run today (`git ls-files` − `tests/` − `src/` − `*.md` − model) | files | **626** (reproduced exactly) |
-| the resolver's whole domain | files | 1058 |
+| the resolver's whole domain | files | **1059 as of the commit, 2026-11-04** (the round wrote 1058) |
 | files resolving ≥1 declared ref | files | 438 |
+
+**The 1058 was a carried figure and it was off by one** — derived before the commit, and the
+commit itself put `.gitattributes` in the index. Re-derived at the merge gate with the same
+instrument (`_in_domain_files`) against the committed tree: **1059**. Recorded dated rather
+than bare, because this row is a count of the index and moves on every commit — the same
+trap, in miniature, that the four bracketing population figures above are about. The 10 and
+the 9/1/0 split were re-derived at the gate and reproduced **exactly**; so did 11, and the
+11th is the `meta/kanban/dispatcher.state` ref in *Residual* below.
 
 **The figure is derivation-dependent and the four existing figures are four different
 questions**, not four answers: 245 and 310 count *files with hits outside the code
@@ -416,22 +451,38 @@ the files where they are.
 
 `.gitattributes`: `meta/profiling/*.txt binary`. One line.
 
-| N=200 (`BATCH_SIZE`), budget 30.0 s | elapsed |
+**Instrument** (which the round's own table did not name, and that is correction 4): the
+resolver's batched argv, pattern for pattern — `git grep -ow` with one `-e` per name at
+N=`BATCH_SIZE`=200 under its own `10.0 + 0.1 × N` = 30.0 s, which is what
+`_batch_answers_within` in `tests/test_check_ref_resolution.py` runs. Re-run with **one
+directory withheld at a time**. Stated as the ORDERING it establishes and not as elapsed
+seconds, for the reason `_batch_answers_within`'s own docstring gives: *"a wall-clock figure
+measures this machine's queue as much as the search, and a stored one would be a number the
+next reader cannot reproduce."* The round was right about that and then stored five of them.
+
+| N=200, budget 30.0 s, one directory withheld | where it lands |
 |---|---|
-| full in-domain corpus | **117.38 s** (over 3.9×) |
-| minus `meta/profiling` | **0.55 s** |
-| minus `meta/review` (396 files) | **115.41 s** |
-| minus `scratchpad` | **123.30 s** |
-| minus all three | 0.39 s |
-| **full corpus, `meta/profiling/*.txt` marked `binary`** | **1.10 s** |
+| full in-domain corpus | **several times over budget** |
+| minus `meta/profiling/*.txt` | **inside budget by two orders of magnitude** |
+| minus `meta/review/` (396 files) | still over budget — indistinguishable from the full corpus |
+| minus `scratchpad/` | still over budget |
+| minus all three | inside budget |
+| **full corpus, `meta/profiling/*.txt` marked `binary`** | **inside budget by more than an order of magnitude** |
+
+**THE DUMPS ARE THE WHOLE COST; THE REVIEW YAMLS ARE INSIDE THE NOISE.** That ordering is
+the durable result, and it is why the five figures had to go: **on re-measurement one of
+them inverts.** The round read `minus meta/review` as *faster* than the full corpus (115.41
+< 117.38), i.e. the review YAMLs costing ~2 %; cycle 1 read it *slower* (140.12 > 138.19),
+i.e. costing nothing at all. A quantity whose sign is not stable is not a 2 % contribution
+— it is noise, and the ordering is what both readings agree on.
 
 **The card's claim that the cliff "only exists because of `meta/review/` + `meta/profiling/`",
 that they are "40 % of the domain's text lines" and that "harm A and harm B are one
 population and one fix" is RETRACTED (ADR-0039/R4).** Varied one directory at a time, the
-entire cost is the **10 machine-written `.txt` duration dumps**; removing all 396 review
-YAMLs buys 2 %. Harm A is 9/10 under `meta/review/` and harm B is 100 % under
-`meta/profiling/*.txt`: **two populations, two fixes**, and the convergence argument the
-card calls "the headline for whoever takes this card" does not hold.
+entire cost is the **10 machine-written `.txt` duration dumps**. Harm A is 9/10 under
+`meta/review/` and harm B is 100 % under `meta/profiling/*.txt`: **two populations, two
+fixes**, and the convergence argument the card calls "the headline for whoever takes this
+card" does not hold.
 
 `binary` is **answer-preserving**, which is why it is this and not a rename or an
 untracking. Measured on a token present only in those dumps: `git grep -lw` (the
@@ -466,8 +517,12 @@ that — 436 typed WARNs saying the search tool failed — so the signal is not 
 lost is the **cause**: a timeout, an uncompilable pattern and an `OSError` are collapsed
 into one untyped `None` with no message and no stderr, which is why two reviewers had to
 re-measure by hand to find out it was a timeout. Two findings for `forge_1`, which this
-board does not edit (G-4): the swallow (ADR-0038/R8) and `BATCH_SIZE = 200` sitting past
-the cliff while the budget models cost as linear in N.
+board does not edit (G-4): the swallow (ADR-0038/R8), and — **corrected at the merge gate,
+because the round said "sitting past the cliff" and there is no cliff** — the budget's
+**shape**: `BATCH_TIMEOUT_BASE_S + BATCH_TIMEOUT_PER_NAME_S × N` is linear in N and the
+cost is super-linear in it, so the two cross at some N for any constants and the crossing
+moves with the corpus and the host. **Neither finding is "use a smaller `BATCH_SIZE`"** —
+see correction 2.
 
 ### The control: a planted dead ref, both directions, on disk
 
@@ -500,3 +555,174 @@ the convention being in force.
 * **`meta/kanban/dispatcher.state`** keeps one more bookkeeping-only ref alive and is
   board state that must stay tracked. No pathspec convention reaches it; this is the limit
   case the module's docstring already argues only a definition-based resolver can close.
+* **Retiring the 396 review YAMLs is now carded as `CARD-362`** (`ready`, P2, 1c, depends
+  on this card), priced at the 89 → 94 in correction 1. It exists because the work is an
+  owner action on `main`, not because this card fell short.
+
+---
+
+## Review cycle 1 — corrections, folded in at the merge gate
+
+Six corrections. Cycle 1 certified the card at **8.0** and **refuted two of the round's own
+conclusions**; the gate re-derived the two figures that were the reviewer's rather than the
+round's, and found one thing the review itself got wrong (correction 7, below). Every
+figure here was measured against the committed tree `5448cf14` with the instrument named
+beside it.
+
+### Correction 1 — the round's F-8 conclusion is struck, and **AC-3 and G-5 stand as written**
+
+F-8 claimed that un-reviving the 10 refs restores **ERRORs, not warnings**, and that this
+"invalidates how this board has been reading its own validator output". **That conclusion
+is false, and with it the round's declaration that an AC was unsatisfiable in kind.**
+
+Re-derived at the gate, independently of cycle 1 and with **no tree mutation**: patch
+`validators/utils.CodeSearch.exists` to answer `False` for exactly the 10 revived refs
+(every consumer — `missing`, `unknown`, `is_dead` — routes through it), then run
+`validate.run_phase(meta/architecture, "all")` against `5448cf14`.
+
+| | errors | warnings |
+|---|---|---|
+| baseline (the 10 still revived) | 0 | **89** |
+| the 10 reported dead | 0 | **94** |
+
+**0 errors / 89 warnings → 0 errors / 94 warnings. Zero ERRORs appear.** WARN sets compared
+with `comm` on `^[[:space:]]*\[WARN`, both sides asserted non-empty (89 and 94 unique
+lines): **5 appeared, 0 disappeared.** The +5 are exactly cycle 1's:
+
+* 3 **`DEAD check ref` WARNs** — `requirements.yml` FR-040/AC-252, FR-042/AC-291,
+  FR-042/AC-292;
+* 2 **partly-checked WARNs** — `domain/aggregates.yml` INV-011, INV-013.
+
+A reading the gate adds: **10 refs produce 5 findings, not 10.** Seven of them are *bundled*
+into those two aggregate messages (INV-011 names 6, INV-013 names 1), which is a second,
+independent reason the ERROR count cannot move — the aggregate check reports per rule, not
+per ref.
+
+**The mechanism, confirmed on disk.** `trace.py`'s `_check_covered_tests` is scoped by name
+and docstring to `status: covered` entries and begins each entry with
+`if … entry.get("status") != "covered": continue`. The trace entry declaring **8 of the 10**
+is `status: partial`; the remaining 2 are declared in `requirements.yml` only and have no
+trace entry at all. So the walk skips them before it ever asks the resolver, and **the ERROR
+channel never fires.**
+
+**F-8's first half is verified and kept:** the 89-warning baseline contains **0**
+`DEAD check ref`, **0** `dead link`, **0** `no definition was found` and **0** `existence
+could not be determined`. The standing baseline has never held a dead-ref finding — which
+is the real point F-8 was reaching for, and it survives without the false conclusion.
+
+**The measured consequence of the repair is therefore: 89 → 94, +3 dead-ref WARNs, 0
+errors.** That is the price `CARD-362` carries.
+
+**That eight of ten produce no finding at all is a THIRD blind spot in the same detector,
+independent of revival, and it is not this card's** — it is `CARD-361` (`ready`, P1, 2c):
+22 refs with no definition anywhere produce no finding, because `trace.py` only asks the
+resolver about `status: covered` entries. The reader who asks "why did CARD-335 not fix
+that" is answered there.
+
+### Correction 2 — there is no cliff, and no fixed `BATCH_SIZE` is safe
+
+Folded in above, at *Two facts fall out* (item 1), at *The two fixes that WOULD work*, and
+at *Is a blown batch loud now?*. The gate's own curve, full-text corpus, resolver's argv:
+**N=50 1.8 s · 80 8.8 s · 100 17.5 s · 110 23.0 s · 120 30.3 s · 140 51.7 s · 160 65.6 s ·
+200 109.3 s** — smooth, monotone, ≈N^3, no step. Two instruments: the branch worktree with
+`git grep -a` forcing the `binary`-marked dumps back into the text scan, and the `main`
+checkout which tracks no `.gitattributes` at all (N=100 17.53 / 18.04 s, N=120 30.33 /
+30.55 s — agreement within 3 %, so `-a` is a faithful stand-in). Post-fix, same argv,
+attribute in force: **N=200 in 1.0 s against 30 s.**
+
+### Correction 3 — AC-4's reach bound, recorded in the cell's docstring
+
+`test_no_new_artefact_file_is_force_added_into_the_resolver_domain` is deny-by-default over
+**the ignore rules**, not over the resolver's domain. A tracked artefact whose path **no
+ignore rule matches** never enters the census, so the cell stays green with no force-add
+involved. Re-confirmed at the gate with `git check-ignore --no-index` against the committed
+`.gitignore`: `meta/review/<CARD-NNN>/cycle1.yml` (**not** matched — `meta/review/*.yml` does
+not cross a `/`, so a per-card subdirectory escapes it) and `meta/measurements/durations.txt`
+(**not** matched — a new directory beside the two the rules name). Both take a plain
+`git add`, rc 0, no warning. Both directories are flat today, so **there is no live hole**.
+
+Recorded per **ADR-0039/R3** in the cell's docstring, with the **outcome-side backstop**
+named: an artefact that actually revives an otherwise-undefined ref reds the pre-existing
+**CARD-308** gate (`test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping`)
+whether or not its path was ever ignored. The new cell guards the cause for the paths the
+convention covers; CARD-308's guards the effect for all of them. Docstring only — no code
+change, and the census baselines are untouched.
+
+### Correction 4 — the five wall-clock figures are gone from `.gitattributes`
+
+Folded in above and in `.gitattributes` itself. The round's `_batch_answers_within`
+docstring argues that a stored wall-clock figure "measures this machine's queue as much as
+the search" and would be "a number the next reader cannot reproduce" — and the round then
+committed five of them (117.38 / 0.55 / 115.41 / 123.30 / 1.10 s) with **no instrument
+named**. Both files now state the **ordering** — *the dumps are the whole cost; the review
+YAMLs are inside the noise* — and name the instrument. The reason it had to be an ordering
+and not a correction to the numbers: **one of them inverts on re-measurement.** 115.41 <
+117.38 makes `meta/review` cost 2 %; cycle 1's 140.12 > 138.19 makes it cost nothing. A
+contribution whose **sign** is unstable is noise, and the ordering is what every reading
+agrees on.
+
+### Correction 5 — a carried figure, off by one
+
+*the resolver's whole domain* read **1058**; it is **1059** against the committed tree,
+because the commit itself added `.gitattributes` to the index. Re-derived at the gate with
+`_in_domain_files`. Corrected and **dated** in the table above rather than left bare.
+
+### Correction 6 — the worktree's card copy, overwritten from `main`
+
+The uncommitted copy in `/Users/omelnikova/PycharmProjects/PythonProject4-card-335` carried
+the **CARD-341 defect** (the `.gitattributes` explanation inline on `Touches`, so
+`parse_card_fields` returned **8** entries instead of 6) and had `Branch`, `Worktree` and
+`Started` all at `—`. It was overwritten byte-for-byte from `main`'s copy before the merge
+and verified identical by `diff`, and `Touches` now parses at **6**. So no later sync can
+push the defective version back over the stamped one.
+
+### Finding 7 — for the next wave: a tracked `scratchpad/` probe now needs `git add -f`
+
+`scratchpad/` is ignored from this card forward, so a probe that must be tracked is a
+deliberate `git add -f` and **reds the force-add census at 477 → 478** — which is the guard
+working, not a defect. Tracked `scratchpad/` commits are live practice on this board, so the
+next card that commits a probe will meet this. The practice figure needs its instrument,
+because the two obvious readings differ by a factor of two —
+`git log --since="30 days ago" … -- scratchpad/` counts **39** commits that *touched* the
+directory, while adding `--diff-filter=A` counts **19** that *added* a file to it (121 files
+across those 19). Cycle 1's "19" is the add reading. Most recent either way: today
+(`83728599`, CARD-336's own merge gate).
+
+**The review's account of the refusal directions is wrong, and the gate measured it both
+ways** (`git add -n` in the worktree, and real `git add` in a throwaway repo with the same
+rule; git 2.50.1). Cycle 1 reports that `git add <dir>/` exits 0 and silently adds nothing.
+It does not:
+
+| form | rc | behaviour |
+|---|---|---|
+| `git add <explicit path>` | **1** | refuses loudly, names `-f` |
+| shell glob `git add <dir>/*.txt` | **1** | refuses loudly, names `-f` |
+| `git add <dir>/` | **1** | **refuses loudly, names `-f`** — the review says 0 and silent |
+| `git add <parent>/` | **1** | refuses loudly, names `-f` |
+| `git add -A` | 0 | **exits 0, adds nothing, says nothing** |
+| `git add -f <path>` | 0 | adds it — the deliberate act the convention wants |
+
+So the silent direction is **`git add -A` alone**, not three forms out of four. That matters
+for the brief this hands the next wave: "use an explicit pathspec and you will be told" is
+true, and this board's standing rule already forbids `git add -A` — which turns out to be
+the *only* way to lose a probe silently.
+
+### Finding 8 — 16 of the 477 census entries are not artefacts at all
+
+The force-add census baseline is **477**, and a reader must not mistake it for a measurement
+of this card's subject. Re-derived at the gate from `git ls-files` through
+`git check-ignore --no-index`:
+
+| | files |
+|---|---|
+| `meta/review/*.yml` | 396 |
+| `scratchpad/**` | 55 |
+| `meta/profiling/*.txt` | 10 |
+| **pre-existing non-artefact debt** | **16** — 4 `.DS_Store`, 6 `.idea/`, 6 `src/nonogram.egg-info/` |
+| total | **477** |
+
+461 + 16 = 477. Cycle 1 ruled the cell **is a guard and not a ratchet**, and the gate agrees
+with the reasoning: the census counts **paths**, so `.DS_Store` churn and `pip install -e .`
+move those files' *content* rather than the count, and a newly ignored file cannot enter the
+index through `git add -A` at all (finding 7's table). The 16 are debt the convention's
+absence accumulated, not this card's population, and no card owns them yet.
