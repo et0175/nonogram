@@ -375,22 +375,34 @@ max_concurrent_override: 2
 #     gate's own words: THE SET OF CARDS A BODY-SWEEP CAN SEE IS EXACTLY THE SET
 #     NOBODY IS WORKING ON. CARD-341 must read branch copies, or run at the gate.
 #
+#
+# CARD-332 CLEARED FROM `active` 2026-11-03 -- landed and left here, the same
+# misreading that had stalled its OWN gate an hour earlier. A gate reads this
+# list to answer "is a slot free"; a `done` card in it makes the board look at
+# its cap when it is not.
+#   MERGED 0e590bef, stamped 05e216df, 7.5 -> 9.0 CERTIFIED on cycle 2 of 3,
+#   one fix round, 0 Critical and 0 Important.
+#   ITS GATE WENT RED FIRST AND SAID THE RED WAS ITS OWN: an F-203 template
+#   restructure broke AC-4's inventory allow-list in a DIFFERENT module, because
+#   before merging it ran only the module it had edited. Re-ran WHOLE, green:
+#   10233 passed / 0 failed / 0 errors / 1 skipped / 1 xfailed, and not vacuous
+#   -- passed + skipped + xfailed = 10235 = the collected count exactly. Node
+#   ids 10147 -> 10235, 0 lost, 88 gained, every one attributed.
+#   THE FIRST GATE IN A WHILE WHERE THE DB CELLS ACTUALLY RAN: it armed
+#   DATABASE_URL at the per-worktree *_test URL, so the 26 bare-DATABASE_URL
+#   skips VANISHED and exactly 1 skip remained (the setrlimit platform gate).
+#   CARD-323, CARD-329 and CARD-316's gates all recorded 26 silent DB skips.
+#   Future gates should arm it rather than attribute it.
+#   AND IT REFUTED MY CLAIM THAT THE PARSED-FIELD SWEEP WAS COMPLETE. I had
+#   swept TWO fields; measured properly it is 45 cards across ELEVEN. Chasing
+#   that down found a live CYCLE in the board's dependency graph -- CARD-336's
+#   comment named CARD-337, which really depends on CARD-336 -- visible only
+#   under the token-scanning reading the consumer actually performs, and hidden
+#   from my own Kahn script because it strips comments. 340/340 both ways now.
+#
 active:
-- id: CARD-332
-  phase: merge-gate
-  branch: card/332-the-panel-learns-the-players-domain
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-332
-  started: '2026-10-31T13:10:00Z'
-  note: >-
-    The owner's named card, carried as next-to-start since 2026-10-31. Owes a
-    RENDER into ~/Documents/nonogram-reviews/CARD-332/ because it changes
-    owner-facing UI -- a form field and a per-puzzle link -- and the link must be
-    checked against a key derived independently, not eyeballed. Its cited line
-    numbers were exact when scheduled and nothing in waves 70-72 touched app.py,
-    but that is a fact about what moved rather than a guarantee: the round is
-    told to RE-DERIVE every one and never offset a stale one.
 - id: CARD-338
-  phase: review
+  phase: merge-gate
   branch: card/338-the-five-kind-probe-and-the-measured-floor
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-338
   started: '2026-10-31T13:10:00Z'
@@ -470,7 +482,7 @@ queued:
 - id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: '2026-11-03T17:40:00Z'
+last_updated: '2026-11-03T19:05:00Z'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
