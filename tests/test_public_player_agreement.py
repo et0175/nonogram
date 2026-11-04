@@ -70,6 +70,43 @@ all of that: it cannot be declared without a difference and a residue, the
 residue arms are total over the table, and it reds until it ships a control
 that plants real drift inside it.
 
+The Maybe mark, and why it is here at all (CARD-339)
+----------------------------------------------------
+The dot and the reveal were in the compared surface from the first commit. The
+**Maybe mark was not** — this module contained the string ``maybe`` zero times
+until CARD-339, measured at that card's decompose station. So when the two
+sheets came to disagree about it (the admin drew a "?" glyph in the accent
+token on the cell and the swatch; this page drew a tint and no glyph), nothing
+reported it: it did not diverge *past* a guard, it diverged where no guard was
+looking, and it reached a render — ``~/Documents/nonogram-reviews/CARD-323/``,
+which is where the owner saw it — before it reached a test. CARD-323 measured
+it, refused to force it (its own AC-4 made re-declaring the rule a finding
+against itself) and routed it; the owner decided on 2026-11-03 that the public
+page gains the glyph; CARD-339 added it and widened this surface so the next
+drift in that mark reds here instead.
+
+**And the glyph was the symptom, so the glyph alone is not the fix.** The marks
+are now **censused** rather than assumed: :func:`mark_census` enumerates every
+cell state ``solver_state.js`` declares (:func:`cell_states` — the authority the
+runtime can enumerate, ADR-0039/R2) against both hooks and both sheets, and
+:meth:`TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed.test_every_census_fact_is_compared_routed_or_agreeing`
+requires every fact of it to be one of three things: **compared** here,
+**agreeing** outright, or **routed** — named in :data:`SIBLING_FINDINGS` with a
+sentence and a measured figure, because a divergence in a rendered mark that no
+owner has decided is a finding and not a worktree call (see the section below,
+which says so in as many words). A fact that is none of the three reds, and a
+routed finding that stops diverging reds too. That is what keeps "the Maybe
+mark agrees" from being read as "the marks agree".
+
+:data:`SIBLING_FINDINGS` is **not** a second :data:`DECLARED_DIVERGENCES`, and
+the difference is worth stating because the two look alike. A declared
+divergence is a fact **inside** the compared surface that is *allowed* to
+differ for a decided reason. A routed finding is a fact **outside** it that
+*does* differ, that nobody has decided, and that this guard pins so it cannot
+change in either sheet unremarked. Nothing is exempted by being routed: the
+compared surface stays exactly as wide as it is, and the census is what makes
+its edge visible.
+
 What this module does **not** do
 --------------------------------
 It changes no rendered pixel, and it is not allowed to. If it ever finds a
@@ -80,6 +117,20 @@ fix, and deciding which side is right is not a worktree call.
 It also does not widen ``COPIED_FROM_ADMIN`` or soften ADR-0041/R3. Making
 ``admin.css`` a byte-identical copy is a different and much larger decision
 (the two sheets are not interchangeable) and belongs to the architect station.
+
+CARD-339's check refs, by node id
+---------------------------------
+Written out in full, path and name on one line each, for the reason
+``tests/test_public_player.py``'s own table gives: the architecture validator
+resolves a check ref by a TEXT search for the whole ``path::name`` string, so a
+ref wrapped across two lines reads as dead however green the test is.
+
+* AC-1 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark``
+* AC-2 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark::test_a_one_sided_change_to_the_maybe_mark_is_reported``
+* AC-2 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark::test_a_glyph_deleted_from_this_page_is_a_failure_and_not_an_absence``
+* AC-3 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark::test_the_maybe_mark_is_a_fact_this_guard_compares``
+* AC-4 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption``
+* AC-5 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_every_census_fact_is_compared_routed_or_agreeing``
 
 How this file is verified
 -------------------------
@@ -108,6 +159,13 @@ ADMIN_CSS = _REPO / "src" / "nonogram" / "admin" / "static" / "admin.css"
 ADMIN_JS = _REPO / "src" / "nonogram" / "admin" / "static" / "solver.js"
 PUBLIC_CSS = _REPO / "player" / "player.css"
 PUBLIC_JS = _REPO / "player" / "play.js"
+#: The pure module ADR-0041/R3 copies byte-identically into the public site. It
+#: is read here for ONE thing: the set of cell states, which is the authority
+#: :func:`mark_census` is derived from. Read from ``src/`` rather than from
+#: ``player/`` on purpose — the admin's is the original and the copy's equality
+#: to it is ``player/assemble.py``'s claim, asserted elsewhere, not a premise
+#: this file should quietly lean on.
+STATE_MODULE = _REPO / "src" / "nonogram" / "admin" / "static" / "solver_state.js"
 
 
 # --------------------------------------------------------------------------
@@ -401,6 +459,112 @@ DOT_PROPERTIES = frozenset(
 WAVE_EXPRESSION = "row + col"
 
 
+#: ``export const NAME = "value";`` in ``solver_state.js``.
+_STATE_CONST = re.compile(r'export const ([A-Z_]+) = "([a-z]+)";')
+
+#: Its frozen state list.
+_STATE_LIST = re.compile(r"export const CELL_STATES = Object\.freeze\(\[([^\]]+)\]\);")
+
+
+def cell_states() -> list[str]:
+    """Every cell state the shared module declares, in its own order.
+
+    The authority ADR-0039/R2 asks for: the set the census is total over is
+    **enumerated from the module both players import**, never written down
+    here, so a fifth state added to ``solver_state.js`` is **enumerated**
+    rather than left outside — four more facts, not none. What then happens is
+    worth stating precisely rather than overclaiming: if one sheet styles it
+    and the other does not, those facts diverge and red as undeclared; if
+    neither styles it, both papers fall through to the hook's base rule, the
+    facts agree, and that is the correct answer rather than a hole. The claim
+    is totality over the states, not that an unstyled state is a defect.
+
+    Reimplemented rather than imported: ``tests/test_public_player_maybe.py``
+    reads the same constant for its own purpose and imports this module's CSS
+    parser, so importing its reader back would be a cycle. Thirteen lines of
+    regex, which is the trade CLAUDE.md's ``mask_runs`` precedent names.
+    """
+    text = STATE_MODULE.read_text(encoding="utf-8")
+    values = dict(_STATE_CONST.findall(text))
+    listed = _STATE_LIST.search(text)
+    assert listed is not None, "solver_state.js does not declare CELL_STATES as a frozen array"
+    names = [name.strip() for name in listed.group(1).split(",") if name.strip()]
+    assert names, "CELL_STATES is empty"
+    resolved = [values[name] for name in names]
+    assert len(set(resolved)) == len(resolved), resolved
+    return resolved
+
+
+#: The Maybe mark's glyph, per hook — the fact CARD-339 put in this surface.
+#: Both sheets spell the selector identically, so like :data:`DOT` it is a
+#: lookup key and not a compared fact. The glyph is an ``::after`` for the
+#: reason the dot is: the cell's background is its paper, and a mark painted
+#: into it cannot be sized from the cell's own box.
+MAYBE_CELL_GLYPH = '.player-cell[data-state="maybe"]::after'
+MAYBE_SWATCH_GLYPH = '.player-swatch[data-state="maybe"]::after'
+
+#: The anti-vacuity floor for the two glyph comparisons, written here
+#: independently of either sheet — :data:`DOT_PROPERTIES`' discipline, applied
+#: to the mark CARD-339 added. Declaration-set equality is vacuously true when
+#: both parses come back empty, so each side is held to its property set as
+#: well as to the other side.
+#:
+#: The two sets differ from each other **by design and not by drift**: the cell
+#: glyph is a block sized from the cell (``text-align`` centres it in the
+#: cell's box), the swatch glyph is a flex box filling 1em of button chrome.
+#: The admin declares them that way too, so each set is compared against *the
+#: same hook in the other sheet* and never across hooks.
+MAYBE_CELL_GLYPH_PROPERTIES = frozenset(
+    {"content", "display", "font-size", "line-height", "font-weight", "text-align", "color"}
+)
+MAYBE_SWATCH_GLYPH_PROPERTIES = frozenset(
+    {
+        "content",
+        "position",
+        "inset",
+        "display",
+        "align-items",
+        "justify-content",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "color",
+    }
+)
+
+#: What the mark *is*, written out independently of either sheet. Equality
+#: alone would stay green if both sheets were changed to draw "!" in the ink
+#: token together, and "the two agree" is not the claim AC-1 makes — the claim
+#: is that this page draws the admin's mark.
+MAYBE_GLYPH_CONTENT = '"?"'
+MAYBE_GLYPH_COLOUR = "var(--color-accent)"
+
+#: The floor the cell glyph's ``font-size`` reads. It is declared in
+#: ``admin.css`` and in ``player.css``, **not** in the ``tokens.css`` R3 copies
+#: byte-identically, so the two declarations could read equal while rendering
+#: at different sizes. Compared as its own fact (``numeral-floor.value``) for
+#: exactly that reason.
+NUMERAL_FLOOR = "--player-numeral-min"
+
+
+def custom_property(text: str, name: str) -> str:
+    """The one value ``text`` declares for custom property ``name``.
+
+    "Exactly one declaration" is half the claim, as it is for the wave setter:
+    a second one is a second place the value is decided. A ``var(--name)``
+    *reference* is a value and never matches, because :func:`declarations`
+    keys a declaration by its own property.
+    """
+    found = [
+        value
+        for _, body in _RULE.findall(_css_code(text))
+        for prop, value in declarations(body).items()
+        if prop == name
+    ]
+    assert len(found) == 1, f"{name}: expected one declaration, found {len(found)}"
+    return found[0]
+
+
 #: What :func:`_measured` is reading — one fact of the compared surface.
 _Fact = TypeVar("_Fact")
 
@@ -452,14 +616,41 @@ def compared_surface(
         "sweep.animation (player.css)", lambda: sweep_animation(public_sweep_value)
     )
 
-    def dot(label: str, text: str) -> str:
-        found = _measured(
-            f"dot.declarations ({label})", lambda: declarations(rules(text)[DOT])
-        )
+    def rule(fact: str, selector: str, label: str, text: str) -> str:
+        """One rule's declarations, normalised into a comparable string."""
+        found = _measured(f"{fact} ({label})", lambda: declarations(rules(text)[selector]))
         return "; ".join(f"{name}: {found[name]}" for name in sorted(found))
+
+    def dot(label: str, text: str) -> str:
+        return rule("dot.declarations", DOT, label, text)
 
     surface: dict[str, tuple[str, str]] = {
         "dot.declarations": (dot("admin.css", admin_css), dot("player.css", public_css)),
+        # CARD-339. The Maybe mark, per hook — the two facts whose absence from
+        # this dict is the defect that card exists to fix. Read exactly as the
+        # dot is read: by the selector both sheets spell the same way, into a
+        # declaration set, with a property-set floor under each side.
+        "maybe.cell.glyph.declarations": (
+            rule("maybe.cell.glyph.declarations", MAYBE_CELL_GLYPH, "admin.css", admin_css),
+            rule("maybe.cell.glyph.declarations", MAYBE_CELL_GLYPH, "player.css", public_css),
+        ),
+        "maybe.swatch.glyph.declarations": (
+            rule("maybe.swatch.glyph.declarations", MAYBE_SWATCH_GLYPH, "admin.css", admin_css),
+            rule("maybe.swatch.glyph.declarations", MAYBE_SWATCH_GLYPH, "player.css", public_css),
+        ),
+        # The token the cell glyph's font-size reads, which lives in each sheet
+        # rather than in the copied tokens.css: without this fact the two
+        # declarations could read equal and render at different sizes.
+        "numeral-floor.value": (
+            _measured(
+                f"numeral-floor.value (admin.css)",
+                lambda: custom_property(admin_css, NUMERAL_FLOOR),
+            ),
+            _measured(
+                f"numeral-floor.value (player.css)",
+                lambda: custom_property(public_css, NUMERAL_FLOOR),
+            ),
+        ),
         f"keyframes.{SETTLE}": (
             _measured(
                 f"keyframes.{SETTLE} (admin.css)", lambda: keyframes_body(admin_css, SETTLE)
@@ -777,6 +968,262 @@ _RESIDUE_CONTROL_CASES = [
     for name, plant in controls
 ]
 
+
+
+# --------------------------------------------------------------------------
+# The marks, censused (CARD-339 item 4 / AC-5).
+#
+# The compared surface above is a list of facts somebody chose to put in it,
+# and the Maybe mark's drift is what that costs: a mark nobody added was a mark
+# nobody compared, and nothing said so. The census is the answer to that shape
+# rather than to that instance. It enumerates every state the shared module
+# declares against both hooks and both sheets, and every fact it produces has
+# to be one of three things — COMPARED above, AGREEING outright, or ROUTED in
+# SIBLING_FINDINGS with a sentence and a measured figure. A fourth kind of fact
+# does not exist, so a sibling gap can no longer be silent.
+# --------------------------------------------------------------------------
+
+
+def _cascade(text: str, selector: str) -> dict[str, str]:
+    """Every flat rule of ``text`` spelled exactly ``selector``, cascaded.
+
+    In document order, later declarations winning, which is what CSS does with
+    a selector declared twice. :func:`rules` keeps only the LAST body, and that
+    is not good enough here: ``admin.css`` declares ``.player-cell`` twice and
+    the base ``background`` is in the first of them, so a reader that took
+    ``rules()[".player-cell"]`` would find the admin's cells had no paper.
+    """
+    found: dict[str, str] = {}
+    for selector_text, body in _RULE.findall(_css_code(text)):
+        if _squeezed(selector_text) == selector:
+            found.update(declarations(body))
+    return found
+
+
+def mark_paper(text: str, hook: str, state: str) -> dict[str, str]:
+    """What ``text`` paints the ``state`` mark's own box with, on ``hook``.
+
+    The state rule's own declarations, with ``background`` resolved against the
+    hook's base rule — because "declares no background" and "declares the
+    base's background" are the SAME paper and must not read as a divergence.
+    ``admin.css`` omits the rule where ``player.css`` writes it out, three
+    times over, and a census that reported those three would be three
+    findings nobody can act on standing beside the two that matter.
+    """
+    own = _cascade(text, f'{hook}[data-state="{state}"]')
+    base = _cascade(text, hook)
+    painted = dict(own)
+    painted["background"] = own.get("background") or base.get(
+        "background", f"{UNREADABLE} neither {hook}[data-state=\"{state}\"] nor {hook} paints"
+    )
+    return painted
+
+
+def mark_glyph(text: str, hook: str, state: str) -> dict[str, str]:
+    """What ``text`` draws ON the ``state`` mark, on ``hook`` — its ``::after``.
+
+    ``{}`` when there is none, which is a real answer and not an absence: "the
+    admin draws a mark here and this page draws nothing" is precisely the
+    divergence CARD-339 was raised for, and it is also still true of the White
+    swatch (see :data:`SIBLING_FINDINGS`).
+    """
+    return _cascade(text, f'{hook}[data-state="{state}"]::after')
+
+
+#: The two hooks a mark is drawn on: a board cell, and the brush button's
+#: preview of it. Both sheets use these two class names and no others, which is
+#: what makes the public swatch a preview of the public cell at all.
+MARK_HOOKS = (".player-cell", ".player-swatch")
+
+#: What is read for each (hook, state): the paper under the mark and the glyph
+#: on it. Two facts, because they fail independently — the Maybe mark's glyph
+#: was missing while its paper was merely different, and the White swatch is
+#: the reverse.
+_MARK_FACTS = (("paper", mark_paper), ("glyph", mark_glyph))
+
+
+def mark_census(admin_css: str, public_css: str, states: list[str]) -> dict[str, tuple[str, str]]:
+    """``{fact: (admin value, public value)}`` for every mark both sheets draw.
+
+    Total over ``states`` x :data:`MARK_HOOKS` x :data:`_MARK_FACTS`, and
+    ``states`` is :func:`cell_states`' reading of ``solver_state.js`` rather
+    than a list kept here (ADR-0039/R2): a fifth cell state arrives in this
+    dict as four unclassified facts and reds.
+
+    Takes text so the controls can feed it synthetic sheets, exactly as
+    :func:`compared_surface` does.
+    """
+
+    def value(read, text: str, hook: str, state: str) -> str:
+        found = read(text, hook, state)
+        return "; ".join(f"{name}: {found[name]}" for name in sorted(found))
+
+    return {
+        f"{hook}.{state}.{fact}": (
+            value(read, admin_css, hook, state),
+            value(read, public_css, hook, state),
+        )
+        for hook in MARK_HOOKS
+        for state in states
+        for fact, read in _MARK_FACTS
+    }
+
+
+#: Which census facts the compared surface already carries, and under which
+#: key. Hand-written and then **held to the surface**, so a renamed fact reds
+#: here instead of quietly dropping a mark out of coverage.
+MARKS_IN_THE_COMPARED_SURFACE = {
+    ".player-cell.empty.glyph": "dot.declarations",
+    ".player-cell.maybe.glyph": "maybe.cell.glyph.declarations",
+    ".player-swatch.maybe.glyph": "maybe.swatch.glyph.declarations",
+}
+
+
+@dataclass(frozen=True)
+class RoutedFinding:
+    """One censused divergence that is MEASURED and UNDECIDED.
+
+    Not a :class:`Divergence`, and the distinction is the whole point of
+    having a second table rather than a fourth entry in the first one:
+
+    * a :class:`Divergence` is a fact **inside** the compared surface that is
+      *allowed* to differ, because somebody decided it should;
+    * a :class:`RoutedFinding` is a fact **outside** it that *does* differ,
+      that nobody has decided, and that this guard pins so neither sheet can
+      change it unremarked.
+
+    Nothing is exempted by being routed. The compared surface is exactly as
+    wide as it was; the census is what makes its edge visible, and these
+    entries are the owner's queue rather than this file's permission.
+
+    * ``reason`` — what differs and why it is the owner's call, not a
+      worktree's. Held to :data:`_REASON_FLOOR`, like a declared divergence's.
+    * ``measured`` — the figure. "It looks worse" is not a finding; a contrast
+      ratio or a count is. Held to carrying a digit.
+    """
+
+    reason: str
+    measured: str
+
+
+#: The divergences the census finds that nobody has decided. CARD-339 measured
+#: every one of them; it decided none of them, because
+#: ``test_public_player_agreement.py``'s own standing rule is that two players
+#: disagreeing about a mark is a finding for the owner and deciding which side
+#: is right is not a worktree call — the rule CARD-323 followed to produce
+#: CARD-339, and the one CARD-339 follows here rather than widening past its
+#: own mark.
+SIBLING_FINDINGS: dict[str, RoutedFinding] = {
+    ".player-cell.maybe.paper": RoutedFinding(
+        reason=(
+            "The admin's Maybe cell has NO background rule, so it draws the glyph on the "
+            "board's paper; this page draws it on --color-surface-hover, the tint that stood "
+            "in for the glyph before CARD-339 added one. The owner's decision of 2026-11-03 "
+            "was that the public page GAINS the glyph; it said nothing about the tint, and "
+            "CARD-339's G-2 forbids that card touching the background either it or CARD-323 "
+            "owns. So the tint is measured and left standing, pinned here: a rendered-pixel "
+            "question the owner has not been asked is not a worktree call, and declaring it "
+            "in DECLARED_DIVERGENCES would be exactly the exemption CARD-339's G-3 names as "
+            "the defect arriving one level up."
+        ),
+        measured=(
+            "The tint alone is 1.169:1 against a blank cell (--color-surface-hover #f1ebdd "
+            "vs --grid-paper #fffdf8, WCAG 2.1 relative luminance) — invisible, which is the "
+            "owner's original finding. Its cost to the mark that IS now drawn: the '?' reads "
+            "6.207:1 on this page against 7.258:1 in the admin. Both clear AA's 4.5:1; only "
+            "the admin's clears AAA's 7:1."
+        ),
+    ),
+    ".player-swatch.maybe.paper": RoutedFinding(
+        reason=(
+            "The swatch half of the same undecided tint, and it is CARD-323's one CSS line: "
+            "that card matched the swatch to the cell so the brush button would stop "
+            "previewing the wrong mark, which is right and stays right. It diverges from the "
+            "admin for the same single reason the cell does, so it is routed with the cell "
+            "and must be decided with it — resolving one and not the other would make the "
+            "button stop previewing the cell, which is the defect CARD-323 closed."
+        ),
+        measured=(
+            "1.018:1 against the Clear swatch (--color-surface-hover #f1ebdd vs "
+            "--color-surface-sunken #efe9dc) — the two beige squares the owner could not "
+            "tell apart in ~/Documents/nonogram-reviews/CARD-323/. The '?' CARD-339 adds is "
+            "now what distinguishes them, at 6.207:1 on the tint."
+        ),
+    ),
+    ".player-swatch.empty.glyph": RoutedFinding(
+        reason=(
+            "The same defect shape CARD-339 exists to fix, one state over, and found by this "
+            "census rather than by a render: the admin's White swatch previews the cell's "
+            "dot as an ::after and this page's draws nothing at all, so the brush button "
+            "shows a plain square for a mark the board draws a dot for. Deliberately NOT "
+            "taken by CARD-339 — its own instruction is not to widen silently past the Maybe "
+            "mark, and adding a mark to a button is the same owner-facing decision the Maybe "
+            "glyph needed an owner for. Owner: the board owner, via this card's reviewer. "
+            "This is the strongest candidate for the follow-up card."
+        ),
+        measured=(
+            "The dot the admin's swatch draws is --color-text-secondary #5c6070 at 28% of "
+            "the box, 6.144:1 on the swatch's paper. Without it, this page's White and Clear "
+            "swatches are two plain squares 1.19:1 apart (--grid-paper #fffdf8 vs "
+            "--color-surface-sunken #efe9dc) — below the 1.169:1 the owner already called "
+            "indistinguishable for the Maybe cell."
+        ),
+    ),
+    ".player-swatch.unknown.paper": RoutedFinding(
+        reason=(
+            "The Clear swatch's own paper: --color-surface-sunken here, --grid-paper in the "
+            "admin (which declares no rule for the state, so the swatch's base paper shows). "
+            "A deliberate choice on this page, as far as the sheets say — the public swatch "
+            "is 1em of button chrome and a sunken square reads as 'erase' beside three "
+            "marked ones — but nobody recorded deciding it, and it is half of why the White "
+            "and Clear swatches sit as close together as they do. Routed with the finding "
+            "above, which it cannot be decided apart from."
+        ),
+        measured=(
+            "1.19:1 between the two sheets' Clear swatches (--color-surface-sunken #efe9dc "
+            "vs --grid-paper #fffdf8), and the same 1.19:1 between this page's Clear and "
+            "White swatches."
+        ),
+    ),
+    ".player-cell.filled.paper": RoutedFinding(
+        reason=(
+            "CARD-270's hairline, which the admin has and this page does not: every filled "
+            "cell there draws a --player-rule inset box-shadow in --player-thin just inside "
+            "its own box, so a run of filled cells crossing a major rule, the frame or a "
+            "clue gutter does not merge into one blob where the heavy rule exists to help "
+            "the player count (the owner's finding of 2026-10-22). The same board is drawn "
+            "here with the same ink, at the same every-fifth major rule, so the same blob is "
+            "reachable. Not taken by CARD-339: it is a second owner-facing mark on a second "
+            "state, --player-thin is declared in admin.css rather than in the tokens.css "
+            "ADR-0041/R3 copies, so the token is not even reachable from this sheet, and the "
+            "fix needs the pixel sampling tests/test_puzzle_solver_fifth_rule.py does for "
+            "the panel. Owner: the board owner, via this card's reviewer."
+        ),
+        measured=(
+            "One declaration and 1 px: 'box-shadow: inset 0 0 0 var(--player-rule) "
+            "var(--player-thin)' in the admin, nothing here. --player-thin is "
+            "color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)), declared at "
+            "admin.css's --player-thin and in no file the public site is served."
+        ),
+    ),
+    ".player-swatch.filled.paper": RoutedFinding(
+        reason=(
+            "The admin sinks the Black swatch's border into its fill (border-color: "
+            "var(--grid-ink)) so the button shows one solid ink square; this page leaves the "
+            "base --color-border-strong edge around the ink. Cosmetic, one declaration, and "
+            "nobody decided it either way. Routed rather than taken for the same reason as "
+            "the rest: CARD-339's brief is the Maybe mark, and a swatch's border is the "
+            "owner's eye, not a test's."
+        ),
+        measured=(
+            "One declaration: 'border-color: var(--grid-ink)' present in the admin, absent "
+            "here, so the border stays --color-border-strong #7f755f (3.9:1 on surface) "
+            "around a --grid-ink #1c2333 fill."
+        ),
+    ),
+}
+
+
 #: The shortest a reason may be. A reason is the entire value an exemption
 #: buys: the key says what differs, and only the sentence says whether anyone
 #: decided it. A one-word "ok" is the exemption CARD-255 shipped.
@@ -791,6 +1238,11 @@ def admin_css() -> str:
 @pytest.fixture(scope="module")
 def public_css() -> str:
     return PUBLIC_CSS.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def census(admin_css: str, public_css: str) -> dict[str, tuple[str, str]]:
+    return mark_census(admin_css, public_css, cell_states())
 
 
 @pytest.fixture(scope="module")
@@ -972,6 +1424,436 @@ class TestPlayerLooksAgree_BothPlayersSetTheSameWave:
         assert wave_settings(PUBLIC_JS) == [WAVE_EXPRESSION]
 
 
+
+
+class TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark:
+    """CARD-339 AC-1/AC-2/AC-3 — the "?" is one mark, drawn twice.
+
+    The admin drew it and this page did not, and the reason the divergence
+    reached a render is that none of the arms above looked at it. Arm by arm
+    for the reason AC-1's class states, and **both sheets searched in every
+    one**: half a guard passes half the mutants, which is the defect shape
+    this whole file exists to catch.
+
+    AC-1 asks for the glyph "verified against the admin's own declarations,
+    derived rather than retyped". That is what these arms are: nothing below
+    writes a font-size, an inset or a flex rule down. The two property sets
+    and :data:`MAYBE_GLYPH_CONTENT`/:data:`MAYBE_GLYPH_COLOUR` are written
+    here, and they are the anti-vacuity floor rather than the comparison —
+    :data:`DOT_PROPERTIES`' exact role, for the exact reason: two empty parses
+    are equal and mean nothing.
+    """
+
+    def test_the_cell_glyph_is_declared_once_in_each_sheet(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        assert rule_count(admin_css, MAYBE_CELL_GLYPH) == 1, "admin.css: not found once"
+        assert rule_count(public_css, MAYBE_CELL_GLYPH) == 1, "player.css: not found once"
+
+    def test_the_swatch_glyph_is_declared_once_in_each_sheet(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        assert rule_count(admin_css, MAYBE_SWATCH_GLYPH) == 1, "admin.css: not found once"
+        assert rule_count(public_css, MAYBE_SWATCH_GLYPH) == 1, "player.css: not found once"
+
+    def test_the_admin_sheet_declares_the_cell_glyphs_properties(self, admin_css: str) -> None:
+        found = declarations(rules(admin_css)[MAYBE_CELL_GLYPH])
+        assert set(found) == MAYBE_CELL_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_public_sheet_declares_the_cell_glyphs_properties(self, public_css: str) -> None:
+        found = declarations(rules(public_css)[MAYBE_CELL_GLYPH])
+        assert set(found) == MAYBE_CELL_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_admin_sheet_declares_the_swatch_glyphs_properties(self, admin_css: str) -> None:
+        found = declarations(rules(admin_css)[MAYBE_SWATCH_GLYPH])
+        assert set(found) == MAYBE_SWATCH_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_public_sheet_declares_the_swatch_glyphs_properties(self, public_css: str) -> None:
+        found = declarations(rules(public_css)[MAYBE_SWATCH_GLYPH])
+        assert set(found) == MAYBE_SWATCH_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_two_cell_glyph_declaration_sets_are_equal(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """AC-1's claim for the board, and AC-2's public-only plant lands here."""
+        assert declarations(rules(admin_css)[MAYBE_CELL_GLYPH]) == declarations(
+            rules(public_css)[MAYBE_CELL_GLYPH]
+        )
+
+    def test_the_two_swatch_glyph_declaration_sets_are_equal(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """AC-1's claim for the brush button."""
+        assert declarations(rules(admin_css)[MAYBE_SWATCH_GLYPH]) == declarations(
+            rules(public_css)[MAYBE_SWATCH_GLYPH]
+        )
+
+    def test_the_mark_both_glyphs_draw_is_a_question_mark_in_the_accent_token(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """Written out independently, so "the same" cannot be "the same wrong".
+
+        Equality alone would stay green if both sheets were changed together
+        to draw "!" in the ink token, and AC-1's claim is not that the two
+        agree — it is that this page draws *the admin's mark*.
+        """
+        for label, text in (("admin.css", admin_css), ("player.css", public_css)):
+            for selector in (MAYBE_CELL_GLYPH, MAYBE_SWATCH_GLYPH):
+                found = declarations(rules(text)[selector])
+                assert found["content"] == MAYBE_GLYPH_CONTENT, f"{label} {selector}: {found}"
+                assert found["color"] == MAYBE_GLYPH_COLOUR, f"{label} {selector}: {found}"
+
+    def test_the_numeral_floor_the_cell_glyph_reads_agrees_in_both_sheets(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """The hole the derived declaration would otherwise open.
+
+        The cell glyph's font-size reads ``var(--player-numeral-min)``, and
+        that token is declared in each stylesheet rather than in the
+        ``tokens.css`` ADR-0041/R3 copies byte-identically. So the two
+        font-size declarations can read **equal** while rendering at different
+        sizes, which is agreement about the text and not about the mark. Both
+        sides are also held to declaring it exactly once: a second declaration
+        is a second place the size is decided.
+        """
+        for label, text in (("admin.css", admin_css), ("player.css", public_css)):
+            assert NUMERAL_FLOOR in declarations(rules(text)[MAYBE_CELL_GLYPH])["font-size"], (
+                f"{label}: the cell glyph no longer reads {NUMERAL_FLOOR}, so comparing it "
+                "measures nothing"
+            )
+        assert custom_property(admin_css, NUMERAL_FLOOR) == custom_property(
+            public_css, NUMERAL_FLOOR
+        )
+
+    def test_the_maybe_mark_is_a_fact_this_guard_compares(
+        self, surface: dict[str, tuple[str, str]]
+    ) -> None:
+        """CARD-339's AC-3, as its own named cell.
+
+        The card's measured premise was that this module contained the string
+        ``maybe`` zero times. This arm is the statement that it no longer does,
+        in the only form that can fail: the two facts are in the surface
+        :func:`disagreements` is total over, so from here the mark can only be
+        *declared* or *reported*, never overlooked.
+        """
+        assert "maybe.cell.glyph.declarations" in surface
+        assert "maybe.swatch.glyph.declarations" in surface
+        assert "numeral-floor.value" in surface
+        for key in ("maybe.cell.glyph.declarations", "maybe.swatch.glyph.declarations"):
+            assert key not in DECLARED_DIVERGENCES, (
+                f"{key} is declared as an allowed divergence. CARD-339's G-3: an exemption "
+                "added to make that card green is the defect it exists to fix, one level up."
+            )
+            admin_value, public_value = surface[key]
+            assert admin_value.strip() and public_value.strip(), (key, surface[key])
+
+    #: AC-2's plants, one per (hook, direction). Each is a substitution on the
+    #: REAL text of one sheet, the idiom
+    #: :meth:`TestPlayerLooksAgree_ADivergenceMustBeDeclared.test_a_fourth_divergence_in_the_compared_surface_is_reported`
+    #: already uses, so a control cannot drift away from the file it is about —
+    #: and so that an ADMIN-side plant never writes into ``src/`` (CARD-339's
+    #: G-1). Both directions, because a guard that read ``player.css`` on both
+    #: sides of the comparison would pass every public-only plant.
+    MAYBE_PLANTS = {
+        "the public cell glyph loses the accent token": (
+            "maybe.cell.glyph.declarations",
+            _on_public(lambda css: css.replace(
+                'text-align: center; color: var(--color-accent); }',
+                'text-align: center; color: var(--color-text); }',
+            )),
+        ),
+        "the admin cell glyph is drawn half the size": (
+            "maybe.cell.glyph.declarations",
+            _on_admin(lambda css: css.replace(
+                "calc(var(--player-cell) * 0.6)", "calc(var(--player-cell) * 0.3)"
+            )),
+        ),
+        "the public swatch glyph stops centring the mark": (
+            "maybe.swatch.glyph.declarations",
+            _on_public(lambda css: css.replace(
+                "display: flex; align-items: center; justify-content: center;",
+                "display: flex; align-items: start; justify-content: start;",
+            )),
+        ),
+        "the admin swatch glyph draws an exclamation mark": (
+            "maybe.swatch.glyph.declarations",
+            _on_admin(lambda css: css.replace(
+                '.player-swatch[data-state="maybe"]::after { content: "?";',
+                '.player-swatch[data-state="maybe"]::after { content: "!";',
+            )),
+        ),
+    }
+
+    @pytest.mark.parametrize("name", sorted(MAYBE_PLANTS))
+    def test_a_one_sided_change_to_the_maybe_mark_is_reported(
+        self, admin_css: str, public_css: str, name: str
+    ) -> None:
+        """AC-2: a divergence in either look, planted in either direction, reds.
+
+        Two assertions in order, and the second is the one with teeth: the
+        plant must appear as an **undeclared** disagreement, so a plant that
+        the exemption table happened to absorb would fail here rather than
+        pass as "something reddened".
+        """
+        key, plant = self.MAYBE_PLANTS[name]
+        planted_admin, planted_public = plant(admin_css, public_css)
+        assert (planted_admin, planted_public) != (admin_css, public_css), (
+            f"the plant {name!r} did not apply — this control measures nothing"
+        )
+        found = disagreements(
+            compared_surface(
+                planted_admin, planted_public, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+            )
+        )
+        assert key in found, {name: sorted(found)}
+        assert set(found) - set(DECLARED_DIVERGENCES) == {key}, {
+            "the plant was absorbed or reached further than one fact": sorted(
+                set(found) - set(DECLARED_DIVERGENCES)
+            )
+        }
+
+    @pytest.mark.parametrize(
+        "selector", [MAYBE_CELL_GLYPH, MAYBE_SWATCH_GLYPH], ids=["cell", "swatch"]
+    )
+    def test_a_glyph_deleted_from_this_page_is_a_failure_and_not_an_absence(
+        self, admin_css: str, public_css: str, selector: str
+    ) -> None:
+        """The third direction, which equality cannot carry.
+
+        Deleting the rule does not make the two sides *differ* — it makes one
+        side unreadable, and "not found" has to be a failure here rather than
+        a silent half-measurement. That is :func:`_measured`'s whole job, so
+        the plant is asserted to raise with the FACT's name in the message.
+        """
+        rule_text = rules(public_css)[selector]
+        planted = public_css.replace(f"{selector} {{{rule_text}}}", "", 1)
+        assert planted != public_css, "the plant did not apply — this control measures nothing"
+        with pytest.raises(AssertionError) as broke:
+            compared_surface(
+                admin_css, planted, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+            )
+        assert "maybe" in str(broke.value) and "player.css" in str(broke.value), str(broke.value)
+
+
+class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
+    """CARD-339 item 4 / AC-5 — the other marks are measured, not assumed.
+
+    The compared surface is a list somebody chose, and the Maybe mark is what
+    choosing costs. This class is the answer to the SHAPE rather than to that
+    instance: every fact of :func:`mark_census` must be compared, agreeing, or
+    routed, so the next sibling gap arrives as a red cell with a name instead
+    of as a render the owner notices.
+    """
+
+    def test_the_census_is_derived_from_the_module_both_players_import(self) -> None:
+        """ADR-0039/R2: the set is enumerated, never written down.
+
+        ``solver_state.js`` is the authority — the module ADR-0041/R3 copies
+        byte-identically into the public site, so it is the one place the two
+        players cannot disagree about what the states ARE. A fifth state added
+        there is enumerated rather than left outside; see
+        :meth:`test_a_fifth_cell_state_is_enumerated_rather_than_left_outside_the_census`
+        for what that does and does not establish.
+        """
+        states = cell_states()
+        assert len(states) >= 4, states
+        assert "maybe" in states and "filled" in states, states
+        assert sorted(set(states)) == sorted(states), states
+
+    def test_the_census_is_not_vacuous(self, census: dict[str, tuple[str, str]]) -> None:
+        """Anti-vacuity: an empty census classifies nothing and would pass."""
+        assert len(census) == len(MARK_HOOKS) * len(cell_states()) * 2, sorted(census)
+        assert ".player-cell.maybe.glyph" in census
+        assert ".player-swatch.empty.glyph" in census
+        drawn = [key for key, pair in census.items() if any(pair)]
+        assert len(drawn) >= 10, drawn
+
+    def test_every_census_fact_is_compared_routed_or_agreeing(
+        self, census: dict[str, tuple[str, str]]
+    ) -> None:
+        """The claim, and both directions of it in one equality.
+
+        An unclassified divergence is a mark drifting where nothing is looking
+        — the defect CARD-339 was raised for, stated here about every mark
+        rather than about the one that already happened. A routed finding that
+        stops diverging is the stale-exemption shape: somebody fixed it and
+        left the queue entry standing.
+        """
+        compared = set(MARKS_IN_THE_COMPARED_SURFACE)
+        diverging = {key for key, pair in census.items() if pair[0] != pair[1]}
+        assert diverging & compared == set(), {
+            "a fact the compared surface carries is diverging here": sorted(diverging & compared),
+            "read": "test_the_disagreements_are_exactly_the_declared_ones first",
+        }
+        assert diverging == set(SIBLING_FINDINGS), {
+            "diverging, and nobody has even been asked": sorted(
+                diverging - set(SIBLING_FINDINGS) - compared
+            ),
+            "routed, but no longer diverging": sorted(set(SIBLING_FINDINGS) - diverging),
+            "what each routed finding measured": {
+                key: SIBLING_FINDINGS[key].measured
+                for key in sorted(set(SIBLING_FINDINGS) - diverging)
+            },
+        }
+
+    def test_every_compared_mark_names_a_fact_the_surface_really_carries(
+        self, census: dict[str, tuple[str, str]], surface: dict[str, tuple[str, str]]
+    ) -> None:
+        """The shape constraint over the OTHER table, and the CARD-255 lesson.
+
+        A census fact claiming to be covered by a surface key that does not
+        exist reads as coverage and is none: exactly what
+        ``test_every_declared_divergence_is_a_fact_the_guard_measures`` holds
+        :data:`DECLARED_DIVERGENCES` to, applied to the table that claims the
+        marks are looked at.
+        """
+        unknown = sorted(set(MARKS_IN_THE_COMPARED_SURFACE) - set(census))
+        assert unknown == [], f"claimed compared, but not a mark the census reads: {unknown}"
+        missing = sorted(
+            key for key, fact in MARKS_IN_THE_COMPARED_SURFACE.items() if fact not in surface
+        )
+        assert missing == [], f"claimed compared, but the surface has no such fact: {missing}"
+
+    def test_no_mark_is_both_compared_and_routed(self) -> None:
+        """A fact cannot be in the surface and in the owner's queue at once.
+
+        If it were, the queue entry would be the exemption CARD-339's G-3
+        forbids, wearing the census's clothes.
+        """
+        both = sorted(set(MARKS_IN_THE_COMPARED_SURFACE) & set(SIBLING_FINDINGS))
+        assert both == [], f"compared AND routed: {both}"
+
+    def test_every_routed_finding_carries_a_reason_and_a_measured_figure(self) -> None:
+        """What a routed finding costs, so the queue cannot rot into a note.
+
+        The reason floor is :data:`DECLARED_DIVERGENCES`' own, and the figure
+        is what makes it actionable: "it looks worse" is not a finding, a
+        contrast ratio or a count is. CARD-339's G-3 asks a declared
+        divergence for a reason and a measured residue; this holds the routed
+        table to the same two things, so routing is not the cheaper door.
+        """
+        thin = sorted(
+            key
+            for key, found in SIBLING_FINDINGS.items()
+            if len(found.reason.strip()) < _REASON_FLOOR
+        )
+        assert thin == [], f"a routed finding without a stated reason: {thin}"
+        unmeasured = sorted(
+            key
+            for key, found in SIBLING_FINDINGS.items()
+            if not any(char.isdigit() for char in found.measured)
+        )
+        assert unmeasured == [], f"a routed finding with no figure in it: {unmeasured}"
+
+    def test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption(
+        self, census: dict[str, tuple[str, str]]
+    ) -> None:
+        """The one CARD-339 measured, decided NOT to decide, and pinned.
+
+        The owner's decision of 2026-11-03 was that the public page gains the
+        glyph. It said nothing about the tint under it, and the admin's Maybe
+        cell has no background rule at all — so the mark now agrees and the
+        paper it sits on does not. This arm is why that is not silent: it reds
+        if either sheet changes its Maybe paper, in either direction, and its
+        message carries the figure the owner needs.
+
+        It is deliberately **not** a :data:`DECLARED_DIVERGENCES` entry. That
+        table means "allowed, for a decided reason", and nobody has decided
+        this; an entry there would be the exemption CARD-339's G-3 names as
+        the defect it exists to fix, arriving one level up.
+        """
+        for key in (".player-cell.maybe.paper", ".player-swatch.maybe.paper"):
+            assert key in SIBLING_FINDINGS, key
+            assert census[key][0] != census[key][1], {
+                "this finding is closed and the queue entry is stale": key,
+                "what it measured": SIBLING_FINDINGS[key].measured,
+            }
+        assert census[".player-cell.maybe.paper"][0] == "background: var(--grid-paper)", census[
+            ".player-cell.maybe.paper"
+        ]
+        assert (
+            census[".player-cell.maybe.paper"][1] == "background: var(--color-surface-hover)"
+        ), census[".player-cell.maybe.paper"]
+        # The swatch previews the cell, which is CARD-323's claim and still
+        # holds: whatever the paper is, it is the SAME paper on both hooks of
+        # this page. Decided apart, the button would stop previewing the cell.
+        assert census[".player-cell.maybe.paper"][1] == census[".player-swatch.maybe.paper"][1]
+
+    #: The census's own controls: one plant per direction, on the real text.
+    CENSUS_PLANTS = {
+        "a sibling mark starts diverging (the public cell loses its ink)": (
+            _on_public(lambda css: css.replace(
+                '.player-cell[data-state="filled"] { background: var(--grid-ink); }',
+                '.player-cell[data-state="filled"] { background: var(--color-accent); }',
+            )),
+            ".player-cell.filled.paper",
+        ),
+        "a sibling mark starts diverging (the admin\'s Clear swatch is tinted)": (
+            _on_admin(lambda css: css.replace(
+                '.player-swatch { position: relative;',
+                '.player-swatch[data-state="unknown"] { background: var(--color-accent); }\n'
+                ".player-swatch { position: relative;",
+            )),
+            ".player-swatch.unknown.paper",
+        ),
+    }
+
+    @pytest.mark.parametrize("name", sorted(CENSUS_PLANTS))
+    def test_a_change_to_a_sibling_mark_moves_the_census(self, name: str) -> None:
+        """The control (ADR-0039/R1) for the census's reading itself.
+
+        A plant on one sheet's real text must change the fact it is aimed at.
+        Asserted as a difference from the live census rather than against a
+        written-down expectation, so a plant this reading cannot see fails
+        here instead of being quietly tolerated — and one direction per sheet,
+        because a census computed from one tree twice would pass half of them.
+        """
+        plant, key = self.CENSUS_PLANTS[name]
+        admin_css = ADMIN_CSS.read_text(encoding="utf-8")
+        public_css = PUBLIC_CSS.read_text(encoding="utf-8")
+        planted_admin, planted_public = plant(admin_css, public_css)
+        assert (planted_admin, planted_public) != (admin_css, public_css), (
+            f"the plant {name!r} did not apply — this control measures nothing"
+        )
+        live = mark_census(admin_css, public_css, cell_states())
+        planted = mark_census(planted_admin, planted_public, cell_states())
+        assert planted[key] != live[key], (name, key, live[key], planted[key])
+
+    def test_a_fifth_cell_state_is_enumerated_rather_than_left_outside_the_census(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """ADR-0039/R2's totality, and **only** what it really buys.
+
+        The census is total over :func:`cell_states`, so a state added to the
+        shared module arrives as four more facts rather than as none, and
+        :meth:`test_every_census_fact_is_compared_routed_or_agreeing` is then
+        total over those too: if one sheet styles the new state and the other
+        does not, they diverge and red as undeclared.
+
+        **What this does NOT establish, said here rather than left implied:**
+        a state *neither* sheet styles agrees, because both papers fall
+        through to the hook's base rule — and that is the right answer, not a
+        hole. ``unknown`` is exactly that case in the admin today. So the
+        claim is totality over the enumeration, never "an unstyled state is a
+        defect", and this arm measures the first.
+        """
+        states = cell_states() + ["pencilled"]
+        planted = mark_census(admin_css, public_css, states)
+        assert len(planted) == len(MARK_HOOKS) * len(states) * 2, sorted(planted)
+        assert ".player-cell.pencilled.paper" in planted
+        # It is unreadable on BOTH sides rather than merely absent, which is
+        # what keeps "nobody styled it" from reading as agreement: an
+        # unclassified state's paper carries the UNREADABLE marker.
+        for hook in MARK_HOOKS:
+            admin_value, public_value = planted[f"{hook}.pencilled.paper"]
+            assert admin_value == public_value, (hook, admin_value, public_value)
+            assert UNREADABLE not in admin_value, (
+                "the hook's base rule stopped painting, which is a real failure and not "
+                "this control's subject"
+            )
+
+
+
 class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
     """CARD-328 AC-4 — the divergences are declared, not discovered.
 
@@ -985,11 +1867,18 @@ class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
         """Anti-vacuity for the set equality below: an empty surface has no
         disagreements, so a broken extractor would otherwise read as perfect
         agreement."""
-        assert len(surface) >= 12, sorted(surface)
+        assert len(surface) >= 15, sorted(surface)
         assert "dot.declarations" in surface
         assert f"keyframes.{FLASH}" in surface
         assert "sweep.animation.step" in surface
         assert "wave.expression" in surface
+        # CARD-339. Named here as well as in their own class, because THIS is
+        # the arm that says what the surface is, and the Maybe mark's absence
+        # from it is the defect that card was raised for: a floor that did not
+        # name the mark would let it fall back out of the surface in silence.
+        assert "maybe.cell.glyph.declarations" in surface
+        assert "maybe.swatch.glyph.declarations" in surface
+        assert "numeral-floor.value" in surface
 
     def test_every_declared_divergence_is_a_fact_the_guard_measures(
         self, surface: dict[str, tuple[str, str]]

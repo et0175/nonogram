@@ -8,7 +8,8 @@ stating because it is the line the next player cards are on either side of:
 (ADR-0038/R6, ADR-0041/R2), so no counter and no hint is reachable here at all.
 A **brush** takes nothing of the sort. Every transition Maybe needs was already
 in the module ADR-0041/R3 makes the two players share byte-for-byte, and
-``player/player.css`` already carried the mark's cell look. The owner reversed
+``player/player.css`` already carried the mark's cell background, and the glyph
+the admin drew beside it became CARD-339. The owner reversed
 the scope choice on 2026-10-30; this module is the gate on the reversal.
 
 Where each AC is answered, and why there
@@ -53,13 +54,42 @@ How every claim here is held to a control that can fail
 ADR-0039/R1. The two tree tests each compute their answer through a named
 function and then run the identical function over **mutated text**, asserting
 the mutant is reported: a reordered ``play.html`` (AC-2), and four separate
-plants in the stylesheet (AC-4) — a second cell rule, a ``?`` glyph added as an
-``::after``, the swatch rule deleted, and the swatch given a different value.
+plants in the stylesheet (AC-4) — a second cell rule, an extra rule added as an
+``::after``, the swatch rule deleted, the swatch given a different value, and
+since CARD-339 three more at the glyph it added (either glyph deleted, and the
+swatch's mark changed).
 The browser tests' control is the feature's own absence, and it was run: with
 ``TOOLS`` put back to ``[FILLED, EMPTY, UNKNOWN]`` and ``play.html``'s fourth
 button left in place, AC-1, AC-3 and AC-5 all fail (the click handler's
 ``TOOLS.includes`` guard returns early, so the brush never changes and the
 cell takes the previous brush's mark). The measurement is in CARD-323's report.
+
+What CARD-339 changed here, and why that is not a regression in this card
+-------------------------------------------------------------------------
+This card measured a second thing and could not fix it: the admin draws a "?"
+glyph in the accent token on its Maybe cell and swatch, and this page drew a
+tint and no glyph. Fixing it would have re-declared the look AC-4 makes a
+finding against this card, so it was routed to the owner, who decided on
+2026-11-03 that the public page gains the glyph. CARD-339 added it.
+
+**That lands squarely on AC-4's two arms, and by design.** :func:`maybe_rules`
+is pseudo-element-blind, so the glyph is a second rule deciding the cell's look
+and a second rule deciding the swatch's — which is exactly the shape this class
+was built to catch, because at the time no card was allowed to add one. Both
+arms were written with that hand-off in their failure messages. So the arms now
+expect **two** rules per hook — the paper and the glyph — and what the glyph
+*declares* is not re-asserted here: it is
+``tests/test_public_player_agreement.py``'s
+``TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark``, which holds both glyphs to
+``admin.css``'s own declarations, and a second copy of that claim here would be
+a second copy of a guard rather than a second guard.
+
+One nit left standing deliberately:
+:meth:`TestPublicMaybe_TheLookIsDeclaredOnce.test_the_maybe_cell_look_is_one_rule_declaring_one_background`
+now reads as a claim about the **paper** rule only, which is still one rule
+declaring one background. The name is not renamed here because
+``meta/kanban/cards/CARD-323.md`` cites it twice by name and that file is
+outside CARD-339's ``Touches``; a card that takes both can rename it.
 
 Tests, by node id (FR-045, CARD-323's ACs)
 ------------------------------------------
@@ -219,9 +249,9 @@ def maybe_rules(css: str, hook: str) -> list[tuple[str, str]]:
     its selector names the hook **and** carries ``[data-state="maybe"]``, which
     is deliberately pseudo-element-blind: ``…[data-state="maybe"]::after`` is a
     second place the mark's look is decided, and counting it is the whole
-    point — the admin sheet draws its "?" exactly that way, so a card copying
-    that look across would red here rather than slip past a selector-equality
-    check.
+    point — the admin sheet draws its "?" exactly that way, so the card that
+    copied that look across (CARD-339) reddened here rather than slipping past
+    a selector-equality check, which is the hand-off working as built.
 
     Comments are stripped first (``_css_code``): ``player.css``'s own prose
     quotes the selectors it is talking about, and a reader that did not strip
@@ -232,6 +262,31 @@ def maybe_rules(css: str, hook: str) -> list[tuple[str, str]]:
         for selector, body in _RULE.findall(_css_code(css))
         if hook in _squeezed(selector) and _MAYBE_ATTR in _squeezed(selector)
     ]
+
+
+#: What the mark draws, written here independently of either sheet, so "the
+#: swatch matches the cell" cannot be satisfied by two rules drawing the same
+#: wrong thing. The full declaration sets are compared against ``admin.css``
+#: by ``tests/test_public_player_agreement.py``; these two are the floor.
+MARK = '"?"'
+MARK_TOKEN = "var(--color-accent)"
+
+
+def _without_rule(css: str, selector: str) -> str:
+    """``css`` with the one flat rule spelled ``selector`` removed.
+
+    Written as a plant rather than a string literal because the two glyph rules
+    are seven and ten declarations long, and a mutant carrying a copy of one
+    would drift away from the sheet it is about the first time that sheet is
+    reformatted — the hazard the four plants above avoid by being short.
+    """
+    bodies = [
+        body
+        for found, body in _RULE.findall(_css_code(css))
+        if _squeezed(found) == selector
+    ]
+    assert len(bodies) == 1, f"{selector}: expected one rule to delete, found {len(bodies)}"
+    return css.replace(f"{selector} {{{bodies[0]}}}", "", 1)
 
 
 def look_report(css: str) -> dict[str, object]:
@@ -345,46 +400,69 @@ class TestPublicMaybe_FourToolsInTheAdminsOrder:
 
 
 class TestPublicMaybe_TheLookIsDeclaredOnce:
-    """AC-4 — the maybe mark's look is decided in one place per hook.
+    """AC-4 — the maybe mark's look is decided in one place per hook, per part.
 
     The card's premise is that the cell look **already shipped**, so this
     card's only legitimate CSS is the swatch half — which did *not* resolve
     before, because the shipped rule's selector is ``.player-cell``-scoped and
     a ``.player-swatch`` carrying the same state fell through to the base
-    rule's paper. A second cell rule, or a glyph bolted on as an ``::after``,
-    is a finding against this card and reds here.
+    rule's paper. A second *paper* rule on either hook is still a finding
+    against this card and still reds here.
+
+    **The expected shape changed once, on 2026-11-03, and only once.** A glyph
+    bolted on as an ``::after`` was a finding against this card too, because at
+    the time no card was allowed to add one; the owner then decided the public
+    page gains the admin's "?" and CARD-339 added it. So each hook now carries
+    **two** rules — the paper and the glyph — and this class holds that shape
+    and the relationship between the hooks. What the glyph *declares* is
+    ``tests/test_public_player_agreement.py``'s
+    ``TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark``, which derives it from
+    ``admin.css``; duplicating that here would be a second copy of a guard.
 
     What this does and does not mechanise, stated rather than implied: it holds
-    the maybe cell rule to **one rule declaring one property**, which is the
+    each hook's paper to **one rule declaring one property**, which is the
     shape the pre-existing rule has and a shape no re-declaration can satisfy.
     It does not read git history, so "the rule that existed before this card"
     is established by that shape plus the card's own diff, not by a timestamp.
     """
 
     def test_the_maybe_cell_look_is_one_rule_declaring_one_background(self) -> None:
-        """One cell rule, declaring one property — the shape the look shipped in.
+        """The paper is one rule declaring one background; the glyph is the second.
 
-        This is the guard CARD-339's AC-1 trips **first, and on both
+        This is the guard CARD-339's AC-1 tripped **first, and on both
         assertions**: :func:`maybe_rules` counts a ``::after`` rather than
-        filtering it, so the glyph lands in ``cell_rules`` and in
-        ``cell_declarations`` at once. Both messages name that hand-off, for
-        the same reason the swatch assertion below does — a hand-off that reds
-        as a bare list mismatch reads as a regression.
+        filtering it, so the glyph landed in ``cell_rules`` and in
+        ``cell_declarations`` at once. Both messages named that hand-off, and
+        the hand-off then arrived: the expected shape below is the taught one.
+
+        The name now reads as a claim about the **paper** rule — still one
+        rule, still one background — and the glyph is the second, *expected*
+        place the look is decided. The two are asserted in document order,
+        which is also specificity order: a glyph rule written above the paper
+        rule would still paint, but the sheet would then decide the mark's look
+        in an order its own comments do not describe, and that is worth
+        failing on rather than tolerating.
         """
         report = look_report(PUBLIC_CSS.read_text(encoding="utf-8"))
         handoff = (
-            "the maybe cell's look is decided in more than one place. If the second place is "
-            'a "?" glyph as an ::after on .player-cell[data-state="maybe"], this is CARD-339\'s '
-            "AC-1 landing and this message is the one it will read: teach this test the new "
-            "expected shape — and the swatch its matching half — rather than dropping the "
-            "assertion. Anything else is the re-declaration AC-4 makes a finding against "
-            "CARD-323. Read as "
+            "the maybe cell's look is not the paper rule followed by the glyph rule. A THIRD "
+            "place the look is decided is the re-declaration AC-4 makes a finding against "
+            "CARD-323; a MISSING glyph is CARD-339's AC-1 being reverted, and "
+            "tests/test_public_player_agreement.py::"
+            "TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark is the guard that says what the "
+            "glyph has to declare. Read as "
         )
-        assert report["cell_rules"] == ['.player-cell[data-state="maybe"]'], (
-            f"{handoff}cell rules {report['cell_rules']}."
+        assert report["cell_rules"] == [
+            '.player-cell[data-state="maybe"]',
+            '.player-cell[data-state="maybe"]::after',
+        ], f"{handoff}cell rules {report['cell_rules']}."
+        paper, glyph = report["cell_declarations"]
+        assert sorted(paper) == ["background"], (
+            f"{handoff}the paper rule declares {sorted(paper)}."
         )
-        assert [sorted(d) for d in report["cell_declarations"]] == [["background"]], (
-            f"{handoff}cell declarations {report['cell_declarations']}."
+        assert glyph["content"] == MARK and glyph["color"] == MARK_TOKEN, (
+            f"{handoff}the glyph draws {glyph.get('content')!r} in "
+            f"{glyph.get('color')!r}."
         )
 
     def test_the_swatch_previews_the_cell_with_the_cells_own_value(self) -> None:
@@ -396,17 +474,38 @@ class TestPublicMaybe_TheLookIsDeclaredOnce:
         rule's presence, is the assertion.
         """
         report = look_report(PUBLIC_CSS.read_text(encoding="utf-8"))
-        assert report["swatch_rules"] == ['.player-swatch[data-state="maybe"]'], report["swatch_rules"]
-        assert report["swatch_declarations"] == report["cell_declarations"], (
-            "the swatch stopped previewing the cell: the brush button's maybe look reads as "
-            f"{report['swatch_declarations']} and the cell's as {report['cell_declarations']}. "
-            "A card that gives the cell a second place its look is decided — a \"?\" glyph as "
-            "an ::after, say — owes the swatch the same addition; that is CARD-339's AC-1, and "
-            "this message is the one it will read."
+        assert report["swatch_rules"] == [
+            '.player-swatch[data-state="maybe"]',
+            '.player-swatch[data-state="maybe"]::after',
+        ], report["swatch_rules"]
+        cell_paper, cell_glyph = report["cell_declarations"]
+        swatch_paper, swatch_glyph = report["swatch_declarations"]
+        assert swatch_paper == cell_paper, (
+            "the swatch stopped previewing the cell: the brush button's maybe paper reads as "
+            f"{swatch_paper} and the cell's as {cell_paper}."
+        )
+        assert (swatch_glyph["content"], swatch_glyph["color"]) == (
+            cell_glyph["content"],
+            cell_glyph["color"],
+        ), (
+            "the swatch stopped previewing the cell's MARK: the button draws "
+            f"{swatch_glyph.get('content')!r} in {swatch_glyph.get('color')!r} and the cell "
+            f"draws {cell_glyph.get('content')!r} in {cell_glyph.get('color')!r}. That is "
+            "CARD-339's AC-1, and this message is the one it reads."
+        )
+        # What may differ between the two, and the reason, asserted so it
+        # cannot quietly become "they agree about everything": the glyph is
+        # sized from the box it sits in — 0.6 x the board cell, --text-xs in
+        # 1em of button chrome — exactly as admin.css sizes its own two. A
+        # swatch glyph sized from --player-cell would be drawn from a token no
+        # swatch sets, so it is the sizing, not the mark, that is the hook's.
+        assert swatch_glyph["font-size"] != cell_glyph["font-size"], (
+            swatch_glyph["font-size"],
+            cell_glyph["font-size"],
         )
         # Tokens only (G-4): the value is a var(), not a colour.
-        value = report["cell_declarations"][0]["background"]
-        assert re.fullmatch(r"var\(--[a-z0-9-]+\)", value), value
+        assert re.fullmatch(r"var\(--[a-z0-9-]+\)", cell_paper["background"]), cell_paper
+        assert re.fullmatch(r"var\(--[a-z0-9-]+\)", cell_glyph["color"]), cell_glyph
 
     #: The plants this class is held to, each as ``(name, mutate)``. Every one
     #: is a defect somebody could really ship: the two cell plants are the two
@@ -431,6 +530,21 @@ class TestPublicMaybe_TheLookIsDeclaredOnce:
         "the swatch given another value": lambda css: css.replace(
             '.player-swatch[data-state="maybe"] { background: var(--color-surface-hover); }',
             '.player-swatch[data-state="maybe"] { background: var(--grid-ink); }',
+        ),
+        # CARD-339's three, added with the glyph: a plant per hook that takes
+        # the mark away, and one that changes what it draws. The first two are
+        # the AC-1 reversion this class's messages name; the third is the look
+        # drifting while the shape stays right, which is the defect shape the
+        # whole Maybe mark arrived with.
+        "the cell glyph deleted": lambda css: _without_rule(
+            css, '.player-cell[data-state="maybe"]::after'
+        ),
+        "the swatch glyph deleted": lambda css: _without_rule(
+            css, '.player-swatch[data-state="maybe"]::after'
+        ),
+        "the swatch glyph draws another mark": lambda css: css.replace(
+            '.player-swatch[data-state="maybe"]::after { content: "?";',
+            '.player-swatch[data-state="maybe"]::after { content: "!";',
         ),
     }
 
