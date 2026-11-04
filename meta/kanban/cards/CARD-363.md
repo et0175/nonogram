@@ -8,8 +8,8 @@
 **Skill:** python-pro
 **Revision pending:** false
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/363-the-review-record-guards`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-363
 **Source:** Measured at the station 2026-11-04 after five review artefacts in two waves had to be reconstructed from agents' hand-back messages. The measurement found the gap is not five cards but systemic, and that the orchestrator's own diagnosis of it was half wrong — see "What the measurement changed".
 **Idea:** —
 **Wave:** 76
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** tests/test_kanban_review_record.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T14:14Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

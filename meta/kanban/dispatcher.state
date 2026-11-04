@@ -1,4 +1,4 @@
-wave: 75   # OPENED 2026-11-04T08:33Z on the owner's "open the next wave". Cap back at the
+wave: 76   # OPENED 2026-11-04T14:14Z on the owner's "open the next wave on 363" + "maybe we can add a player card"
 #            CARD-278 8.8 (cycle 1), CARD-336 8.6 (cycle 1), CARD-339 8.4 (cycle 2).
 #            Opened 2026-11-04T03:41Z on the owner's "open the next wave on 336".
 #            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
@@ -447,7 +447,19 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []
+active:
+  - card: CARD-363
+    branch: card/363-the-review-record-guards
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-363
+    started: 2026-11-04T14:14Z
+    estimate: 2c (0.5d)
+    cut_from: c021a10f
+  - card: CARD-348
+    branch: card/348-the-white-brush-gains-its-dot
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-348
+    started: 2026-11-04T14:14Z
+    estimate: 1c (0.5d)
+    cut_from: c021a10f
 # CARD-337 CLEARED 2026-11-04T13:56Z at its merge gate: merged `830fa5d9`, closed
 #   `a3191b98`, certified 8.5 on cycle 1. Its worktree
 #   /Users/omelnikova/PycharmProjects/PythonProject4-card-337 has been REMOVED per the
@@ -596,7 +608,7 @@ queued:
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: 2026-11-04T13:56:00Z
+last_updated: 2026-11-04T14:14:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
@@ -4086,3 +4098,43 @@ last_updated: 2026-11-04T13:56:00Z
 #     which I wrote, is now matched by .gitignore:102 and has dropped out of
 #     `git status`' untracked list -- so it cannot enter the census by accident.
 #     Verified with git check-ignore -v.
+#
+# WAVE 76 OPENED 2026-11-04T14:14Z. Both cut off `c021a10f`, their own stamping commit.
+# Cap 2, the owner's standing value.
+#
+#   CARD-363 2c  the review-record guards — the card wave 75's retrospective
+#                named highest-value unstarted, after CARD-337's gate found its
+#                estimate in THREE disagreeing copies and had to resolve it by
+#                hand because this card was still ready.
+#   CARD-348 1c  the White brush previews a plain square where the board draws a
+#                dot. The player-family pick.
+#
+#   Touches intersection EMPTY.
+#
+#   CARD-363'S OWN PREMISE WAS WRONG AND IT WAS MINE. It claimed the Review score
+#     text states its cycle on "279 of 279" scored cards; measured 210 of 281.
+#     I never measured it -- the morning script filtered `if named is not None`
+#     before counting, so the 71 cards whose score names no cycle were silently
+#     excluded from every total and never counted. AC-3 now requires THREE
+#     declared populations instead of two, and the third is the one that matters:
+#     a guard over "marker == the cycle the score names" is UNDEFINED for a card
+#     whose score names none.
+#
+#   THE PLAYER FAMILY IS STILL A QUEUE, re-measured now that CARD-339 has landed
+#     and unblocked CARD-346/347/348: all seven available cards overlap on
+#     player/player.css or tests/test_public_player_agreement.py, so exactly ONE
+#     runs per wave. CARD-348 chosen as the user-visible one and the only one
+#     nominated with measurements by a round AND confirmed by a reviewer in
+#     census, figures and render. Running it before CARD-346 also leaves that
+#     card five routed entries to content-pin rather than six.
+#
+#   SEQUENCING FINDING FOR THE NEXT OPENER, recorded not acted on: CARD-358
+#     SHOULD RUN BEFORE CARD-354. CARD-354 holds 21 M10 reds; CARD-358 holds 7
+#     that are pure M10 in one small module and is scoped so that SPLITTING M10
+#     is its deliverable. M10 is a residual -- 57 reds across 35 cause lines --
+#     so running CARD-354 first forces the same split on a bigger, messier
+#     population, and its answer scopes the 45 M10 reds the other four hold.
+#
+#   CARD-349 and CARD-320 remain SOLO and in that order, per the owner's earlier
+#     decision; this wave does not disturb it. They are still the queue's head
+#     after the two running cards land.

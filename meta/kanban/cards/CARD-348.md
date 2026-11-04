@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** general-purpose
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/348-the-white-brush-gains-its-dot`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-348
 **Source:** Nominated by CARD-339's round as the strongest follow-up from its mark census, and confirmed by its review cycle 1 — which verified the divergence in the census, both contrast figures, and the visible gap in the render. It is the one routed finding the reviewer called "cheap enough to have been taken", and it was correctly left because CARD-339's own instruction forbids widening silently past the Maybe mark.
 **Idea:** —
 **Wave:** 76
@@ -18,7 +18,7 @@
 **Depends on:** CARD-339
 **Touches:** player/player.css, tests/test_public_player_agreement.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T14:14Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
