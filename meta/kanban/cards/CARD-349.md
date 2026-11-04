@@ -36,7 +36,15 @@
 >
 > The real asymmetry is between conftest and the test tree. Creation happens **only** for marked
 > tests, while an **unmarked** test is free to read `DATABASE_URL` in its own code and connect — and
-> many do. Measured: of the test modules referencing `DATABASE_URL`, a large set carry **no**
+> many do. **⚠ THAT MECHANISM IS REFUTED — see the round's record below** (ADR-0039/R4). Measured by
+> the round and re-derived independently by the orchestrator: **zero** collected test modules read
+> `DATABASE_URL` in their own code, and `test_admin_binding.py` — the module that actually reds —
+> carries **nine** `db_required` declarations. The exposure is **indirect**, through production
+> readers (`create_app`, `_init_engine`, …) reached transitively. **A reference-based census, grep or
+> `ast`, cannot find the real exposed set.** The family attribution was right; the mechanism was not.
+> The superseded wording follows.
+>
+> [SUPERSEDED] Measured: of the test modules referencing `DATABASE_URL`, a large set carry **no**
 > `db_required` marker anywhere, the `test_admin_*` family prominent among them. **Re-derive that set
 > rather than carrying this sentence**; it is the population the fix has to speak about, and a
 > census counts references, not declaration sites.
@@ -154,3 +162,103 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
 - ADR-0039/R1 — a claim needs a control that can fail (check: review-lens)
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate
   (check: review-lens)
+
+## Worktree notes
+
+[Round, commit `8c108047`] Implemented: two files, `tests/conftest.py` (+223/−1) and the new
+`tests/test_card_349_cold_database.py`. INV-023 clean, worktree clean, not merged. **Remedy chosen:
+the card's first and second together, with the third as a backstop** — an autouse **session-scoped**
+`_armed_database_is_ready` that requests the existing `_test_database_tables` when `DATABASE_URL` is
+armed at the URL this worktree resolved. pytest sets up widest scopes first, so it runs before any
+test *body*. **It adds no DDL of its own and is not extra work**: `_test_database_tables` is
+session-scoped, so this *moves* the one setup rather than adding a second. The third remedy survives
+as a `database setup:` terminal-summary note for the three cases eager preparation must not act on —
+and it goes to `pytest_terminal_summary` because `addopts = "-q"` hides the header, which is the lock
+guard's own reasoning.
+
+[Round] **THE HEADLINE: the card's remedy 2 is a FALSE FIX, measured rather than argued.** With the
+database created but **no schema in it**, the same five cells red again with
+`psycopg2.errors.UndefinedTable: relation "puzzles" does not exist`, self-healing identically. So
+"make the create-if-missing path eager" converts hazard A into hazard B, and the next gate would
+misattribute the result to the stale-schema twin's card. Planted as mutant **M2** and killed by two
+tests. **Consequence for this card's own two-hazard discriminator table:** it presents the two as
+siblings with different causes; measured, hazard B is the **immediate successor** of hazard A under
+this card's own proposed remedy. They are two stages of one defect — the derived database not being
+brought to a *usable* state before the first unmarked reader. This also explains CARD-258's waves
+47/48/50 reds, which carried the `relation "puzzles" does not exist` signature. The table remains a
+correct discriminator for **attribution**; its "cause" column for hazard B was incomplete.
+
+[Round] **AC-3 as written is satisfied by the defect.** "Running twice from the same cold state gives
+the same result both times" — drop the database before each of two runs and the defect gives
+`5 failed, 9 passed` **both times**. Measured, not reasoned: under mutant M1 the original cold/cold
+equality assertion **passed**, and only the return-code assertion caught it. The self-healing
+signature is cold-red then **warm**-green, so the pair carrying the acceptance is a cold run and the
+run *after* it. Rewritten accordingly, with the refutation in the test's docstring.
+
+[Round] **The exposed set, derived rather than listed — and it is 19 modules, not one class.** Direct
+runtime reads in collected test modules: **0** (re-derived independently by the orchestrator: 0). The
+only readers under `tests/` are three scopes in two files pytest collects no tests from. The
+orchestrator's grep calibration reproduced exactly (79 of 215 mention `DATABASE_URL`, 11 mention
+`db_required`) and **nearly every one of the 79 is a `monkeypatch.delenv`** — a test taking the
+variable away. The real exposure is indirect: **4** direct production readers under `src/`, a
+name-keyed transitive closure of **10** reaching names, and **78 scopes across 19 modules** that
+reference them without clearing the variable; restricted to `create_app` alone, **18 scopes across 4
+modules**. **The derivation is a name-keyed over-approximation, not a proof of reachability** — which
+is exactly why the fix does not take the set as input.
+
+[Round] **Marker authority is pytest's own, not text.** `-m db_required --collect-only` collects **0**
+items for the exposed class and ≥1 for the whole module as a matched control — and that control
+matters, because `test_admin_binding.py` *mentions* `db_required` **nine** times in classes that sit
+**below** the exposed class in the same file. **A module-level text census would have called that
+module "marked" and missed the defect entirely.**
+
+[Round] **A sharpening that kills the workaround CARD-336's gate used.** The exposed class and the
+nine `db_required` tests are in **the same file**, the marked ones below it — so the fix cannot be
+"run the marked tests first". That workaround is order-dependent and would not survive
+`pytest-randomly`, which is installed in this venv.
+
+[Round] **Full suite with `DATABASE_URL` ARMED, under the lock: 10392 passed / 1 skipped /
+1 xfailed**, exit 0. The single skip is the `setrlimit` platform gate; **zero** from the bare-
+`DATABASE_URL` check and **zero** from per-worktree resolution. That is the armed prediction exactly
+(1 skip, the 26 at zero) — and it **confirms** that CARD-363's two suites were unarmed, which was the
+gap that card's gate disclosed. Lock: absence confirmed with `find -maxdepth 1 -name`, written with
+all five fields and no pid, released by an `EXIT` trap and verified gone; neither override env var
+touched.
+
+[Round] **Eight mutants, one dead and replaced.** M1 (eager preparation removed) killed; **M2** (the
+card's remedy 2 literally — created, never migrated) killed; M3 (failure note drops the database
+name) killed; **M4 SURVIVED and was reported as semantically equivalent, not a gap** — the
+fall-through returns `None` either way — and was replaced by **M4b** (the plan reads a different
+variable so every run looks unarmed), killed by five tests; M5 (`_refusal_reason` bypassed) killed;
+M6 (resolved-URL precondition dropped, so a foreign `*_test` database gets prepared) killed; **M7
+planted in a *test* module** (a collected module gains a direct read) killed, so AC-2's emptiness
+claim is **failable rather than vacuous**. All by text with the occurrence asserted `== 1`, SHA-256
+matched both ends, restored from captured content.
+
+[Round] **G-1 / `nonogram_poc`: never created, dropped, connected to or truncated.** The only
+existence check was issued from the **`postgres` maintenance database**, and the round deliberately
+did not count its rows because that would require connecting. The refusal is neither widened nor
+bypassed — `git diff -U0` carries no line touching `_refuse_unless_test_database`, `_refusal_reason`,
+`_CREATABLE_NAME` or `endswith`, and a test asserts **structurally** that the decision goes through
+`_refusal_reason` rather than a re-implemented suffix rule, because a widened guard most likely
+arrives as a re-implementation. Every drop was proved safe first on four separate properties, with no
+wildcard or pattern-matched drop anywhere. It also used the **Postgres.app** client per the
+orchestrator's correction and never `psql -lqt`.
+
+[Round] **Self-raised and NOT settled — for the gate to verify, not to accept.** After the full suite
+the round corrected two carried figures in its own conftest docstring (a "26 database skips" count its
+own change invalidates, and a line-distance phrase replaced by a class name), then re-ran the ten
+modules that read source text at runtime (**498 passed / 0 skipped**) rather than a second 25-minute
+suite. **So the full-suite figure is two docstring phrases behind the committed tree.** The round
+raised and fixed this itself; the gate must verify it rather than take it as settled. Likewise its
+**unarmed** figure is **derived, not measured**: +2 `db_required` tests means an unarmed suite should
+report 2 more bare-`DATABASE_URL` skips than main's prior 27, i.e. **29**. Measured on the module
+only: unarmed 2 skips, armed 0.
+
+[Round] **Residues, carded rather than absorbed:** one `*_test` database per worktree is created and
+**nothing removes them** — the round re-derived 66 and the orchestrator measured **67** afterwards,
+the difference being the round's own run, exactly as it disclosed. Now **CARD-375**. And
+`dog_in_house.py` emits a `SyntaxWarning: "\," is an invalid escape sequence` on any `ast` walk of
+`src/` — pre-existing, harmless today, an error in a future Python. Now **CARD-376**. Left as a
+**review ask** rather than a card: nothing asserts that conftest's newly-composed
+`pytest_terminal_summary` still calls the lock guard's, so a future edit could drop it silently.
