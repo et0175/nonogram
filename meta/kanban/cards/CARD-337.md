@@ -1,6 +1,6 @@
 # CARD-337: `pdf_ink_mode` asks what colour space the FILE declares, and a vector page declares none — the claim has no subject in the converted medium
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -31,11 +31,11 @@
 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 **Touches:** tests/test_book_pdf_ink_mode.py
 <!--RE-CUT TWICE 2026-11-04. The first re-cut named three modules that hold ZERO of this card's reds -- the orchestrator joined a mechanism count and a module list from two tables of one report as if they shared a key, and they are orthogonal. Corrected to ONE module on the cross-tab: pdf_ink_mode holds all 9 M6 reds plus 1 M10, and is owned by no other proposed card. See the CORRECTION block. -->
-**Review score:** —
+**Review score:** 8.5 (cycle 1 of 3 — CERTIFIED)
 **Started:** 2026-11-04T08:33Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-04T13:56Z
+**Actual:** A **derived size datum, and the wall-clock figure is excluded.** Landed on main: **13 files, 2224 insertions / 94 deletions** — the one product module `tests/test_book_pdf_ink_mode.py` **769/93**, the census re-derivation in `tests/test_check_ref_resolution.py` **30/1**, and **11 instruments** under `scratchpad/card337/` **1425/0** — with **0 lines of `src/`** (G-1, verified on the merged tree). The sharper datum is the ratio of assertion to apparatus: of the 2224 insertions, **799 are the two test modules** and **1425 are the instruments that establish which 799**, i.e. **64% of this card's diff is measurement rather than deliverable** — which is the shape of a card whose subject was *what the file declares*, where every claim had to be measured in two media before it could be re-expressed. The deliverable itself is small and countable: **3 test functions / 13 cases added** (39 → 52), **0 removed, 0 renamed**, five claims re-expressed against the content stream and one retired with a named survivor, each of the six plants killed. **The wall-clock figure is excluded** under the owner's standing ruling that wall-clock actuals are unusable for estimate calibration because the clock measures the **queue** rather than the work: this gate ran the full suite **twice** (31m07s then 33m41s) because attempt 1 carried a browser flake that had to be re-measured rather than relayed, and `main` advanced underneath it once more (`0a4e5074`, kanban-only) — none of which is work done on this card. The size datum above substitutes for it, and this sentence is here so a reader **meets** the exclusion rather than noticing an omission. **Estimated 1c and certified on cycle 1 of a 3-cycle budget, so the cycle ratio is 1 / 1 = 1.000 — EXACT.** That is the **fourth exact estimate on this board** — CARD-278 (1c, cycle 1), CARD-336 (1c, cycle 1), CARD-339 (2c, cycle 2) and now this one — against CARD-335's 0.500, which stands as honest pricing of a card re-opened on a second measured harm rather than as a miss. **The estimate of record is 1c, and this needed checking rather than assuming:** `meta/kanban/board.md`'s wave-75 header still prices this card at **2c**, the figure it was opened with, because the header was written at the wave open (`550ff481`) and the card was **deliberately re-estimated to 1c at the re-cut** (`38020145`, "re-cut to the reader seam — 11 reds of 143, three modules, 1c") when its scope fell from thirteen modules to one. The card field is the authority and the board header is stale; a retrospective reading the board rather than the card would compute 0.500 for a card that was priced, and delivered, at one cycle. **The header is corrected in the same commit as this close** so the two inputs CARD-363 guards cannot disagree.
+**Merge commit:** `830fa5d9` — merged `--no-ff` onto `0a4e5074`, **one kanban-only commit past the `163455ab` the gated tree was rebased onto** (`board.md`, `CARD-335.md`, `CARD-366.md`); all three are `.md`, so they touch no `tests/`, no `src/` and — because `.md` is excluded from the resolver's domain by suffix — cannot move the artefact census either, so the gated baseline is unaffected and no re-run was owed. Gated tree `f6a3982a`; merge-base `163455ab`. **The rebase took NO conflict — not in the card file, not anywhere** — because the branch never committed under `meta/kanban/**`: INV-023 holding (measured as 0 such paths on the branch side of a three-dot diff), rather than a gate working around it. **Full suite on the frozen gated tree, `DATABASE_URL` armed, `-o addopts=` as two argv items and `-rEfs` as ONE flag, under the board's own lock held as this worktree: 10294 passed / 0 failed / 0 errors / 1 skipped / 1 xfailed, exit 0, 2021.04s.** **Not vacuous:** passed + skipped + xfailed = 10294 + 1 + 1 = **10296 = the collected count exactly**. **Skip attributed by name from `-rEfs`, never recalled, and it is 1 rather than an unarmed run's 27:** the `setrlimit(RLIMIT_AS)` platform gate in `tests/test_book_pdf_memory.py`. No `Database not reachable` skip appeared at all, which is the positive evidence that the arming took — the 26 tests that skip unarmed were **executed**. **Neither CARD-349 hazard was live, checked BEFORE the run rather than diagnosed after:** the derived database `…_card_337_fd6a13723de9_test` already existed, and its `alembic_version` was **018** against a single migration head of **018**. **G-9 honoured** — the URL names a `*_test` database on localhost, never `nonogram_poc`. **This gate took TWO full-suite attempts and did not relay the first.** Attempt 1 returned `1 failed, 10293 passed` with a `Page.goto: Timeout 30000ms exceeded` in `test_puzzle_solver_brush_menu.py::TestSolverRegion_DoesNotChangeTheBrush::test_pressing_and_releasing_region_keeps_the_brush[Maybe]`, through `test_puzzle_solver_page.py`'s `_open` — the same failure and the same code path this board already diagnosed twice (CARD-271, CARD-238). It was **established as a flake, not assumed**, to CARD-271's own standard: this card changes zero `src/` lines and nothing the browser module imports, so it has no mechanism to reach a solver page; **only 1 of 4 parametrize cases failed** while `Black`, `White` and `Clear` passed in the same run against identical code, which no real regression can do; the class ran green in isolation **three consecutive times** on the gated tree (5.62s / 4.53s / 4.41s) and green on `main`; and host load was **6.75 / 7.69** on the 5- and 15-minute averages, the condition both prior cards name as the cause. Attempt 2 on the same frozen commit under `caffeinate -i` is the figure above, with that test passing. **Node-id delta, two instruments agreeing on the SET and not merely the total: 34 → 37 nodes and 39 → 52 cases, 0 lost and 0 renamed**, the 13 gained cases being 9 + 3 + 1 across three new cells in `TestBookInk_TheStreamReaderReadsOutsideStrings`. Instrument A is the round's `node_id_diff.py` (`ast`, both git blobs); instrument B is whole-module pytest collection with `-o addopts=` on both sides, which names the same set and nothing else. **G-1/G-2 on the merged tree:** `git diff --name-only 0a4e5074 HEAD -- src/` empty and `git status --porcelain src/` clean. **The force-add census on merged `main` measures 488 / `f36a57d4f39f3a48` with `scratchpad/card337: 11`, equal to the baseline this card re-derived**, and the whole of `tests/test_check_ref_resolution.py` is **26 passed** there — the figure main carried before the merge, so no other class moved.
 **Blocked by:** —
 
 > **[CORRECTION 2026-11-04 — the first re-cut was WRONG and this supersedes the block below it.]**
@@ -680,3 +680,35 @@ resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
   not a glob. A stripped `PATH` makes platform-gated tests skip, which reads as success —
   inherit the environment and assert the skip count. Poppler is at
   `/opt/homebrew/bin/pdftoppm`.
+
+### Merge gate, 2026-11-04 — review cycle 1 record and the plant table AC-6 names
+
+[Review 1/3] Score: 8.5 — CERTIFIED on cycle 1 of a 3-cycle budget. 0 critical, 3 important (F-001 main moved during the cycle and carried a new artefact-census guard with it; F-002 the "derived" forbidden set is really an ADR-0039/R3 named exemption; F-003 three refusal arms asserted and never demonstrated, carded as CARD-365), 4 minor (F-004 a plural where the margin is 1 of 14; F-005 a byte count in prose the cells never assert; F-006 dead code in an instrument; F-007 the round's suite figure predates main's movement) — F-001/F-002/F-004/F-005/F-006/F-007 all dispositioned at this gate, F-003 carded.
+Review artefact: meta/review/CARD-337-cycle1.yml.
+
+**AC-6's plant table, transcribed here because this is the location AC-6 names and it was empty.**
+The round ran the six plants and the **reviewer independently re-planted all six**; the record
+lived only in the review YAML, which main's `.gitignore` now keeps untracked, so an AC whose
+stated evidence is "the plant table in `## Worktree notes`" had no evidence at its stated
+address. Figures are the reviewer's re-planted run, not the round's self-report.
+
+Method: `scratchpad/card337/mutation_runs.py`, all six keys, `PYTHONDONTWRITEBYTECODE=1`,
+`__pycache__` swept both ends, `occurrence` asserted `== 1`, SHA-256 both ends, restore from
+captured content, `-o addopts=` as two argv items, `-rEfs` as ONE flag, `0 skipped` asserted,
+and the matched control measured green **in the same run**. `git status --porcelain` empty
+afterwards.
+
+| plant | what it breaks | outcome |
+|---|---|---|
+| **MUT-1** | the medium gate in `pdf_page_declarations` | **KILLED** — 9 failed / 43 passed; 3 cover controls green |
+| **MUT-2** | the raster-write ordinal translation | **KILLED** — 1 failed / 51 passed, only the write-ordinal cell; 3 file-reading controls green |
+| **MUT-3** | `ContentStream.fill_grey` emits `rg` instead of `g` | **KILLED, and the decisive one** — 6 cells red across 5 functions, 46 passed, while `test_no_mark_moves_on_any_page_bitmap`, the module's ONLY bitmap-side reading, stayed **green in the same run**. A real DeviceRGB regression on a vector page, invisible to every XObject reading and caught only by the re-expressed operator claim — so route 1 is a re-expression, not decoration |
+| **MUT-4** | a vector page's stream becomes export-dependent | **KILLED** — 1 failed (the baseline-pair cell), the EC-1 cell green |
+| **MUT-4b** | the same defect on every second render | **KILLED** — 1 failed (the EC-1 cell), the baseline-pair cell green. Each variant reaches a cell the other cannot |
+| **MUT-5** | `DIVIDER` stops being a declared bitmap, emptying the raster arm | **KILLED** — 4 failed + **7 errors**, 41 passed. The module fails LOUDLY rather than passing vacuously, so the retirement's survivor can fail: a disposition, not a deletion (AC-4) |
+
+Every row totals **52**, the module's case count (9+43, 1+51, 6+46, 1+51, 1+51, 4+7+41) — an
+internal cross-check that each plant's run saw the whole module and not a subset.
+**`src/` restored byte-identically after every plant:** `book_vector.py`
+`686dd387…1b20` and `book_pdf_generator.py` `691d1952…1b24`, identical before and after
+(G-1), re-verified at this gate as `git diff --name-only <main>...HEAD -- src/` empty.
