@@ -449,12 +449,6 @@ active:   # wave 74, two entries, exactly at the owner's cap. An explicit list â
     started: 2026-11-04T03:41Z
     estimate: 2c (2d)
     cut_from: d1a18baa
-  - card: CARD-339
-    branch: card/339-the-public-player-gains-the-glyph
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-339
-    started: 2026-11-04T03:50Z
-    estimate: 2c (0.5d)
-    cut_from: 0ead085d
 #
 # WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
 # commit that STAMPED their Wave field -- not off main's tip before it. A
@@ -3864,3 +3858,39 @@ last_updated: '2026-11-04T03:05:00Z'
 #     was right. Stripping comments restores the partition to 10 gated + 39 ready
 #     + 3 wave-bearing = 52, matching the status census exactly. Two cards carry
 #     an inline comment on a parsed field here: CARD-288 and CARD-322.
+#
+# CARD-339 LANDED 2026-11-04. Merge `dd3488f9` --no-ff onto `38ee04d0`, closure
+# `292444a6`, gated tree `070bd569`, merge-base `95a93eb1`. Certified 8.4 on
+# cycle 2 of 3. Removed from `active`; worktree removed; lock taken for the gate
+# run and released.
+#
+#   THE SECOND EXACT CYCLE ESTIMATE on this board: 2c estimated, certified on
+#     cycle 2. With CARD-278's 1c-on-cycle-1 that is two-for-two this wave, and
+#     both exist only because the estimates were restated in REVIEW CYCLES at the
+#     wave open rather than left in days.
+#
+#   THE GATE'S PLANT FOUND A FOURTH FACT-SIDE NOTHING HOLDS, and found it WIDER
+#     than the review stated: the review named two arms staying green under a
+#     plant on the admin side of .player-swatch.maybe.paper; the gate measured
+#     ALL 83 arms of both modules staying green. So the narrowing clause it wrote
+#     is true and a smaller one would have been false. CARD-346's AC-1 is what
+#     closes that side; its AC-2 wording inherited the overclaim and is corrected.
+#
+#   DATABASE_URL ARMED, and both hazards checked BEFORE the run rather than
+#     diagnosed after: the derived test database already existed (so CARD-349's
+#     missing-DATABASE red could not fire) and alembic_version was 018 against a
+#     latest migration of 018 (so the stale-schema missing-COLUMN red could not).
+#     Skip count 1, both DB gates firing zero times -- the positive evidence that
+#     the arming took.
+#
+#   THE README LINE-COUNT ROW RE-STALED TWICE INSIDE ONE CARD: 482 -> 521 -> 524
+#     -> 536, three movements, NO declaration changing, because the figure counts
+#     comments. CARD-347 now carries all four data points and its Touches was
+#     widened AGAIN -- the orchestrator's error, caught by the gate: the scope
+#     note named four locations and Touches reached two.
+#
+#   A RULE OF MINE WAS REFUTED AND IS CORRECTED IN MEMORY: I have been writing
+#     "--collect-only -q prints no node ids" in every brief. Measured both forms
+#     after the gate reported it did not reproduce: with `-o addopts=` cleared,
+#     `-q` prints FULL node ids; the trap is the -qq STACKING, which that same
+#     flag prevents. The warning was steering agents off a form that works.

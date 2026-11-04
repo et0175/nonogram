@@ -16,8 +16,9 @@
 **Created wave:** 74
 **Deferred waves:** 0
 **Depends on:** CARD-339
-**Touches:** docs/how-it-works/01-domain/puzzle-creation/README.md, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, tests/test_public_player_maybe.py, meta/kanban/cards/CARD-323.md
+**Touches:** docs/how-it-works/01-domain/puzzle-creation/README.md, docs/how-it-works/01-domain/puzzle-creation/11-the-public-player.md, tests/test_public_player_maybe.py, tests/test_public_player_agreement.py, player/player.css, meta/kanban/cards/CARD-323.md, meta/kanban/cards/CARD-339.md
 <!--WIDENED 2026-11-04 by CARD-339's review cycle 2, whose pattern finding is that this card's scope was drawn too narrowly: it took the README COLUMN, but the figures that actually rotted sit in a card body, a module docstring, a stylesheet comment and a docs paragraph. The docs file joins Touches for MIN-2's five false play.js refs. -->
+<!--WIDENED AGAIN 2026-11-04 by CARD-339's MERGE GATE, as its finding 3, and this one was the orchestrator's error: the note above names four locations and the Touches list reached only two of them. player/player.css, tests/test_public_player_agreement.py and meta/kanban/cards/CARD-339.md are now listed, so the card can actually reach the stylesheet comment, the module docstring and the card body it was widened to cover. A scope note that names more files than Touches grants is a card that cannot do what it says. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -52,7 +53,7 @@ places.
 
 **Re-derive the 521 and the two rotted refs yourself.** They are dated readings.
 
-## Part 1b — the row went stale again INSIDE the card that updated it, and that is the third data point
+## Part 1b — the row went stale TWICE inside one card, and that is the third and fourth data points
 
 **Measured by CARD-339's review cycle 2.** CARD-339 updated the row to **521** and was right at
 that commit. Its own cycle-2 commit then added **three comment lines** to `player/player.css`
@@ -64,9 +65,15 @@ was false in both halves — **inside the very paragraph citing the row's
 stale-by-construction property as evidence for this card.** The gate corrected the digit; the
 structural point is this card's.
 
+**It then re-staled a SECOND time in the same card.** CARD-339's merge gate wrote a 12-line
+clause and the count moved again — the row's final journey was **482 → 521 → 524 → 536**, three
+movements inside one card, **with no declaration changing**, because the figure counts comments.
+The gate re-derived 536 with **three** independent instruments and recorded that it holds *at
+that merge commit and at no other moment*.
+
 **So the convention has now produced, measurably: one figure fixed by hand, two prose refs its
-own policy told the card to leave, five false `play.js` refs nobody counted, and one
-self-restaling inside a single card.** That is not a convention with an exception; it is a
+own policy told the card to leave, five false `play.js` refs nobody counted, and TWO
+self-restalings inside a single card.** That is not a convention with an exception; it is a
 figure with no control.
 
 ## Part 1c — MIN-2: the docs file ships five false `play.js` refs, and nobody had counted them

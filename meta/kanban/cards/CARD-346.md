@@ -93,9 +93,16 @@ trusting it.
   **reds** — demonstrated by one plant per sheet per fact, or by a derivation that covers all
   of them with two plants and says why that is total.
   (test: named by the implementation; state it)
-- **AC-2** *Given* the two facts that already had literal pinning, *then* they still red, and
-  the hand-written literals are **replaced by the derived mechanism** rather than left beside
-  it — two mechanisms for one claim is how a stale exemption survives.
+- **AC-2** *Given* the **one** fact that has literal pinning — `.player-cell.maybe.paper`, and
+  **only** that one — *then* it still reds, and the hand-written literals are **replaced by the
+  derived mechanism** rather than left beside it; two mechanisms for one claim is how a stale
+  exemption survives.
+  **An earlier wording here said "the two facts that already had literal pinning", which
+  inherits the very overclaim CARD-339's gate narrowed** (its IMP-2): the *cell* fact is pinned
+  by literals, the *swatch's public side* only transitively through its equality with the cell,
+  and **the swatch's admin side is held to nothing but diverging**. AC-1 above — "changing its
+  value in **either** sheet reds" — is what genuinely closes that fourth side, so this card's
+  scope was always right and only this sentence was wrong.
   (test: `test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`)
 - **AC-3** *Given* `DECLARED_DIVERGENCES`, *then* it is unchanged (3 entries, CARD-328's) and
   `test_no_mark_is_both_compared_and_routed` still holds the tables disjoint.
