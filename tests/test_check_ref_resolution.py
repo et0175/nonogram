@@ -3423,6 +3423,30 @@ def test_no_new_artefact_file_is_force_added_into_the_resolver_domain() -> None:
     shrinks is as much a re-derivation as one that grows, because the shrink
     this card expects (``meta/review/*.yml`` retired by the owner) changes what
     the validator reports and must be read rather than pasted over.
+
+    HOW FAR THIS REACHES, and it is narrower than "no new artefact"
+    (ADR-0039/R3). The guard is deny-by-default over **the ignore rules**, not
+    over the resolver's domain: a tracked artefact whose path no ignore rule
+    matches never enters the census at all, so no force-add is needed and this
+    cell stays green. Two real shapes do that today -- both added in a planted
+    repository with plain ``git add``, rc 0, no warning:
+
+    * ``meta/review/<CARD-NNN>/cycle1.yml`` -- ``meta/review/*.yml`` does not cross
+      a ``/``, so a per-card SUBDIRECTORY escapes the rule;
+    * ``meta/measurements/durations.txt`` -- a NEW directory beside the two the
+      rules name.
+
+    Neither is a live hole: both directories are flat today, and the rules are
+    scoped by extension deliberately (see ``.gitignore``'s own note), so
+    widening them is not free. It is recorded because the cell's NAME reads
+    wider than its authority, and a green census must not be read as a claim
+    that no artefact entered the resolver's domain.
+
+    The outcome-side backstop is pre-existing and already above: an artefact
+    that actually REVIVES an otherwise-undefined ref reds CARD-308's gate
+    (``test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping``) whether
+    or not its path was ever ignored. This cell guards the CAUSE, for the paths
+    the convention covers; that one guards the EFFECT, for all of them.
     """
     census = _ignored_yet_tracked(REPO_ROOT)
     measured = (len(census), _fingerprint(census))

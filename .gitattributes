@@ -1,23 +1,38 @@
 # CARD-335. The architecture validator resolves a check ref with a TEXT search
 # over tracked, non-Markdown files, and its batched path carries up to 200
 # patterns in one `git grep -ow` under a budget that models cost as linear in
-# the pattern count. Measured on this tree: that 200-pattern batch costs 117 s
-# against its own 30 s budget, `_grep_batch` catches the TimeoutExpired in a
-# bare `except Exception`, and the validator then reports "existence could not
-# be determined" for every ref in the chunk -- 88 warnings become 525 and the
-# dead-ref detector stops answering.
+# the pattern count. The cost is NOT linear in it, and that mismatch is the
+# whole defect: measured on this tree, the 200-pattern batch ran at several
+# times its own budget, `_grep_batch` caught the TimeoutExpired in a bare
+# `except Exception`, and the validator then reported "existence could not be
+# determined" for every ref in the chunk -- 88 warnings became 525 and the
+# dead-ref detector stopped answering.
 #
-# The whole cost is these files. Measured one directory at a time, N=200:
-# full domain 117.38 s; without meta/profiling/*.txt 0.55 s; without
-# meta/review (396 files) 115.41 s; without scratchpad 123.30 s. They are
+# The whole cost is these files. Instrument: the resolver's own batched argv,
+# which `tests/test_check_ref_resolution.py`'s `_batch_answers_within` runs
+# pattern for pattern, re-run with one directory withheld at a time at N=200.
+# Stated as the ORDERING it establishes rather than as elapsed seconds, because
+# `_batch_answers_within` is right that a stored wall-clock figure measures this
+# machine's queue as much as the search and is not reproducible by the next
+# reader (it has already been read four different ways on this one tree):
+#
+#   withholding meta/profiling/*.txt    -> inside budget by two orders of magnitude
+#   withholding meta/review/ (396 files) -> still over budget, indistinguishable
+#                                           from the full corpus
+#   withholding scratchpad/              -> still over budget
+#
+# THE DUMPS ARE THE WHOLE COST; THE REVIEW YAMLS ARE INSIDE THE NOISE. They are
 # machine-written duration logs that name every pytest node id that ran, so
 # they hand a large alternation of word-bounded patterns an enormous number of
-# near-matches to resolve.
+# near-matches to resolve. (Re-measure before quoting a direction, not a figure:
+# one re-measurement INVERTED the sign of the meta/review contribution, which is
+# what "inside the noise" means and why no number is stored here.)
 #
 # `binary` is the one lever that keeps every byte tracked, on disk and readable
 # -- the suite reads these files by name (tests/test_suite_profile.py globs
 # `suite-durations-*.txt` and asserts it finds one) -- while taking them out of
-# the batched grep's text scan: 117.38 s -> 1.10 s.
+# the batched grep's text scan. Same instrument, same N: from several times the
+# budget to a small fraction of it.
 #
 # It is ANSWER-PRESERVING, which is why it is a `.gitattributes` entry and not
 # a rename or an untracking. Measured on one token present only in these dumps:
