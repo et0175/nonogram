@@ -54,6 +54,24 @@ All three make a dead ref read as alive. The first two are now closed or bounded
 makes this one visible — and it is the one that needs **no** artefact, **no** timeout and **no**
 accident. It is the detector's documented scope.
 
+## A fourth blind spot in the same detector, routed here by CARD-335's merge gate
+
+CARD-335 landed a census guard over **the ignore rules**, so a tracked artefact whose path **no
+rule matches** never enters the census and the cell stays green. Measured with
+`git check-ignore --no-index`: `meta/review/<CARD-NNN>/cycle1.yml` (nested — `meta/review/*.yml`
+does not cross `/`) and `meta/measurements/durations.txt` are both addable with **plain
+`git add`, rc 0, no warning**.
+
+**Both directories are flat today, so there is no live hole** — and a new artefact that *revives*
+a ref still reds the pre-existing CARD-308 gate, so the **outcome** is guarded even where the
+**cause** is not.
+
+**But the bound was recorded docstring-only, so ADR-0039/R3 is only partly satisfied:** R3 asks
+that a bound carry **its own failing control**, and this one has none. CARD-308's gate is named as
+the outcome-side backstop instead. **That gap is this card's to close or to decline with a
+reason** — a bound without a control that can fail is the defect this family keeps producing, and
+declining it is a legitimate answer only if stated.
+
 ## The design question, which this card must answer before it changes anything
 
 **`covered` meaning "I assert every criterion has a live test" is a coherent contract**, and
@@ -106,6 +124,12 @@ rather than discovering it halfway.**
 - **AC-5** *Given* CARD-335's two closed blind spots, *then* this card's change does not reopen
   either — the 436-warning repair holds and the bookkeeping-only gate still reds on a revival.
   (test: `tests/test_check_ref_resolution.py`)
+- **AC-6** *Given* CARD-335's AC-4 reach bound (a tracked artefact whose path no ignore rule
+  matches), *then* it either **gains a failing control** — a planted nested artefact path makes
+  something red — or the card states the measured reason it cannot, naming CARD-308's gate as the
+  outcome-side backstop. **Docstring-only is what it has now and is what ADR-0039/R3 does not
+  accept.**
+  (test: named by the implementation; state it)
 
 ## Guardrails
 

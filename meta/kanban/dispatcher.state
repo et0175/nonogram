@@ -454,15 +454,6 @@ active:
     started: 2026-11-04T08:33Z
     estimate: 2c (2d)
     cut_from: 550ff481
-  - card: CARD-335
-    branch: card/335-committed-artefacts-revive-dead-refs
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-335
-    started: 2026-11-04T08:33Z
-    estimate: 2c (1d)
-    cut_from: 550ff481   # wave 74, two entries, exactly at the owner's cap. An explicit list —
-          # `active:` with NOTHING under it parses as NULL and a consumer
-          # iterating it raises; that is why wave 73's closed state was
-          # written `active: []` rather than left bare.
 #
 # WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
 # commit that STAMPED their Wave field -- not off main's tip before it. A
@@ -4049,3 +4040,40 @@ last_updated: 2026-11-04T08:33:00Z
 #
 #   They also CONFLICT on tests/conftest.py, so they could not pair with each
 #   other in any case.
+#
+# CARD-335 LANDED 2026-11-04. Merge `9a6b8e89` --no-ff, closure `b4310800`, one
+# further commit `0180016c` where the GATE corrected a figure in its own Actual
+# field rather than leaving it. Certified 8.0 on cycle 1. Removed from `active`.
+#
+#   THE FIRST NON-1.000 CYCLE RATIO ON THIS BOARD: 2c estimated, certified on
+#     cycle 1, ratio 0.500 -> "overestimated". The gate verified the three priors
+#     were each exact (CARD-278 1c/1, CARD-336 1c/1, CARD-339 2c/2) rather than
+#     taking the claim. Recorded as a datum: a card re-opened on a second
+#     measured harm and carrying a 396-file convention decision was honestly
+#     priced at 2c and certified on the first cycle.
+#
+#   THE GATE REFUTED THREE CLAIMS -- two of the round's and ONE OF THE REVIEW'S.
+#     The review's finding 7 said `git add <dir>/` and `-A` both exit 0 and
+#     silently add nothing. Measured: the RULE SHAPE decides it, not the form.
+#     `scratchpad/` is a DIRECTORY rule, so `git add scratchpad/` is rc=1 and
+#     LOUD; `meta/review/*.yml` is a GLOB INSIDE a directory, so
+#     `git add meta/review/` is rc=0 and silent with 0 staged. I reproduced both
+#     at the station. So the flat claim is true for two of three populations and
+#     FALSE for the one the finding was about -- and I had relayed the flat
+#     version. Resolve with `git check-ignore -v`, which names the rule.
+#
+#   AND IT FOUND A DEFECT OF MINE NOBODY ELSE CAUGHT: the CARD-341 inline-comment
+#     shape was still live on this card's `Estimate` field. My transplant fixed
+#     `Touches` and missed it, and my own verification could not see it because
+#     the helper stripped comments BEFORE printing -- a check whose preprocessing
+#     is the fix. The field is what a gate divides to get a cycle ratio.
+#
+#   ADR-0039/R3 ONLY PARTLY SATISFIED, stated by the gate rather than hidden: the
+#     AC-4 reach bound was recorded docstring-only, so it has no failing control
+#     of its own; CARD-308's gate is the outcome-side backstop. Folded into
+#     CARD-361 as its AC-6, since it is a fourth blind spot in the same detector.
+#
+#   THE CONVENTION WORKED ON ITS FIRST LIVE ARTEFACT: meta/review/CARD-335-cycle1.yml,
+#     which I wrote, is now matched by .gitignore:102 and has dropped out of
+#     `git status`' untracked list -- so it cannot enter the census by accident.
+#     Verified with git check-ignore -v.
