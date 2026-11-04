@@ -1,4 +1,4 @@
-# CARD-363: The retrospective's two inputs are unguarded — the cycle marker is absent on 152 of 279 closed cards, and nothing requires a wave's estimate to be in the unit the ratio needs
+# CARD-363: The retrospective's two inputs are unguarded — the cycle marker is absent on 128 of the 231 scored cards, and nothing requires a wave's estimate to be in the unit the ratio needs
 
 **Status:** in_progress
 **Priority:** P1
@@ -26,7 +26,9 @@
 
 ## The measurement
 
-Over all **279** `done` cards carrying a `Review score`:
+> **⚠ EVERY FIGURE IN THE TABLE BELOW IS SUPERSEDED — and the `279` denominator never existed.** The correction tables that follow are the current reading: **291** done, **231** carrying a numeric score, **128** with no marker, **50** disagreeing, **3** naming no cycle. Confirmed a third time by this card's cycle-1 review, which re-derived all five with its own parser against both the branch tree and main's tip and got identical results. The original table is kept as the record of what the card was cut on (ADR-0039/R4 retracts the figure, not the history) — do not read a number off it.
+
+As originally cut, over all **279** `done` cards carrying a `Review score` — **superseded**:
 
 | | count |
 |---|---|
@@ -101,8 +103,8 @@ diagnosed the absence of that marker as the reason wave 73 could export no calib
 and wrote markers onto wave 74's three cards to fix it.
 
 **The marker was never where the information lived.** The `Review score` field already states
-the cycle — *"8.4 (cycle 2 of 3 — CERTIFIED)"* — on **279 of 279** scored cards, while the
-marker is present on **127**. So the numerator was available for the whole of the board's
+the cycle — *"8.4 (cycle 2 of 3 — CERTIFIED)"* — on **228 of the 231** scored cards, while the
+marker is present on **103**. (This sentence read *"279 of 279"* against *"127"* when the card was cut; both figures and their denominator are **retracted** — ADR-0039/R4.) So the numerator was available for the whole of the board's
 history, in a field the extractor does not read.
 
 **And the thing that actually blocked wave 73 was the DENOMINATOR, not the numerator.** Measured
@@ -132,7 +134,7 @@ a fresh clone.
 1. **The marker agrees with the score.** For each card whose `Review score` names a cycle,
    assert the `[Review N/M] Score:` marker count equals that cycle number. **Scope it forward**
    from a stated card id or date and **declare the historical population as a measured bound**
-   (ADR-0039/R3) — do not demand 152 cards of fabricated history, and do not silently exclude
+   (ADR-0039/R3) — do not demand **128** cards of fabricated history (the figure was `152` when this card was cut; retracted), and do not silently exclude
    them either. Name the count in the bound so it cannot grow unremarked.
 2. **A card that ran in a wave carries a cycle estimate.** For each card with a `Wave:` that is a
    number, assert its `Estimate` states an `Nc` term. Same forward scoping and the same declared
@@ -176,7 +178,7 @@ skip: that is the shape this whole family keeps producing.
 ## Guardrails
 
 - **G-1** — No `src/` change; this is board hygiene expressed as a test.
-- **G-2** — **Do not fabricate history.** Writing markers onto 152 closed cards would invent
+- **G-2** — **Do not fabricate history.** Writing markers onto the **128** marker-less scored cards would invent
   intermediate scores nobody recorded. Declare the bound instead.
 - **G-3** — **`/Users/omelnikova/MyProjects/forge_1` is READ-ONLY.** The extractor that reads the
   marker lives there. If the real fix is "read the score field instead", that is a finding handed
@@ -196,3 +198,19 @@ skip: that is the shape this whole family keeps producing.
   exists it defaults to **deny** (check: review-lens)
 - ADR-0039/R3 — a declaration carries a reason and a measured residue (check: review-lens)
 - forge_1's ADR-0055 (upstream, not this board's — see CARD-367) — review cycles are the estimate unit (check: review-lens)
+
+## Worktree notes
+
+[Review 1/3] Score: 7.75 — BACK TO THE ROUND (threshold 8.0). 1 Critical (F-001), 3 Important (F-002/003/004), 3 Minor. Artefact: `meta/review/CARD-363-cycle1.yml`. Merge-base `c021a10f`.
+
+**This section did not exist and the marker was written by the orchestrator, not by the review's sync point.** That is the defect this very card asserts the absence of, and it occurred on this card — the strongest available evidence for the card's own premise. Counted as ONE cycle: this cycle did not reach its threshold, so the double-Score-line shape measured in F-002 does not apply.
+
+[Review 1/3] **The title's figures were refuted and are retracted here** (ADR-0039/R4): it said `152 of 279 closed cards`; measured, it is **128 of the 231 scored cards**, against **291** done. The `279` denominator never existed — see CARD-369 and the fourth derivation it records.
+
+[Review 1/3] The refutation HELD on all five figures, re-derived by the reviewer's own parser against both the branch tree and main's tip, **identical on both**: 291 done / 231 scored / 60 sentinel / 128 no-marker / 50 disagreeing / **3** naming no cycle (CARD-029, 035, 066). The module's classifier was ruled **correct and strictly better than both alternatives**: 231 numeric + 50 prose + 10 bare = 291, admitting every score and no sentinel.
+
+[Review 1/3] Full suite, unarmed: 10292 passed / **37 failed** / 27 skipped (26 bare-`DATABASE_URL` + 1 `setrlimit` — the unarmed reading). **All 37 are lock contention**: CARD-348's reviewer took the full-suite lock mid-run, the refusal text appears 71 times, and all 37 sit in the four subprocess-spawning modules. The module under review contributed no failure. Not re-run — the lock was still held and was neither overridden nor redirected. Carded as **CARD-370**.
+
+[Review 1/3] Three cards cut: **CARD-368** (nothing guards the three-copy estimate agreement — and `board.md` claimed THIS card did; that claim is retracted), **CARD-369** (the upstream cycle counter double-counts a threshold-reached cycle: 50 apparent disagreements collapse to **2** with zero regressions, era-bounded CARD-113..CARD-192), **CARD-370** (the lock contention above).
+
+[Review 1/3] What the merge gate still owes, per the review: a full suite re-run **after** the closure stamp (the run F-001 reds) and after CARD-348 releases the lock; the AC→test mapping stated on the card, which the branch cannot carry under INV-023.
