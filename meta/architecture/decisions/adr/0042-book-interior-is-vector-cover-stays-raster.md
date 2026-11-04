@@ -936,7 +936,7 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # in vector, the centre reading 0.5 px in either, and the two media's centre
   # readings agree to **1.0 px** where their ink readings disagree by 3.0.
   #
-  # Three things CARD-336 measured that this decision's reader should not have
+  # Two things CARD-336 measured that this decision's reader should not have
   # to rediscover. First, the 0.254 mm figure above is the mitre, and the half
   # rule it is half of is the **inked** six pixel lines, not R2's declared
   # 1.3 pt (5.4167 px at 300 DPI): poppler inks that stroke as six lines, so
@@ -949,12 +949,11 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # `TestEdgeOffset_ThePixelOraclesStillReadPixels` is the guard that holds it
   # to that (measured: a plant importing `pdf_vector` into `page_ink.py` reds
   # that class and leaves the placed-edge pin green, so the two guards divide
-  # the work rather than overlap). Third, the oracle reads only
-  # `Drawing.left`/`.top`/`.grid_bottom`: 94 of 136 revealed answer pages in
-  # `tests/property/test_book_pdf_geometry.py`'s own corpus report
-  # `framed=False` with `columns`/`rows` of 2 on pages that do carry a frame,
-  # so that module's caveat about `columns`/`rows` is three fields wider than
-  # it says.
+  # the work rather than overlap). A third fact CARD-336 measured about
+  # `Drawing.framed` is a DEFECT that card declined to own, and a defect
+  # written into a decision record reads as a decision while no card owes the
+  # fix — so it is not stated here: it is **CARD-351**, which carries the
+  # measurement and the remedy.
   #
   # Until then this module's placed-edge expectations are PINNED to
   # the raster, mechanically: every assertion in `tests/test_book_pdf.py` that

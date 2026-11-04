@@ -245,7 +245,7 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   five-kind probe (`scratchpad/card338/probe_five_kinds.py`, CARD-338's, driven by
   `census_five_kinds.py`), *then* every placed-edge cell of the **two** modules in
   `Touches` passes — **4 in `tests/property/test_book_pdf_geometry.py` and 1 in
-  `tests/test_book_puzzle_frame.py` (`drawing.top`)** — the population is **derived** by
+  `tests/test_book_puzzle_frame.py` (`drawing.left`)** — the population is **derived** by
   the comparison it makes rather than enumerated, and a cell the walk cannot classify is a
   FAILURE (ADR-0039/R2).
   **These 5 are the measured residue of a 38-cell family, and the other 33 are not this
@@ -253,11 +253,26 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   CARD-322's conversion, which RETIRES them** — the pin in `tests/test_book_pdf.py` says so
   in its own docstring) and 3 are stroke-weight readings (CARD-342). **Re-derive the 5 rather than trusting this
   line** — it is a dated reading, and a different number is the finding.
-  **One figure this card's round measured that the implementation must respect:** the
-  `test_book_puzzle_frame.py` residual is **2.504 px against a 1.5 px bound, not 3 px**.
-  1.3 pt at 300 DPI is 5.42 px, so the half-rule is 2.71 px. That is precisely why item 1
-  requires the rule width be **read off the page** rather than taken from a constant — a
-  hard-coded 3 would be a second medium dependency and would miss this cell.
+  **Two figures this card's round measured that the implementation must respect** —
+  *both of them corrections to what this AC said before, retracted here under ADR-0039/R4
+  (a figure recomputed and refuted is retracted everywhere it was written, and an AC is
+  the one place a later reader treats as binding); re-derived a third time at the merge
+  gate, 2026-11-04, and reproducing to the digit:*
+  - **The cell is `drawing.left`, not `drawing.top`.** That assertion fails on *both*
+    fields under the probe — **left 2.5039 px, top 2.7323 px** against the 1.5 px
+    `EDGE_TOLERANCE_PX` — and `left` asserts one line **above** `top` in
+    `TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame::test_both_slots_sit_where_con_018s_millimetres_put_them`,
+    so the **2.504 this AC used to carry was the LEFT residual attributed to TOP**. Both
+    are re-expressed. (F-1.)
+  - **The half-rule is 2.5 px, not 2.71 px.** The 2.71 was an *inference* from
+    1.3 pt at 300 DPI = 5.4167 px. Measured, poppler inks that stroke as **six** pixel
+    lines, exactly as Pillow strokes six — `left_rule_px == top_rule_px == 6` in **both**
+    media — so the half rule is 2.5 px, and the ink-to-centre offset is **+0.5 px in
+    raster and +2.5 px in vector** (for a boundary `c`, Pillow inks `c-2..c+3` and
+    poppler `c-3..c+2`). **The implementation holds no half-rule constant at all** — it
+    reports the run's own measured centre, which is why *any* constant, 3 or 2.71 or 2.5,
+    is wrong in one medium. The inference was right that a hard-coded 3 would miss this
+    cell; it was wrong about why. (F-2.)
 - **AC-4** (nothing was widened, and it is asserted rather than claimed): *Given* the
   branch, *then* `EDGE_TOLERANCE_MM == 0.1`, `EDGE_TOLERANCE_EXEMPTIONS` is empty and
   asserted empty, `HALF_PIXEL_MM`'s site multiples are unchanged as the full multiset
@@ -273,8 +288,16 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   plant)
 - **AC-5** (the change can fail): **Four plants minimum.** (a) the boundary reading
   returns the ink extent again — every re-expressed cell must red; (b) the rule width is
-  taken from a constant instead of read off the page — the vector arm must red while the
-  raster arm stays green, which is the cell that proves the derivation is load-bearing;
+  taken from a constant instead of read off the page — **which arm reds depends on where
+  the constant is anchored, and this AC's original wording ("the vector arm must red while
+  the raster arm stays green") named only one of the two**: anchored on the drawing's own
+  ink edge the **raster** arm reds and the vector arm is correct; anchored on the raster
+  medium's +0.5 px offset the **vector** arm reds and the raster arm is correct. The card
+  could not know that without the oracle, so the round planted **both** — (b1) and (b2) in
+  the plant table — rather than picking the arm this text guessed. That is deliberately
+  **more** than this AC asked for, not a correction to it: the claim as stated is *correct
+  in both media*, and a claim with two directions needs a control that can fail in either
+  (ADR-0039/R1). Either way it is the cell that proves the derivation is load-bearing;
   (c) a re-expressed pinned site reaches a stream reader without saying so — the pin must
   red (this is CARD-329's MUT-13/MUT-16 shape re-aimed at this card's reader, and its
   closed walk is what must catch it); (d) the boundary reading is correct in one medium
@@ -442,7 +465,13 @@ this oracle gated on `drawing.framed` and raised there; the shipped one reads on
 `left`, `top` and `grid_bottom` — the set that module already declares safe on either page
 kind — and derives the frame structurally instead. **This also contradicts that module's
 own comment**, which says `.cell` is "safe on either kind" nine lines before saying `.cell`
-is "unsafe on a revealed answer page". Not this card's to fix; recorded.
+is "unsafe on a revealed answer page". Not this card's to fix; recorded — and now
+**carded as CARD-351**, which owns both halves (the 94/136 reporting defect and the
+module's nine-line `.cell` self-contradiction). The merge gate also **removed this
+paragraph from ADR-0042/R6**, where the round had written it: a defect in a decision
+record reads as a decision while no card owes the fix, so R6 now cites CARD-351 by id in
+one sentence and keeps only the two facts that are about the oracle (the six-line width /
+2.5 px half rule, and the reader-set decision of F-6).
 
 **F-4 — one of the card's 5 cells cannot be closed, with the measurement.** The two-up
 site in `..._two_up_pages` is bound by **one** `HALF_PIXEL_MM` — half a device pixel —
@@ -486,6 +515,24 @@ reads **1.992x** in vector and 1.983x in raster, and the 4x centring site **3.98
 3.965x. That is arithmetic, not luck — the centre carries half a pixel and the millimetre
 figure rounds by up to half a pixel, so the worst case is the bound exactly — and it is
 recorded here because a corpus change tips it. Stated rather than widened (G-1).
+For contrast, what the **ink** reads on the same corpus: **6.992x** and 7.333x on the two
+single-edge sites and **13.984x** on the spare site, all three RED in vector — the margin
+is 0.4 %, and the alternative was 3.5x the bound. (Re-derived at the merge gate, both
+media, 136 cases: reproduces to the digit.)
+
+> **[Corrected at the merge gate, 2026-11-04 — this was prose where the card's own
+> convention is a declaration.]** F-7 as written above was an argument in a card's notes.
+> This card's convention for a residue it cannot improve is the one it built for F-4: a
+> **measured, asserted declaration in the tree**, so that a corpus change, a poppler
+> version or one differently-landing trim reds against an explanation instead of against
+> nothing. The two sites and their figures, with the derivation that makes 2x and 4x the
+> *exact* worst case (the centre carries +-0.5 px and the rounded millimetre coordinate a
+> further +-0.5 px; one device pixel is 2 x `HALF_PIXEL_MM`, and the spare-margin site
+> differences two such edges), are now written into
+> `PLACED_EDGE_ON_THE_INK_BY_DECLARATION`'s own docstring in
+> `tests/test_book_puzzle_frame.py` — deliberately **not** as mapping keys, since that
+> mapping is held to sites still on the ink and these two are closed and green. **No bound
+> moved** (G-1); widening would have broken it, which is the point the declaration records.
 
 **F-8 — closing a placed-edge assert UNMASKS the next red, and two of them are a
 page-SIZE family nobody has carded.** The card's "4 reds, one per node id, at
@@ -503,7 +550,8 @@ the five-kind probe after the re-expression:
 So **every placed-edge assertion of both modules now passes under the probe except the one
 declared site**, and the node ids that still red do so on three other mechanisms:
 CARD-342's stroke weights (3 cells in `tests/test_book_puzzle_frame.py`), this page-size
-family (**2 cells, unowned — this is a new disposition, not this card's**), and the
+family (**2 cells — unowned when this was written, and now CARD-350's**: it carries the
+1.110 px over-rasterisation of a 282.1 mm trim and the two-sizes-in-one-book cell), and the
 declared half pixel. `tests/test_book_puzzle_frame.py` under the probe moves **4 failed /
 96 passed -> 3 failed / 110 passed, 0 skipped**.
 
@@ -530,7 +578,21 @@ the site below it is closed. It is re-expressed (boundary 135.5, inside). Wideni
 derivation to *every* resolved ink-extent read was tried and measured: **26 sites**, almost
 all of them array indices (`dark[frame.top, layout.grid_left : ...]`) and ink-to-ink corner
 readings, so a wider filter needs a classifier for those shapes before it can be a
-partition rather than a blanket exemption. Not widened here; recorded.
+partition rather than a blanket exemption. Not widened here; recorded — and now
+**CARD-352's**, which the review cut after measuring that the blind spot is **three**
+literal-bound sites rather than the one named above, and which also owns the second half
+of the same defect: the classifier's `no_extent` fall-through, where ADR-0039/R2 wants a
+failure rather than a silent class. **The gate did not build either** — both are a
+derivation change to the partition this card's AC-3 is written against, and reopening it
+at the gate would be a second implementation round under no review.
+
+**One thing nothing in this card asserts, and it is carded rather than claimed closed.**
+`frame_centre_of` reduces a bitmap to a mask and reaches no engine — F-6's decision rests
+on that — but the only guard holding it there is
+`TestEdgeOffset_ThePixelOraclesStillReadPixels`, i.e. **one of the two guards that hold
+the old oracle**: the placed-edge pin's reader set derives over `pdf_vector.py` and
+`pdf_pages.py` only, so it structurally cannot see `page_ink.py`. Plant (c1) measures that
+the one guard fires; nothing measures the other half. That is **CARD-353**.
 
 ### The plant table (AC-5) — six plants, all with a measured unplanted baseline
 

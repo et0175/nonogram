@@ -3785,6 +3785,39 @@ def test_put_back_on_the_ink(page):
 #: Held to naming only real, still-on-the-ink sites by
 #: :meth:`TestFrameCentre_EveryPlacedEdgeSiteIsClassified.test_every_declaration_is_a_site_that_is_really_on_the_ink`,
 #: so this cannot rot into a blanket exemption (ADR-0039/R3).
+#:
+#: **The other declared residue: two re-expressed sites that CLEAR their bound
+#: with 0.4 % of margin.** These two are deliberately **not** keys of the
+#: mapping below — that mapping is held to sites still on the ink, and these
+#: are closed and green. They are declared here anyway, for the same reason the
+#: entry below is declared: a residue this card cannot improve is written down
+#: with its figures, so that a corpus change, a poppler version or one
+#: differently-landing trim reds them against an explanation instead of against
+#: nothing. CARD-336's F-7, re-derived at the merge gate over the same 136
+#: cases of
+#: ``test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages``:
+#:
+#: ======================================  =======  ==========  =======
+#: site, in that module and that node id   bound    vector      raster
+#: ======================================  =======  ==========  =======
+#: ``frame_left`` vs ``drawing_left_mm``   2 x      **1.992x**  1.983x
+#: ``left_spare`` vs ``right_spare``       4 x      **3.984x**  3.965x
+#: ======================================  =======  ==========  =======
+#:
+#: **Why the bound is the exact worst case — arithmetic, not luck.** The
+#: reading is a rule's centre, and a rule of even inked width centres on a
+#: half-integer, so it carries +/-0.5 px against the boundary. The millimetre
+#: figure it is compared with is itself rounded to a device coordinate,
+#: carrying a further +/-0.5 px. One device pixel is 2 x ``HALF_PIXEL_MM`` —
+#: so 2 x **is** the derived worst case of a single-edge comparison, and 4 x is
+#: twice it because the spare-margin site differences two such edges. 1.992x
+#: is therefore *at* the derived bound, not inside it by accident.
+#:
+#: **And the bound was not widened to admit it** (G-1). What the INK reads on
+#: the same corpus, for contrast: **6.992x** and 7.333x on the two single-edge
+#: sites and **13.984x** on the spare site, all three RED in vector. The margin
+#: is 0.4 %; the alternative was 3.5x the bound. Widening is what G-1 forbids,
+#: and these figures are what make that refusal checkable rather than a claim.
 PLACED_EDGE_ON_THE_INK_BY_DECLARATION = {
     (
         "tests/property/test_book_pdf_geometry.py",

@@ -122,7 +122,7 @@ PLANTS: dict[str, tuple] = {
         [AC3, ORACLES],
         True,
     ),
-    "c": (
+    "c1": (
         PAGE_INK,
         "    dark = _dark(page)\n    down = dark[drawing.top : drawing.grid_bottom + 1]\n",
         "    from tests.helpers import pdf_vector  # noqa: F401\n\n"
