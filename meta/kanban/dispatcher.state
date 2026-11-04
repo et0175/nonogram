@@ -584,6 +584,7 @@ queued:
 # time rather than at a gate. `queued` is the forward plan; a card that has
 # started is not in it. CARD-320 is next and runs ALONE -- see the block at the
 # end of this file for why, and do not pair it.
+- id: CARD-349   # P2 1c  wave 76, ALONE: db_required gates create-if-missing but not the DATABASE_URL read. Owner's order, 2026-11-04.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
@@ -4019,3 +4020,32 @@ last_updated: 2026-11-04T08:33:00Z
 #   Estimate restated in review cycles per ADR-0055: 2c (0.5d). An open
 #     investigation whose reproduction costs a full suite per attempt, so 2c is
 #     the honest figure rather than the 1c its day estimate would suggest.
+#
+# WAVE ORDER DECIDED BY THE OWNER 2026-11-04: "349 first then 320", both SOLO.
+#   wave 76 -> CARD-349 alone   (db_required gates create-if-missing but not the
+#                                reading of DATABASE_URL)
+#   wave 77 -> CARD-320 alone   (a float reaches uuid.UUID, full-suite-only)
+#
+#   WHY THIS ORDER, and the argument does NOT depend on them sharing a cause:
+#     CARD-349's defect is KNOWN AND MEASURED and sits in the same fixture layer
+#     as CARD-320's full-suite-only anomaly. Fixing it first removes a known
+#     cross-test ordering confound before anyone investigates an anomaly whose
+#     only reproduction is the full suite. If they DO share a cause, CARD-320
+#     dissolves or shrinks; if they do not, its round starts from a cleaner
+#     fixture layer with one fewer candidate explanation. The cost is a wave's
+#     delay on a P1 and the risk is spending a wave to rule out one hypothesis.
+#
+#   BOTH SOLO, and the reason is the lock's REACH rather than its existence:
+#     tests/full_suite_lock.py's pytest_configure raises on ANY run from a
+#     foreign worktree, not only full-suite ones. So while either card holds the
+#     lock a paired card cannot run A SINGLE TEST -- not its round, not its
+#     review. Measured in wave 74: two reviewers could run no pytest at all and
+#     both correctly fell back to driving test methods by import, which does not
+#     exercise collection. Pairing either of these buys two half-blocked rounds,
+#     not throughput.
+#     CARD-349 also needs repeated full suites of its own: its AC-3 is that
+#     running twice from the same cold state gives the same result both times,
+#     which is the self-healing signature being the defect.
+#
+#   They also CONFLICT on tests/conftest.py, so they could not pair with each
+#   other in any case.
