@@ -564,6 +564,21 @@ active:
 #     derived independently rather than eyeballed.
 #
 queued:
+# ORDER CONFIRMED BY THE OWNER 2026-11-04: "wait for 363 then open 78 on 349 solo".
+#   CARD-363 clears (cycle 3 is the LAST max_cycles allows, so it certifies-and-gates
+#     or escalates) -> WAVE 78 OPENS ON CARD-349 ALONE.
+#   then CARD-320, also solo -- the owner's earlier "349 first then 320".
+# WHY SOLO, measured rather than assumed: both touch tests/conftest.py, the highest
+#   blast-radius file in the tree, so they serialize on it against each other AND
+#   against any card whose gate runs a suite.
+# CARD-349's premise was verified at the station and recorded on the card -- including
+#   that the card's own wording MISPLACES the asymmetry: conftest does not read
+#   DATABASE_URL for an unmarked test at all; the gap is between conftest and the test
+#   tree, where unmarked modules read it themselves and connect.
+# NOT dispatched early on purpose: a held lock refuses EVERY pytest from a foreign
+#   worktree, not just full suites (CARD-370), so a card dispatched under CARD-363's
+#   cycle-3 lock could not run one test while editing the file every test depends on.
+#
 # ORDER CONFIRMED BY THE OWNER 2026-10-30T21:04:50Z: "ok run then 309 cycle 3 + 318
 # now and then according to plan", after agreeing the set as 318 + 330 + 331.
 # Recorded explicitly because it was AGREED rather than inferred, and because
