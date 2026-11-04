@@ -47,7 +47,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import drawing_of, frame_centre_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 
@@ -412,7 +412,8 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
 
         # interior page 3 + toc_page_count, the puzzle (CARD-201 guide, then
         # CARD-200's TOC, then the puzzle page)
-        drawing = drawing_of(pages[3 + toc_page_count])
+        puzzle_page = pages[3 + toc_page_count]
+        drawing = drawing_of(puzzle_page)
         assert (drawing.columns, drawing.rows) == (columns, rows)
 
         # The cell is FR-030's, never above the standard cell.
@@ -428,13 +429,37 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         usable_left = sheet.left_margin_mm(page_number) * PX_PER_MM
         usable_right = (sheet.left_margin_mm(page_number) + sheet.usable_width_mm) * PX_PER_MM
         usable_bottom = (sheet.height_mm - BOTTOM_MM) * PX_PER_MM
-        assert drawing.left >= usable_left - 1, (sheet, drawing.left, usable_left)
+        # CARD-336: the drawing's LEFT edge is a boundary, so it is read as
+        # one here too. It is a placed-edge claim whose bound is a literal
+        # pixel rather than this module's own ``HALF_PIXEL_MM``, which is why
+        # neither the card's census nor the derived population below sees it
+        # — and it is the site that reds once the top-edge site further down
+        # is closed, because the loop then reaches a case it never used to:
+        # measured, `drawing.left` 133 against a usable edge of 135.827, the
+        # mitred frame corner putting its ink 2.83 px outside the box the
+        # drawing is placed in. The boundary reading is 135.5, inside.
+        #
+        # ``grid_right``/``grid_bottom`` below stay on the ink deliberately:
+        # those are the GRID's own borders, not the frame's sides, and the
+        # frame-centre oracle reports no grid boundary (it reads the frame,
+        # which is what the two media disagree about by 3 px; CARD-330
+        # measured the grid's edges at 1 px, inside these bounds). What they
+        # claim is also genuinely about ink — that nothing the drawing prints
+        # lands outside the usable area.
+        boundary = frame_centre_of(puzzle_page, drawing)
+        assert boundary.frame_left >= usable_left - 1, (
+            sheet, boundary.frame_left, usable_left
+        )
         assert drawing.grid_right <= usable_right + 1, (sheet, drawing.grid_right)
         assert drawing.grid_bottom <= usable_bottom + 1, (sheet, drawing.grid_bottom)
+        # The top edge is a BOUNDARY (CARD-336), so it is read as one: the
+        # frame rule's centre, off the rule's own measured width, rather than
+        # its leading inked line — which sits half a rule above the boundary
+        # and by a different amount in each medium.
         tops_mm = sheet.drawing_top_mm(across, down)
-        assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
+        assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
             3 * HALF_PIXEL_MM + 1e-9
-        ), (sheet, _mm(drawing.top), tops_mm)
+        ), (sheet, _mm(boundary.frame_top), tops_mm)
         windowed += len(tops_mm) > 1
 
         # The grid is exactly as wide and as tall as its cells say it is.
@@ -521,12 +546,18 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
             # every page: the grid's left border starts there whether or not
             # the drawing fits (a trim too small for it anchors at the usable
             # area's left edge and overflows to the right, keeping this edge).
+            # CARD-336: read as the boundary it is — the frame rule's centre,
+            # off the rule's own measured width. Measurable on an overflowing
+            # page too: what runs off the trim is the drawing's far side, and
+            # the frame's left and top sides are on the page either way
+            # (measured on all 15 overflowing pages of this corpus).
             tops_mm = sheet.drawing_top_mm(
                 across, down, book_cells[(columns, rows)]
             )
-            assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
+            boundary = frame_centre_of(page, drawing)
+            assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, columns, rows, _mm(drawing.top), tops_mm)
+            ), (sheet, columns, rows, _mm(boundary.frame_top), tops_mm)
             windowed += len(tops_mm) > 1
             tops.add(drawing.top)
 
@@ -650,24 +681,31 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         medium_answer_page = 11 + toc_page_count
         page_numbers = (medium_page, ungraded_page, easy_answer_page, medium_answer_page)
 
-        # (interior page number, the page) for every page carrying the drawing.
+        # (interior page number, the page) for every page carrying the drawing,
+        # read twice: as the ink it puts down, and — CARD-336 — as the two
+        # boundaries that ink is centred on, which is what the millimetres
+        # below are a statement about.
         by_number = {
             number: drawing_of(pages[number - 1]) for number in page_numbers
         }
+        boundary_by_number = {
+            number: frame_centre_of(pages[number - 1], by_number[number])
+            for number in page_numbers
+        }
         for number in page_numbers:
-            drawing = by_number[number]
+            boundary = boundary_by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
-            assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
-                sheet, number, _mm(drawing.left), expected_left
-            )
+            assert abs(_mm(boundary.frame_left) - expected_left) <= (
+                2 * HALF_PIXEL_MM + 1e-9
+            ), (sheet, number, _mm(boundary.frame_left), expected_left)
             # The top edge is the 42% float every puzzle page uses — and,
             # since CARD-198, every answer page too (the same compute_layout
             # call, the same band). Parity does not enter it: the same figure
             # is expected on all four pages, which is AC-276's own claim.
             tops_mm = sheet.drawing_top_mm(across, down)
-            assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
+            assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
-            ), (sheet, number, _mm(drawing.top), tops_mm)
+            ), (sheet, number, _mm(boundary.frame_top), tops_mm)
             windowed += len(tops_mm) > 1
 
         # ``columns``/``rows`` only on the two blank puzzle pages: an answer
@@ -691,8 +729,14 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
             spare = sheet.usable_width_mm - across * sheet.cell_mm(across, down)
             for number in (medium_page, ungraded_page):
-                drawing = by_number[number]
-                left_spare = _mm(drawing.left) - sheet.left_margin_mm(number)
+                # CARD-336: the spare is the white between the margin and the
+                # drawing's own BOUNDARY, so the boundary reading is what the
+                # subtraction wants — half a rule of frame ink falls outside
+                # it by design (``PuzzleFrame``'s own docstring).
+                left_spare = (
+                    _mm(boundary_by_number[number].frame_left)
+                    - sheet.left_margin_mm(number)
+                )
                 right_spare = spare - left_spare
                 assert abs(left_spare - right_spare) <= 4 * HALF_PIXEL_MM + 1e-9, (
                     sheet, number, left_spare, right_spare
@@ -833,6 +877,32 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
             counted += 1
         if len(drawings) == 2:
             # A two-up page's upper slot starts on the band's own foot.
+            #
+            # **The one cell of this module CARD-336 did NOT re-express, with
+            # its measurement.** This site's bound is ONE ``HALF_PIXEL_MM``
+            # — half a device pixel — and a frame-centre reading cannot meet
+            # it in both media, because the frame rule inks SIX pixel lines
+            # and a six-line run's centre is a half-integer whose side
+            # depends on the rasteriser: Pillow inks ``c-2..c+3`` and poppler
+            # ``c-3..c+2`` for the same boundary ``c``, so the centre reads
+            # ``c+0.5`` in raster and ``c-0.5`` in vector. Measured over this
+            # corpus's 7 two-up pages:
+            #
+            # ======  ==========  ==========
+            # medium  ink         centre
+            # ======  ==========  ==========
+            # raster  0.54x       1.54x
+            # vector  **5.46x**   0.46x
+            # ======  ==========  ==========
+            #
+            # So the ink reading is what keeps this green on the tree as it
+            # stands, and the centre reading is what closes it once the page
+            # converts — neither is green in both, and CARD-330's measured
+            # 1 px cross-medium floor is below this bound either way. The
+            # remedy is this site's own multiple (1 -> 2 would admit both
+            # readings, 0.77x and 0.23x), which is **CARD-330's and not this
+            # card's to move** (G-1). Raised as a finding with the figures
+            # above rather than absorbed as a tolerance.
             assert abs(_mm(drawings[0].top) - band_foot_mm) <= HALF_PIXEL_MM + 1e-9, (
                 page_number, _mm(drawings[0].top)
             )
@@ -843,9 +913,15 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
             # A single page's drawing floats at 42% of the puzzle area's spare.
             _, _, across, down = first_extent
             (expected_top_mm,) = sheet.drawing_top_mm(across, down)
-            assert abs(_mm(drawings[0].top) - expected_top_mm) <= (
+            # CARD-336: the boundary, read off the frame rule's own width.
+            # This site's bound is three half pixels, which admits the half
+            # pixel an even-width rule's centre carries — unlike the two-up
+            # site above, whose bound is one and whose figures are recorded
+            # there.
+            single_top_mm = _mm(frame_centre_of(page, drawings[0]).frame_top)
+            assert abs(single_top_mm - expected_top_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
-            ), (page_number, _mm(drawings[0].top), expected_top_mm)
+            ), (page_number, single_top_mm, expected_top_mm)
             assert expected_top_mm > band_foot_mm, (
                 "every single page in this corpus really does float below the "
                 "band's foot, so the two page kinds are distinguishable here"
