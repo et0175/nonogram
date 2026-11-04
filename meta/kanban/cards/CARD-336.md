@@ -42,6 +42,38 @@ the whole 20-module census reproduces that card's figures to the digit — **17 
 | `tests/test_book_guide_page.py` | **1** | the mirrored-centring offset, `assert 2.944881889763778 <= 2` |
 | **total** | **39** | one mechanism |
 
+> **[RETRACTION 2026-11-04, AFTER MEASUREMENT — this supersedes the premise correction below,
+> which was WRONG in its expectation. Read this first.]**
+>
+> **The orchestrator's premise correction predicted that the placed-edge population would GROW
+> under the five-kind filter. It does not. The card's 39 was RIGHT, and the correction's
+> expectation is refuted** (ADR-0039/R4: a figure recomputed and refuted is retracted
+> everywhere it was written; this is that retraction).
+>
+> Measured by CARD-336's round under `scratchpad/card338/census_five_kinds.py`, `--causes`,
+> `unaccounted=0` and `0 skipped` in both passes:
+>
+> | | `PUZZLE` only | all five kinds |
+> |---|---|---|
+> | placed-edge cells | **39** — reproduces the card exactly | **38** |
+> | `tests/test_book_pdf.py`'s placed-edge share | 30 | **30, unmoved** |
+>
+> **Where the orchestrator's reasoning failed:** `tests/test_book_pdf.py`'s MODULE total does
+> move 38 → 46 under five kinds, exactly as CARD-338 measured. But the placed-edge
+> SUBPOPULATION inside it is 30 under both filters — the +8 is `delitem` residue and
+> registry/divider/text cells, none of them this card's. The correction inferred movement in a
+> derived subpopulation from movement in its parent total. **That is the same error shape as
+> predicting a census would move because a declaration site was removed: the parent and the
+> subpopulation are different quantities, and only one of them was measured.**
+>
+> **The figure was never the problem. The COMPOSITION is.** Of the 38, only **5** are cells a
+> frame-centre oracle can close — 4 in `property/test_book_pdf_geometry.py`, 1 in
+> `tests/test_book_puzzle_frame.py`. The other 33 split into 30 cells that fail *before* any
+> edge comparison (a `ContentStream` reaching a pixel reader, no page-source seam) and 3
+> stroke-weight readings that are a different mechanism. **So this card's title claim holds for
+> 2 of its 4 modules and 5 of its 39 cells**, and the card is under re-cut rather than
+> implementation. Its round implemented nothing, by design, and that was the correct call.
+
 > **[PREMISE CORRECTION 2026-11-04, at the wave-74 station — read this before the table above.]**
 >
 > **The 39 is a `PageKind.PUZZLE`-ONLY figure**, and this card knows the distinction well

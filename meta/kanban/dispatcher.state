@@ -3728,3 +3728,56 @@ last_updated: '2026-11-04T03:05:00Z'
 #     the live key and 26 times inside its own history comments. An unanchored
 #     text replace would have rewritten history rather than the setting. The
 #     edit was anchored to `^max_concurrent_override: 2$`, which matches once.
+#
+# CARD-336 CAME BACK REFUTED 2026-11-04, nothing implemented, and that was the
+# CORRECT call -- the brief's scope gate and the card's own item 0 both told the
+# round to stop and report rather than absorb a changed population.
+#
+#   THE ORCHESTRATOR'S PREMISE CORRECTION IS RETRACTED (ADR-0039/R4). It
+#     predicted the placed-edge population would GROW under five kinds. Measured:
+#     39 under PUZZLE-only -- reproducing the card EXACTLY -- and 38 under all
+#     five. The card's figure was RIGHT; the correction's expectation was wrong.
+#     WHERE THE REASONING FAILED: test_book_pdf.py's MODULE total does move
+#     38 -> 46, as CARD-338 measured, but the placed-edge SUBPOPULATION inside it
+#     is 30 under BOTH filters. The correction inferred movement in a derived
+#     subpopulation from movement in its parent total -- the same error shape as
+#     predicting a census would move because a declaration SITE was removed.
+#     Parent and subpopulation are different quantities; only one was measured.
+#
+#   THE COMPOSITION IS THE DEFECT, NOT THE FIGURE. Of the 38, only 5 are
+#     closable by a frame-centre oracle (test_book_pdf_geometry.py x4,
+#     test_book_puzzle_frame.py x1). 30 fail BEFORE any edge comparison -- a
+#     ContentStream reaching a pixel reader, because test_book_pdf.py's _interior
+#     has no rasterising seam where the other three modules do -- and 3 are
+#     stroke-weight readings (_weights finding run widths [2,4,6] where it
+#     demands two). So the card's title holds for 2 of 4 modules, 5 of 39 cells.
+#     The round measured the 30 as unreachable by PLANTING BOTH WAYS to make them
+#     pass and showing each trips the module's own pin, whose docstring records
+#     that CARD-322's conversion RETIRES those expectations rather than repairing
+#     them. AC-3 and AC-4 are therefore mutually unsatisfiable as written.
+#
+#   F-4, AND IT WAS THE ORCHESTRATOR'S OWN ERROR, now fixed: `in progress` is
+#     NOT in _BOARD_STATUSES -- the vocabulary is `in_progress`, underscored.
+#     All three wave-74 stamps used the spaced form, so
+#     test_no_declaration_outlives_the_cards_that_remove_it redded on MAIN for
+#     CARD-278, CARD-336 and CARD-339 at once, with no probe loaded. The
+#     tripwire defaulted to deny on an unseen spelling exactly as documented.
+#     The spelling census over all 340 cards is what settles it: those three were
+#     the only cards using it, and no earlier in-flight card survives to show the
+#     convention, so the station had nothing to copy. Each BRANCH still carries
+#     the bad spelling from its stamping commit -- align the branch card's Status
+#     at merge, which is already the standing pre-merge step.
+#
+#   F-5: AC-4's "HALF_PIXEL_MM's four site multiples unchanged at 3/3/2/1" is not
+#     a true statement about the file. Re-derived independently by the
+#     orchestrator with `ast`: EIGHT constant-multiple sites, multiset
+#     {2:x2, 3:x4, 4:x2}, plus two bare mentions, and NO `1 x` anywhere. The
+#     3/3/2/1 is the multiple carried by each of the four FAILING assertions.
+#     Fix the wording before anyone asserts against it.
+#
+#   STILL UNOWNED, raised by the round and not routed yet: F-2, a whole-file
+#     pdf_pages render coming back blank under the probe while puzzle_frame's
+#     per-page interior_images path yields real pixels in the same run; and F-6,
+#     page_ink.py's _EDGE_OVERHANG = 3, a hard-coded half-rule already
+#     medium-dependent in the EXISTING reader (a heavy rule rasterises at ~5.42
+#     px, so the half is 2.71, not 3).
