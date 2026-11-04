@@ -1,6 +1,6 @@
 # CARD-349: `db_required` gates the create-if-missing path but not the reading of `DATABASE_URL`, so an unmarked test reds in a fresh worktree and self-heals
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/349-db-required-misses-the-url-read`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-349
 **Source:** Measured by CARD-278's merge gate, 2026-11-04, which went red at 5 cells on its first armed run in a file byte-identical to main's and belonging to a card whose entire footprint was `tests/test_timeout.py`. The gate measured the cause instead of re-running, which is the only reason this is a card rather than a shrug — the hazard self-heals, so the second run is green and the first reads as flakiness.
 **Idea:** —
-**Wave:** —
+**Wave:** 78 <!-- DISPATCHED 2026-11-04T20:25Z as wave 78's ONLY card. SOLO on the owner's confirmed order ("wait for 363 then open 78 on 349 solo", recorded in dispatcher.state), and the reason is measured rather than preferred: Touches is tests/conftest.py, the highest blast-radius file in the tree, so this card serializes against CARD-320 (which also touches it) AND against any card whose gate runs a suite. Was: no wave. The queue comment read "wave 76" and that attribution is withdrawn -- the card was never dispatched into 76, which closed on CARD-348 alone. Estimate was ALREADY 1c (0.5d), restated in review cycles before this open rather than at it, so wave 78's ratio is computable from the outset -- the scarce input CARD-363 merged to protect. -->
 **Created wave:** 74
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/conftest.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T20:25Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
