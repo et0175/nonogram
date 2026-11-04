@@ -3781,3 +3781,34 @@ last_updated: '2026-11-04T03:05:00Z'
 #     page_ink.py's _EDGE_OVERHANG = 3, a hard-coded half-rule already
 #     medium-dependent in the EXISTING reader (a heavy rule rasterises at ~5.42
 #     px, so the half is 2.71, not 3).
+#
+# CARD-336 RE-CUT 2026-11-04 on the owner's instruction ("re-cut to its measured
+# core"), and RE-DISPATCHED on the same branch and worktree.
+#   Estimate 2c (2d) -> 1c (0.5d). Touches five files -> THREE:
+#     tests/test_book_pdf.py REMOVED (its 30 cells fail before any edge
+#       comparison; disposition is CARD-322's conversion, which RETIRES them --
+#       the module's own pin says so in its docstring)
+#     tests/test_book_guide_page.py REMOVED (0 cells under the five-kind filter;
+#       what is red there is a different mechanism -> CARD-343)
+#   AC-3 restated from "the 39" to the 5 MEASURED cells in 2 modules, with the
+#     2.504 px residual recorded (not 3 px -- 1.3 pt at 300 DPI is 5.42 px, so
+#     the half-rule is 2.71), which is why item 1 requires the width be read off
+#     the page rather than taken from a constant.
+#   AC-4's HALF_PIXEL_MM wording fixed per F-5: the honest pin is the full
+#     multiset {2:x2, 3:x4, 4:x2} over EIGHT sites plus two bare mentions, and
+#     NO `1 x` exists in that file.
+#
+# THREE CARDS CUT from the routed-away work, all ready, none dispatched:
+#   CARD-342  P2 1c  the 3 stroke-weight cells (_weights demands two run widths,
+#                    antialiasing gives [2,4,6]) -- a different mechanism
+#   CARD-343  P2 2c  F-2, the blank whole-file pdf_pages render under the probe
+#                    while the per-page interior_images path yields real pixels
+#                    in the SAME run. Premise is an OBSERVATION, not a mechanism.
+#                    If the probe is the cause, that is a CARD-338 instrument gap
+#                    reported to the mechanism, not patched around.
+#   CARD-344  P3 1c  F-6, page_ink.py's _EDGE_OVERHANG = 3. Depends on CARD-336
+#                    deliberately: 336 establishes how a width is read off the
+#                    page, and doing this first would invent the mechanism twice.
+#
+# GRAPH RE-CHECKED after the cut, real consumer's reading: 343 cards, 343
+# ordered, NO cycle, NO dangling dependency.

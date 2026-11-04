@@ -1,9 +1,9 @@
-# CARD-336: The frame-centre oracle — one boundary-reading mechanism for the placed-edge cells four modules read as first-inked-line
+# CARD-336: The frame-centre oracle — one boundary-reading mechanism for the 5 measured placed-edge cells in 2 modules
 
 **Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2c (2d)
+**Estimate:** 1c (0.5d)
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -18,7 +18,8 @@
 **Deferred waves:** 0
 **Depends on:** CARD-329, CARD-330, CARD-338
 <!--CARD-338 ADDED 2026-10-31 by the orchestrator, answering the re-cut's own judgement call 3. The re-cut built the five-kind probe extension, ran the census, and then described the instrument in prose in this card, CARD-337 and CARD-322 rather than carding it. Three cards quoting the same undelivered instrument is how CARD-309 happened -- five `expires_with` entries nobody owned, four cards that built writers with zero call sites. CARD-338 owns it, and its deliverable is the measured floor this card's premise needs: CARD-329's probe lifts PageKind.PUZZLE ALONE, so every figure this card inherits is measured against one fifth of the conversion. -->
-**Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_guide_page.py
+**Touches:** tests/helpers/page_ink.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py
+<!--RE-CUT 2026-11-04 on the owner's instruction, after this card's own round measured its population. tests/test_book_pdf.py REMOVED: its 30 placed-edge cells fail before any edge comparison and its own pin records that CARD-322's conversion RETIRES them rather than repairing them -- see CARD-342. tests/test_book_guide_page.py REMOVED: its one cell is 0 under the five-kind filter and what is red there is a different mechanism -- see CARD-343. -->
 **Review score:** —
 **Started:** 2026-11-04T03:41Z
 **Closed:** —
@@ -240,18 +241,33 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   **unmodified**. ADR-0042/R6 exempts the independent oracles by name and CARD-331's
   raster arm accounts their extents; a card that converted them in place would destroy
   the cross-check CLAUDE.md requires. (test: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
-- **AC-3** (the 39 are closed, derived not listed): *Given* a run under the
-  five-kind probe (`scratchpad/card338/probe_five_kinds.py`, CARD-338's), *then* every
-  placed-edge cell of the four modules in `Touches`
-  passes, the population is **derived** by the comparison it makes rather than enumerated,
-  and a cell the walk cannot classify is a FAILURE (ADR-0039/R2). **The 39 is a dated
-  reading at `b26bdd62` AND a `PUZZLE`-only one, not a target**: state the number the
-  round measures and the filter that produced it, and a different number is the finding
-  — and under the five-kind filter item 0 runs, a LARGER number is the expected finding,
-  not a regression.
+- **AC-3** (the 5 measured cells are closed, derived not listed): *Given* a run under the
+  five-kind probe (`scratchpad/card338/probe_five_kinds.py`, CARD-338's, driven by
+  `census_five_kinds.py`), *then* every placed-edge cell of the **two** modules in
+  `Touches` passes — **4 in `tests/property/test_book_pdf_geometry.py` and 1 in
+  `tests/test_book_puzzle_frame.py` (`drawing.top`)** — the population is **derived** by
+  the comparison it makes rather than enumerated, and a cell the walk cannot classify is a
+  FAILURE (ADR-0039/R2).
+  **These 5 are the measured residue of a 38-cell family, and the other 33 are not this
+  card's**: 30 fail before any edge comparison (no page-source seam; **their recorded disposition is
+  CARD-322's conversion, which RETIRES them** — the pin in `tests/test_book_pdf.py` says so
+  in its own docstring) and 3 are stroke-weight readings (CARD-342). **Re-derive the 5 rather than trusting this
+  line** — it is a dated reading, and a different number is the finding.
+  **One figure this card's round measured that the implementation must respect:** the
+  `test_book_puzzle_frame.py` residual is **2.504 px against a 1.5 px bound, not 3 px**.
+  1.3 pt at 300 DPI is 5.42 px, so the half-rule is 2.71 px. That is precisely why item 1
+  requires the rule width be **read off the page** rather than taken from a constant — a
+  hard-coded 3 would be a second medium dependency and would miss this cell.
 - **AC-4** (nothing was widened, and it is asserted rather than claimed): *Given* the
   branch, *then* `EDGE_TOLERANCE_MM == 0.1`, `EDGE_TOLERANCE_EXEMPTIONS` is empty and
-  asserted empty, `HALF_PIXEL_MM`'s four site multiples are unchanged at 3/3/2/1, and the
+  asserted empty, `HALF_PIXEL_MM`'s site multiples are unchanged as the full multiset
+  **`{2: x2, 3: x4, 4: x2}` across EIGHT constant-multiple sites, plus two bare
+  mentions** — re-derive it with `ast`, and note that **no `1 x` multiple exists anywhere
+  in that file**. An earlier wording here said "four site multiples unchanged at 3/3/2/1";
+  that was the multiple carried by each of the four FAILING assertions, not the module's
+  site count, and an assertion written against it would have asserted something untrue of
+  the file (refuted by this card's own round, F-5, and re-derived independently at the
+  station). And the
   pin class `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium` still reports a
   crossing — fired as a plant, not read as green. (test: the pin's own cells, plus AC-5's
   plant)
