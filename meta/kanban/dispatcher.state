@@ -3975,3 +3975,42 @@ last_updated: 2026-11-04T08:33:00Z
 #     written. They are untracked, hence already outside git grep's reach and
 #     outside this card's problem. Gitignoring the directory is fine; EMPTYING it
 #     destroys the record this board's own retro depends on.
+#
+# CARD-320 SCHEDULED FOR WAVE 76, ALONE, 2026-11-04, on the owner's "schedule 320
+# its own wave next". Wave NOT stamped on the card -- it is stamped at dispatch,
+# because a `ready` card holding a Wave it never ran in is what made this board
+# read waves 67 and 68 as unclosed.
+#
+#   WHY A WAVE OF ITS OWN, and this is now a recorded decision rather than a
+#     judgement to re-make: its defect reproduces ONLY under the full suite (four
+#     narrower reproductions all pass), so its round holds the exclusive
+#     meta/kanban/.full-suite.lock repeatedly, which blocks any co-running card's
+#     gate. It was passed over for that reason in wave 74 and again in wave 75.
+#     DO NOT PAIR IT. Dispatch it as the single card of wave 76.
+#
+#   PREMISE CHECKED BEFORE QUEUEING, per the rule the vector family produced:
+#     add_puzzle / approve_puzzle / _set_status all exist (898 / 2225 / 2126);
+#     add_puzzle returns a string on both paths (both forms present); the failing
+#     node still collects in both parametrisations; and uuid.UUID(1.5) reproduces
+#     the card's exact error on this Python, so the mechanism is live.
+#
+#   ONE REFINEMENT THAT MOVES WHERE THE ROUND SHOULD LOOK: `uuid.UUID(` occurs
+#     ZERO times in src/nonogram/admin/puzzle_review.py. The card says the float
+#     is "substituted somewhere between that return and the UUID constructor",
+#     but there is no explicit construction in its own file to sit between them --
+#     the constructor the traceback hits is SQLAlchemy coercing the comparison
+#     value against a UUID column in `Puzzle.id == puzzle_uuid`. So the question
+#     is what is BOUND to puzzle_uuid (13 sites) and how a float reached it, not
+#     which line builds a UUID. Written onto the card.
+#
+#   CONFLICT TO RESPECT WHEN SCHEDULING WAVE 76: CARD-349 also touches
+#     tests/conftest.py, so the two cannot run concurrently. CARD-349's subject is
+#     adjacent -- db_required gates the create-if-missing path but not the reading
+#     of DATABASE_URL, a cross-test ordering defect in the same fixture layer as a
+#     [db] test that fails only under the full suite. NOT asserted to be the same
+#     bug; the card says read CARD-349 before concluding, and say so if they share
+#     a cause rather than fixing it twice.
+#
+#   Estimate restated in review cycles per ADR-0055: 2c (0.5d). An open
+#     investigation whose reproduction costs a full suite per attempt, so 2c is
+#     the honest figure rather than the 1c its day estimate would suggest.

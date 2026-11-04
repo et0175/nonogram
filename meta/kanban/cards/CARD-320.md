@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 0.5d
+**Estimate:** 2c (0.5d)
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -23,6 +23,44 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## Premise checked at the wave-76 scheduling station, 2026-11-04
+
+**The premise holds, and one refinement changes where to look.** Verified by `ast` and by
+running the mechanism, not by reading the card:
+
+| claim | result |
+|---|---|
+| `add_puzzle`, `approve_puzzle`, `_set_status` all exist in `puzzle_review.py` | ✓ (lines 898 / 2225 / 2126) |
+| `add_puzzle` returns a string on both paths | ✓ — the `f"puzzle_{self._next_id:06d}"` memory form and `str(puzzle.id)` both present |
+| the failing node still exists and still parametrises | ✓ — both `[memory]` and `[db]` collect |
+| `uuid.py`'s `hex.replace` is still the failure site on this Python | ✓ — `uuid.UUID(1.5)` raises `AttributeError: 'float' object has no attribute 'replace'`, the card's exact error |
+
+**THE REFINEMENT: `uuid.UUID(` occurs ZERO times in `src/nonogram/admin/puzzle_review.py`.**
+The card's traceback shows `uuid.py` being reached, and the card says the float is "substituted
+somewhere between that return and the UUID constructor" — but there is **no explicit UUID
+construction in the card's own file to sit between them.** `puzzle_uuid` appears 13 times, and
+the construction the traceback hits is **SQLAlchemy coercing the comparison value against a
+UUID column** in `Puzzle.id == puzzle_uuid`.
+
+So the question is not "which line builds a UUID from a float" — there is none. It is **what is
+bound to `puzzle_uuid` at that comparison, and how a float got into it.** Start from the
+13 `puzzle_uuid` sites and the value flowing into `_set_status`, not from a search for a
+constructor call.
+
+**The card's line numbers have rotted**, as every `path:line` in this board's history
+eventually does: `:2232` for `approve_puzzle` is now **2225**, `:2166` for the filter is in a
+`_set_status` that now begins at **2126**. Resolve by name.
+
+**One interaction to know about before starting, stated as a possibility and not a diagnosis:**
+**CARD-349** was cut in wave 74 and also touches `tests/conftest.py`, so the two cards
+**conflict on files and must not run concurrently.** Its subject is adjacent in a way that may
+or may not matter here: `db_required` gates `conftest.py`'s create-if-missing path but **not**
+the reading of `DATABASE_URL`, so an unmarked test can connect before any marked test has
+created the derived database. That is a cross-test ordering defect in the same fixture layer
+as a `[db]` test that fails **only** under the full suite. **Do not assume they are the same
+bug** — four narrower reproductions passing is consistent with several causes — but read
+CARD-349 before concluding, and if they share a cause say so rather than fixing twice.
 
 ## Why this card exists
 
