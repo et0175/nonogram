@@ -1,4 +1,4 @@
-wave: 77   # OPENED 2026-11-04 by the close of wave 76 on CARD-348 alone; carries CARD-363 forward mid-cycle-3. Was: 76, OPENED 2026-11-04T14:14Z on the owner's "open the next wave on 363" + "maybe we can add a player card"
+wave: 78   # OPENED 2026-11-04T20:25Z on the owner's "merge it and start the next wave", SOLO on CARD-349 per the order confirmed 2026-11-04 ("wait for 363 then open 78 on 349 solo"). Was: 77, which CLOSED on CARD-363 alone -- merged `63f246a2`, closed `1e707e52`, 7.75 NOT CERTIFIED at max_cycles after three cycles plus a fourth pass on owner authorisation, estimate 2c against 3 cycles used -> RATIO 1.500, this board's first ratio that is neither 1.000 nor 0.500 and so its first datum about the SHAPE of the estimate error rather than only its presence. Its worktree has been REMOVED per the standing tidy rule (clean; only .pytest_cache/ was worktree-only), so the active entry is dropped rather than left naming a path that no longer exists -- a phantom holder is what the next wave's free-slot check would read.
 #            CARD-278 8.8 (cycle 1), CARD-336 8.6 (cycle 1), CARD-339 8.4 (cycle 2).
 #            Opened 2026-11-04T03:41Z on the owner's "open the next wave on 336".
 #            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
@@ -448,12 +448,25 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-363
-    branch: card/363-the-review-record-guards
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-363
-    started: 2026-11-04T14:14Z
-    estimate: 2c (0.5d)
-    cut_from: c021a10f
+  - card: CARD-349
+    branch: card/349-db-required-misses-the-url-read
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-349
+    started: 2026-11-04T20:25Z
+    estimate: 1c (0.5d)
+    cut_from: d2297143
+# WAVE 77 CLOSED 2026-11-04T20:25Z on CARD-363, its only card. CARD-363 CLEARED: merged
+#   `63f246a2`, closed `1e707e52`, 7.75 NOT CERTIFIED -- three cycles at 7.75 / 7.5 / 7.75 against
+#   a threshold of 8.0, escalated at max_cycles, then a FOURTH pass on the owner's authorisation
+#   with a deliberately changed remit, which met it. Estimate 2c, cycles_used 3 -> ratio 1.500.
+#   The fourth pass is deliberately NOT counted: it wrote no `[Review N/M] Score:` marker, so the
+#   marker count agrees with the cycle the score names and the card closes AGREES under its own
+#   guard. Counting it would have been the card's own defect committed on the card.
+#   THE GATE'S OWN FINDING, and it outlives the card: INV-023 freezes `meta/kanban` on a card
+#   branch at the merge base, so a module that reads the card tree reads cards predating every
+#   board write since the cut. Measured at one commit: 67 passed on the branch, 2 failed / 65
+#   against main's cards. Three green review cycles coexisted with a module that would have turned
+#   main red on merge. The fix is procedural and every future board-census card inherits it:
+#   MERGE MAIN INTO THE BRANCH BEFORE THE GATE, then the branch reads the real board.
 # WAVE 76 CLOSED 2026-11-04 on the owner's instruction to stamp it on CARD-348 alone
 #   and carry CARD-363 forward. CARD-348 CLEARED: merged `9971257a`, closed, certified
 #   9.0 on cycle 1, estimate 1c -> ratio 1.000 (exact), the fifth exact cycle estimate
@@ -616,7 +629,13 @@ queued:
 # time rather than at a gate. `queued` is the forward plan; a card that has
 # started is not in it. CARD-320 is next and runs ALONE -- see the block at the
 # end of this file for why, and do not pair it.
-- id: CARD-349   # P2 1c  wave 76, ALONE: db_required gates create-if-missing but not the DATABASE_URL read. Owner's order, 2026-11-04.
+# CARD-349 REMOVED from `queued` 2026-11-04T20:25Z: it is ACTIVE in wave 78. A card sitting in
+#   both `active` and `queued` is the shape CARD-336's merge gate found twice, and the shape
+#   that lets a MERGED card get re-dispatched. Caught at the open, not at a gate.
+#   Its queue row also read `wave 76`, an attribution it never had -- wave 76 closed on
+#   CARD-348 alone -- so the stale figure went with the stale row.
+# CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
+#   tests/conftest.py, the highest blast-radius file in the tree.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
@@ -628,7 +647,7 @@ queued:
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: 2026-11-04T18:40:00Z
+last_updated: 2026-11-04T20:25:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
