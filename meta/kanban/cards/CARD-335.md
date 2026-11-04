@@ -365,6 +365,24 @@ questioned.
 
 ## Worktree notes
 
+<!-- MARKER WRITTEN POST-HOC BY THE ORCHESTRATOR 2026-11-04, and the provenance is the point.
+     The retrospective derives `cycles_used` by counting exactly this line. I wrote the rule
+     that it should be written AT CLOSE — into memory, this morning — and then dispatched this
+     card's merge gate an hour later WITHOUT carrying the rule into the brief. So the gate did
+     not write it and I am writing it after the fact for the sixth time in two waves.
+     A rule recorded in memory is not applied until it is in the brief. That is the lesson, and
+     it is recorded on CARD-363, which guards this field.
+     The line below restates only what this card's own `Review score` field already says
+     ("8.0 (cycle 1 of 3 — CERTIFIED)") plus what meta/review/CARD-335-cycle1.yml records. No
+     intermediate score is invented. -->
+
+[Review 1/3] Score: 8.0 — CERTIFIED on cycle 1 of a 3-cycle budget. 0 gating findings; three
+Importants (F-8's false conclusion, the absent cliff, AC-4's reach bound) and five Minors, all
+folded in at the merge gate, which re-derived the two figures rather than relaying them.
+Review artefact: meta/review/CARD-335-cycle1.yml.
+
+
+
 *(2026-11-04, implementation round 1. Nothing in this section is committed: `kanban
 done` step 2d / INV-023 refuses a card branch that commits under `meta/kanban/**` or
 `meta/review/**`, which is also the first finding below.)*
