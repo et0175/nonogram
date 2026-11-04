@@ -313,11 +313,21 @@ def _maintenance_engine(database_url: str):
 def _drop_if_present(database_url: str) -> None:
     """Remove the sentinel database, having first proved it is the sentinel.
 
-    Three conditions, all of them checked here and not upstream: the name ends
-    in ``_test``, ``conftest._refusal_reason`` allows it, and it is not any
-    database a live worktree or the live panel owns. G-1 is the reason this
-    reads like paranoia — the one operation in this module that destroys
-    anything must not be able to destroy anything else.
+    Four conditions, all of them checked here and not upstream: the name ends
+    in ``_test``, ``conftest._refusal_reason`` allows it, it is not **this**
+    worktree's own derived database, and it matches
+    ``conftest._CREATABLE_NAME``. G-1 is the reason this reads like paranoia —
+    the one operation in this module that destroys anything must not be able
+    to destroy anything else.
+
+    What that is and is **not**, stated exactly, because review cycle 1
+    flagged the sentence this replaces as an overclaim. These four do *not*
+    establish that the name belongs to no *other* live worktree: that would
+    need an enumeration of the worktrees on the host, which this module has
+    no authority for. What closes the gap instead is provenance — the only
+    URL any caller passes is :func:`_sentinel_url` over a ``tmp_path``, a
+    directory no worktree is rooted at — and the first two conditions, which
+    the live panel's database fails on their own.
     """
     name = make_url(database_url).database or ""
     assert name.endswith("_test"), name
@@ -382,6 +392,57 @@ def a_cold_run_then_a_warm_one(tmp_path_factory):
         yield [_run(url, cold=True), _run(url, cold=False)]
     finally:
         _drop_if_present(url)
+
+
+def _fixture_body(fixture):
+    """The plain function a ``@pytest.fixture`` decorator wrapped.
+
+    Needed because the only thing that writes ``conftest._ARMED_SETUP`` in a
+    real run is ``_armed_database_is_ready``, and a fixture object cannot be
+    called: pytest rejects that at runtime on purpose. Review cycle 1's F-001
+    was exactly this seam — every note test drove the pure planner and the
+    pure formatter and hand-injected the dict between them, so the recording
+    in the middle was covered by nothing and swallowing it entirely went
+    unnoticed.
+
+    pytest has spelled the unwrapping differently across versions, so three
+    are tried in the order they were introduced, newest first. A pytest that
+    spells it a fourth way is a **refusal** naming its own version
+    (ADR-0039/R2): falling back to calling the fixture object would raise a
+    pytest error that reads like a bug in this test rather than like a shape
+    it could not analyse.
+    """
+    getter = getattr(fixture, "_get_wrapped_function", None)
+    if callable(getter):
+        return getter()
+    wrapped = getattr(fixture, "__pytest_wrapped__", None)
+    if wrapped is not None and hasattr(wrapped, "obj"):
+        return wrapped.obj
+    if getattr(fixture, "_pytestfixturefunction", None) is not None:
+        return fixture
+    raise AssertionError(
+        f"cannot resolve the function behind a pytest fixture on pytest "
+        f"{pytest.__version__}; this test drives the fixture body directly "
+        f"and will not guess: {sorted(a for a in dir(fixture) if a[0] != '_')}"
+    )
+
+
+class _StubRequest:
+    """Just enough ``request`` for ``_armed_database_is_ready``'s one call.
+
+    It records what was asked for, so the branches that must *not* reach for
+    the schema can be shown not to have.
+    """
+
+    def __init__(self, raises=None):
+        self.asked: list[str] = []
+        self._raises = raises
+
+    def getfixturevalue(self, name: str):
+        self.asked.append(name)
+        if self._raises is not None:
+            raise self._raises
+        return object()
 
 
 def _outcome(output: str) -> str:
@@ -515,6 +576,152 @@ class TestColdDatabase_ThePreparationHappensBeforeTheFirstTest:
         assert "nonogram_whatever_test" in note
         assert "Postgres is not running" in note
         assert "unset DATABASE_URL" in note
+
+
+class TestColdDatabase_ThePreparationRecordsAndAnnouncesWhatStoppedIt:
+    """G-2 / ADR-0038/R8 — the catch is only allowed because the reason survives it.
+
+    Review cycle 1, F-001. ``_armed_database_is_ready`` catches
+    ``pytest.skip`` and ``pytest.fail`` from ``_test_database_tables``,
+    because letting either out of a session-autouse fixture would skip or
+    error the *whole suite* — the permanent false green this card exists to
+    avoid. The catch is correct. What the catch **rests on** is that the
+    reason is recorded and announced instead, and that claim had no control:
+    replacing ``_ARMED_SETUP["reason"] = str(stopped)`` with ``pass`` —
+    a preparation failure swallowed in total silence — left this module and
+    ``tests/test_full_suite_lock.py`` entirely green. Measured, before and
+    after; the mutant now dies here.
+
+    Every test in this class drives the **real fixture body** rather than the
+    pure planner and the pure formatter either side of it. That seam is what
+    F-001 found, so closing it means crossing it.
+    """
+
+    @staticmethod
+    def _drive(monkeypatch, environ_url, *, request, test_database_url=None):
+        """Run ``_armed_database_is_ready``'s body against a fresh recording.
+
+        ``TEST_DATABASE_URL`` is set or removed explicitly rather than
+        inherited, because ``resolve_test_database_url`` returns it verbatim:
+        a value in the ambient shell would otherwise decide which branch the
+        plan takes and these tests would pass or fail on the environment the
+        suite happened to be started in. That is the defect one layer up —
+        a verdict that is a property of the shell rather than of the code
+        (``tests/database_guard.py``'s own opening).
+        """
+        recorded: dict = {}
+        monkeypatch.setattr(suite_conftest, "_ARMED_SETUP", recorded)
+        if test_database_url is None:
+            monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
+        else:
+            monkeypatch.setenv("TEST_DATABASE_URL", test_database_url)
+        if environ_url is None:
+            monkeypatch.delenv(VAR, raising=False)
+        else:
+            monkeypatch.setenv(VAR, environ_url)
+        _fixture_body(suite_conftest._armed_database_is_ready)(request)
+        return recorded
+
+    @pytest.mark.parametrize(
+        "stop",
+        [
+            pytest.param(pytest.skip.Exception, id="a-skip"),
+            pytest.param(pytest.fail.Exception, id="a-failure"),
+        ],
+    )
+    def test_a_stop_is_recorded_by_the_fixture_and_reaches_the_note(
+        self, monkeypatch, stop
+    ) -> None:
+        """Both ways the preparation can stop, through the real recording.
+
+        Parametrised over the two exception classes because the ``except``
+        clause names both and a tuple is the easiest thing in this file to
+        half-edit: a catch narrowed to one of them would let the other out of
+        a session-autouse fixture and take the suite with it.
+
+        The database name is asserted to be the derived one rather than any
+        string, which is what makes ``_database_name_of``'s use *inside* the
+        fixture covered too — the second symptom F-001 named.
+        """
+        ours = db_name.default_test_database_url(REPO)
+        request = _StubRequest(raises=stop("Postgres is not running"))
+        recorded = self._drive(monkeypatch, ours, request=request)
+
+        assert request.asked == ["_test_database_tables"]
+        assert recorded["action"] == suite_conftest._ARM_PREPARE
+        assert recorded["database"] == db_name.derive_test_database_name(REPO)
+        assert "Postgres is not running" in recorded["reason"]
+
+        note = suite_conftest.armed_database_note()
+        assert db_name.derive_test_database_name(REPO) in note
+        assert "Postgres is not running" in note
+        assert "unset DATABASE_URL" in note
+
+    def test_a_preparation_that_succeeded_records_no_reason_and_says_nothing(
+        self, monkeypatch
+    ) -> None:
+        """The matched control, on the same path.
+
+        Without it, a fixture that recorded a reason unconditionally would
+        satisfy the test above. The happy armed path must record the action
+        and the names and **no** reason, and the note must then be silent —
+        a line on every run is a line nobody reads by the third one.
+        """
+        ours = db_name.default_test_database_url(REPO)
+        request = _StubRequest()
+        recorded = self._drive(monkeypatch, ours, request=request)
+
+        assert request.asked == ["_test_database_tables"]
+        assert recorded["action"] == suite_conftest._ARM_PREPARE
+        assert recorded["database"] == db_name.derive_test_database_name(REPO)
+        assert "reason" not in recorded
+        assert suite_conftest.armed_database_note() is None
+
+    def test_the_elsewhere_case_is_recorded_without_asking_for_the_schema(
+        self, monkeypatch
+    ) -> None:
+        """The third symptom F-001 named, on the same seam.
+
+        ``_ARM_ELSEWHERE`` is the G-1 branch: ``DATABASE_URL`` names something
+        other than the database this worktree resolved, so nothing may be
+        created or migrated. Two things have to hold and both are asserted
+        from the real fixture rather than from injected strings — the schema
+        fixture is never requested at all, and both database *names* are
+        recorded so the note can tell the reader which is which.
+        """
+        elsewhere = "postgresql://u:p@192.0.2.1:5432/somebody_elses_test"
+        request = _StubRequest(raises=AssertionError("asked for the schema"))
+        recorded = self._drive(
+            monkeypatch, elsewhere, request=request,
+            test_database_url=db_name.default_test_database_url(REPO),
+        )
+
+        assert request.asked == []
+        assert recorded["action"] == suite_conftest._ARM_ELSEWHERE
+        assert recorded["database"] == "somebody_elses_test"
+        assert recorded["resolved"] == db_name.derive_test_database_name(REPO)
+
+        note = suite_conftest.armed_database_note()
+        assert "somebody_elses_test" in note
+        assert db_name.derive_test_database_name(REPO) in note
+        assert "p@192.0.2.1" not in note
+
+    def test_an_unarmed_run_records_only_that_and_asks_for_nothing(
+        self, monkeypatch
+    ) -> None:
+        """The other control: the fixture is free when ``DATABASE_URL`` is unset.
+
+        This is the branch every ordinary run takes, so it is also the branch
+        a cost regression would hide in. Asserting ``asked == []`` is what
+        makes "free" a claim that can fail rather than a sentence in a
+        docstring.
+        """
+        request = _StubRequest(raises=AssertionError("asked for the schema"))
+        recorded = self._drive(monkeypatch, None, request=request)
+
+        assert request.asked == []
+        assert recorded == {"action": suite_conftest._ARM_NOT_SET}
+        assert suite_conftest.armed_database_note() is None
 
 
 class TestColdDatabase_TheSecondRunIsNotTheFirstRunsRescue:
