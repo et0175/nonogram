@@ -466,9 +466,26 @@ resolved with `-rEfs` and all of mechanisms already named. Use `-rEfs`.
 - **AC-3** (a re-expression is not weaker than what it replaces): *Given* each claim taken by
   route 1, *then* the card states **what it asserted before and what it asserts now**, and shows
   the new form is **at least as strong** — a re-expression that admits something the old form
-  caught is a weakening and a finding against the card. Where the new form rests on a forbidden
-  set, that set is **derived** and not hand-listed (ADR-0039/R2).
-  (test: named by the implementation; state it)
+  caught is a weakening and a finding against the card.
+  **(check: review-lens)** — *corrected 2026-11-04: this clause was labelled `(test: …)`, which
+  reads to the next reader as mechanically checked. It is a judgement over two forms of a claim
+  and there is no test that decides it. The board's own "ADR check refs must be honest" rule
+  applies to my own acceptance criteria, which is where it had not been applied.*
+
+  Where the new form rests on a **forbidden set**, that set is **derived from an authority the
+  runtime can enumerate** — **or**, where no such authority exists, it is an **ADR-0039/R3 named
+  exemption**: the external authority is named, its **completeness** is stated, and **each member
+  is shown able to fail**.
+  *Corrected 2026-11-04, and this is a finding against my own wording rather than against the
+  round.* The clause previously read "derived and not hand-listed (ADR-0039/R2)", unconditionally
+  — but R2 conditions it: *"Where no such authority exists, the guard defaults to deny … named
+  exemptions under ADR-0039/R3."* A forbidden set drawn from a **file-format specification** has
+  no runtime-enumerable authority, and deriving it from the writer under test would be circular —
+  it would make the very operator a plant emits part of the permitted vocabulary and therefore
+  not forbidden. So AC-3 as I wrote it forced either a false claim of derivation or an
+  unachievable implementation. **The honest form is an R3 exemption**, and a set that satisfies
+  it is satisfying this AC.
+  (check: review-lens, plus the per-member failability each exemption must demonstrate)
 - **AC-4** (a retirement has a survivor that can fail): *Given* each claim taken by route 2,
   *then* its survivor is **named and asserted** — not commented — and **a plant that empties the
   surviving arm makes the module RED**, demonstrated. **A retirement whose survivor cannot fail is
