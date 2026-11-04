@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P2
 **Category:** tech-debt
-**Estimate:** 0.25d
+**Estimate:** 1c (0.25d)
 **Complexity:** trivial
 **Revision pending:** false
 **Skill:** python-pro
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** Found 2026-10-23 by the adversarial skeptic that **refuted** CARD-264's cycle-2 finding I-1. It was not what that skeptic was looking for: while proving that `CLAUDE.md:50`'s timeout sentence is true, it ran a combined mutant nobody had run and the result was a test passing for the wrong reason. Reported rather than absorbed, because CARD-264 was at cycle 3 of a 3-cycle budget and a last-cycle widening ships its final edit uncertified (the wave-48 rule).
 **Idea:** —
-**Wave:** —
+**Wave:** 74
 **Depends on:** —
 **Touches:** tests/test_timeout.py
 **Review score:** —

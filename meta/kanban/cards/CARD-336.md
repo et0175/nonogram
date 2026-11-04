@@ -1,9 +1,9 @@
-# CARD-336: The frame-centre oracle — one boundary-reading mechanism for the 39 placed-edge cells five modules read as first-inked-line
+# CARD-336: The frame-centre oracle — one boundary-reading mechanism for the placed-edge cells four modules read as first-inked-line
 
 **Status:** ready
 **Priority:** P1
 **Category:** tech-debt
-**Estimate:** 2d
+**Estimate:** 2c (2d)
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -13,7 +13,7 @@
 **Source:** split from CARD-322 at the decompose station, 2026-10-31, on the owner's re-cut instruction. CARD-322 was 1d, priced against "five page kinds plus one test module"; re-measured here the conversion's residue is 154 reds and the placed-edge family is the single largest mechanism in it, named by ADR-0042/R6's own comment ("what the 0.254 mm reading needs is an oracle that reads the frame rule's CENTRE rather than its first inked line … that belongs with the conversion, i.e. to CARD-322") and by CARD-329's AC-6 disposition for `property/test_book_pdf_geometry.py` ("the frame-centre oracle is the only thing that closes them without a widening").
 **Split from:** CARD-322
 **Idea:** —
-**Wave:** —
+**Wave:** 74
 **Created wave:** 72
 **Deferred waves:** 0
 **Depends on:** CARD-329, CARD-330, CARD-338
@@ -28,7 +28,7 @@
 
 ## Why this card exists, and why it is not a sub-item of the conversion
 
-**It is one mechanism serving five modules, and the modules were measured.** Re-derived
+**It is one mechanism serving four modules, and the modules were measured.** Re-derived
 at the decompose station on 2026-10-31 under CARD-329's own probe
 (`scratchpad/card329/measure_probe.py`, `probe_puzzle_operators.py`, run on `b26bdd62`),
 the whole 20-module census reproduces that card's figures to the digit — **17 of 20 red,
@@ -41,6 +41,24 @@ the whole 20-module census reproduces that card's figures to the digit — **17 
 | `tests/test_book_puzzle_frame.py` | **4** | `TwoUp` stroke-weight and placed-edge claims |
 | `tests/test_book_guide_page.py` | **1** | the mirrored-centring offset, `assert 2.944881889763778 <= 2` |
 | **total** | **39** | one mechanism |
+
+> **[PREMISE CORRECTION 2026-11-04, at the wave-74 station — read this before the table above.]**
+>
+> **The 39 is a `PageKind.PUZZLE`-ONLY figure**, and this card knows the distinction well
+> enough to apply it twice below — `test_book_interior_face.py` 0 → 2, and
+> `test_book_interior_type_floor.py` 3 → 8 — while never applying it to **its own headline
+> population**. The table's `tests/test_book_pdf.py` row reads *"30 of its 38"*; CARD-338
+> measured that module at **46** under the five-kind probe. So the placed-edge share of the
+> real end state is **UNMEASURED**, and 39 is a lower bound on it, not the number.
+>
+> **This is stated as unmeasured rather than replaced by a guess**, which is this board's
+> convention for the vector family: a premise about the converted tree can only be settled by
+> standing the counterfactual up. **Item 0 settles it** — see "What to implement".
+>
+> **Also corrected:** the title and this section said *"five modules"*; the table lists
+> **four**, and the re-cut that produced it reported four. The fifth was never named. The
+> seventeen-module figure elsewhere in this card is a different population — the consumers of
+> the ink-extent oracle, not the modules carrying placed-edge reds.
 
 **The bound is not one number and that is the point.** `property/test_book_pdf_geometry.py`
 defines `PX_PER_MM = 300 / 25.4` and `HALF_PIXEL_MM = 0.5 / PX_PER_MM` = **0.042333 mm**
@@ -81,6 +99,20 @@ are verified under the conversion probe. **Both halves exist on `main` today** �
 *The probe, and why the one on main is not enough* below.
 
 ## What to implement
+
+0. **Re-derive the placed-edge population under the FIVE-KIND probe before anything else.**
+   The 39 in this card is a `PUZZLE`-only figure (see the premise correction above), so the
+   first act of this round is to run `scratchpad/card338/census_five_kinds.py` — **run it, do
+   not rebuild it** — and re-derive the per-module placed-edge counts against the end state
+   this card's oracle actually has to serve. Expect the total to **grow**; `test_book_pdf.py`
+   alone moves 38 → 46 across the whole module.
+   **If it does not grow, that is a finding and this card's framing is wrong** — say so rather
+   than reconciling it. Record both numbers side by side, the way CARD-338 recorded its own.
+   **The estimate was priced against 39.** If the five-kind population is materially larger,
+   raise it before implementing rather than absorbing the growth silently — scope that grows
+   inside a round is the shape this board's scope gate exists to catch.
+
+
 
 1. **The boundary reading, in `tests/helpers/page_ink.py`, beside the ink reading and not
    replacing it.** `Drawing`'s ink extents are load-bearing for every claim that is
@@ -181,8 +213,10 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   placed-edge cell of the four modules in `Touches`
   passes, the population is **derived** by the comparison it makes rather than enumerated,
   and a cell the walk cannot classify is a FAILURE (ADR-0039/R2). **The 39 is a dated
-  reading at `b26bdd62`, not a target**: state the number the round measures and the
-  filter that produced it, and a different number is the finding.
+  reading at `b26bdd62` AND a `PUZZLE`-only one, not a target**: state the number the
+  round measures and the filter that produced it, and a different number is the finding
+  — and under the five-kind filter item 0 runs, a LARGER number is the expected finding,
+  not a regression.
 - **AC-4** (nothing was widened, and it is asserted rather than claimed): *Given* the
   branch, *then* `EDGE_TOLERANCE_MM == 0.1`, `EDGE_TOLERANCE_EXEMPTIONS` is empty and
   asserted empty, `HALF_PIXEL_MM`'s four site multiples are unchanged at 3/3/2/1, and the
@@ -263,11 +297,16 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   which is the same property that made CARD-312 and CARD-329 closable. The alternative —
   leaving it inside the conversion — reproduces CARD-309 exactly: a card holding four
   unrelated causes, which measured 189 failures + 75 errors and could not close.
-- **[The estimate, and the calibration behind it]** 2d, by analogy with CARD-329, which
-  was **2d estimated and 4.1h actual** for a comparable shape (one shared helper, five
-  module repairs, 24 plants, a probe harness). This card is one shared helper, four
-  module repairs, four plants and the same probe extended. The board's estimates in this
-  family run long; 2d is the honest ceiling rather than a prediction.
+- **[The estimate, and the calibration behind it]** 2d, by analogy with CARD-329, on a
+  comparable shape: one shared helper, five module repairs, 24 plants, a probe harness.
+  This card is one shared helper, four module repairs, four plants and the same probe
+  extended. **CARD-329's `Actual: 4.1h` is deliberately EXCLUDED from this estimate**
+  under the owner's ruling of 2026-11-03 that wall-clock actuals measure the queue rather
+  than the work; an earlier draft of this bullet rested on that 4.1h and the comparison
+  has been re-grounded on the size datum above (helper + module-repair + plant counts),
+  which is the substitute the ruling calls for. The board's estimates in this family run
+  long; 2d is the honest ceiling rather than a prediction. **Item 0 may invalidate the
+  size datum** — it re-derives the population the counts were taken against.
 - **[UNMEASURED PREMISE, stated as unmeasured]** *That reading the boundary closes all 39
   cells.* It is measured for **four** of them —
   `property/test_book_pdf_geometry.py`'s residuals are 2.07x–5.46x past multiples of
