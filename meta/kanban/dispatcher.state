@@ -447,13 +447,22 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active:
-  - card: CARD-337
-    branch: card/337-the-twelve-modules-the-triage-left-owed
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-337
-    started: 2026-11-04T08:33Z
-    estimate: 2c (2d)
-    cut_from: 550ff481
+active: []
+# CARD-337 CLEARED 2026-11-04T13:56Z at its merge gate: merged `830fa5d9`, closed
+#   `a3191b98`, certified 8.5 on cycle 1. Its worktree
+#   /Users/omelnikova/PycharmProjects/PythonProject4-card-337 has been REMOVED per the
+#   standing tidy rule, so the entry would otherwise name a path that no longer exists
+#   and the next wave's free-slot check would read a phantom holder.
+#   The entry's `estimate: 2c (2d)` was ALSO STALE -- a THIRD copy of the figure the
+#   board's wave-75 header carried. The card was deliberately re-estimated to 1c at its
+#   re-cut (`38020145`), so its cycle ratio is 1 / 1 = 1.000, the fourth exact estimate
+#   on this board. Recorded here rather than silently dropped, because three disagreeing
+#   copies of one estimate is the shape CARD-363 exists to catch.
+#   WAVE 75 CLOSES WITH THIS MERGE: both its cards landed on cycle 1 -- CARD-335 8.0
+#   (`9a6b8e89`) and CARD-337 8.5 (`830fa5d9`). `active` is empty, both slots free.
+#   ONLY the seven indented entry lines were removed. The standalone comment block below
+#   is preserved VERBATIM: on 2026-11-03 a clearing walked an entry's span by
+#   indentation, read that block as entry body, and deleted it.
 #
 # WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
 # commit that STAMPED their Wave field -- not off main's tip before it. A
@@ -587,7 +596,7 @@ queued:
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: 2026-11-04T08:33:00Z
+last_updated: 2026-11-04T13:56:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
