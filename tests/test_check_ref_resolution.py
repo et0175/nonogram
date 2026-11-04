@@ -2372,9 +2372,17 @@ def test_a_ref_whose_only_prose_hit_shares_its_definitions_file_stays_green() ->
 #: ref as a whole token, so the revival hazard this cell exists to catch is
 #: already in the wild on ``main``, outside this card's subject. Recorded here
 #: and carded rather than fixed by widening a glob until the suite reds.
+#: ``.gitignore`` and ``.gitattributes`` joined this domain with CARD-335, which
+#: wrote the artefact convention into one and the batch-cost bound into the
+#: other: an in-domain, tracked, hand-written file carrying several paragraphs
+#: about the resolver is exactly the shape that revives a ref by explaining one.
+#: Both name populations, directories and measurements, and no ref; this cell is
+#: what holds that.
 _G2_DOMAIN: tuple[str, ...] = (
     "tests/test_check_ref_resolution.py",
     "meta/kanban/config.yml",
+    ".gitignore",
+    ".gitattributes",
     *sorted(
         path.relative_to(REPO_ROOT).as_posix()
         for path in (REPO_ROOT / "scratchpad" / "card316").glob("*.py")
@@ -3176,3 +3184,343 @@ def test_the_derivation_reads_all_four_authorities() -> None:
         sorted(s for s in sources if not re.search(r":\d+(?: \((?:test|check):\))?\Z", s))
     )
     assert len(_declared_refs()) > 500, f"only {len(_declared_refs())} refs derived"
+
+
+# --- CARD-335 / the artefact convention, and the budget the resolver answers in
+
+
+#: The resolver's batching constants, copied from ``validators/utils.py`` the
+#: same way :data:`EXCLUDED_PREFIX` copies its pathspecs: ``forge_1`` is outside
+#: this repository and read-only, so a value it owns is either copied here with
+#: its provenance or not checkable here at all.
+#:
+#: ``BATCH_SIZE`` names are carried by ONE ``git grep -ow``, under
+#: ``BASE + PER_NAME * N`` seconds. The budget models cost as **linear in N**,
+#: and the measurement that put this cell here is that the cost is not: on this
+#: tree a 200-name batch over the full in-domain corpus ran nearly 4x its own
+#: budget, and because ``_grep_batch`` catches ``TimeoutExpired`` in a bare
+#: ``except Exception`` and returns ``(None, set())``, the only thing the
+#: validator could say afterwards was "existence could not be determined -- the
+#: search tool itself failed", once per pending name. One blown batch took its
+#: whole run from 88 warnings to 525 and the dead-ref detector stopped
+#: answering at all. The signal was reported (three-valued, as designed); the
+#: CAUSE was swallowed, and two reviewers had to re-measure by hand to find it.
+#: That is what this cell replaces: on this side of the boundary a blown batch
+#: now reds one named test instead of inflating a warning count nobody can read.
+_BATCH_SIZE = 200
+_BATCH_TIMEOUT_BASE_S = 10.0
+_BATCH_TIMEOUT_PER_NAME_S = 0.1
+
+#: Which names the batched path is allowed to carry -- ``_BATCHABLE_NAME`` in
+#: ``validators/utils.py``, copied for the same reason. A name outside it is
+#: answered one grep at a time and never joins a chunk, so a cell about the
+#: chunk's cost must select the same way the resolver does.
+_BATCHABLE_REF = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _batch_names() -> tuple[str, ...]:
+    """The names one chunk of ``CodeSearch.prime`` would carry, derived.
+
+    Not a sample and not a fixture: the first :data:`_BATCH_SIZE` batchable refs
+    the model declares, in the order the resolver would see them.
+    """
+    names = tuple(
+        dict.fromkeys(
+            declared.ref for declared in _declared_refs() if _BATCHABLE_REF.match(declared.ref)
+        )
+    )
+    assert len(names) >= _BATCH_SIZE, (
+        f"only {len(names)} batchable refs are declared, so a full "
+        f"{_BATCH_SIZE}-name chunk cannot be built and this cell would measure "
+        f"a smaller batch than the resolver runs"
+    )
+    return names[:_BATCH_SIZE]
+
+
+def _batch_answers_within(names: tuple[str, ...], budget: float) -> bool:
+    """Whether the resolver's own batched grep ANSWERS inside ``budget`` seconds.
+
+    The command is ``_grep_batch``'s, pattern for pattern: ``git grep -ow``, one
+    ``-e`` per name, the same ``--`` and the same two excludes. The return value
+    is deliberately a boolean rather than an elapsed time -- a wall-clock figure
+    measures this machine's queue as much as the search, and a stored one would
+    be a number the next reader cannot reproduce. What is reproducible is the
+    question the resolver itself asks: did it answer before its own deadline.
+    """
+    name_flags: list[str] = []
+    for name in names:
+        name_flags += ["-e", name]
+    try:
+        done = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "grep",
+                "-ow",
+                *name_flags,
+                "--",
+                ".",
+                f":(exclude){EXCLUDED_PREFIX.rstrip('/')}",
+                f":(exclude)*{EXCLUDED_SUFFIX}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=budget,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    if done.returncode not in (0, 1):
+        raise AssertionError(
+            f"the batched grep exited {done.returncode}, which the resolver reads "
+            f"as a tool failure and turns into {len(names)} unknowns: "
+            f"{done.stderr.strip()!r}"
+        )
+    return True
+
+
+def test_the_resolver_batch_answers_inside_its_own_budget() -> None:
+    """A chunk the resolver cannot finish is this module's blind spot.
+
+    Every other cell here asks whether the validator's answer is RIGHT. This
+    one asks whether it answers at all, because the measured failure is that it
+    stops: one chunk over budget and every pending ref comes back unknown, so
+    the dead-ref warnings this module exists to protect are replaced wholesale
+    by tooling failures and a falling or rising count means nothing.
+
+    **The control is in this run.** The same derivation under a budget no search
+    can meet must report FAILURE -- otherwise the cell is a function that
+    returns ``True``, and a corpus that cannot be searched at all would read
+    exactly like a healthy one. (This is the shape ADR-0039/R1 asks for: the
+    claim is "the batch answers in time", and the control is a case where it
+    must not.)
+
+    What this cell does NOT claim: that ``_grep_batch`` reports the cause. It
+    does not -- the ``TimeoutExpired`` dies in a bare ``except Exception`` in
+    ``forge_1``, which this board does not edit, and the fix there is carded
+    rather than claimed here. What it claims is narrower and is the half this
+    board owns: if the corpus this repository tracks grows back over the
+    resolver's deadline, the suite says so, by name, here.
+    """
+    names = _batch_names()
+    budget = _BATCH_TIMEOUT_BASE_S + _BATCH_TIMEOUT_PER_NAME_S * len(names)
+
+    impossible = 0.05
+    assert not _batch_answers_within(names, impossible), (
+        f"the instrument reported that {len(names)} patterns were searched over "
+        f"the whole tracked corpus in under {impossible}s. It is not measuring "
+        f"the search, so its verdict below is worthless"
+    )
+
+    assert _batch_answers_within(names, budget), (
+        f"the resolver's own {len(names)}-name batch did not answer within the "
+        f"{budget:.1f}s its budget allows, so on the next validator run every "
+        f"ref still pending in that chunk is reported as 'existence could not "
+        f"be determined' instead of alive or dead -- the detector goes blind "
+        f"rather than wrong.\n"
+        f"This is a property of what this repository TRACKS, not of the "
+        f"validator: the cost is driven by in-domain files that spell large "
+        f"numbers of near-matching identifiers, which on this board means "
+        f"machine-written measurement dumps. Find the newcomer with\n"
+        f"    git ls-files -z | git check-ignore --no-index --stdin -z\n"
+        f"and with the per-directory census this module pins below; a dump that "
+        f"must stay tracked belongs outside the resolver's domain (a `.md` "
+        f"name, or a `.gitattributes` entry marking it binary -- measured "
+        f"answer-preserving: the per-name path still resolves it, the batched "
+        f"path leaves it to that path instead of reading a name out of it)."
+    )
+
+
+#: Tracked files that the repository's OWN ignore rules say should not be in the
+#: index -- i.e. every force-add, measured rather than listed. Pinned as a count
+#: and a digest over the sorted paths, plus the per-directory breakdown below,
+#: which is what makes a move readable.
+#:
+#: Why this is the right authority (ADR-0039/R2). The convention this card
+#: settled on is that a measurement artefact lands OUTSIDE the resolver's
+#: domain by default, and ``.gitignore`` is where that default lives. A
+#: deny-by-default guard then needs no list of its own: anything tracked that
+#: the ignore rules match is a deliberate exception, and a NEW one reds here.
+#: The residue below is what the default's absence already accumulated and is
+#: not repaired by this card -- 396 of it is ``meta/review/*.yml``, which
+#: ``kanban done`` step 2d (INV-023) forbids a card branch from committing at
+#: all, so retiring it is an owner action taken outside a card branch.
+#:
+#: Paths, not refs: a path spells no symbol, so pinning them exactly costs this
+#: module nothing under G-2 and the failure message can print them.
+IGNORED_YET_TRACKED = (477, "45f26c851ecccc68")
+
+#: The same census, by directory. The count is the gate; this is the reading --
+#: "which directory grew" is the only question a reader has when the gate reds.
+IGNORED_YET_TRACKED_BY_DIRECTORY = {
+    ".": 1,
+    ".idea": 5,
+    ".idea/inspectionProfiles": 1,
+    "meta/profiling": 10,
+    "meta/review": 396,
+    "scratchpad/card309": 2,
+    "scratchpad/card316": 3,
+    "scratchpad/card317": 3,
+    "scratchpad/card318fix": 6,
+    "scratchpad/card329": 11,
+    "scratchpad/card330": 3,
+    "scratchpad/card331": 5,
+    "scratchpad/card336": 15,
+    "scratchpad/card338": 7,
+    "src": 1,
+    "src/nonogram": 1,
+    "src/nonogram.egg-info": 6,
+    "src/nonogram/solver": 1,
+}
+
+
+def _ignored_yet_tracked(root: Path) -> tuple[str, ...]:
+    """In-domain tracked files under ``root`` that its ignore rules match.
+
+    Asked of ``git check-ignore --no-index`` rather than by matching
+    ``.gitignore``'s text: ``--no-index`` is what makes it answer for a file
+    that is already tracked, and re-implementing gitignore semantics here would
+    put a second, disagreeing reading of the rules in the tree.
+
+    ``root`` is a parameter so the control can hand this the same derivation
+    over a planted repository instead of the live one.
+    """
+    listed = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True, text=True, timeout=180, check=True,
+    ).stdout
+    in_domain = [
+        name
+        for name in listed.split("\0")
+        if name
+        and not name.startswith(EXCLUDED_PREFIX)
+        and not name.endswith(EXCLUDED_SUFFIX)
+    ]
+    if not in_domain:
+        raise AssertionError(f"git ls-files named no in-domain file under {root}")
+    done = subprocess.run(
+        ["git", "-C", str(root), "check-ignore", "--no-index", "--stdin", "-z"],
+        input="\0".join(in_domain) + "\0",
+        capture_output=True, text=True, timeout=180,
+    )
+    # 0 = some path is ignored, 1 = none is; anything else is a broken
+    # instrument and must not read as "nothing was force-added".
+    if done.returncode not in (0, 1):
+        raise AssertionError(
+            f"git check-ignore exited {done.returncode} under {root}: "
+            f"{done.stderr.strip()!r}"
+        )
+    return tuple(sorted(name for name in done.stdout.split("\0") if name))
+
+
+def test_no_new_artefact_file_is_force_added_into_the_resolver_domain() -> None:
+    """AC-4's enforcement: the convention holds by default, not by memory.
+
+    A measurement artefact that lands in the resolver's domain makes every ref
+    it spells read as alive. ``.gitignore`` now keeps the three populations that
+    did it out of the index by default; this cell is the half that notices when
+    somebody puts one back, and it reds in BOTH directions -- a census that
+    shrinks is as much a re-derivation as one that grows, because the shrink
+    this card expects (``meta/review/*.yml`` retired by the owner) changes what
+    the validator reports and must be read rather than pasted over.
+
+    HOW FAR THIS REACHES, and it is narrower than "no new artefact"
+    (ADR-0039/R3). The guard is deny-by-default over **the ignore rules**, not
+    over the resolver's domain: a tracked artefact whose path no ignore rule
+    matches never enters the census at all, so no force-add is needed and this
+    cell stays green. Two real shapes do that today -- both added in a planted
+    repository with plain ``git add``, rc 0, no warning:
+
+    * ``meta/review/<CARD-NNN>/cycle1.yml`` -- ``meta/review/*.yml`` does not cross
+      a ``/``, so a per-card SUBDIRECTORY escapes the rule;
+    * ``meta/measurements/durations.txt`` -- a NEW directory beside the two the
+      rules name.
+
+    Neither is a live hole: both directories are flat today, and the rules are
+    scoped by extension deliberately (see ``.gitignore``'s own note), so
+    widening them is not free. It is recorded because the cell's NAME reads
+    wider than its authority, and a green census must not be read as a claim
+    that no artefact entered the resolver's domain.
+
+    The outcome-side backstop is pre-existing and already above: an artefact
+    that actually REVIVES an otherwise-undefined ref reds CARD-308's gate
+    (``test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping``) whether
+    or not its path was ever ignored. This cell guards the CAUSE, for the paths
+    the convention covers; that one guards the EFFECT, for all of them.
+    """
+    census = _ignored_yet_tracked(REPO_ROOT)
+    measured = (len(census), _fingerprint(census))
+    by_directory: dict[str, int] = {}
+    for name in census:
+        directory = str(Path(name).parent)
+        by_directory[directory] = by_directory.get(directory, 0) + 1
+    # Over the UNION of both key sets, so a directory that appears on one side
+    # only is reported with a 0 on the other rather than dropped.
+    moved = {
+        directory: (IGNORED_YET_TRACKED_BY_DIRECTORY.get(directory, 0), by_directory.get(directory, 0))
+        for directory in sorted(set(by_directory) | set(IGNORED_YET_TRACKED_BY_DIRECTORY))
+        if IGNORED_YET_TRACKED_BY_DIRECTORY.get(directory, 0) != by_directory.get(directory, 0)
+    }
+    assert measured == IGNORED_YET_TRACKED and not moved, (
+        f"the force-added artefact census moved: measured {measured}, baseline "
+        f"{IGNORED_YET_TRACKED}.\n"
+        f"Per directory (baseline -> measured) for every directory that moved:\n"
+        + "\n".join(
+            f"  {directory}: {was} -> {now}" for directory, (was, now) in sorted(moved.items())
+        )
+        + "\nA file that GREW the census is in the resolver's domain and revives "
+        "every ref it spells; if it must be tracked, give it a name the resolver "
+        "excludes. A file that LEFT it took its ref resolutions with it, which "
+        "is the repair direction -- re-derive the classes above before updating "
+        "these two baselines, because that is exactly when a dead-ref warning "
+        "comes back."
+    )
+
+
+def test_the_force_add_census_detects_a_newly_tracked_artefact(tmp_path) -> None:
+    """The control for the cell above, and it is not synthetic in the parts that
+    matter: a real repository, real ``.gitignore`` rules, real ``git add -f``.
+
+    Both directions in one run. A census derivation that returned ``()`` would
+    pass the live cell only while the baseline said ``0``, and would otherwise
+    read as "nothing was force-added" forever; a derivation that returned every
+    tracked file would flag the honest ones. So the plant must be reported and
+    the ordinary tracked file must not be, and the plant's removal must clear it.
+    """
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(tmp_path), *args],
+            capture_output=True, text=True, timeout=180, check=True,
+        )
+
+    git("init", "-q")
+    git("config", "user.email", "control@example.invalid")
+    git("config", "user.name", "control")
+    (tmp_path / "artefacts").mkdir()
+    (tmp_path / "src").mkdir()
+    (tmp_path / ".gitignore").write_text("artefacts/*.yml\n", encoding="utf-8")
+    (tmp_path / "artefacts" / "dump.yml").write_text("findings: []\n", encoding="utf-8")
+    (tmp_path / "artefacts" / "kept.txt").write_text("not ignored\n", encoding="utf-8")
+    (tmp_path / "src" / "module.py").write_text("def thing() -> None:\n    pass\n", encoding="utf-8")
+    git("add", ".gitignore", "artefacts/kept.txt", "src/module.py")
+
+    clean = _ignored_yet_tracked(tmp_path)
+    assert clean == (), (
+        f"the census reported a force-add in a repository that has none: {clean}. "
+        f"Everything tracked here is either outside the ignore rules or "
+        f"deliberately unignored"
+    )
+
+    git("add", "-f", "artefacts/dump.yml")
+    planted = _ignored_yet_tracked(tmp_path)
+    assert planted == ("artefacts/dump.yml",), (
+        f"a file the repository's own ignore rules match was force-added into "
+        f"the index and the census did not report it: {planted}"
+    )
+
+    git("rm", "-q", "--cached", "artefacts/dump.yml")
+    restored = _ignored_yet_tracked(tmp_path)
+    assert restored == (), (
+        f"the plant was untracked and the census still reports it: {restored}. "
+        f"The derivation is reading something other than the index"
+    )
