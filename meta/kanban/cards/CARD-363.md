@@ -274,6 +274,100 @@ current tip (which had moved — CARD-348's certification landed) and identical 
 1 Important (F-102), 3 Minor (F-103/104/105). Artefact: `meta/review/CARD-363-cycle2.yml`.
 **Cycle 3 is the last `max_cycles` allows.**
 
+[Review 3/3] Score: 7.75 — **NOT CERTIFIED. ⚠ max cycles reached.** 1 Critical gating (F-201),
+4 Minor. Artefact: `meta/review/CARD-363-cycle3.yml`. **ESCALATED as a structural convergence
+failure**, and the escalation is recorded as real rather than papered over: three consecutive cycles
+each found the F-001/F-101 class surviving in cells the previous reviewer had not pointed at.
+
+[Review 3/3] **CONTINUATION PAST THE CEILING AUTHORISED BY THE OWNER**, 2026-11-04, with a
+**changed remit** — not another pointed fix. Precedent: CARD-091 ran 20 true cycles against an
+aggregate ceiling of 12 on human authorisation. The new remit is **exhaustive classification**: every
+assertion in the module is classified as floor or equality against the question *"can a correct board
+write move this?"*, with the reason written down, and the result proven against a simulated closure,
+wave open, re-stamp, re-estimate and re-cut. The three prior fixes were each correct and each
+incomplete **because they were scoped to what the last review named.**
+
+[Review 3/3] **F-201 (Critical, gating) — and the trigger was the ORCHESTRATOR's own board
+operation.** Independently re-derived on main, not taken from the review: **Wave-field comments = 16**
+against a declared bound of `== 15`, and **in-scope-and-contaminated = `['CARD-363.md']`** against an
+asserted `== []`. Cause: wave 76's close (`54704aed`) re-stamped **this card's own** `Wave` field from
+`76` to `77 <!-- RE-STAMPED … -->`. That is the board's standing dispatch convention — fifteen cards
+already carry such a note — so **merging this module as it stands would turn main red.**
+
+[Review 3/3] The third of the three cells is the sharpest and does not count anything: it **forbids
+any in-scope card from carrying a comment on its `Wave` field at all**, i.e. forbids the dispatch
+convention by construction. Its own comment concedes it — *"none today; the assertion exists so the
+twin above cannot go vacuous."* All three cells are **unchanged since the module's first commit**
+`287f1982`, so none is a regression from any fix. **Not a one-off:** simulating wave 77 opening on two
+of the cut-and-unwaved CARD-367…373 with the usual dispatch note reds the same two tests on the
+pre-`54704aed` tree. The module is incompatible with the convention, not unlucky in one commit.
+
+[Review 3/3] **Explicitly NOT the fix: removing the comment from CARD-363.** That would be the board
+bending to the test. The convention is correct and the assertions are wrong.
+
+[Review 3/3] **Why two green cycles coexisted with a red main, and it is structural.** INV-023 freezes
+the branch's copy of `meta/kanban` at the merge base, so the module's own suite **cannot** see
+F-201 — it reads a card tree that predates every board write since the cut. Module selection measures
+**67 passed on the branch** and **2 failed / 65 passed against main's tip**. This is the same
+mechanism as [[branch-card-copy-is-frozen]] and it means a board-census module's branch suite is
+structurally incapable of gating it.
+
+[Review 3/3] **Everything else cycle 3 was asked to adjudicate came back clean**, each verdict
+re-fired pre/post rather than read: F-101(a) closed with teeth widened (and cycle 3 tested the *real*
+cycle-3 closure shape, which no prior cycle did — a third marker newest-first `3,1,2` and mid-list
+`1,3,2` both red pre-fix, both green post-fix); F-101(b) closed with teeth kept; order-free and
+spelling-free confirmed; F-006 verified route by route (`os.open` escapes, five of six, and the
+double count is harmless because both entries are the *same path string* so a set comparison cannot
+see it); all four prose retractions in place and each checked against its source; `0c` reds naming a
+zero with its matched control; both tautologies flagged; the count-vs-set disclosure honest with no
+overclaim. The amend's tree-hash claim **verified** — `fa6b3fc7` and `d5273798` share tree
+`a05b506e` and blob `a75f6407`, message-only — and **priced as a credit**: self-caught, counted, and
+the source of the wrong number named.
+
+[Review 3/3] **Declining the discriminator ruled RIGHT on stronger grounds than the round gave.**
+Three positional statistics over the 49 duplicated-ordinal cards — last ordinal is the max 49/49,
+last ordinal is a duplicated value 48/49, duplicated value equals the cycle the score names 49/49 —
+are **all satisfied identically by a re-entry** of equal-length invocations. The separating fact
+(invocation count) is recorded nowhere enumerable. **But the figure is wrong as written** (F-202): the
+39/10 split holds only under one reading — 39 duplicate *only* the maximum, 10 duplicate the maximum
+*and* something below — and exactly **one** card (CARD-192, ordinals `1,1,2`) duplicates below
+without duplicating it. "10 duplicate below it" reads as ten counterexamples where there is one.
+
+[Review 3/3] **Two framings of mine refuted.** My CARD-020 claim — that the old spelling ban "missed"
+a genuine misread — is wrong twice over: the ban is **in-scope-only** and CARD-020 is **wave 13**, so
+it never spoke about that card at all; and CARD-228 sits in the same `first_wrong` set with `max`
+reading *correctly*, so one set carries two opposite verdicts. Retracted. Also a footnote on the
+`cN` census: a raw regex count really is **5**, because CARD-026 matches on a commit sha in its score
+text; the round's **4** counts genuine matches. Both right about different things, and the module
+asserts neither — its own ordinal regex excludes the sha via the trailing `\b`.
+
+[Review 3/3] **F-204, the one genuine capability loss, disclosed nowhere.** The marker-agreement cell
+loses a degradation the spelling ban caught: an in-scope score in the CARD-020 shape **with markers
+forged to agree with the misreading** was red pre-fix and is **fully green post-fix** (67 passed),
+while the matched control — the same misread score with the real marker count — still reds. The trade
+is still correct, because the ban bought it by reddening on correct progression closures, but two
+*lesser* limits are documented and this one is not.
+
+[Review 3/3] **F-203** — AC-5's static half is blind to the module's own path idiom: its needles are
+`meta/review` and `/review/` while the module builds paths segment-by-segment, so adding
+`REPO_ROOT / "meta" / "review"` to executable code leaves all 67 green; only the **dynamic** half
+catches a read of it. **F-205** — guard 1 has three refusal arms and only two have a dedicated
+control; the third is live (a bare `9.0` on in-scope CARD-348 reds five tests), so the gap is in the
+demonstration, not the guard.
+
+[Review 3/3] Full suite from the branch, unarmed, under the lock for its whole length:
+**10335 passed / 27 skipped / 1 xfailed / 0 failed / 0 errors.** Skips off `-rEfs` as 26
+bare-`DATABASE_URL` + 1 `setrlimit`, the unarmed reading. **Zero lock refusals — CARD-370 settled a
+third time.** Cross-check: cycle 2 was 10329 with 61 module tests; 67 now, and `10329 + 6 = 10335`.
+Cycle 3 also **refuted the fix round's "one constant red under a copied tree"** — it was an artefact
+of copying cards without a repository around them, and initialising one makes the tracked-files test
+pass, so there is no red to subtract.
+
+[Review 3/3] **A process note the orchestrator owns:** a review told to re-derive against main's tip
+can have its verdict changed by a commit landing mid-review — and this one did, by a re-stamp of the
+card under review. Cycle 3 recorded main's sha at review **start and end** in its artefact. That
+should be standard for any board-census module.
+
 **⚠ RETRACTED — the placement constraint is lifted** (ADR-0039/R4). This marker was written below the cycle-1 line deliberately, and the paragraph below states why. The cycle-3 fix round (`d5273798`) made the ordinal comparison **order-free** and measured **both** placements green, so the constraint no longer exists. It is retracted here rather than deleted, because leaving it standing would be the exact defect this card charges elsewhere — a document asserting both states with the stale one first. **What survives: single-ordinal is still necessary.** The repeated-ordinal arm fires on upstream's threshold double-write, which is a real guard-1 violation, so the closing cycle must emit **one** `[Review N/M] Score:` line, not two. The superseded reasoning follows.
 
 **⚠ [SUPERSEDED] This marker is written BELOW the cycle-1 line deliberately.** F-101(a) measured that the new
