@@ -165,6 +165,98 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
 
 ## Worktree notes
 
+[Review 1/3] Score: **9.0**, `overall_verdict: fail` — **BACK TO THE ROUND.** Above `min_score: 8`,
+but one Important finding and a failing circuit, and certification was `deferred(cost)` with
+`mutation_check: true` live, so the card cannot merge on it. Artefact:
+`meta/review/CARD-349-cycle1.yml`, **deliberately left uncommitted** — see below. Task contract
+**pass** (AC-1..AC-5, G-1..G-5). System contract **fail**: 2 of 3 rules hold, 1 violated.
+
+[Review 1/3] **The Important, and it is grounded by a SURVIVING mutant.** `_armed_database_is_ready`
+catches `pytest.skip`/`pytest.fail` from `_test_database_tables` — correctly, since letting either out
+of a session-autouse fixture would skip or error the whole suite. The entire safety of that catch
+rests on the docstring's claim that the reason *"is recorded and announced instead"*, **and that claim
+has no control that can fail**: replacing `_ARMED_SETUP["reason"] = str(stopped)` with `pass` — a
+preparation failure swallowed in total silence, which is what G-2 forbids — **survives at 57 passed /
+2 skipped / 0 failed.** Violates **ADR-0039/R1**.
+
+[Review 1/3] **The root cause explains why the existing control misses it, and it is a shape worth
+naming.** Every note test **splits the mechanism at `_ARMED_SETUP`**: it calls the pure planner for an
+`action`, then *hand-injects* `_ARMED_SETUP` by monkeypatch, then asserts on `armed_database_note()`.
+Planner tested, formatter tested — and **the fixture body that connects them, the only thing that
+writes `_ARMED_SETUP` in a real run, is driven by no test at all.** Its sole appearance in the module
+is as a **string** in a name-isolation list. One test closes it: drive the fixture with
+`_test_database_tables` raising `pytest.skip.Exception` and assert both the recording and the note.
+
+[Review 1/3] **MY REVIEW ASK IS REFUTED, and it was a text-search reading** (ADR-0039/R4). I recorded
+in `3c834922` that *"nothing asserts that conftest's newly-composed `pytest_terminal_summary` still
+calls the lock guard's"*. Removing the delegation line is **killed** by two pre-existing tests —
+`test_the_override_lets_a_contended_run_through_and_announces_itself` and
+`test_a_redirected_real_run_announces_it_in_the_terminal_summary` — which drive **real pytest
+subprocesses** and therefore route through conftest's composition. The ask was pointed one line away
+from the line that *is* uncovered. The reviewer disclosed that it was its own grep-based reading
+first, refuted by its own mutant before it could gate anything. **This is a mutant result the
+orchestrator did not re-derive.** What the orchestrator did verify: the branch defines the composed
+hook (`tests/conftest.py`, the `pytest_terminal_summary` definition calling
+`_full_suite_lock_terminal_summary`) while **main** carries only the bare re-export — so the
+orchestrator's own confirming grep had been run against the **wrong tree**, and the round's
+description of the change was correct.
+
+[Review 1/3] **The round's self-raised item is VERIFIED rather than accepted, and its fix was better
+than restating the figure: it DELETED it.** The fixture docstring now gives no suite count and says
+why — `-rEfs` answers it per run — which removes the carried figure instead of refreshing one. And the
+derived "29 expected" unarmed now has a **measured input**: the module runs **16 passed / 2 skipped**
+unarmed, so 27 + 2 = 29.
+
+[Review 1/3] **System contract, 3 rules.** **ADR-0038/R8 ✓ holds** — nothing is made silent, verified
+by reading rather than assumed: `db_session` calls `request.getfixturevalue("_test_database_tables")`,
+so pytest re-raises that fixture's cached exception to the later requester, and the announcement
+channel is real (its mutant was killed). **ADR-0039/R2 ✓ holds** — default-to-deny explicit and
+reachable in `_armed_database_plan`, AC-2's set derived by `ast` with a matched non-vacuity control.
+**ADR-0039/R1 ✗ violated** — the finding above. All three carry `check: review-lens`, so no dead-ref
+hazard.
+
+[Review 1/3] **AC-3 passes AS RESTATED**, and the reviewer credited the round for naming the defect
+rather than silently reinterpreting it: the AC *as written* is satisfied by the defect (two cold runs
+red identically), and the round replaced it with a cold run plus the run after it. **G-1 verified
+rather than trusted**, as the only code here that destroys anything: `_drop_if_present` asserts four
+conditions before `DROP DATABASE` — `_test` suffix, `_refusal_reason` allows it, not this worktree's
+own derived name, creatable-name shape — and `nonogram_poc` fails the first two.
+
+[Review 1/3] **Minors.** `_drop_if_present`'s docstring claims the target is "not any database a live
+worktree or the live panel owns" while the code checks only **this** repo's derived name — not
+exploitable, but an overclaimed safety comment on the one destructive operation. And `Touches` names
+`tests/conftest.py` alone while the diff adds an **851-line** test module with `scope_gate: on`;
+raised so it stops being decided per card.
+
+[Review 1/3] **Why the artefact is UNCOMMITTED, and it is the measured hazard rather than caution.**
+`meta/review/*.yml` is gitignored yet tracked, so committing needs `-f` — and two test names the
+report cites (`test_the_suites_own_infrastructure_is_where_the_reads_live`,
+`test_the_eager_setup_hides_nothing_from_the_marked_path`) **do not exist on main**, because the card
+is unmerged. Committing now would put them into tracked text where the word-bounded search over
+tracked files resolves them as **alive** while no such test exists there — precisely the
+"review YAMLs revive dead check refs" mechanism. It stays at the conventional path to be committed at
+the card's `done` step, after the merge makes the names real.
+
+[Review 1/3] **A declared conflict of interest, and a second reader is already running.** The
+reviewer wrote the implementation brief this round worked from, disclosed that its review is therefore
+not independent of it, and asked for a second reader anchored elsewhere. The orchestrator had
+separately dispatched one, which is running an **armed** full suite under the lock and will write to
+`meta/review/CARD-349-cycle1-second-reader.yml`. It was told that a prior reading exists and its
+verdict withheld, so it forms its own first. **Coverage the first reviewer disclosed rather than
+papered over:** it did not reach `src/`'s production readers, so the round's transitive figures
+(4 readers / 10 names / 78 scopes / 19 modules) are **not** independently re-derived by it; it did not
+re-run the armed full suite, so the round's 10392 remains the round's own figure and the gate's to
+confirm; and it recorded Step 8c as N/A on the measured basis that the impact set reports empty
+components and contexts.
+
+[Review 1/3] **Two instrument notes from the reviewer worth keeping.** `mutation_check` was read by
+**parsing** `config.yml`, not grepping — the live key sits under a long comment block, and both a
+`sed` range over the first part of the `review:` block and a grep would have found it inside commented
+history instead. And `reverse_deps` came back **underivable** (`manifest_changed`; the import graph
+does not model `tests/conftest.py`), recorded as `no_eligible_fact` rather than letting an empty set
+read as a small blast radius — the honest reach is **every collected test**, which is why this card
+scheduled itself solo.
+
 [Round, commit `8c108047`] Implemented: two files, `tests/conftest.py` (+223/−1) and the new
 `tests/test_card_349_cold_database.py`. INV-023 clean, worktree clean, not merged. **Remedy chosen:
 the card's first and second together, with the third as a backstop** — an autouse **session-scoped**
