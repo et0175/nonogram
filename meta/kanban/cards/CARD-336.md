@@ -108,34 +108,59 @@ are verified under the conversion probe. **Both halves exist on `main` today** �
    a cell cannot be closed by reading the boundary, that is a **finding to raise with its
    measurement**, not a tolerance.
 
-## The probe, and why the one on `main` is not enough
+## The probe: CARD-338 built it, and this card runs it rather than extending it
 
-`scratchpad/card329/probe_puzzle_operators.py` lifts **`PageKind.PUZZLE` alone**, and its
-own docstring says lifting the other four kinds "would measure a REFUSAL, not a converted
-page". **Measured 2026-10-31 at the decompose station, that is no longer true and the
-extension is two lines:** the refusal comes from `BookPDFGenerator.__init__` defaulting
-`pages` to `NO_DOWNSTREAM_WRITERS`, and `book_interior_vector.DOWNSTREAM_WRITERS` is the
-filled set, so rebinding the module-level default makes every `BookPDFGenerator(book)` in
-the test tree an assembled generator. With all five temporary declarations lifted the
-tree writes a real vector interior and nothing refuses — verified on
-`tests/test_book_interior_face.py`, which is **green under the PUZZLE-only probe and red
-at 2 under all five**.
+<!-- REWRITTEN 2026-11-03 by CARD-338. This section used to describe the five-kind
+     extension as two lines for THIS card to write, and carried a figure measured at the
+     decompose station. CARD-338 owns the instrument, committed it, and re-derived every
+     figure; the prose that told this card to build it is gone, because three cards
+     describing one undelivered instrument is how CARD-309 happened. -->
 
-**Two traps in that extension, both measured here, both yours to inherit rather than
-rediscover:**
+**The instrument exists: `scratchpad/card338/probe_five_kinds.py`**, driven by
+`scratchpad/card338/census_five_kinds.py`. Run it, do not rebuild it.
+`scratchpad/card329/probe_puzzle_operators.py` lifts **`PageKind.PUZZLE` alone**;
+CARD-338's lifts all five kinds whose `expires_with` names CARD-322 and rebinds
+`book_pdf_generator.NO_DOWNSTREAM_WRITERS` to `book_interior_vector.DOWNSTREAM_WRITERS`, so
+every `BookPDFGenerator(book)` in the tree is an assembled generator and the four
+downstream kinds are drawn rather than refused. It refuses by name if any one of the five
+declarations is already absent, if the rebinding target has been renamed, if the writer set
+is partial, or if the constructor has stopped reading the global — proved against mutated
+trees by `scratchpad/card338/prove_refusals.py`, so a run that reads green over a tree it
+did not change is not a thing this instrument can do.
 
-* **A test that lifts a declaration itself collides with the probe.** Derived by `ast`,
-  **three** modules reference `_RASTER_DECLARATIONS` directly with **17** `monkeypatch.delitem`
-  sites, and only two of them (`tests/test_book_pdf.py:5670` and `:5794`, CARD-329's own)
-  pass `raising=False`. Every other site raises `KeyError: <PageKind.TITLE: 'title'>` at
-  `_pytest/monkeypatch.py:302` when the probe has already removed the key — which presents
-  as a red and is an **artefact of the instrument**, not of the conversion. Measured on
-  `tests/property/test_book_export_interior.py` with only the four non-puzzle kinds lifted:
-  **6 failed, of which 5 are that KeyError and 1 is genuine.** Build the probe so the two
-  are distinguishable before you count anything.
-* **`tests/test_book_interior_type_floor.py` is in neither of CARD-329's populations and
-  is red at 3 under CARD-329's own probe** — see CARD-337, which owns it. Mentioned here
-  because it is the proof that the 20-module census is not the whole disturbed set.
+**The measured floor, re-derived by CARD-338 on 2026-11-03 at `f407c350`** (one file-scoped
+run per module, `-o addopts=` as two argv items, `-rfs` as one flag, the full environment
+inherited):
+
+| over CARD-329's 20 modules | `PUZZLE` only | all five kinds |
+|---|---|---|
+| modules red | 17 / 20 | **18 / 20** |
+| failed + error | 151 | **225** |
+| passed | 1224 | 1150 |
+
+`tests/test_book_interior_face.py` — one of the three modules CARD-329 reports as fully
+green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
+
+**Two things to inherit rather than rediscover, both re-derived:**
+
+* **A test that lifts a declaration itself meets a key that is already gone.** By `ast`,
+  **three** modules reference `_RASTER_DECLARATIONS` with **17** `monkeypatch.delitem`
+  sites; **2** pass `raising=False` (`tests/test_book_pdf.py:5670`, `:5794`) and **15** can
+  raise; of those 15, **two** name `DIVIDER`, which the probe does not lift — leaving **13
+  sites that can raise**. **Separately measured, the census counts 13 reds** from them:
+  `property/test_book_export_interior.py` **5**, `test_book_interior_type_floor.py` **1**,
+  `test_book_pdf.py` **7**. **Two different quantities, neither derived from the other** —
+  one literal site produces 5 reds alone, and two of the 15 (`test_book_pdf.py:3747`,
+  `:3774`) sit inside `for kind in self._interior_kinds()` loops covering 4+ kinds each, so
+  their agreeing on 13 is a coincidence of this tree. The component of the **+74** these
+  reds account for is **+11**, not +13. **Do not price them out as the probe's shadow:**
+  CARD-338 measured the identical `KeyError` on a tree whose five entries are deleted in
+  `src/` with no probe loaded, so they are residue the conversion owns.
+* **`tests/test_book_interior_type_floor.py` is in neither of CARD-329's populations** —
+  CARD-338 derives it as a third population reaching the hazard through the medium
+  decision itself. It is red at **3** under the PUZZLE-only probe and at **8** under five
+  kinds. CARD-337 owns it; it is named here only as the proof that the 20-module census is
+  not the whole disturbed set.
 
 ## Acceptance criteria
 
@@ -152,7 +177,8 @@ rediscover:**
   raster arm accounts their extents; a card that converted them in place would destroy
   the cross-check CLAUDE.md requires. (test: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
 - **AC-3** (the 39 are closed, derived not listed): *Given* a run under the
-  five-declaration probe, *then* every placed-edge cell of the four modules in `Touches`
+  five-kind probe (`scratchpad/card338/probe_five_kinds.py`, CARD-338's), *then* every
+  placed-edge cell of the four modules in `Touches`
   passes, the population is **derived** by the comparison it makes rather than enumerated,
   and a cell the walk cannot classify is a FAILURE (ADR-0039/R2). **The 39 is a dated
   reading at `b26bdd62`, not a target**: state the number the round measures and the
@@ -248,7 +274,7 @@ rediscover:**
   `HALF_PIXEL_MM`, and CARD-330 measured the two media's ink-against-ink disagreement at
   1 px (grid edges) and 3 px (the drawing's own mitred left/top), which brackets them —
   and it is an **inference** for the other 35. **What would measure it:** re-express one
-  cell per module first, under the five-declaration probe, and report the four before/after
+  cell per module first, under CARD-338's five-kind probe, and report the four before/after
   figures before touching the rest. That is this card's first job, and if a module's cells
   do not close, it is a finding with a measurement, not a tolerance (G-1).
 - **[UNMEASURED PREMISE, stated as unmeasured]** *That `tests/test_book_guide_page.py`'s
