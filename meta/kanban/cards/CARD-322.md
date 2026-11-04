@@ -1067,7 +1067,17 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
 - **[A reader-facing warning about this card's biggest single unknown]** The residue this
   card faces *after* CARD-336 and CARD-337 land is **unmeasured and unmeasurable today** —
   it is an inference about a tree that does not exist yet, which is this family's
-  signature failure. The number is **not** 225 minus 39 minus 68: the five-kind census
+  signature failure. The number is **not** 225 minus 39 minus 68 — **and both subtrahends
+  are now retracted** (ADR-0039/R4), which strengthens this warning rather than weakening
+  it. **39** was CARD-336's `PUZZLE`-only placed-edge figure; that card measured **38**
+  under five kinds and closed as **4 cells + 1 declared**, so the figure both reproduced
+  and had the wrong composition. **68** was never CARD-337's arithmetic at all: every
+  per-module figure it rolled up reproduces to the digit, but the roll-up double-counted a
+  guide-page red the body hands to CARD-336 while omitting the 8 reds of `pdf_levels` and
+  `pdf_two_up` the body claims by name. CARD-337's measured figures are **78**
+  (`PUZZLE`-only) and **143** (five kinds). So the sum this sentence warns against was
+  built from one figure with a wrong composition and one that was a wrong addition — which
+  is a better argument for the warning than the warning made. The five-kind census
   measures counts and not causes, and the one cause sampled at the re-cut was a mechanism
   nobody had named (an **expected-side gap** at
   `property/test_book_export_interior.py:546`, whose own message names a stale card). Item

@@ -37,6 +37,50 @@
 **Merge commit:** —
 **Blocked by:** —
 
+> **[ITEM 0 RAN AND THE PREMISE FAILED — 2026-11-04. Read this before anything below it.]**
+>
+> The round ran item 0 under CARD-338's committed census, **implemented nothing and reported**,
+> which was correct. Three independent refutations:
+>
+> **1. The scope moved UP, not sideways: 78 → 143 (+65, 1.83×)** across the thirteen modules
+> under the five-kind filter. No direction was predicted and none was assumed.
+>
+> **2. The 68 is RETRACTED, and it was never a wrong measurement — it was a wrong ROLL-UP of
+> correct measurements.** Every per-module figure in this card reproduces **to the digit** under
+> the filter it was taken with: the nine routed modules sum to exactly 66, `arrange_page_breaks`
+> is 1, `pdf_levels` and `pdf_two_up` are 4 each, the 22nd module is 3. What the body claims by
+> name is **66 + 1 + 4 + 4 + 3 = 78**. The only route to 68 is **66 + 2** — the whole 2-bucket,
+> which double-counts the guide-page red the body explicitly hands to CARD-336, while omitting
+> the 8 reds of `pdf_levels` + `pdf_two_up` the body claims by name. **The figures are 78
+> (`PUZZLE`-only) and 143 (five kinds).** Retracted in `meta/kanban/cards/CARD-322.md` too,
+> where it appeared as "not 225 minus 39 minus 68".
+>
+> **This is the MIRROR IMAGE of CARD-336's defect and it needed a different check to catch.**
+> There the figure reproduced exactly and the *composition* was wrong. Here every *component*
+> reproduces and the *sum* does not. A brief that says "re-derive the figure" catches CARD-336's
+> defect; **only re-deriving the ARITHMETIC over a card's own stated buckets catches this one.**
+>
+> **3. The seam closes 17%, measured on the repair rather than classified.** Planting the
+> `interior_images` seam and measuring: `pdf_band` 26 → 19 (7 closed), `solved_answer_key`
+> 33 → 30 (3 closed) — **10 of 59, 17%**, on the two largest modules where the seam applies at
+> all. CARD-329's ratio was 80 → 16, **80% closed**. And the seam is **structurally
+> inapplicable in five of thirteen modules** (42 five-kind reds) because they have no page
+> object to wrap — their pages come from `pdf_pages(data)` over exported bytes, and that helper
+> has read both media since CARD-329. CARD-329's routing sentence, "the identical one-line edit
+> at the module's one page-source function", holds for **three of thirteen**.
+>
+> **Worse than inapplicable in two families: the seam is their CAUSE.**
+> `test_the_rules_are_pure_black_and_not_anti_aliased` reads `[0, 89, 255]` after the seam
+> because poppler anti-aliases a vector rule, and the thin-rule-floor test's own docstring says
+> it measures *"the RASTER path's floor"*. The card's item 1 has no disposition for a claim the
+> seam breaks.
+>
+> **The card needs a re-cut and 2d is not a ceiling for this shape.** The round's own reading:
+> the seam is a three-module item worth ~17% of those modules' reds; five modules need a
+> different mechanism entirely; and at least four survivor families each carry a per-module
+> ADR-0042/R6 design question of the kind this card already prices at "could alone run a day"
+> for one of them. **The scope decision is the orchestrator's and the round did not absorb it.**
+
 ## What this card is handed, measured, and re-derived at the decompose station
 
 > **[PREMISE NOTE, wave-75 station, 2026-11-04 — read before the figures below.]**
