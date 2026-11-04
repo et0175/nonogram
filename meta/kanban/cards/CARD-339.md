@@ -402,6 +402,24 @@ else in the diff is the guard, the census and the records. That ratio is the car
 
 ## Worktree notes
 
+<!-- MARKERS WRITTEN POST-HOC BY THE ORCHESTRATOR 2026-11-04, and the provenance matters.
+     The retrospective derives `cycles_used` by counting EXACTLY the `[Review N/max] Score:`
+     line, which cmd-review-cycle.md's SYNC POINT writes once per completed review cycle. This
+     wave's reviews were dispatched DIRECTLY as agents rather than through that command, so no
+     marker was ever written -- the same data-quality defect wave 73's retrospective reported,
+     now in its second consecutive wave, and the reason that retro could export NO calibration
+     signal at 0-of-3 cycle coverage.
+     These lines are not fabricated: each cycle genuinely ran and its verdict is recorded twice
+     over -- in this card's `Review score` field ("cycle N of 3") and in the untracked review
+     YAML under meta/review/. The markers restate what those artefacts already say, in the one
+     spelling the retro's extractor matches. A marker that drops the `/M` denominator does NOT
+     match, which is why they are written in full. -->
+
+[Review 1/3] Score: 7.5 — NOT certified; back to the round on four gating findings (F-1 the routed table one row short, F-2 the census arithmetic wrong in two cancelling terms, F-3 'routed' claiming to pin when it does not, F-4 two prose path:line refs). Review artefact: meta/review/CARD-339-cycle1.yml.
+
+[Review 2/3] Score: 8.4 — CERTIFIED on cycle 2. Eight of cycle 1's nine findings verified closed, the ninth (F-5) unverifiable because no cycle-1 YAML existed at the time. 0 gating findings; six record corrections folded in at the merge gate. Review artefact: meta/review/CARD-339-cycle2.yml.
+
+
 **Why the code is shaped this way, for whoever reads it next.**
 
 **The glyph is written into `player.css` by a script that read `admin.css`, not by hand.** AC-1

@@ -123,6 +123,22 @@ against the set the helper blinds.
 
 ## Worktree notes
 
+<!-- MARKERS WRITTEN POST-HOC BY THE ORCHESTRATOR 2026-11-04, and the provenance matters.
+     The retrospective derives `cycles_used` by counting EXACTLY the `[Review N/max] Score:`
+     line, which cmd-review-cycle.md's SYNC POINT writes once per completed review cycle. This
+     wave's reviews were dispatched DIRECTLY as agents rather than through that command, so no
+     marker was ever written -- the same data-quality defect wave 73's retrospective reported,
+     now in its second consecutive wave, and the reason that retro could export NO calibration
+     signal at 0-of-3 cycle coverage.
+     These lines are not fabricated: each cycle genuinely ran and its verdict is recorded twice
+     over -- in this card's `Review score` field ("cycle N of 3") and in the untracked review
+     YAML under meta/review/. The markers restate what those artefacts already say, in the one
+     spelling the retro's extractor matches. A marker that drops the `/M` denominator does NOT
+     match, which is why they are written in full. -->
+
+[Review 1/3] Score: 8.8 — CERTIFIED on cycle 1 of a 3-cycle budget. 0 gating findings; two Importants (I-1 the co-location split, I-2 the card-file conflict) and three Minors, all folded in at the merge gate. Review artefact: meta/review/CARD-278-cycle1.yml.
+
+
 - **[The mutant that found it, so it can be re-run rather than re-invented]** Neutralise all four of
   `search.py:1180`, `:1259`, `:1418`, `:1728` at once (`check_deadline(deadline)` → `pass  # MUTANT: …`,
   preserving the line count) and run `tests/test_timeout.py` alone. ~~Today: **17 passed, exit 0**.~~
