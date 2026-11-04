@@ -1,4 +1,4 @@
-wave: 74   # CLOSED 2026-11-04T08:30Z -- THREE FOR THREE, none escalated:
+wave: 75   # OPENED 2026-11-04T08:33Z on the owner's "open the next wave". Cap back at the
 #            CARD-278 8.8 (cycle 1), CARD-336 8.6 (cycle 1), CARD-339 8.4 (cycle 2).
 #            Opened 2026-11-04T03:41Z on the owner's "open the next wave on 336".
 #            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
@@ -447,7 +447,19 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []   # wave 74, two entries, exactly at the owner's cap. An explicit list —
+active:
+  - card: CARD-337
+    branch: card/337-the-twelve-modules-the-triage-left-owed
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-337
+    started: 2026-11-04T08:33Z
+    estimate: 2c (2d)
+    cut_from: 550ff481
+  - card: CARD-335
+    branch: card/335-committed-artefacts-revive-dead-refs
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-335
+    started: 2026-11-04T08:33Z
+    estimate: 2c (1d)
+    cut_from: 550ff481   # wave 74, two entries, exactly at the owner's cap. An explicit list —
           # `active:` with NOTHING under it parses as NULL and a consumer
           # iterating it raises; that is why wave 73's closed state was
           # written `active: []` rather than left bare.
@@ -578,7 +590,7 @@ queued:
 #   CARD-337: a four-way split puts every piece under 1.5d.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: 2026-11-04T08:30:00Z
+last_updated: 2026-11-04T08:33:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
@@ -3917,3 +3929,49 @@ last_updated: 2026-11-04T08:30:00Z
 #     after the gate reported it did not reproduce: with `-o addopts=` cleared,
 #     `-q` prints FULL node ids; the trap is the -qq STACKING, which that same
 #     flag prevents. The warning was steering agents off a form that works.
+#
+# WAVE 75 OPENED 2026-11-04T08:33Z on the owner's "open the next wave". Both worktrees
+# cut off `550ff481`, their own stamping commit. Cap at the owner's STANDING 2.
+#
+#   CARD-337 2c  the chain's next step (336 -> 337 -> 322); its last blocker,
+#                CARD-336, landed this morning. Thirteen book test modules.
+#   CARD-335 2c  committed artefacts revive dead check refs, plus the validator's
+#                blinded dead-ref detector. Its problem grew again in wave 74.
+#
+#   Touches intersection EMPTY.
+#
+#   CARD-320 (P1) DEFERRED AGAIN, reason NAMED rather than re-derived each time:
+#     its defect reproduces ONLY under the full suite, so its round holds the
+#     exclusive lock repeatedly and would block CARD-337's gate. Passed over
+#     TWICE now for the same structural reason, so it needs a WAVE OF ITS OWN
+#     rather than a third slot. Next opener: do not re-litigate this, schedule it.
+#
+#   CARD-337'S PREMISE IS THE CARD-336 DEFECT AGAIN: its "68 of the 151" is a
+#     PageKind.PUZZLE-ONLY reading at b26bdd62, while CARD-338 measured the
+#     five-kind floor of the same 20 modules at 225. The note added at the
+#     station states the five-kind population UNMEASURED and predicts NO
+#     DIRECTION -- at wave 74's station I predicted CARD-336's would GROW and it
+#     SHRANK by one, because module totals moved while the subpopulation did not.
+#     Item 0 asks for the COMPOSITION of the 68, not only its size: CARD-336's
+#     figure reproduced EXACTLY while its composition was wrong (5 of 38 closable
+#     by the named mechanism), so a figure reproducing is not the premise holding.
+#
+#   CARD-335'S POPULATION RE-MEASURED and stale in the direction of growth:
+#     245 -> 626 files in the resolver's surface, 231 -> 396 under meta/review/,
+#     6 -> 15 under meta/profiling/, 4 -> 33 under scratchpad/ across three card
+#     dirs. BUT that is a THIRD derivation and the card already holds two (its
+#     own 245 and CARD-316's 322, of which it says "the two bracket and neither
+#     is the number"), so the note states the figure as derivation-dependent and
+#     tells the round to re-derive with the RESOLVER'S OWN instrument and name
+#     which derivation produced its number.
+#     NOT derivation-dependent: `scratchpad` is still absent from .gitignore
+#     (verified), and two of wave 74's reviewers ran the resolver's instrument BY
+#     HAND to prove nothing was revived, because the 525 warnings leave the
+#     dead-ref detector blind -- that blindness is the card's other half.
+#
+#   HAZARD WRITTEN INTO CARD-335, since its Touches includes meta/review/: the
+#     per-card review YAMLs there are what the RETROSPECTIVE reads, and wave 74
+#     reconstructed four of them from reviewers' reports because none had been
+#     written. They are untracked, hence already outside git grep's reach and
+#     outside this card's problem. Gitignoring the directory is fine; EMPTYING it
+#     destroys the record this board's own retro depends on.

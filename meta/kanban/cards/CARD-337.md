@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/337-the-twelve-modules-the-triage-left-owed`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-337
 **Source:** split from CARD-322 at the decompose station, 2026-10-31, on the owner's re-cut instruction. This is the list CARD-322's scope-gap section said "does not exist yet" and CARD-329's AC-6 round produced: the nine modules its triage reports as needing their own edit, plus the residue of the five it edited but could not repair. CARD-329's own words: *"Within this card's seven `Touches` paths that is unreachable, and the measurement says where the rest lives."*
 **Split from:** CARD-322
 **Idea:** —
@@ -31,7 +31,7 @@
 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 **Touches:** tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py, tests/test_book_proof_pages.py, tests/test_book_solved_answer_key.py, tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_arrange_page_breaks.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/test_book_interior_type_floor.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T08:33Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

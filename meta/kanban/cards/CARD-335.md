@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** general-purpose
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/335-committed-artefacts-revive-dead-refs`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-335
 **Source:** CARD-316's fix round 1, 2026-10-31, F-012, then **re-scoped twice the same day** — once by CARD-316's review cycle 2, which measured the surface the hazard actually occupies, and once by the orchestrator confirming it on `main`. The original cut was wrong about where the problem lives. See *What this card got wrong when it was cut*. It measured that a blanket `scratchpad/**` glob reds its own G-2 guard immediately on three tracked files from an earlier card, named them by site, and routed the hazard rather than fixing it by reddening another card's artefacts — the right call for that card's scope. Re-measured at the decompose station, where the population turned out to be larger than three. See below.
 **Idea:** —
 **Wave:** 75
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** meta/review/, meta/profiling/, scratchpad/, .gitignore, tests/test_check_ref_resolution.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T08:33Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
