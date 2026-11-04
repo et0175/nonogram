@@ -1995,6 +1995,20 @@ twin. Both gates also **rebased before running**, so the suite measured the tree
   thing `cycles_used` counts, so the retro would have read null again. Written post-hoc from the
   score fields and the review YAMLs, with provenance noted on each card — **a post-hoc marker is
   weaker evidence than one the review cycle wrote live, and a reader should be able to tell.**
+
+  > **[CORRECTED 2026-11-04, after measuring the whole board rather than this wave.]** The gap is
+  > **not** two waves and the diagnosis above is half wrong. Over all **279** `done` cards with a
+  > score: the marker is absent on **152** and disagrees with the card's own score on **136** —
+  > while the `Review score` text states its cycle on **279 of 279**. **The numerator was
+  > available for the board's whole history, in a field the extractor does not read.**
+  >
+  > **And the marker was never the blocker.** `accuracy_ratio` is `cycles_used /
+  > estimate_cycles`, and what waves 71–73 lacked was the **denominator**: their estimates were
+  > `0.5d` / `0.25d` / `2d`, so the ratio was computable **0 of 2, 0 of 2 and 0 of 3** no matter
+  > what the markers said. Wave 73's conclusion was right; its stated reason was half the cause.
+  > **The scarce input is the estimate UNIT, and wave 74's signal exists because the estimates
+  > were restated in cycles at the wave open** — not because markers were written. Carded as
+  > **CARD-363**, which guards the estimate unit as well as the marker.
 - **No review YAML existed for any of the three cards** — four cycles in total. CARD-278's gate
   reported the absence rather than fabricating one; CARD-336's gate wrote its marker citing **no
   artefact**, *"because citing one that is not there is how a dead reference gets born."* All
@@ -2024,6 +2038,9 @@ wave's real output: three cards closed and twelve defects named, measured and ow
   the oldest open process item in this journal.**
 - **Create `meta/metrics/signal-definitions.yml`** or accept that no metrics series will ever
   exist. Two refusals is a decision being made by default.
+- **CARD-363 supersedes the re-instrumentation bullet above.** The measured gap is systemic (152
+  of 279 cards carry no marker) and the fix that matters is guarding the **estimate unit**, which
+  is what actually produced this wave's signal. See the correction in the Data quality section.
 - **Extend ADR-0039/R2's deny-by-default from guard sets to DEFAULTS**, where the second finding
   family lives. Four instances this wave; the rule already exists and only its reach is short.
 - **Watch for "certifying earlier at slightly lower scores"** in wave 75 — the cycles/score drift
