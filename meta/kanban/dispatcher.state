@@ -1,9 +1,17 @@
-wave: 74   # OPENED 2026-11-04T03:41Z on the owner's "open the next wave on 336"
+wave: 74   # CLOSED 2026-11-04T08:30Z -- THREE FOR THREE, none escalated:
+#            CARD-278 8.8 (cycle 1), CARD-336 8.6 (cycle 1), CARD-339 8.4 (cycle 2).
+#            Opened 2026-11-04T03:41Z on the owner's "open the next wave on 336".
+#            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
+#            board has been able to export, and it exists only because the estimates
+#            were restated in REVIEW CYCLES at the open rather than left in days.
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
-max_concurrent_override: 3
-# RAISED from 2 to 3 for WAVE 74 ONLY, 2026-11-04, on the owner's explicit "go
+max_concurrent_override: 2
+# RESTORED to the owner's standing cap of 2 at wave 74's close, 2026-11-04, as
+# the raise below said it would be. The wave ran three cards under the override.
+#
+# Was: RAISED from 2 to 3 for WAVE 74 ONLY, 2026-11-04, on the owner's explicit "go
 # ahead" when asked whether a player's card could be added. The STANDING cap is
 # 2; this is a per-wave override, not a new standing value -- restore 2 when
 # wave 74 closes. Merges still run SEQUENTIALLY and never with concurrent full
@@ -439,16 +447,10 @@ max_concurrent_override: 3
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active:   # wave 74, two entries, exactly at the owner's cap. An explicit list —
+active: []   # wave 74, two entries, exactly at the owner's cap. An explicit list —
           # `active:` with NOTHING under it parses as NULL and a consumer
           # iterating it raises; that is why wave 73's closed state was
           # written `active: []` rather than left bare.
-  - card: CARD-336
-    branch: card/336-the-frame-centre-oracle
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-336
-    started: 2026-11-04T03:41Z
-    estimate: 2c (2d)
-    cut_from: d1a18baa
 #
 # WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
 # commit that STAMPED their Wave field -- not off main's tip before it. A
@@ -557,7 +559,13 @@ queued:
 # two-for-two; CARD-329 and CARD-316 are in `active` above, so a queue row for
 # them was a second copy of a running card. The order the owner confirmed on
 # 2026-10-30 is now fully consumed down to its two named tails.
-- id: CARD-278   # P2 0.25d tail: the solver's blinded propagation path.
+# CARD-278 and CARD-336 REMOVED from `queued` 2026-11-04: BOTH MERGED in wave 74,
+# and a merged card left sitting in `queued` is how a closed card gets
+# re-dispatched. The merge gate found them here; nothing else in the pipeline
+# checks this key, which is why they survived their own merges by hours.
+# CARD-336's entry also carried its REFUTED pre-re-cut summary -- "39 placed-edge
+# reds, ONE mechanism, four modules" -- so it was a stale figure as well as a
+# stale entry. The card closed as 4 cells + 1 declared across TWO modules.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
@@ -568,10 +576,9 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-336   # P1 2d   the frame-centre oracle: 39 placed-edge reds, ONE mechanism, four modules. Takes ADR-0042/R6's amendment, which names CARD-322 by name today.
 - id: CARD-337   # P1 2d   the twelve modules CARD-329's triage left owed: nine seams plus four non-seam mechanisms, and a 22nd module no census had looked at.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: '2026-11-04T03:05:00Z'
+last_updated: 2026-11-04T08:30:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the
@@ -3767,8 +3774,14 @@ last_updated: '2026-11-04T03:05:00Z'
 #     pdf_pages render coming back blank under the probe while puzzle_frame's
 #     per-page interior_images path yields real pixels in the same run; and F-6,
 #     page_ink.py's _EDGE_OVERHANG = 3, a hard-coded half-rule already
-#     medium-dependent in the EXISTING reader (a heavy rule rasterises at ~5.42
-#     px, so the half is 2.71, not 3).
+#     medium-dependent in the EXISTING reader. CARDED as CARD-344.
+#     RETRACTED 2026-11-04 (ADR-0039/R4): the arithmetic in this bullet said a
+#     heavy rule rasterises at ~5.42 px so the half is 2.71. MEASURED by
+#     CARD-336's round in both media -- poppler inks the declared 1.3 pt as SIX
+#     pixel lines, exactly as Pillow does, so the width read off the page is 6
+#     and the half rule is 2.5 px. And _EDGE_OVERHANG = 3 is exact in NEITHER
+#     medium as a half rule: 3.000 px is the ink-to-coordinate offset in vector
+#     and 0 px in raster. CARD-344's premise is corrected accordingly.
 #
 # CARD-336 RE-CUT 2026-11-04 on the owner's instruction ("re-cut to its measured
 # core"), and RE-DISPATCHED on the same branch and worktree.
@@ -3778,10 +3791,20 @@ last_updated: '2026-11-04T03:05:00Z'
 #       the module's own pin says so in its docstring)
 #     tests/test_book_guide_page.py REMOVED (0 cells under the five-kind filter;
 #       what is red there is a different mechanism -> CARD-343)
-#   AC-3 restated from "the 39" to the 5 MEASURED cells in 2 modules, with the
-#     2.504 px residual recorded (not 3 px -- 1.3 pt at 300 DPI is 5.42 px, so
-#     the half-rule is 2.71), which is why item 1 requires the width be read off
-#     the page rather than taken from a constant.
+#   AC-3 restated from "the 39" to the 5 MEASURED cells in 2 modules.
+#     RETRACTED 2026-11-04 (ADR-0039/R4), and BOTH halves of what this bullet
+#     recorded were wrong -- the card's own round refuted them and its gate
+#     re-derived both from scratch in both media:
+#       (a) the 2.504 px residual is the LEFT field, not the top. That cell fails
+#           on BOTH (left 2.5039 px, top 2.7323 px against 1.5 px) and `left`
+#           asserts one line above `top`, so 2.504 was the left residual
+#           attributed to top. Both are re-expressed.
+#       (b) the half rule is 2.5 px, not 2.71. Both media ink the 1.3 pt rule as
+#           SIX pixel lines (Pillow c-2..c+3, poppler c-3..c+2 for a boundary c),
+#           so 5.42/2 never described the page. The shipped oracle holds NO
+#           half-rule constant -- it reports the run's own centre, which is why
+#           item 1's "read the width off the page" was right for a better reason
+#           than this bullet gave.
 #   AC-4's HALF_PIXEL_MM wording fixed per F-5: the honest pin is the full
 #     multiset {2:x2, 3:x4, 4:x2} over EIGHT sites plus two bare mentions, and
 #     NO `1 x` exists in that file.
