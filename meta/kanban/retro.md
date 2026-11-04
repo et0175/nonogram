@@ -2330,3 +2330,132 @@ CARD-373 (AC-4's table durable only inside a failure message a green run never p
 - **Two stale `Wave` stamps**: CARD-310 reads `Wave: 67` while `ready`, CARD-307 reads `Wave: 66`
   while `skipped`, so both waves read larger than they were. Wave 15 has no cards at all. Not acted
   on; recorded for whoever touches the wave census next.
+
+## Wave 77 — one card, NOT certified, landed on authorisation — and the first ratio that carries shape
+
+**Closed 2026-11-04.** A one-card wave by construction: CARD-363 was carried out of wave 76 when
+that wave closed around it on the owner's instruction.
+
+### The numbers
+
+| | |
+|---|---|
+| CARD-363 | **7.75**, cycle 3/3, **NOT CERTIFIED**, `⚠ max cycles reached` |
+| estimate | 2c → 3 cycles = **ratio 1.500** |
+| disposition | escalated, then **landed on the owner's authorisation** after a fourth pass with a changed remit |
+| merge | `63f246a2`; main tip `0ebb19b3` |
+| gate suite | 10348 passed / 0 failed / 27 skipped / 1 xfailed, unarmed |
+
+### The datum, and it is the point of the wave
+
+**1.500 is this board's first cycle ratio that is neither 1.000 nor 0.500.** The full series:
+
+| card | wave | est | cycles | ratio |
+|---|---|---|---|---|
+| CARD-278 | 74 | 1c | 1 | 1.000 |
+| CARD-336 | 74 | 1c | 1 | 1.000 |
+| CARD-339 | 74 | 2c | 2 | 1.000 |
+| CARD-335 | 75 | 2c | 1 | 0.500 |
+| CARD-337 | 75 | 1c | 1 | 1.000 |
+| CARD-348 | 76 | 1c | 1 | 1.000 |
+| **CARD-363** | **77** | **2c** | **3** | **1.500** |
+
+**Seven finalised ratios, mean exactly 1.000, distinct values {0.5, 1.0, 1.5}.** So the estimator is
+**unbiased in the mean with a spread of ±one cycle** — the first statement about estimate *shape*
+rather than estimate presence, and the first thing here a future wave can actually calibrate
+against. Every value is `(n±1)/n`, which says the error is **one cycle**, not a proportion.
+
+This is also the datum wave 76 gave up. Its retro recorded that closing early withdrew it; it landed
+in this row exactly as predicted, which is the one prediction of mine this stretch that held.
+
+### RETRACTION: wave 76's "the drift reading is refuted" (ADR-0039/R4)
+
+Wave 76's retro declared the four-wave score drift refuted on the strength of 76 → 9.00. The series
+is now **73 → 8.83, 74 → 8.60, 75 → 8.25, 76 → 9.00, 77 → 7.75** — non-monotone, with wave 77 the
+lowest of the five.
+
+**So neither reading survives, and the refutation was itself n=1.** Waves 76 and 77 are one-card
+waves; a wave-level mean over one card is not a signal, and I presented one as though it were. The
+honest position: **wave-level score means are not usable at these sample sizes** — the per-card ratio
+series above is, because it pools cards rather than averaging waves. Wave 75's discriminator (*a wave
+whose cards are not re-cut*) is still the right instrument; it simply has not been run on enough
+cards to say anything.
+
+### The structural finding, and it is the wave's real content
+
+**A board-census module's own branch suite is structurally incapable of gating it.** INV-023 keeps
+`meta/kanban/**` off a card branch, so the branch's copy of the card tree is frozen at the merge
+base. CARD-363's module reads that tree. Measured: **67 passed on the branch, 2 failed / 65 against
+main's tip** — which is how *three consecutive review cycles ran green while main was red.*
+
+**Fixed at the gate rather than worked around**: main was merged **into the branch first** (main had
+moved **16 commits** since the cut), after which the branch reads the real board and the gate is
+informative for the first time on this card. That procedure is now written into `dispatcher.state`'s
+history, because every future board-census card needs it. Verified afterwards on main: the module is
+**68 passed against the live board**, and all 15 test modules that read `meta/kanban` are
+**1296 passed / 0 failed / 0 skipped**.
+
+### The class took four passes, and the reason is worth keeping
+
+Three cycles each found the F-001/F-101 class surviving in cells the previous reviewer had not named.
+The fixes were each correct and each **scoped to what the last review pointed at**. Only the fourth
+pass — on a deliberately changed remit, authorised past `max_cycles` — classified **all 141 `assert`
+statements across 30 test functions** against one question: *can a correct board operation move this?*
+Result: 21 floors/ceilings/subsets, 28 one-sided refusals, 7 census equalities each with a written
+reason, 5 structural identities flagged as such.
+
+**That pass found a third red cell nobody had listed, including me.** `len(without) == 244` is moved
+by a correct dispatch: CARD-310 is `ready`, `Wave: 67`, `Estimate: 0.5d`, so re-stamping and
+re-pricing it as the convention prescribes takes the set to 243. I verified it independently. It is
+the same fact as wave 76's retro note about CARD-310's stale stamp, reached from the opposite
+direction — and it is the clearest evidence that **patching where a reviewer points is not the same
+act as classifying a population.**
+
+### The card's own close was the trap it exists to catch
+
+Its closing stamp had to satisfy its own guards. Measured before committing: `cycle_named 3`,
+`marker_count 3`, ordinals `[1,2,3]`, none outside `## Worktree notes`, class `AGREES`. **The fourth
+pass was deliberately not counted** — it wrote no `[Review N/M] Score:` marker, so `cycles_used`
+stays 3 and the marker count agrees with the cycle the score names. Counting it, or stamping it as a
+cycle, would have committed this module's own defect on this module's own card.
+
+**Also not done, deliberately:** removing the `Wave` comment from CARD-363 to unred the module. That
+would have been the board bending to the test. The convention is correct; the assertions were wrong.
+
+### Instruments that cannot fail — a fourth consecutive wave
+
+- The three F-201 cells, **unchanged since the module's first commit**, one of which forbade the
+  dispatch convention outright while its own comment conceded it: *"none today; the assertion exists
+  so the twin above cannot go vacuous."*
+- The retired spelling ban's live in-scope set was **EMPTY** on main — green and unreachable, an
+  **ADR-0039/R1 gap**. That is a better ground for retiring it than any card I cited.
+- AC-5's static half was blind to the module's own path idiom (needles `meta/review` and `/review/`
+  against segment-by-segment construction), so it claimed a reach it lacked.
+- **`suite-timing.log`'s last dated row is 2026-10-29.** Every gate since wave 64 is missing from the
+  log that `tests/test_suite_profile.py` calls *"the format every wave reads"*, and **nothing fails
+  when it falls behind.** Carded as **CARD-374**.
+- Mine: a `Wave` parse in this retro's own census script that broke on a **parenthetical**
+  (`48 (started mid-wave on owner instruction)`) where the module's anchored `^(\d+)\b` handles it —
+  the third time in two waves my census instrument was looser than the code it was measuring.
+- Mine: **F-202's restatement was off by one in the same direction as the figure it corrected.** Of
+  the 49 duplicated-ordinal cards, **39 duplicate only the maximum, 9 duplicate the maximum and
+  something below, and exactly 1** (CARD-192) duplicates below without duplicating it. I wrote 10.
+
+### Suite cost, answered because the owner asked mid-run
+
+The suite is **not slower per test — it is the cheapest since mid-October.** 7082 tests at 131 ms
+(2026-10-15) → a late-October band of 160–173 ms → **10348 tests at 144 ms today.** The total is the
+**test count**, up 46% since mid-October. Two families are roughly two-thirds of the run:
+`tests/test_book_export_interior_cover.py` alone (~30%; CARD-287/292/299/300 exist to cheapen it and
+**CARD-300 is parked**), and the browser class (646 Chromium tests at ~730 ms ≈ 474s, grown from 18
+modules to 24). One logged row shows **2114s wall against pytest's 1560s** — 555s of the box busy
+elsewhere, which is the measured basis of the owner's standing *"wall-clock actuals are unusable"*
+ruling.
+
+### Queue
+
+Wave 78 is open on **CARD-349 solo**, cut off the stamping commit `d2297143`, estimate already
+`1c (0.5d)` — restated in review cycles *before* the open rather than at it, so wave 78's ratio is
+computable from the outset. The card that merged to protect the scarce input is the first to open
+under it. Then **CARD-320**, also solo (both touch `tests/conftest.py`), then CARD-322's
+module-sliced prerequisites, where **CARD-358 should run before CARD-354**.
