@@ -1,6 +1,6 @@
 # CARD-336: The frame-centre oracle — one boundary-reading mechanism for the placed-edge cells four modules read as first-inked-line
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (2d)
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/336-the-frame-centre-oracle`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-336
 **Source:** split from CARD-322 at the decompose station, 2026-10-31, on the owner's re-cut instruction. CARD-322 was 1d, priced against "five page kinds plus one test module"; re-measured here the conversion's residue is 154 reds and the placed-edge family is the single largest mechanism in it, named by ADR-0042/R6's own comment ("what the 0.254 mm reading needs is an oracle that reads the frame rule's CENTRE rather than its first inked line … that belongs with the conversion, i.e. to CARD-322") and by CARD-329's AC-6 disposition for `property/test_book_pdf_geometry.py` ("the frame-centre oracle is the only thing that closes them without a widening").
 **Split from:** CARD-322
 **Idea:** —
@@ -20,7 +20,7 @@
 <!--CARD-338 ADDED 2026-10-31 by the orchestrator, answering the re-cut's own judgement call 3. The re-cut built the five-kind probe extension, ran the census, and then described the instrument in prose in this card, CARD-337 and CARD-322 rather than carding it. Three cards quoting the same undelivered instrument is how CARD-309 happened -- five `expires_with` entries nobody owned, four cards that built writers with zero call sites. CARD-338 owns it, and its deliverable is the measured floor this card's premise needs: CARD-329's probe lifts PageKind.PUZZLE ALONE, so every figure this card inherits is measured against one fifth of the conversion. -->
 **Touches:** tests/helpers/page_ink.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_guide_page.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T03:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

@@ -1,6 +1,6 @@
 # CARD-278: `_blind_propagation` blinds one propagation path of two, so the test named for the branch checkpoint passes without it
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.25d)
@@ -8,15 +8,16 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/278-blind-propagation-misses-overlap
-**Worktree:** —
+**Branch:** `card/278-the-timeout-cards-tail`
+<!--The previous value, card/278-blind-propagation-misses-overlap, named a branch that was never cut: `git branch --list '*278*'` found no such ref at wave 74's open. A ready card carrying a Branch is a stale field, not a resumable attempt. -->
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-278
 **Source:** Found 2026-10-23 by the adversarial skeptic that **refuted** CARD-264's cycle-2 finding I-1. It was not what that skeptic was looking for: while proving that `CLAUDE.md:50`'s timeout sentence is true, it ran a combined mutant nobody had run and the result was a test passing for the wrong reason. Reported rather than absorbed, because CARD-264 was at cycle 3 of a 3-cycle budget and a last-cycle widening ships its final edit uncertified (the wave-48 rule).
 **Idea:** —
 **Wave:** 74
 **Depends on:** —
 **Touches:** tests/test_timeout.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-04T03:41Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

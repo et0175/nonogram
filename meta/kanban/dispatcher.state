@@ -1,4 +1,4 @@
-wave: 73   # CLOSED 2026-11-04, three for three
+wave: 74   # OPENED 2026-11-04T03:41Z on the owner's "open the next wave on 336"
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -434,8 +434,76 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []   # wave 73 closed 2026-11-04; an explicit empty list, not a bare key —
-             # `active:` alone parses as NULL and a consumer iterating it raises.
+active:   # wave 74, two entries, exactly at the owner's cap. An explicit list —
+          # `active:` with NOTHING under it parses as NULL and a consumer
+          # iterating it raises; that is why wave 73's closed state was
+          # written `active: []` rather than left bare.
+  - card: CARD-336
+    branch: card/336-the-frame-centre-oracle
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-336
+    started: 2026-11-04T03:41Z
+    estimate: 2c (2d)
+    cut_from: d1a18baa
+  - card: CARD-278
+    branch: card/278-the-timeout-cards-tail
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-278
+    started: 2026-11-04T03:41Z
+    estimate: 1c (0.25d)
+    cut_from: d1a18baa
+#
+# WAVE 74 OPENED 2026-11-04T03:41Z. Both worktrees cut off `d1a18baa`, the
+# commit that STAMPED their Wave field -- not off main's tip before it. A
+# worktree cut before the stamping commit carries `Wave: —` and a branch copy
+# of the card can then quietly un-stamp its own wave on merge; cutting after
+# closes that.
+#
+# SERIALIZATION NOT NEEDED: Touches intersection is EMPTY. CARD-336 is the book
+# interior's ink oracle (tests/helpers/page_ink.py plus four book test modules);
+# CARD-278 is tests/test_timeout.py alone. No shared file, no shared hotspot.
+#
+# CARD-320 (P1) WAS NOT PAIRED, and the reason is the lock rather than the
+# files: its defect reproduces ONLY under the full suite ("four narrower
+# reproductions all pass"), so its round would hold the exclusive
+# meta/kanban/.full-suite.lock for its duration and block CARD-336's merge
+# gate. Its Touches intersection against CARD-336 is empty, so files were never
+# the obstacle. It runs ALONE in a later wave where it can own the lock.
+# CARD-337 could not pair either: it depends on CARD-336, so the vector chain
+# is strictly serial.
+#
+# CARD-336's PREMISE WAS REPAIRED AT THE STATION BEFORE THE CUT, three defects:
+#   1. Title said "five modules"; the breakdown table lists FOUR. `Touches` has
+#      five entries, one of which is the helper tests/helpers/page_ink.py --
+#      which is where the miscount came from.
+#   2. The headline 39 is a PageKind.PUZZLE-ONLY reading at b26bdd62, under
+#      CARD-329's probe_puzzle_operators.py. The card applies the
+#      one-kind/five-kind correction to two OTHER modules (interior_face 0->2,
+#      type_floor 3->8) and never to its own headline population: its
+#      test_book_pdf.py row reads "30 of its 38" while CARD-338 measured that
+#      module at 46 under five kinds. Now stated as a LOWER BOUND and
+#      explicitly UNMEASURED, with item 0 owing the re-derivation under
+#      CARD-338's committed scratchpad/card338/census_five_kinds.py driver.
+#      AC-3 re-worded so a larger number reads as the expected finding.
+#   3. The estimate rested on CARD-329's "4.1h actual" -- a wall-clock figure
+#      the owner ruled unusable 2026-11-03. Re-grounded on the derived size
+#      datum with the exclusion stated.
+#
+# ESTIMATES RESTATED IN REVIEW CYCLES (ADR-0055): CARD-336 2c (2d), CARD-278
+# 1c (0.25d). Wave 73's retrospective could export NO calibration signal at
+# 0-of-3 cycle coverage; opening wave 74 on days-only estimates reproduces that
+# dead end, so the unit was fixed at the open rather than after the fact.
+#
+# CARD-278 CARRIED A STALE Branch FIELD: card/278-blind-propagation-misses-overlap,
+# naming a ref that does not exist (`git branch --list '*278*'` found none). A
+# `ready` card holding a Branch is a stale field, not a resumable attempt. The
+# previous value is preserved in a comment on the card.
+#
+# GRAPH RE-CHECKED AT THE OPEN, under the REAL consumer's reading
+# (card_lint.parse_card_fields then a CARD-\d+ token scan of the value):
+# 340 cards, 340 ordered, NO cycle. An earlier run of the orchestrator's own
+# check reported a cycle and was WRONG -- it did not filter self-references,
+# and CARD-220 names itself in its Depends on. The standalone HTML comment
+# after CARD-336's `Depends on` does NOT reach the parsed value (verified: the
+# value contains no "<!--"), so it creates no phantom dependency.
 #
 # NOTE 2026-11-03: the block below was briefly removed by the orchestrator while
 # clearing two landed cards from `active`, because the removal walked an entry's
