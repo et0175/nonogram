@@ -136,6 +136,13 @@ class Drawing:
     # reading 3 px further out. Measured, that is 0.254 mm at 300 DPI, which
     # is the figure a conversion of these pages moves past
     # ``tests/test_book_pdf.py``'s ``EDGE_TOLERANCE_MM``.
+    #
+    # CARD-336 adds the third option that comment did not offer:
+    # :func:`frame_centre_of`, a reading whose two fields **are** boundaries.
+    # It is added BESIDE this one and replaces nothing — every claim above
+    # that is genuinely about ink still reads these fields (ADR-0042/R6
+    # exempts the independent oracles by name, and CARD-331's raster arm
+    # accounts their extents).
 
     @property
     def cell(self) -> float:
@@ -398,4 +405,190 @@ def drawing_of(page: Image.Image) -> Drawing:
         columns=len(vertical) - 1,
         rows=len(horizontal) - 1,
         framed=framed,
+    )
+
+
+@dataclass(frozen=True)
+class FrameCentre:
+    """Where a framed drawing's two outer **boundaries** are, in device pixels.
+
+    :class:`Drawing`'s own comment says what this exists for: every field of
+    it is an ink extent, so differencing one against a coordinate measures
+    half a rule, and the two media do not stroke that rule the same way. This
+    reads the same page and answers the other question — *where is the
+    boundary?* — by taking the frame's own rule and reporting its **centre**,
+    which is the boundary the rule is stroked on
+    (:class:`~nonogram.export.layout.PuzzleFrame`: "centred on the
+    boundary"). The width is never assumed: it is the measured extent of the
+    rule's own inked lines on this page, so a medium that strokes the frame
+    at another weight is read correctly without being told (ADR-0037/R2 —
+    the vector medium's declared 1.3 pt against COMP-007's proportional
+    6 px).
+
+    **Measured, CARD-336, on one book puzzle page drawn both ways** (the same
+    payload, page number and cell map through
+    ``BookPDFGenerator._blank_page`` and ``.vector_puzzle_page``), against
+    the boundary ``compute_layout``'s own ``layout.frame`` states:
+
+    ======================  ==============  ==============
+    reading                 raster          vector
+    ======================  ==============  ==============
+    ``Drawing.left``        +0.0 px         **-3.0 px**
+    ``Drawing.top``         +0.0 px         **-3.0 px**
+    ``frame_left``          +0.5 px         -0.5 px
+    ``frame_top``           +0.5 px         -0.5 px
+    ======================  ==============  ==============
+
+    So the ink reading disagrees with itself across the two media by 3 px and
+    this one by 1 px, and each medium's own reading sits within half a pixel
+    of the coordinate — half a pixel being what is left when a rule of even
+    width is centred on a whole-pixel boundary, and not a tolerance anything
+    was widened to.
+
+    **Why a constant could not do it.** The measured inked width of the frame
+    rule is 6 px in *both* media: Pillow strokes 6 px, and poppler inks the
+    vector page's 1.3 pt (5.4167 px at 300 DPI) as 6 pixel lines. What
+    differs is where that run sits relative to the reading :class:`Drawing`
+    gives — Pillow butt-caps four lines, so the drawing's reported edge is
+    the path itself, while a PDF rasteriser strokes the frame as one ``re``
+    and mitres the outer corner, putting the reported edge on the run's first
+    line instead. The offset from ink to centre is therefore +0.5 px in one
+    medium and +2.5 px in the other, and **any** single constant is wrong in
+    one of them. Reading the run is what makes one reading serve both.
+
+    Attributes:
+        frame_left: The drawing's left boundary: the centre of the frame's
+            left side, between its first and last inked pixel column.
+        frame_top: The same down the page, from the frame's top side.
+        left_rule_px: How many pixel columns the frame's left side inks on
+            this page — the width this reading was derived from, reported so
+            that a caller can assert it was read rather than assumed.
+        top_rule_px: The same for the frame's top side.
+    """
+
+    frame_left: float
+    frame_top: float
+    left_rule_px: int
+    top_rule_px: int
+
+
+def _refuse_unless_a_frames_rule(group: list[int], edge: int, side: str) -> None:
+    """Refuse a rule group that is not the frame's ``side`` (ADR-0039/R2).
+
+    One question, and a group failing it is a shape this reading cannot
+    classify — which is a **failure** and never a quietly wrong number: **it
+    holds the drawing's own reported edge.** ``Drawing``'s reading of that
+    edge is the stroke's path in one medium and the run's first line in the
+    other, and both lie inside the run either way, so a group that does not
+    contain it is not the rule that reading came off.
+
+    It is also what tells a framed drawing from an unframed one without being
+    told. On an unframed drawing the leftmost full-height rule is the grid's
+    own left border, which sits a whole clue gutter **inside**
+    :attr:`Drawing.left` — so the group does not hold that edge and this
+    refuses, which is the answer wanted. :attr:`Drawing.framed` is
+    deliberately not consulted: measured over
+    ``tests/property/test_book_pdf_geometry.py``'s own corpus, 94 of 136
+    **revealed answer pages** read ``framed=False`` on a page that carries a
+    frame, because that field is derived from the same rule groups the
+    module's docstring already declares unsafe on such a page
+    (``columns``/``rows``), and this reading is wanted there.
+    """
+    if not group[0] <= edge <= group[-1]:
+        raise ValueError(
+            f"the frame's {side} side reads as pixel lines {group[0]}..{group[-1]}, "
+            f"which does not hold the drawing's own {side} edge at {edge}: this "
+            f"is not the rule that edge was read off, so this drawing's "
+            f"{side} boundary is not a frame rule's centre"
+        )
+
+
+def frame_centre_of(page: Image.Image, drawing: Drawing) -> FrameCentre:
+    """Read ``drawing``'s left and top **boundaries** off ``page``.
+
+    ``drawing`` is the same page's :class:`Drawing` — whatever measured it,
+    :func:`drawing_of` on a page holding one drawing or
+    ``tests.helpers.two_up_ink.drawings_of`` on a slot of a two-up page. A
+    slot's coordinates are moved back into the page's own frame by that
+    helper, so the frame this finds is the slot's own and no crop is needed
+    here.
+
+    **It reads only the three fields of ``drawing`` that are safe on every
+    page kind** — :attr:`~Drawing.left`, :attr:`~Drawing.top` and
+    :attr:`~Drawing.grid_bottom`, which is the set
+    ``tests/property/test_book_pdf_geometry.py`` already declares safe on a
+    revealed answer page as well as a blank one. It reads neither
+    :attr:`~Drawing.framed` nor the other three ``grid_*`` fields, and
+    CARD-336 measured why: over that module's own corpus **94 of 136 answer
+    pages** report ``framed=False`` with ``columns``/``rows`` of 2, on pages
+    that do carry a frame. Those fields come off rule groups a revealed
+    answer's long filled runs confuse — the caveat this module's docstring
+    states for ``columns``/``rows``, which holds for ``framed`` and for
+    ``grid_left``/``grid_right``/``grid_top`` just as much. Where it is
+    stated for two fields, it is **three fields wide**.
+
+    The two rules are then found by this module's own readings:
+
+    * the frame's **left side** is the first full-height rule of the band
+      from the drawing's top edge down to ``grid_bottom`` — the same
+      rule-group reading :func:`drawing_of` finds the grid with. Nothing of
+      the page's furniture reaches into that band (an interior page's header
+      rule is above it and its footer hairline below), nothing beside the
+      drawing is a rule of it, and a band cut short by a mis-read
+      ``grid_bottom`` only shortens the runs, which leaves the leftmost one
+      leftmost;
+    * the frame's **top side** is read down the one pixel column
+      *immediately inside* that rule, whose position is therefore the
+      **measured** width of the left side rather than any constant: at that
+      column the ink above the clue gutter is the frame's top side and
+      nothing else (the grid's own rules are a gutter further in), so the
+      run holding the drawing's top edge is that side, whole, however
+      heavily either medium strokes it.
+
+    The two sides are one stroke, so their measured widths must agree; a page
+    where they do not is a shape this cannot classify and is refused rather
+    than averaged.
+
+    Raises:
+        ValueError: the page carries no ink; a rule group this cannot
+            classify as the frame's side — an unframed drawing included,
+            whose leftmost full-height rule is the grid's own border and
+            does not hold :attr:`~Drawing.left`
+            (:func:`_refuse_unless_a_frames_rule`); or two sides of unequal
+            measured width.
+    """
+    dark = _dark(page)
+    down = dark[drawing.top : drawing.grid_bottom + 1]
+    left = _rule_groups(_longest_runs(down.T.copy()))[0]
+    _refuse_unless_a_frames_rule(left, drawing.left, "left")
+
+    inside = left[-1] + 1
+    if inside >= dark.shape[1]:
+        raise ValueError(
+            f"the frame's left side ends at pixel column {left[-1]}, which is "
+            f"the page's own last column: there is nothing inside it to read "
+            f"the frame's top side down"
+        )
+    runs = _groups(np.flatnonzero(dark[:, inside]))
+    holding = [run for run in runs if run[0] <= drawing.top <= run[-1]]
+    if not holding:
+        raise ValueError(
+            f"pixel column {inside}, immediately inside the frame's left side, "
+            f"carries no ink at the drawing's own top edge {drawing.top}: the "
+            f"frame's top side is not there to be measured"
+        )
+    (top,) = holding
+    _refuse_unless_a_frames_rule(top, drawing.top, "top")
+    if len(top) != len(left):
+        raise ValueError(
+            f"the frame's left side measures {len(left)} pixel lines and its "
+            f"top side {len(top)}: one stroke cannot have two widths, so one "
+            f"of these groups is not the frame's"
+        )
+
+    return FrameCentre(
+        frame_left=(left[0] + left[-1]) / 2,
+        frame_top=(top[0] + top[-1]) / 2,
+        left_rule_px=len(left),
+        top_rule_px=len(top),
     )

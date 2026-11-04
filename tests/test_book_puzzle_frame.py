@@ -128,7 +128,7 @@ from nonogram.export.layout import (
 # and ``_stroke_drawing`` imports above.
 from nonogram.export.layout import _placed_drawing_top
 from nonogram.export.png import BACKGROUND, render_image
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import Drawing, FrameCentre, drawing_of, frame_centre_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 # CARD-219: the readers the shared-render controls at the end of this file are
@@ -1564,15 +1564,33 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         assert lower.top > upper.top, "the lower slot is a second drawing below it"
 
     def test_both_slots_sit_where_con_018s_millimetres_put_them(self, pages) -> None:
-        """Origin and extent, against the arithmetic — not against the layout."""
-        drawings = drawings_of(pages[TWO_UP_PAGE - 1])
+        """Origin and extent, against the arithmetic — not against the layout.
+
+        **The origin is a boundary, so CARD-336 reads it as one.** ``left``
+        and ``top`` below are the millimetres CON-018 puts the slot's own box
+        at; ``Drawing.left``/``.top`` are the frame rule's *leading inked
+        line*, which sits outside that box by half a rule and — measured —
+        by a different amount in each medium: 0 px where Pillow butt-caps
+        four lines, 2.5 px where a PDF rasteriser strokes one mitred ``re``.
+        Against this page's own arithmetic that reads as 0.4961 px in raster
+        and **2.5039 px in vector**, past the 1.5 px
+        :data:`EDGE_TOLERANCE_PX` — a renderer that moved nothing.
+        :func:`~tests.helpers.page_ink.frame_centre_of` reports the rule's
+        centre instead, read off the rule's own measured width, and the same
+        page then reads **0.0039 px in vector and 0.9961 px in raster** —
+        inside the bound in both media, where the ink reading is inside it in
+        only one. No tolerance moved (G-1).
+        """
+        page = pages[TWO_UP_PAGE - 1]
+        drawings = drawings_of(page)
         boxes = _expected_pair_boxes(UPPER_PUZZLE, LOWER_PUZZLE)
 
         for drawing, puzzle, (left, top, right, bottom) in zip(
             drawings, (UPPER_PUZZLE, LOWER_PUZZLE), boxes
         ):
-            assert abs(drawing.left - left) <= EDGE_TOLERANCE_PX
-            assert abs(drawing.top - top) <= EDGE_TOLERANCE_PX
+            centre = frame_centre_of(page, drawing)
+            assert abs(centre.frame_left - left) <= EDGE_TOLERANCE_PX
+            assert abs(centre.frame_top - top) <= EDGE_TOLERANCE_PX
             # ``grid_left``/``grid_right`` are their rule group's first pixel and
             # both rules are heavy, so the half stroke cancels in the difference:
             # the grid's own *extent* is compared, and it is the drawing's box
@@ -3110,6 +3128,681 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
         assert above == pytest.approx(BAND_MM * HEADER_RULE_LIFT_SHARE, abs=0.01)
         assert below > 1.4 * above, (above, below)
         assert abs(above / spare - SPARE_ABOVE) > 0.1
+
+
+# --------------------------------------------------------------------------
+# CARD-336 — the frame-centre oracle: AC-1 (the reading IS a boundary, in
+# both media, against a coordinate) and AC-3 (the placed-edge population of
+# this module and of `tests/property/test_book_pdf_geometry.py`, derived)
+# --------------------------------------------------------------------------
+
+
+#: How far a frame-centre reading may sit from the boundary ``compute_layout``
+#: itself states, in device pixels. **Half a pixel**, and it is arithmetic
+#: rather than a tolerance: the frame rule inks an even number of pixel lines
+#: (six, measured, in both media), so the centre of its run is a half-integer
+#: while the boundary it is stroked on is a whole pixel. Measured at exactly
+#: +0.5 px in raster and −0.5 px in vector, Pillow inking ``c-2..c+3`` and
+#: poppler ``c-3..c+2`` for one boundary ``c``.
+FRAME_CENTRE_TOLERANCE_PX = 0.5
+
+
+#: And how far the two media's readings of the **same** page may sit from each
+#: other: one pixel — the two half pixels above, and CARD-330's own measured
+#: figure for a content stream's operand against the boundary (0.0847 mm at
+#: 300 DPI). The *ink* reading of the same page disagrees across the media by
+#: **three** pixels, which is the control below.
+FRAME_CENTRE_CROSS_MEDIUM_PX = 1.0
+
+
+#: The vector medium's declared frame stroke, in device pixels: ADR-0037/R2's
+#: heavy rule is 1.3 pt and a point is 1/72 in, so 5.4167 px at 300 DPI. It is
+#: here only to be shown **different from the width the page inks** (six), so
+#: that a reading keyed on the declared figure is visibly not a reading of the
+#: page.
+DECLARED_VECTOR_RULE_PX = 1.3 * DPI / 72
+
+
+@dataclasses.dataclass(frozen=True)
+class _BothMedia:
+    """One book puzzle page drawn both ways, and the boundary it was laid at.
+
+    Attributes:
+        coordinate: ``compute_layout``'s own :class:`PuzzleFrame` for this
+            page — the drawing's two outer boundaries, as the geometry states
+            them and before any ink exists. Every assertion below is made
+            against this and never against the other medium's ink.
+        raster: The page as ``BookPDFGenerator._blank_page`` draws it, which
+            is Pillow stroking four butt-capped lines.
+        vector: The same page as ``.vector_puzzle_page`` writes it, read back
+            through ``interior_images`` — poppler's raster of one mitred
+            ``re`` — at the page's own DPI, so both sides are device pixels
+            in one domain (CARD-330).
+    """
+
+    coordinate: object
+    raster: Image.Image
+    vector: Image.Image
+
+
+@pytest.fixture(scope="module")
+def both_media() -> _BothMedia:
+    """The same page in each medium, drawn once for this file (CARD-218's rule).
+
+    Deliberately **not** the module's shared ``pages`` fixture: that one is a
+    whole interior in whichever medium the registry declares, and what AC-1
+    needs is one page in *each*, with no registry touched (G-2). The two
+    writers take the same arguments, so the page is the same page and the
+    medium is the only difference between the two sides.
+    """
+    case = dict(columns=20, rows=20, row_depth=4, column_depth=5)
+    page_number = SINGLE_PAGE
+    generator = BookPDFGenerator(_book())
+    payload = BookPDFGenerator._payload(
+        _book_puzzle(**case, puzzle_id="card336-ac1")
+    )
+    cells = generator.cell_sizes([payload])
+    spec = generator._puzzle_page_spec(
+        page_number, cells.get(BookPDFGenerator._grid_size(payload))
+    )
+    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+    assert layout.frame is not None, "this page must be a framed book page"
+    stream = generator.vector_puzzle_page(payload, 1, page_number, cells)
+    return _BothMedia(
+        coordinate=layout.frame,
+        raster=generator._blank_page(payload, 1, page_number, cells),
+        vector=interior_images([stream])[0],
+    )
+
+
+class TestFrameCentre_TheReadingIsABoundaryInBothMedia:
+    """CARD-336 AC-1: ``frame_centre_of`` reports where the drawing **is**.
+
+    ADR-0042/R6's own note asked for "an oracle that reads the frame rule's
+    CENTRE rather than its first inked line". This is the judgement of that
+    oracle, and it is complete with no page converted: the two writers are
+    both on `main` today, the coordinate both are laid against is
+    ``compute_layout``'s, and nothing here reads ``_RASTER_DECLARATIONS``.
+
+    Every assertion is against the **coordinate**. The cross-medium cell
+    compares two *boundary* readings, neither of which is an ink extent, so
+    no claim here is one medium's ink measured against the other's.
+    """
+
+    def test_each_mediums_reading_is_the_boundary_the_layout_states(
+        self, both_media
+    ) -> None:
+        """Both sides, each against ``layout.frame``, to within half a pixel."""
+        frame = both_media.coordinate
+        for medium, page in (
+            ("raster", both_media.raster),
+            ("vector", both_media.vector),
+        ):
+            boundary = frame_centre_of(page, drawing_of(page))
+            assert abs(boundary.frame_left - frame.left) <= (
+                FRAME_CENTRE_TOLERANCE_PX + 1e-9
+            ), (medium, boundary.frame_left, frame.left)
+            assert abs(boundary.frame_top - frame.top) <= (
+                FRAME_CENTRE_TOLERANCE_PX + 1e-9
+            ), (medium, boundary.frame_top, frame.top)
+
+    def test_the_two_media_read_the_same_page_as_the_same_boundary(
+        self, both_media
+    ) -> None:
+        """And they agree with each other, within one pixel."""
+        here = frame_centre_of(both_media.raster, drawing_of(both_media.raster))
+        there = frame_centre_of(both_media.vector, drawing_of(both_media.vector))
+
+        assert abs(here.frame_left - there.frame_left) <= (
+            FRAME_CENTRE_CROSS_MEDIUM_PX + 1e-9
+        ), (here, there)
+        assert abs(here.frame_top - there.frame_top) <= (
+            FRAME_CENTRE_CROSS_MEDIUM_PX + 1e-9
+        ), (here, there)
+
+    def test_the_control_the_ink_reading_cannot_make_either_claim(
+        self, both_media
+    ) -> None:
+        """The control that CAN fail (ADR-0039/R1), and the defect's measure.
+
+        The same two claims on :class:`~tests.helpers.page_ink.Drawing`'s own
+        extents: the vector page's ink sits **3 px** from the boundary and
+        the two media's ink readings sit 3 px from each other — so neither
+        bound above is met by the reading this card replaces, and both bounds
+        are therefore load-bearing rather than generous.
+        """
+        frame = both_media.coordinate
+        here = drawing_of(both_media.raster)
+        there = drawing_of(both_media.vector)
+
+        assert abs(there.left - frame.left) > FRAME_CENTRE_TOLERANCE_PX, there.left
+        assert abs(there.top - frame.top) > FRAME_CENTRE_TOLERANCE_PX, there.top
+        assert abs(here.left - there.left) > FRAME_CENTRE_CROSS_MEDIUM_PX, (
+            here.left,
+            there.left,
+        )
+        assert abs(here.top - there.top) > FRAME_CENTRE_CROSS_MEDIUM_PX, (
+            here.top,
+            there.top,
+        )
+
+    def test_the_rule_width_is_the_pages_and_not_the_declared_figure(
+        self, both_media
+    ) -> None:
+        """Item 1's requirement, asserted: the width comes off the page.
+
+        The reading reports the width it used, and it is the number of pixel
+        lines the rule really inks — counted here a second time, off the
+        page, without the helper. In the vector medium that is **six** lines
+        where the stroke is *declared* at 5.4167 px (ADR-0037/R2's 1.3 pt),
+        so a reading keyed on the declared figure would be reading the
+        writer's constant and not the page: the two are asserted unequal.
+        """
+        for medium, page in (
+            ("raster", both_media.raster),
+            ("vector", both_media.vector),
+        ):
+            drawing = drawing_of(page)
+            boundary = frame_centre_of(page, drawing)
+            dark = _dark(page)
+            # Recounted here, independently of the helper: the inked run that
+            # holds the drawing's own left edge, taken on a row through the
+            # MIDDLE of the grid's first cell — never the drawing's midpoint,
+            # which lands on a grid rule and reads the whole drawing as one
+            # run (measured, and the first draft of this cell did exactly
+            # that). The same down the page for the top side.
+            row = drawing.grid_top + round(drawing.cell / 2)
+            column = drawing.grid_left + round(drawing.cell / 2)
+            across = [
+                run
+                for run in _groups(np.flatnonzero(dark[row]))
+                if run[0] <= drawing.left <= run[-1]
+            ]
+            down = [
+                run
+                for run in _groups(np.flatnonzero(dark[:, column]))
+                if run[0] <= drawing.top <= run[-1]
+            ]
+            assert [len(run) for run in across] == [boundary.left_rule_px], (
+                medium, boundary, [len(run) for run in across]
+            )
+            assert [len(run) for run in down] == [boundary.top_rule_px], (
+                medium, boundary, [len(run) for run in down]
+            )
+            assert boundary.left_rule_px == boundary.top_rule_px, (medium, boundary)
+
+        vector = frame_centre_of(both_media.vector, drawing_of(both_media.vector))
+        assert vector.left_rule_px != pytest.approx(DECLARED_VECTOR_RULE_PX), (
+            "the page inks the declared stroke width exactly, so this cell can "
+            "no longer tell a reading of the page from a reading of the constant"
+        )
+        assert vector.left_rule_px == 6, vector.left_rule_px
+
+    def test_a_drawing_whose_outer_rule_is_not_a_frames_is_refused(self) -> None:
+        """ADR-0039/R2, in the reading itself: it refuses rather than guessing.
+
+        An unframed drawing's leftmost full-height rule is the grid's own
+        left border, a whole clue gutter inside the drawing's left edge, so
+        the reading cannot be a frame's centre and says so — rather than
+        reporting the grid's border as the drawing's boundary.
+        """
+        case = dict(columns=20, rows=20, row_depth=4, column_depth=5)
+        page = render_image(
+            _payload(**case), page_spec=replace(_spec(), frame=False)
+        )
+        drawing = drawing_of(page)
+        assert drawing.framed is False, "this control needs an unframed drawing"
+        with pytest.raises(ValueError, match="does not hold the drawing's own"):
+            frame_centre_of(page, drawing)
+
+
+class TestFrameCentre_EveryPlacedEdgeSiteIsClassified:
+    """CARD-336 AC-3 and its EC(ADR-0039/R2): the population is **derived**.
+
+    The two modules in this card's ``Touches`` each declare their own
+    placed-edge bound — ``HALF_PIXEL_MM`` there, :data:`EDGE_TOLERANCE_PX`
+    here — and an assertion read against that bound is a placed-edge site.
+    That is the same derivation shape ``tests/test_book_pdf.py``'s
+    ``TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`` uses over
+    ``EDGE_TOLERANCE_MM``, and it is a derivation rather than a list: a site
+    added tomorrow is in the population the day it is written, and a site
+    this walk cannot place is a **FAILURE** (ADR-0039/R2) rather than a pass.
+
+    Every site lands in exactly one of four classes:
+
+    ``boundary``
+        it reads a :class:`~tests.helpers.page_ink.FrameCentre` field — this
+        card's re-expression.
+    ``cancelling``
+        every ink extent it reads is paired with another inside one
+        expression, so the half rule cancels out of the difference. The
+        reading the ``Drawing`` comment calls "ink with ink".
+    ``no_extent``
+        it reads no ink extent at all: a coordinate against a coordinate, or
+        a reading from some other helper.
+    :data:`PLACED_EDGE_ON_THE_INK_BY_DECLARATION`
+        it differences an ink extent against a coordinate **and says why**,
+        with its measurement. One site qualifies, and that is the finding
+        this card raises rather than a tolerance it widened (G-1).
+
+    **Which fields are which is read off the two dataclasses**, not written
+    out: the ink extents are :class:`~tests.helpers.page_ink.Drawing`'s own
+    fields less the three that are not edges, and the boundaries are
+    ``FrameCentre``'s. A field renamed on either moves this walk with it, and
+    the two names are asserted disjoint so that no attribute can be both.
+    """
+
+    _MODULE_BOUNDS = {
+        "tests/property/test_book_pdf_geometry.py": "HALF_PIXEL_MM",
+        "tests/test_book_puzzle_frame.py": "EDGE_TOLERANCE_PX",
+    }
+    _INK_READERS = frozenset({"drawing_of", "drawings_of"})
+    _BOUNDARY_READERS = frozenset({"frame_centre_of"})
+
+    #: The floor, anchored to the two modules' own site counts as measured on
+    #: 2026-11-04. Not a target: a walk that finds fewer sites than this has
+    #: narrowed, which is the permissive direction, and a bound renamed out of
+    #: existence is the quietest way for that to happen.
+    _SITE_FLOOR = {
+        "tests/property/test_book_pdf_geometry.py": 9,
+        "tests/test_book_puzzle_frame.py": 9,
+    }
+
+    @staticmethod
+    def _ink_edges() -> frozenset[str]:
+        """``Drawing``'s ink extents: its fields, less the three that are not."""
+        fields = set(Drawing.__dataclass_fields__)
+        not_an_edge = {"columns", "rows", "framed"}
+        assert not_an_edge <= fields, sorted(not_an_edge - fields)
+        return frozenset(fields - not_an_edge)
+
+    @staticmethod
+    def _boundary_fields() -> frozenset[str]:
+        """``FrameCentre``'s boundaries: its fields, less the measured widths."""
+        fields = set(FrameCentre.__dataclass_fields__)
+        widths = {name for name in fields if name.endswith("_rule_px")}
+        assert widths, sorted(fields)
+        return frozenset(fields - widths)
+
+    @classmethod
+    def _tree(cls, path: str) -> ast.Module:
+        root = Path(__file__).resolve().parent.parent
+        return ast.parse((root / path).read_text(encoding="utf-8"), filename=path)
+
+    @staticmethod
+    def _functions(tree: ast.Module) -> dict[ast.AST, str]:
+        """Every function of ``tree``, by its class-qualified name."""
+        found: dict[ast.AST, str] = {}
+
+        def walk(node: ast.AST, prefix: str) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.ClassDef):
+                    walk(child, f"{prefix}{child.name}::")
+                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    found[child] = prefix + child.name
+                    walk(child, f"{prefix}{child.name}.")
+                else:
+                    walk(child, prefix)
+
+        walk(tree, "")
+        return found
+
+    @staticmethod
+    def _bindings(function: ast.AST, module: ast.Module) -> dict[str, list[ast.AST]]:
+        """``name -> [the expressions it was bound from]``.
+
+        The function's own statements and the module's **top level** — never
+        another function's, which would make one file's every local name
+        resolvable from every other site in it.
+        """
+        table: dict[str, list[ast.AST]] = {}
+
+        def bind(target: ast.AST, value: ast.AST) -> None:
+            if isinstance(target, ast.Name):
+                table.setdefault(target.id, []).append(value)
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                for element in target.elts:
+                    bind(element, value)
+            elif isinstance(target, ast.Starred):
+                bind(target.value, value)
+
+        for node in list(module.body) + list(ast.walk(function)):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    bind(target, node.value)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and node.value:
+                bind(node.target, node.value)
+            elif isinstance(node, (ast.For, ast.AsyncFor)):
+                bind(node.target, node.iter)
+            elif isinstance(
+                node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+            ):
+                for generator in node.generators:
+                    bind(generator.target, generator.iter)
+            elif isinstance(node, ast.withitem) and node.optional_vars:
+                bind(node.optional_vars, node.context_expr)
+        return table
+
+    @classmethod
+    def _readers_behind(
+        cls, name: str, table: dict[str, list[ast.AST]], seen: set[str] | None = None
+    ) -> set[str]:
+        """Which oracle ``name`` came from — to a fixed point through locals.
+
+        The closure is what makes a house-style binding resolvable: the
+        geometry module writes ``by_number = {n: drawing_of(...)}`` and then
+        ``drawing = by_number[n]``, so a depth-1 reading would place the
+        second name nowhere at all.
+        """
+        seen = set() if seen is None else seen
+        if name in seen:
+            return set()
+        seen.add(name)
+        found: set[str] = set()
+        for value in table.get(name, ()):
+            for node in ast.walk(value):
+                if isinstance(node, ast.Call):
+                    called = (
+                        node.func.id
+                        if isinstance(node.func, ast.Name)
+                        else getattr(node.func, "attr", "")
+                    )
+                    if called in cls._INK_READERS:
+                        found.add("ink")
+                    if called in cls._BOUNDARY_READERS:
+                        found.add("boundary")
+                elif isinstance(node, ast.Name) and node.id != name:
+                    found |= cls._readers_behind(node.id, table, seen)
+        return found
+
+    @staticmethod
+    def _root(node: ast.AST) -> str | None:
+        while isinstance(node, (ast.Attribute, ast.Subscript)):
+            node = node.value
+        return node.id if isinstance(node, ast.Name) else None
+
+    @classmethod
+    def _contributing(
+        cls,
+        expression: ast.AST,
+        table: dict[str, list[ast.AST]],
+        seen: set[str] | None = None,
+    ) -> list[ast.AST]:
+        """``expression`` and every expression its local names were bound from.
+
+        Without this the walk reads only what is written inside the ``assert``,
+        and this tree's house style puts the measurement one line above it
+        (``left_spare = ...`` then ``assert abs(left_spare - right_spare)``).
+        """
+        seen = set() if seen is None else seen
+        trees = [expression]
+        for node in ast.walk(expression):
+            if isinstance(node, ast.Name) and node.id not in seen:
+                seen.add(node.id)
+                for value in table.get(node.id, ()):
+                    trees += cls._contributing(value, table, seen)
+        return trees
+
+    @staticmethod
+    def _multiple(site: ast.AST, bound: str) -> float:
+        """The constant ``site`` multiplies ``bound`` by, or 1 for a bare read."""
+        for node in ast.walk(site):
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+                for one, other in ((node.left, node.right), (node.right, node.left)):
+                    if (
+                        isinstance(one, ast.Name)
+                        and one.id == bound
+                        and isinstance(other, ast.Constant)
+                    ):
+                        return other.value
+        return 1
+
+    @classmethod
+    def _partition(cls, path: str, tree: ast.Module | None = None) -> list:
+        """``[((path, qualified name, multiple), class)]`` for ``path``'s sites.
+
+        A **list**, and that is this walk's own measured lesson rather than a
+        style choice: keyed on that triple, a dict loses one site of
+        ``tests/property/test_book_pdf_geometry.py``, whose
+        ``..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages`` carries
+        **two** sites at four half pixels — one re-expressed and one
+        cancelling. Nine sites became eight keys and the lost one was never
+        classified. The same shape ``tests/test_book_pdf.py``'s
+        ``_COLLIDING_SITES`` records, met again here;
+        :meth:`test_one_key_really_does_hold_two_sites` is what keeps the
+        regression red rather than quiet.
+        """
+        bound = cls._MODULE_BOUNDS[path]
+        tree = cls._tree(path) if tree is None else tree
+        ink_edges, boundaries = cls._ink_edges(), cls._boundary_fields()
+        out: list[tuple[tuple[str, str, float], str]] = []
+        for function, qualified in cls._functions(tree).items():
+            table = cls._bindings(function, tree)
+            for site in ast.walk(function):
+                if not isinstance(site, ast.Assert):
+                    continue
+                if not any(
+                    isinstance(node, ast.Name) and node.id == bound
+                    for node in ast.walk(site)
+                ):
+                    continue
+                trees = cls._contributing(site, table)
+                ink: list[ast.AST] = []
+                boundary: list[ast.AST] = []
+                unresolved: list[str] = []
+                for sub in trees:
+                    for attr in ast.walk(sub):
+                        if not isinstance(attr, ast.Attribute):
+                            continue
+                        base = cls._root(attr.value)
+                        readers = cls._readers_behind(base, table) if base else set()
+                        if attr.attr in boundaries and "boundary" in readers:
+                            boundary.append(attr)
+                        elif attr.attr in ink_edges and "ink" in readers:
+                            ink.append(attr)
+                        elif attr.attr in ink_edges and base is None:
+                            unresolved.append(ast.unparse(attr))
+                parents: dict[int, ast.AST] = {}
+                for sub in trees:
+                    for node in ast.walk(sub):
+                        for child in ast.iter_child_nodes(node):
+                            parents[id(child)] = node
+                marked = {id(node) for node in ink}
+                unpaired = []
+                for attr in ink:
+                    current, paired = attr, False
+                    while (current := parents.get(id(current))) is not None:
+                        if isinstance(current, (ast.BinOp, ast.Compare, ast.Call)):
+                            inside = sum(
+                                1 for node in ast.walk(current) if id(node) in marked
+                            )
+                            if inside >= 2:
+                                paired = True
+                                break
+                    if not paired:
+                        unpaired.append(attr)
+                key = (path, qualified, cls._multiple(site, bound))
+                if unresolved:
+                    verdict = f"UNCLASSIFIED {sorted(unresolved)}"
+                elif boundary and not unpaired:
+                    verdict = "boundary"
+                elif ink and not unpaired:
+                    verdict = "cancelling"
+                elif not ink and not boundary:
+                    verdict = "no_extent"
+                else:
+                    verdict = "ink_against_a_coordinate"
+                out.append((key, verdict))
+        return sorted(out, key=lambda entry: (entry[0][1], entry[0][2], entry[1]))
+
+    def test_the_two_readings_cannot_name_the_same_attribute(self) -> None:
+        """The walk tells them apart by field name, so the names are disjoint."""
+        assert not self._ink_edges() & self._boundary_fields(), sorted(
+            self._ink_edges() & self._boundary_fields()
+        )
+
+    @pytest.mark.parametrize("path", sorted(_MODULE_BOUNDS))
+    def test_the_bound_this_walk_derives_from_still_exists(self, path: str) -> None:
+        """A renamed bound empties the population silently — so it is asserted.
+
+        The name has to be a module-level assignment of the module it is
+        claimed for, and the walk has to find at least as many sites as were
+        measured there.
+        """
+        bound = self._MODULE_BOUNDS[path]
+        tree = self._tree(path)
+        assigned = {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        assert bound in assigned, (path, bound, "no module-level assignment")
+        found = self._partition(path, tree)
+        assert len(found) >= self._SITE_FLOOR[path], (path, len(found), found)
+
+    @pytest.mark.parametrize("path", sorted(_MODULE_BOUNDS))
+    def test_every_placed_edge_site_lands_in_exactly_one_class(
+        self, path: str
+    ) -> None:
+        """The partition is total: nothing unclassified, nothing on the ink
+        against a coordinate that has not declared itself."""
+        found = self._partition(path)
+        unclassified = [
+            entry for entry in found if entry[1].startswith("UNCLASSIFIED")
+        ]
+        assert not unclassified, unclassified
+        on_the_ink = {
+            key for key, verdict in found if verdict == "ink_against_a_coordinate"
+        }
+        assert on_the_ink <= set(PLACED_EDGE_ON_THE_INK_BY_DECLARATION), sorted(
+            on_the_ink - set(PLACED_EDGE_ON_THE_INK_BY_DECLARATION)
+        )
+
+    def test_every_declaration_is_a_site_that_is_really_on_the_ink(self) -> None:
+        """ADR-0039/R3: the exemption is a claim and carries its own control.
+
+        A declaration for a site that has been re-expressed, renamed or
+        deleted is a dead exemption, and a dead exemption is how a real one
+        gets added later without anyone reading it. Every entry has to name a
+        site the walk still finds **and** still places on the ink.
+        """
+        found: list = []
+        for path in self._MODULE_BOUNDS:
+            found += self._partition(path)
+        for key, reason in PLACED_EDGE_ON_THE_INK_BY_DECLARATION.items():
+            verdicts = [verdict for site, verdict in found if site == key]
+            assert verdicts, (key, "no such placed-edge site")
+            assert set(verdicts) == {"ink_against_a_coordinate"}, (key, verdicts)
+            assert "CARD-" in reason, (key, "a declaration names the card that owns it")
+
+    def test_the_control_a_site_put_back_on_the_ink_is_caught(self) -> None:
+        """The control that CAN fail (ADR-0039/R1), for the claim as stated.
+
+        A module shaped exactly like the re-expressed sites, except that one
+        of them reads the ink extent again: the walk must place it on the ink
+        against a coordinate, and must place the boundary twin beside it in
+        the ``boundary`` class. Caught with the mutation, missed without.
+        """
+        shape = """
+EDGE_TOLERANCE_PX = 1.5
+
+def test_re_expressed(page):
+    drawing = drawing_of(page)
+    boundary = frame_centre_of(page, drawing)
+    assert abs(boundary.frame_left - 10) <= EDGE_TOLERANCE_PX
+
+def test_put_back_on_the_ink(page):
+    drawing = drawing_of(page)
+    assert abs(drawing.left - 10) <= 2 * EDGE_TOLERANCE_PX
+"""
+        path = "tests/test_book_puzzle_frame.py"
+        found = dict(self._partition(path, ast.parse(shape)))
+        assert found[(path, "test_re_expressed", 1)] == "boundary", found
+        assert (
+            found[(path, "test_put_back_on_the_ink", 2)]
+            == "ink_against_a_coordinate"
+        ), found
+
+    def test_one_key_really_does_hold_two_sites(self) -> None:
+        """The collision is measured, so a dict-keyed regression cannot be quiet.
+
+        If this ever reports one site per key, the walk may be keyed on a dict
+        again without losing anything today — and would lose the next
+        collision silently. See :meth:`_partition`.
+        """
+        found = self._partition("tests/property/test_book_pdf_geometry.py")
+        keys = [key for key, _verdict in found]
+        assert len(keys) > len(set(keys)), keys
+
+    def test_no_bound_was_widened(self) -> None:
+        """AC-4 / G-1, asserted rather than claimed.
+
+        :data:`EDGE_TOLERANCE_PX` is unmoved, and the geometry module's
+        ``HALF_PIXEL_MM`` carries the same **multiset** of site multiples it
+        carried before this card: ``{2: x2, 3: x4, 4: x2}`` across eight
+        constant-multiple sites, plus the definition and one bare read. There
+        is no ``1 x`` multiple in that file and never was — an earlier
+        wording of this card's AC-4 said "four site multiples unchanged at
+        3/3/2/1", which was the multiple each of the four FAILING assertions
+        carried and not the file's site count; re-derived with ``ast`` here so
+        that the figure is the file's rather than a card's memory of it.
+        """
+        assert EDGE_TOLERANCE_PX == 1.5, EDGE_TOLERANCE_PX
+
+        path = "tests/property/test_book_pdf_geometry.py"
+        tree = self._tree(path)
+        parents = {
+            id(child): node
+            for node in ast.walk(tree)
+            for child in ast.iter_child_nodes(node)
+        }
+        multiples: dict[float, int] = {}
+        bare = 0
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Name) and node.id == "HALF_PIXEL_MM"):
+                continue
+            parent = parents.get(id(node))
+            if isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.Mult):
+                other = parent.right if parent.left is node else parent.left
+                if isinstance(other, ast.Constant):
+                    multiples[other.value] = multiples.get(other.value, 0) + 1
+                    continue
+            bare += 1
+        assert multiples == {2: 2, 3: 4, 4: 2}, multiples
+        assert sum(multiples.values()) == 8, multiples
+        assert bare == 2, bare
+        assert 1 not in multiples, multiples
+
+
+#: CARD-336 AC-3: the placed-edge sites of the two ``Touches`` modules that
+#: stay on the **ink** extent against a coordinate, each with the measurement
+#: that says why reading the boundary does not close it. Keyed on
+#: ``(module, class-qualified test name, the multiple of the module's own
+#: bound that site reads)`` — never a line number, which rots.
+#:
+#: Held to naming only real, still-on-the-ink sites by
+#: :meth:`TestFrameCentre_EveryPlacedEdgeSiteIsClassified.test_every_declaration_is_a_site_that_is_really_on_the_ink`,
+#: so this cannot rot into a blanket exemption (ADR-0039/R3).
+PLACED_EDGE_ON_THE_INK_BY_DECLARATION = {
+    (
+        "tests/property/test_book_pdf_geometry.py",
+        "test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages",
+        1,
+    ): (
+        "CARD-336: the only site of either module whose bound is ONE half "
+        "pixel, which is below the quantisation of any reading of a binary "
+        "ink mask. The frame rule inks six pixel lines, so its centre is a "
+        "half-integer whose side is the rasteriser's: measured over this "
+        "corpus's 7 two-up pages, the ink reads 0.54x the bound in raster "
+        "and 5.46x in vector, and the centre reads 1.54x in raster and 0.46x "
+        "in vector. Neither reading is green in both media, and CARD-330's "
+        "measured 1 px cross-medium floor is above this bound either way. "
+        "The remedy is this site's own multiple (1 -> 2 admits both, at 0.77x "
+        "and 0.23x) and it is CARD-330's to move, not this card's (G-1)."
+    ),
+}
 
 
 # --------------------------------------------------------------------------

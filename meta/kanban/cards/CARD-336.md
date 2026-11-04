@@ -404,3 +404,163 @@ green — is **0 under the PUZZLE-only probe and 2 under all five**, confirmed.
   symmetric difference, assert **nothing left**, and resolve each entrant to a real
   `def`/`class` line read off the line. A class that *shrinks* because a review report was
   synced in is signal loss, not a repair.
+
+### Implementation round, 2026-11-04 — what was measured and what it refutes
+
+**The oracle.** `tests/helpers/page_ink.py` gains `FrameCentre` and
+`frame_centre_of(page, drawing)`, **beside** `drawing_of` and replacing nothing: by
+`ast`, the three top-level names are ADDED and **no existing definition or constant of
+that file changed at all** (compared against `HEAD:tests/helpers/page_ink.py`; the only
+other edit is a `#` comment, invisible to the AST). Its imports are still
+`dataclasses`, `numpy`, `PIL` — no stream reader, no new dependency.
+
+**F-1 — the population re-derives as 5, and the one the card names is the wrong one.**
+AC-3 says "1 in `tests/test_book_puzzle_frame.py` (`drawing.top`)". The assertion that
+actually reddens is **`drawing.left`**, one line above it, in
+`TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame::test_both_slots_sit_where_con_018s_millimetres_put_them`.
+Both fail under the probe (left 2.5039 px, top 2.7323 px against the 1.5 px
+`EDGE_TOLERANCE_PX`) and the left one fires first, so the cell's reported residual —
+**2.504 px, the exact figure the card and the brief carry** — is the LEFT residual
+attributed to the TOP field. Both are re-expressed; the figure reproduces to the digit.
+
+**F-2 — the 2.71 px half-rule is refuted by the built oracle; the figure is 2.5 px.**
+The brief derived 1.3 pt at 300 DPI = 5.4167 px and inferred a 2.71 px half-rule, labelled
+inference. Measured: poppler inks that stroke as **six pixel lines**, exactly as Pillow
+does, so the width read off the page is 6 and the ink-to-centre offset is **2.5 px**
+(measured 2.5039 against the millimetre arithmetic — the residual the card records). The
+inference was right that a hard-coded 3 would miss the cell; it was wrong about why, and
+the implementation never holds a half-rule constant at all: it reports the run's own
+centre. **CARD-344's `_EDGE_OVERHANG = 3` comment ("the heaviest rule is 6 px, so 3 px is
+the overhang, exactly") is exact in neither medium as a half-rule** — it is the
+ink-to-COORDINATE offset in vector (3.000 px, measured) and 0 px in raster.
+
+**F-3 — `Drawing.framed` and three of the four `grid_*` fields are unsafe on a revealed
+answer page, and only `columns`/`rows` are documented as such.** Measured over
+`tests/property/test_book_pdf_geometry.py`'s own corpus: **94 of 136 answer pages** report
+`framed=False`, with `columns`/`rows` of 2, on pages that carry a frame. The first build of
+this oracle gated on `drawing.framed` and raised there; the shipped one reads only
+`left`, `top` and `grid_bottom` — the set that module already declares safe on either page
+kind — and derives the frame structurally instead. **This also contradicts that module's
+own comment**, which says `.cell` is "safe on either kind" nine lines before saying `.cell`
+is "unsafe on a revealed answer page". Not this card's to fix; recorded.
+
+**F-4 — one of the card's 5 cells cannot be closed, with the measurement.** The two-up
+site in `..._two_up_pages` is bound by **one** `HALF_PIXEL_MM` — half a device pixel —
+and that is below the quantisation of any reading of a binary ink mask. The frame rule
+inks six lines, so its centre is a half-integer whose side is the rasteriser's (Pillow inks
+`c-2..c+3`, poppler `c-3..c+2`). Over that corpus's 7 two-up pages:
+
+| medium | ink | centre |
+|---|---|---|
+| raster | 0.54x | **1.54x** |
+| vector | **5.46x** | 0.46x |
+
+Neither reading is green in both media, and CARD-330's measured 1 px cross-medium floor is
+above this bound either way. It is left on the ink (which keeps the tree as it stands
+green) and **declared**, with those figures, in
+`PLACED_EDGE_ON_THE_INK_BY_DECLARATION`. The remedy is the site's own multiple — 1 -> 2
+admits both readings, at 0.77x and 0.23x — and that is **CARD-330's to move, not this
+card's** (G-1). So the card's 5 closes as **4 + 1 declared finding**, and the vector
+residual 5.46x is the card's own fourth figure, reproduced.
+
+**F-5 — AC-4's corrected multiset reproduces exactly.** Re-derived with `ast`:
+**8** constant-multiple sites, multiset **`{2: x2, 3: x4, 4: x2}`**, plus the definition
+and one bare read, and **no `1 x` multiple anywhere**; `grep -c EDGE_TOLERANCE` in that
+file is **0**. Pinned by `test_no_bound_was_widened`.
+
+**F-6 — the frozen-registry hazard this card's own notes predicted does not apply as
+stated.** `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium._stream_readers()`
+derives over `_READER_OWNERS`, which is `tests/helpers/pdf_vector.py` and
+`tests/helpers/pdf_pages.py` — **`page_ink.py` is not an owner**, so a new public reader
+there joins neither the derived set nor `_MEDIUM_BLIND_READERS`, and the completeness cell
+cannot see it. **Decision (item 3): the new reader stays outside that set**, because it
+reaches no engine and reads a bitmap it was handed. What holds it to that is
+`TestEdgeOffset_ThePixelOraclesStillReadPixels`, measured: plant (c1) imports `pdf_vector`
+into `page_ink.py` and reds that class while leaving the placed-edge pin green, and plant
+(c2) crosses inside a pinned site and reds the pin while leaving the oracle class green.
+The two guards divide the work rather than overlap, and neither covers the other's half.
+
+**F-7 — two re-expressed sites clear their bound with under 1% of margin.** Worst case over
+136 cases of `..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages`: the 2x left site
+reads **1.992x** in vector and 1.983x in raster, and the 4x centring site **3.984x** and
+3.965x. That is arithmetic, not luck — the centre carries half a pixel and the millimetre
+figure rounds by up to half a pixel, so the worst case is the bound exactly — and it is
+recorded here because a corpus change tips it. Stated rather than widened (G-1).
+
+**F-8 — closing a placed-edge assert UNMASKS the next red, and two of them are a
+page-SIZE family nobody has carded.** The card's "4 reds, one per node id, at
+2.07x/2.36x/3.40x/5.46x" are *first-failure* attributions: a test aborts at its first
+failing case, so closing that assert runs the loop further. Measured, per node id, under
+the five-kind probe after the re-expression:
+
+| node id of `tests/property/test_book_pdf_geometry.py` | now reds at | what it is |
+|---|---|---|
+| `..._DrawingFitsUsableAreaUnderStandardCell_pdf_pages` | `assert abs(page.size[1] - trim_height_px) <= 0.5`, measured **1.110 px** | a page-SIZE claim: poppler rasterises a 282.1 mm trim to **3333** px where 11.811 px/mm says 3331.890 |
+| `..._PortraitWithFixedTopEdgeForEveryExtent_pdf_pages` | **killed by the hang guard** — see F-9 | not an assertion at all |
+| `..._MirroredMarginsCentreDrawingForEveryParity_pdf_pages` | `assert len({page.size for page in pages}) == 1`, measured **2** | the same family: one book's pages come back at two sizes, because the vector ones are poppler's raster and the rest are not |
+| `..._PortraitWithFixedTopEdgeForEveryExtent_two_up_pages` | the **declared** `1 x HALF_PIXEL_MM` site, 25.7387 mm against 25.97 | F-4, exactly 5.46x, the card's own fourth figure |
+
+So **every placed-edge assertion of both modules now passes under the probe except the one
+declared site**, and the node ids that still red do so on three other mechanisms:
+CARD-342's stroke weights (3 cells in `tests/test_book_puzzle_frame.py`), this page-size
+family (**2 cells, unowned — this is a new disposition, not this card's**), and the
+declared half pixel. `tests/test_book_puzzle_frame.py` under the probe moves **4 failed /
+96 passed -> 3 failed / 110 passed, 0 skipped**.
+
+**F-9 — one node id cannot be evidenced by a pytest run under the probe at all, and that
+is true on `HEAD` too.** `..._PortraitWithFixedTopEdgeForEveryExtent_pdf_pages` builds two
+books of 126 puzzles; under the probe every interior page is rasterised by poppler, and
+the corpus costs **124.9 s measured with no frame-centre reading in it at all** (120.5 s of
+that inside `_interior`), against this project's **120 s per-test hang guard**. The test is
+killed before it can report. On `HEAD` it "completes" in 76.7 s only because it aborts at
+its own first failure. This card's reading adds **1.7 s to 124.9 s (1.4 %)**: 126.6 s with,
+124.9 s without, same corpus, same medium. So the placed-edge evidence for that node id is
+the direct measurement over its whole 252-page corpus — worst centre residual **0.0928 mm
+in vector and 0.0770 mm in raster against a 0.1270 mm bound, with zero refusals, including
+all 15 overflowing pages** — and the node id's own green is owed to whoever makes the
+conversion affordable, not to this card.
+
+**F-10 — AC-3's derivation has a blind spot, named rather than papered over.** The
+population is keyed on each module's *own declared bound*, which is the shape
+`TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium` uses over `EDGE_TOLERANCE_MM`.
+It therefore does **not** see a placed-edge site bound by a literal — and one exists:
+`assert drawing.left >= usable_left - 1`, which reds under the probe at `drawing.left` 133
+against a usable edge of 135.827 (the mitred corner, 2.83 px outside the box) the moment
+the site below it is closed. It is re-expressed (boundary 135.5, inside). Widening the
+derivation to *every* resolved ink-extent read was tried and measured: **26 sites**, almost
+all of them array indices (`dark[frame.top, layout.grid_left : ...]`) and ink-to-ink corner
+readings, so a wider filter needs a classifier for those shapes before it can be a
+partition rather than a blanket exemption. Not widened here; recorded.
+
+### The plant table (AC-5) — six plants, all with a measured unplanted baseline
+
+Every plant: `PYTHONDONTWRITEBYTECODE=1`, `__pycache__` swept at both ends, planted **by
+text** with the occurrence count asserted to be exactly 1, restored from **captured
+content**, SHA-256 taken before the plant and after the restore, `0 skipped` asserted, and
+an **unplanted baseline run over the same node ids in the same medium** — because under the
+probe some cells are already red for reasons that are not this card's, and a control is
+green relative to that baseline. Harness: `scratchpad/card336/plants.py`.
+
+| key | file | mutates | new reds | control green in the same run | skipped | sha256 before == after |
+|---|---|---|---|---|---|---|
+| **(a)** | `page_ink.py` | the boundary reading returns the ink extent again | `TestFrameCentre_TheReadingIsABoundaryInBothMedia::test_each_mediums_reading_is_the_boundary_the_layout_states`, `::test_the_two_media_read_the_same_page_as_the_same_boundary`, `TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame::test_both_slots_sit_where_con_018s_millimetres_put_them` | `TestFrameCentre_EveryPlacedEdgeSiteIsClassified`, `TestEdgeOffset_ThePixelOraclesStillReadPixels` | 0 | `d5573c01…48ab7a` both |
+| **(b1)** | `page_ink.py` | the rule's extent taken as a CONSTANT six lines anchored on the drawing's ink edge | the AC-1 class's coordinate cell, its cross-medium cell **and** its refusal cell | same two | 0 | `d5573c01…48ab7a` both |
+| **(b2)** | `page_ink.py` | the ink-to-centre offset taken as the **raster** medium's constant (+0.5 px) | the AC-1 coordinate cell and the cross-medium cell | same two | 0 | `d5573c01…48ab7a` both |
+| **(c1)** | `page_ink.py` | the boundary oracle reaches the content-stream reader | `TestEdgeOffset_ThePixelOraclesStillReadPixels::test_neither_oracle_imports_the_content_stream_reader` | `TestFrameCentre_EveryPlacedEdgeSiteIsClassified`, and the placed-edge **pin stays green** | 0 | `d5573c01…48ab7a` both |
+| **(c2)** | **`tests/test_book_pdf.py`** (outside `Touches`) | a PINNED placed-edge site reaches a stream reader without saying so | `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium::test_no_site_reads_a_content_stream` **and** `::test_no_site_reaches_a_stream_reader_through_a_helper_either` | `TestEdgeOffset_ThePixelOraclesStillReadPixels` | 0 | `84a5e85f…8d6cd6` both — the byte-identity proof AC-5 asks for |
+| **(d)** | `page_ink.py` | correct in ONE medium only: the top side reports its rule's first inked line | the AC-1 coordinate cell (vector arm) | same two | 0 | `d5573c01…48ab7a` both |
+
+**What (b1) and (b2) together settle, and it corrects the card.** AC-5 (b) predicts "the
+vector arm must red while the raster arm stays green". Which arm reds depends on **where**
+the constant is anchored, and the card could not know that without the oracle: anchored on
+the drawing's ink edge (b1) the raster arm reds and the vector arm is correct; anchored on
+the raster medium's own +0.5 px offset (b2) the vector arm reds and the raster arm is
+correct. Both were planted rather than one, so the claim as stated — *correct in both
+media* — has a control that can fail in either direction (ADR-0039/R1).
+
+**Why (c1) and (c2) are both here.** They catch different crossings and neither covers the
+other's: a crossing hidden **inside** `page_ink.py` is invisible to the placed-edge pin,
+whose reachability walk runs over `tests/test_book_pdf.py`'s own functions and whose reader
+set derives over `pdf_vector.py` and `pdf_pages.py` only, and is caught by
+`TestEdgeOffset_ThePixelOraclesStillReadPixels`; a crossing written **in a pinned site** is
+caught by the pin and leaves the oracle class green. Measured both ways.

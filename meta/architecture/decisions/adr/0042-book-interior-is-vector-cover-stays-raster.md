@@ -921,8 +921,42 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # admitted an instrument's mitre, which is the hazard that card was cut to
   # avoid. What the 0.254 mm reading needs is an oracle that reads the frame
   # rule's CENTRE rather than its first inked line — still a pixel oracle, so
-  # still exempt here (G-2) — and that belongs with the conversion, i.e. to
-  # CARD-322. Until then this module's placed-edge expectations are PINNED to
+  # still exempt here (G-2).
+  #
+  # **RE-POINTED 2026-11-04 by CARD-336, which owns that oracle and built it.**
+  # This sentence read "and that belongs with the conversion, i.e. to
+  # CARD-322"; the oracle was split out of that card at the decompose station
+  # because its judgement is complete with no page converted, and it now
+  # exists as `tests/helpers/page_ink.py`'s `frame_centre_of` — added BESIDE
+  # `drawing_of` and replacing nothing, with the rule's width read off the page
+  # rather than taken from a constant, because the measured ink-to-centre
+  # offset is +0.5 px in raster and +2.5 px in vector and no single constant
+  # serves both. Measured against `compute_layout`'s own boundary on one page
+  # drawn both ways: the ink reading sits 0.0 px out in raster and **3.0 px**
+  # in vector, the centre reading 0.5 px in either, and the two media's centre
+  # readings agree to **1.0 px** where their ink readings disagree by 3.0.
+  #
+  # Three things CARD-336 measured that this decision's reader should not have
+  # to rediscover. First, the 0.254 mm figure above is the mitre, and the half
+  # rule it is half of is the **inked** six pixel lines, not R2's declared
+  # 1.3 pt (5.4167 px at 300 DPI): poppler inks that stroke as six lines, so
+  # the width read off the page is 6 and the half rule is 2.5 px, not 2.71.
+  # Second, `frame_centre_of` is NOT a content-stream reader and does not join
+  # `TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium`'s derived set:
+  # that set is derived over `tests/helpers/pdf_vector.py` and
+  # `tests/helpers/pdf_pages.py` only, and `page_ink.py` is neither — which is
+  # right, because the new reading reaches no engine, and
+  # `TestEdgeOffset_ThePixelOraclesStillReadPixels` is the guard that holds it
+  # to that (measured: a plant importing `pdf_vector` into `page_ink.py` reds
+  # that class and leaves the placed-edge pin green, so the two guards divide
+  # the work rather than overlap). Third, the oracle reads only
+  # `Drawing.left`/`.top`/`.grid_bottom`: 94 of 136 revealed answer pages in
+  # `tests/property/test_book_pdf_geometry.py`'s own corpus report
+  # `framed=False` with `columns`/`rows` of 2 on pages that do carry a frame,
+  # so that module's caveat about `columns`/`rows` is three fields wider than
+  # it says.
+  #
+  # Until then this module's placed-edge expectations are PINNED to
   # the raster, mechanically: every assertion in `tests/test_book_pdf.py` that
   # compares against `EDGE_TOLERANCE_MM` is derived to read its page through
   # `drawing_of` and none through a content stream
