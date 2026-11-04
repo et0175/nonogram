@@ -7,6 +7,10 @@
     AC-5   TestBookInk_CoverIgnoresTheInteriorMode
     EC-1   TestBookInk_InkPositionsDoNotDependOnTheMode
 
+    (CARD-337 adds TestBookInk_TheStreamReaderReadsOutsideStrings, which is
+    not an AC: it is the control set for this module's own content-stream
+    reader, in the shape CARD-306's review established.)
+
 **There is no FR to cite, and that is deliberate.** This is owner intake —
 ``meta/architecture/inputs/raw-requirements.md``, 2026-09-25, "2 modes to pdf
 generator: black/white and colors … I was a bit too creative making colored
@@ -47,13 +51,15 @@ How the two modes are compared
 ------------------------------
 Two independent readings, because each would hide something the other catches:
 
-* **off the written file** — :func:`pdf_image_objects` parses the PDF's own
-  image XObjects and reports the ``ColorSpace``, the ``ProcSet`` and the decoded
-  page. That is what a printer reads, and it is the only place "the file
-  declares ``DeviceGray``" can be checked at all. It is a second implementation
-  of what ``tests/helpers/pdf_pages.py`` does, deliberately: that helper
-  normalises every page to RGB, which is precisely the fact under test here, so
-  it cannot be the instrument.
+* **off the written file** — :func:`pdf_page_declarations` parses the PDF's own
+  objects and reports each page's colour declaration **in the medium that page
+  was written in**: the ``ColorSpace``, the ``ProcSet`` and the decoded page off
+  an image XObject, and the colour-setting *operators* off a content stream.
+  That is what a printer reads, and it is the only place "the file declares
+  ``DeviceGray``" can be checked at all. It is a second implementation of what
+  ``tests/helpers/pdf_pages.py`` does, deliberately: that helper normalises
+  every page to RGB, which is precisely the fact under test here, so it cannot
+  be the instrument.
 * **off the page bitmaps before they are encoded** — the two images
   ``_write_page`` itself works with on one call: the ``"RGB"`` page COMP-007
   handed it and the page it handed the JPEG encoder. Both are captured off the
@@ -68,12 +74,73 @@ Two independent readings, because each would hide something the other catches:
 No ``hypothesis`` (it is not in the dependency baseline): EC-1's corpus is
 built by hand with stdlib ``random.Random`` and asserts its own size, so it
 cannot silently shrink (CLAUDE.md).
+
+CARD-337 — what a page declares once it is not a bitmap
+-------------------------------------------------------
+Every reading above asks *what colour space the FILE declares*, and until
+ADR-0042 every interior page was a JPEG that declared one. A page written as
+operators has **no image XObject, no ``/ColorSpace`` and no
+``BitsPerComponent``** — the reader raised ``KeyError: b'XObject'`` on it — so
+the question had no subject in the converted medium. Two dispositions, per
+claim, measured rather than argued, and the measurements are these: of the
+baseline book's 14 interior pages **4 are still bitmaps and 10 are streams**,
+because the registry declares ``DIVIDER`` raster; across EC-1's 14 books,
+**40 of 171 pages** are bitmaps and every book has at least two.
+
+**Re-expressed against the content stream** (ADR-0042/R6) where the claim has
+an equivalent there, as a runtime property of the page and not a static fact
+about the module:
+
+* *written in one channel* → a vector page's only colour operators are ``g``
+  and ``G``, it names no ``/ColorSpace`` resource, and none of PDF's other
+  seven colour operators appears (:func:`assert_declares_one_grey`). The
+  forbidden set is the whole vocabulary, derived, not the one operator that was
+  expected (ADR-0039/R2).
+* *not one mark moved* → on a vector page the marks **are** the operators, so
+  the two modes' streams are compared byte for byte. That is stricter than the
+  bitmap equality it replaces, because it admits no encoder tolerance at all.
+* *interior page 1 is the blank title page* → its stream carries **no painting
+  operator at all** (measured: zero bytes), which is a stronger statement than
+  "every pixel is 255" — a page painting white on white satisfies the pixel
+  reading and fails this one.
+* *the corpus exercises three trims* → read off each page's ``MediaBox``
+  (EC-019), not off a decoded image's size.
+* *the writer's RGB→L conversion is the identity* → ``_write_page`` runs for a
+  bitmap page only, so the **n-th write is no longer interior page n** (4
+  writes for a 14-page interior). The write ordinal is translated through the
+  written file's own list of bitmap pages.
+
+**Retired, with a named survivor** — one claim, and this is the honest half:
+
+* *the file declares the colour space the book chose* is **retired on vector
+  pages**. There is no equivalent to re-express it against:
+  ``book_vector.ContentStream``'s entire colour vocabulary is ``stroke_grey``
+  and ``fill_grey``, there is no ``rg``, and a converted page therefore comes
+  out ``DeviceGray`` **whichever mode the book stored**. Measured: the two
+  modes' vector streams are identical. The **named survivor is the raster
+  arm** — the same claim on the pages that are still bitmaps — and
+  :func:`assert_mode_reached_the_file` asserts that arm is **non-empty** so the
+  survivor cannot quietly die: if the interior ever holds no bitmap page, the
+  stored mode reaches nothing in the file and that function refuses by name
+  instead of looping over an empty list (ADR-0039/R1). ``EC1_MODE_PAGES`` is
+  the corpus-wide form of the same floor.
+
+**And the finding that goes with the retirement, which is not this card's to
+fix (G-1).** The mode not reaching a converted page is a **product behaviour
+change**, not a test defect: ``books.interior_ink_mode`` stops having any
+effect on 10 of the baseline book's 14 interior pages, and the owner intake
+this module cites — "we may add colors for book2" — is foreclosed on every
+converted page, since the vector writer cannot emit a non-grey colour at all.
+It is **CARD-322's**, routed the same way that card's ``cp1252`` refusal (M3b)
+was.
 """
 
 from __future__ import annotations
 
 import random
+import re
 import uuid
+import zlib
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -120,11 +187,39 @@ EC1_BOOKS = 14
 #: on the pages and not only on the books: a corpus of fourteen one-page books
 #: would satisfy a book count and prove nothing.
 #:
-#: 117 is the number the corpus above really produces — measured, not a bound
+#: 171 is the number the corpus above really produces — measured, not a bound
 #: with room in it — so one page fewer fails. The literal in the assertion's
 #: chain (``pages >= EC1_PAGES >= 110``) is what keeps this constant from being
 #: quietly lowered to whatever a shrunken corpus happens to yield.
-EC1_PAGES = 117
+#:
+#: **CARD-337 corrected this from 117, which was 54 pages of slack in a floor
+#: whose own comment claimed it had none** (ADR-0039/R4: a figure recomputed
+#: and refuted is retracted where it was written). Re-derived as 171 in both
+#: media — the committed raster tree and the five-kind vector one give the
+#: identical per-book counts ``[10, 13, 11, 14, 12, 18, 8, 10, 13, 11, 14, 11,
+#: 18, 8]`` — so the staleness was never a conversion effect. The constant the
+#: comment described and the constant the file held had drifted apart, and a
+#: floor with 54 pages of room in it is the defect CARD-149's review found,
+#: here in the very place that cites it.
+EC1_PAGES = 171
+
+#: How many of those pages the **stored ink mode actually reaches**: the pages
+#: written as a bitmap, where a colour space is declared at all.
+#:
+#: A second floor, and CARD-337's reason for it: a vector page is
+#: ``DeviceGray`` in either mode (``book_vector.ContentStream``'s whole colour
+#: vocabulary is ``g``/``G``), so the mode-dependent half of EC-1 can only be
+#: checked on bitmap pages. Without this floor the agreement half would still
+#: pass over a corpus the mode had stopped touching — it would be comparing
+#: each file with itself.
+#:
+#: 40 is the measured figure under the five-kind probe (2–4 DIVIDER pages per
+#: book, present in all 14); the committed raster tree gives 171, every page.
+#: The floor is the smaller, so it holds in both media, and it is tight in the
+#: converted one — which is the point: if DIVIDER ever stops being a declared
+#: bitmap (its ``expires_with`` names CARD-231), this fails by name instead of
+#: passing over a claim with no subject left.
+EC1_MODE_PAGES = 40
 
 
 # --------------------------------------------------------------------------
@@ -143,44 +238,264 @@ def _pdf_name(value: Any) -> str:
     return name.decode("ascii") if isinstance(name, bytes) else str(name)
 
 
-def pdf_image_objects(data: bytes) -> List[Dict[str, Any]]:
-    """Every page's image XObject in ``data``, as the file declares it.
+#: Every operator PDF has for *setting a colour*, as the whole vocabulary and
+#: not as the two this interior happens to use (ADR-0039/R2: a guard's set is
+#: derived, and a member it cannot classify is a failure). ``g``/``G`` are
+#: ``DeviceGray``; ``rg``/``RG`` ``DeviceRGB``; ``k``/``K`` ``DeviceCMYK``;
+#: ``cs``/``CS`` select a named space and ``sc``/``scn``/``SC``/``SCN`` set a
+#: component in it. :func:`stream_colour_operators` reports which of these a
+#: vector page really contains, so "this page declares DeviceGray" is a claim
+#: about all nine and not a search for the one that was expected.
+GREY_COLOUR_OPERATORS = frozenset({"g", "G"})
+OTHER_COLOUR_OPERATORS = frozenset(
+    {"rg", "RG", "k", "K", "cs", "CS", "sc", "scn", "SC", "SCN"}
+)
+COLOUR_OPERATORS = GREY_COLOUR_OPERATORS | OTHER_COLOUR_OPERATORS
 
-    One dict per page, in page order: ``colour_space`` and ``procset`` straight
-    off the PDF objects, ``filter``, the JPEG stream's length, and ``image``,
-    the page decoded **in the mode it was written in** — ``"L"`` for a
-    grayscale page, ``"RGB"`` for a colour one.
+#: Every operator that puts a mark on the page — path painting, text showing,
+#: shading, inline and named images (PDF 32000-1 tables 59, 74, 107, 108).
+#: Derived the same way and for the same reason: "this page paints nothing" has
+#: to be a claim about the vocabulary, not about the operators a blank page
+#: happens not to have used.
+PAINTING_OPERATORS = frozenset(
+    {
+        "S", "s", "f", "F", "f*", "B", "B*", "b", "b*",
+        "Tj", "TJ", "'", '"',
+        "sh", "Do", "BI", "EI",
+    }
+)
 
-    That last point is why this exists beside ``tests/helpers/pdf_pages.py``
-    rather than calling it: that helper ends with ``.convert("RGB")``, which
-    normalises away the one thing this card changes. Nothing here asks the
-    generator anything; it reads the bytes a route produced.
+#: A token in a content stream, outside every ``(…)`` literal and ``<…>`` hex
+#: body. Spelled as a scanner rather than a ``split()`` because ``"(0 0 1 rg)
+#: Tj"`` is a *string* that says ``rg`` and is not a colour declaration — the
+#: same distinction ``book_vector._paints_xobject`` makes for ``Do``, and the
+#: reason that function exists rather than a substring search.
+_STREAM_TOKEN = re.compile(rb"\(|<|[^\s()<>\[\]{}/%]+")
+
+
+def stream_tokens(raw: bytes) -> List[str]:
+    """``raw``'s operator tokens, with string and hex bodies skipped.
+
+    An independent second implementation of the reading
+    ``book_vector._paints_xobject`` does for one operator, written natively
+    here rather than imported: CLAUDE.md's rule is that two capabilities
+    needing the same logic reimplement it and cross-check, and the writer's
+    own scanner is the thing under test.
+    """
+    tokens: List[str] = []
+    index = 0
+    end = len(raw)
+    while index < end:
+        match = _STREAM_TOKEN.search(raw, index)
+        if match is None:
+            break
+        text = match.group()
+        index = match.end()
+        if text == b"(":
+            # A PDF string literal: nested parentheses count, and a backslash
+            # escapes the next byte.
+            depth = 1
+            while index < end and depth:
+                byte = raw[index]
+                if byte == 0x5C:  # backslash
+                    index += 2
+                    continue
+                if byte == 0x28:  # (
+                    depth += 1
+                elif byte == 0x29:  # )
+                    depth -= 1
+                index += 1
+            continue
+        if text == b"<":
+            closing = raw.find(b">", index)
+            index = end if closing < 0 else closing + 1
+            continue
+        tokens.append(text.decode("latin-1"))
+    return tokens
+
+
+def stream_colour_operators(raw: bytes) -> set:
+    """Which of :data:`COLOUR_OPERATORS` ``raw`` actually sets a colour with."""
+    return {token for token in stream_tokens(raw) if token in COLOUR_OPERATORS}
+
+
+def stream_painting_operators(raw: bytes) -> set:
+    """Which of :data:`PAINTING_OPERATORS` ``raw`` actually marks the page with."""
+    return {token for token in stream_tokens(raw) if token in PAINTING_OPERATORS}
+
+
+def pdf_page_declarations(data: bytes) -> List[Dict[str, Any]]:
+    """Every page of ``data``, with its colour declaration **in its own medium**.
+
+    One dict per page, in page order, carrying ``medium`` — ``"raster"`` or
+    ``"vector"`` — and then the fields that medium has:
+
+    * a **raster** page is an image XObject, and declares its colour space the
+      way a printer reads it: ``colour_space``, ``procset``, ``filter``,
+      ``bits``, ``jpeg_bytes``, and ``image``, the page decoded **in the mode
+      it was written in** (``"L"`` for grayscale, ``"RGB"`` for colour);
+    * a **vector** page is a content stream, and declares its colour with
+      *operators*: ``colour_operators`` (which of :data:`COLOUR_OPERATORS` it
+      contains), ``painting_operators``, ``names_colorspace`` (whether the page
+      names a ``/ColorSpace`` resource at all), ``procset``, and ``stream``,
+      the decompressed operators.
+
+    **Why this reader replaces the single-medium one, which is the whole of
+    CARD-337.** The claim CARD-147 made is "the FILE declares what the book
+    chose", and the only place that can be read is the file's own objects —
+    which is why this exists beside ``tests/helpers/pdf_pages.py`` rather than
+    calling it: that helper ends with ``.convert("RGB")``, normalising away the
+    one thing this module is about. But once an interior page is written as
+    operators (ADR-0042, CARD-322) it has **no image XObject and no
+    ``/ColorSpace``**, and the old reader's ``resources[b"XObject"]`` raised
+    ``KeyError`` on it — a claim meeting a page it cannot describe. Per
+    ADR-0042/R6 the reading is re-expressed against the content stream, and as
+    a **runtime** property of the page rather than a static fact about the
+    module: each page is read in whichever medium the file says it is in, so
+    one reader serves an all-raster interior, an all-vector one and the mixed
+    one the registry actually produces.
+
+    **A page this cannot classify is a failure, not a bucket** (ADR-0039/R2),
+    and the declared reach is exactly this: a page with **one** image XObject
+    is raster; a page with **no** XObject but a ``Contents`` object is vector;
+    a page with **neither** is refused by name, and a page with **more than
+    one** XObject is refused by the assertion above. A raster page *also* has
+    a content stream — the ``Do`` that paints its image — so "has both" is the
+    ordinary bitmap case and not an ambiguity; the XObject is read first
+    because that is where a bitmap page keeps its colour space. A vector
+    stream that is not ``FlateDecode`` raises out of :mod:`zlib` rather than
+    being read as empty, which is the one remaining way this could be wrong
+    and is loud.
     """
     parser = PdfParser.PdfParser(buf=data)
     try:
         pages = []
-        for ref in parser.pages:
+        for number, ref in enumerate(parser.pages, start=1):
             page = parser.read_indirect(ref)
             resources = page[b"Resources"]
-            xobjects = resources[b"XObject"]
-            assert len(xobjects) == 1, "a book page is exactly one image"
-            (stream_ref,) = xobjects.values()
-            stream = parser.read_indirect(stream_ref)
-            image = Image.open(BytesIO(stream.buf))
-            image.load()
+            procset = [_pdf_name(name) for name in resources.get(b"ProcSet", [])]
+            xobjects = resources.get(b"XObject")
+            if xobjects:
+                assert len(xobjects) == 1, "a book page is exactly one image"
+                (stream_ref,) = xobjects.values()
+                stream = parser.read_indirect(stream_ref)
+                image = Image.open(BytesIO(stream.buf))
+                image.load()
+                pages.append(
+                    {
+                        "medium": "raster",
+                        "colour_space": _pdf_name(stream.dictionary[b"ColorSpace"]),
+                        "procset": procset,
+                        "filter": _pdf_name(stream.dictionary[b"Filter"]),
+                        "bits": int(stream.dictionary[b"BitsPerComponent"]),
+                        "jpeg_bytes": len(stream.buf),
+                        "image": image,
+                    }
+                )
+                continue
+            contents = page.get(b"Contents")
+            assert contents is not None, (
+                f"page {number} has neither an image XObject nor a Contents "
+                "object: it declares its colour in no medium this reader "
+                "knows, and an unclassifiable page is a failure rather than a "
+                "default (ADR-0039/R2)"
+            )
+            body = parser.read_indirect(contents)
+            raw = zlib.decompress(body.buf)
             pages.append(
                 {
-                    "colour_space": _pdf_name(stream.dictionary[b"ColorSpace"]),
-                    "procset": [_pdf_name(name) for name in resources[b"ProcSet"]],
-                    "filter": _pdf_name(stream.dictionary[b"Filter"]),
-                    "bits": int(stream.dictionary[b"BitsPerComponent"]),
-                    "jpeg_bytes": len(stream.buf),
-                    "image": image,
+                    "medium": "vector",
+                    "procset": procset,
+                    "names_colorspace": b"ColorSpace" in resources,
+                    "colour_operators": stream_colour_operators(raw),
+                    "painting_operators": stream_painting_operators(raw),
+                    "stream": raw,
                 }
             )
         return pages
     finally:
         parser.close()
+
+
+def pdf_image_objects(data: bytes) -> List[Dict[str, Any]]:
+    """``data``'s **raster** pages, as the file declares them.
+
+    :func:`pdf_page_declarations`'s raster projection, and the reading every
+    "what colour space does the file declare" claim below is gated on. On an
+    all-raster file this is every page, which is what it has always been; on a
+    converted interior it is the pages that are still bitmaps.
+
+    It is deliberately **not** every page any more. A caller that wants "the
+    declaration of page N whatever medium it is in" asks
+    :func:`pdf_page_declarations`; a caller that wants "the colour space a
+    printer reads off page N's image" asks this, and gets the pages that have
+    one. The old reader conflated the two, and that conflation is the mechanism
+    CARD-337 repaired: it made a page with no XObject an exception rather than
+    a page with a different declaration.
+    """
+    return [page for page in pdf_page_declarations(data) if page["medium"] == "raster"]
+
+
+def assert_declares_one_grey(pages: List[Dict[str, Any]], label: str) -> None:
+    """Every vector page of ``pages`` declares ``DeviceGray`` and nothing else.
+
+    The content-stream half of "the file is written in one channel": a page
+    whose only colour operators are ``g``/``G`` sets its tone in
+    ``DeviceGray``, names no other space and names no ``/ColorSpace`` resource
+    to select one — the operator-level statement of what ``/DeviceGray`` says
+    on a raster page.
+
+    **This arm is MODE-INDEPENDENT and that is stated, not hidden.**
+    ``book_vector.ContentStream``'s whole colour vocabulary is ``stroke_grey``
+    and ``fill_grey``; there is no ``rg``/``RG`` in it, so a vector page comes
+    out ``DeviceGray`` whichever mode the book stored. So this is a true claim
+    about the file and **not** a re-expression of "the book's choice reached
+    the page" — that claim is checked on the raster arm, which is where it
+    still has a subject, and :func:`assert_mode_reached_the_file` asserts that
+    arm is non-empty so it cannot pass vacuously.
+    """
+    for number, page in enumerate(pages, start=1):
+        assert page["medium"] == "vector", f"{label} page {number}"
+        assert page["colour_operators"] <= GREY_COLOUR_OPERATORS, (
+            f"{label} vector page {number} sets a colour outside DeviceGray: "
+            f"{sorted(page['colour_operators'] - GREY_COLOUR_OPERATORS)}"
+        )
+        assert not page["names_colorspace"], (
+            f"{label} vector page {number} names a /ColorSpace resource, so it "
+            "can select a space its operators do not name"
+        )
+        # The claim, and not the writer's current list: a page with no image
+        # declares no image procset. Pinning `["PDF", "Text"]` outright would
+        # be a guard that moves whenever an unrelated writer change touches
+        # the resource dictionary — the mechanism that put a third of this
+        # family's reds on the board.
+        assert not {"ImageB", "ImageC", "ImageI"} & set(page["procset"]), (
+            f"{label} vector page {number} declares an image procset "
+            f"({page['procset']}) on a page that paints no image"
+        )
+
+
+def assert_mode_reached_the_file(
+    raster: List[Dict[str, Any]], colour_space: str, procset: str, label: str
+) -> None:
+    """The raster arm: every bitmap page declares the space the book chose.
+
+    **The named survivor of the claim CARD-337 retired on vector pages.** The
+    first line is the whole point of the function: if the interior ever has no
+    bitmap page left, the book's stored mode reaches nothing in the file at
+    all, and this refuses LOUDLY instead of looping over an empty list and
+    reading green (ADR-0039/R1 — a claim needs a control that can fail).
+    """
+    assert raster, (
+        f"{label}: the interior has no raster page, so books.interior_ink_mode "
+        "reaches nothing in the file and the claim that the file declares the "
+        "mode the book chose has no subject anywhere. Retiring it needs a "
+        "survivor, and this was it (CARD-337; DIVIDER is the last declared "
+        "interior bitmap and its expires_with names CARD-231)"
+    )
+    for number, page in enumerate(raster, start=1):
+        assert page["colour_space"] == colour_space, f"{label} raster page {number}"
+        assert page["procset"] == ["PDF", procset], f"{label} raster page {number}"
 
 
 def ink_mask(image: Image.Image) -> np.ndarray:
@@ -197,6 +512,86 @@ def ink_mask(image: Image.Image) -> np.ndarray:
 def grey_levels(image: Image.Image) -> np.ndarray:
     """``image``'s luma as a 2-D array of 0..255."""
     return np.asarray(image.convert("L"))
+
+
+class TestBookInk_TheStreamReaderReadsOutsideStrings:
+    """Controls for CARD-337's own instrument, because it is a new reading.
+
+    :func:`stream_colour_operators` is what "a vector page declares
+    ``DeviceGray``" now rests on, and the reading has a trap: ``(0 0 1 rg) Tj``
+    is a *string literal* that says ``rg`` and declares no colour at all. A
+    substring search would call that page ``DeviceRGB`` and a page that really
+    did set ``rg`` inside a text object would read the same, so the instrument
+    would be both too wide and too narrow at once.
+
+    That is not a hypothetical: CARD-306's review measured the first version of
+    ``book_vector._paints_xobject`` — the same reading for the ``Do`` operator —
+    being exactly both, which is why that function exists instead of a
+    substring search and why its controls in
+    ``tests/test_book_puzzle_page_vector.py`` run both string forms through it.
+    This card reimplements that reading natively (CLAUDE.md: two capabilities
+    needing the same logic reimplement and cross-check, rather than importing
+    across), so it owes the same controls — a new instrument asserted only
+    through the pages it happens to meet is a claim, not a reading.
+    """
+
+    @pytest.mark.parametrize(
+        "raw,expected,why",
+        [
+            (b"0 g\n1 0 0 1 100 100 cm\n", {"g"}, "a plain grey fill"),
+            (b"0.5 G\n", {"G"}, "a stroke grey"),
+            (b"0 0 1 rg\n0 g\n", {"rg", "g"}, "both, outside strings"),
+            (b"BT (0 0 1 rg) Tj ET", set(), "rg inside a string literal"),
+            (b"BT (Scan Do now) Tj ET", set(), "a string that says Do"),
+            (b"BT <30203020312072673E> Tj ET", set(), "rg inside a hex body"),
+            (b"BT (nested (paren) 1 rg) Tj ET", set(), "nested parentheses"),
+            (b"BT (escaped \\) 1 rg) Tj ET", set(), "an escaped close-paren"),
+            (b"", set(), "an empty stream — the blank title page"),
+        ],
+    )
+    def test_a_colour_operator_inside_a_string_is_not_a_declaration(
+        self, raw, expected, why
+    ):
+        assert stream_colour_operators(raw) == expected, why
+
+    @pytest.mark.parametrize(
+        "raw,expected,why",
+        [
+            (b"", set(), "the blank title page paints nothing"),
+            (b"100 100 m 200 200 l S", {"S"}, "a stroked path"),
+            (b"BT (f) Tj ET", {"Tj"}, "an 'f' inside a string is not a fill"),
+        ],
+    )
+    def test_a_painting_operator_inside_a_string_does_not_mark_the_page(
+        self, raw, expected, why
+    ):
+        assert stream_painting_operators(raw) == expected, why
+
+    def test_the_forbidden_set_is_the_whole_colour_vocabulary(self):
+        """ADR-0039/R2: the guard's set is derived, not the operator expected.
+
+        ``GREY_COLOUR_OPERATORS`` and ``OTHER_COLOUR_OPERATORS`` partition
+        ``COLOUR_OPERATORS``, and the whole of PDF's colour vocabulary is in
+        it — so a page setting ``DeviceCMYK`` or selecting a named space is
+        caught by :func:`assert_declares_one_grey`, not only one setting
+        ``rg``.
+        """
+        assert GREY_COLOUR_OPERATORS | OTHER_COLOUR_OPERATORS == COLOUR_OPERATORS
+        assert not GREY_COLOUR_OPERATORS & OTHER_COLOUR_OPERATORS
+        assert COLOUR_OPERATORS == {
+            "g", "G", "rg", "RG", "k", "K", "cs", "CS", "sc", "scn", "SC", "SCN"
+        }
+        for operator in OTHER_COLOUR_OPERATORS:
+            page = {
+                "medium": "vector",
+                "names_colorspace": False,
+                "procset": ["PDF", "Text"],
+                "colour_operators": {"g", operator},
+                "painting_operators": {"f"},
+                "stream": b"",
+            }
+            with pytest.raises(AssertionError, match="sets a colour outside"):
+                assert_declares_one_grey([page], "a planted page")
 
 
 # --------------------------------------------------------------------------
@@ -255,26 +650,55 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
     """
 
     def test_every_page_declares_devicegray_and_one_channel(self, baseline_exports):
+        """Every page is written in one channel — each in its own medium.
+
+        The page **count** is medium-independent and stays the whole claim it
+        was. The declaration is read where that page keeps it: off the image
+        XObject for a bitmap page, off the operators for a vector one
+        (ADR-0042/R6).
+        """
         bw, _colour = baseline_exports
-        pages = pdf_image_objects(bw)
+        pages = pdf_page_declarations(bw)
 
         assert len(pages) == BASELINE_PAGE_COUNT, "the corpus cannot silently shrink"
-        for number, page in enumerate(pages, start=1):
-            assert page["colour_space"] == "DeviceGray", f"interior page {number}"
-            assert page["procset"] == ["PDF", "ImageB"], f"interior page {number}"
-            assert page["filter"] == "DCTDecode", f"interior page {number}"
-            assert page["bits"] == 8, f"interior page {number}"
-            assert page["image"].mode == "L", f"interior page {number}"
+
+        raster = [page for page in pages if page["medium"] == "raster"]
+        assert_mode_reached_the_file(raster, "DeviceGray", "ImageB", "the grey interior")
+        for number, page in enumerate(raster, start=1):
+            assert page["filter"] == "DCTDecode", f"raster page {number}"
+            assert page["bits"] == 8, f"raster page {number}"
+            assert page["image"].mode == "L", f"raster page {number}"
+
+        assert_declares_one_grey(
+            [page for page in pages if page["medium"] == "vector"],
+            "the grey interior",
+        )
 
     def test_the_colour_export_of_the_same_book_declares_devicergb(
         self, baseline_exports
     ):
-        """The control: the difference really is the mode and not the export."""
+        """The control: the difference really is the mode and not the export.
+
+        **And the control's reach is now asserted rather than assumed.** It
+        runs on the pages the mode still reaches — the bitmap ones — and
+        :func:`assert_mode_reached_the_file` fails if there are none. The
+        vector pages of the *colour* export declare ``DeviceGray`` too, which
+        is measured below rather than glossed: ``ContentStream`` has no
+        ``rg``, so the colour mode cannot reach a converted page at all. That
+        is this card's finding against CARD-322, and asserting it here is what
+        keeps it from being re-discovered as a mystery.
+        """
         _bw, colour = baseline_exports
-        for number, page in enumerate(pdf_image_objects(colour), start=1):
-            assert page["colour_space"] == "DeviceRGB", f"interior page {number}"
-            assert page["procset"] == ["PDF", "ImageC"], f"interior page {number}"
-            assert page["image"].mode == "RGB", f"interior page {number}"
+        pages = pdf_page_declarations(colour)
+        raster = [page for page in pages if page["medium"] == "raster"]
+        assert_mode_reached_the_file(raster, "DeviceRGB", "ImageC", "the colour interior")
+        for number, page in enumerate(raster, start=1):
+            assert page["image"].mode == "RGB", f"raster page {number}"
+
+        assert_declares_one_grey(
+            [page for page in pages if page["medium"] == "vector"],
+            "the colour interior",
+        )
 
     def test_no_mark_moves_on_any_page_bitmap(self, monkeypatch):
         """The exact half: the page **the writer encoded** is the same ink (G-2).
@@ -306,9 +730,44 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         dropped when that frame returns, so nothing is collected and
         CARD-145's streaming property is not traded away to take the
         measurement (G-3).
+
+        **CARD-337: the write ordinal is not the interior page ordinal.**
+        ``_write_page`` runs for a *bitmap* page only — ``_write_pdf`` sends a
+        vector page to ``write_vector_page`` instead — so once any interior
+        kind is written as operators, "the n-th write" and "interior page n"
+        stop being the same number (measured: 4 writes for a 14-page
+        interior). This test used both identities: ``number = checked + 1`` as
+        a page number, and ``checked == BASELINE_PAGE_COUNT`` as a page count.
+        Both are now **derived from the written file** — the interior page
+        numbers that really are bitmaps, read out of the page tree — so the
+        reading is a runtime property of the export rather than a static
+        assumption about the medium (ADR-0042/R6). The page *total* keeps its
+        literal, because that total is medium-independent.
         """
         generator = BookPDFGenerator(book_on(InkMode.BLACK_AND_WHITE))
         assert generator.interior_bitmap_mode == "L"
+
+        # Which interior pages this book writes as bitmaps, read off the file
+        # itself. The export is taken unpatched, so the mapping is the
+        # writer's own and not a prediction from the registry.
+        declarations = pdf_page_declarations(
+            export_of(BookPDFGenerator(book_on(InkMode.BLACK_AND_WHITE)),
+                      baseline_puzzles())
+        )
+        assert len(declarations) == BASELINE_PAGE_COUNT == 14, (
+            f"the interior is {len(declarations)} pages, not {BASELINE_PAGE_COUNT}"
+        )
+        raster_page_numbers = [
+            number
+            for number, page in enumerate(declarations, start=1)
+            if page["medium"] == "raster"
+        ]
+        assert raster_page_numbers, (
+            "no interior page is a bitmap, so _write_page is never called and "
+            "there is no writer conversion to compare: this test's whole "
+            "subject would be gone and it would pass having measured nothing "
+            "(CARD-337, ADR-0039/R1)"
+        )
 
         real_write_page = BookPDFGenerator._write_page
         real_save = Image.Image.save
@@ -329,7 +788,13 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             del encoded[before:]
 
             assert len(written) == 1, "a book page is encoded exactly once"
-            number = checked + 1
+            # CARD-337: the write's own ordinal, translated into the interior
+            # page it is writing.
+            assert checked < len(raster_page_numbers), (
+                f"_write_page ran {checked + 1} times for an interior with "
+                f"{len(raster_page_numbers)} bitmap page(s)"
+            )
+            number = raster_page_numbers[checked]
             grey_page = written[0]
 
             assert page.mode == "RGB", "COMP-007 draws the page in RGB either way"
@@ -361,6 +826,14 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             # The non-vacuity claim is made on every *other* page and the
             # title page's blankness is asserted outright, rather than the
             # claim being loosened to "some page carries black".
+            #
+            # CARD-337: `number` is now the interior page this write is
+            # writing, so this branch fires when page 1 really is the bitmap
+            # being written and does not fire when page 1 is a content stream
+            # — where the blankness claim is read off the stream instead, in
+            # `test_the_two_files_hold_the_same_marks_page_for_page` and in
+            # EC-1's agreement test. The branch is not loosened: it is read in
+            # the medium the page is in.
             if number == 1:
                 assert int((grey == 255).sum()) == grey.size, (
                     "interior page 1 is the blank title page (CARD-206)"
@@ -376,11 +849,15 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        # CARD-206: BASELINE_PAGE_COUNT is now 14 (CARD-200's thirteen, plus
-        # the blank title / copyright page reserved as interior page 1) — the
-        # literal beside it is kept, as before, so the corpus's own length
-        # cannot silently drift even if the import is ever swapped out.
-        assert checked == BASELINE_PAGE_COUNT == 14, f"only {checked} pages compared"
+        # CARD-206: BASELINE_PAGE_COUNT is 14 (CARD-200's thirteen, plus the
+        # blank title / copyright page reserved as interior page 1) and the
+        # literal beside it is pinned above, on the page *total*, which is
+        # medium-independent. What is pinned here is that every bitmap page the
+        # file holds was compared — derived from the file, because a literal
+        # here would be a count of writes and that is a medium fact (CARD-337).
+        assert checked == len(raster_page_numbers), (
+            f"{checked} of {len(raster_page_numbers)} bitmap page(s) compared"
+        )
 
     def test_the_two_files_hold_the_same_marks_page_for_page(self, baseline_exports):
         """And the same after the encode: the two files decode to one ink.
@@ -391,18 +868,50 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         equality and not an overlap ratio.
         """
         bw, colour = baseline_exports
-        grey_pages = pdf_image_objects(bw)
-        colour_pages = pdf_image_objects(colour)
+        grey_pages = pdf_page_declarations(bw)
+        colour_pages = pdf_page_declarations(colour)
 
         assert pdf_page_count(bw) == pdf_page_count(colour) == BASELINE_PAGE_COUNT
+        compared = {"raster": 0, "vector": 0}
         for number, (g, c) in enumerate(zip(grey_pages, colour_pages, strict=True), 1):
-            assert g["image"].size == c["image"].size, f"interior page {number}"
-            assert np.array_equal(
-                ink_mask(g["image"]), ink_mask(c["image"])
-            ), f"interior page {number}: the ink moved"
-            assert np.array_equal(
-                grey_levels(g["image"]), grey_levels(c["image"])
-            ), f"interior page {number}: a level moved"
+            assert g["medium"] == c["medium"], (
+                f"interior page {number} is {g['medium']} in the grey export and "
+                f"{c['medium']} in the colour one: the mode decided a medium"
+            )
+            if g["medium"] == "raster":
+                assert g["image"].size == c["image"].size, f"interior page {number}"
+                assert np.array_equal(
+                    ink_mask(g["image"]), ink_mask(c["image"])
+                ), f"interior page {number}: the ink moved"
+                assert np.array_equal(
+                    grey_levels(g["image"]), grey_levels(c["image"])
+                ), f"interior page {number}: a level moved"
+                blank = int(ink_mask(g["image"]).sum()) == 0
+            else:
+                # CARD-337, ADR-0042/R6: on a vector page the marks ARE the
+                # operators, so "not one mark moved" is the content streams
+                # being identical — a stricter equality than the bitmap one,
+                # not a looser one, because it admits no encoder tolerance at
+                # all. Measured identical across the two modes, which is this
+                # card's finding stated as an assertion:
+                # `book_vector.ContentStream` has no `rg` to emit.
+                assert g["stream"] == c["stream"], (
+                    f"interior page {number}: {len(g['stream'])} vs "
+                    f"{len(c['stream'])} stream bytes — a mark moved with the mode"
+                )
+                blank = not g["painting_operators"]
+            compared[g["medium"]] += 1
+
+            # CARD-206's blank title / copyright page, read in the medium it
+            # was written in: no ink on a bitmap, no painting operator at all
+            # on a content stream. This is the survivor the writer-side test's
+            # own page-1 branch names when page 1 is not a bitmap.
+            if number == 1:
+                assert blank, "interior page 1 is the blank title page (CARD-206)"
+            else:
+                assert not blank, f"interior page {number} carries no marks"
+
+        assert sum(compared.values()) == BASELINE_PAGE_COUNT, compared
 
     @pytest.mark.parametrize(
         "mode,colour_space",
@@ -423,8 +932,21 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         panel.submit_print_setup(book_id, interior_ink_mode=mode.value)
 
         downloaded = panel.download_interior(book_id)
-        spaces = {page["colour_space"] for page in pdf_image_objects(downloaded)}
-        assert spaces == {colour_space}
+        pages = pdf_page_declarations(downloaded)
+        raster = [page for page in pages if page["medium"] == "raster"]
+        # CARD-337: the bitmap pages are where the stored mode still reaches
+        # the file, and `assert_mode_reached_the_file` refuses if there are
+        # none — so "the file the owner downloads is the one the book chose"
+        # cannot come out green on a file the choice never touched.
+        assert_mode_reached_the_file(
+            raster, colour_space, "ImageB" if colour_space == "DeviceGray" else "ImageC",
+            f"the downloaded {mode.value} interior",
+        )
+        assert {page["colour_space"] for page in raster} == {colour_space}
+        assert_declares_one_grey(
+            [page for page in pages if page["medium"] == "vector"],
+            f"the downloaded {mode.value} interior",
+        )
         assert f'data-interior-ink-mode="{mode.value}"' in panel.finalise(book_id), (
             "and Finalise names the mode the file was written in"
         )
@@ -440,10 +962,20 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         bw, colour = baseline_exports
         assert len(bw) < len(colour)
 
+        # CARD-337: the saving is a property of the JPEG pages — one channel
+        # where there were three — so it is read on the pages that have a
+        # JPEG. A vector page's stream is identical in the two modes (measured
+        # above), so it contributes nothing to the saving and has no
+        # per-page claim to make here. `assert_mode_reached_the_file` on the
+        # grey side is what keeps this from being an empty loop.
         grey_pages = pdf_image_objects(bw)
         colour_pages = pdf_image_objects(colour)
+        assert grey_pages, (
+            "the interior has no JPEG page, so one channel instead of three "
+            "saves nothing and this claim has no subject (CARD-337)"
+        )
         for number, (g, c) in enumerate(zip(grey_pages, colour_pages, strict=True), 1):
-            assert g["jpeg_bytes"] < c["jpeg_bytes"], f"interior page {number}"
+            assert g["jpeg_bytes"] < c["jpeg_bytes"], f"raster page {number}"
 
         saved = 1 - len(bw) / len(colour)
         assert 0.05 < saved < 0.5, f"the grayscale interior saved {saved:.1%}"
@@ -897,9 +1429,19 @@ class TestBookInk_CoverIgnoresTheInteriorMode:
         cover = export.cover.getvalue()
 
         assert export.interior_page_count == BASELINE_PAGE_COUNT
-        assert {page["colour_space"] for page in pdf_image_objects(interior)} == {
-            "DeviceGray"
-        }
+        # CARD-337: the interior's claim is read per medium; the cover's is
+        # not, because a cover is a photograph and ADR-0042/R2 declares it
+        # raster with an empty `expires_with` — no card converts it, which is
+        # why the three sibling tests above stay a single-medium reading.
+        interior_pages = pdf_page_declarations(interior)
+        assert_mode_reached_the_file(
+            [page for page in interior_pages if page["medium"] == "raster"],
+            "DeviceGray", "ImageB", "the grey interior beside a colour cover",
+        )
+        assert_declares_one_grey(
+            [page for page in interior_pages if page["medium"] == "vector"],
+            "the grey interior beside a colour cover",
+        )
         assert [page["colour_space"] for page in pdf_image_objects(cover)] == [
             "DeviceRGB"
         ]
@@ -1045,26 +1587,37 @@ class TestBookInk_InkPositionsDoNotDependOnTheMode:
         return built
 
     def test_the_corpus_is_the_size_it_claims_and_varies(self, exports):
+        """The corpus's own floors: enough books, enough lengths, enough trims.
+
+        **CARD-337, ADR-0042/R6.** The trim variety used to be read as the
+        decoded size of page 1's image, which a content-stream page does not
+        have. The medium-durable statement of a trim is the page's
+        ``MediaBox`` — EC-019's own claim, and the quantity this class's
+        docstring already calls "the only thing that says how large the raster
+        is *printed*". So it is re-expressed against the page object, which is
+        strictly better evidence of a trim than a pixel count at an assumed
+        DPI, and holds in either medium.
+        """
+        from tests.helpers.page_ink import pdf_page_boxes
+
         assert len(exports) == EC1_BOOKS >= 12, f"the corpus shrank to {len(exports)}"
         page_counts = {pdf_page_count(bw) for _label, bw, _c in exports}
         assert len(page_counts) >= 4, (
             f"the corpus's books all have the same length ({page_counts}); a "
             "property over one page count is an example"
         )
-        sizes = {
-            tuple(pdf_image_objects(bw)[0]["image"].size)
-            for _label, bw, _c in exports
-        }
-        assert len(sizes) >= 3, f"the corpus exercises only {len(sizes)} trims"
+        trims = {pdf_page_boxes(bw)[0] for _label, bw, _c in exports}
+        assert len(trims) >= 3, f"the corpus exercises only {len(trims)} trims"
 
     def test_the_two_modes_agree_on_every_page_of_every_book(self, exports):
         from tests.helpers.page_ink import pdf_page_boxes
 
         books = 0
         pages = 0
+        mode_reached = 0
         for label, bw, colour in exports:
-            grey_pages = pdf_image_objects(bw)
-            colour_pages = pdf_image_objects(colour)
+            grey_pages = pdf_page_declarations(bw)
+            colour_pages = pdf_page_declarations(colour)
 
             # The page count is the file's own, read out of its page tree.
             assert pdf_page_count(bw) == pdf_page_count(colour) == len(grey_pages), label
@@ -1073,41 +1626,80 @@ class TestBookInk_InkPositionsDoNotDependOnTheMode:
             # The printed size of every page, in PDF points.
             assert pdf_page_boxes(bw) == pdf_page_boxes(colour), label
 
+            # CARD-337: the mode-dependent half of the property has to run on
+            # this book, or its agreement half is comparing a file with
+            # itself. Asserted per book, not once for the corpus.
+            grey_raster = [p for p in grey_pages if p["medium"] == "raster"]
+            assert_mode_reached_the_file(
+                grey_raster, "DeviceGray", "ImageB", f"{label} (grey)"
+            )
+            assert_mode_reached_the_file(
+                [p for p in colour_pages if p["medium"] == "raster"],
+                "DeviceRGB", "ImageC", f"{label} (colour)",
+            )
+            mode_reached += len(grey_raster)
+
             for number, (g, c) in enumerate(
                 zip(grey_pages, colour_pages, strict=True), start=1
             ):
-                # The modes really did differ on this page ...
-                assert g["colour_space"] == "DeviceGray", f"{label} page {number}"
-                assert c["colour_space"] == "DeviceRGB", f"{label} page {number}"
-                assert g["image"].mode == "L" and c["image"].mode == "RGB"
-
-                # ... and the ink is in exactly the same places.
-                assert g["image"].size == c["image"].size, f"{label} page {number}"
-                grey_ink, colour_ink = ink_mask(g["image"]), ink_mask(c["image"])
-                assert np.array_equal(grey_ink, colour_ink), (
-                    f"{label} page {number}: {int(np.logical_xor(grey_ink, colour_ink).sum())} "
-                    "pixels of ink moved with the mode"
+                assert g["medium"] == c["medium"], (
+                    f"{label} page {number}: {g['medium']} vs {c['medium']} — "
+                    "the mode decided a medium"
                 )
-                assert np.array_equal(
-                    grey_levels(g["image"]), grey_levels(c["image"])
-                ), f"{label} page {number}: a grey level moved with the mode"
+                if g["medium"] == "raster":
+                    # The modes really did differ on this page ...
+                    assert g["colour_space"] == "DeviceGray", f"{label} page {number}"
+                    assert c["colour_space"] == "DeviceRGB", f"{label} page {number}"
+                    assert g["image"].mode == "L" and c["image"].mode == "RGB"
+
+                    # ... and the ink is in exactly the same places.
+                    assert g["image"].size == c["image"].size, f"{label} page {number}"
+                    grey_ink, colour_ink = ink_mask(g["image"]), ink_mask(c["image"])
+                    assert np.array_equal(grey_ink, colour_ink), (
+                        f"{label} page {number}: "
+                        f"{int(np.logical_xor(grey_ink, colour_ink).sum())} "
+                        "pixels of ink moved with the mode"
+                    )
+                    assert np.array_equal(
+                        grey_levels(g["image"]), grey_levels(c["image"])
+                    ), f"{label} page {number}: a grey level moved with the mode"
+                    blank = int(grey_ink.sum()) == 0
+                else:
+                    # CARD-337, ADR-0042/R6: a vector page's marks are its
+                    # operators, so the agreement is the streams being
+                    # identical. The mode-dependence claim is NOT re-expressed
+                    # here and is not asserted here: it is retired on vector
+                    # pages, with the raster arm above as its named survivor,
+                    # because `ContentStream`'s colour vocabulary is `g`/`G`
+                    # only and a vector page is DeviceGray in either mode.
+                    assert g["stream"] == c["stream"], (
+                        f"{label} page {number}: a mark moved with the mode"
+                    )
+                    # The label carries the real page number, because the
+                    # helper numbers the list it is handed and a one-page list
+                    # would otherwise call page 12 "page 1".
+                    assert_declares_one_grey([g], f"{label} (grey) page {number} of")
+                    assert_declares_one_grey([c], f"{label} (colour) page {number} of")
+                    blank = not g["painting_operators"]
+
                 # CARD-206: interior page 1 is the blank title / copyright
-                # page — no ink on either mode's copy of it, which is itself
-                # the thing to assert here; every other page must carry ink,
-                # or the equality above would be comparing two empty masks.
+                # page — no marks on either mode's copy of it, which is itself
+                # the thing to assert here; every other page must carry marks,
+                # or the equality above would be comparing two empty pages.
                 if number == 1:
-                    assert int(grey_ink.sum()) == 0, (
+                    assert blank, (
                         f"{label} page 1 is the blank title page (CARD-206)"
                     )
                 else:
-                    assert int(grey_ink.sum()) > 0, (
-                        f"{label} page {number} has no ink"
-                    )
+                    assert not blank, f"{label} page {number} has no marks"
                 pages += 1
             books += 1
 
         assert books == EC1_BOOKS >= 12, f"only {books} books compared"
         assert pages >= EC1_PAGES >= 110, f"only {pages} pages compared"
+        assert mode_reached >= EC1_MODE_PAGES >= 14, (
+            f"the stored mode reached only {mode_reached} page(s) of the corpus"
+        )
 
     def test_the_mode_never_reaches_the_sheet(self):
         """The other half of EC-1: ``PageSpec`` does not carry the mode at all.
