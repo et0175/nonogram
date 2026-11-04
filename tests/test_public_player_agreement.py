@@ -114,7 +114,16 @@ reds as a stale entry. The **content** of a routed divergence is NOT held:
 changing the admin's filled-swatch ``border-color``, or repainting the public
 Clear swatch in ink, leaves each fact diverging and the arm green. Only the two
 Maybe papers are value-pinned, and only by hand-written literals in
-:meth:`TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed.test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`.
+:meth:`TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed.test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`
+— and **"the two Maybe papers" is two facts but not four sides**, found by plant
+in CARD-339 cycle 2, the same way the sentence above it was found. Of the four
+fact-sides, **three** are held: the *cell*'s two sides by the written-out
+literals, and the *swatch*'s **public** side transitively, through that arm's
+closing ``census[cell][1] == census[swatch][1]``. The swatch's **admin** side is
+held only to *differing from this page's* — plant a background on ``admin.css``'s
+Maybe swatch (it declares none today, so the fact falls through to
+``.player-swatch``'s ``--grid-paper``) and the census moves while every arm in
+this module stays green. That fourth side is **CARD-346's** with the rest.
 :data:`DECLARED_DIVERGENCES` has the counterpart this table lacks —
 :data:`RESIDUE_CONTROLS`, which exists because CARD-328's cycle-1 review raised
 it as IMP-1 — and **CARD-346 owes this registry the same**, derived rather than
@@ -1801,6 +1810,21 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
         routed facts, and the other four are held to diverging and nothing
         more. **CARD-346** owes the table a derived residue per entry, the way
         :data:`RESIDUE_CONTROLS` does for :data:`DECLARED_DIVERGENCES`.
+
+        **Narrower still, and read this before trusting "two of the six":** two
+        facts are four *sides*, and this arm holds **three** of them. The two
+        literals are written for ``.player-cell.maybe.paper`` only, so the
+        cell's admin and public sides are both pinned by value. The swatch's
+        **public** side is pinned transitively, by the closing
+        ``census[cell][1] == census[swatch][1]`` — CARD-323's claim that the
+        button previews the cell. Nothing here holds the swatch's **admin**
+        side beyond ``census[key][0] != census[key][1]``, i.e. to *diverging
+        from this page's*: ``admin.css`` declares no background on its Maybe
+        swatch, so that side falls through to ``.player-swatch``'s
+        ``--grid-paper``, and planting one there moves the census with this arm
+        and the classification arm both green (CARD-339 cycle 2, by plant; the
+        counter-plant on the public side reds through the equality above).
+        **That fourth side is CARD-346's**, with the rest of the residue.
         """
         for key in (".player-cell.maybe.paper", ".player-swatch.maybe.paper"):
             assert key in SIBLING_FINDINGS, key

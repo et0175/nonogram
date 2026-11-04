@@ -88,10 +88,16 @@ One nit left standing deliberately:
 :meth:`TestPublicMaybe_TheLookIsDeclaredOnce.test_the_maybe_cell_look_is_one_rule_declaring_one_background`
 now reads as a claim about the **paper** rule only, which is still one rule
 declaring one background. The name is not renamed here because
-``meta/kanban/cards/CARD-323.md`` cites it twice by name and that file is
+``meta/kanban/cards/CARD-323.md`` cites it by name and that file is
 outside CARD-339's ``Touches`` — and a rename would go dead under a check-ref
 resolver that is a TEXT search. **CARD-347 takes both files and owes the
-rename**; this note is the interim.
+rename**; this note is the interim. (The count was "twice" until this gate:
+a fixed-string count over ``CARD-323.md`` returns **1**, by two instruments,
+at the commit this lands on. One citation is reach enough for the argument,
+so the conclusion is unchanged — but cycle 2 *rewrote this very sentence* and
+carried the figure through without re-deriving it, which is the same class of
+defect as the miscounts that cycle was fixing. The fix is the count; the
+lesson is that a rewritten sentence re-opens every figure inside it.)
 
 Tests, by node id (FR-045, CARD-323's ACs)
 ------------------------------------------

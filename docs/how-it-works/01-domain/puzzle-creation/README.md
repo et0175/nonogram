@@ -142,7 +142,7 @@ guard or the package ships.
 |---|---|---|
 | `player/play.js` | 590 | the `/play/<key>` glue: fetch, draw, four brushes, drag strokes, undo/redo, the localStorage save, `isClueSolved` |
 | `player/pages.js` | 364 | the two listing pages' glue (`/library`, `/b/<slug>`) |
-| `player/player.css` | 521 | the player's own stylesheet; the empty cell's dot, the Maybe mark's "?" and the solved reveal live here |
+| `player/player.css` | 536 | the player's own stylesheet; the empty cell's dot, the Maybe mark's "?" and the solved reveal live here |
 | `player/play.html` · `library.html` · `book.html` | 102 · 95 · 99 | one hand-written document per door |
 | `player/vercel.json` | — | the host's three rewrites; the test fixtures route by reading this file |
 | `player/assemble.py` | 1,642 | writes the deployable tree: copies, rebuilds the served JSON from `SERVED_SCHEMA`, carries EC-048, refuses an `--out` it did not write |

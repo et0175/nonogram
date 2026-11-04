@@ -273,12 +273,42 @@ diverging reds as stale. Value-pinning exists only for the two Maybe papers, and
 hand-written literals in
 `test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption`.
 
+**And the retraction itself needed narrowing, cycle 2 IMP-2 — by plant, which is the third
+time in this card's history that a claim about what a guard holds survived reading and died on
+a plant.** "The two Maybe papers" is two *facts* but **four fact-sides**, and only **three**
+are pinned by value. The arm writes its two literals for `.player-cell.maybe.paper` alone, so
+the cell's admin and public sides are both held. The *swatch*'s **public** side is held
+transitively, by the arm's closing `census[cell][1] == census[swatch][1]` — CARD-323's claim
+that the button previews the cell — so changing `player.css`'s Maybe-swatch background does
+red. **The swatch's ADMIN side is held only to diverging from this page's.** `admin.css`
+declares no background on its Maybe swatch, so that fact falls through to `.player-swatch`'s
+`--grid-paper`; planting one there moves the census while **both** the Maybe-paper arm and the
+classification arm stay green — and, measured at this gate, so does every one of the 83 arms in
+the two touched test modules. The counter-plant (this page's swatch paper → `--color-surface-sunken`)
+reds, through that equality. The fourth side joins the residue **CARD-346** owes. The
+narrowing clause is written at five sites: the module docstring and the Maybe-paper arm's own
+docstring in `tests/test_public_player_agreement.py`, `player/player.css`'s Maybe-swatch
+comment (the worst-placed instance — it sits directly above the selector and said "a change
+here reds", which is true of *that* line and false of its admin counterpart),
+`11-the-public-player.md`, and this paragraph.
+
 `DECLARED_DIVERGENCES` already carries the counterpart this table lacks — `RESIDUE_CONTROLS`,
 which exists because **CARD-328's cycle-1 review raised it as IMP-1**, the same lesson one
 registry over. **CARD-346 owes `SIBLING_FINDINGS` the derived residue**; this card owes the
 retraction, which is the paragraph you are reading, and the matching ones in
 `tests/test_public_player_agreement.py` (module docstring, `RoutedFinding`, the classification
 arm and the Maybe-paper arm), `player/player.css` and `11-the-public-player.md`.
+
+<!-- MIN-4, cycle 2, recorded here rather than by amending the commit (the board's standing
+rule is never to --amend bare). The cycle-2 commit message (aed7802a) says the retraction is
+made "in all five places the overclaim was written" and then lists SEVEN. It is wrong in both
+halves, measured in the parent e8c90745: the overclaim — "pinned so it cannot change in either
+sheet unremarked" — was WRITTEN in FOUR places (the module docstring, `RoutedFinding`, the
+`player.css` comment and this card), and the RETRACTION LANDED in SEVEN, the three extra being
+the classification arm, the Maybe-paper arm and `11-the-public-player.md`, none of which had
+carried the overclaim. `11-the-public-player.md` carried no instance of it at all. The
+enumeration above, written on the card, is the correct one; only the commit message's count and
+its characterisation are wrong, and the message is immutable. -->
 
 **Item 4 — the other three marks. Reported, not taken.** The census is **total at 16 facts**
 (4 states x 2 hooks x {paper, glyph}) and splits **3 compared + 7 agreeing + 6 routed**.
@@ -330,10 +360,13 @@ it), CARD-348 (the White swatch's dot). Nothing further is filed from this round
 **The README line-count row: UPDATED, not retired.** The policy CARD-323 recorded says the
 first card to change a file updates its row, and this is the first card to inherit it, so
 following it as written is also the measurement the policy needs — the datum is now one, not
-zero. `player/player.css` moved 482 → 521 and the row says so; its "Covers" text gained the
-Maybe mark's "?". The retirement option stands for the **next** card that finds itself updating
-it, exactly as the card instructs — and it is now **CARD-347's**, with three pieces of evidence
-from this round rather than one:
+zero. `player/player.css` went **482 → 521 → 524 → 536** across this card's three commits, and
+the row now reads **536**, which is **the count at the merge commit this card closes on and at
+no other moment** — stated that way deliberately, because the figure is dated and the row has
+no control: the very next comment edit to the stylesheet re-stales it in silence. Its "Covers"
+text gained the Maybe mark's "?". The retirement option stands for the **next** card that finds
+itself updating it, exactly as the card instructs — and it is now **CARD-347's**, with four
+pieces of evidence from this round rather than one:
 
 1. the row was stale-by-construction the moment the edit landed, and nothing would have
    reddened;
@@ -346,6 +379,17 @@ from this round rather than one:
    `:440` where `main` has `@keyframes player-solved-in` at `:470` (30 out). This card did not
    rot them; it widened a rot nothing reds on. An ungated convention does not decay at the
    moment someone edits the file — it is already decayed, and the edit only makes it visible.
+4. **and the row re-staled inside this one card, twice, without any declaration changing**
+   (cycle 2's IMP-1, and the gate's own re-derivation). Cycle 1 correctly wrote 521. Cycle 2
+   then added three **comment** lines to `player/player.css` and did not revisit the row, so
+   the row said 521 against 524 on disk — stale again, in the same card that had just updated
+   it, with the file in its own `Touches`. The merge gate added twelve more comment lines
+   writing IMP-2's narrowing clause and the count is now 536. That is the argument the column
+   cannot survive: the figure counts **comments**, so it is falsified by edits that change no
+   rendered pixel and no declaration — `player.css` with its comments stripped is byte-identical
+   across all three commits, verified by SHA-256 at this gate — and nothing reds when it goes
+   wrong. A card cannot keep it true for the length of its own review. **This is the data point
+   the row's own argument landed on**, and it is CARD-347's strongest.
 
 **Size datum, for calibration, in place of a wall-clock actual.** The clock measures the
 queue rather than the work (owner's standing call), so no wall-clock figure is recorded and

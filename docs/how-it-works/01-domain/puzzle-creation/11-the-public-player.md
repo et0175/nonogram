@@ -142,9 +142,17 @@ cell has no background rule at all and draws the glyph on the board's paper at
 7.258:1 where this page draws it on the tint at 6.207:1. Nobody has decided that,
 so it is routed rather than exempted — which means the census holds it to **keep
 diverging**, and (for these two, by written-out values) to keep the values it
-has. The other four routed facts are held to diverging and no further; the
-derived residue that would close that gap, the counterpart of the one
-`DECLARED_DIVERGENCES` already carries, is CARD-346's.
+has. **"These two" is two facts but only three of their four sides**, and the
+difference matters if you are relying on the word "pinned": the written-out
+values are the *cell*'s, both sides of it; the *swatch*'s public side comes
+along transitively, because the guard also claims this page's swatch paper
+equals its cell paper (the button previews the cell). The swatch's **admin**
+side is held only to *differing from this page's* — `admin.css` declares no
+background on its Maybe swatch, so a background planted there moves the census
+with every arm green. That was measured by plant in this card's cycle 2, and
+the fourth side is CARD-346's too. The other four routed facts are held to
+diverging and no further; the derived residue that would close both gaps, the
+counterpart of the one `DECLARED_DIVERGENCES` already carries, is CARD-346's.
 
 An empty cell is drawn as a **centred dot**, 28% of the cell, as an `::after`
 (`player.css`'s `.player-cell[data-state="empty"]::after`) — the mark
