@@ -1,6 +1,6 @@
 # CARD-363: The retrospective's two inputs are unguarded — the cycle marker is absent on 152 of 279 closed cards, and nothing requires a wave's estimate to be in the unit the ratio needs
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 2c (0.5d)
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** Measured at the station 2026-11-04 after five review artefacts in two waves had to be reconstructed from agents' hand-back messages. The measurement found the gap is not five cards but systemic, and that the orchestrator's own diagnosis of it was half wrong — see "What the measurement changed".
 **Idea:** —
-**Wave:** —
+**Wave:** 76
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
@@ -33,9 +33,32 @@ Over all **279** `done` cards carrying a `Review score`:
 | marker count disagrees with the cycle the card's own score names | **136** |
 | **zero** `[Review N/M] Score:` markers at all | **152** |
 | no review YAML on disk | **81** |
-| the score text states its cycle (`cycle N of M`) | **279 of 279** |
+| the score text states its cycle (`cycle N of M`) | **210 of 281** — *corrected, see below* |
 
-**Re-derive all four.** They are a dated reading and the sets matter more than the counts.
+**Re-derive all five.** They are a dated reading and the sets matter more than the counts — and
+one of them was already wrong when this card was cut.
+
+> **[PREMISE CORRECTED AT THE WAVE-76 STATION, 2026-11-04, and the defect was the orchestrator's.]**
+>
+> **This card was cut claiming the score text states its cycle on "279 of 279" scored cards.
+> Measured: 210 of 281.** Seventy-one closed cards state no cycle in their score field at all.
+>
+> **I never measured that figure. I asserted it.** The morning script that produced the other four
+> computed the per-card cycle, then filtered `if named is not None` before counting the
+> disagreements — so cards with no cycle in their score were silently excluded from every total,
+> and their count was never printed. I wrote "279 of 279" because it made the argument tidy.
+> **In a card whose subject is records that do not say what they claim.**
+>
+> **What survives, and it is still the card's point:** the score text covers **210** where the
+> marker covers **129** (281 − 152). So the score field remains much the better source and the
+> direction of the fix is unchanged. **What does not survive is "the numerator was available for
+> the board's whole history"** — for **71** cards it is available in *neither* place, and no
+> instrument can recover a cycle count nobody recorded.
+>
+> **That changes AC-1's shape and the change is load-bearing.** A guard asserting "marker count ==
+> the cycle the score names" can only speak about cards whose score names one. **So the 71 are a
+> third population**, alongside the 152 with no marker — and they need their own declared bound,
+> not silent exclusion. Silently excluding them is precisely how this figure went wrong.
 
 ## What the measurement changed, including about my own diagnosis
 
@@ -93,9 +116,14 @@ skip: that is the shape this whole family keeps producing.
 - **AC-2** *Given* a card stamped with a numeric `Wave` whose `Estimate` carries no `Nc` term,
   *then* it **reds by name**, demonstrated by planting one.
   (test: named by the implementation; state it)
-- **AC-3** *Given* the historical populations, *then* each is **declared with its measured count**
-  and the declaration is asserted, so neither can grow silently. State both counts as measured,
-  not as the figures in this card.
+- **AC-3** *Given* the historical populations, *then* **each of the THREE** is declared with its
+  measured count and the declaration is asserted, so none can grow silently: the cards with **no
+  marker**, the cards whose **marker disagrees** with the cycle their score names, and the cards
+  whose **score names no cycle at all**. State all three as measured, not as the figures in this
+  card — **one of which was wrong when the card was written.**
+  **The third population is the one to get right**: a guard over "marker == the cycle the score
+  names" is *undefined* for a card whose score names none, and excluding it silently is exactly
+  the move that produced this card's own bad figure.
   (test: named by the implementation; state it)
 - **AC-4** *Given* a card the walk cannot classify, *then* it is a **FAILURE and not a skip**
   (ADR-0039/R2), demonstrated.

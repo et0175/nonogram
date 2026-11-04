@@ -1,6 +1,6 @@
 # CARD-348: The White brush previews a plain square where the board draws a dot — this card's own defect, one state over
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d)
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** Nominated by CARD-339's round as the strongest follow-up from its mark census, and confirmed by its review cycle 1 — which verified the divergence in the census, both contrast figures, and the visible gap in the render. It is the one routed finding the reviewer called "cheap enough to have been taken", and it was correctly left because CARD-339's own instruction forbids widening silently past the Maybe mark.
 **Idea:** —
-**Wave:** —
+**Wave:** 76
 **Created wave:** 74
 **Deferred waves:** 0
 **Depends on:** CARD-339
