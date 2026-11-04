@@ -75,3 +75,30 @@ meta/kanban/.full-suite.lock
 # artefact inflates a Touches re-derivation (CARD-332 cycle 2 measured 16 vs 15)
 # and is one loose pathspec away from the committed-artefact harm CARD-335 owns.
 meta/impact/
+
+# CARD-335: the measurement artefacts that feed the architecture validator's
+# check-ref resolver. That resolver is a TEXT search over TRACKED, non-Markdown
+# files (`git grep -lw <ref> -- . :(exclude)meta/architecture :(exclude)*.md`),
+# so a tracked artefact that merely SPELLS a ref name makes a dead ref read as
+# alive and silently retires its warning. Measured on this tree with the
+# resolver's own instrument (tests/test_check_ref_resolution.py): 10 declared
+# refs are kept alive by nothing but these three populations.
+#
+# Ignoring them does not untrack the ones already in the index (that is an
+# owner decision, and `kanban done` step 2d/INV-023 forbids a card branch from
+# committing under meta/review/** at all). What it does is make the DEFAULT for
+# the next artefact "outside the resolver's domain" instead of "inside it, if
+# nobody remembers". A card that genuinely needs one tracked force-adds it,
+# which is a visible act; tests/test_check_ref_resolution.py's
+# `test_no_new_artefact_file_is_force_added_into_the_resolver_domain` holds the
+# residue those force-adds have already left.
+#
+# Scoped by extension rather than by directory, deliberately: the `.md` records
+# under meta/review/ and meta/profiling/ are already outside the resolver's
+# domain (the `*.md` exclusion) and are read by the suite, and the `.py` tools
+# under meta/profiling/ are code that tests/test_guard_integrity.py's
+# GUARDED_DIRECTORIES is answerable for -- ignoring those by directory would
+# quietly move a future tool outside that guard.
+meta/review/*.yml
+meta/profiling/*.txt
+scratchpad/

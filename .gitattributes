@@ -1,0 +1,34 @@
+# CARD-335. The architecture validator resolves a check ref with a TEXT search
+# over tracked, non-Markdown files, and its batched path carries up to 200
+# patterns in one `git grep -ow` under a budget that models cost as linear in
+# the pattern count. Measured on this tree: that 200-pattern batch costs 117 s
+# against its own 30 s budget, `_grep_batch` catches the TimeoutExpired in a
+# bare `except Exception`, and the validator then reports "existence could not
+# be determined" for every ref in the chunk -- 88 warnings become 525 and the
+# dead-ref detector stops answering.
+#
+# The whole cost is these files. Measured one directory at a time, N=200:
+# full domain 117.38 s; without meta/profiling/*.txt 0.55 s; without
+# meta/review (396 files) 115.41 s; without scratchpad 123.30 s. They are
+# machine-written duration logs that name every pytest node id that ran, so
+# they hand a large alternation of word-bounded patterns an enormous number of
+# near-matches to resolve.
+#
+# `binary` is the one lever that keeps every byte tracked, on disk and readable
+# -- the suite reads these files by name (tests/test_suite_profile.py globs
+# `suite-durations-*.txt` and asserts it finds one) -- while taking them out of
+# the batched grep's text scan: 117.38 s -> 1.10 s.
+#
+# It is ANSWER-PRESERVING, which is why it is a `.gitattributes` entry and not
+# a rename or an untracking. Measured on one token present only in these dumps:
+# `git grep -lw` (the resolver's per-name path, which reads the exit code) still
+# lists all three files, so the ref still resolves exactly as before; the
+# batched path prints "Binary file ... matches" instead of the matched text, so
+# the name is simply not recovered from the chunk and the resolver leaves it to
+# the per-name path -- the documented, already-handled case in `symbols_exist`'s
+# own docstring (CARD-133 cycle-1 F-002), not a new divergence.
+#
+# The cost of this line: `git diff` and `git merge` treat these dumps as binary,
+# and `git grep` needs `-a` to print their lines. They are append-only records
+# nobody edits, which is what makes that acceptable here and not in general.
+meta/profiling/*.txt binary
