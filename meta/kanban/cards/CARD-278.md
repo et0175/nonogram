@@ -167,17 +167,26 @@ against the set the helper blinds.
   backups with the manifest built up front, a shell `trap` armed on the restore, and restoration verified
   by `shasum -a 256 -c` **and** `diff -q` **and** `git status --porcelain`. The skeptic that found this
   did exactly that and its evidence is in CARD-264's notes.
-- **[Do not run the full suite]** Export `NONOGRAM_FULL_SUITE_LOCK` to a scratch path for every pytest so
-  the board's own lock is never read, written or created. The merge gate runs the full suite.
+- **[Do not run the full suite]** Leave `NONOGRAM_FULL_SUITE_LOCK` **unset** for file-scoped runs;
+  redirect it only to probe the lock mechanism itself. An earlier version of this note said to redirect
+  it to a scratch path for *every* pytest — wrong advice, though it harmed nothing on this card:
+  `tests/conftest.py`'s `pytest_configure` calls `tests/full_suite_lock.py`'s `pytest_configure`
+  unconditionally, so the guard fires for **any** selection and not only a full suite, and a redirect
+  therefore blinds a file-scoped run to a gate that *is* holding the lock. `tests/README.md` already
+  says the switch "is not a thing to reach for by hand". The merge gate runs the full suite, under the
+  real lock.
 - **[Use the committed instrument]** `tests/kill_matrix.py`, documented in `tests/README.md` from line
   453. Do not write another. Both passes, ANY-RED, and report the **domain** of every figure — the
   denominator is the target file's `ast.Assert` node count, never the collected-test count. In the
   recording pass a mutant can exit pytest 0 while the matrix records FAIL cells; CARD-264 hit that six
   times.
 - **[Item 3: the body was widened to the docstring, not the docstring narrowed to the body]** The
-  isolation sentence — *"the only thing left that can raise is the branch-node check"* — is kept
-  verbatim and made **true**, which is the only option G-2 leaves: narrowing it would have satisfied the
-  docstring by deleting the control. `_blind_propagation` now blinds every propagation-side deadline
+  isolation sentence — *"the only thing left that can raise is …"* — is kept and made **true**, which is
+  the only option G-2 leaves: narrowing it would have satisfied the docstring by deleting the control.
+  The round kept the clause *verbatim*, ending it at "the branch-node check"; the merge gate's M-2
+  replaced that singular attribution with the branch-side checks named **collectively**, because the
+  raise is attributable to all four and one of them is level-3 probing rather than a branch node — the
+  phrasing AC-1 had used all along. The test's body is unchanged by that edit. `_blind_propagation` now blinds every propagation-side deadline
   site reachable from `solve`, and the prose added around it says what the helper derives and why
   `solve` and not `_search` is the root. One neighbouring docstring became honest with **no edit at
   all**: `test_the_search_checks_the_deadline_at_every_branch_node`'s *"every clock read during this
@@ -185,16 +194,31 @@ against the set the helper blinds.
 - **[Item 4: measured, and shipped rather than proposed]** The standing form the card asks to cost out
   is the derivation itself, and AC-2 already requires it ("derived from the code rather than listed by
   hand"), so there was no cheaper variant to propose. Cost, as a **size** datum (G-5 forbids a clock
-  reading): **309 insertions / 19 deletions in one file**, of which **134 lines are code** with
+  reading): **312 insertions / 19 deletions in one file**, of which **134 lines are code** with
   docstrings excluded — 98 lines of derivation helpers and substitution machinery and 36 lines of the
   standing control, `test_the_blind_set_is_derived_from_the_solvers_own_call_graph`. No new dependency,
-  no `src/` change, no new skip. **Declared bound on the derivation:** it resolves callees by name
-  across the package (sound only while no two solver modules share a top-level name — asserted), folds
-  nested functions into their enclosing top-level function (an over-approximation, the deny-safe
-  direction), and sees only *syntactic* calls, so a deadline check reached through a function held in a
-  variable would escape it. Where a derived site cannot be blinded — absent from the search module's
-  namespace, or carrying no `deadline` parameter — the helper raises rather than proceeding
-  (ADR-0039/R2's default-to-deny).
+  no `src/` change, no new skip. **Declared bounds on the derivation — five, of which the last two were
+  undeclared when the round closed and were added at the merge gate (review I-1):**
+  - it resolves callees by name across the package (sound only while no two solver modules share a
+    top-level name — asserted);
+  - it folds nested functions into their enclosing top-level function (an over-approximation, the
+    deny-safe direction);
+  - it sees only *syntactic* calls, so a deadline check reached through a function held in a variable
+    would escape it;
+  - **the co-location split itself.** `_propagation_side_deadline_sites` partitions the derived set by
+    module co-location: a site defined outside the search module is blinded, one defined alongside the
+    search is *assumed to be* the checkpoint under test. So a new **non-branch** deadline check added
+    *inside* the search module escapes the blinding. Demonstrated, not argued: a planted
+    `check_deadline` in `solve`'s prologue leaves the branch-checkpoint test **green** under the
+    four-site branch mutant;
+  - **the caller premise.** The helper asserts that a derived site **is** an attribute of the search
+    module; it never asserts that **all of that site's reachable callers** are defined there. True
+    today — every caller of `propagate` / `propagate_overlap` in the solve path (`solve`, `_probe`,
+    `_lookahead`) lives in `search.py`, so substituting through that one namespace blinds every path —
+    but **true, not guarded**.
+  **CARD-345 owns closing both of the last two.** Where a derived site cannot be blinded — absent from
+  the search module's namespace, or carrying no `deadline` parameter — the helper raises rather than
+  proceeding (ADR-0039/R2's default-to-deny).
 - **[Kill-matrix readings, both passes, with their domain]** Instrument: `tests/kill_matrix.py` (no
   second one written). Selection: the named test alone. Mutant `BRANCH4`: the four branch-side calls
   neutralised together, line-count preserving.

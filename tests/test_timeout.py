@@ -574,6 +574,14 @@ def _propagation_side_deadline_sites() -> set[str]:
     other explanation for a raise, and they are what the helper removes; the
     ones defined alongside the search are the checkpoint under test and stay
     live.
+
+    Two bounds this split carries, neither of them guarded here: a new
+    *non-branch* deadline check added **inside** the search module is assumed
+    to be the checkpoint under test and so escapes the blinding; and a derived
+    site is asserted to be an attribute of the search module, but never that
+    all of that site's reachable callers are defined there — true today
+    (``solve``, ``_probe``, ``_lookahead``), not guarded. CARD-345 owns
+    closing both.
     """
     sites, home = _deadline_raise_sites_reachable_from(_BLINDING_ENTRY_POINT)
     search_module_name = home[_BLINDING_ENTRY_POINT]
@@ -763,10 +771,15 @@ def test_the_branch_checkpoint_alone_stops_a_search_propagation_would_not(
     """The second checkpoint is load-bearing on its own, not a duplicate.
 
     Same blinding, an already-expired deadline, and a clue set that reaches the
-    search: the only thing left that can raise is the branch-node check. The
-    sanity solve first shows the blinded solver still answers normally when no
-    deadline is given, so the raise below is the checkpoint firing and not the
-    substitution breaking the search.
+    search: the only thing left that can raise is the search module's own
+    branch-side checks, and the raise is attributable to those four
+    collectively rather than to any one of them — this test passes with only
+    ``_search``'s site live *and* with ``_search``'s site dead and the other
+    three live, and one of the four, ``_probe_fixed_point``, is ADR-0029
+    level-3 probing rather than a branch node. The sanity solve first shows the
+    blinded solver still answers normally when no deadline is given, so the
+    raise below is those checks firing and not the substitution breaking the
+    search.
 
     That "only thing left" is a claim about the call graph, so
     :func:`_blind_propagation` derives its blind set from the call graph rather
