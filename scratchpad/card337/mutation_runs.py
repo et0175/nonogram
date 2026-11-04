@@ -159,8 +159,14 @@ PLANTS: dict[str, dict] = {
                 "page render carries an extra operator. The baseline book's "
                 "even vector-page count makes the two exports align on parity "
                 "(see MUT-4's note), so this plant is invisible to the "
-                "baseline pair and is caught by the corpus's odd-count books "
-                "-- which is what a 14-book property is FOR",
+                "baseline pair and is caught by the corpus's ONE odd-count "
+                "book -- 1 of 14: book 11, 9 vector pages, measured by "
+                "measure_ec1_media.py; the other thirteen are even. Stated as "
+                "a count because the plural reads as redundancy there is none "
+                "of -- lose that one book and this plant stops being killed. "
+                "What makes that safe rather than silent is the harness: "
+                "`must_red` names the cell, so a corpus without book 11 "
+                "reports NOT KILLED by name rather than quietly passing",
         "edits": [(
             SRC_VECTOR,
             "    def render(self) -> bytes:\n",

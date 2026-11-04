@@ -44,7 +44,6 @@ PAINTING = (
 
 book = corpus_book("card-147")
 book.interior_ink_mode = InkMode.BLACK_AND_WHITE.value
-data = export_of(BookPDFGenerator(book), baseline_puzzles()).getvalue() if False else None
 
 gen = BookPDFGenerator(book)
 data = export_of(gen, baseline_puzzles())

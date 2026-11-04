@@ -93,16 +93,21 @@ about the module:
 
 * *written in one channel* → a vector page's only colour operators are ``g``
   and ``G``, it names no ``/ColorSpace`` resource, and none of PDF's other
-  seven colour operators appears (:func:`assert_declares_one_grey`). The
-  forbidden set is the whole vocabulary, derived, not the one operator that was
-  expected (ADR-0039/R2).
+  **ten** colour operators appears (:func:`assert_declares_one_grey`). The
+  forbidden set is the whole vocabulary rather than the one operator that was
+  expected — and it is an **ADR-0039/R3 named exemption**, not a derivation:
+  see :data:`COLOUR_OPERATORS`, which names its authority, states its
+  completeness and bounds its reach.
 * *not one mark moved* → on a vector page the marks **are** the operators, so
   the two modes' streams are compared byte for byte. That is stricter than the
   bitmap equality it replaces, because it admits no encoder tolerance at all.
 * *interior page 1 is the blank title page* → its stream carries **no painting
-  operator at all** (measured: zero bytes), which is a stronger statement than
-  "every pixel is 255" — a page painting white on white satisfies the pixel
-  reading and fails this one.
+  operator at all**, which is a stronger statement than "every pixel is 255" —
+  a page painting white on white satisfies the pixel reading and fails this
+  one. The assertion is over the *operator set* (``not
+  page["painting_operators"]``) and pins **no byte or token count**: a stream
+  may carry graphics state, clipping or text positioning and still be blank by
+  this reading, which is the right bound — those operators move no ink.
 * *the corpus exercises three trims* → read off each page's ``MediaBox``
   (EC-019), not off a decoded image's size.
 * *the writer's RGB→L conversion is the identity* → ``_write_page`` runs for a
@@ -239,13 +244,46 @@ def _pdf_name(value: Any) -> str:
 
 
 #: Every operator PDF has for *setting a colour*, as the whole vocabulary and
-#: not as the two this interior happens to use (ADR-0039/R2: a guard's set is
-#: derived, and a member it cannot classify is a failure). ``g``/``G`` are
+#: not as the two this interior happens to use. ``g``/``G`` are
 #: ``DeviceGray``; ``rg``/``RG`` ``DeviceRGB``; ``k``/``K`` ``DeviceCMYK``;
 #: ``cs``/``CS`` select a named space and ``sc``/``scn``/``SC``/``SCN`` set a
 #: component in it. :func:`stream_colour_operators` reports which of these a
 #: vector page really contains, so "this page declares DeviceGray" is a claim
-#: about all nine and not a search for the one that was expected.
+#: about all **twelve** and not a search for the one that was expected.
+#:
+#: **An ADR-0039/R3 named exemption, NOT a derivation** — and the distinction
+#: is this card's own correction, because the prose called it "derived" and
+#: that was false as written (AC-3, as corrected on main, asks for exactly
+#: this form).
+#:
+#: * **Authority: PDF 32000-1 Table 74** ("Colour Operators"). It is an
+#:   external file-format specification, so there is nothing the runtime can
+#:   enumerate: this set is hand-written, and the honest label says so.
+#:   Deriving it from the writer under test would be circular — it would make
+#:   the very operator a plant emits part of the permitted vocabulary and
+#:   therefore not forbidden.
+#: * **Completeness:** these twelve are *all* of Table 74's colour operators.
+#:   The cross-check in
+#:   :meth:`TestTheStreamReader.test_the_forbidden_set_is_the_whole_colour_vocabulary`
+#:   is a second hand-written literal, not a second reading of an authority —
+#:   it catches a typo and an accidental edit to one of the two halves, and it
+#:   is honestly not evidence of completeness against the spec. Completeness
+#:   rests on the spec table, reviewed by eye.
+#: * **Per-member failability:** each of the ten non-grey members is planted
+#:   individually in that same cell and must make
+#:   :func:`assert_declares_one_grey` raise — so no member is decoration
+#:   (ADR-0039/R1).
+#: * **The known bound, stated because the set's SHAPE is not deny-by-default.**
+#:   :func:`stream_colour_operators` is an allow-list *filter*: it returns only
+#:   tokens already in this set, and :func:`assert_declares_one_grey` then
+#:   checks that result is a subset of ``GREY_COLOUR_OPERATORS``. So an
+#:   operator *outside* this hand-written vocabulary is filtered out upstream
+#:   and **passes silently** rather than failing as unclassifiable. The guard
+#:   is therefore "none of the ten known non-grey ways to set a colour is
+#:   used", not "nothing unrecognised sets a colour". That is sound for the
+#:   claim it carries — Table 74 is closed, and a PDF cannot set a colour by
+#:   any other operator — but it is a bound a reader must be told, not a
+#:   deny-by-default guard mislabelled as one.
 GREY_COLOUR_OPERATORS = frozenset({"g", "G"})
 OTHER_COLOUR_OPERATORS = frozenset(
     {"rg", "RG", "k", "K", "cs", "CS", "sc", "scn", "SC", "SCN"}
@@ -253,10 +291,32 @@ OTHER_COLOUR_OPERATORS = frozenset(
 COLOUR_OPERATORS = GREY_COLOUR_OPERATORS | OTHER_COLOUR_OPERATORS
 
 #: Every operator that puts a mark on the page — path painting, text showing,
-#: shading, inline and named images (PDF 32000-1 tables 59, 74, 107, 108).
-#: Derived the same way and for the same reason: "this page paints nothing" has
-#: to be a claim about the vocabulary, not about the operators a blank page
-#: happens not to have used.
+#: shading, inline and named images.
+#:
+#: **An ADR-0039/R3 named exemption on the same terms as
+#: :data:`COLOUR_OPERATORS`**, and for the same reason: "this page paints
+#: nothing" has to be a claim about the vocabulary, not about the operators a
+#: blank page happens not to have used — but the vocabulary is hand-written
+#: from a specification, not derived.
+#:
+#: * **Authority: PDF 32000-1 tables 59, 107 and 108** (path-painting, text-
+#:   showing and XObject/inline-image operators), plus ``sh`` for shading.
+#: * **Completeness:** all seventeen mark-making operators of those tables.
+#: * **The same filter-shape bound:** :func:`stream_painting_operators`
+#:   returns only tokens already in this set, so an unrecognised mark-making
+#:   operator would be filtered out and read as "paints nothing". The blank
+#:   title page is written by this project's own ``ContentStream``, whose
+#:   emitted vocabulary is far narrower than these seventeen, so the bound has
+#:   no live reach here — but it is the same bound and is recorded as one.
+#: * **Failability is weaker here than for :data:`COLOUR_OPERATORS`, and this
+#:   is the honest statement of it:** there is **no per-member plant** for
+#:   these seventeen — none of this card's six plants targets the blank-page
+#:   arm. What does hold every run is the *paired* arm: every interior page
+#:   after page 1 asserts ``not blank``, so a set that failed to recognise a
+#:   real mark-making operator would make a painted page read blank and red
+#:   there. That is a live control on the set's **reach**, not on each
+#:   member's necessity, and a member that no page ever emits is not shown
+#:   failable by it.
 PAINTING_OPERATORS = frozenset(
     {
         "S", "s", "f", "F", "f*", "B", "B*", "b", "b*",
@@ -366,6 +426,18 @@ def pdf_page_declarations(data: bytes) -> List[Dict[str, Any]]:
     stream that is not ``FlateDecode`` raises out of :mod:`zlib` rather than
     being read as empty, which is the one remaining way this could be wrong
     and is loud.
+
+    **None of those three refusal arms is demonstrated, and that is carded,
+    not claimed.** This card's six plants exercise the classification's
+    *reach* but none feeds this reader a page with neither an XObject nor a
+    ``Contents``, a page with two XObjects, or a non-Flate stream — so the
+    three refusals above are asserted and never shown to fire, which by this
+    card's own AC-4 standard ("a retirement whose survivor cannot fail is a
+    deletion") is a control this reader is owed. It is **CARD-365** (P2, 1c,
+    depends on this card): three cases on hand-built PDF bytes in
+    :class:`TestBookInk_TheStreamReaderReadsOutsideStrings`, deliberately
+    *not* folded in here because adding cases after certification ships an
+    uncertified final edit.
     """
     parser = PdfParser.PdfParser(buf=data)
     try:
@@ -568,13 +640,25 @@ class TestBookInk_TheStreamReaderReadsOutsideStrings:
         assert stream_painting_operators(raw) == expected, why
 
     def test_the_forbidden_set_is_the_whole_colour_vocabulary(self):
-        """ADR-0039/R2: the guard's set is derived, not the operator expected.
+        """The forbidden set is the vocabulary, not the operator expected.
 
         ``GREY_COLOUR_OPERATORS`` and ``OTHER_COLOUR_OPERATORS`` partition
         ``COLOUR_OPERATORS``, and the whole of PDF's colour vocabulary is in
         it — so a page setting ``DeviceCMYK`` or selecting a named space is
         caught by :func:`assert_declares_one_grey`, not only one setting
         ``rg``.
+
+        **What this cell is and is not** (ADR-0039/R3, not R2). The literal
+        below is a **second hand-written spelling** of the same twelve
+        operators, not a second reading of an authority: it catches a typo and
+        an accidental edit to either half, and it is *not* evidence that the
+        set is complete against PDF 32000-1 Table 74 — completeness is the
+        named exemption's claim, resting on the spec table. What this cell
+        does prove is the half that matters most: the loop below plants each
+        of the ten non-grey members in turn and requires
+        :func:`assert_declares_one_grey` to raise, so **no member is
+        decoration**. See :data:`COLOUR_OPERATORS` for the exemption's
+        authority, completeness and the filter-shape bound.
         """
         assert GREY_COLOUR_OPERATORS | OTHER_COLOUR_OPERATORS == COLOUR_OPERATORS
         assert not GREY_COLOUR_OPERATORS & OTHER_COLOUR_OPERATORS
