@@ -3348,7 +3348,35 @@ def test_the_resolver_batch_answers_inside_its_own_budget() -> None:
 #:
 #: Paths, not refs: a path spells no symbol, so pinning them exactly costs this
 #: module nothing under G-2 and the failure message can print them.
-IGNORED_YET_TRACKED = (477, "45f26c851ecccc68")
+#:
+#: **Re-derived 2026-11-04 at CARD-337's merge gate: 477 -> 488.** The move is
+#: that card's 11 instruments under ``scratchpad/card337/``, and it is the
+#: FIRST exercise of the exception this convention was written to allow --
+#: ``.gitignore``'s own note says a card that genuinely needs an artefact
+#: tracked "force-adds it, which is a visible act", and this baseline is where
+#: that act becomes visible. Recorded here rather than avoided by untracking
+#: the instruments, which was the other resolution available and was rejected:
+#: five earlier cards' instruments are held tracked in exactly this shape (see
+#: the per-directory breakdown -- card329, card330, card331, card336,
+#: card338), and this board has had a branch reset where a committed
+#: instrument was the only surviving record of a measurement.
+#:
+#: **The two hazards this cell exists for were measured BEFORE the baseline
+#: moved, because a re-derived pin is worthless if the growth was harmful:**
+#:
+#: * **Revival (the cause this cell guards).** Every other class in this
+#:   module is fingerprint-pinned and 11 new in-domain tracked files are
+#:   exactly their input -- so the whole module was run on the merged tree, not
+#:   just this cell. ``BOOKKEEPING_ONLY``, ``FALSELY_ALIVE``, ``CENSUS``,
+#:   ``DEFINED`` and ``SAME_FILE_PROSE`` all held, unmoved: the 11 instruments
+#:   resolve no ref and revive no dead one. 25 passed, this cell the only red.
+#: * **The resolver's batch budget**, above. It also held with the 11 added:
+#:   the cost there is driven by machine-written dumps that spell many
+#:   near-matching identifiers, and these are hand-written ``.py`` instruments
+#:   (CARD-337's G-8: "instruments are ``.py``, numbers live in the card").
+#:
+#: Had either moved, the instruments would have been untracked instead.
+IGNORED_YET_TRACKED = (488, "f36a57d4f39f3a48")
 
 #: The same census, by directory. The count is the gate; this is the reading --
 #: "which directory grew" is the only question a reader has when the gate reds.
@@ -3366,6 +3394,7 @@ IGNORED_YET_TRACKED_BY_DIRECTORY = {
     "scratchpad/card330": 3,
     "scratchpad/card331": 5,
     "scratchpad/card336": 15,
+    "scratchpad/card337": 11,
     "scratchpad/card338": 7,
     "src": 1,
     "src/nonogram": 1,
