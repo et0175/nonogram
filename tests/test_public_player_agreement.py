@@ -108,7 +108,7 @@ exactly as wide as it is, and the census is what makes its edge visible.
 
 **What "pinned" buys, stated narrowly because a first draft of this paragraph
 overclaimed it** (CARD-339 cycle 1, F-3, falsified by plant rather than by
-reading). The classification is held in both directions — a seventh fact that
+reading). The classification is held in both directions — a sixth fact that
 starts diverging reds as unclassified, and a routed fact that *stops* diverging
 reds as a stale entry. The **content** of a routed divergence is NOT held:
 changing the admin's filled-swatch ``border-color``, or repainting the public
@@ -154,6 +154,18 @@ ref wrapped across two lines reads as dead however green the test is.
 * AC-4 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_the_paper_under_the_maybe_mark_is_a_routed_finding_and_not_an_exemption``
 * AC-5 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_every_census_fact_is_compared_routed_or_agreeing``
 
+CARD-348's check refs, by node id
+---------------------------------
+Same discipline, same reason: the validator resolves a check ref by a TEXT
+search for the whole ``path::name`` string, so each is written on one line.
+
+* AC-1 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot::test_the_two_swatch_dot_declaration_sets_are_equal``
+* AC-2 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot::test_a_one_sided_change_to_the_swatch_dot_is_reported``
+* AC-2 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot::test_a_swatch_dot_deleted_from_this_page_is_a_failure_and_not_an_absence``
+* AC-3 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed::test_every_census_fact_is_compared_routed_or_agreeing``
+* AC-3 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot::test_the_white_mark_is_a_fact_this_guard_compares``
+* AC-4 — ``tests/test_public_player_agreement.py::TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot::test_the_four_brush_buttons_are_mutually_distinguishable``
+
 How this file is verified
 -------------------------
 TDD is off on this card deliberately: the behaviour already shipped, so a
@@ -188,6 +200,14 @@ PUBLIC_JS = _REPO / "player" / "play.js"
 #: to it is ``player/assemble.py``'s claim, asserted elsewhere, not a premise
 #: this file should quietly lean on.
 STATE_MODULE = _REPO / "src" / "nonogram" / "admin" / "static" / "solver_state.js"
+#: The design tokens both sheets name their colours by. ADR-0041/R3 copies
+#: this file byte-identically into the public site too, so it is the one place
+#: the two players cannot disagree about what a token IS. Read from ``src/``
+#: for :data:`STATE_MODULE`'s reason: the admin's is the original, and the
+#: copy's equality to it is ``player/assemble.py``'s claim, asserted elsewhere.
+#: Read for ONE thing: CARD-348 AC-4's contrast figures, which have to be
+#: recomputable from this file rather than copied off a card.
+TOKENS_CSS = _REPO / "src" / "nonogram" / "admin" / "static" / "tokens.css"
 
 
 # --------------------------------------------------------------------------
@@ -561,6 +581,57 @@ MAYBE_SWATCH_GLYPH_PROPERTIES = frozenset(
 MAYBE_GLYPH_CONTENT = '"?"'
 MAYBE_GLYPH_COLOUR = "var(--color-accent)"
 
+#: The White mark's dot on the brush button — the fact CARD-348 moved OUT of
+#: :data:`SIBLING_FINDINGS` and into this surface. The admin has previewed the
+#: cell's dot on its White swatch since the panel player shipped and this page
+#: drew nothing there, so the brush button showed a plain square for the mark
+#: the board draws a dot for: CARD-339's defect, one state over, found by that
+#: card's census rather than by a render. Both sheets spell the selector
+#: identically, so like :data:`DOT` it is a lookup key and not a compared fact.
+EMPTY_SWATCH_GLYPH = '.player-swatch[data-state="empty"]::after'
+
+#: The anti-vacuity floor for the swatch dot, written here independently of
+#: either sheet — :data:`DOT_PROPERTIES`' discipline applied to the mark
+#: CARD-348 adds, and for its reason: declaration-set equality is vacuously
+#: true when both parses come back empty.
+#:
+#: It differs from :data:`DOT_PROPERTIES` **by design and not by drift**, the
+#: way the two Maybe property sets differ from each other: a board cell sizes
+#: its own dot as a block, and 1em of button chrome cannot, so the swatch's is
+#: an absolutely positioned box centred by ``margin: auto`` inside ``inset: 0``.
+#: The admin declares it that way, so each set is compared against *the same
+#: hook in the other sheet* and never across hooks.
+EMPTY_SWATCH_GLYPH_PROPERTIES = frozenset(
+    {
+        "content",
+        "position",
+        "inset",
+        "width",
+        "height",
+        "margin",
+        "border-radius",
+        "background",
+    }
+)
+
+#: What the White mark *is*, written out independently of either sheet, for
+#: :data:`MAYBE_GLYPH_CONTENT`'s reason: equality alone stays green if both
+#: sheets are changed together, and AC-1's claim is not "the two agree" — it is
+#: that this page draws **the admin's** mark. A round dot, 28% of its box, in
+#: the secondary ink.
+EMPTY_GLYPH_CONTENT = '""'
+EMPTY_GLYPH_INK = "var(--color-text-secondary)"
+EMPTY_GLYPH_EXTENT = "28%"
+EMPTY_GLYPH_RADIUS = "50%"
+
+#: The brush button itself. Both swatch marks are ``position: absolute;
+#: inset: 0``, so this box has to be the containing block they resolve
+#: against; CARD-339 gave it ``position: relative`` for the "?" and CARD-348
+#: re-declares nothing (its G-2). "Already there" is a premise, though, and
+#: :meth:`TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot.test_the_swatch_is_the_containing_block_both_marks_resolve_against`
+#: is where it can fail.
+SWATCH = ".player-swatch"
+
 #: The floor the cell glyph's ``font-size`` reads. It is declared in
 #: ``admin.css`` and in ``player.css``, **not** in the ``tokens.css`` R3 copies
 #: byte-identically, so the two declarations could read equal while rendering
@@ -659,6 +730,15 @@ def compared_surface(
         "maybe.swatch.glyph.declarations": (
             rule("maybe.swatch.glyph.declarations", MAYBE_SWATCH_GLYPH, "admin.css", admin_css),
             rule("maybe.swatch.glyph.declarations", MAYBE_SWATCH_GLYPH, "player.css", public_css),
+        ),
+        # CARD-348. The White mark on the brush button — the census fact that
+        # was ROUTED until this card, because the admin previewed the cell's
+        # dot there and this page drew nothing. Read exactly as the two above
+        # are: by the selector both sheets spell the same way, into a
+        # declaration set, with a property-set floor under each side.
+        "empty.swatch.glyph.declarations": (
+            rule("empty.swatch.glyph.declarations", EMPTY_SWATCH_GLYPH, "admin.css", admin_css),
+            rule("empty.swatch.glyph.declarations", EMPTY_SWATCH_GLYPH, "player.css", public_css),
         ),
         # The token the cell glyph's font-size reads, which lives in each sheet
         # rather than in the copied tokens.css: without this fact the two
@@ -1046,21 +1126,27 @@ def mark_glyph(text: str, hook: str, state: str) -> dict[str, str]:
 
     ``{}`` when there is none, which is a real answer and not an absence: "the
     admin draws a mark here and this page draws nothing" is precisely the
-    divergence CARD-339 was raised for, and it is also still true of the White
-    swatch (see :data:`SIBLING_FINDINGS`).
+    divergence CARD-339 was raised for, and it was still true of the White
+    swatch until **CARD-348** closed it. That fact is now COMPARED
+    (:data:`MARKS_IN_THE_COMPARED_SURFACE`) rather than routed, so ``{}`` on
+    either side of it reds here instead of sitting in the owner's queue.
     """
     return _cascade(text, f'{hook}[data-state="{state}"]::after')
 
 
 #: The two hooks a mark is drawn on: a board cell, and the brush button's
 #: preview of it. Both sheets use these two class names and no others, which is
-#: what makes the public swatch a preview of the public cell at all.
-MARK_HOOKS = (".player-cell", ".player-swatch")
+#: what makes the public swatch a preview of the public cell at all. The
+#: second is :data:`SWATCH`, named rather than spelled twice: CARD-348 needed
+#: the same hook for the brush button's containing block, and two literals for
+#: one hook is the drift this module exists to catch, one level down.
+MARK_HOOKS = (".player-cell", SWATCH)
 
 #: What is read for each (hook, state): the paper under the mark and the glyph
 #: on it. Two facts, because they fail independently — the Maybe mark's glyph
-#: was missing while its paper was merely different, and the White swatch is
-#: the reverse.
+#: was missing while its paper was merely different, and the White swatch was
+#: the reverse of that (its glyph missing while its paper already agreed, which
+#: is what CARD-348 fixed).
 _MARK_FACTS = (("paper", mark_paper), ("glyph", mark_glyph))
 
 
@@ -1098,6 +1184,12 @@ MARKS_IN_THE_COMPARED_SURFACE = {
     ".player-cell.empty.glyph": "dot.declarations",
     ".player-cell.maybe.glyph": "maybe.cell.glyph.declarations",
     ".player-swatch.maybe.glyph": "maybe.swatch.glyph.declarations",
+    # CARD-348 moved this one here out of SIBLING_FINDINGS. Removing a routed
+    # entry is as load-bearing as adding one: the census asserts
+    # `diverging == set(SIBLING_FINDINGS)`, so leaving it routed after the two
+    # sides agreed would red as a stale entry, and leaving it out of BOTH
+    # tables would red as unclassified.
+    ".player-swatch.empty.glyph": "empty.swatch.glyph.declarations",
 }
 
 
@@ -1173,28 +1265,6 @@ SIBLING_FINDINGS: dict[str, RoutedFinding] = {
             "--color-surface-sunken #efe9dc) — the two beige squares the owner could not "
             "tell apart in ~/Documents/nonogram-reviews/CARD-323/. The '?' CARD-339 adds is "
             "now what distinguishes them, at 6.207:1 on the tint."
-        ),
-    ),
-    ".player-swatch.empty.glyph": RoutedFinding(
-        reason=(
-            "The same defect shape CARD-339 exists to fix, one state over, and found by this "
-            "census rather than by a render: the admin's White swatch previews the cell's "
-            "dot as an ::after and this page's draws nothing at all, so the brush button "
-            "shows a plain square for a mark the board draws a dot for. Deliberately NOT "
-            "taken by CARD-339 — its own instruction is not to widen silently past the Maybe "
-            "mark, and adding a mark to a button is the same owner-facing decision the Maybe "
-            "glyph needed an owner for. Owner: the board owner, via this card's reviewer. "
-            "This is the strongest candidate for the follow-up card."
-        ),
-        measured=(
-            "The dot the admin's swatch draws is --color-text-secondary #5c6070 at 28% of "
-            "the box, 6.144:1 on the swatch's paper. Without it, this page's White and Clear "
-            "swatches are two plain squares 1.19:1 apart (--grid-paper #fffdf8 vs "
-            "--color-surface-sunken #efe9dc) — a hair ABOVE the 1.169:1 the owner already "
-            "called indistinguishable for the Maybe cell, and in the same indistinguishable "
-            "band as it. (The comparative ran backwards in CARD-339's first draft, which "
-            "said 'below'. Both figures were right and the word was not; the arm below "
-            "checks a `measured` field for a digit and cannot catch a wrong comparative.)"
         ),
     ),
     ".player-swatch.unknown.paper": RoutedFinding(
@@ -1663,6 +1733,389 @@ class TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark:
         assert "maybe" in str(broke.value) and "player.css" in str(broke.value), str(broke.value)
 
 
+# ==========================================================================
+# CARD-348 — the White brush previews the dot it paints
+#
+# The reading, the figures, and the arms. Everything below is DERIVED: the
+# declarations from the two sheets, the colours from :data:`TOKENS_CSS`, the
+# states from ``solver_state.js``. The only values written out here are the
+# anti-vacuity floors, for :data:`DOT_PROPERTIES`' stated reason.
+# ==========================================================================
+
+#: ``var(--token)`` on its own — a bare reference, with no fallback. A value
+#: that is anything else (a literal, a ``color-mix``, a reference with a
+#: fallback) is returned unresolved, which is what makes an unresolvable
+#: colour visible as itself instead of as a silent zero.
+_VAR_REFERENCE = re.compile(r"^var\(\s*(--[A-Za-z0-9_-]+)\s*\)$")
+
+#: ``--token: #rrggbb;`` in ``tokens.css``.
+_TOKEN_HEX = re.compile(r"--([A-Za-z0-9_-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;")
+
+
+def token_colours(text: str) -> dict[str, str]:
+    """``{--token: #rrggbb}`` for every flat colour ``text`` declares.
+
+    Flat on purpose: a token defined by ``color-mix`` is not a hex and is not
+    pretended to be one. :func:`swatch_look` leaves such a value unresolved
+    and the arms that read it say so rather than measuring zero.
+    """
+    return {f"--{name}": value.lower() for name, value in _TOKEN_HEX.findall(_css_code(text))}
+
+
+def _resolved(value: str, colours: dict[str, str]) -> str:
+    """``value`` as a hex when it is a bare token reference, else unchanged."""
+    match = _VAR_REFERENCE.match(_squeezed(value))
+    return colours.get(match.group(1), value) if match else value
+
+
+def _channel(value: float) -> float:
+    return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(colour: str) -> float:
+    """WCAG 2.1 relative luminance of ``#rrggbb``.
+
+    Written from the specification rather than imported: no colour library is
+    in the dependency baseline (stdlib + Pillow + NumPy), and a second
+    implementation is this repo's standing preference anyway. Every contrast
+    figure this card and CARD-339 recorded was derived this way, so they have
+    to be reproducible from here and not only from a card's prose.
+    """
+    digits = colour.lstrip("#")
+    assert len(digits) == 6, f"not a #rrggbb colour: {colour!r}"
+    red, green, blue = (int(digits[at : at + 2], 16) / 255 for at in (0, 2, 4))
+    return 0.2126 * _channel(red) + 0.7152 * _channel(green) + 0.0722 * _channel(blue)
+
+
+def contrast_ratio(one: str, other: str) -> float:
+    """WCAG 2.1 contrast ratio between two ``#rrggbb`` colours."""
+    first, second = relative_luminance(one), relative_luminance(other)
+    return (max(first, second) + 0.05) / (min(first, second) + 0.05)
+
+
+def swatch_look(css: str, colours: dict[str, str], state: str) -> dict[str, str]:
+    """What ``css`` makes the brush button for ``state`` look like.
+
+    ``paper`` is the swatch's own background resolved against the hook's base
+    rule — :func:`mark_paper`'s rule, for its reason — and ``mark`` is the
+    whole normalised ``::after``, or ``"(nothing drawn)"`` when there is no
+    such rule. ``ink`` is what the mark is drawn IN: a dot's own
+    ``background``, since the dot's box *is* the mark, or a glyph's ``color``.
+    """
+    own = _cascade(css, f'{SWATCH}[data-state="{state}"]')
+    base = _cascade(css, SWATCH)
+    paper = own.get("background") or base.get("background", "")
+    glyph = _cascade(css, f'{SWATCH}[data-state="{state}"]::after')
+    ink = glyph.get("background") or glyph.get("color", "")
+    return {
+        "paper": _resolved(paper, colours),
+        "paper token": _squeezed(paper) or "(no rule paints it)",
+        "mark": "; ".join(f"{name}: {glyph[name]}" for name in sorted(glyph))
+        or "(nothing drawn)",
+        "ink": _resolved(ink, colours),
+    }
+
+
+def _exactly_once(css: str, old: str, new: str) -> str:
+    """``css`` with ``old`` replaced by ``new``, asserting it occurred once.
+
+    The discipline every plant in this file follows, made a function because
+    the swatch dot and the cell dot share seven of their eight declarations:
+    an anchor that is *nearly* unique would plant into the wrong rule and the
+    arm would still see "something reddened".
+    """
+    found = css.count(old)
+    assert found == 1, f"the plant's anchor occurs {found} times, not once: {old!r}"
+    return css.replace(old, new, 1)
+
+
+#: AC-4's floor, and it is WCAG 2.1's own: 1.4.11 Non-text Contrast asks 3:1
+#: of a graphical object a user has to perceive. A brush swatch is exactly
+#: that — it is not text, and the player has to tell four of them apart.
+GRAPHICAL_CONTRAST_FLOOR = 3.0
+
+
+class TestPlayerLooksAgree_TheWhiteBrushPreviewsTheDot:
+    """CARD-348 AC-1/AC-2/AC-4 — the White button shows the mark it paints.
+
+    The same shape as :class:`TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark`
+    and for the same reasons: one arm per claim, both sheets searched in every
+    one, and **nothing below retypes a declaration**. AC-1 asks for the dot
+    "derived from the admin's declarations rather than retyped"; what makes
+    that true is that the comparison's expected value IS the admin's parse.
+    :data:`EMPTY_SWATCH_GLYPH_PROPERTIES` and the four
+    ``EMPTY_GLYPH_*`` constants are the anti-vacuity floor, not the
+    comparison — :data:`DOT_PROPERTIES`' exact role.
+    """
+
+    def test_the_swatch_dot_is_declared_once_in_each_sheet(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """Both sheets are searched. Half a guard passes half the mutants."""
+        assert rule_count(admin_css, EMPTY_SWATCH_GLYPH) == 1, "admin.css: not found once"
+        assert rule_count(public_css, EMPTY_SWATCH_GLYPH) == 1, "player.css: not found once"
+
+    def test_the_admin_sheet_declares_the_swatch_dots_properties(self, admin_css: str) -> None:
+        found = declarations(rules(admin_css)[EMPTY_SWATCH_GLYPH])
+        assert set(found) == EMPTY_SWATCH_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_public_sheet_declares_the_swatch_dots_properties(self, public_css: str) -> None:
+        found = declarations(rules(public_css)[EMPTY_SWATCH_GLYPH])
+        assert set(found) == EMPTY_SWATCH_GLYPH_PROPERTIES, sorted(found)
+
+    def test_the_two_swatch_dot_declaration_sets_are_equal(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """AC-1's claim. Both of AC-2's plants land here as well as in the guard."""
+        assert declarations(rules(admin_css)[EMPTY_SWATCH_GLYPH]) == declarations(
+            rules(public_css)[EMPTY_SWATCH_GLYPH]
+        )
+
+    def test_the_mark_both_swatches_draw_is_a_round_dot_in_the_secondary_ink(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """Written out independently, so "the same" cannot be "the same wrong".
+
+        Equality alone stays green if both sheets are changed together to draw
+        a square in the accent token, and AC-1's claim is not that the two
+        agree — it is that this page draws *the admin's* mark.
+        """
+        for label, text in (("admin.css", admin_css), ("player.css", public_css)):
+            found = declarations(rules(text)[EMPTY_SWATCH_GLYPH])
+            assert found["content"] == EMPTY_GLYPH_CONTENT, f"{label}: {found}"
+            assert found["background"] == EMPTY_GLYPH_INK, f"{label}: {found}"
+            assert found["border-radius"] == EMPTY_GLYPH_RADIUS, f"{label}: {found}"
+            assert found["width"] == found["height"] == EMPTY_GLYPH_EXTENT, f"{label}: {found}"
+
+    def test_the_swatch_is_the_containing_block_both_marks_resolve_against(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """Item 3 of the card — already true, and now held where it can fail.
+
+        Both swatch marks are ``position: absolute; inset: 0``, so they
+        resolve against the nearest positioned ancestor. ``player.css``'s
+        ``.player-swatch`` already carries ``position: relative`` — CARD-339
+        added it for the "?" — so this card re-declares nothing (its G-2).
+        But "already there" is a premise this card leans on, and a premise
+        belongs where it can fail: drop that one declaration and both marks
+        land in the page's top-left corner while **every** declaration-set
+        equality in this class stays green, because the two sheets would still
+        agree about the ``::after`` itself.
+        """
+        for label, text in (("admin.css", admin_css), ("player.css", public_css)):
+            base = _cascade(text, SWATCH)
+            assert base.get("position") == "relative", (
+                f"{label}: {SWATCH} is not a containing block (position is "
+                f"{base.get('position')!r}), so its absolutely positioned marks resolve "
+                "against the initial containing block and leave the button"
+            )
+            for selector in (EMPTY_SWATCH_GLYPH, MAYBE_SWATCH_GLYPH):
+                found = declarations(rules(text)[selector])
+                assert found["position"] == "absolute", (label, selector, found)
+                assert found["inset"] == "0", (label, selector, found)
+
+    def test_the_brush_button_previews_the_mark_the_board_draws(self, public_css: str) -> None:
+        """The defect in one sentence: the button must show the mark it paints.
+
+        Not the comparison against the admin — that is AC-1 above — but the
+        claim *within this page*, which is what CARD-323 established for the
+        Maybe swatch and what a brush button is for: the White swatch and the
+        White cell draw the same round mark in the same ink. Only the mark is
+        compared, because the placement legitimately differs (a board cell
+        sizes its own block; 1em of button chrome needs an absolute box).
+        """
+        cell = declarations(rules(public_css)[DOT])
+        swatch = declarations(rules(public_css)[EMPTY_SWATCH_GLYPH])
+        shared = ("content", "width", "height", "margin", "border-radius", "background")
+        assert {name: cell[name] for name in shared} == {
+            name: swatch[name] for name in shared
+        }, {"the cell draws": cell, "the button previews": swatch}
+        # And the placement really is the only difference, so "only the mark is
+        # compared" is a statement about these two rules and not a hedge.
+        assert set(cell) - set(swatch) == {"display"}, (sorted(cell), sorted(swatch))
+        assert set(swatch) - set(cell) == {"position", "inset"}, (sorted(cell), sorted(swatch))
+
+    def test_the_white_mark_is_a_fact_this_guard_compares(
+        self, surface: dict[str, tuple[str, str]], census: dict[str, tuple[str, str]]
+    ) -> None:
+        """AC-3 — the fact moved from routed to compared, and the move is total.
+
+        Four statements, because each fails for a different reason: the fact
+        is in the surface :func:`disagreements` is total over; it is **not**
+        exempted there (AC-5 — ``DECLARED_DIVERGENCES`` gains nothing); it is
+        **not** still in the owner's queue; and the census now sees the two
+        sides agreeing. Neither parse is empty, which is what keeps the third
+        from being vacuous.
+        """
+        key = "empty.swatch.glyph.declarations"
+        assert key in surface, sorted(surface)
+        assert key not in DECLARED_DIVERGENCES, (
+            f"{key} is declared as an allowed divergence. CARD-348's G-3: an exemption "
+            "added to make this card green is the defect it exists to fix, one level up."
+        )
+        admin_value, public_value = surface[key]
+        assert admin_value.strip() and public_value.strip(), (key, surface[key])
+        assert ".player-swatch.empty.glyph" not in SIBLING_FINDINGS, (
+            "the finding is closed and the queue entry is stale — see "
+            "test_every_census_fact_is_compared_routed_or_agreeing, which reds on it"
+        )
+        assert MARKS_IN_THE_COMPARED_SURFACE[".player-swatch.empty.glyph"] == key
+        assert census[".player-swatch.empty.glyph"][0] == census[".player-swatch.empty.glyph"][1]
+
+    #: AC-2's two plants, one per direction, each a substitution on the REAL
+    #: text of one sheet — :data:`TestPlayerLooksAgree_TheMaybeMarkIsTheSameMark.MAYBE_PLANTS`'
+    #: idiom, so a control cannot drift away from the file it is about, and so
+    #: that the admin-side plant never writes into ``src/`` (G-1).
+    #:
+    #: Both anchors carry ``inset: 0; width: 28%``, which is the swatch dot's
+    #: and **not** the cell dot's: the two rules share seven of eight
+    #: declarations, so a shorter anchor would plant into the board's mark and
+    #: red the wrong fact. :func:`_exactly_once` is what says so out loud.
+    WHITE_PLANTS = {
+        "the public swatch dot is drawn in the board's ink": (
+            "empty.swatch.glyph.declarations",
+            _on_public(lambda css: _exactly_once(
+                css,
+                "inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; "
+                "background: var(--color-text-secondary);",
+                "inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; "
+                "background: var(--grid-ink);",
+            )),
+        ),
+        "the admin swatch dot is drawn as a square": (
+            "empty.swatch.glyph.declarations",
+            _on_admin(lambda css: _exactly_once(
+                css,
+                "inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%;",
+                "inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 0;",
+            )),
+        ),
+    }
+
+    @pytest.mark.parametrize("name", sorted(WHITE_PLANTS))
+    def test_a_one_sided_change_to_the_swatch_dot_is_reported(
+        self, admin_css: str, public_css: str, name: str
+    ) -> None:
+        """AC-2: a divergence in the swatch dot, planted either way, reds.
+
+        Two assertions in order, and the second is the one with teeth: the
+        plant must appear as an **undeclared** disagreement, so a plant the
+        exemption table absorbed fails here rather than passing as "something
+        reddened".
+        """
+        key, plant = self.WHITE_PLANTS[name]
+        planted_admin, planted_public = plant(admin_css, public_css)
+        assert (planted_admin, planted_public) != (admin_css, public_css), (
+            f"the plant {name!r} did not apply — this control measures nothing"
+        )
+        found = disagreements(
+            compared_surface(
+                planted_admin, planted_public, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+            )
+        )
+        assert key in found, {name: sorted(found)}
+        assert set(found) - set(DECLARED_DIVERGENCES) == {key}, {
+            "the plant was absorbed or reached further than one fact": sorted(
+                set(found) - set(DECLARED_DIVERGENCES)
+            )
+        }
+
+    def test_a_swatch_dot_deleted_from_this_page_is_a_failure_and_not_an_absence(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """The third direction, which equality cannot carry.
+
+        Deleting the rule does not make the two sides *differ* — it makes one
+        side unreadable, and "not found" has to be a failure rather than a
+        silent half-measurement. That is :func:`_measured`'s job, so the plant
+        is asserted to raise with the FACT's name in the message. It is also
+        the exact state this page was in before this card, which is why the
+        arm is worth having: back then nothing raised, because the fact was
+        not in the surface at all.
+        """
+        rule_text = rules(public_css)[EMPTY_SWATCH_GLYPH]
+        planted = _exactly_once(
+            public_css, f"{EMPTY_SWATCH_GLYPH} {{{rule_text}}}", ""
+        )
+        with pytest.raises(AssertionError) as broke:
+            compared_surface(
+                admin_css, planted, wave_settings(ADMIN_JS), wave_settings(PUBLIC_JS)
+            )
+        assert "empty.swatch.glyph" in str(broke.value), str(broke.value)
+        assert "player.css" in str(broke.value), str(broke.value)
+
+    def test_the_four_brush_buttons_are_mutually_distinguishable(
+        self, public_css: str
+    ) -> None:
+        """AC-4 — measured from the tokens, pair by pair, and recorded.
+
+        The figures are the deliverable, so they are **computed** here from
+        :data:`TOKENS_CSS` through this module's own WCAG 2.1 reading, over
+        the states ``solver_state.js`` declares. ``measured`` carries the whole
+        table into every failure message, which is what "recorded, not
+        asserted" means in a test: the numbers survive the run either way.
+
+        The claim is narrow and it is this card's: **three of the six pairs
+        are separated by paper alone and three are not**, so the other three
+        are separated by their MARKS. Before this card the White/Clear pair
+        was separated by neither — 1.190:1 of paper and no mark on either —
+        which is the defect. A pair separated by neither reds here.
+        """
+        colours = token_colours(TOKENS_CSS.read_text(encoding="utf-8"))
+        looks = {state: swatch_look(public_css, colours, state) for state in cell_states()}
+        measured = {
+            "each swatch": looks,
+            "paper vs paper": {},
+            "mark on its own paper": {},
+        }
+        for state, look in looks.items():
+            if look["mark"] != "(nothing drawn)":
+                measured["mark on its own paper"][state] = round(
+                    contrast_ratio(look["ink"], look["paper"]), 3
+                )
+        pairs = [
+            (one, other)
+            for index, one in enumerate(looks)
+            for other in list(looks)[index + 1 :]
+        ]
+        for one, other in pairs:
+            measured["paper vs paper"][f"{one} vs {other}"] = round(
+                contrast_ratio(looks[one]["paper"], looks[other]["paper"]), 3
+            )
+
+        # Anti-vacuity: four states, four papers that really resolved to a hex.
+        assert len(looks) >= 4, measured
+        for state, look in looks.items():
+            assert look["paper"].startswith("#"), (state, measured)
+
+        for one, other in pairs:
+            by_paper = measured["paper vs paper"][f"{one} vs {other}"]
+            by_mark = looks[one]["mark"] != looks[other]["mark"]
+            assert by_paper >= GRAPHICAL_CONTRAST_FLOOR or by_mark, {
+                "two brush buttons a player cannot tell apart": f"{one} vs {other}",
+                "measured": measured,
+            }
+        for state, ratio in measured["mark on its own paper"].items():
+            assert ratio >= GRAPHICAL_CONTRAST_FLOOR, {
+                "a mark that cannot be seen on the swatch it is drawn on": state,
+                "measured": measured,
+            }
+        # And the half that is this card's reason to exist, stated so it can
+        # fail: at least one pair is distinguished by a mark and not by paper.
+        on_marks_alone = [
+            f"{one} vs {other}"
+            for one, other in pairs
+            if measured["paper vs paper"][f"{one} vs {other}"] < GRAPHICAL_CONTRAST_FLOOR
+        ]
+        assert on_marks_alone, measured
+        for pair in on_marks_alone:
+            one, other = pair.split(" vs ")
+            assert looks[one]["mark"] != looks[other]["mark"], {
+                "separated by neither paper nor mark": pair,
+                "measured": measured,
+            }
+
+
 class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
     """CARD-339 item 4 / AC-5 — the other marks are measured, not assumed.
 
@@ -1770,9 +2223,9 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
 
         **Its floor is a digit, and that is all it is.** A figure that is right
         and a sentence that reads it backwards both pass here — which happened
-        once, in the `.player-swatch.empty.glyph` entry above, and was caught
-        by a reviewer rather than by this arm. Stated rather than left to be
-        rediscovered.
+        once, in the `.player-swatch.empty.glyph` entry (removed by CARD-348,
+        which closed that finding), and was caught by a reviewer rather than by
+        this arm. Stated rather than left to be rediscovered.
         """
         thin = sorted(
             key
@@ -1806,12 +2259,12 @@ class TestPlayerLooksAgree_TheOtherMarksAreCensusedNotAssumed:
 
         **And this is the ONLY value-pinning in the routed table**, which is
         worth knowing before trusting the word "pinned" elsewhere: the two
-        literals below are written out by hand, they cover two of the six
-        routed facts, and the other four are held to diverging and nothing
+        literals below are written out by hand, they cover two of the five
+        routed facts, and the other three are held to diverging and nothing
         more. **CARD-346** owes the table a derived residue per entry, the way
         :data:`RESIDUE_CONTROLS` does for :data:`DECLARED_DIVERGENCES`.
 
-        **Narrower still, and read this before trusting "two of the six":** two
+        **Narrower still, and read this before trusting "two of the five":** two
         facts are four *sides*, and this arm holds **three** of them. The two
         literals are written for ``.player-cell.maybe.paper`` only, so the
         cell's admin and public sides are both pinned by value. The swatch's
@@ -2132,8 +2585,23 @@ class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
         the file it is about, and it plants the divergence in a fact that is
         **not** declared — the dot's geometry — which is precisely what must
         not be absorbable by the exemption table.
+
+        **Anchored on the dot rule itself, and it had to be** (CARD-348). This
+        plant used to read ``public_css.replace("width: 28%;", …, 1)`` — the
+        FIRST ``width: 28%`` in the sheet. That was the board dot's only while
+        the board dot was the only 28% mark in the file; CARD-348 added the
+        White swatch's dot, which is the same mark in a smaller box and sits
+        **earlier** in the sheet, so the plant silently moved to the swatch and
+        this arm reported ``empty.swatch.glyph.declarations`` instead of
+        ``dot.declarations``. It failed loudly, which is the control working —
+        but a nearly-unique anchor is a hazard whatever it does this run, so
+        the anchor is now the rule's own body, which :func:`rules` resolves by
+        selector and :func:`_exactly_once` holds to one occurrence.
         """
-        planted = public_css.replace("width: 28%;", "width: 31%;", 1)
+        rule_text = rules(public_css)[DOT]
+        planted = _exactly_once(
+            public_css, rule_text, rule_text.replace("width: 28%", "width: 31%", 1)
+        )
         assert planted != public_css, "the plant did not apply — this control measures nothing"
         found = disagreements(
             compared_surface(
