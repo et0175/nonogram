@@ -12,7 +12,7 @@
 **Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-363
 **Source:** Measured at the station 2026-11-04 after five review artefacts in two waves had to be reconstructed from agents' hand-back messages. The measurement found the gap is not five cards but systemic, and that the orchestrator's own diagnosis of it was half wrong — see "What the measurement changed".
 **Idea:** —
-**Wave:** 76
+**Wave:** 77 <!-- RE-STAMPED 2026-11-04. Was 76. Wave 76 was closed on the owner's instruction on CARD-348 alone while this card was mid-review-cycle-3 (the last max_cycles allows), so the wave was closed AROUND it rather than on it and its wave-76 attribution is withdrawn deliberately. Consequence recorded honestly: the cycle datum this card would have contributed -- a 2c estimate certifying on cycle 3, which would have been this board's first ratio that is neither 1.000 nor 0.500 -- is NOT in wave 76's retrospective row, and will land in wave 77's. Review cycle 3 was NOT cancelled; it continued running across the wave boundary. -->
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —

@@ -1,4 +1,4 @@
-wave: 76   # OPENED 2026-11-04T14:14Z on the owner's "open the next wave on 363" + "maybe we can add a player card"
+wave: 77   # OPENED 2026-11-04 by the close of wave 76 on CARD-348 alone; carries CARD-363 forward mid-cycle-3. Was: 76, OPENED 2026-11-04T14:14Z on the owner's "open the next wave on 363" + "maybe we can add a player card"
 #            CARD-278 8.8 (cycle 1), CARD-336 8.6 (cycle 1), CARD-339 8.4 (cycle 2).
 #            Opened 2026-11-04T03:41Z on the owner's "open the next wave on 336".
 #            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
@@ -454,12 +454,17 @@ active:
     started: 2026-11-04T14:14Z
     estimate: 2c (0.5d)
     cut_from: c021a10f
-  - card: CARD-348
-    branch: card/348-the-white-brush-gains-its-dot
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-348
-    started: 2026-11-04T14:14Z
-    estimate: 1c (0.5d)
-    cut_from: c021a10f
+# WAVE 76 CLOSED 2026-11-04 on the owner's instruction to stamp it on CARD-348 alone
+#   and carry CARD-363 forward. CARD-348 CLEARED: merged `9971257a`, closed, certified
+#   9.0 on cycle 1, estimate 1c -> ratio 1.000 (exact), the fifth exact cycle estimate
+#   on this board. Its worktree has been removed per the standing tidy rule, so the
+#   entry is dropped rather than left naming a path that no longer exists -- a phantom
+#   holder is what the next wave's free-slot check would read.
+#   CARD-363 STAYS ACTIVE and is RE-STAMPED to wave 77: it is mid-review-cycle-3 (the
+#   last max_cycles allows) and its review is still running, so the wave was closed
+#   AROUND it rather than on it. Its wave-76 attribution is withdrawn deliberately --
+#   the owner chose a one-card close over waiting, and this records that the cycle
+#   datum wave 76 would have exported is therefore NOT in wave 76's row.
 # CARD-337 CLEARED 2026-11-04T13:56Z at its merge gate: merged `830fa5d9`, closed
 #   `a3191b98`, certified 8.5 on cycle 1. Its worktree
 #   /Users/omelnikova/PycharmProjects/PythonProject4-card-337 has been REMOVED per the
@@ -608,7 +613,7 @@ queued:
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
 - id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
-last_updated: 2026-11-04T14:14:00Z
+last_updated: 2026-11-04T18:40:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HISTORY BELOW THIS LINE — the previous run's state, kept verbatim for the

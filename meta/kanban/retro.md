@@ -2186,3 +2186,147 @@ registry (CARD-366).
 - **Watch for score recovery on an un-re-cut wave.** That single reading distinguishes scoping
   discipline from Goodhart on the estimate, and nothing else does.
 - Nothing here is effort calibration beyond the first bullet, so `calibrate` ignores the rest.
+
+## Wave 76 — one card closed at 9.0, one carried mid-cycle, and the family is still instruments that cannot fail
+
+**Closed 2026-11-04, on the owner's instruction, as a ONE-card wave.** CARD-348 landed; CARD-363
+was mid-review-cycle-3 and the wave was closed **around** it rather than on it. The owner was asked
+and chose the one-card close over waiting. What that costs is recorded rather than glossed: see
+*The datum this wave does not have* below.
+
+### The numbers
+
+| | |
+|---|---|
+| cards closed | **1** of 2 dispatched |
+| CARD-348 | **9.0**, certified cycle 1, merged `9971257a` |
+| estimate | 1c → cycle 1 = **ratio 1.000 (exact)** |
+| mean score | **9.00** — the highest since wave 72 |
+| coverage | 1/1 of closed cards carry a cycle estimate |
+| gate suite | 10306 passed / 0 failed / 1 skipped, `DATABASE_URL` **armed** |
+
+Card census re-derived from all 372 files on disk, per status, built from the counts rather than
+typed: **292 done · 72 ready · 1 in_progress · 1 parked · 5 blocked · 1 skipped = 372.**
+
+### The four-wave drift reading is REFUTED
+
+Scores by wave: 73 → **8.83**, 74 → **8.60**, 75 → **8.25**, 76 → **9.00**. Wave 75's retro named
+two readings of the decline — scoping discipline versus Goodhart on the estimate — and named the
+discriminator: *a wave whose cards are not re-cut*. **Neither CARD-348 nor CARD-363 was re-cut, and
+the score went up.** That favours the scoping-discipline reading. One wave is not a trend, but it is
+the first evidence that points away from Goodhart rather than toward it.
+
+Cycle-ratio series, measured across all 248 wave-stamped cards: **cycle estimates exist only in
+waves 74, 75 and 76.** Every earlier wave is 0/n — which is why no calibration was possible before
+the unit switch. Ratios: 74 = **1.000** (n=3), 75 = **0.750** (n=2), 76 = **1.000** (n=1). Six
+finalised ratios, mean **0.917**, the single miss being CARD-335's 0.500.
+
+### The datum this wave does not have
+
+CARD-363 is estimated **2c** and was on review cycle **3**. Had it certified there, its ratio would
+have been **1.500** — this board's **first ratio that is neither 1.000 nor 0.500**, and therefore the
+first point in the series carrying information about the *shape* of the estimate error rather than
+just its presence. Closing the wave on one card withdraws that from wave 76's row; it will land in
+wave 77's.
+
+Stated plainly because the alternative is a retrospective that reads as though nothing was given up.
+The owner was told this before choosing, including that the 1.500 was arithmetic conditional on
+certification and not a measurement.
+
+### Finding family: instruments that cannot fail — the third consecutive wave
+
+Every round this wave caught one, and so did the orchestrator. Twelve specimens:
+
+**Found by the rounds**
+1. **CARD-363 F-001** — the module **red on main the moment its own card closed**: six asserted
+   equalities grew by one on a correct closure. Fixed to floors *derivable* from the surviving
+   equalities, so no information was lost.
+2. **CARD-363 F-101(b)** — three more equalities grew **at a wave open**, not a closure, which a
+   closure-framed hunt could not reach. The module held **both spellings of the same seven cards**:
+   `>= 7` as an anti-vacuity floor in one test, `== 7` as a bound in another.
+3. **CARD-363 F-101(a)** — the replacement re-entry check was **order-sensitive**: a correct closure
+   red if the Score line was typed *above* the earlier one and passed if *below*, nothing else
+   differing. The check had looked like a discriminator; what it actually read was **where a human
+   had typed a line**.
+4. **CARD-363 F-003** — a plant whose comment said 1 and whose count was **0**, passing only because
+   the assertions tested for substrings.
+5. **CARD-363 F-006** — an audit wrapping two read routes while **four escaped** (`Path.open`,
+   `Path.read_bytes`, `io.open`, `os.open`), because `Path.open` resolves `io.open` as a module
+   attribute that rebinding `builtins.open` never reaches. Closed to five of six; `os.open` still
+   escapes and the docstring **says five**, not "every read".
+6. **CARD-363 F-102** — a **fabricated quotation**: a docstring attributing to CARD-363 a sentence
+   that had never appeared in it, in the module whose subject is records that do not say what they
+   claim. (It had a real ancestor in `dispatcher.state`, about a different field — the attribution
+   and scope were wrong, not the existence.)
+7. **CARD-363** — **comment stripping measured INERT**: 0 of 365 readings change under the module's
+   own anchored regexes, and cycle 1 had endorsed the opposite by substituting a bare-integer reading
+   for the anchored one.
+8. **CARD-348 IMP-2** — a new WCAG helper with **no reference anchor**; a formula error would move
+   all six figures together and could pass or fail silently. Third unanchored copy in the tree.
+9. **CARD-348 MIN-1** — a plant anchor matching **twice** under a bare `css.replace()`, passing only
+   because the collateral rule was not a compared fact.
+10. **CARD-348's gate** — `git show $r:path` **unbraced in zsh** drops the `:path` and hashes the
+    log-plus-diff, **fabricating three divergent SHA-256s for a byte-identical file** — the shape of
+    a real `src/` guardrail violation. The durable rule: *a hash differing where `git diff` reports
+    nothing changed is an instrument failure, never a tree verdict.*
+11. **The gate's own `why` field** — nothing checks it, and it gets read later as a measurement. This
+    one carried a false premise about `dispatcher.state` reaching the check-ref domain. The gate
+    corrected it openly rather than quietly.
+12. **`full_suite_lock.py` itself** — mandatory on refusal, **purely advisory on acquisition**: no
+    function in the module writes the lock, so a run that skips acquisition silently defeats the
+    mutual exclusion. Now **CARD-370** (P1).
+
+**Found in the orchestrator's own work**
+- *"Neither agent at fault"* — a roll-up assembled from two **correct partial accounts**, neither of
+  which was wrong. CARD-363's reviewer said only that the lock *"was absent immediately before I
+  started"*, which is not a claim of acquisition.
+- A zsh **multi-glob** probe where one unmatched pattern aborted the whole command and the `|| echo`
+  fallback printed a confident **`(none)`** for files that existed.
+- **In the very script written to measure this wave**: comment-stripping applied to `Estimate` and
+  `Review score` and **not** to `Wave`, which made 173 cards vanish and nearly produced the finding
+  that waves 68–72 ran no cards at all. An asymmetric guard, in a measuring instrument, written by
+  the person documenting asymmetric guards.
+- *"Four asserted equalities"* propagated into a fix brief from a review whose **own evidence
+  paragraph listed six** — and the true count was **eight**.
+- A stale `⚠` note left standing on CARD-363 after the condition it described was fixed — *the exact
+  defect that card charges elsewhere*, caught by its own fix round.
+
+### What went right, and is worth keeping
+
+- **Two rounds overruled their reviewers, correctly.** CARD-363's fix round refused the cycle-1
+  reviewer's `== len(scored_cards(tree))` as a **tautology — a loosening dressed as a fix** — and
+  cycle 2 ruled for the round and credited it. A board where a round can overrule its reviewer *and
+  be scored up for it* is working.
+- **A discriminator was refused rather than faked.** An order-free ordinal comparison cannot separate
+  upstream's threshold double-write from a true re-entry; position does not separate them either
+  (of 49 duplicated-ordinal cards, **39 duplicate the maximum and 10 duplicate below it**). The round
+  named both causes with the measured dominant one first and wrote the limit down.
+- **The lock rule propagated and held.** After CARD-363's cycle-1 suite lost 37 tests to an
+  un-acquired lock, the next **three** rounds each acquired it with a structured `why`, an absolute
+  worktree and no pid, releasing via an `EXIT` trap.
+- **A trap was pre-empted instead of diagnosed.** CARD-348's gate found the per-worktree test
+  database at `017` against a head of `018` and migrated **before** arming, rather than taking a red
+  in an unrelated module and being trained to re-run.
+- **CARD-370's cause is measured, not presumed**, twice independently: cycle 1's
+  `10292 + 37 = 10329` equals the clean pass count of two later suites.
+
+### Cards cut this wave
+
+**Six** — CARD-368 (nothing guards a card's estimate across its three copies), CARD-369 (the upstream
+counter double-counts a threshold-reached cycle: distinct ordinals take this board **50 → 2** with
+zero regressions, era-bounded CARD-113…CARD-192), CARD-370 (the lock asymmetry, P1), CARD-371 (the
+unanchored WCAG helper), CARD-372 (the over-firing plant anchor, pre-existing CARD-339 debt),
+CARD-373 (AC-4's table durable only inside a failure message a green run never prints).
+
+### Process findings the orchestrator owns
+
+- **The branch's copy of a card is the MERGE-BASE copy.** INV-023 keeps `meta/kanban` off the card
+  branch, so a round reading "its own card" reads a brief with no review verdicts and none of main's
+  corrections — sha256-verified by cycle 2. This is why the fabricated quotation was priced as prose:
+  the round could not have seen the text it was accused of misquoting. Briefs now carry the card's
+  current text, or say "read it from main".
+- **Metrics capture has refused four consecutive waves** (missing `meta/metrics/signal-definitions.yml`)
+  — CARD-366 owns it.
+- **Two stale `Wave` stamps**: CARD-310 reads `Wave: 67` while `ready`, CARD-307 reads `Wave: 66`
+  while `skipped`, so both waves read larger than they were. Wave 15 has no cards at all. Not acted
+  on; recorded for whoever touches the wave census next.
