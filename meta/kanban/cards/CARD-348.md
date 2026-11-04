@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-339
 **Touches:** player/player.css, tests/test_public_player_agreement.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 — CERTIFIED)
 **Started:** 2026-11-04T14:14Z
 **Closed:** —
 **Actual:** —
@@ -111,3 +111,25 @@ correction is CARD-339's fix round's to make (its F-7); do not restate the error
 - ADR-0039/R2 — a guard's set is derived from an authority the runtime can enumerate
   (check: `test_every_census_fact_is_compared_routed_or_agreeing`)
 - ADR-0041/R2 — no public asset carries recoverable solution data (check: review-lens)
+
+## Worktree notes
+
+[Review 1/3] Score: 9.0 — **CERTIFIED** (threshold 8.0). 0 Critical, 2 Important (1 discharged by the reviewer itself), 3 Minor, 1 Nit. Artefact: `meta/review/CARD-348-cycle1.yml`. Merge-base `c021a10f`; `git diff --stat c021a10f main` empty for all three touched paths, so no rebase exposure. Diff 2 files, +522/−36; arm count **62 → 74** verified by `--collect-only` on both sides.
+
+**Written by the orchestrator — this card had no `## Worktree notes` section and the review's sync point wrote no marker.** Second occurrence in this wave, CARD-363 being the first, which is direct evidence for CARD-363's premise. Estimate **1c, certified on cycle 1 — ratio 1.000, exact.**
+
+[Review 1/3] Every quantitative claim the round made **reproduced exactly** when independently re-measured: the 18/17 plant reds, plant C's 32, all six WCAG contrast figures (15.444 / 13.209 / 12.978 / 1.190 / 1.169 / 1.018, dot-on-White-paper 6.144, re-derived by an independent WCAG 2.1 implementation under `python -I` with no import of the module), the containing-block hole, and the SHA-256 pairs on both sheets.
+
+[Review 1/3] **The orchestrator's station reading was the over-reading, and the round was right.** Resolved by *enclosing test* rather than by file: the only pre-card cell naming `.player-swatch.empty.glyph` outside `SIBLING_FINDINGS` sits inside `test_the_census_is_not_vacuous`, whose assertion is bare dict membership and says nothing about routing — routing was held solely by `diverging == set(SIBLING_FINDINGS)`. So the anti-vacuity line survives the move unchanged and still correct. See [[attribute-by-test-not-by-file]].
+
+[Review 1/3] **The `position: relative` arm is the only DIAGNOSTIC detector, not the only detector.** Widened across all seven player-CSS test files: planted **18 failed / 243 passed (595s)** against an unplanted control of **261 passed / 0 failed (115s)**. The 17 e2e arms that red are all `Page.click: Timeout 30000ms exceeded` from **CARD-339's Maybe glyph** intercepting pointer events — they name nothing about the containing block. The new arm costs 0.4s instead of ten minutes of opaque timeouts. "No control" should read "no control that names the cause."
+
+[Review 1/3] Cascade attribution verified: subtracting the new class's own reds (5 under plant A, 4 under B) both plants land on exactly **13**, and it is the **same** 13 arms — so the cascade did not change and the delta above the predicted 8–16 band is this card's own new arms.
+
+[Review 1/3] **F-3 discharged by the reviewer, not deferred.** It ran the full pass the finding owed, on `01731bf5` itself, unarmed: **10280 passed / 0 failed / 27 skipped / 1 xfailed** in 1502.59s. Skips read off `-rEfs` rather than recalled — 26 `tests/conftest.py:207` (bare `DATABASE_URL`) + 1 `tests/test_book_pdf_memory.py:1297` (`setrlimit`) = 27, exactly the measured **unarmed** expectation. Lock acquired at 15:21:24Z and released; neither override env var touched. **So the merge gate owes no full suite.**
+
+[Review 1/3] ADR-0041/R2 verified by grep over every `dataset`/`setAttribute` write under `player/`: `play.js` writes a *swatch's* state in exactly one place (`play.js:442`, the player's chosen brush); lines 357/375 write `.player-cell` state, not swatch state; no `setAttribute("data-state", …)` anywhere under `player/`. The load-bearing half holds.
+
+[Review 1/3] Three non-gating follow-ups carded: **CARD-371** (the new WCAG helper has no reference anchor — a third unanchored implementation in this tree), **CARD-372** (one plant anchor over-fires: `calc(var(--player-cell) * 0.6)` occurs twice in `admin.css` under a bare `css.replace()`; pre-existing CARD-339 debt), **CARD-373** (AC-4's six-pair table is durable only inside a failure message a green run never prints).
+
+[Review 1/3] The round's lock disclosure is now **CARD-370**, re-cut on the measured mechanism: the lock is mandatory on refusal and purely advisory on acquisition. CARD-348's reviewer acquired correctly; CARD-363's did not acquire at all.
