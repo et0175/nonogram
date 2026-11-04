@@ -1,4 +1,4 @@
-# CARD-337: The reader seam — the 11 reds that are actually an unprotected page read, out of the 143 this card was cut against
+# CARD-337: `pdf_ink_mode` asks what colour space the FILE declares, and a vector page declares none — the claim has no subject in the converted medium
 
 **Status:** in_progress
 **Priority:** P1
@@ -29,14 +29,52 @@
      landed a field main had just cleaned. Normalised to main's own convention. The note
      it carried follows, unchanged, as its own comment. -->
 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
-**Touches:** tests/test_book_pdf_band.py, tests/test_book_solved_answer_key.py, tests/property/test_book_pairing.py
-<!--RE-CUT 2026-11-04 on the owner's instruction after this card's own item 0 refuted its premise three ways. Thirteen modules -> THREE, and the basis is the MECHANISM census rather than seam-applicability: the reader seam proper (M6 unprotected KeyError b'XObject' + M6b PageMediumRefused) is 11 of 143 reds, and these are the three modules where a module-level page source exists to wrap (class S1). The other 120 reds are other mechanisms and are routed to CARD-354..357, CARD-322, CARD-343 and CARD-352 -- see the re-cut block. -->
+**Touches:** tests/test_book_pdf_ink_mode.py
+<!--RE-CUT TWICE 2026-11-04. The first re-cut named three modules that hold ZERO of this card's reds -- the orchestrator joined a mechanism count and a module list from two tables of one report as if they shared a key, and they are orthogonal. Corrected to ONE module on the cross-tab: pdf_ink_mode holds all 9 M6 reds plus 1 M10, and is owned by no other proposed card. See the CORRECTION block. -->
 **Review score:** —
 **Started:** 2026-11-04T08:33Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+> **[CORRECTION 2026-11-04 — the first re-cut was WRONG and this supersedes the block below it.]**
+>
+> **The orchestrator's first re-cut named `pdf_band`, `solved_answer_key` and
+> `property/test_book_pairing`. Those three hold ZERO of this card's reds.** Measured on the
+> cross-tab: **M6's 9 reds are entirely in `tests/test_book_pdf_ink_mode.py`** and **M6b's 2 are
+> entirely in `tests/test_book_export_interior_cover.py`**.
+>
+> **How the error was made, because the shape is new:** the round's report contained two tables —
+> a mechanism census (M6 + M6b = 11) and a seam-applicability classification (S1 = those three
+> modules, *where `interior_images` can be placed*). The orchestrator **joined them on a key
+> they do not share**. "Where the seam can go" and "where the seam's reds are" are orthogonal
+> questions, and here the two answers are **disjoint**. Both tables were correct; the join was
+> invented.
+>
+> **It gets sharper, and it retires this card's own name.** Both real modules are class **S3** —
+> no medium-declared page source anywhere in their AST — so `interior_images` is **structurally
+> inapplicable in both**, and neither red is a seam placement. "The reader seam" was never this
+> card's subject.
+>
+> **And the two remaining repairs are unrelated to each other**, so keeping both would reproduce
+> CARD-309 (one card holding unrelated causes, 189 failures, could not close). This card takes
+> **one module**:
+>
+> **`tests/test_book_pdf_ink_mode.py` — 10 reds (M6 9 + M10 1), owned by no other proposed card.**
+> Its own `pdf_image_objects` helper reads `resources[b"XObject"]` and reports the `ColorSpace`
+> **as the file declares it**, and its docstring says it exists *beside* `tests/helpers/pdf_pages.py`
+> deliberately, because that helper ends in `.convert("RGB")` — *"which normalises away the one
+> thing this card changes"*. **A vector page has no image XObject and no `ColorSpace`, so the
+> claim — grayscale versus RGB as declared — has no subject in the converted medium.** That is
+> an ADR-0042/R6 re-expression against the content stream, or a retirement with a named
+> survivor. It is a design question, not a repair, and it is why 1c may still be the wrong
+> price.
+>
+> **`export_interior_cover`'s M6b (2 reds) is routed out**: `pdf_pages` raises when
+> `_derived_dpi` returns `None` (*"no `dpi=` was given and this file's N raster page(s) do not
+> settle one"*), so the repair is a **call-site argument**, not a seam. That module carries 15
+> reds across three mechanisms and belongs to a module-sliced card.
 
 > **[RE-CUT 2026-11-04 on the owner's instruction, AFTER the refutation below. Read this first.]**
 >
