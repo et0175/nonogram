@@ -94,6 +94,7 @@ from nonogram.export.layout import ANSWER_TILE_GAP_MM, compute_packed_solved_lay
 
 from tests.helpers.book_corpus import GUIDE_INTERIOR_PAGES
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.pdf_pages import interior_images
 
 # --------------------------------------------------------------------------
 # CON-018's Book 1 profile, in millimetres, written out rather than imported.
@@ -232,6 +233,66 @@ def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Imag
     ).pages
 
 
+def _interior_images(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Image.Image]:
+    """:func:`_interior`, every page as device pixels (CARD-354, ADR-0042/R6).
+
+    The sites that *measure* a page -- a rule's side, the ink in a gutter --
+    read pixels, and a page arrives in whichever medium its kind declares. The
+    seam is :func:`tests.helpers.pdf_pages.interior_images`: a bitmap page is
+    returned unchanged (so on a tree whose kinds are still raster this is
+    exactly :func:`_interior`) and an operator page is rasterised by poppler at
+    its own DPI, or refused loudly when poppler is absent.
+    """
+    return interior_images(_interior(puzzles, book))
+
+
+def _page_reading(page) -> Tuple[object, ...]:
+    """What makes two pages of the SAME medium the same page, byte for byte.
+
+    A bitmap page is its pixels. An operator page is its media box and the
+    content stream it records -- the bytes ``/Contents`` holds -- because
+    ``ContentStream`` has no ``tobytes`` (CARD-354 M7d: that is the whole of
+    the twelve ``AttributeError`` reds). The first element names the medium, so
+    two pages of different media can never read as equal *or* be compared as if
+    they could: a cross-medium ``==`` would be False and a cross-medium ``!=``
+    vacuously True, and neither says anything about the page.
+    """
+    if isinstance(page, Image.Image):
+        return ("raster", page.size, page.tobytes())
+    if isinstance(page, ContentStream):
+        return ("vector", page.media_box, page.render())
+    raise TypeError(f"a book page is a bitmap or a content stream, not {type(page).__name__}")
+
+
+def _answer_twin(gen: BookPDFGenerator, payload, number: int, page_number: int, title):
+    """The full answer page, drawn **directly** in the medium its kind declares.
+
+    The expectation the interior's wiring is held to: the same
+    ``(payload, puzzle_number, page_number, title)`` handed straight to the
+    writer of the declared medium, not through ``interior_stream``. The vector
+    writer is called as the module, not through ``gen.pages``, so the
+    expectation does not share the seam it is checking.
+    """
+    if book_pdf_generator.page_medium(book_pdf_generator.PageKind.ANSWER) is (
+        book_pdf_generator.PageMedium.VECTOR
+    ):
+        return book_answer_vector.answer_page(
+            gen.page_spec(page_number), gen.dpi, payload, number, page_number, title
+        )
+    return gen.solved_puzzle_page(payload, number, page_number, title=title)
+
+
+def _packed_twin(gen: BookPDFGenerator, plan, payloads, page_number: int, titles):
+    """The packed answer page, drawn directly in the medium its kind declares."""
+    if book_pdf_generator.page_medium(book_pdf_generator.PageKind.ANSWER) is (
+        book_pdf_generator.PageMedium.VECTOR
+    ):
+        return book_answer_vector.packed_answer_page(
+            gen.page_spec(page_number), gen.dpi, plan, payloads, page_number, titles
+        )
+    return gen._packed_answer_page(plan, payloads, page_number, titles)
+
+
 # --------------------------------------------------------------------------
 # AC-1 — one answer page per puzzle, in book order, behind the SOLUTIONS page
 # --------------------------------------------------------------------------
@@ -259,10 +320,10 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
 
         for offset, puzzle in enumerate(puzzles):
             page = pages[start - 1 + offset]
-            expected = gen.solved_puzzle_page(
-                gen._payload(puzzle), offset + 1, start + offset, title=puzzle["puzzle_name"]
+            expected = _answer_twin(
+                gen, gen._payload(puzzle), offset + 1, start + offset, puzzle["puzzle_name"]
             )
-            assert page.tobytes() == expected.tobytes(), (
+            assert _page_reading(page) == _page_reading(expected), (
                 f"answer page at offset {offset} is not puzzle {offset + 1}'s"
             )
 
@@ -300,10 +361,10 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
 
         for offset, puzzle in enumerate(puzzles):
             number = offset + 1
-            expected = gen.solved_puzzle_page(
-                gen._payload(puzzle), number, start + offset, title=puzzle["puzzle_name"]
+            expected = _answer_twin(
+                gen, gen._payload(puzzle), number, start + offset, puzzle["puzzle_name"]
             )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes()
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
 
     def test_a_custom_book_title_wins_over_the_pictures_own_name(self) -> None:
         """FR-041: ``books.puzzle_titles`` beats ``puzzle_name`` in the caption."""
@@ -315,16 +376,15 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
         start = first_answer_page(book, puzzles)
         gen = BookPDFGenerator(book)
 
-        expected = gen.solved_puzzle_page(
-            gen._payload(puzzles[0]), 1, start, title="Winter Star"
-        )
-        assert pages[start - 1].tobytes() == expected.tobytes()
+        expected = _answer_twin(gen, gen._payload(puzzles[0]), 1, start, "Winter Star")
+        assert _page_reading(pages[start - 1]) == _page_reading(expected)
 
         # The control: captioned with the picture's own name, it must not match.
-        uncustomised = gen.solved_puzzle_page(
-            gen._payload(puzzles[0]), 1, start, title="Snowflake"
-        )
-        assert pages[start - 1].tobytes() != uncustomised.tobytes()
+        # Same medium as the page by construction (_answer_twin), so this ``!=``
+        # is a difference of content and not of medium.
+        uncustomised = _answer_twin(gen, gen._payload(puzzles[0]), 1, start, "Snowflake")
+        assert _page_reading(pages[start - 1])[0] == _page_reading(uncustomised)[0]
+        assert _page_reading(pages[start - 1]) != _page_reading(uncustomised)
 
     def test_a_puzzle_with_no_name_at_all_is_still_captioned_by_number_alone(
         self,
@@ -336,8 +396,8 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
         start = first_answer_page(book, [puzzle])
         gen = BookPDFGenerator(book)
 
-        expected = gen.solved_puzzle_page(gen._payload(puzzle), 1, start, title=None)
-        assert pages[start - 1].tobytes() == expected.tobytes()
+        expected = _answer_twin(gen, gen._payload(puzzle), 1, start, None)
+        assert _page_reading(pages[start - 1]) == _page_reading(expected)
         assert answer_caption(1, None) == "Puzzle 1"
 
 
@@ -418,10 +478,10 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
 
         for offset, tier in enumerate(("easy", "easy", "medium")):
             puzzle = puzzles[offset]
-            expected = gen.solved_puzzle_page(
-                gen._payload(puzzle), offset + 1, start + offset, title=puzzle["puzzle_name"]
+            expected = _answer_twin(
+                gen, gen._payload(puzzle), offset + 1, start + offset, puzzle["puzzle_name"]
             )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes()
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
             # band_identity is what the page was asked to draw; confirm the
             # tier fed to it is the one this offset's puzzle actually carries.
             assert band_identity(offset + 1, puzzles[offset]["difficulty_tier"]).endswith(
@@ -438,7 +498,9 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
 
         # The page immediately before the answer section is the SOLUTIONS
         # divider, built the same way every divider page is.
-        assert pages[start - 2].tobytes() == gen.create_divider_page(start - 1).tobytes()
+        assert _page_reading(pages[start - 2]) == _page_reading(
+            gen.create_divider_page(start - 1)
+        )
 
         # And every page from the first answer page on is a *puzzle* page —
         # built by solved_puzzle_page, never create_divider_page — so there
@@ -446,7 +508,20 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
         for offset, puzzle in enumerate(puzzles):
             page = pages[start - 1 + offset]
             not_a_divider = gen.create_divider_page(start + offset, "Easy")
-            assert page.tobytes() != not_a_divider.tobytes()
+            if isinstance(page, Image.Image):
+                assert _page_reading(page) != _page_reading(not_a_divider)
+            else:
+                # An operator page cannot be a divider: a divider is a bitmap
+                # (CARD-231 replaces it, it does not convert it), and a
+                # cross-medium ``!=`` would say nothing. So the claim here is
+                # the medium itself, with the divider's declared raster as the
+                # other half -- both stated rather than inferred from ``!=``.
+                assert isinstance(page, ContentStream), type(page)
+                assert isinstance(not_a_divider, Image.Image), type(not_a_divider)
+                assert (
+                    book_pdf_generator.page_medium(book_pdf_generator.PageKind.DIVIDER)
+                    is book_pdf_generator.PageMedium.RASTER
+                )
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
         """1 title (CARD-206) + 2 guide (CARD-201) + 1 TOC (CARD-200) +
@@ -564,7 +639,7 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
         """
         book = _book()
         puzzles = _book_of(*[(22, 22)] * self.PUZZLES, depth=6, tiers=["easy"] * self.PUZZLES)
-        pages = _interior(puzzles, book)
+        pages = _interior_images(puzzles, book)
         middle = pages[0].width / 2
         checked = 0
         decided = BookPDFGenerator(book).section_plan(list(puzzles))
@@ -681,12 +756,35 @@ class TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage:
         assert all(isinstance(entry, PackedAnswerPage) for entry in plan)
 
         for offset, packed_page in enumerate(plan):
-            expected = gen._packed_answer_page(
-                packed_page, payloads, start + offset, titles
-            )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes(), (
+            expected = _packed_twin(gen, packed_page, payloads, start + offset, titles)
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected), (
                 f"answer page at offset {offset} does not match the direct call"
             )
+
+    def test_a_custom_book_title_reaches_a_packed_page(self) -> None:
+        """FR-041 on a packed page: ``books.puzzle_titles`` beats ``puzzle_name``.
+
+        CARD-354 found this unasserted: planting an empty ``titles`` into the
+        walk's packed-page call left the whole module green, because every
+        packed-page test above builds a book with no custom titles and so
+        hands the page ``{}`` either way. The control is the same page drawn
+        with ``{}``, in the same medium, and it must differ.
+        """
+        puzzles = _small_book_of((10, 10, "easy"), (10, 10, "easy"), depth=3)
+        book = _book({"p1": "Winter Star"})
+        pages = _interior(puzzles, book)
+        start = first_answer_page(book, puzzles)
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        (packed,) = plan_small_answer_pages(list(_answers_for(puzzles)))
+        assert gen.custom_titles() == {"p1": "Winter Star"}
+
+        expected = _packed_twin(gen, packed, payloads, start, gen.custom_titles())
+        assert _page_reading(pages[start - 1]) == _page_reading(expected)
+
+        uncustomised = _packed_twin(gen, packed, payloads, start, {})
+        assert _page_reading(pages[start - 1])[0] == _page_reading(uncustomised)[0]
+        assert _page_reading(pages[start - 1]) != _page_reading(uncustomised)
 
     def test_a_run_of_three_leftover_packs_as_two_then_one_never_as_three(
         self,
@@ -751,18 +849,17 @@ class TestBookSolvedAnswerKey_MixedBookPacksOnlyTheSmallOnes:
         plan = plan_small_answer_pages(list(_answers_for(puzzles)))
         for offset, entry in enumerate(plan):
             if isinstance(entry, PackedAnswerPage):
-                expected = gen._packed_answer_page(
-                    entry, payloads, start + offset, titles
-                )
+                expected = _packed_twin(gen, entry, payloads, start + offset, titles)
             else:
                 _puzzle_id, payload = payloads[entry.number - 1]
-                expected = gen.solved_puzzle_page(
+                expected = _answer_twin(
+                    gen,
                     payload,
                     entry.number,
                     start + offset,
-                    title=puzzles[entry.number - 1]["puzzle_name"],
+                    puzzles[entry.number - 1]["puzzle_name"],
                 )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes()
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
 
 
 class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
@@ -873,7 +970,7 @@ class TestBookSolvedAnswerKey_PackedSlotsStillShowClues:
         """Integration: the real packed page's clue gutter carries ink."""
         book = _book()
         puzzles = _small_book_of((10, 10, "easy"), (10, 10, "easy"), depth=3)
-        pages = _interior(puzzles, book)
+        pages = _interior_images(puzzles, book)
         start = first_answer_page(book, puzzles)
 
         page = pages[start - 1]
@@ -1025,10 +1122,10 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
 
         for offset, puzzle in enumerate(puzzles):
             number = offset + 1
-            expected = gen.solved_puzzle_page(
-                gen._payload(puzzle), number, start + offset, title=puzzle["puzzle_name"]
+            expected = _answer_twin(
+                gen, gen._payload(puzzle), number, start + offset, puzzle["puzzle_name"]
             )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes()
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected)
 
     def test_the_recorded_card198_baseline_pages_are_unmoved(self) -> None:
         """The strongest form of this AC, restated for CARD-201's merge.
@@ -1825,10 +1922,8 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
         )
 
         for offset, packed_page in enumerate(degraded):
-            expected = gen._packed_answer_page(
-                packed_page, payloads, start + offset, titles
-            )
-            assert pages[start - 1 + offset].tobytes() == expected.tobytes(), (
+            expected = _packed_twin(gen, packed_page, payloads, start + offset, titles)
+            assert _page_reading(pages[start - 1 + offset]) == _page_reading(expected), (
                 f"answer page at offset {offset} does not match the direct call"
             )
 
@@ -2052,6 +2147,7 @@ class TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside:
 # ==========================================================================
 
 import ast as _ast
+import dataclasses as _dataclasses
 import math as _math
 import re as _re
 import sys as _sys
@@ -2142,7 +2238,26 @@ def _written(streams: Sequence[ContentStream]) -> bytes:
 
 
 class _Recorded:
-    """What one walk of a book's real interior asked each page kind to draw."""
+    """What one walk of a book's real interior asked each page kind to draw.
+
+    **Both arms, since CARD-354.** An interior kind is drawn by whichever
+    medium :func:`~nonogram.admin.book_pdf_generator.page_medium` declares, and
+    the walk reaches a *different callable* in each: the raster method
+    (``create_toc_page`` / ``solved_puzzle_page`` / ``_packed_answer_page``)
+    or the injected writer in ``generator.pages``. This record used to spy on
+    the first only, so the day a kind converted every list below stayed empty
+    and twenty-one readings failed on ``assert []`` -- the reading had not
+    stopped being true, it had stopped being taken. Both callables are spied
+    now and each page lands in exactly one arm, so the record is the same
+    either way.
+
+    The raster half of a cross-medium comparison is not the walk's any more
+    for a converted kind, so it is **replayed**: the raster twin is still a
+    live method (``tests/test_book_solved_page.py`` and this module call it
+    directly), and it is handed exactly the arguments the walk gave the
+    writer. :attr:`replayed` says which pages that was done for, so a reading
+    can never mistake a replay for the walk.
+    """
 
     def __init__(self, book: Book, puzzles: Sequence[dict]) -> None:
         self.generator = BookPDFGenerator(book)
@@ -2151,10 +2266,39 @@ class _Recorded:
         self.packed: List[Tuple[PackedAnswerPage, list, int, dict]] = []
         #: Every ``ImageDraw.text`` the walk made, as ``(page, text, names)``
         #: where ``names`` is the ``nonogram`` functions on the stack above
-        #: it. This is AC-2's **whole-interior** reading: a page kind that
-        #: printed a title would print it through one of these calls.
+        #: it. This is AC-2's **whole-interior** reading of the raster arm: a
+        #: page kind that printed a title would print it through one of these
+        #: calls. Includes the replay of any converted kind's raster twin.
         self.text: List[Tuple[int, str, frozenset]] = []
+        #: The vector arm of the same reading: ``(page, string)`` for every
+        #: string a page the walk yielded **as a content stream** sets. The
+        #: raster spy cannot see these, and a call chain does not exist in a
+        #: stream -- which is why this is keyed on the page, not on a name.
+        self.streamed: List[Tuple[int, str]] = []
+        #: Interior page numbers the walk yielded as operators.
+        self.stream_pages: List[int] = []
+        #: Interior page numbers whose raster twin was replayed after the walk
+        #: because the walk drew them as operators.
+        self.replayed: List[int] = []
+        self._raster_drawn: set = set()
         self._walk(list(puzzles))
+        self._replay_raster_twins()
+
+    def _text_spy(self, current: dict):
+        recorded = self
+        original_text = _ImageDraw.ImageDraw.text
+
+        def spy_text(self, xy, text, fill=None, font=None, *args, **kwargs):
+            names = []
+            frame = _sys._getframe(1)
+            while frame is not None:
+                if frame.f_globals.get("__name__", "").startswith("nonogram."):
+                    names.append(frame.f_code.co_name)
+                frame = frame.f_back
+            recorded.text.append((current["page"], str(text), frozenset(names)))
+            return original_text(self, xy, text, fill, font, *args, **kwargs)
+
+        return original_text, spy_text
 
     def _walk(self, puzzles: List[dict]) -> None:
         self_recorded = self
@@ -2164,53 +2308,124 @@ class _Recorded:
             name: getattr(klass, name)
             for name in ("create_toc_page", "solved_puzzle_page", "_packed_answer_page")
         }
-        original_text = _ImageDraw.ImageDraw.text
         current = {"page": 0}
+        original_text, spy_text = self._text_spy(current)
 
         def spy_toc(self, entries, page_number):
             self_recorded.toc.append((list(entries), page_number))
+            self_recorded._raster_drawn.add(("toc", page_number))
             return original["create_toc_page"](self, entries, page_number)
 
         def spy_answer(self, payload, puzzle_number, page_number, title=None):
             self_recorded.answers.append((payload, puzzle_number, page_number, title))
+            self_recorded._raster_drawn.add(("answer", page_number))
             return original["solved_puzzle_page"](
                 self, payload, puzzle_number, page_number, title
             )
 
         def spy_packed(self, plan, payloads, page_number, titles):
             self_recorded.packed.append((plan, list(payloads), page_number, dict(titles)))
+            self_recorded._raster_drawn.add(("packed", page_number))
             return original["_packed_answer_page"](self, plan, payloads, page_number, titles)
 
-        def spy_text(self, xy, text, fill=None, font=None, *args, **kwargs):
-            names = []
-            frame = _sys._getframe(1)
-            while frame is not None:
-                if frame.f_globals.get("__name__", "").startswith("nonogram."):
-                    names.append(frame.f_code.co_name)
-                frame = frame.f_back
-            self_recorded.text.append((current["page"], str(text), frozenset(names)))
-            return original_text(self, xy, text, fill, font, *args, **kwargs)
+        # The vector arm: the same three kinds, reached through the injected
+        # writers. A field the generator was built without stays ``None`` (the
+        # walk refuses it by name), so only a writer that exists is wrapped.
+        writers = generator.pages
+
+        def wrapped(field, spy):
+            writer = getattr(writers, field)
+            return None if writer is None else spy(writer)
+
+        def spy_vector_toc(writer):
+            def spy(rows, frame, dpi, page_number, *args, **kwargs):
+                self_recorded.toc.append((list(rows), page_number))
+                return writer(rows, frame, dpi, page_number, *args, **kwargs)
+            return spy
+
+        def spy_vector_answer(writer):
+            def spy(spec, dpi, payload, number, page_number, title=None, *args, **kwargs):
+                self_recorded.answers.append((payload, number, page_number, title))
+                return writer(spec, dpi, payload, number, page_number, title, *args, **kwargs)
+            return spy
+
+        def spy_vector_packed(writer):
+            def spy(spec, dpi, plan, payloads, page_number, titles, *args, **kwargs):
+                self_recorded.packed.append(
+                    (plan, list(payloads), page_number, dict(titles))
+                )
+                return writer(spec, dpi, plan, payloads, page_number, titles, *args, **kwargs)
+            return spy
 
         klass.create_toc_page = spy_toc
         klass.solved_puzzle_page = spy_answer
         klass._packed_answer_page = spy_packed
         _ImageDraw.ImageDraw.text = spy_text
+        generator.pages = _dataclasses.replace(
+            writers,
+            toc=wrapped("toc", spy_vector_toc),
+            answer=wrapped("answer", spy_vector_answer),
+            packed_answer=wrapped("packed_answer", spy_vector_packed),
+        )
         try:
             stream = generator.interior_stream(puzzles)
             pages = iter(stream.pages)
             drawn = 0
+            streams: List[ContentStream] = []
             while True:
                 current["page"] = drawn + 1
                 try:
-                    next(pages)
+                    page = next(pages)
                 except StopIteration:
                     break
                 drawn += 1
+                if isinstance(page, ContentStream):
+                    streams.append(page)
+                    self.stream_pages.append(drawn)
+                del page
             self.page_count = drawn
             assert drawn == stream.page_count
         finally:
             for name, function in original.items():
                 setattr(klass, name, function)
+            _ImageDraw.ImageDraw.text = original_text
+            generator.pages = writers
+        if streams:
+            for number, text in zip(
+                self.stream_pages, pdf_vector.content_streams(_written(streams))
+            ):
+                self.streamed.extend((number, string) for string in _strings(text))
+
+    def _replay_raster_twins(self) -> None:
+        """Draw the raster twin of every page the walk drew as operators.
+
+        Handed the walk's own recorded arguments, so no plan is re-derived. The
+        text spy is installed for the replay exactly as it was for the walk, so
+        ``text`` holds one raster reading per page whichever medium the walk
+        used -- which is what the cross-medium comparisons need on their raster
+        side.
+        """
+        generator = self.generator
+        current = {"page": 0}
+        original_text, spy_text = self._text_spy(current)
+        _ImageDraw.ImageDraw.text = spy_text
+        try:
+            for entries, page_number in self.toc:
+                if ("toc", page_number) not in self._raster_drawn:
+                    current["page"] = page_number
+                    generator.create_toc_page(entries, page_number)
+                    self.replayed.append(page_number)
+            for payload, number, page_number, title in self.answers:
+                if ("answer", page_number) not in self._raster_drawn:
+                    current["page"] = page_number
+                    generator.solved_puzzle_page(payload, number, page_number, title)
+                    self.replayed.append(page_number)
+            for plan, payloads, page_number, titles in self.packed:
+                if ("packed", page_number) not in self._raster_drawn:
+                    current["page"] = page_number
+                    generator._packed_answer_page(plan, payloads, page_number, titles)
+                    self.replayed.append(page_number)
+        finally:
             _ImageDraw.ImageDraw.text = original_text
 
     def toc_streams(self) -> List[ContentStream]:
@@ -2406,11 +2621,22 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         """The control. The same answer page as a bitmap references an image."""
         payload, number, page_number, title = recorded.answers[0]
         page = recorded.generator.solved_puzzle_page(payload, number, page_number, title)
+        # ``_write_pdf`` refuses a bitmap filed under a kind whose declared
+        # medium is vector (G-6), so once ANSWER converts the twin is filed
+        # under DIVIDER, the one interior kind declared raster. What this
+        # control measures -- that the reading sees an XObject on a page that
+        # is an image -- does not depend on which raster kind carries it.
+        kind = (
+            PageKind.ANSWER
+            if book_pdf_generator.page_medium(PageKind.ANSWER)
+            is book_pdf_generator.PageMedium.RASTER
+            else PageKind.DIVIDER
+        )
         data = recorded.generator._write_pdf(
             [page],
             1,
             mode=recorded.generator.interior_bitmap_mode,
-            kinds=(PageKind.ANSWER,),
+            kinds=(kind,),
         ).getvalue()
         assert any("XObject" in keys for keys in pdf_vector.page_resource_keys(data))
 
@@ -2527,7 +2753,12 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
     def test_the_only_raster_calls_carrying_a_title_are_answer_captions(
         self, recorded
     ) -> None:
-        """The second half, over every mark the interior draws."""
+        """The second half, over every mark the interior draws -- raster arm.
+
+        Since CARD-354 this arm covers the raster pages the walk drew **plus
+        the raster twins replayed for the kinds it drew as operators**; the
+        pages it drew as operators are read by the next cell instead.
+        """
         offenders = [
             (page, text, sorted(names))
             for page, text, names in recorded.text
@@ -2536,16 +2767,75 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         ]
         assert offenders == []
 
+    def test_no_stream_page_outside_the_answer_section_prints_a_title(
+        self, recorded, profile
+    ) -> None:
+        """The second half, over every mark the interior draws -- vector arm.
+
+        The converted counterpart of the raster cell above (ADR-0042/R6): the
+        strings every page the walk yielded as operators sets, read off the
+        written file. A stream has no call chain, so the answer section is
+        told by its page numbers, which the walk recorded when it asked the
+        writers for those pages -- the provenance is the walk's, not a name
+        read back off the stream.
+        """
+        answer_pages = {n for _, _, n, _ in recorded.answers} | {
+            n for _, _, n, _ in recorded.packed
+        }
+        offenders = [
+            (page, text)
+            for page, text in recorded.streamed
+            if any(title in text for title in _TITLES) and page not in answer_pages
+        ]
+        assert offenders == []
+        # Non-vacuous in both directions: operator pages were read, and an
+        # answer page drawn as operators really does print a title on Book 1,
+        # so the filter above is exercised rather than assumed.
+        if recorded.stream_pages:
+            assert recorded.streamed, "operator pages were walked and none set a string"
+            if profile == "book1":
+                titled = {
+                    page
+                    for page, text in recorded.streamed
+                    if any(title in text for title in _TITLES)
+                }
+                assert titled and titled <= answer_pages, (
+                    sorted(titled),
+                    sorted(answer_pages),
+                )
+        else:
+            assert not any(
+                book_pdf_generator.page_medium(kind)
+                is book_pdf_generator.PageMedium.VECTOR
+                for kind in (PageKind.TOC, PageKind.ANSWER)
+            ), "TOC/ANSWER declare vector, yet the walk yielded no content stream"
+
     def test_the_interior_really_was_walked_end_to_end(self, recorded) -> None:
-        """Guard the instrument: a walk that drew nothing would pass above."""
+        """Guard the instrument: a walk that drew nothing would pass above.
+
+        Read across **both** arms: a page counts when either the raster spy or
+        a content stream set a string on it, so the figure does not depend on
+        which kinds are converted (it was 4 under the five-kind probe when only
+        the raster arm was read).
+        """
         assert recorded.page_count >= 10
-        assert len({page for page, _, _ in recorded.text}) >= 6
+        lettered = {page for page, _, _ in recorded.text} | {
+            page for page, _ in recorded.streamed
+        }
+        assert len(lettered) >= 6, sorted(lettered)
         assert any(
             any(title in text for title in _TITLES) for _, text, _ in recorded.text
+        ) or any(
+            any(title in text for title in _TITLES) for _, text in recorded.streamed
         ), "no page of the interior printed a title at all, so the sweep is vacuous"
 
     def test_no_toc_row_prints_a_title_in_the_stream_either(self, recorded) -> None:
-        for text in pdf_vector.content_streams(_written(recorded.toc_streams())):
+        streams = recorded.toc_streams()
+        # Non-vacuity (CARD-354): this loop used to run over whatever the
+        # record held, so a record that had stopped capturing the TOC read
+        # green over zero pages.
+        assert streams, "the book printed no table of contents to read"
+        for text in pdf_vector.content_streams(_written(streams)):
             shown = " ".join(_strings(text))
             assert not any(title in shown for title in _TITLES), shown
 
