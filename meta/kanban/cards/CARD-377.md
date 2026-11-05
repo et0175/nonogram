@@ -59,6 +59,37 @@ The lock exists to make a suite's verdict attributable. When it waves two actors
 - the failure is **destructive**, not merely contended: see CARD-378
 - and the resulting red carries a signature that gets pinned on the diff
 
+## Two instances with no mechanism to blame — a shared context, and a summary
+
+The four hazards above are mechanical: a pid, a worktree, prose, a scratchpad path. Two more
+occurred tonight with **nothing to blame but context**, and they belong here because the card's
+subject is identity, not locking.
+
+**Fourth instance: content without an identity attached.** An agent replied to a second agent while
+holding a message from the orchestrator in the same context, and credited the orchestrator's content
+to the second agent. Three claims in one paragraph had three different authors — the retraction note
+was the replying agent's, the `issubclass` re-derivation and `TimeoutExpired` were the
+orchestrator's, and the `OperationalError` finding was a third reader's. Nothing misattributed
+itself; a shared context did. Recorded afterwards in a `provenance:` field so no figure travels
+without an author.
+
+**Fifth instance, and the most general: a summary is where a qualified claim loses its qualifier.**
+The same agent sent an urgent correction whose **body** was properly hedged — *"**If** the fix round
+you dispatched carries my reasoning…"* — under a **heading** that was not: *"the F-001 fix round is
+briefed on a conclusion I measured and it is wrong."* Unconditional, in the one line a reader acts
+on. The underlying claim was unverifiable by its author, who had never seen the brief in question.
+
+It named this itself as its own earlier failure running in the other direction: having written *"I
+reported something I had accepted on a docstring's word as something I had checked,"* it then
+reported something accepted on **another agent's** word as something checked. **A hedge in the body
+does not survive a headline that drops it, and headlines are what get acted on.**
+
+**Why these two are on this card rather than filed as prose.** Every mechanical candidate above fails
+because it names an *activity* rather than an actor. These two fail the same way one level up: a
+claim that arrives without its author, and a claim that arrives without its condition, are both
+content detached from the thing that would let a reader weigh it. Any fix for this card that gives a
+run an identity should be asked whether it also gives a **claim** one.
+
 ## The EXIT trap is covered on every path except the one that matters
 
 Measured 2026-11-05, with a matched control, during the same incident.
