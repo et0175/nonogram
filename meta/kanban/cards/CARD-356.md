@@ -1,6 +1,6 @@
 # CARD-356: `tests/test_book_pdf_band.py` — 25 reds across four mechanisms, and two of its claims the seam BREAKS
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_band.py
-**Review score:** —
+**Review score:** 8.3 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-05T12:50Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T16:04Z
+**Actual:** 2c -- **ratio 0.500** (1 review cycle, derived as 1 distinct ordinal among the `[Review N/M] Score:` lines, against the 2c estimate). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **1 tracked file** (`tests/test_book_pdf_band.py`), 1235 insertions(+), 87 deletions(-) against the cut 0fa46b6c; src/ and tests/helpers diffs 0.
+**Merge commit:** `dc90b19a`
 **Blocked by:** —
 
 > ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
@@ -201,6 +201,8 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
 
+## Worktree notes
+
 [Author round, commit `35591021`] Verified by the orchestrator: tip `35591021`, one commit over the cut `0fa46b6c`, `tests/test_book_pdf_band.py` only (+1057/-86), `src/` and `tests/helpers` diffs 0, module 63 passed unlifted (the original file was 40). Author-reported: probe before 26 reds (16 failed + 10 errors), after 1 red, the M3b/CARD-322 Greek-name error, deliberately left running over the full corpus.
 
 [Review 1/3] Score: **8.3 - PASS** (threshold 8.0), at tip `35591021`; no finding needs an owner decision. Derived by the reviewer: original module under the probe 26 reds / 14 passed (40 tests), naive seam planted on the original 26 -> 19, the 19 splitting 5 M9-family + 4 medium-specific + 2 M11 + 1 M3b + 7 glyph-template; module now probe 1 failed + 62 passed, unlifted 63 passed, 0 skipped. THE CARD-TEXT REFUTATION STANDS (retracted in place above and on CARD-337's two copies): 89 is `round(255 x 0.35)`, the declared cell-line tone; the reviewer's hand-written one-rule PDFs on poppler 26.08.0 gave only paper and `round(255 x tone)` across a rule's width at DPIs 72-600; the author's wording "no grey at all" was too strong (rule ends and diagonals carry other greys; tone 0.9 reads 229) and is qualified in the retraction note. M10 re-split: the 6 original M10 reds are empty reads from the shared `pdf_pages` reader returning page 1 for every operators page, over a raster-trained glyph template; not A, and the reviewer judges "nearest label C" too weak (band and caption vocabulary IS recoverable from the text layer), so it is a fourth thing. The narrowed operators arm detects real blur (1-2-1 blur plant killed, 17 vs baseline 1) and an undeclared tone. The three named survivors in `tests/test_book_grid_rules.py` each exist once and each reds under its plant. Findings (all fixable inline, author resumed): F-001 the `_check_band_corpus` docstring overclaims ("sees a stray mark of any kind": it compares the generator with itself minus names, so a name-independent stray mark survives; answer and ungraded pages lost their whole-page comparison); F-002 the pixel width band `declared px .. declared px + 2` is poppler- and whole-pixel-phase-specific with no recorded residue (ADR-0039/R3; +1 and +3 both survive); F-003 qualify "no grey at all"; F-004 the stream-reader control reads only one counter key; F-005 `test_the_raster_floor_does_not_bind_a_page_of_operators` pins a 300 dpi coincidence (thin ink exactly 2 px), the three cited survivor ids are not pinned, and `_exported_pages` lets an UNCLASSIFIABLE page keep the bugged render (default-allow, ADR-0039/R2). F-006 AC-2's post-repair census lives only in the author's report (informational; AC-2 is review-lens). F-007 an untracked `bbox.pdf` in the worktree, not written by this module. Carried, not re-derived: "classify_reds leaves 12 of 19 unclassified"; no poppler other than 26.08.0 was available.
@@ -209,3 +211,5 @@ argv items**. The worktree has no `.venv` — use
 
 DECLARED RESIDUE (ADR-0039/R3), measured by the author in `65f0d24d`: the converted tree has no whole-page comparison for a NAME-INDEPENDENT stray mark. Reason: a whole-page expectation would be a second implementation of the writer. Measured, each plant added in-process to every content stream, each module run alone under the probe against an unplanted control: `tests/test_book_puzzle_page_vector.py` catches a stray vertical rule (20 failed + 17 errors), a stray text run (19 failed) and a stray filled rectangle (15 failed) on the PUZZLE page, among others by `test_every_mark_on_every_page_is_the_one_the_layout_demands` and `test_the_page_carries_all_four_pieces_of_furniture`; `tests/test_book_grid_rules.py` catches only the stray rule (2 failed), not the text run or the rectangle. Not measured, and therefore not claimed to be held by anything: the answer page, the ungraded page, the table of contents and the guide. Not planted: an actual second folio. Caveats: the plants patch `ContentStream.__init__`, so some puzzle-page-vector kills are the module's own control streams absorbing the mark; the author did not separate those from real whole-page catches, and a control red already exists in that module under the probe (`test_the_raster_twin_of_the_same_page_does_carry_one`, not investigated). Routing: recorded here as residue; not carded under the cut bar. The non-puzzle-page gap is an OWNER note, since the raster era compared whole pages there.
 
+
+[Closing note, merge gate] Merged `dc90b19a`; full armed suite 10495 passed, 1 skipped (setrlimit), 1 xfailed, 0 failed. Two OWNER items carried, record above not rewritten: (1) the declared residue stands: the converted tree has no whole-page comparison for a name-independent stray mark on the answer, ungraded, table-of-contents and guide pages; that gap is UNMEASURED, and was held by the raster-era whole-page comparison. (2) The card text's claims about anti-aliasing were retracted in place, on CARD-356 and on CARD-337.

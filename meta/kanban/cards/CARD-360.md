@@ -80,6 +80,13 @@ Re-split your 4 before trusting the label.
 - **AC-1** *Given* the M9 reds, *then* the card states what identity means for a page written as
   operators, and the claim is **asserted** in that form rather than commented.
   (test: named by the implementation; state it)
+  *Clarified 2026-11-05:* this IS a genuine test, not a census. CARD-355 (merge `e4849464`) already settled the
+  question for its own module and is the precedent: for an operators page, identity is DETERMINISM OF THE STREAM
+  (`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport` exports twice and asserts equal content streams,
+  equal length and equal render digests, with a control that can fail), and a stored raster-era digest is compared
+  only against a BITMAP page (`raster_digests` yields `None` for an operators page, and every retirement site
+  counts its retirements and asserts them equal to the file's vector pages). State whether your two modules'
+  claims were about bytes or about "the same page came back", and name the class you write.
 - **AC-2** *Given* the five-kind probe, *then* both modules' red counts are stated before and
   after, and `pdf_two_up`'s 2 M8 reds are **still present and attributed to CARD-352**.
   (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
@@ -152,3 +159,29 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
+
+## Premise re-verified 2026-11-05 (CARD-354, CARD-355 and CARD-356 landed since this card was written)
+
+Read against current `main`, by the orchestrator. Nothing here changes an AC except the AC-1 clarification above.
+
+- **Not measured, and yours to measure first:** the 8 reds, the 6 you own, and the 2 M8 reds. Re-derive them with
+  `census_five_kinds.py --only <module>` for both modules before implementing anything, and say which figures are yours.
+- **The question this card is built around has a first answer on `main`, from CARD-355** (see AC-1's clarification).
+  Do not re-derive it from scratch; decide whether it carries to `pdf_levels` and `pdf_two_up`, and if it does not,
+  say why. Carrying it is the cheaper outcome and the expected one.
+- **Item 4 / AC-5 now has a second data point: CARD-356** (the band module). Its author re-expressed the post-seam
+  byte-identity reds as operator-for-operator equality with a same-medium untitled twin plus a text-layer reading of the
+  band zone, and counted FIVE M9-family reds there, not the card's three (CARD-356's record, on `main` once its gate
+  lands; check its status first). State whether your identity answer agrees with theirs or diverges, and why. A routing
+  statement, not a fix.
+- **The shared-reader defect is FIXED on `main`** (CARD-355, `e4849464`). Both of your modules import `pdf_pages`. The
+  CARD-355 author measured both under the probe, old helper against fixed: **no change** (`test_book_pdf_levels`
+  4 failed and `test_book_pdf_two_up` 4 failed, before and after; carried, not mine), so your 4 M10 reds are not that
+  defect. Re-split them anyway, by reading the cause lines, not by the label (the board's own M10 label has been a
+  different mechanism on every module so far: CARD-354 A, CARD-355 D, CARD-356 a reader defect over a glyph template).
+- **The 2 M8 reds are CARD-352's and CARD-352 is still `ready`** (touches `tests/test_book_puzzle_frame.py`, not your
+  modules): they must still be present and attributed to it, which is a census fact, not a test; AC-2 is review-lens
+  as written.
+- **The seam is already present in both modules** (class S0), so what the author of CARD-355 found is the relevant
+  caution: the seam was not where the card said it was (`LivePageBytes.track`, not `interior_images`). Read the call
+  sites before accepting this card's own account of them.

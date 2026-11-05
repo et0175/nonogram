@@ -48,6 +48,8 @@ so the two agree on where the grid is before either measures anything in it.
 from __future__ import annotations
 
 import random
+import re
+import tempfile
 from collections import Counter
 from functools import lru_cache
 from importlib import resources
@@ -73,8 +75,19 @@ from nonogram.export import ExportPayload
 from nonogram.export.layout import compute_layout, interior_frame, qr_caption
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from nonogram.admin import book_vector
+from nonogram.admin.book_vector import (
+    ContentStream,
+    UnrepresentableText,
+    encode_text,
+    write_vector_pdf,
+)
+from pathlib import Path
+
+from tests.helpers import pdf_vector
 from tests.helpers.page_ink import drawing_of
-from tests.helpers.pdf_pages import pdf_pages
+from tests.helpers.pdf_pages import Page, interior_images, pdf_pages
+from tests.helpers.pdf_vector import Word
 # CARD-219: the readers the shared-render controls at the end of this file are
 # built on, which CARD-218 had to write out here and again in
 # ``tests/test_book_puzzle_frame.py``. Aliased to the names those controls
@@ -264,16 +277,64 @@ def _puzzle(
     }
 
 
-def _interior(puzzles: Sequence[dict], book: Book | None = None) -> list[Image.Image]:
-    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``."""
+def _raw_interior(puzzles: Sequence[dict], book: Book | None = None) -> list[Page]:
+    """The book's interior as the generator hands it back: each page in the
+    medium its kind is written in (CARD-356).
+
+    A bitmap for a raster page and a ``ContentStream`` for a page written as
+    operators (ADR-0042/R1). A claim about what a page *says* is read from
+    this, in the page's own medium; a claim about what it *looks like* goes
+    through :func:`_interior`.
+    """
     return BookPDFGenerator(book if book is not None else _book()).interior_pages(
         list(puzzles)
     )
 
 
+def _interior(puzzles: Sequence[dict], book: Book | None = None) -> list[Image.Image]:
+    """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``.
+
+    **CARD-356: the medium is read here and nowhere else.** Every pixel claim
+    below is stated on device pixels, so the conversion is absorbed at this one
+    seam -- ``interior_images`` returns a raster page unchanged and rasterises
+    an operators page with poppler at the page's own DPI. The seam is applied
+    only where the claim is about the *picture*; a claim about a *mark* (the
+    band's words, a rule's tone and weight) is read from the stream instead,
+    see :func:`_find` and :class:`TestBookPdf_EveryFifthGridLineWider`.
+    """
+    return interior_images(_raw_interior(puzzles, book))
+
+
+def _same_page(left: Page, right: Page) -> bool:
+    """Two pages are the same page: same medium, and exactly the same marks.
+
+    Bitmaps by their bytes, operators by their operators and extent. A bitmap
+    and a stream are never equal -- comparing across media is what made the
+    original ``page.tobytes() == expected.tobytes()`` claims red once the page
+    stopped being a bitmap, and it is refused here rather than rasterised
+    into agreement.
+    """
+    if isinstance(left, Image.Image) and isinstance(right, Image.Image):
+        return left.tobytes() == right.tobytes()
+    if isinstance(left, ContentStream) and isinstance(right, ContentStream):
+        return (
+            left.operators == right.operators
+            and (left.width_px, left.height_px, left.dpi)
+            == (right.width_px, right.height_px, right.dpi)
+        )
+    return False
+
+
 @pytest.fixture(scope="module")
-def snowflake_interior() -> list[Image.Image]:
-    """The one-puzzle "Snowflake" book, drawn once for the module (CARD-218).
+def snowflake_raw() -> list[Page]:
+    """The one-puzzle "Snowflake" book as the generator hands it back, drawn
+    once for the module: bitmaps and content streams, in print order."""
+    return _raw_interior([_puzzle()])
+
+
+@pytest.fixture(scope="module")
+def snowflake_interior(snowflake_raw: list[Page]) -> list[Image.Image]:
+    """The one-puzzle "Snowflake" book, as device pixels, drawn once (CARD-218).
 
     AC-193's and AC-194's classes are two readings of the same printed book —
     the puzzle page carries the identity and not the title, the answer page
@@ -285,8 +346,10 @@ def snowflake_interior() -> list[Image.Image]:
     which would keep this book's bitmaps alive for the rest of the run (the
     card's rule 2, and CARD-145's peak-memory concern).
 
-    Read-only: every consumer compares ``page.tobytes()`` against a page built
-    beside it, and ``tobytes`` does not touch the image.
+    **CARD-356:** the pages are :func:`snowflake_raw` seen through the
+    ``interior_images`` seam, so a page written as operators is here as the
+    poppler raster of it. Read-only: every consumer reads the pixels and none
+    draws on them.
 
     The two classes name their picture themselves (``NAME``), and this book is
     :func:`_puzzle`'s default one — so the agreement is asserted here rather
@@ -304,7 +367,7 @@ def snowflake_interior() -> list[Image.Image]:
             f"fixture draws {shared['puzzle_name']!r}: it needs a render of "
             "its own, or this fixture needs its name"
         )
-    drawn = _interior([shared])
+    drawn = interior_images(snowflake_raw)
     _SHARED_SNOWFLAKE_DIGEST.extend(_page_digest(page) for page in drawn)
     return drawn
 
@@ -560,7 +623,7 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
     NAME = "Snowflake"
 
     def test_the_puzzle_page_is_the_page_of_a_nameless_payload(
-        self, snowflake_interior
+        self, snowflake_raw, snowflake_interior
     ) -> None:
         """The page is, pixel for pixel, the page of a payload with no name.
 
@@ -568,19 +631,44 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         this asserts both halves of ADR-0037/R1 at once: the identity is
         printed and the title is not. A page carrying "Snowflake" anywhere,
         in the band or beside the grid, differs from this one.
+
+        **CARD-356: stated in the page's own medium.** The expected page used
+        to be a bitmap composed by ``render_pages`` and compared byte for byte
+        with the generator's page, which stops being a comparison between two
+        things of one kind the moment the page is operators (the first is a
+        bitmap, the second a stream). A page written as operators is now
+        required to be, operator for operator, the page the generator draws
+        for the same puzzle with **no name at all**, and its text layer --
+        poppler's, which did not write it -- must read the band
+        ``"Puzzle 1 · Easy"`` written out here and no word of the title. A
+        bitmap page keeps the original comparison against COMP-007's own
+        primitives. ``test_the_answer_page_carries_the_title_and_the_same_identity``
+        is this test's matched control: the same reading finds the title on
+        the page that is supposed to carry it.
         """
         puzzle = _puzzle(name=self.NAME)
-        page = snowflake_interior[puzzle_page_number([puzzle]) - 1]
+        number = puzzle_page_number([puzzle])
+        page = snowflake_interior[number - 1]
+        raw = snowflake_raw[number - 1]
 
-        expected, _ = _pages_with_band(
-            puzzle,
-            puzzle_page_number([puzzle]),
-            name=None,
-            identity="Puzzle 1 · Easy",
-            puzzle_number=1,
-        )
         assert _has_ink(_band_strip(page)), "the band is blank"
-        assert page.tobytes() == expected.tobytes()
+        nameless = _raw_interior([_puzzle(name=None)])[number - 1]
+        assert _same_page(raw, nameless), "the title changed the puzzle page"
+        if isinstance(raw, ContentStream):
+            lines = _text_of(raw)
+            assert [line.text for line in _band_zone(lines)] == ["Puzzle 1 · Easy"]
+            assert self.NAME not in {
+                word for line in lines for word in line.text.split()
+            }
+        else:
+            expected, _ = _pages_with_band(
+                puzzle,
+                number,
+                name=None,
+                identity="Puzzle 1 · Easy",
+                puzzle_number=1,
+            )
+            assert page.tobytes() == expected.tobytes()
 
     def test_renaming_the_picture_leaves_the_puzzle_page_identical(
         self, snowflake_interior
@@ -619,7 +707,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
     NAME = "Snowflake"
 
     def test_the_answer_page_carries_the_title_and_the_same_identity(
-        self, snowflake_interior
+        self, snowflake_raw, snowflake_interior
     ) -> None:
         """The title is on the answer page and is not on the puzzle page.
 
@@ -645,12 +733,48 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         number = 1
         puzzle = _puzzle(name=self.NAME)
         pages = snowflake_interior
+        puzzle_raw = snowflake_raw[puzzle_page_number([puzzle]) - 1]
+        answer_raw = snowflake_raw[answer_page_number([puzzle]) - 1]
+        identity = expected_band(number, puzzle["difficulty_tier"])
+        caption = ANSWER_CAPTION.format(number=number, title=self.NAME)
+
+        if isinstance(puzzle_raw, ContentStream):
+            # CARD-356: stream arm. ``solved_puzzle_page`` is the raster
+            # route's primitive and returns a bitmap, so it is no longer what
+            # the generator's answer page is; each of the three measurements
+            # is taken on the stream's own words instead.
+            #
+            # **absent / present / contributing**, by poppler's text layer:
+            # the puzzle page has the identity and no title word, the answer
+            # page has the identity AND the caption "Puzzle 1 — Snowflake",
+            # and the same book with no title prints the caption "Puzzle 1"
+            # alone, so the title is a mark and not a string that was offered.
+            puzzle_lines = _text_of(puzzle_raw)
+            assert [line.text for line in _band_zone(puzzle_lines)] == [identity]
+            assert self.NAME not in {
+                word for line in puzzle_lines for word in line.text.split()
+            }
+            answer_lines = _text_of(answer_raw)
+            assert [line.text for line in _band_zone(answer_lines)] == [identity]
+            assert [line.text for line in answer_lines if "—" in line.text] == [
+                caption
+            ]
+            untitled = _raw_interior([_puzzle(name=None)])[
+                answer_page_number([puzzle]) - 1
+            ]
+            untitled_lines = _text_of(untitled)
+            assert not any(self.NAME in line.text for line in untitled_lines)
+            assert [
+                line.text for line in untitled_lines if line.text.startswith("Puzzle")
+                and line.text != identity
+            ] == [ANSWER_CAPTION.split(" —")[0].format(number=number)]
+            return
 
         expected_puzzle, _ = _pages_with_band(
             puzzle,
             puzzle_page_number([puzzle]),
             name=None,
-            identity=expected_band(number, puzzle["difficulty_tier"]),
+            identity=identity,
             puzzle_number=number,
         )
         assert pages[puzzle_page_number([puzzle]) - 1].tobytes() == expected_puzzle.tobytes()
@@ -702,7 +826,12 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         page_number = answer_page_number([puzzle])
         page = snowflake_interior[page_number - 1]
 
-        untitled = _answer_page(puzzle, number, page_number, title=None)
+        # CARD-356: the control is the same book with no title, drawn through
+        # the same route and read through the same seam, so both pages are in
+        # one medium. It used to be ``_answer_page(..., title=None)``, the
+        # raster route's primitive, which is a bitmap whatever the generator's
+        # answer page now is.
+        untitled = _interior([_puzzle(name=None)])[page_number - 1]
         assert page.tobytes() != untitled.tobytes(), "the title changed nothing"
         assert _ink_pixels(page) > _ink_pixels(untitled), "the title added no ink"
 
@@ -737,13 +866,39 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             _puzzle(name=f"Picture {index}", puzzle_id=f"p{index}", tier=tier)
             for index, tier in enumerate(("easy", "medium", "hard"))
         ]
-        pages = _interior(puzzles)
+        raw = _raw_interior(puzzles)
+        pages = interior_images(raw)
+        untitled_book = [
+            _puzzle(name=None, puzzle_id=f"p{index}", tier=tier)
+            for index, tier in enumerate(("easy", "medium", "hard"))
+        ]
+        untitled_pages = _interior(untitled_book)
 
         for index, puzzle in enumerate(puzzles):
             number = index + 1
             page_number = answer_page_number(puzzles, index)
             page = pages[page_number - 1]
 
+            if isinstance(raw[page_number - 1], ContentStream):
+                # CARD-356: stream arm. The caption is read from the text
+                # layer and must be exactly "Puzzle N — Picture k" for this
+                # puzzle's own N, with the band above it carrying the same N;
+                # the title is shown to be ink by the same book drawn with no
+                # titles, whose page must differ.
+                lines = _text_of(raw[page_number - 1])
+                caption = ANSWER_CAPTION.format(
+                    number=number, title=puzzle["puzzle_name"]
+                )
+                assert [line.text for line in lines if "—" in line.text] == [
+                    caption
+                ], f"answer {number}"
+                assert [line.text for line in _band_zone(lines)] == [
+                    expected_band(number, puzzle["difficulty_tier"])
+                ], f"answer {number} band"
+                assert (
+                    page.tobytes() != untitled_pages[page_number - 1].tobytes()
+                ), f"answer {number} shows no title"
+                continue
             assert page.tobytes() == _answer_page(
                 puzzle, number, page_number, title=puzzle["puzzle_name"]
             ).tobytes(), f"answer {number}"
@@ -762,6 +917,88 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 #: the fixture's scope is, so without a count there is nothing that fails when
 #: the page goes back to being drawn once per test.
 _FIFTH_RULE_RENDERS: list[tuple[int, int, int]] = []
+
+
+#: ADR-0037/R2's three grid weights, written out here (a second statement of
+#: them, not ``book_page_spec.GRID_RULES`` read back): the cell lines at
+#: 0.3 pt in a 0.35 grey, the every-fifth line at 0.8 pt and the border at
+#: 1.3 pt, both in pure black.
+CELL_RULE_PT = 0.3
+CELL_RULE_GREY = 0.35
+FIFTH_RULE_PT = 0.8
+BORDER_RULE_PT = 1.3
+
+_STROKE_GREY = re.compile(rf"^({pdf_vector.NUMBER}) G$")
+_STROKE_WIDTH = re.compile(rf"^({pdf_vector.NUMBER}) w$")
+_STROKE_LINE = re.compile(
+    rf"^({pdf_vector.NUMBER}) ({pdf_vector.NUMBER}) m "
+    rf"({pdf_vector.NUMBER}) ({pdf_vector.NUMBER}) l S$"
+)
+
+
+class _Rule(NamedTuple):
+    axis: str
+    #: Points: ``x`` of a vertical rule, ``y`` (up from the foot) of a horizontal.
+    position: float
+    width: float
+    grey: float
+
+
+def _stroke_rules(stream: ContentStream) -> list[_Rule]:
+    """Every ``m``/``l``/``S`` rule a stream strokes before its first marked
+    content, with the tone and width in force when it was stroked.
+
+    Read from the content stream **as written to a PDF**, through
+    ``pdf_vector.content_streams`` -- not from the object's own operator list --
+    so the reading is of the file and the state (``G``, ``w``) is carried the
+    way a viewer carries it. The grid is drawn before the clue digits' marked
+    content opens, which is where this stops; a rule drawn after that point
+    (the sheet's furniture) is not one of the grid's.
+    """
+    data = write_vector_pdf([stream], 1).getvalue()
+    (text,) = pdf_vector.content_streams(data)
+    grey, width = 0.0, 1.0
+    rules = []
+    for row in text.splitlines():
+        if row.endswith(" BMC"):
+            break
+        if match := _STROKE_GREY.match(row):
+            grey = float(match.group(1))
+        elif match := _STROKE_WIDTH.match(row):
+            width = float(match.group(1))
+        elif match := _STROKE_LINE.match(row):
+            x1, y1, x2, y2 = (float(group) for group in match.groups())
+            if x1 == x2:
+                rules.append(_Rule("vertical", x1, width, grey))
+            elif y1 == y2:
+                rules.append(_Rule("horizontal", y1, width, grey))
+    return rules
+
+
+def _grid_rules(stream: ContentStream) -> dict[str, list[_Rule]]:
+    """The grid's rules per axis, in reading order: left to right, top to bottom.
+
+    Refuses a page that does not have a ruled line more than the grid has
+    cells on each axis, so a stream with the wrong grid is a failure here and
+    not a short list that happens to pass.
+    """
+    rules = _stroke_rules(stream)
+    vertical = sorted(
+        (rule for rule in rules if rule.axis == "vertical"), key=lambda r: r.position
+    )
+    horizontal = sorted(
+        (rule for rule in rules if rule.axis == "horizontal"),
+        key=lambda r: -r.position,
+    )
+    assert len(vertical) == MAX_SIZE + 1, len(vertical)
+    assert len(horizontal) == MAX_SIZE + 1, len(horizontal)
+    return {"vertical": vertical, "horizontal": horizontal}
+
+
+def _unexplained_greys(scan: np.ndarray, declared: set[int]) -> set[int]:
+    """The grey levels on ``scan`` that ``declared`` does not account for."""
+    return set(np.unique(scan).tolist()) - declared
+
 
 
 class TestBookPdf_EveryFifthGridLineWider:
@@ -784,7 +1021,22 @@ class TestBookPdf_EveryFifthGridLineWider:
 
     @pytest.fixture(scope="class")
     @classmethod
-    def page(cls) -> Image.Image:
+    def raw_page(cls) -> Page:
+        """This class's one 30x30 page as the generator hands it back (CARD-356).
+
+        A bitmap on the unconverted interior and a content stream on the
+        converted one; ``page`` below is this seen through the
+        ``interior_images`` seam. **The render that
+        :data:`_FIFTH_RULE_RENDERS` counts happens here**, once for the class.
+        """
+        columns, rows, depth = cls.PUZZLE
+        puzzle = _puzzle(columns, rows, depth)
+        _FIFTH_RULE_RENDERS.append(cls.PUZZLE)
+        return _raw_interior([puzzle])[puzzle_page_number([puzzle]) - 1]
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def page(cls, raw_page: Page) -> Image.Image:
         """This class's one 30x30 page, drawn once for the class (CARD-218).
 
         Five tests measured this page and each one drew the whole interior to
@@ -797,10 +1049,7 @@ class TestBookPdf_EveryFifthGridLineWider:
         Read-only: ``drawing_of`` and :meth:`_scan` both read the image
         through ``np.asarray`` and return arrays of their own.
         """
-        columns, rows, depth = cls.PUZZLE
-        puzzle = _puzzle(columns, rows, depth)
-        _FIFTH_RULE_RENDERS.append(cls.PUZZLE)
-        return _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
+        return interior_images([raw_page])[0]
 
     def test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell(self, page) -> None:
         """The premise of the measurement, taken off the page itself."""
@@ -812,14 +1061,93 @@ class TestBookPdf_EveryFifthGridLineWider:
 
     @pytest.mark.parametrize("axis", ["vertical", "horizontal"])
     def test_every_fifth_rule_is_wider_than_every_rule_between_them(
-        self, axis: str, page: Image.Image
+        self, axis: str, raw_page: Page, page: Image.Image
     ) -> None:
         """The heavy rules out-measure every thin one, down the page and across.
 
         The scanline is taken through the middle of the first cell of the
         other axis — inside the grid, between two rules — so every run of ink
         it meets is a rule of this axis and nothing else.
+
+        **CARD-356: this claim is medium-specific, and the two media answer it
+        differently.** The raster path draws a rule as a whole number of
+        device pixels, so its heavy rules are all one width, exactly twice the
+        thin one, and the thin one is held to :data:`MIN_THIN_RULE_PX`. A page
+        of operators *declares* a width in points and the rasteriser resolves
+        it: ADR-0037/R2 (amended 2026-10-25) gives it three weights, not two,
+        and no millimetre floor, because there is no integer stroke for a
+        floor to bind. So on a bitmap page every original assertion stands,
+        and on a page of operators the claim is **re-expressed**:
+
+        * *in the stream*, read from the written file: the rules of every
+          fifth line are stroked wider than every rule between them, and the
+          widths are exactly R2's 0.3 / 0.8 / 1.3 pt (written out here, not
+          imported) on the cell lines, the fifths and the border;
+        * *in poppler's raster of it*: the three tiers are ordered and
+          disjoint in ink width, each within the span ADR-0037's 2026-10-28
+          note measured -- the declared width in pixels up to two more.
+
+        **Retired, with named survivors:** "heavy = 2 x thin" (the heavy tier
+        is two weights on operators, so the ratio has no subject) and the
+        0.25 mm / 3 px thin-rule floor, which is a rasteriser's. The floor's
+        survivor is
+        ``tests/test_book_grid_rules.py::TestBookGridRules_TheseWidthsNeverReachARasterGrid``
+        (a raster grid is refused at the weights an operators grid is
+        allowed), and the weights' own is
+        ``tests/test_book_grid_rules.py::TestBookGridRules_HasThreeWeights``.
+        :meth:`test_the_raster_floor_does_not_bind_a_page_of_operators` pins
+        the disposition itself.
         """
+        if isinstance(raw_page, ContentStream):
+            rules = _grid_rules(raw_page)[axis]
+            widths_pt = [rule.width for rule in rules]
+            heavy_pt = [widths_pt[index] for index in self.HEAVY_INDICES]
+            thin_pt = [
+                width
+                for index, width in enumerate(widths_pt)
+                if index not in self.HEAVY_INDICES
+            ]
+            assert min(heavy_pt) > max(thin_pt)
+            assert set(thin_pt) == {CELL_RULE_PT}
+            assert {widths_pt[0], widths_pt[-1]} == {BORDER_RULE_PT}
+            assert {widths_pt[index] for index in self.HEAVY_INDICES[1:-1]} == {
+                FIFTH_RULE_PT
+            }
+
+            ink = _rule_widths(self._scan(page, axis))
+            assert len(ink) == MAX_SIZE + 1, "a 30-cell grid is ruled 31 times"
+            tiers = {
+                "cell": [w for i, w in enumerate(ink) if i not in self.HEAVY_INDICES],
+                "fifth": [ink[i] for i in self.HEAVY_INDICES[1:-1]],
+                "border": [ink[0], ink[-1]],
+            }
+            for tier, declared in (
+                ("cell", CELL_RULE_PT),
+                ("fifth", FIFTH_RULE_PT),
+                ("border", BORDER_RULE_PT),
+            ):
+                declared_px = declared * DPI / 72.0
+                # DECLARED BOUND (ADR-0039/R3). The band is [declared px,
+                # declared px + 2]: ADR-0037's 2026-10-28 note states it as the
+                # span poppler's ink can take for a stroke of that width.
+                # Reason: it is a statement about *poppler's* stroke
+                # adjustment, not about the file, and it depends on the
+                # stroke's sub-pixel phase. MEASURED RESIDUE (poppler 26.08.0,
+                # 300 DPI, by this card's reviewer): the real page inks
+                # 2 / 4 / 6 px against declared 1.25 / 3.33 / 5.42 (excess
+                # 0.75 / 0.67 / 0.58, inside the +2), and one-rule pages at some
+                # sub-pixel phases ink 1 / 3 / 5 px (cell 1 px is BELOW the
+                # declared 1.25, so the lower edge is not tight either). A
+                # different poppler or a different phase can move a tier by a
+                # pixel; the +2 is slack for that, not a tolerance on the
+                # product, and the EDGE_* / HALF_PIXEL_MM bounds are untouched.
+                assert all(
+                    declared_px <= width <= declared_px + 2 for width in tiers[tier]
+                ), (tier, declared_px, sorted(set(tiers[tier])))
+            assert max(tiers["cell"]) < min(tiers["fifth"])
+            assert max(tiers["fifth"]) < min(tiers["border"])
+            return
+
         widths = _rule_widths(self._scan(page, axis))
 
         assert len(widths) == MAX_SIZE + 1, "a 30-cell grid is ruled 31 times"
@@ -837,9 +1165,49 @@ class TestBookPdf_EveryFifthGridLineWider:
         assert min(thin) / PX_PER_MM >= MIN_THIN_RULE_MM
         assert set(heavy) == {2 * width for width in set(thin)}, "heavy = 2 x thin"
 
+    def test_the_raster_floor_does_not_bind_a_page_of_operators(
+        self, raw_page: Page, page: Image.Image
+    ) -> None:
+        """Disposition of the raster thin-rule floor, asserted rather than commented.
+
+        The floor (:data:`MIN_THIN_RULE_PX` / :data:`MIN_THIN_RULE_MM`) binds a
+        rasteriser's integer stroke. On a page of operators the cell line is
+        *declared* at 0.3 pt and poppler inks it narrower than that floor --
+        which is the design (ADR-0037/R2, 2026-10-25) and not a defect, and is
+        why :meth:`test_every_fifth_rule_is_wider_than_every_rule_between_them`
+        does not assert it there. This is the assertion that the retirement is
+        true: the thin rule's ink is **below** the floor on the stream's page.
+        On a bitmap page the floor is the live claim and that test asserts it,
+        so here the converse is not asserted (the page has no stream to declare
+        a width); this test then asserts only that the page is a bitmap, so a
+        medium this test does not describe fails it rather than passing.
+        """
+        if not isinstance(raw_page, ContentStream):
+            assert isinstance(raw_page, Image.Image)
+            return
+        thin_ink = [
+            width
+            for index, width in enumerate(_rule_widths(self._scan(page, "vertical")))
+            if index not in self.HEAVY_INDICES
+        ]
+        # What this means: the raster floor is not a requirement of a page of
+        # operators, so the thin rule is NOT held to it. The stated claim is
+        # the declared one -- the thin rule is declared at 0.3 pt, below the
+        # floor's own physical size (0.3 pt = 0.106 mm < 0.25 mm), asserted
+        # in physical units, which do not depend on the DPI.
+        declared_mm = CELL_RULE_PT * 25.4 / 72.0
+        assert declared_mm < MIN_THIN_RULE_MM, declared_mm
+        # COINCIDENCE PIN, kept on purpose and labelled as one: that poppler's
+        # ink for that rule is also under 3 px is a fact about 300 DPI and this
+        # poppler (exactly 2 px today), not a requirement. It is kept so that
+        # the retirement above is shown on a rendered page and not only in
+        # arithmetic; if the page's resolution or poppler moves it, re-derive
+        # it rather than widening it.
+        assert max(thin_ink) < MIN_THIN_RULE_PX, thin_ink
+
     @pytest.mark.parametrize("axis", ["vertical", "horizontal"])
     def test_the_rules_are_pure_black_and_not_anti_aliased(
-        self, axis: str, page: Image.Image
+        self, axis: str, raw_page: Page, page: Image.Image
     ) -> None:
         """Every pixel the scanline crosses is #000 or the paper, never a grey.
 
@@ -847,7 +1215,72 @@ class TestBookPdf_EveryFifthGridLineWider:
         complaint ADR-0037 answers (research §5: faint lines). The whole
         scanline is checked, not only the runs, so an anti-aliased *edge*
         beside a rule fails too.
+
+        **CARD-356: on operators this claim is false as stated, and measured
+        to be false for a reason other than the one this card was filed
+        under.** The card read the ``[0, 89, 255]`` poppler returns as
+        "poppler anti-aliases a vector rule". It does not: the 89 is
+        ``round(255 * 0.35)``, the **declared tone of the cell lines** (ADR-0037
+        R2: the fifths and the border are the interior's one ink, pure black;
+        the cell lines are a lighter guide). Poppler, as this tree invokes it,
+        returns no grey between a stroke's tone and the paper **across the
+        width of an axis-aligned rule** --
+        :meth:`test_a_rule_reads_as_the_tone_it_is_declared_at_and_no_other`
+        measures that on a page of one rule, at whole- and half-pixel
+        positions, along a scanline that crosses it. **That is the whole of
+        the claim, and it is narrower than "no anti-aliasing"** (CARD-356
+        review F-003, measured by the reviewer): a rule's *ends* carry greys
+        (244 / 248 / 251 and the like at 72 / 100 / 150 / 600 DPI), a diagonal
+        rule at 300 DPI carries 14 greys, and the tone is not always
+        ``round(255 * tone)`` to the grey (tone 0.9 reads 229, not 230).
+        This test's scanline is cut inside the grid between two rules, so it
+        meets only axis-aligned rule widths; a claim about a rule's end or a
+        slanted mark is not made here. So the two halves of the claim have different dispositions:
+
+        * *"pure black"* -- **narrowed to what is declared**: the stream
+          strokes every fifth line and the border at tone 0 and every cell
+          line at 0.35, and each rule's darkest pixel on the raster is
+          ``round(255 * its tone)``;
+        * *"not anti-aliased"* -- **kept**, stated against the declaration:
+          every grey on the scanline is one the stream declares or the paper,
+          so an edge pixel poppler softened would be an unexplained grey and
+          fail here (:func:`_unexplained_greys`, with its control below).
+
+        Survivors by name for the declared tones:
+        ``tests/test_book_grid_rules.py::TestBookGridRules_CellLinesAreLighterThanTheFifths``.
+        A bitmap page keeps the original assertions untouched.
         """
+        if isinstance(raw_page, ContentStream):
+            rules = _grid_rules(raw_page)[axis]
+            tones = [rule.grey for rule in rules]
+            assert [tones[i] for i in self.HEAVY_INDICES] == [0.0] * len(
+                self.HEAVY_INDICES
+            )
+            assert {
+                tone for i, tone in enumerate(tones) if i not in self.HEAVY_INDICES
+            } == {CELL_RULE_GREY}
+
+            scan = self._scan(page, axis)
+            declared = {255, *(round(255 * tone) for tone in tones)}
+            assert not _unexplained_greys(scan, declared), sorted(
+                _unexplained_greys(scan, declared)
+            )
+            runs = _runs(scan < INK_LEVEL)
+            assert len(runs) == MAX_SIZE + 1
+            for index, run in enumerate(runs):
+                assert {int(scan[pixel]) for pixel in run} == {
+                    round(255 * tones[index])
+                }, f"rule {index}"
+
+            colour = self._scan(page, axis, mode="RGB").reshape(-1, 3)
+            ink = colour[(colour < INK_LEVEL).all(axis=1)]
+            assert len(ink), "no ink on the scanline"
+            assert {tuple(pixel) for pixel in np.unique(ink, axis=0).tolist()} == {
+                (0, 0, 0),
+                (round(255 * CELL_RULE_GREY),) * 3,
+            }
+            return
+
         greys = set(np.unique(self._scan(page, axis)).tolist())
         assert greys <= {0, 255}, f"the scanline carries greys: {sorted(greys)}"
 
@@ -855,6 +1288,62 @@ class TestBookPdf_EveryFifthGridLineWider:
         ink = colour[(colour < INK_LEVEL).all(axis=1)]
         assert len(ink), "no ink on the scanline"
         assert {tuple(pixel) for pixel in np.unique(ink, axis=0).tolist()} == {(0, 0, 0)}
+
+    @pytest.mark.parametrize("tone", [0.0, 0.35, 0.6])
+    @pytest.mark.parametrize("x_px", [100.0, 100.5, 100.25])
+    def test_a_rule_reads_as_the_tone_it_is_declared_at_and_no_other(
+        self, tone: float, x_px: float
+    ) -> None:
+        """The measurement behind the disposition above, and its control.
+
+        One vertical rule on an otherwise blank page, stroked at ``tone`` and
+        placed at a whole pixel and at two fractions of one, rasterised by the
+        same poppler call the page reads go through. Every pixel of the
+        scanline **across the rule** is the paper or ``round(255 * tone)``:
+        no edge grey on the rule's width, at any of these phases. That is what
+        makes the 89 on the real page a tone and not an artefact -- and what
+        makes "no softened edge across a rule" assertable on operators at all.
+        Its scope is exactly that: the rule's ends, a diagonal, and tones
+        whose grey is not ``round(255 * tone)`` are outside it (the tones
+        parametrised here are 0, 0.35 and 0.6, which are exact).
+
+        The control is :func:`_unexplained_greys` itself: asked about the
+        same scanline with the tone **left out** of the declared set, it
+        names the tone as unexplained, so the check is shown able to fail.
+        """
+        stream = ContentStream(width_px=300, height_px=300, dpi=300)
+        stream.stroke_grey(tone)
+        stream.stroke_width(0.3)
+        stream.line(x_px, 20, x_px, 280)
+        scan = interior_images([stream])[0].convert("L")
+        row = np.asarray(scan)[150]
+        paper_and_tone = {255, round(255 * tone)}
+        assert not _unexplained_greys(row, paper_and_tone)
+        assert (row != 255).any(), "the rule drew nothing"
+        if round(255 * tone) != 255:
+            assert _unexplained_greys(row, {255}) == {round(255 * tone)}
+
+    def test_the_stream_reader_reads_the_tone_and_weight_it_is_shown(self) -> None:
+        """Control for :func:`_grid_rules`: it reports what a stream sets, per line.
+
+        A known stream -- one vertical at 0.35 / 0.3 pt, one horizontal at
+        0 / 1.3 pt -- must read back as exactly those two rules with those
+        tones and widths, and the stroke state must carry from one line to the
+        next as the operators do. A reader that ignored ``G`` or ``w`` would
+        return the defaults for both.
+        """
+        stream = ContentStream(width_px=300, height_px=300, dpi=300)
+        stream.stroke_grey(0.35)
+        stream.stroke_width(0.3)
+        stream.line(100, 20, 100, 280)
+        stream.stroke_grey(0.0)
+        stream.stroke_width(1.3)
+        stream.line(20, 100, 280, 100)
+        rules = _stroke_rules(stream)
+        assert [(r.axis, r.width, r.grey) for r in rules] == [
+            ("vertical", 0.3, 0.35),
+            ("horizontal", 1.3, 0.0),
+        ]
 
     @staticmethod
     def _scan(page: Image.Image, axis: str, mode: str = "L") -> np.ndarray:
@@ -932,7 +1421,15 @@ class TestBookPdf_UngradedPuzzlePrintsItsNumberAlone:
 
     def test_the_page_of_an_ungraded_puzzle_says_only_its_number(self) -> None:
         puzzle = _puzzle(tier=None)
-        page = _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
+        raw = _raw_interior([puzzle])[puzzle_page_number([puzzle]) - 1]
+        page = interior_images([raw])[0]
+        assert _has_ink(_band_strip(page))
+        if isinstance(raw, ContentStream):
+            # CARD-356: the band is read from the stream's text layer. It is
+            # exactly "Puzzle 1" -- no separator, no tier, no raw stored text
+            # -- which is the whole of the decision this class pins.
+            assert [line.text for line in _band_zone(_text_of(raw))] == ["Puzzle 1"]
+            return
         expected, _ = _pages_with_band(
             puzzle,
             puzzle_page_number([puzzle]),
@@ -940,7 +1437,6 @@ class TestBookPdf_UngradedPuzzlePrintsItsNumberAlone:
             identity="Puzzle 1",
             puzzle_number=1,
         )
-        assert _has_ink(_band_strip(page))
         assert page.tobytes() == expected.tobytes()
 
     @pytest.mark.parametrize("stored,label", sorted(TIER_LABELS.items()))
@@ -1008,30 +1504,53 @@ MIN_PUZZLES = 60
 MIN_POSITION = 4
 
 
-def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
-    """EC(ADR-0037/R1) — every puzzle of every book, whatever its name and tier.
+def _check_band_corpus(names: Sequence[str | None]) -> None:
+    """The EC's body, over a corpus whose names are drawn from ``names``.
 
-    A seeded corpus of books: each one a handful of puzzles with names drawn
-    from :data:`CORPUS_NAMES` and stored tiers from :data:`CORPUS_TIERS`, at
-    extents across CON-011's range, so a puzzle's print position, its name and
-    its tier vary independently. For every puzzle of every book the rendered
-    puzzle page is required to equal, pixel for pixel, the page COMP-007 draws
-    for a payload with **no name** and a band line this module composed from
-    ADR-0037's wording and its own tier table.
+    CARD-356: **stated in each page's own medium.** A bitmap page is compared
+    pixel for pixel with the page COMP-007 draws for a payload with no name
+    and the band written out here, exactly as before. A page written as
+    operators is required to be, operator for operator, the page the
+    generator draws for the **same book with no names at all** -- so the
+    title is on no puzzle page, anywhere -- and the band zone's text layer
+    (poppler's) must read this module's own :func:`expected_band` and nothing
+    else. Both halves of ADR-0037/R1 are carried by those two readings, and
+    neither reads the other's answer.
 
-    That single comparison carries both halves of the rule: a page whose band
-    said anything else — the wrong number, a stored ``"easy"`` unlabelled, an
-    invented tier for an ungraded row — would differ, and so would a page
-    carrying the picture's title anywhere on it.
+    **What the operators arm does and does not see (CARD-356 review F-001).**
+    The equality compares the generator with *itself minus the names*, so it
+    sees any mark that **depends on the name** (a title anywhere on the page,
+    in any form) and nothing else: a stray mark that does not depend on the
+    name -- a stray rule, a second folio -- is on both pages and passes. The
+    text layer sees the wrong *words* in the band zone only. So on a converted
+    interior this body does **not** carry a whole-page claim, and the answer
+    and ungraded pages have no whole-page comparison at all (their bitmap
+    comparisons were against a raster primitive that is no longer what the
+    generator draws). An independent whole-page expectation for operators
+    would mean re-composing the sheet furniture and the grid from
+    ``book_sheet_vector`` here, which is a second implementation of the
+    writer rather than a cheap reading, so it is **not built**.
 
-    Since CARD-128 these are **grouped and divided** books: the tiers are
-    drawn independently of the position, so almost every book of the corpus is
-    of several levels, prints in an order that is not the one it was handed in
-    and carries a divider page opening each of its levels. ``N`` is therefore
-    the puzzle's place in the *print* order and the page is the one the
-    grouping put it on — both taken from :func:`print_plan`, this module's own
-    reading of FR-041 — so a band numbered by submission order, or by page,
-    fails here.
+    **Who else holds a name-independent stray mark -- MEASURED, not assumed**
+    (CARD-356, in-process plants that add one mark to every content stream, run
+    against each module alone beside an unplanted control in the same
+    invocation; instruments in the card's review folder): on the *puzzle
+    page* the writer's own module catches all three plants -- a stray vertical
+    rule, a stray text run and a stray filled rectangle -- in, among others,
+    ``tests/test_book_puzzle_page_vector.py::TestPropertyTest_PuzzlePage_EveryCoordinateComesFromTheLayout::test_every_mark_on_every_page_is_the_one_the_layout_demands``
+    and
+    ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_page_carries_all_four_pieces_of_furniture``
+    (the rule and the text run are also caught by
+    ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture::test_the_page_shows_only_the_clue_digits_and_the_band``).
+    ``tests/test_book_grid_rules.py`` catches only the stray *rule*, by
+    ``tests/test_book_grid_rules.py::TestBookGridRules_FifthLinesOnBothAxes::test_the_stream_strokes_both_axes_at_the_fifth_weight``
+    and
+    ``tests/test_book_grid_rules.py::TestBookGridRules_RaggedLastBand::test_the_last_band_is_short_and_the_border_keeps_its_weight``,
+    and neither the text run nor the rectangle. **Declared residue:** that
+    covers the puzzle page only, and only the three marks planted -- an actual
+    second folio was not planted. No module was measured for the answer page,
+    the ungraded page, the table of contents or the guide, so for those a
+    name-independent stray mark is not claimed to be held by anything.
     """
     random_source = random.Random(20260923)
     books = 0
@@ -1045,7 +1564,7 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
         puzzles = []
         for position in range(1, count + 1):
             side = random_source.randint(MIN_SIZE, MIN_SIZE + 5)
-            name = random_source.choice(CORPUS_NAMES)
+            name = random_source.choice(names)
             tier = random_source.choice(CORPUS_TIERS)
             names_seen.add(name)
             puzzles.append(
@@ -1068,24 +1587,32 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
                 )
             )
 
-        pages = _interior(puzzles)
+        pages = _raw_interior(puzzles)
         plan = print_plan(puzzles)
+        nameless = _raw_interior([{**puzzle, "puzzle_name": None} for puzzle in puzzles])
         for index, puzzle in enumerate(puzzles):
             # Where this row lands once the book is grouped by level, and the
             # number it carries there (CARD-128) — this module's own reading
             # of the print order, not the generator's.
             number, page_number = plan[index]
             identity = expected_band(number, puzzle["difficulty_tier"])
-            expected, _ = _pages_with_band(
-                puzzle, page_number, name=None, identity=identity, puzzle_number=number
-            )
             page = pages[page_number - 1]
-            assert _has_ink(_band_strip(page)), f"blank band on {identity!r}"
-            assert page.tobytes() == expected.tobytes(), (
+            where = (
                 f"book {book_index}, puzzle {number} "
                 f"(name {puzzle['puzzle_name']!r}, stored tier "
                 f"{puzzle['difficulty_tier']!r}) does not print {identity!r}"
             )
+            if isinstance(page, ContentStream):
+                assert _same_page(page, nameless[page_number - 1]), where
+                band = [line.text for line in _band_zone(_text_of(page))]
+                assert band == [identity], f"{where}: the band reads {band!r}"
+            else:
+                expected, _ = _pages_with_band(
+                    puzzle, page_number, name=None, identity=identity,
+                    puzzle_number=number,
+                )
+                assert _has_ink(_band_strip(page)), f"blank band on {identity!r}"
+                assert page.tobytes() == expected.tobytes(), where
             puzzles_checked += 1
             positions_seen.add(number)
             if "·" in identity:
@@ -1099,6 +1626,73 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
     assert len(names_seen) >= 8, names_seen
     assert any(name and not name.isascii() for name in names_seen), names_seen
     assert any(name and len(name) > 100 for name in names_seen), names_seen
+
+
+def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
+    """EC(ADR-0037/R1) — every puzzle of every book, whatever its name and tier.
+
+    A seeded corpus of books: each one a handful of puzzles with names drawn
+    from :data:`CORPUS_NAMES` and stored tiers from :data:`CORPUS_TIERS`, at
+    extents across CON-011's range, so a puzzle's print position, its name and
+    its tier vary independently. For every puzzle of every book the rendered
+    puzzle page is required to be the page the generator draws with no name
+    and the band this module composed from ADR-0037's wording and its own tier
+    table (see :func:`_check_band_corpus` for how each medium is read).
+
+    Since CARD-128 these are **grouped and divided** books: the tiers are
+    drawn independently of the position, so almost every book of the corpus is
+    of several levels, prints in an order that is not the one it was handed in
+    and carries a divider page opening each of its levels. ``N`` is therefore
+    the puzzle's place in the *print* order and the page is the one the
+    grouping put it on — both taken from :func:`print_plan`, this module's own
+    reading of FR-041 — so a band numbered by submission order, or by page,
+    fails here.
+
+    **THIS TEST IS RED ON A CONVERTED INTERIOR AND THAT RED IS CARD-322's, NOT
+    THIS CARD'S (CARD-356, M3b).** :data:`CORPUS_NAMES` carries Cyrillic,
+    Greek and Hebrew titles, which the interior's ``cp1252`` encoding cannot
+    show, and the converted generator refuses the book with
+    ``'Χιονονιφάδα' (U+03A7) is not in the interior's cp1252 encoding`` --
+    a product behaviour change that appears only once the answer page is
+    operators. It is left red, over the whole corpus, on purpose: filtering
+    the names out here would absorb a product defect into a test, and G-1
+    forbids this card from touching the generator. The same body over the
+    names the interior can carry is the next test, so the repaired reading is
+    verified and the refusal stays visible.
+    """
+    _check_band_corpus(CORPUS_NAMES)
+
+
+def _carried_by_the_interior(name: str | None) -> bool:
+    """Whether the interior's own encoder will set ``name`` (default-DENY).
+
+    Asked of ``encode_text``, the authority the writer itself calls, and
+    answered only by it: a name is carried when it encodes and refused when
+    it raises :class:`UnrepresentableText`; any other outcome is an error, not
+    a quiet exclusion (ADR-0039/R2).
+    """
+    if not name:
+        return True
+    try:
+        encode_text(name)
+    except UnrepresentableText:
+        return False
+    return True
+
+
+def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryNameTheInteriorCanCarry() -> None:
+    """EC(ADR-0037/R1), over the names the interior's encoding can set.
+
+    The matched control for the red above: the same seeded corpus, the same
+    body, restricted to the names ``encode_text`` accepts. Green here and red
+    there is exactly the statement that the only thing the full corpus trips
+    on is the encoding refusal (CARD-322's), and the corpus floors are
+    asserted inside the body so the restriction cannot silently empty it.
+    """
+    carried = tuple(name for name in CORPUS_NAMES if _carried_by_the_interior(name))
+    assert len(carried) >= 8, carried
+    assert "Snowflake" in carried and "L'étoile d'hiver" in carried
+    _check_band_corpus(carried)
 
 
 # --------------------------------------------------------------------------
@@ -1366,6 +1960,14 @@ def _lines(page: Image.Image) -> Iterator[_Line]:
             yield _Line(top + int(rows[0]), left, piece[rows[0] : rows[-1] + 1])
 
 
+def _lines_ink_of_band(page: Image.Image) -> np.ndarray:
+    """The ink of the one line in a bitmap page's band strip, rules aside."""
+    strip = np.asarray(_band_strip(page).convert("L")) < INK_LEVEL
+    strip[_rule_rows(strip)] = False
+    top, bottom = _spans(strip.any(axis=1), 1)[0]
+    return _cropped(strip[top : bottom + 1])
+
+
 class _Found(NamedTuple):
     page: int
     text: str
@@ -1373,12 +1975,129 @@ class _Found(NamedTuple):
     top: int
 
 
-def _find(pages: Sequence[Image.Image], texts: Iterable[str]) -> list[_Found]:
-    """Every line of every page that is one copy of one of ``texts``."""
+# --------------------------------------------------------------------------
+# CARD-356 -- reading a line of type in the medium it was written in
+#
+# The glyph-template search above (``_set_once``/``_mismatch``/``_one_copy_at``)
+# sets a string with Pillow and asks whether a line of ink on the page is that
+# setting. It is a **raster instrument**: its template is the raster path's own
+# rasteriser's rendering of the face, and it is only as good as the page being
+# drawn by that same rasteriser. Measured on this module's own book: the same
+# band set as operators and rasterised by poppler differs from the template by
+# 11-15 % of its ink against a 4 % limit (``INK_MISMATCH_LIMIT``, which this
+# card does not move), while the box agrees to within two pixels. Nothing was
+# wrong with the page; the template had no subject there.
+#
+# A page written as operators has an independent reading that is exact
+# instead of approximate: poppler's text layer (``pdftotext -bbox``), an
+# engine that did not write the file, which reports each word the embedded
+# face's ``/Widths`` and ``/Encoding`` actually set and the box it sits in.
+# The two readings are kept apart by the page they read, never mixed: a bitmap
+# is searched by template, a stream by its words.
+# --------------------------------------------------------------------------
+
+
+class _TextLine(NamedTuple):
+    """One line of type from a text layer, in the units the pixel search uses."""
+
+    top: int
+    left: int
+    text: str
+    #: The type size in device pixels, recovered from the word box's height
+    #: and the face's own ascent and descent, so it is comparable with
+    #: :data:`BAND_FONT_PX` and with the raster search's ``size``.
+    size: int
+
+
+def _lines_of_words(words: Sequence[Word]) -> list[_TextLine]:
+    """Poppler's words, joined into lines of type.
+
+    Words on one baseline are one line unless the gap between two of them is
+    at least as wide as the words are tall -- the same rule :func:`_lines`
+    cuts a bitmap by, so two answer captions side by side on a packed page are
+    two lines and a band's word spaces are not breaks.
+    """
+    # Through the module, not a name imported from it: ``interior_face_metrics``
+    # is an ``@lru_cache``, and this module's retention control grants that
+    # allowance to exactly the two caches it names.
+    metrics = book_vector.interior_face_metrics()
+    em_height = (metrics.ascent - metrics.descent) / 1000.0
+    px_per_pt = DPI / 72.0
+    ordered = sorted(words, key=lambda word: (round(word.top, 1), word.left))
+    lines: list[list[Word]] = []
+    for word in ordered:
+        if lines:
+            last = lines[-1][-1]
+            same_row = abs(word.top - last.top) < 0.5
+            gap = word.left - last.right
+            if same_row and gap < (last.bottom - last.top):
+                lines[-1].append(word)
+                continue
+        lines.append([word])
+    found = []
+    for line in lines:
+        height_pt = line[0].bottom - line[0].top
+        found.append(
+            _TextLine(
+                top=round(line[0].top * px_per_pt),
+                left=round(line[0].left * px_per_pt),
+                text=" ".join(word.text for word in line),
+                size=round(height_pt / em_height * px_per_pt),
+            )
+        )
+    return found
+
+
+def _words_of(page: ContentStream) -> list[Word]:
+    """The words poppler finds on one stream written out as a one-page PDF."""
+    data = write_vector_pdf([page], 1).getvalue()
+    with tempfile.TemporaryDirectory(prefix="band-words-") as directory:
+        return pdf_vector.word_boxes(data, 1, out_dir=Path(directory))
+
+
+def _text_of(page: ContentStream) -> list[_TextLine]:
+    """Every line of type on a page written as operators."""
+    return _lines_of_words(_words_of(page))
+
+
+def _band_zone(lines: Sequence[_TextLine]) -> list[_TextLine]:
+    """The lines whose top is inside the 12 mm band strip below the top margin."""
+    top = round(TOP_MM * PX_PER_MM)
+    return [
+        line for line in lines if top <= line.top < top + round(BAND_MM * PX_PER_MM)
+    ]
+
+
+class _Reading(NamedTuple):
+    """One page, in the form its medium is read in."""
+
+    image: Image.Image
+    #: Poppler's words for a page written as operators, ``None`` for a bitmap.
+    words: tuple[Word, ...] | None
+
+
+def _reading_of(page: Page) -> _Reading:
+    if isinstance(page, ContentStream):
+        return _Reading(interior_images([page])[0], tuple(_words_of(page)))
+    return _Reading(page, None)
+
+
+def _find(readings: Sequence[_Reading], texts: Iterable[str]) -> list[_Found]:
+    """Every line of every page that is one copy of one of ``texts``.
+
+    A bitmap page is searched by glyph template (:func:`_one_copy_at`); a page
+    written as operators by its text layer, where a line is a copy of ``text``
+    when the words poppler joined into it read exactly ``text``.
+    """
     texts = tuple(texts)
     found = []
-    for page_number, page in enumerate(pages, start=1):
-        for line in _lines(page):
+    for page_number, reading in enumerate(readings, start=1):
+        if reading.words is not None:
+            for line in _lines_of_words(reading.words):
+                if line.text in texts:
+                    found.append(_Found(page_number, line.text, line.size, line.top))
+            continue
+        for line in _lines(reading.image):
             for text in texts:
                 size = _one_copy_at(line.ink, text)
                 if size is not None:
@@ -1386,11 +2105,74 @@ def _find(pages: Sequence[Image.Image], texts: Iterable[str]) -> list[_Found]:
     return found
 
 
+def _exported_pages(data: bytes) -> list[Image.Image]:
+    """Every page of an exported interior PDF as device pixels, in print order.
+
+    CARD-356: **``pdf_pages`` cannot be asked for a book with two or more
+    operators pages.** It rasterises each one through
+    ``pdf_vector.rendered_page`` into ONE shared scratch directory, and that
+    function returns ``sorted(directory.glob("page-*.png"))[0]`` -- the
+    *earliest file left there*, not the page it was asked for. So every
+    operators page of the book comes back as the first one rendered (here the
+    blank title page): measured on this module's own book, 9 of its 14 pages
+    read as the same blank image. Raster pages are decoded by Pillow and are
+    unaffected. Until the helper is fixed (a finding, routed in the card's
+    report: ``tests/helpers`` is outside this card's Touches) this module
+    reads raster pages through ``pdf_pages`` and each operators page through
+    its own fresh scratch directory.
+    :meth:`TestBookPdf_BandPrintsOnceInTheExportedPdf.test_the_exported_pages_are_not_one_page_repeated`
+    is the control that fails if this goes back to ``pdf_pages`` alone.
+    """
+    pages = pdf_pages(data)
+    media = pdf_vector.page_media(data)
+    # Default-DENY (ADR-0039/R2): a page of no medium this tree writes keeps the
+    # bugged render if it is skipped, so it is refused here, the way
+    # ``band_draws`` refuses it.
+    assert pdf_vector.UNCLASSIFIABLE not in media, media
+    for index, medium in enumerate(media):
+        if medium != pdf_vector.VECTOR:
+            continue
+        with tempfile.TemporaryDirectory(prefix="band-page-") as directory:
+            rendered = pdf_vector.rendered_page(
+                data, DPI, index + 1, out_dir=Path(directory)
+            )
+        pages[index] = Image.fromarray(
+            np.asarray(rendered, dtype=np.uint8), mode="L"
+        ).convert("RGB")
+    return pages
+
+
+class _Exported(NamedTuple):
+    """The book as ``export_book`` wrote it, read page by page in its medium."""
+
+    data: bytes
+    media: list[str]
+    images: list[Image.Image]
+    readings: list[_Reading]
+
+
 @pytest.fixture(scope="module")
-def once_pages() -> list[Image.Image]:
+def once_export() -> _Exported:
     """The book's interior, decoded from the PDF ``export_book`` wrote."""
     export = BookPDFGenerator(_book()).export_book(_once_book(), "Band Once")
-    return pdf_pages(export.interior.getvalue())
+    data = export.interior.getvalue()
+    media = pdf_vector.page_media(data)
+    images = _exported_pages(data)
+    readings = []
+    for number, (medium, image) in enumerate(zip(media, images), start=1):
+        if medium == pdf_vector.VECTOR:
+            with tempfile.TemporaryDirectory(prefix="band-export-") as directory:
+                words = pdf_vector.word_boxes(data, number, out_dir=Path(directory))
+            readings.append(_Reading(image, tuple(words)))
+        else:
+            readings.append(_Reading(image, None))
+    return _Exported(data, media, images, readings)
+
+
+@pytest.fixture(scope="module")
+def once_pages(once_export: _Exported) -> list[Image.Image]:
+    """The book's interior as device pixels (see :func:`_exported_pages`)."""
+    return once_export.images
 
 
 class TestBookPdf_BandPrintsOnceInTheExportedPdf:
@@ -1413,7 +2195,7 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         assert len(once_pages) == ONCE_PAGE_COUNT
 
     def test_every_band_is_found_once_on_its_own_page_and_nowhere_else(
-        self, once_pages: list[Image.Image]
+        self, once_export: _Exported
     ) -> None:
         """Each band is found on exactly two pages, and nowhere else.
 
@@ -1427,10 +2209,18 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         else" still means as a line of its own: a copy beside the drawing or
         over other ink is not found (see the section comment; the recorder
         covers it).
+
+        **CARD-356: each page is read in the medium it was written in.** A
+        page written as operators is read from its text layer, where "a line
+        of its own" is a line poppler joined and a copy over other ink is
+        found as well (the template search could not see one); a bitmap page
+        keeps the glyph template. Both arms report the size the line was set
+        at, and both must say :data:`BAND_FONT_PX`.
         """
         bands = _once_bands()
         found = sorted(
-            (hit.page, hit.text, hit.size) for hit in _find(once_pages, bands.values())
+            (hit.page, hit.text, hit.size)
+            for hit in _find(once_export.readings, bands.values())
         )
         assert found == sorted(
             (page, text, BAND_FONT_PX)
@@ -1444,7 +2234,7 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         ids=["hard-alone", "two-up-easy-upper", "two-up-medium-upper"],
     )
     def test_the_band_strip_holds_one_line_at_the_band_size(
-        self, once_pages: list[Image.Image], page_number: int, number: int
+        self, once_export: _Exported, page_number: int, number: int
     ) -> None:
         """The top band strip's ink, rules aside, is one line of the band.
 
@@ -1458,7 +2248,8 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         one (measured: a second ``_set_band`` draw at y+60 and at y+80 each
         failed this test, while found-once stayed green).
         """
-        strip = np.asarray(_band_strip(once_pages[page_number - 1]).convert("L")) < INK_LEVEL
+        reading = once_export.readings[page_number - 1]
+        strip = np.asarray(_band_strip(reading.image).convert("L")) < INK_LEVEL
         text = strip.copy()
         text[_rule_rows(strip)] = False
         rows = _spans(text.any(axis=1), 1)
@@ -1468,20 +2259,99 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         reference = _set_once(_once_bands()[number], BAND_FONT_PX)
         assert abs(ink.shape[0] - reference.shape[0]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
         assert abs(ink.shape[1] - reference.shape[1]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
-        assert _mismatch(ink, reference) <= INK_MISMATCH_LIMIT
+        if reading.words is None:
+            assert _mismatch(ink, reference) <= INK_MISMATCH_LIMIT
+        else:
+            # CARD-356: the glyph template is a raster instrument and has no
+            # subject on a page written as operators (see
+            # ``test_the_glyph_template_has_no_subject_on_a_page_of_operators``
+            # for the measurement). The strip's text layer says the same thing
+            # exactly: one line, the band, at the band's size.
+            zone = _band_zone(_lines_of_words(reading.words))
+            assert [(line.text, line.size) for line in zone] == [
+                (_once_bands()[number], BAND_FONT_PX)
+            ]
 
     def test_the_two_up_page_carries_each_slots_band_once_upper_first(
-        self, once_pages: list[Image.Image]
+        self, once_export: _Exported
     ) -> None:
         bands = _once_bands()
-        found = _find([once_pages[TWO_UP_PAGE - 1]], bands.values())
+        found = _find([once_export.readings[TWO_UP_PAGE - 1]], bands.values())
         assert [hit.text for hit in sorted(found, key=lambda hit: hit.top)] == [
             bands[1],
             bands[2],
         ]
 
+    def test_the_exported_pages_are_not_one_page_repeated(
+        self, once_export: _Exported
+    ) -> None:
+        """Control on :func:`_exported_pages`: the book's pages are not one image.
+
+        ``pdf_pages`` returned the first operators page it rendered for
+        **every** operators page of a book (see :func:`_exported_pages`), and
+        every claim above read a blank page without saying so. The six pages
+        that carry the book's content -- three puzzle pages, three answer
+        pages -- are six different images, each with ink, in either medium.
+        Put the fixture back on ``pdf_pages`` alone and this is the test that
+        reds.
+        """
+        content_pages = sorted(
+            {*ONCE_BAND_PAGES.values(), *ANSWER_PAGE_OF.values()}
+        )
+        assert len(content_pages) == 6, content_pages
+        digests = {
+            number: _page_digest(once_export.images[number - 1])
+            for number in content_pages
+        }
+        assert len(set(digests.values())) == len(content_pages), digests
+        for number in content_pages:
+            assert _has_ink(once_export.images[number - 1]), f"page {number} is blank"
+
+    def test_the_glyph_template_has_no_subject_on_a_page_of_operators(
+        self, once_export: _Exported
+    ) -> None:
+        """Disposition of the glyph-template search on an operators page (CARD-356).
+
+        The template is the raster path's own rasterisation of the face, so on
+        a page written as operators it is the wrong instrument, and this says
+        so as a measurement rather than a comment: for the band of a vector
+        page the best template mismatch is **over** the limit
+        (:data:`INK_MISMATCH_LIMIT`, not moved by this card) while the text
+        layer reads the band exactly. Survivors, by name: a bitmap page is
+        still searched by template (``_find``'s raster arm, which the
+        dividers and the whole unconverted interior go through) and a page of
+        operators by its words (``test_every_band_is_found_once_on_its_own_page_and_nowhere_else``).
+
+        On a book whose pages are all bitmaps there is no operators page, and
+        the measurement has no page to be taken on: it then asserts the
+        converse, that the template **does** match -- so the test is green in
+        either tree and means something in each.
+        """
+        media = once_export.media
+        pages = [n for n in ONCE_BAND_PAGES.values() if media[n - 1] == pdf_vector.VECTOR]
+        template = _set_once(_once_bands()[5], BAND_FONT_PX)
+        if not pages:
+            reading = once_export.readings[HARD_ALONE_PAGE - 1]
+            assert reading.words is None
+            assert _one_copy_at(_lines_ink_of_band(reading.image), _once_bands()[5]) is not None
+            return
+        reading = once_export.readings[HARD_ALONE_PAGE - 1]
+        assert reading.words is not None
+        zone = _band_zone(_lines_of_words(reading.words))
+        assert [line.text for line in zone] == [_once_bands()[5]]
+        strip = np.asarray(_band_strip(reading.image).convert("L")) < INK_LEVEL
+        strip[_rule_rows(strip)] = False
+        rows = _spans(strip.any(axis=1), 1)
+        top, bottom = rows[0]
+        mismatch = _mismatch(_cropped(strip[top : bottom + 1]), template)
+        assert mismatch > INK_MISMATCH_LIMIT, (
+            f"the raster template now matches poppler's rendering of the band "
+            f"({mismatch:.3f} <= {INK_MISMATCH_LIMIT}): the glyph-template "
+            "arm may be re-applied to operators pages"
+        )
+
     def test_the_search_finds_an_answer_caption_at_its_own_size(
-        self, once_pages: list[Image.Image]
+        self, once_export: _Exported
     ) -> None:
         """Control: the search sees the answer key's lettering too.
 
@@ -1492,7 +2362,7 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         apart by size as well as by text, which is what this pins.
         """
         caption = ANSWER_CAPTION.format(number=5, title="Snowflake")
-        found = _find(once_pages, [caption])
+        found = _find(once_export.readings, [caption])
         assert [(hit.page, hit.text) for hit in found] == [(HARD_ANSWER_PAGE, caption)]
         assert found[0].size != BAND_FONT_PX
 
@@ -1537,12 +2407,12 @@ class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
         puzzle = _puzzle(name=self.NAME, puzzle_id=self.PUZZLE_ID)
         book = _book()
         book.puzzle_titles = {self.PUZZLE_ID: self.TITLE}
-        pages = _interior([puzzle], book)
+        pages = _raw_interior([puzzle], book)
 
         answer = pages[answer_page_number([puzzle]) - 1]
         custom = ANSWER_CAPTION.format(number=1, title=self.TITLE)
         own = ANSWER_CAPTION.format(number=1, title=self.NAME)
-        found = _find([answer], [custom, own])
+        found = _find([_reading_of(answer)], [custom, own])
 
         assert [hit.text for hit in found] == [custom], (
             f"the answer page prints {[hit.text for hit in found]} where exactly "
@@ -1551,6 +2421,194 @@ class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
         assert found[0].size != BAND_FONT_PX, (
             "the caption was found at the band's size, so the line read is the "
             "band and not the caption"
+        )
+
+
+_SHOWN = re.compile(r"\(((?:\\.|[^()\\])*)\) Tj")
+
+
+def _bands_shown(stream: str, bands: set[str]) -> Counter:
+    """How many times each of ``bands`` is shown by a ``(text) Tj`` in ``stream``.
+
+    The operand is read as the string it is: the stream is decoded as
+    ``cp1252`` by ``pdf_vector.content_streams`` (the encoding the interior
+    declares), so a middle dot in a band is the one character it is.
+    A backslash before a backslash or a parenthesis is the only escape this
+    writer emits.
+    """
+    shown: Counter = Counter()
+    for operand in _SHOWN.findall(stream):
+        text = re.sub(r"\\([()\\])", r"\1", operand)
+        if text in bands:
+            shown[text] += 1
+    return shown
+
+
+class TestBookPdf_TheStreamReaderCountsABandItIsShown:
+    """The control the stream arm of AC-3 needs: it can count, and it can see two.
+
+    A reader that returned an empty counter for every page would pass the
+    stream test on any book that was supposed to have no bands and fail on
+    every other, so this shows it on a stream whose answer is known: a band
+    drawn twice reads as 2, drawn once as 1, a different line as none, and
+    the same text drawn inside a longer string is not a band.
+    """
+
+    BAND = "Puzzle 1 · Easy"
+
+    def _data(self, *shown: str) -> bytes:
+        stream = ContentStream(width_px=300, height_px=300, dpi=300)
+        for index, text in enumerate(shown):
+            stream.text(text, 10.0, 20.0 + 30 * index, 12.0, grey=0.0)
+        return write_vector_pdf([stream], 1).getvalue()
+
+    @pytest.mark.parametrize(
+        ("drawn", "count"),
+        [
+            ((BAND, BAND), 2),
+            ((BAND,), 1),
+            (("Puzzle 2 · Easy",), 0),
+            ((BAND + " and more",), 0),
+        ],
+        ids=["twice", "once", "another-line", "inside-a-longer-string"],
+    )
+    def test_a_band_is_counted_as_often_as_it_is_drawn(
+        self, drawn: tuple[str, ...], count: int
+    ) -> None:
+        (stream,) = pdf_vector.content_streams(self._data(*drawn))
+        shown = _bands_shown(stream, {self.BAND})
+        assert shown[self.BAND] == count
+        # The whole counter, not one key: a reader that reported a band that
+        # was not drawn, or under a different text, is caught on the cases
+        # where nothing should be counted.
+        assert sum(shown.values()) == count
+        if count == 0:
+            assert not shown
+
+
+_CITATION = re.compile(r"tests/(test_\w+\.py)::(\w+)(?:::(\w+))?")
+
+def _cited_survivors(text: str) -> list[tuple[str, str, str | None]]:
+    """``(file, class, method-or-None)`` for every ``tests/<file>::<Class>[::<method>]``
+    that ``text`` cites."""
+    return sorted(
+        {(file, cls, method or None) for file, cls, method in _CITATION.findall(text)},
+        key=str,
+    )
+
+
+def _unresolved_survivors(
+    text: str, tests_root: Path
+) -> list[str]:
+    """What ``text`` cites that does not resolve, by ``ast``, default-DENY.
+
+    Only the file a citation names is parsed. A citation resolves when that
+    file exists, defines the class at module level, and (when it names one)
+    that class defines the method. Anything else is reported by name.
+    """
+    import ast
+
+    problems = []
+    for file, cls, method in _cited_survivors(text):
+        target = tests_root / file
+        if not target.is_file():
+            problems.append(f"{file}: no such file (cited as {cls}::{method})")
+            continue
+        tree = ast.parse(target.read_text(encoding="utf-8"))
+        classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == cls
+        ]
+        if len(classes) != 1:
+            problems.append(f"{file}::{cls}: {len(classes)} definitions")
+            continue
+        if method is not None and not any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == method
+            for node in classes[0].body
+        ):
+            problems.append(f"{file}::{cls}::{method}: no such method")
+    return problems
+
+
+class TestBookPdf_EveryCitedSurvivorStillExists:
+    """This module's retirements name survivors in ``tests/test_book_grid_rules.py``.
+
+    They live in prose, so renaming or removing a cited class would leave a
+    retired claim with no survivor and no red. The set is **derived from this
+    module's own text** above the guard (ADR-0039/R2): a citation of the form
+    ``tests/<file>::<Class>`` added later extends it with no list to keep in
+    step, and each is resolved by ``ast`` in the one file it names. Nothing is
+    imported from another module.
+    """
+
+    SELF = Path(__file__).resolve()
+
+    @classmethod
+    def prose(cls) -> str:
+        return cls.SELF.read_text(encoding="utf-8").split(
+            "class " + "TestBookPdf_EveryCitedSurvivorStillExists"
+        )[0]
+
+    def test_every_cited_survivor_resolves(self) -> None:
+        assert _unresolved_survivors(self.prose(), self.SELF.parent) == []
+
+    def test_the_derivation_is_not_empty(self) -> None:
+        """A floor, not an equality: this refuses the regex matching nothing."""
+        cited = _cited_survivors(self.prose())
+        assert len(cited) >= 3, cited
+        assert {file for file, _, _ in cited} >= {"test_book_grid_rules.py"}
+
+    def test_a_renamed_citation_is_named_and_its_control_is_not(self) -> None:
+        text = self.prose()
+        victim = "TestBookGridRules_HasThreeWeights"
+        assert victim in text
+        planted = text.replace(victim, victim + "_Renamed")
+        assert _unresolved_survivors(text, self.SELF.parent) == []
+        problems = _unresolved_survivors(planted, self.SELF.parent)
+        assert len(problems) >= 1 and victim + "_Renamed" in problems[0], problems
+        method_planted = text.replace(
+            "TestBookGridRules_HasThreeWeights",
+            "TestBookGridRules_HasThreeWeights::test_no_such_method_exists",
+            1,
+        )
+        assert any(
+            "no such method" in problem
+            for problem in _unresolved_survivors(method_planted, self.SELF.parent)
+        )
+
+
+class TestBookPdf_SamePageCanFail:
+    """Control for :func:`_same_page`, the medium-neutral equality the puzzle-page
+    claims stand on: it is equal for a page and itself, and refuses a page that
+    differs by one mark, a page of another extent, and a bitmap against a stream.
+    """
+
+    @staticmethod
+    def _stream(*, extra: bool = False, width_px: float = 300) -> ContentStream:
+        stream = ContentStream(width_px=width_px, height_px=300, dpi=300)
+        stream.line(10, 10, 10, 200)
+        if extra:
+            stream.line(20, 10, 20, 200)
+        return stream
+
+    def test_a_page_is_the_same_as_its_twin(self) -> None:
+        assert _same_page(self._stream(), self._stream())
+
+    def test_one_mark_more_is_not_the_same_page(self) -> None:
+        assert not _same_page(self._stream(), self._stream(extra=True))
+
+    def test_another_extent_is_not_the_same_page(self) -> None:
+        assert not _same_page(self._stream(), self._stream(width_px=301))
+
+    def test_a_bitmap_is_never_the_same_as_a_stream(self) -> None:
+        assert not _same_page(Image.new("RGB", (300, 300), "white"), self._stream())
+        assert _same_page(
+            Image.new("RGB", (4, 4), "white"), Image.new("RGB", (4, 4), "white")
+        )
+        assert not _same_page(
+            Image.new("RGB", (4, 4), "white"), Image.new("RGB", (4, 4), "black")
         )
 
 
@@ -1566,6 +2624,21 @@ class _BandDraws(NamedTuple):
     #: no band before its write (a divider, say) lands in :attr:`unwritten`,
     #: which no test asserts.
     late: list[str]
+    #: CARD-356: the interior pages (1-based) that were written as bitmaps,
+    #: read off the written file. Only those go through ``_write_page`` and
+    #: ``ImageDraw.text``; ``written``'s keys are write order, and
+    #: ``written_pages`` re-keys them to these interior page numbers.
+    raster_pages: tuple[int, ...] = ()
+    #: The interior PDF as written, for the stream reading.
+    data: bytes = b""
+
+    @property
+    def written_pages(self) -> dict[int, Counter]:
+        """:attr:`written` keyed by interior page number instead of write order."""
+        return {
+            self.raster_pages[write - 1]: counts
+            for write, counts in self.written.items()
+        }
 
 
 @pytest.fixture(scope="class")
@@ -1602,9 +2675,23 @@ def band_draws() -> _BandDraws:
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(ImageDraw.ImageDraw, "text", text)
         patch.setattr(BookPDFGenerator, "_write_page", write_page)
-        BookPDFGenerator(_book()).export_book(_once_book(), "Band Once")
-    # ``export_book`` writes the interior's pages, then the cover file's one.
-    assert len(writes) == ONCE_PAGE_COUNT + 1
+        export = BookPDFGenerator(_book()).export_book(_once_book(), "Band Once")
+    # CARD-356: ``_write_page`` is the **raster** writer. A page written as
+    # operators never reaches it, so the count of writes is no longer the
+    # interior's page count: it is the number of bitmap pages the written
+    # file holds, read off that file, plus the cover file's one. The medium
+    # of each page is classified default-DENY by ``page_media``; a page it
+    # cannot classify is a failure here, not a page nobody counted.
+    data = export.interior.getvalue()
+    media = pdf_vector.page_media(data)
+    assert pdf_vector.UNCLASSIFIABLE not in media, media
+    assert len(media) == ONCE_PAGE_COUNT, media
+    raster_pages = tuple(
+        number
+        for number, medium in enumerate(media, start=1)
+        if medium == pdf_vector.RASTER
+    )
+    assert len(writes) == len(raster_pages) + 1, (len(writes), raster_pages)
 
     written: dict[int, Counter] = {}
     unwritten: list[str] = []
@@ -1615,7 +2702,7 @@ def band_draws() -> _BandDraws:
             written.setdefault(page_number, Counter())[line] += 1
         else:
             unwritten.append(line)
-    return _BandDraws(written, unwritten, late)
+    return _BandDraws(written, unwritten, late, raster_pages, data)
 
 
 class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
@@ -1631,17 +2718,78 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
     def test_each_written_page_received_each_of_its_bands_exactly_once(
         self, band_draws: _BandDraws
     ) -> None:
-        """Each puzzle's band is drawn once on its puzzle page and once on
-        its own answer page — a full page or, since CARD-202, its own slot
+        """Each puzzle's band is drawn once on its puzzle page and once on its
+        own answer page — a full page or, since CARD-202, its own slot
         of a packed page (both draw it through ``_draw_solved_slot``'s one
-        shared ``_set_band`` call)."""
+        shared ``_set_band`` call).
+
+        **CARD-356: this is the raster arm of the claim.** The recorder sees
+        ``ImageDraw.text`` and ``_write_page``, so it can only see the pages
+        that are bitmaps; a page written as operators is not drawn with
+        either. It is asserted for exactly the bitmap pages of the written
+        file (derived from the file in the fixture), so on a converted
+        interior it says that **no divider carries a band** and on the
+        unconverted one it says what it always said. The pages written as
+        operators are counted in the stream instead:
+        :meth:`test_each_operators_page_shows_each_of_its_bands_exactly_once`.
+        """
         bands = _once_bands()
         expected: dict[int, Counter] = {}
         for number, page_number in ONCE_BAND_PAGES.items():
             expected.setdefault(page_number, Counter())[bands[number]] += 1
         for number, text in bands.items():
             expected.setdefault(ANSWER_PAGE_OF[number], Counter())[text] += 1
-        assert band_draws.written == expected
+        in_bitmaps = {
+            page: counts
+            for page, counts in expected.items()
+            if page in band_draws.raster_pages
+        }
+        assert band_draws.written_pages == in_bitmaps
+
+    def test_each_operators_page_shows_each_of_its_bands_exactly_once(
+        self, band_draws: _BandDraws
+    ) -> None:
+        """The stream arm of the same claim, counted in the file that was written.
+
+        For every page of the exported PDF written as operators, the number of
+        ``(text) Tj`` shows that read a band line is exactly the number the
+        book's own plan puts on that page -- and nothing else shows one. The
+        count is taken from the PDF's content streams
+        (``pdf_vector.content_streams``), after the file was written, so a
+        second draw of a band cannot reach a written page without raising the
+        count: it is also what the ``late`` recorder was asking, for the
+        medium that has no write step to be late after.
+
+        Covers the pages the recorder cannot see, and together with it covers
+        every page of the book (asserted below), so no page is in neither.
+        """
+        bands = _once_bands()
+        expected: dict[int, Counter] = {}
+        for number, page_number in ONCE_BAND_PAGES.items():
+            expected.setdefault(page_number, Counter())[bands[number]] += 1
+        for number, text in bands.items():
+            expected.setdefault(ANSWER_PAGE_OF[number], Counter())[text] += 1
+
+        media = pdf_vector.page_media(band_draws.data)
+        streams = pdf_vector.content_streams(band_draws.data)
+        counted: dict[int, Counter] = {}
+        for number, (medium, stream) in enumerate(zip(media, streams), start=1):
+            if medium != pdf_vector.VECTOR:
+                continue
+            shown = _bands_shown(stream, set(bands.values()))
+            if shown:
+                counted[number] = shown
+        operators_pages = {
+            n for n, medium in enumerate(media, start=1) if medium == pdf_vector.VECTOR
+        }
+        assert counted == {
+            page: counts for page, counts in expected.items() if page in operators_pages
+        }
+        # Every page of the book is read by exactly one of the two arms.
+        assert operators_pages | set(band_draws.raster_pages) == set(
+            range(1, ONCE_PAGE_COUNT + 1)
+        )
+        assert not operators_pages & set(band_draws.raster_pages)
 
     def test_no_band_is_drawn_on_a_page_after_it_was_written(
         self, band_draws: _BandDraws
