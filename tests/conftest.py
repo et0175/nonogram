@@ -844,8 +844,29 @@ def _armed_database_is_ready(request):
     **not** varied with it; "fix the reason, or unset DATABASE_URL" is true of
     both kinds, and there is no evidence here for a second instruction.
 
+    So widening the catch **restores** the pre-fix blast radius rather than
+    silencing anything: every item that asks for the database still stops
+    loudly, from the cache, carrying the original reason; only the items that
+    never ask proceed — which is exactly the set that proceeded before this
+    fixture existed. The fixture already fails narrowly, *via the cache,
+    provided it catches*. Narrowing the catch is what widens the damage, which
+    is the inversion that made F-001 easy to miss.
+    ``test_a_swallowed_stop_still_errors_every_test_that_asks_for_the_database``
+    is the behavioural control for that, against the real suite with a stop
+    injected at the ``_rebuild_public_schema`` seam.
+
     What this adds is the note: the reason is named once, at the end, where
     ``-q`` cannot hide it.
+
+    One residue, named rather than folded in (ADR-0039/R3), because no probe
+    on this card has touched it: ``_rebuild_public_schema`` runs ``DROP
+    SCHEMA`` → ``CREATE SCHEMA`` → ``alembic upgrade head`` →
+    ``reset_engine()``, so a stop *between* the drop and the end of the
+    migration leaves an **empty** schema behind **and** skips
+    ``reset_engine()``, leaving a module-global engine that predates it. This
+    fixture records and announces that stop correctly; it does not repair that
+    state, and nothing here claims it does. Out of scope for this card
+    deliberately — the owner is carding it.
 
     One cost, disclosed rather than redesigned (ADR-0039/R3, filed as review
     cycle 1's F-002): being autouse, this requests the schema fixture on every
