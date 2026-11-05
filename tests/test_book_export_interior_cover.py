@@ -28,16 +28,34 @@ generator what it wrote.
 from __future__ import annotations
 
 import re
+import tempfile
+from contextlib import nullcontext
 from io import BytesIO
+from pathlib import Path
 
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, PdfParser
 
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
-from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from nonogram.admin.book_pdf_generator import (
+    GUIDE2_TITLE,
+    GUIDE_TITLE,
+    PageKind,
+    PageMedium,
+    page_medium,
+)
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
+from tests.helpers import pdf_vector
+from tests.helpers.pdf_pages import (
+    PageMediumRefused,
+    page_image,
+    pdf_page_count,
+    pdf_pages,
+    same_page,
+)
 
 #: The 8.5 x 11 in trim at 300 DPI (AC-285).
 TRIM_PX = (2550, 3300)
@@ -186,14 +204,104 @@ def _download(client, route, book_id, part):
     return response.get_data()
 
 
-def _guide_page(puzzle_count, easy):
-    """The guide page this book's **page 2** must hold — three easy puzzles.
+def _interior_dpi():
+    """The density an exported interior is read at: the writer's own.
+
+    CARD-357. ``pdf_pages`` rasterises an operators page at ``dpi=``, or, when
+    none is given, at the density the file's own **raster** pages settle. A
+    book of this module is mixed-medium by design (ADR-0042/R2: the cover stays
+    a photograph, the interior is operators, the dividers still bitmaps), and
+    a file with no raster page in it -- the empty book's interior is the title
+    page and the two guide pages -- settles nothing and is refused
+    (``PageMediumRefused``). The density is therefore **stated** here, and it
+    is derived, not invented: it is the writer's own declared resolution
+    (``BookPDFGenerator.dpi``, the number every page is drawn at), the same one
+    ``page_image`` reads off a stream (``ContentStream.dpi``).
+    :class:`TestBookExport_TheInteriorIsReadAtTheWritersDensity` holds it
+    against the FILE (the MediaBox over the module's own ``TRIM_PX``), which is
+    a second, independent reading of the same number.
+    """
+    return BookPDFGenerator().dpi
+
+
+def _read_interior(data):
+    """An exported interior's pages as device pixels, each read in its medium."""
+    return pdf_pages(data, dpi=_interior_dpi())
+
+
+def _guide_page(puzzle_count, easy, medium=0, hard=0, page_number=2):
+    """The guide page this book's **page 2** must hold -- three easy puzzles.
+
+    In the medium the export writes it in (CARD-357, ADR-0042/R6): a page the
+    export writes as operators is compared with the SAME writer asked for the
+    same position, rendered by the same engine, and never with the raster
+    method's Pillow drawing of it -- a poppler render against a PIL bitmap is a
+    cross-medium comparison that is false for a reason that has nothing to do
+    with the claim. Whether the kind is operators is read off the registry
+    (``page_medium``), so the same call is right on the unlifted tree.
 
     ``create_guide_page``'s own default position is the guide's first page,
-    which since CARD-206 is interior page 2 (a verso), so this needs no
-    position of its own.
+    which since CARD-206 is interior page 2 (a verso), so ``page_number=2``.
+
+    **What this weakens, declared (ADR-0039/R3).** The claim these comparisons
+    make is "the export wrote, at position ``p``, the page its writer draws for
+    ``p``". It is no longer "that page looks like the raster-era Pillow
+    drawing of the guide": measured on this module's 3-easy-puzzle guide page
+    2 (scratchpad ``crossmedium.py``, CARD-357), poppler's render of the stream
+    against Pillow's bitmap has an ink overlap of 0.887 where ``same_page``
+    demands 0.9 (mean grey difference 1.63 against its 6.0), i.e. the two media
+    are NOT the same page to the comparison, for a reason that is the engines'.
+    ``same_page``'s thresholds are not moved (G-2). The residue is that a
+    defect which moves the export's writer and this reference together is
+    invisible to a same-writer comparison: measured with the stale
+    ``TITLE_PAGE_COUNT`` binding in ``book_guide_vector`` (see
+    ``test_each_position_is_counted_from_the_constant_not_a_literal``), both
+    drew the SECOND half and the comparison stayed green. Two controls fail
+    just past it: :func:`_guide_title_of` reads WHICH half from the page's own
+    text layer, and ``test_the_two_guide_pages_are_not_the_same_page`` asserts
+    the comparison tells a neighbouring position apart. What a page's CONTENT
+    is, beyond which position and which half, is not asserted by this module.
     """
-    return BookPDFGenerator().create_guide_page(puzzle_count, easy, 0, 0)
+    generator = BookPDFGenerator()
+    if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
+        return page_image(
+            generator.pages.guide(
+                generator.page_spec(page_number),
+                generator.dpi,
+                page_number,
+                puzzle_count=puzzle_count,
+                easy_count=easy,
+                medium_count=medium,
+                hard_count=hard,
+            )
+        )
+    return generator.create_guide_page(
+        puzzle_count, easy, medium, hard, page_number=page_number
+    )
+
+
+def _guide_title_of(page):
+    """Which half of the tutorial a guide page ``page`` draws, by its own title.
+
+    CARD-357. A comparison with "the same writer asked for the same position"
+    (:func:`_guide_page`) cannot tell WHICH half a page is, because the writer
+    that drew the exported page and the writer that draws the reference decide
+    the half the same way -- from the same position and the same constant. A
+    stale constant moves both together and the comparison stays green. The
+    title is the independent reading: poppler's text layer of the page's own
+    stream (``pdf_vector.extracted_text``), asserted to hold exactly one of
+    the two titles. Only a content stream has a text layer; a bitmap is
+    refused, so a caller names the medium it is in.
+    """
+    assert isinstance(page, ContentStream), type(page).__name__
+    assert pdf_vector.PDFTOTEXT is not None, "pdftotext is MISSING, not passed"
+    with tempfile.TemporaryDirectory(prefix="guide-title-") as directory:
+        text = pdf_vector.extracted_text(
+            write_vector_pdf([page], 1).getvalue(), out_dir=Path(directory)
+        )
+    drawn = [t for t in (GUIDE_TITLE, GUIDE2_TITLE) if t in text]
+    assert len(drawn) == 1, (drawn, text[:200])
+    return drawn[0]
 
 
 def _ink_pixels(page):
@@ -236,7 +344,7 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
 
     def test_page_one_carries_no_ink_of_any_kind(self, covered_book):
         client, book_id = covered_book
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
 
         assert interior[0].size == TRIM_PX
         assert _ink_pixels(interior[0]) == 0, (
@@ -268,7 +376,7 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
 
     def test_the_interiors_second_page_is_the_guides_first_page(self, covered_book):
         client, book_id = covered_book
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
 
         assert same_page(interior[1], _guide_page(3, 3))
 
@@ -314,7 +422,7 @@ class TestBookExport_InteriorHoldsNoCoverPage:
 
     def test_no_interior_page_is_the_uploaded_cover_or_a_title_cover(self, covered_book):
         client, book_id = covered_book
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
         uploaded = _cover_art().resize(TRIM_PX)
         title_cover = _generated_title_cover()
 
@@ -330,7 +438,7 @@ class TestBookExport_InteriorHoldsNoCoverPage:
         instead, and the cover is still its own one-page file.
         """
         client, book_id = covered_book
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
         cover = pdf_pages(_download(client, "finalise", book_id, "cover"))
 
         assert _ink_pixels(interior[0]) == 0
@@ -417,7 +525,7 @@ class TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover:
 
     def test_the_interior_still_starts_at_the_blank_title_page(self, bare_book):
         client, book_id = bare_book
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
 
         assert _ink_pixels(interior[0]) == 0
         assert same_page(interior[1], _guide_page(3, 3))
@@ -447,7 +555,7 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
         self, covered_book, route
     ):
         client, book_id = covered_book
-        interior = pdf_pages(_download(client, route, book_id, "interior"))
+        interior = _read_interior(_download(client, route, book_id, "interior"))
         cover = pdf_pages(_download(client, route, book_id, "cover"))
 
         assert _ink_pixels(interior[0]) == 0
@@ -461,7 +569,7 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
         client, book_id = covered_book
         exports = {
             route: (
-                pdf_pages(_download(client, route, book_id, "interior")),
+                _read_interior(_download(client, route, book_id, "interior")),
                 pdf_pages(_download(client, route, book_id, "cover")),
             )
             for route in ROUTES
@@ -480,7 +588,7 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
 
         assert response.status_code == 200
         assert "_interior.pdf" in response.headers["Content-Disposition"]
-        assert same_page(pdf_pages(response.get_data())[1], _guide_page(3, 3))
+        assert same_page(_read_interior(response.get_data())[1], _guide_page(3, 3))
 
     @pytest.mark.parametrize("route", ("download-pdf", "generate-pdf"))
     def test_an_unknown_part_is_refused_not_guessed(self, covered_book, route):
@@ -581,7 +689,7 @@ class TestBookFinalise_LostCoverFileIsNotPassedOffAsUploaded:
 
     def test_the_interior_is_still_downloadable(self, lost_cover):
         client, book_id = lost_cover
-        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        interior = _read_interior(_download(client, "finalise", book_id, "interior"))
 
         assert _ink_pixels(interior[0]) == 0
         assert same_page(interior[1], _guide_page(3, 3))
@@ -697,7 +805,7 @@ class TestBookExport_RoutesRenderOnlyTheRequestedPart:
             raise AssertionError("a cover was rendered for an interior download")
 
         monkeypatch.setattr(BookPDFGenerator, "create_cover_page", no_cover)
-        interior = pdf_pages(_download(client, route, book_id, "interior"))
+        interior = _read_interior(_download(client, route, book_id, "interior"))
 
         assert _ink_pixels(interior[0]) == 0
         assert same_page(interior[1], _guide_page(3, 3))
@@ -1016,22 +1124,46 @@ class TestBookExport_TitlePageCountedEverywhere:
         from nonogram.admin import book_pdf_generator as bpg
 
         rows = self._rows(3)
+        from nonogram.admin import book_guide_vector
+
         monkeypatch.setattr(bpg, "TITLE_PAGE_COUNT", title_pages)
+        # CARD-357: ``book_guide_vector`` imported the constant BY VALUE, so the
+        # line above does not reach the guide page the export now writes as
+        # operators: with the constant at 2 it decides the half from the stale
+        # 1 and draws the guide's SECOND half at the position the test says is
+        # the first. Measured (not assumed): positions 3 (title_pages=2) drew
+        # the 385-operator second-half page where the first half is 300.
+        # Production never changes the constant, so this is a limit of the
+        # monkeypatch and not a defect of an export -- it is a finding for the
+        # writer's owner (src is not this card's), and the test patches the
+        # one other binding so its claim ("everything is counted from the
+        # constant") is about the writer and not about which module imported
+        # the name. ``_guide_title_of`` below is what makes it falsifiable.
+        monkeypatch.setattr(book_guide_vector, "TITLE_PAGE_COUNT", title_pages)
         generator = bpg.BookPDFGenerator()
         pages = list(generator.interior_stream(list(rows)).pages)
 
         blank = [
             number
             for number, page in enumerate(pages, start=1)
-            if np.asarray(page.convert("L")).min() == 255
+            if np.asarray(page_image(page).convert("L")).min() == 255
         ]
         assert blank == list(range(1, title_pages + 1)), (
             "the reserved front-matter pages are the interior's first pages "
             "and nothing after them is blank"
         )
         assert same_page(
-            pages[title_pages], generator.create_guide_page(3, 3, 0, 0, page_number=title_pages + 1)
+            page_image(pages[title_pages]), _guide_page(3, 3, page_number=title_pages + 1)
         ), "the guide's first half follows the reserved pages"
+        first_guide_page = pages[title_pages]
+        if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
+            assert _guide_title_of(first_guide_page) == GUIDE_TITLE, (
+                "the page after the reserved ones draws the guide's FIRST half"
+            )
+        else:
+            assert isinstance(first_guide_page, Image.Image), (
+                "a guide page written as a bitmap is held by the comparison above"
+            )
         assert generator.section_plan(list(rows)).pages[0].page_number == (
             title_pages + 2 + 1 + 1
         ), "the puzzle section opens after the title pages, the guide and the TOC"
@@ -1043,6 +1175,103 @@ class TestBookExport_TitlePageCountedEverywhere:
         assert (
             book_kdp.unpaired_interior_page_count(rows) == expected
         ), "the KDP estimate still counts a literal, not the constant"
+
+
+# --------------------------------------------------------------------------
+# CARD-357 -- the density an exported interior is read at
+# --------------------------------------------------------------------------
+
+
+def _media_box_inches(data):
+    """Page 1's MediaBox width in inches, read off the file's own page tree."""
+    parser = PdfParser.PdfParser(buf=data)
+    try:
+        page = parser.read_indirect(parser.pages[0])
+        left, _bottom, right, _top = (float(v) for v in page[b"MediaBox"])
+    finally:
+        parser.close()
+    return (right - left) / 72.0
+
+
+class TestBookExport_TheInteriorIsReadAtTheWritersDensity:
+    """CARD-357 AC-1 -- a mixed-medium book is read at a DERIVED density.
+
+    ``pdf_pages`` settles the density an operators page is rasterised at from
+    the file's own raster pages, and refuses (``PageMediumRefused``) a file
+    that has none. This module's interior is mixed-medium by design
+    (ADR-0042/R2), so whether the file settles it depends on which kinds are
+    still bitmaps -- the empty book's interior (title page and the two guide
+    pages) has no divider and so none. :func:`_interior_dpi` states the
+    density instead: the writer's declared one. These tests hold that number
+    against the FILE (an independent reading) and hold that a bare read can
+    still fail, so the argument is doing work.
+    """
+
+    @staticmethod
+    def _empty():
+        return BookPDFGenerator().export_interior([]).getvalue()
+
+    def test_the_density_is_the_trim_in_pixels_over_the_files_own_media_box(
+        self, covered_book
+    ):
+        client, book_id = covered_book
+        mixed = _download(client, "finalise", book_id, "interior")
+
+        for data in (mixed, self._empty()):
+            assert TRIM_PX[0] / _media_box_inches(data) == pytest.approx(
+                _interior_dpi()
+            )
+
+    @pytest.mark.parametrize("which", ("mixed", "all-operators"))
+    def test_a_file_that_cannot_settle_a_density_is_refused_bare_and_read_when_stated(
+        self, covered_book, which
+    ):
+        """The control that gives the argument something to do.
+
+        Without ``dpi=`` a file whose own raster pages settle the density is
+        read (the mixed book, whose dividers are bitmaps) and a file with none
+        (the empty book's interior) is refused. The expectation is read off the
+        FILE's media, so it is right on the unlifted tree too (every page a
+        bitmap, every file settles); both arms assert, and both then read the
+        file at the stated density and find the trim.
+        """
+        client, book_id = covered_book
+        data = (
+            _download(client, "finalise", book_id, "interior")
+            if which == "mixed"
+            else self._empty()
+        )
+        settles = pdf_vector.RASTER in pdf_vector.page_media(data)
+
+        with nullcontext() if settles else pytest.raises(PageMediumRefused):
+            bare = pdf_pages(data)
+        stated = _read_interior(data)
+        assert all(page.size == TRIM_PX for page in stated)
+        assert not settles or [p.size for p in bare] == [p.size for p in stated]
+
+
+class TestBookExport_TheGuideComparisonIsInOneMedium:
+    """CARD-357 -- ``_guide_page`` compares like with like, and can fail."""
+
+    def test_the_two_guide_pages_are_not_the_same_page(self):
+        assert same_page(_guide_page(3, 3), _guide_page(3, 3))
+        assert not same_page(_guide_page(3, 3), _guide_page(3, 3, page_number=3))
+
+    def test_the_title_reading_tells_the_two_halves_apart(self):
+        from nonogram.admin.book_interior_vector import interior_generator
+
+        generator = interior_generator()
+        halves = [
+            _guide_title_of(
+                generator.pages.guide(
+                    generator.page_spec(number), generator.dpi, number,
+                    puzzle_count=3, easy_count=3, medium_count=0, hard_count=0,
+                )
+            )
+            for number in (2, 3)
+        ]
+
+        assert halves == [GUIDE_TITLE, GUIDE2_TITLE]
 
 
 # --------------------------------------------------------------------------
@@ -1070,19 +1299,17 @@ class TestBookExport_EmptyBookUnchanged:
     def test_the_interior_is_the_title_page_and_the_guide_and_nothing_else(self):
         from nonogram.admin.book_pdf_generator import interior_page_count
 
-        pages = pdf_pages(self._empty_interior().getvalue())
+        pages = _read_interior(self._empty_interior().getvalue())
 
         assert len(pages) == _interior_pages(0, 0) == 3
         assert interior_page_count(0) == len(pages)
         assert _ink_pixels(pages[0]) == 0
-        assert same_page(pages[1], BookPDFGenerator().create_guide_page(0, 0, 0, 0))
-        assert same_page(
-            pages[2], BookPDFGenerator().create_guide_page(0, 0, 0, 0, page_number=3)
-        )
+        assert same_page(pages[1], _guide_page(0, 0))
+        assert same_page(pages[2], _guide_page(0, 0, page_number=3))
 
     def test_the_blank_page_is_not_the_only_page(self):
         """The one thing AC-6 names outright."""
-        pages = pdf_pages(self._empty_interior().getvalue())
+        pages = _read_interior(self._empty_interior().getvalue())
         inked = [number for number, page in enumerate(pages, start=1)
                  if _ink_pixels(page) > 0]
 
