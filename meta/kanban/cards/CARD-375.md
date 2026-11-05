@@ -16,7 +16,7 @@
 **Created wave:** 78
 **Deferred waves:** 0
 **Depends on:** CARD-349
-**Touches:** tests/db_name.py, scripts/
+**Touches:** scripts/, tests/
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -24,54 +24,57 @@
 **Merge commit:** —
 **Blocked by:** —
 
-## The accumulation
+## RE-SCOPED 2026-11-05 under the owner's cut bar — it stays a card, and here is why
 
-CARD-244 derives a **per-worktree** test database name, so each worktree gets its own — which is
-what makes concurrent cards safe. `_ensure_test_database` creates it on demand. **Nothing has ever
-removed one.**
+Trimmed from six acceptance criteria to four. **It remains a card for one reason: the fix executes
+`DROP DATABASE`.** The simplest shape — "the tidy rule drops the database when it removes the
+worktree" — would make it a convention, and a convention that runs `DROP DATABASE` by hand is
+exactly where a mistake reaches `nonogram_poc`. **The safety proof has to be code, with a test that
+can fail.** That is the arm of the cut bar this clears.
 
-Measured on this host with the Postgres.app client: **67** databases matching `%_test`. Exactly
-**one** corresponds to a worktree that currently exists. The rest name worktrees removed under the
-standing tidy rule — which removes the directory and leaves the database.
+## The accumulation, measured
 
-**CARD-349 widens the reach slightly and says so.** Before it, an armed run touching only unmarked
-tests created nothing (and red). Now it creates one. So strictly more worktrees end up with a
-database — but those runs were broken before, so that is the fix rather than a regression, and the
-count **per worktree** is still exactly one either way.
+CARD-244 derives a **per-worktree** test database name, which is what makes concurrent cards safe.
+`_ensure_test_database` creates one on demand. **Nothing has ever removed one.**
 
-## Why P3 and not lower
+Measured on this host with the Postgres.app client: **67** databases matching `%_test`, of which
+exactly **one** has a worktree that still exists. The rest name worktrees removed under the standing
+tidy rule — which removes the directory and leaves the database. So the asymmetry is in the rule,
+not in anyone's discipline.
 
-Each is small (`nonogram_poc`, for contrast, is ~8.4 MB) and none is reachable by the suite, so
-nothing is broken today. It is on the board because:
-
-- it is a **monotonically growing** resource with no counterpart that shrinks it, which is the shape
-  that eventually breaks something far from its cause
-- a stale database is exactly the **stale-schema hazard** CARD-348's gate met (`alembic_version` 017
-  against head 018): a name that gets *reused* by a new worktree hashing to the same value would
-  inherit a schema nobody migrated
-- the tidy rule already removes the worktree, so the asymmetry is in the rule, not in anyone's
-  discipline
+Nothing is broken today: each is small (`nonogram_poc`, for scale, is ~8.4 MB) and none is reachable
+by the suite. It is on the board because the set **grows monotonically with no counterpart that
+shrinks it**, and because a name that gets *reused* by a new worktree hashing to the same value would
+inherit a schema nobody migrated — the stale-schema hazard CARD-348's gate met at `alembic_version`
+017 against head 018.
 
 ## Acceptance criteria
 
-- **AC-1** — A reaper removes a `*_test` database **only** when no worktree resolves to its name.
-  The set of live names is **derived** from `git worktree list` through
-  `db_name.derive_test_database_name`, never from a pattern over the database list
-  (ADR-0039/R2, defaulting to deny: a name it cannot attribute is **kept**, not dropped).
-- **AC-2** — Every drop is proved safe first, on the four properties CARD-349's round used: the name
-  ends in `_test`, `_refusal_reason` allows it, it matches `_CREATABLE_NAME`, and it is neither
+- **AC-1** — A reaper removes a `*_test` database **only** when no worktree resolves to its name. The
+  live set is **derived** from `git worktree list` through `db_name.derive_test_database_name`, never
+  by pattern-matching the database list. **Deny-default (ADR-0039/R2): a name it cannot attribute is
+  KEPT, not dropped.** Say where it runs — the tidy site or a sweep — and why; prefer the tidy site,
+  since that is where the asymmetry is and a sweep must re-derive what the tidy step already knows.
+- **AC-2** — Every drop is proved safe **in code** before it is issued, on all four properties: the
+  name ends in `_test`, `_refusal_reason` allows it, it matches `_CREATABLE_NAME`, and it is neither
   `nonogram_poc` nor `nonogram_test`. **No wildcard or pattern-matched drop anywhere.**
-- **AC-3** — **G-8 holds absolutely: `nonogram_poc` is the live panel's and must never be connected
-  to, listed-by-connecting, or dropped.** Existence checks go through the `postgres` maintenance
-  database. State what was verified about it.
-- **AC-4** — A plant proves the deny-default: a database whose name cannot be attributed to any
-  worktree **survives** the reaper, and the matched control (an attributable dead name) is removed.
-- **AC-5** — Decide whether the reaper runs at the tidy rule's site (worktree removal) or as a
-  standalone sweep, and give the reason. **Prefer the tidy site**: that is where the asymmetry is, and
-  a sweep has to re-derive what the tidy step already knows.
-- **AC-6** — Re-derive the 67 rather than carrying it, and use the **Postgres.app** client by absolute
-  path, not the one on `PATH` (a 15 client cannot list an 18 server: `psql -lqt` fails with
-  `column d.daticulocale does not exist`, and with stderr suppressed that reads as "no server").
+- **AC-3** — A plant proves the deny-default: an unattributable name **survives** the reaper, and the
+  matched control (an attributable dead name) is removed. Both in the same run — a reaper that only
+  ever keeps is as useless as one that only ever drops.
+- **AC-4** — **G-8 absolute: `nonogram_poc` is the live panel's.** Never connect to it, never list by
+  connecting to it, never drop it. Existence checks go through the `postgres` maintenance database.
+  State what was verified about it, as CARD-349's round did — size unchanged and zero connections at
+  both ends.
+
+## Two notes, not criteria
+
+- **Re-derive the 67**; it moves. CARD-349's round measured 66 and the orchestrator measured 67 an
+  hour later, the difference being that round's own armed run creating one — exactly as it disclosed.
+- **Use the Postgres.app client by absolute path**
+  (`/Applications/Postgres.app/Contents/Versions/latest/bin/psql`). The `psql` on `PATH` is Homebrew
+  **15.19** against an **18.1** server, so `psql -lqt` fails with `column d.daticulocale does not
+  exist` — the connection succeeds and only the listing query fails, and with stderr suppressed that
+  reads as "no server". That instrument failure has already cost one card's gates their armed arm.
 
 ## Worktree notes
 

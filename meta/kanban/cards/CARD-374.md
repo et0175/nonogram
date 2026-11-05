@@ -1,6 +1,6 @@
 # CARD-374: `suite-timing.log` is six days behind and nothing fails when it falls behind — every gate since wave 64 is missing from "the format every wave reads"
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/kanban/suite-timing.log
-**Review score:** —
+**Review score:** n/a — **RETIRED** 2026-11-05 under the owner's cut bar; replaced by a standing brief rule, which is the whole fix.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-05
+**Actual:** none as a card — one brief rule, no code. Against the 79-line, five-AC card it replaces.
 **Merge commit:** —
 **Blocked by:** —
 
@@ -77,3 +77,41 @@ parked**), and the browser class (646 Chromium tests at ~730 ms ≈ 474s, grown 
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-05 — the thing that stopped was a habit, not a writer
+
+**I cut this card on a false premise about the mechanism.** It said every gate since wave 64 was
+"missing from the log", implying something had stopped appending. Measured:
+
+- **Nothing in this repository writes `suite-timing.log`.** `meta/profiling/rank_durations.py` only
+  *parses* it and `tests/test_suite_profile.py` only *reads* it. The rows are appended **by hand**,
+  by whoever runs a gate — visible in the rows themselves, which carry prose.
+- `forge_1/forge/ci/suite_cost_ratchet.py` calls it *"THE SOURCE OF TRUTH THE GATE READS"*, and
+  **forge_1 is read-only**, so this board cannot make the tool write it either.
+- Last row: **wave 64**, 2026-10-29. **Fourteen** waves have run gates since.
+
+So there is no writer to repair. **The fix is one line per gate**, and it is now a standing brief
+rule rather than a card: a merge gate appends its row in the format the existing rows keep.
+
+**AC-3's decision is settled by measurement, recorded here so nobody re-opens it: DO NOT track the
+file.** It is `*.log`, gitignored at `.gitignore:61`. The check-ref resolver excludes only `*.md`, so
+a tracked `.log` sits **inside** the search domain — and this file carries **23** distinct `test_*`
+tokens and **7** node-id-like `::` tokens, each of which a word-bounded search over tracked files
+would resolve as **alive**. Tracking it would be the largest single instance of CARD-335's measured
+revival mechanism on this board.
+
+**AC-4 is also answered rather than deferred:** backfill is impossible, not merely out of scope. No
+record exists of the un-appended gates' wall clocks, and fabricating rows is the history-fabrication
+this board forbids elsewhere. The series simply has a fourteen-wave hole, and the honest thing is to
+resume rather than to invent.
+
+**Why a guard is not the fix here, stated so the omission is deliberate:** the file is gitignored, so
+a fresh checkout has none at all, and a guard asserting on an absent optional file is mostly
+machinery for handling its absence. If the habit does not stick, a guard becomes worth its cost —
+and that is a decision for whoever notices, not a card held open now.
+
+**What the series is for**, so the rule does not read as cargo: it is what makes the owner's
+*"wall-clock actuals are unusable"* ruling **measured** rather than asserted — one row shows **2114s**
+of wall against pytest's **1560s**, i.e. 555s of the box busy elsewhere. And it is the only way to
+see that per-test cost has **improved** (131 ms mid-October → **144 ms** now) while the total grew
+with the test count (7082 → **10404**). No single gate can show that; only a series can.
