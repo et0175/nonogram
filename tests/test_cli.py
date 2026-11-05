@@ -2442,3 +2442,66 @@ def test_the_console_script_runs_as_an_installed_command() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "generate" in result.stdout
+
+
+class TestSourceHygiene_NoModuleUnderSrcCompilesWithAWarning:
+    """``src/`` compiles clean, and the set of modules is walked rather than listed.
+
+    Added 2026-11-05 with CARD-376's inline fix. That card's finding was six invalid
+    escape sequences in one ASCII-art literal (``\\)`` ``\\-`` ``\\_`` ``\\|``), which
+    Python currently accepts with a ``SyntaxWarning`` and will later reject outright.
+
+    The fix without this guard would have been worthless, and the reason is the whole
+    point: **nothing in the suite asserted that ``src/`` compiles clean**, so the
+    warning had accumulated no pressure at all and the next one would be equally
+    invisible. It also made noise in every tool that walks ``src/`` -- the layering
+    guard above, the component map, and an exposed-set derivation on CARD-349 -- and
+    noise in a derivation is how a real finding gets missed.
+
+    Deliberately scoped to ``SyntaxWarning``. ``DeprecationWarning`` is a much larger
+    set with third-party noise in it, and a guard that must be suppressed to pass is
+    worse than no guard.
+    """
+
+    @staticmethod
+    def _warnings_from(path: Path) -> list[str]:
+        """Compile one module and return its SyntaxWarning messages."""
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            compile(path.read_text(encoding="utf-8"), str(path), "exec")
+            return [
+                str(w.message)
+                for w in caught
+                if issubclass(w.category, SyntaxWarning)
+            ]
+
+    def test_no_module_under_src_emits_a_syntax_warning(self) -> None:
+        modules = sorted((Path(__file__).resolve().parent.parent / "src").rglob("*.py"))
+        assert len(modules) >= 20, (
+            f"the walk found only {len(modules)} modules under src/, which is too few "
+            "to be the real tree -- this assertion exists so the guard cannot pass "
+            "by finding nothing"
+        )
+        offenders = {
+            str(m): warns for m in modules if (warns := self._warnings_from(m))
+        }
+        assert offenders == {}, (
+            "these modules under src/ compile with a SyntaxWarning, and Python will "
+            f"reject them in a future version: {offenders}"
+        )
+
+    def test_the_guard_fails_on_a_planted_invalid_escape(self, tmp_path: Path) -> None:
+        """The control: without this, the assertion above could pass vacuously."""
+        planted = tmp_path / "planted.py"
+        planted.write_text('ART = "a\\-b"\n', encoding="utf-8")
+        assert self._warnings_from(planted), (
+            "a module with an invalid escape sequence produced no SyntaxWarning, so "
+            "the guard above cannot fail and proves nothing"
+        )
+        clean = tmp_path / "clean.py"
+        clean.write_text('ART = "a\\\\-b"\n', encoding="utf-8")
+        assert self._warnings_from(clean) == [], (
+            "the matched control warns too, so the guard does not discriminate"
+        )
