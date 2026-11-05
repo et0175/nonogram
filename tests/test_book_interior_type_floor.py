@@ -423,6 +423,74 @@ NON_LETTERING_KINDS = {
     ),
 }
 
+#: Which :class:`~nonogram.admin.book_pdf_generator.PageKind` pages each of the
+#: spy's **semantic** lettering kinds can be set on — the one thing the spy's
+#: vocabulary needs that a content stream cannot supply (CARD-358).
+#:
+#: **Why this table has to exist at all.** :attr:`TextCall.kind` reconstructs a
+#: *finer* vocabulary than the page kind — band, footer label, answer caption —
+#: by reading the **call chain** off the spy's stack. A page written as
+#: operators has no call chain: its stream carries one piece of provenance, the
+#: clue-digit mark (:data:`~tests.helpers.pdf_vector.CLUE_DIGIT_TAG`), and
+#: nothing that distinguishes a band from a caption from a folio. So on the day
+#: a kind converts, that kind's semantic faces leave the reading permanently,
+#: and the coverage assertion that required them would red for the conversion
+#: rather than for a defect.
+#:
+#: This table is what lets the requirement follow the medium instead:
+#: :func:`semantic_kinds_lettered_in_raster` keeps a semantic kind required
+#: exactly while some page it can be set on is still a declared raster
+#: exception, and ADR-0042/R6 retires the rest **with named survivors** in the
+#: per-writer vector files (see
+#: :meth:`TestInteriorType_EveryFaceHoldsTheFloor.test_the_recording_covers_every_kind_of_interior_lettering`).
+#: While every kind is declared raster — the tree as this card landed — nothing
+#: is dropped and the requirement is byte-for-byte the one CARD-184 wrote.
+#:
+#: **It is hand-written and it is not trusted.** The pairs were *measured* off
+#: the spy's own recording of both books on the unconverted tree, and the
+#: measurement is not the control:
+#: :meth:`TestInteriorType_TheNonVacuityFloorCanFail.test_the_semantic_kinds_are_mapped_to_page_kinds`
+#: holds the keys to the **string constants :attr:`TextCall.kind` returns**,
+#: read out of that method by :mod:`ast`, and the values to
+#: :class:`~nonogram.admin.book_pdf_generator.PageKind`. A new semantic kind,
+#: or a renamed one, is a failure here rather than a kind quietly outside the
+#: coverage claim (ADR-0039/R2).
+SEMANTIC_KIND_PAGE_KINDS = {
+    "guide": frozenset({"guide"}),
+    "divider": frozenset({"divider"}),
+    "band": frozenset({"puzzle", "answer"}),
+    "footer label": frozenset({"puzzle"}),
+    "answer caption": frozenset({"answer"}),
+    # The fallback bucket: everything the chain does not name, which is the
+    # clue digits of a puzzle or answer page and the TOC's own rows.
+    "other": frozenset({"puzzle", "answer", "toc"}),
+}
+
+
+def semantic_kinds_lettered_in_raster(book: str) -> set:
+    """The semantic kinds some **raster** page of ``book`` can still letter.
+
+    A semantic kind survives in the spy's vocabulary exactly while at least one
+    page kind it can be set on is both in this book's page plan and still a
+    declared raster exception (``page_medium`` is the one authority on that —
+    :func:`~nonogram.admin.book_pdf_generator.page_medium`, read live, so the
+    declarations shrink underneath this without the file changing).
+    """
+    planned = set(_pages_by_kind(book))
+    return {
+        semantic
+        for semantic, page_kinds in SEMANTIC_KIND_PAGE_KINDS.items()
+        if any(
+            page_kind in planned
+            and book_pdf_generator.page_medium(
+                book_pdf_generator.PageKind(page_kind)
+            )
+            is book_pdf_generator.PageMedium.RASTER
+            for page_kind in page_kinds
+        )
+    }
+
+
 #: The functions that draw a nonogram's **clue digits** — the one family of
 #: faces CON-020 exempts. The raster pair is :data:`EXEMPT_CALLERS`, stated by
 #: CARD-184; the vector one is ``book_vector_draw.draw_clue_digits``, the only
@@ -523,6 +591,39 @@ def draws_clue_digits(kind: str) -> bool:
 CLUE_DIGIT_KINDS = frozenset(
     kind.value for kind in book_pdf_generator.PageKind if draws_clue_digits(kind.value)
 )
+
+#: The stand-in parameter a **collapsed** :data:`CLUE_DIGIT_KINDS` yields, so
+#: that an empty derivation is a named failure and never a skip. ``_`` is not
+#: a page kind and :func:`real_vector_stream` has no builder for it, so it
+#: refuses by name.
+_EMPTY_DERIVATION = "CLUE_DIGIT_KINDS-derived-empty"
+
+
+def clue_digit_kind_params() -> List[str]:
+    """``sorted(CLUE_DIGIT_KINDS)``, and **never the empty list** (CARD-358).
+
+    Two tests in :class:`TestInteriorType_TheStreamArmIsReached` are
+    parametrised over this derivation, and CARD-358's mutation run found what
+    that costs when the derivation collapses: planting ``pass`` over **both**
+    clue-digit call sites (``book_answer_vector`` and ``book_puzzle_vector``)
+    empties :data:`CLUE_DIGIT_KINDS`, and pytest then reports
+    ``got empty parameter set for (kind)`` — **2 skipped**, in a module whose
+    baseline is 0.
+
+    A skip is not a deny. ADR-0039/R2 wants a guard's set derived from an
+    authority the runtime can enumerate and **defaulting to deny** where none
+    exists, and CARD-358's whole subject is readings that go quiet rather than
+    red. So the empty case yields :data:`_EMPTY_DERIVATION` instead of nothing:
+    :func:`real_vector_stream` has no builder for it and refuses by name, which
+    is a failure that says what happened.
+
+    The agreement check beside it
+    (:meth:`TestInteriorType_TheStreamArmIsReached.test_the_refused_kinds_are_derived_and_agree_with_the_spy`)
+    already reds on a collapsed derivation, so the module did not read green —
+    but it read green *here*, on the two tests that are specifically about
+    these kinds, and that is the part worth closing.
+    """
+    return sorted(CLUE_DIGIT_KINDS) or [_EMPTY_DERIVATION]
 
 
 @dataclass(frozen=True)
@@ -722,6 +823,37 @@ def _real_answer_stream():
     )
 
 
+def guide_clue_digit_faces(book: str) -> List[Any]:
+    """Every clue digit ``book``'s **vector** guide page records setting.
+
+    ADR-0042/R6's survivor for the worked example (CARD-358). The guide's
+    stream carries no provenance for a *non*-exempt face — the clue-digit mark
+    means "exempt" and the guide emits none — so the surviving authority is the
+    writer's own per-face record, ``GuidePage.faces``, each tagged with one of
+    :data:`~nonogram.admin.book_guide_vector.FACE_KINDS`.
+    :meth:`TestInteriorType_OnlyPuzzleClueDigitsAreExempt.test_worked_example_digits_are_drawn_and_never_exempt`
+    has the whole argument, including what the record cannot say.
+
+    The call is ``book_guide_vector.guide_pages`` with this book's own page
+    spec and DPI — the same call ``_real_guide_stream`` makes, on
+    ``BOOKS[book]`` rather than the corpus book, because the 10x10 cm trim
+    lays the page out differently and the claim is about both books.
+    """
+    generator = BookPDFGenerator(BOOKS[book]())
+    pages = book_guide_vector.guide_pages(
+        generator.page_spec,
+        generator.dpi,
+        puzzle_count=len(baseline_puzzles()),
+        easy_count=len(baseline_puzzles()),
+    )
+    return [
+        face
+        for page in pages
+        for face in page.faces
+        if face.kind == book_guide_vector.CLUE_DIGIT
+    ]
+
+
 def _real_guide_stream():
     generator = BookPDFGenerator(corpus_book())
     pages = book_guide_vector.guide_pages(
@@ -915,6 +1047,40 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
           written (:func:`kinds_covered_in_their_medium`), which is the only
           vocabulary a content stream can speak, and the one that keeps biting
           after a kind converts and the semantic arm goes quiet for it.
+
+        **CARD-358 re-expressed the first of those two, and the reason is a
+        measured absence rather than a precaution.** With the five convertible
+        kinds lifted, the spy's semantic reading of both books is ``{'divider'}``
+        — guide, band, footer label and answer caption are all set on pages that
+        are now operators, and a content stream carries no call chain to
+        reconstruct them from. Per ADR-0042/R6 the requirement now follows the
+        medium (:func:`semantic_kinds_lettered_in_raster`): a semantic kind is
+        required while some page it can be set on is still a declared raster
+        exception, and the ones conversion takes away are **retired with named
+        survivors**, each in the vector writer's own file and each in the
+        richer vocabulary that writer records rather than this one:
+
+        * ``guide`` — ``tests/test_book_guide_page_vector.py``'s
+          ``TestGuidePage_TheRecordIsWhatTheStreamSets.test_the_record_covers_every_kind_of_face_the_page_sets``,
+          which requires ``book_guide_vector.FACE_KINDS`` of the drawn pages
+          (title, body text, pipeline label, legend name, clue digit, folio) —
+          strictly finer than this file's single ``"guide"``;
+        * ``band`` — ``tests/test_book_puzzle_page_vector.py``'s
+          ``test_every_band_the_section_shows_is_a_number_and_a_tier`` and
+          ``test_the_band_fits_the_way_the_raster_page_fits_it``;
+        * ``footer label`` — the same file's
+          ``test_the_footer_lines_sit_where_the_raster_page_sets_them`` and
+          ``test_the_pair_carries_one_folio_two_links_and_no_size_label``;
+        * ``answer caption`` — ``tests/test_book_solved_answer_key.py``'s
+          ``test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``
+          and ``test_caption_reads_answer_caption_when_there_is_room``.
+
+        Nothing is retired without a survivor and nothing is retired silently:
+        the derived requirement is asserted **non-empty**, so the day
+        ``PageKind.DIVIDER`` stops being raster too (CARD-231 replaces that
+        page rather than converting it) this reds, and the card that does it
+        owes this assertion a reading or a named survivor of its own —
+        default-deny, not a quiet vacuum (ADR-0039/R2).
         """
         kinds = {call.kind for call in recording(book, arial=True)}
         required = {"guide", "divider", "band"}
@@ -925,7 +1091,22 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
             required.add("footer label")
         if book != "min-trim":
             required.add("answer caption")
-        assert required <= kinds
+        # ADR-0042/R6: only the kinds a raster page can still letter. While
+        # every kind is a declared raster exception this subtracts nothing.
+        required &= semantic_kinds_lettered_in_raster(book)
+        assert required, (
+            "no semantic lettering kind is set on a raster page of this book "
+            "any more, so the spy's finer vocabulary has no subject at all and "
+            "this half of the coverage claim has gone vacuous. ADR-0042/R6 "
+            "needs the claim re-expressed against the content stream or "
+            "retired with a named survivor, and a content stream carries no "
+            "call chain to rebuild band/footer label/answer caption from — so "
+            "the survivor has to be in the vector writer's own file, in the "
+            "vocabulary that writer records (this method's docstring names the "
+            "four that are already there). An empty requirement is a FAILURE "
+            "and never a silent pass (ADR-0039/R2)."
+        )
+        assert required <= kinds, sorted(required - kinds)
 
         # The medium-independent half: every kind that letters is covered,
         # whichever arm read it. ``LETTERING_KINDS`` is intersected with the
@@ -1000,7 +1181,36 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
     """AC-3 — only puzzle-page clue digits are exempt, and they are exercised."""
 
     def test_the_exempt_set_is_non_empty(self, book):
-        assert [call for call in recording(book, arial=True) if call.exempt]
+        """The exemption's non-vacuity floor, counted in **both** media.
+
+        **CARD-358 re-expressed this; it was the plainest of that card's seven
+        reds.** The exemption is the one place CON-020 gives type size back, so
+        a reading that exempted nothing would hold the floor trivially over the
+        very faces the exemption exists for. The count was the spy's alone, and
+        the two kinds that letter clue digits — puzzle and answer — are both
+        convertible: with the five kinds lifted the spy sees **0** exempt calls
+        and the stream carries **644**, so the claim had not stopped being true,
+        only stopped being read.
+
+        Both arms state the same thing by their own medium's means and neither
+        states it by a face's size: the left reads the drawing function off the
+        spy's call chain (:attr:`TextCall.exempt`), the right reads the mark the
+        writer put in the stream (:attr:`StreamFace.exempt`) — the same pairing
+        :func:`below_floor_in_its_medium` uses, and for the same reason.
+        """
+        exempt = [call for call in recording(book, arial=True) if call.exempt] + [
+            face for face in stream_recording(book) if face.exempt
+        ]
+
+        assert exempt, (
+            "neither arm of the reading found a single exempt face. CON-020's "
+            "exemption is the one place the floor gives type size back, so a "
+            "reading that exempts nothing holds the floor vacuously over "
+            "exactly the faces the exemption is for — in the raster medium by "
+            "EXEMPT_CALLERS off the spy's call chain, in the converted one by "
+            "the clue-digit mark the writer emits. Both going quiet is a "
+            "FAILURE (ADR-0039/R2)."
+        )
 
     def test_only_the_two_clue_writers_are_exempt(self, book):
         callers = {call.caller for call in recording(book, arial=True) if call.exempt}
@@ -1012,11 +1222,86 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
         assert all(call.kind == "other" for call in exempt)
 
     def test_worked_example_digits_are_drawn_and_never_exempt(self, book):
-        example = [
-            call for call in recording(book, arial=True) if WORKED_EXAMPLE in call.caller_names
-        ]
-        assert example, "the guide page's worked example drew no text"
-        assert not any(call.exempt for call in example)
+        """The guide's clue digits are **drawn**, and are **never** exempt.
+
+        **CARD-358 re-expressed this, and it is the one of that card's seven
+        reds whose subject really does change shape in the converted medium.**
+        The raster reading keys on ``draw_example_line`` in the call chain;
+        a content stream has no call chain, and — unlike
+        :meth:`test_the_exempt_set_is_non_empty` beside it — there is no mark
+        to fall back on either, *by design*: the stream's one piece of
+        provenance is the clue-digit mark, the mark means "exempt", and the
+        whole point of this test is that these digits are **not**. So the claim
+        cannot simply be re-read off the stream in the other medium; it is
+        re-expressed against the authority that does survive, which is the
+        guide writer's **own** record of what it set.
+
+        ``book_guide_vector`` tags each face it draws with one of its
+        :data:`~nonogram.admin.book_guide_vector.FACE_KINDS`, and says in as
+        many words why: *"This medium has no ``_write_clues`` to tag, so the
+        distinction is made deliberately rather than inherited: a clue digit
+        drawn by this module is tagged with this kind and held to the floor
+        like every other kind, and ``EXEMPT_KINDS`` is empty."* So the two
+        halves carry over as:
+
+        * **drawn** — the record names at least one
+          :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT` face
+          (:func:`guide_clue_digit_faces`). The sibling that holds the record
+          to the file is
+          ``tests/test_book_guide_page_vector.py::TestGuidePage_...::test_each_clue_digit_size_really_reaches_the_file``,
+          so a record naming a size the stream does not carry is caught there
+          rather than believed here;
+        * **never exempt** — twice over, and neither reading by size. The
+          writer declares ``EXEMPT_KINDS`` empty; and ``"guide"`` is not in
+          :data:`CLUE_DIGIT_KINDS` (derived from ``src/`` by :mod:`ast`), which
+          makes :func:`faces_on_page` **refuse** a guide page whose stream
+          carries the mark at all — so no guide face can reach
+          :func:`below_floor_in_its_medium` exempt, which the live stream
+          reading is asserted to confirm below.
+
+        What is genuinely narrower: the vector record's vocabulary is "a clue
+        digit of one of this page's line diagrams", not "a call from inside
+        ``draw_example_line``". The worked example is the page's line diagram,
+        so the faces are the same faces, but this file can no longer say so by
+        provenance — and that is stated rather than papered over.
+        """
+        guide_is_raster = book_pdf_generator.page_medium(
+            book_pdf_generator.PageKind.GUIDE
+        ) is book_pdf_generator.PageMedium.RASTER
+
+        if guide_is_raster:
+            example = [
+                call
+                for call in recording(book, arial=True)
+                if WORKED_EXAMPLE in call.caller_names
+            ]
+            assert example, "the guide page's worked example drew no text"
+            assert not any(call.exempt for call in example)
+            return
+
+        digits = guide_clue_digit_faces(book)
+
+        assert digits, (
+            "the guide page is written as operators and its writer's own "
+            f"record names no {book_guide_vector.CLUE_DIGIT!r} face at all, so "
+            "the worked example drew no clue digit — or stopped tagging the "
+            "ones it draws, which leaves this claim with nothing to be about. "
+            "Either way it is a FAILURE and never a silent pass (ADR-0039/R2)."
+        )
+        assert book_guide_vector.EXEMPT_KINDS == frozenset(), (
+            "the guide page's writer now exempts "
+            f"{sorted(book_guide_vector.EXEMPT_KINDS)} from CON-020's floor. "
+            "The worked example's clue digits are the reader's instruction "
+            "text and are NEVER exempt (CARD-296 AC-5)."
+        )
+        assert book_guide_vector.CLUE_DIGIT not in book_guide_vector.EXEMPT_KINDS
+        assert "guide" not in CLUE_DIGIT_KINDS, (
+            "a vector guide writer now calls a clue-digit drawer, so a guide "
+            "page may carry the exempting mark and faces_on_page would stop "
+            "refusing it — the worked example's digits could then be exempted "
+            "from the floor by the writer's own claim (CARD-314 AC-4)."
+        )
+        assert not [face for face in stream_recording(book) if face.kind == "guide" and face.exempt]
 
     def test_the_exemption_rule_by_name(self):
         def call(*chain: Tuple[str, str]) -> TextCall:
@@ -1354,7 +1639,7 @@ class TestInteriorType_TheStreamArmIsReached:
         with pytest.raises(AssertionError, match="VECTOR answer page"):
             faces_on_page(12, "answer", stream)
 
-    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    @pytest.mark.parametrize("kind", clue_digit_kind_params())
     def test_a_marked_vector_page_is_read_and_exempted_by_the_mark(self, kind):
         """CARD-314's AC-1 — the exemption survives in the stream.
 
@@ -1392,7 +1677,7 @@ class TestInteriorType_TheStreamArmIsReached:
             if face.points < FLOOR_PT and not face.exempt
         ] == []
 
-    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    @pytest.mark.parametrize("kind", clue_digit_kind_params())
     def test_a_body_face_at_the_clue_digit_size_is_reported(self, kind):
         """**CARD-314's AC-2, and the card's central control** (G-2).
 
@@ -1699,9 +1984,29 @@ class TestInteriorType_TheStreamArmIsReached:
 
         The agreement is what makes the derivation non-vacuous. If
         ``draw_clue_digits`` were renamed, the AST reading would quietly empty
-        and refuse nothing; the spy reading would still name both kinds, and
+        and refuse nothing; the second reading would still name both kinds, and
         this reds. It also pins the direction cycle 1's F-001 was about: both
         readings say **two** kinds, not one.
+
+        **CARD-358 re-expressed the second reading, which was the spy's alone.**
+        The cross-check's whole value is that the confirming reading shares no
+        code with the derivation — and the two kinds that draw clue digits,
+        puzzle and answer, are precisely the two this file's own conversion
+        reaches. With the five kinds lifted the spy reports ``set()``: not a
+        derivation that stopped agreeing, a cross-check that stopped existing,
+        which is the worse of the two failures because it is the kind that
+        reads green once somebody loosens the assertion to match.
+
+        So the second reading is now the **union of both media**, each keyed on
+        its own medium's provenance and neither on a face's size: the spy's
+        :data:`EXEMPT_CALLERS`, and the clue-digit mark the writer leaves in the
+        shipped file (:attr:`StreamFace.exempt`). The independence is unchanged
+        in kind — an :mod:`ast` walk of ``src/`` against marked-content
+        brackets in the bytes of an exported PDF — and it survives the medium
+        change in either direction, because a kind that converts moves from one
+        arm of the union to the other. Measured with the five kinds lifted: the
+        spy's arm is empty, the stream's arm is ``{'answer', 'puzzle'}``, and
+        the union still agrees with the derivation.
         """
         from nonogram.admin import book_vector_draw
 
@@ -1710,23 +2015,26 @@ class TestInteriorType_TheStreamArmIsReached:
             "exists under that name, so the AST reading below reads nothing"
         )
 
-        by_the_spy = set()
+        by_the_readers = set()
         for name in sorted(BOOKS):
             page_kind = {
                 page: kind
                 for kind, pages in _pages_by_kind(name).items()
                 for page in pages
             }
-            by_the_spy |= {
+            by_the_readers |= {
                 page_kind[call.page]
                 for call in recording(name, arial=True)
                 if call.exempt
             }
+            by_the_readers |= {
+                face.kind for face in stream_recording(name) if face.exempt
+            }
 
-        assert by_the_spy == {"answer", "puzzle"}, sorted(by_the_spy)
-        assert set(CLUE_DIGIT_KINDS) == by_the_spy, (
+        assert by_the_readers == {"answer", "puzzle"}, sorted(by_the_readers)
+        assert set(CLUE_DIGIT_KINDS) == by_the_readers, (
             sorted(CLUE_DIGIT_KINDS),
-            sorted(by_the_spy),
+            sorted(by_the_readers),
         )
 
     def test_the_stream_arm_of_the_floor_judges_a_face_it_is_handed(
@@ -2261,15 +2569,88 @@ class TestInteriorType_TheNonVacuityFloorCanFail:
     """
 
     def test_dropping_a_semantic_kind_reds_the_coverage_assertion(self):
-        """The CARD-184 arm: a *piece* of lettering stops being drawn."""
-        kept = [call for call in recording("book1", arial=True) if call.kind != "band"]
+        """The CARD-184 arm: a *piece* of lettering stops being drawn.
 
-        kinds = {call.kind for call in kept}
+        **Rewritten by CARD-358, because the probe showed it passing for the
+        wrong reason.** The old body dropped the ``"band"`` calls and asserted
+        ``not {"guide", "divider", "band"} <= kinds`` against a hard-coded
+        triple. With the five convertible kinds lifted the spy's reading is
+        ``{'divider'}``, so that assertion is satisfied by ``guide`` being
+        absent for the *conversion* — the band could have gone on being drawn,
+        or stopped, and this control would have read green either way. A
+        control that cannot tell its own subject from a medium change is the
+        shape ADR-0039/R1 is about.
 
-        assert "band" not in kinds
-        assert not {"guide", "divider", "band"} <= kinds, (
-            "dropping every band call left the required set satisfied, so the "
-            "coverage assertion would not have noticed the band going away"
+        It now drops each kind of the **derived** requirement in turn — the
+        same :func:`semantic_kinds_lettered_in_raster` set the assertion uses —
+        and shows the requirement unsatisfied each time. So it follows the
+        medium with the claim it controls, and it cannot be satisfied by a kind
+        that was never required in the first place.
+        """
+        required = {"guide", "divider", "band", "footer label", "answer caption"}
+        required &= semantic_kinds_lettered_in_raster("book1")
+        full = recording("book1", arial=True)
+
+        assert required, "nothing is required, so there is no claim to control"
+        assert required <= {call.kind for call in full}, sorted(required)
+
+        for dropped in sorted(required):
+            kinds = {call.kind for call in full if call.kind != dropped}
+
+            assert dropped not in kinds
+            assert not required <= kinds, (
+                f"dropping every {dropped!r} call left the required set "
+                "satisfied, so the coverage assertion would not have noticed "
+                f"{dropped!r} going away"
+            )
+
+    def test_the_semantic_kinds_are_mapped_to_page_kinds(self):
+        """:data:`SEMANTIC_KIND_PAGE_KINDS` is complete, and on both sides.
+
+        CARD-358. The table is hand-written — it was measured off the spy's own
+        recording of both books, and a measurement is not a control — so it is
+        held to two authorities the runtime can enumerate (ADR-0039/R2):
+
+        * its **keys** are exactly the string constants :attr:`TextCall.kind`
+          returns, read out of that property by :mod:`ast` rather than by text,
+          because a semantic kind nobody mapped would otherwise drop silently
+          out of :func:`semantic_kinds_lettered_in_raster` and so out of the
+          requirement — the same hole cycle 1's F-003 found in
+          :data:`LETTERING_KINDS`;
+        * its **values** are
+          :class:`~nonogram.admin.book_pdf_generator.PageKind` values, so a
+          mapping to a page kind that does not exist fails here instead of
+          quietly matching no page and dropping its kind from the requirement.
+
+        Read by :mod:`ast` and not by text for the reason :func:`called_names`
+        gives: the strings also appear in this module's prose, and a text
+        search would find a kind the property never returns.
+        """
+        tree = ast.parse(textwrap.dedent(inspect.getsource(TextCall.kind.fget)))
+        returned = {
+            node.value.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        }
+
+        assert returned, (
+            "no string constant is returned from TextCall.kind, so this check "
+            "read nothing and the table below is unguarded"
+        )
+        assert set(SEMANTIC_KIND_PAGE_KINDS) == returned, (
+            sorted(set(SEMANTIC_KIND_PAGE_KINDS) ^ returned)
+        )
+
+        page_kinds = {kind.value for kind in book_pdf_generator.PageKind}
+        mapped = set().union(*SEMANTIC_KIND_PAGE_KINDS.values())
+
+        assert mapped <= page_kinds, sorted(mapped - page_kinds)
+        assert all(SEMANTIC_KIND_PAGE_KINDS.values()), sorted(
+            semantic
+            for semantic, kinds in SEMANTIC_KIND_PAGE_KINDS.items()
+            if not kinds
         )
 
     def test_dropping_a_page_kind_reds_the_medium_independent_assertion(self):
