@@ -461,6 +461,15 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
     directory.mkdir(parents=True, exist_ok=True)
     source = directory / "vector.pdf"
     source.write_bytes(data)
+    # SCOPE+ (CARD-355): the output prefix is unique to the page asked for. It
+    # was a fixed "page", and the read-back below took the FIRST png sorted in
+    # the directory, so a caller sharing one directory across pages (the shared
+    # reader ``pdf_pages`` does) got page 1's render for every later page.
+    # Stale files of this page's own prefix are removed first, so a re-render of
+    # the same page with different data cannot be read back either.
+    prefix = f"pg{page}"
+    for stale in directory.glob(f"{prefix}-*.png"):
+        stale.unlink()
     subprocess.run(
         [
             PDFTOPPM,
@@ -473,12 +482,12 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
             "-gray",
             "-png",
             str(source),
-            str(directory / "page"),
+            str(directory / prefix),
         ],
         check=True,
         capture_output=True,
     )
-    rendered = sorted(directory.glob("page-*.png"))
+    rendered = sorted(directory.glob(f"{prefix}-*.png"))
     if not rendered:
         raise RuntimeError(f"pdftoppm wrote no image for page {page}")
     with Image.open(rendered[0]) as image:

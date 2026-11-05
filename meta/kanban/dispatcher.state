@@ -470,12 +470,18 @@ active:
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
 #   left naming a path that no longer exists -- the phantom holder a free-slot check would read.
-  - card: CARD-355
-    branch: card/355-pdf-memory-tests
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-355
-    started: 2026-11-05T11:41Z
+  - card: CARD-356
+    branch: card/356-pdf-band-tests
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-356
+    started: 2026-11-05T12:50Z
     estimate: 2c (1d)
-    cut_from: b3d04d8c
+    cut_from: 0fa46b6c
+  - card: CARD-325
+    branch: card/325-public-crosshair
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-325
+    started: 2026-11-05T14:50Z
+    estimate: 0.5d
+    cut_from: f8bb2eb8
 # WAVE 78 CLOSED 2026-11-05. CARD-349 CLEARED: merged 597cdf57, done, review cycle 1 at 8.0
 #   (amended from 9.0 by its own author, verdict fail), a SECOND independent reader at 7.5 on the
 #   same commit finding the worst defect the first missed, estimate 1c -> ratio 1.000. Its worktree

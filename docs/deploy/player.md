@@ -48,6 +48,27 @@ byte-identical copy, verified against production rather than against the assembl
 `TODO(owner): confirm Auto-Deploy in the dashboard and record it here.` With the CLI
 publish this page documents, a push should deploy nothing at all.
 
+### Publishes since the first deploy
+
+Observed on **2026-11-05**, read back from the CLI and from the live site rather than
+copied from a plan. The public player gained zoom (CARD-324, merge `18aeac30`), and the
+tree was published the way this page describes, with one addition: a **preview first, then
+promote**.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-zoom-deploy`, no `--analytics`, so no counting snippet in any file. 160 puzzles, one book landing. The bundle is the 2026-10-29 export, unchanged. A fresh output directory was used rather than `build/site`. |
+| Check before publishing | The built `play.js` and `player.css` are SHA-256 identical to `player/`; `solver_state.js` is identical to `src/nonogram/admin/static/solver_state.js`. Every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`. A local preview answered 200 on `/library`, `/play/<key>`, `/b/<slug>` and `puzzle/<key>.json`. |
+| Preview | `vercel deploy --yes` from the tree with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported, no `.vercel/` in the tree: deployment `nonogram-studio-dd5c55h5p`. The same three files, fetched from it, matched the local hashes. |
+| Production | `vercel promote <that deployment URL> --scope <team> --yes` created production deployment `nonogram-studio-bji650yak` (Ready). `https://nonogram.adverax.io` then served the same three hashes, answered 200 on the three doors, and its puzzle file carried the same five fields. |
+| Rollback target | The production deployment before it, `nonogram-studio-b5dbrnyxf`, was still Ready afterwards. This page records that it existed; it does not record that a rollback was tried. |
+
+Why a preview first: it puts the exact artifact on the host, where the hashes can be
+compared, before any QR code's domain serves it, and `vercel promote` then publishes that
+artifact without rebuilding it. Not observed: the zoom controls in a real browser on the
+live site, Auto-Deploy's dashboard state, and any counting (there is none until the
+GoatCounter code below is real).
+
 ## What is owner-managed and what is repo-managed
 
 | Thing | Who owns it |
@@ -279,11 +300,11 @@ lives in `~/.local/share/com.vercel.cli` and never belongs in a published tree (
 reason `vercel link`'s `.env.local`, which carries a real `VERCEL_OIDC_TOKEN`, is
 deleted before any upload — see the deploy record above).
 
-`TODO(owner): confirm the two variables are honoured on the first publish that relies
-on them.` The 2026-10-30 deploy did **not** test them: it ran with a live
+The 2026-10-30 deploy did **not** test these two variables: it ran with a live
 `.vercel/project.json` in the tree, so the variables were never the thing being read.
-They are the mechanism Vercel documents for CI, where there is likewise no `.vercel/`
-to read — documented, not observed, and this page keeps that distinction.
+**The 2026-11-05 publish did** (see "Publishes since the first deploy" above): the tree
+held no `.vercel/` directory, both variables were exported, and `vercel deploy --yes`
+published to `nonogram-studio` without a link prompt. Observed once, on CLI 59.11.7.
 
 **The first publish comes after the GoatCounter site code, not before.** The publish
 command above the deploy carries `--analytics` because a deploy counts, and the code it
