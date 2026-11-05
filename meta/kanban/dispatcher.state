@@ -595,6 +595,30 @@ active:
 #     derived independently rather than eyeballed.
 #
 queued:
+# OWNER'S PLAN 2026-11-05, to run AS SOON AS CARD-349 LANDS, in this order:
+#   1. Fix CARD-376 INLINE (one character: an `r` prefix on the ASCII-art literal) and
+#      RETIRE the card. It was a 68-line card with five ACs for a one-character fix.
+#   2. COLLAPSE CARD-377 + CARD-378 into one card scoped to whatever the owner's
+#      one-actor-per-worktree convention does NOT cover -- or retire both if it covers
+#      everything. Both were cut for a hazard the convention had already closed.
+#   3. RE-SCOPE CARD-374 and CARD-375 to the single check each actually needs.
+#   4. THEN THE VECTOR SLICE: CARD-358 -> CARD-354 -> 355/356/357/359/360 -> CARD-322,
+#      the terminal node of ADR-0042's interior conversion.
+#
+# WHY, measured -- the owner's own diagnostic, sharper than mine. Card SPAWN RATIO per
+#   wave: w74 4.0x, w75 6.5x, w76 7.0x, w78 4-created/0-closed; w64-78 total 31 closed
+#   against 71 created = 2.3x. Throughput collapsing (4,3,3,2,2,1,1,0 closed per wave)
+#   while creation spikes: a board that no longer converges. Meanwhile ADR-0042 (decided
+#   2026-10-25, ELEVEN feature cards already landed) waited on SEVEN UNSTARTED
+#   test-conversion cards, because 62 of the 71 new cards were process/instrument.
+# THE DIAGNOSIS IS NOT POOR CODE AND NOT WEAK TESTS. The conversion works. The old tests
+#   measured raster bitmaps and lost their SUBJECT when the medium changed (ADR-0042/R6),
+#   which is real work -- but the bottleneck was SCHEDULING, and that is the
+#   orchestrator's job. Every individual card was defensible; the aggregate was not.
+# STANDING CUT BAR from here: a finding earns a card only if the fix is bigger than the
+#   card, it needs an owner decision, or it blocks something scheduled. Otherwise the
+#   round that found it fixes it inline, or it is one line in the review record.
+#
 # ORDER CONFIRMED BY THE OWNER 2026-11-04: "wait for 363 then open 78 on 349 solo".
 #   CARD-363 clears (cycle 3 is the LAST max_cycles allows, so it certifies-and-gates
 #     or escalates) -> WAVE 78 OPENS ON CARD-349 ALONE.
