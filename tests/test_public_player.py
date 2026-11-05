@@ -2668,8 +2668,20 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     #: below is empty), and that is asserted rather than assumed.
     assert re.findall(r"addEventListener\((?!\")", script) == [], "a listener with a computed type"
     registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
+    # SCOPE+ (CARD-325): the crosshair is the one feature since zoom that
+    # needs a listener TYPE the stage did not already have (pointerleave: a
+    # pointer leaving the stage is what clears it), and it keeps its own
+    # listeners rather than folding into marking's four, so marking's handlers
+    # see exactly the events they saw before (G-5). Its five are DERIVED from
+    # ``wireCrosshair``'s own text and pinned by name, so the census still
+    # reds on a sixth, and the rest of this list is unchanged.
+    crosshair_body = re.search(r"\nfunction wireCrosshair\(stage\) \{.*?\n\}\n", script, re.S)
+    assert crosshair_body is not None, "play.js has no wireCrosshair"
+    crosshair_events = sorted(re.findall(r'addEventListener\("([a-z]+)"', crosshair_body.group(0)))
+    assert crosshair_events == ["pointercancel", "pointerdown", "pointerleave", "pointermove", "pointerup"], crosshair_events
     assert registered == sorted(
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
+        + crosshair_events
         + [kind for kind, _handler in viewport_listeners]
         + ["click"] * (2 + len(actions) + len(zoom_actions))
     ), registered

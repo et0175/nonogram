@@ -422,6 +422,151 @@ function cellUnder(x, y) {
 
 const isAt = (a, b) => a[0] === b[0] && a[1] === b[1];
 
+// --------------------------------------------------------------------------
+// The crosshair (CARD-325, FR-045)
+// --------------------------------------------------------------------------
+//
+// Hovering a cell tints its row, its column and their two clue boxes, so the
+// eye can travel from a cell to its clues and back without sliding onto a
+// neighbouring line. The admin player has the same control (CARD-267,
+// `wireCrosshair` in solver.js); it is written natively here, not imported,
+// and tests/test_public_player_agreement.py holds the two to the same
+// decisions (TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions).
+//
+// IT READS THE DOM AND NOTHING ELSE. One class, `.is-crossed`, on elements
+// that are already on the page: no cell state, no history, no clue data, no
+// payload field, no storage and no request (ADR-0038/R2, ADR-0041/R2). That
+// is asserted over this source, default-deny, by
+// tests/test_public_player_crosshair.py TestPublicCrosshair_ItReadsNoBoard:
+// the functions below may use `document`, `Number`, `Set` and each other, and
+// nothing else. It adds no toolbar control and touches no pointer event's
+// default: the listeners call no callback, never preventDefault and never
+// stop propagation, so every handler start() registered sees exactly the
+// events it saw before (G-5).
+//
+// The four decisions CARD-267 paid for, followed rather than rediscovered:
+//
+//   1. THE GUTTER CORNER. A pointer over the stage but not over a cell — a
+//      clue box, the corner, the stage's padding — keeps the crosshair where
+//      it was. Only LEAVING the stage clears it, so looking from a cell to its
+//      clue does not put the line out.
+//   2. THE NO-HOVER PHONE. A touch crosshair follows the finger from
+//      pointerdown (a tap may never move) through every move, and STAYS after
+//      the finger lifts, so it is seen between taps.
+//   3. WHY AN EXEMPT TOUCH. A released touch pointer fires pointerleave at
+//      once, so a leave that did not exempt touch would undo every touch
+//      crosshair the moment it was made. The pointer TYPE is read in the
+//      leave handler, and only there (and in the pinch count below).
+//   4. A REMEMBERED POSITION WITH NOTHING PAINTED IS THE HALF-PAINTED
+//      CROSSHAIR. The admin calls forget() from redraw(). This page draws its
+//      table once, so there is no redraw to hook; the refusal is kept by
+//      construction instead: the "already there" shortcut is taken only when
+//      the DOM still shows the cross painted, so a stale memory can never
+//      suppress a repaint.
+//
+// WHAT THE ADMIN CARD DID NOT HAVE TO DECIDE (zoom, CARD-324):
+//
+//   * WHICH CELL. The cell under the pointer comes from the browser's hit
+//     test (cellUnder, the call marking uses), never from geometry computed
+//     here. A hit test is right at every zoom and every scroll offset of the
+//     stage and of the page; arithmetic over scrollLeft and the cell pitch is
+//     how a crosshair lands one cell off at 300%.
+//   * A PINCH HAS NO CROSSHAIR. Two or more touch/pen pointers down is a
+//     pinch. The first finger's pointerdown had already painted one, so the
+//     second takes it off; nothing follows the spread; nothing is left when
+//     the fingers lift. Crossing resumes with the next single pointer. This
+//     is the crosshair's own count of pointers and reads none of start()'s
+//     pinch state, so it also covers two fingers that began on a clue box,
+//     which start() leaves to the browser.
+//   * touch-action stays `auto` (owner, 2026-11-05); nothing here depends on
+//     it, and no zoom control or toolbar button is involved.
+
+// The elements the crosshair for (row, col) marks: that row's cells, that
+// column's cells, and the clue boxes of that row and that column. Clue boxes
+// are selected by AXIS and data-line, never by DOM order.
+function crossedParts(table, row, col) {
+  return [
+    ...table.querySelectorAll(`td.player-cell[data-row="${row}"]`),
+    ...table.querySelectorAll(`td.player-cell[data-col="${col}"]`),
+    ...table.querySelectorAll(`th.player-clue.is-row[data-line="${row}"]`),
+    ...table.querySelectorAll(`th.player-clue.is-col[data-line="${col}"]`),
+  ];
+}
+
+function wireCrosshair(stage) {
+  // Where the crosshair is, as [row, col], or null: a CELL and not an element.
+  let crossed = null;
+  // The touch/pen pointers currently down, by id; and whether two of them
+  // make this a pinch (cleared when the last one is up).
+  const down = new Set();
+  let pinching = false;
+
+  function paint([row, col], on) {
+    const table = stage.querySelector(".player-board");
+    if (table === null) return;
+    for (const part of crossedParts(table, row, col)) part.classList.toggle("is-crossed", on);
+  }
+
+  // Whether the cross for `position` is on the page right now.
+  function isPainted([row, col]) {
+    return stage.querySelector(`td.player-cell.is-crossed[data-row="${row}"][data-col="${col}"]`) !== null;
+  }
+
+  function clear() {
+    if (crossed === null) return;
+    paint(crossed, false);
+    crossed = null;
+  }
+
+  function moveTo(position) {
+    // Decision 4: the shortcut needs the cross to be SEEN, not remembered.
+    if (crossed !== null && isAt(position, crossed) && isPainted(crossed)) return;
+    if (crossed !== null) paint(crossed, false);
+    crossed = position;
+    paint(crossed, true);
+  }
+
+  const follow = (event) => {
+    if (pinching) return;
+    const position = cellUnder(event.clientX, event.clientY);
+    if (position !== null) moveTo(position);
+  };
+
+  const isFinger = (event) => event.pointerType === "touch" || event.pointerType === "pen";
+
+  stage.addEventListener("pointerdown", (event) => {
+    if (isFinger(event)) {
+      // A primary pointer starts a fresh touch session: a pointerup that never
+      // reached the stage cannot leave the count stuck above one.
+      if (event.isPrimary) {
+        down.clear();
+        pinching = false;
+      }
+      down.add(event.pointerId);
+      if (down.size >= 2) {
+        pinching = true;
+        clear();
+        return;
+      }
+    }
+    follow(event);
+  });
+  stage.addEventListener("pointermove", follow);
+
+  const lift = (event) => {
+    if (!down.delete(event.pointerId)) return;
+    if (down.size === 0) pinching = false;
+  };
+  stage.addEventListener("pointerup", lift);
+  stage.addEventListener("pointercancel", lift);
+
+  stage.addEventListener("pointerleave", (event) => {
+    // Decision 3: touch is exempt, and that exemption is the whole touch rule.
+    if (event.pointerType === "touch") return;
+    clear();
+  });
+}
+
 function start(payload) {
   const stage = document.querySelector("[data-player-stage]");
   const controls = document.querySelector("[data-player-controls]");
@@ -843,6 +988,9 @@ function start(payload) {
   // onto a new row, a late font changing a label's width. The stage's cap
   // follows the toolbar, so the toolbar's own size is observed as well.
   new ResizeObserver(keepCluesInView).observe(controls, { box: "border-box" });
+
+  // The crosshair (CARD-325): DOM only, on the stage; see wireCrosshair.
+  wireCrosshair(stage);
 
   controls.hidden = false;
   hint.hidden = false;

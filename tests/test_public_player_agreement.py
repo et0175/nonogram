@@ -2643,3 +2643,381 @@ class TestPlayerLooksAgree_ADivergenceMustBeDeclared:
         assert PUBLIC_CSS.is_file() and PUBLIC_JS.is_file()
         assert {ADMIN_CSS.parent, PUBLIC_CSS.parent} != {ADMIN_CSS.parent}
         assert "admin" in ADMIN_CSS.parts and "admin" not in PUBLIC_CSS.parts
+
+
+# ==========================================================================
+# CARD-325 AC-6 — the crosshair makes the same decisions
+# ==========================================================================
+#
+# The crosshair is the first look in this file that is BEHAVIOUR rather than a
+# rule in a sheet: ``wireCrosshair`` in ``solver.js`` and the public page's own
+# ``wireCrosshair`` in ``play.js`` are two implementations of CARD-267's four
+# recorded decisions, and nothing but this class says they still agree. It
+# joins this file (CARD-328's one home for the pattern) and does NOT start a
+# parallel guard: same shape, same discipline — every compared fact is DERIVED
+# from the two sources, the facts that disagree are computed and asserted equal
+# to a table of DECLARED divergences with a reason each, and a stale
+# declaration is as much a defect as an undeclared divergence.
+#
+# The facts are read from the sources' TEXT, as everything else here is. That
+# is a statement about what is held: the *wiring* (which events move or clear
+# the crosshair, what survives a leave, what is marked), not the pixels.
+# tests/test_public_player_crosshair.py holds the behaviour in a real browser.
+
+_CROSSHAIR_ADMIN_JS = ADMIN_JS
+_CROSSHAIR_PUBLIC_JS = PUBLIC_JS
+
+
+def _crosshair_source(js_path: Path) -> tuple[str, str]:
+    """``(wireCrosshair's text, crossedParts's text)`` from ``js_path``,
+    comments gone and strings KEPT (an event name is a string)."""
+    from tests.test_public_player_crosshair import _raw_definition
+
+    source = js_path.read_text(encoding="utf-8")
+    wire = _raw_definition(source, "wireCrosshair")
+    parts = _raw_definition(source, "crossedParts")
+    assert wire is not None and parts is not None, f"{js_path.name} lacks a crosshair"
+    return wire, parts
+
+
+def _balanced(text: str, open_at: int) -> int:
+    depth = 0
+    for index in range(open_at, len(text)):
+        depth += {"{": 1, "}": -1}.get(text[index], 0)
+        if depth == 0:
+            return index
+    raise AssertionError("unbalanced braces")
+
+
+def _local_function(text: str, name: str) -> str | None:
+    """A function or arrow ``name`` declared INSIDE ``text`` (any indent), whole.
+
+    An arrow with an expression body ends at its ``;``; one with a block body
+    at its closing brace. A ``const`` that is not an arrow is not a function.
+    """
+    declared = re.search(rf"\bfunction\s+{name}\s*\(", text)
+    if declared is not None:
+        open_at = text.index("{", declared.end())
+        return text[declared.start() : _balanced(text, open_at) + 1]
+    declared = re.search(rf"\bconst\s+{name}\s*=", text)
+    if declared is None:
+        return None
+    head = re.match(r"\s*(?:\([^()]*\)|[A-Za-z_$][\w$]*)\s*=>\s*", text[declared.end() :])
+    if head is None:
+        return None
+    body_at = declared.end() + head.end()
+    if text[body_at] == "{":
+        return text[declared.start() : _balanced(text, body_at) + 1]
+    return text[declared.start() : text.index(";", body_at) + 1]
+
+
+def _handlers(wire: str) -> dict[str, str]:
+    """``{event: handler text}`` for every ``addEventListener("event", …)``.
+
+    A handler is an identifier (looked up among the function's own locals) or
+    an inline arrow. The same event registered twice is an error here: the
+    facts below would silently read one of them.
+    """
+    found: dict[str, str] = {}
+    for m in re.finditer(r"\.addEventListener\(\s*\"(\w+)\"\s*,\s*", wire):
+        rest = wire[m.end() :]
+        if rest.startswith("("):
+            open_at = rest.index("{")
+            depth = 0
+            for index in range(open_at, len(rest)):
+                depth += {"{": 1, "}": -1}.get(rest[index], 0)
+                if depth == 0:
+                    body = rest[: index + 1]
+                    break
+        else:
+            name = re.match(r"([A-Za-z_$][\w$]*)", rest)
+            assert name is not None, rest[:40]
+            body = _local_function(wire, name.group(1)) or ""
+        assert m.group(1) not in found, f"{m.group(1)} registered twice"
+        found[m.group(1)] = body
+    return found
+
+
+def _reaches(wire: str, body: str, target: str, depth: int = 4) -> bool:
+    """Whether ``body`` calls ``target(`` directly or through a local function."""
+    if re.search(rf"\b{target}\s*\(", body):
+        return True
+    if depth == 0:
+        return False
+    for called in set(re.findall(r"\b([A-Za-z_$][\w$]*)\s*\(", body)):
+        local = _local_function(wire, called)
+        if local is not None and local != body and _reaches(wire, local, target, depth - 1):
+            return True
+    return False
+
+
+def _mentions(wire: str, body: str, word: str, depth: int = 4) -> bool:
+    if re.search(rf"\b{word}\b", body):
+        return True
+    if depth == 0:
+        return False
+    for called in set(re.findall(r"\b([A-Za-z_$][\w$]*)\s*\(", body)):
+        local = _local_function(wire, called)
+        if local is not None and local != body and _mentions(wire, local, word, depth - 1):
+            return True
+    return False
+
+
+def crosshair_facts(wire: str, parts: str) -> dict[str, str]:
+    """Every compared fact of one implementation's crosshair, as a string."""
+    handlers = _handlers(wire)
+    moves = sorted(e for e, h in handlers.items() if _reaches(wire, h, "moveTo"))
+    clears = sorted(e for e, h in handlers.items() if _reaches(wire, h, "clear"))
+    leave = handlers.get("pointerleave", "")
+    survivors = sorted(re.findall(r"pointerType\s*===\s*\"(\w+)\"\s*\)\s*return", leave))
+    mover = next(
+        (_local_function(wire, n) for n in re.findall(r"\b([A-Za-z_$][\w$]*)\s*\(", wire)
+         if (_local_function(wire, n) or "").count("moveTo(") and "cellUnder" in (_local_function(wire, n) or "")),
+        "",
+    )
+    toggles = sorted(set(re.findall(r"classList\.toggle\(\s*\"([^\"]+)\"", wire)))
+    selectors = sorted(set(re.findall(r"`([^`]*)`", parts)))
+    return {
+        "events.listened": ",".join(sorted(handlers)),
+        "events.that_move_the_crosshair": ",".join(moves),
+        "events.that_clear_the_crosshair": ",".join(clears),
+        "leave.survivors": ",".join(survivors),
+        "pointer_type.is_read_in": ",".join(sorted(e for e, h in handlers.items() if _mentions(wire, h, "pointerType"))),
+        "a_non_cell_hit.moves_nothing": str(bool(re.search(r"!==\s*null\s*\)\s*moveTo\(", mover))),
+        "marker.class": ",".join(toggles),
+        "marked.selectors": " | ".join(selectors),
+        "event.is_prevented": str("preventDefault" in wire),
+        "event.is_stopped": str("stopPropagation" in wire or "stopImmediatePropagation" in wire),
+        "position.is_forgotten_on_redraw": str("forget" in wire),
+        "already_there.needs_the_cross_painted": str(bool(re.search(r"isAt\([^)]*\)\s*&&\s*is[A-Z]\w*\(", wire))),
+    }
+
+
+def crosshair_disagreements(admin_js: str, public_js: str) -> dict[str, tuple[str, str]]:
+    """The facts on which the two crosshairs differ: ``{fact: (admin, public)}``."""
+    from tests.test_public_player_crosshair import _raw_definition
+
+    def facts(source: str) -> dict[str, str]:
+        wire = _raw_definition(source, "wireCrosshair")
+        parts = _raw_definition(source, "crossedParts")
+        assert wire is not None and parts is not None
+        return crosshair_facts(wire, parts)
+
+    admin, public = facts(admin_js), facts(public_js)
+    assert admin.keys() == public.keys()
+    return {k: (admin[k], public[k]) for k in admin if admin[k] != public[k]}
+
+
+#: What the public crosshair does DIFFERENTLY from the admin's, each with the
+#: decision it rests on. Four entries, all of them consequences of one fact:
+#: the public page has a zoom the crosshair had to be told about (CARD-324) and
+#: draws its table once. An entry is over a stated DIFFERENCE (the pair of
+#: values), not over a fact: see :func:`test_the_declared_values_are_the_stated_difference`.
+DECLARED_CROSSHAIR_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
+    "events.listened": (
+        ("pointerdown,pointerleave,pointermove", "pointercancel,pointerdown,pointerleave,pointermove,pointerup"),
+        "The public crosshair counts the fingers that are down, so it needs to hear "
+        "them lift (pointerup, pointercancel). The admin's has no such count: its "
+        "pinch is handled in solver.js's marking code and wireCrosshair never "
+        "learns of it. Why the public one counts: CARD-325 AC-7, a pinch neither "
+        "starts a crosshair nor leaves one.",
+    ),
+    "events.that_clear_the_crosshair": (
+        ("pointerleave", "pointerdown,pointerleave"),
+        "A second finger landing (pointerdown) takes the crosshair the first "
+        "finger's pointerdown had painted OFF, because two fingers are a pinch and "
+        "a pinch has no crosshair (CARD-325 AC-7; zoom is CARD-324). The admin's "
+        "crosshair clears only on pointerleave, and the question what a pinch "
+        "does to it was not asked there: routed as a finding, not edited (G-2).",
+    ),
+    "pointer_type.is_read_in": (
+        ("pointerleave", "pointerdown,pointerleave"),
+        "CARD-267 decision 3 reads the pointer TYPE in the leave handler only. "
+        "The public page reads it in pointerdown as well, to tell a finger (which "
+        "can be one of two in a pinch) from a mouse (which never is). The leave "
+        "handler's own rule, touch exempt, is the SAME and is held equal in "
+        "leave.survivors.",
+    ),
+    "position.is_forgotten_on_redraw": (
+        ("True", "False"),
+        "CARD-267 decision 4: the admin's redraw() replaces every cell and calls "
+        "forget(). The public page draws its table ONCE (drawBoard has a single "
+        "call site, asserted by test_the_public_page_has_no_redraw_to_forget_after), "
+        "so there is no redraw to hook. The refusal the decision exists for, a "
+        "remembered position with nothing painted, is kept by the next entry.",
+    ),
+    "already_there.needs_the_cross_painted": (
+        ("False", "True"),
+        "The compensation for the entry above: the public 'already there, do "
+        "nothing' shortcut is taken only when the DOM still shows the cross, so a "
+        "stale memory can never suppress a repaint. Without forget() to rely on, "
+        "this is how decision 4 is kept (browser-held by "
+        "test_a_remembered_position_with_nothing_painted_repaints).",
+    ),
+}
+
+
+class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
+    """CARD-325 AC-6."""
+
+    def test_the_disagreements_are_exactly_the_declared_ones(self) -> None:
+        admin = _CROSSHAIR_ADMIN_JS.read_text(encoding="utf-8")
+        public = _CROSSHAIR_PUBLIC_JS.read_text(encoding="utf-8")
+        found = crosshair_disagreements(admin, public)
+        assert {k: v for k, v in found.items()} == {k: v[0] for k, v in DECLARED_CROSSHAIR_DIVERGENCES.items()}
+
+    def test_the_declared_values_are_the_stated_difference(self) -> None:
+        """A declaration is over the PAIR of values, so content drifting inside
+        an exempted fact reds (CARD-328's lesson, one level down)."""
+        for fact, (pair, reason) in DECLARED_CROSSHAIR_DIVERGENCES.items():
+            assert pair[0] != pair[1], f"{fact} is declared but does not diverge"
+            assert len(reason) >= _REASON_FLOOR, f"{fact}: a reason is a sentence, not a word"
+
+    def test_the_four_decisions_are_compared_facts_and_agree(self) -> None:
+        """The four cases of the card's item 1, by the fact that carries each."""
+        admin = _CROSSHAIR_ADMIN_JS.read_text(encoding="utf-8")
+        public = _CROSSHAIR_PUBLIC_JS.read_text(encoding="utf-8")
+        a, p = (crosshair_facts(*_crosshair_source(path)) for path in (_CROSSHAIR_ADMIN_JS, _CROSSHAIR_PUBLIC_JS))
+        # 1. the gutter corner: a hit that is not a cell moves nothing, and only
+        #    leaving the stage clears (the extra public clear is declared).
+        assert a["a_non_cell_hit.moves_nothing"] == p["a_non_cell_hit.moves_nothing"] == "True"
+        assert "pointerleave" in a["events.that_clear_the_crosshair"].split(",")
+        assert "pointerleave" in p["events.that_clear_the_crosshair"].split(",")
+        # 2. the no-hover phone: pointerdown and pointermove move it.
+        assert a["events.that_move_the_crosshair"] == p["events.that_move_the_crosshair"] == "pointerdown,pointermove"
+        # 3. the exempt touch: the leave handler spares touch, and ONLY touch.
+        assert a["leave.survivors"] == p["leave.survivors"] == "touch"
+        # 4. the remembered position: declared (see the table).
+        assert "position.is_forgotten_on_redraw" in DECLARED_CROSSHAIR_DIVERGENCES
+        # and what is marked, and with what, is one thing.
+        assert a["marker.class"] == p["marker.class"] == "is-crossed"
+        assert a["marked.selectors"] == p["marked.selectors"]
+        assert a["event.is_prevented"] == p["event.is_prevented"] == "False"
+        assert a["event.is_stopped"] == p["event.is_stopped"] == "False"
+        assert admin and public
+
+    def test_the_facts_are_not_vacuous(self) -> None:
+        """An extractor that returned empty strings on both sides would agree."""
+        for path in (_CROSSHAIR_ADMIN_JS, _CROSSHAIR_PUBLIC_JS):
+            facts = crosshair_facts(*_crosshair_source(path))
+            for fact in ("events.listened", "events.that_move_the_crosshair", "leave.survivors", "marked.selectors", "marker.class"):
+                assert facts[fact], (path.name, fact)
+            assert facts["marked.selectors"].count("data-row") == 1 and facts["marked.selectors"].count("data-line") == 2
+
+    def test_the_public_page_has_no_redraw_to_forget_after(self) -> None:
+        """The premise of the declared 'forget' divergence, held: if the public
+        page ever redraws its table, decision 4 is no longer kept by
+        construction alone and this reds, naming the declaration to revisit."""
+        code = "\n".join(line for _, line in _js_code_lines(PUBLIC_JS))
+        assert len(re.findall(r"\bdrawBoard\s*\(", code)) == 2, "drawBoard: its definition and ONE call"
+        assert len(re.findall(r"\breplaceChildren\s*\(", code)) == 2, "only drawBoard and fail() replace the stage's children"
+
+    # -- the controls: both sides, and the edge decisions -------------------
+
+    @pytest.mark.parametrize(
+        ("side", "old", "new", "moves"),
+        [
+            ("admin", 'if (event.pointerType === "touch") return;', "", "leave.survivors"),
+            ("public", 'if (event.pointerType === "touch") return;', "", "leave.survivors"),
+            ("admin", 'if (event.pointerType === "touch") return;', 'if (event.pointerType === "pen") return;', "leave.survivors"),
+            ("public", 'if (event.pointerType === "touch") return;', 'if (event.pointerType === "pen") return;', "leave.survivors"),
+            ("admin", 'container.addEventListener("pointerdown", follow);', "", "events.that_move_the_crosshair"),
+            ("public", 'stage.addEventListener("pointermove", follow);', "", "events.that_move_the_crosshair"),
+            ("admin", "if (position !== null) moveTo(position);", "moveTo(position);", "a_non_cell_hit.moves_nothing"),
+            ("public", "if (position !== null) moveTo(position);", "moveTo(position);", "a_non_cell_hit.moves_nothing"),
+            ("admin", 'part.classList.toggle("is-crossed", on)', 'part.classList.toggle("is-cross", on)', "marker.class"),
+            ("public", 'part.classList.toggle("is-crossed", on)', 'part.classList.toggle("is-cross", on)', "marker.class"),
+            ("admin", 'th.player-clue.is-col[data-line="${col}"]', 'th.player-clue.is-col[data-line="${row}"]', "marked.selectors"),
+            ("public", 'th.player-clue.is-row[data-line="${row}"]', 'th.player-clue.is-row[data-line="${col}"]', "marked.selectors"),
+            ("public", 'stage.addEventListener("pointercancel", lift);', 'stage.addEventListener("pointercancel", lift);\n  stage.addEventListener("pointerleave", () => clear());', "__duplicate__"),
+        ],
+        ids=[
+            "admin-touch-no-longer-exempt", "public-touch-no-longer-exempt",
+            "admin-pen-exempt-not-touch", "public-pen-exempt-not-touch",
+            "admin-pointerdown-no-longer-moves", "public-pointermove-no-longer-moves",
+            "admin-a-gutter-hit-now-moves", "public-a-gutter-hit-now-moves",
+            "admin-marker-renamed", "public-marker-renamed",
+            "admin-column-clue-by-the-wrong-index", "public-row-clue-by-the-wrong-index",
+            "public-leave-registered-twice",
+        ],
+    )
+    def test_a_one_sided_change_to_a_decision_is_reported(self, side, old, new, moves) -> None:
+        """Each edge mutant moves one fact on ONE side and the comparison reports
+        it; the unmutated pair, in this same run, reports only the declared set
+        (the matched control, asserted first)."""
+        admin = _CROSSHAIR_ADMIN_JS.read_text(encoding="utf-8")
+        public = _CROSSHAIR_PUBLIC_JS.read_text(encoding="utf-8")
+        baseline = crosshair_disagreements(admin, public)
+        assert set(baseline) == set(DECLARED_CROSSHAIR_DIVERGENCES), "the matched control"
+        source = admin if side == "admin" else public
+        assert source.count(old) == 1, f"the plant must apply exactly once: {old!r}"
+        planted = source.replace(old, new)
+        if moves == "__duplicate__":
+            with pytest.raises(AssertionError, match="registered twice"):
+                crosshair_disagreements(admin, planted)
+            return
+        found = crosshair_disagreements(planted, public) if side == "admin" else crosshair_disagreements(admin, planted)
+        assert found != baseline
+        assert moves in found and found[moves] != baseline.get(moves, ("", "")), (moves, found.get(moves))
+
+    def test_a_declared_divergence_that_stops_diverging_is_reported(self) -> None:
+        """The stale-exemption arm: make the public side forget on redraw like
+        the admin and ``position.is_forgotten_on_redraw`` stops diverging, which
+        the set equality must notice."""
+        admin = _CROSSHAIR_ADMIN_JS.read_text(encoding="utf-8")
+        public = _CROSSHAIR_PUBLIC_JS.read_text(encoding="utf-8")
+        planted = public.replace("function wireCrosshair(stage) {", "function wireCrosshair(stage) {\n  const forget = () => {};", 1)
+        assert crosshair_disagreements(admin, planted).keys() == crosshair_disagreements(admin, public).keys() - {
+            "position.is_forgotten_on_redraw"
+        }
+
+    # -- the look -----------------------------------------------------------
+
+    def test_the_crosshair_sheet_rules_agree_and_the_tint_is_a_declared_difference(
+        self, admin_css: str, public_css: str
+    ) -> None:
+        """Same three selectors and the same one property; the tint and the ink
+        derived from it differ in ONE stated way, and the residue is held."""
+        selectors = (".player-cell.is-crossed", '.player-cell.is-crossed[data-state="filled"]', ".player-clue.is-crossed")
+        admin_rules, public_rules = rules(admin_css), rules(public_css)
+        for selector in selectors:
+            assert rule_count(admin_css, selector) == rule_count(public_css, selector) == 1, selector
+            a, p = declarations(admin_rules[selector]), declarations(public_rules[selector])
+            assert set(a) == set(p) == {"background"}, selector
+        # The tint. Admin: --color-surface-hover. Public: 9% of --color-text in
+        # --grid-paper, because the public Maybe cell's ground IS
+        # --color-surface-hover and the panel's hint line is
+        # --color-accent-tint, and the card's design context requires the
+        # crosshair to stay distinct from both.
+        def stage_rule(css: str) -> dict[str, str]:
+            """The ONE ``.player-stage`` rule that declares the tint (the
+            selector has several rules; ``rules`` keeps only the last)."""
+            owners = [
+                declarations(body)
+                for selector, body in _RULE.findall(_css_code(css))
+                if _squeezed(selector) == ".player-stage" and "--player-cross:" in body
+            ]
+            assert len(owners) == 1, owners
+            return owners[0]
+
+        a_stage, p_stage = stage_rule(admin_css), stage_rule(public_css)
+        assert a_stage["--player-cross"] == "var(--color-surface-hover)"
+        assert p_stage["--player-cross"] == "color-mix(in srgb, var(--color-text) 9%, var(--grid-paper))"
+        maybe_paper = declarations(public_rules['.player-cell[data-state="maybe"]'])["background"]
+        assert maybe_paper == "var(--color-surface-hover)"
+        assert p_stage["--player-cross"] != maybe_paper, "the public tint must stay distinct from the Maybe ground"
+        hint_tints = [
+            declarations(body)["--player-hint-line"]
+            for selector, body in _RULE.findall(_css_code(admin_css))
+            if _squeezed(selector) == ".player-stage" and "--player-hint-line:" in body
+        ]
+        assert hint_tints == ["var(--color-accent-tint)"], hint_tints
+        assert p_stage["--player-cross"] not in hint_tints, "...and from the hint line's tint"
+        # The RESIDUE of the ink: with each side's tint name factored out, the
+        # mix is the same expression.
+        def residue(text: str, tint: str) -> str:
+            return text.replace(tint, "<TINT>")
+
+        assert residue(a_stage["--player-cross-ink"], "var(--color-surface-hover)") == residue(
+            p_stage["--player-cross-ink"], "var(--player-cross)"
+        ) == "color-mix(in srgb, <TINT> 16%, var(--grid-ink))"
