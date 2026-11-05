@@ -1,6 +1,6 @@
 # CARD-359: The `page_ink` reader meets a content stream — 6 reds, one cause signature, four modules nobody else touches
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/359-page-ink-reader
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-359
 **Source:** Module-sliced out of CARD-337 at the decompose station, 2026-11-04, on the owner's "module slicing" instruction. CARD-337's own item 0 refuted its premise three ways and its round then derived the mechanism x module cross-tab; that table reconciles to 143 reds in both directions. The axis was changed from mechanism to MODULE because the round measured that a mechanism-sliced partition cannot run concurrently at all -- nine of thirteen modules split across mechanisms, `tests/test_book_pdf_band.py` would have needed five separate cards to edit it, and nothing could have run beside the M10 card. The file axis is the one the scope gate enforces.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_proof_pages.py, tests/property/test_book_export_interior.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T16:07Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
