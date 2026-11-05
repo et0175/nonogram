@@ -181,6 +181,7 @@ Two divergences from the admin player, both deliberate and both recorded
 
 from __future__ import annotations
 
+import math
 import random
 import re
 from pathlib import Path
@@ -734,9 +735,20 @@ class TestPublicZoom_AZoomedGutterNeverCoversTheBoard:
             for axis in (2, 3):
                 kept = [row[axis] for row in mine]
                 assert kept == sorted(kept, reverse=True), (name, axis, mine)
-            # At the module's floor the promise CARD-283 made is intact on
-            # both axes.
-            assert mine[0][1:] == (bounds["min"], True, True), mine
+            # At the module's floor the promise CARD-283 made is intact on the
+            # row axis at both viewports, and on the column axis wherever the
+            # stage is tall enough to leave two cells under the band. On the
+            # landscape phone it is NOT, and that is the honest answer rather
+            # than a regression to hide (cycle 2): the stage's cap now follows
+            # the real toolbar, so at 844x390 the stage is ~193 px tall, the
+            # 30-clue band takes 134 of it, and a pinned band would leave under
+            # two cells of board. The rule unpins it there (the equality
+            # `keepsCols is roomBesideCols` above is what holds that). Before
+            # the cap was honest the stage reached 47 px below the fold and the
+            # same band looked pinned only because the page scrolled.
+            assert mine[0][1:3] == (bounds["min"], True), mine
+            if name == "phone":
+                assert mine[0][3] is True, mine
 
         # Not a vacuous rule, on EITHER axis: each has a rung somewhere in the
         # sweep where it holds and a rung where it lets go, so neither
@@ -919,6 +931,521 @@ class TestPublicZoom_AZoomedGutterNeverCoversTheBoard:
         unpinned = page.evaluate(visible, False)
         assert pinned == 0, f"the pinned gutter left {pinned} cells reachable, so it is not the cause"
         assert unpinned > 0, "unpinned, the board is still unreachable — the fix does not work"
+
+
+# ==========================================================================
+# CARD-324 review cycle 2 — the gutter rule held over its OPERANDS, and the
+# stage's height held to the real toolbar
+# ==========================================================================
+
+#: The narrowest phone the sweeps start from. Not derived: it is the smallest
+#: width ``player.css``'s own header names a phone for, and the only written
+#: starting point; everything ABOVE it is derived from the page's geometry.
+NARROWEST = 320
+
+#: The viewport heights the sweeps span (a landscape phone to a tall desktop
+#: window) and the widest width. Bounds of the sweep, not of the feature.
+SHORTEST, TALLEST, WIDEST = 390, 900, 1440
+
+#: What the gutter test reads, with the page scrolled to its top first (and
+#: put back after), so the viewport-relative numbers are measured at the
+#: scroll the rule claims to be conservative for — without calling the rule.
+_GEOMETRY = """() => {
+  const stage = document.querySelector('[data-player-stage]');
+  const board = document.querySelector('.player-board');
+  const y = window.scrollY;
+  window.scrollTo(0, 0);
+  const box = stage.getBoundingClientRect();
+  const row = document.querySelector('th.player-clue.is-row').getBoundingClientRect();
+  const col = document.querySelector('th.player-clue.is-col').getBoundingClientRect();
+  const cell = document.querySelector('td.player-cell').getBoundingClientRect();
+  const innerTop = box.top + stage.clientTop;
+  const visible = Math.min(innerTop + stage.clientHeight, innerHeight) - innerTop;
+  const reading = {
+    innerWidth, innerHeight,
+    clientWidth: stage.clientWidth, clientHeight: stage.clientHeight,
+    rowWidth: row.width, colHeight: col.height,
+    cellWidth: cell.width, cellHeight: cell.height,
+    innerTop, visible,
+    docBottom: box.bottom,
+    docHeight: document.documentElement.scrollHeight,
+    keepsRows: board.classList.contains('keeps-rows'),
+    keepsCols: board.classList.contains('keeps-cols'),
+  };
+  window.scrollTo(0, y);
+  return reading;
+}"""
+
+
+def _settle(page, frames: int = 2) -> None:
+    for _ in range(frames):
+        page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+
+
+def _rung_count(page) -> int:
+    bounds = _bounds(page)
+    return int(round((bounds["max"] - bounds["min"]) / bounds["step"]))
+
+
+def _to_rung(page, rung: int) -> None:
+    bounds = _bounds(page)
+    target = bounds["min"] + rung * bounds["step"]
+    while _percent(page) < target:
+        _press(page, "in")
+    while _percent(page) > target:
+        _press(page, "out")
+    assert _percent(page) == bounds["min"] + rung * bounds["step"]
+
+
+def _rows_say(reading) -> bool:
+    return reading["clientWidth"] - reading["rowWidth"] >= 2 * reading["cellWidth"]
+
+
+def _cols_say(reading) -> bool:
+    return reading["visible"] - reading["colHeight"] >= 2 * reading["cellHeight"]
+
+
+@pytest.mark.browser
+class TestPublicZoom_TheGutterRuleHoldsOverItsOperands:
+    """Cycle 2 (C2-2, C2-3): the rule's tests held two viewports and nine rungs.
+
+    A factor of 1.5 on the row axis, ``innerWidth`` for ``stage.clientWidth``,
+    ``>`` for ``>=``, a dropped ``window.scrollY`` or ``stage.clientTop``: each
+    left every test green, because the sweep sampled two viewports and nothing
+    scrolled the page. So here the viewport is the variable.
+
+    **How the sweep is placed, and why it is not a copy of the reviewer's.**
+    The rule flips on an axis at one viewport size per zoom rung. That size is
+    not chosen: it is *predicted from the page's own geometry* (the stage's
+    width less its viewport, the gutter, two cell pitches) and then *verified*
+    — a flip must really occur within a few pixels of it, so a wrong prediction
+    fails rather than silently sampling elsewhere. Around each prediction the
+    sweep covers one cell pitch below it (the most any factor between 1 and 2
+    can move the flip) plus the viewport-to-stage offset (what ``innerWidth``
+    for ``clientWidth`` moves it by), at a 3 px step, and 1 px steps right at
+    it (where ``offsetWidth`` and a dropped ``clientTop`` live). Above the
+    largest prediction every rung is pinned, so the range ends there.
+
+    **The operand table (cycle 2's remit: classify the whole population).**
+    Every operand of ``keepCluesInView``'s two predicates, of ``visibleHeight``
+    and of the stage-cap write, with the plant (by text, count ``== 1``) that
+    reds, or the declaration. "rows"/"cols"/"cap"/"census" name the test below
+    or above that holds it.
+
+    * rows: ``stage.clientWidth`` -> ``innerWidth`` / ``offsetWidth`` /
+      ``scrollWidth`` (rows sweep); ``rowClue`` width -> ``.height`` or the
+      column gutter (rows); ``-`` -> ``+`` (rows); ``>=`` -> ``>`` (boundary);
+      ``CELLS_BESIDE`` -> 1.5 on this axis alone (rows); ``* width`` ->
+      ``* height`` (rows: the cell is 29 x 33 at 100%, NOT square, so this is
+      not an equivalent mutant); the class name swapped, or ``add`` / ``remove``
+      for ``toggle(name, force)`` (rows).
+    * cols: ``visibleHeight`` -> ``clientHeight`` / ``innerHeight`` (cols
+      sweep, scrolled/unbounded); band ``.height`` -> ``.width``, ``-`` -> ``+``,
+      1.5, ``* height`` -> ``* width``, class swapped, ``add`` / ``remove``
+      (cols); ``>=`` -> ``>`` (boundary).
+    * the constant ``CELLS_BESIDE``: 1, 3 and 1.5 on both axes (rows).
+    * ``visibleHeight``: min -> max (cols); ``innerHeight`` -> ``innerWidth``
+      (cols); ``rect.top`` -> ``rect.bottom`` (cols); ``+ clientTop`` dropped,
+      ``+ scrollY`` dropped or sign-flipped, ``-`` -> ``+`` (scrolled and
+      unbounded: it needs a page that is both scrolled and taller than the
+      viewport); ``clientHeight`` -> ``offsetHeight`` / ``scrollHeight`` (cols);
+      the measured cell -> a major-rule cell (rows, cols: the pitch residue
+      cycle 2 called C2-4 is real, 0.5 px, and the first cell is pinned).
+    * the guard ``if (!board || !rowClue || !colClue || !cell) return``: the
+      last three operands and the whole guard (missing element). **Declared:**
+      ``!board`` is subsumed by the other three (the gutters and cells are
+      built inside the one board, so a stage without it has none of them).
+    * the stage-cap write: ``rect.top`` -> ``rect.bottom``, ``scrollY``
+      dropped or flipped, the property renamed, the unit changed (fold, with
+      the page scrolled), and the CSS side: the air dropped, the border
+      dropped, the fallback renamed (fold).
+    * listeners: ``resize`` removed, ``orientationchange`` instead, an empty
+      handler (cols sweep); ``ResizeObserver`` removed or on the content box
+      (toolbar); a second inline-arrow ``resize`` listener (census total).
+    * **Declared, equivalent:** ``onScreen < clientHeight`` -> ``<=`` -- both
+      branches yield the same number at equality, so no input distinguishes
+      them. ``innerHeight`` -> ``document.documentElement.clientHeight`` --
+      they differ only by a classic horizontal scrollbar; measured equal at
+      2610 of 2610 viewport / rung samples in the one declared browser
+      (headless Chromium, overlay scrollbars), so a plant survives and is
+      NOT a gap in this environment.
+    * **Declared, boundary:** ``>=`` is exact. A natural gutter is fractional
+      and the stage an integer, so equality does not occur at a phone width
+      except by coincidence (the real 125% gutter is 215 px and the equality
+      sits at a 319 px viewport, below the narrowest phone); it is therefore
+      manufactured in ``test_the_boundary_itself_pins_on_both_axes`` rather
+      than waited for.
+    """
+
+    def _expect(self, page, axis: str, label) -> dict:
+        reading = page.evaluate(_GEOMETRY)
+        if axis == "rows":
+            assert reading["keepsRows"] is _rows_say(reading), (label, reading)
+        else:
+            assert reading["keepsCols"] is _cols_say(reading), (label, reading)
+        return reading
+
+    def _flip(self, page, axis, widths_or_heights, set_size, label) -> bool:
+        """Walk the sizes; the class must equal the geometry at each; True if it flipped."""
+        classes = []
+        for size in widths_or_heights:
+            set_size(size)
+            _settle(page)
+            reading = self._expect(page, axis, (label, size))
+            classes.append(reading["keepsRows" if axis == "rows" else "keepsCols"])
+        return len(set(classes)) == 2
+
+    def test_the_row_rule_equals_the_geometry_across_the_phone_widths_at_every_rung(
+        self, browser_page, host
+    ) -> None:
+        page = browser_page
+        _open_max(page, host)
+        plan = {}
+        for rung in range(_rung_count(page) + 1):
+            if rung:
+                _press(page, "in")
+            g = page.evaluate(_GEOMETRY)
+            offset = g["innerWidth"] - g["clientWidth"]
+            plan[rung] = (
+                math.ceil(g["rowWidth"] + 2 * g["cellWidth"] + offset),
+                math.ceil(g["cellWidth"] + offset) + 2,
+            )
+        upper = max(edge for edge, _ in plan.values()) + 8
+        assert upper < 1000, "the cell grew past its fitted floor; the prediction does not apply"
+        checked = 0
+        for rung, (edge, reach) in plan.items():
+            _to_rung(page, rung)
+            near = list(range(edge - 3, edge + 4))
+            windowed = list(range(edge - reach, edge + 5, 3))
+            sparse = list(range(NARROWEST, upper, 40))
+            widths = sorted({w for w in near + windowed + sparse if NARROWEST <= w <= upper}, reverse=True)
+            flipped = self._flip(
+                page, "rows", widths,
+                lambda w: page.set_viewport_size({"width": w, "height": PHONE["height"]}),
+                ("rows", _percent(page)),
+            )
+            checked += len(widths)
+            # The prediction is verified, not trusted: the rule really flips
+            # inside the window it was derived to flip in. (At the lowest rungs
+            # the board is reachable at every phone width and there is nothing
+            # to flip; the prediction then lies below the narrowest phone.)
+            if edge - 3 >= NARROWEST:
+                assert flipped, ("no flip near the predicted width", rung, edge)
+            # The consequence, at the flip itself: a pinned row gutter leaves a
+            # whole cell at every scroll offset (cycle 2's 0-vs-11 count,
+            # taken at the widths where it could go wrong).
+            for w in near:
+                if NARROWEST <= w:
+                    page.set_viewport_size({"width": w, "height": PHONE["height"]})
+                    _settle(page)
+                    if page.evaluate(_GEOMETRY)["keepsRows"]:
+                        assert page.evaluate(self._REACH)["min"] >= 1, ("rows", _percent(page), w)
+        assert checked >= 100, checked
+
+    #: Whole cells in the first board row that are visible at the WORST scroll
+    #: offset of the stage, with the row gutter's pin taken into account — the
+    #: consequence the row rule exists for, measured without calling it.
+    _REACH = """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const W = window.publicPlayer.payload.width;
+      const first = [...document.querySelectorAll('td.player-cell')].slice(0, W);
+      const gutter = document.querySelector('th.player-clue.is-row');
+      const box = stage.getBoundingClientRect();
+      const left = box.left + stage.clientLeft;
+      const right = left + stage.clientWidth;
+      const quarter = first[0].getBoundingClientRect().width / 4;
+      const saved = stage.scrollLeft;
+      const max = stage.scrollWidth - stage.clientWidth;
+      let min = Infinity;
+      for (let at = 0; at < max + quarter; at += quarter) {
+        stage.scrollLeft = Math.min(at, max);
+        const edge = Math.max(left, gutter.getBoundingClientRect().right);
+        const n = first.filter((td) => {
+          const r = td.getBoundingClientRect();
+          return r.left >= edge - 0.5 && r.right <= right + 0.5;
+        }).length;
+        min = Math.min(min, n);
+      }
+      stage.scrollLeft = saved;
+      return { min };
+    }"""
+
+    def test_the_column_rule_equals_the_geometry_across_the_viewport_heights_at_every_rung(
+        self, browser_page, host
+    ) -> None:
+        page = browser_page
+        checked = 0
+        flips = 0
+        for name, viewport in (("phone", PHONE), ("landscape", LANDSCAPE)):
+            page.set_viewport_size({**viewport, "height": TALLEST})
+            _open(page, host, host[2]["max"])
+            for rung in range(_rung_count(page) + 1):
+                _to_rung(page, rung)
+                g = page.evaluate(_GEOMETRY)
+                # visible = clientHeight tracks the viewport's height 1:1 while
+                # the cap is what bounds the stage, so the flip is where the
+                # visible height less the band reaches two pitches.
+                edge = math.ceil(g["innerHeight"] + 2 * g["cellHeight"] + g["colHeight"] - g["visible"])
+                reach = math.ceil(g["cellHeight"]) + 20
+                near = list(range(edge - 3, edge + 4))
+                windowed = list(range(edge - reach, edge + 5, 3))
+                heights = sorted(
+                    {h for h in near + windowed + list(range(SHORTEST, TALLEST + 1, 53))
+                     if SHORTEST <= h <= TALLEST},
+                    reverse=True,
+                )
+                flipped = self._flip(
+                    page, "cols", heights,
+                    lambda h: page.set_viewport_size({"width": viewport["width"], "height": h}),
+                    (name, _percent(page)),
+                )
+                checked += len(heights)
+                if SHORTEST <= edge - 3 and edge + 3 <= TALLEST:
+                    assert flipped, ("no flip near the predicted height", name, rung, edge)
+                    flips += 1
+        assert checked >= 200 and flips >= 9, (checked, flips)
+
+    def test_the_boundary_itself_pins_on_both_axes(self, browser_page, host) -> None:
+        """``>=`` and not ``>``: a viewport CAN land on ``room == 2 pitches`` exactly.
+
+        A natural gutter is a fraction of a pixel wide and the stage's width an
+        integer, so the equality is manufactured: the gutters are given a
+        whole-pixel size by the sheet below, and the stage a size that makes
+        the room exactly two cell pitches. At one pixel less the axis must let
+        go and at one more it must hold — the three together are what a ``>``
+        cannot satisfy. (Not contrived out of nothing: at 125% the real row
+        gutter measures 215 px, and the equality is real at a 319 px viewport.)
+        """
+        page = browser_page
+        page.set_viewport_size({"width": 600, "height": 1300})
+        _open(page, host, host[2]["max"])
+        _to_rung(page, 1)
+        page.add_style_tag(
+            content="th.player-clue.is-row { min-width: 300px !important }"
+            " th.player-clue.is-col { height: 200px !important }"
+        )
+        _press(page, "in")
+        _press(page, "out")
+        g = page.evaluate(_GEOMETRY)
+        assert g["rowWidth"] == int(g["rowWidth"]) and g["colHeight"] == int(g["colHeight"]), g
+        # Rows: the stage is as wide as the viewport less its offset.
+        offset = g["innerWidth"] - g["clientWidth"]
+        need = g["rowWidth"] + 2 * g["cellWidth"]
+        results = {}
+        for delta in (-1, 0, 1):
+            page.set_viewport_size({"width": int(need + offset) + delta, "height": 1300})
+            _settle(page)
+            r = page.evaluate(_GEOMETRY)
+            assert r["clientWidth"] - r["rowWidth"] - 2 * r["cellWidth"] == delta, r
+            results[delta] = r["keepsRows"]
+        assert results == {-1: False, 0: True, 1: True}, results
+        # Columns: the stage's own height is given, and the viewport is tall
+        # enough that it, not the fold, is what bounds the visible height.
+        page.set_viewport_size({"width": 600, "height": 1300})
+        results = {}
+        for delta in (-1, 0, 1):
+            height = int(g["colHeight"] + 2 * g["cellHeight"]) + delta
+            page.evaluate(
+                "(h) => { document.querySelector('[data-player-stage]').style.maxHeight = h + 'px';"
+                " window.dispatchEvent(new Event('resize')); }",
+                height,
+            )
+            _settle(page)
+            r = page.evaluate(_GEOMETRY)
+            assert r["visible"] - r["colHeight"] - 2 * r["cellHeight"] == delta, r
+            results[delta] = r["keepsCols"]
+        assert results == {-1: False, 0: True, 1: True}, results
+
+    def test_a_scrolled_page_and_an_unbounded_stage_hold_the_visible_height_operands(
+        self, browser_page, host
+    ) -> None:
+        """C2-2: nothing scrolled the page, so ``scrollY`` was unread.
+
+        The stage is left uncapped here (``max-height: none``) so that the
+        part of it on screen — ``innerHeight`` less its top, in page
+        coordinates — is what bounds the visible height, and so the page is
+        tall enough to scroll at any viewport. The page is scrolled before the
+        rule is re-asked; the expectation is read with the page back at its
+        top. A dropped ``scrollY`` over-states the visible height by the
+        scroll, a flipped sign by twice it, a dropped ``clientTop`` by a
+        pixel, the wrong edge of the stage by its height.
+        """
+        page = browser_page
+        page.set_viewport_size({"width": PHONE["width"], "height": TALLEST})
+        _open(page, host, host[2]["max"])
+        page.evaluate("() => { document.querySelector('[data-player-stage]').style.maxHeight = 'none'; }")
+        checked = 0
+        for rung in range(_rung_count(page) + 1):
+            _to_rung(page, rung)
+            g = page.evaluate(_GEOMETRY)
+            # Uncapped, the visible height is innerHeight less the stage's
+            # top, so the flip is where that reaches the band plus two pitches.
+            edge = math.ceil(g["innerTop"] + g["colHeight"] + 2 * g["cellHeight"])
+            for scroll in (0, 90):
+                for height in sorted({edge + k for k in range(-3, 4)} | {edge - scroll, edge - 2 * scroll}, reverse=True):
+                    if not SHORTEST <= height <= TALLEST + 400:
+                        continue
+                    page.set_viewport_size({"width": PHONE["width"], "height": height})
+                    _settle(page)
+                    page.evaluate(
+                        "(y) => { window.scrollTo(0, y); window.dispatchEvent(new Event('resize')); }", scroll
+                    )
+                    assert page.evaluate("() => window.scrollY") == scroll, "the page did not scroll"
+                    r = page.evaluate(_GEOMETRY)
+                    assert r["visible"] == r["innerHeight"] - r["innerTop"], r  # uncapped: the fold bounds it
+                    assert r["keepsCols"] is _cols_say(r), (_percent(page), scroll, height, r)
+                    checked += 1
+        assert checked >= 100, checked
+
+    def test_a_stage_missing_a_measured_element_is_left_alone_and_never_thrown_at(
+        self, browser_page, host
+    ) -> None:
+        """The guard's operands: the rule cannot measure what is not there.
+
+        ``keepCluesInView`` opens with ``if (!board || !rowClue || !colClue ||
+        !cell) return``. Nothing in the shipped page reaches it (the board is
+        drawn before the first call), so each operand is dead code until a
+        stage is emptied of exactly one of them: this removes the row gutter,
+        the column gutter and the cells in turn and re-asks the rule through a
+        real ``resize`` handler. An unguarded read is a ``TypeError`` out of
+        the handler, which Chromium reports as a ``pageerror``. (``!board`` is
+        NOT separately testable and is declared in the operand table instead:
+        the gutters and cells are built inside the one ``.player-board``, so
+        a stage without the board has none of them and the other three
+        operands answer first.)
+        """
+        page = browser_page
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        for selector in ("th.player-clue.is-row", "th.player-clue.is-col", "td.player-cell"):
+            _open_max(page, host)
+            page.evaluate(
+                "(sel) => { document.querySelectorAll(sel).forEach((el) => el.remove());"
+                " window.dispatchEvent(new Event('resize')); }",
+                selector,
+            )
+            _settle(page)
+            assert errors == [], (selector, errors)
+
+    def test_scrolling_the_page_only_ever_adds_reach_because_the_space_below_is_smaller_than_the_top(
+        self, browser_page, host
+    ) -> None:
+        """C2-2's premise, asserted instead of observed once.
+
+        ``keepCluesInView`` reads the stage as it is with the page at its top
+        and calls that conservative: scrolling the page further shows MORE of
+        the stage. That is true only while the space below the stage is
+        smaller than the stage's own offset from the top; were it larger, a
+        scrolled page could push the stage off the top of the screen and the
+        reading taken at the top would over-state what is visible. So the
+        inequality is measured over the whole viewport grid, with the page at
+        its tallest, rather than left as a thing that happened to hold.
+        """
+        page = browser_page
+        _open_max(page, host)
+        worst = None
+        count = 0
+        for height in range(SHORTEST, TALLEST + 1, 70):
+            for width in range(NARROWEST, WIDEST + 1, 40):
+                page.set_viewport_size({"width": width, "height": height})
+                _settle(page)
+                r = page.evaluate(_GEOMETRY)
+                below = r["docHeight"] - r["docBottom"]
+                margin = r["innerTop"] - below
+                count += 1
+                worst = margin if worst is None else min(worst, margin)
+                assert below < r["innerTop"], (width, height, below, r["innerTop"])
+        assert count >= 150 and worst > 0, (count, worst)
+
+
+@pytest.mark.browser
+class TestPublicZoom_TheStageEndsAboveTheFold:
+    """Cycle 2 (C2-1's second half): the stage's cap follows the real toolbar.
+
+    ``--player-chrome-h`` once allowed ONE toolbar row, and the toolbar wraps:
+    at 844x390 the stage's bottom sat 47 px below the fold and the page
+    scrolled as well as the stage. The cap is now the stage's measured
+    distance from the top of the page, so it follows whatever the chrome above
+    it is — however many rows, whatever the heading does.
+    """
+
+    _FOLD = """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const probe = document.createElement('div');
+      probe.style.paddingTop = 'var(--space-4)';
+      document.body.append(probe);
+      const air = parseFloat(getComputedStyle(probe).paddingTop);
+      probe.remove();
+      const y = window.scrollY;
+      window.scrollTo(0, 0);
+      const bottom = stage.getBoundingClientRect().bottom;
+      window.scrollTo(0, y);
+      return { bottom, innerHeight, air, clientHeight: stage.clientHeight, y };
+    }"""
+
+    def test_the_stage_bottom_is_inside_the_fold_at_every_viewport(self, browser_page, host) -> None:
+        page = browser_page
+        _open_max(page, host)
+        rows = {}
+        count = 0
+        for height in range(SHORTEST, TALLEST + 1, 30):
+            for width in range(NARROWEST, WIDEST + 1, 20):
+                page.set_viewport_size({"width": width, "height": height})
+                _settle(page)
+                r = page.evaluate(self._FOLD)
+                count += 1
+                # Inside the fold, with the page's own air below it.
+                assert r["bottom"] <= r["innerHeight"] - r["air"] + 0.01, (width, height, r)
+                assert r["clientHeight"] > 0, (width, height, r)
+                rows[(width, height)] = r
+        assert count >= 600, count
+        # The three landscape phones the owner named, by name.
+        for width, height in ((844, 390), (852, 393), (874, 402)):
+            page.set_viewport_size({"width": width, "height": height})
+            _settle(page)
+            r = page.evaluate(self._FOLD)
+            assert r["bottom"] <= r["innerHeight"] - r["air"] + 0.01, (width, height, r)
+
+    def test_the_sweep_can_fail_the_old_allowance_is_what_it_would_have_left(
+        self, browser_page, host
+    ) -> None:
+        """The control: with the cap put back to one toolbar row, 844x390 is out."""
+        page = browser_page
+        _open_max(page, host)
+        page.set_viewport_size(LANDSCAPE)
+        _settle(page)
+        page.evaluate(
+            "() => document.querySelector('[data-player-stage]').style.setProperty("
+            "'--player-above-h', 'calc(var(--space-4) + var(--text-xl) * 1.2 + var(--space-3)"
+            " + 44px + var(--space-3))')"
+        )
+        r = page.evaluate(self._FOLD)
+        assert r["bottom"] > r["innerHeight"], r
+
+    def test_it_holds_with_the_page_scrolled_when_the_rule_is_re_asked(self, browser_page, host) -> None:
+        """The cap is a position in PAGE coordinates, so a scrolled page must not move it."""
+        page = browser_page
+        _open_max(page, host)
+        page.set_viewport_size(LANDSCAPE)
+        page.evaluate("() => { document.body.style.paddingBottom = '600px'; }")
+        _settle(page)
+        page.evaluate("() => { window.scrollTo(0, 120); window.dispatchEvent(new Event('resize')); }")
+        r = page.evaluate(self._FOLD)
+        assert r["y"] == 120, r
+        assert r["bottom"] <= r["innerHeight"] - r["air"] + 0.01, r
+
+    def test_it_follows_a_toolbar_that_changes_height_with_no_resize(self, browser_page, host) -> None:
+        """The ResizeObserver's reason: the Solved banner, a late font, a wrap."""
+        page = browser_page
+        _open_max(page, host)
+        page.set_viewport_size(LANDSCAPE)
+        _settle(page)
+        before = page.evaluate(self._FOLD)
+        page.add_style_tag(content=".player-toolbar { padding-bottom: 40px }")
+        _settle(page, 4)
+        after = page.evaluate(self._FOLD)
+        assert after["clientHeight"] == before["clientHeight"] - 40, (before, after)
+        assert after["bottom"] <= after["innerHeight"] - after["air"] + 0.01, after
 
 
 # ==========================================================================

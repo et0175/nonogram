@@ -580,11 +580,18 @@ function start(payload) {
   // the board stops being reachable at all.
   //
   // The column axis is measured against the VISIBLE height of the stage, not
-  // its clientHeight: --player-chrome-h allows one toolbar row and the
-  // toolbar wraps on a phone, so at 390x844 the stage is 708 px tall with its
-  // bottom at 943 — 99 px below an 844 px fold. The part that counts is the
-  // part visible with the page at its top; the page scrolling further down
-  // only shows more of the stage, so this is conservative, never wrong.
+  // its clientHeight. The stage's cap is derived from where the stage really
+  // starts (the first lines of the function below), so in the ordinary case
+  // its bottom edge is on screen and the two are the same number; the min
+  // stays for the cases where the cap is not what bounds the stage (the
+  // moment before the first measurement, the dynamic toolbar of a phone
+  // browser moving `innerHeight` under a cap computed for `svh`), because
+  // the part that counts is the part visible with the page at its top, and
+  // the page scrolling further down only shows more of the stage, so this is
+  // conservative, never wrong. (That last claim has a premise, and the premise
+  // is an inequality: the space below the stage must be smaller than the
+  // stage's own top offset, else scrolling the page could hide the band from
+  // a reading taken at the top. tests/test_public_player_zoom.py asserts it.)
   //
   // It is recomputed on resize, because the geometry it reads is the
   // viewport's: a rotation changes the stage's width, its visible height and
@@ -600,6 +607,15 @@ function start(payload) {
   // which the classes are absent and a board is on screen.
   const CELLS_BESIDE = 2;
   function keepCluesInView() {
+    // The stage's cap follows the REAL toolbar. Where the stage starts, in
+    // page coordinates, is the whole chrome above it -- heading, however many
+    // rows the toolbar wrapped to, margins -- so it is measured, not allowed
+    // for. Written first, because every figure below is read off the stage
+    // this resizes.
+    stage.style.setProperty(
+      "--player-above-h",
+      `${stage.getBoundingClientRect().top + window.scrollY}px`,
+    );
     const board = stage.querySelector(".player-board");
     const rowClue = stage.querySelector("th.player-clue.is-row");
     const colClue = stage.querySelector("th.player-clue.is-col");
@@ -823,6 +839,10 @@ function start(payload) {
   });
 
   window.addEventListener("resize", keepCluesInView);
+  // The toolbar can change height with no resize: the Solved banner wrapping
+  // onto a new row, a late font changing a label's width. The stage's cap
+  // follows the toolbar, so the toolbar's own size is observed as well.
+  new ResizeObserver(keepCluesInView).observe(controls, { box: "border-box" });
 
   controls.hidden = false;
   hint.hidden = false;

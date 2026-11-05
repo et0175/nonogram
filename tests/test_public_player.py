@@ -2644,6 +2644,29 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     #: rotates a zoomed viewport to hold the behaviour.
     viewport_listeners = re.findall(r'window\.addEventListener\("([a-z]+)", (\w+)\)', script)
     assert viewport_listeners == [("resize", "keepCluesInView")], viewport_listeners
+    # CARD-324's review (cycle 2) then added the one OBSERVER: a
+    # ``ResizeObserver`` on the toolbar, so the stage's height cap follows a
+    # toolbar that changes size with no resize event (the Solved banner
+    # wrapping onto a row, a late font). It is not an ``addEventListener``, so
+    # it joins the census here by its own derivation rather than the list
+    # above: exactly one is constructed, it is handed the same function the
+    # ``resize`` listener is, and it observes exactly one element.
+    observers = re.findall(r"new ResizeObserver\((\w+)\)\.observe\((\w+)", script)
+    assert observers == [("keepCluesInView", "controls")], observers
+    assert script.count("ResizeObserver") == 1 and script.count(".observe(") == 1
+    #: What this census does NOT see, declared rather than left to read as
+    #: stronger than it is: ``viewport_listeners`` above is a pair regex over
+    #: ``window.addEventListener("<type>", <name>)`` and is BLIND to an inline
+    #: arrow -- ``window.addEventListener("resize", () => ...)`` or a listener
+    #: on ``document`` / ``visualViewport`` -- so a second ``resize`` handler
+    #: spelled that way leaves the pair list unchanged. What catches it is the
+    #: TOTAL below: ``registered`` counts every ``addEventListener("<type>"``
+    #: whatever its receiver and handler, and an extra one changes the count.
+    #: The residue after both is a listener attached under a computed type
+    #: name (``addEventListener(kind, ...)``), which neither regex matches; no
+    #: such call exists in play.js (``re.findall(r"addEventListener\((?!\")")``
+    #: below is empty), and that is asserted rather than assumed.
+    assert re.findall(r"addEventListener\((?!\")", script) == [], "a listener with a computed type"
     registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
     assert registered == sorted(
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]

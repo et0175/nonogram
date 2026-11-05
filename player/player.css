@@ -459,16 +459,25 @@ body {
      scrolls carries the sticky column clue band away with it, leaving the
      player magnified cells with no clues reachable. That is the opposite of
      what the zoom is for. The cap is the same shape admin.css gives its own
-     stage (`100svh` less the chrome above the board), built from this
-     page's chrome rather than the panel's: .player-page's top padding, one
-     --text-xl heading line and its margin, one .btn row of toolbar and its
-     margin, and some air below. It is an allowance and not a measurement —
-     this toolbar wraps on a phone, so a tall board's stage still reaches a
-     little below the fold, exactly as the panel's does. Its only job is to
-     make the stage the scrollport for BOTH axes, which is what keeps both
-     clue gutters in view while a zoomed board is panned. */
-  --player-chrome-h: calc(var(--space-4) + var(--text-xl) * 1.2 + var(--space-3)
-    + 44px + var(--space-3) + var(--space-4));
+     stage (`100svh` less the chrome above the board), and the chrome is the
+     stage's REAL distance from the top of the page, not an allowance for one
+     toolbar row (CARD-324, cycle 2): this toolbar wraps on a phone and on a
+     phone turned on its side, and the allowance was then 47 px short at
+     844x390 -- the stage's bottom edge sat below the fold and the page
+     scrolled as well as the stage. play.js writes that distance into
+     --player-above-h on this element (keepCluesInView, on every resize, zoom
+     press and change of the toolbar's size), and the fallback here is the old
+     allowance -- .player-page's top padding, one --text-xl heading line and
+     its margin, one .btn row of toolbar and its margin -- for the moment
+     before the script has measured, which is also the only time the allowance
+     is what is used. --space-4 below the stage is air, and is not measured;
+     the 2 * --player-rule is the stage's own border, which max-height (a
+     content-box height) does not count.
+     Its only job is to make the stage the scrollport for BOTH axes, which is
+     what keeps both clue gutters in view while a zoomed board is panned. */
+  --player-chrome-h: calc(var(--player-above-h, var(--space-4) + var(--text-xl) * 1.2
+    + var(--space-3) + 44px + var(--space-3)) + var(--space-4)
+    + 2 * var(--player-rule));
   max-height: calc(100svh - var(--player-chrome-h));
   background: var(--color-surface);
   border: var(--player-rule) solid var(--color-border);
