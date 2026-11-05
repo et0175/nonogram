@@ -1720,7 +1720,15 @@ def test_the_listing_pages_carry_no_colour_literal_and_only_defined_tokens() -> 
         # way for the admin player's own copy of that animation. Naming it
         # costs the rule nothing — a typo in the *use* still reds, because
         # the name a cell is given lives in play.js, not here.
-        defined = tokens | {"--player-width", "--player-height", "--player-wave"}
+        # ``--player-above-h`` (CARD-324, cycle 2) is the fourth: play.js
+        # writes the stage's measured distance from the top of the page onto
+        # the stage, and the stage's height cap reads it with the old
+        # one-toolbar-row allowance as the fallback. A typo in the use still
+        # reds for the same reason as above, and a typo in the NAME play.js
+        # writes reds the fold sweep in test_public_player_zoom.py.
+        defined = tokens | {
+            "--player-width", "--player-height", "--player-wave", "--player-above-h",
+        }
         defined |= set(re.findall(r"(--[a-z0-9-]+)\s*:", text))
         used = set(re.findall(r"var\(\s*(--[a-z0-9-]+)", text))
         return sorted(used - defined)

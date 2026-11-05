@@ -470,12 +470,18 @@ active:
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
 #   left naming a path that no longer exists -- the phantom holder a free-slot check would read.
-  - card: CARD-324
-    branch: card/324-public-player-zoom
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-324
-    started: 2026-11-05T06:20Z
-    estimate: 1c (0.5d)
-    cut_from: 1fd40d3a
+  - card: CARD-355
+    branch: card/355-pdf-memory-tests
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-355
+    started: 2026-11-05T11:41Z
+    estimate: 2c (1d)
+    cut_from: b3d04d8c
+  - card: CARD-356
+    branch: card/356-pdf-band-tests
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-356
+    started: 2026-11-05T12:50Z
+    estimate: 2c (1d)
+    cut_from: 0fa46b6c
 # WAVE 78 CLOSED 2026-11-05. CARD-349 CLEARED: merged 597cdf57, done, review cycle 1 at 8.0
 #   (amended from 9.0 by its own author, verdict fail), a SECOND independent reader at 7.5 on the
 #   same commit finding the worst defect the first missed, estimate 1c -> ratio 1.000. Its worktree
@@ -692,6 +698,7 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-325   # P2 0.5d  FIRST PLAYER CARD, owner 2026-11-05 ("let's take 325"). Held for a free slot under the cap of 2 (CARD-355 and CARD-356 are active); starts when either gates. Premises re-verified on the card.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:

@@ -1,6 +1,6 @@
 # CARD-324: The public player gains zoom — four shared functions it already serves and never calls
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d) <!-- RESTATED in review cycles at wave 79's open, 2026-11-05, before dispatch rather than at it, so the wave's ratio is computable from the outset. Was 0.5d. -->
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_zoom.py, tests/test_public_player.py, tests/test_public_player_pages.py
-**Review score:** —
+**Review score:** 8.2 (cycle 3/3 - CERTIFIED)
 **Started:** 2026-11-05T06:23Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T12:45Z
+**Actual:** 3c -- **ratio 3.000** (3 review cycles against the 1c estimate; "significantly underestimated"; the ratio is in review cycles). cycles_used = 3, derived as the distinct ordinals among the `[Review N/M] Score:` lines (1/3, 2/3, 3/3); 1c = the Estimate's `Nc` term. Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **6 tracked files**, 2881 insertions(+), 16 deletions(-) against main tip b90434ae (`tests/test_public_player_zoom.py` 2283 added, `player/play.js` 305 changed, `player/player.css` 152, `tests/test_public_player.py` 113, `player/play.html` 34, `tests/test_public_player_pages.py` 10); src/ diff 0. Gate: armed full suite 10455 passed / 0 failed / 1 skipped (setrlimit RLIMIT_AS) / 1 xfailed.
+**Merge commit:** `18aeac30`
 **Blocked by:** —
 
 ## Why this card exists
@@ -634,4 +634,10 @@ orchestrator's own instance the same night — **the candidate set must not come
 [Layout round for cycle 3, commit `d9fe1fcc`] Scope verified by the orchestrator from the diff: `player/player.css` (+33) and `tests/test_public_player_zoom.py` only; `src/`, `player/play.js` and `meta/` untouched; `touch-action` diff 0 lines. Rule (read from the committed stylesheet): under `@media (orientation: landscape) and (max-width: 889px)` the toolbar gap is `var(--space-2)` and `.player-zoom-readout` is visually hidden (1px, clipped, still in the DOM). Author-reported, not re-derived by me: one toolbar row at 844x390 / 852x393 / 874x402 with slack +5.58 / +13.58 / +35.58 px; new one-row floor 839 px; residue 743-838 px landscape still wraps to two rows. The author's 544-passed figure is carried, not mine; my own run of the three player modules showed no failures. `build/site-fix3` is SHA-identical to the branch for `play.js` and `player.css`; `build/site`, `build/site-fix`, `build/site-fix2` and main's `build/site` had their mtimes unchanged. CORRECTION to my earlier brief, itself RETRACTED in place under ADR-0039/R4 by the cycle-3 review: I wrote that main's one-row floor is 743 px, not "~780 px"; the "743" came from the layout-round hand-back and did NOT reproduce. The cycle-3 review measured the landscape wrap band at height 390 in Chromium as 560-838 px (swept 560-959 step 1; below 560 not swept), floor 839 px; main's own toolbar band is cycle 2's carried figure (one row at 780-932), not re-measured since. I looked at the 844x390 render myself: one row, readout hidden.
 
 [Review 3/3] Score: **8.2 - PASS** (threshold 8.0), reviewer at tip `d9fe1fcc`; no blocking findings. Derived by the reviewer in Chromium: one 44 px toolbar row at 844x390, 852x393 and 874x402, three whole board rows at 844x390; readout hidden as a 1 px absolute clipped box, text kept in the DOM, not aria-hidden (there was never an aria-live in this build or the admin's, so no live-region semantics were broken); wrap band at height 390 is 560-838 px. Residue phones (toolbar height / whole board rows): 812x375 96 px / 1, 800x360 96 px / 0, 740x360 96 px / 0, 667x375 96 px / 1; portrait unchanged by `d9fe1fcc` (152 px at 390-520, 208 px at 320-380). Plants killed: added toolbar button 5 tests, breakpoint 889->800 7, breakpoint 906 1, orientation clause dropped 3, gap rule removed 6, readout `display:none` 2, `visibility:hidden` 1. Cycle 2's six surviving mutants are all killed now (`CELLS_BESIDE`, `innerWidth`, `scrollY` drop / sign flip / `clientTop` drop, `>=` to `>` on both axes) and F-4's inequality is asserted by `test_scrolling_the_page_only_ever_adds_reach_because_the_space_below_is_smaller_than_the_top`. ADR-0041/R2 holds (`setAttribute("data-state"` 0 under `player/`; `dataset.state` writes exactly 3). Three player modules: 106 passed, 0 failed, 0 skipped, `DATABASE_URL` unset; the review took no full suite. Findings: F-1 landscape widths 780-838 px still wrap to two rows (iPhone X/XS/11 Pro/12-13 mini at 812x375, 800x360 Androids; 0-1 whole board rows): NOT blocking, the reviewer recommends accepting it as a declared ADR-0039/R3 bound, reason = the owner's 44 px touch-target priority, measured residue as above; closing it means shrinking button padding or the groups by about 27 px at 812 px, which is a layout and touch-target choice, so it is the OWNER'S call. The 839 floor lived only in a commit message and the declared residue only in one test comment, so nothing pins the bound. F-2 `position:absolute` on the hidden readout is unpinned (low): fix inline, author resumed. Carried, not re-derived: main's one-row band; AC-by-AC assertions not independently re-derived.
+
+[Merge gate, 2026-11-05] Merged as `18aeac30` (branch tip `7df2e632`, whose one commit after the certified `d9fe1fcc` touches only `tests/test_public_player_zoom.py`: the F-2 inline fix, 18 added lines). The review record above is not rewritten. Open items carried past the merge:
+- **F-1 (OWNER decision pending):** the landscape toolbar wraps in the 780-838 px band; this is the declared ADR-0039/R3 bound, not a defect the card left silent.
+- **touch-action:** the unplayed pinch/pan decision stays open; nothing in this card touched `touch-action`. The owner decides after play-testing on a phone.
+
+[Owner decision, 2026-11-05, after phone play-testing the live player] The `touch-action` item above is CLOSED: the owner reports the live player, with its cells at `touch-action: auto`, scrolls the zoomed board acceptably, so **`auto` stays and nothing changes**. The divergence from the admin's `pan-x pan-y` remains deliberate and is pinned by `test_the_cells_touch_action_diverges_from_the_admins_and_is_a_routed_finding` and by `test_the_brush_region_and_touch_bindings_are_the_modules`; `play.html`'s recorded decision to leave the browser's pinch on also stands. No card is owed. Reopen only if the owner reports a scrolling or pinch problem on a real device. (An earlier plan in this session to card a switch to `pan-x pan-y` was abandoned before anything was written, on the owner's correction.)
 

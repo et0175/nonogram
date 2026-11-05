@@ -78,6 +78,40 @@
       <button type="button" class="btn" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true">Redo</button>
       <button type="button" class="btn" data-player-action="reset" aria-disabled="true">Reset</button>
     </div>
+    <!--
+      Zoom (CARD-324, FR-045). A third group after .player-history — the admin
+      player's own DOM order (templates/puzzle_solve.html) — carrying the
+      admin's attribute names, so a reader of either page finds the same
+      hooks: data-player-zoom-action="out"/"in" and data-player-zoom-readout.
+
+      The buttons carry NO aria-keyshortcuts, and that MATCHES the admin
+      rather than diverging from it: the admin's zoom group binds no key
+      either, so inventing one here would be the public page claiming a
+      shortcut the panel does not have (the card's item 5). play.js binds no
+      new key: its keydown handler still reads one key, and still only "z".
+
+      Two deliberate differences from the admin's markup, stated here because
+      a reviewer reads this group against puzzle_solve.html:
+
+        * the readout starts EMPTY, where the admin's starts at the literal
+          "100%". play.js writes it from the module's ZOOM_MIN before this
+          toolbar is ever revealed (the group lives inside
+          [data-player-controls], which is `hidden` until the board is
+          drawn), so a percent in this file would be a SECOND source for a
+          number whose only source is /solver_state.js — the defect AC-1
+          names. Nothing is lost: the placeholder was never visible;
+        * the glyphs are "&minus;" and "+" as the admin's are, but these
+          buttons keep the toolbar's ordinary .btn padding and gain a square
+          minimum in player.css instead of the admin's narrowed one. The
+          admin narrows its pair to keep "Progress: N%" on the counters row
+          at 1280 px; this toolbar has no counters row to protect, and every
+          visit here is a thumb.
+    -->
+    <div class="player-zoom" role="group" aria-label="Zoom">
+      <button type="button" class="btn" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
+      <span class="player-zoom-readout" data-player-zoom-readout></span>
+      <button type="button" class="btn" data-player-zoom-action="in" aria-label="Zoom in" aria-disabled="false">+</button>
+    </div>
     <p class="player-solved" data-player-solved hidden>Solved</p>
     <p class="player-announce" data-player-announce role="status" aria-atomic="true"></p>
   </div>

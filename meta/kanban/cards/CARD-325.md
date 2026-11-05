@@ -16,7 +16,7 @@
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_crosshair.py
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_crosshair.py, tests/test_public_player_agreement.py <!-- added 2026-11-05: AC-6 already says the agreement check joins this file, but Touches omitted it -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -201,3 +201,16 @@ had already moved once.
   identical, while the sweep's selectors differ for a stated reason, so a guard
   demanding sameness wholesale would be false). Read CARD-328 before writing
   AC-6's test; a third copy of this reasoning is what it exists to prevent.
+
+## Premise re-verified 2026-11-05 (zoom has merged since this card was written)
+
+Read against current `main`, by the orchestrator. Nothing here changes an AC; it corrects what the card says about the tree.
+
+- **Dependencies are met.** CARD-328 (owner of `tests/test_public_player_agreement.py`) is `done` and the file exists; CARD-267 and CARD-268 are `done`.
+- **G-2's "CARD-268 is editing exactly that file in a sibling worktree" is STALE:** CARD-268 is done and nothing is editing `src/nonogram/admin/static/solver.js`. The guardrail itself stands: read `wireCrosshair`, do not edit it.
+- **The `solver.js` line numbers in item 1 have moved** (`420-455` is now about `424-468`; the `1046-1047` call site is now about `1162`). Do not use any line number; find `wireCrosshair` and the four decisions by NAME and by their comment text (gutter corner, no-hover phone case, why an exempt touch would undo every touch crosshair, the half-painted crosshair the card refuses).
+- **`wireCrosshair` is in the admin file only:** `crosshair` has 0 mentions in `play.js`, `player.css` and `play.html`, so there is nothing to reuse and nothing to collide with.
+- **GAP: this card predates zoom (CARD-324, merged `18aeac30`).** No AC says what the crosshair does on a ZOOMED stage, or after the page or stage has scrolled. Cell geometry, the gutter corner and the clue highlight are all read from a stage that zoom now rescales and scrolls, and the pinch handler also owns two-pointer input. The author decides and states it: at minimum the crosshair must land on the cell under the pointer at the zoom maximum and at a scrolled offset, and a pinch must neither start nor leave a crosshair. If that needs an AC, add AC-7 here (a test, not review-lens) and say so; it is in scope.
+- **No toolbar control is added by this card,** so zoom's measured toolbar wrap bound (one row at and above 839 px landscape; wraps between 560 and 838 px) is unaffected. If the author finds a control is needed after all, STOP: `tests/test_public_player_zoom.py` reds on any new toolbar button by design, and it needs an owner decision.
+- **`touch-action` stays `auto`** (owner decision 2026-11-05, recorded on CARD-324): the crosshair must not depend on changing it, and a no-hover touch device shows a full crosshair or none (AC-5).
+

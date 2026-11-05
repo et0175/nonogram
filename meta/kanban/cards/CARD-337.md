@@ -102,7 +102,7 @@
 > `solved_answer_key` 33 → 30) — **17 %**, against CARD-329's 80 %. It is structurally
 > **inapplicable** in five of thirteen modules, whose pages come from `pdf_pages(data)` over
 > exported bytes with no page object to wrap. And in two families **the seam is the cause**: a
-> purity test reads `[0, 89, 255]` because poppler anti-aliases a vector rule, and the
+> purity test reads `[0, 89, 255]` because poppler anti-aliases a vector rule [RETRACTED in place 2026-11-05 under ADR-0039/R4, on CARD-356's cycle-1 review: **poppler does not anti-alias this rule.** The 89 is `round(255 x 0.35)`, the DECLARED tone of the cell lines (ADR-0037/R2: fifths and border pure black, cell lines 0.35), so `greys <= {0, 255}` failed because it contradicts a declared grey, not because of anti-aliasing. Re-derived by the review on poppler 26.08.0 with hand-written one-rule PDFs: across an axis-aligned rule's width poppler returned only paper and `round(255 x tone)` for tones 0, 0.35 and 0.6, at DPIs 72-600 and four sub-pixel offsets (rule ENDS and a diagonal rule do carry other greys, and tone 0.9 reads 229, not 230). The thin-rule-floor claim in the next item is unaffected.] and the
 > thin-rule-floor test's own docstring says it measures *the raster path's floor*. **A card
 > asked to make thirteen modules green could not have, under its own G-1.**
 >
@@ -159,7 +159,7 @@
 >
 > **Worse than inapplicable in two families: the seam is their CAUSE.**
 > `test_the_rules_are_pure_black_and_not_anti_aliased` reads `[0, 89, 255]` after the seam
-> because poppler anti-aliases a vector rule, and the thin-rule-floor test's own docstring says
+> because poppler anti-aliases a vector rule [RETRACTED in place 2026-11-05 under ADR-0039/R4, on CARD-356's cycle-1 review: **poppler does not anti-alias this rule.** The 89 is `round(255 x 0.35)`, the DECLARED tone of the cell lines (ADR-0037/R2: fifths and border pure black, cell lines 0.35), so `greys <= {0, 255}` failed because it contradicts a declared grey, not because of anti-aliasing. Re-derived by the review on poppler 26.08.0 with hand-written one-rule PDFs: across an axis-aligned rule's width poppler returned only paper and `round(255 x tone)` for tones 0, 0.35 and 0.6, at DPIs 72-600 and four sub-pixel offsets (rule ENDS and a diagonal rule do carry other greys, and tone 0.9 reads 229, not 230). The thin-rule-floor claim in the next item is unaffected.] and the thin-rule-floor test's own docstring says
 > it measures *"the RASTER path's floor"*. The card's item 1 has no disposition for a claim the
 > seam breaks.
 >
