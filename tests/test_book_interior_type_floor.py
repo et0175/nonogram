@@ -1073,12 +1073,16 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         retired kind a plant removed exactly the lettering the kind names —
         that kind's text call, in that kind's own writer — and the survivor is
         named only if it went red under it (CARD-358 cycle 1, F-002: five of
-        the first draft's eight citations could not fail for the reason they
-        were cited). ``reds`` means newly red against the unplanted
+        the first draft's seven citations -- corrected from eight, cycle 2
+        F-201: guide 1, band 2, footer 2, answer 2 -- could not fail for the
+        reason they were cited). ``reds`` means newly red against the unplanted
         baseline of the same files under the five-kind probe;
         ``corroboration only`` means it sits beside the claim and stayed green.
         The medium each one reads is stated, because the retirement of a kind
         that *converted* is only answered by a survivor in the converted medium.
+
+        The *raster* worked example is covered elsewhere (cycle 2, F-203):
+        ``tests/test_book_guide_page.py::TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample::test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2``.
 
         * ``guide`` (vector stream/record) —
           ``tests/test_book_guide_page_vector.py``'s
