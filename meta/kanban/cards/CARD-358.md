@@ -183,6 +183,79 @@ argv items**. The worktree has no `.venv` — use
 
 ## Worktree notes
 
+[Fix round for cycle 1, commit `24fbeec8`] **F-001 and F-002 closed**, one tracked file
+(`tests/test_book_interior_type_floor.py`, **+162/−40**). **Orchestrator-verified on the tip:** probe-scoped
+**1F/52P** (the one red is CARD-322's M1 `test_lifting_a_declaration_makes_the_stream_arm_read_that_page`,
+left untouched), unlifted **53P**, `src/` diff empty, nothing under `meta/` on the branch, worktree clean.
+The round took no lock and ran no full suite.
+
+[Fix round] **F-001: `worked_example = []` now reds this module, by a POSITIONAL signal.** Re-derived
+first: before the change the plant left the module at 1F/51P, byte-identical to baseline, and the only
+newly red nodes were the two the reviewer named in `test_book_guide_page_vector.py`
+(`test_the_page_draws_every_diagram_through_that_one_routine`,
+`test_an_engine_that_did_not_write_the_file_reads_the_digits_back`); `test_each_clue_digit_size_really_reaches_the_file`
+stayed green, as the review said. **There is no per-diagram attribute** — `DrawnFace` carries only kind,
+text and size, and `GuidePage.faces` is a flat tuple — so the round used position: the worked example is
+the last diagram the page draws, so on a page whose `fallback_level[2] == 0` the last N clue-digit faces
+must equal `WORKED_EXAMPLE_CLUE` repeated once per `WORKED_EXAMPLE_STEPS` entry. New helper
+`guide_pages_for(book)`, and a new non-vacuity test, `test_a_book_keeps_the_worked_example_on_a_guide_page`,
+so the position check cannot read green on every book at once. After the change the same plant reds
+`TestInteriorType_OnlyPuzzleClueDigitsAreExempt::test_worked_example_digits_are_drawn_and_never_exempt[book1]`
+with *"The worked example drew nothing, or something else now closes the page."*
+**Two limits, stated by the round and worth keeping:** `[min-trim]` stays green, because that book's writer
+fallback is `bare_level` 2, which drops the worked example from the page entirely — *the claim has nothing
+to read there*; and the check would not notice a worked example replaced by a diagram with the **same digit
+sequence**. The docstring now says "one of four" and names what position does and does not carry.
+
+[Fix round] **⚠ A RETRACTION THAT IS THE REVIEW'S AND MINE: "on today's committed tree the raster branch is
+specific" is FALSE.** The round measured it: planting an empty `worked_example_images` in
+`BookPDFGenerator.create_guide_page` and running **unlifted gives 53 passed, zero reds.** The cause, which
+the orchestrator verified: `WORKED_EXAMPLE` is the call name `draw_example_line`, and
+`create_guide_page` calls it from several diagram families (three separate call sites), so a call-name
+signal cannot isolate the worked example in either medium. The round could not use a tail reading on the
+raster side either, because the raster call order is unstable (technique rows are re-drawn per fallback
+attempt). **It left the raster branch as it was and disclosed that in the docstring.** I repeated the
+review's sentence into this card and into the fix round's brief **without re-deriving it** — the same
+omission as the "4 A reds". **Open for cycle 2, not decided here:** whether any other test in the repo
+covers the raster worked example, which decides whether this is a gap on today's tree or only in this
+module. The orchestrator has not checked.
+
+[Fix round] **F-002: every citation re-verified by planting, and the review's measurement of one of them
+was itself taken against the wrong plant.** All **14** cited classes resolve by `ast` against their
+`ClassDef`. Per kind, each cited test marked *reds under the plant* or *corroboration only*, with the medium
+it reads: **guide** — two vector-medium tests, both red. **Band** — three vector tests red,
+`test_the_band_fits_the_way_the_raster_page_fits_it` corroboration only (geometry). **Footer label** —
+`test_the_page_carries_all_four_pieces_of_furniture` and `test_the_reading_sees_each_piece_go_missing` red;
+the PIL descender test and the two-up pair test corroboration only. **Answer caption** — two **vector**
+survivors red (`test_the_caption_is_right_aligned_on_the_slot_comp_007_reports`,
+`test_the_title_prints_only_on_answer_pages_across_a_corpus`), so **the converted medium is now covered**;
+the raster `test_caption_reads_answer_caption_when_there_is_room` reds only under the raster plant;
+`test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor` is green on both plants and is
+corroboration only. The docstring says plainly that the raster survivor reads the raster medium only.
+
+[Fix round] **⚠ THE REVIEW'S FOOTER-LABEL PLANT WAS NOT THE FOOTER LABEL.** Cycle 1's artefact names
+`footer-label-never-lettered-vector` and describes it as *"book_sheet_vector's caption loop"*; the round
+measured that the loop it describes is the **QR-links loop**, not the footer label. Planting that loop reds
+`test_the_pair_carries_one_folio_two_links_and_no_size_label` **along with six other tests**; planting the
+real footer-label plant (`size_label` never set) does **not** red it, **which is correct** — a two-up page
+carries no label by design. So the review's "footer label 1/2" scorecard row was measured against the wrong
+plant, and the round re-measured with the real one. **The orchestrator verified only that the artefact
+describes the plant as a caption loop in `book_sheet_vector`; it did NOT verify which loop that is.**
+**Also unreconciled:** the review counted **three of seven** survivors unable to fail, the round counts
+**five of the first draft's eight** citations wrong (band_fits, footer_lines, the two-up test for the label,
+and both answer-caption citations). Different denominators and different plants; **cycle 2 is asked to
+reconcile them.** The docstring now says "five of the first draft's eight citations".
+
+[Fix round] **Mutants.** The original nine all re-break their claims in the final run, **no new survivors**,
+each by text with the count `== 1`, SHA-256 both ends, restored from captured content, matched control green,
+`0 skipped`. `worked-example-draws-nothing` re-breaks at `[book1]` (its first run printed "NOT re-broken"
+only because the expected-message string had the wrong capitalisation; fixed and re-fired alone). **The four
+retirement plants sit in the runner with an EMPTY `must_red`**, so they print "re-broke: NOTHING" — the
+round says that reflects the empty list and not a hole, because their real survivors are verified by a
+separate `plant_runs.py`. **Both scripts stay untracked in the worktree; neither was force-added.** Note
+for cycle 2: a runner entry with an empty `must_red` is **not a control that can fail**; the survivor table
+is review-lens evidence, not a committed test.
+
 [Review 1/3] Score: **7.5 — FAIL** (threshold 8.0). Artefact `meta/review/CARD-358-cycle1.yml`,
 uncommitted. **Four small items for cycle 2**, two of them the round's and two mine.
 
@@ -220,7 +293,7 @@ it merely sits beside the claim. What *does* catch the plant, and is **cited now
 `test_the_page_draws_every_diagram_through_that_one_routine` and
 `test_an_engine_that_did_not_write_the_file_reads_the_digits_back`. The "never exempt" half is fine.
 **Scope, stated honestly:** on today's committed tree GUIDE is raster so the raster branch runs and is
-specific; **the vacuum is in the converted end state — the state the card's reds live in and the repair
+specific; **⚠ RETRACTED 2026-11-05 (ADR-0039/R4) — the raster branch is NOT specific: the fix round measured planting an empty `worked_example_images` in `BookPDFGenerator.create_guide_page` and running unlifted: 53 passed, zero reds. See the fix-round record below.** **the vacuum is in the converted end state — the state the card's reds live in and the repair
 was written for.** ADR-0039/R1 violated.
 
 [Review 1/3] **F-002 (high) — three of the seven retirement survivors cannot fail for the reason they
