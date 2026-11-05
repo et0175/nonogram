@@ -215,6 +215,82 @@ had already moved once.
 
 ## Worktree notes
 
+[Fix round for cycle 1, commit `7872f3bc`] **F-1 to F-5 fixed**, three files changed
+(`player/play.js`, `tests/test_public_player_zoom.py`, `tests/test_public_player.py` already `SCOPE+`),
+**+283/−46**. Orchestrator-verified: `touch-action` untouched (0 lines of diff), nothing under `meta/`
+on the branch, `play.html` and `player.css` unchanged. Impact-scoped **467 passed / 0 failed / 0 skipped**,
+`DATABASE_URL` unset. **No full suite — the merge gate still owes it.** The round assembled into
+`build/site-fix` and never touched `build/site` (the owner's play-test copy, verified still the PRE-fix
+build: 0 resize listeners). `build/site-fix`'s `play.js` and `player.css` are SHA-identical to the branch.
+
+[Fix round] **F-1: a `resize` listener, with a rotating test.** `window.addEventListener("resize",
+keepCluesInView)`. It bound `resize` **only**, not `orientationchange`, with a reason worth keeping:
+`orientationchange` can fire before the new dimensions are laid out, and a rotation always resizes. No
+debounce, since no need could be shown. The probe reproduced the defect first (rows False/cols True before
+rotating; True/False after) and the fix reproduces it too.
+
+[Fix round] **⚠ THE 175% RUNG: decided a DEFECT and fixed, with a DERIVED rule — and the derivation is
+sound.** `CELLS_BESIDE = 2`: a window of width `w` over cells of pitch `c` holds a whole cell at every
+scroll offset exactly when `w >= 2c`, so a pinned gutter now needs room for two cells. **Orchestrator
+verified by sweeping every integer width from 1 to 149 at pitch 50 over 4000 scroll offsets: the claim
+"min whole cells >= 1 iff w >= 2c" holds for all of them** (w=99 gives 0, w=100 gives 1, w=150 gives 2).
+Measured effect at 390 px: row gutter pinned through 150% (101 px beside a 257 px gutter, 43 px cell),
+lets go at 175%; at 844×390 the column gutter lets go from 125%.
+**The residue is declared and it is what a thumb will feel:** an unpinned gutter scrolls off the left
+edge, so from 175% on a phone the **row clues are out of view until the player scrolls back.** That is
+the trade for never leaving zero reachable cells, and it is the same question as the admin's full
+`STICK_MAX_SHARE` rule, which this page deliberately still does not take — the owner's call.
+
+[Fix round] **F-2 and the plants.** Gutter sweep now runs at 390×844 **and** 844×390 with a **two-axis**
+non-vacuity check (each axis must have a rung where it holds and one where it lets go). **E4 — `.width`
+where `.height` belongs — which survived all 18 before, now reds three tests.** Table of plants, each by
+text with the count asserted `== 1`, SHA-256 both ends, restored from captured content, matched control
+21/21 first, `0 skipped`: remove the `resize` listener (rotation test + the EC-050 census); `resize` bound
+to an empty handler (same two); E4 (sweep, reach sweep, rotation); `CELLS_BESIDE = 1` (sweep, reach
+sweep); column predicate without the factor of 2 (sweep, reach sweep); predicate reading
+`stage.clientHeight` again (sweep, reach sweep). **Every fix has a plant that reds it.**
+
+[Fix round] **F-3, F-4 re-derived by the round, not copied.** Stage client width **358**; row gutter
+**173/215/257/299/341** at 100/125/150/175/200%; cell **29/36/43/50/57** — matching the reviewer. The
+1440 px half holds at all nine rungs. **F-4: 708/943/844 reproduced exactly** (stage top 233,
+`clientHeight` 708, bottom 943, inner height 844). The column predicate now reads the on-screen height
+with the page at its top, written as a comparison rather than `Math.min` because
+`test_play_js_spells_no_bound_step_or_clamp_of_its_own` forbids `Math.min` in `play.js` — **a guard
+the round found by tripping it and kept intact**, which is the right response. Declared
+**conservative once the page itself is scrolled down.**
+
+[Fix round] **Census extension, honestly described.** The listener test reads the
+`window.addEventListener("<type>", handler)` pairs out of `play.js`, requires exactly
+`[("resize", "keepCluesInView")]`, and adds the derived types to the expected census. A second `window`
+listener or a different handler still reds. **It is a pinned (type, handler) pair, so only partly
+derived, and not a control — and the comment says so.**
+
+[Fix round] **F-5 resolved the cheap way, and NOT verified.** The round kept the restore and called it
+defensive in the docstring, saying no seed is known where the coupling bites. **It did not re-run the
+reviewer's S1 plant**, so the reviewer's measurement (removing the loop leaves both tests green) is the
+only evidence either way. Low risk, since the reason is no longer claimed — but it is an assertion of
+absence rather than a measurement.
+
+[Fix round] **A baseline of MINE did not reproduce, and the cause is my omission.** I briefed the round
+to reproduce "523 passed / 0 skipped" over a file list; it measured **464** at `d21d7757`. The
+reviewer's 523 selection included `tests/test_book_player_domain.py` (**59** tests; `464 + 59 = 523`) and
+**my brief dropped it.** The round's 464 → 467 is its own three new tests. The correct selection to
+quote is the brief's list **plus `test_book_player_domain.py`**, which is **526** after this round.
+
+[Fix round] **A claim of the round's I think is wrong, left for cycle 2 to measure rather than
+asserted.** It says that at 844×390 the toolbar wrapping to two rows, leaving about one board row on
+screen, "is the existing layout". From render 12's pixel geometry the first toolbar row ends at about
+726 css px of 844, leaving about 102 px free against a zoom group needing about 143 px — so **the wrap
+looks caused by the zoom group this card added**, costing board height in a 390 px-tall viewport. **Not
+measured by the orchestrator; read off an image.** Cycle 2 is asked to compare the toolbar height at
+844 px between main's player (no zoom) and `build/site-fix`.
+
+[Fix round] **Wording corrected, not a defect:** the reviewer's "E4 lets the column gutter go from 175%
+at 844×390" was true of the OLD one-cell rule; under the new rule and visible height it is **125%**.
+Renders **10–12** added beside 01–09 in `~/Documents/nonogram-reviews/CARD-324/`; orchestrator viewed 10 and
+12. **ADR-0041/R2 re-derived by the round:** 0 `setAttribute("data-state"` under `player/`, `dataset.state`
+writes still exactly 3, the new code reading viewport and scroll geometry only.
+
 [Review 1/3] Score: **7.5 — CHANGES REQUESTED** (threshold 8.0). Artefact
 `meta/review/CARD-324-cycle1.yml`, uncommitted. Six items for cycle 2; the load-bearing two are F-1
 and F-2.
