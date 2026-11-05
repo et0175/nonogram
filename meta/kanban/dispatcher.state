@@ -698,6 +698,7 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-325   # P2 0.5d  FIRST PLAYER CARD, owner 2026-11-05 ("let's take 325"). Held for a free slot under the cap of 2 (CARD-355 and CARD-356 are active); starts when either gates. Premises re-verified on the card.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
