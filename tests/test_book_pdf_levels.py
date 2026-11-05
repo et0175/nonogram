@@ -59,11 +59,51 @@ page per puzzle — which is what lets these tests count pages. Each puzzle's
 grid carries a different extra cell, so two puzzles of the same extent are
 different pictures with different clues and a page holding the wrong one is
 visible.
+
+The medium (CARD-360, ADR-0042/R1 and R6)
+-----------------------------------------
+Every claim above is about **which page is where** -- "the page that came back
+is the page that was asked for" -- and was measured by comparing a page's
+*bytes* with the bytes of a bitmap COMP-007 draws. That was a claim about the
+same page coming back; bytes were only the instrument. Once an interior puzzle
+page is written as operators the instrument has no subject: a poppler render of
+a stream and a PIL bitmap are different objects even when they show the same
+page. The claim is therefore re-expressed, not rasterised into agreement:
+
+* a page is the same page as another when it is **in the same medium and has
+  the same marks** (:func:`same_page`) -- operator for operator for a stream,
+  byte for byte for a bitmap, and never a bitmap against a stream;
+* the expected page is drawn **in the medium the interior used**
+  (:func:`expected_in_the_medium_of`), and an operators page's band is also
+  read from its text layer, which poppler -- not ``band_identity`` -- reads
+  (:func:`names_the_page`);
+* what identity means for a page of operators, and the controls that show the
+  comparison can fail, are asserted in
+  :class:`TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport` -- the answer
+  CARD-355 settled for the memory module
+  (``tests/test_book_pdf_memory.py::TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport``)
+  carried here unchanged: determinism of the stream, not equality with a
+  bitmap.
+
+**Residue, declared (ADR-0039/R3).** The operators expected for a puzzle page
+is the generator's own page writer called directly, so a page drawn wrong the
+*same* way by the walk and by that writer would pass here. The reason is that a
+whole-page expectation of an operators page is a second implementation of the
+writer. What holds the page's *grid* (rule count, span, placement and weights)
+against the raster page's own ink is
+``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_AgreesWithTheRasterTwin``;
+nothing in this file holds the rest of an operators page against an
+independent drawing. This module holds the walk's choices (which puzzle, which
+position, which number and tier), and the band's words against the text layer.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+import ast
+import re
+import tempfile
+from pathlib import Path
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -71,6 +111,7 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.admin.book_pdf_generator import (
     DPI,
     BookPDFGenerator,
@@ -81,6 +122,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.export.layout import compute_layout, interior_frame, qr_caption
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
+from tests.helpers import pdf_vector
 from tests.helpers.pdf_pages import interior_images
 
 # --------------------------------------------------------------------------
@@ -178,21 +220,35 @@ def _book_of(*members: Tuple[str, str]) -> List[dict]:
     ]
 
 
+Page = Union[Image.Image, ContentStream]
+
+
+def _raw_interior(puzzles: Sequence[dict]) -> List[Page]:
+    """The book's interior as the generator hands it back: each page in the
+    medium its kind is written in (CARD-360).
+
+    A bitmap for a raster page and a ``ContentStream`` for a page written as
+    operators (ADR-0042/R1). A claim about *which page this is* is read from
+    this, in the page's own medium (:func:`names_the_page`); a claim about
+    what a page *looks like* goes through :func:`_interior`.
+    """
+    return BookPDFGenerator(_book()).interior_pages(list(puzzles))
+
+
 def _interior(puzzles: Sequence[dict]) -> List[Image.Image]:
     """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``.
 
-    **CARD-329: the medium is read here and nowhere else.** ADR-0042/R1 writes
-    the puzzle pages as content-stream operators, so this walk hands back a
-    ``ContentStream`` for them and an ``Image.Image`` for the kinds that stay
-    raster (the cover and the divider, ADR-0042/R2). Every claim below is
-    stated on *device pixels*, so the conversion is absorbed at this one seam:
-    ``interior_images`` returns a raster page unchanged and rasterises an
-    operators page with poppler at that page's own DPI, which puts both
-    readings in the one domain the assertions already read (CARD-330 — an
-    instrument has to say which domain it is in). No claim below was weakened
-    and no tolerance was widened to make this agree.
+    **CARD-329: the medium is read here and nowhere else** for every claim
+    stated on *device pixels*. ADR-0042/R1 writes the puzzle pages as
+    content-stream operators, so the walk hands back a ``ContentStream`` for
+    them and an ``Image.Image`` for the kinds that stay raster (the cover and
+    the divider, ADR-0042/R2). ``interior_images`` returns a raster page
+    unchanged and rasterises an operators page with poppler at that page's own
+    DPI. **CARD-360: the claims that name a page do not read it through here**
+    -- a poppler render of a stream is never byte-equal to a bitmap COMP-007
+    drew, so they are stated in the page's own medium instead.
     """
-    return interior_images(BookPDFGenerator(_book()).interior_pages(list(puzzles)))
+    return interior_images(_raw_interior(puzzles))
 
 
 # --------------------------------------------------------------------------
@@ -250,6 +306,137 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
     if caption is not None:
         _draw_qr_caption(ImageDraw.Draw(blank), caption, number, DPI)
     return blank
+
+
+def _banded_payload(puzzle: dict, tier: str) -> ExportPayload:
+    """``puzzle`` as the boundary payload, with no picture name (ADR-0037/R1)."""
+    return ExportPayload(
+        grid=puzzle["grid"],
+        row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
+        column_clues=tuple(tuple(clue) for clue in puzzle["clues_cols"]),
+        seed=0,
+        mode="random",
+        width=puzzle["width"],
+        height=puzzle["height"],
+        name=None,
+        difficulty=tier,
+    )
+
+
+def expected_in_the_medium_of(
+    page: Page, puzzle: dict, page_number: int, number: int, tier: str
+) -> Page:
+    """The page ``puzzle`` should be, drawn in the medium ``page`` is written in.
+
+    CARD-360. A bitmap interior page is compared with the bitmap COMP-007
+    draws (:func:`expected_puzzle_page`, as it always was). A page written as
+    operators is compared with the operators the generator's own page writer
+    (``vector_puzzle_page``) draws for that puzzle at the position, number and
+    tier **this module states** -- called directly, so what is under test is
+    the walk's choices (which puzzle, where, under which number and tier) and
+    not the pixels poppler makes of them.
+    """
+    if isinstance(page, ContentStream):
+        return BookPDFGenerator(_book()).vector_puzzle_page(
+            _banded_payload(puzzle, tier), number, page_number
+        )
+    return expected_puzzle_page(puzzle, page_number, number, tier)
+
+
+def same_page(left: Page, right: Page) -> bool:
+    """Two pages are the same page: the same medium and exactly the same marks.
+
+    Bitmaps by their bytes, operators by their operators and extent. **A
+    bitmap and a stream are never the same page** -- comparing across media is
+    what made the original ``page.tobytes() == expected.tobytes()`` claims red
+    once the interior page stopped being a bitmap, and it is refused here
+    rather than rasterised into agreement.
+    """
+    if isinstance(left, Image.Image) and isinstance(right, Image.Image):
+        return left.size == right.size and left.tobytes() == right.tobytes()
+    if isinstance(left, ContentStream) and isinstance(right, ContentStream):
+        return left.operators == right.operators and (
+            left.width_px,
+            left.height_px,
+            left.dpi,
+        ) == (right.width_px, right.height_px, right.dpi)
+    return False
+
+
+#: A band is "Puzzle N" or "Puzzle N · Tier"; a QR caption ("Puzzle N · Solve it
+#: online") opens with the same word and is not one.
+_BAND_SHAPE = re.compile(r"Puzzle \d+(?: · \w+)?")
+
+
+def _words_of(page: ContentStream) -> list:
+    """The words poppler finds on one stream written out as a one-page PDF."""
+    data = write_vector_pdf([page], 1).getvalue()
+    with tempfile.TemporaryDirectory(prefix="levels-words-") as directory:
+        return pdf_vector.word_boxes(data, 1, out_dir=Path(directory))
+
+
+def band_lines(page: ContentStream) -> List[str]:
+    """Every band line of type on ``page`` (:data:`_BAND_SHAPE`).
+
+    Read from the text layer poppler finds in the stream written out as a
+    one-page PDF -- an engine that did not write the file, and not
+    ``band_identity``. Clue digits, the QR invitation and the grid-size label
+    do not have the shape of a band, so on a puzzle page this is the band.
+    """
+    rows: dict = {}
+    for word in _words_of(page):
+        rows.setdefault(round(word.top, 1), []).append(word)
+    lines = [
+        " ".join(w.text for w in sorted(row, key=lambda w: w.left))
+        for row in rows.values()
+    ]
+    return [line for line in lines if _BAND_SHAPE.fullmatch(line)]
+
+
+#: The footer row starts below this share of the page's height (the folio and
+#: the grid-size label sit on it; a clue digit never does).
+_FOOTER_SHARE = 0.85
+
+
+def footer_digits(page: ContentStream, label: Tuple[int, int]) -> List[str]:
+    """The digit words in ``page``'s footer row, less the grid-size label's own.
+
+    The footer carries the folio (CARD-200) beside the label "C x R" (CARD-222);
+    what is left once the label's two numbers are taken away is the folio, as
+    poppler reads it. ``[]`` when the folio is absent.
+    """
+    floor = page.height_px / page.dpi * 72.0 * _FOOTER_SHARE
+    digits = [w.text for w in _words_of(page) if w.top >= floor and w.text.isdigit()]
+    for number in label:
+        if str(number) in digits:
+            digits.remove(str(number))
+    return digits
+
+
+def names_the_page(
+    page: Page, puzzle: dict, page_number: int, number: int, tier: str
+) -> bool:
+    """Whether ``page`` is ``puzzle``'s page at ``page_number`` as Puzzle ``number``.
+
+    The whole-page identification every claim in this module stands on, in the
+    page's own medium (CARD-360): the same page as the one drawn for that
+    puzzle at that position (:func:`expected_in_the_medium_of` and
+    :func:`same_page`) **and**, for a page of operators, a text layer whose one
+    band line reads the band this module writes out from ADR-0037's wording
+    (:data:`BAND_TEMPLATE`) and whose footer folio reads ``page_number`` -- so
+    neither the band's words nor the page's position is asked of the function
+    that composed them.
+    """
+    expected = expected_in_the_medium_of(page, puzzle, page_number, number, tier)
+    if not same_page(page, expected):
+        return False
+    if isinstance(page, ContentStream):
+        return band_lines(page) == [
+            BAND_TEMPLATE.format(number=number, tier=tier)
+        ] and footer_digits(page, (puzzle["width"], puzzle["height"])) == [
+            str(page_number)
+        ]
+    return True
 
 
 def divider_page(page_number: int, text: str) -> Image.Image:
@@ -413,11 +600,13 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
         ]
 
     def test_each_puzzle_page_is_the_puzzle_and_the_band_it_should_be(self) -> None:
-        puzzles, pages = self._pages()
+        puzzles = _book_of(*AC253_MEMBERS)
+        raw = _raw_interior(puzzles)
 
         for puzzle, (page_number, number, tier) in zip(puzzles, AC253_PAGES):
-            expected = expected_puzzle_page(puzzle, page_number, number, tier)
-            assert pages[page_number - 1].tobytes() == expected.tobytes(), (
+            assert names_the_page(
+                raw[page_number - 1], puzzle, page_number, number, tier
+            ), (
                 f"interior page {page_number} is not {puzzle['id']} banded "
                 f"'Puzzle {number} · {tier}'"
             )
@@ -525,11 +714,9 @@ class TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers:
 
     def test_the_medium_puzzles_band_reads_puzzle_three_medium(self) -> None:
         puzzles = _book_of(*self.MEMBERS)
-        pages = _interior(puzzles)
+        raw = _raw_interior(puzzles)
 
-        expected = expected_puzzle_page(puzzles[2], 9, 3, "Medium")
-
-        assert pages[8].tobytes() == expected.tobytes()
+        assert names_the_page(raw[8], puzzles[2], 9, 3, "Medium")
 
     def test_it_is_not_numbered_by_its_page(self) -> None:
         """The two ways of getting it wrong: numbering by page, or per level.
@@ -538,24 +725,29 @@ class TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers:
         and "Puzzle 1 · Medium" if numbering restarted inside a level.
         """
         puzzles = _book_of(*self.MEMBERS)
-        page = _interior(puzzles)[8]
+        page = _raw_interior(puzzles)[8]
 
+        # The control, in the same run: the right number IS this page. Without
+        # it a page that no number could name would pass the loop below, which
+        # is exactly what the bitmap-against-stream `!=` did.
+        assert names_the_page(page, puzzles[2], 9, 3, "Medium")
         for number in (9, 4, 1):
-            assert page.tobytes() != expected_puzzle_page(
-                puzzles[2], 9, number, "Medium"
-            ).tobytes(), f"the medium puzzle prints as Puzzle {number}"
+            assert not names_the_page(
+                page, puzzles[2], 9, number, "Medium"
+            ), f"the medium puzzle prints as Puzzle {number}"
 
     def test_the_numbers_run_one_to_n_over_the_puzzles(self) -> None:
         puzzles = _book_of(*self.MEMBERS)
-        pages = _interior(puzzles)
+        raw = _raw_interior(puzzles)
 
         for puzzle, page_number, number, tier in (
             (puzzles[0], 6, 1, "Easy"),
             (puzzles[1], 7, 2, "Easy"),
             (puzzles[2], 9, 3, "Medium"),
         ):
-            expected = expected_puzzle_page(puzzle, page_number, number, tier)
-            assert pages[page_number - 1].tobytes() == expected.tobytes()
+            assert names_the_page(
+                raw[page_number - 1], puzzle, page_number, number, tier
+            ), f"{puzzle['id']} is not Puzzle {number} on interior page {page_number}"
 
 
 # --------------------------------------------------------------------------
@@ -649,13 +841,12 @@ class TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel:
 
     def test_the_puzzles_print_grouped_by_level(self) -> None:
         puzzles = _book_of(*self.MEMBERS)
-        pages = _interior(puzzles)
+        raw = _raw_interior(puzzles)
 
         for index, page_number, number, tier in self.PRINTED:
-            expected = expected_puzzle_page(
-                puzzles[index], page_number, number, tier
-            )
-            assert pages[page_number - 1].tobytes() == expected.tobytes(), (
+            assert names_the_page(
+                raw[page_number - 1], puzzles[index], page_number, number, tier
+            ), (
                 f"{puzzles[index]['id']} does not print on interior page "
                 f"{page_number} as Puzzle {number}"
             )
@@ -682,3 +873,235 @@ class TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel:
 
         assert [puzzle["id"] for puzzle in puzzles] == before
         assert before == ["M1", "E1", "H1", "E2"]
+
+
+# --------------------------------------------------------------------------
+# CARD-360 AC-1 -- what "the same page" means once a page is operators
+# --------------------------------------------------------------------------
+
+
+def _stream(*, extra: bool = False, width_px: float = 300) -> ContentStream:
+    """A tiny page of operators, for the controls that need a stream and no book."""
+    stream = ContentStream(width_px=width_px, height_px=300, dpi=300)
+    stream.line(10, 10, 10, 200)
+    if extra:
+        stream.line(20, 10, 20, 200)
+    return stream
+
+
+class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
+    """CARD-360 -- what identity means for an operators page in this module.
+
+    **The claims here were about "the same page came back", not about bytes.**
+    The original assertions compared ``tobytes()`` of the interior's page with
+    ``tobytes()`` of a bitmap COMP-007 drew, because for two bitmaps that is the
+    strictest available reading of "the same page". A page of operators has no
+    bitmap and poppler's render of it can never equal a PIL bitmap, so that
+    comparison could only ever say "no". What a page of operators can be
+    identical to is **the page drawn for the same thing, as operators**: the
+    same book exported twice writes the same stream, and the page the walk
+    chose for a puzzle is the stream the page writer draws for that puzzle at
+    that position. This is the answer CARD-355 settled for the memory module
+    (``tests/test_book_pdf_memory.py::TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport``),
+    and it carries here for the same reason: nothing in this file is about
+    pixels.
+
+    The tests run on both trees. On a tree whose puzzle pages are still bitmaps
+    the interior walk exercises the bitmap arm; the operators arm is exercised
+    on every tree by the tests that draw a page with ``vector_puzzle_page``
+    directly, so no branch is only ever run under the probe.
+    """
+
+    BOOK = AC253_MEMBERS
+
+    def test_the_same_book_exported_twice_is_the_same_pages_page_for_page(self) -> None:
+        first = _raw_interior(_book_of(*self.BOOK))
+        second = _raw_interior(_book_of(*self.BOOK))
+
+        assert len(first) == len(second) == 18
+        assert [type(page) for page in first] == [type(page) for page in second]
+        for number, (left, right) in enumerate(zip(first, second), start=1):
+            assert same_page(left, right), f"interior page {number} differs on re-export"
+
+    def test_the_comparison_tells_pages_apart_by_position(self) -> None:
+        """Control, same run: determinism is not "every page equals every page".
+
+        A comparison that ignored which page it was handed would pass the test
+        above on a book of 18 identical pages. Two puzzle pages, a puzzle page
+        and a divider and a puzzle page and an answer page are all different
+        pages of one export, and a book with its pages swapped is not the same
+        book.
+        """
+        pages = _raw_interior(_book_of(*self.BOOK))
+
+        assert not same_page(pages[5], pages[6]), "E1 and E2 read as one page"
+        assert not same_page(pages[5], pages[4]), "a puzzle and a divider"
+        assert not same_page(pages[5], pages[13]), "a puzzle and its answer page"
+        swapped = list(pages)
+        swapped[5], swapped[6] = swapped[6], swapped[5]
+        assert [same_page(a, b) for a, b in zip(pages, swapped)].count(False) == 2
+
+    def test_a_page_of_operators_is_its_twin_and_nothing_less(self) -> None:
+        """Control for :func:`same_page`: it says yes to a twin and no to each
+        kind of difference, including a medium change."""
+        assert same_page(_stream(), _stream())
+        assert not same_page(_stream(), _stream(extra=True)), "one mark more"
+        assert not same_page(_stream(), _stream(width_px=301)), "another extent"
+        white, black = Image.new("RGB", (4, 4), "white"), Image.new("RGB", (4, 4), "black")
+        assert same_page(white, Image.new("RGB", (4, 4), "white"))
+        assert not same_page(white, black), "one bitmap against another"
+        assert not same_page(white, _stream()), "a bitmap is never a stream"
+        assert not same_page(_stream(), white), "and a stream is never a bitmap"
+
+    @staticmethod
+    def _written_page(
+        puzzle: dict, page_number: int, number: int, tier: str
+    ) -> ContentStream:
+        return BookPDFGenerator(_book()).vector_puzzle_page(
+            _banded_payload(puzzle, tier), number, page_number
+        )
+
+    def test_an_operators_page_is_named_by_its_position_number_tier_and_puzzle(
+        self,
+    ) -> None:
+        puzzles = _book_of(*AC253_MEMBERS)
+        page = self._written_page(puzzles[0], 6, 1, "Easy")
+
+        assert names_the_page(page, puzzles[0], 6, 1, "Easy"), "the control"
+        assert not names_the_page(page, puzzles[0], 6, 2, "Easy"), "another number"
+        assert not names_the_page(page, puzzles[0], 6, 1, "Medium"), "another tier"
+        assert not names_the_page(page, puzzles[1], 6, 1, "Easy"), "another puzzle"
+        # The edge: the neighbouring page, which is the other parity. A walk
+        # that numbered pages from the wrong end of the sheet is one page off.
+        assert not names_the_page(page, puzzles[0], 7, 1, "Easy"), "the next page"
+        assert not names_the_page(page, puzzles[0], 5, 1, "Easy"), "the previous page"
+
+    def test_the_bands_words_are_read_from_the_text_layer_not_from_band_identity(
+        self, monkeypatch
+    ) -> None:
+        """The twin and the page both use ``band_identity``, so they cannot
+        disagree about it; the text layer is what can. Plant a ``band_identity``
+        that drops the dot's spaces and BOTH the page and its twin carry it --
+        and the page is still refused."""
+        puzzles = _book_of(*AC253_MEMBERS)
+        control = self._written_page(puzzles[0], 6, 1, "Easy")
+        assert band_lines(control) == ["Puzzle 1 · Easy"], "the control reads"
+
+        monkeypatch.setattr(
+            "nonogram.admin.book_pdf_generator.band_identity",
+            lambda number, tier: f"Puzzle {number}·{tier}",
+        )
+        planted = self._written_page(puzzles[0], 6, 1, "Easy")
+
+        assert same_page(planted, expected_in_the_medium_of(planted, puzzles[0], 6, 1, "Easy"))
+        assert band_lines(planted) != ["Puzzle 1 · Easy"]
+        assert not names_the_page(planted, puzzles[0], 6, 1, "Easy")
+
+    def test_the_page_position_is_read_from_the_folio_not_from_the_page_it_was_drawn_for(
+        self, monkeypatch
+    ) -> None:
+        """An off-by-one in the writer's page number is carried by the page AND
+        its twin (both go through the writer), so equality cannot see it; the
+        folio, read by poppler, can. Plant it and the page is refused."""
+        puzzles = _book_of(*AC253_MEMBERS)
+        control = self._written_page(puzzles[0], 6, 1, "Easy")
+        assert footer_digits(control, (20, 20)) == ["6"], "the control reads its folio"
+
+        real = BookPDFGenerator.vector_puzzle_page
+
+        def one_page_late(self, payload, puzzle_number, puzzle_page, *args, **kw):
+            return real(self, payload, puzzle_number, puzzle_page + 1, *args, **kw)
+
+        monkeypatch.setattr(BookPDFGenerator, "vector_puzzle_page", one_page_late)
+        planted = self._written_page(puzzles[0], 6, 1, "Easy")
+
+        assert same_page(planted, expected_in_the_medium_of(planted, puzzles[0], 6, 1, "Easy"))
+        assert footer_digits(planted, (20, 20)) == ["7"]
+        assert not names_the_page(planted, puzzles[0], 6, 1, "Easy")
+
+
+# --------------------------------------------------------------------------
+# Every survivor this module cites still exists, exactly once
+# --------------------------------------------------------------------------
+
+_CITATION = re.compile(r"tests/(test_\w+\.py)::(\w+)(?:::(\w+))?")
+
+
+def _cited_survivors(text: str) -> List[Tuple[str, str, Optional[str]]]:
+    """``(file, class, method-or-None)`` for each ``tests/<file>::<Class>[::<method>]``."""
+    return sorted(
+        {(file, cls, method or None) for file, cls, method in _CITATION.findall(text)},
+        key=str,
+    )
+
+
+def _unresolved_survivors(text: str, tests_root: Path) -> List[str]:
+    """What ``text`` cites that does not resolve by ``ast``, default-DENY.
+
+    Only the file a citation names is parsed. A citation resolves when that file
+    exists, defines the class exactly once at module level and, when it names
+    one, that class defines the method.
+    """
+    problems = []
+    for file, cls, method in _cited_survivors(text):
+        target = tests_root / file
+        if not target.is_file():
+            problems.append(f"{file}: no such file (cited as {cls})")
+            continue
+        tree = ast.parse(target.read_text(encoding="utf-8"))
+        classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == cls
+        ]
+        if len(classes) != 1:
+            problems.append(f"{file}::{cls}: {len(classes)} definitions")
+            continue
+        if method is not None and not any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == method
+            for node in classes[0].body
+        ):
+            problems.append(f"{file}::{cls}::{method}: no such method")
+    return problems
+
+
+class TestBookPdf_EveryCitedSurvivorStillExists:
+    """The survivors this module cites live in prose, so a rename would leave a
+    claim with no survivor and no red. The set is **derived from this module's
+    own text** above this class (ADR-0039/R2): a citation added later extends it
+    with no list to keep in step, and each is resolved by ``ast`` in the one
+    file it names. Nothing is imported from another module."""
+
+    SELF = Path(__file__).resolve()
+
+    @classmethod
+    def prose(cls) -> str:
+        return cls.SELF.read_text(encoding="utf-8").split(
+            "class " + "TestBookPdf_EveryCitedSurvivorStillExists"
+        )[0]
+
+    def test_every_cited_survivor_resolves(self) -> None:
+        assert _unresolved_survivors(self.prose(), self.SELF.parent) == []
+
+    def test_both_survivors_this_module_names_are_derived(self) -> None:
+        cited = {(file, cls) for file, cls, _ in _cited_survivors(self.prose())}
+        assert cited >= {
+            ("test_book_pdf_memory.py", "TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport"),
+            ("test_book_puzzle_page_vector.py", "TestPuzzlePage_AgreesWithTheRasterTwin"),
+        }, cited
+
+    def test_a_renamed_citation_is_named_and_its_control_is_not(self) -> None:
+        text = self.prose()
+        victim = "TestPuzzlePage_AgreesWithTheRasterTwin"
+        assert victim in text
+        assert _unresolved_survivors(text, self.SELF.parent) == []
+        problems = _unresolved_survivors(
+            text.replace(victim, victim + "_Renamed"), self.SELF.parent
+        )
+        assert len(problems) >= 1 and victim + "_Renamed" in problems[0], problems
+        missing_method = text.replace(victim, victim + "::test_no_such_method", 1)
+        assert any(
+            "no such method" in problem
+            for problem in _unresolved_survivors(missing_method, self.SELF.parent)
+        )

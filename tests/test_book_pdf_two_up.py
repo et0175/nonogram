@@ -40,7 +40,10 @@ The vertical placement is pinned by the millimetres the strips are cropped at.
 
 from __future__ import annotations
 
-from typing import NamedTuple, Optional, Sequence
+import re
+import tempfile
+from pathlib import Path
+from typing import NamedTuple, Optional, Sequence, Union
 
 import numpy as np
 import pytest
@@ -51,10 +54,12 @@ from nonogram.admin.book_answer_key import Answer, plan_small_answer_pages
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers import pdf_vector
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
@@ -220,7 +225,18 @@ def _interior(puzzles: Sequence[dict]) -> list[Image.Image]:
     instrument has to say which domain it is in). No claim below was weakened
     and no tolerance was widened to make this agree.
     """
-    return interior_images(BookPDFGenerator(_book()).interior_pages(list(puzzles)))
+    return interior_images(_raw_interior(puzzles))
+
+
+def _raw_interior(puzzles: Sequence[dict]) -> list[Union[Image.Image, ContentStream]]:
+    """The interior as the generator hands it back: each page in its own medium.
+
+    CARD-360: a claim about the *marks* a band carries is stated in the medium
+    the page was written in (:func:`_reference_band`), because a poppler render
+    of a stream is never the pixels of a PIL bitmap, and a reference drawn in
+    the other medium could only ever say "no".
+    """
+    return BookPDFGenerator(_book()).interior_pages(list(puzzles))
 
 
 def _expected_answer_pages(puzzles: Sequence[dict]) -> int:
@@ -385,7 +401,12 @@ def _band_ink(page: Image.Image, top_mm: float) -> Optional[_Ink]:
 
 
 def _reference_band(
-    puzzle: dict, page_number: int, identity: str, *, shift_px: int = 0
+    puzzle: dict,
+    page_number: int,
+    identity: str,
+    *,
+    shift_px: int = 0,
+    like: Union[Image.Image, ContentStream, None] = None,
 ) -> Optional[_Ink]:
     """The ink COMP-007 sets for ``identity`` on this puzzle's own single page.
 
@@ -407,7 +428,27 @@ def _reference_band(
     parameter stays because the next card to move a slot sideways will need
     exactly it, and the tests below assert the zero rather than dropping the
     comparison.
+
+    **CARD-360: drawn in the medium of the page it is compared with.** ``like``
+    is the interior page the reference is held against. When it is a stream the
+    reference is the *operators* the page writer draws for the same puzzle at
+    the position and number ``identity`` names, rasterised by the same poppler
+    at the same DPI as the interior's page -- two renderings of one medium,
+    which is what a pixel comparison is a claim about. A bitmap reference
+    against a poppler render could never match and said nothing. ``identity``
+    is parsed here only to hand the writer its number and tier; the words it
+    must have printed are read back from the page's text layer by
+    :func:`_band_lines`, so ``band_identity`` is not trusted to spell them.
     """
+    if isinstance(like, ContentStream):
+        found = _IDENTITY.fullmatch(identity)
+        assert found is not None, f"{identity!r} is not a band this module writes"
+        number, tier = int(found.group(1)), found.group(2)
+        drawn = BookPDFGenerator(_book()).vector_puzzle_page(
+            _payload_of(puzzle, tier), number, page_number
+        )
+        ink = _band_ink(interior_images([drawn])[0], TOP_MM)
+        return ink if ink is None or not shift_px else ink._replace(left=ink.left + shift_px)
     payload = ExportPayload(
         grid=puzzle["grid"],
         row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
@@ -422,6 +463,53 @@ def _reference_band(
     blank, _ = render_pages(payload, page_spec=book_page_spec(_book(), page_number))
     ink = _band_ink(blank, TOP_MM)
     return ink if ink is None or not shift_px else ink._replace(left=ink.left + shift_px)
+
+
+#: ``Puzzle 12 · Easy``: the band line this module writes out, split into the
+#: number and tier a page writer is handed. The dot is U+00B7 with a space
+#: either side (ADR-0037/R1).
+_IDENTITY = re.compile(r"Puzzle (\d+) · (Easy|Medium|Hard)")
+
+
+def _payload_of(puzzle: dict, tier: str) -> ExportPayload:
+    """``puzzle`` as the boundary payload, with no picture name (ADR-0037/R1)."""
+    return ExportPayload(
+        grid=puzzle["grid"],
+        row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
+        column_clues=tuple(tuple(clue) for clue in puzzle["clues_cols"]),
+        seed=0,
+        mode="random",
+        width=puzzle["width"],
+        height=puzzle["height"],
+        name=None,
+        difficulty=tier,
+    )
+
+
+#: A band is "Puzzle N" or "Puzzle N · Tier"; the QR caption beside the footer
+#: ("Puzzle N · Solve it online") opens with the same word and is not one.
+_BAND_SHAPE = re.compile(r"Puzzle \d+(?: · \w+)?")
+
+
+def _band_lines(page: ContentStream) -> list[str]:
+    """The band lines of type on a page of operators, top first.
+
+    Read from the text layer poppler finds in the stream written out as a
+    one-page PDF -- an engine that did not write it, and not ``band_identity``.
+    A two-up page carries one per slot, upper first.
+    """
+    data = write_vector_pdf([page], 1).getvalue()
+    with tempfile.TemporaryDirectory(prefix="two-up-words-") as directory:
+        words = pdf_vector.word_boxes(data, 1, out_dir=Path(directory))
+    rows: dict[float, list[pdf_vector.Word]] = {}
+    for word in words:
+        rows.setdefault(round(word.top, 1), []).append(word)
+    return [
+        line
+        for _, row in sorted(rows.items())
+        for line in [" ".join(w.text for w in sorted(row, key=lambda w: w.left))]
+        if _BAND_SHAPE.fullmatch(line)
+    ]
 
 
 def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
@@ -928,18 +1016,18 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
             _puzzle(**_SMALL_PAIR, puzzle_id="one"),
             _puzzle(**_SMALL_PAIR, puzzle_id="two"),
         ]
-        pages = _interior(puzzles)
-        assert len(pages) == _interior_pages(
+        raw = _raw_interior(puzzles)
+        assert len(raw) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
         ), "the pair does share a page"
-        return pages[5]  # interior page 6
+        return interior_images([raw[5]])[0], raw[5]  # interior page 6
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):
         """The millimetres the crops below are taken at, stated before use."""
         assert abs(self.LOWER_BAND_TOP_MM - 128.075) < 1e-3
 
     def test_the_upper_band_reads_puzzle_one_and_the_lower_puzzle_two(self):
-        page = self._page()
+        page, raw = self._page()
         puzzle = _puzzle(**_SMALL_PAIR)
 
         upper = _band_ink(page, self.UPPER_BAND_TOP_MM)
@@ -947,7 +1035,7 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
         assert upper is not None, "the upper band is blank"
         assert lower is not None, "the lower band is blank"
-        assert _same_ink(upper, _reference_band(puzzle, 6, "Puzzle 1 · Easy"))
+        assert _same_ink(upper, _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=raw))
         # CARD-224: both slots are centred across the page's one usable
         # width, so the lower band sits in the same column as a single page's
         # — no shift. (Until this card the lower slot was pulled RESERVE_PX
@@ -956,11 +1044,15 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         # only. RESERVE_PX is asserted non-trivial below so "no shift" is a
         # measurement rather than a tautology.)
         assert RESERVE_PX > 1, RESERVE_PX
-        assert _same_ink(lower, _reference_band(puzzle, 6, "Puzzle 2 · Easy"))
+        assert _same_ink(lower, _reference_band(puzzle, 6, "Puzzle 2 · Easy", like=raw))
+        if isinstance(raw, ContentStream):
+            # CARD-360: a page of operators is also READ, by poppler's text
+            # layer, so the words are not asked of the function that set them.
+            assert _band_lines(raw) == ["Puzzle 1 · Easy", "Puzzle 2 · Easy"]
 
     def test_the_two_bands_are_not_the_same_line(self):
         """The measurement has teeth: one band is not the other's ink."""
-        page = self._page()
+        page, _ = self._page()
 
         assert not _same_ink(
             _band_ink(page, self.UPPER_BAND_TOP_MM),
@@ -1003,28 +1095,114 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         is what the reference bands (``_reference_band(puzzle, 7, ...)``) are
         laid out on.
         """
-        pages = _interior(
+        raw = _raw_interior(
             [
                 _puzzle(**_FIFTEEN_DEEPER, puzzle_id="alone"),
                 _puzzle(**_SMALL_PAIR, puzzle_id="one"),
                 _puzzle(**_SMALL_PAIR, puzzle_id="two"),
             ]
         )
+        pages = interior_images(raw)
         assert _page_shapes(pages, 6, 2) == [[(15, 15)], [(10, 10), (10, 10)]]
         puzzle = _puzzle(**_SMALL_PAIR)
 
         page = pages[6]  # interior page 7, the two-up page
         assert _same_ink(
             _band_ink(page, self.UPPER_BAND_TOP_MM),
-            _reference_band(puzzle, 7, "Puzzle 2 · Easy"),
+            _reference_band(puzzle, 7, "Puzzle 2 · Easy", like=raw[6]),
         )
         # CARD-224: centred, so no shift on this EVEN/left-hand page either
         # — the mirror of page 5's ODD case above (see that comment for what
         # the shift used to carry).
         assert _same_ink(
             _band_ink(page, self.LOWER_BAND_TOP_MM),
-            _reference_band(puzzle, 7, "Puzzle 3 · Easy"),
+            _reference_band(puzzle, 7, "Puzzle 3 · Easy", like=raw[6]),
         )
+        if isinstance(raw[6], ContentStream):
+            assert _band_lines(raw[6]) == ["Puzzle 2 · Easy", "Puzzle 3 · Easy"]
+
+
+# --------------------------------------------------------------------------
+# CARD-360 AC-1 -- what "the same band" means once a page is operators
+# --------------------------------------------------------------------------
+
+
+class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
+    """CARD-360 -- the identity AC-251 asks of a band, for a page of operators.
+
+    **The claim was about the same band coming back, not about bytes.** AC-251
+    compared the tight ink crop of a band on the interior page with the crop of
+    a band COMP-007 sets on a single page: "the same letters in the same place".
+    Bytes of two crops were the instrument. When the interior page is operators
+    its poppler render is not a bitmap COMP-007 drew, so a bitmap reference
+    could only say "no"; the reference is now drawn as operators and rasterised
+    by the same poppler at the same DPI (:func:`_reference_band`, ``like=``),
+    and the words are also read from the page's text layer
+    (:func:`_band_lines`). This is the answer CARD-355 settled for the memory
+    module -- identity for a page of operators is determinism of what is
+    written, never equality with a bitmap -- carried to a module that stores no
+    digest.
+
+    These tests draw their pages with ``vector_puzzle_page`` directly, so the
+    operators arm of every helper runs on a tree whose interior is still
+    bitmaps, with the controls in the same run.
+    """
+
+    STREAM = ContentStream(width_px=1, height_px=1, dpi=300)
+
+    @staticmethod
+    def _single(identity_number: int, tier: str, page_number: int = 6) -> ContentStream:
+        return BookPDFGenerator(_book()).vector_puzzle_page(
+            _payload_of(_puzzle(**_SMALL_PAIR), tier), identity_number, page_number
+        )
+
+    def test_the_text_layer_reads_the_band_a_page_of_operators_carries(self):
+        assert _band_lines(self._single(1, "Easy")) == ["Puzzle 1 · Easy"]
+        assert _band_lines(self._single(2, "Medium")) == ["Puzzle 2 · Medium"]
+
+    def test_the_text_layer_is_not_band_identity_in_another_coat(self, monkeypatch):
+        """The reference and the page both use ``band_identity``, so they cannot
+        disagree about it; the text layer can. A planted ``band_identity`` that
+        loses the dot's spaces is carried by both -- and is still not the band."""
+        puzzle = _puzzle(**_SMALL_PAIR)
+        control = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
+        assert control is not None
+        monkeypatch.setattr(
+            "nonogram.admin.book_pdf_generator.band_identity",
+            lambda number, tier: f"Puzzle {number}·{tier}",
+        )
+        planted = self._single(1, "Easy")
+
+        assert _band_lines(planted) != ["Puzzle 1 · Easy"]
+        # the pixel comparison alone is blind to it, which is why the words are read
+        assert _same_ink(
+            _band_ink(interior_images([planted])[0], TOP_MM),
+            _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM),
+        )
+
+    def test_the_reference_in_the_medium_of_the_page_can_fail(self):
+        puzzle = _puzzle(**_SMALL_PAIR)
+        one = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
+        again = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
+
+        assert _same_ink(one, again), "a band is the same band as itself"
+        for other in ("Puzzle 2 · Easy", "Puzzle 1 · Medium", "Puzzle 11 · Easy"):
+            assert not _same_ink(
+                one, _reference_band(puzzle, 6, other, like=self.STREAM)
+            ), other
+        shifted = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM, shift_px=1)
+        assert not _same_ink(one, shifted), "the band's place across the page is compared"
+
+    def test_a_reference_is_drawn_in_the_medium_of_the_page_it_is_held_against(self):
+        """``like=`` is what selects the medium, and the two media do differ:
+        a poppler render of a stream is not the bitmap COMP-007 drew, which is
+        why a cross-medium reference could only ever say no."""
+        puzzle = _puzzle(**_SMALL_PAIR)
+        bitmap = _reference_band(puzzle, 6, "Puzzle 1 · Easy")
+        stream = _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
+
+        assert bitmap is not None and stream is not None
+        assert (bitmap.left, bitmap.image.tobytes()) != (stream.left, stream.image.tobytes())
 
 
 # --------------------------------------------------------------------------
