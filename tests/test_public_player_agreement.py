@@ -2933,7 +2933,6 @@ class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
             ("public", 'part.classList.toggle("is-crossed", on)', 'part.classList.toggle("is-cross", on)', "marker.class"),
             ("admin", 'th.player-clue.is-col[data-line="${col}"]', 'th.player-clue.is-col[data-line="${row}"]', "marked.selectors"),
             ("public", 'th.player-clue.is-row[data-line="${row}"]', 'th.player-clue.is-row[data-line="${col}"]', "marked.selectors"),
-            ("public", 'stage.addEventListener("pointercancel", lift);', 'stage.addEventListener("pointercancel", lift);\n  stage.addEventListener("pointerleave", () => clear());', "__duplicate__"),
         ],
         ids=[
             "admin-touch-no-longer-exempt", "public-touch-no-longer-exempt",
@@ -2942,7 +2941,6 @@ class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
             "admin-a-gutter-hit-now-moves", "public-a-gutter-hit-now-moves",
             "admin-marker-renamed", "public-marker-renamed",
             "admin-column-clue-by-the-wrong-index", "public-row-clue-by-the-wrong-index",
-            "public-leave-registered-twice",
         ],
     )
     def test_a_one_sided_change_to_a_decision_is_reported(self, side, old, new, moves) -> None:
@@ -2956,13 +2954,24 @@ class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
         source = admin if side == "admin" else public
         assert source.count(old) == 1, f"the plant must apply exactly once: {old!r}"
         planted = source.replace(old, new)
-        if moves == "__duplicate__":
-            with pytest.raises(AssertionError, match="registered twice"):
-                crosshair_disagreements(admin, planted)
-            return
         found = crosshair_disagreements(planted, public) if side == "admin" else crosshair_disagreements(admin, planted)
         assert found != baseline
         assert moves in found and found[moves] != baseline.get(moves, ("", "")), (moves, found.get(moves))
+
+    def test_a_second_listener_for_one_event_is_refused_and_not_read_past(self) -> None:
+        """Was the parametrized case ``public-leave-registered-twice``, split out
+        so that no test body has an early ``return`` (CARD-238's detector counts
+        one as a host-state silence). A second ``pointerleave`` listener would
+        make the facts silently read one of the two, so extraction refuses it;
+        the matched control is the shipped pair extracting cleanly first."""
+        admin = _CROSSHAIR_ADMIN_JS.read_text(encoding="utf-8")
+        public = _CROSSHAIR_PUBLIC_JS.read_text(encoding="utf-8")
+        assert set(crosshair_disagreements(admin, public)) == set(DECLARED_CROSSHAIR_DIVERGENCES), "the matched control"
+        old = 'stage.addEventListener("pointercancel", lift);'
+        assert public.count(old) == 1, f"the plant must apply exactly once: {old!r}"
+        planted = public.replace(old, old + '\n  stage.addEventListener("pointerleave", () => clear());')
+        with pytest.raises(AssertionError, match="registered twice"):
+            crosshair_disagreements(admin, planted)
 
     def test_a_declared_divergence_that_stops_diverging_is_reported(self) -> None:
         """The stale-exemption arm: make the public side forget on redraw like
