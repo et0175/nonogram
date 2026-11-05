@@ -181,3 +181,7 @@ Read against current `main`, by the orchestrator. Nothing here changes an AC exc
 - **Precedent for the disposition vocabulary:** CARD-355 and CARD-356 each landed with per-site tables of
   re-expression versus retirement-with-named-survivor, a stated-after-the-fact census, and plants with matched
   controls. Read their records on `main` (`meta/kanban/cards/CARD-355.md`, `CARD-356.md`) before writing yours.
+
+## Worktree notes
+
+(none yet)
