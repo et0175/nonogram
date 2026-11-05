@@ -473,46 +473,57 @@ TOGGLE = '        span.classList.toggle("is-circled", circled[axis][line][k]);'
 #: drawn on the wrong axis's clue, the first line skipped, the last line
 #: skipped, a repeated number circled by its VALUE rather than its place, and a
 #: toggle with no force (which flips instead of setting).
+#: Each plant's fourth field is the text the FIRST scenario that must notice it
+#: puts in its problem: the plant test asserts a problem containing it, not just
+#: "some problem" (a plant caught by the wrong scenario would be a vacuous scenario).
 CIRCLE_PLANTS = [
     (
         "survives-undo",
         HOOK,
         "    if (history.undone.length === 0) paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));",
+        "undo",
     ),
     (
         "left-after-reset",
         HOOK,
         "    if (history.board.cells.some((state) => state !== UNKNOWN)) paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));",
+        "reset",
     ),
     (
         "preview-not-record",
         HOOK,
         "    paintCircles(clueNumbers, circledClues(shown, payload.rows, payload.columns));",
+        "mid-drag",
     ),
     (
         "wrong-axis",
         TOGGLE,
         '        span.classList.toggle("is-circled", circled[axis === "rows" ? "columns" : "rows"][line][k]);',
+        "differ from circledClues",
     ),
     (
         "first-line-skipped",
         TOGGLE,
         '        if (line > 0) span.classList.toggle("is-circled", circled[axis][line][k]);',
+        "differ from circledClues",
     ),
     (
         "last-line-skipped",
         TOGGLE,
         '        if (line < clueNumbers[axis].length - 1) span.classList.toggle("is-circled", circled[axis][line][k]);',
+        "differ from circledClues",
     ),
     (
         "repeat-by-value",
         TOGGLE,
         '        span.classList.toggle("is-circled", circled[axis][line][spans.findIndex((s) => s.textContent === span.textContent)]);',
+        "differ from circledClues",
     ),
     (
         "toggle-without-force",
         TOGGLE,
         '        if (circled[axis][line][k]) span.classList.toggle("is-circled");',
+        "differ from circledClues",
     ),
 ]
 
@@ -530,8 +541,8 @@ class TestPublicCircles_TheyFollowUndoRedoAndReset:
     def test_the_edges_a_repeat_and_a_blank_clue_equal_the_module(self, browser_page, host) -> None:
         assert edge_problems(browser_page, host, host[2]) == []
 
-    @pytest.mark.parametrize(("name", "old", "new"), CIRCLE_PLANTS, ids=[p[0] for p in CIRCLE_PLANTS])
-    def test_a_planted_defect_is_caught_and_the_unplanted_page_is_clean(self, browser_page, host, name, old, new) -> None:
+    @pytest.mark.parametrize(("name", "old", "new", "expect"), CIRCLE_PLANTS, ids=[p[0] for p in CIRCLE_PLANTS])
+    def test_a_planted_defect_is_caught_and_the_unplanted_page_is_clean(self, browser_page, host, name, old, new, expect) -> None:
         """The matched control first (the shipped page, this same test, no
         problem), then ONE plant into the served ``play.js``; the same scenarios
         must now report a disagreement with the module."""
@@ -540,6 +551,7 @@ class TestPublicCircles_TheyFollowUndoRedoAndReset:
         _plant(page, host, "play.js", old, new)
         planted = circle_problems(page, host, host[2])
         assert planted != [], f"plant {name} was not caught"
+        assert any(expect in problem for problem in planted), f"plant {name} was caught, but not by the scenario that owns it ({expect!r}): {planted}"
 
 
 # ==========================================================================
@@ -565,12 +577,14 @@ class _Vocabulary:
     """What one function may say: identifiers, properties, strings, punctuation,
     and the exact index expressions a computed member may hold."""
 
-    def __init__(self, identifiers, properties, strings, punctuation, indexes) -> None:
+    def __init__(self, identifiers, properties, strings, punctuation, indexes, chains=None) -> None:
         self.identifiers = frozenset(identifiers)
         self.properties = frozenset(properties)
         self.strings = frozenset(strings)
         self.punctuation = frozenset(punctuation)
         self.indexes = tuple(indexes)
+        #: ``{base identifier: the ORDERED index chain it may be read through}``.
+        self.chains = dict(chains or {})
 
 
 PAINT_VOCABULARY = _Vocabulary(
@@ -579,6 +593,7 @@ PAINT_VOCABULARY = _Vocabulary(
     strings={'"rows"', '"columns"', '"is-circled"'},
     punctuation={"(", ")", "{", "}", "[", "]", ",", ";", ".", "=>"},
     indexes=[("axis",), ("line",), ("k",)],
+    chains={"circled": ["axis", "line", "k"], "clueNumbers": ["axis"]},
 )
 
 COLLECT_VOCABULARY = _Vocabulary(
@@ -624,6 +639,51 @@ def vocabulary_violations(name: str, body: str, vocabulary: _Vocabulary) -> list
                     inside.append(follower)
                 if tuple(inside) not in vocabulary.indexes:
                     problems.append(f"{name}: computed member [{' '.join(inside)}]")
+    problems += _comma_and_chain_violations(name, tokens, vocabulary)
+    return problems
+
+
+def _comma_and_chain_violations(name: str, tokens: list[str], vocabulary: _Vocabulary) -> list[str]:
+    """A comma is a separator (call arguments, parameters, the one array
+    literal) or it is the comma OPERATOR, which evaluates its left side and
+    discards it: a second rule that ``(a, b)`` hides. And an index chain is read
+    in its ORDER: ``circled[axis][line][k]`` and no permutation of it."""
+    problems: list[str] = []
+    stack: list[int] = []
+    for position, token in enumerate(tokens):
+        if token in "([{":
+            stack.append(position)
+        elif token in ")]}":
+            opened = stack.pop()
+            if token == ")" and tokens[opened] == "(":
+                # Remember whether this paren group is an arrow's parameter list.
+                if position + 1 < len(tokens) and tokens[position + 1] == "=>":
+                    tokens[opened] = "(=>"
+    stack = []
+    for position, token in enumerate(tokens):
+        if token in ("(", "(=>", "[", "{"):
+            stack.append(position)
+        elif token in (")", "]", "}"):
+            stack.pop()
+        elif token == "," and stack:
+            opened = stack[-1]
+            before = tokens[opened - 1] if opened else ""
+            call = tokens[opened] == "(" and (_IDENT.match(before) is not None and before not in {"of", "return"} or before in {")", "]"})
+            parameters = tokens[opened] == "(=>"
+            literal = (tokens[opened] == "[" and before == "of") or (tokens[opened] == "{" and before == "return")
+            if not (call or parameters or literal):
+                problems.append(f"{name}: comma operator")
+    for base, expected in vocabulary.chains.items():
+        for position, token in enumerate(tokens):
+            if token != base or (position and tokens[position - 1] == "."):
+                continue
+            chain: list[str] = []
+            at = position + 1
+            while at < len(tokens) and tokens[at] == "[":
+                chain.append(tokens[at + 1])
+                at += 3
+            if position + 1 < len(tokens) and tokens[position + 1] == "[" and chain != expected:
+                problems.append(f"{name}: {base} read through chain {chain}, expected {expected}")
     return problems
 
 
@@ -649,9 +709,33 @@ def circle_code_violations(js_source: str) -> list[str]:
     painters = re.findall(r"(?m)^(?:export\s+)?(?:function|const)\s+(\w*[Cc]ircle\w*)", comment_free)
     if painters != ["paintCircles"]:
         problems.append(f"a second circle definition: {painters}")
-    if comment_free.count("is-circled") != 0 or js_source.count('"is-circled"') != 1:
-        problems.append("is-circled: must be named once, as the painter's string")
+    if _without_comments(js_source).count("is-circled") != 1:
+        problems.append("is-circled: must be named exactly once in code (any quote kind, any function), as the painter's string")
     return problems
+
+
+def _without_comments(js_source: str) -> str:
+    """``js_source`` with its comments removed and every string KEPT (a rule in
+    a single-quoted or template string is still a rule)."""
+    out: list[str] = []
+    i, n = 0, len(js_source)
+    while i < n:
+        ch = js_source[i]
+        if js_source.startswith("//", i):
+            while i < n and js_source[i] != "\n":
+                i += 1
+        elif js_source.startswith("/*", i):
+            i = js_source.index("*/", i) + 2
+        elif ch in "'\"`":
+            j = i + 1
+            while js_source[j] != ch:
+                j += 2 if js_source[j] == "\\" else 1
+            out.append(js_source[i : j + 1])
+            i = j + 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
 
 
 def _nested_definition(js_source: str, name: str) -> str | None:
@@ -716,6 +800,13 @@ class TestPublicCircles_ThePredicateIsTheModules:
             (TOGGLE, "        circled = null;\n" + TOGGLE, "token '='"),
             (TOGGLE, '        span.classList.toggle("is-circled", circled[axis]["0"][k]);', "computed member"),
             (TOGGLE, '        span.classList.toggle("is-circled", circled[axis][line][k + 1]);', "computed member"),
+            (TOGGLE, '        span.classList.toggle("is-circled", (circled[axis][line][k], k));', "comma operator"),
+            (TOGGLE, '        span.classList.toggle("is-circled", circled[axis][k][line]);', "chain"),
+            (TOGGLE, '        span.classList.toggle("is-circled", circled[axis][line][line]);', "chain"),
+            (TOGGLE, '        span.classList.toggle("is-circled", circled[line][axis][k]);', "chain"),
+            ("function paintCircles(", "function decide(spans) { spans[0].classList.toggle('is-circled', true); }\nfunction paintCircles(", "is-circled"),
+            ("function paintCircles(", "function decide(spans) { spans[0].classList.toggle(`is-circled`, true); }\nfunction paintCircles(", "is-circled"),
+            ("function paintCircles(", "function decide(spans) { spans[0].className = \"player-clue-num is-circled\"; }\nfunction paintCircles(", "is-circled"),
             ("      lines[Number(box.dataset.line)] = [...box.querySelectorAll(\".player-clue-num\")];",
              "      lines[Number(box.dataset.line)] = [...box.querySelectorAll(\".player-clue-num\")].map((n) => n.textContent);",
              "property .map"),
@@ -726,7 +817,10 @@ class TestPublicCircles_ThePredicateIsTheModules:
         ids=[
             "an-operator-and-a-condition", "a-length-property", "a-getAttribute-read", "a-computed-member-by-string",
             "a-reference-to-the-history", "a-global-helper", "a-string-naming-state", "a-listener", "an-assignment",
-            "a-computed-index-by-literal", "an-offset-index", "collector-reads-the-text", "collector-indexes-by-a-string",
+            "a-computed-index-by-literal", "an-offset-index",
+            "the-comma-operator", "indexes-k-then-line", "indexes-line-twice", "indexes-axis-after-line",
+            "a-second-toggler-in-single-quotes", "a-second-toggler-in-a-template", "a-second-circled-rule-in-another-function",
+            "collector-reads-the-text", "collector-indexes-by-a-string",
         ],
     )
     def test_a_second_rule_or_a_read_the_painter_may_not_make_is_refused(self, old, new, expect) -> None:
@@ -785,7 +879,9 @@ class TestPublicCircles_ThePredicateIsTheModules:
 
     def test_the_circle_code_registers_no_listener_and_the_file_adds_none(self) -> None:
         """GAP 3: the census of listener types in ``tests/test_public_player.py``
-        runs unedited because this card adds none."""
+        runs unedited because this card adds none. This test covers the TWO circle
+        bodies only; what holds the rest of the file is that census (it counts
+        every ``addEventListener`` type in ``play.js`` and reds on a new one)."""
         source = PLAY_JS.read_text(encoding="utf-8")
         for name in ("paintCircles", "clueNumbersOf"):
             assert "addEventListener" not in (_raw_definition(source, name) or "addEventListener")
@@ -821,6 +917,9 @@ class TestPublicCircles_ThePredicateIsTheModules:
                     cases += 1
                     extents.add((width, height))
                     mismatches += len(_differences(dom, want))
+                    # a DOM with MORE numbers (or more circled ones) than the module's
+                    # would pass the per-number comparison above: totals are compared too
+                    mismatches += abs(_total(dom) - _total(want)) + abs(_count(dom) - _count(want))
                     circled += _count(want)
                     uncircled += _total(want) - _count(want)
                     clues = page.evaluate("() => window.publicPlayer.payload")
@@ -1082,12 +1181,23 @@ def _distance(one, other) -> int:
     return max(abs(a - b) for a, b in zip(one, other))
 
 
-def _ring_ink_distance(page, ring: dict) -> int:
-    """How far the darkest pixel on the ring's left edge, at its middle, is from the ink."""
-    x0 = int(ring["left"]) - 1
-    picture = _pixels(page, x0, ring["top"] + ring["h"] / 2 - 1, ring["bw"] + 3, 2)
+def _ring_edge_distances(page, ring: dict) -> dict[str, int]:
+    """How far the darkest pixel on EACH of the ring's four edges, at its middle,
+    is from the ink (review F-4a: the left edge alone let a plant that clipped
+    the right half of the ring pass)."""
     ink = _rgb(ring["ink"])
-    return min(_distance(picture.getpixel((x, y)), ink) for x in range(picture.width) for y in range(picture.height))
+    bw, mid_x, mid_y = ring["bw"], ring["left"] + ring["w"] / 2, ring["top"] + ring["h"] / 2
+    clips = {
+        "left": (int(ring["left"]) - 1, mid_y - 1, bw + 3, 2),
+        "right": (int(ring["left"] + ring["w"] - bw) - 1, mid_y - 1, bw + 3, 2),
+        "top": (mid_x - 1, int(ring["top"]) - 1, 2, bw + 3),
+        "bottom": (mid_x - 1, int(ring["top"] + ring["h"] - bw) - 1, 2, bw + 3),
+    }
+    out: dict[str, int] = {}
+    for edge, clip in clips.items():
+        picture = _pixels(page, *clip)
+        out[edge] = min(_distance(picture.getpixel((x, y)), ink) for x in range(picture.width) for y in range(picture.height))
+    return out
 
 
 def crossed_problems(page, host, keys) -> list[str]:
@@ -1105,8 +1215,9 @@ def crossed_problems(page, host, keys) -> list[str]:
         if not ring["found"]:
             problems.append(f"{kind}: no circled number in the crossed box (the scenario is vacuous)")
             continue
-        if _ring_ink_distance(page, ring) > 40:
-            problems.append(f"{kind}: the crossed box's ring is not ink at its left edge")
+        for edge, distance in _ring_edge_distances(page, ring).items():
+            if distance > 40:
+                problems.append(f"{kind}: the crossed box's ring is not ink at its {edge} edge")
         corner = _pixels(page, ring["corner"]["x"], ring["corner"]["y"], 1, 1).getpixel((0, 0))
         if _distance(corner, _rgb(ring["boxBackground"])) > 6:
             problems.append(f"{kind}: the crossed box does not show its own background at its corner")
@@ -1130,8 +1241,12 @@ class TestPublicCircles_ACrossedClueStillShowsItsCircle:
             "\n.player-clue.is-crossed .player-clue-num::before { border-color: transparent; }",
             '\n.player-clue.is-crossed::after { content: ""; position: absolute; inset: 0; background: var(--player-cross); }',
             "\n.player-clue.is-crossed .player-clue-num { visibility: hidden; }",
+            "\n.player-clue.is-crossed .player-clue-num::before { clip-path: inset(0 50% 0 0); }",
+            "\n.player-clue.is-crossed .player-clue-num::before { clip-path: inset(0 0 50% 0); }",
+            "\n.player-clue.is-crossed .player-clue-num::before { clip-path: inset(50% 0 0 0); }",
         ],
-        ids=["tint-clears-the-ring", "tint-is-an-overlay-above-the-ring", "tint-hides-the-number"],
+        ids=["tint-clears-the-ring", "tint-is-an-overlay-above-the-ring", "tint-hides-the-number",
+             "right-half-clipped", "lower-half-clipped", "upper-half-clipped"],
     )
     def test_a_tint_that_can_hide_the_ring_is_caught(self, browser_page, host, plant) -> None:
         page = browser_page
@@ -1255,6 +1370,34 @@ def _spread(items: list[dict], count: int) -> list[dict]:
     return [ordered[i] for i in picks]
 
 
+#: DECLARED BOUND AND ITS RESIDUE (ADR-0039/R3). The in-place check asks for ink
+#: within this many px of each of a ring's four edges. REASON: edge pixels are
+#: anti-aliased and the clip is rounded to whole pixels, so an exact edge is not
+#: a stable thing to read. RESIDUE, measured this round at the 300% maximum on
+#: the 30 x 30 fixture (3 px ring line, 8 sampled rings on a 1440 px desktop): a
+#: ring drawn shifted by 1 px is NOT seen (0 of 8 report), one shifted by 1.5 px
+#: is (7 of 8 report); so a displacement under about 1.5 px is invisible to this
+#: check, and at 100% (1 px line) the same band is proportionally coarser. The
+#: control just past it is the 1.5 px shift in
+#: ``test_the_in_place_residue_is_declared_and_a_shift_just_past_it_is_caught``.
+IN_PLACE_BAND_PX = 2
+SHIFT_THE_CHECK_CANNOT_SEE_PX = 1
+SHIFT_THE_CHECK_CATCHES_PX = 1.5
+
+#: COVERAGE OF THE ZOOM SAMPLE, measured this round (the 30 x 30 fixture fully
+#: marked, 423 circled numbers, at the 300% maximum; "in view" = the ring lies
+#: wholly inside the stage and the window and a hit test at its centre and four
+#: edge midpoints lands in its own clue box). Desktop unscrolled: 61 in view
+#: (45 column, 16 row), 8 sampled (6 column, 2 row). Phone a quarter into the
+#: gutters: 16 in view, ALL row rings, 8 sampled. Phone three quarters in: 15 in
+#: view (10 row, 5 column), 8 sampled (5 row, 3 column). So at the phone's 300%
+#: only 15-16 of 423 circled rings are in view and uncovered (about 3.6%), and
+#: at the first offset no column ring is sampled; the claim is "the rings that
+#: can be seen are in place", not "every ring is". The reviewer reported 6-7 of
+#: 195 for the same question; I could not reproduce those figures (a different
+#: fixture or marking, not asked): the numbers above are mine, from this round.
+
+
 def ring_in_place_problems(page, rings: list[dict]) -> list[str]:
     """Each sampled ring is drawn where the page says, at the size it says:
     ink on all four of the clip's edges (the ring), within 2 px of its box."""
@@ -1265,7 +1408,7 @@ def ring_in_place_problems(page, rings: list[dict]) -> list[str]:
     for ring in rings:
         picture = np.asarray(_pixels(page, ring["left"], ring["top"], ring["w"], ring["h"]), dtype=int)
         near = np.abs(picture - np.array(ink)).max(axis=2) <= 40
-        band = 2
+        band = IN_PLACE_BAND_PX
         for side, edge in (("left", near[:, :band]), ("right", near[:, -band:]), ("top", near[:band, :]), ("bottom", near[-band:, :])):
             if not edge.any():
                 problems.append(f"{ring['kind']} {ring['line']}: no ink on the ring's {side} edge")
@@ -1383,3 +1526,28 @@ class TestPublicCircles_AnInPlaceRingIsMeasuredNotAssumed:
         anchor = ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }"
         _plant(page, host, "player.css", anchor, anchor + plant)
         assert problems() != []
+
+
+@pytest.mark.browser
+class TestPublicCircles_TheInPlaceBandHasADeclaredResidue:
+    @pytest.mark.parametrize(
+        ("shift", "caught"),
+        [(SHIFT_THE_CHECK_CANNOT_SEE_PX, False), (SHIFT_THE_CHECK_CATCHES_PX, True)],
+        ids=["a-1px-shift-is-the-declared-residue", "a-1_5px-shift-just-past-it-is-caught"],
+    )
+    def test_the_in_place_residue_is_declared_and_a_shift_just_past_it_is_caught(self, browser_page, host, shift, caught) -> None:
+        page = browser_page
+        key, grid = host[2]["max"], GRIDS["max"]
+        page.set_viewport_size({"width": 1440, "height": 900})
+
+        def problems() -> list[str]:
+            _board(page, host, key, grid, _marked(grid))
+            _zoom_to_max(page)
+            rings = _spread(_rings_for_test(page), 8)
+            assert len(rings) >= 6
+            return ring_in_place_problems(page, rings)
+
+        assert problems() == [], "the matched control"
+        anchor = ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }"
+        _plant(page, host, "player.css", anchor, anchor + f"\n.player-board .player-clue-num::before {{ transform: translateX({shift}px); }}")
+        assert (problems() != []) is caught

@@ -3086,12 +3086,14 @@ def _paint_circles(js_source: str) -> str:
 
 def circle_facts(css: str, js_source: str) -> dict[str, str]:
     """Every compared fact of one page's circles, as a string."""
-    ring = _merged_declarations(css, _CIRCLE_SELECTORS["ring"])
     facts: dict[str, str] = {}
-    facts["number.position"] = _merged_declarations(css, _CIRCLE_SELECTORS["number"]).get("position", _ABSENT)
-    for prop in ("content", "position", "pointer-events", "box-sizing", "width", "height", "left", "top", "border", "border-radius", "--player-ring"):
-        facts[f"ring.{prop}"] = ring.get(prop, _ABSENT)
-    facts["circled.border-color"] = _merged_declarations(css, _CIRCLE_SELECTORS["circled"]).get("border-color", _ABSENT)
+    # EVERY property of the number, ring and circled rules, not a listed few
+    # (CARD-326 review F-2: a listed set let a one-sided z-index, opacity,
+    # transition or transform on the ring go unseen). The key set is whatever
+    # either sheet declares; circle_disagreements compares the union.
+    for group in ("number", "ring", "circled"):
+        for prop, value in _merged_declarations(css, _CIRCLE_SELECTORS[group]).items():
+            facts[f"{group}.{prop}"] = value
     board = _merged_declarations(css, ".player-board")
     for name in _CIRCLE_VARIABLES:
         facts[f"board.{name}"] = board.get(name, _ABSENT)
@@ -3114,13 +3116,16 @@ def _js_code_lines_of(source: str):
 
 def circle_disagreements(admin_css_text: str, public_css_text: str, admin_js: str, public_js: str) -> dict[str, tuple[str, str]]:
     admin, public = circle_facts(admin_css_text, admin_js), circle_facts(public_css_text, public_js)
-    assert admin.keys() == public.keys()
-    return {k: (admin[k], public[k]) for k in admin if admin[k] != public[k]}
+    return {
+        k: (admin.get(k, _ABSENT), public.get(k, _ABSENT))
+        for k in sorted(admin.keys() | public.keys())
+        if admin.get(k, _ABSENT) != public.get(k, _ABSENT)
+    }
 
 
 #: What the public circles do DIFFERENTLY from the admin's, each over the PAIR
-#: of values found and each with the decision it rests on. Nine entries in
-#: three groups. MEASURED, this round (2026-11-05, a real Chromium over the
+#: of values found and each with the decision it rests on (one entry per
+#: property; the count is the table's own, not stated here). MEASURED, this round (2026-11-05, a real Chromium over the
 #: assembled site, tests/test_public_player_circles.py): public ring height
 #: 14.98 px at the 1440 px desktop's 100% and 44.97 px at the 300% maximum
 #: (1.05em of a 14.27 px numeral, scaling 3.002x); the smallest gap between two
@@ -3276,6 +3281,19 @@ class TestPlayerLooksAgree_TheCirclesAreTheSameLook:
             ("public", "css", "pointer-events: none; box-sizing: border-box;", "box-sizing: border-box;", "ring.pointer-events"),
             ("admin", "css", "height: var(--player-circle);", "height: 20px;", "ring.height"),
             ("public", "css", "height: var(--player-circle);", "height: 20px;", "ring.height"),
+            *[
+                (side, "css", "pointer-events: none; box-sizing: border-box;",
+                 f"pointer-events: none; box-sizing: border-box; {declaration}", f"ring.{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("z-index: 3;", "opacity: 0.5;", "transition: border-color 1s;", "transform: scale(2);")
+            ],
+            *[
+                (side, "css", ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }",
+                 ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); " + declaration + " }",
+                 f"circled.{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("opacity: 0.4;", "color: red;")
+            ],
             ("admin", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-ringed", circled[axis][line][k])', "marker.class"),
             ("public", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-ringed", circled[axis][line][k])', "marker.class"),
             ("admin", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-circled", true)', "marker.value"),
@@ -3288,6 +3306,8 @@ class TestPlayerLooksAgree_TheCirclesAreTheSameLook:
             "admin-circle-in-accent", "public-circle-in-accent",
             "admin-ring-takes-the-pointer", "public-ring-takes-the-pointer",
             "admin-ring-fixed-height", "public-ring-fixed-height",
+            *[f"{side}-ring-{name}" for side in ("admin", "public") for name in ("z-index", "opacity", "transition", "transform")],
+            *[f"{side}-circled-{name}" for side in ("admin", "public") for name in ("opacity", "colour")],
             "admin-marker-renamed", "public-marker-renamed",
             "admin-everything-circled", "public-everything-circled",
             "admin-reads-the-preview", "public-reads-the-preview",
