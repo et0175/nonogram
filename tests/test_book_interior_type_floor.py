@@ -37,6 +37,7 @@ AC-1..AC-4 of CARD-184, one class each.
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
 import random
 import re
@@ -2891,11 +2892,32 @@ def cited_survivors(text: str) -> List[Tuple[str, str]]:
     return sorted(set(_CITED_SURVIVOR.findall(text)))
 
 
+@functools.lru_cache(maxsize=None)
+def _texts_under(root: Path) -> Tuple[Tuple[Path, str], ...]:
+    """Every ``*.py`` under ``root`` as ``(path, text)``, read once per root.
+
+    Keyed on the root, because the ambiguity test hands in a ``tmp_path``.
+    """
+    return tuple(
+        (source, source.read_text(encoding="utf-8"))
+        for source in sorted(root.rglob("*.py"))
+    )
+
+
 def definitions_of(cls: str, method: str, root: Path) -> List[str]:
-    """Every file under ``root`` whose ``ClassDef`` ``cls`` defines ``method``."""
+    """Every file under ``root`` whose ``ClassDef`` ``cls`` defines ``method``.
+
+    A ``ClassDef`` named ``cls`` cannot exist in a file whose text lacks
+    ``cls``, so only files containing the name are parsed (a prefilter, about
+    30x cheaper than parsing the tree per token). Resolution is still by
+    :mod:`ast`: a file that merely mentions the class in a string or comment is
+    parsed and does not count.
+    """
     found: List[str] = []
-    for source in sorted(root.rglob("*.py")):
-        tree = ast.parse(source.read_text(encoding="utf-8"))
+    for source, text in _texts_under(root):
+        if cls not in text:
+            continue
+        tree = ast.parse(text)
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef) and node.name == cls:
                 if any(
@@ -2982,3 +3004,31 @@ class TestInteriorType_EveryCitedSurvivorStillExists:
         assert unresolved_survivors("TestX_Y::test_z", tmp_path) == [
             "TestX_Y::test_z is ambiguous: defined in ['test_a.py', 'test_b.py']"
         ]
+
+    def test_only_files_that_name_the_class_are_parsed(self, monkeypatch):
+        """The prefilter's own control, by call count and not by clock."""
+        cls = "TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt"
+        method = "test_the_caption_is_right_aligned_on_the_slot_comp_007_reports"
+        mentioning = sum(1 for _, text in _texts_under(_TESTS_ROOT) if cls in text)
+        calls = []
+        real_parse = ast.parse
+        monkeypatch.setattr(
+            ast, "parse", lambda *a, **k: calls.append(1) or real_parse(*a, **k)
+        )
+
+        assert definitions_of(cls, method, _TESTS_ROOT) == ["test_book_solved_answer_key.py"]
+        assert 1 <= mentioning < 10, mentioning
+        assert len(calls) == mentioning, (len(calls), mentioning)
+
+    def test_a_mention_in_a_string_or_comment_is_parsed_and_not_a_definition(
+        self, tmp_path
+    ):
+        (tmp_path / "test_real.py").write_text(
+            "class TestQ_R:\n    def test_s(self):\n        pass\n"
+        )
+        (tmp_path / "test_mention.py").write_text(
+            '# TestQ_R::test_s is only discussed here\nNOTE = "TestQ_R"\n'
+        )
+        (tmp_path / "test_other.py").write_text("x = 1\n")
+
+        assert definitions_of("TestQ_R", "test_s", tmp_path) == ["test_real.py"]

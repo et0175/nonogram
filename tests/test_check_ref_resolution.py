@@ -1548,7 +1548,7 @@ CENSUS = (573, "2e0233d69e413369")
 #   OUT  FR-042/AC-268's and AC-269's old refs, from trace.yml:2140.
 #   IN   two, both at trace.yml:2155 and both defined: AC-268's new ref
 #        (tests/test_book_pdf_band.py:1483) and AC-269's wiring ref
-#        (tests/test_book_solved_answer_key.py:308).
+#        (tests/test_book_solved_answer_key.py, the test FR-042/AC-269 names in requirements.yml (not spelled here: a literal test name in this module would revive the ref for the validator)).
 # 513 - 8 + 2 = 507. Three refs that move CENSUS do not appear here at all:
 # the two ADR-rule spellings of the dependency-baseline test, which `trace.yml`
 # never declared, and AC-269's fix-round-1 caption read-back, which
@@ -1633,7 +1633,7 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 #        tests/test_export_pdf.py:1249 (the bare name the two ADR rules now
 #        carry -- the same definition the departure above pointed at, reached by
 #        an honest spelling), tests/test_book_pdf_band.py:1483 (AC-268's new
-#        ref), tests/test_book_solved_answer_key.py:308 (AC-269's wiring ref)
+#        ref), tests/test_book_solved_answer_key.py, AC-269's wiring ref, the test FR-042/AC-269 names in requirements.yml (not spelled here: a literal test name in this module would revive the ref for the validator)
 #        and tests/test_book_pdf_band.py:1536 (AC-269's fix-round-1 caption
 #        read-back, the F-003 close).
 # So 406 - 1 + 4 = 409, and three of the four entrants are DECLARATIONS arriving
