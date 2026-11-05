@@ -735,20 +735,19 @@ class TestPublicZoom_AZoomedGutterNeverCoversTheBoard:
             for axis in (2, 3):
                 kept = [row[axis] for row in mine]
                 assert kept == sorted(kept, reverse=True), (name, axis, mine)
-            # At the module's floor the promise CARD-283 made is intact on the
-            # row axis at both viewports, and on the column axis wherever the
-            # stage is tall enough to leave two cells under the band. On the
-            # landscape phone it is NOT, and that is the honest answer rather
-            # than a regression to hide (cycle 2): the stage's cap now follows
-            # the real toolbar, so at 844x390 the stage is ~193 px tall, the
-            # 30-clue band takes 134 of it, and a pinned band would leave under
-            # two cells of board. The rule unpins it there (the equality
-            # `keepsCols is roomBesideCols` above is what holds that). Before
-            # the cap was honest the stage reached 47 px below the fold and the
-            # same band looked pinned only because the page scrolled.
+            # At the module's floor the promise CARD-283 made is intact on BOTH
+            # axes at BOTH viewports. Cycle 2 narrowed the column half to the
+            # phone, honestly: with the toolbar wrapped to two rows, the 844x390
+            # stage was 193 px tall, the 30-clue band took 134 of it, and a
+            # pinned band would have left under two cells of board, so the rule
+            # unpinned it. Cycle 3 gives the row back (landscape drops the
+            # readout and tightens the gap, the toolbar is one 44 px row, the
+            # stage is 249 px, MEASURED): 249 - 134 leaves two 33 px cells
+            # under the band, and the band re-pins. Nothing was forced: the
+            # equality `keepsCols is roomBesideCols` above is the rule, and
+            # this line records what the geometry now gives.
             assert mine[0][1:3] == (bounds["min"], True), mine
-            if name == "phone":
-                assert mine[0][3] is True, mine
+            assert mine[0][3] is True, mine
 
         # Not a vacuous rule, on EITHER axis: each has a rung somewhere in the
         # sweep where it holds and a rung where it lets go, so neither
@@ -1177,7 +1176,14 @@ class TestPublicZoom_TheGutterRuleHoldsOverItsOperands:
         checked = 0
         flips = 0
         for name, viewport in (("phone", PHONE), ("landscape", LANDSCAPE)):
-            page.set_viewport_size({**viewport, "height": TALLEST})
+            # The prediction is read in the regime the flip happens in. A 844 px
+            # wide window taller than 844 is PORTRAIT, where the readout is
+            # shown and the toolbar wraps (cycle 3), and a prediction taken
+            # there is 56 px off for the landscape heights it is applied to.
+            # So the landscape phone is opened at the tallest height that is
+            # still landscape, and the phone at TALLEST as before.
+            tall = min(TALLEST, viewport["width"] - 1) if viewport["width"] > viewport["height"] else TALLEST
+            page.set_viewport_size({**viewport, "height": tall})
             _open(page, host, host[2]["max"])
             for rung in range(_rung_count(page) + 1):
                 _to_rung(page, rung)
@@ -1412,7 +1418,11 @@ class TestPublicZoom_TheStageEndsAboveTheFold:
         """The control: with the cap put back to one toolbar row, 844x390 is out."""
         page = browser_page
         _open_max(page, host)
-        page.set_viewport_size(LANDSCAPE)
+        # Not 844x390 any more: the toolbar fits one row there since cycle 3, so
+        # the old one-row allowance is RIGHT at that width. The control needs a
+        # landscape width where the toolbar still wraps, and 812x375 (iPhone X,
+        # XS, 11 Pro, 12 mini, 13 mini) is the declared residue: 2 rows, 96 px.
+        page.set_viewport_size({"width": 812, "height": 375})
         _settle(page)
         page.evaluate(
             "() => document.querySelector('[data-player-stage]').style.setProperty("
@@ -1446,6 +1456,211 @@ class TestPublicZoom_TheStageEndsAboveTheFold:
         after = page.evaluate(self._FOLD)
         assert after["clientHeight"] == before["clientHeight"] - 40, (before, after)
         assert after["bottom"] <= after["innerHeight"] - after["air"] + 0.01, after
+
+
+# ==========================================================================
+# Cycle 3 — the landscape toolbar is ONE row at the iPhone widths
+# ==========================================================================
+
+
+def _landscape_rule(css: str) -> tuple[int, str]:
+    """``(breakpoint in px, body)`` of the one landscape media rule in ``css``."""
+    rules = re.findall(
+        r"@media \(orientation: landscape\) and \(max-width: (\d+)px\) \{(.*?)\n\}", css, re.S
+    )
+    assert len(rules) == 1, rules
+    return int(rules[0][0]), rules[0][1]
+
+
+@pytest.mark.browser
+class TestPublicZoom_TheLandscapeToolbarIsOneRow:
+    """The toolbar wrapped at 844x390 (cycle 2): the zoom group did not fit the
+    first row, the toolbar took two, and the board lost two thirds of its rows.
+
+    The owner chose to hide the percent in landscape. Measured alone it left the
+    row 2.4 px short at 844, so the toolbar's gap drops from ``--space-3`` to
+    ``--space-2`` as well; the 44 px targets are untouched. The media query
+    needs a constant, so the constant is HELD to a measurement: the width at
+    which the groups wrap with the readout shown is found in the page, and the
+    breakpoint must cover it.
+    """
+
+    PHONES = ((844, 390), (852, 393), (874, 402))
+
+    #: Rows the toolbar's three groups occupy, the toolbar's height, and the
+    #: slack: the toolbar's content width less the groups and the gaps between.
+    _TOOLBAR = """() => {
+      const bar = document.querySelector('.player-toolbar');
+      const groups = [...bar.querySelectorAll(':scope > .player-tools, :scope > .player-history, :scope > .player-zoom')];
+      const boxes = groups.map((g) => g.getBoundingClientRect());
+      const gap = parseFloat(getComputedStyle(bar).columnGap);
+      const need = boxes.reduce((a, b) => a + b.width, 0) + gap * (groups.length - 1);
+      const readout = document.querySelector('[data-player-zoom-readout]');
+      const rb = readout.getBoundingClientRect();
+      return {
+        groups: groups.length,
+        rows: new Set(boxes.map((b) => Math.round(b.top))).size,
+        height: bar.getBoundingClientRect().height,
+        gap, slack: bar.clientWidth - need,
+        readoutBox: Math.max(rb.width, rb.height),
+        readoutText: readout.textContent,
+        readoutDisplay: getComputedStyle(readout).display,
+        readoutVisibility: getComputedStyle(readout).visibility,
+        readoutAriaHidden: readout.closest('[aria-hidden="true"]') !== null,
+      };
+    }"""
+
+    #: Whole board rows inside the visible stage with the page and the stage at
+    #: their tops: rows entirely below the column band and above the lower of
+    #: the stage's bottom edge and the fold.
+    _WHOLE_ROWS = """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const band = document.querySelector('th.player-clue.is-col').getBoundingClientRect().bottom;
+      const edge = Math.min(stage.getBoundingClientRect().bottom, innerHeight);
+      return [...document.querySelectorAll('.player-board tr')]
+        .filter((tr) => tr.querySelector('td.player-cell'))
+        .filter((tr) => { const r = tr.getBoundingClientRect(); return r.top >= band - 0.5 && r.bottom <= edge + 0.5; })
+        .length;
+    }"""
+
+    def _read(self, page, width, height):
+        page.set_viewport_size({"width": width, "height": height})
+        _settle(page, 3)
+        return page.evaluate(self._TOOLBAR)
+
+    def test_the_three_iphone_widths_get_one_44px_row_with_room_to_spare(self, browser_page, host) -> None:
+        page = browser_page
+        _open_max(page, host)
+        for width, height in self.PHONES:
+            r = self._read(page, width, height)
+            assert r["groups"] == 3, r
+            assert r["rows"] == 1 and r["height"] == 44, (width, height, r)
+            assert r["slack"] > 0, (width, height, r)
+            # The targets were not shrunk to buy the room.
+            for action in ("out", "in"):
+                box = page.eval_on_selector(
+                    f'[data-player-zoom-action="{action}"]',
+                    "(el) => { const b = el.getBoundingClientRect(); return [b.width, b.height]; }",
+                )
+                assert box[0] >= 44 and box[1] >= 44, (width, height, action, box)
+
+    def test_every_landscape_width_from_the_headline_phone_up_stays_one_row(self, browser_page, host) -> None:
+        """The residue's edge: from 844 up there is no wrap to find."""
+        page = browser_page
+        _open_max(page, host)
+        count = 0
+        for width in range(844, 1000, 3):
+            r = self._read(page, width, 390)
+            count += 1
+            assert r["rows"] == 1 and r["height"] == 44, (width, r)
+        assert count >= 50, count
+
+    def test_the_stage_regained_the_rows_the_wrap_took(self, browser_page, host) -> None:
+        """Whole rows counted inside the visible stage: 1, 1, 2 wrapped; 3, 3, 3 now."""
+        page = browser_page
+        _open_max(page, host)
+        for width, height in self.PHONES:
+            self._read(page, width, height)
+            assert page.evaluate(self._WHOLE_ROWS) >= 3, (width, height)
+
+    def test_the_column_band_pins_again_at_the_headline_phone_at_100_percent(self, browser_page, host) -> None:
+        page = browser_page
+        _open_max(page, host)
+        self._read(page, 844, 390)
+        assert page.evaluate("() => document.querySelector('.player-board').classList.contains('keeps-cols')")
+
+    def test_the_gap_is_the_second_spacing_step_in_landscape_and_the_third_otherwise(
+        self, browser_page, host
+    ) -> None:
+        page = browser_page
+        _open_max(page, host)
+        probe = """(token) => {
+          const p = document.createElement('div');
+          p.style.paddingTop = `var(${token})`;
+          document.body.append(p);
+          const v = parseFloat(getComputedStyle(p).paddingTop);
+          p.remove();
+          return v;
+        }"""
+        landscape = self._read(page, 844, 390)
+        assert landscape["gap"] == page.evaluate(probe, "--space-2"), landscape
+        portrait = self._read(page, 390, 844)
+        assert portrait["gap"] == page.evaluate(probe, "--space-3"), portrait
+
+    def test_the_readout_is_hidden_visually_in_landscape_and_its_text_is_still_in_the_dom(
+        self, browser_page, host
+    ) -> None:
+        page = browser_page
+        _open_max(page, host)
+        r = self._read(page, 844, 390)
+        assert r["readoutBox"] <= 1, r
+        # Not display:none, not visibility:hidden, not removed, not aria-hidden:
+        # getZoom(), the tests and a screen reader still get the percent.
+        assert r["readoutDisplay"] != "none" and r["readoutVisibility"] == "visible", r
+        assert not r["readoutAriaHidden"], r
+        bounds = _bounds(page)
+        assert r["readoutText"].strip() == f"{bounds['min']:g}%", r
+        _press(page, "in")
+        after = page.evaluate(self._TOOLBAR)
+        assert after["readoutText"].strip() == f"{bounds['min'] + bounds['step']:g}%", after
+        assert page.evaluate("() => window.publicPlayer.getZoom()") == bounds["min"] + bounds["step"]
+
+    def test_a_portrait_phone_keeps_its_readout(self, browser_page, host) -> None:
+        page = browser_page
+        _open_max(page, host)
+        r = self._read(page, 390, 844)
+        assert r["readoutBox"] > 1, r
+        assert r["readoutText"].strip().endswith("%"), r
+        # A portrait window narrower than the breakpoint is the case a bare
+        # max-width query would have hidden it in.
+        css = PUBLIC_CSS.read_text(encoding="utf-8")
+        breakpoint, _ = _landscape_rule(css)
+        assert 390 < breakpoint
+
+    def test_the_breakpoint_covers_the_width_the_groups_wrap_at_with_the_readout_shown(
+        self, browser_page, host
+    ) -> None:
+        """Measured, not copied: the landscape rule is taken out of the live
+        sheet, then the page is narrowed from 1000 px until the toolbar wraps.
+        The breakpoint must be at least that width, so adding a toolbar button
+        (or widening anything in it) reds this until the constant is raised."""
+        page = browser_page
+        _open_max(page, host)
+        css = PUBLIC_CSS.read_text(encoding="utf-8")
+        breakpoint, body = _landscape_rule(css)
+        removed = page.evaluate(
+            """() => {
+              let n = 0;
+              for (const sheet of document.styleSheets) {
+                for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
+                  const rule = sheet.cssRules[i];
+                  if (rule.type === CSSRule.MEDIA_RULE && rule.conditionText.includes('orientation: landscape')) {
+                    sheet.deleteRule(i);
+                    n += 1;
+                  }
+                }
+              }
+              return n;
+            }"""
+        )
+        assert removed == 1, removed
+        r = self._read(page, 1000, 390)
+        assert r["rows"] == 1 and r["readoutBox"] > 1 and r["gap"] == 12, r
+        threshold = None
+        for width in range(1000, 500, -1):
+            r = self._read(page, width, 390)
+            if r["rows"] > 1:
+                threshold = width + 1  # the narrowest width that still held one row
+                break
+        assert threshold is not None
+        # Covered: the rule is in force at every width the groups would wrap at.
+        assert breakpoint >= threshold - 1, (breakpoint, threshold)
+        # Not tuned upward either: no more than a few px of margin over the
+        # measurement, so the readout is not hidden where it would have fit.
+        assert breakpoint - threshold <= 16, (breakpoint, threshold)
+        # And it is what the CSS says it is: the gap and the hidden pattern.
+        assert "gap: var(--space-2)" in body and "clip-path: inset(50%)" in body, body
+        assert "display: none" not in body, body
 
 
 # ==========================================================================
@@ -2030,8 +2245,10 @@ class TestPublicZoom_TheArithmeticIsTheModules:
         which is the shape a reviewer would plant.
         """
         public = PUBLIC_CSS.read_text(encoding="utf-8")
+        # Top-level rules only (a line-start match): the landscape media rule
+        # restates the readout's selector indented, inside its own block.
         for selector in (".player-zoom {", ".player-zoom .btn {", ".player-zoom-readout {"):
-            assert public.count(selector) == 1, selector
+            assert len(re.findall(rf"^{re.escape(selector)}", public, re.M)) == 1, selector
         assert public.count("--player-zoom: 1;") == 1
         board = re.search(r"^\.player-board \{(.*?)^\}", public, re.M | re.S)
         assert board is not None

@@ -151,6 +151,39 @@ body {
   color: var(--color-text);
 }
 
+/* A landscape phone (CARD-324, cycle 3): 844x390, 852x393, 874x402. The three
+   toolbar groups need 889 px with the readout shown, a landscape phone is
+   narrower, and a wrapped toolbar costs the board a whole row of height it
+   cannot spare on a 390 px screen. So below that width, in landscape ONLY (a
+   portrait phone has the height and keeps its readout), two things change:
+
+   * the percent is visually hidden, not removed: the node stays in the
+     document with its text, so getZoom(), the tests and a screen reader still
+     read it, and it leaves the flow (position: absolute) so it contributes no
+     width. The pattern is .player-announce's own. The - and + buttons keep
+     their 44 px targets, which is why the readout is what goes and not the
+     buttons;
+   * the toolbar's gap drops from --space-3 to --space-2. Hiding the readout
+     alone leaves the row 2.4 px short at 844; the gap is the other thing that
+     buys the room without touching a touch target.
+
+   889 is NOT a tuned number. It is the width at which the groups, readout
+   shown, stop wrapping, measured by tests/test_public_player_zoom.py, which
+   reds if a toolbar button is ever added and this constant stops covering it. */
+@media (orientation: landscape) and (max-width: 889px) {
+  .player-toolbar { gap: var(--space-2); }
+
+  .player-zoom-readout {
+    position: absolute;
+    width: 1px;
+    min-width: 0;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .btn {
   /* 44 px of height is the smallest comfortable touch target, and these are
      the controls a thumb reaches for most. */
