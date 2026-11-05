@@ -174,3 +174,93 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
+
+## Worktree notes
+
+[Round, commits `204e1140` (SCOPE+ guard) + `04672ce2` (the repair)] **33 reds → 0 under the five-kind probe**
+(**33F/118P → 0F/154P**), **154 passed unlifted too**, no `src/` change. **Orchestrator-verified:** scope two
+files (**+468/−59**: `tests/test_book_solved_answer_key.py` +408, `tests/test_book_interior_type_floor.py`
++119 under `SCOPE+`), `src/` diff 0, nothing under `meta/` on the branch, worktree clean and idle, and
+**154 passed probe-scoped and 154 passed unlifted re-run by me.** CARD-358's module with the new guard:
+**1F/56P** probe-scoped (the one red CARD-322's M1) and **57P** unlifted — both exactly as predicted from
+52+4 and 53+4. The round ran no full suite and took no lock.
+
+[Round] **CLASSIFICATION: all 21 M10 reds are mechanism A — A=21, B=0, C=0 — so CARD-358's A=3/B=2/C=2 is
+NOT representative of the slice, and that is the finding that matters for the next five cards.** One cause
+underlies all 21: `_Recorded._walk` spied only on the raster entry points (`create_toc_page`,
+`solved_puzzle_page`, `_packed_answer_page`, `ImageDraw.text`), so once TOC, ANSWER and the packed kind are
+vector the walk reaches `self.pages.toc/answer/packed_answer` instead and every list the record holds stays
+empty. By what was missing: **inputs never recorded** — `assert []` ×4, `IndexError` ×2, "no table of
+contents to read" ×2, "no answer page to read" ×2, the `([], [...])` operator-alphabet tuple ×2, "no
+answer captions to look for" ×2, "the vector pages set no caption" ×1, `assert set()` ×1 (the first
+**7 of 11 signatures** are plain empty reads of the converted medium, the label's own description); and
+**the raster arm absent from the converted walk** — `assert 4 >= 6` ×2, "no answer page carried a name at all"
+×2, `[]` ×1 (5 reds) — which **the M10 label does NOT describe**, since they need the raster twin
+*replayed* rather than a union of the same arm. **B and C do not occur here:** the vector arm needs no
+provenance or call-chain vocabulary, it reads the answer streams directly, and the raster arm keeps its
+`_draw_solved_slot` call chain by replaying the raster twin. **Open for review, not decided:** whether
+"replay the raster twin" is a sub-disposition of A (the round says one cause, so A) or a distinct
+mechanism. **The estimate (2c) held and no re-cut was needed.** *The M10 catch-rule's coverage claim is false
+for this module* — the label undersells how cheap it was.
+
+[Round] **The 12 M7d reds: all RE-EXPRESSED, none retired**, so there is no retirement × survivor table to
+give. New helpers `_page_reading`, `_answer_twin`, `_packed_twin`, `_interior_images`. **Nine wiring-identity
+sites** compare the interior page with the declared medium's own twin, written directly — the vector side
+calls `book_answer_vector`, **not `gen.pages`, so the expectation does not share the seam it checks** — and
+`_page_reading` is `(medium, media_box, render())` for a stream and pixels for an image. **A cross-medium `!=`
+is never used, because it is vacuously true.** The "not a divider" site keeps the pixel comparison for a
+bitmap and asserts the medium for an operator page (the divider is still declared raster). Parity (`.width`)
+and packed-clue ink (`.convert`) are pixel measurements, so they go through `pdf_pages.interior_images`
+(raises loudly without poppler; poppler is present, 0 skips). A control had to change: `_write_pdf` refuses a
+bitmap filed under the vector-declared ANSWER kind (G-6), so the raster-twin control now files under DIVIDER
+when ANSWER is vector, with the reason in a comment.
+
+[Round] **Three tests found by planting, one of them a PRE-EXISTING hole, not a conversion effect.**
+`test_a_custom_book_title_reaches_a_packed_page` is new — a mutant giving the packed page no custom titles
+**left the whole module green, so that claim was asserted nowhere.** `test_no_stream_page_outside_the_answer_section_prints_a_title`
+is the vector counterpart of the whole-interior sweep. `test_no_toc_row_prints_a_title_in_the_stream_either`
+**was vacuous over an empty record** and now asserts non-empty.
+
+[Round] **13 mutants, all killed, `must_red` asserted non-empty before any run** (the defect CARD-358's
+review found in its predecessor runner, not repeated), matched control green in the same run, `0 skipped`.
+Nodes moved: S1 7, S2 7, **S3 1 (the genuine survivor, now killed by the new test)**, S4 15, T1 4, T2 5, T3 6,
+T4 9, T5 2, T6 2, T7 2, T8 1, T9 1. **Two disclosures the round made and I am keeping:** (1) **the first run
+killed only 8 of 13 as specified; T2, T3 and T5 were its own over-ambitious `must_red` lists, calibrated
+AFTER seeing the result, and the file says so** — a kill matrix whose expectations were fitted to the
+outcome is descriptive, not predictive; (2) **under T7 only the two `!=` control nodes detect a
+`_page_reading` that ignores the stream; the other wiring-equality sites would survive** — their strength
+comes from S1–S3, which plant the wiring itself in `src/`. The survivor table is read by eye: review-lens
+evidence, not a mechanical assertion.
+
+[Round] **CARD-358's four answer-caption survivors, re-verified by plant, results identical probed and
+unprobed:** vector `…caption_is_right_aligned_on_the_slot_comp_007_reports` and
+`…title_prints_only_on_answer_pages_across_a_corpus` red under the vector plant only; raster
+`…caption_reads_answer_caption_when_there_is_room` reds under the raster `_draw_solved_slot` plant only;
+`…on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor` is **corroboration only**, green under
+both. **CARD-358's claims reproduce exactly.** The census driver's `--only` filter gave **33 red / 118 passed
+before and 0 red / 154 passed after, unaccounted=0, skipped=0** — for this module only.
+
+[Round] **THE COUPLING GUARD EXISTS AND WORKS, AND IT HAS A DEFECT OF MY OWN DESIGN: IT COSTS ~73 SECONDS A
+RUN.** `TestInteriorType_EveryCitedSurvivorStillExists` derives `Class::method` tokens from CARD-358's
+module text (11, across four files: 4+3+3+1), resolves each by `ast` across `tests/`, and reds on none or on
+two, naming which. Green with all 11 before and after the module edit; its plant (rename each of the 4 cited
+tests in turn) reds by name each time. **But `definitions_of` re-parses the whole tests tree on every
+call** (238–266 files), once per token in one test, up to twice per token in another, plus the plant test.
+**Measured by me on a quiet host:** one full parse **0.67 s**; the guard's three heavy tests **28.9 s, 27.4 s,
+17.0 s**; CARD-358's module **1.5 s → 67 s probe-scoped and 3.15 s → 66.5 s unlifted** — about 109 repeated
+parses, roughly **4–5% on a ~1600 s suite, permanently, to protect eleven names.** A substring prefilter
+(read all files as text, parse only those containing the class name) is **0.010 s** for the read and
+**0.022 s** to parse the two files that contain the name — about 30× cheaper per token. **The round has
+been resumed to fix it, with a deterministic call-count control rather than a wall-clock assertion.**
+The brief I gave the round asked for a guard that was derived and could fail; **it did not ask that the guard
+be cheap, and that omission is mine.**
+
+[Round] **Housekeeping the round found or caused, and one figure it got wrong.** It briefly ran `git stash`
+in this worktree — **a stash is shared across every worktree.** It said three foreign entries remain; **there
+are FOUR** (CARD-137's, and three on main, all based on old commits and none mentioning 354), so its own
+entry was popped cleanly and nothing of the owner's was disturbed — the miscount is in the report only.
+`tests/test_check_ref_resolution.py` cites `tests/test_book_solved_answer_key.py:308` **by line number in two
+`#` comments** (classified by `ast`: comments, not strings or code, so nothing resolves them); line 308 is now
+the `def` of `test_a_custom_book_title_wins_over_the_pictures_own_name` and is probably not what the comment
+meant. The round is asked to derive the intended test from CARD-269's AC ref, not from the current line, or to
+leave it and say why.
