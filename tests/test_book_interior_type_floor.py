@@ -1061,19 +1061,27 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         richer vocabulary that writer records rather than this one:
 
         * ``guide`` — ``tests/test_book_guide_page_vector.py``'s
-          ``TestGuidePage_TheRecordIsWhatTheStreamSets.test_the_record_covers_every_kind_of_face_the_page_sets``,
+          ``TestGuidePage_EveryFaceHoldsTheFloorInTheStream::test_the_record_covers_every_kind_of_face_the_page_sets``,
           which requires ``book_guide_vector.FACE_KINDS`` of the drawn pages
           (title, body text, pipeline label, legend name, clue digit, folio) —
           strictly finer than this file's single ``"guide"``;
         * ``band`` — ``tests/test_book_puzzle_page_vector.py``'s
-          ``test_every_band_the_section_shows_is_a_number_and_a_tier`` and
-          ``test_the_band_fits_the_way_the_raster_page_fits_it``;
+          ``TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle``, both
+          ``::test_every_band_the_section_shows_is_a_number_and_a_tier`` and
+          ``::test_the_band_fits_the_way_the_raster_page_fits_it``;
         * ``footer label`` — the same file's
-          ``test_the_footer_lines_sit_where_the_raster_page_sets_them`` and
-          ``test_the_pair_carries_one_folio_two_links_and_no_size_label``;
+          ``TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_footer_lines_sit_where_the_raster_page_sets_them``
+          and
+          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``;
         * ``answer caption`` — ``tests/test_book_solved_answer_key.py``'s
-          ``test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``
-          and ``test_caption_reads_answer_caption_when_there_is_room``.
+          ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted::test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``
+          and
+          ``TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording::test_caption_reads_answer_caption_when_there_is_room``.
+
+        Every class name above was resolved with :mod:`ast` against the
+        enclosing ``ClassDef``, not read off the file the method sits in:
+        co-location is not ownership, and the first draft of this list named a
+        ``TestGuidePage_TheRecordIsWhatTheStreamSets`` that does not exist.
 
         Nothing is retired without a survivor and nothing is retired silently:
         the derived requirement is asserted **non-empty**, so the day
@@ -1248,7 +1256,7 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
           :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT` face
           (:func:`guide_clue_digit_faces`). The sibling that holds the record
           to the file is
-          ``tests/test_book_guide_page_vector.py::TestGuidePage_...::test_each_clue_digit_size_really_reaches_the_file``,
+          ``tests/test_book_guide_page_vector.py::TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_each_clue_digit_size_really_reaches_the_file``,
           so a record naming a size the stream does not carry is caught there
           rather than believed here;
         * **never exempt** — twice over, and neither reading by size. The
