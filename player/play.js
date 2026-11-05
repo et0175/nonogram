@@ -496,9 +496,9 @@ function crossedParts(table, row, col) {
 function wireCrosshair(stage) {
   // Where the crosshair is, as [row, col], or null: a CELL and not an element.
   let crossed = null;
-  // The touch/pen pointers currently down, by id; and whether two of them
-  // make this a pinch (cleared when the last one is up).
-  const down = new Set();
+  // The touch/pen pointers currently down, id -> pointer type; and whether two
+  // of them make this a pinch (cleared when the last one is up).
+  const down = new Map();
   let pinching = false;
 
   function paint([row, col], on) {
@@ -536,13 +536,16 @@ function wireCrosshair(stage) {
 
   stage.addEventListener("pointerdown", (event) => {
     if (isFinger(event)) {
-      // A primary pointer starts a fresh touch session: a pointerup that never
-      // reached the stage cannot leave the count stuck above one.
+      // A primary pointer starts a fresh session FOR ITS OWN TYPE: isPrimary is
+      // per pointer type, so a pen's primary must not wipe a finger that is
+      // still down (play.js counts touch and pen together as a pinch), and a
+      // pointerup that never reached the stage cannot leave a stale entry of
+      // the same type counting as a second pointer. (Found by review mutant E09.)
       if (event.isPrimary) {
-        down.clear();
-        pinching = false;
+        for (const [id, type] of down) if (type === event.pointerType) down.delete(id);
+        pinching = down.size >= 2;
       }
-      down.add(event.pointerId);
+      down.set(event.pointerId, event.pointerType);
       if (down.size >= 2) {
         pinching = true;
         clear();

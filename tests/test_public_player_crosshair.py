@@ -275,9 +275,9 @@ def free_references(body: str) -> set[str]:
 #: from one of these into any other top-level name is outside the claim.
 CROSSHAIR_SOURCE = ("wireCrosshair", "crossedParts", "cellUnder", "isAt")
 
-#: What the crosshair may use without declaring: the DOM, a number cast, a set
-#: of pointer ids, and its own members. Everything else is refused.
-ALLOWED_FREE = frozenset({"document", "Number", "Set", *CROSSHAIR_SOURCE})
+#: What the crosshair may use without declaring: the DOM, a number cast, a map
+#: of pointer ids to types, and its own members. Everything else is refused.
+ALLOWED_FREE = frozenset({"document", "Number", "Map", *CROSSHAIR_SOURCE})
 
 #: The ONLY properties and methods the crosshair may read or call, default-deny
 #: (ADR-0039/R2; review cycle 1 F-1: a blacklist let ``.attributes``,
@@ -291,7 +291,7 @@ ALLOWED_FREE = frozenset({"document", "Number", "Set", *CROSSHAIR_SOURCE})
 ALLOWED_PROPERTIES = frozenset(
     {"addEventListener", "querySelector", "querySelectorAll", "closest", "classList", "toggle",
      "elementFromPoint", "dataset", "row", "col", "clientX", "clientY", "pointerType",
-     "isPrimary", "pointerId", "add", "delete", "clear", "size"}
+     "isPrimary", "pointerId", "set", "delete", "clear", "size"}
 )
 
 #: ``data-*`` attributes the crosshair may name: positions, never state.
@@ -1309,6 +1309,72 @@ class TestPublicCrosshair_ItLandsOnTheCellUnderThePointerWhenZoomedAndScrolled:
             _touch(session, "touchEnd", [])
         finally:
             session.detach()
+
+    def test_a_pen_counts_toward_a_pinch(self, browser_page, host) -> None:
+        """play.js counts touch AND pen as the pinch's pointers, so the crosshair
+        does too. One finger, then a pen press: two pointers, no crosshair.
+        (Review cycle 1, E09.)"""
+        page = browser_page
+        _open_max(page, host)
+        session = page.context.new_cdp_session(page)
+        try:
+            x, y = _cell_centre(page, 6, 0)
+            _touch(session, "touchStart", [(x, y)])
+            page.wait_for_timeout(100)
+            assert _full_or_none(page) == (6, 0), "the finger alone is crossed: the arm below is not vacuous"
+            pen = {"pointerType": "pen", "button": "left", "buttons": 1, "clickCount": 1}
+            session.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": x + 60, "y": y, **pen})
+            page.wait_for_timeout(100)
+            _assert_nothing_crossed(page)
+            session.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": x + 60, "y": y, **pen})
+            _touch(session, "touchEnd", [])
+        finally:
+            session.detach()
+
+    def test_a_finger_counts_toward_a_pinch_that_a_pen_began(self, browser_page, host) -> None:
+        """The mirror of the pen test: a pen is down, then a finger lands. The
+        finger's primary resets only the TOUCH entries, so the pen still counts."""
+        page = browser_page
+        _open_max(page, host)
+        session = page.context.new_cdp_session(page)
+        try:
+            x, y = _cell_centre(page, 6, 0)
+            pen = {"pointerType": "pen", "button": "left", "buttons": 1, "clickCount": 1}
+            session.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": x, "y": y, **pen})
+            page.wait_for_timeout(100)
+            assert _full_or_none(page) == (6, 0), "the pen alone is crossed: the arm below is not vacuous"
+            _touch(session, "touchStart", [(x + 60, y)])
+            page.wait_for_timeout(100)
+            _assert_nothing_crossed(page)
+            _touch(session, "touchEnd", [])
+            session.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": x, "y": y, **pen})
+        finally:
+            session.detach()
+
+    def test_a_lost_pen_pointerup_does_not_stick_a_pinch(self, browser_page, host) -> None:
+        """A pen pointerup that never reaches the stage leaves a stale entry; the
+        next primary pen press must clear it rather than count it as a second
+        pointer. Synthetic PointerEvents, because a real pen cannot lose its
+        own release."""
+        page = browser_page
+        _open_max(page, host)
+        press = (
+            "([id, x, y]) => document.querySelector('[data-player-stage]').dispatchEvent("
+            "new PointerEvent('pointerdown', {pointerType: 'pen', isPrimary: true, pointerId: id,"
+            " clientX: x, clientY: y, bubbles: true, cancelable: true}))"
+        )
+        release = (
+            "([id, x, y]) => document.querySelector('[data-player-stage]').dispatchEvent("
+            "new PointerEvent('pointerup', {pointerType: 'pen', isPrimary: true, pointerId: id,"
+            " clientX: x, clientY: y, bubbles: true, cancelable: true}))"
+        )
+        ax, ay = _cell_centre(page, 6, 0)
+        bx, by = _cell_centre(page, 7, 1)
+        page.evaluate(press, [71, ax, ay])
+        assert _full_or_none(page) == (6, 0)
+        page.evaluate(press, [72, bx, by])  # 71's pointerup was lost
+        assert _full_or_none(page) == (7, 1), "a stale pen entry stuck the pinch"
+        page.evaluate(release, [72, bx, by])
 
     def test_a_pinch_marks_nothing_and_records_no_stroke(self, browser_page, host) -> None:
         """G-5 from the crosshair's side: its listeners add no input."""
