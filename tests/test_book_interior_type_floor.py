@@ -3032,3 +3032,27 @@ class TestInteriorType_EveryCitedSurvivorStillExists:
         (tmp_path / "test_other.py").write_text("x = 1\n")
 
         assert definitions_of("TestQ_R", "test_s", tmp_path) == ["test_real.py"]
+
+    def test_a_definition_renamed_in_place_is_not_resolved_by_a_sibling_class(
+        self, tmp_path
+    ):
+        """F-001: the rename is made in the DEFINITION, not in the citation.
+
+        ``TestX_Y::test_x`` is cited; the definition becomes ``test_x_v2`` while
+        a second class still defines ``test_x``. The guard must red on the
+        first and must not be satisfied by the second (a ClassDef-name check
+        that is dropped) or by a prefix match (``test_x`` against ``test_x_v2``).
+        """
+        (tmp_path / "test_a.py").write_text(
+            "class TestX_Y:\n    def test_x_v2(self):\n        pass\n\n"
+            "class TestOther:\n    def test_x(self):\n        pass\n"
+        )
+
+        assert definitions_of("TestX_Y", "test_x", tmp_path) == []
+        assert unresolved_survivors("TestX_Y::test_x", tmp_path) == [
+            "TestX_Y::test_x is defined in no file under tests/"
+        ]
+        # The matched controls: the renamed name resolves, and so does the
+        # sibling's own method under its own class.
+        assert definitions_of("TestX_Y", "test_x_v2", tmp_path) == ["test_a.py"]
+        assert definitions_of("TestOther", "test_x", tmp_path) == ["test_a.py"]
