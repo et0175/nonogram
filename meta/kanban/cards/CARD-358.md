@@ -183,6 +183,82 @@ argv items**. The worktree has no `.venv` — use
 
 ## Worktree notes
 
+[Review 2/3] Score: **8.0 — PASS** (threshold 8.0), on cycle 2. Artefact
+`meta/review/CARD-358-cycle2.yml`, uncommitted. **Both of cycle 1's highs are closed**, and the reviewer
+found that **two premises in the orchestrator's brief were wrong.** Score sits exactly at the threshold.
+
+[Review 2/3] **The raster worked example IS covered elsewhere — this is a gap in this module only, not on
+today's tree.** This answers the question I left open. The reviewer emptied `worked_example_images` in
+`create_guide_page` and ran **13 guide-related files unlifted**: baseline **665 passed / 1 skipped**, the plant
+gave **5 failed + 7 errors + 653 passed.** The specific catcher is
+`test_book_guide_page.py::TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample::test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2`.
+Also red: `test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged` (both the page-pixel and the
+file-length test), two `TestGuidePage_TextFitsTheUsableFrame` tests, and seven fixture errors in
+`TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend`. **So it does not belong to this card**,
+and my retraction above stands exactly as far as it goes — the claim "the raster branch is specific" is
+false *for this module*, and the repo covers the worked example regardless. The docstring's disclosure is true
+but could point at those tests (F-203, a note). *The reviewer did not read the cause of that run's one skip
+off `-rs`; it was unarmed with `DATABASE_URL` unset.*
+
+[Review 2/3] **⚠ CYCLE 1 WAS WRONG ABOUT THE FOOTER LABEL, and I have now checked it myself.** In
+`book_sheet_vector.py` the loop `for text, baseline in ((group.invitation, …caption_baseline),
+(group.link, …link_baseline))` sits inside **`_draw_qr_group`** — the QR group's two captions — whereas the
+footer label is `if furniture.size_label is not None:` inside **`draw_sheet_furniture`**. **Orchestrator
+verified both by `ast`, not by eye:** line 411 in `_draw_qr_group`, line 492 in `draw_sheet_furniture`.
+Cycle 1's plant `footer-label-never-lettered-vector` was described as "book_sheet_vector's caption loop" and
+**was the QR plant.** Measured against the REAL footer-label plant: **5 newly red, and the two-up pair test
+stays green — correct, since a two-up page carries no label by design.** The QR plant gave 7 newly red,
+including the pair test and `test_the_two_groups_are_drawn_where_the_raster_pair_draws_them`. **So cycle 1's
+"footer label 1/2" row was measured against the wrong plant; against the real one its two accepted survivors
+score 0/2.** The round's replacements (`test_the_page_carries_all_four_pieces_of_furniture`,
+`test_the_reading_sees_each_piece_go_missing`) do red under the real plant.
+
+[Review 2/3] **The counts, reconciled.** Cycle 1's "three of seven" **does not match its own listing, which
+has four**, and it counted the pair test as valid. Against the real plants, **5 of the 7 citations the first
+draft listed cannot fail** (band_fits, footer_lines, the pair test, and both answer-caption citations;
+by kind: guide 1, band 2, footer 2, answer 2 = 7). **The round's "5" is right and its denominator "eight"
+is wrong for that list.** The docstring still says *"five of the first draft's eight"* — **F-201, low,
+ADR-0039/R4**, a figure error.
+
+[Review 2/3] **F-001's positional signal is sound.** In `book_guide_vector.guide_page`, page 2 draws the
+techniques, then the pipeline, then the legend, then the worked example, then the closing heading, then the
+folio. The pipeline and legend emit pipeline-label and legend-name faces; **only `_write_clue_digits` emits
+`CLUE_DIGIT`**, so the worked example is the last clue-digit diagram. For `book1` the code reads the last
+kept page (page 3) and its last 8 digits are `3,1` four times. **Re-fired `worked_example = []`: exactly one
+new red**, `…_never_exempt[book1]`, with the stated message. **The non-vacuity test has teeth:** starting the
+level loop at `bare_level` 1 so no book keeps the worked example reds
+`test_a_book_keeps_the_worked_example_on_a_guide_page` with its own message, and with zero books it cannot
+pass because `any()` over nothing is false. **Rulings:** `[min-trim]` staying green is **acceptable declared
+residue** (its writer fallback is `bare_level` 2, so the page has nothing to read); the **same-digit-sequence**
+limit is acceptable because the vector-guide module's two survivors cover the routine. Two fragilities noted,
+**neither a finding**: if page 3 dropped to `bare_level` 1 while page 2 stayed at 0 the test would red
+**falsely, which is loud**; and `book1` going vacuous alone would be hidden only if `min-trim` started keeping
+the worked example.
+
+[Review 2/3] **Survivor table re-planted.** Six plants over the four test files, probe-scoped, baseline
+**35 failed / 282 passed.** **Answer caption, vector: 2 newly red** (`test_the_title_prints_only_on_answer_pages_across_a_corpus`,
+`test_the_caption_is_right_aligned_on_the_slot_comp_007_reports`) — **the converted medium is covered.**
+Answer caption, raster: 7 newly red incl. `test_caption_reads_answer_caption_when_there_is_room`, and the vector
+survivors stay green under it as the docstring says. Band: **17 newly red** incl. the three the round cites;
+`band_fits` does not red. Worked example empty: 3 newly red (the module's `[book1]` plus the two vector-guide
+tests the docstring names). **The docstring's red-versus-corroboration disposition is honest and states the
+medium for each.**
+
+[Review 2/3] **The runner's empty `must_red` is acceptable as review-lens evidence, with one scratchpad-only
+defect (F-202, low).** In `mutation_runs.py`, `ok` is `len(killed) == len(must_red)`, so **an empty `must_red`
+counts as passing**: the four retirement entries print "NOTHING" yet **inflate any "N/N re-broke" tally by
+four.** Their `must_stay_green` control can fail. `plant_runs.py` **asserts nothing** — it prints newly-red
+nodes to be read by eye. **Keep the four out of the 9/9, and say the table is not mechanically asserted.**
+Neither script is tracked.
+
+[Review 2/3] **Suite:** probe-scoped **1F/52P** (the one red is CARD-322's M1, left on purpose), unlifted
+**53P**, **no full suite run** — it is the merge gate's — and the lock was absent whenever checked with
+`find`. Worktree clean, `src/` diff empty, nothing under `meta/` on the branch; every plant by text with the
+count `== 1`, restored from captured content, SHA-256 matched, `__pycache__` swept.
+**Open for the gate, small and under the cut bar:** F-201 (the docstring's "eight" should say seven) and F-203
+(a one-line pointer to the guide-page tests that cover the raster worked example) are **docstring-only fixes
+in the card's one file**, smaller than a card.
+
 [Fix round for cycle 1, commit `24fbeec8`] **F-001 and F-002 closed**, one tracked file
 (`tests/test_book_interior_type_floor.py`, **+162/−40**). **Orchestrator-verified on the tip:** probe-scoped
 **1F/52P** (the one red is CARD-322's M1 `test_lifting_a_declaration_makes_the_stream_arm_read_that_page`,
