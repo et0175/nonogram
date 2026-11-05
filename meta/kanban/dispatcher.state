@@ -470,12 +470,21 @@ active:
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
 #   left naming a path that no longer exists -- the phantom holder a free-slot check would read.
-  - card: CARD-325
-    branch: card/325-public-crosshair
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-325
-    started: 2026-11-05T14:50Z
-    estimate: 2c (0.5d)
-    cut_from: f8bb2eb8
+# CARD-325 CLEARED 2026-11-05 at its merge gate: merged fd37038c, done, certified 8.3 on cycle 1, estimate
+#   2c -> 1 cycle = ratio 0.500. Its WORKTREE IS KEPT (holds the owner's unplayed build/site-crosshair builds),
+#   idle: no process runs there. The entry is dropped so no free-slot check counts it as a running card.
+  - card: CARD-359
+    branch: card/359-page-ink-reader
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-359
+    started: 2026-11-05T16:08Z
+    estimate: 1c (0.5d)
+    cut_from: a32eb8bf
+  - card: CARD-360
+    branch: card/360-pdf-levels-two-up
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-360
+    started: 2026-11-05T18:14Z
+    estimate: 1c (0.5d)
+    cut_from: 2eeec589
 # WAVE 78 CLOSED 2026-11-05. CARD-349 CLEARED: merged 597cdf57, done, review cycle 1 at 8.0
 #   (amended from 9.0 by its own author, verdict fail), a SECOND independent reader at 7.5 on the
 #   same commit finding the worst defect the first missed, estimate 1c -> ratio 1.000. Its worktree
@@ -692,8 +701,6 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
-- id: CARD-359   # P2 0.5d  SLICE, owner 2026-11-05 ("agree on 359 and 360 when the slot is free"): first of the two to take a free slot. Premises re-verified on the card.
-- id: CARD-360   # P2 0.5d  SLICE, owner 2026-11-05: second of the two. Premises re-verified on the card.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:

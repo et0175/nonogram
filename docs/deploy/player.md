@@ -69,6 +69,22 @@ artifact without rebuilding it. Not observed: the zoom controls in a real browse
 live site, Auto-Deploy's dashboard state, and any counting (there is none until the
 GoatCounter code below is real).
 
+**The crosshair publish, 2026-11-05 (same day, a few hours later).** The public player gained the
+crosshair (CARD-325, merge `fd37038c`), and the same recipe was run again, this time with the
+behaviour exercised in a real browser on the live URLs before and after the switch.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-crosshair-deploy`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. `play.js`, `player.css`, `solver_state.js` and `tokens.css` are SHA-256 identical to their sources; no goatcounter reference and no external `http(s)` reference in the tree; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; `build/site` and `build/site-zoom-deploy` were not touched. |
+| Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported and no `.vercel/` in the tree: deployment `nonogram-studio-bqoj489om`. It sat at "Initializing" for about seven minutes before it became Ready (the zoom preview, earlier the same day, was Ready at once), and the CLI process outlived the tool's five-minute limit and was left running. Once Ready: the three doors and the puzzle file answered 200 and the four files above matched the local hashes. |
+| Behaviour on the preview | Headless Chromium on `/play/00d5d88065`: hovering a cell marked 34 elements as crossed (32 cells and the row and column clue boxes); moving the pointer off the stage cleared all of them; a click still changed the cell's state; the three zoom controls were present; no page error. |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-a47h6w2y5`. It stayed at "Initializing" for about eleven minutes, and during that time `https://nonogram.adverax.io` kept serving the previous (zoom) deployment `nonogram-studio-bji650yak`, which stays Ready as the rollback target. After it became Ready the production URL served the same four hashes, answered 200 on the three doors, the puzzle file carried the same five fields, and the same browser check gave the same figures (34 crossed on hover, 0 after leaving, a click still marks, no page error). |
+
+What this adds to the record: a promote is not instant, and the switch of `nonogram.adverax.io`
+follows the new deployment becoming Ready, not the promote command returning; so verify the
+production hashes after the status says Ready, not after the command exits. Not observed: a real
+phone, the native-pinch behaviour on a real device, Auto-Deploy's dashboard state, and any counting.
+
 ## What is owner-managed and what is repo-managed
 
 | Thing | Who owns it |

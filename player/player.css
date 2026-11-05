@@ -637,6 +637,46 @@ body {
    reds until the other matches or the difference is declared there. */
 .player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
 
+/* Crosshair (CARD-325): hovering a cell tints its row, its column and their
+   clue boxes, so the eye can travel from a cell to its clues and back without
+   sliding onto a neighbouring line. play.js (wireCrosshair) puts .is-crossed
+   on every cell of the row, every cell of the column and the two clue boxes;
+   these rules are all it means. They mirror the LOOK of admin.css's
+   crosshair (CARD-267) and not its selectors, and
+   tests/test_public_player_agreement.py holds the two to each other.
+
+   A BACKGROUND and nothing else, so it stays out of the way of everything
+   already drawn on a cell: the white dot and the Maybe "?" are ::after, the
+   solved flash is an animation. A tint cannot be read as a circle, a dot or a
+   glyph - different channels. And never the only carrier of meaning: it is a
+   hover affordance, repeating where the pointer already is.
+
+   ONE DIFFERENCE FROM THE PANEL, declared in the agreement file with its
+   reason: the tint is a cool grey, 9% of --color-text mixed into --grid-paper,
+   where admin.css uses --color-surface-hover. On this page that token is the
+   Maybe cell's ground (above), and a whole crossed row in it would read as a
+   row of Maybe cells; and --color-accent-tint is what the panel's hint line
+   uses (CARD-327 brings it here), so it is taken as well. A warm beige and a
+   green are both spoken for, which leaves the one hue the board does not use.
+   Tokens only, and no new token: tokens.css is a byte-identical copy
+   (ADR-0041/R3) and gains nothing here. Nor --color-accent itself: accent on
+   this page already means the focus ring and the pressed Region toggle.
+
+   A filled cell needs a rule of its own, as in the panel: its ground is
+   --grid-ink and the light tint would repaint it and lose the mark. It takes
+   the tint MIXED into the ink, which keeps it the darkest thing on the board
+   while the line still shows through it. One class more specific than the
+   state rules above, so it wins on specificity and not on file order. No
+   rule here reacts to :hover - a touch device has none, and the crosshair is
+   a class the script sets (decision 2 of CARD-267). */
+.player-stage {
+  --player-cross: color-mix(in srgb, var(--color-text) 9%, var(--grid-paper));
+  --player-cross-ink: color-mix(in srgb, var(--player-cross) 16%, var(--grid-ink));
+}
+.player-cell.is-crossed { background: var(--player-cross); }
+.player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
+.player-clue.is-crossed { background: var(--player-cross); }
+
 /* CARD-328: the dot and the solved reveal below are held to admin.css's own by tests/test_public_player_agreement.py — change either here and that guard reds until the panel's matches or the difference is declared there with its reason. */
 
 /* The white mark: a small centred dot, so "decided empty" reads differently

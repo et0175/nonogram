@@ -1099,3 +1099,6 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
   re-pointed at CARD-336, because the premise that dissolves it is the *bitmap count* and
   the bitmaps go when the **declarations** go, which is this card. Re-pointing it at
   CARD-336 would gate it on a card that converts nothing.
+
+[Routing note from CARD-359's review, 2026-11-05; informational, not a Review marker] When this card closes the guide-page abort in `tests/property/test_book_export_interior.py`, the FIRST export_interior test will red at `_measured` and at its answer-page `drawing_of(page).left` reads, with `page 6 draws its puzzle at 12.446 mm, not 12.700 mm`: the 3 px (0.254 mm) ink-first-line gap against the 0.1 mm bound, the same family CARD-359 fixed in `test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` by reading `frame_centre_of(...).frame_left`. Measured by the CARD-359 reviewer in a scratch copy with the abort skipped; the pages there come through `pdf_pages`, which already rasterises, so it is NOT a `ContentStream.convert` AttributeError (CARD-359's author-round note said so and was corrected). Convert those reads to `frame_centre_of`, or expect the red. CARD-359 deliberately did not edit that test because it is one of this card's six reds.
+
