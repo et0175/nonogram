@@ -165,6 +165,38 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
 
 ## Worktree notes
 
+[Review 1/3 — AMENDED BY ITS OWN AUTHOR] **Score 9.0 → 8.0**, `ADR-0038/R8` **✓ holds → ✗ violated**,
+system contract holds 2 → 1 and violated 1 → 2. The first reviewer retracted **in place** in
+`meta/review/CARD-349-cycle1.yml` with an `amendments:` block naming exactly what moved, rather than
+quietly rewriting — and it **explicitly does not claim the second reader's finding as its own**,
+carrying it only so its verdict does not stand against it. It also split out the part of R8 that
+**still holds** (the marked path reaches the identical skip via `db_session`'s `getfixturevalue`; the
+composed-hook delegation is covered, mutant killed) so the retraction is not read wider than it is.
+That is the right shape for a retraction and better than a silent fix.
+
+[Review 1/3] **The reviewer named its own failure mode in a reusable form, and it is now in the
+board's standing brief rules:** *an exhaustiveness claim needs the complement enumerated, not the
+members confirmed.* The docstring said *"Both ways `_test_database_tables` can stop are caught"*; it
+verified the two listed modes and never asked whether the list was complete. **Verified independently
+by the orchestrator:** `issubclass(sqlalchemy.exc.OperationalError, pytest.skip.Exception)` is
+**False** and the `fail` form is **False**; `subprocess.TimeoutExpired` is neither as well. So there
+are at least four stop modes against a claim of two. Its own sentence is the keeper — *"I reported
+something I had accepted on a docstring's word as something I had checked."*
+
+[Review 1/3] **The conflict-of-interest disclosure is recorded as practice, not formality.** The
+first reviewer flagged that it had written the implementation brief and asked for a reader anchored
+elsewhere; that second reader is what caught F-001. **The disclosure paid for itself even though the
+reading did not**, which is the argument for keeping it.
+
+[Round] **F-001 fix round dispatched as the SINGLE ACTOR in the worktree**, under the constraint
+CARD-377 and CARD-378 establish: one actor per worktree until one of them lands. The other agent was
+told explicitly to stand down from that worktree — not as etiquette, but because the lock cannot
+represent two actors and the schema rebuild is destructive. Its brief requires it to **re-derive the
+safety claim itself** before relying on it: the reviewer's suggestion to broaden the catch rests on
+pytest caching and re-raising a session fixture's outcome to a later direct requester, and if that
+does not hold then broadening makes a red quieter, which **G-2 forbids outright**. It is told to stop
+rather than ship a fix whose safety argument it could not reproduce.
+
 [Review 1/3 — SECOND READER] Score: **7.5 — NOT CERTIFIED, changes requested.** Artefact:
 `meta/review/CARD-349-cycle1-second-reader.yml` (44 KB), **uncommitted** for the dead-ref reason. Two
 **independent** readings of `8c108047` now exist and they disagree — 9.0/`fail` and 7.5/NOT
