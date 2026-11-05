@@ -24,6 +24,51 @@
 **Merge commit:** —
 **Blocked by:** —
 
+> ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
+>
+> CARD-358's seven reds were *pure M10 in one small module*, which made it the cheapest place on the
+> board to ask whether M10 is one mechanism. **It is three**, and this scopes your 45 reds:
+>
+> **A — the reading exists in the converted medium and was taken in one arm only.** Measured under
+> the lift: the spy exempted **0** faces while the stream exempted **644** *(per book — 1288 across the two books; CARD-358's review corrected this, since the figure is quoted)* by the writer's own
+> clue-digit mark. Nothing stopped being true; a reading stopped being taken. **This is the mechanism
+> M10's label actually describes** — the cause lines really are `assert []` / `assert set()`.
+> *Disposition: a mechanical union of the two arms. Cheap and local.*
+>
+> **B — the provenance the claim needs is absent from the stream BY DESIGN.** Not a reading taken in
+> one arm; the other arm **cannot carry the claim at all**. The stream's one piece of provenance is
+> the clue-digit mark, the mark *means* exempt, and the claim was that certain digits are **not**.
+> `book_guide_vector`'s own source says so: *"This medium has no `_write_clues` to tag, so the
+> distinction is made deliberately rather than inherited."* **The M10 label does not describe this.**
+> *Disposition: needs a surviving authority named per claim — this is where ADR-0042/R6's "retire with
+> a named survivor" actually bites.*
+>
+> **C — the VOCABULARY has no counterpart in the stream.** `TextCall.kind` reconstructs a vocabulary
+> finer than the page kind — band, footer label, answer caption — off the **call chain**. A content
+> stream has no call chain and no per-face record for the answer, puzzle or TOC writers (only the
+> guide has one). Measured: the spy's semantic reading of both books collapses to `{'divider'}`, the
+> one kind still raster. **The label does not describe this either**, and the failure is a
+> *set-comparison*, not an empty read. *Disposition: **⚠ CORRECTED 2026-11-05 on CARD-358's review (ADR-0039/R4): the cost ordering this block first stated was WRONG.** It said *"expect C to be the expensive one — B had an authority to fall back on and C had none."* **Measured by that review: B's authority (`GuidePage.faces`, tagged `CLUE_DIGIT`) is COARSER than the claim**, so B collapses into C in practice and **B is not cheaper than C.** The evidence is a plant: with the guide's worked example drawing nothing at all, the module stayed byte-identical to baseline, because the page lays out FOUR families of line diagram and all four tag `CLUE_DIGIT`. *Disposition for both B and C: a named surviving authority per claim, verified by a plant that reds it.* Reviewer-measured; the fix round re-derives it.*
+>
+> **The rule neither groups one mechanism nor separates two**, which is why the bucket cannot be
+> sized from the label:
+>
+> | mechanism | the alternation it matched | what that keys on |
+> |---|---|---|
+> | A (exempt set) | `assert \[\]` | a failure **shape** |
+> | A (cross-check) | `assert set\(\)` | a *different* failure shape |
+> | B (worked example) | `drew no text` | **a string lifted from the test's own message** |
+> | C (coverage) | `AssertionError: assert \{` | a shape matching *any* set comparison anywhere |
+>
+> **So do not size your share from the label — classify first.** CARD-358 reports the classification
+> cost one scripted reading of both arms per claim, not a card.
+>
+> **And mechanism B has no rule at all**: it reaches M10 only through `drew no text`, a string from
+> the assertion message CARD-358 was about to rewrite — so the classification would have changed when
+> the *wording* changed. `classify_reds.py` was deliberately not edited (CARD-338 is closed).
+
+> **⚠ REPORTED BY CARD-358's REVIEW, NOT VERIFIED BY THE ORCHESTRATOR (2026-11-05):** under the five-kind probe `tests/test_book_pdf_band.py` measured **16 failed + 10 errors = 26 reds** (14 passed), against this card's **25** (11+6+6+2, internally consistent). **One red is not attributed to any mechanism.** The title is left as written until a round re-derives it. `tests/test_book_solved_answer_key.py` measured **33**, exactly CARD-354's 33, so the movement is not general.
+
 ## The population, from CARD-337's cross-tab
 
 **26 reds under the five-kind probe; this card owns 25.** The other is **M3b** —
@@ -87,10 +132,10 @@ without deciding these two makes the module worse.**
   (test: named by the implementation; state it)
 - **AC-3** *Given* the five-kind probe, *then* the red count is stated before and after, and the
   M3b product red is **still present and attributed to CARD-322**, not absorbed.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-4** *Given* each repaired site, *then* a plant re-breaks it, matched control green in the
   same run, `0 skipped`, and the node-id count each plant moves is stated.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-5** *Given* the glyph-template text search, *then* it is either dispositioned here or
   named with an owner — it is a mechanism no card currently holds.
   (check: review-lens)

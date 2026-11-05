@@ -37,6 +37,7 @@ AC-1..AC-4 of CARD-184, one class each.
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
 import random
 import re
@@ -423,6 +424,74 @@ NON_LETTERING_KINDS = {
     ),
 }
 
+#: Which :class:`~nonogram.admin.book_pdf_generator.PageKind` pages each of the
+#: spy's **semantic** lettering kinds can be set on — the one thing the spy's
+#: vocabulary needs that a content stream cannot supply (CARD-358).
+#:
+#: **Why this table has to exist at all.** :attr:`TextCall.kind` reconstructs a
+#: *finer* vocabulary than the page kind — band, footer label, answer caption —
+#: by reading the **call chain** off the spy's stack. A page written as
+#: operators has no call chain: its stream carries one piece of provenance, the
+#: clue-digit mark (:data:`~tests.helpers.pdf_vector.CLUE_DIGIT_TAG`), and
+#: nothing that distinguishes a band from a caption from a folio. So on the day
+#: a kind converts, that kind's semantic faces leave the reading permanently,
+#: and the coverage assertion that required them would red for the conversion
+#: rather than for a defect.
+#:
+#: This table is what lets the requirement follow the medium instead:
+#: :func:`semantic_kinds_lettered_in_raster` keeps a semantic kind required
+#: exactly while some page it can be set on is still a declared raster
+#: exception, and ADR-0042/R6 retires the rest **with named survivors** in the
+#: per-writer vector files (see
+#: :meth:`TestInteriorType_EveryFaceHoldsTheFloor.test_the_recording_covers_every_kind_of_interior_lettering`).
+#: While every kind is declared raster — the tree as this card landed — nothing
+#: is dropped and the requirement is byte-for-byte the one CARD-184 wrote.
+#:
+#: **It is hand-written and it is not trusted.** The pairs were *measured* off
+#: the spy's own recording of both books on the unconverted tree, and the
+#: measurement is not the control:
+#: :meth:`TestInteriorType_TheNonVacuityFloorCanFail.test_the_semantic_kinds_are_mapped_to_page_kinds`
+#: holds the keys to the **string constants :attr:`TextCall.kind` returns**,
+#: read out of that method by :mod:`ast`, and the values to
+#: :class:`~nonogram.admin.book_pdf_generator.PageKind`. A new semantic kind,
+#: or a renamed one, is a failure here rather than a kind quietly outside the
+#: coverage claim (ADR-0039/R2).
+SEMANTIC_KIND_PAGE_KINDS = {
+    "guide": frozenset({"guide"}),
+    "divider": frozenset({"divider"}),
+    "band": frozenset({"puzzle", "answer"}),
+    "footer label": frozenset({"puzzle"}),
+    "answer caption": frozenset({"answer"}),
+    # The fallback bucket: everything the chain does not name, which is the
+    # clue digits of a puzzle or answer page and the TOC's own rows.
+    "other": frozenset({"puzzle", "answer", "toc"}),
+}
+
+
+def semantic_kinds_lettered_in_raster(book: str) -> set:
+    """The semantic kinds some **raster** page of ``book`` can still letter.
+
+    A semantic kind survives in the spy's vocabulary exactly while at least one
+    page kind it can be set on is both in this book's page plan and still a
+    declared raster exception (``page_medium`` is the one authority on that —
+    :func:`~nonogram.admin.book_pdf_generator.page_medium`, read live, so the
+    declarations shrink underneath this without the file changing).
+    """
+    planned = set(_pages_by_kind(book))
+    return {
+        semantic
+        for semantic, page_kinds in SEMANTIC_KIND_PAGE_KINDS.items()
+        if any(
+            page_kind in planned
+            and book_pdf_generator.page_medium(
+                book_pdf_generator.PageKind(page_kind)
+            )
+            is book_pdf_generator.PageMedium.RASTER
+            for page_kind in page_kinds
+        )
+    }
+
+
 #: The functions that draw a nonogram's **clue digits** — the one family of
 #: faces CON-020 exempts. The raster pair is :data:`EXEMPT_CALLERS`, stated by
 #: CARD-184; the vector one is ``book_vector_draw.draw_clue_digits``, the only
@@ -523,6 +592,39 @@ def draws_clue_digits(kind: str) -> bool:
 CLUE_DIGIT_KINDS = frozenset(
     kind.value for kind in book_pdf_generator.PageKind if draws_clue_digits(kind.value)
 )
+
+#: The stand-in parameter a **collapsed** :data:`CLUE_DIGIT_KINDS` yields, so
+#: that an empty derivation is a named failure and never a skip. ``_`` is not
+#: a page kind and :func:`real_vector_stream` has no builder for it, so it
+#: refuses by name.
+_EMPTY_DERIVATION = "CLUE_DIGIT_KINDS-derived-empty"
+
+
+def clue_digit_kind_params() -> List[str]:
+    """``sorted(CLUE_DIGIT_KINDS)``, and **never the empty list** (CARD-358).
+
+    Two tests in :class:`TestInteriorType_TheStreamArmIsReached` are
+    parametrised over this derivation, and CARD-358's mutation run found what
+    that costs when the derivation collapses: planting ``pass`` over **both**
+    clue-digit call sites (``book_answer_vector`` and ``book_puzzle_vector``)
+    empties :data:`CLUE_DIGIT_KINDS`, and pytest then reports
+    ``got empty parameter set for (kind)`` — **2 skipped**, in a module whose
+    baseline is 0.
+
+    A skip is not a deny. ADR-0039/R2 wants a guard's set derived from an
+    authority the runtime can enumerate and **defaulting to deny** where none
+    exists, and CARD-358's whole subject is readings that go quiet rather than
+    red. So the empty case yields :data:`_EMPTY_DERIVATION` instead of nothing:
+    :func:`real_vector_stream` has no builder for it and refuses by name, which
+    is a failure that says what happened.
+
+    The agreement check beside it
+    (:meth:`TestInteriorType_TheStreamArmIsReached.test_the_refused_kinds_are_derived_and_agree_with_the_spy`)
+    already reds on a collapsed derivation, so the module did not read green —
+    but it read green *here*, on the two tests that are specifically about
+    these kinds, and that is the part worth closing.
+    """
+    return sorted(CLUE_DIGIT_KINDS) or [_EMPTY_DERIVATION]
 
 
 @dataclass(frozen=True)
@@ -722,6 +824,46 @@ def _real_answer_stream():
     )
 
 
+def guide_pages_for(book: str) -> List[Any]:
+    """``book``'s **vector** guide pages, laid out with its own spec and DPI.
+
+    The call is ``book_guide_vector.guide_pages`` with this book's own page
+    spec and DPI — the same call ``_real_guide_stream`` makes, on
+    ``BOOKS[book]`` rather than the corpus book, because the 10x10 cm trim
+    lays the page out differently and the claim is about both books.
+    """
+    generator = BookPDFGenerator(BOOKS[book]())
+    return list(
+        book_guide_vector.guide_pages(
+            generator.page_spec,
+            generator.dpi,
+            puzzle_count=len(baseline_puzzles()),
+            easy_count=len(baseline_puzzles()),
+        )
+    )
+
+
+def guide_clue_digit_faces(book: str) -> List[Any]:
+    """Every clue digit ``book``'s **vector** guide page records setting.
+
+    ADR-0042/R6's survivor for the worked example (CARD-358). The guide's
+    stream carries no provenance for a *non*-exempt face — the clue-digit mark
+    means "exempt" and the guide emits none — so the surviving authority is the
+    writer's own per-face record, ``GuidePage.faces``, each tagged with one of
+    :data:`~nonogram.admin.book_guide_vector.FACE_KINDS`.
+    :meth:`TestInteriorType_OnlyPuzzleClueDigitsAreExempt.test_worked_example_digits_are_drawn_and_never_exempt`
+    has the whole argument, including what the record cannot say: **the tag is
+    by kind, not by diagram**, so this list is the digits of all four of the
+    page's line-diagram families, and the worked example is one of them.
+    """
+    return [
+        face
+        for page in guide_pages_for(book)
+        for face in page.faces
+        if face.kind == book_guide_vector.CLUE_DIGIT
+    ]
+
+
 def _real_guide_stream():
     generator = BookPDFGenerator(corpus_book())
     pages = book_guide_vector.guide_pages(
@@ -915,6 +1057,86 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
           written (:func:`kinds_covered_in_their_medium`), which is the only
           vocabulary a content stream can speak, and the one that keeps biting
           after a kind converts and the semantic arm goes quiet for it.
+
+        **CARD-358 re-expressed the first of those two, and the reason is a
+        measured absence rather than a precaution.** With the five convertible
+        kinds lifted, the spy's semantic reading of both books is ``{'divider'}``
+        — guide, band, footer label and answer caption are all set on pages that
+        are now operators, and a content stream carries no call chain to
+        reconstruct them from. Per ADR-0042/R6 the requirement now follows the
+        medium (:func:`semantic_kinds_lettered_in_raster`): a semantic kind is
+        required while some page it can be set on is still a declared raster
+        exception, and the ones conversion takes away are **retired with named
+        survivors**, each in the vector writer's own file and each in the
+        richer vocabulary that writer records rather than this one:
+
+        **Each survivor below was planted against, not read.** For every
+        retired kind a plant removed exactly the lettering the kind names —
+        that kind's text call, in that kind's own writer — and the survivor is
+        named only if it went red under it (CARD-358 cycle 1, F-002: five of
+        the first draft's seven citations -- corrected from eight, cycle 2
+        F-201: guide 1, band 2, footer 2, answer 2 -- could not fail for the
+        reason they were cited). ``reds`` means newly red against the unplanted
+        baseline of the same files under the five-kind probe;
+        ``corroboration only`` means it sits beside the claim and stayed green.
+        The medium each one reads is stated, because the retirement of a kind
+        that *converted* is only answered by a survivor in the converted medium.
+
+        The *raster* worked example is covered elsewhere (cycle 2, F-203):
+        ``tests/test_book_guide_page.py::TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample::test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2``.
+
+        * ``guide`` (vector stream/record) —
+          ``tests/test_book_guide_page_vector.py``'s
+          ``TestGuidePage_EveryFaceHoldsTheFloorInTheStream::test_the_record_covers_every_kind_of_face_the_page_sets``
+          **reds** when the title is neither set nor recorded (it requires
+          ``book_guide_vector.FACE_KINDS`` of the drawn pages, strictly finer
+          than this file's single ``"guide"``); and
+          ``::test_the_writers_record_is_exactly_what_the_stream_shows``
+          **reds** when the title is dropped from the stream but still
+          recorded, which the first cannot see because it reads the record;
+        * ``band`` (vector stream) — ``tests/test_book_puzzle_page_vector.py``'s
+          ``TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle::test_every_band_the_section_shows_is_a_number_and_a_tier``
+          **reds**, as do ``::test_a_reader_can_select_the_band`` and
+          ``::test_the_title_is_absent_because_it_is_never_passed``. Its
+          sibling ``::test_the_band_fits_the_way_the_raster_page_fits_it`` is
+          **corroboration only**: it holds ratio-constant parity and
+          ``slot_room`` arithmetic and never reads what was lettered;
+        * ``footer label`` (vector stream) — the same file's
+          ``TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_page_carries_all_four_pieces_of_furniture``
+          and ``::test_the_reading_sees_each_piece_go_missing`` **red** when
+          the writer never sets ``size_label``.
+          ``::test_the_footer_lines_sit_where_the_raster_page_sets_them`` is
+          **corroboration only** (a descender / ink-row computation over the
+          furniture record, ``offset == 9``; green under the plant), and so is
+          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``
+          — the label is *absent* on a two-up page by design, so that test
+          reds for the QR links' lettering and not for the label's;
+        * ``answer caption`` — **converted medium (vector stream):**
+          ``tests/test_book_solved_answer_key.py``'s
+          ``TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt::test_the_caption_is_right_aligned_on_the_slot_comp_007_reports``
+          and
+          ``TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted::test_the_title_prints_only_on_answer_pages_across_a_corpus``
+          both **red** when ``book_answer_vector.draw_answer_caption`` never
+          sets its text. **Raster medium** (the still-live
+          ``BookPDFGenerator._packed_answer_page``, which no conversion
+          retires): ``TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording::test_caption_reads_answer_caption_when_there_is_room``
+          **reds** when ``_draw_solved_slot``'s ``draw.text`` is dropped, and
+          reds under *neither* vector plant. The first draft's other citation,
+          ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted::test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``,
+          is **corroboration only**: its ``(band < 128).any()`` is satisfied
+          by any ink in the slack strip and stays green under both plants.
+
+        Every class name above was resolved with :mod:`ast` against the
+        enclosing ``ClassDef``, not read off the file the method sits in:
+        co-location is not ownership, and the first draft of this list named a
+        ``TestGuidePage_TheRecordIsWhatTheStreamSets`` that does not exist.
+
+        Nothing is retired without a survivor and nothing is retired silently:
+        the derived requirement is asserted **non-empty**, so the day
+        ``PageKind.DIVIDER`` stops being raster too (CARD-231 replaces that
+        page rather than converting it) this reds, and the card that does it
+        owes this assertion a reading or a named survivor of its own —
+        default-deny, not a quiet vacuum (ADR-0039/R2).
         """
         kinds = {call.kind for call in recording(book, arial=True)}
         required = {"guide", "divider", "band"}
@@ -925,7 +1147,22 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
             required.add("footer label")
         if book != "min-trim":
             required.add("answer caption")
-        assert required <= kinds
+        # ADR-0042/R6: only the kinds a raster page can still letter. While
+        # every kind is a declared raster exception this subtracts nothing.
+        required &= semantic_kinds_lettered_in_raster(book)
+        assert required, (
+            "no semantic lettering kind is set on a raster page of this book "
+            "any more, so the spy's finer vocabulary has no subject at all and "
+            "this half of the coverage claim has gone vacuous. ADR-0042/R6 "
+            "needs the claim re-expressed against the content stream or "
+            "retired with a named survivor, and a content stream carries no "
+            "call chain to rebuild band/footer label/answer caption from — so "
+            "the survivor has to be in the vector writer's own file, in the "
+            "vocabulary that writer records (this method's docstring names the "
+            "four that are already there). An empty requirement is a FAILURE "
+            "and never a silent pass (ADR-0039/R2)."
+        )
+        assert required <= kinds, sorted(required - kinds)
 
         # The medium-independent half: every kind that letters is covered,
         # whichever arm read it. ``LETTERING_KINDS`` is intersected with the
@@ -1000,7 +1237,36 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
     """AC-3 — only puzzle-page clue digits are exempt, and they are exercised."""
 
     def test_the_exempt_set_is_non_empty(self, book):
-        assert [call for call in recording(book, arial=True) if call.exempt]
+        """The exemption's non-vacuity floor, counted in **both** media.
+
+        **CARD-358 re-expressed this; it was the plainest of that card's seven
+        reds.** The exemption is the one place CON-020 gives type size back, so
+        a reading that exempted nothing would hold the floor trivially over the
+        very faces the exemption exists for. The count was the spy's alone, and
+        the two kinds that letter clue digits — puzzle and answer — are both
+        convertible: with the five kinds lifted the spy sees **0** exempt calls
+        and the stream carries **644**, so the claim had not stopped being true,
+        only stopped being read.
+
+        Both arms state the same thing by their own medium's means and neither
+        states it by a face's size: the left reads the drawing function off the
+        spy's call chain (:attr:`TextCall.exempt`), the right reads the mark the
+        writer put in the stream (:attr:`StreamFace.exempt`) — the same pairing
+        :func:`below_floor_in_its_medium` uses, and for the same reason.
+        """
+        exempt = [call for call in recording(book, arial=True) if call.exempt] + [
+            face for face in stream_recording(book) if face.exempt
+        ]
+
+        assert exempt, (
+            "neither arm of the reading found a single exempt face. CON-020's "
+            "exemption is the one place the floor gives type size back, so a "
+            "reading that exempts nothing holds the floor vacuously over "
+            "exactly the faces the exemption is for — in the raster medium by "
+            "EXEMPT_CALLERS off the spy's call chain, in the converted one by "
+            "the clue-digit mark the writer emits. Both going quiet is a "
+            "FAILURE (ADR-0039/R2)."
+        )
 
     def test_only_the_two_clue_writers_are_exempt(self, book):
         callers = {call.caller for call in recording(book, arial=True) if call.exempt}
@@ -1012,11 +1278,165 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
         assert all(call.kind == "other" for call in exempt)
 
     def test_worked_example_digits_are_drawn_and_never_exempt(self, book):
-        example = [
-            call for call in recording(book, arial=True) if WORKED_EXAMPLE in call.caller_names
+        """The guide's clue digits are **drawn**, and are **never** exempt.
+
+        **CARD-358 re-expressed this, and it is the one of that card's seven
+        reds whose subject really does change shape in the converted medium.**
+        The raster reading keys on ``draw_example_line`` in the call chain;
+        a content stream has no call chain, and — unlike
+        :meth:`test_the_exempt_set_is_non_empty` beside it — there is no mark
+        to fall back on either, *by design*: the stream's one piece of
+        provenance is the clue-digit mark, the mark means "exempt", and the
+        whole point of this test is that these digits are **not**. So the claim
+        cannot simply be re-read off the stream in the other medium; it is
+        re-expressed against the authority that does survive, which is the
+        guide writer's **own** record of what it set.
+
+        ``book_guide_vector`` tags each face it draws with one of its
+        :data:`~nonogram.admin.book_guide_vector.FACE_KINDS`, and says in as
+        many words why: *"This medium has no ``_write_clues`` to tag, so the
+        distinction is made deliberately rather than inherited: a clue digit
+        drawn by this module is tagged with this kind and held to the floor
+        like every other kind, and ``EXEMPT_KINDS`` is empty."* So the two
+        halves carry over as:
+
+        * **drawn** — the record names at least one
+          :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT` face
+          (:func:`guide_clue_digit_faces`) **and**, on a page whose fallback
+          form keeps the worked example, the last clue digits the page sets, in
+          drawing order, are the worked example's own — its clue repeated once
+          per step. What that does and does not carry is the next section.
+        * **never exempt** — twice over, and neither reading by size. The
+          writer declares ``EXEMPT_KINDS`` empty; and ``"guide"`` is not in
+          :data:`CLUE_DIGIT_KINDS` (derived from ``src/`` by :mod:`ast`), which
+          makes :func:`faces_on_page` **refuse** a guide page whose stream
+          carries the mark at all — so no guide face can reach
+          :func:`below_floor_in_its_medium` exempt, which the live stream
+          reading is asserted to confirm below.
+
+        **What the mark can and cannot carry (CARD-358 cycle 1, F-001).** The
+        record's tag is by *kind*, and the guide page lays out **four** families
+        of line diagram through the one routine — the basic rule, the cell
+        states, the worked example and the technique rows — all tagged
+        :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT`. So "the record
+        names a clue digit" is one of four and is satisfied by the technique
+        rows alone (24 faces on ``book1``, 8 on ``min-trim``): planting
+        ``worked_example = []`` in ``book_guide_vector.guide_page`` — the
+        worked example draws nothing at all — leaves *that* assertion green.
+        There is **no per-diagram attribute** on :class:`DrawnFace` or on
+        :attr:`GuidePage.faces` to narrow it by, and this module may not add
+        one (it edits no ``src/``). What it has instead is **position**: the
+        worked example is the last diagram the page draws, so on a page whose
+        :attr:`GuidePage.fallback_level` keeps it (``bare_level`` 0) the tail
+        of that page's clue digits must be the worked clue,
+        ``WORKED_EXAMPLE_CLUE``, once per ``WORKED_EXAMPLE_STEPS`` entry. That
+        reds the plant on ``book1``. Its limits, stated rather than papered
+        over: it reads *where* the digits fall, so it would not notice a
+        worked example replaced by a diagram of the same digit sequence; and
+        on ``min-trim`` the writer's own fallback (``bare_level`` 2) drops the
+        worked example from the page entirely (the raster page has the same
+        ``bare_level < 1`` gate) — so there the claim has nothing to read, and
+        :meth:`test_a_book_keeps_the_worked_example_on_a_guide_page` is what
+        stops that from being true of every book.
+
+        **Scope.** On today's committed tree the guide is a declared raster
+        exception, so the raster branch below is the one that runs; the gap
+        above is in the **converted end state**, the one the card's reds live
+        in and CARD-322 will produce. The raster branch is **no more specific
+        than the record was**, which was measured rather than assumed:
+        ``WORKED_EXAMPLE`` is ``draw_example_line``, which every one of the
+        four families calls, and planting an empty ``worked_example_images``
+        in ``BookPDFGenerator.create_guide_page`` leaves this module at its
+        unplanted 53 passed with the guide still a raster exception. It is left
+        as CARD-184 wrote it — the raster guide is the page CARD-231 or
+        CARD-322 retires, and nothing here is built on it. The independent corroboration
+        that does fail for an empty worked example, in the converted medium, is
+        in ``tests/test_book_guide_page_vector.py`` and is measured, not
+        assumed: ``TestGuidePage_WorkedExampleReusesTheGridRoutine::test_the_page_draws_every_diagram_through_that_one_routine``
+        and
+        ``TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_an_engine_that_did_not_write_the_file_reads_the_digits_back``
+        both red under that plant. Its sibling
+        ``::test_each_clue_digit_size_really_reaches_the_file`` does **not**
+        — it reads every clue digit's size and is exactly as non-specific as
+        the record — and is cited nowhere as a survivor of this claim.
+        """
+        guide_is_raster = book_pdf_generator.page_medium(
+            book_pdf_generator.PageKind.GUIDE
+        ) is book_pdf_generator.PageMedium.RASTER
+
+        if guide_is_raster:
+            example = [
+                call
+                for call in recording(book, arial=True)
+                if WORKED_EXAMPLE in call.caller_names
+            ]
+            assert example, "the guide page's worked example drew no text"
+            assert not any(call.exempt for call in example)
+            return
+
+        digits = guide_clue_digit_faces(book)
+
+        assert digits, (
+            "the guide page is written as operators and its writer's own "
+            f"record names no {book_guide_vector.CLUE_DIGIT!r} face at all, so "
+            "the worked example drew no clue digit — or stopped tagging the "
+            "ones it draws, which leaves this claim with nothing to be about. "
+            "Either way it is a FAILURE and never a silent pass (ADR-0039/R2)."
+        )
+        kept = [
+            page for page in guide_pages_for(book) if page.fallback_level[2] == 0
         ]
-        assert example, "the guide page's worked example drew no text"
-        assert not any(call.exempt for call in example)
+        if kept:
+            expected = [
+                str(run) for run in book_pdf_generator.WORKED_EXAMPLE_CLUE
+            ] * len(book_pdf_generator.WORKED_EXAMPLE_STEPS)
+            tail = [
+                face.text
+                for face in kept[-1].faces
+                if face.kind == book_guide_vector.CLUE_DIGIT
+            ][-len(expected):]
+            assert tail == expected, (
+                "this guide page's fallback form keeps the worked example, so "
+                "the last line diagrams it draws must be the worked example's "
+                f"{len(expected) // len(book_pdf_generator.WORKED_EXAMPLE_CLUE)} "
+                f"steps ({expected}), and the last clue digits it records are "
+                f"{tail}. The worked example drew nothing, or something else "
+                "now closes the page."
+            )
+        assert book_guide_vector.EXEMPT_KINDS == frozenset(), (
+            "the guide page's writer now exempts "
+            f"{sorted(book_guide_vector.EXEMPT_KINDS)} from CON-020's floor. "
+            "The worked example's clue digits are the reader's instruction "
+            "text and are NEVER exempt (CARD-296 AC-5)."
+        )
+        assert book_guide_vector.CLUE_DIGIT not in book_guide_vector.EXEMPT_KINDS
+        assert "guide" not in CLUE_DIGIT_KINDS, (
+            "a vector guide writer now calls a clue-digit drawer, so a guide "
+            "page may carry the exempting mark and faces_on_page would stop "
+            "refusing it — the worked example's digits could then be exempted "
+            "from the floor by the writer's own claim (CARD-314 AC-4)."
+        )
+        assert not [face for face in stream_recording(book) if face.kind == "guide" and face.exempt]
+
+    def test_a_book_keeps_the_worked_example_on_a_guide_page(self):
+        """The tail reading above is not vacuous for every book at once.
+
+        ``min-trim``'s guide falls back past the worked example (``bare_level``
+        2), so the worked-example reading has nothing to read there. If the
+        writer ever fell back that far for ``book1`` too, the "drawn" half of
+        :meth:`test_worked_example_digits_are_drawn_and_never_exempt` would be
+        an empty ``if`` on both books and pass for a page with no worked
+        example. That is a FAILURE (ADR-0039/R2), not a quiet pass.
+        """
+        if book_pdf_generator.page_medium(
+            book_pdf_generator.PageKind.GUIDE
+        ) is book_pdf_generator.PageMedium.RASTER:
+            return
+        assert any(
+            page.fallback_level[2] == 0
+            for book in BOOKS
+            for page in guide_pages_for(book)
+        ), "no book's vector guide page keeps the worked example any more"
 
     def test_the_exemption_rule_by_name(self):
         def call(*chain: Tuple[str, str]) -> TextCall:
@@ -1354,7 +1774,7 @@ class TestInteriorType_TheStreamArmIsReached:
         with pytest.raises(AssertionError, match="VECTOR answer page"):
             faces_on_page(12, "answer", stream)
 
-    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    @pytest.mark.parametrize("kind", clue_digit_kind_params())
     def test_a_marked_vector_page_is_read_and_exempted_by_the_mark(self, kind):
         """CARD-314's AC-1 — the exemption survives in the stream.
 
@@ -1392,7 +1812,7 @@ class TestInteriorType_TheStreamArmIsReached:
             if face.points < FLOOR_PT and not face.exempt
         ] == []
 
-    @pytest.mark.parametrize("kind", sorted(CLUE_DIGIT_KINDS))
+    @pytest.mark.parametrize("kind", clue_digit_kind_params())
     def test_a_body_face_at_the_clue_digit_size_is_reported(self, kind):
         """**CARD-314's AC-2, and the card's central control** (G-2).
 
@@ -1699,9 +2119,29 @@ class TestInteriorType_TheStreamArmIsReached:
 
         The agreement is what makes the derivation non-vacuous. If
         ``draw_clue_digits`` were renamed, the AST reading would quietly empty
-        and refuse nothing; the spy reading would still name both kinds, and
+        and refuse nothing; the second reading would still name both kinds, and
         this reds. It also pins the direction cycle 1's F-001 was about: both
         readings say **two** kinds, not one.
+
+        **CARD-358 re-expressed the second reading, which was the spy's alone.**
+        The cross-check's whole value is that the confirming reading shares no
+        code with the derivation — and the two kinds that draw clue digits,
+        puzzle and answer, are precisely the two this file's own conversion
+        reaches. With the five kinds lifted the spy reports ``set()``: not a
+        derivation that stopped agreeing, a cross-check that stopped existing,
+        which is the worse of the two failures because it is the kind that
+        reads green once somebody loosens the assertion to match.
+
+        So the second reading is now the **union of both media**, each keyed on
+        its own medium's provenance and neither on a face's size: the spy's
+        :data:`EXEMPT_CALLERS`, and the clue-digit mark the writer leaves in the
+        shipped file (:attr:`StreamFace.exempt`). The independence is unchanged
+        in kind — an :mod:`ast` walk of ``src/`` against marked-content
+        brackets in the bytes of an exported PDF — and it survives the medium
+        change in either direction, because a kind that converts moves from one
+        arm of the union to the other. Measured with the five kinds lifted: the
+        spy's arm is empty, the stream's arm is ``{'answer', 'puzzle'}``, and
+        the union still agrees with the derivation.
         """
         from nonogram.admin import book_vector_draw
 
@@ -1710,23 +2150,26 @@ class TestInteriorType_TheStreamArmIsReached:
             "exists under that name, so the AST reading below reads nothing"
         )
 
-        by_the_spy = set()
+        by_the_readers = set()
         for name in sorted(BOOKS):
             page_kind = {
                 page: kind
                 for kind, pages in _pages_by_kind(name).items()
                 for page in pages
             }
-            by_the_spy |= {
+            by_the_readers |= {
                 page_kind[call.page]
                 for call in recording(name, arial=True)
                 if call.exempt
             }
+            by_the_readers |= {
+                face.kind for face in stream_recording(name) if face.exempt
+            }
 
-        assert by_the_spy == {"answer", "puzzle"}, sorted(by_the_spy)
-        assert set(CLUE_DIGIT_KINDS) == by_the_spy, (
+        assert by_the_readers == {"answer", "puzzle"}, sorted(by_the_readers)
+        assert set(CLUE_DIGIT_KINDS) == by_the_readers, (
             sorted(CLUE_DIGIT_KINDS),
-            sorted(by_the_spy),
+            sorted(by_the_readers),
         )
 
     def test_the_stream_arm_of_the_floor_judges_a_face_it_is_handed(
@@ -2261,15 +2704,88 @@ class TestInteriorType_TheNonVacuityFloorCanFail:
     """
 
     def test_dropping_a_semantic_kind_reds_the_coverage_assertion(self):
-        """The CARD-184 arm: a *piece* of lettering stops being drawn."""
-        kept = [call for call in recording("book1", arial=True) if call.kind != "band"]
+        """The CARD-184 arm: a *piece* of lettering stops being drawn.
 
-        kinds = {call.kind for call in kept}
+        **Rewritten by CARD-358, because the probe showed it passing for the
+        wrong reason.** The old body dropped the ``"band"`` calls and asserted
+        ``not {"guide", "divider", "band"} <= kinds`` against a hard-coded
+        triple. With the five convertible kinds lifted the spy's reading is
+        ``{'divider'}``, so that assertion is satisfied by ``guide`` being
+        absent for the *conversion* — the band could have gone on being drawn,
+        or stopped, and this control would have read green either way. A
+        control that cannot tell its own subject from a medium change is the
+        shape ADR-0039/R1 is about.
 
-        assert "band" not in kinds
-        assert not {"guide", "divider", "band"} <= kinds, (
-            "dropping every band call left the required set satisfied, so the "
-            "coverage assertion would not have noticed the band going away"
+        It now drops each kind of the **derived** requirement in turn — the
+        same :func:`semantic_kinds_lettered_in_raster` set the assertion uses —
+        and shows the requirement unsatisfied each time. So it follows the
+        medium with the claim it controls, and it cannot be satisfied by a kind
+        that was never required in the first place.
+        """
+        required = {"guide", "divider", "band", "footer label", "answer caption"}
+        required &= semantic_kinds_lettered_in_raster("book1")
+        full = recording("book1", arial=True)
+
+        assert required, "nothing is required, so there is no claim to control"
+        assert required <= {call.kind for call in full}, sorted(required)
+
+        for dropped in sorted(required):
+            kinds = {call.kind for call in full if call.kind != dropped}
+
+            assert dropped not in kinds
+            assert not required <= kinds, (
+                f"dropping every {dropped!r} call left the required set "
+                "satisfied, so the coverage assertion would not have noticed "
+                f"{dropped!r} going away"
+            )
+
+    def test_the_semantic_kinds_are_mapped_to_page_kinds(self):
+        """:data:`SEMANTIC_KIND_PAGE_KINDS` is complete, and on both sides.
+
+        CARD-358. The table is hand-written — it was measured off the spy's own
+        recording of both books, and a measurement is not a control — so it is
+        held to two authorities the runtime can enumerate (ADR-0039/R2):
+
+        * its **keys** are exactly the string constants :attr:`TextCall.kind`
+          returns, read out of that property by :mod:`ast` rather than by text,
+          because a semantic kind nobody mapped would otherwise drop silently
+          out of :func:`semantic_kinds_lettered_in_raster` and so out of the
+          requirement — the same hole cycle 1's F-003 found in
+          :data:`LETTERING_KINDS`;
+        * its **values** are
+          :class:`~nonogram.admin.book_pdf_generator.PageKind` values, so a
+          mapping to a page kind that does not exist fails here instead of
+          quietly matching no page and dropping its kind from the requirement.
+
+        Read by :mod:`ast` and not by text for the reason :func:`called_names`
+        gives: the strings also appear in this module's prose, and a text
+        search would find a kind the property never returns.
+        """
+        tree = ast.parse(textwrap.dedent(inspect.getsource(TextCall.kind.fget)))
+        returned = {
+            node.value.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        }
+
+        assert returned, (
+            "no string constant is returned from TextCall.kind, so this check "
+            "read nothing and the table below is unguarded"
+        )
+        assert set(SEMANTIC_KIND_PAGE_KINDS) == returned, (
+            sorted(set(SEMANTIC_KIND_PAGE_KINDS) ^ returned)
+        )
+
+        page_kinds = {kind.value for kind in book_pdf_generator.PageKind}
+        mapped = set().union(*SEMANTIC_KIND_PAGE_KINDS.values())
+
+        assert mapped <= page_kinds, sorted(mapped - page_kinds)
+        assert all(SEMANTIC_KIND_PAGE_KINDS.values()), sorted(
+            semantic
+            for semantic, kinds in SEMANTIC_KIND_PAGE_KINDS.items()
+            if not kinds
         )
 
     def test_dropping_a_page_kind_reds_the_medium_independent_assertion(self):
@@ -2348,3 +2864,195 @@ class TestInteriorType_TheNonVacuityFloorCanFail:
             sorted(LETTERING_KINDS & set(NON_LETTERING_KINDS))
         )
         assert all(NON_LETTERING_KINDS.values()), NON_LETTERING_KINDS
+
+
+# --------------------------------------------------------------------------
+# CARD-354 SCOPE+: the survivors this module cites must still exist
+# --------------------------------------------------------------------------
+
+_GUARD_MARKER = "# CARD-354 SCOPE+"
+
+#: A ``Class::method`` survivor token. Only ``Test*`` classes are read: the
+#: module also writes ``tests/test_book_pdf.py::_media_by_kind`` (a helper, not
+#: a test) and bare ``::method`` continuations, which inherit the class the
+#: line above them named.
+_CITED_SURVIVOR = re.compile(r"\b(Test\w+)::(test_\w+)")
+
+_TESTS_ROOT = Path(__file__).resolve().parent
+
+
+def cited_survivors(text: str) -> List[Tuple[str, str]]:
+    """Every ``Class::method`` token ``text`` writes, derived from the text.
+
+    A deliberate retraction ("this class does not exist") must be written
+    **without** ``::method`` -- which is how this module's prose already names
+    the class it got wrong -- because a regex cannot tell a retraction from a
+    citation, and a retraction written as a token reds here by design.
+    """
+    return sorted(set(_CITED_SURVIVOR.findall(text)))
+
+
+@functools.lru_cache(maxsize=None)
+def _texts_under(root: Path) -> Tuple[Tuple[Path, str], ...]:
+    """Every ``*.py`` under ``root`` as ``(path, text)``, read once per root.
+
+    Keyed on the root, because the ambiguity test hands in a ``tmp_path``.
+    """
+    return tuple(
+        (source, source.read_text(encoding="utf-8"))
+        for source in sorted(root.rglob("*.py"))
+    )
+
+
+def definitions_of(cls: str, method: str, root: Path) -> List[str]:
+    """Every file under ``root`` whose ``ClassDef`` ``cls`` defines ``method``.
+
+    A ``ClassDef`` named ``cls`` cannot exist in a file whose text lacks
+    ``cls``, so only files containing the name are parsed (a prefilter, about
+    30x cheaper than parsing the tree per token). Resolution is still by
+    :mod:`ast`: a file that merely mentions the class in a string or comment is
+    parsed and does not count.
+    """
+    found: List[str] = []
+    for source, text in _texts_under(root):
+        if cls not in text:
+            continue
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == cls:
+                if any(
+                    isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name == method
+                    for item in node.body
+                ):
+                    found.append(str(source.relative_to(root)))
+    return found
+
+
+def unresolved_survivors(text: str, root: Path) -> List[str]:
+    """One line per cited token that resolves to nothing, or to two files."""
+    problems: List[str] = []
+    for cls, method in cited_survivors(text):
+        where = definitions_of(cls, method, root)
+        if not where:
+            problems.append(f"{cls}::{method} is defined in no file under tests/")
+        elif len(where) > 1:
+            problems.append(f"{cls}::{method} is ambiguous: defined in {where}")
+    return problems
+
+
+class TestInteriorType_EveryCitedSurvivorStillExists:
+    """CARD-358's retirements name survivors in four test files (CARD-354).
+
+    Nothing else holds those names: they live in this module's prose, so
+    renaming, moving or retiring a cited test elsewhere would leave a retired
+    kind with no survivor and no red. The set is **derived from this module's
+    own text** (ADR-0039/R2), so a new citation extends it with no list to keep
+    in step, and each token is resolved by :mod:`ast` across the whole
+    ``tests/`` tree, because co-location is not ownership.
+    """
+
+    SELF = Path(__file__).resolve()
+
+    @classmethod
+    def prose(cls) -> str:
+        """This module's text above the guard itself.
+
+        The guard's own fixtures name ``TestX_Y::test_z`` to prove the
+        ambiguity branch; those are test data, not citations, so the block
+        that holds them is left out of what is read.
+        """
+        return cls.SELF.read_text(encoding="utf-8").split(_GUARD_MARKER)[0]
+
+    def test_every_cited_class_method_resolves_to_exactly_one_definition(self):
+        problems = unresolved_survivors(self.prose(), _TESTS_ROOT)
+
+        assert not problems, problems
+
+    def test_the_derivation_is_not_empty(self):
+        """Measured 11 on 2026-11-05 (4 + 3 + 3 + 1 across four files).
+
+        A floor, not an equality: a citation added later raises it, and what
+        this refuses is the regex silently matching nothing.
+        """
+        tokens = cited_survivors(self.prose())
+        files = {
+            definitions_of(cls, method, _TESTS_ROOT)[0] for cls, method in tokens
+            if definitions_of(cls, method, _TESTS_ROOT)
+        }
+
+        assert len(tokens) >= 11, tokens
+        assert len(files) >= 4, sorted(files)
+
+    def test_the_guard_reds_by_name_on_a_renamed_citation_and_not_on_its_control(self):
+        text = self.prose()
+        victim = "test_the_caption_is_right_aligned_on_the_slot_comp_007_reports"
+        assert text.count(victim) == 1, text.count(victim)
+        planted = text.replace(victim, victim + "_renamed")
+
+        assert unresolved_survivors(text, _TESTS_ROOT) == []
+        problems = unresolved_survivors(planted, _TESTS_ROOT)
+        assert len(problems) == 1, problems
+        assert victim + "_renamed" in problems[0], problems
+
+    def test_a_token_defined_in_two_files_is_named_as_ambiguous(self, tmp_path):
+        for name in ("test_a.py", "test_b.py"):
+            (tmp_path / name).write_text(
+                "class TestX_Y:\n    def test_z(self):\n        pass\n"
+            )
+
+        assert unresolved_survivors("TestX_Y::test_z", tmp_path) == [
+            "TestX_Y::test_z is ambiguous: defined in ['test_a.py', 'test_b.py']"
+        ]
+
+    def test_only_files_that_name_the_class_are_parsed(self, monkeypatch):
+        """The prefilter's own control, by call count and not by clock."""
+        cls = "TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt"
+        method = "test_the_caption_is_right_aligned_on_the_slot_comp_007_reports"
+        mentioning = sum(1 for _, text in _texts_under(_TESTS_ROOT) if cls in text)
+        calls = []
+        real_parse = ast.parse
+        monkeypatch.setattr(
+            ast, "parse", lambda *a, **k: calls.append(1) or real_parse(*a, **k)
+        )
+
+        assert definitions_of(cls, method, _TESTS_ROOT) == ["test_book_solved_answer_key.py"]
+        assert 1 <= mentioning < 10, mentioning
+        assert len(calls) == mentioning, (len(calls), mentioning)
+
+    def test_a_mention_in_a_string_or_comment_is_parsed_and_not_a_definition(
+        self, tmp_path
+    ):
+        (tmp_path / "test_real.py").write_text(
+            "class TestQ_R:\n    def test_s(self):\n        pass\n"
+        )
+        (tmp_path / "test_mention.py").write_text(
+            '# TestQ_R::test_s is only discussed here\nNOTE = "TestQ_R"\n'
+        )
+        (tmp_path / "test_other.py").write_text("x = 1\n")
+
+        assert definitions_of("TestQ_R", "test_s", tmp_path) == ["test_real.py"]
+
+    def test_a_definition_renamed_in_place_is_not_resolved_by_a_sibling_class(
+        self, tmp_path
+    ):
+        """F-001: the rename is made in the DEFINITION, not in the citation.
+
+        ``TestX_Y::test_x`` is cited; the definition becomes ``test_x_v2`` while
+        a second class still defines ``test_x``. The guard must red on the
+        first and must not be satisfied by the second (a ClassDef-name check
+        that is dropped) or by a prefix match (``test_x`` against ``test_x_v2``).
+        """
+        (tmp_path / "test_a.py").write_text(
+            "class TestX_Y:\n    def test_x_v2(self):\n        pass\n\n"
+            "class TestOther:\n    def test_x(self):\n        pass\n"
+        )
+
+        assert definitions_of("TestX_Y", "test_x", tmp_path) == []
+        assert unresolved_survivors("TestX_Y::test_x", tmp_path) == [
+            "TestX_Y::test_x is defined in no file under tests/"
+        ]
+        # The matched controls: the renamed name resolves, and so does the
+        # sibling's own method under its own class.
+        assert definitions_of("TestX_Y", "test_x_v2", tmp_path) == ["test_a.py"]
+        assert definitions_of("TestOther", "test_x", tmp_path) == ["test_a.py"]

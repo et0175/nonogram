@@ -71,7 +71,7 @@ cross-check requirement, and this card's `Touches` deliberately excludes `page_i
 
 - **AC-1** *Given* the five-kind probe, *then* all four modules' M7 reds are closed or carry a
   stated ADR-0042/R6 disposition, and the count is stated before and after.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-2** *Given* the four call sites, *then* the card states per site whether the claim needs
   pixels or a coordinate — and if they are not all the same, says so.
   (check: review-lens)
@@ -83,7 +83,7 @@ cross-check requirement, and this card's `Touches` deliberately excludes `page_i
   (test: named by the implementation; state it)
 - **AC-5** *Given* each repair, *then* a plant re-breaks it with its matched control green in the
   same run and `0 skipped`.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 
 ## How to measure, and the instrument is not yours to build
 

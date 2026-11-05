@@ -495,6 +495,8 @@ tracked files resolves them as **alive** while no such test exists there — pre
 "review YAMLs revive dead check refs" mechanism. It stays at the conventional path to be committed at
 the card's `done` step, after the merge makes the names real.
 
+> **⚠ RETRACTED 2026-11-05 (ADR-0039/R4): THE REVIEW YAMLs ARE NEVER COMMITTED, and I was wrong to promise otherwise** — to this card, in this record's commit message, and in the briefs of two later rounds. `meta/review/*.yml` is ignored by `.gitignore:102` and `tests/test_check_ref_resolution.py` pins the ignored-yet-tracked census at `IGNORED_YET_TRACKED = (488, …)`; its force-add gate reds in BOTH directions, so force-adding a new review YAML moves 488 and fails the board's own guard. The reason the original paragraph gave (the names do not exist on main until the merge) was real but was never the binding constraint. **The convention is: untracked, kept in the working tree, and copied to `~/Documents/nonogram-reviews/CARD-NNN/reviews/` for durability.** The commit message that repeats the promise is immutable; this note is where a reader looks.
+
 [Review 1/3] **A declared conflict of interest, and a second reader is already running.** The
 reviewer wrote the implementation brief this round worked from, disclosed that its review is therefore
 not independent of it, and asked for a second reader anchored elsewhere. The orchestrator had
