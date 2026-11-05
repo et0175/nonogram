@@ -103,7 +103,6 @@ from tests.test_public_player import (  # noqa: F401 — fixtures used by name
     _save,
     _state,
     _touch_drag,
-    browser_page,
     browser_type,
     bundle,
     host,
@@ -121,9 +120,33 @@ from tests.test_public_player_zoom import (  # noqa: F401
     _touch,
 )
 
+import tests.test_puzzle_solver_page as _solver_page
+
 PLAY_JS = PLAYER_DIR / "play.js"
 PLAYER_CSS = PLAYER_DIR / "player.css"
 PLAY_HTML = PLAYER_DIR / "play.html"
+
+@pytest.fixture
+def browser_page(request):
+    """This module's own ``browser_page``: CARD-160's, plus a ``pageerror`` collector.
+
+    Review cycle 1 (F-5): an exception thrown inside a crosshair handler is
+    swallowed by the browser, so a mutant whose ``moveTo(null)`` throws
+    (no null guard) looked green. Every uncaught page exception now fails the
+    test that provoked it (at teardown, which pytest reports as that test's
+    ERROR). Deliberately NOT in the shared fixtures other modules use. The
+    loud refusal when Chromium is absent (ADR-0038/R8) is kept verbatim.
+    """
+    try:
+        import pytest_playwright  # noqa: F401
+    except ImportError:
+        pytest.fail(_solver_page._PLAYWRIGHT_MISSING, pytrace=False)
+    page = request.getfixturevalue("page")
+    errors: list[str] = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    yield page
+    assert errors == [], f"the page threw: {errors}"
+
 
 # --------------------------------------------------------------------------
 # Reading the source: a small, honest JS reader
@@ -256,12 +279,19 @@ CROSSHAIR_SOURCE = ("wireCrosshair", "crossedParts", "cellUnder", "isAt")
 #: of pointer ids, and its own members. Everything else is refused.
 ALLOWED_FREE = frozenset({"document", "Number", "Set", *CROSSHAIR_SOURCE})
 
-#: Properties that are board state, clue data or a payload field. A property
-#: read is not an identifier, so it is checked on its own.
-FORBIDDEN_PROPERTIES = frozenset(
-    {"state", "textContent", "innerText", "innerHTML", "outerHTML", "cells", "board", "rows",
-     "columns", "done", "undone", "key", "history", "clues", "tier", "width", "height",
-     "getItem", "setItem", "publicPlayer"}
+#: The ONLY properties and methods the crosshair may read or call, default-deny
+#: (ADR-0039/R2; review cycle 1 F-1: a blacklist let ``.attributes``,
+#: ``.className``, ``classList.contains``, ``getAttribute``, ``getAttributeNames``,
+#: ``.children`` and ``.nextElementSibling`` through, each a way to read what a
+#: cell or clue box says without naming state). Derived from what the four
+#: functions really use: the pointer event's position, type and id; a hit test;
+#: a selector query; ``closest``; toggling the one marker class; a set of ids;
+#: and the cell's ``data-row`` / ``data-col`` (``dataset`` keys are checked
+#: separately). A new need is a one-word addition here, which is the point.
+ALLOWED_PROPERTIES = frozenset(
+    {"addEventListener", "querySelector", "querySelectorAll", "closest", "classList", "toggle",
+     "elementFromPoint", "dataset", "row", "col", "clientX", "clientY", "pointerType",
+     "isPrimary", "pointerId", "add", "delete", "clear", "size"}
 )
 
 #: ``data-*`` attributes the crosshair may name: positions, never state.
@@ -286,8 +316,14 @@ def crosshair_violations(js_source: str) -> list[str]:
             continue
         for ref in sorted(free_references(body) - ALLOWED_FREE):
             problems.append(f"{name}: free reference {ref!r}")
-        for prop in sorted(set(re.findall(r"\.\s*([A-Za-z_$][\w$]*)", body)) & FORBIDDEN_PROPERTIES):
+        # A spread (``...x``) is not a property read, hence the lookarounds.
+        for prop in sorted(set(re.findall(r"(?<!\.)\.(?!\.)\s*([A-Za-z_$][\w$]*)", body)) - ALLOWED_PROPERTIES):
             problems.append(f"{name}: property {prop!r}")
+        # A computed member (``el["attributes"]``, ``el[key]``) names its
+        # property at run time and cannot be allowlisted; only a numeric index
+        # (isAt's ``a[0]``) is read.
+        if re.search(r"[\w$)\]]\[(?!\s*\d+\s*\])", body):
+            problems.append(f"{name}: computed member access")
         for key in re.findall(r"\.dataset\s*\.\s*([A-Za-z_$][\w$]*)", body):
             if key not in {"row", "col", "line"}:
                 problems.append(f"{name}: dataset.{key}")
@@ -597,11 +633,21 @@ class TestPublicCrosshair_ItReadsNoBoard:
             "const a = stage.querySelector('[data-answer]');",
             "const u = UNKNOWN;",
             "const m = strokeOf(null, 1, 1);",
+            "const f1 = stage.attributes;",
+            "const f2 = stage.className;",
+            "const f3 = stage.classList.contains('is-solved');",
+            "const f4 = stage.getAttribute('data-' + 'st' + 'ate');",
+            "const f5 = stage.getAttributeNames();",
+            "const f6 = stage.children[0];",
+            "const f7 = stage.nextElementSibling;",
+            "const f8 = stage['attri' + 'butes'];",
         ],
         ids=[
             "history", "payload", "shown", "board", "cells", "isClueSolved", "publicPlayer",
             "localStorage", "fetch", "clue-text", "dataset-state", "data-state-selector",
             "clue-numeral", "unlisted-data-attribute", "UNKNOWN", "strokeOf",
+            "attributes", "className", "classList-contains", "getAttribute-concatenated",
+            "getAttributeNames", "children", "nextElementSibling", "computed-member",
         ],
     )
     def test_a_planted_reference_is_reported(self, plant) -> None:
@@ -903,6 +949,25 @@ class TestPublicCrosshair_TheLookIsTokensOnly:
             assert declaration.split(":")[0].strip() == "background", (selector, declaration)
 
 
+def _rgb255(text: str) -> tuple[float, float, float]:
+    """A computed ``rgb(...)`` or ``color(srgb ...)`` as 0-255 channels."""
+    r, g, b = (float(v) for v in re.findall(r"[\d.]+", text)[:3])
+    scale = 255 if text.startswith("color(") else 1
+    return (r * scale, g * scale, b * scale)
+
+
+def _distance(one, other) -> float:
+    return sum((a - b) ** 2 for a, b in zip(one, other)) ** 0.5
+
+
+def _token_rgb() -> dict[str, tuple[float, float, float]]:
+    css = (PLAYER_DIR.parent / "src" / "nonogram" / "admin" / "static" / "tokens.css").read_text(encoding="utf-8")
+    return {
+        name: tuple(float(int(hexa[i : i + 2], 16)) for i in (0, 2, 4))
+        for name, hexa in re.findall(r"(--[\w-]+)\s*:\s*#([0-9a-fA-F]{6})\s*;", css)
+    }
+
+
 @pytest.mark.browser
 class TestPublicCrosshair_TheTintStaysApart:
     """The tint is distinct from the Maybe cell's ground (the card's design
@@ -920,6 +985,18 @@ class TestPublicCrosshair_TheTintStaysApart:
         crossed_unmarked = page.evaluate(f"({ground})(2, 3)")
         assert _state(page, 2, 3) == "unknown"
         assert crossed_unmarked != maybe_colour
+        # F-3 (review cycle 1): "!=" alone passes a tint one step off the Maybe
+        # ground. The floor is DERIVED: the design system's own two
+        # near-identical warm grounds, --color-surface-hover (the Maybe ground)
+        # and --color-surface-sunken, are 3.0 apart in sRGB (euclidean, 0-255),
+        # and those are the pair it deliberately treats as the same quiet
+        # family. The crosshair must be at least TWICE that far from the Maybe
+        # ground, or it is the same family too. The real tint is 11.0 away
+        # (rgb 235,233,230 against 241,235,221), a margin of 1.8x over the floor.
+        tokens = _token_rgb()
+        floor = 2 * _distance(tokens["--color-surface-hover"], tokens["--color-surface-sunken"])
+        assert _rgb255(maybe_colour) == tokens["--color-surface-hover"], "the Maybe ground is the token"
+        assert _distance(_rgb255(crossed_unmarked), _rgb255(maybe_colour)) >= floor, (crossed_unmarked, maybe_colour, floor)
         # ...and a crossed unmarked cell is not the uncrossed paper either.
         _move_off_the_stage(page)
         assert page.evaluate(f"({ground})(2, 3)") != crossed_unmarked
@@ -1209,6 +1286,29 @@ class TestPublicCrosshair_ItLandsOnTheCellUnderThePointerWhenZoomedAndScrolled:
             session.detach()
         page.wait_for_timeout(SETTLE_MS)
         _assert_crossed_at(page, cell["row"], cell["col"])
+
+    def test_a_third_finger_neither_paints_nor_follows(self, browser_page, host) -> None:
+        """Two fingers are a pinch; three are still no crosshair, whether the
+        third lands or moves. (Review cycle 1, E14.)"""
+        page = browser_page
+        _open_max(page, host)
+        session = page.context.new_cdp_session(page)
+        try:
+            x, y = _cell_centre(page, 6, 0)
+            third = (x, y + 60)
+            _touch(session, "touchStart", [(x, y)])
+            _touch(session, "touchStart", [(x, y), (x + 80, y)])
+            page.wait_for_timeout(100)
+            _assert_nothing_crossed(page)
+            _touch(session, "touchStart", [(x, y), (x + 80, y), third])
+            page.wait_for_timeout(100)
+            _assert_nothing_crossed(page)
+            _touch(session, "touchMove", [(x, y), (x + 80, y), (third[0] + 30, third[1])])
+            page.wait_for_timeout(SETTLE_MS)
+            _assert_nothing_crossed(page)
+            _touch(session, "touchEnd", [])
+        finally:
+            session.detach()
 
     def test_a_pinch_marks_nothing_and_records_no_stroke(self, browser_page, host) -> None:
         """G-5 from the crosshair's side: its listeners add no input."""

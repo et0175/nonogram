@@ -2809,9 +2809,13 @@ def crosshair_disagreements(admin_js: str, public_js: str) -> dict[str, tuple[st
 
 
 #: What the public crosshair does DIFFERENTLY from the admin's, each with the
-#: decision it rests on. Four entries, all of them consequences of one fact:
-#: the public page has a zoom the crosshair had to be told about (CARD-324) and
-#: draws its table once. An entry is over a stated DIFFERENCE (the pair of
+#: decision it rests on. Five entries in two groups, and only the first group is
+#: about zoom: the first three (``events.listened``, ``events.that_clear_the_crosshair``,
+#: ``pointer_type.is_read_in``) exist because the public page has a pinch the
+#: crosshair had to be told about (CARD-324, AC-7); the last two
+#: (``position.is_forgotten_on_redraw`` and ``already_there.needs_the_cross_painted``)
+#: are one decision seen twice, CARD-267's fourth, because this page draws its
+#: table once and has no redraw to forget after. An entry is over a stated DIFFERENCE (the pair of
 #: values), not over a fact: see :func:`test_the_declared_values_are_the_stated_difference`.
 DECLARED_CROSSHAIR_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
     "events.listened": (
