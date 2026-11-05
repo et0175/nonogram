@@ -15,8 +15,35 @@
 //
 // What IS here is the UI glue, rewritten rather than shared: solver.js is
 // built around a Flask-rendered page with an embedded payload, a brush menu,
-// zoom controls, an error count, a hint button and a progress percent. This
-// page fetches its puzzle, has the same four brushes and no counters.
+// an error count, a hint button and a progress percent. This page fetches its
+// puzzle, has the same four brushes and no counters.
+//
+// ZOOM IS THE MODULE'S ARITHMETIC AND THIS FILE'S RENDERING (CARD-324,
+// ADR-0038/R4, ADR-0041/R3)
+// ---------------------------------------------------------------------
+// Until CARD-324 this page SERVED the zoom arithmetic and called none of it:
+// solver_state.js exports ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, clampZoom,
+// stepZoom, pinchZoom and anchoredScroll, the served copy carries all seven,
+// and the only mention of zoom in this file was the sentence above. That is
+// duplication-shaped debt waiting to happen rather than a missing feature,
+// and the whole of the fix is the glue below.
+//
+// Nothing about the zoom is derived here. There is no bound, no step and no
+// clamp expression in this file: the percent starts at ZOOM_MIN, the buttons
+// ask stepZoom what the next one is, a pinch asks pinchZoom, and the scroll
+// position that keeps the anchored cell still comes from anchoredScroll.
+// Both of those functions clamp their own return, which is why applyZoom
+// below does not (solver.js's own applyZoom says the same in as many words),
+// and it is why clampZoom and ZOOM_STEP are NOT imported: this file has no
+// use for either that is not already inside stepZoom/pinchZoom, and an
+// unused import is a second place to look for a rule that lives in one. The
+// five names imported are exactly the five solver.js's own glue imports, and
+// tests/test_public_player_zoom.py derives that set from solver.js rather
+// than listing it, so the two pages' consumed surface cannot drift apart.
+//
+// Zoom is a VIEW: it changes no board state, records no stroke, never enters
+// the history or the save, and resets to ZOOM_MIN on every load — the same
+// three properties the admin's zoom has.
 //
 // THE PAGE NEVER HAS THE ANSWER (ADR-0038/R6, ADR-0041/R2)
 // -------------------------------------------------------
@@ -57,6 +84,7 @@
 //   isSolved()     whether every clue is satisfied on the recorded board
 //   getTool()      the chosen brush
 //   isRegion()     whether Region is armed
+//   getZoom()      the zoom percent, ZOOM_MIN..ZOOM_MAX (view only)
 //   saveKey        the localStorage key this puzzle's save lives under
 
 import {
@@ -64,6 +92,7 @@ import {
   createBoard, createHistory, record, undo, redo,
   applyStroke, clickStroke, dragStroke, resetStroke,
   gesturePaints, nextRegion,
+  ZOOM_MIN, ZOOM_MAX, stepZoom, pinchZoom, anchoredScroll,
 } from "/solver_state.js";
 
 // Every fifth line carries the heavier rule, as on the printed sheet and in
@@ -423,6 +452,176 @@ function start(payload) {
   let lastClick = null;
   let gesture = null;
 
+  // ------------------------------------------------------------------ zoom
+  // `zoom` is a percent in [ZOOM_MIN, ZOOM_MAX]. It is view state and
+  // nothing else: `commit`, `serialize` and `refresh` never read it, so no
+  // zoom change can reach the history, the save or a cell's data-state.
+  const zoomOut = document.querySelector('[data-player-zoom-action="out"]');
+  const zoomIn = document.querySelector('[data-player-zoom-action="in"]');
+  const zoomReadout = document.querySelector("[data-player-zoom-readout]");
+  let zoom = ZOOM_MIN;
+
+  // Every live touch/pen pointer's viewport position, and the board cell it
+  // went down on (a [row, col] or null). Kept regardless of `gesture` and of
+  // Region, purely so a second finger can be recognised as a pinch; a mouse
+  // pointer never enters either map.
+  const touchPoints = new Map();
+  const touchStartCell = new Map();
+  // { firstId, secondId, startZoom, startDistance } while a pinch is running,
+  // else null. See beginPinch for what a pinch does to a stroke in progress.
+  let pinch = null;
+
+  const distanceBetween = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  // The readout and the two buttons' aria-disabled, from `zoom` alone. The
+  // percent and both bounds are the module's; nothing here is a literal.
+  function syncZoom() {
+    zoomReadout.textContent = `${Math.round(zoom)}%`;
+    zoomOut.setAttribute("aria-disabled", String(zoom <= ZOOM_MIN));
+    zoomIn.setAttribute("aria-disabled", String(zoom >= ZOOM_MAX));
+  }
+
+  // Move to `nextPercent` — already clamped by whichever of stepZoom /
+  // pinchZoom produced it — keeping the board point under `(anchorX,
+  // anchorY)` where it was. The anchor is an offset inside .player-stage's
+  // own visible box, not the page's, because the stage is the scroll
+  // container both axes belong to. A no-op percent (a press at either end of
+  // the range) touches neither the table nor the scroll position.
+  function applyZoom(nextPercent, anchorX, anchorY) {
+    const old = zoom;
+    zoom = nextPercent;
+    if (zoom !== old) {
+      // --player-zoom multiplies player.css's fitted cell, exactly as
+      // admin.css's own --player-zoom multiplies the panel's.
+      stage.querySelector(".player-board")?.style.setProperty("--player-zoom", String(zoom / 100));
+      // The gutters scale with the cell, so a zoom changes whether either
+      // axis can still afford to keep its own in view. Before the scroll is
+      // moved: the anchored positions below are read against the stage's own
+      // box, which this does not change, but the gutter's width is what the
+      // player is looking past.
+      keepCluesInView();
+      stage.scrollLeft = anchoredScroll(stage.scrollLeft, anchorX, old, zoom);
+      stage.scrollTop = anchoredScroll(stage.scrollTop, anchorY, old, zoom);
+    }
+    syncZoom();
+  }
+
+  // THE PINCH/DRAG COLLISION, decided rather than left to listener order
+  // (the card's item 4). Two pointers down on the stage is a pinch — and by
+  // the time the second lands, the first has ALREADY begun a single-pointer
+  // gesture, because `gesture` is set at pointerdown. What happens to that
+  // gesture is the decision, and it is: the stroke is ABANDONED.
+  //
+  //   * its preview reverts to the recorded board (`shown = history.board`),
+  //     so nothing a drag had painted stays on screen;
+  //   * `gesture` is cleared, so the first finger's own later pointerup
+  //     commits nothing — not the drag, and not even the single-cell CLICK
+  //     it would otherwise have been. That last one is the sharp half: with
+  //     Region off a touch gesture paints nothing anyway (gesturePaints),
+  //     but it still ends as a tap, so a pinch that did not clear `gesture`
+  //     would mark the cell the first finger went down on. That is exactly
+  //     the cell AC-5 names;
+  //   * `lastClick` is cleared, so the pinch also breaks a run of repeat
+  //     taps rather than letting the next tap continue one across it;
+  //   * `pinch` then swallows the pointerup/pointercancel of BOTH its
+  //     pointers, whichever the browser releases first, so a pinch that ends
+  //     with one finger still down marks nothing either.
+  //
+  // This is the same ruling solver.js took for the admin stage, reached the
+  // same way; it is written natively here because the public page's pointer
+  // handling is its own code and only the arithmetic is shared.
+  function beginPinch(firstId, secondId) {
+    if (gesture) {
+      shown = history.board;
+      gesture = null;
+      refresh();
+    }
+    lastClick = null;
+    pinch = {
+      firstId,
+      secondId,
+      startZoom: zoom,
+      // Math.max(…, 1): pinchZoom refuses a non-positive starting distance.
+      // Two pointers reported at one point is not a real pinch but is not
+      // impossible from synthetic input, and it must simply not zoom yet
+      // rather than throw out of a listener.
+      startDistance: Math.max(distanceBetween(touchPoints.get(firstId), touchPoints.get(secondId)), 1),
+    };
+  }
+
+  // CARD-271's question, asked for this page — and the one thing the zoom
+  // needed beyond the transform itself.
+  //
+  // The clue gutters are sticky so a panned board keeps its clues readable;
+  // player.css's own header states that as a promise. They are sized from
+  // --player-cell, so the zoom grows them with everything else — and on a
+  // 390 px phone at 300% the ROW gutter alone is then wider than the whole
+  // stage. Pinned, it covers every column and the board becomes unreachable:
+  // measured on the 30-cell board, which is the case this card exists for,
+  // and visible in the renders CARD-324 was reviewed from.
+  //
+  // So a gutter is pinned only while there is still room beside it for a
+  // whole CELL. The threshold is derived from the board itself — no share,
+  // no constant — and it is deliberately NARROWER than the admin's own rule
+  // (solver.js's keepCluesInView, STICK_MAX_SHARE = 0.4): that rule applied
+  // at this width would unpin this page's row gutter at 100% as well, which
+  // contradicts player.css's promise and the reading
+  // tests/test_public_player.py::test_phone_viewport_is_playable makes of it.
+  // Which of the two rules the public page should take is an owner decision
+  // and is NOT taken here. This one changes nothing below the zoom at which
+  // the board stops being reachable at all.
+  //
+  // Both classes are opt-IN, so the default is unpinned (ADR-0039/R2): a
+  // gutter whose room cannot be measured must not be left covering the
+  // board. The page draws its board from script, so there is no state in
+  // which the classes are absent and a board is on screen.
+  function keepCluesInView() {
+    const board = stage.querySelector(".player-board");
+    const rowClue = stage.querySelector("th.player-clue.is-row");
+    const colClue = stage.querySelector("th.player-clue.is-col");
+    const cell = stage.querySelector("td.player-cell");
+    if (!board || !rowClue || !colClue || !cell) return;
+    const { width, height } = cell.getBoundingClientRect();
+    board.classList.toggle(
+      "keeps-rows",
+      stage.clientWidth - rowClue.getBoundingClientRect().width >= width,
+    );
+    board.classList.toggle(
+      "keeps-cols",
+      stage.clientHeight - colClue.getBoundingClientRect().height >= height,
+    );
+  }
+
+  // The zoom the two pointers' current separation asks for, anchored on their
+  // midpoint in the stage's own box.
+  function pinchMove() {
+    const first = touchPoints.get(pinch.firstId);
+    const second = touchPoints.get(pinch.secondId);
+    const box = stage.getBoundingClientRect();
+    applyZoom(
+      pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(first, second)),
+      (first.x + second.x) / 2 - box.left,
+      (first.y + second.y) / 2 - box.top,
+    );
+  }
+
+  // Whether `event` is one of the running pinch's two pointers.
+  const inPinch = (event) =>
+    pinch !== null && (event.pointerId === pinch.firstId || event.pointerId === pinch.secondId);
+
+  // A touch/pen pointer leaving the page, by lift or by cancel: forget it,
+  // and end the pinch it belonged to with nothing committed. Returns whether
+  // the caller should stop — the pinch's pointers never fall through to the
+  // single-pointer paths below.
+  function releaseTouch(event) {
+    if (!touchPoints.has(event.pointerId)) return false;
+    touchPoints.delete(event.pointerId);
+    touchStartCell.delete(event.pointerId);
+    if (!inPinch(event)) return false;
+    pinch = null;
+    return true;
+  }
+
   const setDisabled = (button, disabled) => {
     if (button) button.setAttribute("aria-disabled", disabled ? "true" : "false");
   };
@@ -459,6 +658,30 @@ function start(payload) {
   }
 
   stage.addEventListener("pointerdown", (event) => {
+    // The pinch bookkeeping runs AHEAD of the single-pointer logic below and
+    // independently of it, for touch and pen pointers only — a mouse never
+    // reaches it. It has to come first: `if (gesture) return` on the next
+    // line would otherwise swallow a second finger's pointerdown whole, and
+    // the pinch would never be recognised.
+    if (event.pointerType === "touch" || event.pointerType === "pen") {
+      if (pinch) return; // a third pointer while a pinch runs: ignored
+      const cell = cellUnder(event.clientX, event.clientY);
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      touchStartCell.set(event.pointerId, cell);
+      if (touchPoints.size === 2) {
+        // The second finger. It is the BOARD's pinch only when the first one
+        // went down on a board cell; two fingers starting on a clue box or
+        // off the board are left to the browser entirely — no
+        // preventDefault, no capture — exactly as the admin leaves them.
+        // Either way this pointer never starts a gesture of its own.
+        const [firstId] = touchPoints.keys();
+        if (touchStartCell.get(firstId) !== null) {
+          event.preventDefault();
+          beginPinch(firstId, event.pointerId);
+        }
+        return;
+      }
+    }
     if (gesture || (event.pointerType === "mouse" && event.button !== 0)) return;
     const from = cellUnder(event.clientX, event.clientY);
     if (!from) return;
@@ -476,6 +699,14 @@ function start(payload) {
   });
 
   stage.addEventListener("pointermove", (event) => {
+    if (touchPoints.has(event.pointerId)) {
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    if (inPinch(event)) {
+      event.preventDefault();
+      pinchMove();
+      return;
+    }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const at = cellUnder(event.clientX, event.clientY);
     const previous = gesture.path.at(-1) ?? gesture.start;
@@ -489,6 +720,7 @@ function start(payload) {
   });
 
   stage.addEventListener("pointerup", (event) => {
+    if (releaseTouch(event)) return;
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const done = gesture;
     gesture = null;
@@ -514,6 +746,7 @@ function start(payload) {
   });
 
   stage.addEventListener("pointercancel", (event) => {
+    if (releaseTouch(event)) return;
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     gesture = null;
     shown = history.board;
@@ -542,6 +775,17 @@ function start(payload) {
     announce.textContent = "Board reset. Undo brings the marks back.";
   });
 
+  // The anchor for a button press is the centre of the stage's own visible
+  // box, so the cell the player is looking at stays under their eye. A press
+  // at either end of the range is a no-op, because stepZoom clamps — no
+  // separate guard is needed beyond the aria-disabled the readout syncs.
+  zoomOut.addEventListener("click", () => {
+    applyZoom(stepZoom(zoom, "out"), stage.clientWidth / 2, stage.clientHeight / 2);
+  });
+  zoomIn.addEventListener("click", () => {
+    applyZoom(stepZoom(zoom, "in"), stage.clientWidth / 2, stage.clientHeight / 2);
+  });
+
   document.addEventListener("keydown", (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") return;
     event.preventDefault();
@@ -550,6 +794,10 @@ function start(payload) {
 
   controls.hidden = false;
   hint.hidden = false;
+  syncZoom();
+  // After the toolbar is revealed, because the stage's own box is what the
+  // gutters are measured against and the toolbar is above it.
+  keepCluesInView();
   refresh();
 
   window.publicPlayer = Object.freeze({
@@ -559,6 +807,7 @@ function start(payload) {
     isSolved: () => isClueSolved(history.board, payload.rows, payload.columns),
     getTool: () => tool,
     isRegion: () => region,
+    getZoom: () => zoom,
     saveKey: saveKey(payload.key),
   });
 }

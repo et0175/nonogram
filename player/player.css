@@ -114,6 +114,43 @@ body {
   gap: var(--space-2);
 }
 
+/* Zoom (CARD-324): a third group, after .player-history — the admin's own
+   toolbar order. The gap is the admin's --space-1 rather than the two groups
+   above's --space-2: the readout belongs to the pair of buttons it sits
+   between, and reads as one control at the tighter gap. */
+.player-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The two glyph buttons keep the toolbar's ordinary .btn padding and gain a
+   square minimum, where admin.css NARROWS its pair to 5 px of side padding.
+   That narrowing is a desktop constraint and nothing else — it is what keeps
+   "Progress: N%" on the panel's counters row at 1280 px — and this toolbar
+   has neither counters nor a 1280 px case: every visit arrives by scanning a
+   QR code, so "-" and "+" get the same 44 px square a thumb gets everywhere
+   else here. */
+.player-zoom .btn {
+  min-width: 44px;
+  justify-content: center;
+}
+
+/* The readout is a plain <span> and deliberately not a live region: the
+   percent is a label on the control the player just pressed, so announcing
+   it on every step would be noise. Tabular figures and a 4ch floor keep the
+   two buttons from shifting as 100% becomes 300% — admin.css's own rule,
+   less its `font-size: var(--text-base)`, which this page's `body` already
+   declares and nothing between there and here changes. */
+.player-zoom-readout {
+  min-width: 4ch;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--color-text);
+}
+
 .btn {
   /* 44 px of height is the smallest comfortable touch target, and these are
      the controls a thumb reaches for most. */
@@ -414,17 +451,47 @@ body {
      widths are read by tests/test_public_player.py. */
   width: fit-content;
   max-width: 100%;
+  /* Zoom (CARD-324). The stage was already the scroll container, but only
+     sideways: with no height cap its own height is its content's, so it
+     never had anything to scroll vertically and a board taller than the
+     screen made the PAGE tall instead. Zoom is what makes that unacceptable
+     — at 300% a 30-cell board is three screens deep, and a page that
+     scrolls carries the sticky column clue band away with it, leaving the
+     player magnified cells with no clues reachable. That is the opposite of
+     what the zoom is for. The cap is the same shape admin.css gives its own
+     stage (`100svh` less the chrome above the board), built from this
+     page's chrome rather than the panel's: .player-page's top padding, one
+     --text-xl heading line and its margin, one .btn row of toolbar and its
+     margin, and some air below. It is an allowance and not a measurement —
+     this toolbar wraps on a phone, so a tall board's stage still reaches a
+     little below the fold, exactly as the panel's does. Its only job is to
+     make the stage the scrollport for BOTH axes, which is what keeps both
+     clue gutters in view while a zoomed board is panned. */
+  --player-chrome-h: calc(var(--space-4) + var(--text-xl) * 1.2 + var(--space-3)
+    + 44px + var(--space-3) + var(--space-4));
+  max-height: calc(100svh - var(--player-chrome-h));
   background: var(--color-surface);
   border: var(--player-rule) solid var(--color-border);
   -webkit-overflow-scrolling: touch;
 }
 
 .player-board {
-  --player-cell: clamp(
+  /* Zoom (CARD-324): --player-zoom is a multiplier — 1 at 100%, and the
+     default here so the board draws at the fitted size before play.js has
+     run at all. play.js sets it on this element from the percent the shared
+     module's arithmetic returned, dividing by 100 exactly as solver.js does.
+     It multiplies the whole fitted clamp and nothing else, so the fit's own
+     terms are untouched and 100% is still precisely the size CARD-283 chose;
+     every length derived from --player-cell — the clue boxes, the numerals'
+     font-size, the Maybe glyph — scales with it for free. This is
+     admin.css's own mechanism for the panel's stage, down to the shape of
+     the declaration. */
+  --player-zoom: 1;
+  --player-cell: calc(clamp(
     var(--player-cell-min),
     calc((100vw - 3rem) / (var(--player-width) + 4)),
     var(--player-cell-max)
-  );
+  ) * var(--player-zoom));
   border-collapse: collapse;
   table-layout: fixed;
   font-family: var(--font-num);
@@ -444,7 +511,6 @@ body {
 }
 
 .player-clue.is-col {
-  top: 0;
   vertical-align: bottom;
   width: var(--player-cell);
 }
@@ -452,7 +518,6 @@ body {
 .player-clue.is-col .player-clue-num { display: block; }
 
 .player-clue.is-row {
-  left: 0;
   text-align: right;
   white-space: nowrap;
   height: var(--player-cell);
@@ -461,10 +526,25 @@ body {
 .player-clue.is-row .player-clue-num { display: inline; margin-left: 0.35em; }
 
 .player-clue.is-corner {
-  top: 0;
-  left: 0;
   z-index: 3;
 }
+
+/* Which axis is actually PINNED (CARD-324). `position: sticky` stays on
+   .player-clue above, so the gutters are sticky boxes always; what moves is
+   the offset, and a sticky box with `top`/`left` at their `auto` default
+   does not stick on that axis. play.js's keepCluesInView adds these classes
+   per axis, and it is opt-IN on purpose: the gutters scale with the cell, so
+   a zoomed row gutter can be wider than the whole stage, and pinned there it
+   covers every column and leaves no cell reachable — measured on the 30-cell
+   board at 390 px and 300%, which is the case this card exists for. The rule
+   keepCluesInView applies, and why it is narrower than admin.css's own, is
+   written there. Below the zoom at which the board stops being reachable,
+   both classes are present and these three rules restore exactly what
+   CARD-283 declared. */
+.player-board.keeps-cols .player-clue.is-col,
+.player-board.keeps-cols .player-clue.is-corner { top: 0; }
+.player-board.keeps-rows .player-clue.is-row,
+.player-board.keeps-rows .player-clue.is-corner { left: 0; }
 
 /* Every fifth line carries the heavier rule, never the last (CARD-160). */
 .player-clue.major-right,
@@ -475,8 +555,22 @@ body {
 .player-cell {
   width: var(--player-cell);
   height: var(--player-cell);
-  min-width: var(--player-cell-min);
-  min-height: var(--player-cell-min);
+  /* The minimum is the CELL, not --player-cell-min — admin.css's own
+     declaration for this selector, and the one line of CARD-324 that is a
+     change rather than an addition. The two were equivalent while nothing
+     multiplied the cell: --player-cell-min is the fitted clamp's own lower
+     bound, so the clamp's result was never below it, and 28px was simply the
+     answer at every phone width. A zoom multiplier ends that equivalence,
+     and measured here on the 30-cell board at 390 px: with `table-layout:
+     fixed` and `border-collapse: collapse` Chromium sizes the column to the
+     largest min-width in it and ignores the specified width, so at 125% the
+     cell's --player-cell resolved to 35 px, the clue band's numerals grew
+     with it — and every cell stayed 28 px wide. The board got a wider
+     gutter and no bigger cells, which is the one thing a zoom must not do.
+     Tied to --player-cell the floor rises with the zoom and the specified
+     width is honoured. At 100% it is still exactly 28 px on a phone. */
+  min-width: var(--player-cell);
+  min-height: var(--player-cell);
   padding: 0;
   border: var(--player-rule) solid var(--color-border-strong);
   background: var(--grid-paper);
