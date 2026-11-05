@@ -3,7 +3,7 @@
 **Status:** in_progress
 **Priority:** P2
 **Category:** feature
-**Estimate:** 0.5d
+**Estimate:** 2c (0.5d) <!-- RESTATED in review cycles 2026-11-05 at dispatch, which was LATE: this card was stamped into wave 79 with a day estimate and that reddened tests/test_kanban_review_record.py (a waved card with no Nc term) until it was restated. Was 0.5d. 2c is a forecast, not a tuned figure: the closest comparator, CARD-324 (a player feature in the same three files), took 3 review cycles against 1c; the two tests-only slice cards took 1; this one adds a design question (zoom gap, AC-7) and a cross-implementation check. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
