@@ -1127,6 +1127,20 @@ class TestBookPdf_EveryFifthGridLineWider:
                 ("border", BORDER_RULE_PT),
             ):
                 declared_px = declared * DPI / 72.0
+                # DECLARED BOUND (ADR-0039/R3). The band is [declared px,
+                # declared px + 2]: ADR-0037's 2026-10-28 note states it as the
+                # span poppler's ink can take for a stroke of that width.
+                # Reason: it is a statement about *poppler's* stroke
+                # adjustment, not about the file, and it depends on the
+                # stroke's sub-pixel phase. MEASURED RESIDUE (poppler 26.08.0,
+                # 300 DPI, by this card's reviewer): the real page inks
+                # 2 / 4 / 6 px against declared 1.25 / 3.33 / 5.42 (excess
+                # 0.75 / 0.67 / 0.58, inside the +2), and one-rule pages at some
+                # sub-pixel phases ink 1 / 3 / 5 px (cell 1 px is BELOW the
+                # declared 1.25, so the lower edge is not tight either). A
+                # different poppler or a different phase can move a tier by a
+                # pixel; the +2 is slack for that, not a tolerance on the
+                # product, and the EDGE_* / HALF_PIXEL_MM bounds are untouched.
                 assert all(
                     declared_px <= width <= declared_px + 2 for width in tiers[tier]
                 ), (tier, declared_px, sorted(set(tiers[tier])))
@@ -1176,8 +1190,20 @@ class TestBookPdf_EveryFifthGridLineWider:
             for index, width in enumerate(_rule_widths(self._scan(page, "vertical")))
             if index not in self.HEAVY_INDICES
         ]
+        # What this means: the raster floor is not a requirement of a page of
+        # operators, so the thin rule is NOT held to it. The stated claim is
+        # the declared one -- the thin rule is declared at 0.3 pt, below the
+        # floor's own physical size (0.3 pt = 0.106 mm < 0.25 mm), asserted
+        # in physical units, which do not depend on the DPI.
+        declared_mm = CELL_RULE_PT * 25.4 / 72.0
+        assert declared_mm < MIN_THIN_RULE_MM, declared_mm
+        # COINCIDENCE PIN, kept on purpose and labelled as one: that poppler's
+        # ink for that rule is also under 3 px is a fact about 300 DPI and this
+        # poppler (exactly 2 px today), not a requirement. It is kept so that
+        # the retirement above is shown on a rendered page and not only in
+        # arithmetic; if the page's resolution or poppler moves it, re-derive
+        # it rather than widening it.
         assert max(thin_ink) < MIN_THIN_RULE_PX, thin_ink
-        assert max(thin_ink) / PX_PER_MM < MIN_THIN_RULE_MM
 
     @pytest.mark.parametrize("axis", ["vertical", "horizontal"])
     def test_the_rules_are_pure_black_and_not_anti_aliased(
@@ -1197,10 +1223,19 @@ class TestBookPdf_EveryFifthGridLineWider:
         ``round(255 * 0.35)``, the **declared tone of the cell lines** (ADR-0037
         R2: the fifths and the border are the interior's one ink, pure black;
         the cell lines are a lighter guide). Poppler, as this tree invokes it,
-        returns no grey between a stroke's tone and the paper at all --
+        returns no grey between a stroke's tone and the paper **across the
+        width of an axis-aligned rule** --
         :meth:`test_a_rule_reads_as_the_tone_it_is_declared_at_and_no_other`
         measures that on a page of one rule, at whole- and half-pixel
-        positions. So the two halves of the claim have different dispositions:
+        positions, along a scanline that crosses it. **That is the whole of
+        the claim, and it is narrower than "no anti-aliasing"** (CARD-356
+        review F-003, measured by the reviewer): a rule's *ends* carry greys
+        (244 / 248 / 251 and the like at 72 / 100 / 150 / 600 DPI), a diagonal
+        rule at 300 DPI carries 14 greys, and the tone is not always
+        ``round(255 * tone)`` to the grey (tone 0.9 reads 229, not 230).
+        This test's scanline is cut inside the grid between two rules, so it
+        meets only axis-aligned rule widths; a claim about a rule's end or a
+        slanted mark is not made here. So the two halves of the claim have different dispositions:
 
         * *"pure black"* -- **narrowed to what is declared**: the stream
           strokes every fifth line and the border at tone 0 and every cell
@@ -1264,10 +1299,13 @@ class TestBookPdf_EveryFifthGridLineWider:
         One vertical rule on an otherwise blank page, stroked at ``tone`` and
         placed at a whole pixel and at two fractions of one, rasterised by the
         same poppler call the page reads go through. Every pixel of the
-        scanline is the paper or ``round(255 * tone)``: no edge grey, at any
-        phase. That is what makes the 89 on the real page a tone and not an
-        artefact -- and what makes "not anti-aliased" assertable on operators
-        at all.
+        scanline **across the rule** is the paper or ``round(255 * tone)``:
+        no edge grey on the rule's width, at any of these phases. That is what
+        makes the 89 on the real page a tone and not an artefact -- and what
+        makes "no softened edge across a rule" assertable on operators at all.
+        Its scope is exactly that: the rule's ends, a diagonal, and tones
+        whose grey is not ``round(255 * tone)`` are outside it (the tones
+        parametrised here are 0, 0.35 and 0.6, which are exact).
 
         The control is :func:`_unexplained_greys` itself: asked about the
         same scanline with the tone **left out** of the declared set, it
@@ -1477,8 +1515,24 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
     title is on no puzzle page, anywhere -- and the band zone's text layer
     (poppler's) must read this module's own :func:`expected_band` and nothing
     else. Both halves of ADR-0037/R1 are carried by those two readings, and
-    neither reads the other's answer: the equality sees a stray mark of any
-    kind, the text layer sees the wrong words.
+    neither reads the other's answer.
+
+    **What the operators arm does and does not see (CARD-356 review F-001).**
+    The equality compares the generator with *itself minus the names*, so it
+    sees any mark that **depends on the name** (a title anywhere on the page,
+    in any form) and nothing else: a stray mark that does not depend on the
+    name -- a stray rule, a second folio -- is on both pages and passes. The
+    text layer sees the wrong *words* in the band zone only. So on a converted
+    interior this body does **not** carry a whole-page claim, and the answer
+    and ungraded pages have no whole-page comparison at all (their bitmap
+    comparisons were against a raster primitive that is no longer what the
+    generator draws). An independent whole-page expectation for operators
+    would mean re-composing the sheet furniture and the grid from
+    ``book_sheet_vector`` here, which is a second implementation of the
+    writer rather than a cheap reading, so it is **not built**: the
+    name-independent marks are held by the sibling modules that own them
+    (``tests/test_book_puzzle_page_vector.py``, ``tests/test_book_grid_rules.py``),
+    not by this one.
     """
     random_source = random.Random(20260923)
     books = 0
@@ -2052,7 +2106,12 @@ def _exported_pages(data: bytes) -> list[Image.Image]:
     is the control that fails if this goes back to ``pdf_pages`` alone.
     """
     pages = pdf_pages(data)
-    for index, medium in enumerate(pdf_vector.page_media(data)):
+    media = pdf_vector.page_media(data)
+    # Default-DENY (ADR-0039/R2): a page of no medium this tree writes keeps the
+    # bugged render if it is skipped, so it is refused here, the way
+    # ``band_draws`` refuses it.
+    assert pdf_vector.UNCLASSIFIABLE not in media, media
+    for index, medium in enumerate(media):
         if medium != pdf_vector.VECTOR:
             continue
         with tempfile.TemporaryDirectory(prefix="band-page-") as directory:
@@ -2399,7 +2458,107 @@ class TestBookPdf_TheStreamReaderCountsABandItIsShown:
         self, drawn: tuple[str, ...], count: int
     ) -> None:
         (stream,) = pdf_vector.content_streams(self._data(*drawn))
-        assert _bands_shown(stream, {self.BAND})[self.BAND] == count
+        shown = _bands_shown(stream, {self.BAND})
+        assert shown[self.BAND] == count
+        # The whole counter, not one key: a reader that reported a band that
+        # was not drawn, or under a different text, is caught on the cases
+        # where nothing should be counted.
+        assert sum(shown.values()) == count
+        if count == 0:
+            assert not shown
+
+
+_CITATION = re.compile(r"tests/(test_\w+\.py)::(\w+)(?:::(\w+))?")
+
+def _cited_survivors(text: str) -> list[tuple[str, str, str | None]]:
+    """``(file, class, method-or-None)`` for every ``tests/<file>::<Class>[::<method>]``
+    that ``text`` cites."""
+    return sorted(
+        {(file, cls, method or None) for file, cls, method in _CITATION.findall(text)},
+        key=str,
+    )
+
+
+def _unresolved_survivors(
+    text: str, tests_root: Path
+) -> list[str]:
+    """What ``text`` cites that does not resolve, by ``ast``, default-DENY.
+
+    Only the file a citation names is parsed. A citation resolves when that
+    file exists, defines the class at module level, and (when it names one)
+    that class defines the method. Anything else is reported by name.
+    """
+    import ast
+
+    problems = []
+    for file, cls, method in _cited_survivors(text):
+        target = tests_root / file
+        if not target.is_file():
+            problems.append(f"{file}: no such file (cited as {cls}::{method})")
+            continue
+        tree = ast.parse(target.read_text(encoding="utf-8"))
+        classes = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == cls
+        ]
+        if len(classes) != 1:
+            problems.append(f"{file}::{cls}: {len(classes)} definitions")
+            continue
+        if method is not None and not any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == method
+            for node in classes[0].body
+        ):
+            problems.append(f"{file}::{cls}::{method}: no such method")
+    return problems
+
+
+class TestBookPdf_EveryCitedSurvivorStillExists:
+    """This module's retirements name survivors in ``tests/test_book_grid_rules.py``.
+
+    They live in prose, so renaming or removing a cited class would leave a
+    retired claim with no survivor and no red. The set is **derived from this
+    module's own text** above the guard (ADR-0039/R2): a citation of the form
+    ``tests/<file>::<Class>`` added later extends it with no list to keep in
+    step, and each is resolved by ``ast`` in the one file it names. Nothing is
+    imported from another module.
+    """
+
+    SELF = Path(__file__).resolve()
+
+    @classmethod
+    def prose(cls) -> str:
+        return cls.SELF.read_text(encoding="utf-8").split(
+            "class " + "TestBookPdf_EveryCitedSurvivorStillExists"
+        )[0]
+
+    def test_every_cited_survivor_resolves(self) -> None:
+        assert _unresolved_survivors(self.prose(), self.SELF.parent) == []
+
+    def test_the_derivation_is_not_empty(self) -> None:
+        """A floor, not an equality: this refuses the regex matching nothing."""
+        cited = _cited_survivors(self.prose())
+        assert len(cited) >= 3, cited
+        assert {file for file, _, _ in cited} >= {"test_book_grid_rules.py"}
+
+    def test_a_renamed_citation_is_named_and_its_control_is_not(self) -> None:
+        text = self.prose()
+        victim = "TestBookGridRules_HasThreeWeights"
+        assert victim in text
+        planted = text.replace(victim, victim + "_Renamed")
+        assert _unresolved_survivors(text, self.SELF.parent) == []
+        problems = _unresolved_survivors(planted, self.SELF.parent)
+        assert len(problems) >= 1 and victim + "_Renamed" in problems[0], problems
+        method_planted = text.replace(
+            "TestBookGridRules_HasThreeWeights",
+            "TestBookGridRules_HasThreeWeights::test_no_such_method_exists",
+            1,
+        )
+        assert any(
+            "no such method" in problem
+            for problem in _unresolved_survivors(method_planted, self.SELF.parent)
+        )
 
 
 class TestBookPdf_SamePageCanFail:
