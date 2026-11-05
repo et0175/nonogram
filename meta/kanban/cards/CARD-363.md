@@ -201,6 +201,40 @@ skip: that is the shape this whole family keeps producing.
 
 ## Worktree notes
 
+[Retraction, post-merge, by the fourth pass's own author] **"NO LOCAL POSTGRES ANSWERS" IS FALSE,
+AND IT WAS MY MEASUREMENT.** It is written in two places in these notes and retracted in place at both
+rather than edited away (ADR-0039/R4). It also reached the merge commit's message, where it cannot be
+retracted — a commit message is immutable, which is itself a reason not to put an unverified reason in
+one.
+
+**The server was up the whole time: `PostgreSQL 18.1 (Postgres.app)`, answering `psql postgres`
+normally.** What I ran was `psql -lqt` with **no database argument and stderr suppressed**, read the
+empty stdout as "no server", and wrote that into a gate record as the reason for not arming
+`DATABASE_URL`.
+
+**The real cause is a client/server version mismatch, and it is worth knowing.** The `psql` on `PATH`
+is `/opt/homebrew/bin/psql`, **PostgreSQL 15.19 (Homebrew)**, against a **18.1** server. The `\l`
+meta-command's catalog query is version-specific, so the 15 client fails on this server with
+`ERROR: column d.daticulocale does not exist`. **The connection SUCCEEDED; only the listing query
+failed.** The matching client is at `/Applications/Postgres.app/Contents/Versions/latest/bin/psql`.
+So an empty result from a connection attempt was an INSTRUMENT FAILURE, never a verdict about the
+server — the same rule this board already holds for a hash that differs where `git diff` says nothing
+changed.
+
+**What stands and what does not.** The skip count and its attribution stand and are unaffected: 27 =
+26 bare-`DATABASE_URL` + 1 `setrlimit` is the correct *unarmed* reading, measured off `-rEfs` on both
+runs, and both gates were genuinely green. What does not stand is the **justification**: the armed
+arm was available and was not exercised, so neither of this card's two full suites says anything about
+the 26 DB cells. That is a real gap in this card's gate, and it is disclosed rather than discovered.
+
+**It propagated, which is the part worth carrying.** I asserted it in a hand-back; the orchestrator
+wrote it onto this card from that hand-back; I then wrote it a second time in my own close stamp. One
+unverified measurement of mine became two live copies on a board record, in the card whose entire
+subject is records that do not say what they claim. **The fix is placed where it closes rather than
+where it was found:** wave 78's CARD-349 is the card about the armed `DATABASE_URL` path, its brief
+requires its gate to ARM it, and that brief carries this instrument failure by name so the next agent
+cannot repeat it.
+
 [Merge gate, merged `63f246a2`] **CLOSED, NOT CERTIFIED — and the gate's own finding is that
 the three review cycles could not have caught what the fourth pass found.** INV-023 freezes
 `meta/kanban` on a card branch at the merge base, so this module's tree reader read cards that
@@ -242,7 +276,9 @@ the `cN` census, which is 4, 5 or 6 depending on the regex and now says which.
 
 **MERGE GATE on the merged tree:** **10348 passed / 0 failed / 27 skipped / 1 xfailed**, skips the
 baseline exactly and attributed off `-rEfs` — 26 bare-`DATABASE_URL` + 1 `setrlimit`, unarmed because
-no local Postgres answers, so arming would have ERRORED the 26 rather than passing them. Reconciles
+no local Postgres answers, so arming would have ERRORED the 26 rather than passing them.
+**[THAT REASON IS RETRACTED — see the retraction note at the head of these notes. The server was
+reachable. The skip COUNT and its attribution stand; the justification for not arming does not.]** Reconciles
 three ways: 10348 + 27 + 1 = **10376** = the branch's collection; 10376 − 10308 (main's) = **68**; and
 68 is this module's own collection. Main's tree after the merge is byte-identical to the gated tree,
 so this run is wave 77's smoke test by identity. Lock written by the gate (holder / why / absolute
@@ -387,7 +423,8 @@ self-seeing inspection one level up. F-204 disclosed with a method caveat: the p
 a card whose score is **not** `cycle N of M`, or it reds for an unrelated reason. F-205's third refusal
 arm now has its own control. Full suite at `91f18bed` under the lock: **10336 passed / 27 skipped /
 1 xfailed / 0 failed / 0 errors**, unarmed (no local Postgres answers, so arming would have *errored*
-the 26 rather than passing them), attribution 26 + 1 = 27.
+the 26 rather than passing them), attribution 26 + 1 = 27. **[The parenthetical reason is RETRACTED —
+see the retraction note at the head of these notes. The count and attribution stand.]**
 
 [Review 3/3] **CONTINUATION PAST THE CEILING AUTHORISED BY THE OWNER**, 2026-11-04, with a
 **changed remit** — not another pointed fix. Precedent: CARD-091 ran 20 true cycles against an
