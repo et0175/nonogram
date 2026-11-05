@@ -70,6 +70,10 @@ page is written as operators the instrument has no subject: a poppler render of
 a stream and a PIL bitmap are different objects even when they show the same
 page. The claim is therefore re-expressed, not rasterised into agreement:
 
+Both this module and ``tests/test_book_pdf_two_up.py`` are fully green on the
+unlifted tree; their reds (4 here, 4 there, 2 of which are CARD-352's) are
+ABSENT unprobed and exist only under the five-kind probe.
+
 * a page is the same page as another when it is **in the same medium and has
   the same marks** (:func:`same_page`) -- operator for operator for a stream,
   byte for byte for a bitmap, and never a bitmap against a stream;
@@ -89,11 +93,29 @@ page. The claim is therefore re-expressed, not rasterised into agreement:
 is the generator's own page writer called directly, so a page drawn wrong the
 *same* way by the walk and by that writer would pass here. The reason is that a
 whole-page expectation of an operators page is a second implementation of the
-writer. What holds the page's *grid* (rule count, span, placement and weights)
-against the raster page's own ink is
-``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_AgreesWithTheRasterTwin``;
-nothing in this file holds the rest of an operators page against an
-independent drawing. This module holds the walk's choices (which puzzle, which
+writer. What holds the rest of an operators page lives in
+``tests/test_book_puzzle_page_vector.py``, by class:
+
+* the grid (rule count, span, placement and weights) against the raster page's
+  own ink: ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_AgreesWithTheRasterTwin``;
+* each clue digit where the layout put it:
+  ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt``;
+* the band's number and tier and never the title:
+  ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle``;
+* the sheet furniture (frame rules, footer label, folio, QR group):
+  ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheProductionPageCarriesTheFurniture``
+  and ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheFooterIsAllOrNothing``.
+
+Measured by the author, one plant, in-process, on that module alone: a stray
+rule added to every content stream reds 19 failed + 17 errors across 17
+classes, among them each class named above except the clue-digit one. The plant
+also lands in that module's own control streams, so this is not a count of real
+catches, and the clue-digit class was not moved by a stray rule (a rule is not a
+digit): **its claim is by name only, not plant-measured by this card.** Carried
+from the CARD-360 review, not re-measured: a stray rule at the left of the
+footer zone reds 1 in this module and 17 beyond the M8 pair in two_up; a grid
+shifted 1 pt reds 0 here and 1 in two_up; a stray rule in the page corner reds 0
+in both. This module holds the walk's choices (which puzzle, which
 position, which number and tier), and the band's words against the text layer.
 """
 
@@ -106,6 +128,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import pytest
 from PIL import Image, ImageDraw
 
 from nonogram import clues
@@ -393,20 +416,62 @@ def band_lines(page: ContentStream) -> List[str]:
     return [line for line in lines if _BAND_SHAPE.fullmatch(line)]
 
 
-#: The footer row starts below this share of the page's height (the folio and
-#: the grid-size label sit on it; a clue digit never does).
-_FOOTER_SHARE = 0.85
+def footer_floor(words: Sequence) -> float:
+    """The top, in points, of the footer row -- derived from the page itself.
+
+    The footer row is the row that carries the grid-size label "C x R"
+    (CARD-222), found by its ``x`` word; the folio (CARD-200) sits on that same
+    row. A clue digit is never on it. Deriving the floor from the label replaces
+    a fixed share of the page height (this function used a hard-coded 0.85
+    before the review of CARD-360).
+
+    Measured on this tree, by the author, as the share of the page height
+    (``top / 792 pt``), at interior pages 6, 7 and 150:
+
+    ========  =======================  ===================
+    grid      lowest clue digit's top  footer row's top
+    ========  =======================  ===================
+    10x10     0.587                    0.8624
+    20x20     0.7427                   0.8624
+    30x30     0.7918                   0.8624
+    ========  =======================  ===================
+
+    (15x20 0.7427 and 30x10 0.5482 are on the same footer row.) So a floor is
+    correct exactly when it lies in ``(lowest clue digit, footer row]``, and
+    the derived floor is the upper end of that window.
+    :meth:`TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport.test_the_footer_window_is_derived_and_a_floor_past_either_end_is_refused`
+    asserts the window and its two controls.
+
+    **A page with no footer at all has no folio, and that is refused loudly.**
+    A 20x30 or a 10x30 vector page (measured: pages 6, 7 and 150) carries no
+    "x" word and no folio: its only digits near the bottom are clue digits
+    (measured: "0", "0", "0", "1" below 85% of the height). Reading a "folio"
+    off such a page would mistake a clue digit for one and report a correct page
+    as wrong, so this raises with the reason instead of returning something.
+    """
+    labels = [word for word in words if word.text == "x"]
+    assert labels, (
+        "this page carries no grid-size label, so no footer and no folio to "
+        "read (a 20x30 or 10x30 vector page has none); refusing to take a "
+        "clue digit for a folio"
+    )
+    return min(word.top for word in labels)
 
 
-def footer_digits(page: ContentStream, label: Tuple[int, int]) -> List[str]:
+def footer_digits(
+    page: ContentStream, label: Tuple[int, int], floor: Optional[float] = None
+) -> List[str]:
     """The digit words in ``page``'s footer row, less the grid-size label's own.
 
-    The footer carries the folio (CARD-200) beside the label "C x R" (CARD-222);
-    what is left once the label's two numbers are taken away is the folio, as
-    poppler reads it. ``[]`` when the folio is absent.
+    The footer carries the folio beside the label "C x R"; what is left once the
+    label's two numbers are taken away is the folio, as poppler reads it.
+    ``floor`` is the footer row's top in points, derived by :func:`footer_floor`
+    unless a caller (a control) states one.
     """
-    floor = page.height_px / page.dpi * 72.0 * _FOOTER_SHARE
-    digits = [w.text for w in _words_of(page) if w.top >= floor and w.text.isdigit()]
+    words = _words_of(page)
+    if floor is None:
+        floor = footer_floor(words)
+    digits = [w.text for w in words if w.top >= floor - 0.05 and w.text.isdigit()]
     for number in label:
         if str(number) in digits:
             digits.remove(str(number))
@@ -997,6 +1062,45 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         assert band_lines(planted) != ["Puzzle 1 · Easy"]
         assert not names_the_page(planted, puzzles[0], 6, 1, "Easy")
 
+    def test_the_footer_window_is_derived_and_a_floor_past_either_end_is_refused(
+        self,
+    ) -> None:
+        for columns, rows in ((10, 10), (20, 20), (30, 30), (15, 20), (30, 10)):
+            puzzle = _puzzle("W", "easy", columns, rows)
+            for page_number in (6, 7, 150):
+                page = self._written_page(puzzle, page_number, 1, "Easy")
+                words = _words_of(page)
+                floor = footer_floor(words)
+                clue_top = max(
+                    w.top for w in words if w.text.isdigit() and w.top < floor - 0.5
+                )
+                where = (columns, rows, page_number)
+                # the window: the lowest clue digit is above the derived floor
+                assert clue_top < floor, where
+                assert footer_digits(page, (columns, rows)) == [str(page_number)], where
+                # control, just past the LOW end: a floor at the lowest clue
+                # digit takes a clue digit for part of the footer
+                assert footer_digits(page, (columns, rows), clue_top) != [
+                    str(page_number)
+                ], where
+                # control, just past the HIGH end: a floor below the footer row
+                # finds no folio at all
+                assert footer_digits(page, (columns, rows), floor + 1.0) == [], where
+
+    def test_a_page_with_no_footer_has_no_folio_and_is_refused_loudly(self) -> None:
+        """A 20x30 and a 10x30 vector page carry no footer (measured: no "x"
+        label word on pages 6, 7 and 150). The control is the page beside them
+        that does."""
+        control = self._written_page(_puzzle("C", "easy", 20, 20), 6, 1, "Easy")
+        assert footer_digits(control, (20, 20)) == ["6"]
+        for columns, rows in ((20, 30), (10, 30)):
+            puzzle = _puzzle("N", "easy", columns, rows)
+            for page_number in (6, 7, 150):
+                page = self._written_page(puzzle, page_number, 1, "Easy")
+                assert not any(w.text == "x" for w in _words_of(page))
+                with pytest.raises(AssertionError, match="no footer"):
+                    footer_digits(page, (columns, rows))
+
     def test_the_page_position_is_read_from_the_folio_not_from_the_page_it_was_drawn_for(
         self, monkeypatch
     ) -> None:
@@ -1024,7 +1128,9 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
 # Every survivor this module cites still exists, exactly once
 # --------------------------------------------------------------------------
 
-_CITATION = re.compile(r"tests/(test_\w+\.py)::(\w+)(?:::(\w+))?")
+#: The ``tests/`` prefix is optional: a citation written without it is derived
+#: and checked, not silently skipped.
+_CITATION = re.compile(r"(?:tests/)?(test_\w+\.py)::(\w+)(?:::(\w+))?")
 
 
 def _cited_survivors(text: str) -> List[Tuple[str, str, Optional[str]]]:
@@ -1039,8 +1145,9 @@ def _unresolved_survivors(text: str, tests_root: Path) -> List[str]:
     """What ``text`` cites that does not resolve by ``ast``, default-DENY.
 
     Only the file a citation names is parsed. A citation resolves when that file
-    exists, defines the class exactly once at module level and, when it names
-    one, that class defines the method.
+    exists, defines the class exactly once at module level, that class holds at
+    least one ``test*`` method (a stub carrying a survivor's name is not one),
+    and, when the citation names a method, that class defines it.
     """
     problems = []
     for file, cls, method in _cited_survivors(text):
@@ -1056,6 +1163,13 @@ def _unresolved_survivors(text: str, tests_root: Path) -> List[str]:
         ]
         if len(classes) != 1:
             problems.append(f"{file}::{cls}: {len(classes)} definitions")
+            continue
+        if not any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name.startswith("test")
+            for node in classes[0].body
+        ):
+            problems.append(f"{file}::{cls}: defines no test method")
             continue
         if method is not None and not any(
             isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -1090,6 +1204,41 @@ class TestBookPdf_EveryCitedSurvivorStillExists:
             ("test_book_pdf_memory.py", "TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport"),
             ("test_book_puzzle_page_vector.py", "TestPuzzlePage_AgreesWithTheRasterTwin"),
         }, cited
+
+    def test_a_survivor_with_no_tests_is_refused_and_one_with_a_test_is_not(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "test_fake.py").write_text(
+            "class TestKept:\n    def test_x(self):\n        pass\n\n"
+            "class TestEmptied:\n    def helper(self):\n        pass\n\n"
+            "class TestStub:\n    pass\n"
+        )
+        assert _unresolved_survivors("tests/test_fake.py::TestKept", tmp_path) == []
+        for emptied in ("TestEmptied", "TestStub"):
+            problems = _unresolved_survivors(f"tests/test_fake.py::{emptied}", tmp_path)
+            assert len(problems) == 1 and "no test method" in problems[0], problems
+
+    def test_a_renamed_real_class_with_a_stub_carrying_its_name_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        """The rename plant that the existence check alone passed: the real class
+        moved to a new name and a ``pass`` stub left under the old one."""
+        (tmp_path / "test_fake.py").write_text(
+            "class TestSurvivor_Renamed:\n    def test_x(self):\n        pass\n\n"
+            "class TestSurvivor:\n    pass\n"
+        )
+        problems = _unresolved_survivors("tests/test_fake.py::TestSurvivor", tmp_path)
+        assert len(problems) == 1 and "no test method" in problems[0], problems
+
+    def test_a_citation_without_the_tests_prefix_is_derived_not_skipped(
+        self, tmp_path: Path
+    ) -> None:
+        assert _cited_survivors("see test_fake.py::TestKept::test_x") == [
+            ("test_fake.py", "TestKept", "test_x")
+        ]
+        (tmp_path / "test_fake.py").write_text("class Other:\n    pass\n")
+        problems = _unresolved_survivors("see test_fake.py::TestKept", tmp_path)
+        assert problems == ["test_fake.py::TestKept: 0 definitions"], problems
 
     def test_a_renamed_citation_is_named_and_its_control_is_not(self) -> None:
         text = self.prose()

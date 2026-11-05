@@ -433,8 +433,12 @@ def _reference_band(
     is the interior page the reference is held against. When it is a stream the
     reference is the *operators* the page writer draws for the same puzzle at
     the position and number ``identity`` names, rasterised by the same poppler
-    at the same DPI as the interior's page -- two renderings of one medium,
-    which is what a pixel comparison is a claim about. A bitmap reference
+    -- two renderings of one medium, which is what a pixel comparison is a claim
+    about. **The DPI is the drawn stream's own, by construction**: ``like`` is
+    used only for an ``isinstance`` check and is never read for a DPI, so
+    nothing in this function makes the reference's DPI the interior page's. What
+    pins it is one test, ``test_the_single_and_the_two_up_page_are_drawn_at_one_dpi``,
+    which reads both streams' ``dpi``. A bitmap reference
     against a poppler render could never match and said nothing. ``identity``
     is parsed here only to hand the writer its number and tier; the words it
     must have printed are read back from the page's text layer by
@@ -1136,16 +1140,41 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
     Bytes of two crops were the instrument. When the interior page is operators
     its poppler render is not a bitmap COMP-007 drew, so a bitmap reference
     could only say "no"; the reference is now drawn as operators and rasterised
-    by the same poppler at the same DPI (:func:`_reference_band`, ``like=``),
+    by the same poppler (:func:`_reference_band`, ``like=``),
     and the words are also read from the page's text layer
     (:func:`_band_lines`). This is the answer CARD-355 settled for the memory
     module -- identity for a page of operators is determinism of what is
     written, never equality with a bitmap -- carried to a module that stores no
     digest.
 
-    These tests draw their pages with ``vector_puzzle_page`` directly, so the
-    operators arm of every helper runs on a tree whose interior is still
-    bitmaps, with the controls in the same run.
+    These tests draw their pages with ``vector_puzzle_page`` and
+    ``vector_two_up_page`` directly, so the operators arm of :func:`_band_lines`
+    and of :func:`_reference_band` runs on a tree whose interior is still
+    bitmaps, with the controls in the same run. **What is NOT run on both
+    trees**: the ``isinstance(raw, ContentStream)`` text-layer assertions inside
+    ``TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand`` run only when the
+    interior holds streams (the probe); the two-up text-layer read itself is
+    exercised on both trees by
+    ``test_the_two_up_page_the_writer_draws_carries_both_bands_upper_first``.
+
+    **Declared residue: page parity (ADR-0039/R3).** AC-251 cannot see which
+    parity a band was drawn on. Measured here: the reference band's left edge is
+    1061 px on interior pages 5, 6, 7 and 8, and a two-up page drawn from page 6
+    and from page 7 has its upper band at 1061 as well. The reason is that both
+    slots are centred over the one usable width (CARD-224), so the band does
+    not move with the gutter side. Plants on ``puzzle_pages``' plans (probe-scoped module, reds beyond the
+    two M8 reds): a ``page_number + 1`` plant reds 3, all of them tests added
+    here that call ``puzzle_pages`` directly and assert the plan's
+    ``page_number`` -- so the position is pinned at that entry only, and still
+    not for the page the interior walk draws (the review measured 0 for the
+    module as it stood before these tests; carried, not re-measured). A
+    ``numbers + 1`` plant reds 34, because it perturbs every test that reads the
+    plan's numbers; that is not the review's 2, whose plant I did not
+    reproduce. ``test_the_band_left_edge_does_not_depend_on_page_parity`` pins
+    the 1061 fact
+    so a change to the centring is noticed, and its control moves the edge by
+    one pixel (``shift_px=1``) and is refused. Page position is held for single
+    pages by the folio test in ``tests/test_book_pdf_levels.py``; nothing in this file reads a two-up page's folio.
     """
 
     STREAM = ContentStream(width_px=1, height_px=1, dpi=300)
@@ -1203,6 +1232,52 @@ class TestBookPdf_ABandIsReadInTheMediumItWasWritten:
 
         assert bitmap is not None and stream is not None
         assert (bitmap.left, bitmap.image.tobytes()) != (stream.left, stream.image.tobytes())
+
+    @staticmethod
+    def _pair_payloads() -> list:
+        return [
+            _payload_of(_puzzle(**_SMALL_PAIR, puzzle_id=name), "Easy")
+            for name in ("one", "two")
+        ]
+
+    def _two_up(self, first_page: int = 6) -> ContentStream:
+        generator = BookPDFGenerator(_book())
+        payloads = self._pair_payloads()
+        plan = generator.puzzle_pages(payloads, first_page=first_page)[0]
+        assert plan.is_two_up and plan.page_number == first_page, plan
+        return generator.vector_two_up_page(plan, payloads)
+
+    def test_the_two_up_page_the_writer_draws_carries_both_bands_upper_first(self):
+        """The two-up operators arm, on BOTH trees: the page is drawn by the
+        writer entry directly, so it does not depend on the interior's medium."""
+        assert _band_lines(self._two_up()) == ["Puzzle 1 · Easy", "Puzzle 2 · Easy"]
+
+    def test_the_single_and_the_two_up_page_are_drawn_at_one_dpi(self):
+        """The one thing that makes the reference's DPI the page's: both streams
+        say 300 (the reference's DPI is the drawn stream's own)."""
+        assert self._single(1, "Easy").dpi == self._two_up().dpi == 300
+
+    def test_the_band_left_edge_does_not_depend_on_page_parity(self):
+        """Declared residue, measured (see the class docstring): 1061 on pages
+        5 to 8, for the reference and for the two-up page's upper band."""
+        puzzle = _puzzle(**_SMALL_PAIR)
+        lefts = {
+            page: _reference_band(puzzle, page, "Puzzle 1 · Easy", like=self.STREAM).left
+            for page in (5, 6, 7, 8)
+        }
+        assert set(lefts.values()) == {1061}, lefts
+        for first in (6, 7):
+            two_up = interior_images([self._two_up(first)])[0]
+            assert _band_ink(two_up, TOP_MM).left == 1061, first
+        # The control, just past the bound: one pixel moves the edge, and the
+        # comparison used by AC-251 refuses it.
+        moved = _reference_band(
+            puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM, shift_px=1
+        )
+        assert moved.left == 1062
+        assert not _same_ink(
+            moved, _reference_band(puzzle, 6, "Puzzle 1 · Easy", like=self.STREAM)
+        )
 
 
 # --------------------------------------------------------------------------
