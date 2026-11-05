@@ -122,6 +122,30 @@ re-run for CARD-198's larger one; the shape of the claim — bounded, and
 linear only in the file term — is what :class:`TestBookPdfMemory_RealBookExportsUnderTheCap`
 still measures live, against the real 305-page book, on every run.
 
+The medium (CARD-355, ADR-0042/R1 and R6)
+-----------------------------------------
+Everything above was written when every interior page was a bitmap. Once a
+kind is written as operators the page is a
+:class:`~nonogram.admin.book_vector.ContentStream` and has no bitmap, so the
+memory claim is **re-expressed, not rasterised**:
+
+* a page that is still a bitmap (the cover, the dividers) is costed in bytes
+  exactly as before, and ``peak == one page bitmap`` keeps its teeth on it;
+* an operators page costs **zero** bitmap bytes
+  (:func:`bitmap_bytes_of`) and its retention is the medium-blind count
+  :attr:`LivePageBytes.peak_pages`, asserted equal to one;
+* nothing here asks poppler for a bitmap to measure
+  (:class:`TestBookPdfMemory_TheMemoryClaimsDisposition`) -- a number measured
+  that way would be a fact about poppler, not about the generator.
+
+The pixel and byte comparisons against raster-era recordings are retired for
+an operators page with a named survivor, determinism of the stream
+(:class:`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport`), and the
+"same content at a shifted position" comparisons draw their reference in the
+medium the export used (``reference_*_page``). The figure this docstring's
+history carried for the old shape's list ("202 MB") is retracted in
+``test_the_same_instrument_sees_the_old_shape_grow``.
+
 Cost: the corpus book is exported **once** for the whole module (a
 module-scoped fixture), for a few seconds of real rendering and writing (up
 somewhat since CARD-198, which gives every puzzle its own full answer page
@@ -133,12 +157,14 @@ test must not fake.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import math
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import tracemalloc
 import weakref
@@ -146,7 +172,7 @@ from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pytest
@@ -160,7 +186,9 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
     PageKind,
+    PageMedium,
     PuzzlePagePlan,
+    page_medium,
     _answer_extent,
     _band_font,
     _degrade_infeasible_packed_pages,
@@ -196,8 +224,16 @@ from tests.helpers.book_corpus import (
     page_digest,
     page_digests,
 )
-from tests.helpers.page_ink import INK_LEVEL, drawing_of
-from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from nonogram.admin.book_vector import ContentStream
+from tests.helpers import pdf_pages as pdf_pages_module
+from tests.helpers import pdf_vector
+from tests.helpers.page_ink import (
+    INK_LEVEL,
+    drawing_of,
+    frame_centre_of,
+    pdf_page_boxes,
+)
+from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, page_image, same_page
 
 #: The deployed panel's memory envelope — the number this card exists to fit
 #: inside, and the first one the project has stated (CARD-145's Architecture
@@ -350,9 +386,258 @@ def solid_ink_blocks(page: Image.Image, side: int = FILLED_CELL_PROBE) -> int:
     return int((square == side * side).sum())
 
 
+class ReadInterior(List[Image.Image]):
+    """The pages of one file as bitmaps, and the medium each was WRITTEN in.
+
+    ``media[i]`` is what the file says page ``i`` is (``pdf_vector.page_media``),
+    kept beside the bitmap because the bitmap alone cannot say: a poppler
+    render of operators and a JPEG decode are both an ``Image``. A comparison
+    against a stored raster-era digest needs to know which it holds.
+    """
+
+    media: List[str]
+
+
+def interior_pages_of(data: bytes) -> ReadInterior:
+    """Every page of ``data`` as the bitmap it draws, each read for ITSELF.
+
+    CARD-355 The replacement for ``pdf_pages(data)`` over a mixed-medium
+    file. ``tests.helpers.pdf_pages.pdf_pages`` rasterises every operators page
+    into ONE shared scratch directory and ``tests.helpers.pdf_vector
+    .rendered_page`` then reads back ``sorted(glob("page-*.png"))[0]`` -- the
+    FIRST file in the directory, which after the first render is page 1's.
+    Measured on the baseline book under the five-kind lift: all nine operators
+    pages come back as the render of the first (blank title) page, 0 ink each,
+    while the five raster pages are right. That is a defect in two shared
+    helpers outside this card's ``Touches``; it is routed, not edited here, and
+    this reader is the module's own correct reading: a raster page is read by
+    the shared helper (right for it), an operators page is rendered by poppler
+    from a directory of its own.
+
+    The medium of each page is read off the FILE (``pdf_vector.page_media``,
+    default-deny), never inferred from a kind, so the same call is right on the
+    unlifted tree (every page raster) and on the lifted one.
+    """
+    media = pdf_vector.page_media(data)
+    unclassified = [n for n, m in enumerate(media, 1) if m not in (pdf_vector.RASTER, pdf_vector.VECTOR)]
+    assert not unclassified, f"pages {unclassified} are neither raster nor vector"
+    images = ReadInterior(pdf_pages(data))
+    images.media = media
+    assert len(images) == len(media)
+    if pdf_vector.VECTOR not in media:
+        return images
+    dpi = _dpi_of_the_file(data, media, images)
+    for index, medium in enumerate(media):
+        if medium != pdf_vector.VECTOR:
+            continue
+        with tempfile.TemporaryDirectory(prefix="memory-page-") as directory:
+            grey = pdf_vector.rendered_page(
+                data, dpi, index + 1, out_dir=Path(directory)
+            )
+        images[index] = Image.fromarray(
+            np.asarray(grey, dtype=np.uint8), mode="L"
+        ).convert("RGB")
+    return images
+
+
+def _dpi_of_the_file(
+    data: bytes, media: List[str], images: List[Image.Image]
+) -> int:
+    """The DPI the file's raster pages are drawn at: pixel width over MediaBox inches.
+
+    Derived from the file (two readings of one number), and refused when the
+    raster pages disagree or there are none -- a vector page has no pixels of
+    its own to say.
+    """
+    boxes = pdf_page_boxes(data)
+    derived = {
+        round(image.width / ((right - left) / 72.0))
+        for (left, _, right, _), image, medium in zip(boxes, images, media)
+        if medium == pdf_vector.RASTER
+    }
+    assert len(derived) == 1, (
+        f"the file's raster pages settle {sorted(derived)} DPIs, not one: an "
+        "operators page cannot be read at a scale nobody named"
+    )
+    return derived.pop()
+
+
+# --------------------------------------------------------------------------
+# References drawn in the medium the book is exported in (CARD-355)
+# --------------------------------------------------------------------------
+#
+# Several classes below compare an exported page with "the unedited drawing
+# function's own output" at another page number. Those functions are the
+# generator's RASTER methods (``_blank_page``, ``create_guide_page`` ...), and
+# once a kind is written as operators the exported page is a poppler render of
+# a content stream while the reference is a Pillow drawing of the same page: a
+# comparison of two media, not of two positions. Measured on the baseline book
+# under the five-kind lift, the 30x30 puzzle page differs from its raster twin
+# by a mean grey of 10.2 and 6.2 % of pixels beyond 50 levels, against
+# ``_matches_shifted_content``'s 8.0 and 3 % -- which are NOT moved (G-2): the
+# claim is "same content at a shifted position", and the right reference for
+# an operators page is the SAME writer asked for the other position. Each
+# helper below asks the writer the export would ask, in the medium
+# ``page_medium`` declares for the kind, and hands back a bitmap by rendering
+# that ONE page from its own one-page file (``page_image``), so the shared
+# reader's scratch-directory defect (see :func:`interior_pages_of`) cannot
+# touch it.
+
+
+def _is_vector(kind: PageKind) -> bool:
+    return page_medium(kind) is PageMedium.VECTOR
+
+
+def reference_puzzle_page(
+    generator: BookPDFGenerator, payload, number: int, page_number: int
+) -> Image.Image:
+    """:meth:`BookPDFGenerator._blank_page` in the medium the export writes it."""
+    if _is_vector(PageKind.PUZZLE):
+        return page_image(generator.vector_puzzle_page(payload, number, page_number))
+    return generator._blank_page(payload, number, page_number)
+
+
+def reference_two_up_page(generator: BookPDFGenerator, entry, payloads) -> Image.Image:
+    """:meth:`BookPDFGenerator._two_up_page` in the medium the export writes it."""
+    if _is_vector(PageKind.PUZZLE):
+        return page_image(generator.vector_two_up_page(entry, payloads))
+    return generator._two_up_page(entry, payloads)
+
+
+def reference_guide_page(generator: BookPDFGenerator, page_number: int) -> Image.Image:
+    """The 4-puzzle baseline book's guide page ``page_number``, in its medium."""
+    if _is_vector(PageKind.GUIDE):
+        return page_image(
+            generator.pages.guide(
+                generator.page_spec(page_number),
+                generator.dpi,
+                page_number,
+                puzzle_count=4,
+                easy_count=2,
+                medium_count=1,
+                hard_count=1,
+            )
+        )
+    return generator.create_guide_page(4, 2, 1, 1, page_number=page_number)
+
+
+def reference_answer_page(
+    generator: BookPDFGenerator, entry, payloads, page_number: int, titles
+) -> Image.Image:
+    """The answer page the walk drew for ``entry`` at ``page_number``, in its medium."""
+    vector = _is_vector(PageKind.ANSWER)
+    if isinstance(entry, PackedAnswerPage):
+        if vector:
+            return page_image(
+                generator.pages.packed_answer(
+                    generator.page_spec(page_number),
+                    generator.dpi,
+                    entry,
+                    payloads,
+                    page_number,
+                    titles,
+                )
+            )
+        return generator._packed_answer_page(entry, payloads, page_number, titles)
+    puzzle_id, payload = payloads[entry.number - 1]
+    title = answer_title(titles.get(str(puzzle_id)), payload.name)
+    if vector:
+        return page_image(
+            generator.pages.answer(
+                generator.page_spec(page_number),
+                generator.dpi,
+                payload,
+                entry.number,
+                page_number,
+                title,
+            )
+        )
+    return generator.solved_puzzle_page(
+        payload, entry.number, page_number, title=title
+    )
+
+
+#: The baseline book's fourteen interior pages, by kind, written out by hand
+#: (CARD-355): the title page, the two guide pages, the TOC, "Easy", the
+#: two-up page, "Medium", the 15x15, "Hard", the 30x30, SOLUTIONS, and the
+#: three answer pages. A second statement of what
+#: :func:`TestBookPdfMemory_PagesAreUnchanged.test_every_page_is_pixel_identical_to_the_recorded_one`
+#: used to leave to the file itself: which medium each page is WRITTEN in is
+#: read off the file (``pdf_vector.page_media``) and must equal what
+#: ``page_medium`` declares for the kind, so a page that stops being a bitmap
+#: for a reason the registry does not give is a failure and not a quietly
+#: retired comparison (ADR-0039/R2).
+BASELINE_PAGE_KINDS = (
+    PageKind.TITLE, PageKind.GUIDE, PageKind.GUIDE, PageKind.TOC,
+    PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER, PageKind.PUZZLE,
+    PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER,
+    PageKind.ANSWER, PageKind.ANSWER, PageKind.ANSWER,
+)
+
+
+def declared_media_of_the_baseline() -> List[str]:
+    """``BASELINE_PAGE_KINDS`` read through the generator's own registry."""
+    return [
+        pdf_vector.VECTOR if _is_vector(kind) else pdf_vector.RASTER
+        for kind in BASELINE_PAGE_KINDS
+    ]
+
+
+def raster_digests(pages: ReadInterior) -> List[Optional[Dict[str, Any]]]:
+    """:func:`page_digest` of every page WRITTEN as a bitmap; ``None`` for operators.
+
+    **What identity means once a page is operators (CARD-355, ADR-0042/R6).**
+    A stored digest is the sha256 of a *decoded JPEG bitmap* recorded in the
+    raster era. An operators page has no such bitmap; its poppler render can
+    never equal that digest, and "differs from the recording" is then true of
+    every operators page for a reason that has nothing to do with the claim.
+    So a stored digest is compared with a page only when the page is a bitmap,
+    and for an operators page identity is **determinism of the stream**
+    (:class:`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport`):
+    the same book exported twice writes the same operators, hence the same
+    pixels under a fixed rasteriser. ``None`` is what a caller must handle
+    explicitly -- there is no sentinel that compares unequal to everything.
+    """
+    return [
+        page_digest(page) if medium == pdf_vector.RASTER else None
+        for page, medium in zip(pages, pages.media)
+    ]
+
+
 # --------------------------------------------------------------------------
 # The instrument
 # --------------------------------------------------------------------------
+
+
+#: A book page as this tree hands one around (CARD-355): the bitmap a raster
+#: page is, or the operators a vector page is.
+Page = Union[Image.Image, ContentStream]
+
+
+def bitmap_bytes_of(page: Page) -> int:
+    """The bitmap ``page`` holds, in bytes -- **zero for operators**.
+
+    This is the whole of CARD-355's disposition of the memory claim, as code
+    rather than as a comment: a :class:`~nonogram.admin.book_vector.ContentStream`
+    is a list of operator strings and has no bitmap, so there is nothing for
+    "peak page-bitmap memory" to measure about it, and the instrument says so
+    instead of rasterising it. The alternative -- ``interior_images`` /
+    ``page_image`` -- would hand the probe a bitmap *poppler* produced, and the
+    number would be a fact about poppler.
+    :meth:`TestBookPdfMemory_TheMemoryClaimsDisposition.test_the_probe_never_asks_poppler_for_a_bitmap`
+    holds the line.
+
+    Default-deny (ADR-0039/R2): a page of any other type is refused, so a
+    third medium cannot be costed at zero by omission.
+    """
+    if isinstance(page, Image.Image):
+        return page.width * page.height * len(page.mode)
+    if isinstance(page, ContentStream):
+        return 0
+    raise TypeError(
+        f"a book page is a bitmap or a content stream; {type(page).__name__} "
+        "is neither, and costing it at zero would hide it from the bound"
+    )
 
 
 @dataclass
@@ -388,9 +673,13 @@ class LivePageBytes:
     reused.)
 
     Attributes:
-        peak: The largest live total seen, in bytes.
+        peak: The largest live total seen, in bytes **of bitmap** (zero for an
+            operators page, :func:`bitmap_bytes_of`).
+        peak_pages: The largest number of registered pages alive at once, of
+            either medium (CARD-355).
         seen: How many distinct pages were registered — a corpus-size guard,
             so a test cannot pass by measuring a book that was never built.
+        bitmaps_seen, streams_seen: ``seen`` split by medium.
         page_bytes: The largest single page's cost, for the arithmetic that
             derives the old shape's peak from a measured constant rather than
             from a hard-coded one.
@@ -399,26 +688,38 @@ class LivePageBytes:
     peak: int = 0
     seen: int = 0
     page_bytes: int = 0
+    #: CARD-355: the largest number of registered pages alive at once, **in
+    #: either medium**. ``peak`` is a quantity of bitmap and a content-stream
+    #: page has none (:func:`bitmap_bytes_of`), so under ADR-0042/R1 the
+    #: retention of an operators page is only visible as a count.
+    peak_pages: int = 0
+    bitmaps_seen: int = 0
+    streams_seen: int = 0
     _live: Dict[int, int] = field(default_factory=dict)
 
-    def watch(self, pages: Iterable[Image.Image]) -> Iterator[Image.Image]:
+    def watch(self, pages: Iterable[Page]) -> Iterator[Page]:
         """``pages``, costed as they go past and released immediately after."""
         for page in pages:
             self.track(page)
             yield page
             del page
 
-    def track(self, page: Image.Image) -> None:
-        """Register one page's bitmap and re-sample the live total."""
+    def track(self, page: Page) -> None:
+        """Register one page and re-sample the live totals."""
         key = id(page)
         if key in self._live:  # already registered, and still alive
             return
-        cost = page.width * page.height * len(page.mode)
+        cost = bitmap_bytes_of(page)
         self._live[key] = cost
         weakref.finalize(page, self._live.pop, key, None)
         self.seen += 1
+        if isinstance(page, Image.Image):
+            self.bitmaps_seen += 1
+        else:
+            self.streams_seen += 1
         self.page_bytes = max(self.page_bytes, cost)
         self.peak = max(self.peak, sum(self._live.values()))
+        self.peak_pages = max(self.peak_pages, len(self._live))
 
     @property
     def peak_in_pages(self) -> float:
@@ -475,7 +776,7 @@ def _measured(export) -> MeasuredExport:
     def tracking(drawn):
         def wrapper(self, *args, **kwargs):
             page = drawn(self, *args, **kwargs)
-            if isinstance(page, Image.Image):
+            if isinstance(page, (Image.Image, ContentStream)):
                 probe.track(page)
             return page
 
@@ -618,6 +919,12 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
             f"{big.seen} pages peaked at {big.peak_in_pages:.2f} page bitmaps, "
             f"{small.seen} pages at {small.peak_in_pages:.2f}"
         )
+        # CARD-355: and in the medium-blind unit, which is the only one an
+        # operators page is visible in.
+        assert big.peak_pages == small.peak_pages, (
+            f"{big.seen} pages peaked at {big.peak_pages} live pages, "
+            f"{small.seen} pages at {small.peak_pages}"
+        )
 
     def test_neither_book_holds_more_than_one_page_bitmap(
         self, small_export, corpus_export
@@ -649,6 +956,14 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
                 f"bitmaps, not {PEAK_IN_PAGES:.2f} — a page is being held "
                 "across the call that builds the next one"
             )
+            # CARD-355: the same equality for the pages of EITHER medium. A
+            # content-stream page holds no bitmap, so the byte equality above
+            # cannot see one being held; the count can.
+            assert probe.peak_pages == PEAK_IN_PAGES, (
+                f"{probe.seen} pages peaked at {probe.peak_pages} live pages, "
+                f"not {PEAK_IN_PAGES} -- a page (of either medium) is being "
+                "held across the call that builds the next one"
+            )
 
     def test_the_same_instrument_sees_the_old_shape_grow(self):
         """Verify by revert: the probe measures the list shape as linear.
@@ -658,29 +973,155 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
         this card replaced. ``interior_pages`` is still that shape — it returns
         every page in a list — so the same probe, over the same pages of the
         same book, is run across it here: the peak rises by exactly one page
-        bitmap per page, which is the 25.2 MB-a-page growth the panel was
-        killed by.
+        bitmap per *bitmap* page (25.2 MB each, the growth the panel was killed
+        by), and the live page count by one per page in either medium.
 
         This is the one test in the module that deliberately holds the old
-        shape's whole cost — every page of the baseline book at once,
-        **202 MB** of live bitmap (a figure predating CARD-128's level
-        dividers, left as recorded). That is the point of it, and it is also
+        shape's whole cost — every page of the baseline book at once. CARD-355
+        RETRACTS the figure this paragraph used to carry ("202 MB" of live
+        bitmap, predating CARD-128's level dividers): it was never
+        re-derived, and under ADR-0042/R1 it is not one number -- it is
+        ``PAGE_BITMAP_BYTES`` times however many of the book's pages are still
+        bitmaps, which this test counts by ``isinstance`` instead of
+        quoting. That is the point of it, and it is also
         why it is run on the twelve-page book and never on the 305-page one
         (CARD-198: up from 182), whose list would be 7.70 GB.
         """
         pages = BookPDFGenerator(corpus_book()).interior_pages(baseline_puzzles())
         assert len(pages) == BASELINE_PAGE_COUNT
 
+        # CARD-355 / ADR-0042/R6: the pages arrive in whichever medium their
+        # kind declares, and they are costed AS THEY ARE -- a bitmap by its
+        # own size, operators by nothing -- never rasterised first. The count
+        # of bitmaps is read here by ``isinstance``, a second reading that
+        # shares no code with the probe's own costing.
+        is_bitmap = [isinstance(page, Image.Image) for page in pages]
+        assert all(
+            isinstance(page, (Image.Image, ContentStream)) for page in pages
+        ), "a page that is neither medium would be costed at nothing"
+
         probe = LivePageBytes()
         peaks = []
+        live = []
         for page in pages:  # the list still holds every one of them
             probe.track(page)
             peaks.append(probe.peak)
+            live.append(probe.peak_pages)
 
+        # Retention, in the medium-blind unit: the list holds every page, so
+        # the live count rises by exactly one per page, bitmap or operators.
+        assert live == list(range(1, BASELINE_PAGE_COUNT + 1)), live
+        # Bytes, in the unit the defect was measured in: one page bitmap per
+        # *bitmap* page, nothing for an operators page.
         assert peaks == [
-            (n + 1) * PAGE_BITMAP_BYTES for n in range(BASELINE_PAGE_COUNT)
+            sum(is_bitmap[: n + 1]) * PAGE_BITMAP_BYTES
+            for n in range(BASELINE_PAGE_COUNT)
         ], peaks
-        assert probe.peak == BASELINE_PAGE_COUNT * PAGE_BITMAP_BYTES
+        assert probe.peak == sum(is_bitmap) * PAGE_BITMAP_BYTES
+        assert probe.bitmaps_seen == sum(is_bitmap)
+        assert probe.streams_seen == BASELINE_PAGE_COUNT - sum(is_bitmap)
+        assert sum(is_bitmap) >= 1, "the book's dividers are bitmaps in either tree"
+
+
+class TestBookPdfMemory_TheMemoryClaimsDisposition:
+    """CARD-355 / ADR-0042/R6 -- what happens to "peak page-bitmap memory" once
+    a page is operators, DECIDED AND ASSERTED.
+
+    **Disposition: re-expressed, in two halves, and never measured through a
+    rasteriser.**
+
+    1. *Bitmaps stay bytes.* A page that is still a bitmap (the cover, the
+       dividers) is costed exactly as before, by its own width x height x
+       channels, and the exact equality ``peak == one page bitmap`` keeps its
+       teeth on those pages.
+    2. *Operators are retention, not bytes.* A
+       :class:`~nonogram.admin.book_vector.ContentStream` has no bitmap, so
+       its bitmap cost is **zero** (:func:`bitmap_bytes_of`) and the claim
+       about it becomes the medium-blind one: no page of either medium
+       survives the call that builds the next, ``peak_pages == 1``.
+
+    **What was refused, and the measurement behind it.** Wrapping the old-shape
+    test's ``interior_pages`` list in ``interior_images`` would have made the
+    probe count 25.2 MB bitmaps that *poppler* drew for pages the generator
+    drew as a few hundred operator strings; the asserted number would then be
+    a fact about poppler. The first test below runs the probe with the
+    rasteriser wired to raise, so that substitution cannot be made without
+    this class going red; the second proves the tripwire is live.
+
+    **What survives of the process-level claim.** The capped-child tests in
+    :class:`TestBookPdfMemory_RealBookExportsUnderTheCap` are fresh
+    interpreters and do not inherit a ``-p`` lift, so they measure the
+    tree as it is committed; that is stated here rather than assumed.
+    """
+
+    @pytest.fixture
+    def rasteriser_is_wired_to_raise(self, monkeypatch):
+        class Rasterised(Exception):
+            """Something asked poppler for a bitmap."""
+
+        def refuse(*args, **kwargs):
+            raise Rasterised("a page was rasterised by poppler")
+
+        monkeypatch.setattr(pdf_vector, "rendered_page", refuse)
+        monkeypatch.setattr(pdf_pages_module.pdf_vector, "rendered_page", refuse)
+        return Rasterised
+
+    @staticmethod
+    def _a_content_stream() -> ContentStream:
+        return ContentStream(width_px=2550, height_px=3300, dpi=300)
+
+    def test_a_content_stream_page_costs_no_bitmap(self):
+        """The half-claim "operators cost zero bytes", with its control."""
+        probe = LivePageBytes()
+        stream = self._a_content_stream()
+        bitmap = Image.new("RGB", (2550, 3300), "white")
+
+        probe.track(stream)
+        assert (probe.peak, probe.peak_pages, probe.streams_seen) == (0, 1, 1)
+
+        # Control, same probe, same run: a bitmap IS costed, so the zero above
+        # is the medium's and not a probe that costs nothing.
+        probe.track(bitmap)
+        assert probe.peak == PAGE_BITMAP_BYTES == bitmap_bytes_of(bitmap)
+        assert (probe.peak_pages, probe.bitmaps_seen) == (2, 1)
+
+    def test_a_page_of_no_known_medium_is_refused_not_costed_at_zero(self):
+        """Default-deny (ADR-0039/R2): the third medium is a failure."""
+        with pytest.raises(TypeError, match="neither"):
+            bitmap_bytes_of(b"%PDF-1.4")  # type: ignore[arg-type]
+
+    def test_the_probe_never_asks_poppler_for_a_bitmap(
+        self, rasteriser_is_wired_to_raise
+    ):
+        """Measuring the old shape, and a streaming export, reads no rasteriser."""
+        generator = BookPDFGenerator(corpus_book())
+        pages = generator.interior_pages(baseline_puzzles())
+        probe = LivePageBytes()
+        for page in pages:
+            probe.track(page)
+        measured = _measured(lambda: export_of(generator, baseline_puzzles()))
+
+        assert probe.seen == BASELINE_PAGE_COUNT == measured.probe.seen
+        assert measured.probe.peak == PEAK_IN_PAGES * PAGE_BITMAP_BYTES
+        assert measured.probe.peak_pages == PEAK_IN_PAGES
+
+    def test_the_rasteriser_tripwire_is_live(self, rasteriser_is_wired_to_raise):
+        """Control for the test above, same fixture: the substitution it
+        forbids -- ``page_image`` over an operators page -- does raise."""
+        with pytest.raises(rasteriser_is_wired_to_raise):
+            pdf_pages_module.page_image(self._a_content_stream())
+
+    def test_a_held_content_stream_is_seen_by_the_count_and_not_by_the_bytes(self):
+        """The reason ``peak_pages`` exists: a retained operators page is
+        invisible to the byte peak, and the count is the instrument that sees it."""
+        probe = LivePageBytes()
+        held = [self._a_content_stream() for _ in range(3)]
+        for stream in held:
+            probe.track(stream)
+
+        assert probe.peak == 0
+        assert probe.peak_pages == 3
+        del held
 
 
 # --------------------------------------------------------------------------
@@ -1867,7 +2308,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
     @pytest.fixture(scope="class")
     @classmethod
     def exported(cls, exported_bytes) -> List[Image.Image]:
-        return pdf_pages(exported_bytes)
+        return interior_pages_of(exported_bytes)
 
     def test_the_book_still_has_the_page_count_it_was_recorded_with(
         self, baseline, exported
@@ -1875,8 +2316,19 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert baseline["page_count"] == BASELINE_PAGE_COUNT
         assert len(exported) == baseline["page_count"]
 
+    def test_every_page_is_in_the_medium_its_kind_is_declared_in(self, exported):
+        """The gate that makes the retirement below an accounting, not a hole.
+
+        Read off the file, against ``BASELINE_PAGE_KINDS`` read through the
+        registry. A page written as operators that its kind does not declare
+        (or the reverse) would otherwise be skipped by
+        :func:`raster_digests` and never compared.
+        """
+        assert len(exported) == len(BASELINE_PAGE_KINDS) == BASELINE_PAGE_COUNT
+        assert exported.media == declared_media_of_the_baseline()
+
     def test_every_page_is_pixel_identical_to_the_recorded_one(self, baseline, exported):
-        now = page_digests(exported)
+        now = raster_digests(exported)
         recorded = baseline["pages"]
 
         assert len(now) >= BASELINE_PAGE_COUNT, "the corpus cannot silently shrink"
@@ -1893,16 +2345,30 @@ class TestBookPdfMemory_PagesAreUnchanged:
         )
 
         compared = 0
+        operators = 0
         for number, (drawn, was) in enumerate(zip(now, recorded, strict=True), start=1):
+            if drawn is None:
+                # CARD-355: an operators page has no decoded bitmap to digest
+                # and the recording is of the raster era. Its identity is the
+                # determinism test's (see ``raster_digests``).
+                operators += 1
+                continue
             assert drawn == was, f"interior page {number} is not the page it was"
             compared += 1
 
-        # Exact, not a floor: every page of the book is compared on every
-        # machine now, so a comparison that quietly stopped covering one
-        # would show up here instead of passing.
-        assert compared == BASELINE_PAGE_COUNT, (
-            f"compared {compared} of {BASELINE_PAGE_COUNT} pages — the whole "
-            "book's pixel evidence is unconditional since CARD-221"
+        # Exact, not a floor: every page of the book is accounted for on every
+        # machine, as a pixel comparison or as an operators page, so a
+        # comparison that quietly stopped covering one would show up here
+        # instead of passing.
+        assert compared + operators == BASELINE_PAGE_COUNT, (
+            f"compared {compared} and retired {operators} of "
+            f"{BASELINE_PAGE_COUNT} pages"
+        )
+        assert operators == exported.media.count(pdf_vector.VECTOR)
+        assert compared == exported.media.count(pdf_vector.RASTER) >= 1, (
+            "no page of the book is a bitmap any more: the recorded evidence "
+            "has nothing left to compare, which is a retirement to name, not "
+            "a pass"
         )
 
     def test_the_interior_file_is_the_length_it_was_recorded_with(
@@ -1933,6 +2399,16 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assertion is for: it reds on the machine that moved, instead of the
         move reaching a printed book.
         """
+        media = pdf_vector.page_media(exported_bytes)
+        if pdf_vector.VECTOR in media:
+            # CARD-355: the recorded length is a sum of JPEG streams. With
+            # any page written as operators the file is a different artefact
+            # and the number is not comparable -- but its LENGTH is still a
+            # function of the book alone, which is what survives: the same
+            # book exported again is the same length
+            # (:class:`TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport`).
+            assert media == declared_media_of_the_baseline()
+            return
         assert len(exported_bytes) == baseline["interior_bytes"]
 
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
@@ -1979,8 +2455,8 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert np.asarray(exported[0].convert("L")).min() == 255, (
             "interior page 1 is the blank title page (CARD-206) — no ink at all"
         )
-        assert same_page(exported[1], generator.create_guide_page(4, 2, 1, 1, page_number=2))
-        assert same_page(exported[2], generator.create_guide_page(4, 2, 1, 1, page_number=3))
+        assert same_page(exported[1], reference_guide_page(generator, 2))
+        assert same_page(exported[2], reference_guide_page(generator, 3))
         assert same_page(exported[10], generator.create_divider_page(11))
         for number, level in ((5, "Easy"), (7, "Medium"), (9, "Hard")):
             assert same_page(
@@ -2068,6 +2544,86 @@ class TestBookPdfMemory_PagesAreUnchanged:
         page.putpixel((7, 9), (0, 0, 0))
 
         assert page_digests([page]) != before
+
+
+class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
+    """CARD-355 -- what "byte identity" means once a page is operators.
+
+    A byte comparison across a medium change is a claim about **determinism**,
+    not about pixels. The recordings this module compares against are digests
+    of decoded JPEG bitmaps from the raster era; an operators page has no such
+    bitmap, and its poppler render cannot equal one. What a page that is
+    operators can be identical TO is *itself on another export*: the same book
+    exported twice writes the same content stream, operator for operator
+    (:func:`pdf_vector.content_streams`), and therefore the same pixels under a
+    fixed rasteriser.
+
+    That is the survivor named by :func:`raster_digests` and by
+    ``test_the_interior_file_is_the_length_it_was_recorded_with`` for every
+    stored digest or length it no longer compares on an operators page. It is
+    held on every page of the book in either medium, so on a tree with no
+    operators page it still compares every bitmap.
+
+    The control is in the same class: :func:`_streams_agree` is handed one
+    page's stream with a single character changed and must say no.
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def twice(cls) -> Tuple[bytes, bytes]:
+        return (
+            export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()),
+            export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()),
+        )
+
+    @staticmethod
+    def _streams_agree(first: List[str], second: List[str]) -> bool:
+        return len(first) == len(second) and all(
+            hashlib.sha256(a.encode()).digest() == hashlib.sha256(b.encode()).digest()
+            for a, b in zip(first, second)
+        )
+
+    def test_the_same_book_writes_the_same_operators_every_time(self, twice):
+        first, second = (pdf_vector.content_streams(data) for data in twice)
+
+        assert len(first) == BASELINE_PAGE_COUNT
+        assert self._streams_agree(first, second)
+
+    def test_the_same_book_is_the_same_length_every_time(self, twice):
+        first, second = twice
+        assert len(first) == len(second)
+        assert pdf_vector.page_media(first) == pdf_vector.page_media(second)
+
+    def test_the_same_book_renders_to_the_same_pixels_every_time(self, twice):
+        digests = [page_digests(interior_pages_of(data)) for data in twice]
+        assert digests[0] == digests[1]
+
+    def test_the_comparison_has_teeth(self, twice):
+        """Control, same run: one changed character in one stream is a
+        disagreement, and so is one dropped page -- on a page of either medium."""
+        streams = pdf_vector.content_streams(twice[0])
+        for index in range(len(streams)):
+            changed = list(streams)
+            changed[index] = changed[index][:-1] + (
+                " " if changed[index][-1:] != " " else "\n"
+            )
+            assert not self._streams_agree(streams, changed), (
+                f"a changed byte on page {index + 1} was not noticed"
+            )
+        assert not self._streams_agree(streams, streams[:-1])
+        assert self._streams_agree(streams, list(streams)), "and an equal pair agrees"
+
+    def test_an_operators_page_has_no_digest_to_match_a_recording(self):
+        """Control for :func:`raster_digests`: a stored digest is only ever
+        compared with a bitmap page. ``None`` -- not a sentinel that happens to
+        differ from everything -- is what an operators page yields."""
+        bitmap = Image.new("RGB", (40, 40), "white")
+        pages = ReadInterior([bitmap, bitmap])
+        pages.media = [pdf_vector.RASTER, pdf_vector.VECTOR]
+
+        digests = raster_digests(pages)
+        assert digests[0] == page_digest(bitmap)
+        assert digests[1] is None
 
 
 # --------------------------------------------------------------------------
@@ -2472,7 +3028,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     @pytest.fixture(scope="class")
     @classmethod
     def exported(cls) -> List[Image.Image]:
-        return pdf_pages(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
+        return interior_pages_of(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
 
     def test_every_divider_still_matches_the_card206_baseline(
         self, baseline, card221_baseline, card222_baseline, card206_baseline, exported
@@ -2504,9 +3060,14 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             len(self.NON_DRAWING_PAGES) + len(self.DRAWING_PAGES) == stored_page_count
         ), "...and exactly once: no page may sit in two groups at the same time"
 
-        now = page_digests(exported)
+        now = raster_digests(exported)
         compared = 0
         for number in self.STRICTLY_UNCHANGED_PAGES:
+            assert now[number - 1 + self.LIVE_OFFSET] is not None, (
+                f"interior page {number} is a divider and a divider is a "
+                "bitmap (its declaration names CARD-231, not CARD-322): "
+                "written as operators it would be skipped here, not compared"
+            )
             assert number in card221_baseline["changed_pages"], (
                 f"interior page {number} is a divider lettered through "
                 "_guide_face, so CARD-221's own recording must name it among "
@@ -2559,8 +3120,16 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         three-fixture attribution below says so rather than leaving either
         move unexplained. Face-gated until CARD-221; unconditional now.
         """
-        now = page_digests(exported)
+        now = raster_digests(exported)
+        retired = 0
         for number in self.CARD205_TOC_PAGE:
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                # CARD-355: the TOC is operators; a recording of its raster
+                # twin cannot be matched OR differed from. Its identity is
+                # the stream's determinism, and its content is
+                # ``tests/test_book_toc.py``'s.
+                retired += 1
+                continue
             assert now[number - 1 + self.LIVE_OFFSET] != card205_baseline["pages"][number - 1], (
                 f"interior page {number} still matches the CARD-205 "
                 "recording — the packaged face never reached the table of "
@@ -2588,6 +3157,10 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "page number and its folio's corner and nothing since has, "
                 "so it must be byte-identical to the CARD-206 baseline"
             )
+        assert retired == sum(
+            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
+            for number in self.CARD205_TOC_PAGE
+        ), "a TOC page is either compared or retired, and the count says which"
 
     def test_the_toc_page_moved_under_card205_not_card204(
         self, baseline, card204_baseline, card205_baseline, card221_baseline,
@@ -2639,7 +3212,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "and this class's own split is mis-attributed"
             )
 
-        now = page_digests(exported)
+        now = raster_digests(exported)
         for number in self.CARD205_TOC_PAGE:
             card200_page = baseline["pages"][number - 1]
             card205_page = card205_baseline["pages"][number - 1]
@@ -2657,6 +3230,8 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "what moved the table of contents, and the live comparison "
                 "below is measured against the wrong fixture"
             )
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                continue  # CARD-355: operators -- see ``raster_digests``
             assert now[number - 1 + self.LIVE_OFFSET] != card222_page
             assert now[number - 1 + self.LIVE_OFFSET] != card221_page
             assert now[number - 1 + self.LIVE_OFFSET] != card205_page
@@ -2681,12 +3256,18 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         DejaVu Sans), so this comparison needs no face gate and runs
         everywhere.
         """
-        now = page_digests(exported)
+        now = raster_digests(exported)
         recorded = card203_baseline["pages"]
         assert set(card203_baseline["font_dependent_pages"]).isdisjoint(
             self.CARD203_CAPTION_PAGES
         ), "an answer page became machine-lettered; this comparison now needs a face gate"
+        retired = 0
         for number in self.CARD203_CAPTION_PAGES:
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                # CARD-355: an operators answer page; see ``raster_digests``.
+                # Its content is pinned by ``tests/test_book_solved_answer_key.py``.
+                retired += 1
+                continue
             assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
                 f"interior page {number} still matches the CARD-203 "
                 "recording, so CON-018's amended margins never reached this "
@@ -2708,6 +3289,10 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "since has, so it must be byte-identical to the CARD-206 "
                 "baseline"
             )
+        assert retired == sum(
+            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
+            for number in self.CARD203_CAPTION_PAGES
+        )
 
     def test_the_three_answer_pages_moved_under_card203_not_this_card(
         self, baseline, card203_baseline, exported
@@ -2719,7 +3304,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         a later card moves them again, the test above fails; if CARD-203's
         caption move were somehow reverted, this one does.
         """
-        now = page_digests(exported)
+        now = raster_digests(exported)
         for number in self.CARD203_CAPTION_PAGES:
             card200_page = baseline["pages"][number - 1]
             card203_page = card203_baseline["pages"][number - 1]
@@ -2728,7 +3313,8 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "CARD-203 recordings — CARD-203 is then not what moved it, and "
                 "this class's own split is mis-attributed"
             )
-            assert now[number - 1 + self.LIVE_OFFSET] != card200_page
+            if now[number - 1 + self.LIVE_OFFSET] is not None:  # CARD-355
+                assert now[number - 1 + self.LIVE_OFFSET] != card200_page
 
     def test_the_floated_answer_page_moved_under_this_card_and_nothing_before_it(
         self, card222_baseline, card248_baseline, exported
@@ -2753,7 +3339,8 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
            difference a property of the full-page drawing rather than of
            answer pages in general.
         """
-        now = page_digests(exported)
+        now = raster_digests(exported)
+        retired = 0
         for number in self.CARD224_FLOATED_PAGE:
             assert card222_baseline["pages"][number - 1] == (
                 card248_baseline["pages"][number - 1]
@@ -2762,11 +3349,19 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "and CARD-248, so CARD-224 is not what moved it and this "
                 "class's own split is mis-attributed"
             )
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                retired += 1
+                continue  # CARD-355: operators -- see ``raster_digests``
             assert now[number - 1 + self.LIVE_OFFSET] != card248_baseline["pages"][number - 1], (
                 f"interior page {number} is still CARD-248's own page: the "
                 "42% float never reached the full answer page, and this "
                 "card's own accounting of which pages move is wrong"
             )
+
+        assert retired == sum(
+            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
+            for number in self.CARD224_FLOATED_PAGE
+        ), "every page is compared against a recording or retired as operators"
 
     def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
         self, baseline, exported
@@ -2802,8 +3397,9 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         and nothing else reads them now.
         """
         fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        now = page_digests(exported)
+        now = raster_digests(exported)
         recorded = baseline["pages"]
+        retired = 0
         for number in self.GUIDE_PAGES:
             with Image.open(
                 fixtures_dir / f"book_baseline_card200_guide_page{number}.jpg"
@@ -2814,9 +3410,15 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "book_baseline_card200.json recorded — this fixture is only "
                 "trustworthy as the pixels behind that digest"
             )
-            assert now[number - 1 + self.LIVE_OFFSET]["size"] == recorded[number - 1]["size"], (
-                f"interior page {number} changed size, not just its face"
-            )
+            # The size is a property of the page in either medium (a poppler
+            # render is drawn at the file's own DPI), so it is read off the
+            # bitmap, not off a digest that an operators page does not have.
+            assert list(exported[number - 1 + self.LIVE_OFFSET].size) == (
+                recorded[number - 1]["size"]
+            ), f"interior page {number} changed size, not just its face"
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                retired += 1
+                continue  # CARD-355: operators -- see ``raster_digests``
             assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
                 f"interior page {number} is expected to differ from the "
                 "CARD-200 baseline (see this class's docstring) — if it "
@@ -2824,18 +3426,32 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "class docstring/comment should be revisited"
             )
 
+        assert retired == sum(
+            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
+            for number in self.GUIDE_PAGES
+        ), "every page is compared against a recording or retired as operators"
+
     def test_every_drawing_page_actually_moved(self, baseline, exported) -> None:
         """The negative control: AC-7 claims an exception for these pages,
         not a blanket "nothing changed" that this test file would hide."""
-        now = page_digests(exported)
+        now = raster_digests(exported)
         recorded = baseline["pages"]
+        retired = 0
         for number in self.DRAWING_PAGES:
+            if now[number - 1 + self.LIVE_OFFSET] is None:
+                retired += 1
+                continue  # CARD-355: operators -- see ``raster_digests``
             assert now[number - 1 + self.LIVE_OFFSET] != recorded[number - 1], (
                 f"interior page {number} carries a drawing and should have "
                 "moved under CARD-204 (right-alignment, and on 5/7/9 a new "
                 "QR placeholder icon) — it is still the CARD-200 baseline's "
                 "own page, so this card's own change did not reach it"
             )
+
+        assert retired == sum(
+            exported.media[number - 1 + self.LIVE_OFFSET] == pdf_vector.VECTOR
+            for number in self.DRAWING_PAGES
+        ), "every page is compared against a recording or retired as operators"
 
 
 # --------------------------------------------------------------------------
@@ -2977,7 +3593,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
     @pytest.fixture(scope="class")
     @classmethod
     def exported(cls, generator, plan):
-        return pdf_pages(export_of(generator, baseline_puzzles()))
+        return interior_pages_of(export_of(generator, baseline_puzzles()))
 
     def _reference(self, generator, plan, entry):
         """The unedited drawing function's own output at the page number this
@@ -3018,7 +3634,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         payloads = [plan.payloads[number - 1] for number in entry.numbers]
         if entry.pair is None:
             (payload,) = payloads
-            return generator._blank_page(payload, entry.numbers[0], old_number)
+            return reference_puzzle_page(generator, payload, entry.numbers[0], old_number)
         old_pair = compute_pair_layout(
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
@@ -3039,7 +3655,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             ).footer_depth,
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
-        return generator._two_up_page(old_entry, payloads)
+        return reference_two_up_page(generator, old_entry, payloads)
 
     def test_every_puzzle_or_divider_page_matches_its_pre_card_content(
         self, generator, plan, exported
@@ -3112,12 +3728,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         for index, entry in enumerate(answer_plan):
             new_number = first_answer_page + index
             old_number = new_number - plan.toc_page_count - TITLE_PAGE_COUNT
-            if isinstance(entry, PackedAnswerPage):
-                reference = generator._packed_answer_page(entry, payloads, old_number, titles)
-            else:
-                puzzle_id, payload = payloads[entry.number - 1]
-                title = answer_title(titles.get(str(puzzle_id)), payload.name)
-                reference = generator.solved_puzzle_page(payload, entry.number, old_number, title=title)
+            reference = reference_answer_page(generator, entry, payloads, old_number, titles)
             assert _matches_shifted_content(
                 _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
             ), f"answer page {new_number} does not match its pre-CARD-201 content"
@@ -3129,13 +3740,13 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         plan = generator.section_plan(baseline_puzzles())
         entry = next(e for e in plan.pages if isinstance(e, PuzzlePagePlan) and e.pair is None)
         payload = plan.payloads[entry.numbers[0] - 1]
-        real = generator._blank_page(payload, entry.numbers[0], entry.page_number - 1)
+        real = reference_puzzle_page(generator, payload, entry.numbers[0], entry.page_number - 1)
         other_payload = next(
             plan.payloads[e.numbers[0] - 1]
             for e in plan.pages
             if isinstance(e, PuzzlePagePlan) and e.pair is None and e is not entry
         )
-        other = generator._blank_page(other_payload, entry.numbers[0], entry.page_number - 1)
+        other = reference_puzzle_page(generator, other_payload, entry.numbers[0], entry.page_number - 1)
         assert not _matches_shifted_content(_ink_bbox_crop(real), _ink_bbox_crop(other))
 
 
@@ -3227,7 +3838,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     @pytest.fixture(scope="class")
     @classmethod
     def exported(cls, generator, plan):
-        return pdf_pages(export_of(generator, baseline_puzzles()))
+        return interior_pages_of(export_of(generator, baseline_puzzles()))
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -3277,7 +3888,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         payloads = [plan.payloads[number - 1] for number in entry.numbers]
         if entry.pair is None:
             (payload,) = payloads
-            return generator._blank_page(payload, entry.numbers[0], old_number)
+            return reference_puzzle_page(generator, payload, entry.numbers[0], old_number)
         old_pair = compute_pair_layout(
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
@@ -3298,7 +3909,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             ).footer_depth,
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
-        return generator._two_up_page(old_entry, payloads)
+        return reference_two_up_page(generator, old_entry, payloads)
 
     def _qr_boxes(self, generator, plan, entry, page_number):
         """CARD-204: this entry's placeholder QR icon box(es) at ``page_number``.
@@ -3458,7 +4069,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         shifted-content comparison.
         """
         for number in GUIDE_INTERIOR_PAGES:
-            reference = generator.create_guide_page(4, 2, 1, 1, page_number=number)
+            reference = reference_guide_page(generator, number)
             assert _matches_shifted_content(
                 _ink_bbox_crop(_above_footer(exported[number - 1], cutoff)),
                 _ink_bbox_crop(_above_footer(reference, cutoff)),
@@ -3497,12 +4108,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         for index, entry in enumerate(answer_plan):
             new_number = first_answer_page + index
             old_number = new_number - TITLE_PAGE_COUNT
-            if isinstance(entry, PackedAnswerPage):
-                reference = generator._packed_answer_page(entry, payloads, old_number, titles)
-            else:
-                puzzle_id, payload = payloads[entry.number - 1]
-                title = answer_title(titles.get(str(puzzle_id)), payload.name)
-                reference = generator.solved_puzzle_page(payload, entry.number, old_number, title=title)
+            reference = reference_answer_page(generator, entry, payloads, old_number, titles)
             assert _matches_shifted_content(
                 _ink_bbox_crop(_above_footer(exported[new_number - 1], cutoff)),
                 _ink_bbox_crop(_above_footer(reference, cutoff)),
@@ -3515,13 +4121,13 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         plan = generator.section_plan(baseline_puzzles())
         entry = next(e for e in plan.pages if isinstance(e, PuzzlePagePlan) and e.pair is None)
         payload = plan.payloads[entry.numbers[0] - 1]
-        real = generator._blank_page(payload, entry.numbers[0], entry.page_number)
+        real = reference_puzzle_page(generator, payload, entry.numbers[0], entry.page_number)
         other_payload = next(
             plan.payloads[e.numbers[0] - 1]
             for e in plan.pages
             if isinstance(e, PuzzlePagePlan) and e.pair is None and e is not entry
         )
-        other = generator._blank_page(other_payload, entry.numbers[0], entry.page_number)
+        other = reference_puzzle_page(generator, other_payload, entry.numbers[0], entry.page_number)
         assert not _matches_shifted_content(
             _ink_bbox_crop(_above_footer(real, cutoff)),
             _ink_bbox_crop(_above_footer(other, cutoff)),
@@ -3611,6 +4217,11 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
             f"export_book peaked at {probe.peak_in_pages:.2f} page bitmaps "
             f"over {probe.seen} pages"
         )
+        # CARD-355: and the medium-blind count, for the pages that hold no bitmap.
+        assert probe.peak_pages == PEAK_IN_PAGES, (
+            f"export_book held {probe.peak_pages} pages at once over "
+            f"{probe.seen} pages"
+        )
 
     def test_a_page_built_outside_the_writer_is_still_seen(self):
         """The instrument is not vacuous about the cover — the F-6 mutant, run.
@@ -3643,6 +4254,10 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
                 "instrument cannot see a page built outside the writer, so "
                 "the cover half of the bound is not being measured"
             )
+            assert measured.probe.peak_pages == 2, (
+                f"a cover held across the interior measured "
+                f"{measured.probe.peak_pages} live pages, not 2"
+            )
         finally:
             held.clear()
 
@@ -3656,9 +4271,11 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
     def test_the_interior_starts_at_the_title_page_and_holds_no_cover(self, export):
         """CARD-206: interior page 1 is the blank title page and the guide's
         own first page follows it (:data:`GUIDE_INTERIOR_PAGES`)."""
-        interior = pdf_pages(export.interior.getvalue())
+        interior = interior_pages_of(export.interior.getvalue())
         (cover,) = pdf_pages(export.cover.getvalue())
-        guide = BookPDFGenerator(corpus_book()).create_guide_page(4, 2, 1, 1)
+        guide = reference_guide_page(
+            BookPDFGenerator(corpus_book()), GUIDE_INTERIOR_PAGES[0]
+        )
 
         assert np.asarray(interior[0].convert("L")).min() == 255, (
             "interior page 1 is the blank title page — no ink of any kind"
@@ -3740,7 +4357,7 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         gutter's outer edge and its grid's right border — never
         ``book_page_spec`` or ``compute_layout``.
         """
-        interior = pdf_pages(export.interior.getvalue())
+        interior = interior_pages_of(export.interior.getvalue())
 
         #: The 2 cm QR placeholder's own box (CARD-223) and the usable area's
         #: two edges, in this page's own pixels, written out rather than
@@ -3764,7 +4381,17 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
             # And the drawing itself is centred, which is why it can no
             # longer be asked: both of its side gaps are the same.
             drawing = drawing_of(page)
-            left_gap = drawing.left - usable_left
+            # CARD-355: the left side is read as a BOUNDARY (the frame rule's
+            # centre, ``frame_centre_of``), not as ``drawing.left``, which is
+            # an ink extent that the two media disagree about by 3 px (a PDF
+            # rasteriser mitres the frame's outer corner; see ``Drawing``'s
+            # own comment and CARD-336). The 4 px bound is NOT moved (G-2).
+            # Measured this round on both pages (8 and 10), difference of the
+            # two gaps: 1.5 px read off the raster medium, 3.5 px read off
+            # the vector one -- half a pixel of the bound, which is the
+            # residue ``drawing.left`` would have spent (6 px, red) and the
+            # reason the reading is a boundary here.
+            left_gap = frame_centre_of(page, drawing).frame_left - usable_left
             right_gap = usable_right - drawing.grid_right
             assert abs(left_gap - right_gap) <= 4, (number, left_gap, right_gap)
 
@@ -3825,7 +4452,9 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         ahead of all of it).
         """
         written: List[int] = []
+        handed: List[Any] = []
         write_page = BookPDFGenerator._write_page
+        write_pdf = BookPDFGenerator._write_pdf
         solved_puzzle_page = BookPDFGenerator.solved_puzzle_page
         packed_answer_page = BookPDFGenerator._packed_answer_page
 
@@ -3833,17 +4462,39 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             written.append(1)
             return write_page(self, *args, **kwargs)
 
-        def refuses(self, *args, **kwargs):
+        def handing_over(self, pages, page_count, **kwargs):
+            # CARD-355: the medium-blind count. ``_write_page`` is the RASTER
+            # page writer only; an operators page goes through the vector
+            # writer and is invisible to it. Every page, in either medium, is
+            # handed to ``_write_pdf`` by the producer, so what reached the
+            # writer is counted at that seam.
+            def counted() -> Iterator[Any]:
+                for page in pages:
+                    handed.append(type(page))
+                    yield page
+
+            return write_pdf(self, counted(), page_count, **kwargs)
+
+        def refuses(*args, **kwargs):
             raise ValueError("this answer will not draw")
 
+        generator = BookPDFGenerator(corpus_book())
+        # The answer section is drawn by the raster methods in one medium and
+        # by an injected writer in the other; the failure is forced at BOTH,
+        # so whichever the walk reaches first still fails cleanly.
+        generator.pages = replace(
+            generator.pages, answer=refuses, packed_answer=refuses
+        )
         BookPDFGenerator._write_page = counting
+        BookPDFGenerator._write_pdf = handing_over
         BookPDFGenerator.solved_puzzle_page = refuses
         BookPDFGenerator._packed_answer_page = refuses
         try:
             with pytest.raises(RuntimeError) as raised:
-                export_of(BookPDFGenerator(corpus_book()), baseline_puzzles())
+                export_of(generator, baseline_puzzles())
         finally:
             BookPDFGenerator._write_page = write_page
+            BookPDFGenerator._write_pdf = write_pdf
             BookPDFGenerator.solved_puzzle_page = solved_puzzle_page
             BookPDFGenerator._packed_answer_page = packed_answer_page
 
@@ -3856,7 +4507,22 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         # baseline book's answer section is now 3 packed-or-full pages, not
         # CARD-198's 4, but the first one — where this failure lands — is
         # still the twelfth page either way).
-        assert written == [1] * 11, written
+        first_eleven = (
+            PageKind.TITLE, PageKind.GUIDE, PageKind.GUIDE, PageKind.TOC,
+            PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER,
+            PageKind.PUZZLE, PageKind.DIVIDER, PageKind.PUZZLE,
+            PageKind.DIVIDER,
+        )
+        assert len(handed) == len(first_eleven) == 11, handed
+        # And each arrived in the medium its kind is declared in -- a second
+        # reading of the same eleven pages, by type against by registry.
+        assert [issubclass(t, Image.Image) for t in handed] == [
+            page_medium(kind) is PageMedium.RASTER for kind in first_eleven
+        ], handed
+        # The raster writer saw exactly the raster ones.
+        assert written == [1] * sum(
+            page_medium(kind) is PageMedium.RASTER for kind in first_eleven
+        ), written
 
     def test_a_producer_that_yields_too_few_pages_never_reaches_the_trailer(self):
         """A short stream would leave the page tree pointing at nothing."""
