@@ -326,6 +326,13 @@ evidence yet for the owner's standing rule that image and UI work is validated *
    `keepCluesInView` now pins a gutter only while the stage still has room beside it for a whole
    cell, **derived — no share, no constant.** Measured: at 390 px both gutters pin at 100/150/200%
    and the row gutter lets go at 250%; at 1440 px nothing lets go at any rung.
+   **⚠ RETRACTED (ADR-0039/R4): "lets go at 250%" is WRONG — cycle 1 measured 200%.** Stage
+   client width 358; row gutter 173/215/257/299/341 at 100/125/150/175/200; cell 29/36/43/50/57.
+   The 1440 px half holds. **The unstated residue is the part that matters to a player:** at
+   **175%** the rule is met by 60 px of band beside a 299 px gutter with a 50 px cell — one
+   column — and at the scroll the zoom itself lands on, zero cells are fully visible. The
+   round's original renders step 100 → 150 → max and never showed that rung; cycle 1's renders
+   08 and 09 do. Quoted figure kept above so the correction is legible, not silent.
 
 [Round] **Nine mutants, and the one that SURVIVED is the instructive one.** M7 — dropping
 `gesture = null` from `beginPinch` — left **all 180 green**, because a stale `gesture` leaks no mark:
