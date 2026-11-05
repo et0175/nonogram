@@ -1,6 +1,6 @@
 # CARD-356: `tests/test_book_pdf_band.py` — 25 reds across four mechanisms, and two of its claims the seam BREAKS
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/356-pdf-band-tests
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-356
 **Source:** Module-sliced out of CARD-337 at the decompose station, 2026-11-04, on the owner's "module slicing" instruction. CARD-337's own item 0 refuted its premise three ways and its round then derived the mechanism x module cross-tab; that table reconciles to 143 reds in both directions. The axis was changed from mechanism to MODULE because the round measured that a mechanism-sliced partition cannot run concurrently at all -- nine of thirteen modules split across mechanisms, `tests/test_book_pdf_band.py` would have needed five separate cards to edit it, and nothing could have run beside the M10 card. The file axis is the one the scope gate enforces.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_band.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T12:50Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
