@@ -73,8 +73,13 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.admin import book_pdf_generator
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book
-from tests.helpers.page_ink import drawing_of
-from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.pdf_pages import (
+    page_image,
+    pdf_page_count,
+    pdf_pages,
+    same_page,
+)
 from tests.helpers.two_up_ink import drawings_of
 
 TRIM_PX = (2550, 3300)
@@ -1296,11 +1301,20 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
         )
 
         # Clause 3: the ink is where a left-hand page puts it.
-        drawings = drawings_of(page)
+        # CARD-359 (ADR-0042/R6): the page arrives in whichever medium its
+        # kind declares, so it is read as device pixels (``page_image``
+        # returns a raster page unchanged), and the claim -- WHERE the
+        # drawing is -- is a coordinate, so it is read as the frame's
+        # BOUNDARY (``frame_centre_of``), not the ink's first line. The two
+        # media put that first line 3 px apart (CARD-336); the boundary
+        # reads within half a pixel of the coordinate in both, so the 0.1 mm
+        # bound below is the one it always was.
+        ink = page_image(page)
+        drawings = drawings_of(ink)
         assert len(drawings) == 1, (
             f"{label}: the first puzzle page holds {len(drawings)} drawing(s)"
         )
-        measured_mm = drawings[0].left / PX_PER_MM
+        measured_mm = frame_centre_of(ink, drawings[0]).frame_left / PX_PER_MM
         left_hand_mm = _expected_drawing_left_mm(
             puzzles[0],
             first_puzzle_page,

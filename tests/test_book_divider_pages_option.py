@@ -69,12 +69,14 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
     GUIDE_TITLE,
+    PuzzlePagePlan,
     TOC_SOLUTIONS_LABEL,
     interior_page_count,
     structural_toc_entries,
 )
 from tests.helpers.db import sqlite_session_scope
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.pdf_pages import interior_images
 from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of
 from tests.test_book_plan_storage import (
     AC198_MATRIX,
@@ -273,6 +275,30 @@ MIRROR_OUTSIDE_MM = 10.0
 MEASURABLE_PAGES = 10
 
 
+def _measurable_page_numbers(generator, puzzles) -> list[int]:
+    """The 1-based interior pages that carry a ruled drawing, from the PLAN.
+
+    CARD-359 (ADR-0042/R6). This walk used to find them by asking
+    ``drawing_of`` and skipping the pages it declined -- a selection made by
+    the very instrument being run, which is only sound while a page that is
+    not a puzzle reads as "no ruled grid". In the vector medium that is not
+    so: poppler's raster of the guide's second page carries ruled lines the
+    raster page never had, ``drawing_of`` reads a 7 x 1 "grid" off it, and
+    the walk measured a page that is not the subject (measured under the
+    five-kind probe: page 3, offset 160.5 px). The set is now derived from
+    the plan's own kinds -- a :class:`PuzzlePagePlan` is a puzzle page, and
+    this book's answer pages are the last ``len(puzzles)`` pages, one per
+    puzzle -- and a ``ValueError`` on a page in it is a failure.
+    """
+    plan = generator.section_plan(puzzles)
+    total = generator.interior_stream(list(puzzles)).page_count
+    puzzle_pages = [
+        page.page_number for page in plan.pages if isinstance(page, PuzzlePagePlan)
+    ]
+    answers = list(range(total - len(puzzles) + 1, total + 1))
+    return puzzle_pages + answers
+
+
 class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
     """FR-043/INV-013 for the off state: four pages fewer, parity still right.
 
@@ -317,32 +343,47 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
 
     @pytest.mark.parametrize("flag", [True, False])
     def test_every_pages_parity_equals_its_own_1_based_position(self, flag) -> None:
-        pages = BookPDFGenerator(self._mirrored(flag)).interior_pages(
-            list(_puzzles())
-        )
+        generator = BookPDFGenerator(self._mirrored(flag))
+        pages = interior_images(generator.interior_pages(list(_puzzles())))
         px_per_mm = 300 / 25.4  # the DPI every book page is measured at
         expected_offset = (
             (MIRROR_GUTTER_MM - MIRROR_OUTSIDE_MM) / 2 * px_per_mm
         )
 
         checked = 0
-        for number, page in enumerate(pages, start=1):
-            try:
-                drawing = drawing_of(page)
-            except ValueError:
-                # The title page, the guide, the TOC and any divider page
-                # carry no measurable drawing. They are not the subject.
-                continue
+        frame_lefts: dict[bool, set[float]] = {True: set(), False: set()}
+        widths: set[int] = set()
+        for number in _measurable_page_numbers(generator, list(_puzzles())):
+            page = pages[number - 1]
+            drawing = drawing_of(page)
+            # WHICH SIDE: the sign of the ink centre's distance from the
+            # trim's middle. The two media disagree about that centre by
+            # about 2 px (CARD-336's measurement, here 56 / -62 px in vector
+            # against 58 / -60 in raster) against an offset of 59, so the
+            # sign is medium-blind and the magnitude is not.
             offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
             assert (offset > 0) == (number % 2 == 1), (
                 f"dividers={flag}: interior page {number} of {len(pages)} is "
                 f"centred {offset:.1f} px off the middle, the wrong side for "
                 f"{'an odd' if number % 2 else 'an even'} page"
             )
-            # Centring makes the magnitude the margin difference's own half
-            # on every page, whatever its puzzle (EC-032).
-            assert abs(abs(offset) - expected_offset) <= 2, (flag, number, offset)
+            frame_lefts[number % 2 == 1].add(frame_centre_of(page, drawing).frame_left)
+            widths.add(drawing.grid_right - drawing.grid_left)
             checked += 1
+
+        # HOW FAR (EC-032), as a coordinate rather than a pixel reading:
+        # ``frame_centre_of`` reports the drawing's left BOUNDARY, which
+        # reads within half a pixel of the coordinate in either medium, and
+        # every drawing here is one width, so an odd page's boundary sits
+        # exactly (gutter - outside) right of an even page's whatever the
+        # page's own centring bias. The 2 px bound is the old one, unmoved.
+        assert len(widths) == 1, (flag, sorted(widths))
+        assert len(frame_lefts[True]) == len(frame_lefts[False]) == 1, frame_lefts
+        (odd_left,) = frame_lefts[True]
+        (even_left,) = frame_lefts[False]
+        assert abs((odd_left - even_left) - 2 * expected_offset) <= 2, (
+            flag, odd_left, even_left,
+        )
 
         assert checked == MEASURABLE_PAGES, (
             f"dividers={flag}: {checked} pages carried a measurable drawing, "
@@ -361,17 +402,14 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         """
         sides = {}
         for flag in (True, False):
-            pages = BookPDFGenerator(self._mirrored(flag)).interior_pages(
-                list(_puzzles())
+            generator = BookPDFGenerator(self._mirrored(flag))
+            pages = interior_images(generator.interior_pages(list(_puzzles())))
+            number = _measurable_page_numbers(generator, list(_puzzles()))[0]
+            drawing = drawing_of(pages[number - 1])
+            offset = (
+                (drawing.left + drawing.grid_right) / 2 - pages[number - 1].width / 2
             )
-            for number, page in enumerate(pages, start=1):
-                try:
-                    drawing = drawing_of(page)
-                except ValueError:
-                    continue
-                offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
-                sides[flag] = (number, offset > 0)
-                break
+            sides[flag] = (number, offset > 0)
 
         assert sides[True] == (6, False), sides
         assert sides[False] == (5, True), sides

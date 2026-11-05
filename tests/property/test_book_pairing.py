@@ -74,6 +74,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers.pdf_pages import page_image
 from tests.helpers.two_up_ink import drawings_of
 
 #: FR-040's two-up minimum and NFR-008's standard cell, in millimetres.
@@ -1075,8 +1076,16 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
             numbers_of.append(page_number)
             page_number += 1
 
+        # CARD-359 (ADR-0042/R6): the claim is a drawing's extent in whole
+        # CELLS, a ratio of two pixel distances read off the page's ink, so
+        # it needs pixels and survives the medium (the 1-3 px the media
+        # disagree by is under a hundredth of a cell). ``page_image`` hands a
+        # raster page back unchanged and rasterises an operators page.
         drawn = [
-            [_measured_extent(drawing) for drawing in drawings_of(interior[number - 1])]
+            [
+                _measured_extent(drawing)
+                for drawing in drawings_of(page_image(interior[number - 1]))
+            ]
             for number in numbers_of
         ]
         assert drawn == [
