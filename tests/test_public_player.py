@@ -2418,6 +2418,54 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
         announced = page.inner_text("[data-player-announce]").strip()
         assert announced.startswith("Board reset"), f"the reset handler did not run: {announced!r}"
 
+    def zoom_percent():
+        return int(page.inner_text("[data-player-zoom-readout]").rstrip("%"))
+
+    def one_zoom_press(direction):
+        """One press, checked against ``stepZoom``'s own answer.
+
+        The expectation is asked of the served module for the percent the
+        readout showed before the press, never written down. "The readout
+        changed" would not do: a press at either end of the range is a no-op,
+        and the walk reaches both ends.
+        """
+        before = zoom_percent()
+        page.click(f'[data-player-zoom-action="{direction}"]', force=True)
+        expected = page.evaluate(
+            "async ([current, direction]) =>"
+            " (await import('/solver_state.js')).stepZoom(current, direction)",
+            [before, direction],
+        )
+        assert zoom_percent() == expected, (before, direction, zoom_percent(), expected)
+
+    def press_zoom(direction):
+        """CARD-324's two controls, with the "the handler ran" half the three
+        above also carry — and the zoom put back where it was afterwards.
+
+        The restoration is DEFENSIVE, not a fix for a failure anyone observed.
+        Zoom changes the size of every cell, so a walk that left it raised
+        would hand every later control a board whose geometry is not the
+        one it was written against. A first draft of this docstring said such
+        a walk "would fail" :func:`drag_a_line`; cycle 1 of CARD-324's review
+        planted the removal of the loop and both walk tests stayed green, so at
+        this module's fixtures and seed the coupling does not bite and no seed
+        is known at which it does. The loop stays because the walk's later
+        controls are driven by cell geometry and should not inherit a
+        raised zoom, and its cost is a handful of extra presses, each checked
+        like the first. What this test claims is that every
+        control issues no write; the zoom's independence from the board is
+        ``tests/test_public_player_zoom.py``'s AC-3, where it belongs. Every
+        press on the way back is checked the same way, so the restoration is
+        more presses of the same two controls rather than a way around them.
+        """
+        start = zoom_percent()
+        one_zoom_press(direction)
+        for _ in range(16):
+            if zoom_percent() == start:
+                break
+            one_zoom_press("out" if zoom_percent() > start else "in")
+        assert zoom_percent() == start, (start, zoom_percent())
+
     #: Every control the page has, by the thing a player does. The page's own
     #: markup is the authority for what exists: ``test_every_player_control_is
     #: _in_the_ec_050_walk`` holds this table to the buttons in play.html, so a
@@ -2438,6 +2486,12 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
         "undo-button": lambda: page.click('[data-player-action="undo"]', force=True),
         "redo-button": lambda: page.click('[data-player-action="redo"]', force=True),
         "reset": press_reset,
+        # CARD-324's zoom group, here for the same reason the Maybe brush is:
+        # the sibling test below derives this table from play.html, and reds
+        # on a control that is not walked — which is what it did when this
+        # group landed.
+        "zoom-out": lambda: press_zoom("out"),
+        "zoom-in": lambda: press_zoom("in"),
         "undo-key": lambda: page.keyboard.press("Control+z"),
         "redo-key": lambda: page.keyboard.press("Control+Shift+z"),
     }
@@ -2534,17 +2588,24 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     }
     tools = set(re.findall(r'data-player-tool="([a-z]+)"', page_html))
     actions = set(re.findall(r'data-player-action="([a-z]+)"', page_html))
+    # CARD-324's zoom group is its own attribute, as the admin's is
+    # (``data-player-zoom-action``), so it is a third derived set here rather
+    # than two more names in the list below.
+    zoom_actions = set(re.findall(r'data-player-zoom-action="([a-z]+)"', page_html))
     assert tools == set(walked.values()), tools
     assert actions == {"undo", "redo", "reset"}, actions
+    assert zoom_actions == {"in", "out"}, zoom_actions
     assert "data-player-region" in page_html
     # The names the walk uses, derived from the same markup: one per brush,
-    # one per action button, plus region, tap, drag and the two key paths.
+    # one per action button, one per zoom button, plus region, tap, drag and
+    # the two key paths.
     expected = (
         set(walked)
         | {f"{action}-button" for action in actions if action != "reset"}
+        | {f"zoom-{direction}" for direction in zoom_actions}
         | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
     )
-    assert len(expected) == 12, sorted(expected)
+    assert len(expected) == 12 + len(zoom_actions), sorted(expected)
     assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
     assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
     source = Path(__file__).read_text(encoding="utf-8")
@@ -2563,12 +2624,54 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     #: three; ``pointercancel`` is driven by
     #: ``test_a_touch_or_pen_drag_marks_only_while_region_is_armed``), and the
     #: click count is the markup's rather than a number: one shared handler in
-    #: the loop over ``[data-player-tool]``, one on Region, and one per action
-    #: button. A new event type, or a second handler on an existing one, reds.
+    #: the loop over ``[data-player-tool]``, one on Region, one per action
+    #: button and — since CARD-324 — one per zoom button. A new event type, or
+    #: a second handler on an existing one, reds.
+    #:
+    #: CARD-324's zoom added no event TYPE, and that is a claim rather than a
+    #: coincidence: its pinch runs inside the four stage pointer listeners
+    #: that were already here, and its buttons bind no key, so the pointer
+    #: and keydown halves of this list are unchanged by the zoom.
+    #:
+    #: CARD-324's review (F-1) then added the ONE listener that is not on a
+    #: control at all: ``window``'s ``resize``, which re-asks which clue
+    #: gutters stay pinned. It is derived below rather than added to the list
+    #: by name — the set of ``window``-bound listeners is read out of the
+    #: file, held to exactly the one (type, handler) pair this card declares,
+    #: and its types join the expected census from that read. It is not a
+    #: control: nothing a player presses or types reaches it, and it issues no
+    #: write; ``tests/test_public_player_zoom.py::TestPublicZoom_AZoomedGutterNeverCoversTheBoard``
+    #: rotates a zoomed viewport to hold the behaviour.
+    viewport_listeners = re.findall(r'window\.addEventListener\("([a-z]+)", (\w+)\)', script)
+    assert viewport_listeners == [("resize", "keepCluesInView")], viewport_listeners
+    # CARD-324's review (cycle 2) then added the one OBSERVER: a
+    # ``ResizeObserver`` on the toolbar, so the stage's height cap follows a
+    # toolbar that changes size with no resize event (the Solved banner
+    # wrapping onto a row, a late font). It is not an ``addEventListener``, so
+    # it joins the census here by its own derivation rather than the list
+    # above: exactly one is constructed, it is handed the same function the
+    # ``resize`` listener is, and it observes exactly one element.
+    observers = re.findall(r"new ResizeObserver\((\w+)\)\.observe\((\w+)", script)
+    assert observers == [("keepCluesInView", "controls")], observers
+    assert script.count("ResizeObserver") == 1 and script.count(".observe(") == 1
+    #: What this census does NOT see, declared rather than left to read as
+    #: stronger than it is: ``viewport_listeners`` above is a pair regex over
+    #: ``window.addEventListener("<type>", <name>)`` and is BLIND to an inline
+    #: arrow -- ``window.addEventListener("resize", () => ...)`` or a listener
+    #: on ``document`` / ``visualViewport`` -- so a second ``resize`` handler
+    #: spelled that way leaves the pair list unchanged. What catches it is the
+    #: TOTAL below: ``registered`` counts every ``addEventListener("<type>"``
+    #: whatever its receiver and handler, and an extra one changes the count.
+    #: The residue after both is a listener attached under a computed type
+    #: name (``addEventListener(kind, ...)``), which neither regex matches; no
+    #: such call exists in play.js (``re.findall(r"addEventListener\((?!\")")``
+    #: below is empty), and that is asserted rather than assumed.
+    assert re.findall(r"addEventListener\((?!\")", script) == [], "a listener with a computed type"
     registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
     assert registered == sorted(
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
-        + ["click"] * (2 + len(actions))
+        + [kind for kind, _handler in viewport_listeners]
+        + ["click"] * (2 + len(actions) + len(zoom_actions))
     ), registered
 
     # The keydown handler's guard, pinned to the one key it may read: the
