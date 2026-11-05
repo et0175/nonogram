@@ -30,7 +30,7 @@
 > board to ask whether M10 is one mechanism. **It is three**, and this scopes your 45 reds:
 >
 > **A — the reading exists in the converted medium and was taken in one arm only.** Measured under
-> the lift: the spy exempted **0** faces while the stream exempted **644** by the writer's own
+> the lift: the spy exempted **0** faces while the stream exempted **644** *(per book — 1288 across the two books; CARD-358's review corrected this, since the figure is quoted)* by the writer's own
 > clue-digit mark. Nothing stopped being true; a reading stopped being taken. **This is the mechanism
 > M10's label actually describes** — the cause lines really are `assert []` / `assert set()`.
 > *Disposition: a mechanical union of the two arms. Cheap and local.*
@@ -48,8 +48,7 @@
 > stream has no call chain and no per-face record for the answer, puzzle or TOC writers (only the
 > guide has one). Measured: the spy's semantic reading of both books collapses to `{'divider'}`, the
 > one kind still raster. **The label does not describe this either**, and the failure is a
-> *set-comparison*, not an empty read. *Disposition: expect this to be the expensive one — B had an
-> authority to fall back on and C had none for three of five kinds.*
+> *set-comparison*, not an empty read. *Disposition: **⚠ CORRECTED 2026-11-05 on CARD-358's review (ADR-0039/R4): the cost ordering this block first stated was WRONG.** It said *"expect C to be the expensive one — B had an authority to fall back on and C had none."* **Measured by that review: B's authority (`GuidePage.faces`, tagged `CLUE_DIGIT`) is COARSER than the claim**, so B collapses into C in practice and **B is not cheaper than C.** The evidence is a plant: with the guide's worked example drawing nothing at all, the module stayed byte-identical to baseline, because the page lays out FOUR families of line diagram and all four tag `CLUE_DIGIT`. *Disposition for both B and C: a named surviving authority per claim, verified by a plant that reds it.* Reviewer-measured; the fix round re-derives it.*
 >
 > **The rule neither groups one mechanism nor separates two**, which is why the bucket cannot be
 > sized from the label:
@@ -67,6 +66,8 @@
 > **And mechanism B has no rule at all**: it reaches M10 only through `drew no text`, a string from
 > the assertion message CARD-358 was about to rewrite — so the classification would have changed when
 > the *wording* changed. `classify_reds.py` was deliberately not edited (CARD-338 is closed).
+
+> **⚠ REPORTED BY CARD-358's REVIEW, NOT VERIFIED BY THE ORCHESTRATOR (2026-11-05):** under the five-kind probe `tests/test_book_pdf_band.py` measured **16 failed + 10 errors = 26 reds** (14 passed), against this card's **25** (11+6+6+2, internally consistent). **One red is not attributed to any mechanism.** The title is left as written until a round re-derives it. `tests/test_book_solved_answer_key.py` measured **33**, exactly CARD-354's 33, so the movement is not general.
 
 ## The population, from CARD-337's cross-tab
 
