@@ -1,6 +1,6 @@
 # CARD-325: The public player gains the crosshair — the one admin control that reads no board at all
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/325-public-crosshair
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-325
 **Source:** owner request 2026-10-30 — "the player misses a lot of the player from the admin player... I'd like both to reuse the same functionality", raised against a locally assembled site at `http://localhost:8081/play/00d5d88065`.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_crosshair.py, tests/test_public_player_agreement.py <!-- added 2026-11-05: AC-6 already says the agreement check joins this file, but Touches omitted it -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T14:50Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
