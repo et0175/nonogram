@@ -16,7 +16,7 @@
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_zoom.py
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_zoom.py, tests/test_public_player.py, tests/test_public_player_pages.py
 **Review score:** —
 **Started:** 2026-11-05T06:23Z
 **Closed:** —
@@ -214,6 +214,89 @@ than trusting the table above** — it is a record of one moment, and the moment
 had already moved once.
 
 ## Worktree notes
+
+[Fix round for cycle 2, commit `80bf0fe5`] **The stage-height bug is FIXED and the operand classification is
+DONE; the owner's readout-hiding layout is NOT shipped, because it does not fit at 844.** Five files,
+**+606/−19** (`player/play.js`, `player/player.css`, `tests/test_public_player.py`,
+`tests/test_public_player_zoom.py`, and `tests/test_public_player_pages.py` under `SCOPE+`). **Orchestrator-verified:**
+no `src/` change, nothing under `meta/` on the branch, `touch-action` 0 lines of diff, the three protected
+build directories unmodified (`build/site` 09:31, `build/site-fix` 10:25, main's deploy candidate 10:08), and
+`build/site-fix2` SHA-identical to the branch's `play.js` and `player.css`. **`Touches` corrected on this card**:
+it still named four files while two test files had been extended under `SCOPE+` (round 1's
+`test_public_player.py` and this round's `test_public_player_pages.py`) — the same record-drift as the
+listener census, found by the round, fixed by me.
+
+[Fix round] **⚠ THE OWNER'S DECISION DID NOT SURVIVE CONTACT, AND MY ESTIMATE WAS WRONG IN THE UNLUCKY
+DIRECTION.** I briefed *"hide the % readout in landscape"* on an image-derived estimate and flagged it as
+**unmeasured**: group ~143 px with the readout, ~96 without, ~102 px free at 844, "just fits, ~6 px to spare".
+**Measured by the round:** group **134.5 px** with the readout, **92 px** hidden; natural width of the three
+groups plus two 12 px gaps **814.4 px**; toolbar width = viewport − 32. **Slack with the readout hidden:
+844×390 **−2.4 px — DOES NOT FIT** (still 100 px, two rows)**; 852×393 +5.6 px (one row); 874×402 +27.6 px.
+Narrowest viewport where the toolbar is one row: **847 px hidden, 889 px shown.** Hiding the readout buys
+**42 px; 844 needs 47.** The round **stopped, as the brief told it to, rather than ship a layout that still
+wraps at the headline iPhone width.** That instruction (*"if it does not fit at 844, say so and stop"*) is why
+the estimate error cost one round-trip and not a shipped defect.
+
+[Fix round] **Options that DO fit at 844, measured and deliberately not shipped** (they are layout choices):
+**toolbar gap `--space-2` (8 px) in landscape** — +5.6 px at 844, +13.6 at 852; **zoom-button `min-width` 40 px**
+— +5.6 px at 844, **but it shrinks the 44 px touch target the round itself chose**; side padding 8 px — no
+change, still −2.4. **The first is the only one that keeps the touch targets**, which is the owner's stated
+priority (quality and maintainability), so it is the one pursued next.
+
+[Fix round] **A CORRECTION TO A FIGURE I GAVE THE OWNER: "whole board rows visible 3 → 2" was measured
+against stage geometry that ran below the fold.** Cycle 2 compared main's player with the zoom build at
+844×390 and reported 3 rows against 2. The round now reports that the zoom build's stage bottom sat at
+**y 436.5 against a 390 px fold**, so part of the earlier "2" was reach the player could not see. **After the
+derived cap the honest figure is about ONE whole row at 844×390** (stage 193 px, band 134 px) — *the cap
+makes "rows visible" honest rather than larger.* **Not re-measured by the orchestrator.** The wrap's real
+cost is therefore **larger** than "3 → 2" implied, which strengthens the case for fixing it.
+**A side effect worth knowing:** at 844×390 and 100% the **column band is now UNPINNED** — the 193 px stage
+cannot leave two cells under a 134 px band, so the derived rule lets go. The old "both axes pinned at the
+floor" assertion was narrowed to the phone only, with the reason recorded in the test.
+
+[Fix round] **The stage-height bug: derived, not constant.** `keepCluesInView` now writes the stage's measured
+page offset as `--player-above-h`; the CSS cap is that offset plus the air (`--space-4`) plus the stage's own
+2 px border, with the old one-row allowance as the fallback. **Sweep: 1026 viewports (widths 320–1440 step
+20, heights 390–900 step 30), 0 violations of stage bottom ≤ `innerHeight`; the same sweep on the pre-fix
+code shows 522 violations, worst 154.5 px below the fold, so the control can fail.** A `ResizeObserver` on the
+stage's border box now re-asks the rule when the toolbar changes height with no window resize
+(`site-fix`: 0; `site-fix2`: 1 — orchestrator-verified). The census was extended by derivation: exactly one
+observer, handed `keepCluesInView`, with exactly one `.observe(`; no listener has a computed type; the
+pair regex's blindness to inline arrows is **declared**, with the total count as what catches them.
+The page-scroll inequality cycle 2 found unasserted (space below the stage < stage top) **is now asserted**:
+worst margin **20 px** over 150+ viewports (105 against 125 at 920×390).
+
+[Fix round] **The operand table — the cycle-2 remit, done, and it is the deliverable.** Every plant by text
+with the count `== 1`, SHA-256 both ends, restored from captured content, matched control green (16 passed,
+0 skipped). **Killed:** the row predicate (`clientWidth` → `innerWidth`/`offsetWidth`/`scrollWidth`; gutter
+`.width` → `.height` or the column gutter; `-` → `+`; **`>=` → `>` killed by an exact-equality test, the
+equality manufactured by pinning gutter and stage to whole pixels since the natural 125% equality sits at
+319 px**; factor 1.5; `* width` → `* height`, **not equivalent since the cell is 29×33 at 100%**; class name;
+`toggle(name, force)` → `add`/`remove`); the column predicate symmetrically; `CELLS_BESIDE` at 1, 3 and 1.5;
+`visibleHeight` (min→max, `innerHeight`→`innerWidth`, `rect.top`→`rect.bottom`, dropped `clientTop`/`scrollY`,
+flipped `scrollY`, `-`→`+`, `clientHeight`→`offsetHeight`/`scrollHeight` — **the `scrollY` family killed by a
+new test that scrolls the page, which nothing did before**); the measured cell (a major-rule cell instead of
+the first, **the 0.5 px pitch residue is real so killed, not declared**); the guard operands; the stage-cap
+write; and the listeners. **Declared, each with a reason and a measurement:** `onScreen < clientHeight` →
+`<=` (**equivalent** — both branches return the same number at equality); `window.innerHeight` →
+`document.documentElement.clientHeight` (differ only by a classic horizontal scrollbar; **equal at 2610 of
+2610 samples** in headless Chromium, so not a gap *in this environment*); and `!board` in the guard
+(**subsumed** by the other three operands, since gutters and cells are built inside the one board — the
+plant survives at 16 passed). **The 1.5 factor re-derived by the round over widths 320–720 step 2 across all
+nine rungs, 1809 samples each: the shipped rule has 0 violations, the 1.5 mutant has 72** (e.g. 354–368 px at
+150%, 406–412 px at 175%) — against cycle 2's 11 over a coarser sweep; **the test's range is derived from
+geometry, not copied.**
+
+[Fix round] **Suite:** impact-scoped **536 passed / 0 failed / 0 skipped** (the 526 baseline + 10 new), 
+`DATABASE_URL` unset; armed not run. A first run found one failure
+(`test_the_listing_pages_carry_no_colour_literal_and_only_defined_tokens`, a token census that reds on a
+script-written custom property) which the round fixed by naming `--player-above-h` there the way
+`--player-wave` is. **The round waited on CARD-358's gate lock and did not override**; its mutation
+runner's first pass hit that refusal (pytest exit 4) and those mutants were re-run once the lock cleared,
+so the results above are from the clean reruns. Renders 13 and 14 added (stage bottom 436.5 px against a
+390 px fold, then 374 px); **both still show the wrapped toolbar, since the readout change was not shipped.**
+ADR-0041/R2: `setAttribute("data-state"` is 0 under `player/`; `dataset.state` writes are still exactly the
+three accounted ones; the added lines read geometry only.
 
 [Review 2/3] Score: **7.5 — CHANGES REQUESTED** (threshold 8.0), the second 7.5 in a row. **One more
 cycle is allowed.** Artefact `meta/review/CARD-324-cycle2.yml`, uncommitted. **Cycle 1's F-1 to F-6 are
@@ -547,3 +630,5 @@ orchestrator's own instance the same night — **the candidate set must not come
   stage and `gesturePaints` is the module's half of that answer, but the public
   page's pointer handling is its own code. Decide it explicitly and record the
   decision here; do not let it fall out of whichever listener fires first.
+
+[Layout round for cycle 3, commit `d9fe1fcc`] Scope verified by the orchestrator from the diff: `player/player.css` (+33) and `tests/test_public_player_zoom.py` only; `src/`, `player/play.js` and `meta/` untouched; `touch-action` diff 0 lines. Rule (read from the committed stylesheet): under `@media (orientation: landscape) and (max-width: 889px)` the toolbar gap is `var(--space-2)` and `.player-zoom-readout` is visually hidden (1px, clipped, still in the DOM). Author-reported, not re-derived by me: one toolbar row at 844x390 / 852x393 / 874x402 with slack +5.58 / +13.58 / +35.58 px; new one-row floor 839 px; residue 743-838 px landscape still wraps to two rows. The author's 544-passed figure is carried, not mine; my own run of the three player modules showed no failures. `build/site-fix3` is SHA-identical to the branch for `play.js` and `player.css`; `build/site`, `build/site-fix`, `build/site-fix2` and main's `build/site` had their mtimes unchanged. CORRECTION to my earlier brief: main's one-row floor is 743 px, not "~780 px". I looked at the 844x390 render myself: one row, readout hidden.
