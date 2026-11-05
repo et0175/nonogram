@@ -33,8 +33,10 @@ and rendered by the same engine). The guide comparison therefore holds the
 page's position, half (title) and folio, not that it looks like the raster-era
 drawing. UNHELD, and an owner decision: nothing in this module holds a guide
 page's content beyond that -- a stray black block planted on every guide page
-left all 138 tests green (reviewer's plant); I did not search the rest of the
-suite for an authority that does, so none is named.
+left every test in this module green (the reviewer's plant). The reviewer's
+wider measurements, over the guide-related files a bounded grep found, are in
+``_guide_page``'s docstring; tests that never name the guide were not
+searched, and no surviving authority is named.
 """
 
 from __future__ import annotations
@@ -55,6 +57,7 @@ from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_pdf_generator import (
     GUIDE2_TITLE,
     GUIDE_TITLE,
+    TITLE_PAGE_COUNT,
     PageKind,
     PageMedium,
     page_medium,
@@ -277,9 +280,16 @@ def _guide_page(puzzle_count, easy, medium=0, hard=0, page_number=2):
     readings' own tests.
 
     UNHELD (owner decision pending): nothing in this module holds a guide
-    page's CONTENT beyond its position, half and folio. The reviewer planted a
-    stray black block on every guide page and all 138 tests passed. I did not
-    search the rest of the suite for an authority that does, and none is named.
+    page's CONTENT beyond its position, half and folio: a stray black block
+    planted on every guide page left every test in this module green. The
+    REVIEWER (not me) also measured, over the 17 guide-related files a
+    bounded grep found, that the same block patched at ``book_guide_vector``
+    and every importing module leaves them green (unprobed 150 passed in 5
+    files and 838 passed, 1 skipped in 12; under the probe the 68 reds are
+    identical with and without the plant); a one-point shift of the content
+    also survives; a stray text run is caught only incidentally (3 failed,
+    because the folio reading takes poppler's last word). Tests that never
+    name the guide were not searched, and no surviving authority is named.
     """
     generator = BookPDFGenerator()
     if page_medium(PageKind.GUIDE) is PageMedium.VECTOR:
@@ -1321,22 +1331,44 @@ class TestBookExport_TheGuideComparisonIsInOneMedium:
         with pytest.raises(AssertionError):
             _folio_in(text)
 
-    def test_the_exported_guide_pages_print_their_own_folios(self):
-        """Positions 2 and 3 of the empty book's interior carry folios 2 and 3.
+    @staticmethod
+    def _assert_guide_folios(data):
+        """The interior's two guide pages print the folios of their positions.
 
-        On the unprobed tree the guide pages are bitmaps with no text layer,
-        so the expectation is read off the file's media; both arms assert.
+        Which arm runs is read off the FILE. Probed (the guide written as
+        operators) the text layer is read: the two pages after the title
+        page(s) carry folios ``TITLE_PAGE_COUNT + 1`` and ``+ 2``. UNPROBED the
+        guide is a bitmap with no text layer, so the folio is NOT exercised
+        there: that arm asserts the two pages are raster and nothing more.
         """
-        data = BookPDFGenerator().export_interior([]).getvalue()
         media = pdf_vector.page_media(data)
-        if media[1] == pdf_vector.VECTOR:
+        first = TITLE_PAGE_COUNT
+        if media[first] == pdf_vector.VECTOR:
             assert pdf_vector.PDFTOTEXT is not None, "pdftotext is MISSING"
             with tempfile.TemporaryDirectory(prefix="guide-folio-") as directory:
                 text = pdf_vector.extracted_text(data, out_dir=Path(directory))
             pages = text.split("\f")
-            assert [_folio_in(pages[n]) for n in (1, 2)] == [2, 3]
+            assert [_folio_in(pages[n]) for n in (first, first + 1)] == [
+                TITLE_PAGE_COUNT + 1,
+                TITLE_PAGE_COUNT + 2,
+            ]
         else:
-            assert media[1:3] == [pdf_vector.RASTER] * 2
+            assert media[first : first + 2] == [pdf_vector.RASTER] * 2
+
+    def test_the_exported_guide_pages_print_their_own_folios(self):
+        """The empty book's interior: guide folios 2 and 3."""
+        self._assert_guide_folios(BookPDFGenerator().export_interior([]).getvalue())
+
+    def test_the_covered_books_guide_pages_print_their_own_folios(self, covered_book):
+        """R2-1: the same reading on a NON-EMPTY book's interior, via the route.
+
+        The empty-book export alone left a writer that shifted the guide only
+        when the book had puzzles invisible (reviewer's plant); the folio is
+        read here on the interior the Finalise route returns for the covered
+        book too.
+        """
+        client, book_id = covered_book
+        self._assert_guide_folios(_download(client, "finalise", book_id, "interior"))
 
     def test_the_folio_reading_tells_positions_two_and_four_apart(self):
         from nonogram.admin.book_interior_vector import interior_generator
