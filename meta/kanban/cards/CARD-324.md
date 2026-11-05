@@ -215,6 +215,85 @@ had already moved once.
 
 ## Worktree notes
 
+[Review 2/3] Score: **7.5 — CHANGES REQUESTED** (threshold 8.0), the second 7.5 in a row. **One more
+cycle is allowed.** Artefact `meta/review/CARD-324-cycle2.yml`, uncommitted. **Cycle 1's F-1 to F-6 are
+all closed**, and the cycle found **one new defect in the card's own change** plus a set of surviving
+mutants. The reviewer worked from copies in the scratchpad and touched none of the three protected
+directories (the owner's play-test copy, `build/site-fix`, main's deploy candidate); `player/play.js` is
+SHA-identical to the branch and to `build/site-fix` at the end.
+
+[Review 2/3] **THE TOOLBAR WRAP IS CAUSED BY THIS CARD, and the fix round's "existing layout" claim is
+WRONG** — measured, on the same 30×30 puzzle, main's player (no zoom) against `build/site-fix`:
+
+| 844×390 | main | with zoom |
+|---|---|---|
+| toolbar | 44 px, one row | **100 px, two rows** |
+| zoom group | — | alone on row 2 |
+| first board row at | y 261 | y 317 |
+| whole board rows visible | **3** | **2** |
+
+Swept at 390 px tall: main stays one row (44 px) from about 780 to 932 px wide; the zoom build wraps from
+780 to 880 and not at 890 or wider, so **the group needs about 889 px.** **Phones affected: iPhone
+landscape at 844, 852 and 874.** No cost at 390×844 (the group fits on row 3 beside the history buttons;
+152 px in both builds) or at 1440 px, and at 667–740 px main wraps too so the group adds nothing there.
+**The orchestrator read this off render 12's pixel geometry before measuring (first row ends ~726 of 844,
+~102 px free against ~143 px needed); the reviewer's measurement agrees.**
+**And a second defect rides on it:** in the wrapped state the stage bottom is at y 437, **47 px below the
+fold**, because `--player-chrome-h` allows ONE toolbar row; the page is 541 px tall, so it scrolls as well
+as the stage. That is this card's `max-height: calc(100svh − chrome)` rule assuming a layout the toolbar
+no longer has. **Not fixed by the reviewer — options, not a decision:** a narrower group (it needs under
+~102 px of free room at 844), placing it on the tools row, a non-wrapping group, or dropping the readout
+below a width.
+
+[Review 2/3] **Cycle 1's six items, each re-verified.** F-1 closed (listener and rotating test). F-2 closed:
+**E4 on the column axis reds 3 tests and its twin on the ROW axis (`.height` for `.width`) reds 4**, so the
+symmetry now holds in both directions. F-3 closed: the rule holds on the **real DOM pitch**
+(`border-collapse` tiling, so the rect width IS the pitch: cell 29/36/43/50/57 at 100/125/150/175/200%,
+major-rule columns +0.5 px) and the reach test sweeps quarter-cell offsets with a genuine control. F-4
+closed, with the residue below. **F-5 closed as defensive: the reviewer re-ran S1** (removed the restore
+loop and its assert) **and both walk tests stayed green**, so "defensive" is accurate rather than asserted.
+F-6 closed.
+
+[Review 2/3] **Surviving mutants — the real finding, and it is the SAME FAMILY as CARD-363's.** All six
+tests green under each: **a factor of 1.5 on the row axis** — swept viewport widths 320–520 step 6 across
+all nine rungs: **the shipped rule has 0 violations (no pinned axis with fewer than one whole cell); the 1.5
+mutant has 11**, e.g. 356 px at 150% and 410 px at 175%. **The test sweeps only 390 and 844 wide, so it cannot
+tell 2 from 1.5** — the derived rule is right and its test does not hold it. Also surviving:
+`innerWidth` in place of `stage.clientWidth` on the row axis; dropping `window.scrollY`, flipping its sign,
+or dropping `stage.clientTop` (**nothing scrolls the page in the tests**); and `>=` changed to `>` on
+either axis, a **measure-zero** boundary that should be declared rather than tested.
+**Mutants that DO red** (re-fired and new): E4 col 3, listener removed 2, `CELLS_BESIDE = 1` 2, empty
+`resize` handler 2, col predicate without the factor of 2, `stage.clientHeight` restored, E4's row twin 4,
+`orientationchange` instead of `resize` 2, a different handler on `resize` 2, a second `window` listener
+(census only), an inline arrow on `resize` (**census only** — the pair regex is blind to it and the total
+count catches it), a stale geometry cache (rotating test), `visibleHeight` taking max for min 2, a row
+factor of 3 and no row factor at all.
+**One precision:** Playwright's `set_viewport_size` fires only `resize`, so the rotating test catches the
+*missing* `resize`, not the wrong event by name; a regression to `orientationchange` alone is still caught.
+
+[Review 2/3] **F-4's "conservative once the page is scrolled" holds, on an unasserted inequality.** Scrolled
+to 0, half and max and zoomed through all nine rungs at 390×844, 844×390 and 390×700: **no state left zero
+reachable cells, and scrolling only added reach**, so the predicate pins less — the safe direction. **But
+it holds only because the space below the stage (164 px) is smaller than the stage's top offset (233 px),
+and nothing asserts that.** `Math.min` guard intact: `play.js` uses a comparison. **Census:** acceptable
+and **not a control**; the behavioural coverage is the rotating test.
+**ADR-0041/R2 holds**: 0 `setAttribute("data-state"` under `player/`, exactly 3 `dataset.state` writes
+(blank constant, `paint()`'s own board, the brush swatch), the added lines read only
+`getBoundingClientRect/clientWidth/clientHeight/clientTop/innerHeight/scrollY`, puzzle JSON keys
+`clues/height/key/tier/width`, `touch-action` 0 lines of diff, 0 `meta/` files on the branch.
+**Suite: 526 passed / 0 failed / 0 skipped in 66 s**, `DATABASE_URL` unset, `-rEfs` — **this reproduces
+the orchestrator's corrected baseline** (`464 + 59 = 523` before the round's three tests), no full suite
+started, the lock absent.
+
+[Review 2/3] **⚠ FOR THE NEXT ROUND: the cycle-1 fix round patched the cells the review named and two
+more survived** — the exact pattern CARD-363 hit across three cycles, where each fix was correct and
+incomplete because it was scoped to what the last reviewer pointed at, until a fourth pass changed the
+**remit** to classify the whole population. **The same remit applies here, and cycle 3 is the last:**
+enumerate **every operand, constant and comparison** in the pinned-gutter predicates and `visibleHeight`,
+and for each either have a test that reds a mutant of it or **declare it a measure-zero / equivalent
+survivor with the reason** (ADR-0039/R3). Patching the 1.5 factor alone would leave `innerWidth`,
+`scrollY` and `clientTop` for cycle 3 to find.
+
 [Fix round for cycle 1, commit `7872f3bc`] **F-1 to F-5 fixed**, three files changed
 (`player/play.js`, `tests/test_public_player_zoom.py`, `tests/test_public_player.py` already `SCOPE+`),
 **+283/−46**. Orchestrator-verified: `touch-action` untouched (0 lines of diff), nothing under `meta/`
