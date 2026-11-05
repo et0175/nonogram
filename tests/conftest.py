@@ -646,7 +646,10 @@ def _test_database_tables(test_db_url):
 # ones ``_test_database_tables`` already does, with their messages unchanged.
 # For an armed full suite the work is not doubled either — that fixture is
 # session-scoped, so pulling it early *moves* the one setup rather than
-# adding a second.
+# adding a second. That sentence is scoped to a full suite on purpose; for an
+# armed *selection* carrying zero ``db_required`` tests the rebuild is new
+# work, disclosed in `_armed_database_is_ready`'s docstring rather than
+# designed away.
 
 #: What :func:`_armed_database_is_ready` decided and did, this session. Read
 #: by :func:`armed_database_note`, which is what the terminal summary prints.
@@ -767,22 +770,91 @@ def _armed_database_is_ready(request):
     that pays anything, and an armed run has already said which database it
     means.
 
-    Both ways ``_test_database_tables`` can stop are caught, and neither is
-    made quieter by it (G-2, ADR-0038/R8):
+    **No count of the ways ``_test_database_tables`` can stop is given here,
+    and that is the point of review cycle 1's F-001.** This docstring used to
+    say "both ways … are caught" beside a clause naming two classes, and the
+    claim was false: ``_rebuild_public_schema`` sets ``lock_timeout`` and then
+    runs ``DROP SCHEMA public CASCADE``, which under a lock another connection
+    holds raises ``sqlalchemy.exc.OperationalError``; the Alembic subprocess
+    raises ``subprocess.TimeoutExpired`` at its ``timeout=120``; the
+    ``pg_tables`` projection adds a third. Measured: none of those is a
+    subclass of ``pytest.skip.Exception`` or ``pytest.fail.Exception``. A
+    counted claim about a set nothing enumerates is indistinguishable from a
+    true one until something falls through, so the catch is stated by its
+    **bound** instead, and the bound is what the except clauses say.
 
-    * ``pytest.skip`` — Postgres not running, say. Letting that out of a
-      session-autouse fixture would skip *every test in the suite*, which is
-      the permanent false green this card exists to avoid. It is recorded and
-      announced instead.
-    * ``pytest.fail`` — a migration that will not apply. Letting that out
-      would error every test in the suite rather than the database ones.
+    Why an escape here is worse than an escape anywhere else, which is the
+    irony this card has to own: before this fixture existed, a stop from
+    ``_test_database_tables`` reached only the items that asked for the schema
+    — the ``db_required`` tests. Out of a session-scoped **autouse** fixture it
+    reaches every item in the suite, because pytest caches a session fixture's
+    outcome and re-raises it to every later requester, and every one of those
+    errors names ``_armed_database_is_ready``. An unrelated held lock would
+    therefore read as this card's own fix being broken, on the card whose whole
+    subject is misattribution.
 
-    Neither is lost by being caught here. pytest caches a session fixture's
-    outcome, exception included, so the first ``db_required`` test that asks
-    for ``db_session`` gets the identical skip or failure through the
-    unchanged path — ``test_the_eager_setup_hides_nothing_from_the_marked_path``
-    is the control for that. What this adds is the note: the reason is named
-    once, at the end, where ``-q`` cannot hide it.
+    So the catch is wide, and nothing is made quieter by it (G-2,
+    ADR-0038/R8):
+
+    * ``pytest.skip`` and ``pytest.fail`` are named **first and explicitly,
+      and that is not stylistic**: both derive from ``OutcomeException``,
+      which derives from ``BaseException`` and **not** from ``Exception``, so
+      an ``except Exception`` that dropped them would let a skip out of a
+      session-autouse fixture and skip the entire suite. Measured in a
+      synthetic project: catching ``Exception`` alone turns a stopped
+      preparation into ``3 skipped`` / ``3 errors`` where the tuple gives
+      ``1 passed, 2 skipped`` / ``1 passed, 2 errors``.
+    * ``Exception`` covers the rest — the ``OperationalError``, the
+      ``TimeoutExpired`` and whatever the next edit to
+      ``_rebuild_public_schema`` adds, without this fixture having to be
+      taught each one.
+    * It stops at ``Exception`` rather than ``BaseException`` on purpose:
+      ``KeyboardInterrupt`` and ``SystemExit`` must still end the run.
+      Measured too — a ``BaseException`` that is not an ``OutcomeException``
+      escapes a session fixture into a pytest-internal ``assert not
+      self._finalizers`` identically whether this fixture swallows it or not,
+      so widening to ``BaseException`` would buy nothing and cost the
+      interrupt.
+
+    Nothing is lost by being caught here, and that is **measured rather than
+    reasoned**, because it is the whole safety argument: pytest caches a
+    session fixture's outcome, exception included, so the first ``db_required``
+    test that asks for ``db_session`` gets the identical stop through the
+    unchanged path. In a synthetic project, an autouse session fixture that
+    swallows an inner session fixture's stop still leaves a later direct
+    requester skipped (for ``pytest.skip``) or errored (for ``pytest.fail``
+    **and for a plain ``Exception`` subclass**), with the original reason, via
+    both a direct parameter and a function-scoped fixture's
+    ``getfixturevalue`` — while the unrelated test that never asks passes. The
+    control is the same run with the swallow removed.
+    ``test_the_eager_setup_hides_nothing_from_the_marked_path`` is the
+    in-tree control for the structural half.
+
+    A stop is **announced**, not merely swallowed, and the two kinds are
+    recorded differently on measured grounds rather than taste. ``skip`` and
+    ``fail`` from ``_test_database_tables`` carry a message that fixture
+    composed for a reader ("Could not set up test database: …", "alembic
+    upgrade head failed: …"), so their ``str`` is already a sentence and a
+    ``Skipped:`` prefix would only pad it. An undesigned escape's ``str`` need
+    not be legible at all — ``str(KeyError("tablename"))`` is ``'tablename'``,
+    and ``OperationalError``'s names the wrapped driver class but not its own
+    — so those are recorded as ``"{class name}: {message}"``. The class name
+    is the datum: it is what distinguishes "the database is unavailable" from
+    "something is badly wrong". The note's *instruction* is deliberately
+    **not** varied with it; "fix the reason, or unset DATABASE_URL" is true of
+    both kinds, and there is no evidence here for a second instruction.
+
+    What this adds is the note: the reason is named once, at the end, where
+    ``-q`` cannot hide it.
+
+    One cost, disclosed rather than redesigned (ADR-0039/R3, filed as review
+    cycle 1's F-002): being autouse, this requests the schema fixture on every
+    armed run, so an armed **selection** containing zero ``db_required`` tests
+    now pays the ``DROP SCHEMA``/``alembic upgrade head`` rebuild where it
+    previously did nothing. The paragraph above about the work not being
+    doubled is scoped to an armed *full* suite, where it holds because the
+    fixture is session-scoped; it does not speak for the selection case, and
+    this sentence is what keeps that from reading as a claim.
     """
     database_url, resolved, action = _armed_database_plan(os.environ)
     _ARMED_SETUP.clear()
@@ -799,7 +871,13 @@ def _armed_database_is_ready(request):
     try:
         request.getfixturevalue("_test_database_tables")
     except (pytest.skip.Exception, pytest.fail.Exception) as stopped:
+        # Named first, and not for style: OutcomeException derives from
+        # BaseException, so the clause below would not catch these.
         _ARMED_SETUP["reason"] = str(stopped)
+    except Exception as stopped:  # noqa: BLE001 - see the docstring's bound
+        # An undesigned stop. Its class is the diagnostic, and str() alone
+        # need not carry it (KeyError's is a bare quoted word).
+        _ARMED_SETUP["reason"] = f"{type(stopped).__name__}: {stopped}"
 
 
 @pytest.fixture(scope="function")

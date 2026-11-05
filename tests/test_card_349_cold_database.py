@@ -60,6 +60,14 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
+# One of the two classes review cycle 1's F-001 measured escaping the old
+# catch: ``_rebuild_public_schema``'s ``DROP SCHEMA public CASCADE`` under
+# another connection's lock raises it. Its sibling is
+# ``subprocess.TimeoutExpired``, reached through the already-imported
+# ``subprocess``. Imported rather than spelled as a string, so a rename in
+# either library breaks this module instead of silently un-parametrising it.
+from sqlalchemy.exc import OperationalError
+
 import tests.conftest as suite_conftest
 from tests import db_name
 
@@ -581,16 +589,27 @@ class TestColdDatabase_ThePreparationHappensBeforeTheFirstTest:
 class TestColdDatabase_ThePreparationRecordsAndAnnouncesWhatStoppedIt:
     """G-2 / ADR-0038/R8 — the catch is only allowed because the reason survives it.
 
-    Review cycle 1, F-001. ``_armed_database_is_ready`` catches
-    ``pytest.skip`` and ``pytest.fail`` from ``_test_database_tables``,
-    because letting either out of a session-autouse fixture would skip or
-    error the *whole suite* — the permanent false green this card exists to
-    avoid. The catch is correct. What the catch **rests on** is that the
-    reason is recorded and announced instead, and that claim had no control:
+    Review cycle 1, F-001. ``_armed_database_is_ready`` catches a stop from
+    ``_test_database_tables``, because letting one out of a session-autouse
+    fixture would skip or error the *whole suite* — the permanent false green
+    this card exists to avoid. What the catch **rests on** is that the reason
+    is recorded and announced instead, and that claim had no control:
     replacing ``_ARMED_SETUP["reason"] = str(stopped)`` with ``pass`` —
     a preparation failure swallowed in total silence — left this module and
     ``tests/test_full_suite_lock.py`` entirely green. Measured, before and
     after; the mutant now dies here.
+
+    **Review cycle 1 second reading, F-001.** The catch was *also* too narrow,
+    and this class's own parametrisation is where that was invisible: it named
+    ``pytest.skip`` and ``pytest.fail`` only, matching a docstring that
+    claimed those were "both ways" the preparation can stop. They are not.
+    ``_rebuild_public_schema``'s ``DROP SCHEMA public CASCADE`` under a lock
+    raises ``sqlalchemy.exc.OperationalError``, its Alembic subprocess raises
+    ``subprocess.TimeoutExpired``, and neither is an ``OutcomeException``
+    subclass — so each escaped a session-autouse fixture and errored every
+    item in the suite under *this card's* fixture name. The parametrisation
+    below now spans both kinds, and the recorded form is asserted per kind,
+    because the two are recorded differently on purpose.
 
     Every test in this class drives the **real fixture body** rather than the
     pure planner and the pure formatter either side of it. That seam is what
@@ -608,6 +627,20 @@ class TestColdDatabase_ThePreparationRecordsAndAnnouncesWhatStoppedIt:
         suite happened to be started in. That is the defect one layer up —
         a verdict that is a property of the shell rather than of the code
         (``tests/database_guard.py``'s own opening).
+
+        **A stop that escapes the body is converted to an assertion failure
+        here, and that is load-bearing.** Without it this helper cannot kill
+        the mutant that matters most: narrow the fixture's clause to a bare
+        ``except Exception`` — the broadening phrased as a *replacement* of
+        the two outcome classes rather than an addition to them — and
+        ``pytest.skip.Exception`` escapes the body, propagates out of the test
+        function, and the cell is reported **SKIPPED**. Measured: that mutant
+        left the skip cell green-by-silence while only the failure cell died.
+        A skip is not a kill (G-2), and the escaping-skip direction is the one
+        that takes the whole suite with it out of a session-autouse fixture.
+        The bound caught here is deliberately the same one the fixture claims,
+        so a ``BaseException`` that is not an ``OutcomeException`` still
+        escapes both — the fixture does not catch those on purpose.
         """
         recorded: dict = {}
         monkeypatch.setattr(suite_conftest, "_ARMED_SETUP", recorded)
@@ -619,43 +652,96 @@ class TestColdDatabase_ThePreparationRecordsAndAnnouncesWhatStoppedIt:
             monkeypatch.delenv(VAR, raising=False)
         else:
             monkeypatch.setenv(VAR, environ_url)
-        _fixture_body(suite_conftest._armed_database_is_ready)(request)
+        try:
+            _fixture_body(suite_conftest._armed_database_is_ready)(request)
+        except (pytest.skip.Exception, pytest.fail.Exception, Exception) as escaped:
+            raise AssertionError(
+                f"_armed_database_is_ready let {type(escaped).__name__} escape "
+                f"instead of recording it. Out of a session-scoped autouse "
+                f"fixture that skips or errors every item in the suite, each "
+                f"naming this fixture: {escaped}"
+            ) from escaped
         return recorded
 
     @pytest.mark.parametrize(
-        "stop",
+        ("stop", "announces_its_class"),
         [
-            pytest.param(pytest.skip.Exception, id="a-skip"),
-            pytest.param(pytest.fail.Exception, id="a-failure"),
+            # The two stops ``_test_database_tables`` authors itself. Their
+            # message is already a sentence, so it is recorded verbatim.
+            pytest.param(pytest.skip.Exception, False, id="a-skip"),
+            pytest.param(pytest.fail.Exception, False, id="a-failure"),
+            # The stops it does not author, and which the pre-F-001 clause
+            # let escape into every item in the suite. Real paths, named: the
+            # DROP under a lock, the Alembic subprocess at its timeout.
+            pytest.param(OperationalError, True, id="a-lock-on-the-drop"),
+            pytest.param(subprocess.TimeoutExpired, True, id="the-alembic-timeout"),
+            # Edge: a class whose ``str`` is NOT a legible sentence. Without
+            # the class-name prefix the note would read "— 'Postgres is not
+            # running'" with nothing saying what went wrong.
+            pytest.param(KeyError, True, id="an-illegible-str"),
+            # Edge: the ``pg_tables`` projection's third class, and the
+            # generic case that proves the clause is not a list of two more.
+            pytest.param(RuntimeError, True, id="an-unanticipated-class"),
         ],
     )
     def test_a_stop_is_recorded_by_the_fixture_and_reaches_the_note(
-        self, monkeypatch, stop
+        self, monkeypatch, stop, announces_its_class
     ) -> None:
-        """Both ways the preparation can stop, through the real recording.
+        """A stop of either kind, through the real recording.
 
-        Parametrised over the two exception classes because the ``except``
-        clause names both and a tuple is the easiest thing in this file to
-        half-edit: a catch narrowed to one of them would let the other out of
-        a session-autouse fixture and take the suite with it.
+        Parametrised across the ``except`` clause's **bound** rather than a
+        list of the classes it names, because a counted claim about this set
+        is exactly what F-001 refuted. ``OperationalError`` and
+        ``TimeoutExpired`` are included as the measured real paths; ``KeyError``
+        and ``RuntimeError`` as edges — the first because its ``str`` carries
+        no clue to its identity, the second because it is anticipated nowhere
+        in ``_rebuild_public_schema`` and must still be caught.
+
+        The two kinds assert **different recorded forms**, which is the
+        discriminator: an authored skip or failure is recorded verbatim, an
+        undesigned escape as ``"{class name}: {message}"``. Asserting the
+        class name is *absent* for the authored kinds is what stops a tidy-up
+        from collapsing the two clauses into one and padding every skip.
 
         The database name is asserted to be the derived one rather than any
         string, which is what makes ``_database_name_of``'s use *inside* the
         fixture covered too — the second symptom F-001 named.
         """
         ours = db_name.default_test_database_url(REPO)
-        request = _StubRequest(raises=stop("Postgres is not running"))
+        if stop is OperationalError:
+            raised = stop("DROP SCHEMA public CASCADE", {},
+                          Exception("Postgres is not running"))
+        elif stop is subprocess.TimeoutExpired:
+            raised = stop(["alembic", "upgrade", "head"], 120)
+        else:
+            raised = stop("Postgres is not running")
+        request = _StubRequest(raises=raised)
         recorded = self._drive(monkeypatch, ours, request=request)
 
         assert request.asked == ["_test_database_tables"]
         assert recorded["action"] == suite_conftest._ARM_PREPARE
         assert recorded["database"] == db_name.derive_test_database_name(REPO)
-        assert "Postgres is not running" in recorded["reason"]
+        # Caught at all — the pre-fix clause let the lower four out of the
+        # fixture entirely, so this line is the one that reds without the fix.
+        assert "reason" in recorded, (
+            f"{stop.__name__} escaped the fixture instead of being recorded"
+        )
 
         note = suite_conftest.armed_database_note()
         assert db_name.derive_test_database_name(REPO) in note
-        assert "Postgres is not running" in note
         assert "unset DATABASE_URL" in note
+        # Announced, not merely swallowed: the stop's own words reach the note.
+        if stop is subprocess.TimeoutExpired:
+            assert "timed out after 120 seconds" in note
+        else:
+            assert "Postgres is not running" in note
+        # And announced *as what it was*, for the kinds whose str is not
+        # self-describing — the half that distinguishes "the database is
+        # unavailable" from "something is badly wrong".
+        assert (stop.__name__ in recorded["reason"]) is announces_its_class, (
+            stop.__name__, recorded["reason"],
+        )
+        assert (stop.__name__ in note) is announces_its_class
 
     def test_a_preparation_that_succeeded_records_no_reason_and_says_nothing(
         self, monkeypatch
@@ -945,11 +1031,11 @@ class TestColdDatabase_TheTwoDatabaseGatesStayAttributable:
     def test_the_eager_setup_hides_nothing_from_the_marked_path(self) -> None:
         """G-2 — the eager fixture cannot make either gate quieter.
 
-        It catches ``pytest.skip`` and ``pytest.fail`` from
-        ``_test_database_tables``, which it must: letting either out of a
-        session-autouse fixture would skip or error the *whole suite*, which
-        is the permanent false green ADR-0038/R8 forbids. What makes that
-        catch safe is that the marked path never consults what it recorded —
+        It catches any stop from ``_test_database_tables``, which it must:
+        letting one out of a session-autouse fixture would skip or error the
+        *whole suite*, which is the permanent false green ADR-0038/R8 forbids.
+        What makes that catch safe is that the marked path never consults what
+        it recorded —
         ``db_session`` and ``pytest_runtest_setup`` reach the same skip through
         ``_refuse_unless_test_database`` and ``_unusable_reason`` as before,
         and pytest re-raises a session fixture's cached exception to every
