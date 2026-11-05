@@ -1,6 +1,6 @@
 # CARD-359: The `page_ink` reader meets a content stream — 6 reds, one cause signature, four modules nobody else touches
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_divider_pages_option.py, tests/property/test_book_pairing.py, tests/test_book_proof_pages.py, tests/property/test_book_export_interior.py
-**Review score:** —
+**Review score:** 8.3 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-05T16:07Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T19:32Z
+**Actual:** 2c -- **ratio 2.000** (2 review cycles, derived as 2 distinct ordinals among the `[Review N/M] Score:` lines, against the 1c estimate; underestimated per the series thresholds). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **4 tracked files** (`tests/property/test_book_export_interior.py`, `tests/property/test_book_pairing.py`, `tests/test_book_divider_pages_option.py`, `tests/test_book_proof_pages.py`), 458 insertions(+), 46 deletions(-) against the cut a32eb8bf (`git diff --shortstat a32eb8bf c474cf08`); src/ and tests/helpers diff 0.
+**Merge commit:** `8cbd720e`
 **Blocked by:** —
 
 ## The population, from CARD-337's cross-tab
@@ -212,3 +212,13 @@ F2-1: the false "stored to 0.01 cm, so 0.1 mm is the finest step" comments are r
 
 F2-2: the vector headroom is declared next to the bound in `_problems`; the bound is now a named constant `CENTRE_BOUND_PX = 2`, `test_the_bound_is_the_declared_number` pins its value, and the declaration says nobody may widen it without moving that declaration. Re-measured by the author in both media (bound 1.5 px: vector 3 failed / 94 passed, raster 97 passed, a loud false red in vector only because the nominal vector centre is 1.7 to 1.8 px; common left-margin shift of every page by a spec plant: shorter by 0.03 mm red in both, longer by 0.4 mm green in both, longer by 0.6 mm red in raster and green in vector, longer by 0.8 mm red in both). **DISCREPANCY, unresolved:** at a bound of 2.3 px the author measures vector 97 passed and raster 2 failed / 95 passed (two `_RESIDUE` cases that stop being caught), whereas the cycle-2 reviewer measured "passes all 97 in both media"; the declaration records the author's number; the author suggests the reviewer moved only one of the two bounds and says it did not identify which two ids fail in raster; the 0.3 px flip sensitivity is DERIVED from the 0.2 px headroom, not separately measured; the author's "longer by 0.4 mm" raster figure was measured as -0.4 in its sweep, which is the longer direction. Optional items done: the `_RESIDUE` ids are renamed from `shift0`..`shift5` to `gutter{g:+}mm-outside{o:+}mm` (for example `gutter-0.1mm-outside+0.0mm`; the author's own new tests from this card, so renaming is not a G-7 violation), the odd-minus-even and centre failure messages carry the bound, and `_parity_error_mm` asserts that interior page 6 is the puzzle page. Next: the merge gate.
 
+
+**Closing note (merge gate, 2026-11-05) - three OWNER items; the review record above is not rewritten.**
+
+(a) The proof-page vector arm is a DECLARED BOUND. A stray rule or a reworded note on a vector proof page passes; the named survivor holds only the proof-note route. ADR-0042/R6 asks for a survivor that holds the claim; that loss is declared here, not closed.
+
+(b) The divider vector bound (`CENTRE_BOUND_PX = 2`) has about 0.2 px of headroom and one UNRESOLVED discrepancy: the author measured a 2.3 px bound failing two residue cases in raster, while the cycle-2 reviewer measured it passing all 97 in both media. Nobody has reconciled the two measurements.
+
+(c) The CARD-322 routing note lives on CARD-322's card: when CARD-322 closes the guide-page abort, the first `export_interior` test will red at `_measured` with a 3 px ink-first-line gap.
+
+Merge gate: full suite armed with the merge staged, 10600 passed, 1 skipped (the setrlimit platform gate), 1 xfailed, 0 failed, 0 errors; merged as `8cbd720e`.

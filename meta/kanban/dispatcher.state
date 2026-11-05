@@ -473,12 +473,10 @@ active:
 # CARD-325 CLEARED 2026-11-05 at its merge gate: merged fd37038c, done, certified 8.3 on cycle 1, estimate
 #   2c -> 1 cycle = ratio 0.500. Its WORKTREE IS KEPT (holds the owner's unplayed build/site-crosshair builds),
 #   idle: no process runs there. The entry is dropped so no free-slot check counts it as a running card.
-  - card: CARD-359
-    branch: card/359-page-ink-reader
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-359
-    started: 2026-11-05T16:08Z
-    estimate: 1c (0.5d)
-    cut_from: a32eb8bf
+# CARD-359 CLEARED 2026-11-05 at its merge gate: merged 8cbd720e, done, certified 8.3 on cycle 2, estimate
+#   1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its instruments were
+#   copied to ~/Documents/nonogram-reviews/CARD-359/, so the entry is dropped rather than left naming a path
+#   that no longer exists.
   - card: CARD-360
     branch: card/360-pdf-levels-two-up
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-360
