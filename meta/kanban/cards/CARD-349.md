@@ -129,10 +129,21 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
 - **AC-2** *Given* the exposed set, *then* it is **derived** from the marker and the
   environment read rather than hand-listed (ADR-0039/R2), and its size is stated.
   (test: named by the implementation; state it)
-- **AC-3** *Given* the fix, *then* the **second** run is not the first run's rescue: running
-  twice from the same cold state gives the same result both times. The self-healing signature
-  is the defect, so its absence is the acceptance.
-  (test: named by the implementation; state it)
+- **AC-3** *Given* the fix, *then* the **second** run is not the first run's rescue: a **cold**
+  run and the run **after it** agree. The self-healing signature is the defect, so its absence
+  is the acceptance.
+  (test: `tests/test_card_349_cold_database.py::TestColdDatabase_TheSecondRunIsNotTheFirstRunsRescue::test_a_cold_run_and_a_warm_run_agree`)
+
+  > **⚠ RESTATED 2026-11-05 by the orchestrator, on the round's request** (ADR-0039/R4). It read:
+  > *"running twice from the same cold state gives the same result both times."* **The defect
+  > satisfies that as written** — measured twice: drop the database before each of two runs and
+  > the broken code gives `5 failed, 9 passed` **both times**, and under the obvious mutant the
+  > round's original cold/cold equality assertion **passed**, with only a return-code assertion
+  > catching it. The self-healing signature is cold-red-then-**warm**-green, so the pair that
+  > carries the acceptance is a cold run and the run after it. The round tested the stronger
+  > pair, said so, and asked for the AC to be restated rather than quietly reinterpreting it —
+  > which is the right way round, and the reason this is a restatement and not a finding
+  > against the round.
 - **AC-4** *Given* the two DB gates, *then* they remain separately attributable — a skip or a
   red still says which one fired. CARD-278's gate's attribution (1 skip, `setrlimit`; 0 from
   the bare-`DATABASE_URL` check; 0 from per-worktree resolution) must still be derivable.
@@ -164,6 +175,87 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
   (check: review-lens)
 
 ## Worktree notes
+
+[Round, commit `587e84e6`] **F-001 CLOSED, and the round's own derivation INVERTED the fix it was
+handed.** The reviewer's suggestion was *"broaden to `except Exception` (keeping skip and fail named
+first **if the note wants the distinction**)"* — framing the naming as stylistic. **It is
+load-bearing.** `Skipped`/`Failed` derive from `OutcomeException`, which derives from
+**`BaseException`, not `Exception`** — verified independently by the orchestrator: the MRO is
+`Skipped → OutcomeException → BaseException → object`, `issubclass(Skipped, Exception)` is **False**,
+and a real `pytest.skip()` **escapes** `except Exception`. Measured by the round in the same harness:
+catching `Exception` **alone** gives `3 skipped`/`3 errors` — **the whole suite skips or errors, the
+exact hole this card closed, re-opened.** **Applied as literally written, the suggestion would have
+regressed the card.** The committed catch is two clauses, the authored stops named first and
+`except Exception` second.
+
+[Round] **It also derived the UPPER bound rather than assuming it.** A `BaseException` that is not an
+`OutcomeException` escapes a session fixture into a pytest-internal assertion **identically with and
+without the swallow**, so widening to `BaseException` buys nothing and would cost
+`KeyboardInterrupt`/`SystemExit`. The catch stops at `Exception` for that measured reason — a bound
+with a reason and a measured residue (ADR-0039/R3).
+
+[Round] **The safety claim reproduced on a stronger instrument than either prior probe.** Built from
+scratch: a session-scoped **generator** fixture raising *before* its `yield` inside `try/finally`
+(the real shape), the swallowing autouse fixture, a **direct** requester, **and a function-scoped
+fixture reaching it via `getfixturevalue`** — which is `db_session`'s actual shape and which neither
+earlier probe covered. Matched control in the same run. All three stop classes stop both requesters
+with the original message; only the test that never asks proceeds. **One precision against the
+orchestrator's wording:** for `pytest.skip` the later requester **skips**, it does not error — "errors"
+is right for `fail` and for undesigned classes only.
+
+[Round] **Mutant B found a real hole in the round's own test, and it is the G-2 shape.** On first run
+the `[a-failure]` cell died but `[a-skip]` was reported **SKIPPED** — and a skip is not a kill. Green
+by silence, in precisely the direction that takes the whole suite down. `_drive` now converts an
+escaping stop into an `AssertionError` bounded to the classes the fixture claims; re-measured, B kills
+both cells with **0 skipped**, and the line is flagged load-bearing so it is not tidied away.
+Four mutants, two of them edges in **both** directions of the announcement collapsing (C drops the
+class-name prefix, D adds it to the authored branch too), which is what makes the two-clause split
+load-bearing rather than decorative.
+
+[Round] **The in-tree control reproduces the second reader's finding independently.** Under mutant A,
+`ERROR at setup of TestTestDbUrl_NameIsDerivedPerWorktree::test_the_same_root_always_derives_the_same_name`
+— a test that touches no database at all, erroring under this card's fixture. That is the blast-radius
+regression, in-tree, on a pure test.
+
+[Round] **Both suites green, and the figures reconcile both ways.** Armed at `336bd216`:
+**10402 passed / 1 skipped / 1 xfailed / 0 failed / 0 errors** — the one skip the `setrlimit` gate,
+with `grep -c "Database not reachable"` = **0**, which is the positive evidence the arming took.
+Unarmed at `587e84e6`: **10373 / 30 / 1 / 0 / 0** — **29** bare-`DATABASE_URL` + **1** `setrlimit`.
+`10402 + 1 + 1 = 10404 = 10373 + 30 + 1`, and the 29-pass delta is exactly the `db_required` set,
+derived by `--collect-only -m db_required`.
+
+[Round] **A figure of the orchestrator's corrected:** the brief said "1 armed, 29 unarmed". The **29**
+is the `db_required` **count**; the unarmed **total** is **30**, because `setrlimit` is not a database
+gate. Two populations, one number. And the standing "26 bare-`DATABASE_URL`" is now **29**, fully
+explained by this card's module contributing 3. Both corrected in the board's auto-memory, with the
+rule that a counted baseline must be **derived, never carried**.
+
+[Round] **SCOPE+ used once, correctly, and it is the new convention's first use.** The fixture's
+docstring argued that no `db_required` count belongs in it **and then carried one** — "two
+`db_required` tests" — which this card's own later commit made three. **Deleted rather than
+refreshed**, with the retracted wording quoted in place. Docstring-only, no decision, no `src/` touched
+(G-1 intact), `Touches` already named the file. **Sequencing handled rather than waved past:** the
+armed suite describes `336bd216` *before* that edit, so the round re-ran the impact-scoped modules
+armed (**152 passed, 0 skipped**) and ran the unarmed full suite on `587e84e6` itself. It did not edit
+while either suite ran.
+
+[Round] **Residue reported, not fixed, as instructed** — it needs a design decision and so clears the
+cut bar in the other direction: a stop **between** `DROP SCHEMA` and the end of `alembic upgrade head`
+leaves an **empty schema** *and* skips `reset_engine()`, leaving a module-global engine that predates
+it. The fixture records and announces such a stop correctly and now explicitly does **not** claim to
+repair that state.
+
+[Round] **G-8 / `nonogram_poc`: never connected to.** Both checks went through the `postgres`
+maintenance database; size **8443583 at session start and 8443583 at the end**, unchanged, with **0**
+connections from the round in `pg_stat_activity`. **No `DROP DATABASE` was performed at all**, so the
+four-property proof was never needed. `_refuse_unless_test_database` / `_refusal_reason` untouched and
+still refusing by URL text before connecting.
+
+[Round] **It declined to adopt a count it could not enumerate.** The orchestrator's brief said "at
+least four ways"; the round confirmed three concrete classes and deliberately put **no count anywhere**
+in what it wrote, on the grounds that a counted claim about a set nothing enumerates **is the defect
+itself.** It also used the `pg_tables … tablename <> 'alembic_version'` predicate (**6**) that
+`_rebuild_public_schema` itself uses, rather than `information_schema.tables` (**7**), and stated which.
 
 [Review 1/3 — AMENDED BY ITS OWN AUTHOR] **Score 9.0 → 8.0**, `ADR-0038/R8` **✓ holds → ✗ violated**,
 system contract holds 2 → 1 and violated 1 → 2. The first reviewer retracted **in place** in
