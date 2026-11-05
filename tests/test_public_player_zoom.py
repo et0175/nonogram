@@ -1600,6 +1600,24 @@ class TestPublicZoom_TheLandscapeToolbarIsOneRow:
         assert not r["readoutAriaHidden"], r
         bounds = _bounds(page)
         assert r["readoutText"].strip() == f"{bounds['min']:g}%", r
+        # And it takes no room: out of flow, the group is exactly the two
+        # buttons and ONE gap. A 1 px box left in flow adds its width and a
+        # second gap (5 px), which the slack at 844 (+5.6) would not notice.
+        layout = page.evaluate(
+            """() => {
+              const group = document.querySelector('.player-zoom');
+              const [out, inn] = ['out', 'in'].map((a) =>
+                document.querySelector(`[data-player-zoom-action="${a}"]`).getBoundingClientRect().width);
+              return {
+                position: getComputedStyle(document.querySelector('[data-player-zoom-readout]')).position,
+                group: group.getBoundingClientRect().width,
+                gap: parseFloat(getComputedStyle(group).columnGap),
+                out, inn,
+              };
+            }"""
+        )
+        assert layout["position"] == "absolute", layout
+        assert layout["group"] == layout["out"] + layout["inn"] + layout["gap"], layout
         _press(page, "in")
         after = page.evaluate(self._TOOLBAR)
         assert after["readoutText"].strip() == f"{bounds['min'] + bounds['step']:g}%", after
