@@ -4,6 +4,24 @@ wave: 78   # OPENED 2026-11-04T20:25Z on the owner's "merge it and start the nex
 #            ALL THREE CYCLE ESTIMATES EXACT -- the first calibration signal this
 #            board has been able to export, and it exists only because the estimates
 #            were restated in REVIEW CYCLES at the open rather than left in days.
+# DISPATCH AUTHORITY, owner's decision 2026-11-05: INSTRUCTIONS FOR CARD WORK ROUTE
+#   THROUGH THE ORCHESTRATOR. One dispatcher, therefore one actor per worktree, and a
+#   collision becomes impossible by construction rather than by discipline.
+# WHY, measured rather than asserted: two agents worked in PythonProject4-card-349 at
+#   once because one was taking instructions directly while the orchestrator held the
+#   dispatch. BOTH pre-checks passed honestly -- the lock's identity is the WORKTREE, so
+#   verdict() returned (True, None) to each, and `holder:` is prose describing an
+#   activity, which each agent read as the other's. Nobody was careless; the lock cannot
+#   represent an actor. See CARD-377, and CARD-378 for why it is destructive rather than
+#   merely contended (both actors derive the SAME database and the rebuild drops the schema).
+# WHAT THIS DOES NOT MEAN: the owner may resume any agent at any time. An agent resumed
+#   and asked for work on a card reports back to the orchestrator instead of entering a
+#   worktree, so the owner keeps direct visibility without two principals assigning the
+#   same checkout.
+# UNTIL CARD-377 OR CARD-378 LANDS: one actor per worktree, enforced by the dispatcher
+#   checking occupancy BY CWD (never by argv -- an argv match is how a wait-loop sees
+#   itself) before every dispatch.
+#
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
