@@ -56,7 +56,7 @@ the 20 modules it chose and not of the tree, and this module is the counterexamp
 
 **And it is the cleanest available test of whether M10 can be split at all.** This card's reds
 are **pure M10** with no other mechanism mixed in, in one small module. Board-wide M10 is 57
-reds across **35 cause lines** held together by a catch-rule with sixteen alternations — the
+reds across **35 cause lines** held together by a catch-rule with **25** top-level alternations (⚠ this card said *sixteen*; measured **25**, re-derived by the orchestrator with escape-aware depth tracking (my first two counts were wrong — escaped `\(`/`\)` were being read as groups) — ADR-0039/R4) — the
 "other" bucket ADR-0039/R2 forbids, wearing a label. **If M10 is really several mechanisms, this
 is the cheapest place to find out**, and the answer scopes CARD-354, CARD-355, CARD-356 and
 CARD-357, which hold 45 M10 reds between them.
@@ -170,3 +170,76 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
+
+## Worktree notes
+
+[Round, commits `95c25cb6` + `adaac606`] **Done, and the primary deliverable landed: M10 is THREE
+mechanisms, not one.** Probe-scoped **8F/43P → 1F/51P**, the one remaining red being CARD-322's M1
+delitem, left standing untouched — a card that repairs its neighbour's red hides which card the
+repair belonged to. Unlifted: 51P → 52P, the extra node a new control. The orchestrator's 8 = 7 + 1
+split reproduced exactly. **The three-mechanism finding is propagated onto CARD-354/355/356/357**,
+which hold 45 M10 reds between them and whose disposition differs by mechanism.
+
+[Round] Per-red disposition: the 4 **A** reds **re-expressed** as a union of the two arms
+(`TextCall.exempt` and `StreamFace.exempt`, neither keying on a face's size); the 2 **B** reds
+**re-expressed** against `book_guide_vector`'s own per-face record with two structural bounds that
+can fail, and **stated in the docstring as genuinely narrower** than what they replaced; the 2 **C**
+reds **re-expressed plus 4 retirements with named survivors**, each survivor verified to exist and
+each class name **resolved by `ast` against its enclosing `ClassDef`** rather than by text. The new
+intersection is asserted **non-empty**, so the day `DIVIDER` stops being raster this reds and that
+card owes a reading or a survivor.
+
+[Round] **AC-4: 9/9 mutants re-broke their claim**, matched control green in the same run, `0 skipped`
+asserted on the baseline **and on all nine mutant runs**. Five are named edge mutants, and the
+non-vacuity one is the important one — `divider-declared-vector`: without it the repair reads green
+over a claim that had ceased to exist. Every `src/` file restored **from captured content**,
+SHA-256-identical both ends, `git status src/` clean.
+
+[Round] **Two `SCOPE+` fixes under the owner's cut bar, both found by its own measurement and both
+the right call.** First, the matched control for the claim it re-expressed **had gone vacuous under
+the probe**: it asserted against a hard-coded triple that the *conversion itself* satisfies, so the
+band could have gone on being drawn or stopped and the control read green either way — ADR-0039/R1
+made that one its own. Second, **a derived parametrize that empties into a SKIP**: a mutant collapsed
+the derivation and pytest reported `got empty parameter set`, giving **2 skipped in a module whose
+baseline is 0**. A skip is not a deny (ADR-0039/R2); it now yields a named sentinel refused by name,
+so it fails saying what happened. That mutant run went `10F/38P/2S → 12F/38P/0S`.
+
+[Round] **A figure of the orchestrator's brief does NOT reproduce, and it is retracted here and on
+CARD-354** (ADR-0039/R4): M10's catch-rule has **25** top-level alternations, not *sixteen*. The
+round counted 25; the orchestrator re-derived 25 independently — **on the third attempt**, the first
+two having been wrong because escaped `\(`/`\)` were being counted as groups. The enumeration is
+legible and item 8 is the nested `IndexError: (…|…)`, correctly one. The companion figures
+(57 reds, 35 cause lines) are CARD-337's round's and **neither the round nor the orchestrator has
+re-derived them** — they remain unverified rather than confirmed.
+
+[Round] **Two taxonomy findings for whoever owns the taxonomy.** M11's rule is anchored on the
+literal `test_book_pdf_band.py`, a **module fact standing in for a mechanism** — it would have
+excluded all seven of these reds regardless of mechanism, so nothing mis-routed this time but the
+defect is confirmed structurally, and re-keying M11 by mechanism is the right call. And mechanism
+**B has no rule at all**.
+
+[Round] **A decision the round handed up, and the measurement makes it larger than its question.**
+AC-4's instrument could not be committed: force-adding it red
+`test_no_new_artefact_file_is_force_added_into_the_resolver_domain`, because the file spells
+`ADR-0039/R2`, `ADR-0042/R6`, `CARD-296 AC-5`, `CARD-314 AC-3/AC-4` and more, and the check-ref
+search is a **text** search. **That gate working, not failing.** The round un-tracked it
+(`adaac606`) and the gate is green again. **The orchestrator's ruling: instruments stay in the
+worktree and vanish with it; the findings live in the card record, which is what actually has to
+survive.** Measured while deciding, and it is the uncomfortable part: **67 instruments under
+`scratchpad/` are ALREADY tracked**, and they name test functions in bulk — `census-converted.txt`
+alone spells **182**, `card329/mutate.py` 32, `card338/census_five_kinds.py` 21, `impact.txt` 27. The
+gate never fired on them because, as its own docstring says, it is *"deny-by-default over the ignore
+rules, not over the resolver's domain"* — so everything tracked **before** `scratchpad/` became
+ignored is grandfathered and invisible. CARD-335 stopped the new pollution and the existing set
+remains. **Not carded** under the cut bar: it is not blocking the vector slice, and the owner's
+priority is finishing ADR-0042. Recorded here as the pointer.
+
+[Round] **One full-suite red the round raised and explicitly declined to clear** — correctly, since
+"I see no mechanism" is not a measurement: `tests/test_browser_fixture_scope.py::
+TestBrowserFixtures_OrderIndependent::test_reverse_order_passes` passes file-scoped (31 passed, with
+its own lock held, so the lock is not the cause) and reds only in the full suite. It spawns a **child
+pytest**, so it is suite-interaction- or load-shaped. **Context the orchestrator added:** CARD-349's
+gate ran an **armed** full suite hours earlier at **10402 passed / 0 failed**, so main was clean —
+which makes this either this card's or a load artefact, and not a pre-existing red. **The merge gate
+settles it on the merged tree**; it is not cleared here. The round's own suite was on `95c25cb6`,
+before `adaac606`, so no suite yet describes the final commit.

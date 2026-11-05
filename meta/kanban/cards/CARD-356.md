@@ -24,6 +24,50 @@
 **Merge commit:** —
 **Blocked by:** —
 
+> ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
+>
+> CARD-358's seven reds were *pure M10 in one small module*, which made it the cheapest place on the
+> board to ask whether M10 is one mechanism. **It is three**, and this scopes your 45 reds:
+>
+> **A — the reading exists in the converted medium and was taken in one arm only.** Measured under
+> the lift: the spy exempted **0** faces while the stream exempted **644** by the writer's own
+> clue-digit mark. Nothing stopped being true; a reading stopped being taken. **This is the mechanism
+> M10's label actually describes** — the cause lines really are `assert []` / `assert set()`.
+> *Disposition: a mechanical union of the two arms. Cheap and local.*
+>
+> **B — the provenance the claim needs is absent from the stream BY DESIGN.** Not a reading taken in
+> one arm; the other arm **cannot carry the claim at all**. The stream's one piece of provenance is
+> the clue-digit mark, the mark *means* exempt, and the claim was that certain digits are **not**.
+> `book_guide_vector`'s own source says so: *"This medium has no `_write_clues` to tag, so the
+> distinction is made deliberately rather than inherited."* **The M10 label does not describe this.**
+> *Disposition: needs a surviving authority named per claim — this is where ADR-0042/R6's "retire with
+> a named survivor" actually bites.*
+>
+> **C — the VOCABULARY has no counterpart in the stream.** `TextCall.kind` reconstructs a vocabulary
+> finer than the page kind — band, footer label, answer caption — off the **call chain**. A content
+> stream has no call chain and no per-face record for the answer, puzzle or TOC writers (only the
+> guide has one). Measured: the spy's semantic reading of both books collapses to `{'divider'}`, the
+> one kind still raster. **The label does not describe this either**, and the failure is a
+> *set-comparison*, not an empty read. *Disposition: expect this to be the expensive one — B had an
+> authority to fall back on and C had none for three of five kinds.*
+>
+> **The rule neither groups one mechanism nor separates two**, which is why the bucket cannot be
+> sized from the label:
+>
+> | mechanism | the alternation it matched | what that keys on |
+> |---|---|---|
+> | A (exempt set) | `assert \[\]` | a failure **shape** |
+> | A (cross-check) | `assert set\(\)` | a *different* failure shape |
+> | B (worked example) | `drew no text` | **a string lifted from the test's own message** |
+> | C (coverage) | `AssertionError: assert \{` | a shape matching *any* set comparison anywhere |
+>
+> **So do not size your share from the label — classify first.** CARD-358 reports the classification
+> cost one scripted reading of both arms per claim, not a card.
+>
+> **And mechanism B has no rule at all**: it reaches M10 only through `drew no text`, a string from
+> the assertion message CARD-358 was about to rewrite — so the classification would have changed when
+> the *wording* changed. `classify_reds.py` was deliberately not edited (CARD-338 is closed).
+
 ## The population, from CARD-337's cross-tab
 
 **26 reds under the five-kind probe; this card owns 25.** The other is **M3b** —
