@@ -823,6 +823,25 @@ def _real_answer_stream():
     )
 
 
+def guide_pages_for(book: str) -> List[Any]:
+    """``book``'s **vector** guide pages, laid out with its own spec and DPI.
+
+    The call is ``book_guide_vector.guide_pages`` with this book's own page
+    spec and DPI — the same call ``_real_guide_stream`` makes, on
+    ``BOOKS[book]`` rather than the corpus book, because the 10x10 cm trim
+    lays the page out differently and the claim is about both books.
+    """
+    generator = BookPDFGenerator(BOOKS[book]())
+    return list(
+        book_guide_vector.guide_pages(
+            generator.page_spec,
+            generator.dpi,
+            puzzle_count=len(baseline_puzzles()),
+            easy_count=len(baseline_puzzles()),
+        )
+    )
+
+
 def guide_clue_digit_faces(book: str) -> List[Any]:
     """Every clue digit ``book``'s **vector** guide page records setting.
 
@@ -832,23 +851,13 @@ def guide_clue_digit_faces(book: str) -> List[Any]:
     writer's own per-face record, ``GuidePage.faces``, each tagged with one of
     :data:`~nonogram.admin.book_guide_vector.FACE_KINDS`.
     :meth:`TestInteriorType_OnlyPuzzleClueDigitsAreExempt.test_worked_example_digits_are_drawn_and_never_exempt`
-    has the whole argument, including what the record cannot say.
-
-    The call is ``book_guide_vector.guide_pages`` with this book's own page
-    spec and DPI — the same call ``_real_guide_stream`` makes, on
-    ``BOOKS[book]`` rather than the corpus book, because the 10x10 cm trim
-    lays the page out differently and the claim is about both books.
+    has the whole argument, including what the record cannot say: **the tag is
+    by kind, not by diagram**, so this list is the digits of all four of the
+    page's line-diagram families, and the worked example is one of them.
     """
-    generator = BookPDFGenerator(BOOKS[book]())
-    pages = book_guide_vector.guide_pages(
-        generator.page_spec,
-        generator.dpi,
-        puzzle_count=len(baseline_puzzles()),
-        easy_count=len(baseline_puzzles()),
-    )
     return [
         face
-        for page in pages
+        for page in guide_pages_for(book)
         for face in page.faces
         if face.kind == book_guide_vector.CLUE_DIGIT
     ]
@@ -1060,23 +1069,57 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         survivors**, each in the vector writer's own file and each in the
         richer vocabulary that writer records rather than this one:
 
-        * ``guide`` — ``tests/test_book_guide_page_vector.py``'s
-          ``TestGuidePage_EveryFaceHoldsTheFloorInTheStream::test_the_record_covers_every_kind_of_face_the_page_sets``,
-          which requires ``book_guide_vector.FACE_KINDS`` of the drawn pages
-          (title, body text, pipeline label, legend name, clue digit, folio) —
-          strictly finer than this file's single ``"guide"``;
-        * ``band`` — ``tests/test_book_puzzle_page_vector.py``'s
-          ``TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle``, both
-          ``::test_every_band_the_section_shows_is_a_number_and_a_tier`` and
-          ``::test_the_band_fits_the_way_the_raster_page_fits_it``;
-        * ``footer label`` — the same file's
-          ``TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_footer_lines_sit_where_the_raster_page_sets_them``
+        **Each survivor below was planted against, not read.** For every
+        retired kind a plant removed exactly the lettering the kind names —
+        that kind's text call, in that kind's own writer — and the survivor is
+        named only if it went red under it (CARD-358 cycle 1, F-002: five of
+        the first draft's eight citations could not fail for the reason they
+        were cited). ``reds`` means newly red against the unplanted
+        baseline of the same files under the five-kind probe;
+        ``corroboration only`` means it sits beside the claim and stayed green.
+        The medium each one reads is stated, because the retirement of a kind
+        that *converted* is only answered by a survivor in the converted medium.
+
+        * ``guide`` (vector stream/record) —
+          ``tests/test_book_guide_page_vector.py``'s
+          ``TestGuidePage_EveryFaceHoldsTheFloorInTheStream::test_the_record_covers_every_kind_of_face_the_page_sets``
+          **reds** when the title is neither set nor recorded (it requires
+          ``book_guide_vector.FACE_KINDS`` of the drawn pages, strictly finer
+          than this file's single ``"guide"``); and
+          ``::test_the_writers_record_is_exactly_what_the_stream_shows``
+          **reds** when the title is dropped from the stream but still
+          recorded, which the first cannot see because it reads the record;
+        * ``band`` (vector stream) — ``tests/test_book_puzzle_page_vector.py``'s
+          ``TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle::test_every_band_the_section_shows_is_a_number_and_a_tier``
+          **reds**, as do ``::test_a_reader_can_select_the_band`` and
+          ``::test_the_title_is_absent_because_it_is_never_passed``. Its
+          sibling ``::test_the_band_fits_the_way_the_raster_page_fits_it`` is
+          **corroboration only**: it holds ratio-constant parity and
+          ``slot_room`` arithmetic and never reads what was lettered;
+        * ``footer label`` (vector stream) — the same file's
+          ``TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_page_carries_all_four_pieces_of_furniture``
+          and ``::test_the_reading_sees_each_piece_go_missing`` **red** when
+          the writer never sets ``size_label``.
+          ``::test_the_footer_lines_sit_where_the_raster_page_sets_them`` is
+          **corroboration only** (a descender / ink-row computation over the
+          furniture record, ``offset == 9``; green under the plant), and so is
+          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``
+          — the label is *absent* on a two-up page by design, so that test
+          reds for the QR links' lettering and not for the label's;
+        * ``answer caption`` — **converted medium (vector stream):**
+          ``tests/test_book_solved_answer_key.py``'s
+          ``TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt::test_the_caption_is_right_aligned_on_the_slot_comp_007_reports``
           and
-          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``;
-        * ``answer caption`` — ``tests/test_book_solved_answer_key.py``'s
-          ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted::test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``
-          and
-          ``TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording::test_caption_reads_answer_caption_when_there_is_room``.
+          ``TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted::test_the_title_prints_only_on_answer_pages_across_a_corpus``
+          both **red** when ``book_answer_vector.draw_answer_caption`` never
+          sets its text. **Raster medium** (the still-live
+          ``BookPDFGenerator._packed_answer_page``, which no conversion
+          retires): ``TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording::test_caption_reads_answer_caption_when_there_is_room``
+          **reds** when ``_draw_solved_slot``'s ``draw.text`` is dropped, and
+          reds under *neither* vector plant. The first draft's other citation,
+          ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted::test_on_a_two_up_page_there_is_slack_and_the_caption_prints_at_the_floor``,
+          is **corroboration only**: its ``(band < 128).any()`` is satisfied
+          by any ink in the slack strip and stays green under both plants.
 
         Every class name above was resolved with :mod:`ast` against the
         enclosing ``ClassDef``, not read off the file the method sits in:
@@ -1254,11 +1297,10 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
 
         * **drawn** — the record names at least one
           :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT` face
-          (:func:`guide_clue_digit_faces`). The sibling that holds the record
-          to the file is
-          ``tests/test_book_guide_page_vector.py::TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_each_clue_digit_size_really_reaches_the_file``,
-          so a record naming a size the stream does not carry is caught there
-          rather than believed here;
+          (:func:`guide_clue_digit_faces`) **and**, on a page whose fallback
+          form keeps the worked example, the last clue digits the page sets, in
+          drawing order, are the worked example's own — its clue repeated once
+          per step. What that does and does not carry is the next section.
         * **never exempt** — twice over, and neither reading by size. The
           writer declares ``EXEMPT_KINDS`` empty; and ``"guide"`` is not in
           :data:`CLUE_DIGIT_KINDS` (derived from ``src/`` by :mod:`ast`), which
@@ -1267,11 +1309,51 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
           :func:`below_floor_in_its_medium` exempt, which the live stream
           reading is asserted to confirm below.
 
-        What is genuinely narrower: the vector record's vocabulary is "a clue
-        digit of one of this page's line diagrams", not "a call from inside
-        ``draw_example_line``". The worked example is the page's line diagram,
-        so the faces are the same faces, but this file can no longer say so by
-        provenance — and that is stated rather than papered over.
+        **What the mark can and cannot carry (CARD-358 cycle 1, F-001).** The
+        record's tag is by *kind*, and the guide page lays out **four** families
+        of line diagram through the one routine — the basic rule, the cell
+        states, the worked example and the technique rows — all tagged
+        :data:`~nonogram.admin.book_guide_vector.CLUE_DIGIT`. So "the record
+        names a clue digit" is one of four and is satisfied by the technique
+        rows alone (24 faces on ``book1``, 8 on ``min-trim``): planting
+        ``worked_example = []`` in ``book_guide_vector.guide_page`` — the
+        worked example draws nothing at all — leaves *that* assertion green.
+        There is **no per-diagram attribute** on :class:`DrawnFace` or on
+        :attr:`GuidePage.faces` to narrow it by, and this module may not add
+        one (it edits no ``src/``). What it has instead is **position**: the
+        worked example is the last diagram the page draws, so on a page whose
+        :attr:`GuidePage.fallback_level` keeps it (``bare_level`` 0) the tail
+        of that page's clue digits must be the worked clue,
+        ``WORKED_EXAMPLE_CLUE``, once per ``WORKED_EXAMPLE_STEPS`` entry. That
+        reds the plant on ``book1``. Its limits, stated rather than papered
+        over: it reads *where* the digits fall, so it would not notice a
+        worked example replaced by a diagram of the same digit sequence; and
+        on ``min-trim`` the writer's own fallback (``bare_level`` 2) drops the
+        worked example from the page entirely (the raster page has the same
+        ``bare_level < 1`` gate) — so there the claim has nothing to read, and
+        :meth:`test_a_book_keeps_the_worked_example_on_a_guide_page` is what
+        stops that from being true of every book.
+
+        **Scope.** On today's committed tree the guide is a declared raster
+        exception, so the raster branch below is the one that runs; the gap
+        above is in the **converted end state**, the one the card's reds live
+        in and CARD-322 will produce. The raster branch is **no more specific
+        than the record was**, which was measured rather than assumed:
+        ``WORKED_EXAMPLE`` is ``draw_example_line``, which every one of the
+        four families calls, and planting an empty ``worked_example_images``
+        in ``BookPDFGenerator.create_guide_page`` leaves this module at its
+        unplanted 53 passed with the guide still a raster exception. It is left
+        as CARD-184 wrote it — the raster guide is the page CARD-231 or
+        CARD-322 retires, and nothing here is built on it. The independent corroboration
+        that does fail for an empty worked example, in the converted medium, is
+        in ``tests/test_book_guide_page_vector.py`` and is measured, not
+        assumed: ``TestGuidePage_WorkedExampleReusesTheGridRoutine::test_the_page_draws_every_diagram_through_that_one_routine``
+        and
+        ``TestGuidePage_WorkedExampleClueDigitsAreNotExempt::test_an_engine_that_did_not_write_the_file_reads_the_digits_back``
+        both red under that plant. Its sibling
+        ``::test_each_clue_digit_size_really_reaches_the_file`` does **not**
+        — it reads every clue digit's size and is exactly as non-specific as
+        the record — and is cited nowhere as a survivor of this claim.
         """
         guide_is_raster = book_pdf_generator.page_medium(
             book_pdf_generator.PageKind.GUIDE
@@ -1296,6 +1378,26 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
             "ones it draws, which leaves this claim with nothing to be about. "
             "Either way it is a FAILURE and never a silent pass (ADR-0039/R2)."
         )
+        kept = [
+            page for page in guide_pages_for(book) if page.fallback_level[2] == 0
+        ]
+        if kept:
+            expected = [
+                str(run) for run in book_pdf_generator.WORKED_EXAMPLE_CLUE
+            ] * len(book_pdf_generator.WORKED_EXAMPLE_STEPS)
+            tail = [
+                face.text
+                for face in kept[-1].faces
+                if face.kind == book_guide_vector.CLUE_DIGIT
+            ][-len(expected):]
+            assert tail == expected, (
+                "this guide page's fallback form keeps the worked example, so "
+                "the last line diagrams it draws must be the worked example's "
+                f"{len(expected) // len(book_pdf_generator.WORKED_EXAMPLE_CLUE)} "
+                f"steps ({expected}), and the last clue digits it records are "
+                f"{tail}. The worked example drew nothing, or something else "
+                "now closes the page."
+            )
         assert book_guide_vector.EXEMPT_KINDS == frozenset(), (
             "the guide page's writer now exempts "
             f"{sorted(book_guide_vector.EXEMPT_KINDS)} from CON-020's floor. "
@@ -1310,6 +1412,26 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
             "from the floor by the writer's own claim (CARD-314 AC-4)."
         )
         assert not [face for face in stream_recording(book) if face.kind == "guide" and face.exempt]
+
+    def test_a_book_keeps_the_worked_example_on_a_guide_page(self):
+        """The tail reading above is not vacuous for every book at once.
+
+        ``min-trim``'s guide falls back past the worked example (``bare_level``
+        2), so the worked-example reading has nothing to read there. If the
+        writer ever fell back that far for ``book1`` too, the "drawn" half of
+        :meth:`test_worked_example_digits_are_drawn_and_never_exempt` would be
+        an empty ``if`` on both books and pass for a page with no worked
+        example. That is a FAILURE (ADR-0039/R2), not a quiet pass.
+        """
+        if book_pdf_generator.page_medium(
+            book_pdf_generator.PageKind.GUIDE
+        ) is book_pdf_generator.PageMedium.RASTER:
+            return
+        assert any(
+            page.fallback_level[2] == 0
+            for book in BOOKS
+            for page in guide_pages_for(book)
+        ), "no book's vector guide page keeps the worked example any more"
 
     def test_the_exemption_rule_by_name(self):
         def call(*chain: Tuple[str, str]) -> TextCall:
