@@ -1,6 +1,6 @@
 # CARD-349: `db_required` gates the create-if-missing path but not the reading of `DATABASE_URL`, so an unmarked test reds in a fresh worktree and self-heals
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/conftest.py
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3 — amended from 9.0 by its own author, `overall_verdict: fail`) — merged after the F-001 fix round and an armed merge gate; a second independent reader scored **7.5** on the same commit and found the finding the first missed
 **Started:** 2026-11-04T20:25Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T07:48Z
+**Actual:** 1c — **ratio 1.000**, one review cycle. Sized by derived datum, **wall-clock excluded** per the owner's standing ruling that the clock measures the queue rather than the work — which applies unusually strongly here: this card queued behind a void armed suite, a stand-down, a two-actor worktree contention incident and three independent re-measurements of one cache behaviour. Datum: **2 files, +1619/−1** (`tests/conftest.py` +325/−1; `tests/test_card_349_cold_database.py` +1295, new); **+28 test arms, 10376 → 10404**; **3** new `db_required` cells; **18** commits on the branch since the cut.
+**Merge commit:** `597cdf57`
 **Blocked by:** —
 
 ## The defect, measured at a gate rather than theorised
@@ -126,9 +126,27 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
   `DATABASE_URL`, or **fails with a message that names the missing database and what to do** —
   not a bare `psycopg2` `FATAL`. Demonstrated by dropping the derived database and running.
   (test: named by the implementation; state it)
-- **AC-2** *Given* the exposed set, *then* it is **derived** from the marker and the
-  environment read rather than hand-listed (ADR-0039/R2), and its size is stated.
-  (test: named by the implementation; state it)
+- **AC-2** *Given* the fix, *then* the exposed set is **derived, not listed**: the collected tests
+  that reach a `DATABASE_URL` reader **transitively through production code**, derived by an `ast`
+  closure over `src/`, with **both** figures stated — the test-side direct count (**0**, which is
+  itself the finding) and the closure's size (**4** direct production readers, a closure of **10**
+  names, **78** scopes across **19** modules). The derivation is a name-keyed **over-approximation**
+  and must say so. Marker authority is **pytest's own**, not text: `-m db_required --collect-only`,
+  never a grep.
+  (test: `tests/test_card_349_cold_database.py::TestColdDatabase_TheExposedSetIsDerived::test_the_indirectly_exposed_set_spans_more_than_one_module`)
+
+  > **⚠ RESTATED 2026-11-05, and the merge gate REFUSED TO CERTIFY the old wording** (ADR-0039/R4).
+  > It read: the exposed set is *"derived from the marker and the environment read"*, operationalised
+  > as *which **tests** read `DATABASE_URL` without carrying `db_required`?* **That set measures ZERO**,
+  > so the AC was **satisfied vacuously while bounding nothing** — the same defect as AC-3, which was
+  > satisfied by the defect itself. Two of this card's five ACs could be passed by a tree that did
+  > nothing.
+  > **The round exceeded the AC rather than reinterpreting it**, deriving the transitive population
+  > the AC could not reach, so this is a defect in the AC and not in the work. The gate merged the
+  > code — correct and gated green — and deliberately held the card's close until this restatement,
+  > because closing against a vacuous AC is the stale-record defect this card family exists to
+  > remove.
+
 - **AC-3** *Given* the fix, *then* the **second** run is not the first run's rescue: a **cold**
   run and the run **after it** agree. The self-healing signature is the defect, so its absence
   is the acceptance.
@@ -175,6 +193,46 @@ have, because it trains a re-run instead of a look. Two of them now exist, one m
   (check: review-lens)
 
 ## Worktree notes
+
+[Gate] **A MISATTRIBUTION OF MINE, retracted** (ADR-0039/R4). I credited the suggestion
+*"broaden to `except Exception` (keeping skip and fail named first if the note wants the
+distinction)"* to the **cycle-1 reviewer**, in the fix round's brief, in a message to that reviewer,
+in this card's record and in a commit message. **Measured:** `except Exception` occurs **0 times**
+in `meta/review/CARD-349-cycle1.yml` and **once** in `meta/review/CARD-349-cycle1-second-reader.yml`.
+**It was the SECOND READER's suggestion.** The reviewer flagged an attribution it could not locate in
+its own artefact rather than accepting credit for it, which is the correct move and is how this was
+caught. The technical point is unaffected — the advice was load-bearing-wrong either way, and the
+round was right to invert it. Sixth instance of content travelling without an identity, and the
+first of the six that is mine.
+
+[Gate] **The `db_required` decomposition, re-derived by pytest's own marker API rather than
+recalled:** **29** suite-wide (`29/10404`), **3** in this card's module (`3/28`), therefore **26**
+elsewhere. So `26 + 3 = 29`. A circulating "29 = 27 + 2" was **wrong in both components and right in
+the total**, which is why it survived three hand-offs — the 27 was the merge base's *total unarmed
+skips* (26 + 1 `setrlimit`), not the `db_required` base. **A figure right in its total and wrong in
+both parts is how a census rots.**
+
+[Gate] **MERGED `597cdf57`**, merging `a2dd68d3` — itself main (`dea020ec`) merged into the branch
+(`587e84e6`), per CARD-363's procedure. **Main is byte-identical to the gated tree**, so the gate is
+wave 78's smoke test by identity rather than a second spend. Armed: **10402 passed / 0 failed /
+1 skipped / 1 xfailed**, the one skip the `setrlimit` platform gate, with
+`grep -c "Database not reachable"` = **0** — positive evidence the arming took rather than an absence
+of evidence. Reconciles **three** ways, each re-derived: `10402+1+1 = 10404`; the unarmed figures
+**derived from the measured 29** (`29+1 = 30` skips, `10373` passed) and stated as derived rather
+than implied; and `10404 − 10376 = 28`, exactly this module's collection, so `conftest.py` adds zero
+collected tests. `alembic_version` 018 against `alembic heads` 018 checked **before** the run.
+**G-8 verified at both ends through the `postgres` maintenance database only:** `nonogram_poc` at
+**8443583 bytes, 0 connections**, unchanged; no `DROP DATABASE`, no wildcard.
+
+[Gate] **Mutant B — the inverted advice applied literally — is KILLED**, planted *after* the final
+suite and restored byte-identically (SHA-256 `94749a78` both ends) so the gate result still describes
+the merged tree: collapsing to `except Exception` fails both parametrised cells at **2 failed / 26
+passed / 0 skipped**, armed.
+
+[Gate] **No `SCOPE+` fix was needed** — the gate found nothing whose fix was smaller than a card,
+which is the right answer when it is the true one. Worktree removed under the tidy rule, checked
+with `git ls-files --others --exclude-standard` rather than a line diff; `PycharmProjects` holds the
+main checkout alone.
 
 [Round, commit `587e84e6`] **F-001 CLOSED, and the round's own derivation INVERTED the fix it was
 handed.** The reviewer's suggestion was *"broaden to `except Exception` (keeping skip and fail named
