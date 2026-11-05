@@ -487,6 +487,12 @@ active:
     started: 2026-11-05T19:38Z
     estimate: 2c (0.5d)
     cut_from: d3ff3ff8
+  - card: CARD-326
+    branch: card/326-public-circled-clues
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-326
+    started: 2026-11-05T21:24Z
+    estimate: 2c (0.5d)
+    cut_from: ce22c0e7
 # WAVE 78 CLOSED 2026-11-05. CARD-349 CLEARED: merged 597cdf57, done, review cycle 1 at 8.0
 #   (amended from 9.0 by its own author, verdict fail), a SECOND independent reader at 7.5 on the
 #   same commit finding the worst defect the first missed, estimate 1c -> ratio 1.000. Its worktree
@@ -703,7 +709,6 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
-- id: CARD-326   # P2 0.5d  PLAYER CARD, owner 2026-11-05 ("dispatch 357 with some player card"): held for the next free slot under the cap of 2 (CARD-360 and CARD-357 are active); starts when CARD-360 gates. Estimate restated in cycles at queue time; premises re-verified on the card.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
