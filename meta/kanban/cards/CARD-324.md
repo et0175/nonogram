@@ -205,6 +205,90 @@ had already moved once.
 
 ## Worktree notes
 
+[Round, commit `d21d7757`] Implemented: five files, +1788. INV-023 clean. Impact-scoped selection
+**180 passed / 0 skipped** against a 162-passed baseline. **No full suite** — CARD-358 held the lock
+for most of the session and the round **waited rather than overriding**, with neither override env
+var touched. **The full suite is still owed before merge.**
+
+[Round] **TWO FIGURES OF THE ORCHESTRATOR'S BRIEF REFUTED, both re-verified independently**
+(ADR-0039/R4):
+• **"import the seven names" is wrong — the admin's own glue imports FIVE.** Measured:
+  `solver.js` imports `{ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom}`, and `clampZoom`
+  occurs **0** times in it (3 times inside `solver_state.js` only). `stepZoom` and `pinchZoom` clamp
+  their own returns, and `solver.js`'s `applyZoom` says in as many words that it does not clamp.
+  Importing seven would have planted **two unused names**. The round imported the same five **and
+  made the test derive that set from `solver.js`'s imports** rather than listing it, so the two
+  pages' consumed surface cannot drift — better than either the card's reading or mine.
+• **"`admin.css` has 23 zoom rules" was a LINE count, not a rule count.** 23 lines match `zoom`
+  case-insensitively; the overwhelming majority are comment prose. The rules zoom actually needs are
+  **seven**: six taken, two of those modified, one refused.
+
+[Round] **The one refusal, with its reason — and it is the right call.** `admin.css`'s
+`.player-zoom .btn { padding-left/right: 5px }` is a **desktop** constraint that keeps
+"Progress: N%" on the panel's counters row at 1280 px. This toolbar has no counters and every visit
+is a thumb, so the round used `min-width: 44px; justify-content: center` instead. A rule copied for
+provenance rather than for its reason would have been the easy wrong answer.
+
+[Round] **⚠ THE RENDERS FOUND TWO DEFECTS THAT SIX GREEN ACs DID NOT.** This is the strongest
+evidence yet for the owner's standing rule that image and UI work is validated **by eye**:
+1. **`.player-cell`'s `min-width` was a flat 28 px** (`--player-cell-min`), equivalent to the admin's
+   `min-width: var(--player-cell)` only while nothing multiplied the cell. With `table-layout: fixed`
+   Chromium sizes a column to the largest min-width in it and **ignores the specified width** —
+   measured at 125%: `--player-cell` resolved to 35 px, the clue band's numerals grew, **and every
+   cell stayed 28 px.** A wider gutter and no bigger cells. **Every AC was green.**
+2. **At 300% on a 390 px screen the sticky row gutter was wider than the whole stage** — pinned, it
+   covered every column and **no cell was reachable at all.** Every AC was green through this too.
+   `keepCluesInView` now pins a gutter only while the stage still has room beside it for a whole
+   cell, **derived — no share, no constant.** Measured: at 390 px both gutters pin at 100/150/200%
+   and the row gutter lets go at 250%; at 1440 px nothing lets go at any rung.
+
+[Round] **Nine mutants, and the one that SURVIVED is the instructive one.** M7 — dropping
+`gesture = null` from `beginPinch` — left **all 180 green**, because a stale `gesture` leaks no mark:
+the pinch's own `releaseTouch` swallows both pointers, so it blocks the **next** `pointerdown` and
+the board simply cannot be marked again until a reload. Both AC-5 arms now **tap after the pinch**;
+re-run, M7 is caught by name. The orchestrator's named edge mutant (**M2**, a local `clampZoom` with
+identical behaviour) was caught, and the round added **M3**, the sharper form — a local step with the
+import **left in place**, so `stepZoom` is imported and never called and the answers are identical —
+also caught. **M5** (`>` for `>=`) is invisible to every source-text guard and was caught
+**behaviourally**.
+
+[Round] **ADR-0041/R2 derived rather than quoted:** `setAttribute("data-state"` → **0** in every file
+under `player/`. The three `data-state` writes are all in `play.js` and all accounted — the blank
+board's module constant, `paint()`'s displayed board, and the player's own brush. What the zoom adds
+writes is two `aria-disabled`, one `textContent` percent, one `--player-zoom` number and two scroll
+offsets; its inputs are bounds, button presses, pointer coordinates and scroll position. **Held by
+signature in the test**, with a control that plants a `board` parameter and sees it.
+
+[Round] **The build was regenerated and the stale artefact is gone.** `build/` did not exist in the
+fresh worktree; the "1163 lines, 204 behind" figure was re-derived in the **main** repo. After
+running the documented driver the served copy is **1367 lines and `diff -q` clean** against the
+admin's, re-assembled after every code change including the last.
+
+[Round] **`tests/test_public_player.py` declared `SCOPE+`.** Adding the zoom group red
+`test_every_player_control_is_in_the_ec_050_walk`, which is exactly what that guard is for. Extended
+by **deriving a third set** (`data-player-zoom-action`) rather than adding two names to a list, and
+the walk **restores** the zoom after each press with the reason stated: zoom changes every cell's
+size, and a walk that left it raised would move the board out from under `drag_a_line`'s mouse drag
+and fail for a reason that is not EC-050's.
+
+[Round] **Renders at `~/Documents/nonogram-reviews/CARD-324/`** — seven PNGs of a marked 30-cell board
+at 390 px unless noted: 100% (cell 29 px, "−" greyed), 150% (43 px), zoom-max (85 px, **column clues
+above and reachable cells below** — before the gutter fix this same shot showed only clue band),
+panned at 300%, back to 100%, the control group alone, and 1440 px at 150%.
+
+[Round] **Three findings routed up, not absorbed** — see the card's decision block below for the
+`touch-action` one, which is the owner's. The other two: taking the admin's full `STICK_MAX_SHARE`
+affordance rule would unpin this page's row gutter at **100%** on a 390 px screen, contradicting
+`player.css`'s promise and a guarded test, so CARD-271's full feature is a card rather than a
+worktree call; and `keepCluesInView` runs at start and on every zoom but **not on resize**, so a
+rotation at high zoom can leave a gutter pinned that no longer affords — pre-existing shape, named
+rather than left silent.
+
+[Round] **A process note that confirms a memory entry rather than adding one:** the round's own
+`pgrep -f "m pytest"` wait-loop **matched its own argv** and reported "CARD-358 pytest is gone" while
+CARD-358 was alive; `lsof -d cwd` showed two live processes in that worktree. Same family as the
+orchestrator's own instance the same night — **the candidate set must not come from argv either.**
+
 - **[Serialization, not dependency]** This card and CARD-323, CARD-325,
   CARD-326, CARD-327 all touch `player/play.js`, `play.html` and `player.css`,
   so their overlap is **1.0** and the conflict graph serializes any two in one
