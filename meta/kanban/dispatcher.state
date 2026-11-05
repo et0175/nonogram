@@ -480,7 +480,7 @@ active:
     branch: card/325-public-crosshair
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-325
     started: 2026-11-05T14:50Z
-    estimate: 0.5d
+    estimate: 2c (0.5d)
     cut_from: f8bb2eb8
 # WAVE 78 CLOSED 2026-11-05. CARD-349 CLEARED: merged 597cdf57, done, review cycle 1 at 8.0
 #   (amended from 9.0 by its own author, verdict fail), a SECOND independent reader at 7.5 on the
@@ -698,6 +698,8 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-359   # P2 0.5d  SLICE, owner 2026-11-05 ("agree on 359 and 360 when the slot is free"): first of the two to take a free slot. Premises re-verified on the card.
+- id: CARD-360   # P2 0.5d  SLICE, owner 2026-11-05: second of the two. Premises re-verified on the card.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:

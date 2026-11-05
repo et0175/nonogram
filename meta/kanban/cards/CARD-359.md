@@ -80,7 +80,10 @@ cross-check requirement, and this card's `Touches` deliberately excludes `page_i
   (test: `TestEdgeOffset_ThePixelOraclesStillReadPixels`)
 - **AC-4** *Given* `property/test_book_export_interior.py`, *then* its 6 CARD-322 reds (M1 5,
   M2 1) are **still present and attributed**, not absorbed.
-  (test: named by the implementation; state it)
+  (check: review-lens — the claim is that six REDS in a module this card does not own are still red under the
+  probe; a committed test cannot assert a red, and a census count is an instrument run whose instruments live
+  in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05,
+  the same disposition CARD-358's F-004 gave the sibling cards' markers.)
 - **AC-5** *Given* each repair, *then* a plant re-breaks it with its matched control green in the
   same run and `0 skipped`.
   (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
@@ -145,3 +148,36 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
+
+## Premise re-verified 2026-11-05 (CARD-354, CARD-355 and CARD-324 landed since this card was written)
+
+Read against current `main`, by the orchestrator. Nothing here changes an AC except the AC-4 marker restated above.
+
+- **Not measured, and yours to measure first:** the six reds and their one signature. Re-derive them with
+  `census_five_kinds.py --only <module>` for each of the four modules before implementing anything, and say which
+  figures are yours. The signature was last read by CARD-337's round.
+- **The shared-reader defect is FIXED on `main`** (CARD-355, merge `e4849464`: `rendered_page` in
+  `tests/helpers/pdf_vector.py` now reads the page it was asked for, where it used to return the first
+  `page-*.png` in a shared directory). Two of your four modules import `pdf_pages`
+  (`tests/test_book_proof_pages.py` and `tests/property/test_book_export_interior.py`). The CARD-355 author measured
+  both under the probe, old helper against fixed: **no change in either** (`test_book_proof_pages` 1 failed and
+  `property/test_book_export_interior` 7 failed, both before and after; carried, not mine). So these M7 reds are
+  not that defect. It does mean a vector page you read through `pdf_pages` after the first now reads as itself, so
+  re-check any claim in these modules that was green while reading a vector page through it.
+- **The label is not the mechanism, twice over.** CARD-355 and CARD-356 each found that their M10 and M7 buckets were a
+  reader defect plus a template, and that the classifier's rules key on a failure shape or a string, not a cause.
+  Here the single signature `page_ink.py: AttributeError: 'ContentStream' object has no attribute 'convert'` is a
+  better key than most, but classify per call site by reading it, not by the label, and expect `classify_reds.py`
+  not to read this family (it was not filter-agnostic and CARD-338 is closed; do not edit it).
+- **`page_ink` appears on 1 + 1 + 3 + 1 LINES of your four modules** (`grep -c`, so imports and comments count:
+  `test_book_divider_pages_option` 1, `property/test_book_pairing` 1, `test_book_proof_pages` 3,
+  `property/test_book_export_interior` 1). That is a count of mentions, not of call sites: read each to see whether it
+  is a call, an import or a comment before you say "four sites". The card says four sites; the mention count is six.
+  Reconciling the two is the first thing to do (AC-2).
+- **AC-3's test is in a file this card does not touch.** `TestEdgeOffset_ThePixelOraclesStillReadPixels` lives in
+  `tests/test_book_pdf.py`, not in `Touches`: run it unmodified, as the AC says, and do not edit that file.
+- **Sequencing stands:** `tests/property/test_book_export_interior.py` is shared with CARD-322, which runs last and
+  must not run concurrently with this card.
+- **Precedent for the disposition vocabulary:** CARD-355 and CARD-356 each landed with per-site tables of
+  re-expression versus retirement-with-named-survivor, a stated-after-the-fact census, and plants with matched
+  controls. Read their records on `main` (`meta/kanban/cards/CARD-355.md`, `CARD-356.md`) before writing yours.
