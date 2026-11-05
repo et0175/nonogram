@@ -115,3 +115,33 @@ and that is a decision for whoever notices, not a card held open now.
 of wall against pytest's **1560s**, i.e. 555s of the box busy elsewhere. And it is the only way to
 see that per-test cost has **improved** (131 ms mid-October → **144 ms** now) while the total grew
 with the test count (7082 → **10404**). No single gate can show that; only a series can.
+
+## CORRECTION 2026-11-05, found while appending CARD-358's gate row — the retirement above understated the problem
+
+**This card was retired on the premise that the thing which stopped was a habit.** That was **half** the
+story. Measured by running the repo's own parser over the live log:
+
+- `meta/profiling/rank_durations.py`'s `timing_log_entries` reads **20 entries**, and **the last is wave 43
+  (2026-10-17)**. `parse_timing_line` accepts **only lines 1–30** of the file. **111 non-indented lines are
+  rejected** — every row since wave 43, including waves 63 and 64.
+- The committed, test-held line contract is `<ISO-ts>Z wave-N label <N>s PASS|FAIL (notes) [<N>ms/test] (extra)`
+  (`TIMING_LOG_LINE`, with `tests/test_suite_profile.py` pinning it — 450 pass against the live log).
+  **The hand-appended rows drifted from it** to a free-form shape (`2026-10-29  wave 64  CARD-301+CARD-297
+  1096.66s  9657p/27s/1xf/0f  tree …`), and **nothing failed**, because the log is gitignored and the test
+  reads the contract rather than the file.
+- **So the module docstring's claim — "the format every wave reads" — has been false for about twenty
+  waves**, and my own row was rejected the first time because I **copied the newest rows' shape**, which is
+  the drifted one. I then rewrote it to the contract and confirmed the parser reads it: **20 → 21 entries.**
+
+**The brief rule I wrote on retiring this card said "append in the format the existing rows keep." That was
+the WRONG instruction** — the existing recent rows keep the format the parser rejects. Corrected in the
+brief rules: **append in the committed contract, and copy a row from `rank_durations.py`'s line-contract
+comment, never from the log's tail.**
+
+**What this changes about the retirement, and what it does not.** It does not revive the card: the fix is
+still one line per gate, there is no code to write, and the ~111 drifted rows **cannot be backfilled**
+without fabricating history. **It does** sharpen the original finding — the log has *two* silent failure
+modes, not one: gates stopped appending, **and** the rows that were appended stopped being parseable.
+A guard that parsed only **new** rows would have caught the second; it was not built because the log is
+gitignored and absent from a fresh checkout. **Left as a decision, not a card, under the cut bar:** if the
+owner wants that guard, it is a small one — "the live log's most recent row, when the file exists, parses".

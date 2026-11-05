@@ -466,12 +466,10 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-358
-    branch: card/358-interior-type-floor-m10
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-358
-    started: 2026-11-05T06:20Z
-    estimate: 1c (0.5d)
-    cut_from: 1fd40d3a
+# CARD-358 CLEARED 2026-11-05 at its merge gate: merged f1c9ce93, done, certified 8.0 on cycle 2 (7.5 on
+#   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
+#   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
+#   left naming a path that no longer exists -- the phantom holder a free-slot check would read.
   - card: CARD-324
     branch: card/324-public-player-zoom
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-324

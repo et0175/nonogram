@@ -1,6 +1,6 @@
 # CARD-358: `tests/test_book_interior_type_floor.py` — 7 reds, all M10, in the module that sat in neither of CARD-329's populations
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_interior_type_floor.py
-**Review score:** —
+**Review score:** 8.0 (cycle 2/3 — CERTIFIED) — cycle 1 scored 7.5; both of its highs closed by a fix round; the classification was upheld by both cycles
 **Started:** 2026-11-05T06:23Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T11:33Z
+**Actual:** 2c — **ratio 2.000** against the 1c estimate (two review cycles, the second at the threshold). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling that the clock measures the queue rather than the work: this card sat behind a concurrent card's lock-holding suites, and its round, two reviews and a gate each waited on one. Datum: **1 tracked file** (`tests/test_book_interior_type_floor.py`, 536 insertions(+), 21 deletions(-)); **4 non-merge commits** on the branch since the cut (`95c25cb6`, `adaac606`, `24fbeec8`, `4a4a050d`); unlifted module **51 → 53 passed**, probe-scoped **8F/43P → 1F/52P** (the one red CARD-322's M1); **9 mutants** plus the reviewers' plants. Gate: armed full suite **10406 passed / 0 failed / 1 skipped / 1 xfailed**, `grep -c "Database not reachable"` = 0.
+**Merge commit:** `f1c9ce93`
 **Blocked by:** —
 
 > **⚠ UNVERIFIED FIGURES, 2026-11-05.** This card quotes **57 M10 reds / 35 cause lines**. They are CARD-337's round's roll-up and **three readers have now tried and failed to verify them** (CARD-358's round, its review, and the orchestrator). The review's census aborted on its own gate at 14 of 20 modules — *the instrument working*, a zero-collect most plausibly caused by a foreign lock appearing mid-run, since the guard refuses in `pytest_configure`. **And one component has already moved:** CARD-356's module measures 26 reds, not its stated 25. **Do not quote the roll-up as fact; re-derive your own module's count at the start**, which is what scopes your card anyway.
