@@ -1,7 +1,7 @@
-# CARD-377: The full-suite lock has no notion of an ACTOR — identity is the worktree, which separates nothing once two agents share a checkout
+# CARD-377: A second actor in one worktree is waved through SILENTLY, and a hard-stopped holder strands the lock for six hours
 
 **Status:** ready
-**Priority:** P1
+**Priority:** P2
 **Category:** enabler
 **Estimate:** 1c (0.5d)
 **Complexity:** standard
@@ -16,7 +16,7 @@
 **Created wave:** 78
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/full_suite_lock.py, meta/kanban/config.yml
+**Touches:** tests/full_suite_lock.py, tests/test_full_suite_lock.py
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -24,122 +24,82 @@
 **Merge commit:** —
 **Blocked by:** —
 
-## The gap, measured
+## RE-SCOPED 2026-11-05, and most of the original card is CLOSED BY CONVENTION
 
-CARD-255 made the lock's identity the **worktree**, deliberately and for a good reason: the gate
-scripts launch pytest as a child, so no pid can work. That decision is correct for the problem it
-solved — two *worktrees* contending — and **separates nothing once two actors share one checkout.**
+This card was cut P1 as *"the lock has no notion of an actor — identity is the worktree, which
+separates nothing once two agents share a checkout."* **The owner then closed that by convention**
+— instructions for card work route through the orchestrator, therefore one actor per worktree — and
+a collision became impossible by construction rather than by discipline. **CARD-378 is retired into
+this card** for the same reason: two actors in one worktree derived the same database and dropped
+each other's schema, and with one actor there are no two.
 
-Measured in wave 78: an implementation round and a reviewer were both working in
-`PythonProject4-card-349`. The lock's `worktree:` matched for both, so `verdict()` returned
-`(True, None)` to each — **two processes in one worktree, both waved through.**
+So the identity scheme the original card asked for **is not needed**, and building one would have
+been the expensive answer to a question the convention had already settled. Measured and withdrawn
+rather than carried.
 
-**And `holder:` is not an identity, it is a description of an activity.** The live lock read
-`holder: CARD-349 review cycle 1 second reader (armed full suite, still running)`. Both agents
-independently read a `holder:` line as the *other's* and both were wrong. A string a human wrote to
-describe what a run is doing cannot be compared for equality against anything.
+**What the convention does NOT close is two things, and they are small.**
 
-**Two instruments that resemble identity and are not** — both tried and both rejected during the
-incident, and both belong in this card:
+## Residue 1 — the convention has no control, because the pass-through is silent
 
-| candidate | why it fails |
-|---|---|
-| pid | the gate launches pytest as a child; CARD-255 ruled this out already |
-| worktree | shared by every actor in one checkout — the defect above |
-| `holder:` prose | a description, not an identity; misread in both directions |
-| session scratchpad path | **shared by every agent in one session**, so it attributes a *session*, not an actor |
+`verdict()`'s same-worktree branch returns **`(True, None)`** — admitted, and `said` is `None`, so
+**nothing is printed at all.** That branch is **correct and must stay**: its own comment says the gate
+writes the lock and then runs the suite in the worktree it named, so refusing there *"would stop
+every gate on the board."*
 
-## Why P1
+But because it is silent, a second actor entering one worktree is both **permitted and invisible**.
+The convention therefore lives entirely in the dispatcher's discipline, with nothing in the tree that
+fails when it is broken — the same shape as the lock being mandatory on refusal and advisory on
+acquisition (see [[full-suite-lock-is-advisory]], now CARD-370's subject).
 
-The lock exists to make a suite's verdict attributable. When it waves two actors through:
+**The fix is an announcement, not a refusal.** The channel already exists: `report_line()` /
+`pytest_terminal_summary`, which is where the refusal and the stale-lock walk-past already surface,
+and which survives `addopts = "-q"`. A same-worktree acquisition that is **not** this process's own
+says so, once, and the convention acquires a control that can fail.
 
-- a suite's result becomes a property of what a sibling actor happened to be doing — **which is
-  CARD-244's hazard verbatim**, reappearing inside one worktree because CARD-244 isolated worktrees
-  and the board now runs two actors per worktree
-- the failure is **destructive**, not merely contended: see CARD-378
-- and the resulting red carries a signature that gets pinned on the diff
+## Residue 2 — a hard-stopped holder strands the lock for six hours
 
-## Two instances with no mechanism to blame — a shared context, and a summary
+**Independent of the actor convention**: one actor dying hard does this on its own.
 
-The four hazards above are mechanical: a pid, a worktree, prose, a scratchpad path. Two more
-occurred tonight with **nothing to blame but context**, and they belong here because the card's
-subject is identity, not locking.
+- The `EXIT` trap releases the lock on every path a successful gate takes — verified with a matched
+  control, a real gate's `gate.sh` using the identical pattern released correctly.
+- It fails only on a **hard stop**, which is the one case no run exercises.
+- `at:` is written at **acquisition**, not as a heartbeat, so a lock stranded one minute in is one
+  minute old. `STALE_SECONDS = 21600.0` — six hours, and the module's own comment says the number is
+  *"bounded from below by the longest lock-hold this board has"*, so it cannot simply be lowered.
+- Result: **every other worktree is refused for six hours** with no process alive to finish or
+  release.
 
-**Fourth instance: content without an identity attached.** An agent replied to a second agent while
-holding a message from the orchestrator in the same context, and credited the orchestrator's content
-to the second agent. Three claims in one paragraph had three different authors — the retraction note
-was the replying agent's, the `issubclass` re-derivation and `TimeoutExpired` were the
-orchestrator's, and the `OperationalError` finding was a third reader's. Nothing misattributed
-itself; a shared context did. Recorded afterwards in a `provenance:` field so no figure travels
-without an author.
-
-**Fifth instance, and the most general: a summary is where a qualified claim loses its qualifier.**
-The same agent sent an urgent correction whose **body** was properly hedged — *"**If** the fix round
-you dispatched carries my reasoning…"* — under a **heading** that was not: *"the F-001 fix round is
-briefed on a conclusion I measured and it is wrong."* Unconditional, in the one line a reader acts
-on. The underlying claim was unverifiable by its author, who had never seen the brief in question.
-
-It named this itself as its own earlier failure running in the other direction: having written *"I
-reported something I had accepted on a docstring's word as something I had checked,"* it then
-reported something accepted on **another agent's** word as something checked. **A hedge in the body
-does not survive a headline that drops it, and headlines are what get acted on.**
-
-**Why these two are on this card rather than filed as prose.** Every mechanical candidate above fails
-because it names an *activity* rather than an actor. These two fail the same way one level up: a
-claim that arrives without its author, and a claim that arrives without its condition, are both
-content detached from the thing that would let a reader weigh it. Any fix for this card that gives a
-run an identity should be asked whether it also gives a **claim** one.
-
-## The EXIT trap is covered on every path except the one that matters
-
-Measured 2026-11-05, with a matched control, during the same incident.
-
-Every round and gate releases the lock via a shell `EXIT` trap. The control: a successful gate's
-`gate.sh` uses the identical pattern, ran to completion, **and did release its lock.** So the
-mechanism works on the path it was written for.
-
-**It fails only on a hard stop** — the agent killed, the shell gone — and that is the one case no
-run exercises. Worse, the two safety nets do not cover it either:
-
-- **No age elapses.** The lock's `at:` is written at acquisition, so a lock stranded one minute in
-  is one minute old. The stale-lock walk-past threshold is **six hours**, so it never fires on a
-  fresh strand.
-- **Nothing else notices.** `verdict()` returns a refusal to every foreign worktree for those six
-  hours, with no process alive to finish or release.
-
-So a stopped holder **blocks the board for six hours**, and the mechanism that would have saved it is
-exercised by every successful gate and covered by none of them for the case that matters. That is the
-same shape as everything else on this card: an instrument whose working path and whose broken path
-are indistinguishable until the broken one is needed.
-
-This happened tonight and was recovered by hand — the owner's orchestrator proved the lock stale by
+This happened on 2026-11-05 and was recovered **by hand**: the orchestrator proved the lock stale by
 resolving ownership **by cwd** (no live process owned the holder's worktree), kept a copy, and removed
-it. That recovery is correct but it is manual, and it required knowing that `at:` is an acquisition
-time rather than a heartbeat.
-
-**Fold this into AC-4 rather than treating it as a footnote:** distinguishing a dead holder from a
-live one is the same problem as distinguishing two live actors, and a heartbeat would answer both.
+it. That recovery is correct but manual, and it required knowing that `at:` is an acquisition time
+rather than a heartbeat.
 
 ## Acceptance criteria
 
-- **AC-1** — Two concurrent runs **in the same worktree** are distinguished. State what the identity
-  is and why it is one, having first ruled out pid, worktree, prose and the session scratchpad with
-  the reasons above.
-- **AC-2** — The refusal path stays load-bearing and total; do not weaken it. Add the missing
-  discrimination (ADR-0039/R2: derive the identity, default to deny — an actor it cannot identify is
-  refused, not admitted).
-- **AC-3** — A plant proves it: hold the lock as one actor and attempt a run as a second actor in the
-  **same** worktree, and assert the named refusal. The matched control is the same actor re-entering,
-  which must still be allowed, because that is what keeps every gate on the board running.
-- **AC-4** — A holder that dies must still leave a walk-past-able stale lock. The module's docstring
-  says a board that cannot run tests is worse than one that mis-attributes; preserve that, and state
-  how a dead actor is distinguished from a live one **without** `pgrep` on an argv (an argv match is
-  how a wait-loop sees itself — resolve ownership by **cwd**).
+- **AC-1** — A same-worktree acquisition that is not this process's own **announces itself** through
+  the existing `report_line()` / `pytest_terminal_summary` channel. It still returns allowed — do not
+  refuse, or every gate on the board stops.
+- **AC-2** — A plant proves AC-1 can fail: write a lock naming this worktree from a different
+  process and assert the announcement appears in the terminal summary; the matched control is this
+  process's **own** lock, which must stay silent, because a channel that always speaks is no signal.
+- **AC-3** — A stranded lock is recoverable without waiting six hours. State the mechanism and its
+  reason. **A heartbeat is the candidate worth pricing** because it answers both residues with one
+  change: it distinguishes a dead holder from a live one *and* a live second actor from a stale first.
+  **Do not lower `STALE_SECONDS`** — the module says it is bounded below by the longest legitimate
+  hold, and this board's holds run past 25 minutes.
+- **AC-4** — The refusal path and the stale walk-past both keep working, each with a control. A board
+  that cannot run tests is worse than one that mis-attributes, which is the module's own stated
+  trade.
 - **AC-5** — `NONOGRAM_IGNORE_FULL_SUITE_LOCK` must never be set and `NONOGRAM_FULL_SUITE_LOCK` never
   redirected, by this card's code or its tests.
-- **AC-6** — Say whether the real fix is instead a **scheduling rule**: one actor per worktree, so the
-  lock never has to tell them apart. That may well be the right answer and is cheaper; it is the
-  orchestrator's call with the owner, and this card must present the measured cost of each.
+
+## Not in this card, deliberately
+
+The original carried four non-lock instances of *content detached from what would let a reader weigh
+it* — `holder:` prose read as an identity, a shared scratchpad path attributing a session, a claim
+arriving without its author, and a summary arriving without its condition. **Those are about claims,
+not locks**, and they are recorded in the board's standing brief rules where a future round will meet
+them. Keeping them here would have made this card a theme rather than a change.
 
 ## Worktree notes
 

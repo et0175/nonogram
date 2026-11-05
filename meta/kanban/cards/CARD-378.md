@@ -1,7 +1,7 @@
 # CARD-378: Two actors in one worktree derive the SAME test database, and the schema rebuild is destructive — CARD-244's hazard reappears inside a checkout
 
-**Status:** ready
-**Priority:** P1
+**Status:** skipped
+**Priority:** P1 <!-- was the priority when cut; the card is retired, not deprioritised -->
 **Category:** enabler
 **Estimate:** 1c (0.5d)
 **Complexity:** standard
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/db_name.py, tests/conftest.py
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-377** on 2026-11-05 under the owner's cut bar. No work was done and none is owed.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-05
+**Actual:** none — retired before any work, superseded by a convention.
 **Merge commit:** —
 **Blocked by:** —
 
@@ -78,3 +78,33 @@ First run red, second green, cause invisible.
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-05 — closed by a convention the owner had already adopted
+
+**This card was obsolete before it was committed, and that is the finding.**
+
+Its premise is correct and measured: `derive_test_database_name` is a pure function of the resolved
+repo root, so every process in one worktree names the **same** database, while
+`_test_database_tables` runs `DROP SCHEMA public CASCADE` → `CREATE SCHEMA` → `alembic upgrade head`.
+Two actors in one checkout therefore erase each other's schema mid-run — CARD-244's hazard verbatim,
+returning inside a worktree because CARD-244 isolated worktrees and the board then began running two
+actors per worktree. Cross-worktree isolation was verified intact (`…_543f9f3f05e1_test` for main
+against `…_card_349_34c3628d36d8_test` for the card worktree).
+
+**It is retired because the owner closed the cause, not the symptom.** Instructions for card work now
+route through the orchestrator, therefore **one actor per worktree**, therefore no two actors to
+collide. Building a per-actor database naming scheme would have been the expensive answer to a
+question already settled — and worse, it would have multiplied an already-unreaped set (CARD-375:
+**67** `*_test` databases on this host, one of which has a live worktree).
+
+**Why this retirement is on the record rather than a deletion.** The owner measured the board's card
+spawn ratio at up to **7× against one card closed per wave** and named the mechanism: every finding
+became a card. This card and CARD-377 were cut **P1, as a pair, for a hazard the owner had closed by
+convention while I was writing them.** A card can be obsolete before it is committed, and that is a
+sharper instance of the spawn problem than CARD-376's over-ceremony — there the card was merely too
+big for its fix; here the card was answering a question that no longer existed.
+
+**What survives, and where:** the measured mechanism is preserved in CARD-377's re-scoped body as the
+reason the convention is load-bearing, and the one piece of residue the convention does **not** close
+— that the same-worktree pass-through is **silent**, so the convention has no control that can fail —
+is CARD-377's AC-1 and AC-2. Nothing measured here is lost; only the card is.
