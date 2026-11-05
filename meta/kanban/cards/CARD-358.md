@@ -1,6 +1,6 @@
 # CARD-358: `tests/test_book_interior_type_floor.py` — 7 reds, all M10, in the module that sat in neither of CARD-329's populations
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/358-interior-type-floor-m10`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-358
 **Source:** Module-sliced out of CARD-337 at the decompose station, 2026-11-04, on the owner's "module slicing" instruction. CARD-337's own item 0 refuted its premise three ways and its round then derived the mechanism x module cross-tab; that table reconciles to 143 reds in both directions. The axis was changed from mechanism to MODULE because the round measured that a mechanism-sliced partition cannot run concurrently at all -- nine of thirteen modules split across mechanisms, `tests/test_book_pdf_band.py` would have needed five separate cards to edit it, and nothing could have run beside the M10 card. The file axis is the one the scope gate enforces.
 **Idea:** —
-**Wave:** —
+**Wave:** 79 <!-- DISPATCHED 2026-11-05T06:23Z as wave 79's vector-slice card. Premise VERIFIED under the five-kind probe: 8 failed / 43 passed, 7 M10 (this card) + 1 M1 (CARD-322). First step of the ADR-0042 slice the owner reopened after eleven days. Cut off the stamping commit so it cannot un-stamp its own Wave. -->
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_interior_type_floor.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T06:23Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

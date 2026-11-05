@@ -1,6 +1,6 @@
 # CARD-324: The public player gains zoom — four shared functions it already serves and never calls
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d) <!-- RESTATED in review cycles at wave 79's open, 2026-11-05, before dispatch rather than at it, so the wave's ratio is computable from the outset. Was 0.5d. -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/324-public-player-zoom`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-324
 **Source:** owner request 2026-10-30 — "the player misses a lot of the player from the admin player... I'd like both to reuse the same functionality", raised against a locally assembled site at `http://localhost:8081/play/00d5d88065`.
 **Idea:** —
-**Wave:** —
+**Wave:** 79 <!-- DISPATCHED 2026-11-05T06:23Z as wave 79's player card, at the owner's request. Measured free of CARD-358: Touches intersection EMPTY. It queues against CARD-325/326/327, which all touch the same three player files; this is the one the owner's quality priority favours, since the behaviour already exists and only the glue is missing. Cut off the stamping commit. -->
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_zoom.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T06:23Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
