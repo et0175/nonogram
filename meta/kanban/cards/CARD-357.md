@@ -1,6 +1,6 @@
 # CARD-357: `tests/test_book_export_interior_cover.py` — 15 reds, and 2 are a DPI nobody passed on a mixed-medium book
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 2c (0.5d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/357-export-interior-cover
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-357
 **Source:** Module-sliced out of CARD-337 at the decompose station, 2026-11-04, on the owner's "module slicing" instruction. CARD-337's own item 0 refuted its premise three ways and its round then derived the mechanism x module cross-tab; that table reconciles to 143 reds in both directions. The axis was changed from mechanism to MODULE because the round measured that a mechanism-sliced partition cannot run concurrently at all -- nine of thirteen modules split across mechanisms, `tests/test_book_pdf_band.py` would have needed five separate cards to edit it, and nothing could have run beside the M10 card. The file axis is the one the scope gate enforces.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T19:38Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -177,3 +177,19 @@ argv items**. The worktree has no `.venv` — use
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
 - ADR-0042/R6 — a claim that has no subject in the converted medium is re-expressed against the
   content stream or retired with a named survivor (check: review-lens)
+
+## Premise re-verified 2026-11-05 (CARD-354, 355, 356, 358, 359 and 360 landed or were reviewed since this card was written)
+
+Read against current `main`, by the orchestrator. Nothing here changes an AC; it states what the board has learned from the slice cards that ran before this one.
+
+- **Not measured, and yours to measure first:** the 15 reds and the M10 / M7d / M6b split. Re-derive them with `census_five_kinds.py --only tests/test_book_export_interior_cover.py` and say which figures are yours. CARD-355's author measured this module with the old and the fixed shared reader and got **15 failed / 118 passed both times** (carried, not mine): so the shared-reader defect CARD-355 fixed on `main` (`rendered_page` in `tests/helpers/pdf_vector.py` now reads `pg<page>-*.png`) is NOT among your reds. Verify that yourself before changing anything.
+- **The M6b pair is a call-site argument, and the DPI question is still yours.** `pdf_pages` still raises `PageMediumRefused` when no `dpi=` is given and the file's raster pages do not settle one. This module's book is mixed-medium by design (cover raster, interior operators), so a single raster cover cannot vote. CARD-355's and CARD-356's authors both had to deal with a mixed-medium file and chose to read each page in its own medium rather than hard-code a density: read how (`interior_pages_of` in `tests/test_book_pdf_memory.py` and `_exported_pages` in `tests/test_book_pdf_band.py`), and say whether the same derivation applies. If you pass a density, say what DERIVES it; a hard-coded one is a medium dependency ADR-0042 exists to remove.
+- **The label is not the mechanism, on every module so far.** The board's M10 label meant a union of two arms (CARD-354), a shared reader defect (CARD-355), a reader defect over a glyph template (CARD-356), and a cross-medium byte or ink comparison (CARD-360, where levels' four reds labelled "2 M10 + 2 M9" were one mechanism). Classify by READING each cause line; expect `classify_reds.py` not to read this family and do not edit it. AC-3 says more than one mechanism is a finding: report the histogram by cause line.
+- **What identity means for an operators page is settled** (CARD-355, restated by CARD-360): determinism OF THE STREAM (export twice, equal content, with a control that can fail), never equality with a bitmap; a stored raster-era digest is compared only against a bitmap page. If a claim of yours compares a poppler render of a stream with a PIL bitmap, that is a cross-medium comparison: re-express it in one medium. Read the Worktree notes of `meta/kanban/cards/CARD-355.md`, `CARD-356.md`, `CARD-359.md` and `CARD-360.md` on `main` for the disposition vocabulary, per-site tables and plant discipline, and for what their reviewers found.
+- **What cost review cycles on this board today, so do these first time:** (1) a claim weakened by a re-expression with its residue written only in a card note: write each declared bound IN THE TEST with its reason, a MEASURED number and a control that fails just past it (ADR-0039/R3); (2) a retirement whose named survivor holds a different, weaker claim: say honestly what the survivor holds, and verify each cited survivor exists exactly once (a native `ast` guard that parses only files naming the class, default-deny, with a rename control, a module-level duplicate control and a same-named-method-in-a-sibling-class control); (3) a plant with no matched control in the same run, or one that reds only a precondition; (4) a test that could never fail (CARD-360 found one green only vacuously, a `!=` of a stream render against a bitmap): for every `!=` and `not in` you touch, plant its failure; (5) a claim in a code comment that is false and was not measured (CARD-359's "stored to 0.01 cm"): measure before you write a limit.
+- **STANDING CENSUS RULE** (it stopped two merge gates): a card that adds or edits tests can red a census module it never touches. Run on your tip, with `-rEfs`, `tests/test_suite_profile.py`, `tests/test_impact_set.py`, `tests/test_check_ref_resolution.py`, `tests/test_cli.py`, `tests/test_kanban_review_record.py`, `tests/test_collected_names.py`, `tests/test_guard_integrity.py`, `tests/test_shared_fixture_controls.py`, `tests/test_full_suite_lock.py`, `tests/test_browser_fixture_scope.py`, `tests/test_naming.py`, `tests/test_fixture_integrity.py`. `test_suite_profile` counts any early `return` inside a test body as a new silent host-state silence: write NO test body with a silent `return`, and never add to a frozen registry to get green.
+- **AC-1 is a genuine test** (it names what derives the density, or asserts the stream read). Its marker stays: the implementation names the test and states it.
+
+## Worktree notes
+
+(none yet)
