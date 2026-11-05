@@ -164,7 +164,6 @@ import math
 import os
 import subprocess
 import sys
-import tempfile
 import time
 import tracemalloc
 import weakref
@@ -224,14 +223,13 @@ from tests.helpers.book_corpus import (
     page_digest,
     page_digests,
 )
-from nonogram.admin.book_vector import ContentStream
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from tests.helpers import pdf_pages as pdf_pages_module
 from tests.helpers import pdf_vector
 from tests.helpers.page_ink import (
     INK_LEVEL,
     drawing_of,
     frame_centre_of,
-    pdf_page_boxes,
 )
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, page_image, same_page
 
@@ -399,67 +397,36 @@ class ReadInterior(List[Image.Image]):
 
 
 def interior_pages_of(data: bytes) -> ReadInterior:
-    """Every page of ``data`` as the bitmap it draws, each read for ITSELF.
+    """Every page of ``data`` as the bitmap it draws, with the medium each was WRITTEN in.
 
-    CARD-355 The replacement for ``pdf_pages(data)`` over a mixed-medium
-    file. ``tests.helpers.pdf_pages.pdf_pages`` rasterises every operators page
-    into ONE shared scratch directory and ``tests.helpers.pdf_vector
-    .rendered_page`` then reads back ``sorted(glob("page-*.png"))[0]`` -- the
-    FIRST file in the directory, which after the first render is page 1's.
-    Measured on the baseline book under the five-kind lift: all nine operators
-    pages come back as the render of the first (blank title) page, 0 ink each,
-    while the five raster pages are right. That is a defect in two shared
-    helpers outside this card's ``Touches``; it is routed, not edited here, and
-    this reader is the module's own correct reading: a raster page is read by
-    the shared helper (right for it), an operators page is rendered by poppler
-    from a directory of its own.
+    ``tests.helpers.pdf_pages.pdf_pages`` reads the pages; this adds
+    ``pdf_vector.page_media`` (default-DENY: a page that is neither raster nor
+    vector is a failure), read off the FILE and never inferred from a kind, so
+    the same call is right on the unlifted tree (every page raster) and on the
+    lifted one.
 
-    The medium of each page is read off the FILE (``pdf_vector.page_media``,
-    default-deny), never inferred from a kind, so the same call is right on the
-    unlifted tree (every page raster) and on the lifted one.
+    CARD-355 history, kept because the number matters: before this card the
+    shared reader returned page 1's render for every operators page after the
+    first (``rendered_page`` read back ``sorted(glob("page-*.png"))[0]`` from a
+    scratch directory shared across pages). Measured on the baseline book under
+    the five-kind lift -- 4 raster pages (the dividers) and 10 operators pages
+    -- the 9 operators pages after the first (page 1 itself was right: it is the
+    blank title page) all came back as that blank render, 0 ink each. This
+    module carried a reader of its own while the helper was defective; the
+    helper is fixed (SCOPE+ ``tests/helpers/pdf_vector.py``) and
+    :class:`TestBookPdfMemory_TheSharedReaderReadsEachPageForItself` holds it.
     """
     media = pdf_vector.page_media(data)
-    unclassified = [n for n, m in enumerate(media, 1) if m not in (pdf_vector.RASTER, pdf_vector.VECTOR)]
+    unclassified = [
+        n
+        for n, m in enumerate(media, 1)
+        if m not in (pdf_vector.RASTER, pdf_vector.VECTOR)
+    ]
     assert not unclassified, f"pages {unclassified} are neither raster nor vector"
     images = ReadInterior(pdf_pages(data))
     images.media = media
     assert len(images) == len(media)
-    if pdf_vector.VECTOR not in media:
-        return images
-    dpi = _dpi_of_the_file(data, media, images)
-    for index, medium in enumerate(media):
-        if medium != pdf_vector.VECTOR:
-            continue
-        with tempfile.TemporaryDirectory(prefix="memory-page-") as directory:
-            grey = pdf_vector.rendered_page(
-                data, dpi, index + 1, out_dir=Path(directory)
-            )
-        images[index] = Image.fromarray(
-            np.asarray(grey, dtype=np.uint8), mode="L"
-        ).convert("RGB")
     return images
-
-
-def _dpi_of_the_file(
-    data: bytes, media: List[str], images: List[Image.Image]
-) -> int:
-    """The DPI the file's raster pages are drawn at: pixel width over MediaBox inches.
-
-    Derived from the file (two readings of one number), and refused when the
-    raster pages disagree or there are none -- a vector page has no pixels of
-    its own to say.
-    """
-    boxes = pdf_page_boxes(data)
-    derived = {
-        round(image.width / ((right - left) / 72.0))
-        for (left, _, right, _), image, medium in zip(boxes, images, media)
-        if medium == pdf_vector.RASTER
-    }
-    assert len(derived) == 1, (
-        f"the file's raster pages settle {sorted(derived)} DPIs, not one: an "
-        "operators page cannot be read at a scale nobody named"
-    )
-    return derived.pop()
 
 
 # --------------------------------------------------------------------------
@@ -597,6 +564,15 @@ def raster_digests(pages: ReadInterior) -> List[Optional[Dict[str, Any]]]:
     the same book exported twice writes the same operators, hence the same
     pixels under a fixed rasteriser. ``None`` is what a caller must handle
     explicitly -- there is no sentinel that compares unequal to everything.
+
+    **What determinism does NOT say (CARD-355 review F-006).** A stream that is
+    stable but wrong passes it. Operators-page CONTENT is held elsewhere: by
+    the sibling modules that read the converted pages themselves
+    (``tests/test_book_puzzle_page_vector.py``, ``tests/test_book_guide_page_vector.py``,
+    ``tests/test_book_toc.py``, ``tests/test_book_solved_answer_key.py``) and,
+    in this module, by the shifted-by-one and above-the-footer comparisons
+    against references drawn by the same writer at another position, plus the
+    page-kind coverage test.
     """
     return [
         page_digest(page) if medium == pdf_vector.RASTER else None
@@ -1068,7 +1044,15 @@ class TestBookPdfMemory_TheMemoryClaimsDisposition:
 
     @staticmethod
     def _a_content_stream() -> ContentStream:
-        return ContentStream(width_px=2550, height_px=3300, dpi=300)
+        # CARD-355 review F-002: NOT empty. An empty stream costs zero under
+        # any costing (``len(operators)`` included), so a control on it could
+        # not tell the disposition from a probe that prices operators.
+        stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+        stream.stroke_width(2.0)
+        stream.line(150, 300, 2400, 300)
+        stream.line(150, 400, 2400, 400)
+        assert len(stream.operators) >= 3, "the control stream must carry operators"
+        return stream
 
     def test_a_content_stream_page_costs_no_bitmap(self):
         """The half-claim "operators cost zero bytes", with its control."""
@@ -2544,6 +2528,83 @@ class TestBookPdfMemory_PagesAreUnchanged:
         page.putpixel((7, 9), (0, 0, 0))
 
         assert page_digests([page]) != before
+
+
+class TestBookPdfMemory_TheSharedReaderReadsEachPageForItself:
+    """CARD-355 SCOPE+ regression: ``rendered_page`` returns the page it was asked for.
+
+    The defect: one scratch directory, a fixed output prefix, and a read-back of
+    ``sorted(glob("page-*.png"))[0]`` -- so after page 1 was rendered every
+    later page in the same directory came back as page 1. The two pages here
+    carry different ink at different places; the independent second reading is
+    poppler itself, called directly into a fresh directory per page with no
+    help from the helper under test.
+    """
+
+    @staticmethod
+    def _two_pages() -> bytes:
+        first = ContentStream(width_px=300, height_px=400, dpi=100)
+        first.stroke_width(2.0)
+        first.line(20, 50, 280, 50)
+        second = ContentStream(width_px=300, height_px=400, dpi=100)
+        second.stroke_width(2.0)
+        second.line(150, 20, 150, 380)
+        return write_vector_pdf([first, second], 2).getvalue()
+
+    @staticmethod
+    def _poppler_alone(data: bytes, page: int, directory: Path) -> np.ndarray:
+        directory.mkdir(parents=True, exist_ok=True)
+        source = directory / "alone.pdf"
+        source.write_bytes(data)
+        subprocess.run(
+            [pdf_vector.PDFTOPPM, "-r", "100", "-f", str(page), "-l", str(page),
+             "-gray", "-png", str(source), str(directory / "alone")],
+            check=True, capture_output=True,
+        )
+        (png,) = sorted(directory.glob("alone-*.png"))
+        with Image.open(png) as image:
+            return np.asarray(image.convert("L"), dtype=np.int16)
+
+    def test_page_two_is_not_page_one_and_is_poppler_own_page_two(self, tmp_path):
+        data = self._two_pages()
+        shared = tmp_path / "shared"
+        one = pdf_vector.rendered_page(data, 100, 1, out_dir=shared)
+        two = pdf_vector.rendered_page(data, 100, 2, out_dir=shared)
+        alone_one = self._poppler_alone(data, 1, tmp_path / "a1")
+        alone_two = self._poppler_alone(data, 2, tmp_path / "a2")
+
+        # the pages really differ, or the test could not tell them apart
+        assert not np.array_equal(alone_one, alone_two)
+        assert not np.array_equal(one, two), "page 2 came back as page 1"
+        assert np.array_equal(two, alone_two)
+
+    def test_control_page_one_through_the_same_shared_directory_is_its_own_render(
+        self, tmp_path
+    ):
+        """Matched control, green on the defective helper too: page 1 is the one
+        page the old read-back got right, so a red on page 2 is the defect's."""
+        data = self._two_pages()
+        shared = tmp_path / "shared"
+        one = pdf_vector.rendered_page(data, 100, 1, out_dir=shared)
+        pdf_vector.rendered_page(data, 100, 2, out_dir=shared)
+        assert np.array_equal(one, self._poppler_alone(data, 1, tmp_path / "a1"))
+
+    def test_the_shared_reader_returns_each_operators_page_its_own_render(self, tmp_path):
+        data = self._two_pages()
+        pages = pdf_pages(data, dpi=100, out_dir=tmp_path / "shared")
+
+        assert len(pages) == 2
+        assert np.array_equal(
+            np.asarray(pages[0].convert("L"), dtype=np.int16),
+            self._poppler_alone(data, 1, tmp_path / "a1"),
+        )
+        assert np.array_equal(
+            np.asarray(pages[1].convert("L"), dtype=np.int16),
+            self._poppler_alone(data, 2, tmp_path / "a2"),
+        )
+        assert not np.array_equal(
+            np.asarray(pages[0].convert("L")), np.asarray(pages[1].convert("L"))
+        )
 
 
 class TestBookPdfMemory_AnOperatorsPageIsTheSameStreamEveryExport:
