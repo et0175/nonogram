@@ -1,6 +1,6 @@
 # CARD-356: `tests/test_book_pdf_band.py` — 25 reds across four mechanisms, and two of its claims the seam BREAKS
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_band.py
-**Review score:** —
+**Review score:** 8.3 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-05T12:50Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T16:04Z
+**Actual:** 2c -- **ratio 0.500** (1 review cycle, derived as 1 distinct ordinal among the `[Review N/M] Score:` lines, against the 2c estimate). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **1 tracked file** (`tests/test_book_pdf_band.py`), 1235 insertions(+), 87 deletions(-) against the cut 0fa46b6c; src/ and tests/helpers diffs 0.
+**Merge commit:** `dc90b19a`
 **Blocked by:** —
 
 > ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
@@ -211,3 +211,5 @@ argv items**. The worktree has no `.venv` — use
 
 DECLARED RESIDUE (ADR-0039/R3), measured by the author in `65f0d24d`: the converted tree has no whole-page comparison for a NAME-INDEPENDENT stray mark. Reason: a whole-page expectation would be a second implementation of the writer. Measured, each plant added in-process to every content stream, each module run alone under the probe against an unplanted control: `tests/test_book_puzzle_page_vector.py` catches a stray vertical rule (20 failed + 17 errors), a stray text run (19 failed) and a stray filled rectangle (15 failed) on the PUZZLE page, among others by `test_every_mark_on_every_page_is_the_one_the_layout_demands` and `test_the_page_carries_all_four_pieces_of_furniture`; `tests/test_book_grid_rules.py` catches only the stray rule (2 failed), not the text run or the rectangle. Not measured, and therefore not claimed to be held by anything: the answer page, the ungraded page, the table of contents and the guide. Not planted: an actual second folio. Caveats: the plants patch `ContentStream.__init__`, so some puzzle-page-vector kills are the module's own control streams absorbing the mark; the author did not separate those from real whole-page catches, and a control red already exists in that module under the probe (`test_the_raster_twin_of_the_same_page_does_carry_one`, not investigated). Routing: recorded here as residue; not carded under the cut bar. The non-puzzle-page gap is an OWNER note, since the raster era compared whole pages there.
 
+
+[Closing note, merge gate] Merged `dc90b19a`; full armed suite 10495 passed, 1 skipped (setrlimit), 1 xfailed, 0 failed. Two OWNER items carried, record above not rewritten: (1) the declared residue stands: the converted tree has no whole-page comparison for a name-independent stray mark on the answer, ungraded, table-of-contents and guide pages; that gap is UNMEASURED, and was held by the raster-era whole-page comparison. (2) The card text's claims about anti-aliasing were retracted in place, on CARD-356 and on CARD-337.
