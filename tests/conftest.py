@@ -152,7 +152,9 @@ from tests import database_guard as _database_guard
 # an override or an ignored stale lock visible, since `addopts = "-q"` means
 # pytest prints no header at all in the runs this board actually does.
 from tests import full_suite_lock as _full_suite_lock
-from tests.full_suite_lock import pytest_terminal_summary  # noqa: F401
+from tests.full_suite_lock import (
+    pytest_terminal_summary as _full_suite_lock_terminal_summary,
+)
 
 # CARD-258's undefined-table diagnostic. Registered as a named plugin from
 # `pytest_configure` rather than imported as a hook, for two reasons: this
@@ -177,6 +179,30 @@ def pytest_report_header(config):
     ]
     said = [line for line in lines if line]
     return said or None
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """Compose the lock guard's end-of-run line with CARD-349's.
+
+    ``pyproject`` sets ``addopts = "-q"``, at which verbosity pytest prints no
+    run header at all, so :func:`pytest_report_header` above is invisible in
+    every run this board actually does. The terminal summary is the only
+    channel that is not, which is why the lock guard says it twice — and why
+    this card's note has to go here rather than in the header.
+
+    Composed rather than imported. ``from tests.full_suite_lock import
+    pytest_terminal_summary`` is how this hook used to arrive, and defining a
+    second function of that name here would have silently dropped the lock
+    guard's announcement — the trap this conftest's
+    :func:`pytest_report_header` docstring already names. The lock guard's
+    hook is therefore imported under a private alias and called first, so an
+    overridden or ignored stale lock is still announced before anything this
+    card adds.
+    """
+    _full_suite_lock_terminal_summary(terminalreporter, exitstatus, config)
+    note = armed_database_note()
+    if note:
+        terminalreporter.write_line(note, yellow=True)
 
 
 @pytest.fixture(scope="session")
@@ -578,6 +604,303 @@ def _test_database_tables(test_db_url):
         yield engine, tables
     finally:
         engine.dispose()
+
+
+# --------------------------------------------------------------------------
+# CARD-349 — the armed database is ready before the first test, not before the
+# first *marked* test.
+# --------------------------------------------------------------------------
+#
+# The asymmetry this closes is not inside this file. ``pytest_runtest_setup``
+# above reads ``DATABASE_URL`` and takes the create path only for an item
+# carrying ``db_required`` — but conftest is not the only reader. An
+# **unmarked** test that builds an admin app reaches
+# ``nonogram.admin.app.create_app``, which reads ``DATABASE_URL`` itself and
+# connects to whatever it names; CARD-109's guard deliberately *allows* that
+# whenever the name reads as a test database. So in a worktree whose derived
+# database has never existed, an unmarked test that sorts early connects
+# first and the run reds before any marked test can create anything.
+#
+# Measured in this worktree, cold, with DATABASE_URL armed at the derived URL:
+# five failures in
+# ``tests/test_admin_binding.py::TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine``
+# ``::test_a_request_addressed_to_this_machine_is_served``, each
+# ``FATAL: database "nonogram_…_test" does not exist``, in a module that also
+# carries ``db_required`` tests — ``TestUndefinedTableReport_NamesWhatThe``
+# ``FailingConnectionWasTalkingTo``'s among them — but *below* that class in
+# the file, so they run after it. The second run of the same commit is green,
+# which is the whole problem: the signature trains a re-run instead of a look.
+#
+# Why creating the database is **not** the fix, measured rather than reasoned.
+# With the database created but no schema in it, the same five cells red again
+# with ``relation "puzzles" does not exist`` — the stale-schema twin's
+# signature, self-healing in exactly the same way. "Create if missing" alone
+# therefore converts one self-healing red into the other and would have the
+# next gate attribute it to the wrong card. What the unmarked reader needs is
+# not a database but a *usable* one, so this requests the session fixture
+# that builds the schema, and requests it before the first test instead of
+# before the first marked test.
+#
+# It adds no DDL of its own, on purpose: the refusal, the creation, the
+# ``DROP SCHEMA``/``alembic upgrade head`` and the engine retirement are the
+# ones ``_test_database_tables`` already does, with their messages unchanged.
+# For an armed full suite the work is not doubled either — that fixture is
+# session-scoped, so pulling it early *moves* the one setup rather than
+# adding a second. That sentence is scoped to a full suite on purpose; for an
+# armed *selection* carrying zero ``db_required`` tests the rebuild is new
+# work, disclosed in `_armed_database_is_ready`'s docstring rather than
+# designed away.
+
+#: What :func:`_armed_database_is_ready` decided and did, this session. Read
+#: by :func:`armed_database_note`, which is what the terminal summary prints.
+_ARMED_SETUP: dict = {}
+
+#: ``DATABASE_URL`` is not set: nothing is armed and nothing is prepared.
+_ARM_NOT_SET = "not-set"
+#: ``DATABASE_URL`` is armed at a database that is **not** the one this
+#: worktree resolved. Nothing is created — G-1 — and the run is told so.
+_ARM_ELSEWHERE = "elsewhere"
+#: ``DATABASE_URL`` is the resolved database but :func:`_refusal_reason`
+#: refuses it. Nothing is created, and the refusal is the note.
+_ARM_REFUSED = "refused"
+#: ``DATABASE_URL`` is the resolved database and may be prepared.
+_ARM_PREPARE = "prepare"
+
+
+def _database_name_of(database_url):
+    """The database a URL names, and never its credentials.
+
+    Through ``make_url`` — the parser :func:`_refusal_reason` and the
+    fixtures' own engines read the URL with — so the name in a note is the
+    name the connection would use. An unparseable URL comes back as a
+    placeholder rather than as itself: notes get pasted into issues and chat,
+    and the one thing that must never travel is the password.
+    """
+    from sqlalchemy.engine import make_url
+
+    try:
+        return make_url(database_url).database or ""
+    except Exception:  # noqa: BLE001 - the note must not carry the URL
+        return "<a URL SQLAlchemy cannot parse>"
+
+
+def _armed_database_plan(environ):
+    """What may be prepared for ``environ``, decided without connecting.
+
+    Returns ``(database_url, resolved, action)`` where *action* is one of
+    :data:`_ARM_NOT_SET`, :data:`_ARM_ELSEWHERE`, :data:`_ARM_REFUSED` or
+    :data:`_ARM_PREPARE`.
+
+    Pure, and deliberately the *same* two questions
+    :func:`pytest_runtest_setup` asks before it creates anything — the URL is
+    the one this worktree resolved, and :func:`_refusal_reason` allows it —
+    so there is one rule about what may be brought into existence and not
+    two. Default to deny (ADR-0039/R2): every branch but
+    :data:`_ARM_PREPARE` creates nothing, and a URL this cannot classify
+    cannot reach the one that does.
+    """
+    database_url = environ.get("DATABASE_URL")
+    if not database_url:
+        return None, None, _ARM_NOT_SET
+    resolved = db_name.resolve_test_database_url(environ, db_name.REPO_ROOT)
+    if database_url != resolved:
+        return database_url, resolved, _ARM_ELSEWHERE
+    if _refusal_reason(database_url) is not None:
+        return database_url, resolved, _ARM_REFUSED
+    return database_url, resolved, _ARM_PREPARE
+
+
+def armed_database_note():
+    """The line the terminal summary owes this run, or ``None``.
+
+    Silent on the two outcomes that need no words — ``DATABASE_URL`` unset,
+    and a database that was prepared — because a line on every run is a line
+    nobody reads by the third one. Otherwise it names the database by name and
+    says what to do about it, which is the half of AC-1 that holds when the
+    other half cannot: a bare ``psycopg2`` ``FATAL`` several screens into a
+    traceback is not an instruction.
+    """
+    action = _ARMED_SETUP.get("action")
+    if action in (None, _ARM_NOT_SET):
+        return None
+    database = _ARMED_SETUP.get("database")
+    if action == _ARM_ELSEWHERE:
+        return (
+            f"database setup: DATABASE_URL names {database!r}, which is not the "
+            f"database this worktree resolved ({_ARMED_SETUP.get('resolved')!r}), "
+            f"so the suite neither created nor migrated it. Tests that build an "
+            f"admin app will connect to {database!r} as given, and if it does "
+            f"not exist they fail with the driver's own error. Create it, point "
+            f"DATABASE_URL (or TEST_DATABASE_URL) at the resolved database, or "
+            f"unset DATABASE_URL."
+        )
+    if action == _ARM_REFUSED:
+        return (
+            f"database setup: nothing was prepared for {database!r} — "
+            f"{_ARMED_SETUP.get('reason')}"
+        )
+    reason = _ARMED_SETUP.get("reason")
+    if reason:
+        return (
+            f"database setup: {database!r} could not be prepared before the "
+            f"first test — {reason}. Every test that reads DATABASE_URL will "
+            f"meet that database as it is. Fix the reason, or unset "
+            f"DATABASE_URL to run the suite without a database."
+        )
+    return None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _armed_database_is_ready(request):
+    """Bring the armed database to a usable state before the first test.
+
+    Autouse and session-scoped, which is what buys the ordering: pytest sets
+    up the widest scopes first, so this runs during the setup of whichever
+    item happens to sort first — before any test body, and therefore before
+    any unmarked test can reach ``create_app`` and read ``DATABASE_URL``.
+    Nothing here depends on which item that is, which is the point: the
+    exposed set cannot be enumerated (see
+    ``tests/test_card_349_cold_database.py``), so the fix must not need it.
+
+    Free when ``DATABASE_URL`` is unset — the ordinary run, and the one every
+    ``db_required`` skip on this board comes from. No count is given for those
+    skips, and this sentence's own history is the argument: it used to carry
+    one — "this card's own module adds two ``db_required`` tests" — and the
+    next commit on this very card added a third, so the figure was already
+    wrong where it stood. It is deleted rather than corrected, because
+    ``-rEfs`` answers it per run and cannot go stale. It is only an armed run
+    that pays anything, and an armed run has already said which database it
+    means.
+
+    **No count of the ways ``_test_database_tables`` can stop is given here,
+    and that is the point of review cycle 1's F-001.** This docstring used to
+    say "both ways … are caught" beside a clause naming two classes, and the
+    claim was false: ``_rebuild_public_schema`` sets ``lock_timeout`` and then
+    runs ``DROP SCHEMA public CASCADE``, which under a lock another connection
+    holds raises ``sqlalchemy.exc.OperationalError``; the Alembic subprocess
+    raises ``subprocess.TimeoutExpired`` at its ``timeout=120``; the
+    ``pg_tables`` projection adds a third. Measured: none of those is a
+    subclass of ``pytest.skip.Exception`` or ``pytest.fail.Exception``. A
+    counted claim about a set nothing enumerates is indistinguishable from a
+    true one until something falls through, so the catch is stated by its
+    **bound** instead, and the bound is what the except clauses say.
+
+    Why an escape here is worse than an escape anywhere else, which is the
+    irony this card has to own: before this fixture existed, a stop from
+    ``_test_database_tables`` reached only the items that asked for the schema
+    — the ``db_required`` tests. Out of a session-scoped **autouse** fixture it
+    reaches every item in the suite, because pytest caches a session fixture's
+    outcome and re-raises it to every later requester, and every one of those
+    errors names ``_armed_database_is_ready``. An unrelated held lock would
+    therefore read as this card's own fix being broken, on the card whose whole
+    subject is misattribution.
+
+    So the catch is wide, and nothing is made quieter by it (G-2,
+    ADR-0038/R8):
+
+    * ``pytest.skip`` and ``pytest.fail`` are named **first and explicitly,
+      and that is not stylistic**: both derive from ``OutcomeException``,
+      which derives from ``BaseException`` and **not** from ``Exception``, so
+      an ``except Exception`` that dropped them would let a skip out of a
+      session-autouse fixture and skip the entire suite. Measured in a
+      synthetic project: catching ``Exception`` alone turns a stopped
+      preparation into ``3 skipped`` / ``3 errors`` where the tuple gives
+      ``1 passed, 2 skipped`` / ``1 passed, 2 errors``.
+    * ``Exception`` covers the rest — the ``OperationalError``, the
+      ``TimeoutExpired`` and whatever the next edit to
+      ``_rebuild_public_schema`` adds, without this fixture having to be
+      taught each one.
+    * It stops at ``Exception`` rather than ``BaseException`` on purpose:
+      ``KeyboardInterrupt`` and ``SystemExit`` must still end the run.
+      Measured too — a ``BaseException`` that is not an ``OutcomeException``
+      escapes a session fixture into a pytest-internal ``assert not
+      self._finalizers`` identically whether this fixture swallows it or not,
+      so widening to ``BaseException`` would buy nothing and cost the
+      interrupt.
+
+    Nothing is lost by being caught here, and that is **measured rather than
+    reasoned**, because it is the whole safety argument: pytest caches a
+    session fixture's outcome, exception included, so the first ``db_required``
+    test that asks for ``db_session`` gets the identical stop through the
+    unchanged path. In a synthetic project, an autouse session fixture that
+    swallows an inner session fixture's stop still leaves a later direct
+    requester skipped (for ``pytest.skip``) or errored (for ``pytest.fail``
+    **and for a plain ``Exception`` subclass**), with the original reason, via
+    both a direct parameter and a function-scoped fixture's
+    ``getfixturevalue`` — while the unrelated test that never asks passes. The
+    control is the same run with the swallow removed.
+    ``test_the_eager_setup_hides_nothing_from_the_marked_path`` is the
+    in-tree control for the structural half.
+
+    A stop is **announced**, not merely swallowed, and the two kinds are
+    recorded differently on measured grounds rather than taste. ``skip`` and
+    ``fail`` from ``_test_database_tables`` carry a message that fixture
+    composed for a reader ("Could not set up test database: …", "alembic
+    upgrade head failed: …"), so their ``str`` is already a sentence and a
+    ``Skipped:`` prefix would only pad it. An undesigned escape's ``str`` need
+    not be legible at all — ``str(KeyError("tablename"))`` is ``'tablename'``,
+    and ``OperationalError``'s names the wrapped driver class but not its own
+    — so those are recorded as ``"{class name}: {message}"``. The class name
+    is the datum: it is what distinguishes "the database is unavailable" from
+    "something is badly wrong". The note's *instruction* is deliberately
+    **not** varied with it; "fix the reason, or unset DATABASE_URL" is true of
+    both kinds, and there is no evidence here for a second instruction.
+
+    So widening the catch **restores** the pre-fix blast radius rather than
+    silencing anything: every item that asks for the database still stops
+    loudly, from the cache, carrying the original reason; only the items that
+    never ask proceed — which is exactly the set that proceeded before this
+    fixture existed. The fixture already fails narrowly, *via the cache,
+    provided it catches*. Narrowing the catch is what widens the damage, which
+    is the inversion that made F-001 easy to miss.
+    ``test_a_swallowed_stop_still_errors_every_test_that_asks_for_the_database``
+    is the behavioural control for that, against the real suite with a stop
+    injected at the ``_rebuild_public_schema`` seam.
+
+    What this adds is the note: the reason is named once, at the end, where
+    ``-q`` cannot hide it.
+
+    One residue, named rather than folded in (ADR-0039/R3), because no probe
+    on this card has touched it: ``_rebuild_public_schema`` runs ``DROP
+    SCHEMA`` → ``CREATE SCHEMA`` → ``alembic upgrade head`` →
+    ``reset_engine()``, so a stop *between* the drop and the end of the
+    migration leaves an **empty** schema behind **and** skips
+    ``reset_engine()``, leaving a module-global engine that predates it. This
+    fixture records and announces that stop correctly; it does not repair that
+    state, and nothing here claims it does. Out of scope for this card
+    deliberately — the owner is carding it.
+
+    One cost, disclosed rather than redesigned (ADR-0039/R3, filed as review
+    cycle 1's F-002): being autouse, this requests the schema fixture on every
+    armed run, so an armed **selection** containing zero ``db_required`` tests
+    now pays the ``DROP SCHEMA``/``alembic upgrade head`` rebuild where it
+    previously did nothing. The paragraph above about the work not being
+    doubled is scoped to an armed *full* suite, where it holds because the
+    fixture is session-scoped; it does not speak for the selection case, and
+    this sentence is what keeps that from reading as a claim.
+    """
+    database_url, resolved, action = _armed_database_plan(os.environ)
+    _ARMED_SETUP.clear()
+    _ARMED_SETUP["action"] = action
+    if action == _ARM_NOT_SET:
+        return
+    _ARMED_SETUP["database"] = _database_name_of(database_url)
+    _ARMED_SETUP["resolved"] = _database_name_of(resolved)
+    if action == _ARM_REFUSED:
+        _ARMED_SETUP["reason"] = _refusal_reason(database_url)
+        return
+    if action == _ARM_ELSEWHERE:
+        return
+    try:
+        request.getfixturevalue("_test_database_tables")
+    except (pytest.skip.Exception, pytest.fail.Exception) as stopped:
+        # Named first, and not for style: OutcomeException derives from
+        # BaseException, so the clause below would not catch these.
+        _ARMED_SETUP["reason"] = str(stopped)
+    except Exception as stopped:  # noqa: BLE001 - see the docstring's bound
+        # An undesigned stop. Its class is the diagnostic, and str() alone
+        # need not carry it (KeyError's is a bare quoted word).
+        _ARMED_SETUP["reason"] = f"{type(stopped).__name__}: {stopped}"
 
 
 @pytest.fixture(scope="function")
