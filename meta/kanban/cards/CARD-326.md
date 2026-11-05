@@ -1,6 +1,6 @@
 # CARD-326: Circled clue numbers on the public player — the clue readout that needs no answer
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (0.5d) <!-- RESTATED in review cycles 2026-11-05, at QUEUE time rather than at stamp, so the card cannot red tests/test_kanban_review_record.py when it is stamped into a wave (CARD-325 did, because it was stamped with a day estimate). Was 0.5d. 2c is a forecast, not a tuned figure: CARD-325, the closest comparator (a player feature in the same three files), took 1 review cycle, CARD-324 took 3; this card carries a hazard the others did not (AC-4 needs a constructed board where every number is circled and the board is still wrong). -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/326-public-circled-clues
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-326
 **Source:** owner request 2026-10-30 — "the player misses a lot of the player from the admin player... I'd like both to reuse the same functionality", raised against a locally assembled site at `http://localhost:8081/play/00d5d88065`.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_circles.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T21:24Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
