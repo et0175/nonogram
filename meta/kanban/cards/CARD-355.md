@@ -1,6 +1,6 @@
 # CARD-355: `tests/test_book_pdf_memory.py` — 27 reds, and its one seam site would change what the test measures
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_memory.py, tests/helpers/pdf_vector.py (SCOPE+, decided by the orchestrator after the cycle-1 review: the shared-reader fix below)
-**Review score:** —
+**Review score:** 8.4 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-05T11:41Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T14:48Z
+**Actual:** 2c -- **ratio 0.500** (1 review cycle, derived as 1 distinct ordinal among the `[Review N/M] Score:` lines, against the 2c estimate). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **2 tracked files**, 807 insertions(+), 71 deletions(-) against main tip d3bc694b (`tests/test_book_pdf_memory.py` 865 lines changed, `tests/helpers/pdf_vector.py` 13); src/ diff 0.
+**Merge commit:** `e4849464`
 **Blocked by:** —
 
 > ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
