@@ -477,12 +477,10 @@ active:
 #   1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its instruments were
 #   copied to ~/Documents/nonogram-reviews/CARD-359/, so the entry is dropped rather than left naming a path
 #   that no longer exists.
-  - card: CARD-360
-    branch: card/360-pdf-levels-two-up
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-360
-    started: 2026-11-05T18:14Z
-    estimate: 1c (0.5d)
-    cut_from: 2eeec589
+# CARD-360 CLEARED 2026-11-05 at its merge gate: merged c33797ea, done, certified 8.1 on cycle 1, estimate
+#   1c -> 1 cycle = ratio 1.000. Its worktree is removed under the tidy rule after its instruments were
+#   copied to ~/Documents/nonogram-reviews/CARD-360/, so the entry is dropped rather than left naming a
+#   path that no longer exists.
   - card: CARD-357
     branch: card/357-export-interior-cover
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-357

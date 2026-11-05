@@ -1,6 +1,6 @@
 # CARD-360: `pdf_levels` and `pdf_two_up` — 6 reds in the two modules where the seam is already present
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py
-**Review score:** —
+**Review score:** 8.1 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-05T18:14Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T21:22Z
+**Actual:** 1c -- **ratio 1.000** (1 review cycle, derived as 1 distinct ordinal among the `[Review N/M] Score:` lines, against the 1c estimate). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **2 tracked files** (`tests/test_book_pdf_levels.py`, `tests/test_book_pdf_two_up.py`), **+869 / -44** lines against the cut `2eeec589`; `src/` and `tests/helpers` diffs 0.
+**Merge commit:** `c33797ea`
 **Blocked by:** —
 
 > **⚠ UNVERIFIED FIGURES, 2026-11-05.** This card quotes **57 M10 reds / 35 cause lines**. They are CARD-337's round's roll-up and **three readers have now tried and failed to verify them** (CARD-358's round, its review, and the orchestrator). The review's census aborted on its own gate at 14 of 20 modules — *the instrument working*, a zero-collect most plausibly caused by a foreign lock appearing mid-run, since the guard refuses in `pytest_configure`. **And one component has already moved:** CARD-356's module measures 26 reds, not its stated 25. **Do not quote the roll-up as fact; re-derive your own module's count at the start**, which is what scopes your card anyway.
@@ -212,3 +212,8 @@ F-1(3), the footer window: the 0.85 constant is REMOVED; the floor is derived as
 
 F-2: `test_the_two_up_page_the_writer_draws_carries_both_bands_upper_first` calls `puzzle_pages` and `vector_two_up_page` directly so it runs on BOTH trees and asserts `_band_lines == ["Puzzle 1 · Easy", "Puzzle 2 · Easy"]`; the class docstring is corrected (the operators arm of `_band_lines` and `_reference_band` runs on both trees; the `isinstance(raw, ContentStream)` assertions inside the AC-251 class run only under the probe, and it says so). Plants on unlifted two_up (control the unplanted 52 green): `_band_lines` returning `[]` moves 2 (the two-up test and `test_the_text_layer_reads_the_band_a_page_of_operators_carries`); `_band_lines` returning the two-up pair constant moves 1 (the single-page test only; the two-up test stays green by construction). F-3: the survivor guard now requires each cited class to hold at least one `test*` method, the citation regex accepts an optional `tests/` prefix, and tmp_path controls cover an emptied class (a helper only), a `pass` stub, a renamed real class with a stub under the old name, a kept class with a test, an unprefixed citation derived, and a missing one reported as "0 definitions". F-4: residue (2) now lists the classes in `tests/test_book_puzzle_page_vector.py` and what each holds (grid `TestPuzzlePage_AgreesWithTheRasterTwin`, clue digits `TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt`, band `TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle`, furniture `TestSheetFurniture_TheProductionPageCarriesTheFurniture` and `TestSheetFurniture_TheFooterIsAllOrNothing`), all five guarded; measured: one stray rule added to every content stream of that writer module reds 19 failed + 17 errors across 17 classes, including every class above except the clue-digit one (the plant also lands in the module's own control streams, so this is not a count of real catches; the corner and footer-left positions gave identical results, so they do not discriminate); the clue-digit class was not moved by a stray rule and the docstring says its claim is by name only, not plant-measured; carried from the review, not re-measured and labelled so: a stray rule at the left of the footer zone 1 in levels and 17 beyond the M8 pair in two_up, the grid shifted 1 pt 0 and 1, the corner rule 0 and 0, transposed pages 0 and 1. F-5: the levels module docstring now says both modules are fully green unlifted and the reds are ABSENT unprobed, present only under the probe; the `_reference_band` docstring says the DPI is the drawn stream's own, by construction, because `like=` is only an `isinstance` check, and the "same DPI" wording is removed; one pin added, `test_the_single_and_the_two_up_page_are_drawn_at_one_dpi` (both drawn streams have `dpi == 300`; it pins the streams' DPI, not the rasteriser call). Not done by the author: the reviewer's grid-shift and transposed-page plants were not re-measured; the plan `numbers + 1` figure of 2 was not reproduced; `tests/test_book_pdf.py` and `tests/test_book_puzzle_frame.py` and the full suite were not run. Next: the merge gate.
 
+**Closing note, merge gate, 2026-11-05 (owner items; the review record above is not rewritten).** Merged `c33797ea`; armed full suite on the staged tree 10621 passed, 1 skipped (the setrlimit platform gate), 0 failed, 1 xfailed.
+
+- **(a) Declared weakening.** For operators pages the expectation is the generator's own page writer, so a page drawn wrong the same way by the walk and by the writer passes. What holds it is the named survivor classes in `tests/test_book_puzzle_page_vector.py` (grid, clue digits, band, furniture); the clue-digit class is held by name only, not plant-measured.
+- **(b) Two author/reviewer discrepancies left unresolved.** The 30x30 lowest-clue-digit figure (author 0.7918, reviewer 0.807, both below the 0.8624 footer top), and the reviewer's plan-plant figures, which the author could not reproduce.
+- **(c) No footer on some vector pages.** Grids with 20 or 30 rows and fewer than 30 columns have no footer on a vector page.
