@@ -1,6 +1,6 @@
 # CARD-354: `tests/test_book_solved_answer_key.py` — 33 reds, the largest single module of the conversion residue
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_solved_answer_key.py, tests/test_book_interior_type_floor.py (SCOPE+, commit `204e1140`), tests/test_check_ref_resolution.py (SCOPE+, 4 comment lines, commit `bf0b2587`)
-**Review score:** —
+**Review score:** 8.5 (cycle 1/3 - CERTIFIED)
 **Started:** 2026-11-05T09:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T11:36Z
+**Actual:** 2c -- **ratio 0.500** (1 review cycle against the 2c estimate; the 1d figure is history, not a second opinion). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **3 tracked files**, 544 insertions(+), 61 deletions(-) against main tip 77411d7c (`tests/test_book_solved_answer_key.py` 408 lines changed, `tests/test_book_interior_type_floor.py` 193 added, `tests/test_check_ref_resolution.py` 4); src/ diff 0. Gate: armed full suite 10416 passed / 0 failed / 1 skipped (setrlimit RLIMIT_AS) / 1 xfailed.
+**Merge commit:** `95db8fbe`
 **Blocked by:** —
 
 > ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
