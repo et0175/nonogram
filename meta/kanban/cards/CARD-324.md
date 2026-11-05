@@ -71,9 +71,19 @@ ladder's two widths) exist on the admin side.
 
 ## What to implement
 
-1. `player/play.js`: import `ZOOM_MIN`, `ZOOM_MAX`, `ZOOM_STEP`, `clampZoom`,
-   `stepZoom`, `pinchZoom`, `anchoredScroll` from `/solver_state.js` and hold a
-   zoom value in the page's state. **Derive nothing** — the bounds, the step and
+1. `player/play.js`: import **`ZOOM_MIN`, `ZOOM_MAX`, `stepZoom`, `pinchZoom`,
+   `anchoredScroll`** from `/solver_state.js` — **five names, not seven** — and hold a
+   zoom value in the page's state.
+
+   > **⚠ CORRECTED 2026-11-05** (ADR-0039/R4). This instruction read *"import `ZOOM_MIN`,
+   > `ZOOM_MAX`, `ZOOM_STEP`, `clampZoom`, `stepZoom`, `pinchZoom`, `anchoredScroll`"* — seven
+   > names. Measured: the admin's own glue imports **five**
+   > (`solver.js`: `{ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom}`), `clampZoom`
+   > occurs **0** times in `solver.js`, and `stepZoom`/`pinchZoom` clamp their own returns.
+   > Importing seven plants **two unused names**. The orchestrator retracted this in the
+   > premise block at the top of the card and **not here, in the instruction a round acts
+   > on** — caught as F-6 by cycle 1. R4 says *everywhere it was written*, and a premise
+   > block is not everywhere. **Derive nothing** — the bounds, the step and
    the clamp are the module's, and re-spelling any of them here is the defect
    this card exists to avoid. `anchoredScroll` is what keeps the cell under the
    pointer fixed across a zoom change; use it rather than re-deriving a scroll
@@ -204,6 +214,81 @@ than trusting the table above** — it is a record of one moment, and the moment
 had already moved once.
 
 ## Worktree notes
+
+[Review 1/3] Score: **7.5 — CHANGES REQUESTED** (threshold 8.0). Artefact
+`meta/review/CARD-324-cycle1.yml`, uncommitted. Six items for cycle 2; the load-bearing two are F-1
+and F-2.
+
+[Review 1/3] **Both render-found defects now have controls that can fail — proven by planting each
+defect BACK, not by reading.** The flat `min-width` plant is caught by a test taking two readings a
+flat floor breaks differently: the computed content width against the module's own step ratio, **and
+`min(cell_boxes) > max(before_boxes)`** — a strict inequality over every cell, which is the defect
+exactly as the owner would see it ("a wider gutter and no bigger cells"). The pinned-gutter plants are
+caught two ways, and the second test is a real control rather than a mirror: it puts the class back
+**by hand** at `ZOOM_MAX` and counts cells clearing the gutter, measuring the **consequence**. An edge
+plant weakening the threshold to `>= 0` was also caught, so the predicate test is a genuine second
+spelling and not a tautology.
+
+[Review 1/3] **F-1 (high) — a THIRD instance of the same family, live and untested, and the round's
+"pre-existing" framing is REFUTED.** Zoom to 250% on 390×844, then rotate to 844×390 with no further
+interaction: the pinned classes stay `rows=false / cols=true` while the geometry wants
+`rows=true / cols=false` — **both wrong, in both directions** — and cells fully inside the unoccluded
+band = **0**. One press of either zoom button recovers it to 10.
+**Why the framing matters:** the round called this *"a pre-existing shape, named rather than left
+silent."* It is not pre-existing. **Before this card there was no zoom and both gutters pinned
+unconditionally**, and at 100% in landscape the geometry still affords them. `keepCluesInView` and the
+conditional pinning are **this card's own new mechanism**, so staleness across a resize is its
+**residue**. Naming is the right disposition for an inherited shape; this one needed a fix or an
+explicitly tested refusal. Not charged critical only because one visible, labelled button recovers it.
+
+[Review 1/3] **F-2 (medium) — the `keeps-cols` arm has no control that can fail, and an edge mutant
+proved it.** E4 (`colClue.getBoundingClientRect().width` where it must read `.height`) left **all 18
+green**: at 390×844 `keepsCols` is `True` at every rung, so the assertion is `True == True`
+throughout, and the class's own non-vacuity guard reads the **row** list only. Reach measured — at
+844×390 the col gutter legitimately lets go from 175% up and E4 keeps it pinned at every rung, **the
+vertical twin of the defect the renders found**, landing in exactly F-1's geometry. One landscape rung
+plus a two-axis non-vacuity assertion closes both.
+
+[Review 1/3] **F-3 (medium) — the declared bound's measured residue is WRONG IN BOTH PLACES IT IS
+WRITTEN** (card notes and the test module's docstring): *"the row gutter lets go at 250%"* measures as
+**200%**. Measured three times over the module's own harness — stage client width 358, row gutter
+173/215/257/299/341 at 100/125/150/175/200, cell 29/36/43/50/57. The 1440 px half holds (nothing lets
+go at any of nine rungs). **And the unstated residue is the part the owner will meet:** at **175%** the
+rule is satisfied by 60 px of band beside a 299 px gutter with a 50 px cell — one column — and at the
+scroll the zoom itself lands on, **zero cells are fully visible**. The seven original renders step
+100 → 150 → max, so **that rung was never seen.** The reviewer rendered it:
+`08-review-cycle1-390px-175-percent-one-column.png` and `09-…-200-percent-…`.
+
+[Review 1/3] Lower findings: **F-4** `stage.clientHeight` (708) overstates the visible band — the stage
+bottom sits at 943 against an 844 inner height, ~98 px below the fold, and the col predicate reads
+that same height. **F-5** the `SCOPE+` restore's *stated reason* does not reproduce — a plant removing
+the restore loop entirely left both tests green; **keep the restore, retitle the reason.** **F-6** is
+the orchestrator's: the card body's "What to implement" item 1 still instructed the refuted
+seven-name import, corrected above.
+
+[Review 1/3] **Everything the orchestrator asked to be adjudicated came back verified.** The derived
+import set is **real and stronger than a list** — it fails on drift from either side — with one caveat
+said aloud: it is an equality against *another page's* consumed surface, so an admin-only change reds
+it as a declaration rather than a bug. **M7 re-fired and is caught by name**, and the reviewer checked
+that `_tap` being a mouse click does not weaken it (`if (gesture) return` sits after the touch/pen
+branch, so a stale gesture blocks mouse and touch alike); it then found a **second** instance of that
+shape already controlled, and identified **F-1 as the third and uncontrolled one**. **M5 verified
+behavioural** (300 never appears in `play.js` either way), as is **E3** (the two `anchoredScroll` axes
+swapped), so AC-4 is not a reading of whatever happened. The `SCOPE+` derivation is real with no
+hidden coupling. **ADR-0041/R2 re-derived in full and holds** — 0 `setAttribute("data-state"`, exactly
+3 `dataset.state` writes all accounted (the third a *swatch*, not a cell), the signature control fires,
+and the live payload keys are still exactly `columns/height/key/rows/tier/width`.
+
+[Review 1/3] **The full suite was started and STOPPED BY MEASUREMENT rather than abandoned or pushed
+through**, which is the right call and a finding in itself: at ~1.5% of **10424** collected tests in
+three minutes it projected **2–3 hours** and would have held the host against CARD-358's concurrent
+review for all of it. The reviewer's `EXIT` trap did not fire (shell killed), so it read the lock
+back, confirmed holder **and** worktree were its own, removed it and confirmed absence with `find` —
+correct recovery, and the same hazard CARD-377's residue 2 names. **CARD-358 took the lock four
+minutes later and the reviewer did not touch it.** In place of the suite it ran a selection **~3×
+broader** than the round's: **523 passed / 0 failed / 0 skipped** in 59.8 s. `db_required` derived at
+**29 of 10424**; none in scope, which is why 0 skipped rather than a fraction of 30. **The full suite
+is still owed before merge.**
 
 [Round, commit `d21d7757`] Implemented: five files, +1788. INV-023 clean. Impact-scoped selection
 **180 passed / 0 skipped** against a 162-passed baseline. **No full suite** — CARD-358 held the lock
