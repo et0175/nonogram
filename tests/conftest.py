@@ -764,8 +764,10 @@ def _armed_database_is_ready(request):
 
     Free when ``DATABASE_URL`` is unset — the ordinary run, and the one every
     ``db_required`` skip on this board comes from. No count is given for those
-    skips: this card's own module adds two ``db_required`` tests, so any
-    figure written here would have been wrong on the commit that wrote it.
+    skips, and this sentence's own history is the argument: it used to carry
+    one — "this card's own module adds two ``db_required`` tests" — and the
+    next commit on this very card added a third, so the figure was already
+    wrong where it stood. It is deleted rather than corrected, because
     ``-rEfs`` answers it per run and cannot go stale. It is only an armed run
     that pays anything, and an armed run has already said which database it
     means.
