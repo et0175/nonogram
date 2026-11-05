@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import dataclasses
 import random
+from dataclasses import replace
 import re
 from collections import Counter
 from io import BytesIO
@@ -73,8 +74,13 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.admin import book_pdf_generator
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book
-from tests.helpers.page_ink import drawing_of
-from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from tests.helpers.page_ink import drawing_of, frame_centre_of
+from tests.helpers.pdf_pages import (
+    page_image,
+    pdf_page_count,
+    pdf_pages,
+    same_page,
+)
 from tests.helpers.two_up_ink import drawings_of
 
 TRIM_PX = (2550, 3300)
@@ -1296,11 +1302,20 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
         )
 
         # Clause 3: the ink is where a left-hand page puts it.
-        drawings = drawings_of(page)
+        # CARD-359 (ADR-0042/R6): the page arrives in whichever medium its
+        # kind declares, so it is read as device pixels (``page_image``
+        # returns a raster page unchanged), and the claim -- WHERE the
+        # drawing is -- is a coordinate, so it is read as the frame's
+        # BOUNDARY (``frame_centre_of``), not the ink's first line. The two
+        # media put that first line 3 px apart (CARD-336); the boundary
+        # reads within half a pixel of the coordinate in both, so the 0.1 mm
+        # bound below is the one it always was.
+        ink = page_image(page)
+        drawings = drawings_of(ink)
         assert len(drawings) == 1, (
             f"{label}: the first puzzle page holds {len(drawings)} drawing(s)"
         )
-        measured_mm = drawings[0].left / PX_PER_MM
+        measured_mm = frame_centre_of(ink, drawings[0]).frame_left / PX_PER_MM
         left_hand_mm = _expected_drawing_left_mm(
             puzzles[0],
             first_puzzle_page,
@@ -1357,6 +1372,68 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
     # All three tiers are in the corpus, so the divider the position counts
     # is not always the same level's.
     assert set(seen) >= {"easy", "medium", "hard", "measured"}, seen
+
+
+def _parity_error_mm(gutter_mm, outside_mm):
+    """How far page 6 of a parity book built with these REAL margins draws its
+    puzzle from where the NOMINAL margins say, in mm, read the way
+    :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` reads it.
+
+    The shifted pair stands for a generator that drew the nominal book wrongly
+    (this helper formats them with ``:.2f`` cm; the product accepts finer
+    ones, see :class:`TestParity_TheBoundIsPinnedFromBothSides`). One fixed puzzle, so it is a control for
+    the bound and not a second corpus.
+    """
+    puzzle = _unpairable_puzzle(random.Random(PARITY_SEED), "easy")
+    book = replace(
+        _parity_book("card-359-residue"),
+        gutter_margin_cm=f"{gutter_mm / 10:.2f}",
+        outside_margin_cm=f"{outside_mm / 10:.2f}",
+    )
+    generator = BookPDFGenerator(book)
+    # the page read is a puzzle page (interior page 6), not whatever sits there
+    assert generator.section_plan([puzzle]).pages[1].page_number == 6
+    page = list(generator.interior_stream([puzzle]).pages)[5]
+    ink = page_image(page)
+    (drawing,) = drawings_of(ink)
+    measured_mm = frame_centre_of(ink, drawing).frame_left / PX_PER_MM
+    nominal_mm = _expected_drawing_left_mm(
+        puzzle, 6, gutter_mm=PARITY_GUTTER_MM, outside_mm=PARITY_OUTSIDE_MM
+    )
+    return abs(measured_mm - nominal_mm)
+
+
+class TestParity_TheBoundIsPinnedFromBothSides:
+    """ADR-0039/R3 for the title-parity clause's 0.1 mm bound (CARD-359 F-2).
+
+    The clause above asserts ``abs(measured - expected) < 0.1`` mm. Declared
+    residue, MEASURED on this tip with a gutter built longer than the
+    nominal 20 mm, in 0.1 mm steps because ``_parity_error_mm`` formats the
+    margin with ``:.2f`` cm -- the test's own rounding, NOT a limit of the
+    product, whose margin column is an unconstrained string and accepts finer
+    values. MEASURED THIS ROUND with four-decimal strings (2.005 and 2.0075 cm,
+    i.e. +0.05 and +0.075 mm): error 0.0030 mm in raster and 0.0877 mm in
+    vector (unshifted: 0.0817 raster, 0.0030 vector), so a sub-0.1 mm margin
+    shift takes effect and the residue below is the bound's. The table, in
+    0.1 mm steps, error in mm, raster / vector:
+    +0.1 mm 0.003 / 0.088 (not caught), +0.2 mm 0.088 / 0.172 (caught in
+    vector only), +0.4 mm 0.172 / 0.257 (caught in both). So the clause
+    cannot see a margin error under 0.2 mm in vector and 0.4 mm in raster:
+    the nominal raster page already reads 0.082 mm from the coordinate (the
+    half pixel of the boundary reading plus the pixel rounding of the cell),
+    leaving 0.018 mm of room. The controls below use the two shifts that
+    hold in BOTH media: +0.1 mm inside the residue, +0.4 mm just past it.
+    Not widened (G-2).
+    """
+
+    def test_a_shift_inside_the_residue_is_not_caught(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM + 0.1, PARITY_OUTSIDE_MM) < 0.1
+
+    def test_the_first_shift_past_the_residue_is_caught(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM + 0.4, PARITY_OUTSIDE_MM) >= 0.1
+
+    def test_the_unshifted_book_is_the_control(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM, PARITY_OUTSIDE_MM) < 0.1
 
 
 # --------------------------------------------------------------------------
