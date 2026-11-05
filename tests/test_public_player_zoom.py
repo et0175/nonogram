@@ -116,8 +116,9 @@ at all, because the pinned gutter covered every column. That is the exact case
 the card exists for, and it was invisible to six ACs.
 
 ``play.js``'s ``keepCluesInView`` is the fix: a gutter is pinned only while
-the stage still has room beside it for a whole cell. The threshold is derived
-from the board, not chosen. What is deliberately **not** taken is
+the stage still has room beside it for TWO whole cells. The threshold is
+derived from the board, not chosen: a window of width ``w`` over cells of pitch
+``c`` holds a whole cell at every scroll offset exactly when ``w >= 2c``. What is deliberately **not** taken is
 ``solver.js``'s own richer rule (``keepCluesInView`` there,
 ``STICK_MAX_SHARE = 0.4``): applied at 390 px it would unpin this page's row
 gutter at 100% as well, contradicting ``player.css``'s stated promise and the
@@ -125,9 +126,34 @@ reading
 ``tests/test_public_player.py::test_phone_viewport_is_playable`` makes of it.
 Which rule the public page should take is an **owner decision**, routed rather
 than made here; the narrow rule changes nothing below the zoom at which the
-board stops being reachable, measured: at 390 px both gutters stay pinned at
-100%, 150% and 200% and the row gutter lets go at 250%, and at 1440 px nothing
-lets go at any rung.
+board stops being reachable. The bound's measured residue (ADR-0039/R3), on
+this module's own harness and ``GRIDS["max"]`` (a stage client width of 358 px
+at 390 px; row gutter 173/215/257/299/341 px and cell 29/36/43/50/57 px at
+100/125/150/175/200%): at 390x844 the row gutter is pinned through 150% and
+lets go at **175%**, the column gutter never lets go; at 844x390 the column
+gutter is pinned at 100% and lets go from **125%**; at 1440 px nothing lets go
+at any of nine rungs.
+
+**The rule's first spelling asked for one cell and the 175% rung is why it asks
+for two.** With one cell, at 175% on a 390 px phone the rule was met by 60 px
+of band beside a 299 px gutter with a 50 px cell: one column, and at the
+scroll the zoom itself lands on, zero whole cells in view (cycle 1's renders
+08 and 09). That was a defect and not a residue, because the owner meets that
+rung by thumb on exactly that phone, and the fix is one derived factor. What
+stays declared after it: when a gutter is *unpinned* the board is reachable
+only by scrolling it back into view (at 390 px from 175%, the row clues scroll
+off the left edge), which is the trade the rule makes against a board nobody
+can reach; and ``play.js`` reads the stage's height as the part visible with
+the page at its top (the toolbar wraps on a phone, so the stage is 708 px tall
+with its bottom at 943 against an 844 px fold), which understates the band
+once the page itself is scrolled down.
+
+The rule is re-run on ``resize``, because the geometry it reads is the
+viewport's. Before that, zooming to 250% at 390x844 and rotating left both
+classes holding the portrait answer (rows False / columns True where the
+landscape geometry wants True / False) with no whole cell reachable until a
+zoom button was pressed; ``test_rotating_a_zoomed_phone_re_asks_the_rule`` holds
+it.
 
 Two divergences from the admin player, both deliberate and both recorded
 ------------------------------------------------------------------------
@@ -188,6 +214,13 @@ PUBLIC_CSS = PLAYER_DIR / "player.css"
 
 #: The phone this feature exists for. ``player.css``'s own header names it.
 PHONE = {"width": 390, "height": 844}
+
+#: The same phone turned on its side. It is in the gutter sweep because the
+#: column gutter never lets go at :data:`PHONE` (cycle 1 of this card's review:
+#: with ``keepsCols`` True at every rung, "the class equals the geometry" was
+#: ``True == True`` on that axis, and a column predicate reading the wrong
+#: dimension survived), and it is the viewport a rotation lands in.
+LANDSCAPE = {"width": 844, "height": 390}
 
 #: How long a dispatched touch stream is given to be DELIVERED before the
 #: zoom it asked for is read, in ms.
@@ -653,11 +686,15 @@ class TestPublicZoom_AZoomedGutterNeverCoversTheBoard:
       const col = document.querySelector('th.player-clue.is-col').getBoundingClientRect();
       const cell = document.querySelector('td.player-cell').getBoundingClientRect();
       const style = (el) => getComputedStyle(document.querySelector(el));
+      // The part of the stage on screen with the page at its top: the stage's
+      // bottom edge can sit below the fold (the toolbar wraps on a phone).
+      const innerTop = stage.getBoundingClientRect().top + stage.clientTop;
+      const visible = Math.min(innerTop + stage.clientHeight, innerHeight) - innerTop;
       return {
         keepsRows: board.classList.contains('keeps-rows'),
         keepsCols: board.classList.contains('keeps-cols'),
-        roomBesideRows: stage.clientWidth - row.width >= cell.width,
-        roomBesideCols: stage.clientHeight - col.height >= cell.height,
+        roomBesideRows: stage.clientWidth - row.width >= 2 * cell.width,
+        roomBesideCols: visible - col.height >= 2 * cell.height,
         rowLeft: style('th.player-clue.is-row').left,
         colTop: style('th.player-clue.is-col').top,
         rowPosition: style('th.player-clue.is-row').position,
@@ -668,36 +705,185 @@ class TestPublicZoom_AZoomedGutterNeverCoversTheBoard:
         self, browser_page, host
     ) -> None:
         page = browser_page
+        bounds = None
+        seen = []  # (viewport name, percent, keepsRows, keepsCols)
+        for name, viewport in (("phone", PHONE), ("landscape", LANDSCAPE)):
+            page.set_viewport_size(viewport)
+            _open(page, host, host[2]["max"])
+            bounds = _bounds(page)
+            rungs = int((bounds["max"] - bounds["min"]) / bounds["step"])
+            for step in range(rungs + 1):
+                if step:
+                    _press(page, "in")
+                reading = page.evaluate(self._READING)
+                # The class is the measurement, on both axes and at every rung.
+                assert reading["keepsRows"] is reading["roomBesideRows"], (name, step, reading)
+                assert reading["keepsCols"] is reading["roomBesideCols"], (name, step, reading)
+                # And the class is what actually moves the offset: `position`
+                # stays sticky throughout (CARD-283's declaration, which
+                # test_public_player.py reads), so what a pinned axis has is an
+                # offset of 0 and an unpinned one the `auto` default.
+                assert reading["rowPosition"] == "sticky", reading
+                assert reading["rowLeft"] == ("0px" if reading["keepsRows"] else "auto"), reading
+                assert reading["colTop"] == ("0px" if reading["keepsCols"] else "auto"), reading
+                seen.append((name, _percent(page), reading["keepsRows"], reading["keepsCols"]))
+
+            # It lets go monotonically, per axis and per viewport — once there
+            # is no room, zooming further in cannot give it back.
+            mine = [row for row in seen if row[0] == name]
+            for axis in (2, 3):
+                kept = [row[axis] for row in mine]
+                assert kept == sorted(kept, reverse=True), (name, axis, mine)
+            # At the module's floor the promise CARD-283 made is intact on
+            # both axes.
+            assert mine[0][1:] == (bounds["min"], True, True), mine
+
+        # Not a vacuous rule, on EITHER axis: each has a rung somewhere in the
+        # sweep where it holds and a rung where it lets go, so neither
+        # `keepsRows is roomBesideRows` nor `keepsCols is roomBesideCols` can be
+        # `True == True` throughout. (Cycle 1: this read the row list alone,
+        # and a column predicate reading `.width` for `.height` survived.)
+        for axis, label in ((2, "rows"), (3, "cols")):
+            held = [row for row in seen if row[axis]]
+            let_go = [row for row in seen if not row[axis]]
+            assert held and let_go, (label, seen)
+
+    #: Per axis, the number of whole cells the player can see in the part of the
+    #: stage that is not under a pinned gutter and not below the fold, swept over
+    #: every scroll offset in steps of a quarter cell. ``min`` is the worst
+    #: scroll position, ``max`` the best — a measurement of the CONSEQUENCE the
+    #: rule exists for, taken without calling the rule's own predicate.
+    _REACH = """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const W = window.publicPlayer.payload.width;
+      const cells = [...document.querySelectorAll('td.player-cell')];
+      const firstRow = cells.slice(0, W);
+      const firstCol = cells.filter((_td, i) => i % W === 0);
+      const rowGutter = document.querySelector('th.player-clue.is-row');
+      const colGutter = document.querySelector('th.player-clue.is-col');
+      const box = stage.getBoundingClientRect();
+      const left = box.left + stage.clientLeft;
+      const top = box.top + stage.clientTop;
+      const right = left + stage.clientWidth;
+      const bottom = Math.min(top + stage.clientHeight, innerHeight);
+      const saved = [stage.scrollLeft, stage.scrollTop];
+      const quarter = firstRow[0].getBoundingClientRect().width / 4;
+      const sweep = (prop, max, count) => {
+        const counts = [];
+        for (let at = 0; at < max + quarter; at += quarter) {
+          stage[prop] = Math.min(at, max);
+          counts.push(count());
+        }
+        return { min: Math.min(...counts), max: Math.max(...counts) };
+      };
+      const cols = sweep('scrollLeft', stage.scrollWidth - stage.clientWidth, () => {
+        const edge = Math.max(left, rowGutter.getBoundingClientRect().right);
+        return firstRow.filter((td) => {
+          const r = td.getBoundingClientRect();
+          return r.left >= edge - 0.5 && r.right <= right + 0.5;
+        }).length;
+      });
+      stage.scrollLeft = saved[0];
+      const rows = sweep('scrollTop', stage.scrollHeight - stage.clientHeight, () => {
+        const edge = Math.max(top, colGutter.getBoundingClientRect().bottom);
+        return firstCol.filter((td) => {
+          const r = td.getBoundingClientRect();
+          return r.top >= edge - 0.5 && r.bottom <= bottom + 0.5;
+        }).length;
+      });
+      stage.scrollLeft = saved[0];
+      stage.scrollTop = saved[1];
+      return { cols, rows };
+    }"""
+
+    def _assert_reachable(self, page, label) -> None:
+        reading = page.evaluate(self._READING)
+        reach = page.evaluate(self._REACH)
+        # A board nobody can reach is the defect this class exists for.
+        assert reach["cols"]["max"] >= 1 and reach["rows"]["max"] >= 1, (label, reach)
+        # A PINNED gutter must leave a whole cell at EVERY scroll offset, which
+        # is what the two-cell rule is derived to guarantee; an unpinned one
+        # only has to be scrollable into view (asserted above).
+        if reading["keepsRows"]:
+            assert reach["cols"]["min"] >= 1, (label, reach, reading)
+        if reading["keepsCols"]:
+            assert reach["rows"]["min"] >= 1, (label, reach, reading)
+
+    def test_a_pinned_gutter_always_leaves_a_whole_cell_in_view(
+        self, browser_page, host
+    ) -> None:
+        """F-3's 175% rung, and F-4's fold, measured by their consequence.
+
+        The sweep above asks whether the class equals the rule; this asks
+        whether the rule is *enough* — at every rung and every scroll offset,
+        on both viewports, a pinned axis leaves at least one whole cell visible.
+        Cycle 1 measured the one-cell rule failing exactly this at 175%.
+        """
+        page = browser_page
+        for name, viewport in (("phone", PHONE), ("landscape", LANDSCAPE)):
+            page.set_viewport_size(viewport)
+            _open(page, host, host[2]["max"])
+            bounds = _bounds(page)
+            for step in range(int((bounds["max"] - bounds["min"]) / bounds["step"]) + 1):
+                if step:
+                    _press(page, "in")
+                self._assert_reachable(page, (name, _percent(page)))
+
+    def test_one_cell_of_room_is_not_enough_at_the_rung_the_owner_will_meet(
+        self, browser_page, host
+    ) -> None:
+        """The control for the reach measurement: it can fail.
+
+        At 175% on the phone the row gutter is put back by hand, as the
+        one-cell rule left it. The measurement must then find a scroll offset
+        with no whole column in view; unpinned, it must not.
+        """
+        page = browser_page
         _open_max(page, host)
         bounds = _bounds(page)
-        rungs = int((bounds["max"] - bounds["min"]) / bounds["step"])
+        for _ in range(3):
+            _press(page, "in")
+        assert _percent(page) == bounds["min"] + 3 * bounds["step"]
+        pinned = """(on) => document.querySelector('.player-board').classList.toggle('keeps-rows', on)"""
+        page.evaluate(pinned, True)
+        assert page.evaluate(self._REACH)["cols"]["min"] == 0, "a straddled offset exists and was not seen"
+        page.evaluate(pinned, False)
+        assert page.evaluate(self._REACH)["cols"]["max"] >= 1
 
-        seen = []
-        for step in range(rungs + 1):
-            if step:
-                _press(page, "in")
-            reading = page.evaluate(self._READING)
-            # The class is the measurement, on both axes and at every rung.
-            assert reading["keepsRows"] is reading["roomBesideRows"], (step, reading)
-            assert reading["keepsCols"] is reading["roomBesideCols"], (step, reading)
-            # And the class is what actually moves the offset: `position` stays
-            # sticky throughout (CARD-283's declaration, which
-            # test_public_player.py reads), so what a pinned axis has is an
-            # offset of 0 and an unpinned one the `auto` default.
-            assert reading["rowPosition"] == "sticky", reading
-            assert reading["rowLeft"] == ("0px" if reading["keepsRows"] else "auto"), reading
-            assert reading["colTop"] == ("0px" if reading["keepsCols"] else "auto"), reading
-            seen.append((_percent(page), reading["keepsRows"]))
+    def test_rotating_a_zoomed_phone_re_asks_the_rule(self, browser_page, host) -> None:
+        """F-1: zoom, then rotate, with no further interaction.
 
-        # Not a vacuous rule: at the module's floor the promise CARD-283 made
-        # is intact on both axes, and somewhere inside the range the row
-        # gutter really does let go.
-        assert seen[0] == (bounds["min"], True), seen
-        assert any(not keeps for _percent_, keeps in seen), seen
-        # It lets go monotonically — once there is no room, zooming further in
-        # cannot give it back.
-        kept = [keeps for _percent_, keeps in seen]
-        assert kept == sorted(kept, reverse=True), seen
+        ``keepCluesInView`` reads the viewport's geometry, so a rotation is an
+        input to it exactly as a zoom press is. Left to the presses, a phone
+        zoomed to 250% and turned on its side kept the portrait answer on both
+        axes and showed no whole cell until a zoom button was pressed.
+        """
+        page = browser_page
+        _open_max(page, host)
+        bounds = _bounds(page)
+        for _ in range(5):
+            _press(page, "in")
+        assert _percent(page) == bounds["min"] + 5 * bounds["step"]
+        before = page.evaluate(self._READING)
+        # The rotation must change the answer, or this test proves nothing.
+        page.set_viewport_size(LANDSCAPE)
+        for _ in range(2):
+            page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+        after = page.evaluate(self._READING)
+        assert (before["roomBesideRows"], before["roomBesideCols"]) != (
+            after["roomBesideRows"], after["roomBesideCols"],
+        ), "rotating did not change what the geometry asks for"
+        assert after["keepsRows"] is after["roomBesideRows"], (before, after)
+        assert after["keepsCols"] is after["roomBesideCols"], (before, after)
+        self._assert_reachable(page, "landscape, after rotating")
+        # And back.
+        page.set_viewport_size(PHONE)
+        for _ in range(2):
+            page.evaluate("() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))")
+        back = page.evaluate(self._READING)
+        assert back["keepsRows"] is back["roomBesideRows"], back
+        assert back["keepsCols"] is back["roomBesideCols"], back
+        self._assert_reachable(page, "phone, after rotating back")
 
     def test_pinning_the_gutter_anyway_is_what_hides_the_board(
         self, browser_page, host

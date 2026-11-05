@@ -560,9 +560,17 @@ function start(payload) {
   // measured on the 30-cell board, which is the case this card exists for,
   // and visible in the renders CARD-324 was reviewed from.
   //
-  // So a gutter is pinned only while there is still room beside it for a
-  // whole CELL. The threshold is derived from the board itself — no share,
-  // no constant — and it is deliberately NARROWER than the admin's own rule
+  // So a gutter is pinned only while there is still room beside it for TWO
+  // whole cells. Two, and derived rather than chosen: a window of width w
+  // laid over cells of pitch c holds a whole cell at EVERY scroll offset
+  // exactly when w >= 2c (at w < 2c some offset straddles the only cell
+  // there is, and at w = c that is every offset but the aligned one). One
+  // cell was this rule's first spelling, and cycle 1's render of the 175%
+  // rung shows what it allowed: 60 px of band beside a 299 px gutter, a
+  // 50 px cell, and at the scroll the zoom itself lands on, zero whole cells
+  // in view. The threshold is a property of the board's own cell and the
+  // argument above — no share, no tuned constant — and it is deliberately
+  // NARROWER than the admin's own rule
   // (solver.js's keepCluesInView, STICK_MAX_SHARE = 0.4): that rule applied
   // at this width would unpin this page's row gutter at 100% as well, which
   // contradicts player.css's promise and the reading
@@ -571,10 +579,26 @@ function start(payload) {
   // and is NOT taken here. This one changes nothing below the zoom at which
   // the board stops being reachable at all.
   //
+  // The column axis is measured against the VISIBLE height of the stage, not
+  // its clientHeight: --player-chrome-h allows one toolbar row and the
+  // toolbar wraps on a phone, so at 390x844 the stage is 708 px tall with its
+  // bottom at 943 — 99 px below an 844 px fold. The part that counts is the
+  // part visible with the page at its top; the page scrolling further down
+  // only shows more of the stage, so this is conservative, never wrong.
+  //
+  // It is recomputed on resize, because the geometry it reads is the
+  // viewport's: a rotation changes the stage's width, its visible height and
+  // the toolbar's wrapping with no zoom press to re-run it. (Zoomed to 250%
+  // on a portrait phone, then rotated, the classes were left holding the
+  // PORTRAIT answer — both wrong — and no cell was reachable until a zoom
+  // button was pressed.) `resize` alone is bound: orientationchange can fire
+  // before the new dimensions are laid out, and a rotation always resizes.
+  //
   // Both classes are opt-IN, so the default is unpinned (ADR-0039/R2): a
   // gutter whose room cannot be measured must not be left covering the
   // board. The page draws its board from script, so there is no state in
   // which the classes are absent and a board is on screen.
+  const CELLS_BESIDE = 2;
   function keepCluesInView() {
     const board = stage.querySelector(".player-board");
     const rowClue = stage.querySelector("th.player-clue.is-row");
@@ -582,13 +606,19 @@ function start(payload) {
     const cell = stage.querySelector("td.player-cell");
     if (!board || !rowClue || !colClue || !cell) return;
     const { width, height } = cell.getBoundingClientRect();
+    // A comparison and not Math.min on purpose: this is a viewport clip, not
+    // a zoom bound, and tests/test_public_player_zoom.py keeps Math.min out of
+    // this file wholesale so that a clamp can never be spelled here.
+    const onScreen =
+      window.innerHeight - (stage.getBoundingClientRect().top + stage.clientTop + window.scrollY);
+    const visibleHeight = onScreen < stage.clientHeight ? onScreen : stage.clientHeight;
     board.classList.toggle(
       "keeps-rows",
-      stage.clientWidth - rowClue.getBoundingClientRect().width >= width,
+      stage.clientWidth - rowClue.getBoundingClientRect().width >= CELLS_BESIDE * width,
     );
     board.classList.toggle(
       "keeps-cols",
-      stage.clientHeight - colClue.getBoundingClientRect().height >= height,
+      visibleHeight - colClue.getBoundingClientRect().height >= CELLS_BESIDE * height,
     );
   }
 
@@ -791,6 +821,8 @@ function start(payload) {
     event.preventDefault();
     commit(event.shiftKey ? redo(history) : undo(history));
   });
+
+  window.addEventListener("resize", keepCluesInView);
 
   controls.hidden = false;
   hint.hidden = false;

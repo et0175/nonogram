@@ -2442,11 +2442,17 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
         """CARD-324's two controls, with the "the handler ran" half the three
         above also carry — and the zoom put back where it was afterwards.
 
-        The restoration is deliberate. Zoom changes the size of every cell, so
-        a walk that left it raised would move the board out from under
-        :func:`drag_a_line`, whose own mouse drag is driven in viewport
-        coordinates and whose "the handler ran" assertion would then fail for
-        a reason that is not EC-050's. What this test claims is that every
+        The restoration is DEFENSIVE, not a fix for a failure anyone observed.
+        Zoom changes the size of every cell, so a walk that left it raised
+        would hand every later control a board whose geometry is not the
+        one it was written against. A first draft of this docstring said such
+        a walk "would fail" :func:`drag_a_line`; cycle 1 of CARD-324's review
+        planted the removal of the loop and both walk tests stayed green, so at
+        this module's fixtures and seed the coupling does not bite and no seed
+        is known at which it does. The loop stays because the walk's later
+        controls are driven by cell geometry and should not inherit a
+        raised zoom, and its cost is a handful of extra presses, each checked
+        like the first. What this test claims is that every
         control issues no write; the zoom's independence from the board is
         ``tests/test_public_player_zoom.py``'s AC-3, where it belongs. Every
         press on the way back is checked the same way, so the restoration is
@@ -2622,13 +2628,26 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     #: button and — since CARD-324 — one per zoom button. A new event type, or
     #: a second handler on an existing one, reds.
     #:
-    #: CARD-324 added no event TYPE, and that is a claim rather than a
+    #: CARD-324's zoom added no event TYPE, and that is a claim rather than a
     #: coincidence: its pinch runs inside the four stage pointer listeners
     #: that were already here, and its buttons bind no key, so the pointer
     #: and keydown halves of this list are unchanged by the zoom.
+    #:
+    #: CARD-324's review (F-1) then added the ONE listener that is not on a
+    #: control at all: ``window``'s ``resize``, which re-asks which clue
+    #: gutters stay pinned. It is derived below rather than added to the list
+    #: by name — the set of ``window``-bound listeners is read out of the
+    #: file, held to exactly the one (type, handler) pair this card declares,
+    #: and its types join the expected census from that read. It is not a
+    #: control: nothing a player presses or types reaches it, and it issues no
+    #: write; ``tests/test_public_player_zoom.py::TestPublicZoom_AZoomedGutterNeverCoversTheBoard``
+    #: rotates a zoomed viewport to hold the behaviour.
+    viewport_listeners = re.findall(r'window\.addEventListener\("([a-z]+)", (\w+)\)', script)
+    assert viewport_listeners == [("resize", "keepCluesInView")], viewport_listeners
     registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
     assert registered == sorted(
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
+        + [kind for kind, _handler in viewport_listeners]
         + ["click"] * (2 + len(actions) + len(zoom_actions))
     ), registered
 
