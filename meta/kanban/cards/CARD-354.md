@@ -16,7 +16,7 @@
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** tests/test_book_solved_answer_key.py
+**Touches:** tests/test_book_solved_answer_key.py, tests/test_book_interior_type_floor.py (SCOPE+, commit `204e1140`), tests/test_check_ref_resolution.py (SCOPE+, 4 comment lines, commit `bf0b2587`)
 **Review score:** —
 **Started:** 2026-11-05T09:53Z
 **Closed:** —
@@ -193,7 +193,7 @@ vector the walk reaches `self.pages.toc/answer/packed_answer` instead and every 
 empty. By what was missing: **inputs never recorded** — `assert []` ×4, `IndexError` ×2, "no table of
 contents to read" ×2, "no answer page to read" ×2, the `([], [...])` operator-alphabet tuple ×2, "no
 answer captions to look for" ×2, "the vector pages set no caption" ×1, `assert set()` ×1 (the first
-**7 of 11 signatures** are plain empty reads of the converted medium, the label's own description); and
+**8 of 11 signatures** [RETRACTED in place under ADR-0039/R4: this said "7 of 11"; the cycle-1 review derived 8 of 11, being 16 reds, with the other 3 signatures being the 5 reds that need the raster twin] are plain empty reads of the converted medium, the label's own description); and
 **the raster arm absent from the converted walk** — `assert 4 >= 6` ×2, "no answer page carried a name at all"
 ×2, `[]` ×1 (5 reds) — which **the M10 label does NOT describe**, since they need the raster twin
 *replayed* rather than a union of the same arm. **B and C do not occur here:** the vector arm needs no
@@ -266,3 +266,5 @@ meant. The round is asked to derive the intended test from CARD-269's AC ref, no
 leave it and say why.
 
 [Guard-cost fix, commit `bf0b2587`] Verified by the orchestrator: branch tip `bf0b2587`, worktree clean, nothing alive in it by executable+cwd, diff vs `04672ce2` is two test files (`tests/test_book_interior_type_floor.py` +56, `tests/test_check_ref_resolution.py` 4 lines), `src/` diff 0. The guard class no longer re-parses the tests tree per call (per-root text cache plus a class-name prefilter, resolution still by `ast`); the slowest guard test measured 0.59 s on my run, against 26-29 s before. Two controls added by the author (parse count equals files naming the class; a name in a string or comment is not a definition). The two `:308` line-number cites are replaced by a description that spells neither a line number nor a test name, because `test_this_module_resolves_no_verifying_ref_at_all` forbids a test name in that file; zero `:308` cites remain at the tip. Author-reported, not mine: 66.4 s to 1.86 s for the class, 154 passed both ways in `tests/test_book_solved_answer_key.py`, prefilter plant reds exactly one test.
+
+[Review 1/3] Score: **8.5 - PASS** (threshold 8.0), reviewer at tip `bf0b2587`, no blocking findings. Figures the reviewer derived itself: merge-base module under the probe 33 failed / 118 passed, after 0 failed / 154 passed (probed and unlifted); three touched modules 239 passed unlifted, 238 passed + 1 failed probe-scoped, 0 skipped (the one red is the CARD-322 M1 test `test_lifting_a_declaration_makes_the_stream_arm_read_that_page`, not touched by this diff); guard class 1.7 s; 15 own mutants, 11 killed. Carried from the author, not re-derived: per-plant node counts, the 13-mutant runner (its S plants edit `src/`). Findings: F-001 four surviving guard mutants (G4 ClassDef name check dropped, G10 startswith, G5 near-equivalent, M4 `_page_reading` drops `media_box`): fix inline, author resumed. F-002 Touches omitted two files: FIXED above. F-003 "7 of 11" figure: RETRACTED in place above (8 of 11). F-004 the replay of the raster twins is mechanism A with a named sub-disposition, and becomes mechanism C once the raster twin retires: no named survivor owes that day, fails loudly not silently, recorded here, not carded. F-005 `_page_reading` ignoring the stream is caught by only two custom-title nodes: confirmed, accepted as declared residue.
