@@ -470,12 +470,6 @@ active:
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
 #   left naming a path that no longer exists -- the phantom holder a free-slot check would read.
-  - card: CARD-324
-    branch: card/324-public-player-zoom
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-324
-    started: 2026-11-05T06:20Z
-    estimate: 1c (0.5d)
-    cut_from: 1fd40d3a
   - card: CARD-355
     branch: card/355-pdf-memory-tests
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-355
