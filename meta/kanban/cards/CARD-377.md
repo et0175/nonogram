@@ -59,6 +59,36 @@ The lock exists to make a suite's verdict attributable. When it waves two actors
 - the failure is **destructive**, not merely contended: see CARD-378
 - and the resulting red carries a signature that gets pinned on the diff
 
+## The EXIT trap is covered on every path except the one that matters
+
+Measured 2026-11-05, with a matched control, during the same incident.
+
+Every round and gate releases the lock via a shell `EXIT` trap. The control: a successful gate's
+`gate.sh` uses the identical pattern, ran to completion, **and did release its lock.** So the
+mechanism works on the path it was written for.
+
+**It fails only on a hard stop** — the agent killed, the shell gone — and that is the one case no
+run exercises. Worse, the two safety nets do not cover it either:
+
+- **No age elapses.** The lock's `at:` is written at acquisition, so a lock stranded one minute in
+  is one minute old. The stale-lock walk-past threshold is **six hours**, so it never fires on a
+  fresh strand.
+- **Nothing else notices.** `verdict()` returns a refusal to every foreign worktree for those six
+  hours, with no process alive to finish or release.
+
+So a stopped holder **blocks the board for six hours**, and the mechanism that would have saved it is
+exercised by every successful gate and covered by none of them for the case that matters. That is the
+same shape as everything else on this card: an instrument whose working path and whose broken path
+are indistinguishable until the broken one is needed.
+
+This happened tonight and was recovered by hand — the owner's orchestrator proved the lock stale by
+resolving ownership **by cwd** (no live process owned the holder's worktree), kept a copy, and removed
+it. That recovery is correct but it is manual, and it required knowing that `at:` is an acquisition
+time rather than a heartbeat.
+
+**Fold this into AC-4 rather than treating it as a footnote:** distinguishing a dead holder from a
+live one is the same problem as distinguishing two live actors, and a heartbeat would answer both.
+
 ## Acceptance criteria
 
 - **AC-1** — Two concurrent runs **in the same worktree** are distinguished. State what the identity
