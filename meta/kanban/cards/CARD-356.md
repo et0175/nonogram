@@ -132,10 +132,10 @@ without deciding these two makes the module worse.**
   (test: named by the implementation; state it)
 - **AC-3** *Given* the five-kind probe, *then* the red count is stated before and after, and the
   M3b product red is **still present and attributed to CARD-322**, not absorbed.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-4** *Given* each repaired site, *then* a plant re-breaks it, matched control green in the
   same run, `0 skipped`, and the node-id count each plant moves is stated.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-5** *Given* the glyph-template text search, *then* it is either dispositioned here or
   named with an owner — it is a mechanism no card currently holds.
   (check: review-lens)

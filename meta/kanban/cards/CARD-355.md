@@ -116,14 +116,14 @@ Re-split your 7 before trusting the label.
 - **AC-2** *Given* the five-kind probe, *then* the module's red count is stated before and after,
   and every remaining red is routed with an owner or carries a stated disposition. The 2 M3 reds
   are **CARD-322's** and must still be present and attributed, not absorbed.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-3** *Given* the `setrlimit(RLIMIT_AS)` skip, *then* it is **still exactly one skip** and
   still attributed by name from `-rEfs`.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-4** *Given* each repaired site, *then* a plant re-breaks it with its matched control green
   in the same run and `0 skipped` asserted; state how many node ids each plant moves, since many
   are fixture-raised.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 
 ## How to measure, and the instrument is not yours to build
 

@@ -82,12 +82,12 @@ Re-split your 4 before trusting the label.
   (test: named by the implementation; state it)
 - **AC-2** *Given* the five-kind probe, *then* both modules' red counts are stated before and
   after, and `pdf_two_up`'s 2 M8 reds are **still present and attributed to CARD-352**.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-3** *Given* the 4 M10 reds, *then* their cause-signature histogram is reported.
   (check: review-lens)
 - **AC-4** *Given* each repair, *then* a plant re-breaks it with its matched control green in the
   same run and `0 skipped`.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-5** *Given* CARD-356's three post-seam byte-identity cells, *then* this card states what
   its identity answer implies for them — a routing statement, not a repair.
   (check: review-lens)

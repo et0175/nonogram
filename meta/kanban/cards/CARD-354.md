@@ -1,6 +1,6 @@
 # CARD-354: `tests/test_book_solved_answer_key.py` — 33 reds, the largest single module of the conversion residue
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** `card/354-solved-answer-key-m10`
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-354
 **Source:** Module-sliced out of CARD-337 at the decompose station, 2026-11-04, on the owner's "module slicing" instruction. CARD-337's own item 0 refuted its premise three ways and its round then derived the mechanism x module cross-tab; that table reconciles to 143 reds in both directions. The axis was changed from mechanism to MODULE because the round measured that a mechanism-sliced partition cannot run concurrently at all -- nine of thirteen modules split across mechanisms, `tests/test_book_pdf_band.py` would have needed five separate cards to edit it, and nothing could have run beside the M10 card. The file axis is the one the scope gate enforces.
 **Idea:** —
-**Wave:** —
+**Wave:** 79 <!-- DISPATCHED 2026-11-05T09:53Z as wave 79's second card, into the slot CARD-358 freed. Premise VERIFIED under the five-kind probe by the orchestrator: 33 failed / 118 passed, 0 errors, 33 distinct nodes; the 12 AttributeError lines on ContentStream match M7d exactly and the other 21 break into 11 distinct signatures. Touches intersection with CARD-324 (player files) EMPTY. Cut off the stamping commit. -->
 **Created wave:** 75
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_solved_answer_key.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-05T09:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -102,14 +102,14 @@ a cause, name it. This card's estimate assumes the latter and the assumption is 
 - **AC-1** *Given* the five-kind probe, *then* this module's red count is **stated before and
   after**, derived by the committed census, and every remaining red is either routed with an
   owner or carries a stated ADR-0042/R6 disposition.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-2** *Given* the 21 M10 reds, *then* their cause-signature histogram is **reported**, and
   if it shows more than one mechanism that is a finding, not a detail.
   (check: review-lens)
 - **AC-3** *Given* each repaired site, *then* a plant re-breaks it and the matched control is
   green **in the same run**, with `0 skipped` asserted — and because many of these are
   fixture-raised, state how many node ids each plant moves.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-4** *Given* a claim retired rather than re-expressed, *then* the survivor is **named** and
   the retirement is asserted, not merely commented (ADR-0039/R1).
   (check: review-lens)

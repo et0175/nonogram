@@ -109,13 +109,13 @@ Re-split your 11 before trusting the label. This module holds the second-largest
   (test: named by the implementation; state it)
 - **AC-2** *Given* the DPI fix, *then* a plant that removes it makes the cells **red again**
   (ADR-0039/R1), with the matched control green in the same run.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 - **AC-3** *Given* the 11 M10 reds, *then* their cause-signature histogram is reported, and more
   than one mechanism is a finding.
   (check: review-lens)
 - **AC-4** *Given* the five-kind probe, *then* the module's red count is stated before and after,
   with every remaining red routed or dispositioned.
-  (test: named by the implementation; state it)
+  (check: review-lens — a stated count or a mutation run is not a test, and no committed test can name it: its instruments live in the worktree and the force-add gate forbids tracking them. **No card owes a flip.** Restated 2026-11-05 on CARD-358's F-004.)
 
 ## How to measure, and the instrument is not yours to build
 
