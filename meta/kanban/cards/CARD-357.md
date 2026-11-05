@@ -1,6 +1,6 @@
 # CARD-357: `tests/test_book_export_interior_cover.py` — 15 reds, and 2 are a DPI nobody passed on a mixed-medium book
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 2c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** 8.4 (cycle 2/3 - CERTIFIED)
 **Started:** 2026-11-05T19:38Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-11-05T22:56Z
+**Actual:** 2c -- **ratio 1.000** (2 review cycles, derived as 2 distinct ordinals among the `[Review N/M] Score:` lines, against the 2c estimate). Sized by derived datum, **wall-clock excluded** per the owner's standing ruling. Datum: **1 tracked file** (`tests/test_book_export_interior_cover.py`), **+383 / -27** lines against the cut `d3ff3ff8`; `src/` and `tests/helpers` diffs 0.
+**Merge commit:** `a044dc62`
 **Blocked by:** —
 
 > ## ⚠ M10 IS THREE MECHANISMS, measured by CARD-358 — and the label describes only the first
@@ -218,3 +218,8 @@ Findings, ranked: R2-1 (low-medium, fix inline): the folio is held only on the e
 
 [Fix round for review 2, commit `49524dde`] Verified by the orchestrator at tip `49524dde`: worktree clean; one commit over the reviewed `97f745ec`; over the cut `d3ff3ff8` still exactly the one Touches file; `src/`, `tests/helpers`, non-test and `meta/` diffs 0; `git diff --stat 97f745ec HEAD` 1 file, 46 insertions and 14 deletions; no added bare early-`return`, no added skip or xfail decorator; my own run of the module unlifted gave 146 passed. Author-reported, not re-run by me: module under the probe 146 passed, 0 failed, 0 skipped; the 13 census modules 1102 passed, 3 skipped (all "Database not reachable: DATABASE_URL is not set"), 0 failed. R2-1: the folio reading is now shared, `_assert_guide_folios(data)` a static helper in `TestBookExport_TheGuideComparisonIsInOneMedium` used by `test_the_exported_guide_pages_print_their_own_folios` and by the ONE new id `test_the_covered_books_guide_pages_print_their_own_folios` (the `covered_book` fixture; it reads the interior the Finalise route returns for the covered book with the same `_folio_in`; no route test reads the guide pages by position, so that is the route-level reading); the helper DERIVES its indices and expected folios from `TITLE_PAGE_COUNT` (imported from `book_pdf_generator`), replacing the hard-coded `(1, 2)` and `[2, 3]`. UNPROBED the guide is a bitmap with no text layer, so the folio is NOT exercised there (that arm asserts only that the two pages are raster); the helper's docstring says so: the folio is held only under the probe, or once the guide is written as operators. Plant `plant_folio_nonempty` (a plugin, `src/` untouched: the vector guide writer is asked for position+2 only when `export_interior` or `export_book` is given a non-empty row list), run over the WHOLE module under the probe: 1 failed, 145 passed, 0 ERROR, the one failure `test_the_covered_books_guide_pages_print_their_own_folios`; the matched control is the empty-book folio test, which stays green in the same run; the other 144 stay green including the `same_page` comparisons (the blind spot again); the cycle-2 reviewer found this plant left all 145 green before the edit. R2-2: "all 138 tests" is now "every test in this module"; "I did not search the rest of the suite" is replaced in the `_guide_page` docstring by the REVIEWER's measurements, attributed to the reviewer (a stray block patched at `book_guide_vector` and every importing module and run over 17 guide-related files from a bounded grep left them green, unprobed 150 passed in 5 files and 838 passed, 1 skipped in 12, under the probe the 68 reds identical with and without the plant; a one-point shift also survives; a stray text run is caught only incidentally, 3 failed, because the folio reading takes poppler's last word; tests that never name the guide were not searched); no surviving authority is named and the F-3 content gap stays UNHELD and an OWNER ITEM. The diff grep matched "1 skipped" only inside that docstring text. R2-4 optional renames of the readable parametrize ids were NOT done, to keep old and new ids identical (G-7). Process note by the author: a first run of this change had a bug (it called `self._empty()` from the wrong test class, failing the empty-book folio test in the probe and plant runs); those runs were discarded, the bug fixed, the OneMedium subset checked (10 passed) and everything re-run from scratch; the figures above are from the re-run. Next: the merge gate.
 
+Closing note at the merge gate (merge commit `a044dc62`; armed full suite 10634 passed, 1 skipped, 1 xfailed, 0 failed, 0 errors). Owner items, the review record above left as written:
+(a) The guide page's CONTENT beyond position, half and folio is UNHELD by any test: a stray block, a one-point shift and a stray text run all survive or are caught only incidentally, and tests that never name the guide were not searched. It is the same page-content oracle gap CARD-356 and CARD-360 declared, and it is an owner decision.
+(b) The folio reading is exercised only UNDER THE PROBE: unprobed, the guide is a bitmap with no text layer.
+(c) The stale-binding finding (`book_guide_vector` imports `TITLE_PAGE_COUNT` by value) was routed to CARD-322's card.
+(d) CARD-322, the terminal node, is now unblocked: every card it depends on is done.
