@@ -2863,3 +2863,122 @@ class TestInteriorType_TheNonVacuityFloorCanFail:
             sorted(LETTERING_KINDS & set(NON_LETTERING_KINDS))
         )
         assert all(NON_LETTERING_KINDS.values()), NON_LETTERING_KINDS
+
+
+# --------------------------------------------------------------------------
+# CARD-354 SCOPE+: the survivors this module cites must still exist
+# --------------------------------------------------------------------------
+
+_GUARD_MARKER = "# CARD-354 SCOPE+"
+
+#: A ``Class::method`` survivor token. Only ``Test*`` classes are read: the
+#: module also writes ``tests/test_book_pdf.py::_media_by_kind`` (a helper, not
+#: a test) and bare ``::method`` continuations, which inherit the class the
+#: line above them named.
+_CITED_SURVIVOR = re.compile(r"\b(Test\w+)::(test_\w+)")
+
+_TESTS_ROOT = Path(__file__).resolve().parent
+
+
+def cited_survivors(text: str) -> List[Tuple[str, str]]:
+    """Every ``Class::method`` token ``text`` writes, derived from the text.
+
+    A deliberate retraction ("this class does not exist") must be written
+    **without** ``::method`` -- which is how this module's prose already names
+    the class it got wrong -- because a regex cannot tell a retraction from a
+    citation, and a retraction written as a token reds here by design.
+    """
+    return sorted(set(_CITED_SURVIVOR.findall(text)))
+
+
+def definitions_of(cls: str, method: str, root: Path) -> List[str]:
+    """Every file under ``root`` whose ``ClassDef`` ``cls`` defines ``method``."""
+    found: List[str] = []
+    for source in sorted(root.rglob("*.py")):
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == cls:
+                if any(
+                    isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name == method
+                    for item in node.body
+                ):
+                    found.append(str(source.relative_to(root)))
+    return found
+
+
+def unresolved_survivors(text: str, root: Path) -> List[str]:
+    """One line per cited token that resolves to nothing, or to two files."""
+    problems: List[str] = []
+    for cls, method in cited_survivors(text):
+        where = definitions_of(cls, method, root)
+        if not where:
+            problems.append(f"{cls}::{method} is defined in no file under tests/")
+        elif len(where) > 1:
+            problems.append(f"{cls}::{method} is ambiguous: defined in {where}")
+    return problems
+
+
+class TestInteriorType_EveryCitedSurvivorStillExists:
+    """CARD-358's retirements name survivors in four test files (CARD-354).
+
+    Nothing else holds those names: they live in this module's prose, so
+    renaming, moving or retiring a cited test elsewhere would leave a retired
+    kind with no survivor and no red. The set is **derived from this module's
+    own text** (ADR-0039/R2), so a new citation extends it with no list to keep
+    in step, and each token is resolved by :mod:`ast` across the whole
+    ``tests/`` tree, because co-location is not ownership.
+    """
+
+    SELF = Path(__file__).resolve()
+
+    @classmethod
+    def prose(cls) -> str:
+        """This module's text above the guard itself.
+
+        The guard's own fixtures name ``TestX_Y::test_z`` to prove the
+        ambiguity branch; those are test data, not citations, so the block
+        that holds them is left out of what is read.
+        """
+        return cls.SELF.read_text(encoding="utf-8").split(_GUARD_MARKER)[0]
+
+    def test_every_cited_class_method_resolves_to_exactly_one_definition(self):
+        problems = unresolved_survivors(self.prose(), _TESTS_ROOT)
+
+        assert not problems, problems
+
+    def test_the_derivation_is_not_empty(self):
+        """Measured 11 on 2026-11-05 (4 + 3 + 3 + 1 across four files).
+
+        A floor, not an equality: a citation added later raises it, and what
+        this refuses is the regex silently matching nothing.
+        """
+        tokens = cited_survivors(self.prose())
+        files = {
+            definitions_of(cls, method, _TESTS_ROOT)[0] for cls, method in tokens
+            if definitions_of(cls, method, _TESTS_ROOT)
+        }
+
+        assert len(tokens) >= 11, tokens
+        assert len(files) >= 4, sorted(files)
+
+    def test_the_guard_reds_by_name_on_a_renamed_citation_and_not_on_its_control(self):
+        text = self.prose()
+        victim = "test_the_caption_is_right_aligned_on_the_slot_comp_007_reports"
+        assert text.count(victim) == 1, text.count(victim)
+        planted = text.replace(victim, victim + "_renamed")
+
+        assert unresolved_survivors(text, _TESTS_ROOT) == []
+        problems = unresolved_survivors(planted, _TESTS_ROOT)
+        assert len(problems) == 1, problems
+        assert victim + "_renamed" in problems[0], problems
+
+    def test_a_token_defined_in_two_files_is_named_as_ambiguous(self, tmp_path):
+        for name in ("test_a.py", "test_b.py"):
+            (tmp_path / name).write_text(
+                "class TestX_Y:\n    def test_z(self):\n        pass\n"
+            )
+
+        assert unresolved_survivors("TestX_Y::test_z", tmp_path) == [
+            "TestX_Y::test_z is ambiguous: defined in ['test_a.py', 'test_b.py']"
+        ]
