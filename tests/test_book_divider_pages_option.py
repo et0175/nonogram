@@ -278,6 +278,12 @@ MIRROR_OUTSIDE_MM = 10.0
 #: without, 10 measurable in each.
 MEASURABLE_PAGES = 10
 
+#: The absolute-centre and odd-minus-even bound, in device pixels. Its value is
+#: declared (with its residue) in ``_problems`` and pinned by
+#: ``test_the_bound_is_the_declared_number``: change it only by moving that
+#: declaration.
+CENTRE_BOUND_PX = 2
+
 
 def _measurable_page_numbers(generator, puzzles) -> list[int]:
     """The 1-based interior pages that carry a ruled drawing, from the PLAN.
@@ -401,9 +407,28 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
             # so the vector margin to the bound is 0.2 px, not 1.2. That is
             # the reason the bound cannot be tightened and the reason it is
             # thin; it is not widened (G-2).
+            # DECLARED RESIDUE OF THE VECTOR HEADROOM (CARD-359 review 2).
+            # Re-measured this round: with the bound at 1.5 px the vector
+            # medium reds 3 of the 97 (nominal 1.7-1.8 px) and raster passes
+            # all 97, so 1.5 is a LOUD false red in vector only; at 2.3 px
+            # vector passes all 97 and raster reds 2 (the residue table's
+            # entries that stop being caught). Consequences: (1) about 0.2 px
+            # of vector headroom means a poppler or rendering change of about
+            # 0.3 px on the grid edge flips this test red -- a loud false
+            # red, and only once PUZZLE is vector; (2) the sensitivity is
+            # ONE-SIDED, because the nominal sits at the bound's edge: a
+            # common left-margin shift shorter by 0.03 mm is red in both
+            # media, longer by 0.4 mm is green in both, longer by 0.6 mm is
+            # green in vector (red in raster), longer by 0.8 mm is red in
+            # both (measured this round; the 2.3 px and 1.5 px figures are
+            # the two bound sweeps above, 97 tests each). (3) NOBODY MAY
+            # WIDEN CENTRE_BOUND_PX to quiet a false red without moving this
+            # declaration with it.
             centre = (boundary + drawing.grid_right) / 2 - page.width / 2
-            if abs(abs(centre) - expected_offset) > 2:
-                problems.append(f"page {number}: centre {centre:.2f} px")
+            if abs(abs(centre) - expected_offset) > CENTRE_BOUND_PX:
+                problems.append(
+                    f"page {number}: centre {centre:.2f} px (bound {CENTRE_BOUND_PX} px)"
+                )
             frame_lefts[number % 2 == 1].add(boundary)
             widths.add(drawing.grid_right - drawing.grid_left)
         if len(numbers) != MEASURABLE_PAGES:
@@ -419,8 +444,11 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         elif len(frame_lefts[True]) == len(frame_lefts[False]) == 1:
             (odd_left,) = frame_lefts[True]
             (even_left,) = frame_lefts[False]
-            if abs((odd_left - even_left) - 2 * expected_offset) > 2:
-                problems.append(f"odd-even boundary {odd_left - even_left:.1f} px")
+            if abs((odd_left - even_left) - 2 * expected_offset) > CENTRE_BOUND_PX:
+                problems.append(
+                    f"odd-even boundary {odd_left - even_left:.1f} px "
+                    f"(bound {CENTRE_BOUND_PX} px)"
+                )
         else:
             problems.append(f"boundaries differ within a parity: {frame_lefts}")
         return problems
@@ -433,8 +461,11 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
     # The bound is 2 px on the page's absolute centre and on the odd-minus-even
     # boundary. What it lets through is MEDIUM-DEPENDENT, and was measured on
     # this tip by building the book with a shifted real margin while the
-    # expectation stays nominal (margins are stored to 0.01 cm, so 0.1 mm is the
-    # finest shift that can be built). The reason is the one stated in
+    # expectation stays nominal. The shifts are 0.1 mm steps because THIS
+    # TEST formats the margin with ``:.2f`` cm; the product accepts finer
+    # margins (the column is an unconstrained string), so the residue below is
+    # the BOUND's, not a limit of what can be built (see the four-decimal
+    # measurement in ``TestParity_TheBoundIsPinnedFromBothSides``). The reason is the one stated in
     # ``_problems``: the nominal vector centre already sits 1.8 px from the
     # coordinate, 0.2 px inside the bound, so in vector EVERY shift of 0.1 mm
     # (0.6 px of centre) is caught in one direction; in raster (1.2 px of
@@ -453,7 +484,15 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         (-0.2, 0.0): (True, True),
     }
 
-    @pytest.mark.parametrize("shift", sorted(_RESIDUE))
+    # Ids (CARD-359 review 2): were shift0..shift5, in sorted key order; now
+    # named by the shift, e.g. gutter-0.1mm.
+    @pytest.mark.parametrize(
+        "shift",
+        [
+            pytest.param(key, id=f"gutter{key[0]:+}mm-outside{key[1]:+}mm")
+            for key in sorted(_RESIDUE)
+        ],
+    )
     def test_the_residue_is_what_the_table_declares(self, shift) -> None:
         gutter_delta, outside_delta = shift
         raster, vector = self._RESIDUE[shift]
@@ -462,6 +501,11 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
             True, MIRROR_GUTTER_MM + gutter_delta, MIRROR_OUTSIDE_MM + outside_delta
         )
         assert bool(caught) is declared, (shift, declared, caught)
+
+    def test_the_bound_is_the_declared_number(self) -> None:
+        """Pins the declaration in ``_problems`` from the loose side: the
+        residue and headroom figures there were measured at 2 px."""
+        assert CENTRE_BOUND_PX == 2
 
     def test_a_common_shift_of_every_page_is_caught_by_the_absolute_check(
         self,

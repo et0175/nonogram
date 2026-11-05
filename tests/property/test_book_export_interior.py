@@ -1380,7 +1380,8 @@ def _parity_error_mm(gutter_mm, outside_mm):
     :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` reads it.
 
     The shifted pair stands for a generator that drew the nominal book wrongly
-    (margins are stored to 0.01 cm). One fixed puzzle, so it is a control for
+    (this helper formats them with ``:.2f`` cm; the product accepts finer
+    ones, see :class:`TestParity_TheBoundIsPinnedFromBothSides`). One fixed puzzle, so it is a control for
     the bound and not a second corpus.
     """
     puzzle = _unpairable_puzzle(random.Random(PARITY_SEED), "easy")
@@ -1389,7 +1390,10 @@ def _parity_error_mm(gutter_mm, outside_mm):
         gutter_margin_cm=f"{gutter_mm / 10:.2f}",
         outside_margin_cm=f"{outside_mm / 10:.2f}",
     )
-    page = list(BookPDFGenerator(book).interior_stream([puzzle]).pages)[5]
+    generator = BookPDFGenerator(book)
+    # the page read is a puzzle page (interior page 6), not whatever sits there
+    assert generator.section_plan([puzzle]).pages[1].page_number == 6
+    page = list(generator.interior_stream([puzzle]).pages)[5]
     ink = page_image(page)
     (drawing,) = drawings_of(ink)
     measured_mm = frame_centre_of(ink, drawing).frame_left / PX_PER_MM
@@ -1404,8 +1408,14 @@ class TestParity_TheBoundIsPinnedFromBothSides:
 
     The clause above asserts ``abs(measured - expected) < 0.1`` mm. Declared
     residue, MEASURED on this tip with a gutter built longer than the
-    nominal 20 mm (margins are stored to 0.01 cm, so 0.1 mm is the finest
-    step; a drawing moves half of it). Error in mm, raster / vector:
+    nominal 20 mm, in 0.1 mm steps because ``_parity_error_mm`` formats the
+    margin with ``:.2f`` cm -- the test's own rounding, NOT a limit of the
+    product, whose margin column is an unconstrained string and accepts finer
+    values. MEASURED THIS ROUND with four-decimal strings (2.005 and 2.0075 cm,
+    i.e. +0.05 and +0.075 mm): error 0.0030 mm in raster and 0.0877 mm in
+    vector (unshifted: 0.0817 raster, 0.0030 vector), so a sub-0.1 mm margin
+    shift takes effect and the residue below is the bound's. The table, in
+    0.1 mm steps, error in mm, raster / vector:
     +0.1 mm 0.003 / 0.088 (not caught), +0.2 mm 0.088 / 0.172 (caught in
     vector only), +0.4 mm 0.172 / 0.257 (caught in both). So the clause
     cannot see a margin error under 0.2 mm in vector and 0.4 mm in raster:
