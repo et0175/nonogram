@@ -56,6 +56,7 @@ import re
 from dataclasses import replace
 
 import pytest
+from PIL import ImageChops
 
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_page_spec import (
@@ -69,9 +70,12 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
     GUIDE_TITLE,
+    PageKind,
+    PageMedium,
     PuzzlePagePlan,
     TOC_SOLUTIONS_LABEL,
     interior_page_count,
+    page_medium,
     structural_toc_entries,
 )
 from tests.helpers.db import sqlite_session_scope
@@ -341,54 +345,137 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
             **{DIVIDER_PAGES_COLUMN: divider_pages},
         )
 
-    @pytest.mark.parametrize("flag", [True, False])
-    def test_every_pages_parity_equals_its_own_1_based_position(self, flag) -> None:
-        generator = BookPDFGenerator(self._mirrored(flag))
-        pages = interior_images(generator.interior_pages(list(_puzzles())))
-        px_per_mm = 300 / 25.4  # the DPI every book page is measured at
-        expected_offset = (
-            (MIRROR_GUTTER_MM - MIRROR_OUTSIDE_MM) / 2 * px_per_mm
-        )
+    @staticmethod
+    def _problems(
+        flag,
+        gutter_mm=MIRROR_GUTTER_MM,
+        outside_mm=MIRROR_OUTSIDE_MM,
+        page_shift_px=0,
+    ):
+        """Every way the drawn book disagrees with the NOMINAL mirrored margins.
 
-        checked = 0
+        ``gutter_mm`` / ``outside_mm`` are the margins the book is really
+        built with; the expectations below always use :data:`MIRROR_GUTTER_MM`
+        and :data:`MIRROR_OUTSIDE_MM`. A shifted pair therefore stands for a
+        generator that drew the nominal book wrongly, which is what lets the
+        residue controls below pin the bounds from both sides without
+        patching ``src/``.
+
+        Returns a list of messages, empty when the book is drawn where the
+        nominal margins say (so a caller asserts on it; nothing here returns
+        early from a test body).
+        """
+        book = replace(
+            _book(),
+            gutter_margin_cm=f"{gutter_mm / 10:.2f}",
+            outside_margin_cm=f"{outside_mm / 10:.2f}",
+            **{DIVIDER_PAGES_COLUMN: flag},
+        )
+        generator = BookPDFGenerator(book)
+        pages = interior_images(generator.interior_pages(list(_puzzles())))
+        if page_shift_px:
+            # A drift common to every page (the white margin absorbs the wrap).
+            pages = [ImageChops.offset(page, page_shift_px, 0) for page in pages]
+        expected_offset = (MIRROR_GUTTER_MM - MIRROR_OUTSIDE_MM) / 2 * (300 / 25.4)
+        problems: list[str] = []
         frame_lefts: dict[bool, set[float]] = {True: set(), False: set()}
         widths: set[int] = set()
-        for number in _measurable_page_numbers(generator, list(_puzzles())):
+        numbers = _measurable_page_numbers(generator, list(_puzzles()))
+        for number in numbers:
             page = pages[number - 1]
             drawing = drawing_of(page)
-            # WHICH SIDE: the sign of the ink centre's distance from the
-            # trim's middle. The two media disagree about that centre by
-            # about 2 px (CARD-336's measurement, here 56 / -62 px in vector
-            # against 58 / -60 in raster) against an offset of 59, so the
-            # sign is medium-blind and the magnitude is not.
+            boundary = frame_centre_of(page, drawing).frame_left
+            # WHICH SIDE: the sign of the drawing's centre from the trim's
+            # middle, medium-blind (the media differ by about 1 px against
+            # an offset of 59).
             offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
-            assert (offset > 0) == (number % 2 == 1), (
-                f"dividers={flag}: interior page {number} of {len(pages)} is "
-                f"centred {offset:.1f} px off the middle, the wrong side for "
-                f"{'an odd' if number % 2 else 'an even'} page"
-            )
-            frame_lefts[number % 2 == 1].add(frame_centre_of(page, drawing).frame_left)
+            if (offset > 0) != (number % 2 == 1):
+                problems.append(f"page {number}: wrong side ({offset:.1f} px)")
+            # HOW FAR, ABSOLUTE (CARD-359 review F-1): the centre of the
+            # drawing between its left BOUNDARY (medium-blind to half a
+            # pixel) and its grid's right edge (an ink reading), against
+            # half the margin difference. The old 2 px bound, unmoved.
+            # MEASURED residue (this tip, nominal book): raster 0.70 and
+            # 0.80 px off the coordinate, vector 1.70 and 1.80 px -- the
+            # vector grid edge reads 1 px left of the raster's (CARD-336),
+            # so the vector margin to the bound is 0.2 px, not 1.2. That is
+            # the reason the bound cannot be tightened and the reason it is
+            # thin; it is not widened (G-2).
+            centre = (boundary + drawing.grid_right) / 2 - page.width / 2
+            if abs(abs(centre) - expected_offset) > 2:
+                problems.append(f"page {number}: centre {centre:.2f} px")
+            frame_lefts[number % 2 == 1].add(boundary)
             widths.add(drawing.grid_right - drawing.grid_left)
-            checked += 1
+        if len(numbers) != MEASURABLE_PAGES:
+            problems.append(f"{len(numbers)} measurable pages, not {MEASURABLE_PAGES}")
+        # HOW FAR, RELATIVE: the boundary of an odd page sits exactly
+        # (gutter - outside) right of an even page's, whatever the common
+        # centring bias. This cancels any shift common to every page, which
+        # is why the absolute check above exists. The 0.3 mm gutter shift is
+        # caught here by the equal-width precondition (a 1 px rounding
+        # difference between the odd and even drawing), NOT by the bound.
+        if len(widths) != 1:
+            problems.append(f"drawings differ in width: {sorted(widths)}")
+        elif len(frame_lefts[True]) == len(frame_lefts[False]) == 1:
+            (odd_left,) = frame_lefts[True]
+            (even_left,) = frame_lefts[False]
+            if abs((odd_left - even_left) - 2 * expected_offset) > 2:
+                problems.append(f"odd-even boundary {odd_left - even_left:.1f} px")
+        else:
+            problems.append(f"boundaries differ within a parity: {frame_lefts}")
+        return problems
 
-        # HOW FAR (EC-032), as a coordinate rather than a pixel reading:
-        # ``frame_centre_of`` reports the drawing's left BOUNDARY, which
-        # reads within half a pixel of the coordinate in either medium, and
-        # every drawing here is one width, so an odd page's boundary sits
-        # exactly (gutter - outside) right of an even page's whatever the
-        # page's own centring bias. The 2 px bound is the old one, unmoved.
-        assert len(widths) == 1, (flag, sorted(widths))
-        assert len(frame_lefts[True]) == len(frame_lefts[False]) == 1, frame_lefts
-        (odd_left,) = frame_lefts[True]
-        (even_left,) = frame_lefts[False]
-        assert abs((odd_left - even_left) - 2 * expected_offset) <= 2, (
-            flag, odd_left, even_left,
-        )
+    @pytest.mark.parametrize("flag", [True, False])
+    def test_every_pages_parity_equals_its_own_1_based_position(self, flag) -> None:
+        assert self._problems(flag) == []
 
-        assert checked == MEASURABLE_PAGES, (
-            f"dividers={flag}: {checked} pages carried a measurable drawing, "
-            f"not {MEASURABLE_PAGES} — the walk is measuring a different book"
+    # -- the residue, declared and pinned from both sides (ADR-0039/R3) ------
+    # The bound is 2 px on the page's absolute centre and on the odd-minus-even
+    # boundary. What it lets through is MEDIUM-DEPENDENT, and was measured on
+    # this tip by building the book with a shifted real margin while the
+    # expectation stays nominal (margins are stored to 0.01 cm, so 0.1 mm is the
+    # finest shift that can be built). The reason is the one stated in
+    # ``_problems``: the nominal vector centre already sits 1.8 px from the
+    # coordinate, 0.2 px inside the bound, so in vector EVERY shift of 0.1 mm
+    # (0.6 px of centre) is caught in one direction; in raster (1.2 px of
+    # room) a 0.1 mm shift is inside the residue in the direction that moves
+    # the centre toward the coordinate. Each row is the declared outcome
+    # (True = caught) for (raster, vector); the test asserts the table, so the
+    # residue is pinned from both sides and a changed medium or a changed
+    # bound reds it.
+    #   (gutter, outside) delta in mm : (raster, vector)
+    _RESIDUE = {
+        (-0.1, 0.0): (False, True),
+        (0.0, 0.1): (False, True),
+        (0.1, 0.0): (True, True),
+        (0.0, 0.2): (True, True),
+        (0.0, -0.1): (True, True),
+        (-0.2, 0.0): (True, True),
+    }
+
+    @pytest.mark.parametrize("shift", sorted(_RESIDUE))
+    def test_the_residue_is_what_the_table_declares(self, shift) -> None:
+        gutter_delta, outside_delta = shift
+        raster, vector = self._RESIDUE[shift]
+        declared = vector if page_medium(PageKind.PUZZLE) is PageMedium.VECTOR else raster
+        caught = self._problems(
+            True, MIRROR_GUTTER_MM + gutter_delta, MIRROR_OUTSIDE_MM + outside_delta
         )
+        assert bool(caught) is declared, (shift, declared, caught)
+
+    def test_a_common_shift_of_every_page_is_caught_by_the_absolute_check(
+        self,
+    ) -> None:
+        """Every page drawn 0.5 mm (6 px) left of where it was: the
+        odd-minus-even difference is untouched, so only the absolute centre
+        can see it (CARD-359 review F-1: the reviewer's common 1.0 mm
+        left-margin shift moves the centre by half that)."""
+        problems = self._problems(True, page_shift_px=-6)
+        assert any("centre" in problem for problem in problems), problems
+        assert not any("odd-even" in problem for problem in problems), problems
+
+    def test_the_control_for_the_common_shift_is_the_unshifted_book(self) -> None:
+        assert self._problems(True, page_shift_px=0) == []
 
     def test_the_two_states_really_put_the_drawings_on_different_sides(self) -> None:
         """The control for the class: the parity claim above has teeth here.

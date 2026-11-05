@@ -1076,6 +1076,12 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
             numbers_of.append(page_number)
             page_number += 1
 
+        # PLANT RECORD (CARD-359, review F-6): the matched control for the ink
+        # assertion below is the plant that keeps the plan and the page count
+        # and draws the wrong puzzle (``stalepayload``: red HERE, the other two
+        # tests green). The plant that stops two puzzles ever sharing a page
+        # (``nopair``) reds this test on the PAGE-COUNT assertion above and
+        # never reaches the ink, so it is not evidence for the ink claim.
         # CARD-359 (ADR-0042/R6): the claim is a drawing's extent in whole
         # CELLS, a ratio of two pixel distances read off the page's ink, so
         # it needs pixels and survives the medium (the 1-3 px the media

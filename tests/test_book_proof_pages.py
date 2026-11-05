@@ -741,17 +741,32 @@ class TestBookProof_AnnotationIsProofOnly:
             # CARD-359 (ADR-0042/R6): the page is operators, so there is no
             # bitmap to hold byte for byte against COMP-007's raster, and a
             # byte comparison across media is false whatever the page says.
-            # The claim -- a proof annotation cannot reach a book page -- is
-            # a claim about what the page SAYS, and a stream says it in text
-            # operators: read those instead. What is RETIRED in this medium is
-            # the rest of the byte identity -- "no ink of any kind beyond
-            # COMP-007's page, the frame and the caption" -- which has no
-            # subject once the page is operators. Its named survivor is
+            # WHAT HOLDS in this medium is narrower than what was retired,
+            # and it is stated so (review F-3): the stream shows none of the
+            # proof note's own wording. WHAT IS RETIRED is "no ink of any
+            # kind beyond the page, the frame and the caption": a stray rule
+            # or a reworded note passes this arm (measured: a stray vertical
+            # line appended to every vector puzzle page leaves this module at
+            # 105 passed). The named survivor
             # ``test_nothing_on_the_book_export_path_imports_this_module``
-            # (no path from a book download to the note at all), pinned to
-            # exist exactly once by ``test_the_cited_survivor_still_resolves``.
+            # holds only the proof-note ROUTE (``book_proof`` is imported by
+            # ``app.py`` alone), not stray ink. Stray ink on the vector puzzle
+            # page is held by ``tests/test_book_puzzle_page_vector.py``
+            # (MEASURED here: the same stray line reds 10 of its 65, on its
+            # own corpus); this fixture is drawn by the same writer
+            # (``vector_puzzle_page``) but that module does not read THIS
+            # fixture's page, and no claim is made that it does.
             self._assert_no_proof_note_in_the_stream(page)
-            return
+        else:
+            self._assert_the_raster_page_is_the_composed_one(
+                page, generator, book, puzzle, first_puzzle_page
+            )
+
+    @staticmethod
+    def _assert_the_raster_page_is_the_composed_one(
+        page, generator, book, puzzle, first_puzzle_page
+    ) -> None:
+        """The raster arm: COMP-007's page plus the frame and caption, byte for byte."""
         expected, _ = render_pages(
             puzzle.payload("Puzzle 1 · Hard"),
             page_spec=book_page_spec(book, first_puzzle_page),
@@ -791,18 +806,35 @@ class TestBookProof_AnnotationIsProofOnly:
         )
         return " ".join(shown)
 
-    #: What no book page may say. ``annotation_lines`` opens its first line with
-    #: the first of these and carries the others in its second; derived from
-    #: that function in the test rather than restated, so a reworded note
-    #: cannot leave this list guarding the old wording (see the control).
-    _NOTE_MARKERS = ("PROOF PAGE", "not a book page", "thin rule", "heavy rule")
+    @staticmethod
+    def _note_markers() -> tuple[str, ...]:
+        """What no book page may say, read off ``annotation_lines`` itself.
+
+        The name the note opens with, its parenthetical, and the labels of the
+        two rule fields -- parsed from the real lines, so a reworded note
+        changes the markers instead of leaving a stale literal guarding the
+        old wording (a rewording of the labels themselves is still invisible
+        to a stream reader that looks for them; see the comment in the test).
+        """
+        puzzle = PROOF_PUZZLES[0]
+        spec = book_page_spec(_book(), 6)
+        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
+        trim, geometry = annotation_lines(layout)
+        name = trim.split(" (")[0]
+        parenthetical = re.search(r"\(([^)]*)\)", trim).group(1)
+        rules = [
+            field.rsplit(" ", 2)[0]
+            for field in geometry.split(" · ")
+            if field.rsplit(" ", 2)[0].endswith("rule")
+        ]
+        return (name, parenthetical, *rules)
 
     def _assert_no_proof_note_in_the_stream(self, page) -> None:
         shown = self._texts_of(page)
         # The control that can fail: the extractor must have read real text,
         # or an empty string would satisfy every "absent" below.
         assert shown.strip(), "the stream shows no text at all"
-        present = [marker for marker in self._NOTE_MARKERS if marker in shown]
+        present = [marker for marker in self._note_markers() if marker in shown]
         assert present == [], (present, shown)
 
     def test_the_stream_reading_flags_a_note_written_into_the_page(self) -> None:
@@ -820,8 +852,12 @@ class TestBookProof_AnnotationIsProofOnly:
         spec = book_page_spec(_book(), 6)
         layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
         trim, geometry = annotation_lines(layout)
-        assert "PROOF PAGE" in trim and "not a book page" in trim, trim
-        assert "thin rule" in geometry and "heavy rule" in geometry, geometry
+        # The derived markers are what the note's own lines contain, and
+        # today they are these four: a rewording of the note changes the
+        # derivation and reds this pin, instead of going unseen.
+        markers = self._note_markers()
+        assert markers == ("PROOF PAGE", "not a book page", "thin rule", "heavy rule")
+        assert all(marker in trim + " " + geometry for marker in markers), markers
 
         noted = book_vector.ContentStream(width_px=600, height_px=600, dpi=300)
         noted.text("12", 10, 10, 8)
@@ -834,6 +870,17 @@ class TestBookProof_AnnotationIsProofOnly:
             self._assert_no_proof_note_in_the_stream(noted)
         self._assert_no_proof_note_in_the_stream(clean)
 
+    def test_a_stream_that_shows_no_text_is_refused_not_passed(self) -> None:
+        """The control for the "at least some text" guard: an empty reading
+        would satisfy every "absent" assertion, so it must fail by name."""
+        empty = book_vector.ContentStream(width_px=600, height_px=600, dpi=300)
+        with pytest.raises(AssertionError, match="no text at all"):
+            self._assert_no_proof_note_in_the_stream(empty)
+        blank_ink = book_vector.ContentStream(width_px=600, height_px=600, dpi=300)
+        blank_ink.line(10, 10, 10, 90)  # ink with no text is still no reading
+        with pytest.raises(AssertionError, match="no text at all"):
+            self._assert_no_proof_note_in_the_stream(blank_ink)
+
     def test_the_cited_survivor_still_resolves(self) -> None:
         """The retirement in the stream arm names a survivor; it must exist
         exactly once, in this class, or the retirement names nothing.
@@ -843,15 +890,23 @@ class TestBookProof_AnnotationIsProofOnly:
         above pointing at a test that is gone.
         """
         tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
-        found = [
-            (cls.name, node.name)
+        survivor = "test_nothing_on_the_book_export_path_imports_this_module"
+        # Every definition of that name ANYWHERE in the file (a module-level
+        # duplicate included), and the class each sits in.
+        everywhere = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == survivor
+        ]
+        in_class = [
+            cls.name
             for cls in ast.walk(tree)
             if isinstance(cls, ast.ClassDef)
             for node in cls.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "test_nothing_on_the_book_export_path_imports_this_module"
+            if isinstance(node, ast.FunctionDef) and node.name == survivor
         ]
-        assert [name for name, _ in found] == ["TestBookProof_AnnotationIsProofOnly"], found
+        assert len(everywhere) == 1, len(everywhere)
+        assert in_class == ["TestBookProof_AnnotationIsProofOnly"], in_class
 
     def test_nothing_on_the_book_export_path_imports_this_module(self) -> None:
         """Only the panel's router reaches ``book_proof``.

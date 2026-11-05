@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import dataclasses
 import random
+from dataclasses import replace
 import re
 from collections import Counter
 from io import BytesIO
@@ -1371,6 +1372,58 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
     # All three tiers are in the corpus, so the divider the position counts
     # is not always the same level's.
     assert set(seen) >= {"easy", "medium", "hard", "measured"}, seen
+
+
+def _parity_error_mm(gutter_mm, outside_mm):
+    """How far page 6 of a parity book built with these REAL margins draws its
+    puzzle from where the NOMINAL margins say, in mm, read the way
+    :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` reads it.
+
+    The shifted pair stands for a generator that drew the nominal book wrongly
+    (margins are stored to 0.01 cm). One fixed puzzle, so it is a control for
+    the bound and not a second corpus.
+    """
+    puzzle = _unpairable_puzzle(random.Random(PARITY_SEED), "easy")
+    book = replace(
+        _parity_book("card-359-residue"),
+        gutter_margin_cm=f"{gutter_mm / 10:.2f}",
+        outside_margin_cm=f"{outside_mm / 10:.2f}",
+    )
+    page = list(BookPDFGenerator(book).interior_stream([puzzle]).pages)[5]
+    ink = page_image(page)
+    (drawing,) = drawings_of(ink)
+    measured_mm = frame_centre_of(ink, drawing).frame_left / PX_PER_MM
+    nominal_mm = _expected_drawing_left_mm(
+        puzzle, 6, gutter_mm=PARITY_GUTTER_MM, outside_mm=PARITY_OUTSIDE_MM
+    )
+    return abs(measured_mm - nominal_mm)
+
+
+class TestParity_TheBoundIsPinnedFromBothSides:
+    """ADR-0039/R3 for the title-parity clause's 0.1 mm bound (CARD-359 F-2).
+
+    The clause above asserts ``abs(measured - expected) < 0.1`` mm. Declared
+    residue, MEASURED on this tip with a gutter built longer than the
+    nominal 20 mm (margins are stored to 0.01 cm, so 0.1 mm is the finest
+    step; a drawing moves half of it). Error in mm, raster / vector:
+    +0.1 mm 0.003 / 0.088 (not caught), +0.2 mm 0.088 / 0.172 (caught in
+    vector only), +0.4 mm 0.172 / 0.257 (caught in both). So the clause
+    cannot see a margin error under 0.2 mm in vector and 0.4 mm in raster:
+    the nominal raster page already reads 0.082 mm from the coordinate (the
+    half pixel of the boundary reading plus the pixel rounding of the cell),
+    leaving 0.018 mm of room. The controls below use the two shifts that
+    hold in BOTH media: +0.1 mm inside the residue, +0.4 mm just past it.
+    Not widened (G-2).
+    """
+
+    def test_a_shift_inside_the_residue_is_not_caught(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM + 0.1, PARITY_OUTSIDE_MM) < 0.1
+
+    def test_the_first_shift_past_the_residue_is_caught(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM + 0.4, PARITY_OUTSIDE_MM) >= 0.1
+
+    def test_the_unshifted_book_is_the_control(self) -> None:
+        assert _parity_error_mm(PARITY_GUTTER_MM, PARITY_OUTSIDE_MM) < 0.1
 
 
 # --------------------------------------------------------------------------
