@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P2
 **Category:** feature
-**Estimate:** 0.5d
+**Estimate:** 1c (0.5d) <!-- RESTATED in review cycles at wave 79's open, 2026-11-05, before dispatch rather than at it, so the wave's ratio is computable from the outset. Was 0.5d. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -25,6 +25,32 @@
 **Blocked by:** —
 
 ## Why this card exists
+
+> **⚠ PREMISE CHECKED AT THE STATION, 2026-11-05 — the load-bearing half HOLDS, three carried
+> figures have MOVED** (ADR-0039/R4). Re-measured before dispatch:
+>
+> **Holds, and it is the part the card stands on:** all **seven** names — `ZOOM_MIN`, `ZOOM_MAX`,
+> `ZOOM_STEP`, `clampZoom`, `stepZoom`, `pinchZoom`, `anchoredScroll` — are exported by
+> `solver_state.js` **and present in the served copy** the public player would import, so "the
+> shared module already holds the behaviour and only the glue is missing" is correct.
+> `player/player.css` still has **zero** zoom rules. `play.js` imports none of the seven — its one
+> zoom mention is a **comment**. And the four functions take **numbers only**
+> (`clampZoom(value)`, `stepZoom(current, direction)`,
+> `pinchZoom(startZoom, startDistance, currentDistance)`,
+> `anchoredScroll(scroll, anchor, oldZoom, newZoom)`), so **ADR-0041/R2 is satisfied by signature**
+> — none can carry a solution cell.
+>
+> **Moved, and retracted here:**
+> • *"the served copy is byte-identical to the admin's (`diff -q` clean, 1163 lines)"* — the admin's
+>   file is now **1367** lines, the served copy **1163**, and `diff -q` reports **DIFFER**. The
+>   served copy is a **gitignored build artefact** (`.gitignore:7:build/`), so this is a stale local
+>   build 204 lines behind, not a divergence in the tree. **It does not block the card** — all seven
+>   names are in it — but the round should regenerate the build rather than trust the copy on disk.
+> • *"`admin.css`'s 18 zoom rules"* — now **23**.
+> • *"`play.html` has no zoom group"* — **correct**, but it does carry **2** zoom mentions, both
+>   comments about mobile-first reading. Stated so a round grepping for `zoom` is not surprised.
+>
+> **Re-derive all of these rather than carrying them.** Three of five figures moved in six days.
 
 **The public page serves the zoom arithmetic and calls none of it.** Measured
 2026-10-30: `solver_state.js` exports `ZOOM_MIN`, `ZOOM_MAX`, `ZOOM_STEP`,

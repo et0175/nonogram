@@ -26,6 +26,20 @@
 
 ## The population, from CARD-337's cross-tab
 
+> **✓ PREMISE VERIFIED AT THE STATION, 2026-11-05 — it reproduces EXACTLY.** Run under this card's
+> own stated condition, the five-kind probe (`pytest -p scratchpad.card338.probe_five_kinds`, the
+> instrument CARD-338 landed): **8 failed / 43 passed**. Classified by re-running each failing node
+> and reading its cause: **7 are M10 (this card's)** and **1 is M1 (CARD-322's)** — the
+> `monkeypatch.py` `KeyError: <PageKind.TITLE: 'title'>` delitem site, on
+> `test_lifting_a_declaration_makes_the_stream_arm_read_that_page`. The 8 = 7 + 1 split is exactly
+> what the card claims.
+>
+> **Note for the round, because it will mislead you otherwise:** on `main` *without* the probe this
+> module is **51 passed, 0 failed**. The reds are a property of the converted end state, not of the
+> tree — so a bare `pytest tests/test_book_interior_type_floor.py` will tell you nothing and look
+> like a refuted premise. The orchestrator made that mistake first and checked the condition before
+> announcing it.
+
 **8 reds under the five-kind probe; this card owns 7.** The other is **M1**
 (`monkeypatch.py: KeyError: <PageKind.TITLE: 'title'>`, a `delitem` site) and is **CARD-322's**.
 
