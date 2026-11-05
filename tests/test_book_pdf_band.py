@@ -1529,10 +1529,28 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
     generator draws). An independent whole-page expectation for operators
     would mean re-composing the sheet furniture and the grid from
     ``book_sheet_vector`` here, which is a second implementation of the
-    writer rather than a cheap reading, so it is **not built**: the
-    name-independent marks are held by the sibling modules that own them
-    (``tests/test_book_puzzle_page_vector.py``, ``tests/test_book_grid_rules.py``),
-    not by this one.
+    writer rather than a cheap reading, so it is **not built**.
+
+    **Who else holds a name-independent stray mark -- MEASURED, not assumed**
+    (CARD-356, in-process plants that add one mark to every content stream, run
+    against each module alone beside an unplanted control in the same
+    invocation; instruments in the card's review folder): on the *puzzle
+    page* the writer's own module catches all three plants -- a stray vertical
+    rule, a stray text run and a stray filled rectangle -- in, among others,
+    ``tests/test_book_puzzle_page_vector.py::TestPropertyTest_PuzzlePage_EveryCoordinateComesFromTheLayout::test_every_mark_on_every_page_is_the_one_the_layout_demands``
+    and
+    ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_page_carries_all_four_pieces_of_furniture``
+    (the rule and the text run are also caught by
+    ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture::test_the_page_shows_only_the_clue_digits_and_the_band``).
+    ``tests/test_book_grid_rules.py`` catches only the stray *rule*, by
+    ``tests/test_book_grid_rules.py::TestBookGridRules_FifthLinesOnBothAxes::test_the_stream_strokes_both_axes_at_the_fifth_weight``
+    and
+    ``tests/test_book_grid_rules.py::TestBookGridRules_RaggedLastBand::test_the_last_band_is_short_and_the_border_keeps_its_weight``,
+    and neither the text run nor the rectangle. **Declared residue:** that
+    covers the puzzle page only, and only the three marks planted -- an actual
+    second folio was not planted. No module was measured for the answer page,
+    the ungraded page, the table of contents or the guide, so for those a
+    name-independent stray mark is not claimed to be held by anything.
     """
     random_source = random.Random(20260923)
     books = 0
