@@ -1886,6 +1886,13 @@ class TestPublicHint_TheScenariosAreGreenOnTheRealPage:
         assert set(results) == set(SCENARIOS) and len(results) >= 13
         assert {k: v for k, v in results.items() if v} == {}
 
+    @pytest.mark.parametrize("name", list(SCENARIOS))
+    def test_each_scenario_is_green_on_its_own_node(self, plant_page, host, name) -> None:
+        """The umbrella above names no scenario when it reds; these do, one node each, so a
+        plant that breaks exactly one thing moves exactly that thing's node id."""
+        page, errors = plant_page
+        assert run_scenarios(page, errors, host, host[2], names=[name])[name] == []
+
     def test_the_served_canary_mechanism_serves_an_unchanged_file(self, plant_page, host) -> None:
         page, errors = plant_page
         serve_planted(page, host, "play.js", [], "control")
