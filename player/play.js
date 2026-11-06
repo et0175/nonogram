@@ -80,6 +80,30 @@
 //     around — the precedent CLAUDE.md names for exactly this situation — and
 //     cross-checked against the module's stroke values in the test tree.
 //
+// PROBE MODE IS THE MODULE'S TRANSACTION AND THIS FILE'S WIRING (CARD-380,
+// ADR-0038/R4)
+// ---------------------------------------------------------------------
+// A probe is a hypothesis: a group of marks that is later kept or abandoned
+// as one. Every transition (open, keep, abandon, and the "change" that leaves
+// it alone) is solver_state.js's nextProbe, membership is probeCells, an
+// abandon is abandonProbe and the save a probe writes is checkpointHistory.
+// This file only says which event happened and reads the value through the
+// module; it defines no probe rule of its own, and the probe is never a
+// fifth cell state (the cell keeps its data-state; the membership marker is
+// data-probe, rewritten from the history on every refresh and stored nowhere).
+// The three decisions that are this page's own:
+//
+//   * a probe whose marks reach the clue-solved state COMMITS (owner,
+//     2026-11-06). The admin decides "solved" against the answer; this page
+//     asks isClueSolved, which is the same fact for a uniquely solvable
+//     puzzle. Without it a finished picture inside an open probe would be
+//     lost on reload and one press of Contradiction would undo all of it;
+//   * the save never holds a probe stroke: while a probe is open the entry is
+//     serialize(checkpointHistory(...)), so a reload resumes at the probe's
+//     start with no probe open (the page says so beside the controls);
+//   * Reset closes an open probe, as the admin's does: it clears the board the
+//     hypothesis was about.
+//
 // PLAY STATE IS THIS BROWSER'S, AND NOTHING ELSE'S (ADR-0041/R4, EC-050,
 // CON-021 as amended). The save is one localStorage entry per puzzle key.
 // There is no account, no server-side state and no write request of any kind:
@@ -105,6 +129,7 @@ import {
   ZOOM_MIN, ZOOM_MAX, stepZoom, pinchZoom, anchoredScroll,
   RUNG_POINT, RUNG_EXPLAIN, RUNG_REVEAL, HINT_REASONS,
   nextRung, hintReason, hintStroke, hintCount,
+  nextProbe, probeCells, abandonProbe, checkpointHistory,
   circledClues,
 } from "/solver_state.js";
 
@@ -868,6 +893,12 @@ function start(payload) {
   const hintBar = document.querySelector("[data-player-hint-bar]");
   const hintsOut = document.querySelector("[data-player-hints]");
   const hintSay = document.querySelector("[data-player-hint-say]");
+  // The Probe controls are not in the toolbar either (CARD-380, same ruling).
+  const probeBar = document.querySelector("[data-player-probe-bar]");
+  const probeOpen = document.querySelector("[data-player-probe]");
+  const probeKeep = document.querySelector('[data-player-probe-action="keep"]');
+  const probeAbandon = document.querySelector('[data-player-probe-action="abandon"]');
+  const probeNote = document.querySelector("[data-player-probe-note]");
   const actions = {};
   for (const button of document.querySelectorAll("[data-player-action]")) {
     actions[button.dataset.playerAction] = button;
@@ -896,6 +927,9 @@ function start(payload) {
   // kind: never a cell state, never recorded, never saved, so a load starts on
   // rung 1 with nothing lit.
   let rung = RUNG_POINT;
+  // The probe (see PROBE MODE above): null, or the strokes that predate it.
+  // Player state of Region's kind: never recorded, never saved.
+  let probe = null;
   let hintLine = null;
   let hinted = null;
   // The rung is mirrored into the Hint control as data-player-rung, for the
@@ -1139,6 +1173,12 @@ function start(payload) {
     // and a number is not circled by marks that are not yet made).
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
     const done = isClueSolved(history.board, payload.rows, payload.columns);
+    paintProbe();
+    probeOpen.setAttribute("aria-pressed", probe === null ? "false" : "true");
+    probeOpen.setAttribute("aria-disabled", probe === null && !done ? "false" : "true");
+    probeKeep.hidden = probe === null;
+    probeAbandon.hidden = probe === null;
+    giveTheSlot();
     solved.hidden = !done;
     document.body.dataset.solved = done ? "true" : "false";
     regionToggle.setAttribute("aria-pressed", region ? "true" : "false");
@@ -1147,6 +1187,18 @@ function start(payload) {
     }
     for (const swatch of regionToggle.querySelectorAll(".player-swatch")) swatch.dataset.state = tool;
     stage.querySelector(".player-board")?.classList.toggle("is-region", region);
+  }
+
+  // The marker: data-probe on the cells the open probe holds, from the module's
+  // probeCells over the recorded history. It is DERIVED, never stored: every
+  // refresh writes it again, so undo, redo, an abandon and a keep move it with
+  // the history and nothing can leave it stale.
+  function paintProbe() {
+    const members = new Set(probeCells(history, probe).map(([row, col]) => row * payload.width + col));
+    for (let index = 0; index < cells.length; index += 1) {
+      if (members.has(index)) cells[index].dataset.probe = "true";
+      else delete cells[index].dataset.probe;
+    }
   }
 
   // The sentence a press says, in the bar under the board. While one is showing
@@ -1158,7 +1210,20 @@ function start(payload) {
   // is the longer of the two at every width, so the swap never adds height.
   function say(text) {
     hintSay.textContent = text;
-    hint.hidden = text !== "";
+    giveTheSlot();
+  }
+
+  // The slot beside the Hint bar has ONE occupant at a time, by priority: a
+  // sentence a hint press said, else the open probe's note, else the usage
+  // paragraph. The zoom module pins that the space below the stage stays
+  // smaller than the stage's offset from the top, and each occupant is
+  // shorter than the one it displaces (the paragraph is the longest at every
+  // width), so the swap never adds height; two occupants at once would
+  // (tests/test_public_player_probe.py measures it over the zoom module's grid).
+  function giveTheSlot() {
+    const saying = !(hintSay.textContent === "");
+    hint.hidden = saying || !(probe === null);
+    probeNote.hidden = probe === null || saying;
   }
 
   function showHintLine(line) {
@@ -1178,7 +1243,7 @@ function start(payload) {
   // hint ladder goes back to rung 1 with nothing lit (nextRung's "change").
   // Rung 3's own stroke comes through here too, which is what makes rungs 1-3
   // of one ladder always describe one situation.
-  function commit(next) {
+  function commit(next, event = "change") {
     // Only a RECORDED change ends the ladder: an undo or redo with nothing to
     // undo or redo hands back the very history it was given, and must not wipe
     // the line the player is looking at.
@@ -1188,10 +1253,14 @@ function start(payload) {
       showHinted(null);
       say("");
     }
+    // The probe follows the recorded change BEFORE the save is written from
+    // it. A board that reaches the clue-solved state commits it (owner,
+    // 2026-11-06), otherwise `event` is "change", which leaves it alone.
+    probe = nextProbe(probe, next, isClueSolved(next.board, payload.rows, payload.columns) ? "keep" : event);
     history = next;
     shown = next.board;
     lastClick = null;
-    writeSave(payload.key, serialize(history, payload));
+    writeSave(payload.key, serialize(checkpointHistory(history, probe), payload));
     refresh();
   }
 
@@ -1347,8 +1416,37 @@ function start(payload) {
   actions.undo?.addEventListener("click", () => commit(undo(history)));
   actions.redo?.addEventListener("click", () => commit(redo(history)));
   actions.reset?.addEventListener("click", () => {
-    commit(record(history, resetStroke(history.board)));
+    const cleared = record(history, resetStroke(history.board));
+    commit(cleared, cleared === history ? "change" : "keep");
     announce.textContent = "Board reset. Undo brings the marks back.";
+  });
+
+  // The Probe controls. None records a stroke by itself, none makes a request,
+  // and all are ignored mid-gesture (a drag is one input). Probe opens one at
+  // the current history position, and is refused while one is open or the
+  // puzzle is solved (nextProbe's depth of 1 is the second guard). Keep closes
+  // it and touches no cell; the whole history is savable again, so the save is
+  // rewritten. Contradiction undoes back to the checkpoint and closes it, a
+  // run of undos like any other, so it goes through commit and redo after it
+  // follows the ordinary rules.
+  probeOpen.addEventListener("click", () => {
+    if (gesture || probeOpen.getAttribute("aria-disabled") === "true") return;
+    lastClick = null;
+    probe = nextProbe(probe, history, "open");
+    refresh();
+  });
+  probeKeep.addEventListener("click", () => {
+    if (gesture || probe === null) return;
+    lastClick = null;
+    probe = nextProbe(probe, history, "keep");
+    writeSave(payload.key, serialize(history, payload));
+    refresh();
+  });
+  probeAbandon.addEventListener("click", () => {
+    if (gesture || probe === null) return;
+    const back = abandonProbe(history, probe);
+    probe = nextProbe(probe, back, "abandon");
+    commit(back);
   });
 
   // The anchor for a button press is the centre of the stage's own visible
@@ -1380,6 +1478,7 @@ function start(payload) {
   controls.hidden = false;
   setRung(rung);
   hintBar.hidden = false;
+  probeBar.hidden = false;
   hint.hidden = false;
   syncZoom();
   // After the toolbar is revealed, because the stage's own box is what the

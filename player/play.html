@@ -149,11 +149,41 @@
     script never ran shows no dead control.
   -->
   <div class="player-below">
+  <!--
+    The Probe controls (CARD-380, FR-045; the admin's CARD-268). Like the Hint
+    they are NOT children of .player-toolbar (owner ruling 2026-11-06: the
+    toolbar's button set is pinned by tests/test_public_player_zoom.py). They
+    share the Hint bar's column (.player-bars) in the same .player-below row as
+    the usage paragraph, because the zoom module pins that the space below the
+    stage stays smaller than the stage's offset from the top: on a narrow
+    viewport the two bars stack in a column BESIDE the paragraph, which is the
+    taller of the row (so the stack adds no height), and on a wide one they sit
+    side by side (player.css has the measurements and the breakpoint).
+
+    Probe opens a hypothesis; Keep and Contradiction exist only while one is
+    open (hidden otherwise, as the admin's are). The attribute names are the
+    admin's (data-player-probe on the toggle, data-player-probe-action on the
+    other two), and the one-line note is the admin's wording (rule 9: a reload
+    abandons the open probe). The note stands where the usage paragraph does
+    and replaces it while a probe is open, for the zoom premise's sake (the
+    Hint's sentence does the same). Everything is hidden until play.js has
+    drawn the board, like the toolbar.
+  -->
+  <div class="player-bars">
   <div class="player-hint-bar" data-player-hint-bar hidden>
     <button type="button" class="btn player-hint-button" data-player-action="hint" aria-disabled="true">Hint</button>
     <p class="player-hints" role="status" aria-atomic="true">Hints: <span class="player-hints-count" data-player-hints>0</span></p>
     <p class="player-hint-say" data-player-hint-say role="status" aria-atomic="true"></p>
   </div>
+
+  <div class="player-probe" data-player-probe-bar role="group" aria-label="Probe" hidden>
+    <button type="button" class="btn" data-player-probe aria-pressed="false" aria-disabled="false">Probe</button>
+    <button type="button" class="btn" data-player-probe-action="keep" hidden>Keep</button>
+    <button type="button" class="btn" data-player-probe-action="abandon" hidden>Contradiction</button>
+  </div>
+  </div>
+
+  <p class="player-probe-note" data-player-probe-note hidden>Leaving this page abandons the open probe &mdash; press Keep or Contradiction first.</p>
 
   <p class="player-hint" data-player-hint hidden>
     Tap a cell to mark it with the selected brush; tap it again to go on
