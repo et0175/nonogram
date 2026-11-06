@@ -2496,6 +2496,12 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
         # group landed.
         "zoom-out": lambda: press_zoom("out"),
         "zoom-in": lambda: press_zoom("in"),
+        # SCOPE+ (CARD-380): the Probe controls, derived into the expected set by the sibling test below
+        # from play.html. Keep and Contradiction are hidden unless a probe is open, so they are pressed
+        # by the DOM's own ``click()``: a press on a hidden control is a no-op the walk must also survive.
+        "probe-open": lambda: page.evaluate("document.querySelector('[data-player-probe]').click()"),
+        "probe-keep": lambda: page.evaluate("document.querySelector('[data-player-probe-action=\"keep\"]').click()"),
+        "probe-abandon": lambda: page.evaluate("document.querySelector('[data-player-probe-action=\"abandon\"]').click()"),
         "undo-key": lambda: page.keyboard.press("Control+z"),
         "redo-key": lambda: page.keyboard.press("Control+Shift+z"),
     }
@@ -2603,6 +2609,13 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     # page's markup, not the toolbar, so it sees it all the same.
     assert actions == {"undo", "redo", "reset", "hint"}, actions
     assert zoom_actions == {"in", "out"}, zoom_actions
+    # SCOPE+ (CARD-380): the Probe controls are the admin's attribute names, like the zoom group's, so they
+    # are one more derived set here: Keep and Contradiction by ``data-player-probe-action`` and the toggle by
+    # its own ``data-player-probe`` button. They are NOT in the toolbar (tests/test_public_player_probe.py).
+    probe_actions = set(re.findall(r'data-player-probe-action="([a-z]+)"', page_html))
+    probe_toggles = len(re.findall(r"<button[^>]*\bdata-player-probe\b(?!-)", page_html))
+    assert probe_actions == {"keep", "abandon"}, probe_actions
+    assert probe_toggles == 1, probe_toggles
     assert "data-player-region" in page_html
     # The names the walk uses, derived from the same markup: one per brush,
     # one per action button, one per zoom button, plus region, tap, drag and
@@ -2611,9 +2624,12 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
         set(walked)
         | {f"{action}-button" for action in actions if action != "reset"}
         | {f"zoom-{direction}" for direction in zoom_actions}
+        | {f"probe-{name}" for name in probe_actions}
+        | {"probe-open"}
         | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
     )
-    assert len(expected) == 12 + len(zoom_actions) + 1, sorted(expected)  # SCOPE+ (CARD-327): + hint-button
+    # SCOPE+ (CARD-327): + hint-button. SCOPE+ (CARD-380): + probe-open, probe-keep, probe-abandon.
+    assert len(expected) == 12 + len(zoom_actions) + 1 + 3, sorted(expected)
     assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
     assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
     source = Path(__file__).read_text(encoding="utf-8")
@@ -2691,7 +2707,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
         + crosshair_events
         + [kind for kind, _handler in viewport_listeners]
-        + ["click"] * (2 + len(actions) + len(zoom_actions))
+        + ["click"] * (2 + len(actions) + len(zoom_actions) + len(probe_actions) + probe_toggles)
     ), registered
 
     # The keydown handler's guard, pinned to the one key it may read: the

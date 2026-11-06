@@ -1124,7 +1124,8 @@ def declaration_census(code: str) -> Counter:
 
 
 #: Every declaration in ALL of play.js (not only the hint section), as `kind:name` or
-#: `kind:name*count`: 229 declarations of 186 names, DERIVED from the file at this card's tip
+#: `kind:name*count`: 242 declarations of 198 names (CARD-380 added 13 declarations and 12 names to CARD-327's
+#: 229 / 186; the additions are listed in `PROBE_DECLARATIONS` below, each with its reason), DERIVED from the file at this card's tip
 #: by ``declaration_census`` (not carried). A new `const stash`, a closure `const memo`, an
 #: alias `const knownAlias = known`, a helper `function`/arrow-const a click handler calls,
 #: or a second declaration of an old name (shadowing) changes it, and the scanner refuses.
@@ -1132,43 +1133,57 @@ def declaration_census(code: str) -> Counter:
 #: DECLARATIONS. It does not see a parameter, a property assigned onto an object the page
 #: already has (`payload.x = ...`, `element.textContent = ...`), an object-literal method,
 #: or an anonymous callback; of those, assignments to a member are the only ones that could
-#: park a value, and play.js has 45 of them (MEMBER_ASSIGNMENTS, measured at this card's tip; each is a DOM property
+#: park a value, and play.js has 50 of them (MEMBER_ASSIGNMENTS, measured at this card's tip, 45 at CARD-327's and five added by CARD-380: three `.hidden =` writes on the probe controls, one `.hidden =` on the probe bar and `dataset.probe =`; each is a DOM property
 #: write or a `window.publicPlayer` field). Nothing on the page carries a solution to park
 #: (ADR-0041/R2, held by the asset test), so the claim is "no new NAMED variable or helper".
-MEMBER_ASSIGNMENTS = 45
+MEMBER_ASSIGNMENTS = 50
+#: CARD-380's additions to the census, ONE REASON EACH (the census is closed, so an addition is a decision):
+#: the probe's five elements (probeBar, probeOpen, probeKeep, probeAbandon, probeNote: DOM handles, as hintBar is),
+#: `let probe` (the open/closed value, player state of Region's kind, read through solver_state.js's nextProbe),
+#: `paintProbe` and its `members` (the data-probe marker, derived from probeCells on every refresh), `index` (that
+#: loop's counter, a second `let index`), `back` (the history an abandon undoes to), `cleared` (the history a reset
+#: records, compared with the old one to decide whether the probe closes), and `giveTheSlot` with its `saying` (the
+#: one place the slot beside the Hint bar is given to its single occupant, for the zoom premise).
+PROBE_DECLARATIONS = Counter(
+    {
+        "const:probeBar": 1, "const:probeOpen": 1, "const:probeKeep": 1, "const:probeAbandon": 1, "const:probeNote": 1,
+        "let:probe": 1, "function:paintProbe": 1, "const:members": 1, "let:index": 1, "const:back": 1, "const:cleared": 1,
+        "function:giveTheSlot": 1, "const:saying": 1,
+    }
+)
 DECLARATION_CENSUS = Counter(
     {
         (word.split("*")[0]): (int(word.split("*")[1]) if "*" in word else 1)
         for word in """
     const:CELLS_BESIDE const:HINT_EXHAUSTED const:HINT_PARTS const:HINT_REASON_SAY const:HINT_SAY
     const:KEY const:MAJOR_EVERY const:SAVE_VERSION const:TOOLS const:actions const:after const:announce
-    const:at const:axis*2 const:blank const:board*2 const:body const:box*3 const:button*3 const:canEmpty
-    const:canFill const:canHint const:cell*4 const:cells*3 const:chosen const:clueNumbers const:clues
+    const:at const:axis*2 const:back const:blank const:board*2 const:body const:box*3 const:button*3 const:canEmpty
+    const:canFill const:canHint const:cell*4 const:cells*3 const:chosen const:cleared const:clueNumbers const:clues
     const:col const:colCells const:colClue const:colForced const:columns*2 const:controls const:corner
     const:decides const:distanceBetween const:done*3 const:down const:first*2 const:firstId const:fits
     const:follow const:from const:head const:headRow const:height*5 const:hint*2 const:hintBar
     const:hintPointText const:hintRevealText const:hintSay const:hintsOut const:id const:inPinch
     const:isAt const:isFinger const:isUndecided const:k const:key const:known const:last const:lift
-    const:line*4 const:lines const:majorAfter const:n const:next const:number const:old const:onBoard
+    const:line*4 const:lines const:majorAfter const:members const:n const:next const:number const:old const:onBoard
     const:onScreen const:paint const:paints const:paragraph const:part*2 const:payload const:placed
-    const:position const:previous const:reached const:reason const:regionToggle const:repeat
+    const:position const:previous const:probeAbandon const:probeBar const:probeKeep const:probeNote const:probeOpen const:reached const:reason const:regionToggle const:repeat
     const:response const:rest const:row const:rowCells const:rowClue const:rowForced const:rows*2
-    const:run const:runs*2 const:sameNumbers const:saveKey const:savedStroke const:sayFor const:second
+    const:run const:runs*2 const:sameNumbers const:saveKey const:savedStroke const:sayFor const:saying const:second
     const:segments const:selector const:sentence const:setDisabled const:showing const:solved const:span
     const:stage*2 const:state const:store const:stroke const:swatch const:table*3 const:tierChip
     const:touchPoints const:touchStartCell const:tr const:type const:undone const:visibleHeight
     const:width*5 const:zoomIn const:zoomOut const:zoomReadout function:applyZoom function:beginPinch
     function:cellUnder function:clear function:clueBox function:clueNumbersOf function:commit
     function:crossedParts function:derivedHint function:deserialize function:drawBoard function:fail
-    function:forcedLine function:hintExplainText function:isClue function:isClueSolved
+    function:forcedLine function:giveTheSlot function:hintExplainText function:isClue function:isClueSolved
     function:isPainted function:keepCluesInView function:keyOf function:load function:markHinted
-    function:moveTo function:paint function:paintCircles function:paintHintLine function:pinchMove
+    function:moveTo function:paint function:paintCircles function:paintHintLine function:paintProbe function:pinchMove
     function:readPayload function:readSave function:refresh function:releaseTouch function:runsOf
     function:say function:serialize function:setRegion function:setRung function:showHintLine
     function:showHinted function:start function:storage function:strokeOf function:syncZoom
     function:wireCrosshair function:writeSave let:col*4 let:crossed let:data*2 let:gesture let:hintLine
-    let:hinted let:history*2 let:i*2 let:index let:j*2 let:k let:lastClick let:pinch let:pinching
-    let:region let:row*3 let:run let:rung let:shown let:tool let:x*2 let:zoom
+    let:hinted let:history*2 let:i*2 let:index*2 let:j*2 let:k let:lastClick let:pinch let:pinching
+    let:probe let:region let:row*3 let:run let:rung let:shown let:tool let:x*2 let:zoom
     """.split()
     }
 )
@@ -1178,13 +1193,14 @@ DEDUCTION_FUNCTIONS = ("known", "isUndecided", "forcedLine", "derivedHint", "can
 #: The names ``start``'s `let`s and the module-level ones may have. A page
 #: variable that could hold a grid is a new `let`, so the set is closed.
 LET_ALLOWED = frozenset(
-    "run data history crossed pinching shown tool region lastClick gesture rung hintLine hinted zoom pinch".split()
+    "run data history crossed pinching shown tool region lastClick gesture rung hintLine hinted zoom pinch probe".split()
 )
 WINDOW_ALLOWED = frozenset({"addEventListener", "innerHeight", "localStorage", "location", "publicPlayer", "scrollY"})
 IMPORT_ALLOWED = frozenset(
     "UNKNOWN FILLED EMPTY MAYBE CELL_STATES createBoard createHistory record undo redo applyStroke clickStroke dragStroke "
     "resetStroke gesturePaints nextRegion ZOOM_MIN ZOOM_MAX stepZoom pinchZoom anchoredScroll "
-    "RUNG_POINT RUNG_EXPLAIN RUNG_REVEAL HINT_REASONS nextRung hintReason hintStroke hintCount circledClues".split()
+    "RUNG_POINT RUNG_EXPLAIN RUNG_REVEAL HINT_REASONS nextRung hintReason hintStroke hintCount circledClues "
+    "nextProbe probeCells abandonProbe checkpointHistory".split()
 )
 #: What takes `solution`, or is the half of the module that would hand this
 #: page a revealed cell: none may be imported.
@@ -1326,8 +1342,12 @@ def test_the_declaration_census_is_the_whole_file_and_is_not_vacuous() -> None:
     code, _ = _scan(source)
     census = declaration_census(code)
     assert census == DECLARATION_CENSUS
-    assert (len(census), sum(census.values())) == (186, 229)
+    assert (len(census), sum(census.values())) == (198, 242)
     assert {"function:start", "const:HINT_PARTS", "function:wireCrosshair", "const:KEY", "function:storage"} <= set(census)
+    # CARD-380: the census still equals CARD-327's 229 declarations plus the probe's listed 13, so an addition
+    # is one of the listed ones or a new decision, and a listed one that is gone fails as a stale entry does.
+    assert sum(PROBE_DECLARATIONS.values()) == 13 and sum(census.values()) - sum(PROBE_DECLARATIONS.values()) == 229
+    assert all(census[word] >= count for word, count in PROBE_DECLARATIONS.items())
     planted, _ = _scan(source.replace("const known = (state)", "const stash = [];\nconst known = (state)", 1))
     assert declaration_census(planted) - DECLARATION_CENSUS == Counter({"const:stash": 1})
     # R3: the residue the census does not see, measured: member assignments (a value parked on an object)
@@ -2398,8 +2418,11 @@ class TestPublicHint_TheControlIsOutsideTheToolbar:
 #: sentence showing, is WORST_MARGIN_PX; it is positive, which is the premise. Past the bound:
 #: the control that leaves the usage paragraph showing under the sentence (what the page
 #: would do without the swap) violates the premise on VIOLATIONS_WITHOUT_THE_SWAP viewports.
-WORST_MARGIN_PX = 54  # MEASURED 2026-11-06
-VIOLATIONS_WITHOUT_THE_SWAP = 84  # MEASURED 2026-11-06, of 170 viewports
+#: CARD-380 re-measured both (it put the Probe bar in the Hint bar's row, which narrows the usage paragraph and
+#: the sentence's room): the least margin is 50 px (was 54) and the control now violates 158 viewports (was 84).
+#: The premise holds (50 > 0) and the swap is still what holds it; the figures moved, the claim did not.
+WORST_MARGIN_PX = 50  # MEASURED 2026-11-06, CARD-380 (CARD-327 measured 54)
+VIOLATIONS_WITHOUT_THE_SWAP = 158  # MEASURED 2026-11-06, CARD-380 (CARD-327 measured 84), of 232 viewports
 
 
 def sentence_margins(page, host, *, keep_usage: bool = False, pad: int = 0) -> dict[tuple[int, int], int]:
@@ -2789,6 +2812,10 @@ def listener_census(script: str, html: str) -> tuple[list[str], list[str]]:
     """(registered listener types in play.js, the types the markup says it should have)."""
     actions = set(re.findall(r'data-player-action="([a-z]+)"', html))
     zoom = set(re.findall(r'data-player-zoom-action="([a-z]+)"', html))
+    # CARD-380: the probe's controls, the admin's attribute names: the toggle is a button carrying
+    # `data-player-probe` (and not one of its longer names), the other two carry `data-player-probe-action`.
+    probe = set(re.findall(r'data-player-probe-action="([a-z]+)"', html))
+    probe_toggles = len(re.findall(r"<button[^>]*\bdata-player-probe\b(?!-)", html))
     registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
     crosshair = re.search(r"\nfunction wireCrosshair\(stage\) \{.*?\n\}\n", script, re.S)
     assert crosshair is not None
@@ -2798,7 +2825,7 @@ def listener_census(script: str, html: str) -> tuple[list[str], list[str]]:
         ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
         + crosshair_events
         + [kind for kind, _ in viewport]
-        + ["click"] * (2 + len(actions) + len(zoom))
+        + ["click"] * (2 + len(actions) + len(zoom) + len(probe) + probe_toggles)
     )
     return registered, want
 
@@ -2807,7 +2834,10 @@ class TestPublicHint_TheListenerCensus:
     def test_the_hint_is_one_click_listener_and_the_census_balances(self) -> None:
         registered, want = listener_census(PLAY_JS.read_text(encoding="utf-8"), PLAY_HTML.read_text(encoding="utf-8"))
         assert registered == want
-        assert registered.count("click") == 2 + 4 + 2, "the tools, Region, four action buttons (undo, redo, reset, hint), two zoom buttons"
+        assert registered.count("click") == 2 + 4 + 2 + 3, (
+            "the tools, Region, four action buttons (undo, redo, reset, hint), two zoom buttons, "
+            "and (CARD-380) the probe's three: Probe, Keep, Contradiction"
+        )
 
     def test_a_sixth_listener_reds_it(self) -> None:
         script, html = PLAY_JS.read_text(encoding="utf-8"), PLAY_HTML.read_text(encoding="utf-8")

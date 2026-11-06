@@ -3482,11 +3482,11 @@ DECLARED_HINT_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
         "The filled-cell twin of the blend above, for the reason the panel gives its own "
         "filled variants: a filled cell's ground is the ink and the pale blend would repaint it.",
     ),
-    'rule[.player-cell.is-hinted[data-probe]].outline-color': (
-        ("var(--color-accent)", _ABSENT),
-        "Probe mode (CARD-268, the panel's hypothesis marks) is the admin player's own and has "
-        "no counterpart on the public page, so there is no hinted-and-probed cell to style.",
-    ),
+    # CARD-380: the entry that stood here, 'rule[.player-cell.is-hinted[data-probe]].outline-color'
+    # (panel "var(--color-accent)", public absent: "probe mode has no counterpart on the public
+    # page"), is GONE because its premise is: the public sheet now carries the panel's rule, so the
+    # pair agrees and the fact is listed with the agreeing ones below. A stale exemption is exactly
+    # what test_a_declared_divergence_that_stops_diverging_is_reported exists to refuse.
     "say.exhausted": (
         ("Hint: no single row or column decides a cell right now.",
          "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board."),
@@ -3532,7 +3532,7 @@ class TestPlayerLooksAgree_TheHintIsTheSameLookAndTheSameWords:
             "keyframes.player-hint-line-in", "keyframes.player-hinted-in", "marker.classes",
             "reduced_motion.quiets[.player-cell.is-hint-line]", "reduced_motion.quiets[.player-cell.is-hinted]", "reduced_motion.quiets[.player-clue.is-hint-line]", "reveal.stroke_call",
             "rule[.player-cell.is-hint-line, .player-clue.is-hint-line].animation", "rule[.player-cell.is-hint-line[data-state=\"filled\"]].background",
-            "rule[.player-cell.is-hint-line].background", "rule[.player-cell.is-hinted].animation", "rule[.player-cell.is-hinted].box-shadow",
+            "rule[.player-cell.is-hint-line].background", "rule[.player-cell.is-hinted[data-probe]].outline-color", "rule[.player-cell.is-hinted].animation", "rule[.player-cell.is-hinted].box-shadow",
             "rule[.player-cell.is-hinted].outline", "rule[.player-cell.is-hinted].outline-offset", "rule[.player-clue.is-hint-line].background",
             "say.point", "say.reason[generic]", "say.reason[overlap]", "say.reason[runs-complete]", "say.reveal",
         ], agreeing
@@ -3626,3 +3626,388 @@ class TestPlayerLooksAgree_TheHintIsTheSameLookAndTheSameWords:
         reason = DECLARED_HINT_DIVERGENCES["say.exhausted"][1]
         assert len(admin_pair[1]) == 117 and len(admin_pair[0]) == 55
         assert "117 characters against the panel's 55" in reason
+
+
+# ==========================================================================
+# CARD-380 - the probe's look and words are the same
+# ==========================================================================
+#
+# Probe mode (the admin's CARD-268) is the fourth look this file holds that the
+# public page REIMPLEMENTS: WHICH cells a probe holds, how it opens, closes and
+# is saved are the shared module's (``nextProbe``, ``probeCells``,
+# ``abandonProbe``, ``checkpointHistory``, byte-identical by ADR-0041/R3; the
+# page-side holding is tests/test_public_player_probe.py); what DRAWS it is two
+# copies. The owner's ruling of 2026-11-06 is that the public probe LOOKS like
+# the panel's (a dashed outline, never a ground tint): so SAMENESS is the rule
+# here, and a divergence is allowed only where this page's own layout FORCES it,
+# each with its reason and a MEASURED figure.
+#
+# The compared facts are the WHOLE declaration set of every flat rule whose
+# selector names the probe (``data-probe`` or ``player-probe``, so the cell
+# marker, the bar, its buttons and its note) and every ``--player-probe*``
+# property wherever it is declared, every property of each (CARD-326's first
+# extractor was default-allow on properties it did not list), plus the words
+# (the three labels and the note) and the marker's JS side (the attribute it
+# writes and the module functions and events it uses).
+
+ADMIN_TEMPLATE = _REPO / "src" / "nonogram" / "admin" / "templates" / "puzzle_solve.html"
+PUBLIC_HTML = _REPO / "player" / "play.html"
+_PROBE_NAME = re.compile(r"data-probe|player-probe")
+_PROBE_FUNCTIONS = re.compile(r"\b(nextProbe|probeCells|abandonProbe|checkpointHistory|probeStart)\(")
+_PROBE_EVENT_LITERALS = re.compile(r'"(open|keep|abandon|change)"')
+
+
+def _probe_rules(css: str) -> dict[str, dict[str, str]]:
+    """``{selector: {property: value}}`` for every flat rule that names the probe.
+
+    A rule names it by its selector, or declares a ``--player-probe*`` variable (then ONLY those
+    variables are the probe's: the rest of a shared ``.player-stage`` rule belongs to other looks).
+    """
+    out: dict[str, dict[str, str]] = {}
+    for selector, body in _RULE.findall(_css_code(css)):
+        selector = _squeezed(selector)
+        found = declarations(body)
+        if _PROBE_NAME.search(selector):
+            out.setdefault(selector, {}).update(found)
+        else:
+            variables = {k: v for k, v in found.items() if k.startswith("--player-probe")}
+            if variables:
+                out.setdefault(selector, {}).update(variables)
+    return out
+
+
+def _words(html: str) -> dict[str, str]:
+    squeeze = lambda text: _squeezed(text.replace("&mdash;", "—"))  # noqa: E731
+    found: dict[str, str] = {}
+    toggle = re.search(r"<button[^>]*\bdata-player-probe\b(?!-)([^>]*)>([^<]*)</button>", html)
+    found["label.toggle"] = squeeze(toggle.group(2)) if toggle else _ABSENT
+    pressed = re.search(r'aria-pressed="([a-z]+)"', toggle.group(1)) if toggle else None
+    found["toggle.aria-pressed"] = pressed.group(1) if pressed else _ABSENT
+    for action in ("keep", "abandon"):
+        match = re.search(rf'<button[^>]*data-player-probe-action="{action}"[^>]*>([^<]*)</button>', html)
+        found[f"label.{action}"] = squeeze(match.group(1)) if match else _ABSENT
+    note = re.search(r'<p class="player-probe-note"[^>]*>([^<]*)</p>', html)
+    found["note.text"] = squeeze(note.group(1)) if note else _ABSENT
+    group = re.search(r'<div class="player-probe"[^>]*role="group" aria-label="([^"]*)"', html)
+    found["group.aria-label"] = group.group(1) if group else _ABSENT
+    return found
+
+
+def probe_facts(css: str, js: str, html: str) -> dict[str, str]:
+    facts: dict[str, str] = {}
+    for selector, found in _probe_rules(css).items():
+        for prop, value in found.items():
+            facts[f"rule[{selector}].{prop}"] = value
+    code = "\n".join(line for _, line in _js_code_lines_of(js))
+    facts["marker.write"] = ",".join(re.findall(r'dataset\.(probe)\s*=\s*"([^"]*)"', code)[0]) if re.search(r'dataset\.probe\s*=', code) else _ABSENT
+    facts["module.functions"] = ",".join(sorted(set(_PROBE_FUNCTIONS.findall(code))))
+    facts["module.events"] = ",".join(sorted(set(_PROBE_EVENT_LITERALS.findall(code))))
+    facts.update({f"words.{k}": v for k, v in _words(html).items()})
+    return facts
+
+
+def probe_disagreements(admin_css_text: str, public_css_text: str, admin_js: str, public_js: str, admin_html: str, public_html: str) -> dict[str, tuple[str, str]]:
+    admin, public = probe_facts(admin_css_text, admin_js, admin_html), probe_facts(public_css_text, public_js, public_html)
+    return {
+        k: (admin.get(k, _ABSENT), public.get(k, _ABSENT))
+        for k in sorted(admin.keys() | public.keys())
+        if admin.get(k, _ABSENT) != public.get(k, _ABSENT)
+    }
+
+
+#: What the public probe does or looks DIFFERENTLY from the admin's, each over the PAIR of values
+#: found and each with the layout fact that FORCES it (the look itself, the marker's outline, its
+#: two colours, the variables, the words and the JS side all AGREE: the owner's ruling of 2026-11-06
+#: is sameness, and a divergence that is only a preference is not allowed). Every figure below is
+#: arithmetic over tokens.css (``test_the_figures_in_the_reasons_are_the_tokens`` recomputes them) or
+#: a measurement of the served page (tests/test_public_player_probe.py holds each one in a browser):
+#: the panel's probe button is 24 px tall (--control-h 36 px less --space-3 12 px) and this page's is
+#: 44 px; the panel's note is 12.48 px (--text-xs 0.78 rem) and this page's 14.4 px (--text-sm 0.9 rem);
+#: this page's Probe button measures 55 px wide at 390 and at 1280 px, its two other buttons are
+#: wider, and the Probe bar is 44 px tall plus --space-3 (12 px) above it.
+DECLARED_PROBE_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
+    "rule[.player-probe .btn].height": (
+        ("calc(var(--control-h) - var(--space-3))", _ABSENT),
+        "The panel gives its probe buttons a height of --control-h less --space-3, 24 px, so the "
+        "group fits the toolbar's last flex line. This page's controls are thumbs and CARD-380 AC-10 "
+        "asks for at least 44 px in the touch dimension, which the page's own .btn already supplies "
+        "(min-height 44 px, measured 44 px on the served page at 390 and 1280 px), so no height is set.",
+    ),
+    "rule[.player-probe .btn].min-height": (
+        ("0", _ABSENT),
+        "The panel zeroes .btn's own minimum so that its 24 px height can win. This page keeps the "
+        "44 px minimum .btn carries (the touch floor), so there is nothing to zero: measured 44 px.",
+    ),
+    "rule[.player-probe .btn].min-width": (
+        (_ABSENT, "44px"),
+        "The Hint control's rule (CARD-327): a one-word button gets a 44 px floor in WIDTH as well, "
+        "so a thumb has a target in both dimensions. The panel's buttons are 24 px tall and have no "
+        "such floor. Measured: Probe is 55 px wide, so the floor binds on none of the three buttons "
+        "today and is the guard for a shorter label.",
+    ),
+    "rule[.player-probe .btn].justify-content": (
+        (_ABSENT, "center"),
+        "Paired with the 44 px width floor above: were a label ever narrower than the floor the text "
+        "would sit at the left of a 44 px box, and the Hint button's rule centres it for that case.",
+    ),
+    "rule[.player-probe-note[hidden]].display": (
+        (_ABSENT, "none"),
+        "The panel's note is a child of the .player-probe group, so its `.player-probe [hidden]` rule "
+        "hides it. On this page the note stands OUTSIDE the group, in the slot beside the Hint bar "
+        "where the usage paragraph is (it replaces that paragraph while a probe is open, for the zoom "
+        "module's premise), so it needs a [hidden] rule of its own: `display` is not set on it, but "
+        "the attribute must hide it in every state, measured by the probe module on the served page.",
+    ),
+    "rule[.player-probe-note].flex": (
+        (_ABSENT, "1 1 14rem"),
+        "The note takes the usage paragraph's place in .player-below, a flex row, and shares its "
+        "rule (a basis of 14 rem = 224 px that grows, as the paragraph's 12 rem does), so on a phone "
+        "it wraps beneath the bars and on a desktop it sits beside them. Measured over the zoom "
+        "module's viewport grid by the probe module.",
+    ),
+    "rule[.player-probe-note].max-width": (
+        (_ABSENT, "48rem"),
+        "The usage paragraph's own measure (48 rem = 768 px), which the note replaces in the same "
+        "slot: a line longer than that is a line nobody reads on a wide screen.",
+    ),
+    "rule[.player-probe-note].margin": (
+        ("0", "var(--space-3) 0 0"),
+        "The panel's note sits on the toolbar's last line, level with the buttons, with no margin. "
+        "Here it stands in the row below the board and is given --space-3 (12 px) above it, the same "
+        "offset the Hint bar and the Probe bar carry, so the three line up. Measured: 12 px.",
+    ),
+    "rule[.player-probe-note].font-size": (
+        ("var(--text-xs)", "var(--text-sm)"),
+        "12.48 px on the panel against 14.4 px here. The note replaces the usage paragraph, which is "
+        "--text-sm, and a sentence the player must read before leaving the page (it says the open "
+        "probe is lost) is set at the size of the page's other prose, not smaller than it.",
+    ),
+    "rule[.player-probe-note].line-height": (
+        ("1", _ABSENT),
+        "The panel's note is one line on a toolbar row, set solid. This page's note can wrap to two "
+        "or three lines on a phone, and line-height 1 would set them touching; it inherits the page's "
+        "own line height instead (the usage paragraph's).",
+    ),
+    "rule[.player-probe].flex-basis": (
+        ("100%", _ABSENT),
+        "The panel's group is the toolbar's LAST FLEX LINE (flex-basis 100%). This page's group is "
+        "not in the toolbar (owner ruling 2026-11-06; CARD-380 AC-10): it is a child of the "
+        ".player-bars column, beside the Hint bar, and takes its content's width.",
+    ),
+    "rule[.player-probe].margin-top": (
+        ("calc(-1 * var(--space-2))", "var(--space-3)"),
+        "The panel pulls its group up by --space-2 (8 px) into the toolbar's own gap. This page's "
+        "group is stacked under the Hint bar in a narrow column and given --space-3 (12 px) above it, "
+        "the Hint bar's own offset; side by side on a wide viewport the bars align by their tops.",
+    ),
+    "rule[.player-probe].margin-bottom": (
+        ("calc(-1 * var(--space-4) + var(--border-width))", _ABSENT),
+        "The panel pulls the stage up under its group by 15 px (--space-4 16 px less --border-width "
+        "1 px) because the group sits in the toolbar and the toolbar has a margin of its own. This "
+        "page's bars have nothing below them but the slot's note: no offset.",
+    ),
+    "rule[.player-toolbar:has(.player-probe)].margin-top": (
+        ("calc(-1 * var(--space-2) - var(--border-width))", _ABSENT),
+        "A panel-only rule: the toolbar is pulled up by 9 px (--space-2 8 px plus --border-width 1 px) "
+        "to make room for the group it carries. This page's toolbar carries no probe control and is "
+        "UNEDITED (the zoom module pins its button set and its one-row bound), so it has no such rule.",
+    ),
+}
+
+
+_DASHED = '.player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }'
+
+
+class TestPlayerLooksAgree_TheProbeIsTheSameLook:
+    """CARD-380 AC-13: the probe's outline, colours, variables and words are the panel's."""
+
+    def _sources(self) -> tuple[str, str, str, str, str, str]:
+        return (
+            ADMIN_CSS.read_text(encoding="utf-8"),
+            PUBLIC_CSS.read_text(encoding="utf-8"),
+            ADMIN_JS.read_text(encoding="utf-8"),
+            PUBLIC_JS.read_text(encoding="utf-8"),
+            ADMIN_TEMPLATE.read_text(encoding="utf-8"),
+            PUBLIC_HTML.read_text(encoding="utf-8"),
+        )
+
+    def test_the_disagreements_are_exactly_the_declared_pairs(self) -> None:
+        found = probe_disagreements(*self._sources())
+        assert found == {k: v[0] for k, v in DECLARED_PROBE_DIVERGENCES.items()}
+
+    def test_a_declaration_is_a_real_divergence_with_a_reason_over_a_fact_the_extractor_makes(self) -> None:
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        known = probe_facts(a_css, a_js, a_html).keys() | probe_facts(p_css, p_js, p_html).keys()
+        for fact, (pair, reason) in DECLARED_PROBE_DIVERGENCES.items():
+            assert fact in known, f"{fact} is declared but the extractor does not produce it"
+            assert pair[0] != pair[1], f"{fact} is declared but does not diverge"
+            assert len(reason) >= _REASON_FLOOR, f"{fact}: a reason is a sentence, not a word"
+            # a divergence that is only a preference is not allowed: each reason names the layout that forces it
+            assert re.search(r"toolbar|touch|44 px|slot|panel|row|column|group|Hint", reason), fact
+
+    def test_the_look_is_the_same_declaration_for_declaration(self) -> None:
+        """The look itself is NOT among the divergences, and its values are what the owner chose."""
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        admin, public = probe_facts(a_css, a_js, a_html), probe_facts(p_css, p_js, p_html)
+        looks = [
+            'rule[.player-cell[data-probe]].outline', 'rule[.player-cell[data-probe]].outline-offset',
+            'rule[.player-cell[data-probe][data-state="filled"]].outline-color',
+            'rule[.player-cell.is-hinted[data-probe]].outline-color',
+            "rule[.player-stage].--player-probe", "rule[.player-stage].--player-probe-ink",
+        ]
+        for fact in looks:
+            assert fact not in DECLARED_PROBE_DIVERGENCES, fact
+            assert admin[fact] == public[fact] != _ABSENT, (fact, admin.get(fact), public.get(fact))
+        # the owner's words, "a dashed outline and never a ground tint", as values and as an absence
+        assert public["rule[.player-cell[data-probe]].outline"] == "var(--player-rule-major) dashed var(--player-probe)"
+        assert not any(k.endswith(".background") or k.endswith(".background-color") for k in public if "data-probe" in k), (
+            "a probe rule that paints a ground is the tint the owner ruled out"
+        )
+
+    def test_the_facts_that_agree_are_enumerated_and_each_is_a_real_value_on_both_sides(self) -> None:
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        a, p = probe_facts(a_css, a_js, a_html), probe_facts(p_css, p_js, p_html)
+        agreeing = sorted((set(a) & set(p)) - set(DECLARED_PROBE_DIVERGENCES))
+        assert agreeing == [
+            "marker.write", "module.events", "module.functions",
+            "rule[.player-cell.is-hinted[data-probe]].outline-color",
+            'rule[.player-cell[data-probe][data-state="filled"]].outline-color',
+            "rule[.player-cell[data-probe]].outline", "rule[.player-cell[data-probe]].outline-offset",
+            "rule[.player-probe .btn].align-items", "rule[.player-probe .btn].display", "rule[.player-probe .btn].font-size",
+            "rule[.player-probe .btn].gap", "rule[.player-probe .btn].line-height", "rule[.player-probe .btn].padding",
+            "rule[.player-probe-note].color", "rule[.player-probe[hidden], .player-probe [hidden]].display",
+            "rule[.player-probe].align-items", "rule[.player-probe].display", "rule[.player-probe].flex-wrap", "rule[.player-probe].gap",
+            "rule[.player-stage].--player-probe", "rule[.player-stage].--player-probe-ink",
+            "words.group.aria-label", "words.label.abandon", "words.label.keep", "words.label.toggle", "words.note.text",
+            "words.toggle.aria-pressed",
+        ], agreeing
+        for fact in agreeing:
+            assert a[fact] == p[fact] and a[fact] not in {"", _ABSENT}, (fact, a[fact])
+        assert p["marker.write"] == "probe,true"
+        assert p["module.functions"] == "abandonProbe,checkpointHistory,nextProbe,probeCells"
+        assert p["module.events"] == "abandon,change,keep,open"
+        assert (p["words.label.toggle"], p["words.label.keep"], p["words.label.abandon"]) == ("Probe", "Keep", "Contradiction")
+        assert p["words.note.text"].startswith("Leaving this page abandons the open probe")
+
+    def test_the_figures_in_the_reasons_are_the_tokens(self) -> None:
+        """Every number the declared reasons state is arithmetic over tokens.css, recomputed here."""
+        tokens = TOKENS_CSS.read_text(encoding="utf-8")
+
+        def px(name: str) -> float:
+            match = re.search(rf"--{name}:\s*([0-9.]+)(px|rem)", tokens)
+            assert match is not None, name
+            return float(match.group(1)) * (16 if match.group(2) == "rem" else 1)
+
+        assert px("control-h") - px("space-3") == 24, "the panel's probe button is 24 px tall"
+        assert px("space-2") + px("border-width") == 9 and px("space-4") - px("border-width") == 15
+        assert (px("space-2"), px("space-3"), px("space-4")) == (8, 12, 16)
+        assert round(px("text-xs"), 2) == 12.48 and round(px("text-sm"), 2) == 14.4
+        reasons = " ".join(reason for _, reason in DECLARED_PROBE_DIVERGENCES.values())
+        for stated in ("24 px", "12.48 px", "14.4 px", "9 px", "15 px", "12 px", "44 px", "55 px"):
+            assert stated in reasons, stated
+        # the outline's width is one number on both pages: 2 x --border-width in the panel, 2px here
+        assert "--player-rule-major: calc(2 * var(--border-width));" in ADMIN_CSS.read_text(encoding="utf-8")
+        assert px("border-width") * 2 == 2 and "--player-rule-major: 2px;" in PUBLIC_CSS.read_text(encoding="utf-8")
+
+    # -- the controls: both sides, and the decisions that are held equal ----
+
+
+    @pytest.mark.parametrize(
+        ("side", "target", "old", "new", "moves"),
+        [
+            *[
+                (side, "css", _DASHED, _DASHED.replace("dashed", "solid"), "rule[.player-cell[data-probe]].outline")
+                for side in ("admin", "public")
+            ],
+            *[
+                (side, "css", _DASHED, _DASHED.replace("}", declaration + " }"), f"rule[.player-cell[data-probe]].{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("z-index: 3;", "opacity: 0.5;", "background: var(--color-warning-tint);", "transition: outline 1s;")
+            ],
+            *[
+                (side, "css", 'outline-color: var(--player-probe-ink); }', 'outline-color: var(--player-probe); }', 'rule[.player-cell[data-probe][data-state="filled"]].outline-color')
+                for side in ("admin", "public")
+            ],
+            *[
+                (side, "css", "var(--color-warning) 42%, var(--grid-paper)", "var(--color-warning) 30%, var(--grid-paper)", "rule[.player-stage].--player-probe-ink")
+                for side in ("admin", "public")
+            ],
+            *[
+                (side, "css", "var(--color-warning) 86%, var(--grid-paper)", "var(--color-warning) 14%, var(--grid-paper)", "rule[.player-stage].--player-probe")
+                for side in ("admin", "public")
+            ],
+            ("admin", "css", ".player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }", ".player-cell.is-hinted[data-probe] { outline-color: red; }", "rule[.player-cell.is-hinted[data-probe]].outline-color"),
+            ("public", "css", ".player-cell.is-hinted[data-probe] { outline-color: var(--color-accent); }", ".player-cell.is-hinted[data-probe] { outline-color: red; }", "rule[.player-cell.is-hinted[data-probe]].outline-color"),
+            ("admin", "html", ">Keep</button>", ">Commit</button>", "words.label.keep"),
+            ("public", "html", ">Keep</button>", ">Commit</button>", "words.label.keep"),
+            ("admin", "html", ">Contradiction</button>", ">Abandon</button>", "words.label.abandon"),
+            ("public", "html", ">Contradiction</button>", ">Abandon</button>", "words.label.abandon"),
+            ("admin", "html", "Leaving this page abandons the open probe", "Leaving this page keeps the open probe", "words.note.text"),
+            ("public", "html", "Leaving this page abandons the open probe", "Leaving this page keeps the open probe", "words.note.text"),
+            ("admin", "js", 'dataset.probe = "true";', 'dataset.probe = "1";', "marker.write"),
+            ("public", "js", 'dataset.probe = "true";', 'dataset.probe = "1";', "marker.write"),
+            ("admin", "js", "checkpointHistory(history, marking.getProbe())", "history", "module.functions"),
+            ("public", "js", "serialize(checkpointHistory(history, probe), payload)", "serialize(history, payload)", "module.functions"),
+        ],
+        ids=[
+            *[f"{side}-outline-solid" for side in ("admin", "public")],
+            *[f"{side}-cell-{name}" for side in ("admin", "public") for name in ("z-index", "opacity", "background", "transition")],
+            *[f"{side}-filled-ink-colour" for side in ("admin", "public")],
+            *[f"{side}-ink-mix" for side in ("admin", "public")],
+            *[f"{side}-probe-mix" for side in ("admin", "public")],
+            "admin-hinted-probe-colour", "public-hinted-probe-colour",
+            "admin-keep-label", "public-keep-label", "admin-abandon-label", "public-abandon-label",
+            "admin-note-words", "public-note-words",
+            "admin-marker-value", "public-marker-value",
+            "admin-checkpoint-save-dropped", "public-checkpoint-save-dropped",
+        ],
+    )
+    def test_a_one_sided_change_to_a_held_fact_is_reported(self, side, target, old, new, moves) -> None:
+        """Each plant moves one AGREEING fact on one side and the comparison reports it; the unplanted
+        pair, in this same run, reports only the declared set (the matched control)."""
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        baseline = probe_disagreements(a_css, p_css, a_js, p_js, a_html, p_html)
+        assert set(baseline) == set(DECLARED_PROBE_DIVERGENCES), "the matched control"
+        texts = {"admin": {"css": a_css, "js": a_js, "html": a_html}, "public": {"css": p_css, "js": p_js, "html": p_html}}
+        text = texts[side][target]
+        assert text.count(old) == 1, f"the plant must apply exactly once: {old!r} ({text.count(old)})"
+        texts[side][target] = text.replace(old, new)
+        found = probe_disagreements(
+            texts["admin"]["css"], texts["public"]["css"], texts["admin"]["js"], texts["public"]["js"],
+            texts["admin"]["html"], texts["public"]["html"],
+        )
+        if moves in baseline:  # a fact already declared: the plant must change the PAIR, not merely leave it declared
+            assert found[moves] != baseline[moves], (moves, found.get(moves))
+        else:
+            assert moves in found, (moves, sorted(found))
+
+    def test_a_declared_divergence_that_stops_diverging_is_reported(self) -> None:
+        """The stale-exemption arm: give the public bar the panel's group offset and the divergence
+        stops being one, which the set equality must notice."""
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        old = "align-items: center; gap: var(--space-2); margin-top: var(--space-3); }"
+        assert p_css.count(old) == 1
+        planted = p_css.replace(old, "align-items: center; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); }")
+        found = probe_disagreements(a_css, planted, a_js, p_js, a_html, p_html)
+        assert "rule[.player-probe].margin-top" not in found
+        assert set(found) == set(DECLARED_PROBE_DIVERGENCES) - {"rule[.player-probe].margin-top"}
+
+    def test_a_declared_value_that_drifts_inside_its_fact_is_reported(self) -> None:
+        """An exemption is over the PAIR: the public note's size drifting to another token still
+        diverges from the panel, and the PAIR comparison is what reds."""
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        old = "color: var(--color-text-secondary); font-size: var(--text-sm); }\n.player-probe-note[hidden]"
+        assert p_css.count(old) == 1
+        planted = p_css.replace(old, "color: var(--color-text-secondary); font-size: var(--text-base); }\n.player-probe-note[hidden]")
+        found = probe_disagreements(a_css, planted, a_js, p_js, a_html, p_html)
+        assert "rule[.player-probe-note].font-size" in found
+        assert found["rule[.player-probe-note].font-size"] != DECLARED_PROBE_DIVERGENCES["rule[.player-probe-note].font-size"][0]
+        assert found != {k: v[0] for k, v in DECLARED_PROBE_DIVERGENCES.items()}
+
+    def test_a_probe_rule_with_a_property_the_extractor_was_not_told_about_is_seen(self) -> None:
+        """CARD-326's lesson, as a control: a property nobody listed, added to the public marker alone."""
+        a_css, p_css, a_js, p_js, a_html, p_html = self._sources()
+        planted = p_css.replace(_DASHED, _DASHED.replace("}", "mix-blend-mode: multiply; }"))
+        assert planted != p_css
+        found = probe_disagreements(a_css, planted, a_js, p_js, a_html, p_html)
+        assert "rule[.player-cell[data-probe]].mix-blend-mode" in found
