@@ -12,8 +12,9 @@
 **Status:** ready
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-31 at the re-cut: this card is the terminal node of the ADR-0042 interior phase and SEVEN ready cards wait on it (CARD-207, CARD-209, CARD-229, CARD-230, CARD-232, CARD-233, CARD-288), with CARD-273 behind them. Its two new prerequisites are P1 for the same reason. -->
 **Category:** enabler
-**Estimate:** 3c (1.5d) <!-- RESTATED in review cycles 2026-11-06 at the SPLIT, before any stamp (a waved card with no Nc term reddens tests/test_kanban_review_record.py, as CARD-325 did). Was `2d`, itself a re-cut of 1d. The premise pass priced the card as written at 5c (2.5d) against the board's sizing.max_estimate of 1d and the owner split it: the part that needs no src/ change and no owner decision is CARD-379 (about 2c); this is the FLIP card, about 3c. Basis: comparators of 29 to 33 reds at 2c landed in 1 cycle (CARD-355, 354, 356), 15 reds at 2c took 2 (CARD-357), 8 to 12 reds at 1c took 2 or 1 (CARD-358, 359, 360), CARD-324 took 3; the mean of this wave's ratios is 1.15. NOT priced: the owner decisions D1 to D8 in the premise note, any content oracle, waits behind gates, and the case where the difficulty-dot instrument has no raster page to measure. -->
-**Complexity:** architectural <!-- RAISED from `standard` at the re-cut: this is the first and only flip of ADR-0042/R1, it is the first production call site of CARD-309's assembly point, it spans src/ + tests/ + fixtures/ + meta/architecture, and its `expires_with` interaction with a live board guard makes the landing order itself load-bearing. -->
+**Estimate:** 3c (1d)
+<!-- `3c (1d)` is honest ONLY with the dot work (D9, 29 reds plus an arm-guard change) NOT executed in this card. If the orchestrator keeps it inside after the owner rules, the figure is `5c (2.5d)`. Basis: comparators carried from the premise pass, 29 to 33 reds at 2c landed in 1 cycle (CARD-355, 354, 356), 15 reds at 2c took 2 (CARD-357). This card's own population after the peel-off is 39 + 2 reds (retire or re-express by table), three masked sites, the src deletion, the D8 site, the ADR edit, the conftest seam with four checks, the rename, the clip divergence and a render. NOT priced: any owner ruling still open (D9, the F-4 cell), any content oracle, waits behind gates, and the case where item 1's checks fail (the 365-site edit is NOT done; the card stops). -->
+**Complexity:** architectural
 <!-- NOTE: `moderate` (CARD-329/CARD-331's value) is not in the skill's enum; `architectural` is the honest one here and resolves the implementation agent to the quality profile. -->
 
 **Revision pending:** false
@@ -27,7 +28,8 @@
 **Wave:** —
 **Created wave:** 68
 **Deferred waves:** 0
-**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338, CARD-354, CARD-355, CARD-356, CARD-357, CARD-358, CARD-359, CARD-360, CARD-379
+**Depends on:** CARD-309, CARD-379, CARD-381, CARD-382, CARD-383, CARD-342, CARD-343, CARD-350
+<!-- CARD-309 (the assembly point), CARD-379 (the pre-flip repairs, the starting tree) and CARD-381 (the 300 s hang guard) are `done`. CARD-382 (the seven modules the census missed, plus two `test_book_pdf_two_up` reds) and CARD-383 (the D4 refusal) are the owner-accepted pre-flip cards; CARD-342 (`test_book_puzzle_frame` 3), CARD-343 (`test_book_guide_page` 2) and CARD-350 (`property/test_book_pdf_geometry`, with the drafted addendum) own reds that are red at the real end state. A red on main at the merge gate fails the gate. NOT yet an edge, because the card does not exist: the dot-arm card to be cut after the owner rules on D9 (add it here when it exists). Older done dependencies (CARD-329, 330, 331, 336, 337, 338, 354 to 360) add no scheduling edge and are dropped; their facts live in the body. The F-4 cell (`..._two_up_pages` in `property/test_book_pdf_geometry`) has no card and needs a decision, and CARD-382's stop clause may leave two `test_book_pdf_two_up` reds declared; neither can be a Depends. -->
 <!--TWO FINDINGS ROUTED HERE BY CARD-337'S ROUND, 2026-11-04, both measured and neither fixable under its G-1.
  (A) A PRODUCT CONSEQUENCE NOBODY HAS DECIDED: the conversion makes `books.interior_ink_mode` have NO EFFECT on 10 of 14 baseline interior pages, and 131 of 171 across the EC-1 corpus, because book_vector.ContentStream's entire colour vocabulary is stroke_grey/fill_grey -- there is no `rg`, so a converted page is DeviceGray whichever mode the book stored. The owner intake that module cites ("we may add colors for book2") is therefore foreclosed on every converted page. Same class as M3b's cp1252 refusal and routed the same way: a product behaviour change that only appears once the page is operators.
  (B) FOUR BASELINE FIXTURES CARRY PROSE THE CONVERSION REFUTES -- e.g. book_baseline_card147.json's "A reader checking the colour space must read it off the PDF's image XObjects." tests/fixtures/book_baseline_*.json is already in this card's Touches (item 5), so this is scope it holds and has not named. -->
@@ -46,7 +48,8 @@
      it carried follows, unchanged, as its own comment. -->
 <!-- CARD-338 ADDED 2026-11-03 at CARD-338's fix round 1 (cycle-1 F-007): the field and the body disagreed. This card's body says CARD-338 built the instrument and "Run it, do not rebuild it", and routes to scratchpad/card338/. The edge was already satisfied TRANSITIVELY through CARD-336 (338 -> 336 -> 337 -> 322, the chain CARD-338 declares), so this is not a scheduling change -- it makes the field say what the body already relies on. -->
 <!-- WIDENED 2026-10-30 at CARD-309's re-cut, from `CARD-309` alone. CARD-309 implemented this card's conversion to measure it and reverted it: 189 failures + 75 errors across 22 modules, four causes. Three of them are now cards and every one of them is a PREREQUISITE, not a sibling -- CARD-329 (the one-image reader), CARD-330 (the 0.169 mm the media disagree by, which changes the VALUE of every placed-edge expectation), CARD-331 (the difficulty-dot instrument, which on a vector page measures a page the product no longer draws and does so SILENTLY). Converting before CARD-330 decides its question means re-deriving every edge expectation twice. WIDENED AGAIN 2026-10-31 at this card's own re-cut by CARD-336 (the frame-centre oracle) and CARD-337 (the twelve modules CARD-329's triage left owed, plus the one its filters could not see) -- both split OUT of this card, both land before any page converts, and both share a file with this one, so they are serialized ahead of it rather than run beside it. -->
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/app.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/pdf_generator.py, tests/test_book_pdf.py, tests/test_book_difficulty_dots.py, tests/test_book_solved_answer_key.py, tests/test_book_puzzle_page_vector.py, tests/fixtures/book_baseline_*.json, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_puzzle_vector.py, tests/conftest.py, tests/test_book_pdf.py, tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py, tests/test_book_solved_answer_key.py, tests/test_book_difficulty_dots.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+<!-- derived from the items, over-declared in the conservative direction. book_pdf_generator.py = item 2 (registry entries and comment only); app.py = item 3 (the one writing site only); book_interior_vector.py = item 3 (docstring only); book_puzzle_vector.py = item 8 (docstring consumer of the F-307 rename); tests/conftest.py = item 1 ONLY if its four checks pass; test_book_pdf.py = items 3, 4, 5; test_book_pdf_band.py = item 8 (the docstring consumer of the F-307 rename) only; test_book_pdf_memory.py = item 6; test_book_puzzle_page_vector.py = item 8; test_book_solved_answer_key.py = item 9; test_book_difficulty_dots.py = item 7, ONLY after the owner rules; the ADR = item 4. REMOVED because moved or excluded: errors.py, cli.py, tests/test_cli.py, tests/test_admin_error_text.py (CARD-383); the six CARD-382 modules and tests/test_book_pdf_two_up.py (CARD-382); book_proof.py and pdf_generator.py (D8 moves one site); tests/fixtures/book_baseline_*.json (D7); book_guide_vector.py (D2). Not edited but re-checked: tests/test_book_export_interior_cover.py (the D2 workaround). -->
 <!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`, `book_toc_vector.py`, `book_answer_vector.py`: measured, the walk ALREADY reaches all four downstream writers through CARD-309's `InteriorPageWriters` (`book_pdf_generator.py:7885/7934/8031/8051`) and the title page through its own `vector_title_page` (`:5266`, gated at `:7863`), so no writer module is edited -- ~~the src/ change is the five registry entries~~ [WITHDRAWN, see the next comment]. ADDED the four files the re-cut's own items need: `book_puzzle_vector.py:43` (the F-307 docstring consumer), `test_book_difficulty_dots.py` (CARD-331's arm re-point), `test_book_solved_answer_key.py:3783` (CARD-297's clip divergence) and `test_book_puzzle_page_vector.py:1950` (the F-307 rename itself). -->
 <!-- WITHDRAWN 2026-11-03 by CARD-338 (fix round 2, cycle-2 F-101a): the struck clause above, "the src/ change is the five registry entries", is FALSE AS MEASURED. Read §2's `[CORRECTION 2026-11-03, CARD-338]` and item 1 before reading this field: the walk reaches those four writers only through the writer set the generator was BUILT with, `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS`, and `interior_generator` has zero call sites in `src/` -- so the `src/` change is the five entries PLUS a decision about the generator's default. The sentence is left standing, struck through, per this card's convention of carrying its corrections inline so the record shows what was claimed when. This was the THIRD site of that clause and the only one no earlier pass looked at, because it is a metadata field rather than a prose section. -->
 <!-- MOVED OFF THE `Touches:` LINE 2026-11-03 by CARD-338 (fix round 2), and that is not cosmetic. `card_lint.parse_card_fields` strips no HTML comment and `card_lint.extract_touches` splits the field on COMMAS, so while the note above sat on the field's own line the parser read it as part of the VALUE: measured, 15 "globs" instead of 8, seven of them prose fragments, and the eighth was `...0042-...-raster.md <!-- CORRECTED 2026-10-31 at the re-cut. REMOVED `book_guide_vector.py`` as ONE glob -- which destroyed the ADR path this card declares. `compute_excess` then reported `meta/architecture/decisions/adr/0042-...md` as EXCESS although the field names it, on a card whose item 3 edits exactly that file. Measured both ways on this card: 15 globs -> 8, and the ADR leaves `excess` the moment the comment is on its own line. Keep every comment on its own line here. -->
@@ -63,6 +66,8 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+**READ FIRST: the plan that governs this card is the section `## [RE-CUT 2026-11-06, final]` (below the System contract); `## What to implement`, `## Acceptance criteria` and `## Guardrails` are the re-cut ones. Every older section is history and is marked superseded by heading in that banner. The card is NOT ready to dispatch until its `Depends on` cards are done.**
 
 ## [RE-CUT 2026-10-31] — read this first; four of the claims below it are superseded
 
@@ -638,351 +643,207 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
 
 ## What to implement
 
-<!-- REWRITTEN 2026-10-31 at the re-cut. Items 1-5 below replace the five this card
-     carried; the two they shed (the reader population, which was item 4, and the
-     per-module disposition) are CARD-336's and CARD-337's. Item 0 is new and is
-     the thing whose absence made CARD-329's AC-4 vacuous. -->
+<!-- RE-CUT 2026-11-06, final. Replaces items 0 to 7 and the SPLIT banner's list. Every figure is "mine" (derived 2026-11-06 on a private clone of main at bb8d1121, python 3.14, default hang guard 300 s, NONOGRAM_TEST_HANG_SECONDS unset, lock absent before each run) or "carried". Cite by NAME; a line number in this section is an error. -->
 
-0. **The floor is MEASURED — CARD-338 did it, and this item is now a re-run, not a
-   derivation.** <!-- SATISFIED 2026-11-03 by CARD-338, which this card depends on. The
-   instrument and the number are below; what is left here is one re-run on the merged
-   tree, because the figure is dated to a tree, not to this card. -->
-   The instrument is `scratchpad/card338/probe_five_kinds.py` with
-   `scratchpad/card338/census_five_kinds.py`; it lifts the five kinds whose `expires_with`
-   names this card (derived from the registry, not listed) and rebinds
-   `book_pdf_generator.NO_DOWNSTREAM_WRITERS` to
-   `book_interior_vector.DOWNSTREAM_WRITERS`. Measured at `f407c350` over CARD-329's 20
-   modules **plus `tests/test_book_interior_type_floor.py`**:
+**Read items 0 and 1 before touching anything.**
 
-   | | `PUZZLE` only | all five kinds |
-   |---|---|---|
-   | modules red | 18 / 21 | **19 / 21** |
-   | failed + error | 154 | **233** |
-   | passed | 1272 | 1193 |
-   | skipped | 1 | 1 |
+### 0. The starting tree, and what it will be when you arrive
 
-   **This card's floor is 233** — not the 228 this card's own re-cut carried, which added
-   the 22nd module's *PUZZLE-only* 3 to the five-kind 225; under five kinds that module is
-   **8**. The one skip is the `setrlimit(RLIMIT_AS)` platform gate at
-   `tests/test_book_pdf_memory.py:1297`, attributed from `-rfs` as one flag; neither
-   database gate fired. **Re-run the census on the merged tree before converting anything**
-   and state the number you get; a different number is the finding.
+Measured TODAY (before CARD-382, CARD-383, CARD-342, CARD-343, CARD-350 land), per module under the five-kind probe, red / passed / skipped (mine): `test_book_pdf` 39/102/0; `test_book_difficulty_dots` 29/166/0; `test_book_puzzle_frame` 3/110/0; `test_book_guide_page` 2/47/0; `test_book_pdf_two_up` 2/50/0; `property/test_book_pdf_geometry` 4/0/0; `test_book_pdf_band` 1/65/0 (CARD-383's); the seven CARD-382 modules 45 red / 288 passed; every other census module 0 red: `property/test_book_export_interior` 0/18/0, `test_book_interior_type_floor` 0/60/0, `test_book_pdf_memory` 0/68/1 (the `setrlimit(RLIMIT_AS)` platform gate), `test_book_interior_face` 0/18/0, `test_book_export_interior_cover` 0/146/0, `test_book_solved_answer_key` 0/154/0, and the rest of the 22 (list in red_census.txt). **80 red over the 22 census modules, 125 over 29 with the seven CARD-382 modules.** The on-disk end state with the default writer set assembled (E2) reproduces the 39 `test_book_pdf` node ids exactly and adds the 2 memory reds no probe sees (127 over 48 modules); the tree with the default left deny (E1) is 491 over the same 48.
 
-   **The `monkeypatch.delitem` separation is done, and it goes the other way.** **13 reds**
-   come from `delitem` sites meeting a key that is gone — a *census* figure, measured per
-   module (`property/test_book_export_interior.py` **5**, `test_book_interior_type_floor.py`
-   **1**, `test_book_pdf.py` **7**) — and `scratchpad/card338/`
-   `fidelity_to_the_end_state.py` measured the identical count on a tree whose five entries
-   are **deleted in `src/` with no probe loaded**, so **they are this card's residue and
-   not the instrument's shadow**. The re-cut's "≤13 of 74 is artefact" is withdrawn: the
-   artefact is **0**, and the instrument-shaped share of the +74 would have been +11 in any
-   case. The probe's red count matches the on-disk end state **±0**.
-   **Separately, there are 13 `delitem` SITES that can raise** — 17 sites, 2 with
-   `raising=False`, 15 able to raise, 2 of those naming `DIVIDER` which is not lifted. **The
-   two 13s are two quantities and neither is derived from the other:** one site produces 5
-   reds alone and two (`test_book_pdf.py:3747`, `:3774`) are `delitem` calls inside
-   `for kind in self._interior_kinds()` loops covering 4+ kinds each. Take the red count
-   from `census_five_kinds.py` and the site count from `derive_delitem_sites.py`; never
-   divide one into the other.
+**When you arrive, the dependencies will have taken their parts.** The expected starting tree is therefore the probe's 39 (`test_book_pdf`) + 29 (`test_book_difficulty_dots`, D9) + 2 (memory, E2 only) + the F-4 geometry cell and whatever CARD-382's stop clause declares. **Do not trust this paragraph: re-run the census (`scratchpad/card338/census_five_kinds.py --third`, and `--only <module>` for the 29-module list), state the number you get, and a different number is the finding.** A keyword grep found the seven extra modules; a grep is not a census, so the full suite on the end-state tree (armed, lock acquired, by the gate only) may find more. Name them, card them, do not absorb them.
 
-   **Every one of the 233 carries a mechanism and an owner, with no "other" group**
-   (`scratchpad/card338/classify_reds.py`, which exits non-zero on an unmatched cause).
-   This card's own families: the registry-derived guards (**7**), CARD-331's raster arm
-   declaring itself dead (**2**), `_write_pdf`'s representation refusal reached (**2**), the
-   expected-side gap (**1**), and the 13 above.
-1. **One kind at a time, each removal complete — and there are FIVE.** For `TITLE`,
-   `GUIDE`, `TOC`, `ANSWER` and `PUZZLE`: delete that kind's entry from
-   `_RASTER_DECLARATIONS` and let `_write_pdf`'s representation refusal prove the removal —
-   a kind whose declaration is gone but whose page is still a bitmap is **refused, not
-   shipped**. **No vector writer *module* is edited** — the four downstream writers and the
-   title page's own `vector_title_page` are reached as written — **but the five deletions
-   alone do not ship a vector interior, and that is MEASURED and SETTLED here, not an open
-   question.** Read §2's `[CORRECTION 2026-11-03, CARD-338]` before touching the registry:
-   the walk reaches those writers only through the writer set the generator was **built**
-   with, `BookPDFGenerator.__init__` defaults that set to `NO_DOWNSTREAM_WRITERS`, and
-   `interior_generator` has **zero call sites in `src/`**, so the day the `GUIDE`/`TOC`/
-   `ANSWER` entries go, the download path hits `_drawn_downstream`'s refusal — **17 reds in
-   `tests/test_book_interior_type_floor.py` alone (E1 25 → E2 8)**. **So this item carries a
-   decision and must make it: either move the generator's construction sites to
-   `interior_generator`, or change the generator's default writer set.** That decision is
-   **this card's**, in `src/`, alongside the five deletions — it is **not** a finding to
-   raise about CARD-309, and re-raising it is precisely the inference-instead-of-measurement
-   loop CARD-338 exists to close. A kind's page walk failing to reach its writer for some
-   **other** reason — one CARD-338 did not measure — is still a finding about CARD-309,
-   raised and not absorbed.
+**Run, before editing and again at the end:** the census against the probe AND `scratchpad/card338/fidelity_to_the_end_state.py <module>` against the on-disk trees. Instruments are not yours to build. Count errors from pytest's summary line (the fidelity script uses `-rfs` without the `E`).
 
-   <!-- CORRECTED 2026-11-03 by CARD-338 (fix round 2, cycle-2 M-102). The sentence above
-        read "either move the six `BookPDFGenerator(book)` call sites (`app.py:841`,
-        `:960`, `:5580`, `:5759`, `book_proof.py:764`, `pdf_generator.py:344`) to
-        `interior_generator`" -- the withdrawn list, quoted as it was written and NOT
-        re-pointed, because a quotation of a retracted sentence is history. Re-measured with `grep -rn 'BookPDFGenerator('` over `src/`,
-        that list MISLABELS one member and OMITS another, and the count "six" was right
-        only by coincidence. The enumeration below replaces it. -->
+### 1. The test-tree seam: a conftest-level rebind (OWNER-ACCEPTED 2026-11-06; DECIDE NOTHING ELSE FIRST; STOP IF IT FAILS)
 
-   **The construction sites, re-measured (this replaces the "six call sites" list this item
-   first carried).** There are **seven** construction sites in `src/` outside
-   `interior_generator`'s own `return BookPDFGenerator(...)`
-   (`book_interior_vector.py:141`):
+**The finding (mine):** E1 is 491 red against E2's 127 because the test tree builds a bare `BookPDFGenerator(book)` at 365 call sites (7 go through `interior_generator`) and, once the five entries are gone and the default stays deny, every one that walks a GUIDE, TOC or ANSWER page meets `_drawn_downstream`'s refusal (294 of the 491 print it in their `--tb=line` line; a lower bound). Every earlier card judged "green unlifted and green under the probe", and the probe rebinds the default, so none could see it.
 
-   <!-- CITED BY SPELLING, NOT BY LINE, 2026-11-03 at CARD-338's merge gate (cycle-3
-        M-204). This table first carried `app.py:841 / :960 / :5580 / :5759`. CARD-332
-        merged into `main` DURING CARD-338's cycle-3 review and moved `app.py` by +97
-        lines: `:5580` became `:5673` and `:5759` became `:5852` — and `:5580` was the row
-        marked "the one site that writes an interior", so the load-bearing citation was the
-        one that rotted, silently. A line number rots without a sound; a spelling is stable
-        across edits and self-verifying, which is this board's rule. The sites are therefore
-        named by what the call is, re-derived on main at `fd9cbdfa` with
-        `grep -rn 'BookPDFGenerator(' src/`; the "re-derive at dispatch" line below is now
-        a convenience, not the only defence. -->
+**The owner's ruling:** the test tree gets an assembled default writer set through a conftest-level rebind; production stays deny-by-default (D8 unchanged for `src/`); the 365-site edit is NOT done.
 
-   | site | spelling | what it builds for |
-   |---|---|---|
-   | `app.py`, the `BookPDFGenerator(book).section_plan(list(puzzles))` one-liner | `BookPDFGenerator(book)` | `.section_plan(...)` — a page plan |
-   | `app.py`, the build followed by the interior-count read | `BookPDFGenerator(book)` | interior counts |
-   | `app.py`, **the build whose next statement is `return generator.export_interior(puzzles)`** | `BookPDFGenerator(book)` | **the download path, the one site that writes an interior** |
-   | `app.py`, the build followed by `.section_plan(rows)` | `BookPDFGenerator(book)` | `.section_plan(rows)` — a page plan |
-   | `book_proof.py`, in the proof-sheet build | `BookPDFGenerator(book)` | the proof sheet |
-   | `book_pdf_generator.py`, inside `puzzle_page_plan` | `BookPDFGenerator(book)` | `puzzle_page_plan` — **omitted from the first list entirely** |
-   | `pdf_generator.py`, the module-level `_pdf_generator = BookPDFGenerator()` | `BookPDFGenerator()` | **bookless, a module-level singleton evaluated at import** — not a per-request build, and not the `(book)` spelling the first list claimed |
+**What to build:** a fixture in `tests/conftest.py` that rebinds `book_pdf_generator.NO_DOWNSTREAM_WRITERS` to `book_interior_vector.DOWNSTREAM_WRITERS` for the test process, the in-process equivalent of the probe's second mutation. `BookPDFGenerator.__init__` reads the module global at call time, so a rebind at any time works; a test that imported the name by value keeps the original object. `tests/conftest.py` is the highest blast-radius file in the tree and CARD-320 (ready, 2c) also declares it: read what the existing session fixtures guard before adding, keep the fixture narrow (it must not import the admin package for tests that never touch the book export if that costs anything measurable or changes collection), and check CARD-320's status at dispatch (serialise, do not race).
 
-   *Line numbers as of `main` `fd9cbdfa`, for convenience only and expected to rot:*
-   `app.py:841`, `:960`, **`:5673`** (the interior write, `export_interior` at `:5677`),
-   `:5852`, `book_proof.py:764`, `book_pdf_generator.py:1912`, `pdf_generator.py:344`.
+**The checks you run and REPORT (all three, plus the fourth):**
+1. With the fixture on the E1 on-disk tree (the five entries popped, the default left deny) the 48 modules of Appendix A are red on EXACTLY the node ids E2 is red on (127 today; compare the SETS, not the totals).
+2. **A test that runs OUTSIDE the fixture and pins the shipped default**: `BookPDFGenerator(book).pages` is the original `NO_DOWNSTREAM_WRITERS` object captured at conftest import and a bare generator still refuses a GUIDE page; opt out of the fixture explicitly (a marker or a fixture override), and prove it can fail with a plant that rebinds the default in `src/` (it must red).
+3. The tests that assert the refusal (`test_a_generator_with_no_downstream_writer_refuses`, `test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`) change outcome in neither direction.
+4. The `ast` cell of item 3 (every `BookPDFGenerator(` in `src/` except `interior_generator`'s own and the one in `_export_part` passes no `pages`) is green: it is what protects the six deny-by-default sites now that no test does.
 
-   **Nothing in the conclusion moves, and two things in the costing do.**
-   `interior_generator(book=None, pages=None)` accepts no argument, so the bookless site
-   converts too; and `book_pdf_generator.py` is already in `Touches:`, so the omitted site
-   widens the field no further. What does move: **only the `export_interior` site reaches a downstream
-   interior write at all** — the other six build plans, counts or a proof sheet — so option A
-   is a larger edit than the refusal strictly requires. Weigh that against option B before
-   choosing, and take the count from this table, not from the withdrawn sentence.
+**STOP CONDITION: if any check fails, or you judge the fixture hides something D8 meant to expose, STOP, report, and do not start the 365-site edit.** Say plainly in the report what the rebind means: the test tree no longer exercises the shipped default, which checks 2 and 4 replace.
 
-   **Option A has two consequences the decision must name. Neither is a reason not to take
-   it; both are reasons not to take it silently.** <!-- ADDED 2026-11-03 by CARD-338 (fix
-   round 2, cycle-2 M-103 and F-101b). -->
+### 2. Delete the five registry entries and re-derive the comment (`src/nonogram/admin/book_pdf_generator.py`)
 
-   1. **It ends the leaf property — and that property is ASSERTED BY A LIVE TEST, not only
-      claimed in prose.** `tests/test_book_pdf.py:3656`,
-      `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`,
-      asserts `importers == []` for `nonogram.admin.book_interior_vector`. Option A makes
-      four `src/` modules import that module, so **that cell reds** — measured green at this
-      writing (that class: 5 passed). Its own docstring calls this the "load-bearing" one of
-      AC-5's three facts (*"without it a later card could import the assembly point from
-      `app.py` and from `book_guide_vector`, and the cycle would be back with an extra
-      module in it"*), so re-pointing or retiring it is an argument CARD-309's AC-5 is owed,
-      not an edit to make in passing. `tests/test_book_pdf.py` IS in this card's `Touches:`,
-      so the card may legally edit it — the point is that it must not do so quietly. No
-      import CYCLE results (`app.py` and `book_proof.py` already import
-      `book_pdf_generator`, which `book_interior_vector` sits downstream of), so the cost is
-      the guard and the claim, not a loop. The prose statements of the same property are
-      **CARD-338.md:42-43** and **CARD-309.md:597** — two cards, measured by
-      `grep -rnE 'nothing in .?src/.? imports'` over `meta/kanban/cards/`, and neither of
-      them is CARD-337, which states the rebinding and not the leaf.
-   2. **It widens `Touches:` and the conflict edges**, which is why the field at the top of
-      this card now declares `app.py`, `book_proof.py` and `pdf_generator.py` and records the
-      **CARD-332** edge on `app.py`. Option B is what narrows them back; if you take it, say
-      so in the field.
-2. **Re-point CARD-331's raster arm, and DERIVE `RASTER_ARM_FUNCTIONS` rather than
-   extending it.** `test_each_arms_mechanism_is_still_exercised[raster]` is built to red
-   the day this card converts the puzzle page, and its `remedy` string is the work order:
-   re-point the arm at a kind `_RASTER_DECLARATIONS` still declares raster — the cover or
-   the divider — and move the **27 cells** of that module which read the interior as
-   bitmaps with it. **Retiring the arm is forbidden by its own sibling cell** and would red
-   `test_there_is_one_arm_per_medium_the_product_can_write`, because the arms are
-   enumerated on the **medium** and `PageMedium` keeps `RASTER`. **Do not widen the work
-   order.** And `RASTER_ARM_FUNCTIONS` (`tests/test_book_difficulty_dots.py:6996`) is a
-   hand-written 5-tuple whose only guard asserts that every **listed** name has a source:
-   it cannot catch a name that *should* be listed, which is the hole a cycle-1 mutant
-   survived in, and CARD-331's own fix closed the **instance** and not the **mechanism**
-   (that card's N-1 routes the mechanism here, and names this card as the imminent
-   exposure). **Derive the set from the arm's own reachable surface; adding your new
-   function to the list is the defect repeating.** The derivation needs its own plant: a
-   function added to the arm and *not* listed must red.
-3. **Flip ADR-0042/R1 here, and only with the last kind.** Not before. A test asserting
-   *"every page is the medium its kind declares"* **passes while R1 is violated**, as long
-   as any interior kind is still a declared exception — which is why CARD-298 and CARD-299
-   each refused this flip and were each right. ADR-0042's own Rules comment states the
-   condition: *"Flip this check when the statement is true of a shipped interior, i.e. when
-   the five temporary entries in `_RASTER_DECLARATIONS` are gone."* **Spell the ref as a
-   BARE TEST NAME, not as a `file::name` node id** — measured twice in this very ADR (R2's
-   and R5's comments), the validators' `split_check_ref` splits on commas only, so a node-id
-   ref is handed to `git grep -lw` as one literal symbol and reports as a **DEAD check
-   ref**: R2's note records the node-id spelling taking the tree from 107 to 108 warnings
-   while the bare name left the warning set byte-identical. Diff the warning **sets** with
-   `comm` in both directions, never the totals.
-4. **Resolve CARD-297's `_DECLARED_CLIP_DIVERGENCE`** (`tests/test_book_solved_answer_key.py:3783`)
-   when the answer page converts — delete it with the measurement that justifies it, or keep
-   it with a new argument that names the converted page. **Silence is not an option.** The
-   standing position, recorded on CARD-298 and CARD-299 and still unchallenged: once the
-   answer page is vector there is **one** answer-page writer, and the book clips by
-   `/Widths`, the measure the reader's own viewer uses — so the declaration becomes a
-   statement about a page nobody prints. **Verify the argument against a converted page
-   before acting on it; it has never been tested against one** — and note that this module
-   goes from **1** red to **33** under the five-kind probe, so the answer page is where the
-   conversion's weight actually lands.
-5. **Rename `TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`** — G-5's one
-   named exception, granted at the decompose station. Its two consumers are
-   `tests/test_book_puzzle_page_vector.py:1950` (the class) and
-   `src/nonogram/admin/book_puzzle_vector.py:43` (a docstring naming it); both move in the
-   same commit, and a renamed class is a node-id change, so any frozen snapshot naming it
-   moves with it or the gate finds them.
-6. **The baselines these kinds move, enumerated file by file**, with the count stated and
-   the interior's size and generation time recorded at both ends. **The figure is 19 live
-   book baselines, not 21**: `tests/fixtures/book_baseline_*.json` is 21 files of which
-   `card128` and `card145` carry `superseded_by` and are historical records, plus 2 `.jpg`
-   (`card200_guide_page1/2`). **And decide the 5 live `proof_baseline_*.json` explicitly**:
-   ADR-0042/R1 governs the proof sheet by name (*"on any export path — the interior PDF,
-   the proof sheet, or any future one"*), so inheriting the number "21" is not an answer.
-7. **The owner render.** See AC-6; this is the render the owner has been waiting for since
-   the phase opened, and the standing rule is that image-pipeline changes need a rendered
-   eyeball and not just green tests.
+Delete `PageKind.TITLE`, `GUIDE`, `TOC`, `ANSWER` and `PUZZLE` from `_RASTER_DECLARATIONS` (derived by `ast`, mine: the dict has seven keys today, COVER with `expires_with=()`, DIVIDER with `("CARD-231",)`, and these five, each `("CARD-299", "CARD-322")`). `expires_with` needs no other edit: the landing guard reds only when every card an entry names is terminal while the entry remains, and after this commit no entry names CARD-299 or CARD-322. Rewrite the `#:` comment above the dict and the long comment inside it (the CARD-309 history, "five entries changed card rather than going", the per-kind reasons) so that it states the two entries that remain and the five that went. It is held to the mapping by `TestRasterDeclarations_TheCommentAgreesWithTheRegistry::test_the_comment_claims_no_removal_the_registry_cannot_show`, which goes from its "nothing taken out" arm to its "something taken out" arm and reds until the paragraph is re-derived: read `removal_claims` in that class before writing the sentence. Write no count of the live mapping into the comment (its own rule, kept).
+
+
+### 3. D8: build the download path through `interior_generator`, and re-point the one test that names the importer
+
+* `src/nonogram/admin/app.py`: in `_export_part`, the build whose next statement is `export_interior` becomes `interior_generator(book)` (import `nonogram.admin.book_interior_vector`). The other six construction sites (three more in `app.py`, `book_proof.py`, the one inside `puzzle_page_plan` in `book_pdf_generator.py`, the bookless `_pdf_generator` singleton in `pdf_generator.py`; six in all) are NOT touched. Re-derive the seven by `grep -rn 'BookPDFGenerator(' src/` (mine: 4 in `app.py`, 1 in `book_proof.py`, 1 inside `puzzle_page_plan` in `book_pdf_generator.py`, 1 bookless `_pdf_generator` in `pdf_generator.py`, plus `interior_generator`'s own `return BookPDFGenerator(...)`); the `app.py` interior-counts site calls `interior_stream` and was not measured to consume pages: leave it, and if a route test shows the refusal there, that is a finding, not a licence to widen D8.
+* `src/nonogram/admin/book_interior_vector.py`: edit the docstring sentence "it is a leaf: nothing in `src/` imports it" and the sentence "the other four are CARD-322's", which become false (docstring only; that file is therefore in Touches).
+* `tests/test_book_pdf.py::TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point` currently asserts `importers == []`. D8's ruling text names this test as living in `tests/test_cli.py`; it does not (mine: absent from `tests/test_cli.py`). It is `tests/test_book_pdf.py::TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`, and `tests/test_book_pdf.py` is in Touches. Re-point it to assert the importers are exactly `["nonogram.admin.app"]`, keep the name (it stays true as "the importer is named"), and add the plant that matters: a module other than `app.py` that imports the assembly point reds it. The argument for ending the leaf property is D8's; record it in the commit, do not re-litigate.
+* Add a cell that derives (by `ast` over `src/`) that every `BookPDFGenerator(` call except `interior_generator`'s own and the one in `_export_part` passes no `pages`, so a seventh writing site cannot appear unmarked. The derivation must fail on a call shape it cannot classify (ADR-0039/R2).
+* `tests/test_cli.py`'s layering guard is NOT edited (G-7). Whether it flags `app.py` importing a sibling in `admin/` is **unmeasured** (both are the adapter `admin`); run `tests/test_cli.py` after the edit and report.
+
+
+### 4. D3: flip ADR-0042/R1 with its wording narrowed (`meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md`)
+
+* **Re-check the premise first and say what you found in the commit.** The proof sheet's purpose was inferred from CARD-118's title only. This re-cut read CARD-118's body (a press-check export of two fixed fixtures, a 30x30 and a 15x15, to be measured with a ruler, "proofs come before curation") and `book_proof`'s module docstring (same), which supports "not a book interior"; re-read both, do not take this sentence as the check.
+* R1's `statement` loses "…on any export path — the interior PDF, the proof sheet, or any future one" in favour of wording that names the interior PDF and says the proof sheet is outside the decision, held by `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision` (the note above the Rules block already says so). Do not widen "any future one" into a claim no test makes.
+* R1's `check:` flips from `{kind: review-lens}` to `{kind: test, ref: test_no_interior_page_carries_an_image_xobject}`, **spelled as a bare test name** (a node id reports as a dead ref: R2's and R5's comments measured 107 to 108 warnings), and the long comment under R1 is replaced by a short one that records the flip, which card did it, and the three blockers as history.
+* **The ref is honest only if the test can fail on the statement.** Today `test_no_interior_page_carries_an_image_xobject` derives its expectation from `page_medium`, so it passes with any registry (the trap CARD-298 and CARD-299 refused for). Add to it (name and node id unchanged) a registry-independent assertion: every page of a kind other than DIVIDER in the written file has no image XObject, with a control that plants a bitmap under a PUZZLE page and reds. Update its docstring ("What this measures today") and the docstring of `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision` ("Every interior kind is still declared raster at this commit") which go false.
+* Validator: use the forge_1 copy per the project's standing note (not the plugin cache; the plugin's ADR-0025 error is a regex bug); diff the warning SETS with `comm` in both directions, never the totals (main reads 0 errors / 88 warnings at the old re-cut, **carried, not re-run here: the validator was off limits**). `meta/architecture/trace.yml` holds no ADR-0042 rule rows (mine: grep finds only prose mentions), so no row moves; re-verify before writing anything there.
+
+
+### 5. `tests/test_book_pdf.py`: the 39, under a SECOND named G-5 exception
+
+The 39 node ids (mine; E2 reproduces the identical set). **The exception (stated in `guardrails.md` G-5): a node id in the table below may be retired, each with a named survivor; a body may be re-expressed in place when its name stays true. The rule for a survivor:** it exists exactly once (by `ast`, not by text search), it reads the converted medium (the content stream, or the poppler render of it through `pdf_pages`/`frame_centre_of`), it is green at the end state, and a plant that breaks the claim it inherits reds it with `must_red` asserted non-empty before the run. A survivor that is "a test that is green" is the vacuous pass this board has retracted three times. Re-expression is the default (CARD-354 re-expressed all 12 of its readers, CARD-337 retired only where the claim had no subject); retire only where the claim's subject, a raster interior page, no longer exists. Candidates below are **UNVERIFIED**: I read the names and the classes, I did not run a plant.
+
+| node id (class::test, `tests/test_book_pdf.py`) | what it reads | proposed disposition | survivor candidate (author verifies) |
+|---|---|---|---|
+| `TestBookPdf_CellSizedForBookTrimNotA4::` the two tests (`test_the_page_draws_the_cell_the_book_trim_allows`, `test_it_is_not_the_cell_the_a4_layout_used_to_give_it`) | `drawing_of(page)` on an interior page object | RETIRE or RE-EXPRESS via `pdf_pages` + `frame_centre_of` | `tests/test_book_cell_size.py` (layout-level, 43 green under the probe) for the value; the placement corpus in `tests/property/test_book_export_interior.py` for the drawn position |
+| `TestBookPdf_CellFollowsStoredTrim::` the three (`test_a_six_by_nine_book_draws_the_smaller_cell`, `test_the_same_puzzle_on_the_book_one_trim_is_held_at_the_standard_cell`, `test_changing_the_trim_is_what_changes_the_cell`) | same | same | same |
+| `TestBookPdf_EmptyMarginsFallBackToBook1Profile::test_the_cell_is_the_one_the_con_018_margins_give[margins-empty]` and `[whole-print-spec-empty]` (two parametrize ids) | same | same | same; the parametrize ids go with the test |
+| `TestBookPdf_EmptyMarginsFallBackToBook1Profile::test_the_page_is_the_profile_trim`; `TestBookPdf_WideGridPrintsOnPortraitPage::test_the_page_is_portrait_at_the_book_trim`, `::test_every_page_of_that_book_is_portrait` | `page.size` on a `ContentStream` (3 reds: `'ContentStream' has no attribute 'size'`) | RE-EXPRESS: read the stream's own `MediaBox` (the helper already exists for the difficulty-dot arm's y-flip) | itself |
+| `TestBookPdf_WideGridPrintsUprightNeverRotated::test_the_grid_is_drawn_unrotated`, `::test_the_measurement_would_have_seen_a_rotation` | `drawing_of` columns/rows | RE-EXPRESS (it has a negative control already) or RETIRE | `property/test_book_pdf_geometry.py` upright cells (4 red there for other reasons: CARD-350) |
+| `TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare::` two tests | top edge at 42 % of the spare | RETIRE | `tests/test_book_puzzle_frame.py::TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare` |
+| `TestBookPdf_DrawingCentredOnRightHandPage::` two; `TestBookPdf_DrawingCentredOnLeftHandPage::` three | drawing's left edge 25.45 / 12.7 mm | RETIRE | `tests/test_book_puzzle_frame.py::TestBookPuzzleFrame_GridIsCentredOnBothParities`; `test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` |
+| `TestBookPdf_ParityNeverMovesTopEdge::` two | two drawings share a top row | RETIRE | the CARD-359 corpus (`test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`, `TestParity_TheBoundIsPinnedFromBothSides`) |
+| `TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1::` five | parity of interior page 6 and alternation | RETIRE or RE-EXPRESS | same family; `tests/test_book_pdf_levels.py` mentions it |
+| `TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage::` two | survivors' positions after a dropped puzzle | RETIRE | the same corpus plus the walk's own "dropped puzzle" cell if one exists (unverified) |
+| `TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels::test_that_two_pixels_is_half_a_rule_and_not_a_quantisation_step` | raster ink vs stream coordinate | RETIRE: its subject (the raster interior page) is gone | `tests/test_book_puzzle_frame.py::TestFrameCentre_TheReadingIsABoundaryInBothMedia` (composes both media from the writers, no registry) |
+| `TestEdgeOffset_ThePixelOraclesStillReadPixels::test_drawing_of_still_takes_a_page_and_not_a_file` | feeds an interior page to `drawing_of` | RE-EXPRESS: feed it a divider page (still a bitmap); name stays true | itself |
+| `TestPdfPagesReader_ARasterPageIsUnchanged::test_every_raster_page_of_a_whole_book_is_unchanged`, `::test_the_reference_reader_can_tell_a_changed_page` | a whole-book file read as all-raster | RE-EXPRESS over cover plus divider pages | itself; the second is the control and stays |
+| `test_no_declaration_outlives_the_cards_that_remove_it` | registry non-vacuity floor | RE-EXPRESS in place (name stays true): floor re-derived to the one temporary entry that remains (DIVIDER, CARD-231); do not lower the guard, re-derive it | itself |
+| `test_no_declaration_names_the_card_that_is_closing` | no entry names CARD-309 | RETIRE: nothing names it | the previous row |
+| `TestRasterDeclarations_TheCommentAgreesWithTheRegistry::test_the_comment_claims_no_removal_the_registry_cannot_show` | comment vs registry | NO TEST EDIT: green when item 2's comment is re-derived | itself |
+| `TestRasterDeclarations_TheCommentAgreesWithTheRegistry::test_the_registry_lost_nothing_and_five_entries_name_the_converting_card` | `declared == set(PageKind)` | RETIRE (name is false after the flip) | a NEW test in the same commit asserting `set(_RASTER_DECLARATIONS) == {COVER, DIVIDER}` and no entry naming CARD-322 |
+| `test_PropertyTest_Interior_NoVectorPageCarriesABitmap` | corpus floors `raster_pages >= 90`, `vector_pages == 0`; masked `delitem` of TITLE | RE-EXPRESS in place (name true): the floors describe a state that no longer exists; re-derive them per arm from the new corpus (G-4: derive, do not lower) and remove the `delitem` | itself |
+| `TestAssemblyPoint_TheDownstreamWritersAreReachable::test_every_interior_page_is_written_as_operators`, `::test_the_four_writers_each_drew_their_own_page` | `_vector_interior` behind `len(lifted) >= 4` | RE-EXPRESS in place: `_interior_kinds` is derived from the registry and is empty after the flip; derive it from `PageKind` less COVER and DIVIDER instead | itself |
+
+**Three masked `delitem` sites, not two (the third is mine).** CARD-379's reviewer named `test_PropertyTest_Interior_NoVectorPageCarriesABitmap` (behind the two floors `raster_pages >= 90` and `vector_pages == 0`) and `TestAssemblyPoint_TheDownstreamWritersAreReachable._vector_interior` (behind `len(lifted) >= 4`). By `ast` over the tree (mine; `derive_delitem_sites.py` reports 17 sites in 2 modules, 4 with `raising=False`, 13 that can raise) the unguarded sites that can still raise at the end state are those two plus the loop in `TestAssemblyPoint_TheDownstreamWritersAreReachable::test_each_of_the_four_bindings_was_used` (`for kind in self._interior_kinds(): monkeypatch.delitem(...)`), which is vacuous today only because `_interior_kinds()` is empty. Repair `_interior_kinds` and all three sites together. Every other `delitem` of a declared kind in that module is guarded by `_ensure_declared` (the DIVIDER sites stay declared and are green).
+
+
+### 6. The two memory end-state reds (`tests/test_book_pdf_memory.py`; add it to Touches)
+
+Mine, E2: `TestBookPdfMemory_RealBookExportsUnderTheCap::test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under` ("the list shape did not die of the cap") and `TestMemoryGuard_HeadroomIsMeasuredAgainstTheFloor::test_the_guard_reports_the_difference_between_the_two_children` (the export's marginal cost non-positive). CARD-379's author measured -7372800 B and its reviewer -5603328 B for the second: **the figure is unstable; do not write either into a test**. The qualitative cause holds: both compare resident memory of child interpreters that carry no probe, and an all-operators interior has almost no 300 dpi page bitmaps for a list to hold (the divider pages remain), so the premise "a list of pages needs about 307 page bitmaps" has almost no subject. These have no raster subject left; retire them under the second G-5 exception with survivors the module already has (names read, plants not run: UNVERIFIED): for the first, the in-process `TestBookPdfMemory_PeakDoesNotGrowWithPageCount` (the streaming claim) and, where the kernel allows it, the `RLIMIT_AS` twin (**it skips on this platform, mine: 1 skip, so on this host the retired sentry test would leave only the in-process cell executed; say so**); for the second, `TestMemoryGuard_HeadroomIsMeasuredAgainstTheFloor::test_two_children_with_the_same_total_get_opposite_verdicts` (constructed pairs, no real child). The retirement table rule from item 5 applies (survivor exists once, green, plant reds it).
+
+
+### 7. D9: the difficulty-dot arm — THE OWNER HAS NOT RULED; THE AUTHOR STOPS AND ASKS, AND DOES NOT EXECUTE THIS ITEM IN THIS CARD
+
+**Disposition (re-cut, orchestrator's instruction): D9 stays OUT of CARD-382 and CARD-383. Either the author of this card stops here and asks, or the dot work is cut as its own card after the owner rules and lands first. The flip cannot merge with these 29 reds, so the dot card (once it exists) is a `Depends on` of this card. If the orchestrator keeps the dot work INSIDE this card after the ruling, the Estimate is `5c (2.5d)`, not `3c`, and the work below is executed here. Once the owner rules, option (B) is green both unlifted and lifted (the cover is raster in both trees), so it can land BEFORE the flip; option (A) changes a guard and is safer after.**
+
+Facts (mine, by `ast` over `src/`): `_draw_difficulty_dots` has only its definition, `ContentStream.round_mark` has only its definition, both unwired by design (their docstrings and `book_guide_vector` name CARD-229, CARD-231, CARD-233, CARD-207 as callers; those four are `ready`). The 29 reds in `tests/test_book_difficulty_dots.py` are 27 cells that read the interior as bitmaps through `generator.interior_pages(...)` (all fail at one reading site: `'ContentStream' object has no attribute 'convert'`) after planting dots into the raster writer with a spy on `_draw_difficulty_dots`/`_set_band`, and 2 by design: `TestDifficultyDots_AnArmWhoseMechanismIsDeadFails::test_each_arms_mechanism_is_still_exercised[raster]` and `::test_each_arms_probe_reports_death_when_its_mechanism_goes`. The same 29 are red at E1, E2 and the probe.
+
+Choices, none taken here: **(A) retire with a named survivor.** The vector arm (`TestDifficultyDots_TheVectorArmReadsTheStream`) already accounts the same claim on the written stream, and `tests/test_book_solved_answer_key.py` asserts neither answer nor TOC writer draws a round mark. Retiring needs the arm's own guard changed, because `test_there_is_one_arm_per_medium_the_product_can_write` holds the arms to `PageMedium`, which keeps `RASTER`, and the arm's `remedy` text says retiring is not an option. So (A) is a decision to change that guard, under the second G-5 exception, not a deletion. **(B) re-point the raster arm at the cover** (permanent) or the divider (until CARD-231): the work order's own remedy. The cover and divider band geometry does not exist for the harness's `_plant_box` (the arm plants into a puzzle-page band), so a new plant box is a new instrument; and re-pointing the arm's `kind` makes `page_medium(arm.kind)` RASTER, which would make `test_exactly_one_arm_reads_the_medium_the_product_writes_today` see two live arms (read from source, not run). **(C) ask.** Measured conclusion: there is no choice that lands the 29 green without one of these, because the 2 by-design reds are cleared only by re-pointing or by changing the guard. **Until the owner rules, leave this module alone; the card cannot merge with these 29 red.** If you do the neutral half (moving the 27 cells' page source) before the ruling, you have chosen (B) without saying so; do not.
+
+Also derive, when the ruling arrives, `RASTER_ARM_FUNCTIONS` from the arm's own reachable surface (by `ast`, not extended by hand) with a plant that adds a function and omits it: the old item 2 obligation stands for whichever option is taken.
+
+
+### 8. The F-307 rename (G-5's first named exception, carried)
+
+Rename `tests/test_book_puzzle_page_vector.py::TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` to a name that says what the class asserts now that the page has a folio, frame rules, a grid-size label and a QR block (its body is honest; its name is false). **Three consumers, mine by grep over `src tests docs meta/architecture`:** the class, the docstring in `src/nonogram/admin/book_puzzle_vector.py` ("holds that"), and a docstring in `tests/test_book_pdf_band.py` that spells the full node id including `::test_the_page_shows_only_the_clue_digits_and_the_band` (a text mention, not a census; the old card omitted it). Move all three in one commit. No `ADDED_SINCE_BEFORE`-style census names the class (mine: no hit in `tests/`); `meta/review/*` and card files that mention it are records and are not edited. A renamed class is a node-id change: run the collected-id comparison from AC-9 and expect exactly the class's methods to move.
+
+
+### 9. `_DECLARED_CLIP_DIVERGENCE` (`tests/test_book_solved_answer_key.py`), cited by NAME
+
+Resolve it with a measurement, silence is not an option. State what is true today (mine): the module is 154 passed, 0 red under the probe; the dict has one entry (`"Puzzle 2 — Owl in a Pine"`), consumed by `_unexplained_clip_divergences` and by two cells that iterate it. The cell compares the answer caption each medium sets, and the raster answer writer still exists in `src/` (this card deletes registry entries, not writers). Run the module at the end state first. If the comparison still has two live writers, keep the entry with an argument that names the converted page (the production page is the vector one; the raster writer is the reference oracle and the divergence is where the reference differs) and say why that is not a statement about a page nobody prints; if the raster writer is not reachable from the module, delete it with the measurement. Do not decide from this paragraph: the standing argument (one answer writer, clip by `/Widths`) has never been tested against a converted page.
+
+
+### 10. The end-state fidelity check, and the geometry node
+
+* Run `scratchpad/card338/fidelity_to_the_end_state.py` over `tests/test_book_pdf.py`, `tests/test_book_interior_type_floor.py`, `tests/property/test_book_export_interior.py` and `tests/test_book_pdf_memory.py` at the end and state what it prints. **At today's tip it prints (mine; verbatim in NOTE.md section 8):** `test_book_pdf` E0 0 / E1 54 / E2 39 / probe 39; `test_book_interior_type_floor` 0 / 25 / 0 / 0; `property/test_book_export_interior` 0 / 14 / 0 / 0; `test_book_pdf_memory` 0 / 46 / 2 / 0; delitem KeyErrors 0 in every column. So the probe is faithful to E2 except for the memory module's two reds, and E1 (the D8 tree) is far above both. After items 1 to 3 the real tree must equal E2-with-the-D8-site, and the difference is the test of the seam.
+* `tests/property/test_book_pdf_geometry.py::..._PortraitWithFixedTopEdgeForEveryExtent_pdf_pages` ran its whole module in about three minutes under the default 300 s guard with its assertion red (mine). Its first GREEN run is the unmeasured one (CARD-336 carried about 125 s for the node once green, **carried**); CARD-381 raised the guard to cover it, so no ceiling decision remains here, but report the node's `--durations` figure from the first run in which it is green. G-4 forbids shrinking its corpus.
+
+
+### 11. The owner render (a deliverable, not a gate)
+
+Render one real interior with the flip in place to `~/Documents/nonogram-reviews/CARD-322/`: a book with a guide, TOC, all three tiers, packed and full answer pages, and a divider, from the repo's existing corpus helpers (not from the production database). Rasterise with the same poppler path the tests use, and record in the same directory the interior's byte size and generation time before (main's tip) and after, as a RECORD, not a gate (the old AC-4b's purpose, with no baselines re-recorded: D7). **Per the standing rule the card merges on its gates and the owner looks at the render after**; do not hold the merge on the owner's eyeball, and do not claim the render was approved.
+
+
+### 12. What this card records and does not decide
+
+* **D1:** write into the closing note, with pointers to CARD-356's, CARD-357's and CARD-360's closing notes, that the flip lands with the page-content oracle gap DECLARED, and claim no whole-page content coverage anywhere (tests, ADR, closing note).
+* **D2:** `book_guide_vector.TITLE_PAGE_COUNT` is bound by value; CARD-357's two-patch workaround in `tests/test_book_export_interior_cover.py` stays. This card does not change how that constant is read, so the workaround needs no edit; say so and run that module (mine: 0 red / 146 passed under the probe).
+* **D5:** converted pages are DeviceGray only; `books.interior_ink_mode` has no effect on them. Recorded here and in the closing note with a pointer to CARD-364; nothing is edited for it.
+* **D6:** done (CARD-381).
+* **D7:** the 19 live book baselines and the 5 proof baselines are not touched, not re-recorded, and `tests/fixtures/book_baseline_*.json` is not in Touches. Four baseline fixtures carry prose the conversion refutes (the pass found three: `image XObject` in `card147`, `card184`, `card167`); editing a fixture's prose is a fixture edit, so it is NOT done here; leave a one-line pointer in the closing note.
+* **Not this card's, and prerequisites of its merge (mine):** `test_book_guide_page` 2 (CARD-343), `test_book_puzzle_frame` 3 (CARD-342), `property/test_book_pdf_geometry` (CARD-350's cells; the F-4 `..._two_up_pages` cell has no card and needs a decision), `test_book_pdf_two_up` 2 (CARD-382, with a stop clause). A red on main at the merge gate fails the gate; this card does not repair them and does not hide them (G-3d).
+
+### Appendix A — the 48 modules item 1 compares (mine; the 22 census modules, 26 export-touching modules found by keyword grep, `tests/test_cli.py`)
+
+```
+22 census: tests/property/test_book_export_interior.py tests/test_book_arrange_page_breaks.py tests/test_book_export_interior_cover.py tests/test_book_guide_page.py tests/test_book_interior_face.py tests/test_book_pdf.py tests/test_book_pdf_band.py tests/test_book_pdf_ink_mode.py tests/test_book_pdf_memory.py tests/test_book_proof_pages.py tests/test_book_solved_answer_key.py tests/test_book_trim_persistence.py tests/property/test_book_pairing.py tests/property/test_book_pdf_geometry.py tests/test_book_cell_size.py tests/test_book_difficulty_dots.py tests/test_book_divider_pages_option.py tests/test_book_pdf_levels.py tests/test_book_pdf_two_up.py tests/test_book_puzzle_frame.py tests/test_book_interior_type_floor.py tests/test_book_finalise_guide_preview.py
+26 more: tests/test_cli.py tests/property/test_book_membership_floor.py tests/property/test_book_order.py tests/test_admin_error_text.py tests/test_admin_tier_surfaces.py tests/test_book_answer_key.py tests/test_book_arrange_sort_by_size.py tests/test_book_cover.py tests/test_book_detail_page.py tests/test_book_finalise_gutter.py tests/test_book_grid_rules.py tests/test_book_guide_page_type.py tests/test_book_guide_page_vector.py tests/test_book_page_frame.py tests/test_book_page_numbers.py tests/test_book_page_spec.py tests/test_book_pdf_packed_degrade.py tests/test_book_puzzle_page_vector.py tests/test_book_qr_slot.py tests/test_book_scaffolding.py tests/test_book_solved_page.py tests/test_book_toc.py tests/test_card_056_unmeasured_quality.py tests/test_pdf_generator.py tests/test_puzzle_edit_routes.py tests/test_suite_profile.py
+```
+
 
 ## Acceptance criteria
 
-- **AC-1** (R1 is true and checked): *Given* a written interior, *then* **no page of any of the five
-  converted kinds** references an image XObject, `_RASTER_DECLARATIONS` holds **only the cover and
-  (until CARD-231) the divider**, and **ADR-0042/R1's `check:` is a live node id naming the test that
-  proves it.**
-  <!-- "live node id" CORRECTED 2026-10-31 at the re-cut: a BARE TEST NAME, not a
-       node id. R2's and R5's comments in this same ADR each measured the node-id
-       spelling reporting as a DEAD check ref (107 -> 108 warnings) while the bare
-       name left the warning set byte-identical; `split_check_ref` splits on commas
-       only. The test the ref names already EXISTS and is green --
-       `test_no_interior_page_carries_an_image_xobject` -- so what flips is the
-       `check:` kind, not the test. Diff the warning SETS with `comm` in both
-       directions, never the totals: main reads 0 errors / 88 warnings, re-derived
-       at the re-cut with the validator of record. -->
-  <!-- ALSO at the re-cut: AC-1 said FIVE all along and was right; the card's title,
-       its "Why this card exists" paragraph and its item 1 said four. See re-cut
-       item 1. The five are TITLE, GUIDE, TOC, ANSWER and PUZZLE. -->
-  <!-- AND the landing-direction guard is part of this AC in practice:
-       `test_no_declaration_outlives_the_cards_that_remove_it` reds when every card
-       an entry names has reached a terminal status while the entry remains. All
-       five entries name ("CARD-299", "CARD-322") and CARD-299 is done, so this card
-       CANNOT be marked done until all five are gone -- verified at the re-cut by
-       reading `_landing_findings`, which is the one implementation of that
-       direction. -->
-- **AC-1b** (CARD-331's arm is re-pointed and its set is DERIVED): *Given* the converted
-  puzzle page, *then* `test_each_arms_mechanism_is_still_exercised[raster]` is green
-  **because the arm was re-pointed at a kind that is still declared raster**, not because
-  the cell was widened or the arm retired; the 27 cells that read the interior as bitmaps
-  moved with it; and **`RASTER_ARM_FUNCTIONS` is derived from the arm's own reachable
-  surface rather than listed**, with a plant that adds a function to the arm and omits it
-  from the set reddening. **A listed set with one more entry is this AC failing, however
-  green the suite is.** (test: `test_each_arms_mechanism_is_still_exercised` and
-  `test_there_is_one_arm_per_medium_the_product_can_write`, both existing and unmodified,
-  plus a new completeness cell this card writes — **review-lens on the round's evidence
-  until that cell exists**, owned by this card.)
-- **AC-2** (each removal is complete, proved by refusal): *Given* a kind whose declaration is removed,
-  *then* a bitmap handed in for that kind is **refused by the writer**. **Two mutants per
-  ADR-0039/R1**, one inside the region and one at the edge: **the last kind converted**, and **a kind
-  converted while its declaration is left behind**.
-- **AC-3** (the readers survive, both populations): *Given* the converted interior, *then* every test
-  module that reads a book interior passes — **derived across both routes, not listed**, and a module
-  needing a further edit is a **finding to raise, not absorb**.
-  <!-- NARROWED 2026-10-31 at the re-cut. "Both routes" is now THREE populations and
-       the first two are other cards' deliverables: A (the one-image reader, 12
-       modules) and B\A (page source used as an image, 9) are CARD-329's derivation,
-       repaired by CARD-337; the placed-edge mechanism inside them is CARD-336's.
-       **Population C is the one this card must derive itself** -- the modules that
-       reference the MEDIUM DECISION (`_RASTER_DECLARATIONS`, `page_medium`,
-       `PageMedium`, `RasterDeclaration`, `InteriorPageWriters`,
-       `NO_DOWNSTREAM_WRITERS`, `interior_generator`, `DOWNSTREAM_WRITERS`), because
-       those are the modules the REGISTRY EDIT disturbs rather than the conversion.
-       Derived by `ast` at the re-cut: **4 modules** --
-       `property/test_book_export_interior.py`, `test_book_difficulty_dots.py`,
-       `test_book_interior_type_floor.py`, `test_book_pdf.py`. Three are this card's
-       or CARD-337's by name; re-derive the set rather than trusting this list, and a
-       fifth member is the finding. Per ADR-0039/R2 a module the walk cannot classify
-       is a FAILURE, not a silent pass. -->
-- **AC-3b** (the whole tree is green, and the three modules another card owns are named
-  rather than excused): *Given* the merged tree, *then* the full suite is green at the
-  merge gate, with **every skip attributed by name from `-rfs` as ONE flag** — on current
-  `main` that is **26** from the bare `DATABASE_URL` check at `tests/conftest.py:207` plus
-  **1** from the `setrlimit(RLIMIT_AS)` platform gate at
-  `tests/test_book_pdf_memory.py:1297`, and the per-worktree `*_test` resolution gate does
-  **not** fire. **A figure recalled rather than read off `-rfs` is the defect**; two gates
-  coexist here.
-- **AC-4** (the baselines move once, enumerated): *Given* the branch, *then* the re-recorded baselines
-  are listed file by file, the count is stated, and **CON-019's property test and the A4 golden are
-  untouched and green**.
-  <!-- FIGURE CORRECTED 2026-10-31 at the re-cut: **19 live book baselines**, not 21.
-       `tests/fixtures/book_baseline_*.json` is 21 files, of which `card128` and
-       `card145` carry `superseded_by` and are historical records that are not
-       re-recorded; plus 2 `.jpg` (`card200_guide_page1/2`). The 5
-       `proof_baseline_*.json` are ALL LIVE and ADR-0042/R1 names the proof sheet as
-       an export path it governs, so AC-4 must state their disposition too --
-       "21" was a FILE COUNT and reads as a baseline count. See item 6. -->
-- **AC-4b** (the conversion's cost is recorded at both ends): *Given* the re-recorded
-  baselines, *then* the interior's **byte size and generation time** are stated before and
-  after, per the item-6 requirement, because the whole ADR-0042 phase was argued partly on
-  file size (ADR-0042/R5's note: "~365 KB against a file that was 9 MB") and nobody has
-  measured the converted interior's. **Not a gate, a record**: a regression here is a
-  finding for the owner, not a reason to widen anything.
-- **AC-5** (the clip divergence is resolved, not inherited): *Given* the converted answer page, *then*
-  `_DECLARED_CLIP_DIVERGENCE` is either deleted with the measurement that justifies it, or kept with a
-  new argument naming the converted page.
-- **AC-6** (an owner render exists): *Given* the converted interior, *then* a rendered interior is
-  produced under `~/Documents/nonogram-reviews/CARD-322/`. **Standing rule: image-pipeline changes
-  need a rendered eyeball, not just green tests** — and after this card **every interior page but the
-  divider is vector**, which is the render the owner has been waiting for since the phase opened.
+<!-- RE-CUT 2026-11-06. Replaces AC-1 to AC-6 (AC-1b, AC-3b, AC-4, AC-4b included). D4's AC (the refusal) moved to CARD-383 and the seven-module AC to CARD-382. The old AC-4 and AC-4b rested on a baseline re-record that D7 dissolved and are RETIRED here, not restated; their one surviving purpose (the interior's size and time at both ends, as a record) is folded into AC-9. Each AC names its check. "review-lens" always says why no test can name it. No ADR check is spelled as a planned test ref: where an AC concerns an ADR's check, it is review-lens and names this card as the card that owes the flip. -->
+
+- **AC-0** (the test-tree seam is a conftest-level rebind that passes its four checks, or the card stopped): *Given* item 1, *then* either the four checks are reported green (E1-with-fixture red on exactly E2's node ids over the 48 modules of Appendix A; an outside-the-fixture test pins the shipped default and has a plant that reds it; the refusal tests are unchanged; the `ast` cell over `src/`'s construction sites is green) or the card is stopped with a report and the 365-site edit is NOT done.
+  (test: the outside-the-fixture default pin and its plant, written in this card, named by the implementation; the `ast` cell of item 3; `test_a_generator_with_no_downstream_writer_refuses` and `test_a_partial_writer_set_refuses_only_the_kind_it_is_missing`, existing and unchanged. The E1-with-fixture set comparison is review-lens on the round's census, not a test: its instruments cannot be tracked.)
+- **AC-1** (the registry holds only what ADR-0042/R2 declares, and R1 is true of the written interior): *Given* an interior written through the production download path, *then* no page of a TITLE, GUIDE, TOC, ANSWER or PUZZLE kind references an image XObject, `_RASTER_DECLARATIONS` holds exactly the cover and the divider, and the divider is the only interior page that is a bitmap.
+  (test: `test_no_interior_page_carries_an_image_xobject`, existing, with the registry-independent file-level assertion and its planted-bitmap control that item 4 adds under the same node id; `test_PropertyTest_Interior_NoVectorPageCarriesABitmap` and `test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages`, existing, re-expressed in place per item 5 with their corpus floors re-derived and not lowered; the new test that pins `set(_RASTER_DECLARATIONS) == {COVER, DIVIDER}`, written in this card, named in the item 5 table.) <!-- The existing test alone is NOT the AC: it derives its expectation from page_medium and passes with any registry, which is why CARD-298 and CARD-299 refused the flip. -->
+- **AC-1b** (ADR-0042/R1 is flipped, and its wording no longer claims the proof sheet): *Given* the ADR after this card, *then* R1's `check:` is `{kind: test, ref: <bare test name>}` for a test that exists exactly once and carries the registry-independent assertion of AC-1; R1's statement names the interior PDF and says the proof sheet is outside the decision; the validator's warning SET is not larger than main's (diffed with `comm` in both directions, never the totals); and the commit records that CARD-118's body and `book_proof`'s docstring were re-read for the proof sheet's purpose.
+  (check: review-lens. No test reads an ADR's own YAML for this, and a test named in the check cannot name its own flip; **this card owes the flip**, it is not owed by a later card. The honest evidence is the `comm` output and the `ast` resolution of the bare name to a def line, both in the round's record. The validator is the forge_1 copy, **not run in this draft**.)
+- **AC-2** (each removal is complete, proved by refusal; two mutants per ADR-0039/R1): *Given* a kind whose declaration is removed, *then* a bitmap handed in for it is refused by `_write_pdf` rather than shipped; *and* a kind converted while its declaration is left behind is a defect; *and* the last kind converted leaves the cover and divider as the only declarations.
+  (test: `test_a_bitmap_under_a_vector_declaration_is_refused`, `test_a_declaration_whose_reason_expired_is_a_defect`, `test_an_undeclared_raster_page_is_a_defect`, `test_a_raster_page_whose_declaration_is_removed_is_a_defect`, existing, each already guarded by `_ensure_declared`; one plant per mutant run against the end-state tree with `must_red` asserted non-empty. The two named mutants: re-add a `PUZZLE` entry to the registry (must red `test_every_raster_page_is_declared_with_its_reason`), and write a bitmap under a PUZZLE page (must red AC-1's file-level assertion).)
+- **AC-3** (the readers survive at the REAL end state, not the probe's): *Given* the tree after this card's commit, with no probe loaded, *then* every module of Appendix A (48) is green except the modules and node ids named in `## Not this card's` (which must be empty of reds by the time the gate runs: they are prerequisites); the census is run by `census_five_kinds.py --third` AND against the on-disk tree (`fidelity_to_the_end_state.py`), and the two agree to within the seam item 1 records.
+  (check: review-lens on the round's census output. A census is not a test and no committed test can name it (the force-add gate forbids tracking its instruments); stated per CARD-354 AC-1. The derivation is by `ast`/the probe, not by a text search, and a module the walk cannot classify is a FAILURE (ADR-0039/R2).)
+- **AC-3b** (the whole tree is green at the merge gate, every skip attributed by name): *Given* the merged tree, *then* the full suite, **armed, with the full-suite lock ACQUIRED by whoever runs it (nothing writes it; two suites in parallel lose tests)**, is green; every skip is attributed by name from `-rEfs` as ONE flag. **The armed baseline on current main is 1 skip, the `setrlimit(RLIMIT_AS)` platform gate in `tests/test_book_pdf_memory.py` (mine: the memory module, probe and E2, reports exactly that one skip, reason "setrlimit(RLIMIT_AS) cannot bound a process on this platform"; CARD-379's and CARD-381's closing notes carry the same 1, carried). The unarmed figure is NOT 26 + 1 and is not carried here: derive it off `-rEfs` on the run you make, and note that the per-worktree `*_test` resolution gate and the bare `DATABASE_URL` gate are separate (see the project's DB-tests note).** A figure recalled rather than read off `-rEfs` is the defect.
+  (check: review-lens on the gate run's output; a gate fact, not a test.)
+- **AC-4** — RETIRED 2026-11-06 (D7). The 19 live book baselines and the 5 live proof baselines are historical records and are not re-recorded; CARD-355 settled that a stored digest is compared only against a bitmap page. The premise ("the five kinds move baselines that must be re-recorded") dissolved. Replaced by AC-8's guard: `tests/fixtures/book_baseline_*.json` and `proof_baseline_*.json` are unchanged by this card.
+- **AC-4b** — RETIRED as a gate (D7); its record is AC-9.
+- **AC-5** (the clip divergence is resolved, not inherited): *Given* the converted answer page, *then* `_DECLARED_CLIP_DIVERGENCE` is either deleted with the measurement that justifies it or kept with a new argument that names the converted page, and the commit says which and why.
+  (test: the cells in `tests/test_book_solved_answer_key.py` that iterate it, existing, if it is kept; **review-lens if it is deleted**, because a deletion has no test, with the end-state module run as the evidence.)
+- **AC-6** (the dot arm's disposition is the owner's, recorded before it is executed): *Given* D9, *then* `tests/test_book_difficulty_dots.py` is green at the end state ONLY after the owner has ruled and the ruling is quoted in this card; until then the module is untouched and the card is not mergeable.
+  (check: review-lens, because the AC is that a ruling exists and was followed. The tests that follow the ruling are the module's own: `test_each_arms_mechanism_is_still_exercised`, `test_there_is_one_arm_per_medium_the_product_can_write`, `test_exactly_one_arm_reads_the_medium_the_product_writes_today`, existing; and, if the arm is kept, a completeness cell for `RASTER_ARM_FUNCTIONS` written by this card with a plant that adds a function to the arm and omits it from the set. **A listed set with one more entry is this AC failing, however green the suite is.**) <!-- No invented ruling: the AC cannot be satisfied by the author's choice. -->
+- **AC-7** (D1: the flip lands with the oracle gap DECLARED): *Given* the closing note and the ADR comment, *then* both carry pointers to CARD-356's, CARD-357's and CARD-360's declarations of the page-content oracle gap, and no test, ADR sentence or closing-note line claims whole-page content coverage for a converted kind.
+  (check: review-lens, because the AC is an absence; the evidence is a grep of the diff for "whole page", "full page" and "content" claims, read by hand. D1 funds no oracle and this card builds none.)
+- **AC-8b** (D8: only the writing site is assembled): *Given* `src/`, *then* `app.py`'s `_export_part` builds through `interior_generator`; every other `BookPDFGenerator(` call in `src/` passes no `pages`; the assembly point has exactly one importer, `nonogram.admin.app`; `tests/test_cli.py`'s layering guard is unmodified and green.
+  (test: `TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden::test_nothing_in_the_package_imports_the_assembly_point`, existing, re-pointed per item 3, with a plant (another module imports the assembly point) that reds it; the new `ast` cell of item 3 over the seven construction sites, with a plant (a bare site given `pages=`) that reds it and an unclassifiable call shape that fails rather than passes; `tests/test_cli.py`'s structural guard, existing and untouched.)
+- **AC-9** (an owner render and a size record exist; the card does not wait on the owner): *Given* the converted interior, *then* a rendered interior and the interior's byte size and generation time before and after exist under `~/Documents/nonogram-reviews/CARD-322/`. A regression in either is a finding for the owner, not a gate and not a reason to widen anything.
+  (check: review-lens: **a deliverable, not a gate.** Per the standing rule the card merges on its gates and the owner checks the render afterwards; this AC is satisfied by the files existing, never by an approval.)
+- **AC-10** (no test is lost except the named ones): *Given* the branch, *then* the collected node-id set before and after differs only by (a) the node ids retired in the item 5 / item 6 tables, each with its survivor, (b) the F-307 class rename's methods (old ids gone, new ids present), and (c) added tests; nothing is skipped, xfailed or merged; no parametrize id is dropped except the table's.
+  (check: review-lens on a `pytest --collect-only -q` set difference, old versus new, in the round's record; mechanical, by `comm`. Each survivor named in the table is verified to exist exactly once by `ast`, to read the converted medium, and to have a plant that reds it.)
+- **AC-11** (D2, D5 and D7 are recorded as decisions followed): *Given* the closing note, *then* it states that `book_guide_vector.py` was not edited and the two-patch workaround in `tests/test_book_export_interior_cover.py` was re-checked (D2); that converted pages are DeviceGray only and `books.interior_ink_mode` has no effect on them, with a pointer to CARD-364 (D5); and that the baseline fixtures were not touched (D7).
+  (check: review-lens, plus `git diff --stat` showing no path under `tests/fixtures/` and not `book_guide_vector.py`.)
 
 ## Engineering constraints
 
-- **EC(ADR-0042/R1):** across a seeded corpus spanning page counts, trims and tier mixes, **no
-  interior page of a converted kind carries an image XObject**, with a minimum case count asserted
-  inside the test.
-- **EC(ADR-0042/R2):** across the same corpus, the set of raster pages **equals** the set of declared
-  raster pages — neither direction slack — and that set shrinks to **the cover plus the divider**.
+- **EC(ADR-0042/R1):** across a seeded corpus spanning page counts, trims and tier mixes, **no interior page of a converted kind carries an image XObject**, with a minimum case count asserted inside the test, asserted per arm. (test: `test_PropertyTest_Interior_NoVectorPageCarriesABitmap`, re-expressed per item 5.)
+- **EC(ADR-0042/R2):** across the same corpus the set of raster pages equals the set of declared raster pages, neither direction slack, and that set is now **the divider alone in the interior** (the cover is not an interior page). (test: `test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages`, existing, re-expressed.)
+
+## Not this card's: prerequisites, red until their owners land (the merge gate cannot pass over these)
+
+Mine, red at E2 as well as under the probe, 2026-11-06: `tests/test_book_guide_page.py` 2 (CARD-343), `tests/test_book_puzzle_frame.py` 3 (CARD-342), `tests/property/test_book_pdf_geometry.py` 4 (CARD-350 for its cells, per its addendum; the `..._two_up_pages` cell is CARD-336's declared F-4 site, no card, needs a decision), and the seven CARD-382 modules plus `tests/test_book_pdf_two_up.py` 2 (CARD-382). When this card is dispatched all of these but the F-4 cell must be `done`; the F-4 cell must have been decided. This card does not repair them and does not hide them.
+
 
 ## Guardrails
 
-- **G-1: do not convert the cover.** Its declaration is permanent (`expires_with: ()`); a photograph
-  is correctly raster.
-- **G-2: do not convert the divider.** It is CARD-231's, by the owner's 2026-10-25 decision that the
-  new design should be **born** vector rather than the old one converted.
-- **G-3: do not touch `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` or the A4
-  golden.** Neither is a book interior. If either reds, that is a **finding to raise**, not a baseline
-  to refresh.
-- **G-4: do not lower a corpus minimum**, and regenerate nothing under `tests/fixtures/**` beyond the
-  baselines item 5 enumerates. <!-- item 5 -> **item 6** after the re-cut's renumbering. -->
-- **G-3b: do not widen a tolerance to close a red, anywhere.** `EDGE_TOLERANCE_MM` stays
-  `0.1`, `EDGE_TOLERANCE_EXEMPTIONS` stays empty and asserted empty, and
-  `property/test_book_pdf_geometry.py`'s four `HALF_PIXEL_MM` multiples stay 3/3/2/1.
-  These are CARD-330's and CARD-336's, inherited closed. CARD-330 was cut to prevent
-  exactly the widening that closes most of this family's residue at once.
-- **G-3c: do not touch `tests/helpers/page_ink.py`, `tests/helpers/two_up_ink.py`,
-  `tests/helpers/round_ink.py` or `tests/helpers/pdf_pages.py`.** The independent pixel
-  oracles are CARD-330's and CARD-331's, the boundary reading is CARD-336's and the
-  one-image reader is CARD-329's. **This card consumes all four and edits none** — folding
-  a reader and an oracle together destroys the cross-check CLAUDE.md requires. If a
-  conversion cannot be read without changing one of them, that is a **finding about the
-  card that owns it**, raised.
-- **G-3d: do not re-do CARD-336's or CARD-337's work, and do not force their residue
-  green.** If either lands with a declared residue, inherit the declaration. A red those
-  cards declared and this card silently repairs is scope growth the SCOPE GATE is there to
-  catch; a red they declared and this card *widens* is the hazard CARD-330 exists for.
-- **G-5: no test deleted, renamed, skipped or merged** — `parametrize` ids
-  included. **ONE NAMED EXCEPTION, granted at the decompose station 2026-10-30**
-  (a guardrail is weakened here and nowhere else — never in a worktree):
-  `tests/test_book_puzzle_page_vector.py:1950`'s
-  `class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`
-  **may be renamed**, and only it. Its *body* is honest; its **name** became
-  false when CARD-306 gave the vector puzzle page exactly the sheet furniture
-  the name denies (folio, frame rules, grid-size label, QR block). CARD-306
-  raised it as F-307; CARD-309 examined it, found the only fix is a rename, and
-  **correctly declined** under this very guardrail — see its round's findings.
-  The rename is this card's because this card converts the kind and will be in
-  that file anyway. Spell the replacement for what the class now asserts, and
-  re-stamp every consumer of the old node ids in the same commit: a renamed
-  class is a node-id change, so `ADDED_SINCE_BEFORE`, any `_SEEN_REGIONS`-style
-  census and any frozen snapshot naming it move **with** it or the gate finds
-  them.
-- **G-6: do not weaken `_write_pdf`'s representation refusal to let a conversion land.** It is the
-  thing that makes a partial conversion safe; a card that loosens it to get green has removed its own
-  safety net.
-- **G-7: do not edit `tests/test_cli.py`'s structural layering guard.** If a writer cannot be reached
-  without violating it, that is CARD-309's assembly point failing, and it is a finding.
+<!-- RE-CUT 2026-11-06. Carried unchanged: G-1, G-2, G-3, G-3b, G-3c, G-6, G-7. Restated: G-3d, G-4, G-5. DROPPED as dissolved: the old G-4's "regenerate nothing beyond the baselines item 5 enumerates" (no baseline is regenerated: D7). Added: G-8 to G-12. A guardrail is weakened at the decompose station and nowhere else; the second G-5 exception below is that weakening, written here and not in a worktree. -->
+
+- **G-1: do not convert the cover.** Its declaration is permanent (`expires_with: ()`); a photograph is correctly raster.
+- **G-2: do not convert the divider.** It is CARD-231's, by the owner's 2026-10-25 decision that the new design should be born vector rather than the old one converted. Its declaration (`expires_with: ("CARD-231",)`) stays and is the one temporary entry the landing guard keeps watching.
+- **G-3: do not touch `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` or the A4 golden.** Neither is a book interior. If either reds, that is a finding to raise, not a baseline to refresh.
+- **G-3b: do not widen a tolerance to close a red, anywhere.** `EDGE_TOLERANCE_MM` stays `0.1`, `EDGE_TOLERANCE_EXEMPTIONS` stays empty and asserted empty, and `property/test_book_pdf_geometry.py`'s four `HALF_PIXEL_MM` multiples stay 3/3/2/1. `PLACEMENT_BOUND_MM` stays `0.1` (CARD-379).
+- **G-3c: do not touch `tests/helpers/page_ink.py`, `tests/helpers/two_up_ink.py`, `tests/helpers/round_ink.py` or `tests/helpers/pdf_pages.py`.** The independent pixel oracles and the one-image reader are other cards'; this card consumes them. If a retirement or a survivor cannot be written without changing one, that is a finding about the card that owns it, raised.
+- **G-3d: do not redo CARD-336's, CARD-337's or the slice cards' (CARD-354 to CARD-360, CARD-379) work, and do not force their declared residue green.** Inherit their declarations (D1: CARD-356, CARD-357, CARD-360). The reds that belong to CARD-342, CARD-343, CARD-350, CARD-382 and the F-4 cell (`## Not this card's` in the ACs) are NOT inherited residue: they are prerequisites of the merge. This card does not repair them and does not silence them.
+- **G-4: do not lower a corpus minimum, and do not leave one pointing at a state that no longer exists.** The floors in `test_PropertyTest_Interior_NoVectorPageCarriesABitmap` (`raster_pages >= 90`, `vector_pages == 0`, and the lifted arm's `mixed_vector >= 9`) describe the pre-flip interior and must be RE-DERIVED per arm from the new corpus and asserted inside the test, never just neutralised. **Leave `tests/fixtures/book_baseline_*.json` and `tests/fixtures/proof_baseline_*.json` alone** (D7): not re-recorded, not edited for prose, not in Touches.
+- **G-5: no test deleted, renamed, skipped or merged, `parametrize` ids included, EXCEPT these two named exceptions, granted at the decompose station 2026-11-06 and nowhere else.**
+  1. *(carried, granted 2026-10-30)* `tests/test_book_puzzle_page_vector.py`'s `class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture` may be renamed, and only it, with all three consumers (the class, the docstring in `src/nonogram/admin/book_puzzle_vector.py`, the docstring in `tests/test_book_pdf_band.py`) moved in the same commit and every frozen snapshot naming its node ids moved with it.
+  2. *(new)* **A test whose subject is a raster interior page may be RETIRED with a named stream-medium survivor, listed per node id in the item 5 / item 6 tables of this card, and ONLY the node ids in that table.** The table lists, for each retired id, its survivor; the survivor exists exactly once (by `ast`), reads the converted medium, is green at the end state, and has a plant that reds it with `must_red` asserted non-empty before the run. A body may be re-expressed in place when its name stays true (no exception needed). A name that becomes false after the flip is retired, not renamed, and its replacement is a NEW test added in the same commit. The retirement is a choice of last resort: re-expression is the default (CARD-354, CARD-337). A retirement not in the table is a deletion and is forbidden; a survivor that is merely "a test that is green" is the defect, not the cure.
+- **G-6: do not weaken `_write_pdf`'s representation refusal to let a conversion land.** It is the thing that makes a partial conversion safe.
+- **G-7: do not edit `tests/test_cli.py`'s structural layering guard.** If a writer cannot be reached without violating it, that is the assembly point failing and it is a finding.
+- **G-8: do not edit `src/nonogram/admin/book_guide_vector.py`** (D2: keep the two-patch workaround; the by-value `TITLE_PAGE_COUNT` binding is production-harmless and its repair is not funded).
+- **G-9: do not convert the proof sheet** (D3). The ADR's R1 wording is narrowed; `book_proof.py`'s writer stays the one PDF outside the medium decision, and `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision` stays green and unedited except for its docstring.
+- **G-10: do not claim whole-page content coverage and do not build an oracle or a second writer** (D1). Do not decide ink mode (D5, CARD-364) and do not give `ContentStream` a colour operator.
+- **G-11: the full suite is armed at the gate, by whoever runs it, with the lock acquired; an agent brief says so.** Nothing about `NONOGRAM_TEST_HANG_SECONDS` is set anywhere (CARD-381 made 300 s the default), no process other than your own is killed (`pkill` by name reaches other cards' runs), and a pytest run in a worktree is checked against the lock first.
+- **G-12: the production database, `~/MyProjects/forge_1` and any `build/site*` directory are not touched.** D4's open question (does any real book have a non-Latin name?) is the owner's; this card does not try to answer it from production data.
+- **G-13: the conftest rebind (item 1) is narrow and carries its own guard.** It is added to `tests/conftest.py` only if item 1's four checks pass; it is not applied to `src/`; it does not touch the existing session fixtures' behaviour; and the outside-the-fixture default pin is part of the same commit. If a check fails, STOP; do not edit the 365 construction sites. `tests/conftest.py` is a conflict hotspot (CARD-320 also declares it): check its status at dispatch.
+- **G-14: D9's work is not executed here unless the orchestrator says so.** Do not edit `tests/test_book_difficulty_dots.py` before the owner has ruled and the ruling is quoted in this card; do not move the 27 cells' page source, which would be choosing option (B) without saying so.
+
 
 ## System contract (subset — the pipeline re-derives the full list at dispatch)
 
@@ -1014,9 +875,52 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
        **CARD-336 owns the amendment that re-points that sentence**, and it is the
        only `meta/architecture` edit in that card's scope. Do not also edit it here. -->
 
-## [SPLIT 2026-11-06] — the pre-flip work moved to CARD-379; this card is the FLIP
+## [RE-CUT 2026-11-06, final] — read this first; it replaces the `[SPLIT 2026-11-06]` banner and the draft re-cut before it
 
-On the owner's instruction after the premise pass below, the part of this card that can go green BOTH unlifted and under the probe with no `src/` change moved to **CARD-379** (`Depends on` now includes it, so this card is not ready until it is done): the 13 `delitem` reds (`tests/property/test_book_export_interior.py` 5, `tests/test_book_interior_type_floor.py` 1, `tests/test_book_pdf.py` 7), the M2 expected-side gap, the 2 M3 `_write_pdf` refusal reds in `tests/test_book_pdf_memory.py` and the 2 unowned `tests/test_book_interior_face.py` reds, plus a measure-only look at whether the difficulty-dot instrument would have a raster page. **What stays HERE:** the five registry deletions, the A-decision, the 32 raster-reading cells and 7 registry assertions in `tests/test_book_pdf.py` (to be retired with named stream-medium survivors under a second named G-5 exception), `tests/test_book_difficulty_dots.py` (29), the M3b refusal in `tests/test_book_pdf_band.py` (a PRODUCT decision, D4), the R1 flip, the clip divergence, the rename, the baselines record and the owner render. **This card is NOT to be stamped into a wave, and its items, ACs, Touches and G-5 are NOT yet re-cut:** that re-cut waits on the owner's rulings D3, D4, D6 and D8 in the premise note (D1, D2 and D7 have defaults the pass proposed), and on CARD-379's census, which will be the starting tree. The text of items 0 to 7 and the ACs below still describes the UNSPLIT card and must be read through this banner.
+**Figures marked "mine" were derived on a private clone of main at `bb8d1121` (2026-11-06) with the main repo's python 3.14 venv; "carried" means read from another card or the premise pass and not re-run.** Every test, class and constant is cited by NAME; no line number is load-bearing. The per-red lists are in `~/Documents/nonogram-reviews/CARD-322/recut/red_census.txt` once the orchestrator copies the re-cut's scratchpad there.
+
+### What this card is now
+
+The FLIP, after the owner accepted the split. **NOT READY TO DISPATCH until every card in `Depends on` is `done`.** CARD-379 and CARD-381 are done; what is not is below.
+
+What moved out:
+* **CARD-382 (pre-flip card A, `2c (1d)`):** the seven modules the five-kind census never covered (45 reds: `test_book_page_frame` 16, `test_book_toc` 15, `test_book_page_numbers` 5, `test_book_qr_slot` 4, `property/test_book_order` 2, `test_book_detail_page` 2, `test_book_puzzle_page_vector` 1) plus the two unowned `test_book_pdf_two_up` reds. Green BOTH ways.
+* **CARD-383 (pre-flip card B, `2c (1d)`):** D4, the refusal. A readiness-gate-voiced `NonogramError` naming the puzzle (the per-book custom title when set, otherwise the name), gated on `page_medium(PageKind.ANSWER)` being vector, run before the walk, with a branch in both export handlers in `app.py`. **This card therefore no longer owns D4 and no longer touches `errors.py`, `cli.py`, `tests/test_cli.py` or `tests/test_admin_error_text.py`.**
+* **The dot arm (D9, 29 reds) is NOT in A or B.** It stays here as a stop-and-ask item (item 7) or becomes its own card after the owner rules; either way the flip cannot merge with those 29 red.
+
+What stays here: the five registry deletions and the comment (item 2), the D8 writing site (item 3), the R1 flip with its wording narrowed (item 4), the 39 reds in `tests/test_book_pdf.py` plus three masked `delitem` sites (item 5), the two memory end-state reds (item 6), the F-307 rename, `_DECLARED_CLIP_DIVERGENCE`, the fidelity check, the owner render, and **the test-tree seam (item 1), accepted by the owner as a conftest-level rebind**.
+
+### Prerequisites that are NOT this card's and must be `done` first (mine; red at the real end state, not only under the probe)
+
+CARD-382 and CARD-383 (above); **CARD-342** (`test_book_puzzle_frame` 3), **CARD-343** (`test_book_guide_page` 2), **CARD-350** (`property/test_book_pdf_geometry`: its two cells, plus a third of the same mechanism that a drafted addendum adds to it). **Two reds have no card and no owner ruling: the `..._two_up_pages` cell of `property/test_book_pdf_geometry` (CARD-336's own DECLARED `1 x HALF_PIXEL_MM` site, its F-4, measured 5.46x in the vector medium), and any `test_book_pdf_two_up` red that CARD-382's stop clause declares instead of closing.** Both need a decision (move that one multiple, which G-3b forbids moving without one, or declare the red); a red on main at the merge gate fails the gate. Until the decision exists this card has a blocker the board cannot see.
+
+### Superseded sections (read them as history, do not act on them)
+
+By heading: **`[RE-CUT 2026-10-31]`** (all seven parts); **`Why this card exists`**; **`[Added 2026-10-30 at CARD-309's re-cut]`**; **`[Owner steer 2026-10-30]`**; **`[Scope gap]`** and every table in it; the old **`## What to implement`** (items 0 to 7), **`## Acceptance criteria`** (AC-1 to AC-6, including AC-3b's 26 + 1 skips, AC-4 and AC-4b), **`## Guardrails`** (G-4 and G-5 as worded) and the old **`Touches`**, **`Depends on`** and **`Estimate`** fields; **`[SPLIT 2026-11-06]`** and **`Premise re-verified 2026-11-06`**. The routing notes from CARD-357, CARD-359 and CARD-379 and **`[OWNER RULINGS 2026-11-06]`** STAND. Where the old text and this re-cut disagree, this re-cut wins; the old text is left in place per this card's convention of carrying corrections inline.
+
+### Findings that changed the card (all mine, measured)
+
+* **The probe is not the end state.** D8 keeps the generator default default-deny; the probe rebinds it. With the five entries gone and the default left alone, 491 tests are red over 48 modules (E1), against 80 over the 22 census modules under the probe (and 127 over the 48 at E2, the on-disk tree with the default assembled). The test tree builds a bare `BookPDFGenerator(` at 365 sites; 7 go through `interior_generator`. The owner accepted the seam as a conftest-level rebind (item 1) and said the 365-site edit is NOT to be done.
+* **The census missed seven modules** (CARD-382).
+* **D8's ruling text names the wrong file** for the leaf test: it is in `tests/test_book_pdf.py`, not `tests/test_cli.py` (item 3).
+* **Three masked `delitem` sites, not two** (item 5).
+* **R1's existing test passes with any registry**; the flip needs a registry-independent assertion with a planted-bitmap control (item 4).
+
+### The owner rulings, and what each one means for this card
+
+* **D1 — the page-content oracle gap is DECLARED residue, not funded.** The flip lands with it declared (pointers: CARD-356's, CARD-357's and CARD-360's closing notes). No oracle, no second writer, no claim of whole-page content coverage.
+* **D2 — keep the two-patch workaround.** `src/nonogram/admin/book_guide_vector.py` is NOT in Touches. If the flip changes how `TITLE_PAGE_COUNT` is read, re-check the workaround in `tests/test_book_export_interior_cover.py` and say so.
+* **D3 — narrow ADR-0042/R1's WORDING so the proof sheet is outside the decision.** The proof sheet's purpose is inferred from CARD-118's title only. The re-cut read CARD-118's body and `book_proof`'s docstring (a press-check export of two fixed fixtures) and they support it, but the item re-reads them before editing the ADR and says so in the commit.
+* **D4 — moved to CARD-383.** Not answered, still the owner's: whether any real book has a non-Latin title or name (production database off limits). A wider embedded face is its own card.
+* **D5 — ink mode (CARD-364) is RECORDED, not decided.** Converted pages are DeviceGray only; `books.interior_ink_mode` has no effect on them.
+* **D6 — done by CARD-381.**
+* **D7 — the 19 baselines stay historical, NOT re-recorded;** `tests/fixtures/book_baseline_*.json` is NOT in Touches.
+* **D8 — option A, scoped to the WRITING SITE ONLY:** `app.py`'s `_export_part` (the build whose next statement is `export_interior`) builds through `interior_generator`; the other six `BookPDFGenerator` construction sites keep default-deny; the `puzzle_page_plan` site inside `book_pdf_generator` stays as is. The leaf test is re-pointed to name `app.py` as the one importer. **Plus the owner's later ruling: the TEST TREE gets an assembled default through a conftest-level rebind; production stays deny-by-default; the author checks it and STOPS if its checks fail.**
+* **D9 — PENDING. The owner has NOT ruled and this re-cut does not.** The dots are UNWIRED BY DESIGN, not dead code (`_draw_difficulty_dots` and `ContentStream.round_mark` have no call site in `src/`, both mine by `ast`; CARD-229, CARD-231, CARD-233 and CARD-207 are their future callers); 29 reds measure dots the TEST HARNESS plants. Item 7 states the three options and the author stops and asks.
+
+### Cut-bar note
+
+Stated `3c (1d)`. That is honest for this card with D9's work NOT executed inside it (the 29 dot reds and the arm guard are priced out). **If D9's work stays inside this card the honest figure is `5c (2.5d)`.** NOTE.md carries the arithmetic.
 
 ## Premise re-verified 2026-11-06 (all 14 dependencies are done; main tip 51bbf6cf at the pass)
 

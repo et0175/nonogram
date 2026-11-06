@@ -730,7 +730,8 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-322   # P1 2d   LAST, and still the destination: the five kinds, ADR-0042/R1's flip, 19 live baselines, the arm re-point with its set DERIVED, the F-307 rename. Seven gated cards wait on it and not one of their edges moved at the re-cut.
+- id: CARD-383   # P1 2c  D4 refusal (non-Latin puzzle name), gated on page_medium(ANSWER) being vector; before CARD-322. Owner-accepted pre-flip card B, 2026-11-06. Unstamped; no dependency on CARD-382.
+- id: CARD-322   # P1 3c  LAST, and still the destination: the FLIP only after the 2026-11-06 re-cut and peel-off: five registry deletions, the D8 writing site, ADR-0042/R1's flip and its wording (D3), the conftest-rebind seam, the 39 + 2 retirements, the F-307 rename. Depends on CARD-382, 383, 342, 343, 350 (not done) so NOT dispatchable yet; unstamped. Seven gated cards wait on it.
 last_updated: 2026-11-04T20:25:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
