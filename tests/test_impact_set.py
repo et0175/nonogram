@@ -1109,6 +1109,8 @@ class TestImpactSet_AMentionIsNotALoad:
     """
 
     def test_a_comment_in_a_stylesheet_does_not_make_it_a_referencer(self, web_tree):
+        """Asserted on the referencer chain itself since round 1: an admin static
+        now selects every browser test, so the SELECTION can no longer show it."""
         static = web_tree / "src" / "nonogram" / "admin" / "static"
         (static / "other.css").write_text("/* styled by widget.js */ .other-thing { x: 1; }\n")
         (web_tree / "src/nonogram/admin/templates/second.html").write_text(
@@ -1117,36 +1119,27 @@ class TestImpactSet_AMentionIsNotALoad:
         (web_tree / "src/nonogram/admin/second.py").write_text(
             'def second():\n    return render_template("second.html")\n'
         )
-        (web_tree / "tests" / "test_second_page_browser.py").write_text(
-            "from nonogram.admin import second\nimport playwright\n"
-            "def test_q():\n    assert second\n"
+        modules, assets, _ = impact._referencers(
+            impact._Corpus(web_tree), "src/nonogram/admin/static/widget.js"
         )
-        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.js"])
-        assert selected != impact.FULL
-        assert "tests/test_second_page_browser.py" not in selected
+        assert "nonogram.admin.second" not in modules
+        assert "src/nonogram/admin/static/other.css" not in assets
 
     def test_a_docstring_in_a_module_is_not_a_load(self, web_tree):
         (web_tree / "src/nonogram/admin/other.py").write_text(
             '"""Talks about widget.css but loads nothing."""\nW = 1\n'
         )
-        (web_tree / "tests" / "test_other_browser.py").write_text(
-            "from nonogram.admin import other\nimport playwright\n"
-            "def test_r():\n    assert other\n"
+        modules, _, _ = impact._referencers(
+            impact._Corpus(web_tree), "src/nonogram/admin/static/widget.css"
         )
-        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.css"])
-        assert selected != impact.FULL
-        assert "tests/test_other_browser.py" not in selected
+        assert "nonogram.admin.other" not in modules
 
     def test_a_string_in_code_is_a_load(self, web_tree):
-        (web_tree / "src/nonogram/admin/other.py").write_text(
-            'STYLE = "widget.css"\n'
+        (web_tree / "src/nonogram/admin/other.py").write_text('STYLE = "widget.css"\n')
+        modules, _, _ = impact._referencers(
+            impact._Corpus(web_tree), "src/nonogram/admin/static/widget.css"
         )
-        (web_tree / "tests" / "test_other_browser.py").write_text(
-            "from nonogram.admin import other\nimport playwright\n"
-            "def test_r():\n    assert other\n"
-        )
-        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.css"])
-        assert "tests/test_other_browser.py" in selected
+        assert "nonogram.admin.other" in modules
 
 
 class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
@@ -1185,3 +1178,468 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
         selected = impact.select(tree, ["site/page.js"])
         assert selected != impact.FULL
         assert "tests/test_site_browser.py" in selected
+
+
+# ==========================================================================
+# CARD-286 review-fix round 1 -- the cycle-1 findings, each as a regression
+# test built from the reviewer's plant. Written BEFORE the fix (red first).
+# ==========================================================================
+
+
+@pytest.fixture
+def fixture_tree(web_tree: Path) -> Path:
+    """``web_tree`` plus a conftest that imports the app and a fixture user.
+
+    ``tests/conftest.py`` imports ``nonogram.admin.app`` and a helper; one test
+    uses the conftest fixture ``db_thing`` without importing anything of ours,
+    one does not use it. A browser test reaches the app only through a helper
+    TEST module -- the shape of ``test_book_setup_print_mobile`` (F-001).
+    """
+    tests = web_tree / "tests"
+    (tests / "__init__.py").write_text("")
+    (tests / "helper_boot.py").write_text("B = 1\n")
+    (tests / "conftest.py").write_text(
+        "import pytest\n"
+        "from nonogram.admin import app as _app\n"
+        "from tests import helper_boot\n"
+        "@pytest.fixture\n"
+        "def db_thing():\n"
+        "    return _app, helper_boot\n"
+    )
+    (tests / "test_uses_fixture.py").write_text(
+        "def test_u(db_thing):\n    assert db_thing\n"
+    )
+    (tests / "test_no_fixture.py").write_text("def test_n():\n    assert True\n")
+    (tests / "test_page_helper.py").write_text(
+        "from nonogram.admin import other\n"
+        "def _build_app():\n    return other\n"
+    )
+    (tests / "test_plan_mobile.py").write_text(
+        "from tests.test_page_helper import _build_app\n"
+        "def test_p(browser_page):\n    assert _build_app\n"
+    )
+    return web_tree
+
+
+class TestImpactSet_F001_ImportsFollowThroughTestModules:
+    """F-001: ``from tests.test_puzzle_solver_page import _build_app``."""
+
+    def test_the_reviewers_plant_selects_the_mobile_plan_test(self):
+        """admin.css, the ``.plan-matrix input`` rule neutralised: the unselected
+        test that went red. Red against d8384e81, green after."""
+        selected = _real_select(["src/nonogram/admin/static/admin.css"])
+        assert selected != impact.FULL
+        assert "tests/test_book_setup_print_mobile.py" in selected
+
+    def test_a_browser_test_that_gets_the_app_from_a_test_module_is_reached(self, fixture_tree):
+        """The mechanism, on a non-asset change so the browser-wide rule cannot
+        mask it: ``other.py`` is imported by a TEST module, which a browser test
+        imports."""
+        selected = impact.select(fixture_tree, ["src/nonogram/admin/other.py"])
+        assert selected != impact.FULL
+        assert "tests/test_page_helper.py" in selected
+        assert "tests/test_plan_mobile.py" in selected
+        assert "tests/test_no_fixture.py" not in selected
+
+    def test_an_ancestor_package_init_is_an_edge(self, tree):
+        """Importing ``nonogram.db.models`` runs ``nonogram/db/__init__.py``."""
+        (tree / "src" / "nonogram" / "db" / "__init__.py").write_text("D = 1\n")
+        (tree / "src" / "nonogram" / "__init__.py").write_text("")
+        (tree / "src" / "nonogram" / "db" / "models.py").write_text("M = 1\n")
+        (tree / "tests" / "test_models_only.py").write_text(
+            "from nonogram.db import models\ndef test_m():\n    assert models\n"
+        )
+        selected = impact.select(tree, ["src/nonogram/db/__init__.py"])
+        assert selected != impact.FULL
+        assert "tests/test_models_only.py" in selected
+
+    def test_the_real_tree_reaches_a_test_through_a_test_helper_chain(self):
+        """Not an asset: ``admin/pdf_generator.py`` or similar must still reach
+        the browser tests importing the app via ``tests.test_puzzle_solver_page``."""
+        selected = _real_select(["src/nonogram/admin/puzzle_review.py"])
+        assert selected != impact.FULL
+        assert "tests/test_book_setup_print_mobile.py" in selected
+
+
+class TestImpactSet_F003_ConftestIsAnEdge:
+    """F-003: conftest imports admin.app et al.; its fixture users must run."""
+
+    #: The reviewer's recorded list of the 13 files using conftest fixtures.
+    FIXTURE_USERS = (
+        "tests/test_batch_history.py",
+        "tests/test_bulk_operations.py",
+        "tests/test_card_156_db_fixture.py",
+        "tests/test_db_e2e_smoke.py",
+        "tests/test_db_engine_lifecycle.py",
+        "tests/test_db_isolation.py",
+        "tests/test_puzzle_edit_routes.py",
+        "tests/test_puzzle_preview.py",
+        "tests/test_puzzle_review_bulk_read.py",
+        "tests/test_wave1_e2e.py",
+        "tests/test_wave2_async_generation.py",
+        "tests/test_wave3_e2e.py",
+        "tests/test_wave3_image_generation.py",
+    )
+
+    def test_the_reviewers_plant_selects_the_mime_type_test(self):
+        """``api_get_image`` mimetype -> octet-stream reds this test, which sat
+        outside the 126-file selection for ``admin/app.py``."""
+        selected = _real_select(["src/nonogram/admin/app.py"])
+        assert selected != impact.FULL
+        assert (
+            "tests/test_wave3_e2e.py" in selected
+        ), "TestWave3ImageGeneration::test_image_serving_endpoint_mime_types"
+        assert sorted(set(self.FIXTURE_USERS) - set(selected)) == []
+
+    @pytest.mark.parametrize(
+        "changed",
+        [
+            "src/nonogram/export/layout.py",
+            "src/nonogram/solver/propagate.py",
+            "src/nonogram/limits.py",
+            "src/nonogram/errors.py",
+            "src/nonogram/admin/puzzle_review.py",
+            "src/nonogram/admin/batch_generator.py",
+        ],
+    )
+    def test_every_module_conftest_imports_selects_the_fixture_users(self, changed):
+        selected = _real_select([changed])
+        assert selected != impact.FULL
+        assert sorted(set(self.FIXTURE_USERS) - set(selected)) == [], changed
+
+    def test_a_module_conftest_imports_selects_the_fixture_user(self, fixture_tree):
+        selected = impact.select(fixture_tree, ["src/nonogram/admin/app.py"])
+        assert selected != impact.FULL
+        assert "tests/test_uses_fixture.py" in selected
+        assert "tests/test_no_fixture.py" not in selected
+
+    def test_a_module_conftest_does_not_import_does_not_select_fixture_users(self, fixture_tree):
+        (fixture_tree / "src" / "nonogram" / "unrelated.py").write_text("U = 1\n")
+        (fixture_tree / "tests" / "test_imports_unrelated.py").write_text(
+            "from nonogram import unrelated\ndef test_x():\n    assert unrelated\n"
+        )
+        selected = impact.select(fixture_tree, ["src/nonogram/unrelated.py"])
+        assert selected != impact.FULL
+        assert "tests/test_imports_unrelated.py" in selected
+        assert "tests/test_uses_fixture.py" not in selected
+
+
+class TestImpactSet_F004_TheConftestClosureIsFullLikeConftest:
+    HELPERS = (
+        "tests/hang_guard.py",
+        "tests/database_guard.py",
+        "tests/full_suite_lock.py",
+        "tests/db_name.py",
+        "tests/helpers/mock_generator.py",
+        "tests/helpers/undefined_table_report.py",
+        "tests/__init__.py",
+    )
+
+    @pytest.mark.parametrize("path", HELPERS)
+    def test_a_helper_conftest_imports_is_full(self, path):
+        """Plant: hang-guard default 300 -> 0.05 kills tests/test_solver.py."""
+        derived = _real_derive([path])
+        assert derived.full, f"{path} was narrowed"
+        assert [r.rule for r in derived.reasons] == ["conftest-closure"]
+        assert path in str(derived.reasons[0])
+
+    def test_a_helper_conftest_imports_is_full_in_a_fake_tree(self, fixture_tree):
+        derived = impact.derive(fixture_tree, ["tests/helper_boot.py"])
+        assert derived.full
+        assert derived.reasons[0].rule == "conftest-closure"
+
+    def test_a_helper_conftest_does_not_import_is_not_full_by_that_rule(self, fixture_tree):
+        (fixture_tree / "tests" / "helper_other.py").write_text("O = 1\n")
+        (fixture_tree / "tests" / "test_uses_other.py").write_text(
+            "from tests.helper_other import O\ndef test_o():\n    assert O\n"
+        )
+        derived = impact.derive(fixture_tree, ["tests/helper_other.py"])
+        assert not derived.full
+        assert "tests/test_uses_other.py" in derived.files
+
+
+class TestImpactSet_F005_TheGateContractCannotSayNothingMoreIsOwedOnAFailedCount:
+    """F-005: a failed count is FULL; the exit code branches; empty is named."""
+
+    @staticmethod
+    def _git_tree(tmp_path: Path, broken: bool = False) -> Path:
+        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_scan.py").write_text(
+            'import subprocess\ndef test_s():\n    subprocess.run(["git", "ls-files"])\n'
+        )
+        if broken:
+            (tmp_path / "tests" / "test_zzz_broken.py").write_text("def test_(:\n")
+        return tmp_path
+
+    @staticmethod
+    def _gate(cwd: Path, *args: str):
+        return subprocess.run(
+            [sys.executable, str(SELECTOR), "--gate", *args],
+            capture_output=True, text=True, cwd=cwd,
+        )
+
+    def test_a_collection_error_is_a_failed_count_and_therefore_full(self, tmp_path):
+        tree = self._git_tree(tmp_path, broken=True)
+        out = self._gate(tree, "tests/test_scan.py")
+        assert out.returncode == impact.EXIT_COUNT_FAILED, out.stdout + out.stderr
+        assert "nothing more is owed" not in out.stdout
+        assert "answer: FULL" in out.stdout
+        assert "count-unavailable" in out.stdout
+
+    def test_collect_count_raises_on_a_collection_error(self, tmp_path):
+        """S10: counting what collected beside an error is a green lie."""
+        tree = self._git_tree(tmp_path, broken=True)
+        with pytest.raises(RuntimeError):
+            impact.collect_count(tree, None)
+
+    def test_a_healthy_selection_exits_zero_and_says_so(self, tmp_path):
+        tree = self._git_tree(tmp_path)
+        out = self._gate(tree, "tests/test_scan.py")
+        assert out.returncode == 0, out.stderr
+        assert "answer: SELECTION" in out.stdout
+        assert "exit code: 0" in out.stdout
+
+    def test_full_has_its_own_exit_code(self, tmp_path):
+        tree = self._git_tree(tmp_path)
+        out = self._gate(tree, "pyproject.toml")
+        assert out.returncode == impact.EXIT_FULL, out.stderr
+        assert "answer: FULL" in out.stdout
+        assert "exit code: 10" in out.stdout
+
+    def test_the_codes_are_distinct_and_documented(self):
+        codes = {impact.EXIT_SELECTION, impact.EXIT_FULL, impact.EXIT_COUNT_FAILED, impact.EXIT_EMPTY}
+        assert len(codes) == 4 and impact.EXIT_SELECTION == 0
+        for code in codes:
+            assert f"{code}" in impact.__doc__
+        assert "there is no Makefile" not in impact.__doc__
+
+    def test_a_zero_count_for_a_nonempty_selection_is_a_failed_count(self, web_tree):
+        block, code = impact.gate_verdict(
+            web_tree,
+            ["tests/test_unrelated.py"],
+            count=lambda files: 0 if files else 100,
+        )
+        assert code == impact.EXIT_COUNT_FAILED
+        assert "nothing more is owed" not in block
+
+    def test_an_empty_changed_set_is_an_explicit_named_answer(self, web_tree):
+        block, code = impact.gate_verdict(web_tree, [], count=lambda files: 100)
+        assert code == impact.EXIT_EMPTY
+        assert "answer: EMPTY" in block
+        assert "nothing more is owed" not in block
+        assert "SELECTION" not in block
+
+    def test_the_empty_derivation_is_flagged_not_just_an_empty_list(self, tree):
+        derived = impact.derive(tree, [])
+        assert derived.empty and not derived.full and derived.files == []
+        assert impact.select(tree, []) == []
+
+    def test_the_plain_mode_contract_for_the_makefile_is_unchanged(self, tmp_path):
+        """stdout is FULL or paths, exit 0, for every answer but a git failure."""
+        tree = self._git_tree(tmp_path)
+        full = subprocess.run(
+            [sys.executable, str(SELECTOR), "pyproject.toml"],
+            capture_output=True, text=True, cwd=tree,
+        )
+        assert full.returncode == 0 and full.stdout.strip() == "FULL"
+        sel = subprocess.run(
+            [sys.executable, str(SELECTOR), "tests/test_scan.py"],
+            capture_output=True, text=True, cwd=tree,
+        )
+        assert sel.returncode == 0
+        assert sel.stdout.split() == ["tests/test_scan.py"]
+
+
+class TestImpactSet_F002_AnAdminSurfaceChangeSelectsEveryBrowserTest:
+    """The cheap safe rule where tracing is not provably complete."""
+
+    #: Reviewer's measured unselected browser tests (recorded baseline).
+    RECORDED = (
+        "tests/test_book_setup_print_mobile.py",
+        "tests/test_books_list_mobile.py",
+        "tests/test_book_arrange_play_link.py",
+        "tests/test_status_filter_default.py",
+    )
+    SURFACE = (
+        "src/nonogram/admin/static/admin.css",
+        "src/nonogram/admin/static/tokens.css",
+        "src/nonogram/admin/static/solver.js",
+        "src/nonogram/admin/static/solver_state.js",
+        "src/nonogram/admin/static/puzzle_edit.js",
+        "src/nonogram/web/static/metadata.js",
+        "src/nonogram/admin/templates/base.html",
+        "src/nonogram/admin/templates/book_setup_print.html",
+        "src/nonogram/admin/templates/book_finalize.html",
+        "src/nonogram/admin/templates/books_list.html",
+        "src/nonogram/admin/app.py",
+    )
+
+    @staticmethod
+    def _browser_tests() -> set[str]:
+        """Independent of the script: files whose text drives a browser."""
+        found = set()
+        for p in (REPO / "tests").rglob("test_*.py"):
+            text = p.read_text(encoding="utf-8")
+            if any(w in text for w in ("playwright", "browser_page", "chromium")):
+                found.add(p.relative_to(REPO).as_posix())
+        return found
+
+    @pytest.mark.parametrize("changed", SURFACE)
+    def test_every_browser_test_is_selected(self, changed):
+        browser = self._browser_tests()
+        assert len(browser) >= 17, "the control's own corpus shrank"
+        selected = _real_select([changed])
+        assert selected != impact.FULL
+        assert sorted(browser - set(selected)) == [], changed
+        assert sorted(set(self.RECORDED) - set(selected)) == [], changed
+
+    def test_a_hermetic_browser_test_importing_nothing_is_selected(self, web_tree):
+        (web_tree / "tests" / "test_browser_alone.py").write_text(
+            "import playwright\ndef test_z():\n    assert 1\n"
+        )
+        selected = impact.select(web_tree, ["src/nonogram/admin/templates/page.html"])
+        assert "tests/test_browser_alone.py" in selected
+        assert "tests/test_unrelated.py" not in selected
+
+    def test_a_font_is_read_by_the_module_that_loads_it(self, web_tree):
+        fonts = web_tree / "src" / "nonogram" / "export" / "fonts"
+        fonts.mkdir(parents=True)
+        (fonts / "Face.ttf").write_bytes(b"\x00\x01")
+        (web_tree / "src" / "nonogram" / "export" / "__init__.py").write_text("")
+        (web_tree / "src" / "nonogram" / "export" / "pdf.py").write_text(
+            'FONT = "Face.ttf"\n'
+        )
+        (web_tree / "tests" / "test_pdf_render.py").write_text(
+            "from nonogram.export import pdf\ndef test_f():\n    assert pdf\n"
+        )
+        selected = impact.select(web_tree, ["src/nonogram/export/fonts/Face.ttf"])
+        assert selected != impact.FULL
+        assert "tests/test_pdf_render.py" in selected
+
+
+class TestImpactSet_InstrumentsAreNamedNotForcedFull:
+    """``scratchpad/**`` and ``meta/profiling/**`` are records, not product."""
+
+    def test_an_unread_scratchpad_probe_is_not_full(self, tree):
+        (tree / "scratchpad" / "card1").mkdir(parents=True)
+        (tree / "scratchpad" / "card1" / "probe.py").write_text("X = 1\n")
+        derived = impact.derive(tree, ["scratchpad/card1/probe.py"])
+        assert not derived.full
+        assert derived.files == ["tests/test_scanner.py"]
+
+    def test_a_scratchpad_probe_a_test_names_selects_that_test(self, tree):
+        (tree / "scratchpad").mkdir()
+        (tree / "scratchpad" / "named_probe.py").write_text("X = 1\n")
+        (tree / "tests" / "test_reads_probe.py").write_text(
+            "def test_r():\n    assert 'scratchpad/named_probe.py'\n"
+        )
+        selected = impact.select(tree, ["scratchpad/named_probe.py"])
+        assert "tests/test_reads_probe.py" in selected
+
+    def test_a_profiling_probe_nobody_reads_is_not_full(self, tree):
+        (tree / "meta" / "profiling").mkdir(parents=True)
+        (tree / "meta" / "profiling" / "probe_x.py").write_text("X = 1\n")
+        derived = impact.derive(tree, ["meta/profiling/probe_x.py"])
+        assert not derived.full
+
+    def test_the_real_profiling_script_a_test_loads_still_selects_it(self):
+        selected = _real_select(["meta/profiling/rank_durations.py"])
+        assert selected != impact.FULL
+        assert "tests/test_browser_fixture_scope.py" in selected
+
+    def test_a_real_unread_probe_is_not_full(self):
+        assert not _real_derive(["meta/profiling/card292_plant_reads.py"]).full
+
+    def test_a_root_level_script_outside_the_instrument_roots_stays_full(self, tree):
+        (tree / "elsewhere").mkdir()
+        (tree / "elsewhere" / "probe.py").write_text("X = 1\n")
+        derived = impact.derive(tree, ["elsewhere/probe.py"])
+        assert derived.full and derived.reasons[0].rule == "no-reader"
+
+
+class TestImpactSet_TheSurvivorsOfCycle1:
+    """One control per survivor the reviewer fired against the 92 tests."""
+
+    def test_M2c_a_changed_test_selects_the_importers_of_its_importers(self, tree):
+        """Chain A <- B <- C: C names only B, so no name/prefix rule sees A."""
+        (tree / "tests" / "test_chain_a.py").write_text("A = 1\ndef test_a():\n    pass\n")
+        (tree / "tests" / "test_chain_b.py").write_text(
+            "from tests.test_chain_a import A\nB = A\ndef test_b():\n    pass\n"
+        )
+        (tree / "tests" / "test_chain_c.py").write_text(
+            "from tests.test_chain_b import B\ndef test_c():\n    assert B\n"
+        )
+        selected = impact.select(tree, ["tests/test_chain_a.py"])
+        assert "tests/test_chain_b.py" in selected
+        assert "tests/test_chain_c.py" in selected
+
+    @pytest.mark.parametrize(
+        "idiom",
+        ["x = Path('.').iterdir()", "x = Path('.').glob('*')", "x = os.listdir('.')",
+         "x = os.scandir('.')", "x = glob.glob('*')"],
+    )
+    def test_S4_every_walk_idiom_makes_a_tree_reader(self, tree, idiom):
+        (tree / "tests" / "test_walker.py").write_text(
+            f"def test_w():\n    root = 'tests'\n    {idiom}\n"
+        )
+        selected = impact.select(tree, ["tests/test_orphan.py"])
+        assert "tests/test_walker.py" in selected, idiom
+
+    def test_S8_a_bare_name_prefix_in_a_test_selects_the_family(self, tree):
+        (tree / "tests" / "test_prefixer.py").write_text(
+            "PREFIX = 'tests/test_orph'\ndef test_p():\n    assert PREFIX\n"
+        )
+        selected = impact.select(tree, ["tests/test_orphan.py"])
+        assert "tests/test_prefixer.py" in selected
+
+    def test_S10_covered_by_the_collection_error_gate_tests_above(self):
+        assert impact.EXIT_COUNT_FAILED != impact.EXIT_SELECTION
+
+    def test_S14_an_unreadable_test_is_a_scanner(self, tree):
+        locked = tree / "tests" / "test_locked.py"
+        locked.write_text("def test_l():\n    pass\n")
+        locked.chmod(0o000)
+        try:
+            assert Path("tests/test_locked.py") in impact.always_on(tree)
+            selected = impact.select(tree, ["tests/test_orphan.py"])
+            assert "tests/test_locked.py" in selected
+        finally:
+            locked.chmod(0o644)
+
+    def test_S15_a_browser_test_naming_the_directory_reads_a_page_outside_the_roots(self, tree):
+        (tree / "site").mkdir()
+        (tree / "site" / "page.js").write_text("const a = 'site-cell';\n")
+        (tree / "tests" / "test_site_dir_browser.py").write_text(
+            "import playwright\nDIR = '/site/'\ndef test_s():\n    assert DIR\n"
+        )
+        selected = impact.select(tree, ["site/page.js"])
+        assert selected != impact.FULL
+        assert "tests/test_site_dir_browser.py" in selected
+
+    @pytest.mark.parametrize(
+        "idiom",
+        ["import playwright", "def test_e(browser_page): pass", "x = 'chromium'",
+         "import selenium", "x = ['node', 'a.js']"],
+    )
+    def test_S16_every_executor_idiom_makes_a_browser_test(self, web_tree, idiom):
+        (web_tree / "tests" / "test_exec_idiom.py").write_text(f"{idiom}\n")
+        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.css"])
+        assert "tests/test_exec_idiom.py" in selected, idiom
+
+    @pytest.mark.parametrize(
+        "idiom",
+        ["subprocess.run(['git', 'ls-files'])", "subprocess.run(['git', 'grep', 'x'])",
+         "list(Path('.').rglob('*'))", "list(os.walk('.'))"],
+    )
+    def test_S18_every_scan_idiom_makes_an_always_on_test(self, tree, idiom):
+        (tree / "tests" / "test_scan_idiom.py").write_text(
+            f"def test_s():\n    {idiom}\n"
+        )
+        assert Path("tests/test_scan_idiom.py") in impact.always_on(tree), idiom
+        assert "tests/test_scan_idiom.py" in impact.select(tree, ["meta/x.md"])
+
+    def test_S20_a_deleted_test_path_is_not_selected(self, tree):
+        selected = impact.select(tree, ["tests/test_deleted_long_ago.py"])
+        assert selected != impact.FULL
+        assert "tests/test_deleted_long_ago.py" not in selected

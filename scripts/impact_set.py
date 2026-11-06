@@ -41,14 +41,35 @@ linking it; a test file is read by the tests that import it, name it, match it
 by glob, or census the tests tree; a relative import is an edge. Anything
 still underivable returns ``FULL`` *with the path and the rule*.
 
-The gate invocation (one pasteable block; there is no Makefile)::
+The gate invocation (one pasteable block)::
 
     python scripts/impact_set.py --gate --against main
 
-It prints the answer, the selection's size against the full suite's collected
-count (derived by ``pytest --collect-only``, never carried) and, when ``FULL``,
-the path and rule that caused it. Run it with NO full-suite lock held: the
-collection is a pytest run and the lock guard refuses a foreign holder.
+The repository's Makefile carries ``test-impact`` / ``impact-set`` targets that
+call this script in its plain mode; the script is the single source of truth and
+the Makefile only reads its stdout (``FULL`` or one path per line, exit 0 --
+that contract is unchanged).
+
+``--gate`` prints the answer, the selection's size against the full suite's
+collected count (derived by ``pytest --collect-only``, never carried) and, when
+``FULL``, the path and rule that caused it. Its exit code branches:
+
+* ``0``  -- a SELECTION, with both counts collected: run those files.
+* ``10`` -- FULL: run the whole suite.
+* ``11`` -- the count could not be collected (a collection error, a held
+  full-suite lock, a selection that collects 0 tests). Treated as FULL: a
+  selection nobody could size is not vouched for.
+* ``12`` -- EMPTY: no changed path. Not a pass; a failed diff looks like this.
+
+Run it with NO full-suite lock held: the collection is a pytest run.
+
+Not modelled (declared, so nobody reads silence as coverage): a test that
+builds the path of an asset from pieces (``STATIC / f"{stem}{ext}"``,
+``os.path.join(..., "solver" + ".js")``) is invisible to the name rule and is
+caught only by a declared selector, a directory walk or the browser-wide rule
+for admin statics; merge-order effects (main moved after the branch);
+behavioural coupling through JSON field names; frozen cross-card censuses
+beyond the tree-scanning tests (the wave-close full run owns those).
 
 It fails CLOSED. Every path below that cannot be analysed returns ``FULL``,
 which the caller reads as the whole suite. That is ADR-0039/R2's shape
@@ -440,11 +461,32 @@ ASSET_KINDS = ("executed", "template", "named", "inert")
 #: stays FULL.
 OUTSIDE_ROOT_DERIVABLE = (".css", ".js", ".html", ".py")
 
+#: Tracked probe scripts and measurement records. Nothing ships from them and a
+#: test reads one only by naming it, so they are NAMED, never forced to FULL:
+#: a test naming the file is selected, the always-on scanners cover the tracked
+#: tree, and an unread one adds nothing. Measured over 50 merges, 11 of the 19
+#: FULL answers were only a card committing a probe script here.
+INSTRUMENT_ROOTS = ("scratchpad/", "meta/profiling/")
+
+#: Modules whose change reaches every browser test, not only the ones that
+#: import them: the Flask app serves every page a browser test drives, and a
+#: test can get the app from a helper test module, a fixture or a subprocess.
+BROWSER_SURFACE_MODULES = ("nonogram.admin.app",)
+
+#: Exit codes of ``--gate`` (the plain mode always exits 0 so the Makefile's
+#: stdout contract -- ``FULL`` or paths -- is unchanged).
+EXIT_SELECTION = 0      # a selection, with a collected count to vouch for it
+EXIT_FULL = 10          # run the whole suite
+EXIT_COUNT_FAILED = 11  # the count could not be collected: treated as FULL
+EXIT_EMPTY = 12         # no changed path: NOT a pass, check the diff base
+
 #: The rule ids a ``FULL`` reason carries.
 RULE_UNANALYSABLE = "unanalysable"
 RULE_OUTSIDE_ROOTS = "outside-known-roots"
 RULE_MIGRATIONS = "migrations"
 RULE_CONFTEST = "conftest"
+RULE_CONFTEST_CLOSURE = "conftest-closure"
+RULE_COUNT_UNAVAILABLE = "count-unavailable"
 RULE_NO_SCANNERS = "no-scanners"
 RULE_NO_IMPORTER = "no-importer"
 RULE_NO_READER = "no-reader"
@@ -474,10 +516,12 @@ class Derivation:
         files: list[str] | None = None,
         full: bool = False,
         reasons: list[Reason] | None = None,
+        empty: bool = False,
     ):
         self.files = files if files is not None else []
         self.full = full
         self.reasons = reasons if reasons is not None else []
+        self.empty = empty  # no changed path at all: a fact about the diff, not a pass
 
 
 def asset_key(path: str) -> str:
@@ -491,6 +535,14 @@ def _read(root: Path, rel: Path | str) -> str:
         return (root / rel).read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
+
+
+def _read_strict(root: Path, rel: Path | str) -> str | None:
+    """The text, or ``None`` when the file cannot be read at all."""
+    try:
+        return (root / rel).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
 
 
 def _tests_dotted(path: str) -> str | None:
@@ -575,7 +627,13 @@ class _Corpus:
             for p in (root / "tests").rglob("*.py")
             if "__pycache__" not in p.parts
         )
-        self.text = {s: _read(root, s) for s in self.sources}
+        self.text: dict[Path, str] = {}
+        self.unreadable: set[Path] = set()
+        for s in self.sources:
+            got = _read_strict(root, s)
+            if got is None:
+                self.unreadable.add(s)
+            self.text[s] = got or ""
         self.imports = {s: imported_names(root, s) for s in self.sources}
         self.src_graph = src_import_graph(root)
         self.tests_graph: dict[str, set[str]] = {}
@@ -583,7 +641,24 @@ class _Corpus:
             dotted = _tests_dotted(s.as_posix())
             if dotted:
                 named, _ = self.imports[s]
-                self.tests_graph[dotted] = {n for n in named if n.split(".")[0] == "tests"}
+                self.tests_graph[dotted] = {
+                    n for n in named if n.split(".")[0] in ("tests", "nonogram")
+                }
+        # ONE graph over src AND test modules, with every module importing its
+        # ancestor packages (importing a.b.c runs a/__init__ and a/b/__init__).
+        # A browser test that gets the app from `tests.test_puzzle_solver_page`
+        # reaches the app only through this: the src-only graph never saw it.
+        self.graph_all: dict[str, set[str]] = {m: set(v) for m, v in self.src_graph.items()}
+        for m, v in self.tests_graph.items():
+            self.graph_all.setdefault(m, set()).update(v)
+        for module in list(self.graph_all):
+            parts = module.split(".")
+            for i in range(1, len(parts)):
+                ancestor = ".".join(parts[:i])
+                if ancestor in self.graph_all:
+                    self.graph_all[module].add(ancestor)
+        self._conftest: tuple[set[str], set[str]] | None = None
+        self._fixture_users: set[Path] | None = None
         self._executors: set[Path] | None = None
         self._src_texts: list[tuple[Path, str]] | None = None
         self._token_cache: dict[Path, set[str]] = {}
@@ -596,7 +671,9 @@ class _Corpus:
         """The always-on set, from the texts already read (same idioms as
         :func:`always_on`, which stays the standalone entry point)."""
         return [
-            t for t in self.tests if any(i.search(self.text[t]) for i in SCAN_IDIOMS)
+            t
+            for t in self.tests
+            if t in self.unreadable or any(i.search(self.text[t]) for i in SCAN_IDIOMS)
         ]
 
     def tokens(self, test: Path) -> set[str]:
@@ -635,9 +712,81 @@ class _Corpus:
 
     def importers(self, src_modules: set[str], tests_modules: set[str]) -> set[Path]:
         """Test files reaching any of the modules, by import (transitively)."""
-        targets = modules_reaching_any(self.src_graph, src_modules)
-        targets |= modules_reaching_any(self.tests_graph, tests_modules)
+        targets = modules_reaching_any(self.graph_all, src_modules | tests_modules)
         return {t for t in self.tests if reaches(self.imports[t], targets)}
+
+    # -- conftest ------------------------------------------------------------
+
+    def conftest_closure(self) -> tuple[set[str], set[str]]:
+        """``(test_modules, src_modules)`` that ``tests/conftest.py`` imports,
+        transitively. Every test loads conftest, so a helper in the first set is
+        a global dependency (FULL, like conftest) and a module in the second is
+        one the fixtures it defines run against."""
+        if self._conftest is None:
+            seen: set[str] = set()
+            frontier = ["tests.conftest"] if "tests.conftest" in self.graph_all else []
+            while frontier:
+                for target in self.graph_all.get(frontier.pop(), ()):
+                    if target not in seen:
+                        seen.add(target)
+                        frontier.append(target)
+            seen.discard("tests.conftest")
+            self._conftest = (
+                {m for m in seen if m.split(".")[0] == "tests"},
+                {m for m in seen if m.split(".")[0] == "nonogram"},
+            )
+        return self._conftest
+
+    def conftest_users(self) -> set[Path]:
+        """Test files that use a fixture ``tests/conftest.py`` defines.
+
+        By ast: a function parameter named like a fixture, or a string equal to
+        one (``usefixtures``). Derived from the conftest itself, never listed.
+        """
+        if self._fixture_users is None:
+            conftest = Path("tests/conftest.py")
+            names: set[str] = set()
+            if conftest in self.text:
+                try:
+                    tree = ast.parse(self.text[conftest])
+                except SyntaxError:
+                    tree = None
+                for node in ast.walk(tree) if tree else ():
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+                        "fixture" in ast.unparse(d) for d in node.decorator_list
+                    ):
+                        names.add(node.name)
+            users: set[Path] = set()
+            for t in self.tests:
+                try:
+                    tree = ast.parse(self.text[t])
+                except SyntaxError:
+                    users.add(t)  # cannot read its parameters: assume it uses them
+                    continue
+                # A name the file defines as its own fixture, or imports into its
+                # namespace, shadows the conftest one for that file (pytest takes
+                # the closest definition), so `app` as a local fixture is not a use.
+                shadow: set[str] = set()
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+                        "fixture" in ast.unparse(d) for d in node.decorator_list
+                    ):
+                        shadow.add(node.name)
+                    elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                        shadow.update((a.asname or a.name).split(".")[0] for a in node.names)
+                wanted = names - shadow
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        a = node.args
+                        args = {x.arg for x in a.posonlyargs + a.args + a.kwonlyargs}
+                        if args & wanted:
+                            users.add(t)
+                            break
+                    elif isinstance(node, ast.Constant) and node.value in wanted:
+                        users.add(t)
+                        break
+            self._fixture_users = users
+        return self._fixture_users
 
     # -- who names what -----------------------------------------------------
 
@@ -815,6 +964,8 @@ def _classify_pre(path: str) -> Reason | None:
         return Reason(path, RULE_UNANALYSABLE, "listed in UNANALYSABLE; its blast radius is not modelled")
     if Path(path).name == "conftest.py":
         return Reason(path, RULE_CONFTEST, "a conftest applies to every test beneath it")
+    if path.startswith(INSTRUMENT_ROOTS):
+        return None  # named, never forced to FULL (see INSTRUMENT_ROOTS)
     if not path.startswith(KNOWN_ROOTS):
         if Path(path).suffix in OUTSIDE_ROOT_DERIVABLE:
             return None  # readers are derived from the file itself (G-6)
@@ -833,11 +984,12 @@ def derive(root: Path, changed: list[str], corpus: _Corpus | None = None) -> Der
     """The verdict for ``changed``: a selection, or FULL with every reason.
 
     ``FULL`` carries no file list (so a caller cannot downgrade it by reading
-    one) and at least one :class:`Reason` naming a path and a rule.
+    one) and at least one :class:`Reason` naming a path and a rule. An empty
+    changed set is neither: it is ``empty=True``, a fact about the diff.
     """
     changed = [c for c in changed if c]
     if not changed:
-        return Derivation()
+        return Derivation(empty=True)
 
     reasons = [r for c in changed if (r := _classify_pre(c))]
     if reasons:
@@ -854,11 +1006,21 @@ def derive(root: Path, changed: list[str], corpus: _Corpus | None = None) -> Der
         )
 
     selected: set[Path] = set(scanners)
-    for walked in ("src", "tests", "meta", "docs", "scripts"):
+    for walked in ("src", "tests", "meta", "docs", "scripts", "scratchpad"):
         if any(c.startswith(walked + "/") for c in changed):
             selected |= corpus.tree_readers(walked)
 
+    closure_tests, _ = corpus.conftest_closure()
     for path in changed:
+        dotted = _tests_dotted(path)
+        if dotted and dotted in closure_tests:
+            # Every test loads conftest, and conftest loads this: the same
+            # blast radius as conftest itself (hang_guard 300 -> 0.05 kills
+            # tests/test_solver.py, which no selection of 47 files contained).
+            reasons.append(
+                Reason(path, RULE_CONFTEST_CLOSURE, "imported (transitively) by tests/conftest.py, which every test loads")
+            )
+            continue
         got, reason = _derive_one(root, corpus, path)
         if reason:
             reasons.append(reason)
@@ -888,12 +1050,22 @@ def _derive_one(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reas
     if module is not None:
         if module.startswith("nonogram"):
             got = corpus.importers({module}, set())
+            _, conftest_src = corpus.conftest_closure()
+            if module in conftest_src:
+                # conftest imports it, so every fixture it defines runs on it.
+                got |= corpus.conftest_users()
+            if module in BROWSER_SURFACE_MODULES:
+                got |= corpus.executors()
         else:
             got = corpus.importers(set(), {module})
         got |= corpus.naming(path)
         if not got:
             return got, Reason(path, RULE_NO_IMPORTER, "no test imports it or names it; an unimported module is not an unaffecting one")
         return got, None
+
+    # --- a probe script or a measurement record: named, never FULL -----------
+    if path.startswith(INSTRUMENT_ROOTS):
+        return corpus.naming(path), None
 
     # --- an asset shipped under src/, or a derivable file outside the roots --
     outside = not path.startswith(KNOWN_ROOTS)
@@ -922,17 +1094,17 @@ def _derive_asset(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Re
     if kind == "inert":
         return set(), None
 
+    in_src = path.startswith("src/")
     readers = corpus.naming(path)
     chain_assets: set[str] = set()
     modules: set[str] = set()
     scripts: set[str] = set()
     top = path.split("/")[0] if not path.startswith(KNOWN_ROOTS) else None
-    if kind in ("executed", "template"):
-        modules, chain_assets, scripts = _referencers(corpus, path, top)
-        for asset in chain_assets:
-            readers |= corpus.naming(asset)
-        for script in scripts:
-            readers |= corpus.naming(script)
+    modules, chain_assets, scripts = _referencers(corpus, path, top)
+    for asset in chain_assets:
+        readers |= corpus.naming(asset)
+    for script in scripts:
+        readers |= corpus.naming(script)
 
     if kind == "executed":
         ids = _identifiers(path, _read(root, path))
@@ -943,11 +1115,22 @@ def _derive_asset(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Re
         if top:
             # A page outside src/ is driven by a browser that names its directory.
             readers |= corpus.dir_namers(top) & corpus.executors()
-    elif kind == "template" and modules:
+    elif modules:
         readers |= corpus.importers(modules, set())
 
-    if not readers:
+    if not readers and not modules and not chain_assets and not scripts:
+        # Nothing names it, declares a selector a test uses, loads or renders it:
+        # the cheap rule below must not paper over an asset nobody reads.
         return readers, Reason(path, RULE_NO_READER, f"a {kind} asset that no test names, no declared selector reaches, and no module renders")
+
+    if in_src and kind in ("executed", "template"):
+        # The cheap safe rule. Tracing which browser test renders which page is
+        # not provably complete (a test gets the app from a helper module, a
+        # fixture or a subprocess; cycle 1 proved two misses by exactly that),
+        # so an admin/web static asset or template selects EVERY browser test
+        # and every test using a conftest fixture.
+        readers |= corpus.executors() | corpus.conftest_users()
+
     return readers, None
 
 
@@ -1028,11 +1211,15 @@ def collect_count(root: Path, files: list[str] | None) -> int:
     return sum(1 for line in out.stdout.splitlines() if "::" in line)
 
 
-def gate_report(root: Path, changed: list[str], count=None) -> str:
-    """The gate's one pasteable block: answer, size against the suite, cause.
+def gate_verdict(root: Path, changed: list[str], count=None) -> tuple[str, int]:
+    """The gate's one pasteable block AND its exit code.
 
     ``count`` is injectable so the format is testable without spawning pytest;
-    the real default derives both figures by collection.
+    the real default derives both figures by collection. A selection is only
+    vouched for ("nothing more is owed") when BOTH counts were collected and the
+    selection is non-empty: a failed or zero count is FULL
+    (``count-unavailable``), never a quiet pass -- a collection error or a held
+    full-suite lock must not read as a narrow, green gate.
     """
     if count is None:
         def count(files):
@@ -1042,37 +1229,72 @@ def gate_report(root: Path, changed: list[str], count=None) -> str:
     shown = [c for c in changed if c]
     head = ", ".join(shown[:6]) + (f", ... +{len(shown) - 6} more" if len(shown) > 6 else "")
     lines = ["IMPACT GATE", f"changed ({len(shown)}): {head or '(nothing)'}"]
+    codes = f"exit codes: {EXIT_SELECTION} selection | {EXIT_FULL} FULL | {EXIT_COUNT_FAILED} count failed (= FULL) | {EXIT_EMPTY} empty"
+
+    if derived.empty:
+        lines += [
+            "answer: EMPTY -- no changed path. This is NOT a pass: a wrong --base/--against,",
+            "  a detached tree or a failed diff looks exactly like this. Check the base.",
+            f"exit code: {EXIT_EMPTY}",
+            codes,
+        ]
+        return "\n".join(lines), EXIT_EMPTY
+
     try:
-        total = count(None)
-        total_text = str(total)
-    except Exception as exc:  # the block must still say the answer
-        total, total_text = None, f"unavailable ({exc})"
+        total, total_error = count(None), None
+    except Exception as exc:
+        total, total_error = None, str(exc)
+
     if derived.full:
         lines.append("answer: FULL -- run the whole suite")
-        lines.append(f"tests: {total_text} of {total_text} collected (100%)" if total is not None else f"tests: ? of {total_text}")
+        lines.append(
+            f"tests: {total} of {total} collected (100%)"
+            if total is not None
+            else f"tests: ? of unavailable ({total_error})"
+        )
         lines.append("FULL because:")
         lines += [f"  - {r}" for r in derived.reasons]
-    else:
-        lines.append("answer: SELECTION -- run the files below, then nothing more is owed")
+        lines += [f"exit code: {EXIT_FULL}", codes]
+        return "\n".join(lines), EXIT_FULL
+
+    chosen, chosen_error = None, None
+    if total is not None:
         try:
             chosen = count(derived.files)
-            pct = f" ({100 * chosen / total:.1f}%)" if total else ""
-            lines.append(f"tests: {chosen} of {total_text} collected{pct}")
         except Exception as exc:
-            lines.append(f"tests: ? of {total_text} -- selection not collected: {exc}")
-        scanners = len(always_on(root))
-        lines.append(f"files: {len(derived.files)} test files, {scanners} of them always-on")
-        lines.append("selection:")
-        lines += [f"  {f}" for f in derived.files]
-    return "\n".join(lines)
+            chosen_error = str(exc)
+    if total is None or chosen is None or chosen == 0:
+        why = total_error or chosen_error or "the selection collected 0 tests"
+        reason = Reason("(gate)", RULE_COUNT_UNAVAILABLE, f"the size could not be collected, so the selection cannot be vouched for: {why}")
+        lines.append("answer: FULL -- the count failed, so this is treated as FULL")
+        lines.append(f"tests: ? of {total if total is not None else 'unavailable'}")
+        lines.append("FULL because:")
+        lines.append(f"  - {reason}")
+        lines += [f"exit code: {EXIT_COUNT_FAILED}", codes]
+        return "\n".join(lines), EXIT_COUNT_FAILED
+
+    pct = f" ({100 * chosen / total:.1f}%)" if total else ""
+    lines.append("answer: SELECTION -- run the files below, then nothing more is owed")
+    lines.append(f"tests: {chosen} of {total} collected{pct}")
+    lines.append(f"files: {len(derived.files)} test files, {len(always_on(root))} of them always-on")
+    lines += [f"exit code: {EXIT_SELECTION}", codes, "selection:"]
+    lines += [f"  {f}" for f in derived.files]
+    return "\n".join(lines), EXIT_SELECTION
+
+
+def gate_report(root: Path, changed: list[str], count=None) -> str:
+    """:func:`gate_verdict`'s block alone."""
+    return gate_verdict(root, changed, count)[0]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Derive the test selection for a changed set. Prints one "
-        "path per line, or the single token FULL (the reasons go to stderr). "
-        "With --gate: one pasteable block with the selection's size against "
-        "the full suite's collected count."
+        "path per line, or the single token FULL (the reasons go to stderr); "
+        "always exits 0. With --gate: one pasteable block with the selection's "
+        "size against the full suite's collected count, and an exit code that "
+        f"branches ({EXIT_SELECTION} selection, {EXIT_FULL} FULL, "
+        f"{EXIT_COUNT_FAILED} count failed = FULL, {EXIT_EMPTY} empty)."
     )
     parser.add_argument(
         "--base", help="git revision to diff against (e.g. the merge-base)"
@@ -1100,8 +1322,9 @@ def main(argv: list[str] | None = None) -> int:
     changed = (changed_from_git(root, base) if base else []) + list(args.files)
 
     if args.gate:
-        print(gate_report(root, changed))
-        return 0
+        block, code = gate_verdict(root, changed)
+        print(block)
+        return code
 
     derived = derive(root, changed)
     if derived.full:
