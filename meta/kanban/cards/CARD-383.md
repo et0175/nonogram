@@ -1,6 +1,6 @@
 # CARD-383: The vector interior refuses, by name and before any page, a puzzle title its encoding cannot set — gated on the medium so it is green BOTH ways
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 2c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/383-title-refusal
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-383
 **Source:** CARD-322's premise pass finding M3b (2026-11-06) and the owner's ruling D4, "accept your recommendations for D3, D4 and D8": REFUSE LOUDLY on a title the vector interior's encoding cannot set, no transliteration, no wider font in this card; accepted as "pre-flip card B" in CARD-322's re-cut. The re-cut's measurements (mine, a private clone of main at `bb8d1121`) are quoted below.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/errors.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/cli.py, tests/test_cli.py, tests/test_admin_error_text.py, tests/test_book_pdf_band.py
 <!-- Over-declared in the conservative direction (compute_excess penalises only under-declaration). Per file: errors.py = the new class; book_pdf_generator.py = the pre-walk check, gated on the medium; app.py = the branch in BOTH export handlers (`generate_book_pdf_download` and the second handler that calls `_export_part(book, part, puzzles)`); cli.py = ONLY if the new class does not inherit its exit code through the MRO from `InvalidPuzzleName`; tests/test_cli.py = the one exit-code table row (NOT the structural layering guard: that guard is not edited); tests/test_admin_error_text.py = the new handler cells; tests/test_book_pdf_band.py = the refusal tests and the re-expression of the full-corpus band test. CARD-322 edits book_pdf_generator.py and app.py after this card; both are conflict.hotspots in meta/kanban/config.yml, which serialises them. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T15:22Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
