@@ -33,12 +33,35 @@ import pytest
 #: How long one test may run before the suite treats it as hung, dumps every
 #: thread's stack to stderr and aborts.
 #:
-#: Two minutes. The slowest honest test in this suite is a seeded corpus
-#: property test in the tens of seconds, and the whole suite runs in about
-#: ninety; so this cannot fire on work, only on a stop. Override with
-#: ``NONOGRAM_TEST_HANG_SECONDS`` — the guard's own test sets it to a couple of
-#: seconds to prove the mechanism without waiting two minutes for it.
-HANG_SECONDS = float(os.getenv("NONOGRAM_TEST_HANG_SECONDS", "120"))
+#: Five minutes (300 s). CARD-381 raised this from 120 s on the owner's ruling
+#: of 2026-11-06: a raised DEFAULT, not a per-test marker and not a speed-up.
+#:
+#: What the bound is measured against: the slowest honest SINGLE TEST, summed
+#: over setup, call and teardown, because the alarm wraps the whole of
+#: ``pytest_runtest_protocol``. The old comment here ("tens of seconds") was
+#: stale well before this card. The figures behind the new bound are
+#: as follows, with who measured each. MEASURED by CARD-381 on 2026-11-06,
+#: load average about 7 on the owner's machine, one module at a time and not
+#: the whole suite: ``tests/test_kill_matrix.py::
+#: test_ac7_the_four_arm_grid_of_card_257_reproduces`` 80.28 s (the dearest
+#: test of its module; the next is 8.21 s); in
+#: ``tests/test_book_export_interior_cover.py`` and three neighbouring modules
+#: the dearest test is 17.94 s. CARRIED, not re-measured here: that same
+#: ac7 test reached about 120 s under an armed gate's load (CARD-326's gate
+#: died on it at the old 120 s bound), and CARD-336's premise pass projects
+#: the CARD-322 geometry node ``PortraitWithFixedTopEdge_pdf_pages`` at about
+#: 125 s once the interior is vector. The dearest honest test is therefore
+#: about 125 s on a loaded host, and 300 s is 2.4 times that;
+#: no whole-suite ``--durations`` run was made for this comment. So 300 s sits above the dearest honest test with margin for a loaded host
+#: and below nothing that is meant to finish. It can still not fire on work,
+#: only on a stop; the cost, accepted by the owner, is that a true hang is
+#: caught after five minutes instead of two.
+#:
+#: Override with ``NONOGRAM_TEST_HANG_SECONDS`` -- the guard's own test sets it
+#: to a couple of seconds to prove the mechanism without waiting for it, and 0
+#: disables the guard. No gate needs an override to get past a slow honest test
+#: any more.
+HANG_SECONDS = float(os.getenv("NONOGRAM_TEST_HANG_SECONDS", "300"))
 
 #: Where the stacks are written when a test overruns.
 #:

@@ -586,7 +586,7 @@ class TestTestDbSetup_StillRefusesANonTestDatabase:
 # --------------------------------------------------------------------------
 
 #: How long a probe waits for its peer before calling the rendezvous broken.
-#: Comfortably under the hang guard's 120s per test, so a peer that never
+#: Comfortably under the hang guard's 300s per test, so a peer that never
 #: arrives fails with an explanation rather than a stack dump.
 _RENDEZVOUS_SECONDS = 45.0
 

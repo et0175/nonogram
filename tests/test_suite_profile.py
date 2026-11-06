@@ -5125,16 +5125,21 @@ def _run_module_in_sandbox(root: Path, log: str | None) -> dict[str, str]:
 
 
 class TestSuiteCeiling_TheCliffEdgeListIsDerived:
-    """CARD-292 / AC-2: which tests sit within 50 % of the suite's per-test
-    ceiling, **derived from the committed artefact** rather than listed.
+    """CARD-292 / AC-2: which tests sit within 20 % of the suite's per-test
+    ceiling (CARD-292 wrote "within 50 %" against a 120 s ceiling; CARD-381
+    raised the ceiling to 300 s and kept the 60 s absolute line, see
+    ``CEILING_FRACTION``), **derived from the committed artefact** rather
+    than listed.
 
     The ceiling is real and it is in the tree, not in the host:
     ``tests/hang_guard.py`` arms ``faulthandler.dump_traceback_later`` with
-    ``exit=True`` **per test** at its default of 120 s, so a test that
+    ``exit=True`` **per test** at its default of 300 s, so a test that
     overruns takes the whole process down -- no summary line, no captured
     output, exit 1, and no signal, which is every symptom CARD-292 was opened
-    to explain. A test at 110 s is therefore not "slow"; it is one busy
+    to explain. A test at 280 s is therefore not "slow"; it is one busy
     minute away from reding a gate that has nothing to do with the tree.
+    (CARD-292 wrote this at a 120 s default and a 110 s example; CARD-381
+    raised the default to 300 s and the example with it.)
 
     **What is frozen here and what is not** (CARD-292's G-2). The ceiling is
     read off the guard's own source, and the threshold is derived from it, so
@@ -5151,8 +5156,18 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
     directly rather than scaling this figure.
     """
 
-    #: How close to the ceiling counts as cliff-edge. AC-2's "within 50 %".
-    CEILING_FRACTION = 0.5
+    #: How close to the ceiling counts as cliff-edge: 0.2, so the line is 60 s.
+    #:
+    #: CARD-292's AC-2 said "within 50 %" and the ceiling was 120 s, which is
+    #: the same 60 s line. CARD-381 raised the ceiling to 300 s; a 50 % line
+    #: would be 150 s, above every row of the committed artefact (the dearest
+    #: is 81.03 s), and the frozen list below would become empty -- an empty
+    #: list that reads as "nothing is near the ceiling" and leaves
+    #: ``test_both_cliff_edge_rows_are_tests_the_suite_still_collects`` with no
+    #: files to collect. The 60 s absolute line is what was frozen and what the
+    #: two rows are rows *of*; 0.2 of 300 s keeps it, and is a judgement call
+    #: CARD-381's report names rather than a derivation.
+    CEILING_FRACTION = 0.2
 
     #: Every test of the committed artefact whose summed phase time reaches
     #: ``CEILING_FRACTION`` of the ceiling, derived once and frozen.
@@ -5198,7 +5213,7 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         it.
 
         By AST and not by import: ``HANG_SECONDS`` is
-        ``float(os.getenv(..., "120"))``, so an imported value is whatever the
+        ``float(os.getenv(..., "300"))``, so an imported value is whatever the
         environment said -- and CARD-292's own measurements set that variable
         to 0 to time a test that the guard would otherwise have killed. The
         **default literal** is the tree's figure; the environment's is the
@@ -5265,7 +5280,7 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         """The ceiling is the hang guard's own default, and the threshold is
         derived from it -- neither is written here."""
         ceiling = self._ceiling_seconds()
-        assert ceiling == 120.0, (
+        assert ceiling == 300.0, (
             "the per-test hang guard's default moved, so every figure derived "
             f"from it in this class is stale: {ceiling}"
         )
@@ -5276,7 +5291,7 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         # answer it cannot have been written with. A planted guard whose
         # default is 45 must come back as 45.
         planted = (REPO_ROOT / self.GUARD_SOURCE).read_text(encoding="utf-8").replace(
-            '"120"', '"45"'
+            '"300"', '"45"'
         )
         assert planted != (REPO_ROOT / self.GUARD_SOURCE).read_text(
             encoding="utf-8"
@@ -5322,7 +5337,7 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
             "parser, so it is not testing the refusal"
         )
         with pytest.raises(AssertionError, match="duration format has"):
-            self._cliff_edge(mangled, 120.0)
+            self._cliff_edge(mangled, 300.0)
 
     def test_the_threshold_is_inclusive_at_its_own_boundary(self) -> None:
         """The edge of the claim, on a synthetic artefact so the numbers are
@@ -5350,7 +5365,7 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         text = SYNTHETIC_ARTEFACT.replace(
             "10.00s call     tests/test_a.py::test_slow", rows
         )
-        live = Unfloored._cliff_edge(text, 120.0)
+        live = Unfloored._cliff_edge(text, 300.0)
         assert [nodeid for nodeid, _ in live] == [
             "tests/test_x.py::test_exactly_at",
             "tests/test_x.py::test_in_two_phases",
@@ -5467,11 +5482,15 @@ PROBE_LIFETIME_SECONDS = 30
 #:
 #: 5.0 and not 30.0, because of where the waiting lands. The whole matrix is
 #: built inside the FIRST node that requests the module-scoped fixture, and
-#: ``tests/hang_guard.py`` arms its 120 s timer in ``pytest_runtest_protocol``
-#: -- which wraps setup -- with ``exit=True``. Review cycle 1 (F-005) measured
-#: three invisible negatives costing 93.30 s on that one node; there are five
-#: visibility cases, so a 30 s budget puts the ceiling at 150 s, past the
-#: guard. The guard's action is to write stacks and KILL the process, so a
+#: ``tests/hang_guard.py`` arms its timer (120 s when this was written, 300 s
+#: since CARD-381) in ``pytest_runtest_protocol`` -- which wraps setup -- with
+#: ``exit=True``. Review cycle 1 (F-005) measured three invisible negatives
+#: costing 93.30 s on that one node; there are five visibility cases, so a
+#: 30 s budget puts the ceiling at 150 s -- past the 120 s guard of the time,
+#: and under the 300 s guard of today, so against today's guard this figure is
+#: no longer what forces 5.0 (the margin it buys is 150 s of 300 rather than
+#: the difference between named reds and a kill). The guard's action is to
+#: write stacks and KILL the process, so a
 #: broken negative control would have presented as no summary line at all --
 #: which ``meta/kanban/config.yml`` calls "a MEASUREMENT defect, never a tree
 #: verdict" -- instead of as named reds. Realized need is ~15x smaller: a
@@ -6072,9 +6091,11 @@ def _is_a_shell(argv: str) -> bool:
 #: measured back into ``hang_guard``'s lap. ``rival_matrix`` builds up to
 #: ``len(REALIZABLE_CASES)`` x :data:`BASELINE_ATTEMPTS` spawns inside ONE
 #: node, so a per-spawn wait is multiplied by up to 24 on the node
-#: ``tests/hang_guard.py`` arms its 120 s ``exit=True`` timer around. At 60 s
-#: a single broken spawn shape cost 65 s of that budget and all six cost the
-#: whole of it: measured 2026-10-29/30, 15 dots and NO summary line, which is
+#: ``tests/hang_guard.py`` arms its ``exit=True`` timer around (120 s when
+#: this was measured, 300 s since CARD-381). At 60 s a single broken spawn
+#: shape cost 65 s of the 120 s budget and all six cost the whole of it
+#: (360 s of waits, which still exceeds today's 300 s): measured
+#: 2026-10-29/30, 15 dots and NO summary line, which is
 #: ``meta/kanban/config.yml``'s "a MEASUREMENT defect, never a tree verdict"
 #: -- the exact mode review cycle 1's F-005 was raised to remove, re-entered
 #: through the fix for F-004.

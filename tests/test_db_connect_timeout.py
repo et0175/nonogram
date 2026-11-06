@@ -123,7 +123,7 @@ def test_a_hanging_test_is_killed_and_its_stack_printed(tmp_path) -> None:
     Run in a subprocess, because the guard's remedy is to kill the process —
     there is no way to observe that from inside the process it kills. The
     subprocess loads the guard explicitly (``-p tests.hang_guard``) with a
-    two-second bound instead of the shipped two minutes, so the mechanism is
+    two-second bound instead of the shipped five minutes, so the mechanism is
     proved without the wait.
 
     Three things are asserted, and the third is the one with the value: the
