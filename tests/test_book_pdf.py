@@ -1754,6 +1754,48 @@ def test_no_interior_page_carries_an_image_xobject() -> None:
         )
 
 
+def _ensure_declared(monkeypatch, *kinds: PageKind) -> None:
+    """Put each ``kind``'s bitmap declaration back, so a later ``delitem`` has a key.
+
+    CARD-379. A test that LIFTS a declaration (``monkeypatch.delitem``) makes a
+    claim about the act of lifting -- what the file or the guard does the day
+    the entry goes -- and that claim can only be observed from a state in which
+    the entry is PRESENT. Under the five-kind probe, and in the tree after
+    CARD-322, it is already gone, and a bare ``delitem`` there raises
+    ``KeyError`` (13 reds measured, 7 of them in this module). ``raising=False``
+    would make the lift a silent no-op in that tree and every claim built on it
+    vacuous; this puts the precondition back instead, and ASSERTS it: the
+    entry the registry holds (the real object when there is one, so a tree
+    that still declares the kind is untouched), else a stand-in carrying the
+    same three fields, and :func:`page_medium` must then call the kind RASTER.
+
+    Call it BEFORE anything is written, when the claim compares a file written
+    with the declaration against the same plan after the lift. Every site that
+    calls ``delitem`` on a kind it did not itself declare calls this first.
+    """
+    for kind in kinds:
+        monkeypatch.setitem(
+            _RASTER_DECLARATIONS,
+            kind,
+            _RASTER_DECLARATIONS.get(
+                kind,
+                RasterDeclaration(
+                    reason="put back by this test: the tree has lifted it",
+                    authority="CARD-379",
+                    expires_with=("CARD-322",),
+                ),
+            ),
+        )
+        assert page_medium(kind) is PageMedium.RASTER, (
+            f"{kind.value} is not a declared bitmap after _ensure_declared, "
+            "so the lift that follows has nothing to lift"
+        )
+
+
+#: Every interior kind: all of them but the cover, which is raster for good.
+_INTERIOR_KINDS = tuple(kind for kind in PageKind if kind is not PageKind.COVER)
+
+
 def test_no_interior_page_carries_an_image_xobject_in_a_mixed_file(
     monkeypatch,
 ) -> None:
@@ -1782,6 +1824,10 @@ def test_no_interior_page_carries_an_image_xobject_in_a_mixed_file(
     """
     import nonogram.admin.book_pdf_generator as generator_module
 
+    # CARD-379: the lift is an ACT here (the file below is compared with the
+    # same plan under the declaration, at the end), so the entry is put back
+    # first -- a bare delitem raises where the tree has already lifted it.
+    _ensure_declared(monkeypatch, PageKind.TITLE)
     monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
     assert page_medium(PageKind.TITLE) is PageMedium.VECTOR
 
@@ -1820,15 +1866,14 @@ def test_no_interior_page_carries_an_image_xobject_in_a_mixed_file(
     # declaration back, the same call writes a file with **no** face in it at
     # all, so the three font objects are not three unused objects on a
     # raster-only interior.
-    monkeypatch.setitem(
-        generator_module._RASTER_DECLARATIONS,
-        PageKind.TITLE,
-        RasterDeclaration(
-            reason="restored by this test",
-            authority="this test",
-            expires_with=("CARD-299",),
-        ),
-    )
+    #
+    # CARD-379: "back" means EVERY interior kind, not the one this test lifted.
+    # The title page was the only converted kind when this was written, so
+    # restoring it made the file raster-only; in a tree where the guide, the
+    # contents, the puzzles and the answers are operators as well, restoring
+    # the title page alone leaves a mixed file and the assertion below reads
+    # the tree and not the claim.
+    _ensure_declared(monkeypatch, *_INTERIOR_KINDS)
     raster_only = generator.export_interior(
         [_puzzle(10, 10, 3, name=f"R{index}") for index in range(3)]
     ).getvalue()
@@ -1849,6 +1894,7 @@ def test_a_vector_page_with_no_operators_is_still_classified_vector(
     """
     import nonogram.admin.book_pdf_generator as generator_module
 
+    _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
     monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
     generator = BookPDFGenerator(_book())
     blank = generator.vector_title_page(1)
@@ -1909,6 +1955,11 @@ def test_an_undeclared_raster_page_is_a_defect(monkeypatch) -> None:
     """
     import nonogram.admin.book_pdf_generator as generator_module
 
+    # CARD-379: "written with the declaration in place" is a precondition the
+    # tree must be put in -- where the puzzle page is already operators, the
+    # file below would otherwise hold a vector puzzle page and the lift would
+    # leave nothing undeclared to find.
+    _ensure_declared(monkeypatch, PageKind.PUZZLE)
     generator, puzzles = _interior_with_every_page_kind()
     by_kind, _, _ = _media_by_kind(generator, puzzles)
     assert _declaration_findings(by_kind) == []
@@ -3289,6 +3340,7 @@ def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages(
 
     assert arm() == 9
 
+    _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
     monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
     assert arm() == 9
 
@@ -3404,6 +3456,7 @@ class TestWritePdf_RefusesWhatItCannotWrite:
         """
         import nonogram.admin.book_pdf_generator as generator_module
 
+        _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
         monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
         generator = self._generator()
         with pytest.raises(TypeError) as raised:
@@ -3882,8 +3935,17 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         """
         import nonogram.admin.book_pdf_generator as generator_module
 
+        _ensure_declared(monkeypatch, PageKind.GUIDE)  # CARD-379: lift from present
         monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.GUIDE)
-        generator = BookPDFGenerator(_book())
+        # CARD-379: the subject is a generator holding NO downstream writer,
+        # so it is built as one. ``BookPDFGenerator(_book())`` is that only in
+        # a tree whose default writer set is empty; under the five-kind probe
+        # (and wherever the default is the assembled set) it would draw the
+        # guide and this cell would pass or fail on the default and not on
+        # the refusal.
+        generator = BookPDFGenerator(
+            _book(), pages=generator_module.InteriorPageWriters()
+        )
         puzzles = self._puzzles()
         with pytest.raises(ValueError) as raised:
             generator.export_interior(puzzles)
@@ -3904,6 +3966,7 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         import nonogram.admin.book_interior_vector as assembly
         import nonogram.admin.book_pdf_generator as generator_module
 
+        _ensure_declared(monkeypatch, PageKind.GUIDE, PageKind.TOC)  # CARD-379
         monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.GUIDE)
         monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TOC)
         puzzles = self._puzzles()

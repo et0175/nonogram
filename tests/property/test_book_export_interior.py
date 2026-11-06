@@ -59,7 +59,7 @@ from io import BytesIO
 
 import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
@@ -71,7 +71,8 @@ from nonogram.admin.book_pdf_generator import (
     _folio_reserve_px,
     page_is_right_hand,
 )
-from nonogram.admin import book_pdf_generator
+from nonogram.admin import book_interior_vector, book_pdf_generator
+from nonogram.admin.book_interior_vector import interior_generator
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book
 from tests.helpers.page_ink import drawing_of, frame_centre_of
@@ -84,6 +85,13 @@ from tests.helpers.pdf_pages import (
 from tests.helpers.two_up_ink import drawings_of
 
 TRIM_PX = (2550, 3300)
+
+#: How far a drawing's left edge may sit from the coordinate the spec gives it,
+#: in millimetres, on a puzzle page and on a full answer page. It is the 0.1 mm
+#: bound this module always asserted -- NOT widened (CARD-379, G-2). It is a
+#: name only so that :class:`TestPlacementBound_IsPinnedFromBothSides` pins the
+#: SAME number the property test asserts: a bound written twice is two bounds.
+PLACEMENT_BOUND_MM = 0.1
 ROUTES = ("generator", "finalise", "download-pdf", "generate-pdf")
 CASES = 28
 SEED = 135
@@ -525,7 +533,9 @@ def _title_page_is_blank(data: bytes, pages, label: str) -> None:
     )
 
 
-def _page_two_is_the_guide(data: bytes, pages, puzzles, label: str) -> None:
+def _page_two_is_the_guide(
+    data: bytes, pages, puzzles, label: str, book=None
+) -> None:
     """Interior page 2 is the guide's first page, in the medium it was written.
 
     The bitmap arm is ``same_page`` against the guide the generator draws for
@@ -535,35 +545,60 @@ def _page_two_is_the_guide(data: bytes, pages, puzzles, label: str) -> None:
     the file rather than a 0.9 ink-overlap score that happens to clear a
     threshold.
 
-    **The vector arm fails by name rather than passing.** There is no vector
-    guide writer reachable from the generator today — ``book_guide_vector``
-    imports ``book_pdf_generator``, so the interior's own walk cannot call it,
-    and no ``BookPDFGenerator.vector_guide_page`` exists (measured: the
-    generator's only ``vector_*`` page methods are ``vector_title_page`` and
-    the two puzzle ones). The day CARD-309 converts the guide, this fails and
-    says so, which is the behaviour ADR-0039/R2 asks for and the opposite of a
-    comparison that quietly had nothing to compare.
+    **The vector arm fails by name rather than passing.** Its expected side is
+    the assembled generator's ``pages.guide`` (CARD-379: the former
+    ``BookPDFGenerator.vector_guide_page`` never existed, and the
+    ``book_guide_vector`` writer cannot be imported by the generator itself, so
+    the assembly point ``book_interior_vector`` is the one path to it). An
+    assembly that holds no guide writer is a failure naming that, which is
+    the behaviour ADR-0039/R2 asks for and the opposite of a comparison that
+    quietly had nothing to compare.
     """
     medium = _medium_of(data, 1, label)
     if medium == pdf_vector.RASTER:
         assert same_page(pages[1], _expected_guide(puzzles)), label
         return
-    writer = getattr(BookPDFGenerator, "vector_guide_page", None)
+    # CARD-379 (M2): the expected side is the ASSEMBLED path's own writer,
+    # ``generator.pages.guide`` (``book_interior_vector.interior_generator``,
+    # ADR-0042/R1's assembly point). It was ``BookPDFGenerator.vector_guide_page``
+    # until now, which does not exist, so the arm failed by name on every
+    # vector guide page. What this comparison pins is the WIRING of page 2
+    # (which half, which spec, which counts reach the writer) and the stream's
+    # determinism; it does not re-derive the glyphs -- the writer's own module
+    # owns what the page draws, and an expected side drawn by the same writer
+    # cannot see a drift INSIDE it (declared, not hidden). MEASURED residue
+    # (ADR-0039/R3): a stray operator added to the guide writer's output
+    # (``stream.line(0, 0, 1, 1)`` before ``return GuidePage(`` in
+    # ``book_guide_vector``) reds 0 of this module's 17 tests at the cycle-1
+    # tip, plain and under the five-kind probe, and 0 of 18 after the
+    # literal pin was added (CARD-379 fix round 1). Not held by any test here.
+    # ``book`` is the book the interior was written for, when its margins are
+    # not the default profile's: Book 1's gutter equals its outside margin, so
+    # on it page 2 and page 3 have the SAME sheet and a spec taken from the
+    # wrong page position cannot be seen (CARD-379 plant E3 survived there).
+    generator = interior_generator(book)
+    writer = generator.pages.guide
     assert writer is not None, (
-        f"{label}: interior page 2 is written as operators but no vector "
-        "guide writer is reachable from BookPDFGenerator, so this reading has "
-        "nothing to compare the shipped page against — the card that converts "
-        "the guide page (CARD-309) owes the expected side here"
+        f"{label}: interior page 2 is written as operators but the assembled "
+        "generator holds no guide writer (book_interior_vector."
+        "DOWNSTREAM_WRITERS, CARD-309), so this reading has nothing to "
+        "compare the shipped page against"
     )
     tiers = Counter(p["difficulty_tier"].lower() for p in puzzles)
     expected = writer(
-        BookPDFGenerator(),
-        len(puzzles),
-        tiers["easy"],
-        tiers["medium"],
-        tiers["hard"],
+        generator.page_spec(2),
+        generator.dpi,
+        2,
+        puzzle_count=len(puzzles),
+        easy_count=tiers["easy"],
+        medium_count=tiers["medium"],
+        hard_count=tiers["hard"],
     )
-    assert pdf_vector.content_streams(data)[1] == "\n".join(expected.operators), label
+    # ``render()`` is the bytes a ``/Contents`` object holds (the file's
+    # stream ends in the newline ``"\n".join(operators)`` does not carry).
+    assert (
+        pdf_vector.content_streams(data)[1] == expected.render().decode("cp1252")
+    ), label
 
 
 def _no_interior_page_is_the_cover(data: bytes, pages, cover_page, label: str) -> None:
@@ -841,13 +876,21 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     rng = random.Random(SEED)
     cases = [_random_case(rng, i) for i in range(CASES)]
     seen = Counter()
+    seen_error = Counter()  # the worst |measured - expected| per page kind, mm
 
     for number, case in enumerate(cases):
         label = f"case {number} ({case['route']}, {len(case['puzzles'])} puzzles, cover={case['cover'] is not None})"
         interior_bytes, cover_bytes, reported, finalise = _export_through_route(
             admin_app, case
         )
-        interior = pdf_pages(interior_bytes)
+        # ``dpi=`` because an EMPTY book's interior can be all operators (blank
+        # title page and guide, no divider), and a file with no raster page
+        # has no DPI to derive (CARD-379). The density is the writer's own
+        # declared one (``book_pdf_generator.DPI``, COMP-007), read from it
+        # and not restated; ``PX_PER_MM`` below is still built from the
+        # literal 300 and is asserted equal to it in
+        # :class:`TestPlacementBound_IsPinnedFromBothSides`.
+        interior = pdf_pages(interior_bytes, dpi=book_pdf_generator.DPI)
         cover_pages = pdf_pages(cover_bytes)
         n = len(case["puzzles"])
 
@@ -947,12 +990,31 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
-        def _measured(page_number, puzzle, drawing, cell_mm=None, *, is_lower=False):
-            drawn_left_mm = drawing.left / PX_PER_MM
+        def _measured(
+            page_number, puzzle, drawing, ink, cell_mm=None, *, is_lower=False
+        ):
+            # CARD-379 (M2): the claim is WHERE the drawing sits, a
+            # coordinate, so it is read as the frame's BOUNDARY
+            # (``frame_centre_of``), not the ink's first line -- the two media
+            # put that first line 3 px (0.254 mm) apart (CARD-336, the same
+            # family CARD-359 converted in the parity test below), which this
+            # 0.1 mm bound was never meant to absorb. The bound is NOT widened
+            # (G-2); its measured residue and the control that fails just past
+            # it are :class:`TestPlacementBound_IsPinnedFromBothSides`.
+            drawn_left_mm = frame_centre_of(ink, drawing).frame_left / PX_PER_MM
+            seen_error["puzzle page"] = max(
+                seen_error["puzzle page"],
+                abs(
+                    drawn_left_mm
+                    - _expected_drawing_left_mm(
+                        puzzle, page_number, cell_mm, is_lower=is_lower
+                    )
+                ),
+            )
             expected_mm = _expected_drawing_left_mm(
                 puzzle, page_number, cell_mm, is_lower=is_lower
             )
-            assert abs(drawn_left_mm - expected_mm) < 0.1, (
+            assert abs(drawn_left_mm - expected_mm) < PLACEMENT_BOUND_MM, (
                 f"{label}: page {page_number} "
                 f"({'right' if page_number % 2 else 'left'}-hand) "
                 f"draws its puzzle at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
@@ -960,7 +1022,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             seen["right-hand" if page_number % 2 else "left-hand"] += 1
 
         for page_number, group in section:
-            drawings = drawings_of(interior[page_number - 1])
+            ink = interior[page_number - 1]
+            drawings = drawings_of(ink)
             assert len(drawings) == len(group), (
                 f"{label}: page {page_number} holds {len(drawings)} drawing(s), "
                 f"not {len(group)}"
@@ -974,6 +1037,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                     page_number,
                     puzzle,
                     drawing,
+                    ink,
                     shared,
                     is_lower=len(group) == 2 and position == 1,
                 )
@@ -1019,9 +1083,14 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             right_hand = page_is_right_hand(answer_page_number)
             if kind == "full":
                 (puzzle,) = group
-                drawn_left_mm = drawing_of(page).left / PX_PER_MM
+                # CARD-379 (M2): the frame's boundary, as on the puzzle pages
+                # above (``page`` is device pixels in either medium).
+                drawn_left_mm = frame_centre_of(page, drawing_of(page)).frame_left / PX_PER_MM
                 expected_mm = _expected_drawing_left_mm(puzzle, answer_page_number)
-                assert abs(drawn_left_mm - expected_mm) < 0.1, (
+                seen_error["answer page"] = max(
+                    seen_error["answer page"], abs(drawn_left_mm - expected_mm)
+                )
+                assert abs(drawn_left_mm - expected_mm) < PLACEMENT_BOUND_MM, (
                     f"{label}: answer page {answer_page_number} "
                     f"({'right' if right_hand else 'left'}-hand) "
                     f"starts its drawing at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
@@ -1074,6 +1143,14 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         seen["with cover" if case["cover"] is not None else "without cover"] += 1
         seen["empty book" if n == 0 else "non-empty book"] += 1
 
+    # CARD-379 (ADR-0039/R3): the residue of the 0.1 mm placement bound, as an
+    # assertion and not a note -- over this corpus the reading is within ONE
+    # device pixel of the coordinate on both page kinds (measured 0.0843 mm
+    # bitmap / 0.0822 mm operators; a pixel is 1 / PX_PER_MM = 0.0847 mm), and
+    # both kinds were actually read (a key that never filled would read 0).
+    # :class:`TestPlacementBound_IsPinnedFromBothSides` holds the controls.
+    for kind in ("puzzle page", "answer page"):
+        assert 0.0 < seen_error[kind] <= 1 / PX_PER_MM + 1e-9, (kind, seen_error)
     assert len(cases) >= CASES
     for route in ROUTES:
         assert seen[route] >= CASES // len(ROUTES) - 1, (route, seen)
@@ -1436,6 +1513,94 @@ class TestParity_TheBoundIsPinnedFromBothSides:
         assert _parity_error_mm(PARITY_GUTTER_MM, PARITY_OUTSIDE_MM) < 0.1
 
 
+def _placement_error_mm(shift_px: int) -> float:
+    """|measured - nominal| for the parity corpus's page 6, drawn ``shift_px`` late.
+
+    The same reading the main property test makes of a puzzle page
+    (``frame_centre_of`` on ``drawings_of``'s drawing, against
+    ``_expected_drawing_left_mm``), on the page the generator really wrote in
+    whichever medium its kind declares, after the bitmap is moved
+    ``shift_px`` pixels right (a negative number moves it left). Moving the
+    DEVICE PIXELS is the cheapest drift that is the same in both media and
+    needs no second export.
+    """
+    puzzle = _unpairable_puzzle(random.Random(PARITY_SEED), "easy")
+    generator = BookPDFGenerator(_parity_book("card-379-placement"))
+    assert generator.section_plan([puzzle]).pages[1].page_number == 6
+    page = list(generator.interior_stream([puzzle]).pages)[5]
+    ink = ImageChops.offset(page_image(page), shift_px, 0)
+    (drawing,) = drawings_of(ink)
+    measured_mm = frame_centre_of(ink, drawing).frame_left / PX_PER_MM
+    nominal_mm = _expected_drawing_left_mm(
+        puzzle, 6, gutter_mm=PARITY_GUTTER_MM, outside_mm=PARITY_OUTSIDE_MM
+    )
+    return abs(measured_mm - nominal_mm)
+
+
+class TestPlacementBound_IsPinnedFromBothSides:
+    """ADR-0039/R3 for the main property test's 0.1 mm placement bound (CARD-379 M2).
+
+    ``abs(drawn_left_mm - expected_mm) < PLACEMENT_BOUND_MM`` (0.1 mm) is asserted on every puzzle page
+    and on every full answer page. Not widened (G-2); the reading under it was
+    changed from the ink's first line to the frame's boundary
+    (``frame_centre_of``), because the two media put the first line 3 px
+    (0.254 mm) apart and the bound was never meant to absorb that.
+
+    **Declared residue, MEASURED on this tip.** Over the property test's
+    28-case corpus the worst |measured - expected| was 0.0843 mm on a puzzle
+    page and on a full answer page in the bitmap medium, and 0.0822 mm (puzzle)
+    / 0.0817 mm (answer) in the operators medium (the five-kind probe) -- one
+    device pixel is 0.0847 mm, so the reading is quantised to the pixel and the
+    bound leaves 0.0157 mm of room above the worst page. The table, for the
+    parity corpus's page 6 moved by whole pixels (error in mm, bitmap /
+    operators): -3 px 0.172 / 0.257, -2 px 0.088 / 0.172, -1 px 0.003 / 0.088,
+    0 px 0.082 / 0.003, +1 px 0.166 / 0.082, +2 px 0.251 / 0.166, +3 px
+    0.336 / 0.251. So the clause cannot see a drift of one pixel (0.085 mm) to
+    the left in EITHER medium, and sees one to the right in the bitmap medium
+    only; a drift of 0.169 mm to the right (+2 px) or 0.254 mm to the left
+    (-3 px) is caught in BOTH. The three controls below are exactly those: one
+    inside the residue, two just past it.
+
+    **Pinned from the loose side only up to 0.172 mm -- NOT below it.** The
+    three controls can tell the bound apart from a looser one only where a
+    measured error falls between the two, and the shifted page's error is
+    quantised to the pixel (bitmap medium, in mm: 0.003 / 0.082 / 0.088 /
+    0.166 / 0.172 / 0.251 for -1, 0, -2, +1, -3, +2 px). None lies in
+    (0.088, 0.166), so the three CONTROLS alone redden nothing for a bound
+    anywhere from 0.09 up to 0.172. MEASURED (fix round 1 of CARD-379, by
+    planting the constant): without the literal pin below, bounds 0.17,
+    0.166, 0.15, 0.12 and 0.09 give 0 reds in this class (plain tree, bitmap
+    medium; the 0.15 and 0.12 plants also in the five-kind-probe tree, where
+    they redden only the literal pin) and 0.2 reddens the three-pixel-left
+    control (and the pin). The six drift values and the 0.15 /
+    0.12 results CONFIRM the cycle-1 reviewer's; the 0.17 / 0.166 / 0.09
+    plants are the author's own addition.
+
+    So what holds the number is the literal assertion in
+    ``test_the_bound_is_the_literal_the_property_test_was_written_with``
+    (``PLACEMENT_BOUND_MM == 0.1``), not the controls, and the controls pin
+    it from the loose side only up to 0.172 mm. From the tight side the
+    property test's own worst page (0.0843 mm) clears 0.1 by 0.0157 mm.
+    """
+
+    def test_the_bound_is_the_literal_the_property_test_was_written_with(self):
+        assert PLACEMENT_BOUND_MM == 0.1
+        assert book_pdf_generator.DPI == 300
+        assert PX_PER_MM == book_pdf_generator.DPI / 25.4
+
+    def test_a_one_pixel_drift_inside_the_residue_is_not_caught(self):
+        assert _placement_error_mm(-1) < PLACEMENT_BOUND_MM
+
+    def test_a_two_pixel_drift_to_the_right_is_caught(self):
+        assert _placement_error_mm(2) >= PLACEMENT_BOUND_MM
+
+    def test_a_three_pixel_drift_to_the_left_is_caught(self):
+        assert _placement_error_mm(-3) >= PLACEMENT_BOUND_MM
+
+    def test_the_undrifted_page_is_the_control(self):
+        assert _placement_error_mm(0) < PLACEMENT_BOUND_MM
+
+
 # --------------------------------------------------------------------------
 # ADR-0042/R6 — the stream arm of the three readings above is NOT dormant
 # (CARD-299)
@@ -1462,12 +1627,59 @@ class TestInteriorReadings_TheStreamArmIsReached:
     """
 
     def _vector_title_interior(self, monkeypatch) -> bytes:
+        # CARD-379 (the ``delitem`` site, 5 reds): the claim of every test in
+        # this class is "the title page is written as operators", NOT "this
+        # call removed the entry". ``raising=False`` makes the lift safe when
+        # the declaration is already gone (the five-kind probe, and the tree
+        # after CARD-322), and the assertion that follows keeps the lift
+        # MEANINGFUL when it is present: the page the readings below consume
+        # really is vector in both trees, so a lift that silently did nothing
+        # (declaration still there, or a writer that stopped honouring it)
+        # fails HERE instead of handing a bitmap to a stream-arm test.
         monkeypatch.delitem(
             book_pdf_generator._RASTER_DECLARATIONS,
             book_pdf_generator.PageKind.TITLE,
+            raising=False,
         )
         generator = BookPDFGenerator(corpus_book())
-        return generator.export_interior(baseline_puzzles()).getvalue()
+        data = generator.export_interior(baseline_puzzles()).getvalue()
+        assert pdf_vector.page_media(data)[0] == pdf_vector.VECTOR, (
+            "the title page was not written as operators: the lift did "
+            "nothing, so every stream-arm reading in this class would be "
+            "reading a page it never meant to"
+        )
+        return data
+
+    @staticmethod
+    def _unequal_margins_book():
+        """A book whose gutter and outside margin differ, so the hand shows."""
+        return _parity_book("card-379-guide")
+
+    def _vector_guide_interior(self, monkeypatch) -> bytes:
+        """An interior whose guide pages (2 and 3) really are operators.
+
+        Both declarations are lifted (``raising=False``, as above) and the
+        generator is the ASSEMBLED one: the guide's writer lives downstream of
+        ``book_pdf_generator`` (``InteriorPageWriters``), so a bare
+        ``BookPDFGenerator(book)`` would REFUSE the vector guide instead of
+        drawing it.
+        """
+        for kind in (
+            book_pdf_generator.PageKind.TITLE,
+            book_pdf_generator.PageKind.GUIDE,
+        ):
+            monkeypatch.delitem(
+                book_pdf_generator._RASTER_DECLARATIONS, kind, raising=False
+            )
+        data = (
+            interior_generator(self._unequal_margins_book())
+            .export_interior(baseline_puzzles())
+            .getvalue()
+        )
+        assert pdf_vector.page_media(data)[1] == pdf_vector.VECTOR, (
+            "the guide's first page was not written as operators"
+        )
+        return data
 
     def test_the_title_pages_blankness_is_read_from_the_stream(self, monkeypatch):
         """``_title_page_is_blank`` takes the stream arm and never the bitmap.
@@ -1526,21 +1738,20 @@ class TestInteriorReadings_TheStreamArmIsReached:
     ):
         """Review cycle 1's F-006 — the second vector arm, driven.
 
-        ``_page_two_is_the_guide``'s vector arm had no test at all. It is the
-        arm whose whole job is to **fail by name** rather than pass with
-        nothing to compare: there is no vector guide writer reachable from the
-        generator, so a vector guide page has no expected side, and a reading
-        that quietly skipped it would be the silent pass ADR-0039/R2 forbids.
+        ``_page_two_is_the_guide``'s vector arm is the arm whose whole job is
+        to **fail by name** rather than pass with nothing to compare. CARD-379
+        re-expressed what "nothing to compare" means: the writer IS reachable
+        now (``book_interior_vector.DOWNSTREAM_WRITERS``, CARD-309's assembly
+        point), so the failure is an assembly that holds none. The plant is
+        exactly that assembly, handed in through the module constant
+        ``interior_generator`` reads, and the matched control is the next test
+        (the real assembly, same page, passes).
 
         Page 2 alone is forced vector, so what this reaches is the guide's own
         arm and not the title page's.
         """
         data = self._vector_title_interior(monkeypatch)
         media = pdf_vector.page_media(data)
-        assert getattr(BookPDFGenerator, "vector_guide_page", None) is None, (
-            "a vector guide writer now exists, so this arm should compare "
-            "against it instead of failing — CARD-309's work has landed"
-        )
 
         monkeypatch.setattr(
             pdf_vector,
@@ -1550,8 +1761,82 @@ class TestInteriorReadings_TheStreamArmIsReached:
                 for index, value in enumerate(_media)
             ],
         )
+        monkeypatch.setattr(
+            book_interior_vector,
+            "DOWNSTREAM_WRITERS",
+            book_pdf_generator.InteriorPageWriters(),
+        )
         with pytest.raises(AssertionError, match="CARD-309"):
             _page_two_is_the_guide(data, None, baseline_puzzles(), "vector guide")
+
+    def test_the_guide_pages_vector_arm_reads_the_real_page_through_the_assembled_path(
+        self, monkeypatch
+    ):
+        """CARD-379 (M2) — the matched control of the test above, and AC-4's.
+
+        A REAL vector guide page (written by the assembled generator, not a
+        forced medium) equals ``generator.pages.guide``'s page 2 for the same
+        counts.
+        """
+        data = self._vector_guide_interior(monkeypatch)
+
+        _page_two_is_the_guide(
+            data,
+            None,
+            baseline_puzzles(),
+            "assembled guide",
+            self._unequal_margins_book(),
+        )
+
+    def test_the_guide_pages_vector_arm_can_fail_on_a_wrong_page_or_a_stray_mark(
+        self, monkeypatch
+    ):
+        """CARD-379 — the comparison above has two ways to fail, both driven.
+
+        (a) a stray mark on the shipped page: the stream differs from the
+        expected one by one operator. (b) the other half of the tutorial where
+        page 2 belongs: the expected side is the writer's page 2 and the
+        stream read is page 3's. Without these the ``==`` in the helper is a
+        comparison nothing has seen unequal.
+
+        What this does NOT plant is the tier counts. MEASURED (cycle 1, re-measured
+        in the fix round): on this book neither guide page (interior pages 2
+        and 3) carries "This book contains" -- ``pdftotext`` on both finds
+        neither that line nor ``Easy:`` -- and the writer's stream for
+        ``page_spec(2)`` and for ``page_spec(3)`` is byte-identical for the
+        counts (3, 1, 1, 1), (99, 50, 40, 9) and (0, 0, 0, 0). The writer draws
+        those lines only at its ``full`` fit level, which neither page reaches,
+        so page 2's stream does not depend on the counts (and neither does
+        page 3's). They are therefore not claimed here; the reading's counts
+        are passed through for the day a page that draws them is read.
+        """
+        data = self._vector_guide_interior(monkeypatch)
+        puzzles = baseline_puzzles()
+        streams = pdf_vector.content_streams(data)
+
+        monkeypatch.setattr(
+            pdf_vector,
+            "content_streams",
+            lambda _data, _s=streams: [_s[0], _s[1] + "0 0 1 1 re f\n", *_s[2:]],
+        )
+        with pytest.raises(AssertionError, match="stray"):
+            _page_two_is_the_guide(
+                data, None, puzzles, "stray mark", self._unequal_margins_book()
+            )
+
+        assert streams[1] != streams[2], (
+            "the two guide pages are identical, so the page-index plant below "
+            "could not tell them apart"
+        )
+        monkeypatch.setattr(
+            pdf_vector,
+            "content_streams",
+            lambda _data, _s=streams: [_s[0], _s[2], _s[1], *_s[3:]],
+        )
+        with pytest.raises(AssertionError, match="swapped"):
+            _page_two_is_the_guide(
+                data, None, puzzles, "swapped", self._unequal_margins_book()
+            )
 
     def test_no_interior_page_is_the_cover_reads_the_covers_permanent_declaration(
         self, monkeypatch
