@@ -1,6 +1,6 @@
 # CARD-343: A whole-file `pdf_pages` render comes back blank under the probe while the per-page path yields real pixels in the same run
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/343-guide-page-blank-render
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-343
 **Source:** Raised as F-2 by CARD-336's round, 2026-11-04, and routed here at the decompose station on the owner's re-cut instruction. CARD-336's round found it while checking that card's own second UNMEASURED PREMISE, stopped rather than guessing, and said so: "Why a whole-file pdf_pages render comes back blank while puzzle_frame's per-page interior_images path yields real pixel readings in the same run is unmeasured. It is not the frame-centre oracle's, whatever it is, and it needs its own owner." This card is that owner.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 74
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_guide_page.py, tests/helpers/page_ink.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T18:56Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
