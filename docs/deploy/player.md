@@ -85,6 +85,20 @@ follows the new deployment becoming Ready, not the promote command returning; so
 production hashes after the status says Ready, not after the command exits. Not observed: a real
 phone, the native-pinch behaviour on a real device, Auto-Deploy's dashboard state, and any counting.
 
+**The circles publish, 2026-11-06.** The public player gained circled clue numbers (CARD-326, merge
+`423aef15`), and the same recipe was run a third time. Main then carried zoom, the crosshair and the circles.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-circles-deploy`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. `play.js`, `player.css`, `solver_state.js` and `tokens.css` SHA-256 identical to their sources; the built `play.js` carries `circledClues`, `wireCrosshair` and the zoom code, the built stylesheet `is-circled` and `is-crossed`; no goatcounter reference and no external `http(s)` reference; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; `build/site`, `build/site-zoom-deploy` and `build/site-crosshair-deploy` were not touched. |
+| Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported and no `.vercel/` in the tree, run in the background: deployment `nonogram-studio-92v2egpwd`, Ready 28 seconds after the command started (the zoom preview was Ready at once; the crosshair preview took about seven minutes: the delay VARIES from publish to publish and is not a fixed cost). The three doors and the puzzle file answered 200 and the four files matched the local hashes. |
+| Behaviour on the preview | Headless Chromium on `/play/00d5d88065`: no number circled at load; after marking the first run of row 0 (4 cells) with the run still OPEN, still none; after closing the run with a white mark, exactly one circled (the row's number), its ring a `1px solid rgb(28, 35, 51)` border; one undo removed it, redo restored it; with the pointer over a cell of row 0 the row's clue box was crossed AND its number circled; `body[data-solved]` stayed "false"; Reset cleared the circles; no page error. (A first attempt that marked the run without closing it circled nothing, which is the module's rule, not a defect: a number circles only once its run is closed by an empty mark or an edge.) |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-914baad47`, Ready within seconds. `https://nonogram.adverax.io` then served the same four hashes, answered 200 on the three doors, the puzzle file carried the same five fields, the same circle run gave the same figures, and the crosshair and zoom checks gave their earlier figures (34 crossed on hover, 0 after leaving, a click still marks, three zoom controls, no page error). |
+| Rollback target | The production deployment before it, `nonogram-studio-a47h6w2y5` (the crosshair build), was still Ready afterwards; the zoom build `nonogram-studio-bji650yak` also remains. A rollback was not tried. |
+
+Not observed: a real phone, how the compact ring reads on one (the rings are slim pills, tighter than the
+admin's, a declared design choice recorded on CARD-326), Auto-Deploy's dashboard state, and any counting.
+
 ## What is owner-managed and what is repo-managed
 
 | Thing | Who owns it |
