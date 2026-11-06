@@ -470,6 +470,69 @@ body {
   max-width: 48rem;
 }
 
+/* The Hint control and its counter (CARD-327). A bar of its own UNDER the
+   board, and not a toolbar group: the toolbar's button set is pinned by
+   tests/test_public_player_zoom.py (owner ruling 2026-11-06). The names are
+   the admin's split: .player-hints is the counter, .player-hint (above) stays
+   the usage paragraph, and .player-hint-say is the sentence a press says. The
+   button is a .btn, so 44 px tall, and gains a 44 px floor in width. */
+.player-below {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 var(--space-4);
+}
+
+.player-below > .player-hint { flex: 1 1 20rem; }
+
+.player-hint-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  /* The bar and the usage paragraph share one row wherever the viewport has the
+     room (.player-below), because the zoom module pins that the space BELOW
+     the stage stays smaller than the stage's own offset from the top
+     (tests/test_public_player_zoom.py, measured over its whole viewport grid)
+     and that margin is as small as 21 px at a desktop width: a bar stacked
+     above the paragraph there adds a 44 px row and breaks it. Side by side it
+     adds nothing, the paragraph being the taller of the two. On a phone the
+     two stack and the margin there is the larger. */
+  margin: var(--space-3) 0 0;
+}
+
+.player-hint-button { min-width: 44px; justify-content: center; }
+
+.player-hints {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.player-hints-count {
+  min-width: 2ch;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  text-align: right;
+}
+
+/* The sentence takes the rest of the row and wraps beneath on a phone. */
+.player-hint-say {
+  margin: 0;
+  flex: 1 1 16rem;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  max-width: 48rem;
+}
+
+.player-hint-say:empty { display: none; }
+
 /* ------------------------------------------------------------------ board */
 
 .player-stage {
@@ -725,6 +788,47 @@ body {
 .player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
 .player-clue.is-crossed { background: var(--player-cross); }
 
+/* The hint ladder's line and the cell it derives (CARD-327). Rungs 1 and 2
+   light the row or column the next deduction lives on (.is-hint-line, on every
+   cell of it and on its clue box), and rung 3 marks the cell and outlines it
+   (.is-hinted) until the next recorded change. These are the panel's own rules
+   (admin.css, CARD-269 and CARD-183), declaration for declaration, and
+   tests/test_public_player_agreement.py holds the two to each other.
+
+   A BACKGROUND for the line, for the crosshair's reason: the circle is a
+   border on the number's ::before and the dot and the "?" are ::after, so a
+   lit line keeps every mark and every ring on it. The tint is the accent
+   (a green) mixed into the paper, which is the one hue this page's crosshair
+   (a cool grey, above) and its Maybe cell (a warm beige) both stay clear of.
+   Tokens only, and no token added: tokens.css is a byte-identical copy.
+
+   TWO DIFFERENCES FROM THE PANEL, both declared in the agreement file with
+   their reasons and measured figures:
+
+   * the tint's STRENGTH. The panel's hint line is --color-accent-tint, the
+     accent's palest green. Measured on this page's clue box, that tint is 6
+     levels (of 255, max channel) from the crosshair's grey, which is not
+     "distinguishable by pixels" (CARD-327 AC-10), so the line here is 18% of
+     the accent in the paper;
+   * where a lit line is ALSO crossed, the panel lets the highlight win
+     outright (the crosshair vanishes on that line), and this page shows a
+     50/50 mix of the two tints instead, so a line that is hinted, crossed and
+     circled shows all three at once. The mix is of the two tints' own
+     variables, so it is still tokens only. */
+.player-stage {
+  --player-hint-line: color-mix(in srgb, var(--color-accent) 18%, var(--grid-paper));
+  --player-hint-line-ink: color-mix(in srgb, var(--player-hint-line) 24%, var(--grid-ink));
+}
+.player-cell.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line[data-state="filled"] { background: var(--player-hint-line-ink); }
+.player-clue.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line, .player-clue.is-hint-line { animation: player-hint-line-in calc(2 * var(--duration-base)) var(--ease); }
+@keyframes player-hint-line-in { from { background-color: transparent; } }
+.player-cell.is-hint-line.is-crossed, .player-clue.is-hint-line.is-crossed { background: color-mix(in srgb, var(--player-hint-line) 50%, var(--player-cross)); }
+.player-cell.is-hint-line.is-crossed[data-state="filled"] { background: color-mix(in srgb, var(--player-hint-line-ink) 50%, var(--player-cross-ink)); }
+.player-cell.is-hinted { outline: var(--player-rule-major) solid var(--color-accent); outline-offset: calc(-1 * var(--player-rule-major)); box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--grid-paper); animation: player-hinted-in calc(2 * var(--duration-base)) var(--ease); }
+@keyframes player-hinted-in { from { outline-color: transparent; } }
+
 /* CARD-328: the dot and the solved reveal below are held to admin.css's own by tests/test_public_player_agreement.py — change either here and that guard reds until the panel's matches or the difference is declared there with its reason. */
 
 /* The white mark: a small centred dot, so "decided empty" reads differently
@@ -775,4 +879,6 @@ body[data-solved="true"] .player-cell[data-state="filled"] {
 @media (prefers-reduced-motion: reduce) {
   .player-solved:not([hidden]),
   body[data-solved="true"] .player-cell[data-state="filled"] { animation: none; }
+  /* The hint's fade-ins (CARD-327): the same highlight, with no motion. */
+  .player-cell.is-hint-line, .player-clue.is-hint-line, .player-cell.is-hinted { animation: none; }
 }

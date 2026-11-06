@@ -16,7 +16,8 @@
 // What IS here is the UI glue, rewritten rather than shared: solver.js is
 // built around a Flask-rendered page with an embedded payload, a brush menu,
 // an error count, a hint button and a progress percent. This page fetches its
-// puzzle, has the same four brushes and no counters.
+// puzzle, has the same four brushes, a hint that derives (THE HINT below) and
+// no error count or progress percent.
 //
 // ZOOM IS THE MODULE'S ARITHMETIC AND THIS FILE'S RENDERING (CARD-324,
 // ADR-0038/R4, ADR-0041/R3)
@@ -59,10 +60,19 @@
 //     out of solver_state.js's circledNumbers: that function circles a number
 //     under three rules, two of which fire on marks that satisfy no clue, so
 //     "every number circled" is not "every clue satisfied";
-//   * solver_state.js's isSolved, errorCount, solvedPercent and hintCell all
-//     take `solution` and are therefore unreachable from this page. No error
-//     count, no progress percent, no hints (CARD-283 G-4). Adding any of them
-//     publicly needs the answer, which is a new architecture question;
+//   * solver_state.js's isSolved, errorCount, solvedPercent and firstWrongRow
+//     take `solution` as the thing they compare the board AGAINST, so they are
+//     unreachable from this page: the error count, the progress percent and
+//     Check need the answer and are not here (owner, 2026-10-30; CARD-327 G-6).
+//     THE HINT DOES NOT NEED IT, and the sentence this header used to say
+//     ("no hints ... needs the answer") was false for it (CARD-327).
+//     hintCell uses the solution for two things only, spelling the state it
+//     returns and discarding the player's WRONG marks, and neither is the
+//     deduction: lineForced takes clues and cells and no solution at all. So
+//     the hint below DERIVES the next cell from the clues (derivedHint, a
+//     native re-implementation of that deduction), over the board as the
+//     player has it, and has no fallback that reveals a cell, because that
+//     branch of hintCell is the one that reads the answer (see THE HINT);
 //   * the save below is this file's own, not serializeState /
 //     deserializeState. Those two fingerprint `payload.solution` into the
 //     save and refuse a save whose fingerprint does not match, so they cannot
@@ -93,6 +103,8 @@ import {
   applyStroke, clickStroke, dragStroke, resetStroke,
   gesturePaints, nextRegion,
   ZOOM_MIN, ZOOM_MAX, stepZoom, pinchZoom, anchoredScroll,
+  RUNG_POINT, RUNG_EXPLAIN, RUNG_REVEAL, HINT_REASONS,
+  nextRung, hintReason, hintStroke, hintCount,
   circledClues,
 } from "/solver_state.js";
 
@@ -230,9 +242,13 @@ export function isClueSolved(board, rows, columns) {
 
 export const saveKey = (key) => `nonogram-public:${key}`;
 
+// A hint stroke keeps its `hint: true` in the save, as solver_state.js's own
+// save does, so a reload does not turn a derived cell into a plain mark and
+// drop it from the hint count (CARD-327). Every other stroke is as before.
 const savedStroke = (stroke) => ({
   cells: stroke.cells.map(([row, col]) => [row, col]),
   state: stroke.state,
+  ...(stroke.hint === true ? { hint: true } : {}),
 });
 
 // The save of `history` as JSON text, or null when the history does not start
@@ -261,9 +277,13 @@ function strokeOf(saved, width, height) {
     && Number.isInteger(cell[0]) && cell[0] >= 0 && cell[0] < height
     && Number.isInteger(cell[1]) && cell[1] >= 0 && cell[1] < width;
   if (!saved.cells.every(onBoard)) return null;
+  // A `hint` that is present must be true (the module's strokeOf makes the
+  // same refusal): anything else is a save that cannot be trusted.
+  if (Object.hasOwn(saved, "hint") && saved.hint !== true) return null;
   return Object.freeze({
     cells: Object.freeze(saved.cells.map(([row, col]) => Object.freeze([row, col]))),
     state: saved.state,
+    ...(saved.hint === true ? { hint: true } : {}),
   });
 }
 
@@ -463,6 +483,213 @@ function paintCircles(clueNumbers, circled) {
 }
 
 // --------------------------------------------------------------------------
+// THE HINT (CARD-327): derived from the clues, never revealed
+// --------------------------------------------------------------------------
+//
+// The hint answers "what does a line decide?" and nothing else. It never needs
+// the answer, and the page never gets one: solver_state.js's hintCell touches
+// the solution for exactly two things, spelling the state it returns and
+// reading the player's WRONG marks as undecided, and the deduction between
+// them is lineForced, which takes a clue and a line and no solution at all.
+// forcedLine below is that deduction written natively (the precedent CLAUDE.md
+// names, solver/propagate.py's mask_runs: reimplemented rather than imported
+// around, and cross-checked against the module's own lineForced and hintCell
+// from the TEST tree, tests/test_public_player_hint.py, where the import is
+// legal). derivedHint is the hintCell equivalent: it runs forcedLine over
+// every row clue and column clue against the board as the player has it, and
+// returns the first undecided cell (UNKNOWN or MAYBE) some line forces, with
+// the state forcedLine gave it. That state is read from nowhere else, because
+// there is nowhere else.
+//
+// Declared, because a reviewer reads the ADR-0041/R2 argument against it:
+// R2 is read as a rule about what an ASSET CARRIES, not about what a browser
+// can compute from the clues it already has (owner ruling 2026-11-06).
+// puzzle/<key>.json is unchanged, no variable in this file is a solution grid
+// before or after any number of hints, and CON-005 / INV-002 (every published
+// puzzle is uniquely solvable) are why the clues already determine every
+// cell. tests/test_public_player_hint.py TestPublicHint_TheAssetGainsNothing
+// is the mechanical half.
+//
+// THE TWO THINGS HINTCELL DID WITH THE ANSWER, AND WHAT REPLACES THEM
+//
+//   * No fallback. hintCell, finding no line that forces an undecided cell,
+//     reveals an arbitrary one (deduced: false). That branch reads the answer
+//     and has no solution-free form, so this page does not have it: when no
+//     line forces a cell, derivedHint returns null and the Hint control says
+//     so ("the clues decide nothing more by themselves") and reveals NO cell
+//     at any rung. This is the sentence CARD-269 designed as the admin's
+//     exhausted state; the admin still follows it with a fallback reveal at
+//     rung 3, which is the part this page leaves out.
+//   * Wrong marks are not discarded. The page cannot tell a wrong mark from a
+//     right one, so it deduces from the board as the player has it (only
+//     FILLED and EMPTY are knowns: a MAYBE is undecided, as in knownLine).
+//     The consequence is real and DECLARED: a wrong mark can contradict a
+//     line's clue, and forcedLine then answers null for that line.
+//     THE CONTRADICTING-LINE DECISION: that line is SKIPPED, and the hint
+//     deduces from the others. Surfacing it ("this line cannot be right") is
+//     solution-free and is the nearest honest thing to the error count the
+//     owner declined, but it is a feature and a reversal of that decision
+//     shaped as a bug fix, so it is not shipped here. A hint taken from the
+//     other lines may then follow from the wrong mark; that is what "the board
+//     as the player has it" means, and the hint says which line it read.
+//
+// THE LADDER IS THE MODULE'S. nextRung, RUNG_POINT/EXPLAIN/REVEAL,
+// hintReason, HINT_REASONS, hintStroke and hintCount are imported, not
+// rebuilt; this file adds the sentences (the admin's, solver.js's LADDER_*)
+// and the rendering. Rungs 1 and 2 record nothing; rung 3 records ONE
+// hintStroke, so a hint is one undo step and hintCount reads it off the undo
+// stack. Any recorded change puts the ladder back on rung 1.
+
+const known = (state) => (state === FILLED || state === EMPTY ? state : UNKNOWN);
+
+const isUndecided = (state) => state === UNKNOWN || state === MAYBE;
+
+// One line of cell states with every cell that all placements of `clue`
+// consistent with the FILLED and EMPTY cells of `cells` agree on set to FILLED
+// or EMPTY, and every other cell UNKNOWN; null when no placement fits, which on
+// this page means the player's own marks contradict the clue. Reachability over
+// (cell, runs placed), backward then forward; a run placed at `at` takes its
+// cells and the one after it, which must not be FILLED.
+export function forcedLine(clue, cells) {
+  const runs = clue.filter((n) => n > 0);
+  const n = cells.length;
+  const k = runs.length;
+  const fits = (at, run) => {
+    if (at + run > n) return false;
+    for (let x = at; x < at + run; x += 1) if (cells[x] === EMPTY) return false;
+    return at + run === n || cells[at + run] !== FILLED;
+  };
+  const after = (at, run) => (at + run + 1 > n ? n : at + run + 1);
+  // rest[i][j]: cells i.. can hold runs j.. and nothing else.
+  const rest = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(false));
+  rest[n][k] = true;
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = k; j >= 0; j -= 1) {
+      const blank = cells[i] !== FILLED && rest[i + 1][j];
+      const placed = j < k && fits(i, runs[j]) && rest[after(i, runs[j])][j + 1];
+      rest[i][j] = blank || placed;
+    }
+  }
+  if (!rest[0][0]) return null;
+  // reached[i][j]: a placement of runs ..j-1 on cells ..i-1 can be completed.
+  const reached = Array.from({ length: n + 1 }, () => new Array(k + 1).fill(false));
+  reached[0][0] = true;
+  const canFill = new Array(n).fill(false);
+  const canEmpty = new Array(n).fill(false);
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j <= k; j += 1) {
+      if (!reached[i][j]) continue;
+      if (cells[i] !== FILLED && rest[i + 1][j]) {
+        reached[i + 1][j] = true;
+        canEmpty[i] = true;
+      }
+      if (j < k && fits(i, runs[j]) && rest[after(i, runs[j])][j + 1]) {
+        reached[after(i, runs[j])][j + 1] = true;
+        for (let x = i; x < i + runs[j]; x += 1) canFill[x] = true;
+        if (i + runs[j] < n) canEmpty[i + runs[j]] = true;
+      }
+    }
+  }
+  return cells.map((_, i) => {
+    if (canFill[i] && !canEmpty[i]) return FILLED;
+    if (canEmpty[i] && !canFill[i]) return EMPTY;
+    return UNKNOWN;
+  });
+}
+
+// The hint for `board`: { row, col, state, line } for the first undecided cell,
+// row-major, that forcedLine of its row (ROW FIRST) or of its column decides,
+// with `line` = { axis, index, clue, cells, at } naming the line that decided
+// it (cells = that line's knowns, at = the cell's index along it, exactly what
+// hintReason takes); null when no line decides any undecided cell. A line
+// forcedLine answers null for (the marks contradict its clue) forces nothing
+// and is skipped. Only the recorded board is ever passed in.
+export function derivedHint(board, rows, columns) {
+  const { width, height } = board;
+  const rowCells = rows.map((_, row) =>
+    Array.from({ length: width }, (_, col) => known(board.cells[row * width + col])));
+  const colCells = columns.map((_, col) =>
+    Array.from({ length: height }, (_, row) => known(board.cells[row * width + col])));
+  const rowForced = rows.map((clue, row) => forcedLine(clue, rowCells[row]));
+  const colForced = columns.map((clue, col) => forcedLine(clue, colCells[col]));
+  const decides = (forced, at) => forced !== null && forced[at] !== UNKNOWN;
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      if (!isUndecided(board.cells[row * width + col])) continue;
+      if (decides(rowForced[row], col)) {
+        const line = Object.freeze({ axis: "row", index: row, clue: rows[row], cells: rowCells[row], at: col });
+        return Object.freeze({ row, col, state: rowForced[row][col], line });
+      }
+      if (decides(colForced[col], row)) {
+        const line = Object.freeze({ axis: "column", index: col, clue: columns[col], cells: colCells[col], at: row });
+        return Object.freeze({ row, col, state: colForced[col][row], line });
+      }
+    }
+  }
+  return null;
+}
+
+// Whether any cell of `board` could be hinted at all (the Hint control's
+// aria-disabled). Not whether a line forces one: that is the exhausted state,
+// which the control must be able to say out loud.
+const canHint = (board) => board.cells.some(isUndecided);
+
+// The sentences. Rungs 1 and 2 are solver.js's LADDER_* words, so the two
+// pages say the same thing about the same line (tests/test_public_player_
+// agreement.py holds them to it); the exhausted sentence is this page's own,
+// because the admin's is followed by a reveal this page does not have.
+export const HINT_REASON_SAY = Object.freeze({
+  "runs-complete": (axis) => `every run in this ${axis} is placed; the rest is white.`,
+  overlap: (axis, run) => `the ${run}-run must overlap in the middle whatever its position.`,
+  generic: (axis) => `every placement of this ${axis}'s clues agrees on at least one cell.`,
+});
+
+const hintPointText = (line) => `Hint: look at ${line.axis} ${line.index + 1}.`;
+
+function hintExplainText(line) {
+  const { reason, run } = hintReason(line.clue, line.cells, line.at);
+  const sentence = HINT_REASON_SAY[reason];
+  if (sentence === undefined) {
+    throw new RangeError(`"${reason}" is not a hint reason (${HINT_REASONS.join(", ")})`);
+  }
+  return `Hint: look at ${line.axis} ${line.index + 1} — ${sentence(line.axis, run)}`;
+}
+
+const HINT_EXHAUSTED =
+  "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board.";
+
+const hintRevealText = ({ row, col, state }) =>
+  `Hint: row ${row + 1}, column ${col + 1} is ${state === FILLED ? "black" : "white"}.`;
+
+// What a press on each rung says about a line it found, keyed by the rung the
+// press was made ON. Rung 3 reveals instead of saying, so it has no entry.
+export const HINT_SAY = Object.freeze({
+  [RUNG_POINT]: hintPointText,
+  [RUNG_EXPLAIN]: hintExplainText,
+});
+
+// The elements one line's highlight goes on: every cell of it and its clue
+// box, selected by AXIS and data-line (the crossedParts discipline), never by
+// DOM order. Keyed by the hint line's axis word, "row" or "column".
+const HINT_PARTS = {
+  row: (index) => [`td.player-cell[data-row="${index}"]`, `th.player-clue.is-row[data-line="${index}"]`],
+  column: (index) => [`td.player-cell[data-col="${index}"]`, `th.player-clue.is-col[data-line="${index}"]`],
+};
+
+// Put `.is-hint-line` on (or take it off) one line. Decides nothing: `on` is
+// the caller's boolean. tests/test_public_player_hint.py holds this and
+// markHinted to a closed vocabulary with no operator.
+function paintHintLine(table, line, on) {
+  for (const selector of HINT_PARTS[line.axis](line.index)) {
+    for (const part of table.querySelectorAll(selector)) part.classList.toggle("is-hint-line", on);
+  }
+}
+
+function markHinted(cell, on) {
+  cell.classList.toggle("is-hinted", on);
+}
+
+// --------------------------------------------------------------------------
 // The page
 // --------------------------------------------------------------------------
 
@@ -635,6 +862,12 @@ function start(payload) {
   const announce = document.querySelector("[data-player-announce]");
   const hint = document.querySelector("[data-player-hint]");
   const regionToggle = document.querySelector("[data-player-region]");
+  // The Hint control is NOT in the toolbar (CARD-327, owner ruling
+  // 2026-11-06): the toolbar's one-row bound is pinned by
+  // tests/test_public_player_zoom.py. It lives in its own bar under the board.
+  const hintBar = document.querySelector("[data-player-hint-bar]");
+  const hintsOut = document.querySelector("[data-player-hints]");
+  const hintSay = document.querySelector("[data-player-hint-say]");
   const actions = {};
   for (const button of document.querySelectorAll("[data-player-action]")) {
     actions[button.dataset.playerAction] = button;
@@ -658,6 +891,20 @@ function start(payload) {
   let region = false;
   let lastClick = null;
   let gesture = null;
+  // The hint ladder (see THE HINT): the rung the NEXT press shows, the line
+  // lit by rungs 1-2 and the cell rung 3 just derived. View state of Region's
+  // kind: never a cell state, never recorded, never saved, so a load starts on
+  // rung 1 with nothing lit.
+  let rung = RUNG_POINT;
+  let hintLine = null;
+  let hinted = null;
+  // The rung is mirrored into the Hint control as data-player-rung, for the
+  // tests and for a reader of the DOM; nothing reads it back.
+  function setRung(next) {
+    rung = next;
+    actions.hint?.setAttribute("data-player-rung", String(rung));
+  }
+  const table = stage.querySelector(".player-board");
 
   // ------------------------------------------------------------------ zoom
   // `zoom` is a percent in [ZOOM_MIN, ZOOM_MAX]. It is view state and
@@ -884,6 +1131,10 @@ function start(payload) {
     setDisabled(actions.undo, history.done.length === 0);
     setDisabled(actions.redo, history.undone.length === 0);
     setDisabled(actions.reset, history.board.cells.every((state) => state === UNKNOWN));
+    // Nothing to hint only when no cell is undecided. A board no line decides
+    // anything on is NOT disabled: the control has to be able to say so.
+    setDisabled(actions.hint, !canHint(history.board));
+    hintsOut.textContent = String(hintCount(history));
     // The circles come from the RECORDED board (a drag's preview is `shown`,
     // and a number is not circled by marks that are not yet made).
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
@@ -898,9 +1149,45 @@ function start(payload) {
     stage.querySelector(".player-board")?.classList.toggle("is-region", region);
   }
 
+  // The sentence a press says, in the bar under the board. While one is showing
+  // the usage paragraph below it is hidden: the zoom module pins that the space
+  // BELOW the stage stays smaller than the stage's offset from the top (a page
+  // that scrolls further than that carries the stage's top off the screen and
+  // makes keepCluesInView's reading over-state what is visible), and a sentence
+  // that wraps on a phone would otherwise be extra height there. The paragraph
+  // is the longer of the two at every width, so the swap never adds height.
+  function say(text) {
+    hintSay.textContent = text;
+    hint.hidden = text !== "";
+  }
+
+  function showHintLine(line) {
+    if (hintLine !== null) paintHintLine(table, hintLine, false);
+    hintLine = line === null ? null : { axis: line.axis, index: line.index };
+    if (hintLine !== null) paintHintLine(table, hintLine, true);
+  }
+
+  function showHinted(position) {
+    if (hinted !== null) markHinted(cells[hinted[0] * payload.width + hinted[1]], false);
+    hinted = position;
+    if (hinted !== null) markHinted(cells[hinted[0] * payload.width + hinted[1]], true);
+  }
+
   // Everything that changes the recorded history goes through here: the board
-  // is repainted, the save is rewritten and a run of repeat clicks ends.
+  // is repainted, the save is rewritten, a run of repeat clicks ends and the
+  // hint ladder goes back to rung 1 with nothing lit (nextRung's "change").
+  // Rung 3's own stroke comes through here too, which is what makes rungs 1-3
+  // of one ladder always describe one situation.
   function commit(next) {
+    // Only a RECORDED change ends the ladder: an undo or redo with nothing to
+    // undo or redo hands back the very history it was given, and must not wipe
+    // the line the player is looking at.
+    if (next !== history) {
+      setRung(nextRung(rung, "change"));
+      showHintLine(null);
+      showHinted(null);
+      say("");
+    }
     history = next;
     shown = next.board;
     lastClick = null;
@@ -1024,6 +1311,39 @@ function start(payload) {
   // (solver_state.js nextRegion's divergence note, owner 2026-10-14).
   regionToggle.addEventListener("click", () => setRegion(nextRegion(region, "toggle")));
 
+  // The Hint control. It asks derivedHint about the RECORDED board
+  // (history.board, never `shown`: a drag's preview is not yet a mark), so the
+  // ladder describes the board the player has made and not one mid-gesture.
+  // A press during a gesture is ignored. Rungs 1 and 2 light the line and say
+  // why and record nothing; rung 3 records one hintStroke. When no line decides
+  // a cell the answer is the same sentence at every rung and NOTHING is
+  // revealed: there is no fallback (CARD-327 G-3).
+  actions.hint?.addEventListener("click", () => {
+    if (gesture) return;
+    if (!canHint(history.board)) return;
+    lastClick = null;
+    const hint = derivedHint(history.board, payload.rows, payload.columns);
+    if (hint !== null && rung === RUNG_REVEAL) {
+      commit(record(history, hintStroke(hint.row, hint.col, hint.state)));
+      showHinted([hint.row, hint.col]);
+      say(hintRevealText(hint));
+      return;
+    }
+    const showing = rung;
+    setRung(nextRung(rung, "press"));
+    if (hint === null) {
+      showHintLine(null);
+      say(HINT_EXHAUSTED);
+      return;
+    }
+    const sayFor = HINT_SAY[showing];
+    if (sayFor === undefined) {
+      throw new RangeError(`rung ${showing} announces no line (${Object.keys(HINT_SAY).join(", ")})`);
+    }
+    showHintLine(hint.line);
+    say(sayFor(hint.line));
+  });
+
   actions.undo?.addEventListener("click", () => commit(undo(history)));
   actions.redo?.addEventListener("click", () => commit(redo(history)));
   actions.reset?.addEventListener("click", () => {
@@ -1058,6 +1378,8 @@ function start(payload) {
   wireCrosshair(stage);
 
   controls.hidden = false;
+  setRung(rung);
+  hintBar.hidden = false;
   hint.hidden = false;
   syncZoom();
   // After the toolbar is revealed, because the stage's own box is what the
