@@ -67,25 +67,34 @@ swallow a count:
 * the gate settles after 6 of 20 samples. The same corpus with the early exit
   disabled costs **40.79 s** and puts 6 of 20 over the cap at p95 = 5.001 s,
   which is what this gate will cost on the day the margin narrows enough to
-  stop the early exit. The ceiling is ``tests/hang_guard.py``'s 120 s per
-  test (CARD-292), and the gate cannot reach it: every request is capped at
+  stop the early exit. The ceiling is ``tests/hang_guard.py``'s per-test bound
+  (120 s when CARD-301 wrote this, 300 s since CARD-381 raised the default),
+  and the gate cannot reach it: every request is capped at
   ``P95_CAP_SECONDS``, 20 of them bound the test at ~100 s — measured
   overshoot on a capped request was ≤ 2 ms. **State the headroom as a number,
   because crossing it is not a red test but ``_exit()`` of the whole
-  session:** 20 x 5.0 s = 100.0 s against 120 s is **20 s of margin**, and
-  100.0 s is a floor rather than a ceiling (it excludes per-request overhead
-  outside the cooperative deadline). So ``P95_CAP_SECONDS`` and
-  ``len(CORPUS)`` cannot both grow, and a card that raises the cap toward
-  ADR-0001's 30 s hard timeout has to shrink the corpus in the same change —
-  which is a second reason
-  :func:`test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty`
-  pins both;
-* **the uncensored sweep must stay out of the suite**, and that is measured
+  session:** 20 x 5.0 s = 100.0 s against 300 s is **200 s of margin** (it
+  was 20 s against 120 s), and 100.0 s is a floor rather than a ceiling (it
+  excludes per-request overhead outside the cooperative deadline). So
+  ``P95_CAP_SECONDS`` and ``len(CORPUS)`` still cannot grow without bound — a
+  card that raises the cap toward ADR-0001's 30 s hard timeout has to
+  account for the product (60 requests at 5.0 s is the 300 s line) — and the
+  margin is no longer so thin that the product forces the corpus to shrink in
+  the same change. Both are pinned by
+  :func:`test_the_corpus_is_fixed_and_the_p95_rank_is_the_nineteenth_of_twenty`;
+* **the uncensored sweep stays out of the suite**, and the figure is measured
   rather than asserted: ``python -m tests.bench_generate --full`` — the same
   corpus under the production-shaped 30 s budget — took **122.04 s** and read
   p95 = **24.881 s** (6 of 20 over the 5 s cap, one of them still censored at
-  30 s). 122.04 s is *past* the 120 s hang-guard ceiling, which ``_exit()``s
-  the whole session rather than failing one test. That is why ``measure()``
+  30 s). When this was written 122.04 s was *past* the 120 s hang-guard
+  ceiling, which ``_exit()``s the whole session rather than failing one test,
+  and that was the reason. **That premise changed with CARD-381:** the
+  ceiling is now 300 s, 122.04 s is 178 s *under* it, and the guard no longer
+  forbids collecting the sweep. The decision stands on what is left: the sweep
+  would add ~122 s (about 9 % of a suite of 1433.47 s) for a reading the
+  capped gate already bounds, and one censored request would still run the
+  full 30 s budget on a loaded host. CARD-381 carried the 122.04 s figure and
+  did not re-run the sweep. So ``measure()``
   and ``report()`` stay standalone and only the capped, early-exiting
   :func:`tests.bench_generate.gate_verdict` is collected — and it is also the
   honest answer to "how far off is AC-037?", which the censored gate can only

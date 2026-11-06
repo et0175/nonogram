@@ -325,7 +325,7 @@ review:
   #                           figure that was being used as a constant.
   #   per-test ceiling        whether any test's SUMMED setup+call+teardown
   #                           reached tests/hang_guard.py's HANG_SECONDS
-  #                           (120 s), and the dearest test's figure.
+  #                           (300 s since CARD-381; 120 s before), and the dearest test's figure.
   #
   # WHY rival-pytest AND NOT THE LOAD AVERAGE, measured on this box 2026-10-26
   # and re-derived 2026-10-27: with NO pytest running at all the 1-minute load

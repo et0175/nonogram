@@ -1409,7 +1409,7 @@ def _capped_child(shape: str, mechanism: str) -> CappedChild:
         text=True,
         env=_child_environment(),
         # Comfortably over the 3.8 s the slowest of the three takes here, and
-        # comfortably under ``tests/hang_guard.py``'s 120 s per test, so a
+        # comfortably under ``tests/hang_guard.py``'s 300 s per test, so a
         # wedged child is reported as a child that hung and not as a test that
         # did.
         timeout=90,

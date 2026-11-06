@@ -236,6 +236,18 @@ cannot be re-pointed (drift step 3): a book carries whatever was true the day it
 printed. `{slug}` is `player_bundle.book_slug` of the book's ordered keys; `{key}` is
 ADR-0041/R1's 10 hex characters.
 
+**The hint publish, 2026-11-06.** The public player gained the derived hint (CARD-327, merge `c8a19833`), and the same recipe was run a fourth time. Main then carried zoom, the crosshair, the circles and the hint.
+
+| Step | What was observed |
+| --- | --- |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out build/site-hint-deploy`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. `play.js` (`687a5bd061d7`), `player.css` (`5251cc51502e`), `solver_state.js` (`e586c9da20b6`) and `tokens.css` (`979ab7a50e43`) SHA-256 identical to their sources (the first twelve hex digits); no goatcounter reference; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; no `.vercel/` in the tree. `build/site`, the three earlier deploy directories and the card worktree's `build/site-hint` play-test build were not touched. |
+| Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported, run in the background: deployment `nonogram-studio-6pd1yeznt`, Ready within about a minute. The three doors and the puzzle file answered 200 and the four files matched the local hashes. |
+| Behaviour on the preview | Headless Chromium on `/play/00d5d88065`: one Hint button, not inside `.player-toolbar`; the first press lit a line (14 elements) and said "Hint: look at column 5."; the second said why ("... the 12-run must overlap in the middle ..."); the third marked one cell as a recorded stroke ("Hint: row 2, column 5 is black.", `Hints: 1`, one `.is-hinted` element, no line lit); one Undo removed the mark and returned the counter to 0; no page error. |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-6s7mfek5n`, Ready within seconds. `https://nonogram.adverax.io` then served the same four hashes, answered 200 on the three doors, the puzzle file carried the same five fields, and the same hint run gave the same figures. |
+| Rollback target | The production deployment before it, `nonogram-studio-914baad47` (the circles build), was still Ready afterwards, as were the crosshair build `nonogram-studio-a47h6w2y5` and the zoom build `nonogram-studio-bji650yak`. A rollback was not tried. |
+
+Not observed: a real phone, how the hint reads at 300% zoom on one (the lit line can be out of view; neither page auto-scrolls, recorded on CARD-327), the other machines' rendering of the hint tint (a floor of 8 against a smallest measured 10, one machine), Auto-Deploy's dashboard state, and any counting.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
