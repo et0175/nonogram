@@ -49,6 +49,7 @@ page's own font.
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 from typing import Dict, List, Optional, Tuple
 
@@ -66,12 +67,16 @@ from nonogram.admin.book_pdf_generator import (
     TOC_ENTRY_PT,
     TOC_GROUP_GAP_PT,
     TITLE_PAGE_COUNT,
+    PageKind,
+    PageMedium,
+    RasterDeclaration,
     TOC_SOLUTIONS_LABEL,
     TOC_TITLE,
     BookPDFGenerator,
     DividerPagePlan,
     PuzzlePagePlan,
     TocEntry,
+    _RASTER_DECLARATIONS,
     _band_font,
     _guide_face,
     default_toc_frame,
@@ -79,12 +84,15 @@ from nonogram.admin.book_pdf_generator import (
     _toc_entries_per_page,
     measured_toc_page_count,
     page_frame,
+    page_medium,
     structural_toc_entries,
     structural_toc_entry_count,
     toc_range_label,
     type_px,
 )
 from tests.helpers.book_corpus import corpus_book, puzzle
+from nonogram.admin.book_vector import ContentStream
+from tests.helpers.pdf_pages import page_image
 from tests.helpers.pdf_pages import same_page as _same_page
 
 # CARD-221 removed this file's ``_lettered_as_recorded()`` host gate, which
@@ -164,10 +172,38 @@ def _puzzles(**per_tier: int) -> List[dict]:
     return rows
 
 
+def _same_written_page(written, expected) -> bool:
+    """Whether two pages in ONE medium are the same page.
+
+    Two bitmaps are compared by ink as ``same_page`` does; two content streams
+    by their bytes (the writer is deterministic, so the stream is the page's
+    identity). A bitmap against a stream is REFUSED, not answered: ``!=``
+    across media is vacuously true and ``==`` is vacuously false (CARD-322's
+    lesson 2), so a caller that holds one of each has built the wrong
+    expectation.
+    """
+    if isinstance(written, ContentStream) and isinstance(expected, ContentStream):
+        return written.render() == expected.render()
+    assert not isinstance(written, ContentStream) and not isinstance(expected, ContentStream), (
+        f"a {type(written).__name__} was held against a {type(expected).__name__}: "
+        "build the expected page in the medium the book wrote"
+    )
+    return _same_page(written, expected)
+
+
 def _spy_toc_pages(
     generator: BookPDFGenerator, puzzles: List[dict], monkeypatch: pytest.MonkeyPatch
 ) -> List[List[TocEntry]]:
-    """Every ``create_toc_page`` call's own ``entries``, one list per TOC page."""
+    """Every TOC page's own ``entries``, one list per TOC page, in either medium.
+
+    A TOC page is built by one of two callees depending on the medium its kind
+    declares (ADR-0042/R1): ``create_toc_page`` while the page is a bitmap, and
+    the downstream ``toc`` writer on ``generator.pages`` once it is operators
+    (CARD-309). Exactly one of them runs for a given tree, so both are spied
+    and the rows are recorded by whichever ran (CARD-382). The writer is wrapped
+    only where the generator has one: a generator built with none keeps its
+    default-deny refusal instead of a spy that would call ``None``.
+    """
     original = BookPDFGenerator.create_toc_page
     recorded: List[List[TocEntry]] = []
 
@@ -176,6 +212,16 @@ def _spy_toc_pages(
         return original(self, entries, page_number)
 
     monkeypatch.setattr(BookPDFGenerator, "create_toc_page", spy)
+    writer = generator.pages.toc
+    if writer is not None:
+
+        def spy_writer(rows, frame, dpi, page_number):
+            recorded.append(list(rows))
+            return writer(rows, frame, dpi, page_number)
+
+        monkeypatch.setattr(
+            generator, "pages", dataclasses.replace(generator.pages, toc=spy_writer)
+        )
     stream = generator.interior_stream(puzzles)
     for _ in stream.pages:
         pass
@@ -2480,14 +2526,27 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         guide_row = next(row for row in rows if row.label == GUIDE_TITLE)
 
         assert guide_row.page == 1 + TITLE_PAGE_COUNT
-        expected = generator.create_guide_page(
-            3 * self.PER_TIER,
-            self.PER_TIER,
-            self.PER_TIER,
-            self.PER_TIER,
-            page_number=guide_row.page,
-        )
-        assert _same_page(pages[guide_row.page - 1], expected), (
+        # CARD-382: the expected page is the guide in the medium the book
+        # wrote it in -- the bitmap twin while the guide is a bitmap, the
+        # downstream writer's stream once it is operators -- and the two are
+        # compared like with like (``_same_written_page`` refuses to compare
+        # across media). For operators the comparison is the stream's own
+        # bytes, which is exact because the writer is deterministic.
+        counts = (3 * self.PER_TIER, self.PER_TIER, self.PER_TIER, self.PER_TIER)
+        written = pages[guide_row.page - 1]
+        if isinstance(written, ContentStream):
+            expected = generator.pages.guide(
+                generator.page_spec(guide_row.page),
+                generator.dpi,
+                guide_row.page,
+                puzzle_count=counts[0],
+                easy_count=counts[1],
+                medium_count=counts[2],
+                hard_count=counts[3],
+            )
+        else:
+            expected = generator.create_guide_page(*counts, page_number=guide_row.page)
+        assert _same_written_page(written, expected), (
             f"the guide row sends the reader to page {guide_row.page}, which "
             "is not the guide's first page"
         )
@@ -2500,7 +2559,7 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         assert len(ranges) == 3 and len(headings) == 3
         for heading, range_row in zip(headings, ranges):
             expected = generator.create_divider_page(range_row.page, heading.label)
-            assert _same_page(pages[range_row.page - 1], expected), (
+            assert _same_written_page(pages[range_row.page - 1], expected), (
                 f"the {heading.label} range row sends the reader to page "
                 f"{range_row.page}, which is not that level's divider"
             )
@@ -2510,7 +2569,7 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
 
         expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
-        assert _same_page(pages[solutions.page - 1], expected)
+        assert _same_written_page(pages[solutions.page - 1], expected)
 
     def test_the_comparison_would_have_caught_a_one_page_drift(self, rendered) -> None:
         """The control: the pages either side of a named one are *not* it.
@@ -2524,8 +2583,11 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
         expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
 
-        assert not _same_page(pages[solutions.page - 2], expected)
-        assert not _same_page(pages[solutions.page], expected)
+        # A neighbour that is operators is read as the device pixels it draws
+        # (``page_image``, the one reading ``pdf_pages`` offers both media), so
+        # the divider's bitmap is never compared with a stream.
+        assert not _same_page(page_image(pages[solutions.page - 2]), expected)
+        assert not _same_page(page_image(pages[solutions.page]), expected)
 
 
 # ==========================================================================
@@ -3319,3 +3381,87 @@ class TestVectorAnchors_ThePositionsAndNotOnlyTheStrings:
         assert line_height_px(size, face) == pytest.approx(
             ascent_px(size, face) + descent_px(size, face)
         )
+
+
+# ==========================================================================
+# CARD-382 -- the controls for the readings that make this module green in
+# BOTH media. Each reading above reads one medium or the other depending on
+# the tree; each control below runs in either tree and can fail.
+# ==========================================================================
+
+
+class TestBookToc_TheReadingsReachBothMedia:
+    """The TOC spy sees the rows whichever callee the walk used; the page
+    comparison refuses to cross media and tells two pages apart in each."""
+
+    def _stream(self, *marks: str) -> ContentStream:
+        stream = ContentStream(width_px=600, height_px=800, dpi=300)
+        for index, mark in enumerate(marks):
+            stream.text(mark, 50, 100 + 40 * index, 10.0)
+        return stream
+
+    def test_the_spy_records_the_rows_when_the_toc_is_written_as_operators(
+        self, monkeypatch
+    ) -> None:
+        from nonogram.admin.book_interior_vector import interior_generator
+
+        # Lift the TOC declaration (whatever the tree: absent is fine, the
+        # POST-state is what is asserted), so the walk takes the writer arm.
+        monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.TOC, raising=False)
+        assert page_medium(PageKind.TOC) is PageMedium.VECTOR
+        puzzles = _puzzles(easy=2, medium=2, hard=1)
+        generator = interior_generator(_book("card-382-vector"))
+        rows = _rows_of(generator, puzzles, monkeypatch)
+        assert rows, "the spy recorded no row on the writer arm"
+        assert rows == _planned_rows(generator, puzzles)
+
+    def test_the_spy_records_the_same_rows_when_the_toc_is_a_bitmap(
+        self, monkeypatch
+    ) -> None:
+        # The matched control: the declaration put back, the other arm.
+        monkeypatch.setitem(
+            _RASTER_DECLARATIONS,
+            PageKind.TOC,
+            _RASTER_DECLARATIONS.get(
+                PageKind.TOC,
+                RasterDeclaration(
+                    reason="put back by this test: the tree has lifted it",
+                    authority="CARD-382",
+                    expires_with=("CARD-322",),
+                ),
+            ),
+        )
+        assert page_medium(PageKind.TOC) is PageMedium.RASTER
+        puzzles = _puzzles(easy=2, medium=2, hard=1)
+        generator = BookPDFGenerator(_book("card-382-raster"))
+        rows = _rows_of(generator, puzzles, monkeypatch)
+        assert rows and rows == _planned_rows(generator, puzzles)
+
+    def test_the_spy_records_nothing_for_a_book_with_no_puzzles(self, monkeypatch) -> None:
+        # The spy can come back empty: it is not a list that always fills.
+        assert _spy_toc_pages(BookPDFGenerator(_book("card-382-empty")), [], monkeypatch) == []
+
+    def test_two_streams_are_the_same_page_only_if_every_mark_is(self) -> None:
+        assert _same_written_page(self._stream("8", "9"), self._stream("8", "9"))
+        assert not _same_written_page(self._stream("8", "9"), self._stream("8", "9", "x"))
+        assert not _same_written_page(self._stream("8", "9"), self._stream("9", "8"))
+
+    def test_two_bitmaps_are_the_same_page_only_if_their_ink_is(self) -> None:
+        from PIL import Image
+
+        def page(box) -> Image.Image:
+            image = Image.new("RGB", (300, 300), (255, 255, 255))
+            ImageDraw.Draw(image).rectangle(box, fill=(0, 0, 0))
+            return image
+
+        assert _same_written_page(page((20, 20, 200, 200)), page((20, 20, 200, 200)))
+        assert not _same_written_page(page((20, 20, 200, 200)), page((120, 120, 280, 280)))
+
+    def test_a_bitmap_is_never_held_against_a_stream(self) -> None:
+        from PIL import Image
+
+        bitmap = Image.new("RGB", (600, 800), (255, 255, 255))
+        with pytest.raises(AssertionError, match="build the expected page in the medium"):
+            _same_written_page(bitmap, self._stream("8"))
+        with pytest.raises(AssertionError, match="build the expected page in the medium"):
+            _same_written_page(self._stream("8"), bitmap)

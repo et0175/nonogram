@@ -75,11 +75,13 @@ from nonogram.admin.book_pdf_generator import (
     SIZE_LABEL_PT,
     BookPDFGenerator,
     PageKind,
+    PageMedium,
     band_identity,
     example_line_layout,
     grid_size_label,
     guide_icon_layout,
     page_is_right_hand,
+    page_medium,
     print_order,
     qr_group_caption,
     qr_link,
@@ -1282,13 +1284,46 @@ class TestPuzzlePage_CarriesNoImageXObject:
         ``_write_pdf``. If this page's resources did *not* name an XObject,
         every assertion in this class would be measuring nothing.
         """
+        # CARD-382: the bitmap is filed under the COVER kind, not the PUZZLE
+        # kind. ``_write_pdf`` refuses a bitmap under a kind declared as
+        # operators, and the puzzle kind is operators once ADR-0042/R1 is
+        # flipped (``TypeError: page 1 is a vector puzzle page, but arrived as
+        # Image``). The claim is about the MEDIUM -- a page drawn as a bitmap
+        # names an XObject -- and the kind is only the label the writer checks
+        # the medium against, so it takes the one kind that is a bitmap in every
+        # tree: the cover is raster permanently (ADR-0042/R2,
+        # ``expires_with=()``). The precondition is asserted, so the control
+        # cannot go quiet by being filed under a kind that is no longer one.
+        assert page_medium(PageKind.COVER) is PageMedium.RASTER
         raster = twin.generator._write_pdf(
-            iter([twin.page]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+            iter([twin.page]), 1, mode="L", kinds=(PageKind.COVER,)
         ).getvalue()
 
         keys = pdf_vector.page_resource_keys(raster)
         assert len(keys) == 1
         assert "XObject" in keys[0], keys
+
+
+    def test_the_control_tells_the_two_media_apart_and_files_under_a_bitmap_kind(
+        self, twin: Twin
+    ) -> None:
+        """CARD-382's matched control for the refusal fix above, in one run:
+        the same puzzle written as operators names no XObject and written as a
+        bitmap names one, and the label the bitmap is filed under is a kind
+        that is a bitmap in this tree. (Filed under the PUZZLE kind, a tree that
+        declares it operators refuses the write: that is the red this fixes, and
+        the refusal is ``_write_pdf``'s own.)"""
+        vector = pdf_vector.page_resource_keys(
+            write_vector_pdf([twin.case.stream], 1).getvalue()
+        )
+        raster = pdf_vector.page_resource_keys(
+            twin.generator._write_pdf(
+                iter([twin.page]), 1, mode="L", kinds=(PageKind.COVER,)
+            ).getvalue()
+        )
+        assert "XObject" not in vector[0], vector
+        assert "XObject" in raster[0], raster
+        assert page_medium(PageKind.COVER) is PageMedium.RASTER
 
 
 # --------------------------------------------------------------------------

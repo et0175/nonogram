@@ -44,6 +44,7 @@ could in principle agree with a wrong implementation).
 from __future__ import annotations
 
 import re
+import tempfile
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -51,26 +52,33 @@ import pytest
 from PIL import Image, ImageDraw
 
 from nonogram import clues
+from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_answer_key import Answer, PackedAnswerPage
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
+    _RASTER_DECLARATIONS,
     FOLIO_PT,
     FOLIO_RESERVE_DIGITS,
     GUIDE_PAGE_COUNT,
     SIZE_LABEL_SEPARATOR,
     TITLE_PAGE_COUNT,
     BookPDFGenerator,
+    PageKind,
     PuzzlePagePlan,
+    RasterDeclaration,
     _band_font,
     _draw_folio,
     _folio_reserve_px,
+    page_frame,
     page_is_right_hand,
     type_px,
 )
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.difficulty import Tier
-from nonogram.export.layout import compute_pair_layout
+from nonogram.export.layout import compute_pair_layout, interior_frame
 from nonogram.export.png import BACKGROUND
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
+from tests.helpers.pdf_vector import word_boxes
 
 #: The anchors ``_draw_folio`` uses: ``"mb"`` for the footer line's centred
 #: folio (CARD-222) and CARD-200's two corner anchors for the fallback. The
@@ -119,16 +127,153 @@ class _TextCall:
     anchor: Optional[str]
 
 
+#: How far, in pixels, a string's edge or centre on an operators page may sit
+#: from the margin or the page middle it is read as anchored to (ADR-0039/R3).
+#: The reason: Pillow places a bottom-anchored string at an integer pixel, the
+#: stream states the same place to 3 decimals of a point, and the string's far
+#: end is poppler's own layout from the embedded ``/Widths``. The measured
+#: residue: over the 267 folio, grid-size and QR-link marks of the baseline
+#: book, the 60-puzzle book and the minimum-trim book, every inferred anchor
+#: matched the one Pillow was given at 0.005 px and 30 of the 60-puzzle book's
+#: failed at 0.002 px, so the worst error lies between those two and the bound
+#: is ten times the upper figure.
+OPERATORS_ANCHOR_BOUND_PX = 0.05
+
+#: One text object on an operators page, and the marked-content brackets that
+#: say what it belongs to: ``/<tag> BMC`` .. ``EMC`` wraps a grid's clue digits
+#: (``pdf_vector.CLUE_DIGIT_TAG``), which are NOT page furniture.
+_STREAM_TOKEN = re.compile(
+    r"(?P<open>/\w+\s+BMC)|(?P<close>\bEMC\b)|"
+    r"/\w+\s+-?\d+(?:\.\d+)?\s+Tf\s+(?P<x>-?\d+(?:\.\d+)?)\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
+    r"\((?P<text>(?:\\.|[^()\\])*)\)\s+Tj"
+)
+
+
+def _unescaped(text: str) -> str:
+    for escaped, plain in ((r"\r", "\r"), (r"\n", "\n"), (r"\)", ")"), (r"\(", "(")):
+        text = text.replace(escaped, plain)
+    return text.replace("\\\\", "\\")
+
+
+def _page_furniture_runs(stream: ContentStream) -> List[Tuple[str, float, float]]:
+    """``(text, origin x, origin y)``, in points, for each string OUTSIDE marked content.
+
+    A grid's clue digits sit inside a ``BMC`` .. ``EMC`` bracket, so a digit run
+    left outside one is a mark of the page itself: a folio, a TOC page number.
+    """
+    depth = 0
+    runs: List[Tuple[str, float, float]] = []
+    for token in _STREAM_TOKEN.finditer(stream.render().decode("cp1252")):
+        if token.group("open"):
+            depth += 1
+        elif token.group("close"):
+            depth -= 1
+        elif depth == 0:
+            runs.append(
+                (_unescaped(token.group("text")), float(token.group("x")), float(token.group("y")))
+            )
+    assert depth == 0, "unbalanced marked content on an operators page"
+    return runs
+
+
+def _operators_calls(
+    stream: ContentStream, number: int, generator: BookPDFGenerator
+) -> List[_TextCall]:
+    """The text an operators page draws, with the anchor each mark is READ as.
+
+    An operators page states where a string starts (``Td``), never an anchor, so
+    the anchor ``_draw_folio`` and the frame's footer pass to Pillow is read
+    back from where the string sits against the page's own margins: centred on
+    the trim's middle is ``"mb"``, its left end on the left margin is ``"lb"``,
+    its right end on the right margin is ``"rb"``, and any other place is
+    ``None`` (a mark of some other page kind). The far end of a string is
+    poppler's, not this project's ``FontMetrics``.
+    """
+    runs = _page_furniture_runs(stream)
+    def is_wanted(text: str) -> bool:
+        return text.isdigit() or bool(_SIZE_LABEL.fullmatch(text)) or text.startswith(
+            "nonogram.example/"
+        )
+
+    frame = interior_frame(generator.page_spec(number))
+    scale = stream.dpi / 72.0
+
+    def on_a_folio_line(text: str, y_pt: float) -> bool:
+        # Only a run of digits needs a row to be told from a TOC page number or
+        # any other digit string: a folio is set on the footer line's baseline
+        # (centred) or on the usable area's bottom (the corner fallback).
+        if not text.isdigit():
+            return True
+        baseline = stream.height_px - y_pt * scale
+        rows = (frame.baseline, page_frame(generator.page_spec(number)).bottom)
+        return any(abs(baseline - row) <= OPERATORS_ANCHOR_BOUND_PX for row in rows)
+
+    chosen = [i for i, (t, x, y) in enumerate(runs) if is_wanted(t) and on_a_folio_line(t, y)]
+    others = [
+        _TextCall(number, t, None) for i, (t, x, y) in enumerate(runs) if i not in chosen
+    ]
+    if not chosen:
+        return others
+    with tempfile.TemporaryDirectory(prefix="page_numbers-") as directory:
+        from pathlib import Path
+
+        data = write_vector_pdf([stream], 1).getvalue()
+        words = word_boxes(data, 1, out_dir=Path(directory))
+
+    def box_of(index: int) -> Tuple[float, float]:
+        """Poppler's ``(left, right)`` in pixels for run ``index``."""
+        text, x, _ = runs[index]
+        first = [w for w in words if abs(w.left - x) < 0.02 and text.split(" ")[0] == w.text]
+        assert first, f"poppler found no word for {text!r} at x={x} on page {number}"
+        line = sorted(
+            (w for w in words if abs(w.bottom - first[0].bottom) < 0.5 and w.left >= x - 0.02),
+            key=lambda w: w.left,
+        )
+        pieces, joined = [], ""
+        for word in line:
+            joined = word.text if not pieces else f"{joined} {word.text}"
+            pieces.append(word)
+            if joined == text:
+                break
+        assert joined == text, f"poppler read {joined!r} where the stream shows {text!r}"
+        return pieces[0].left * scale, pieces[-1].right * scale
+
+    calls = []
+    for index in chosen:
+        text = runs[index][0]
+        left, right = box_of(index)
+        anchor = None
+        if text.startswith("nonogram.example/"):
+            # The QR group's two lines run inward from an icon and share one
+            # edge: the caption above the link and the link are left-aligned
+            # (``"lb"``) when their left ends meet and right-aligned (``"rb"``)
+            # when their right ends do. A two-up page has two groups, so the
+            # page's halves say nothing; the caption beside the link does.
+            cap_left, cap_right = box_of(index - 1)
+            same_left = abs(left - cap_left) <= OPERATORS_ANCHOR_BOUND_PX
+            same_right = abs(right - cap_right) <= OPERATORS_ANCHOR_BOUND_PX
+            anchor = "lb" if same_left and not same_right else "rb" if same_right and not same_left else None
+        elif abs((left + right) / 2.0 - frame.folio_x) <= OPERATORS_ANCHOR_BOUND_PX:
+            anchor = "mb"
+        elif abs(left - frame.header_rule.left) <= OPERATORS_ANCHOR_BOUND_PX:
+            anchor = "lb"
+        elif abs(right - frame.header_rule.right) <= OPERATORS_ANCHOR_BOUND_PX:
+            anchor = "rb"
+        calls.append(_TextCall(number, text, anchor))
+    return calls + others
+
+
 def _spy_interior(
     generator: BookPDFGenerator, puzzles: List[dict], monkeypatch: pytest.MonkeyPatch
 ) -> Tuple[List[_TextCall], int]:
-    """Every ``draw.text`` call one interior export makes, tagged by page.
+    """Every string one interior export draws, tagged by page, in either medium.
 
-    The same "spy on ``ImageDraw.text`` while walking ``interior_stream``,
-    tag by the page index the walk is up to" technique
-    ``tests/test_book_interior_type_floor.py``'s own ``record_interior``
-    already uses, narrowed to just what this file needs (text and anchor,
-    not font size/chain).
+    A bitmap page is read by spying on ``ImageDraw.text`` while walking
+    ``interior_stream``, tagging each call with the page index the walk is up
+    to: the same technique ``tests/test_book_interior_type_floor.py``'s own
+    ``record_interior`` uses, narrowed to text and anchor. An operators page
+    (ADR-0042/R1) makes no such call, so it is read from its own stream
+    (:func:`_operators_calls`, CARD-382).
     """
     original = ImageDraw.ImageDraw.text
     calls: List[_TextCall] = []
@@ -145,10 +290,12 @@ def _spy_interior(
     while True:
         current["page"] = drawn + 1
         try:
-            next(pages)
+            page = next(pages)
         except StopIteration:
             break
         drawn += 1
+        if isinstance(page, ContentStream):
+            calls.extend(_operators_calls(page, drawn, generator))
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
     assert drawn == stream.page_count
     return calls, drawn
@@ -1099,3 +1246,173 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             "folio-corner slot, so the folio must be drawn, not omitted "
             "(and the corner lookup must not raise)"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-382 -- the controls for the operators reading
+# --------------------------------------------------------------------------
+
+#: The five kinds an interior writes as operators once ADR-0042/R1 is flipped.
+_FIVE_KINDS = (
+    PageKind.TITLE,
+    PageKind.GUIDE,
+    PageKind.TOC,
+    PageKind.ANSWER,
+    PageKind.PUZZLE,
+)
+
+
+def _declare_all(monkeypatch: pytest.MonkeyPatch, *, raster: bool) -> None:
+    """Put the five declarations back (``raster``) or take them out, whatever the tree.
+
+    The same move ``tests/test_book_pdf.py``'s ``_ensure_declared`` makes
+    (CARD-379): the claim is about BOTH mediums, so the test states which one
+    it walks and asserts the state it reached rather than hoping the tree
+    happens to be in it.
+    """
+    for kind in _FIVE_KINDS:
+        if raster:
+            monkeypatch.setitem(
+                _RASTER_DECLARATIONS,
+                kind,
+                _RASTER_DECLARATIONS.get(
+                    kind,
+                    RasterDeclaration(
+                        reason="put back by this test: the tree has lifted it",
+                        authority="CARD-382",
+                        expires_with=("CARD-322",),
+                    ),
+                ),
+            )
+        else:
+            monkeypatch.delitem(_RASTER_DECLARATIONS, kind, raising=False)
+        assert (kind in _RASTER_DECLARATIONS) is raster, kind
+
+
+class TestBookPageNumbers_TheOperatorsReadingCanFail:
+    """The reading that stands in for ``draw.text`` on an operators page agrees
+    with it where both exist, and is wrong where it should be."""
+
+    def _page(self, *marks) -> ContentStream:
+        stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+        for text, x, y in marks:
+            stream.text(text, x, y, 10.0)
+        return stream
+
+    def _width_of(self, text: str) -> float:
+        """The string's width in pixels, from poppler's box."""
+        probe = self._page((text, 500, 500))
+        with tempfile.TemporaryDirectory(prefix="page_numbers-") as directory:
+            from pathlib import Path
+
+            words = word_boxes(write_vector_pdf([probe], 1).getvalue(), 1, out_dir=Path(directory))
+        return (max(w.right for w in words) - min(w.left for w in words)) * 300 / 72.0
+
+    def test_the_two_mediums_name_the_same_marks_and_the_same_sides(self, monkeypatch) -> None:
+        """The matched control, in ONE run: the baseline book walked as bitmaps
+        and again as operators, and every folio, grid-size label and QR link
+        comes back with the same page, text and anchor. (Measured across the
+        baseline, 60-puzzle and minimum-trim books: 267 marks, 0 differences.)"""
+        puzzles = baseline_puzzles()
+
+        def marks(calls):
+            return sorted(
+                (call.page, call.text, call.anchor)
+                for call in calls
+                if _is_folio(call)
+                or (
+                    call.anchor in _CORNER_ANCHORS
+                    and (_SIZE_LABEL.fullmatch(call.text) or call.text.startswith("nonogram.example/"))
+                )
+            )
+
+        _declare_all(monkeypatch, raster=True)
+        raster_calls, raster_drawn = _spy_interior(
+            BookPDFGenerator(corpus_book()), puzzles, monkeypatch
+        )
+        _declare_all(monkeypatch, raster=False)
+        vector_calls, vector_drawn = _spy_interior(
+            interior_generator(corpus_book()), puzzles, monkeypatch
+        )
+        assert raster_drawn == vector_drawn
+        assert len(marks(raster_calls)) >= 15, "the bitmap walk found almost no marks"
+        assert marks(vector_calls) == marks(raster_calls)
+        # The operators walk really read operators: the bitmap walk made the
+        # draw.text calls for a page, the operators walk made none for them.
+        assert {call.anchor for call in vector_calls if _is_folio(call)} >= {"mb"}
+
+    def test_an_anchor_is_read_from_where_the_string_sits(self) -> None:
+        generator = BookPDFGenerator(corpus_book())
+        frame = interior_frame(generator.page_spec(7))
+        baseline = frame.baseline
+        eight = self._width_of("8")
+        calls = _operators_calls(
+            self._page(
+                ("8", frame.folio_x - eight / 2.0, baseline),
+                ("12", frame.header_rule.left, baseline),
+                ("33", frame.header_rule.right - self._width_of("33"), baseline),
+                ("77", frame.header_rule.left + 400, baseline),
+            ),
+            7,
+            generator,
+        )
+        assert {call.text: call.anchor for call in calls} == {
+            "8": "mb",
+            "12": "lb",
+            "33": "rb",
+            "77": None,
+        }
+
+    def test_a_digit_run_is_a_folio_only_on_a_folio_line_and_outside_marked_content(
+        self,
+    ) -> None:
+        generator = BookPDFGenerator(corpus_book())
+        frame = interior_frame(generator.page_spec(7))
+        centred = frame.folio_x - self._width_of("8") / 2.0
+        # A TOC page number sits well above the footer: not a folio.
+        above = _operators_calls(self._page(("8", centred, frame.baseline - 900)), 7, generator)
+        assert not _folios(above)
+        # A clue digit sits inside a marked-content sequence: not a folio.
+        marked = self._page()
+        marked.begin_marked("ClueDigit")
+        marked.text("8", centred, frame.baseline, 10.0)
+        marked.end_marked()
+        assert not _folios(_operators_calls(marked, 7, generator))
+        # The same digit on the folio line, outside both: a folio.
+        control = _operators_calls(self._page(("8", centred, frame.baseline)), 7, generator)
+        assert _folios(control) == {7: "8"}
+
+    def test_a_qr_link_is_read_by_the_edge_it_shares_with_its_caption(self) -> None:
+        generator = BookPDFGenerator(corpus_book())
+        y = 2900
+        caption_width = self._width_of("Solve it online")
+        link_width = self._width_of("nonogram.example/p/001")
+        left = 300
+        right = 1200
+        aligned_left = _operators_calls(
+            self._page(
+                ("Solve it online", left, y),
+                ("nonogram.example/p/001", left, y + 40),
+            ),
+            7,
+            generator,
+        )
+        aligned_right = _operators_calls(
+            self._page(
+                ("Solve it online", right - caption_width, y),
+                ("nonogram.example/p/001", right - link_width, y + 40),
+            ),
+            7,
+            generator,
+        )
+        ragged = _operators_calls(
+            self._page(
+                ("Solve it online", left, y),
+                ("nonogram.example/p/001", left + 50, y + 40),
+            ),
+            7,
+            generator,
+        )
+        assert _qr_links_by_page(aligned_left)[7].anchor == "lb"
+        assert _qr_links_by_page(aligned_right)[7].anchor == "rb"
+        assert _qr_links_by_page(ragged)[7].anchor is None

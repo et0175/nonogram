@@ -60,7 +60,7 @@ from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers import pdf_vector
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import drawing_of, frame_centre_of
 from tests.helpers.pdf_pages import interior_images
 from tests.helpers.two_up_ink import drawings_of
 
@@ -1483,7 +1483,17 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         single = drawing_of(pages[6])
 
         # AC-190's retired top edge: the band's foot, on every page and parity.
-        retired_gap_mm = (TOP_MM + BAND_MM) - _mm(upper.top)
+        #
+        # CARD-382: read as the frame's BOUNDARY (``frame_centre_of``), not as
+        # the first inked line. The first inked line is the stroke's own edge:
+        # in a bitmap it is the path, in an operators page it is half a
+        # six-line rule outside the path, so on this page it reads 0.27 px
+        # BELOW the band's foot in a bitmap and 2.73 px ABOVE it in operators
+        # (2.73 px is 0.231 mm, over this assertion's 0.2 mm). The boundary the
+        # rule is stroked on reads 0.77 px below it in a bitmap and 0.23 px
+        # above it in operators (0.065 mm and 0.020 mm): inside the 0.2 mm
+        # bound in both media, which is NOT widened.
+        retired_gap_mm = (TOP_MM + BAND_MM) - _mm(frame_centre_of(pages[5], upper).frame_top)
         assert abs(retired_gap_mm) < 0.2, (
             retired_gap_mm,
             "AC-252's placement really is the upper slot's own row",
@@ -1502,11 +1512,74 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         )
 
     def test_that_row_is_the_top_margin_plus_the_band(self):
+        """**DECLARED RESIDUE, CARD-382 (ADR-0039/R3): this claim is half a pixel
+        and it is met in a bitmap and NOT in operators, and it is left red.**
+
+        The bound is ``_mm(0.5)``, half a device pixel (0.0423 mm), and it is
+        not widened. What the two readings give on this page, in pixels from the
+        stated coordinate ``(TOP_MM + BAND_MM) * PX_PER_MM`` = 306.73
+        (:meth:`test_the_declared_residue_of_the_half_pixel_claim` pins every
+        figure):
+
+        ==============================  ============  ============
+        reading of the upper slot       bitmap        operators
+        ==============================  ============  ============
+        first inked line (``.top``)     +0.27         **-2.73**
+        frame boundary (``frame_top``)  **+0.77**     -0.23
+        ==============================  ============  ============
+
+        Neither reading is inside half a pixel in both media. The first inked
+        line is the stroke's edge, which the two media place half a rule apart
+        (3 px for this six-line frame); the boundary is the rule's centre, which
+        is a half-integer in index space and falls on a different side of the
+        stated coordinate in each rasteriser (CARD-336's F-4 shape: a bitmap
+        rounds the coordinate up to row 307 and Pillow centres an even stroke
+        half a pixel below it, a PDF rasteriser keeps 306.73 and lands on
+        306.5). Reading each medium with whichever of the two happens to pass it
+        would be a reading chosen to fit, and snapping the stated coordinate to
+        307 would pass a shift of one pixel in operators undetected, so neither
+        is done. The claim stays as the card stated it; it passes on the
+        bitmap page and fails on the operators page by the figures above, and
+        closing it needs a decision (whether the claim is "within half a pixel
+        of the stated coordinate" or "on the stated whole-pixel boundary, to
+        the medium's own centring"), not a measurement.
+        """
         pages = self._pages()
 
         upper, _ = drawings_of(pages[5])
 
         assert abs(_mm(upper.top) - (TOP_MM + BAND_MM)) <= _mm(0.5) + 1e-9
+
+    def test_the_declared_residue_of_the_half_pixel_claim(self):
+        """The figures :meth:`test_that_row_is_the_top_margin_plus_the_band`
+        declares, pinned (a measurement, not a tolerance for that claim): both
+        readings of the upper slot's top edge against the stated coordinate, in
+        the medium the page really is, and the boundary reading of the lower
+        slot as the matched control that it reads a boundary and not noise."""
+        raw = _raw_interior(
+            [
+                _puzzle(**_SMALL_PAIR, puzzle_id="one"),
+                _puzzle(**_SMALL_PAIR, puzzle_id="two"),
+                _puzzle(**self.BIG, puzzle_id="big"),
+            ]
+        )
+        pages = interior_images(raw)
+        upper, lower = drawings_of(pages[5])
+        stated = (TOP_MM + BAND_MM) * PX_PER_MM
+        boundary = frame_centre_of(pages[5], upper)
+
+        assert boundary.top_rule_px == 6, "the frame rule was read, not assumed"
+        if isinstance(raw[5], ContentStream):
+            ink_error, boundary_error = -2.73, -0.23
+        else:
+            ink_error, boundary_error = +0.27, +0.77
+        assert upper.top - stated == pytest.approx(ink_error, abs=0.01)
+        assert boundary.frame_top - stated == pytest.approx(boundary_error, abs=0.01)
+        # The control: the slot below is read by the same two readings, a whole
+        # number of device pixels further down, so each reading moves with the
+        # page and is no constant.
+        lower_boundary = frame_centre_of(pages[5], lower)
+        assert lower_boundary.frame_top - boundary.frame_top == lower.top - upper.top > 1000
 
     def test_the_two_pages_really_do_print_different_cells(self):
         """The negative control: two rows differing is not two identical pages.
