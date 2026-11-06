@@ -64,7 +64,10 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BAND_SEPARATOR,
     BookPDFGenerator,
+    PageKind,
+    PageMedium,
     interior_page_count,
+    page_medium,
     type_px,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
@@ -77,6 +80,7 @@ from tests.helpers.book_corpus import (
     page_digests,
     puzzle,
 )
+from tests.helpers import pdf_vector
 from tests.helpers.pdf_pages import pdf_pages
 
 # --------------------------------------------------------------------------
@@ -98,6 +102,36 @@ BOOK_DPI = 300
 #: caption, ``–`` spans a TOC row's puzzle range and ``…`` ends a clipped
 #: label.
 NON_ASCII_INTERIOR_CHARACTERS = ("·", "—", "–", "…")
+
+
+#: The page kinds the PRE-card ``_guide_face`` lettered: the guide's two pages,
+#: the table of contents and the section dividers. A hand-written second
+#: statement of that fact (the transcribed :func:`host_face` is the code that
+#: used it), not read off the generator. Which of those pages MOVE with the
+#: host is then a question about each page's medium (CARD-379, ADR-0042/R6):
+#: a bitmap page was lettered through the face and moves; an operators page is
+#: lettered by the packaged face's metrics in the stream, which no host lookup
+#: can reach.
+HOST_LETTERED_KINDS = frozenset({PageKind.GUIDE, PageKind.TOC, PageKind.DIVIDER})
+
+
+def host_lettered_bitmap_pages(
+    kinds: Any, medium_of: Callable[[PageKind], PageMedium]
+) -> List[int]:
+    """The 1-based interior pages the pre-card host lookup could move.
+
+    ``kinds`` is the page plan's kinds in page order and ``medium_of`` the
+    medium each is written in; pulled out as a pure function so that its
+    answer for a tree in which NOTHING is converted can be pinned to the
+    literal the card's own baseline records
+    (:meth:`TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts.
+    test_the_expected_moved_set_is_the_seven_when_nothing_is_converted`).
+    """
+    return [
+        number
+        for number, kind in enumerate(kinds, start=1)
+        if kind in HOST_LETTERED_KINDS and medium_of(kind) is PageMedium.RASTER
+    ]
 
 
 def packaged_face(size_px: int) -> ImageFont.FreeTypeFont:
@@ -529,6 +563,33 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             "SPILLING_PUZZLE_PAGES onto the edge if a page term moves"
         )
 
+    def test_the_expected_moved_set_is_the_seven_when_nothing_is_converted(
+        self,
+    ) -> None:
+        """CARD-379 -- the literal the control used to assert, kept as a pin.
+
+        The derivation in the control below answers [5, 7, 9, 11] in a tree
+        whose guide and contents are operators and the seven the card's own
+        baseline records (``changed_pages``: both guide pages, the contents
+        and the four dividers) in a tree where nothing is. Pinned here against
+        the baseline plan with the medium handed in, so "derived" cannot have
+        drifted from the number it replaced, and the two trees' answers are
+        each shown to differ from the other.
+        """
+        kinds = BookPDFGenerator(corpus_book()).interior_stream(
+            baseline_puzzles()
+        ).page_kinds
+
+        assert host_lettered_bitmap_pages(kinds, lambda _kind: PageMedium.RASTER) == [
+            2, 3, 4, 5, 7, 9, 11
+        ]
+        assert host_lettered_bitmap_pages(
+            kinds,
+            lambda kind: PageMedium.VECTOR
+            if kind in (PageKind.GUIDE, PageKind.TOC)
+            else PageMedium.RASTER,
+        ) == [5, 7, 9, 11]
+
     def test_the_comparison_can_tell_the_pre_card_face_from_this_one(
         self, monkeypatch
     ) -> None:
@@ -566,9 +627,23 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         on_host, off_host = _both_faces(
             lambda: _interior(corpus_book, baseline_puzzles())
         )
-        host_digests, _, _ = on_host
-        bare_digests, _, _ = off_host
+        host_digests, _, host_written = on_host
+        bare_digests, _, bare_written = off_host
 
+        kinds = BookPDFGenerator(corpus_book()).interior_stream(
+            baseline_puzzles()
+        ).page_kinds
+        media = pdf_vector.page_media(host_written)
+        assert len(kinds) == len(media) == len(host_digests), (
+            len(kinds), len(media), len(host_digests)
+        )
+
+        # The BITMAP pages that were lettered through the face: those, and
+        # exactly those, move. CARD-379: the expectation is derived from each
+        # page's declared medium. It used to be the literal seven, which is
+        # the answer in a tree where the guide and the contents are bitmaps
+        # and was [5, 7, 9, 11] (the dividers) the moment they were not.
+        expected_moved = host_lettered_bitmap_pages(kinds, page_medium)
         moved = [
             number
             for number, (with_host, without) in enumerate(
@@ -576,13 +651,47 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             )
             if with_host != without
         ]
-        assert moved == [2, 3, 4, 5, 7, 9, 11], (
+        assert moved == expected_moved, (
             "with the pre-card host lookup restored, the pages that differ "
             "between a host with Arial and one without must be exactly the "
-            "seven that lettered through it — the two guide pages, the table "
-            f"of contents and the four dividers — and these moved: {moved}. "
+            "bitmap pages that lettered through it (the guide pages, the "
+            "table of contents and the dividers, wherever each is still a "
+            f"bitmap): expected {expected_moved}, and these moved: {moved}. "
             "If none moved, this host's Arial and Pillow's own face are "
             "indistinguishable and the tests above prove nothing here"
+        )
+        assert expected_moved, (
+            "no host-lettered page is a bitmap in this tree, so the contrast "
+            "above has no subject; the stream clause below is then the "
+            "survivor of this control"
+        )
+
+        # The OPERATORS pages (ADR-0042/R6): a content stream has no host
+        # lookup to move it, and that is a claim about the FILE, so it is read
+        # as streams -- the stream is deterministic, compared with itself on
+        # the other face -- never as a render against a bitmap. The survivor
+        # of "the guide and the contents are lettered through the face" for a
+        # page that has no face to letter through. Both files must agree on
+        # which pages are operators, or one of them is not the same book.
+        assert pdf_vector.page_media(bare_written) == media
+        on_streams = pdf_vector.content_streams(host_written)
+        off_streams = pdf_vector.content_streams(bare_written)
+        vector_pages = [
+            number for number, medium in enumerate(media, start=1)
+            if medium == pdf_vector.VECTOR
+        ]
+        assert vector_pages == [
+            number
+            for number, kind in enumerate(kinds, start=1)
+            if page_medium(kind) is PageMedium.VECTOR
+        ], vector_pages
+        differing = [
+            number for number in vector_pages
+            if on_streams[number - 1] != off_streams[number - 1]
+        ]
+        assert differing == [], (
+            f"operators pages {differing} are different streams with and "
+            "without the host's fonts: some host face reached a vector page"
         )
 
 
@@ -636,15 +745,24 @@ class TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints:
         )
 
     def test_the_recorded_repertoire_is_what_the_interior_draws(
-        self, monkeypatch
+        self, monkeypatch, tmp_path
     ) -> None:
         """:data:`NON_ASCII_INTERIOR_CHARACTERS` is read off a real export.
 
         Without this, the list above is a hopeful transcription: a card that
         introduces a fifth special character would add it to a page and not
-        to this file, and the coverage test would keep passing while the page
-        printed a box. So the export is walked, every character it draws is
-        collected, and anything outside printable ASCII must be in the list.
+        to this file, and the coverage test above would keep passing while the
+        page printed a box. So the export is walked, every character it draws
+        is collected, and anything outside printable ASCII must be in the list.
+
+        **Two readings, one per medium (CARD-379, ADR-0042/R6).** A bitmap
+        page's text is spied at the one call that letters it
+        (``ImageDraw.text``). An operators page letters nothing through
+        Pillow, so that spy sees none of it; its text is read from the
+        WRITTEN FILE by poppler's ``pdftotext``, an engine that did not write
+        it. The non-vacuity clause follows the band's own page kind: the band
+        is on the puzzle page, so it is looked for in whichever reading that
+        kind's medium has.
         """
         drawn: List[str] = []
         original = ImageDraw.ImageDraw.text
@@ -659,12 +777,19 @@ class TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints:
             pass
         monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
 
-        assert drawn, "the interior drew no text at all"
+        written = BookPDFGenerator(
+            corpus_book("card-221-repertoire")
+        ).export_interior(baseline_puzzles()).getvalue()
+        operators_text = pdf_vector.extracted_text(written, out_dir=tmp_path)
+        lines = drawn + operators_text.splitlines()
+
+        assert lines, "the interior drew no text at all"
         unexpected = {
             character
-            for line in drawn
+            for line in lines
             for character in line
             if not 0x20 <= ord(character) < 0x7F
+            and character not in "\n\f"
             and character not in NON_ASCII_INTERIOR_CHARACTERS
         }
         assert unexpected == set(), (
@@ -673,9 +798,15 @@ class TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints:
             "which NON_ASCII_INTERIOR_CHARACTERS does not list — add it "
             "there so the coverage test above actually covers it"
         )
-        # Non-vacuity: the band's own separator really is on the page, so the
-        # walk above is looking at lettering and not at an empty list.
-        assert any(BAND_SEPARATOR in line for line in drawn), (
+        # Non-vacuity: the band's own separator really is on the page, in the
+        # reading that the band's page kind is written in, so the walk above is
+        # looking at lettering and not at an empty list.
+        band_reading = (
+            drawn
+            if page_medium(PageKind.PUZZLE) is PageMedium.RASTER
+            else operators_text.splitlines()
+        )
+        assert any(BAND_SEPARATOR in line for line in band_reading), (
             "no band was drawn, so this walk saw none of the interior's own "
             "non-ASCII punctuation"
         )

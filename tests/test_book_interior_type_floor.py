@@ -1611,16 +1611,45 @@ class TestInteriorType_TheStreamArmIsReached:
         What that would have cost is stated here as it was **measured** rather
         than as it was first feared (CARD-314 fix round 1, F-007). Reverting
         the wrapper to ``pdf_vector.type_sizes`` on this branch reds this test
-        — 1 failed — because the assertion below is ``len(asked) == 1`` and an
-        arm that never called the wrapped reader leaves ``asked`` empty. So the
+        — 1 failed — because the assertion below is ``asked == vector_streams``
+        (``len(asked) == 1`` until CARD-379) and an arm that never called the
+        wrapped reader leaves ``asked`` empty. So the
         hazard was a test going **RED, correctly**, and not a test going
         silently vacuous; this test is fail-closed in that direction, and the
         body was updated under the same name.
         """
-        monkeypatch.delitem(
-            book_pdf_generator._RASTER_DECLARATIONS,
-            book_pdf_generator.PageKind.TITLE,
+        # CARD-379 (the ``delitem`` site, 1 red): the claim is "REMOVING the
+        # declaration makes the stream arm read that page", which can only be
+        # observed from a state in which the declaration is PRESENT. The
+        # five-kind probe (and the tree after CARD-322) has already removed
+        # it, where a bare ``delitem`` raises ``KeyError``; ``raising=False``
+        # would make it quietly not-a-lift there and the claim vacuous. So
+        # the precondition is established, not assumed: the entry is put back
+        # (the real one when there is one, a stand-in carrying the same
+        # fields otherwise), asserted PRESENT, and only then removed.
+        registry = book_pdf_generator._RASTER_DECLARATIONS
+        title = book_pdf_generator.PageKind.TITLE
+        monkeypatch.setitem(
+            registry,
+            title,
+            registry.get(
+                title,
+                book_pdf_generator.RasterDeclaration(
+                    reason="a stand-in for the entry a converted tree has removed",
+                    authority="CARD-379",
+                    expires_with=("CARD-322",),
+                ),
+            ),
         )
+        assert (
+            book_pdf_generator.page_medium(title)
+            is book_pdf_generator.PageMedium.RASTER
+        ), "the precondition: the title page is a declared bitmap BEFORE the lift"
+        monkeypatch.delitem(registry, title)
+        assert (
+            book_pdf_generator.page_medium(title)
+            is book_pdf_generator.PageMedium.VECTOR
+        ), "the lift did not make the title page operators"
         asked: List[str] = []
         original = pdf_vector.marked_type_sizes
         monkeypatch.setattr(
@@ -1629,12 +1658,34 @@ class TestInteriorType_TheStreamArmIsReached:
             lambda stream: (asked.append(stream), original(stream))[1],
         )
 
-        faces = stream_faces(BookPDFGenerator(corpus_book()), baseline_puzzles())
+        generator = BookPDFGenerator(corpus_book())
+        faces = stream_faces(generator, baseline_puzzles())
 
-        # Exactly one page took the stream arm: the title page, now operators.
-        assert len(asked) == 1, len(asked)
-        # And it is genuinely blank, which is AC-283 and why it adds no face.
-        assert faces == []
+        # The pages that took the stream arm are EXACTLY the file's operator
+        # pages, in page order, each by its own stream. CARD-379: this used to
+        # read ``len(asked) == 1`` -- true only of a tree in which the title
+        # page is the one converted page. Derived from the file instead, it
+        # holds in every tree, and it still fails if the arm skips the title
+        # page (the page this test lifted), reads a bitmap page, or reads a
+        # page twice.
+        data = generator.export_interior(baseline_puzzles()).getvalue()
+        vector_streams = [
+            stream
+            for medium, stream in zip(
+                pdf_vector.page_media(data),
+                pdf_vector.content_streams(data),
+                strict=True,
+            )
+            if medium == pdf_vector.VECTOR
+        ]
+        assert vector_streams, "the lift produced no operator page at all"
+        assert asked == vector_streams, (len(asked), len(vector_streams))
+        # And the lifted page is genuinely blank, which is AC-283 and why it
+        # adds no face (CARD-379: page 1's, not the interior's -- other kinds
+        # may be operators too).
+        assert [face for face in faces if face.page == 1] == []
+        assert pdf_vector.page_media(data)[0] == pdf_vector.VECTOR
+        assert asked[0] == pdf_vector.content_streams(data)[0]
 
     def test_the_floor_catches_a_real_vector_pages_sub_floor_type(self):
         """The stream arm discriminates — on a real page, at a real size.
