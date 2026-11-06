@@ -566,7 +566,12 @@ def _page_two_is_the_guide(
     # (which half, which spec, which counts reach the writer) and the stream's
     # determinism; it does not re-derive the glyphs -- the writer's own module
     # owns what the page draws, and an expected side drawn by the same writer
-    # cannot see a drift INSIDE it (declared, not hidden).
+    # cannot see a drift INSIDE it (declared, not hidden). MEASURED residue
+    # (ADR-0039/R3): a stray operator added to the guide writer's output
+    # (``stream.line(0, 0, 1, 1)`` before ``return GuidePage(`` in
+    # ``book_guide_vector``) reds 0 of this module's 17 tests at the cycle-1
+    # tip, plain and under the five-kind probe, and 0 of 18 after the
+    # literal pin was added (CARD-379 fix round 1). Not held by any test here.
     # ``book`` is the book the interior was written for, when its margins are
     # not the default profile's: Book 1's gutter equals its outside margin, so
     # on it page 2 and page 3 have the SAME sheet and a spec taken from the
@@ -880,9 +885,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         )
         # ``dpi=`` because an EMPTY book's interior can be all operators (blank
         # title page and guide, no divider), and a file with no raster page
-        # has no DPI to derive (CARD-379). The interior is drawn at 300 dpi
-        # (COMP-007), the figure ``PX_PER_MM`` below is built from.
-        interior = pdf_pages(interior_bytes, dpi=300)
+        # has no DPI to derive (CARD-379). The density is the writer's own
+        # declared one (``book_pdf_generator.DPI``, COMP-007), read from it
+        # and not restated; ``PX_PER_MM`` below is still built from the
+        # literal 300 and is asserted equal to it in
+        # :class:`TestPlacementBound_IsPinnedFromBothSides`.
+        interior = pdf_pages(interior_bytes, dpi=book_pdf_generator.DPI)
         cover_pages = pdf_pages(cover_bytes)
         n = len(case["puzzles"])
 
@@ -1552,7 +1560,33 @@ class TestPlacementBound_IsPinnedFromBothSides:
     only; a drift of 0.169 mm to the right (+2 px) or 0.254 mm to the left
     (-3 px) is caught in BOTH. The three controls below are exactly those: one
     inside the residue, two just past it.
+
+    **Pinned from the loose side only up to 0.172 mm -- NOT below it.** The
+    three controls can tell the bound apart from a looser one only where a
+    measured error falls between the two, and the shifted page's error is
+    quantised to the pixel (bitmap medium, in mm: 0.003 / 0.082 / 0.088 /
+    0.166 / 0.172 / 0.251 for -1, 0, -2, +1, -3, +2 px). None lies in
+    (0.088, 0.166), so the three CONTROLS alone redden nothing for a bound
+    anywhere from 0.09 up to 0.172. MEASURED (fix round 1 of CARD-379, by
+    planting the constant): without the literal pin below, bounds 0.17,
+    0.166, 0.15, 0.12 and 0.09 give 0 reds in this class (plain tree, bitmap
+    medium; the 0.15 and 0.12 plants also in the five-kind-probe tree, where
+    they redden only the literal pin) and 0.2 reddens the three-pixel-left
+    control (and the pin). The six drift values and the 0.15 /
+    0.12 results CONFIRM the cycle-1 reviewer's; the 0.17 / 0.166 / 0.09
+    plants are the author's own addition.
+
+    So what holds the number is the literal assertion in
+    ``test_the_bound_is_the_literal_the_property_test_was_written_with``
+    (``PLACEMENT_BOUND_MM == 0.1``), not the controls, and the controls pin
+    it from the loose side only up to 0.172 mm. From the tight side the
+    property test's own worst page (0.0843 mm) clears 0.1 by 0.0157 mm.
     """
+
+    def test_the_bound_is_the_literal_the_property_test_was_written_with(self):
+        assert PLACEMENT_BOUND_MM == 0.1
+        assert book_pdf_generator.DPI == 300
+        assert PX_PER_MM == book_pdf_generator.DPI / 25.4
 
     def test_a_one_pixel_drift_inside_the_residue_is_not_caught(self):
         assert _placement_error_mm(-1) < PLACEMENT_BOUND_MM
@@ -1765,12 +1799,16 @@ class TestInteriorReadings_TheStreamArmIsReached:
         stream read is page 3's. Without these the ``==`` in the helper is a
         comparison nothing has seen unequal.
 
-        What this does NOT plant is the tier counts: the "This book contains
-        N puzzles" lines are on the tutorial's SECOND page (interior page 3),
-        so page 2's stream does not depend on them -- measured by handing the
-        writer other counts and getting the identical stream. They are
-        therefore not claimed here; the reading's counts are passed through
-        for the day the page that carries them is read.
+        What this does NOT plant is the tier counts. MEASURED (cycle 1, re-measured
+        in the fix round): on this book neither guide page (interior pages 2
+        and 3) carries "This book contains" -- ``pdftotext`` on both finds
+        neither that line nor ``Easy:`` -- and the writer's stream for
+        ``page_spec(2)`` and for ``page_spec(3)`` is byte-identical for the
+        counts (3, 1, 1, 1), (99, 50, 40, 9) and (0, 0, 0, 0). The writer draws
+        those lines only at its ``full`` fit level, which neither page reaches,
+        so page 2's stream does not depend on the counts (and neither does
+        page 3's). They are therefore not claimed here; the reading's counts
+        are passed through for the day a page that draws them is read.
         """
         data = self._vector_guide_interior(monkeypatch)
         puzzles = baseline_puzzles()

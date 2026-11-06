@@ -789,7 +789,6 @@ class TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints:
             for line in lines
             for character in line
             if not 0x20 <= ord(character) < 0x7F
-            and character not in "\n\f"
             and character not in NON_ASCII_INTERIOR_CHARACTERS
         }
         assert unexpected == set(), (

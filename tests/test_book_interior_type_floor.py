@@ -1627,6 +1627,16 @@ class TestInteriorType_TheStreamArmIsReached:
         # the precondition is established, not assumed: the entry is put back
         # (the real one when there is one, a stand-in carrying the same
         # fields otherwise), asserted PRESENT, and only then removed.
+        #
+        # What actually catches a missing entry is the ``delitem`` below: on
+        # a registry that no longer holds the key it raises ``KeyError``
+        # (measured, 7 of 7 sites in the cycle-1 review, probed). The
+        # ``page_medium(title) is RASTER`` assertion after the ``setitem``
+        # and the stand-in's ``authority`` / ``expires_with`` are NOT
+        # independently load-bearing: planting each of them wrong gave 0 reds
+        # in both trees (cycle 1's D6 / D7). They document the state the
+        # claim starts from; they are not a second guard, and nothing here
+        # claims they are.
         registry = book_pdf_generator._RASTER_DECLARATIONS
         title = book_pdf_generator.PageKind.TITLE
         monkeypatch.setitem(
