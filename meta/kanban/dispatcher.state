@@ -465,7 +465,19 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []
+active:
+  - card: CARD-379
+    branch: card/379-pre-flip-green-both-ways
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-379
+    started: 2026-11-06T04:29Z
+    estimate: 2c (1d)
+    cut_from: bf8ede84
+  - card: CARD-327
+    branch: card/327-public-derived-hint
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-327
+    started: 2026-11-06T04:36Z
+    estimate: 3c (1d)
+    cut_from: 9ef90933
 # CARD-358 CLEARED 2026-11-05 at its merge gate: merged f1c9ce93, done, certified 8.0 on cycle 2 (7.5 on
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
@@ -704,6 +716,8 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-381   # P1 0.5d  HANG-GUARD CEILING, owner 2026-11-06 (CARD-322 D6: raise the default to 300 s). Blocks every armed gate that runs test_kill_matrix::test_ac7 and the flip card's geometry node. Unstamped; independent of 327/379.
+- id: CARD-380   # P2 1d  PLAYER CARD (probe mode), owner 2026-11-06 ("draft the probe card, queue it behind 327"). Depends on CARD-327 (hint strokes join a probe; the non-toolbar control placement) so it cannot start before CARD-327 merges. Rule 7 (auto-commit when solved) CONFIRMED by the owner 2026-11-06. Estimate stated in cycles at draft time.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
