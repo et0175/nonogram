@@ -939,6 +939,12 @@ class TestImpactSet_ADeletionOrRenameIsNotInvisible:
         run("commit", "-qm", "seed")
         base = run("rev-parse", "HEAD").stdout.strip()
         run("mv", "src/old_name.py", "src/new_name.py")
+        # STAGED, the old path is also listed by the ``--cached`` query, which
+        # would mask a lost ``--no-renames`` on the committed one. A gate sees
+        # a COMMITTED rename, so that is the shape the control uses.
+        staged = impact.changed_from_git(tmp_path, base)
+        assert "src/old_name.py" in staged
+        run("commit", "-qm", "rename")
         changed = impact.changed_from_git(tmp_path, base)
         assert "src/old_name.py" in changed, "git's rename detection hid the old path"
         assert "src/new_name.py" in changed
