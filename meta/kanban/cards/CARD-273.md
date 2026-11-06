@@ -15,7 +15,8 @@
 **Wave:** —
 **Created wave:** 54
 **Deferred waves:** 0
-**Depends on:** CARD-276, CARD-287, CARD-288, CARD-289, CARD-272, CARD-207, CARD-208, CARD-209, CARD-216, CARD-218, CARD-219, CARD-220, CARD-226, CARD-227, CARD-229, CARD-230, CARD-231, CARD-232, CARD-233, CARD-249, CARD-262
+**Depends on:** CARD-276, CARD-287, CARD-288, CARD-289, CARD-272, CARD-207, CARD-208, CARD-209, CARD-216, CARD-218, CARD-219, CARD-220, CARD-226, CARD-227, CARD-229, CARD-230, CARD-232, CARD-233, CARD-249, CARD-262
+<!-- CARD-231 REMOVED from this list 2026-11-06: it is parked (the owner uploads dividers instead, CARD-311); a parked card must not hold the rewrite. CARD-311 is not added: this rewrite moves code, it does not need the upload feature. -->
 **Touches:** src/nonogram/book/**, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/book_membership.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/__init__.py, src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/__init__.py, src/nonogram/errors.py, src/nonogram/export/layout.py, src/nonogram/export/png.py, src/nonogram/db/models.py, tests/test_cli.py, meta/architecture/c4/components-CTX-001.puml, meta/architecture/trace.yml, tests/**
 <!-- tests/**: the import lines of the 83 test files that import nonogram.admin.book_* (measured 2026-10-22 by grep; re-derive) — one-line changes each, listed as the glob because naming 83 files hides more than it shows -->
 **Review score:** —
