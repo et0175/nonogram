@@ -4501,10 +4501,11 @@ def _refuse_unsettable_titles(
         if len(refused) > _REFUSAL_LISTED_CHARACTERS:
             listed += f" and {len(refused) - _REFUSAL_LISTED_CHARACTERS} more"
         raise UnsettablePuzzleTitle(
-            f"Puzzle {number} \u201c{shown}\u201d (id {puzzle_id}) cannot be "
-            f"exported: its title holds {listed}, which the book's interior "
-            "cannot print. Rename the puzzle, or give it another title on the "
-            "Arrangement step, using letters the interior can set.",
+            f"Puzzle {number} \u201c{shown}\u201d cannot be exported: its "
+            f"title holds {listed}, which the book's interior cannot print. "
+            "The interior sets Latin letters with their accents and the "
+            "common punctuation, and nothing else. Rename the puzzle, or "
+            "give it another title on the Arrangement step.",
             puzzle_id=puzzle_id,
             puzzle_number=number,
             title=title,

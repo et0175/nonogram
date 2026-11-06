@@ -1846,9 +1846,11 @@ class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
         assert error.puzzle_number == 1
         assert error.title == GREEK
         assert "Χ" in error.characters
-        assert GREEK in text and "greek-1" in text and "Puzzle 1" in text
+        assert GREEK in text and "Puzzle 1" in text
+        assert "greek-1" not in text  # a database key is not for the owner
         assert "U+03A7" in text
         assert "Arrangement" in text and "Rename" in text
+        assert "Latin letters" in text and "accents" in text
         # Nothing was written: the file never got a first byte.
         assert written == []
 
@@ -1906,6 +1908,33 @@ class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
         assert refusal.value.puzzle_number == 2
         assert "Снежинка" in str(refusal.value)
         assert "פתית" not in str(refusal.value)
+
+    def test_the_first_unsettable_puzzle_is_by_print_order_not_creation_or_id_order(
+        self, monkeypatch
+    ) -> None:
+        # Mixed tiers: print order is easy, medium, hard, so the easy Greek
+        # puzzle is Puzzle 1 although it was created third and sorts last by id.
+        _lift_answer(monkeypatch)
+        book = [
+            _puzzle(name="Latin hard", puzzle_id="m1", tier="hard"),
+            _puzzle(name="Μεσαίο", puzzle_id="a2", tier="medium"),
+            _puzzle(name="Εύκολο", puzzle_id="z3", tier="easy"),
+            _puzzle(name="Latin easy", puzzle_id="b4", tier="easy"),
+        ]
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _assembled().export_interior(book)
+        assert refusal.value.puzzle_id == "z3"
+        assert refusal.value.puzzle_number == 1
+        assert "Εύκολο" in str(refusal.value) and "Μεσαίο" not in str(refusal.value)
+
+    def test_a_lifted_book_with_no_puzzles_is_not_refused(self, monkeypatch) -> None:
+        _lift_answer(monkeypatch)
+        generator = _assembled()
+        generator.interior_stream([])
+        from nonogram.admin import book_pdf_generator as module
+
+        module._refuse_unsettable_titles(())  # nothing to refuse, nothing raised
+        assert generator.export_interior([]).getvalue().startswith(b"%PDF")
 
     def test_a_greek_custom_title_on_a_latin_named_puzzle_is_refused(
         self, monkeypatch
@@ -1974,7 +2003,17 @@ class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
         with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
             _assembled().export_interior([_puzzle(name=long_title, puzzle_id="long")])
         assert refusal.value.title == long_title.strip()
-        assert len(str(refusal.value)) < 600
+        assert len(str(refusal.value)) < 700
+
+    def test_the_quoted_title_is_cut_on_a_character_not_a_byte(self, monkeypatch) -> None:
+        _lift_answer(monkeypatch)
+        # A 2-byte UTF-8 letter exactly at the cut (index 59), then Greek.
+        title = "A" * 59 + "é" + "B" * 10 + GREEK
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _assembled().export_interior([_puzzle(name=title, puzzle_id="cut")])
+        text = str(refusal.value)
+        assert "\ufffd" not in text
+        assert "A" * 59 + "é..." in text
 
     def test_today_the_greek_named_book_still_exports_and_the_check_never_fires(
         self, monkeypatch

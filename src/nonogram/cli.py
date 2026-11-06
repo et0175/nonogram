@@ -54,8 +54,8 @@ from nonogram.errors import (
     SolverTimeout,
     UnknownLibraryImage,
     UnletterableTitle,
-    UnsettablePuzzleTitle,
     UnreadableImage,
+    UnsettablePuzzleTitle,
     UnsupportedDifficulty,
 )
 
