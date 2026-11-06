@@ -1711,6 +1711,8 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         # Every page carrying a drawing is now asserted, none skipped for
         # being width-bound (centring makes the offset independent of the
         # drawing's own width). Measured on this corpus: 12 of its 17 pages.
+        # ``checked >= 12`` has zero slack in both media: 12 unlifted, and 12
+        # probed (13 drawings read, minus page 3, a guide page skipped by name).
         assert checked >= 12, f"only {checked} pages carried a measurable drawing"
 
 
@@ -1718,11 +1720,13 @@ def drawing_centre_x(page: Image.Image, drawing: Drawing) -> float:
     """The middle of a framed drawing's two vertical **boundaries**, in pixels.
 
     ``Drawing.left`` and ``Drawing.grid_right`` are ink extents, and a PDF
-    rasteriser's frame corner is mitred 3 px further out than the bitmap's
-    (``frame_centre_of``'s own table), so ``(left + grid_right) / 2`` reads 1.5
-    px further left on the operators page than on the bitmap for the very same
-    placement: 2.94 px against this test's 2 px bound in the vector medium and
-    0.94 in the raster one (CARD-343). Both ends are therefore read as the
+    rasteriser's frame corner is mitred further out than the bitmap's.
+    Measured on this test's book (CARD-343), ``left`` minus ``frame_left`` is
+    -0.5 px raster and -2.5 px vector, a 2.0 px difference between media, and
+    ``(left + grid_right) / 2`` reads about 2.0 px further left on the
+    operators page than on the bitmap for the very same placement: 2.94 px
+    against this test's 2 px bound in the vector medium and 0.94 in the raster
+    one. Both ends are therefore read as the
     boundary their rule is centred on: the left from the frame's own side
     (``frame_centre_of``), the right from the width of the border's own run,
     so the reading is the same in either medium and the bound is unchanged.
@@ -1731,8 +1735,9 @@ def drawing_centre_x(page: Image.Image, drawing: Drawing) -> float:
     band = ink_mask(page)[drawing.grid_top + 5 : drawing.grid_bottom - 4]
     full = band.all(axis=0)
     width = 0
-    while full[drawing.grid_right + width]:
+    while drawing.grid_right + width < full.size and full[drawing.grid_right + width]:
         width += 1
+    assert drawing.grid_right + width < full.size, "the grid's right border runs to the page edge"
     assert width, "the grid's right border is not a full-height rule here"
     right = drawing.grid_right + (width - 1) / 2
     return (left + right) / 2
