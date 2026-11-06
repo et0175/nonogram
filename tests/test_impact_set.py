@@ -1246,8 +1246,10 @@ class TestImpactSet_F001_ImportsFollowThroughTestModules:
         (tree / "src" / "nonogram" / "db" / "__init__.py").write_text("D = 1\n")
         (tree / "src" / "nonogram" / "__init__.py").write_text("")
         (tree / "src" / "nonogram" / "db" / "models.py").write_text("M = 1\n")
+        # `import a.b.c as m` names only a.b.c: the package edge is the only
+        # thing connecting this test to a change in a/b/__init__.py.
         (tree / "tests" / "test_models_only.py").write_text(
-            "from nonogram.db import models\ndef test_m():\n    assert models\n"
+            "import nonogram.db.models as models\ndef test_m():\n    assert models\n"
         )
         selected = impact.select(tree, ["src/nonogram/db/__init__.py"])
         assert selected != impact.FULL
@@ -1494,6 +1496,19 @@ class TestImpactSet_F002_AnAdminSurfaceChangeSelectsEveryBrowserTest:
         assert sorted(browser - set(selected)) == [], changed
         assert sorted(set(self.RECORDED) - set(selected)) == [], changed
 
+    @pytest.mark.parametrize("changed", SURFACE)
+    def test_every_conftest_fixture_user_is_selected_too(self, changed):
+        selected = _real_select([changed])
+        assert selected != impact.FULL
+        assert (
+            sorted(set(TestImpactSet_F003_ConftestIsAnEdge.FIXTURE_USERS) - set(selected)) == []
+        ), changed
+
+    def test_a_hermetic_asset_change_selects_the_conftest_fixture_user(self, fixture_tree):
+        selected = impact.select(fixture_tree, ["src/nonogram/admin/static/widget.css"])
+        assert "tests/test_uses_fixture.py" in selected
+        assert "tests/test_no_fixture.py" not in selected
+
     def test_a_hermetic_browser_test_importing_nothing_is_selected(self, web_tree):
         (web_tree / "tests" / "test_browser_alone.py").write_text(
             "import playwright\ndef test_z():\n    assert 1\n"
@@ -1527,6 +1542,15 @@ class TestImpactSet_InstrumentsAreNamedNotForcedFull:
         derived = impact.derive(tree, ["scratchpad/card1/probe.py"])
         assert not derived.full
         assert derived.files == ["tests/test_scanner.py"]
+
+    def test_a_scratchpad_record_that_is_not_python_is_not_full(self, tree):
+        """A note or table beside the probes: outside the known roots by name."""
+        (tree / "scratchpad" / "card2").mkdir(parents=True)
+        (tree / "scratchpad" / "card2" / "impact.txt").write_text("17 files\n")
+        assert not impact.derive(tree, ["scratchpad/card2/impact.txt"]).full
+
+    def test_a_real_scratchpad_record_is_not_full(self):
+        assert not _real_derive(["scratchpad/card309/impact.txt"]).full
 
     def test_a_scratchpad_probe_a_test_names_selects_that_test(self, tree):
         (tree / "scratchpad").mkdir()
@@ -1563,12 +1587,15 @@ class TestImpactSet_TheSurvivorsOfCycle1:
 
     def test_M2c_a_changed_test_selects_the_importers_of_its_importers(self, tree):
         """Chain A <- B <- C: C names only B, so no name/prefix rule sees A."""
-        (tree / "tests" / "test_chain_a.py").write_text("A = 1\ndef test_a():\n    pass\n")
+        # Function names are chosen so that none is a PREFIX of a chain file name:
+        # a bare `test_c` in C's text would match `test_chain_a.py` by the prefix
+        # rule and select C without the importers branch (the mutant survived).
+        (tree / "tests" / "test_chain_a.py").write_text("A = 1\ndef test_one():\n    pass\n")
         (tree / "tests" / "test_chain_b.py").write_text(
-            "from tests.test_chain_a import A\nB = A\ndef test_b():\n    pass\n"
+            "from tests.test_chain_a import A\nB = A\ndef test_two():\n    pass\n"
         )
         (tree / "tests" / "test_chain_c.py").write_text(
-            "from tests.test_chain_b import B\ndef test_c():\n    assert B\n"
+            "from tests.test_chain_b import B\ndef test_three():\n    assert B\n"
         )
         selected = impact.select(tree, ["tests/test_chain_a.py"])
         assert "tests/test_chain_b.py" in selected
