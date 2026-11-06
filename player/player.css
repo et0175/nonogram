@@ -557,7 +557,7 @@ body {
   width: var(--player-cell);
 }
 
-.player-clue.is-col .player-clue-num { display: block; }
+.player-clue.is-col .player-clue-num { display: block; width: fit-content; margin: 0 auto; }
 
 .player-clue.is-row {
   text-align: right;
@@ -566,6 +566,54 @@ body {
 }
 
 .player-clue.is-row .player-clue-num { display: inline; margin-left: 0.35em; }
+
+/* Clue circles (CARD-326): a clue number the player's marks account for
+   carries .is-circled (play.js, from solver_state.js's circledClues) and gets a
+   thin round grid-ink ring; the digit keeps its ink and size. This is the
+   LOOK of admin.css's circles (CARD-188) reimplemented here and held to it by
+   tests/test_public_player_agreement.py, with the differences declared there
+   and explained here. They all come from one fact: this page's clue gutters
+   are COMPACT (a 0.42 cell numeral at 1.1 line-height, a 0.35em gap between
+   row numbers) where the admin's give every number a cell-tall slot, and the
+   gutters' size is pinned by tests/test_public_player_zoom.py, so the circles
+   fit the gutters and not the other way round.
+
+   * The ring is sized in the NUMERAL's em, not in cells: --player-circle is
+     1.05em, a little under the 1.1em a column number's line box is tall, so
+     two stacked rings never overlap. Its WIDTH is the number's own width plus
+     a clearance and the ring on each side (100% is the number's box), so a
+     one-digit number gets a narrow pill and a two-digit one a wider pill, and
+     two neighbouring row numbers' rings keep clear of each other inside the
+     0.35em gap the row already has. Nothing here moves a gutter.
+   * The ring's line is thinner (0.035 of a cell, 1px at the least where the
+     admin's is 0.06 of a cell): inside a 1.05em ring a thicker line would
+     touch the digit.
+   * The admin sets a digit-count property from a script and sizes the pill in ch
+     from it, and caps a column ring at the distance to the next column's heavy
+     rule because its column numbers are zero-width boxes. Here the ring reads
+     the number's own width (no script-set property, so the token census has
+     nothing new to allow) and a column number is a block as wide as its text,
+     centred, so no ring can reach the next column and no cap rule exists.
+
+   The ring is the number's ::before, absolutely positioned and centred on the
+   number's box, so it takes no part in layout, and it is a BORDER: the
+   crosshair's tint (.player-clue.is-crossed, below) is a background on the
+   clue BOX, a different channel, so a crossed clue still shows its circle.
+   A circle is never the only carrier of meaning: the digit is still there.
+   No transition. */
+.player-board {
+  --player-circle: 1.05em;
+  --player-circle-w: max(var(--border-width), calc(var(--player-cell) * 0.035));
+  --player-circle-clear: calc(var(--player-cell) * 0.02);
+}
+.player-board .player-clue-num { position: relative; }
+.player-board .player-clue-num::before {
+  content: ""; position: absolute; pointer-events: none; box-sizing: border-box;
+  width: calc(100% + 2 * (var(--player-circle-clear) + var(--player-circle-w))); height: var(--player-circle);
+  left: calc(-1 * (var(--player-circle-clear) + var(--player-circle-w))); top: calc(50% - var(--player-circle) / 2);
+  border: var(--player-circle-w) solid transparent; border-radius: calc(var(--player-circle) / 2);
+}
+.player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }
 
 .player-clue.is-corner {
   z-index: 3;

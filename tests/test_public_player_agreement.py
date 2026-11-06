@@ -3034,3 +3034,315 @@ class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
         assert residue(a_stage["--player-cross-ink"], "var(--color-surface-hover)") == residue(
             p_stage["--player-cross-ink"], "var(--player-cross)"
         ) == "color-mix(in srgb, <TINT> 16%, var(--grid-ink))"
+
+
+# ==========================================================================
+# CARD-326 (SCOPE+: this file is not in the card's Touches; the card's premise
+# note of 2026-11-05 names it) - the circles are the same look
+# ==========================================================================
+#
+# Circled clue numbers are the second look in this file that the public page
+# REIMPLEMENTS from the admin's (``admin.css`` + ``solver.js``'s CARD-188, and
+# ``player.css`` + ``play.js``'s CARD-326): which numbers circle is the shared
+# module's (``circledClues``, byte-identical by ADR-0041/R3), and everything
+# that DRAWS the circle is two copies. Same discipline as the crosshair class
+# above: every compared fact is DERIVED from the four sources, the facts that
+# disagree are computed and asserted equal to a table of DECLARED divergences,
+# and an entry is over the PAIR of values (found admin value, found public
+# value), so content drifting inside a declared fact reds as well as a new fact.
+#
+# Why there are divergences at all, in one sentence: the panel gives every clue
+# number a cell-tall slot (a 0.6-cell numeral, 0.88-cell ring) and this page's
+# clue gutters are compact (a 0.42-cell numeral at line-height 1.1, a 0.35em
+# gap between row numbers) and are pinned by tests/test_public_player_zoom.py,
+# so the rings are fitted to the gutters instead of the gutters to the rings.
+
+_CIRCLE_SELECTORS = {
+    "number": ".player-board .player-clue-num",
+    "ring": ".player-board .player-clue-num::before",
+    "circled": ".player-board .player-clue-num.is-circled::before",
+    "cap": ".player-board .player-clue.is-col .player-clue-num::before",
+}
+_CIRCLE_VARIABLES = ("--player-circle", "--player-circle-w", "--player-circle-clear", "--player-ring-gap")
+_ABSENT = "(none)"
+
+
+def _merged_declarations(css: str, selector: str) -> dict[str, str]:
+    """Every declaration of every flat rule whose selector is exactly ``selector``."""
+    merged: dict[str, str] = {}
+    for found, body in _RULE.findall(_css_code(css)):
+        if _squeezed(found) == selector:
+            merged.update(declarations(body))
+    return merged
+
+
+def _paint_circles(js_source: str) -> str:
+    from tests.test_public_player_crosshair import _raw_definition
+
+    text = _raw_definition(js_source, "paintCircles")
+    assert text is not None, "no paintCircles"
+    return text
+
+
+def circle_facts(css: str, js_source: str) -> dict[str, str]:
+    """Every compared fact of one page's circles, as a string."""
+    facts: dict[str, str] = {}
+    # EVERY property of the number, ring and circled rules, not a listed few
+    # (CARD-326 review F-2: a listed set let a one-sided z-index, opacity,
+    # transition or transform on the ring go unseen). The key set is whatever
+    # either sheet declares; circle_disagreements compares the union.
+    for group in ("number", "ring", "circled"):
+        for prop, value in _merged_declarations(css, _CIRCLE_SELECTORS[group]).items():
+            facts[f"{group}.{prop}"] = value
+    board = _merged_declarations(css, ".player-board")
+    for name in _CIRCLE_VARIABLES:
+        facts[f"board.{name}"] = board.get(name, _ABSENT)
+    facts["column_ring.is_capped"] = str(bool(_merged_declarations(css, _CIRCLE_SELECTORS["cap"])))
+    painter = _paint_circles(js_source)
+    code = "\n".join(line for _, line in _js_code_lines_of(js_source))
+    facts["marker.class"] = ",".join(sorted(set(re.findall(r'classList\.toggle\(\s*"([^"]+)"', painter))))
+    facts["marker.value"] = ",".join(re.findall(r'classList\.toggle\(\s*"[^"]+"\s*,\s*([^)]*)\)', painter))
+    facts["marker.source_call"] = " | ".join(sorted(re.findall(r"\bcircledClues\(([^)]*)\)", code)))
+    facts["painter.pairs_twin_gutters"] = str("twins" in painter)
+    facts["digit_count.is_set_by_script"] = str("--player-clue-digits" in code)
+    return facts
+
+
+def _js_code_lines_of(source: str):
+    for number, line in enumerate(source.splitlines(), 1):
+        if not line.strip().startswith(("//", "*", "/*")):
+            yield number, line
+
+
+def circle_disagreements(admin_css_text: str, public_css_text: str, admin_js: str, public_js: str) -> dict[str, tuple[str, str]]:
+    admin, public = circle_facts(admin_css_text, admin_js), circle_facts(public_css_text, public_js)
+    return {
+        k: (admin.get(k, _ABSENT), public.get(k, _ABSENT))
+        for k in sorted(admin.keys() | public.keys())
+        if admin.get(k, _ABSENT) != public.get(k, _ABSENT)
+    }
+
+
+#: What the public circles do DIFFERENTLY from the admin's, each over the PAIR
+#: of values found and each with the decision it rests on (one entry per
+#: property; the count is the table's own, not stated here). MEASURED, this round (2026-11-05, a real Chromium over the
+#: assembled site, tests/test_public_player_circles.py): public ring height
+#: 14.98 px at the 1440 px desktop's 100% and 44.97 px at the 300% maximum
+#: (1.05em of a 14.27 px numeral, scaling 3.002x); the smallest gap between two
+#: neighbouring rings on the 390 px phone 1.00 px (row) and 0.59 px (column) at
+#: 100%, 3.11 px and 1.77 px at 300%, against the 0.25 px floor.
+DECLARED_CIRCLE_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
+    "board.--player-circle": (
+        ("calc(var(--player-cell) * 0.88)", "1.05em"),
+        "The ring's height. The panel's numeral is 0.6 of a cell with a cell-tall slot "
+        "per number, so 0.88 of a cell encloses it (1.47 numerals); this page's numeral "
+        "is 0.42 of a cell stacked at line-height 1.1, where 0.88 of a cell would be "
+        "2.1 numerals tall and overlap its neighbours. 1.05em is a little under the "
+        "1.1em a column number's line box is tall, so stacked rings never overlap "
+        "(measured: 0.59 px apart at the phone's 100%).",
+    ),
+    "board.--player-circle-w": (
+        ("max(var(--border-width), calc(var(--player-cell) * 0.06))", "max(var(--border-width), calc(var(--player-cell) * 0.035))"),
+        "The ring's line. Inside a 1.05em ring a line 0.06 of a cell thick (1.7 px at "
+        "the 28 px cell floor) would touch the digit; 0.035 of a cell is 1 px there "
+        "(the --border-width floor binds) and scales with the zoom (3 px at 300%).",
+    ),
+    "board.--player-circle-clear": (
+        ("calc(var(--player-cell) * 0.05)", "calc(var(--player-cell) * 0.02)"),
+        "The clearance between digit and ring on each side, narrower for the same "
+        "reason: two neighbouring row numbers sit 0.35em apart on this page and the "
+        "two rings' clearance plus line must fit inside that gap (measured: 1.00 px "
+        "clear at the phone's 100%).",
+    ),
+    "board.--player-ring-gap": (
+        ("0.25px", _ABSENT),
+        "The panel declares the least gap between two rings as a custom property its "
+        "ring width is capped by. This page caps nothing, so it declares no property; "
+        "the same 0.25 px is RING_GAP_FLOOR_PX in tests/test_public_player_circles.py "
+        "with its measured residue and a control that fails just past it.",
+    ),
+    "ring.--player-ring": (
+        (
+            "max(var(--player-circle), calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w))))",
+            _ABSENT,
+        ),
+        "The panel sizes the ring's pill from the digit count a script sets "
+        "(--player-clue-digits) and caps column rings at the next column's heavy rule. "
+        "Here the ring reads the number's own width (ring.width), so there is no "
+        "script-set property (the token census in tests/test_public_player_pages.py "
+        "refuses an undefined custom property) and nothing to cap.",
+    ),
+    "ring.width": (
+        ("var(--player-ring)", "calc(100% + 2 * (var(--player-circle-clear) + var(--player-circle-w)))"),
+        "The ring is the number's width plus clearance and line on each side (100% is "
+        "the number's box), never the panel's max(circle, digits-in-ch + ...): a "
+        "one-digit ring here is a narrow pill so two row rings fit in the gutter's "
+        "existing 0.35em gap.",
+    ),
+    "ring.left": (
+        ("calc(50% - var(--player-ring) / 2)", "calc(-1 * (var(--player-circle-clear) + var(--player-circle-w)))"),
+        "The same placement written for the other width: centred on the number in the "
+        "panel, hanging out by clearance plus line on the left here (the right is the "
+        "width's other half), which is the same centring.",
+    ),
+    "column_ring.is_capped": (
+        ("True", "False"),
+        "The panel's column numbers are zero-width boxes, so its column ring is capped "
+        "at the distance to the next column's heavy rule (CARD-196). Here a column "
+        "number is a block as wide as its text, centred in a cell-wide column, so no "
+        "ring can reach the next column (measured: the widest column ring on the 30 x "
+        "30 fixture is 62.8 px at 300% in a 103 px cell).",
+    ),
+    "digit_count.is_set_by_script": (
+        ("True", "False"),
+        "See ring.--player-ring: the page sets no property from a script, only the "
+        "class (marker.class), so what a script can say about a circle is one bit.",
+    ),
+    "painter.pairs_twin_gutters": (
+        ("True", "False"),
+        "CARD-212 gave the panel a second, mirrored row gutter, so each clue number "
+        "can have a twin span that must circle with it. This page has one gutter per "
+        "axis (and its painter, held to a closed vocabulary by tests/test_public_"
+        "player_circles.py, has no loop over twins to get wrong).",
+    ),
+}
+
+
+class TestPlayerLooksAgree_TheCirclesAreTheSameLook:
+    """CARD-326 (GAP 2): the circles' look, the marker and the module call."""
+
+    def _sources(self) -> tuple[str, str, str, str]:
+        return (
+            ADMIN_CSS.read_text(encoding="utf-8"),
+            PUBLIC_CSS.read_text(encoding="utf-8"),
+            ADMIN_JS.read_text(encoding="utf-8"),
+            PUBLIC_JS.read_text(encoding="utf-8"),
+        )
+
+    def test_the_disagreements_are_exactly_the_declared_pairs(self) -> None:
+        found = circle_disagreements(*self._sources())
+        assert found == {k: v[0] for k, v in DECLARED_CIRCLE_DIVERGENCES.items()}
+
+    def test_a_declaration_is_a_real_divergence_with_a_reason_over_a_fact_the_extractor_makes(self) -> None:
+        admin_css_text, _, admin_js, _ = self._sources()
+        facts = circle_facts(admin_css_text, admin_js)
+        for fact, (pair, reason) in DECLARED_CIRCLE_DIVERGENCES.items():
+            assert fact in facts, f"{fact} is declared but the extractor does not produce it"
+            assert pair[0] != pair[1], f"{fact} is declared but does not diverge"
+            assert len(reason) >= _REASON_FLOOR, f"{fact}: a reason is a sentence, not a word"
+
+    def test_the_facts_that_agree_are_enumerated_and_not_empty(self) -> None:
+        """Both sheets saying nothing would agree; so the agreeing facts are the
+        extractor's keys minus the declared ones, each a real value on BOTH sides."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        a, p = circle_facts(admin_css_text, admin_js), circle_facts(public_css_text, public_js)
+        agreeing = sorted(set(a) - set(DECLARED_CIRCLE_DIVERGENCES))
+        assert agreeing == [
+            "circled.border-color", "marker.class", "marker.source_call", "marker.value",
+            "number.position", "ring.border", "ring.border-radius", "ring.box-sizing", "ring.content",
+            "ring.height", "ring.pointer-events", "ring.position", "ring.top",
+        ]
+        for fact in agreeing:
+            assert a[fact] == p[fact] and a[fact] not in {"", _ABSENT, "False"}, (fact, a[fact])
+        assert p["circled.border-color"] == "var(--grid-ink)"
+        assert p["marker.class"] == "is-circled"
+        assert p["marker.source_call"] == "history.board, payload.rows, payload.columns"
+
+    def test_the_declared_ring_sizes_are_the_stated_ratio(self) -> None:
+        """The first declaration's prose says 1.47 numerals and 2.1 numerals: derived here
+        from the two sheets' own numbers, not written into the reason alone."""
+        admin_css_text, public_css_text, _, _ = self._sources()
+        ring = float(re.search(r"\* ([\d.]+)\)", DECLARED_CIRCLE_DIVERGENCES["board.--player-circle"][0][0]).group(1))
+        assert ring == 0.88
+        panel_numeral = float(
+            re.search(r"font-size: max\(var\(--player-numeral-min\), calc\(var\(--player-cell\) \* ([\d.]+)\)\)", admin_css_text).group(1)
+        )
+        page_numeral = float(re.search(r"\.player-clue \{[^}]*font-size: calc\(var\(--player-cell\) \* ([\d.]+)\)", public_css_text).group(1))
+        assert (panel_numeral, page_numeral) == (0.6, 0.42)
+        assert round(ring / panel_numeral, 2) == 1.47
+        assert round(ring / page_numeral, 1) == 2.1
+        public_ring_em = float(DECLARED_CIRCLE_DIVERGENCES["board.--player-circle"][0][1].removesuffix("em"))
+        line_height = float(re.search(r"\.player-clue \{[^}]*line-height: ([\d.]+);", public_css_text).group(1))
+        assert public_ring_em < line_height, "a column number's ring must be shorter than its line box"
+        assert round(line_height - public_ring_em, 2) == 0.05
+
+    # -- the controls: both sides, and the decisions that are held equal ----
+
+    @pytest.mark.parametrize(
+        ("side", "target", "old", "new", "moves"),
+        [
+            ("admin", "css", "border-radius: calc(var(--player-circle) / 2);", "border-radius: 0;", "ring.border-radius"),
+            ("public", "css", "border-radius: calc(var(--player-circle) / 2);", "border-radius: 0;", "ring.border-radius"),
+            ("admin", "css", ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }",
+             ".player-board .player-clue-num.is-circled::before { border-color: var(--color-accent); }", "circled.border-color"),
+            ("public", "css", ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }",
+             ".player-board .player-clue-num.is-circled::before { border-color: var(--color-accent); }", "circled.border-color"),
+            ("admin", "css", "pointer-events: none; box-sizing: border-box;", "box-sizing: border-box;", "ring.pointer-events"),
+            ("public", "css", "pointer-events: none; box-sizing: border-box;", "box-sizing: border-box;", "ring.pointer-events"),
+            ("admin", "css", "height: var(--player-circle);", "height: 20px;", "ring.height"),
+            ("public", "css", "height: var(--player-circle);", "height: 20px;", "ring.height"),
+            *[
+                (side, "css", "pointer-events: none; box-sizing: border-box;",
+                 f"pointer-events: none; box-sizing: border-box; {declaration}", f"ring.{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("z-index: 3;", "opacity: 0.5;", "transition: border-color 1s;", "transform: scale(2);")
+            ],
+            *[
+                (side, "css", ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }",
+                 ".player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); " + declaration + " }",
+                 f"circled.{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("opacity: 0.4;", "color: red;")
+            ],
+            ("admin", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-ringed", circled[axis][line][k])', "marker.class"),
+            ("public", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-ringed", circled[axis][line][k])', "marker.class"),
+            ("admin", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-circled", true)', "marker.value"),
+            ("public", "js", 'span.classList.toggle("is-circled", circled[axis][line][k])', 'span.classList.toggle("is-circled", true)', "marker.value"),
+            ("admin", "js", "circledClues(history.board, payload.rows, payload.columns)", "circledClues(shown, payload.rows, payload.columns)", "marker.source_call"),
+            ("public", "js", "circledClues(history.board, payload.rows, payload.columns)", "circledClues(shown, payload.rows, payload.columns)", "marker.source_call"),
+        ],
+        ids=[
+            "admin-ring-square", "public-ring-square",
+            "admin-circle-in-accent", "public-circle-in-accent",
+            "admin-ring-takes-the-pointer", "public-ring-takes-the-pointer",
+            "admin-ring-fixed-height", "public-ring-fixed-height",
+            *[f"{side}-ring-{name}" for side in ("admin", "public") for name in ("z-index", "opacity", "transition", "transform")],
+            *[f"{side}-circled-{name}" for side in ("admin", "public") for name in ("opacity", "colour")],
+            "admin-marker-renamed", "public-marker-renamed",
+            "admin-everything-circled", "public-everything-circled",
+            "admin-reads-the-preview", "public-reads-the-preview",
+        ],
+    )
+    def test_a_one_sided_change_to_a_held_fact_is_reported(self, side, target, old, new, moves) -> None:
+        """Each plant moves one AGREEING fact on one side and the comparison
+        reports it; the unplanted pair, in this same run, reports only the
+        declared set (the matched control, asserted first)."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        baseline = circle_disagreements(admin_css_text, public_css_text, admin_js, public_js)
+        assert set(baseline) == set(DECLARED_CIRCLE_DIVERGENCES), "the matched control"
+        texts = {"admin": {"css": admin_css_text, "js": admin_js}, "public": {"css": public_css_text, "js": public_js}}
+        text = texts[side][target]
+        assert text.count(old) == 1, f"the plant must apply exactly once: {old!r} ({text.count(old)})"
+        texts[side][target] = text.replace(old, new)
+        found = circle_disagreements(texts["admin"]["css"], texts["public"]["css"], texts["admin"]["js"], texts["public"]["js"])
+        assert moves in found and moves not in baseline, (moves, sorted(found))
+
+    def test_a_declared_divergence_that_stops_diverging_is_reported(self) -> None:
+        """The stale-exemption arm: give the public sheet the panel's ring height
+        and ``board.--player-circle`` stops diverging, which the set equality must notice."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        assert public_css_text.count("  --player-circle: 1.05em;") == 1
+        planted = public_css_text.replace("  --player-circle: 1.05em;", "  --player-circle: calc(var(--player-cell) * 0.88);")
+        found = circle_disagreements(admin_css_text, planted, admin_js, public_js)
+        assert "board.--player-circle" not in found
+        assert set(found) == set(DECLARED_CIRCLE_DIVERGENCES) - {"board.--player-circle"}
+
+    def test_a_declared_value_that_drifts_inside_its_fact_is_reported(self) -> None:
+        """An exemption is over the PAIR: the public ring height drifting to another
+        em still diverges from the panel, and the PAIR comparison is what reds."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        planted = public_css_text.replace("  --player-circle: 1.05em;", "  --player-circle: 1.2em;")
+        found = circle_disagreements(admin_css_text, planted, admin_js, public_js)
+        assert "board.--player-circle" in found
+        assert found["board.--player-circle"] != DECLARED_CIRCLE_DIVERGENCES["board.--player-circle"][0]
+        assert found != {k: v[0] for k, v in DECLARED_CIRCLE_DIVERGENCES.items()}

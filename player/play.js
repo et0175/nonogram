@@ -93,6 +93,7 @@ import {
   applyStroke, clickStroke, dragStroke, resetStroke,
   gesturePaints, nextRegion,
   ZOOM_MIN, ZOOM_MAX, stepZoom, pinchZoom, anchoredScroll,
+  circledClues,
 } from "/solver_state.js";
 
 // Every fifth line carries the heavier rule, as on the printed sheet and in
@@ -405,6 +406,63 @@ const paint = (cells, board) => {
 };
 
 // --------------------------------------------------------------------------
+// Clue circles (CARD-326): the readout that needs no answer
+// --------------------------------------------------------------------------
+//
+// A clue number is circled once the player's marks account for it. WHICH
+// numbers is solver_state.js's circledClues and nothing in this file: it takes
+// the board and the payload's clues, never a solution, and it is the very
+// function the admin player calls (solver.js's paintCircles), so the two pages
+// cannot disagree about when a number is circled. This file only carries the
+// answer to the DOM, and it carries it without deciding anything: the value
+// handed to classList.toggle below is a bare member of circledClues's return
+// value. tests/test_public_player_circles.py holds that structurally (the
+// painter has no operator, no comparison and no property it was not given) and
+// by corpus (the page's set equals the module's across seeded boards).
+//
+// CIRCLED IS NOT SATISFIED. This is a readout. The solved check is
+// isClueSolved above and is deliberately not built from this set: a board can
+// circle every number and still be wrong (the module's own header describes a
+// line clued "1 2" marked with its 2-run left of its 1-run, which circles
+// both). CARD-326 AC-4 holds that with a board that does exactly this.
+//
+// The circle is a ring on the number's ::before (player.css), a border and not
+// a background, so the crosshair's tint on the clue box (.is-crossed) cannot
+// hide it. The page has one gutter per axis (the admin's doubled gutters,
+// CARD-212, are a layout this page does not have), so each number is one span
+// and there are no twins to keep in step.
+
+// The clue-number spans, collected once at draw time: { rows: [spans per row],
+// columns: [spans per column] }, one span per clue number in clue order. The
+// spans are not touched: no attribute, no property, no text. The ring's width
+// is the span's own (player.css), so there is nothing to size from here.
+function clueNumbersOf(table) {
+  const axis = (kind) => {
+    const lines = [];
+    for (const box of table.querySelectorAll(`th.player-clue.is-${kind}`)) {
+      lines[Number(box.dataset.line)] = [...box.querySelectorAll(".player-clue-num")];
+    }
+    return lines;
+  };
+  return { rows: axis("row"), columns: axis("col") };
+}
+
+// Toggle .is-circled on each number to match `circled` (circledClues's return
+// value). The force argument is always a boolean the module produced: an
+// undefined one would FLIP the class instead of setting it, which is why this
+// reads the module's array by the same axis, line and index the spans were
+// collected under and does nothing else with it.
+function paintCircles(clueNumbers, circled) {
+  for (const axis of ["rows", "columns"]) {
+    clueNumbers[axis].forEach((spans, line) => {
+      spans.forEach((span, k) => {
+        span.classList.toggle("is-circled", circled[axis][line][k]);
+      });
+    });
+  }
+}
+
+// --------------------------------------------------------------------------
 // The page
 // --------------------------------------------------------------------------
 
@@ -592,6 +650,7 @@ function start(payload) {
   }
 
   const cells = drawBoard(stage, payload);
+  const clueNumbers = clueNumbersOf(stage.querySelector(".player-board"));
   const board = createBoard(payload.width, payload.height);
   let history = deserialize(readSave(payload.key), payload) ?? createHistory(board);
   let shown = history.board;
@@ -825,6 +884,9 @@ function start(payload) {
     setDisabled(actions.undo, history.done.length === 0);
     setDisabled(actions.redo, history.undone.length === 0);
     setDisabled(actions.reset, history.board.cells.every((state) => state === UNKNOWN));
+    // The circles come from the RECORDED board (a drag's preview is `shown`,
+    // and a number is not circled by marks that are not yet made).
+    paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
     const done = isClueSolved(history.board, payload.rows, payload.columns);
     solved.hidden = !done;
     document.body.dataset.solved = done ? "true" : "false";
