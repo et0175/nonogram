@@ -51,8 +51,11 @@ import pytest
 #: died on it at the old 120 s bound), and CARD-336's premise pass projects
 #: the CARD-322 geometry node ``PortraitWithFixedTopEdge_pdf_pages`` at about
 #: 125 s once the interior is vector. The dearest honest test is therefore
-#: about 125 s on a loaded host, and 300 s is 2.4 times that;
-#: no whole-suite ``--durations`` run was made for this comment. So 300 s sits above the dearest honest test with margin for a loaded host
+#: about 125 s on a loaded host, and 300 s is 2.4 times that.
+#:
+#: The re-measure was per module, one module at a time, and NOT a whole-suite
+#: ``--durations`` pass. So 300 s sits above the dearest honest test with
+#: margin for a loaded host
 #: and below nothing that is meant to finish. It can still not fire on work,
 #: only on a stop; the cost, accepted by the owner, is that a true hang is
 #: caught after five minutes instead of two.

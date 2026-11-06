@@ -5125,10 +5125,10 @@ def _run_module_in_sandbox(root: Path, log: str | None) -> dict[str, str]:
 
 
 class TestSuiteCeiling_TheCliffEdgeListIsDerived:
-    """CARD-292 / AC-2: which tests sit within 20 % of the suite's per-test
-    ceiling (CARD-292 wrote "within 50 %" against a 120 s ceiling; CARD-381
-    raised the ceiling to 300 s and kept the 60 s absolute line, see
-    ``CEILING_FRACTION``), **derived from the committed artefact** rather
+    """CARD-292 / AC-2: which tests cost at least 20 % of the suite's
+    per-test ceiling, i.e. at least 60 s (CARD-292 wrote "within 50 %" of a
+    120 s ceiling, the same 60 s line; CARD-381 raised the ceiling to 300 s
+    and kept the 60 s absolute line, see ``CEILING_FRACTION``), **derived from the committed artefact** rather
     than listed.
 
     The ceiling is real and it is in the tree, not in the host:
@@ -5162,9 +5162,11 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
     #: the same 60 s line. CARD-381 raised the ceiling to 300 s; a 50 % line
     #: would be 150 s, above every row of the committed artefact (the dearest
     #: is 81.03 s), and the frozen list below would become empty -- an empty
-    #: list that reads as "nothing is near the ceiling" and leaves
-    #: ``test_both_cliff_edge_rows_are_tests_the_suite_still_collects`` with no
-    #: files to collect. The 60 s absolute line is what was frozen and what the
+    #: list that reads as "nothing is near the ceiling". With 0.5 and an empty
+    #: snapshot both tests would pass VACUOUSLY: the live derivation gives
+    #: ``[] == []``, and ``test_both_cliff_edge_rows_are_tests_the_suite_still_collects``
+    #: would collect the whole suite and find nothing missing. Emptying the
+    #: list would therefore need a non-empty guard of its own. The 60 s absolute line is what was frozen and what the
     #: two rows are rows *of*; 0.2 of 300 s keeps it, and is a judgement call
     #: CARD-381's report names rather than a derivation.
     CEILING_FRACTION = 0.2
@@ -5175,7 +5177,8 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
     #: Two, and both in one class of one file -- which is the finding, not an
     #: accident of the threshold: the next test down is 56.92 s
     #: (``tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces``)
-    #: and it would join this list at a 47 % threshold.
+    #: and it would join this list at a 19 % threshold (56.92 s is 47 % of the
+    #: old 120 s ceiling and 19 % of today's 300 s; CEILING_FRACTION is 0.2).
     CLIFF_EDGE_SNAPSHOT: tuple[tuple[str, float], ...] = (
         (
             "tests/test_book_export_interior_cover.py::"
@@ -5286,8 +5289,8 @@ class TestSuiteCeiling_TheCliffEdgeListIsDerived:
         )
         assert ceiling * self.CEILING_FRACTION == 60.0, ceiling
 
-        # The can-fail half: the 120.0 above is satisfied by a function that
-        # returns 120.0 for any input, so the derivation is asked for an
+        # The can-fail half: the 300.0 above is satisfied by a function that
+        # returns 300.0 for any input, so the derivation is asked for an
         # answer it cannot have been written with. A planted guard whose
         # default is 45 must come back as 45.
         planted = (REPO_ROOT / self.GUARD_SOURCE).read_text(encoding="utf-8").replace(
