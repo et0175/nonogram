@@ -42,6 +42,7 @@ through CDP both let plants go unserved at random (CARD-326's measurement).
 from __future__ import annotations
 
 import itertools
+from collections import Counter
 import json
 import random
 import re
@@ -104,6 +105,7 @@ SOLVER_STATE = Path(__file__).resolve().parent.parent / "src" / "nonogram" / "ad
 HINT = '[data-player-action="hint"]'
 UNDO = '[data-player-action="undo"]'
 REDO = '[data-player-action="redo"]'
+RESET = '[data-player-action="reset"]'
 FILLED_BRUSH = '[data-player-tool="filled"]'
 EMPTY_BRUSH = '[data-player-tool="empty"]'
 
@@ -1021,6 +1023,157 @@ def _raw_definition_text(js_source: str) -> str:
     return "".join(out)
 
 
+_KEYWORDS_BEFORE_A_REGEX = frozenset("return typeof case of in delete void throw new else do instanceof yield await".split())
+
+
+def _regex_literals(src: str, at: int = 0, nested: bool = False) -> tuple[list[str], int]:
+    """The regular-expression literals of ``src`` and where the lexing stopped.
+
+    The comment and string scanners this file leans on read a quote inside a regex
+    literal as the start of a string and run on, past code they then never see; so
+    the literals are found first, by a lexer that knows comments, strings, templates
+    (and their ``${}``) and which ``/`` starts a regex (not after a value)."""
+    found: list[str] = []
+    i, n, depth, value = at, len(src), 0, False
+    while i < n:
+        ch = src[i]
+        if src.startswith("//", i):
+            while i < n and src[i] != "\n":
+                i += 1
+        elif src.startswith("/*", i):
+            i = src.index("*/", i) + 2
+        elif ch in "'\"":
+            i += 1
+            while src[i] != ch:
+                i += 2 if src[i] == "\\" else 1
+            i, value = i + 1, True
+        elif ch == "`":
+            i += 1
+            while src[i] != "`":
+                if src[i] == "\\":
+                    i += 2
+                elif src.startswith("${", i):
+                    inner, i = _regex_literals(src, i + 2, True)
+                    found += inner
+                else:
+                    i += 1
+            i, value = i + 1, True
+        elif ch == "/" and not value:
+            j, in_class = i + 1, False
+            while src[j] != "/" or in_class:
+                if src[j] == "\\":
+                    j += 1
+                elif src[j] == "[":
+                    in_class = True
+                elif src[j] == "]":
+                    in_class = False
+                j += 1
+            found.append(src[i : j + 1])
+            i, value = j + 1, True
+        elif ch == "{":
+            depth, i, value = depth + 1, i + 1, False
+        elif ch == "}":
+            if nested and depth == 0:
+                return found, i + 1
+            depth, i, value = depth - 1, i + 1, True
+        elif _WORD.match(src, i):
+            word = _WORD.match(src, i).group()
+            i, value = i + len(word), word not in _KEYWORDS_BEFORE_A_REGEX
+        elif ch.isdigit() or ch in ")]":
+            i, value = i + 1, True
+        else:
+            i, value = i + 1, False if not ch.isspace() else value
+    return found, i
+
+
+_WORD = re.compile(r"[A-Za-z_$][\w$]*")
+
+
+def declaration_census(code: str) -> Counter:
+    """Every ``const`` / ``let`` / ``var`` name (destructuring and comma lists too),
+    every ``function`` and every ``class``, anywhere in ``code`` (comments gone, string
+    bodies emptied), as ``kind:name`` -> how many times it is declared."""
+    found: Counter = Counter()
+    for m in re.finditer(r"\b(const|let|var)\b", code):
+        j, depth, start, segs = m.end(), 0, m.end(), []
+        while j < len(code):
+            c = code[j]
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0 and c == ";":
+                break
+            elif depth == 0 and c == ",":
+                segs.append(code[start:j])
+                start = j + 1
+            elif depth == 0 and c.isspace() and re.match(r"\s(?:of|in)\s", code[j:]) and "=" not in code[start:j]:
+                break
+            j += 1
+        segs.append(code[start:j])
+        for seg in segs:
+            for name in _WORD.findall(seg.split("=")[0]):
+                found[f"{m.group(1)}:{name}"] += 1
+    for m in re.finditer(r"\bfunction\b\s*\*?\s*([A-Za-z_$][\w$]*)?", code):
+        found[f"function:{m.group(1) or '<anonymous>'}"] += 1
+    for m in re.finditer(r"\bclass\b\s*([A-Za-z_$][\w$]*)?", code):
+        found[f"class:{m.group(1) or '<anonymous>'}"] += 1
+    return found
+
+
+#: Every declaration in ALL of play.js (not only the hint section), as `kind:name` or
+#: `kind:name*count`: 229 declarations of 186 names, DERIVED from the file at this card's tip
+#: by ``declaration_census`` (not carried). A new `const stash`, a closure `const memo`, an
+#: alias `const knownAlias = known`, a helper `function`/arrow-const a click handler calls,
+#: or a second declaration of an old name (shadowing) changes it, and the scanner refuses.
+#: RESIDUE (R3), the declared bound of "no page variable holds a grid": the census names
+#: DECLARATIONS. It does not see a parameter, a property assigned onto an object the page
+#: already has (`payload.x = ...`, `element.textContent = ...`), an object-literal method,
+#: or an anonymous callback; of those, assignments to a member are the only ones that could
+#: park a value, and play.js has 45 of them (MEMBER_ASSIGNMENTS, measured at this card's tip; each is a DOM property
+#: write or a `window.publicPlayer` field). Nothing on the page carries a solution to park
+#: (ADR-0041/R2, held by the asset test), so the claim is "no new NAMED variable or helper".
+MEMBER_ASSIGNMENTS = 45
+DECLARATION_CENSUS = Counter(
+    {
+        (word.split("*")[0]): (int(word.split("*")[1]) if "*" in word else 1)
+        for word in """
+    const:CELLS_BESIDE const:HINT_EXHAUSTED const:HINT_PARTS const:HINT_REASON_SAY const:HINT_SAY
+    const:KEY const:MAJOR_EVERY const:SAVE_VERSION const:TOOLS const:actions const:after const:announce
+    const:at const:axis*2 const:blank const:board*2 const:body const:box*3 const:button*3 const:canEmpty
+    const:canFill const:canHint const:cell*4 const:cells*3 const:chosen const:clueNumbers const:clues
+    const:col const:colCells const:colClue const:colForced const:columns*2 const:controls const:corner
+    const:decides const:distanceBetween const:done*3 const:down const:first*2 const:firstId const:fits
+    const:follow const:from const:head const:headRow const:height*5 const:hint*2 const:hintBar
+    const:hintPointText const:hintRevealText const:hintSay const:hintsOut const:id const:inPinch
+    const:isAt const:isFinger const:isUndecided const:k const:key const:known const:last const:lift
+    const:line*4 const:lines const:majorAfter const:n const:next const:number const:old const:onBoard
+    const:onScreen const:paint const:paints const:paragraph const:part*2 const:payload const:placed
+    const:position const:previous const:reached const:reason const:regionToggle const:repeat
+    const:response const:rest const:row const:rowCells const:rowClue const:rowForced const:rows*2
+    const:run const:runs*2 const:sameNumbers const:saveKey const:savedStroke const:sayFor const:second
+    const:segments const:selector const:sentence const:setDisabled const:showing const:solved const:span
+    const:stage*2 const:state const:store const:stroke const:swatch const:table*3 const:tierChip
+    const:touchPoints const:touchStartCell const:tr const:type const:undone const:visibleHeight
+    const:width*5 const:zoomIn const:zoomOut const:zoomReadout function:applyZoom function:beginPinch
+    function:cellUnder function:clear function:clueBox function:clueNumbersOf function:commit
+    function:crossedParts function:derivedHint function:deserialize function:drawBoard function:fail
+    function:forcedLine function:hintExplainText function:isClue function:isClueSolved
+    function:isPainted function:keepCluesInView function:keyOf function:load function:markHinted
+    function:moveTo function:paint function:paintCircles function:paintHintLine function:pinchMove
+    function:readPayload function:readSave function:refresh function:releaseTouch function:runsOf
+    function:say function:serialize function:setRegion function:setRung function:showHintLine
+    function:showHinted function:start function:storage function:strokeOf function:syncZoom
+    function:wireCrosshair function:writeSave let:col*4 let:crossed let:data*2 let:gesture let:hintLine
+    let:hinted let:history*2 let:i*2 let:index let:j*2 let:k let:lastClick let:pinch let:pinching
+    let:region let:row*3 let:run let:rung let:shown let:tool let:x*2 let:zoom
+    """.split()
+    }
+)
+
+
 DEDUCTION_FUNCTIONS = ("known", "isUndecided", "forcedLine", "derivedHint", "canHint")
 #: The names ``start``'s `let`s and the module-level ones may have. A page
 #: variable that could hold a grid is a new `let`, so the set is closed.
@@ -1043,6 +1196,11 @@ NEVER_IMPORTED = frozenset(
 def hint_code_violations(js_source: str) -> list[str]:
     """Every way the hint code reads what it was not handed, or says a second rule."""
     problems: list[str] = []
+    literals, _ = _regex_literals(js_source)
+    unreadable = [r for r in literals if re.search(r"""['"`]|//|/\*""", r)]
+    if unreadable:
+        # the comment/string scanners below would desynchronise on it: nothing after is trustworthy
+        return [f"a regex literal the comment and string scanners misread: {unreadable[0]}"]
     for name in DEDUCTION_FUNCTIONS:
         body = _raw_definition(js_source, name)
         if body is None:
@@ -1080,6 +1238,9 @@ def hint_code_violations(js_source: str) -> list[str]:
         problems.append("forcedLine: must be named in code exactly three times (the definition and the two lines)")
     if re.search(r"\bsolution\b", kept):
         problems.append("the word `solution` appears in code or in a string")
+    census = declaration_census(code)
+    for word in sorted(census - DECLARATION_CENSUS):
+        problems.append(f"a new declaration (closed census of play.js): {word}")
     for name in sorted(set(re.findall(r"(?m)^\s*let\s+([A-Za-z_$][\w$]*)", code)) - LET_ALLOWED):
         problems.append(f"a new page variable: let {name}")
     for prop in sorted(set(re.findall(r"\bwindow\.([A-Za-z_$][\w$]*)", code)) - WINDOW_ALLOWED):
@@ -1133,6 +1294,18 @@ BYPASSES = [
      "    const hint = derivedHint(history.board, payload.rows, payload.columns);\n    derivedHint(shown, payload.rows, payload.columns);", "derivedHint is called"),
     ("a-new-page-variable", "  let rung = RUNG_POINT;", "  let rung = RUNG_POINT;\n  let stash = null;", "a new page variable: let stash"),
     ("a-new-global", "  controls.hidden = false;", "  window.stash = [];\n  controls.hidden = false;", "window.stash"),
+    # CARD-327 review 1, F-2: the five bypasses the `let`/`window` default-deny let through.
+    ("a-module-level-const-stash", "const HINT_EXHAUSTED =", "const stash = [];\nconst HINT_EXHAUSTED =", "const:stash"),
+    ("a-closure-const-memo", "  let rung = RUNG_POINT;", "  const memo = {};\n  let rung = RUNG_POINT;", "const:memo"),
+    ("an-alias-const", "const known = (state) => (state === FILLED || state === EMPTY ? state : UNKNOWN);",
+     "const known = (state) => (state === FILLED || state === EMPTY ? state : UNKNOWN);\nconst knownAlias = known;", "const:knownAlias"),
+    ("an-unscanned-function-called-from-the-click-handler", '    setRung(nextRung(rung, "press"));',
+     '    function fallback() { return history.board.cells.findIndex(isUndecided); }\n    fallback();\n    setRung(nextRung(rung, "press"));', "function:fallback"),
+    ("an-unscanned-arrow-const-called-from-the-click-handler", '    setRung(nextRung(rung, "press"));',
+     '    const fallback = () => history.board.cells.findIndex(isUndecided);\n    fallback();\n    setRung(nextRung(rung, "press"));', "const:fallback"),
+    ("an-old-name-declared-again-in-a-closure", "  let rung = RUNG_POINT;", "  const history = [];\n  let rung = RUNG_POINT;", "const:history"),
+    ("a-regex-literal-holding-a-quote", "const known = (state)", "const quoteDesync = /'/;\nconst known = (state)", "regex literal"),
+    ("a-regex-literal-holding-a-backtick", "const known = (state)", "const tickDesync = /`/;\nconst known = (state)", "regex literal"),
     ("the-word-in-a-string", "const HINT_EXHAUSTED =", 'const SOLUTION_TAG = "solution";\nconst HINT_EXHAUSTED =', "`solution`"),
 ]
 
@@ -1144,6 +1317,27 @@ def test_a_bypass_is_refused_beside_its_clean_control(label, old, new, expect) -
     assert source.count(old) == 1, f"the plant must apply exactly once: {old!r} ({source.count(old)})"
     found = hint_code_violations(source.replace(old, new))
     assert any(expect in problem for problem in found), (label, found)
+
+
+def test_the_declaration_census_is_the_whole_file_and_is_not_vacuous() -> None:
+    """The control for the census: it reads play.js as a WHOLE (not the hint section), equals the
+    closed set exactly (a stale entry fails as a new one does), and a planted declaration moves it."""
+    source = PLAY_JS.read_text(encoding="utf-8")
+    code, _ = _scan(source)
+    census = declaration_census(code)
+    assert census == DECLARATION_CENSUS
+    assert (len(census), sum(census.values())) == (186, 229)
+    assert {"function:start", "const:HINT_PARTS", "function:wireCrosshair", "const:KEY", "function:storage"} <= set(census)
+    planted, _ = _scan(source.replace("const known = (state)", "const stash = [];\nconst known = (state)", 1))
+    assert declaration_census(planted) - DECLARATION_CENSUS == Counter({"const:stash": 1})
+    # R3: the residue the census does not see, measured: member assignments (a value parked on an object)
+    assert len(re.findall(r"\.[A-Za-z_$][\w$]*\s*(?:=|\+=|-=)(?!=)|\]\s*(?:=|\+=)(?!=)", code)) == MEMBER_ASSIGNMENTS
+
+
+def test_the_regex_lexer_finds_the_one_literal_and_nothing_in_strings() -> None:
+    literals, _ = _regex_literals(PLAY_JS.read_text(encoding="utf-8"))
+    assert literals == ["/^[0-9a-f]{10}$/"]
+    assert _regex_literals("const a = x / 2; const b = 'it/s'; const c = `${y / 3}/`; // /q/\n")[0] == []
 
 
 def test_there_are_at_least_eight_bypasses_and_every_vocabulary_has_one() -> None:
@@ -1738,6 +1932,18 @@ def sc_undo(page, host, keys) -> list[str]:
         problems.append(f"redo did not restore the hint: counter {redone['counter']!r}")
     if _module_js(page, "return S.hintCount(window.publicPlayer.getHistory());") != int(redone["counter"] or -1):
         problems.append("the counter is not the module's hintCount of the history")
+    # Reset is a RECORDED stroke (play.js: record(history, resetStroke(...))), so the hint
+    # stays on the undo stack and hintCount - which the admin's counter reads the same way -
+    # still says 1 over the cleared board; undoing the Reset brings the board and the count back.
+    page.click(RESET, force=True)
+    cleared = read(page)
+    module_count = _module_js(page, "return S.hintCount(window.publicPlayer.getHistory());")
+    if cleared["recorded"] != ["unknown"] * 100 or module_count != 1 or cleared["counter"] != str(module_count):
+        problems.append(f"after Reset the counter is {cleared['counter']!r} but the module's hintCount is {module_count}")
+    page.click(UNDO, force=True)
+    back = read(page)
+    if back["recorded"] != revealed["recorded"] or back["counter"] != "1":
+        problems.append(f"undoing Reset left counter {back['counter']!r} over a changed board")
     return problems
 
 
@@ -1802,11 +2008,26 @@ def sc_hinted(page, host, keys) -> list[str]:
     return problems
 
 
+def _other_storage(page, save_key: str) -> dict:
+    """Every localStorage entry but the page's own save key."""
+    return page.evaluate(
+        "(own) => Object.fromEntries(Object.keys(localStorage).filter((k) => k !== own).map((k) => [k, localStorage.getItem(k)]))",
+        save_key,
+    )
+
+
 def sc_save(page, host, keys) -> list[str]:
     problems: list[str] = []
     key = keys["mixed"]
     _board(page, host, key, CIRCLES_GRID, [])
+    save_key = page.evaluate("() => window.publicPlayer.saveKey")
+    others_before = _other_storage(page, save_key)
     press_to_reveal(page)
+    # ADR-0041/R4: a hint writes the page's ONE save key and nothing else. The key
+    # is asked of the page (publicPlayer.saveKey), and every other entry must be
+    # exactly as it was, so a second key holding the board is a new or changed entry.
+    if _other_storage(page, save_key) != others_before:
+        problems.append(f"a hint wrote a localStorage entry other than {save_key!r}")
     page.reload()
     page.wait_for_function("window.publicPlayer !== undefined")
     after = read(page)
@@ -1947,6 +2168,8 @@ PLANTS = [
     Plant("a-black-cell-may-be-left-blank-backward", [("const blank = cells[i] !== FILLED && rest[i + 1][j];", "const blank = cells[i] === FILLED && rest[i + 1][j];")], {"contradiction", "corpus", "edges"}, "!== FILLED failed (backward)"),
     Plant("a-black-cell-may-be-left-blank-forward", [("if (cells[i] !== FILLED && rest[i + 1][j]) {", "if (cells[i] === FILLED && rest[i + 1][j]) {")], {"contradiction", "corpus", "edges", "exhausted", "ladder", "lit"}, "!== FILLED failed (forward)"),
     Plant("the-reveal-never-happens", [("    if (hint !== null && rung === RUNG_REVEAL) {", "    if (hint === null && rung === RUNG_REVEAL) {")], {"contradiction", "edges", "exhausted", "hinted", "ladder", "save", "undo"}, "hint !== null failed"),
+    Plant("a-hint-also-writes-a-second-storage-key", [(_REVEAL, _REVEAL + "\n      localStorage.setItem('leak', JSON.stringify(history.board.cells));")], {"save"}, "a second key holding the board (ADR-0041/R4)"),
+    Plant("the-counter-reads-zero-after-reset", [("    hintsOut.textContent = String(hintCount(history));", "    hintsOut.textContent = String(history.board.cells.every((s) => s === UNKNOWN) ? 0 : hintCount(history));")], {"undo"}, "the counter is not the undo stack's hintCount over a cleared board"),
     Plant("the-counter-is-never-written", [("    hintsOut.textContent = String(hintCount(history));", "")], {"ladder", "undo", "save"}, "no count"),
 ]
 
