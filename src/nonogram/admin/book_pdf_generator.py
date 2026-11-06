@@ -407,13 +407,15 @@ from nonogram.admin.book_sheet_vector import (
 from nonogram.admin.book_vector import (
     ContentStream,
     FontMetrics,
+    UnrepresentableText,
+    encode_text,
     interior_face_bytes,
     interior_face_metrics,
     write_face_objects,
     write_vector_page,
 )
 from nonogram.difficulty import Tier, tier_of_record
-from nonogram.errors import UnletterableTitle
+from nonogram.errors import UnletterableTitle, UnsettablePuzzleTitle
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
@@ -3277,6 +3279,10 @@ class InteriorStream:
     pages: Iterator[Union[Image.Image, ContentStream]]
     paired_only_page_count: int = 0
     page_kinds: Tuple[PageKind, ...] = ()
+    #: ``(puzzle id, title)`` for every puzzle, in print order: the title each
+    #: answer caption prints (CARD-383). Read by the doors that draw, through
+    #: :func:`_refuse_unsettable_titles`; the plan-only readers ignore it.
+    answer_titles: Tuple[Tuple[Any, Optional[str]], ...] = ()
 
     @property
     def pages_saved(self) -> int:
@@ -4420,6 +4426,92 @@ COVER_TITLE_PX = 72
 #: ``tests/test_book_cover.py``'s
 #: ``test_the_glyph_probe_can_tell_a_missing_glyph_from_a_blank_one``.
 _UNASSIGNED_CODEPOINT = "\ue000"
+
+
+#: How much of a title the refusal's message quotes, and how many distinct
+#: characters it lists, so a pasted paragraph does not become a wall of text on
+#: the owner's screen. The exception's own ``title`` and ``characters`` carry
+#: the whole of both.
+_REFUSAL_TITLE_CHARS = 60
+_REFUSAL_LISTED_CHARACTERS = 6
+
+
+def _refuse_unsettable_titles(
+    answer_titles: Sequence[Tuple[Any, Optional[str]]],
+) -> None:
+    """Refuse, before any page, an answer caption the interior cannot set.
+
+    CARD-383 (the owner's ruling D4: refuse loudly, transliterate nothing, no
+    wider face). A page written as operators shows text through
+    :func:`~nonogram.admin.book_vector.encode_text`, which raises for anything
+    outside the interior's encoding. Left to the walk, that raise would be
+    re-wrapped in a ``RuntimeError`` naming no character, so the one check is
+    made here, **eagerly and outside the walk's per-page ``try``**, and says
+    what the owner has to do.
+
+    **Gated on the medium.** It does nothing while
+    ``page_medium(PageKind.ANSWER)`` is ``RASTER``: that page is a bitmap, the
+    raster face sets Greek, and a book holding it exports today. It refuses
+    exactly when the declaration is lifted, which is the day the answer page
+    becomes operators.
+
+    ``answer_titles`` is :attr:`InteriorStream.answer_titles`: ``(puzzle id,
+    title)`` in print order, the title being the very value of the same
+    :func:`~nonogram.admin.book_answer_key.answer_title` call the walk makes
+    (the per-book custom title when set, otherwise the name), and
+    :func:`~nonogram.admin.book_answer_key.answer_caption` composes the line,
+    so the number and the separator are judged with it. ``encode_text`` is the
+    only authority; there is no second character table here. The first
+    puzzle in print order that fails is named.
+
+    **Called by the doors that draw** (:meth:`export_book`,
+    :meth:`export_interior`, :meth:`interior`, which :meth:`interior_pages`
+    reads), after :meth:`interior_stream` has decided the plan and before the
+    first page is asked for -- and **not by :meth:`interior_stream` itself**,
+    which is also the plan the Finalise counts read (``app._interior_counts``)
+    and must keep counting a book the export will refuse (CARD-383, AC-8).
+
+    Raises:
+        UnsettablePuzzleTitle: the first caption ``encode_text`` rejects.
+    """
+    if page_medium(PageKind.ANSWER) is not PageMedium.VECTOR:
+        return
+    for number, (puzzle_id, title) in enumerate(answer_titles, start=1):
+        try:
+            encode_text(answer_caption(number, title))
+        except UnrepresentableText:
+            pass
+        else:
+            continue
+        refused: List[str] = []
+        for character in title or "":
+            if character in refused:
+                continue
+            try:
+                encode_text(character)
+            except UnrepresentableText:
+                refused.append(character)
+        shown = (title or "")[:_REFUSAL_TITLE_CHARS]
+        if shown != title:
+            shown += "..."
+        listed = ", ".join(
+            f"{character!r} (U+{ord(character):04X})"
+            for character in refused[:_REFUSAL_LISTED_CHARACTERS]
+        )
+        if len(refused) > _REFUSAL_LISTED_CHARACTERS:
+            listed += f" and {len(refused) - _REFUSAL_LISTED_CHARACTERS} more"
+        raise UnsettablePuzzleTitle(
+            f"Puzzle {number} \u201c{shown}\u201d cannot be exported: its "
+            f"title holds {listed}, which the book's interior cannot print. "
+            "The interior sets Latin letters with their accents and the "
+            "common punctuation, and nothing else. Rename the puzzle, or "
+            "give it another title on the Arrangement step.",
+            puzzle_id=puzzle_id,
+            puzzle_number=number,
+            title=title,
+            characters=tuple(refused),
+        )
+
 
 
 def _cover_title_face(book_title: str) -> ImageFont.FreeTypeFont:
@@ -5579,6 +5671,7 @@ class BookPDFGenerator:
         bound (F-1) — consecutive pages of a multi-page walk — not this one.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         interior = self._write_pdf(
             stream.pages,
             stream.page_count,
@@ -5603,6 +5696,7 @@ class BookPDFGenerator:
         list is exactly what a book cannot afford.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         return self._write_pdf(
             stream.pages,
             stream.page_count,
@@ -7462,6 +7556,7 @@ class BookPDFGenerator:
         same failures, and every page held at once at the end of it.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         return Interior(
             pages=list(stream.pages),
             unpaired_page_count=stream.unpaired_page_count,
@@ -8079,6 +8174,10 @@ class BookPDFGenerator:
                 del page
 
         return InteriorStream(
+            answer_titles=tuple(
+                (puzzle_id, answer_title(titles.get(str(puzzle_id)), payload.name))
+                for puzzle_id, payload in payloads
+            ),
             page_count=planned,
             # The baseline before *any* space-saving technique: one puzzle
             # page each (no two-up pairing) and one answer page each (no

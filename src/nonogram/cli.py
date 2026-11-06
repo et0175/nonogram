@@ -55,6 +55,7 @@ from nonogram.errors import (
     UnknownLibraryImage,
     UnletterableTitle,
     UnreadableImage,
+    UnsettablePuzzleTitle,
     UnsupportedDifficulty,
 )
 
@@ -118,6 +119,11 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     # reserved for a mapping gap. This group, because what the user does
     # about it is go and change what they typed.
     UnletterableTitle: ExitCode.INVALID_INPUT,
+    # CARD-383: a puzzle title the vector interior's encoding cannot set. Same
+    # group and same reason as the cover's: the owner renames the puzzle or
+    # retitles it. Listed (it would inherit this through ``InvalidPuzzleName``)
+    # so that reparenting the class cannot move it to INTERNAL_ERROR unseen.
+    UnsettablePuzzleTitle: ExitCode.INVALID_INPUT,
     UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,
     SolverTimeout: ExitCode.GENERATION_FAILED,

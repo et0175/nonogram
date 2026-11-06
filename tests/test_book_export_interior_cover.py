@@ -4103,10 +4103,21 @@ class Generator:
         # the two ``vector_puzzle_page``/``vector_two_up_page`` gate calls,
         # which are methods of the same receiver. Two readings, one
         # reconciliation, no unexplained remainder.
-        ((), 855),
-        (("builtins",), 579),
-        (("builtins", "definitions and imports"), 214),
-        (("builtins", "definitions and imports", "parameters"), 211),
+        #
+        # **CARD-383 re-measured it a third time** (the pre-walk title check,
+        # ``_refuse_unsettable_titles`` and the one ``answer_titles`` tuple the
+        # stream carries to it): 855 -> 874, 579 -> 591, 214 -> 217,
+        # 211 -> 214, and the steps 276/365/3/211 -> 283/374/3/214. The steps
+        # are still strict drops and the last two are still 0; the figures
+        # moved because the module gained calls -- ``encode_text``,
+        # ``answer_caption``, ``page_medium``, ``enumerate``, ``ord`` and
+        # the message's list and join calls inside the check, the doors' three
+        # calls to it and the walk's ``answer_title`` for the new tuple -- and
+        # no class started absorbing a new kind of thing.
+        ((), 874),
+        (("builtins",), 591),
+        (("builtins", "definitions and imports"), 217),
+        (("builtins", "definitions and imports", "parameters"), 214),
         (
             (
                 "builtins",

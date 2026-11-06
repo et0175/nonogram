@@ -3121,7 +3121,16 @@ class TestWritePdf_TheMediumIsChosenInOnePlace:
                 enclosing = owner[id(node)]
                 name = "module level" if enclosing is None else enclosing.name
                 callers[name] = callers.get(name, 0) + 1
-        assert callers == {"_write_pdf": 1, "produce": 5}, callers
+        # CARD-383: the pre-walk title check is gated on the ANSWER kind's
+        # medium and asks the decider once, from its own definition. It asks
+        # and never decides (it compares the answer to ``PageMedium.VECTOR``,
+        # a comparison operand :meth:`findings` allows), so the load-bearing
+        # half of this test is unchanged; only the tally of askers grew.
+        assert callers == {
+            "_write_pdf": 1,
+            "produce": 5,
+            "_refuse_unsettable_titles": 1,
+        }, callers
 
     #: Four plants, each a shape that decides a medium outside the decider.
     #: **Three of the four are not the shape the obvious guard catches** — a
