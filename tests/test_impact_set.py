@@ -438,3 +438,740 @@ def test_the_selector_runs_as_a_script_and_prints_paths():
     printed = [line for line in out.stdout.splitlines() if line.strip()]
     assert printed, out.stdout
     assert "tests/test_full_suite_lock.py" in printed
+
+
+# ==========================================================================
+# CARD-286 -- the derivation the MERGE GATE runs.
+#
+# Written BEFORE the implementation (tests first): every control below was red
+# against the pre-card ``scripts/impact_set.py`` -- see the card's notes.
+#
+# Two kinds of claim live here and they are asserted differently on purpose.
+# A *superset* claim ("the selection contains the test that caught this") is
+# asserted against a recorded baseline with ``<=`` and never with ``==``, so a
+# selection may grow but cannot silently shrink. A *narrowness* claim (the
+# derivation is not FULL-for-everything, G-4) is asserted only on the
+# hermetic fake tree, where the truth is known by construction.
+# ==========================================================================
+
+
+_REAL_CORPUS: list = []
+
+
+def _real_corpus():
+    """One corpus of the real repo, read once for every control that asks.
+
+    The derivation is a pure function of the tree; re-reading 240 test files
+    and the whole of ``src/`` for each of ~60 controls made this file minutes
+    long. The corpus is NOT shared across the hermetic fake trees, which mutate.
+    """
+    if not _REAL_CORPUS:
+        _REAL_CORPUS.append(impact._Corpus(REPO))
+    return _REAL_CORPUS[0]
+
+
+def _real_select(changed):
+    return impact.select(REPO, changed, corpus=_real_corpus())
+
+
+def _real_derive(changed):
+    return impact.derive(REPO, changed, corpus=_real_corpus())
+
+
+
+@pytest.fixture
+def web_tree(tmp_path: Path) -> Path:
+    """A fake repo with a stylesheet, a script, a template and every reader kind.
+
+    ``widget.css`` is read at runtime by a browser test (reaching it through the
+    template that links it), by name by one test, by a selector it declares by
+    another, and not at all by two bystanders.
+    """
+    static = tmp_path / "src" / "nonogram" / "admin" / "static"
+    static.mkdir(parents=True)
+    (static / "widget.css").write_text(
+        ".widget-box { gap: var(--widget-gap); }\n:root { --widget-gap: 4px; }\n"
+    )
+    (static / "widget.js").write_text(
+        "document.querySelector('.widget-cell').className = 'widget-cell is-on';\n"
+    )
+    templates = tmp_path / "src" / "nonogram" / "admin" / "templates"
+    templates.mkdir(parents=True)
+    (templates / "page.html").write_text(
+        '<link rel="stylesheet" href="/static/widget.css">\n'
+        '<script src="/static/widget.js"></script>\n'
+    )
+    (tmp_path / "src" / "nonogram" / "admin" / "__init__.py").write_text("")
+    (tmp_path / "src" / "nonogram" / "__init__.py").write_text("")
+    (tmp_path / "src" / "nonogram" / "admin" / "app.py").write_text(
+        'def page():\n    return render_template("page.html")\n'
+    )
+    (tmp_path / "src" / "nonogram" / "admin" / "other.py").write_text("W = 1\n")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_scanner.py").write_text(
+        'import subprocess\ndef test_scan():\n    subprocess.run(["git", "ls-files"])\n'
+    )
+    (tests / "test_reads_css_by_name.py").write_text(
+        "def test_a():\n    assert 'widget.css'\n"
+    )
+    (tests / "test_reads_css_by_selector.py").write_text(
+        "def test_b():\n    assert 'widget-box'\n"
+    )
+    (tests / "test_browser_page.py").write_text(
+        "from nonogram.admin import app\n"
+        "from playwright.sync_api import sync_playwright\n"
+        "def test_c():\n    assert app\n"
+    )
+    (tests / "test_page_no_browser.py").write_text(
+        "from nonogram.admin import app\ndef test_d():\n    assert app\n"
+    )
+    (tests / "test_unrelated.py").write_text("def test_e():\n    assert True\n")
+    return tmp_path
+
+
+class TestImpactSet_AStaticAssetSelectsTheTestsThatReadIt:
+    """AC-1 -- the omission CARD-271 measured, on a hermetic tree and the real one."""
+
+    #: The 16 files CARD-286 recorded as naming the player selectors plus the
+    #: one book file the card says shares the stylesheet. A recorded BASELINE:
+    #: the claim is ``baseline <= selection``, never equality, so the
+    #: selection can grow and cannot silently lose one of them.
+    CARD_271_READERS = (
+        "tests/test_book_finalise_guide_preview_layout.py",
+        "tests/test_puzzle_solver_maybe.py",
+        "tests/test_puzzle_edit_routes.py",
+        "tests/test_puzzle_solver_mirror.py",
+        "tests/test_puzzle_editor_ui.py",
+        "tests/test_puzzle_solver_page.py",
+        "tests/test_puzzle_solver_brush_menu.py",
+        "tests/test_puzzle_solver_percent.py",
+        "tests/test_puzzle_solver_hint.py",
+        "tests/test_puzzle_solver_progress.py",
+        "tests/test_puzzle_solver_resume.py",
+    )
+
+    def test_the_real_assets_select_every_recorded_reader(self):
+        changed = [
+            "src/nonogram/admin/static/solver.js",
+            "src/nonogram/admin/static/admin.css",
+        ]
+        selected = _real_select(changed)
+        assert selected != impact.FULL
+        missing = sorted(set(self.CARD_271_READERS) - set(selected))
+        assert missing == [], f"the selection omits recorded readers: {missing}"
+
+    def test_the_real_assets_select_every_test_naming_a_player_selector(self):
+        """The card's AC-1 floor, derived from the tree rather than listed."""
+        needles = ("player-board", "player-clue", "player-stage", "admin.css")
+        naming = {
+            p.relative_to(REPO).as_posix()
+            for p in (REPO / "tests").rglob("test_*.py")
+            if any(n in p.read_text(encoding="utf-8") for n in needles)
+        }
+        assert len(naming) >= 16, "the control's own corpus shrank"
+        selected = _real_select([
+                "src/nonogram/admin/static/solver.js",
+                "src/nonogram/admin/static/admin.css",
+            ],
+        )
+        assert selected != impact.FULL
+        assert sorted(naming - set(selected)) == []
+
+    def test_a_stylesheet_selects_name_selector_and_runtime_readers(self, web_tree):
+        selected = impact.select(
+            web_tree, ["src/nonogram/admin/static/widget.css"]
+        )
+        assert selected != impact.FULL
+        assert "tests/test_reads_css_by_name.py" in selected
+        assert "tests/test_reads_css_by_selector.py" in selected
+        # Runs the page in a browser; reaches the stylesheet only through the
+        # template that links it and the module that renders the template.
+        assert "tests/test_browser_page.py" in selected
+
+    def test_the_selection_is_not_everything(self, web_tree):
+        """G-4: FULL-for-every-asset is correct and useless."""
+        selected = impact.select(
+            web_tree, ["src/nonogram/admin/static/widget.css"]
+        )
+        assert selected != impact.FULL
+        assert "tests/test_unrelated.py" not in selected
+        # Imports the app but executes nothing: a stylesheet cannot change it.
+        assert "tests/test_page_no_browser.py" not in selected
+
+    def test_a_script_is_read_by_its_declared_kebab_identifiers(self, web_tree):
+        (web_tree / "tests" / "test_reads_js_by_class.py").write_text(
+            "def test_f():\n    assert 'widget-cell'\n"
+        )
+        selected = impact.select(
+            web_tree, ["src/nonogram/admin/static/widget.js"]
+        )
+        assert selected != impact.FULL
+        assert "tests/test_reads_js_by_class.py" in selected
+        assert "tests/test_browser_page.py" in selected
+
+    def test_a_template_selects_the_modules_that_render_it(self, web_tree):
+        selected = impact.select(
+            web_tree, ["src/nonogram/admin/templates/page.html"]
+        )
+        assert selected != impact.FULL
+        assert "tests/test_page_no_browser.py" in selected
+        assert "tests/test_browser_page.py" in selected
+        assert "tests/test_unrelated.py" not in selected
+
+    def test_a_template_included_by_another_template_reaches_the_renderer(self, web_tree):
+        """``{% include %}`` is an edge: the renderer names only the parent."""
+        (web_tree / "src/nonogram/admin/templates/_part.html").write_text("<b>x</b>\n")
+        (web_tree / "src/nonogram/admin/templates/page.html").write_text(
+            '{% include "_part.html" %}\n'
+        )
+        selected = impact.select(
+            web_tree, ["src/nonogram/admin/templates/_part.html"]
+        )
+        assert selected != impact.FULL
+        assert "tests/test_page_no_browser.py" in selected
+
+
+class TestImpactSet_AnUnderivablePathFailsClosedAndSaysWhy:
+    """AC-2 -- default-deny, and the reason names the path and the rule."""
+
+    def _reason(self, root: Path, path: str):
+        derived = impact.derive(root, [path])
+        assert derived.full, f"{path} was narrowed instead of failing closed"
+        assert derived.files == []
+        mine = [r for r in derived.reasons if r.path == path]
+        assert mine, derived.reasons
+        return mine[0]
+
+    def test_an_asset_nobody_reads_is_full_and_names_path_and_rule(self, web_tree):
+        orphan = "src/nonogram/admin/static/orphan.css"
+        (web_tree / orphan).write_text(".nothing-uses-this { color: red; }\n")
+        reason = self._reason(web_tree, orphan)
+        assert reason.rule == "no-reader"
+        assert orphan in str(reason) and "no-reader" in str(reason)
+        assert impact.select(web_tree, [orphan]) == impact.FULL
+
+    def test_a_new_asset_extension_with_no_rule_is_full(self, web_tree):
+        path = "src/nonogram/admin/static/logo.svg"
+        (web_tree / path).write_text("<svg/>\n")
+        reason = self._reason(web_tree, path)
+        assert reason.rule == "unknown-asset-type"
+        assert ".svg" in reason.detail
+
+    def test_a_template_nothing_renders_is_full(self, web_tree):
+        path = "src/nonogram/admin/templates/dead.html"
+        (web_tree / path).write_text("<p>dead</p>\n")
+        assert self._reason(web_tree, path).rule == "no-reader"
+
+    def test_a_conftest_anywhere_is_full(self, web_tree):
+        """The pre-card code ``continue``d past every conftest but tests/'s own."""
+        (web_tree / "tests" / "sub").mkdir()
+        (web_tree / "tests" / "sub" / "conftest.py").write_text("X = 1\n")
+        assert self._reason(web_tree, "tests/sub/conftest.py").rule == "conftest"
+
+    def test_a_migration_is_full_as_the_comment_always_claimed(self, web_tree):
+        (web_tree / "migrations" / "versions").mkdir(parents=True)
+        (web_tree / "migrations" / "versions" / "001_x.py").write_text("X = 1\n")
+        reason = self._reason(web_tree, "migrations/versions/001_x.py")
+        assert reason.rule == "migrations"
+
+    def test_a_script_nothing_names_is_full(self, web_tree):
+        (web_tree / "scripts").mkdir()
+        (web_tree / "scripts" / "lonely_tool.py").write_text("X = 1\n")
+        assert self._reason(web_tree, "scripts/lonely_tool.py").rule == "no-reader"
+
+    def test_a_script_a_test_names_selects_that_test(self, web_tree):
+        (web_tree / "scripts").mkdir()
+        (web_tree / "scripts" / "loaded_tool.py").write_text("X = 1\n")
+        (web_tree / "tests" / "test_loads_tool.py").write_text(
+            "def test_g():\n    assert 'scripts/loaded_tool.py'\n"
+        )
+        selected = impact.select(web_tree, ["scripts/loaded_tool.py"])
+        assert selected != impact.FULL
+        assert "tests/test_loads_tool.py" in selected
+
+    def test_a_module_nobody_imports_is_full_and_says_which_rule(self, tree):
+        derived = impact.derive(tree, ["src/nonogram/lonely.py"])
+        assert derived.full
+        assert [(r.path, r.rule) for r in derived.reasons] == [
+            ("src/nonogram/lonely.py", "no-importer")
+        ]
+
+    def test_every_full_answer_carries_a_reason(self, tree):
+        """No FULL without a stated cause: ``FULL`` alone is the mystery G-6 names."""
+        cases = list(impact.UNANALYSABLE) + [
+            "some/new/place/thing.py",
+            "src/nonogram/lonely.py",
+        ]
+        for path in cases:
+            derived = impact.derive(tree, [path])
+            assert derived.full, path
+            assert derived.reasons, f"{path}: FULL with no reason"
+            assert all(r.path and r.rule and r.detail for r in derived.reasons)
+
+    def test_the_empty_derivation_is_a_failure_with_a_reason(self, tmp_path):
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_quiet.py").write_text("def test_q():\n    pass\n")
+        (tmp_path / "src" / "nonogram").mkdir(parents=True)
+        (tmp_path / "src" / "nonogram" / "thing.py").write_text("Z = 3\n")
+        derived = impact.derive(tmp_path, ["src/nonogram/thing.py"])
+        assert derived.full
+        assert any(r.rule == "no-scanners" for r in derived.reasons)
+
+    def test_a_downgrade_of_full_to_a_list_is_visible(self, tree):
+        """The control for "FULL downgraded to a list": the verdict is a field."""
+        derived = impact.derive(tree, ["pyproject.toml", "tests/test_orphan.py"])
+        assert derived.full is True
+        assert derived.files == []  # a FULL carries no list a caller could trust
+
+
+class TestImpactSet_TheBrowserFamilyGuardFollowsItsFamily:
+    """AC-3 -- the coupling that is a subprocess, not an import."""
+
+    def test_a_changed_family_test_selects_the_registry_guard(self):
+        selected = _real_select(["tests/test_puzzle_solver_clues.py"])
+        assert selected != impact.FULL
+        assert "tests/test_browser_fixture_scope.py" in selected
+
+    def test_every_family_file_selects_the_registry_guard(self):
+        family = sorted((REPO / "tests").glob("test_puzzle_solver_*.py"))
+        assert len(family) >= 12, "the control's own corpus shrank"
+        for path in family:
+            rel = path.relative_to(REPO).as_posix()
+            selected = _real_select([rel])
+            assert selected != impact.FULL
+            assert "tests/test_browser_fixture_scope.py" in selected, rel
+
+    def test_a_guard_that_collects_by_subprocess_is_selected_for_a_new_test(self, tree):
+        """Hermetic: no import edge, no name -- only ``--collect-only`` and a glob."""
+        (tree / "tests" / "test_family_guard.py").write_text(
+            "import subprocess, sys\n"
+            "def test_h():\n"
+            "    subprocess.run([sys.executable, '-m', 'pytest', '--collect-only',\n"
+            "                    *map(str, __import__('pathlib').Path('tests').glob('test_fam_*.py'))])\n"
+        )
+        (tree / "tests" / "test_fam_one.py").write_text("def test_i():\n    pass\n")
+        selected = impact.select(tree, ["tests/test_fam_one.py"])
+        assert selected != impact.FULL
+        assert "tests/test_family_guard.py" in selected
+        assert "tests/test_orphan.py" not in selected
+
+    def test_a_collect_only_guard_follows_any_tests_tree_change(self, tree):
+        (tree / "tests" / "test_census.py").write_text(
+            "import subprocess\ndef test_j():\n    subprocess.run(['pytest', '--collect-only'])\n"
+        )
+        (tree / "tests" / "helper_new.py").write_text("K = 1\n")
+        (tree / "tests" / "test_uses_new.py").write_text(
+            "from tests.helper_new import K\ndef test_k():\n    assert K\n"
+        )
+        selected = impact.select(tree, ["tests/helper_new.py"])
+        assert "tests/test_census.py" in selected
+
+    def test_a_glob_in_a_test_names_the_files_it_matches(self, tree):
+        (tree / "tests" / "test_globber.py").write_text(
+            "def test_l():\n    assert 'test_orph*.py'\n"
+        )
+        selected = impact.select(tree, ["tests/test_orphan.py"])
+        assert "tests/test_globber.py" in selected
+
+    def test_a_changed_test_selects_the_tests_that_import_it(self, tree):
+        """The family shares ``browser_page`` by importing it from a sibling."""
+        (tree / "tests" / "test_page_fixture.py").write_text(
+            "import pytest\n@pytest.fixture\ndef browser_page():\n    yield 1\n"
+        )
+        (tree / "tests" / "test_user_of_fixture.py").write_text(
+            "from tests.test_page_fixture import browser_page\n"
+            "def test_m(browser_page):\n    assert browser_page\n"
+        )
+        selected = impact.select(tree, ["tests/test_page_fixture.py"])
+        assert selected != impact.FULL
+        assert "tests/test_user_of_fixture.py" in selected
+
+    def test_a_helper_imported_by_a_helper_reaches_the_test(self, tree):
+        (tree / "tests" / "helper_inner.py").write_text("A = 1\n")
+        (tree / "tests" / "helper_outer.py").write_text("from tests.helper_inner import A\n")
+        (tree / "tests" / "test_outer_user.py").write_text(
+            "from tests.helper_outer import A\ndef test_n():\n    assert A\n"
+        )
+        selected = impact.select(tree, ["tests/helper_inner.py"])
+        assert selected != impact.FULL
+        assert "tests/test_outer_user.py" in selected
+
+
+class TestImpactSet_ACoreChangeStillReachesTheBookTests:
+    """AC-4 -- the direction that was already right must not regress."""
+
+    #: Recorded 2026-11-06 from the pre-card script: book render tests that a
+    #: change to ``export/layout.py`` selected. ``<=``, never ``==``.
+    BASELINE = (
+        "tests/test_book_pdf.py",
+        "tests/test_book_proof_pages.py",
+        "tests/test_book_page_frame.py",
+        "tests/test_book_puzzle_frame.py",
+        "tests/test_book_export_interior_cover.py",
+    )
+
+    def test_a_layout_change_selects_the_recorded_book_tests(self):
+        selected = _real_select(["src/nonogram/export/layout.py"])
+        assert selected != impact.FULL
+        assert sorted(set(self.BASELINE) - set(selected)) == []
+
+    def test_the_generator_change_selects_the_book_and_pdf_families(self):
+        """CARD-322's consumer: ``book_pdf_generator.py`` and the book writers."""
+        selected = set(
+            _real_select(["src/nonogram/admin/book_pdf_generator.py"])
+        )
+        assert set(self.BASELINE) <= selected
+        pdf_family = {
+            p.relative_to(REPO).as_posix()
+            for p in (REPO / "tests").glob("test_book_*pdf*.py")
+        }
+        assert len(pdf_family) >= 3, "the control's own corpus shrank"
+        assert sorted(pdf_family - selected) == []
+
+
+class TestImpactSet_EveryShippedAssetHasADerivation:
+    """AC-5 -- completeness over the asset tree, as an equality."""
+
+    @staticmethod
+    def _shipped_assets() -> list[Path]:
+        return sorted(
+            p
+            for p in (REPO / "src").rglob("*")
+            if p.is_file()
+            and p.suffix not in (".py", ".pyc")
+            and "__pycache__" not in p.parts
+        )
+
+    def test_the_known_asset_types_equal_the_shipped_asset_types(self):
+        """Equality, not a floor: a new type fails here, and so does a stale rule."""
+        shipped = {impact.asset_key(p.relative_to(REPO).as_posix()) for p in self._shipped_assets()}
+        assert shipped == set(impact.ASSET_RULES), (
+            f"shipped but no rule: {sorted(shipped - set(impact.ASSET_RULES))}; "
+            f"a rule for nothing shipped: {sorted(set(impact.ASSET_RULES) - shipped)}"
+        )
+
+    def test_every_asset_kind_is_one_the_script_implements(self):
+        assert set(impact.ASSET_RULES.values()) <= set(impact.ASSET_KINDS)
+
+    def test_every_static_file_has_a_derivation_that_is_not_full(self):
+        static = [
+            p
+            for p in self._shipped_assets()
+            if "static" in p.relative_to(REPO / "src").parts
+        ]
+        assert len(static) >= 6, "the control's own corpus shrank"
+        for path in static:
+            rel = path.relative_to(REPO).as_posix()
+            derived = _real_derive([rel])
+            assert not derived.full, f"{rel}: {derived.reasons}"
+            assert derived.files, rel
+
+    def test_every_template_has_a_derivation_that_is_not_full(self):
+        templates = [p for p in self._shipped_assets() if p.suffix == ".html"]
+        assert len(templates) >= 25, "the control's own corpus shrank"
+        full = []
+        for path in templates:
+            rel = path.relative_to(REPO).as_posix()
+            if _real_derive([rel]).full:
+                full.append(rel)
+        assert full == []
+
+    def test_every_shipped_asset_answers_with_a_stated_rule_or_a_selection(self):
+        for path in self._shipped_assets():
+            rel = path.relative_to(REPO).as_posix()
+            derived = _real_derive([rel])
+            if derived.full:
+                assert all(r.rule and r.detail for r in derived.reasons), rel
+            else:
+                assert derived.files, rel
+
+    def test_an_asset_type_removed_from_the_table_fails_closed(self, web_tree, monkeypatch):
+        """The control for "a new asset extension with no rule"."""
+        rules = dict(impact.ASSET_RULES)
+        del rules[".css"]
+        monkeypatch.setattr(impact, "ASSET_RULES", rules)
+        derived = impact.derive(web_tree, ["src/nonogram/admin/static/widget.css"])
+        assert derived.full
+        assert derived.reasons[0].rule == "unknown-asset-type"
+
+
+class TestImpactSet_RelativeImportsAreEdges:
+    """A fail-open hole found re-measuring the card: ``from .session import``."""
+
+    def test_a_package_reexport_by_relative_import_reaches_its_importers(self, tree):
+        (tree / "src" / "nonogram" / "db" / "__init__.py").write_text(
+            "from .session import X\n"
+        )
+        (tree / "tests" / "test_via_package.py").write_text(
+            "from nonogram.db import X\ndef test_o():\n    assert X\n"
+        )
+        selected = impact.select(tree, ["src/nonogram/db/session.py"])
+        assert selected != impact.FULL
+        assert "tests/test_via_package.py" in selected
+
+    def test_a_bare_relative_import_of_a_sibling_module_is_an_edge(self, tree):
+        (tree / "src" / "nonogram" / "db" / "__init__.py").write_text(
+            "from . import session as _s\n"
+        )
+        (tree / "tests" / "test_via_package2.py").write_text(
+            "from nonogram.db import _s\ndef test_p():\n    assert _s\n"
+        )
+        selected = impact.select(tree, ["src/nonogram/db/session.py"])
+        assert "tests/test_via_package2.py" in selected
+
+
+class TestImpactSet_ADeletionOrRenameIsNotInvisible:
+    def test_a_rename_lists_the_old_path_too(self, tmp_path):
+        run = lambda *a: subprocess.run(
+            ["git", "-C", str(tmp_path), *a], capture_output=True, text=True, check=True
+        )
+        run("init", "-q")
+        run("config", "user.email", "t@example.invalid")
+        run("config", "user.name", "t")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "old_name.py").write_text("A = 1\nB = 2\nC = 3\n")
+        run("add", ".")
+        run("commit", "-qm", "seed")
+        base = run("rev-parse", "HEAD").stdout.strip()
+        run("mv", "src/old_name.py", "src/new_name.py")
+        changed = impact.changed_from_git(tmp_path, base)
+        assert "src/old_name.py" in changed, "git's rename detection hid the old path"
+        assert "src/new_name.py" in changed
+
+
+class TestImpactSet_TheGateInvocationPrintsOneBlock:
+    """AC-8 -- selection, size against the collected total, cause when FULL."""
+
+    def test_a_selection_block_has_size_against_the_collected_total(self, web_tree):
+        counts = {"selected": None}
+
+        def count(files):
+            counts["selected"] = files
+            return 12 if files is not None else 100
+
+        block = impact.gate_report(
+            web_tree, ["src/nonogram/admin/static/widget.css"], count=count
+        )
+        assert "SELECTION" in block
+        assert "12 of 100" in block
+        assert "tests/test_reads_css_by_name.py" in block
+        assert counts["selected"], "the count was not asked about the selection"
+        assert "FULL because" not in block
+
+    def test_a_full_block_names_the_causing_path_and_rule(self, web_tree):
+        block = impact.gate_report(
+            web_tree,
+            ["src/nonogram/admin/static/widget.css", "pyproject.toml"],
+            count=lambda files: 100,
+        )
+        assert "FULL" in block
+        assert "pyproject.toml" in block and "unanalysable" in block
+        assert "of 100" in block
+        # A FULL answer lists no selection a reader could mistake for narrowing.
+        assert "tests/test_reads_css_by_name.py" not in block
+
+    def test_the_block_is_one_contiguous_paste(self, web_tree):
+        block = impact.gate_report(
+            web_tree, ["tests/test_unrelated.py"], count=lambda files: 3
+        )
+        assert "\n\n" not in block.strip()
+        assert block.startswith("IMPACT GATE")
+
+    def test_the_count_is_derived_by_collecting_not_carried(self, tmp_path):
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_a.py").write_text(
+            "import pytest\n"
+            "@pytest.mark.parametrize('n', [1, 2, 3])\n"
+            "def test_a(n):\n    pass\n"
+        )
+        (tmp_path / "tests" / "test_b.py").write_text("def test_b():\n    pass\n")
+        assert impact.collect_count(tmp_path, None) == 4
+        assert impact.collect_count(tmp_path, ["tests/test_b.py"]) == 1
+
+    def test_the_gate_flag_runs_as_a_script(self, tmp_path):
+        """End to end through the CLI, on a throwaway tree with no lock guard."""
+        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_scan.py").write_text(
+            'import subprocess\ndef test_s():\n    subprocess.run(["git", "ls-files"])\n'
+        )
+        out = subprocess.run(
+            [sys.executable, str(SELECTOR), "--gate", "tests/test_scan.py"],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+        )
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.startswith("IMPACT GATE"), out.stdout
+        assert "1 of 1" in out.stdout
+
+
+class TestImpactSet_RegretEveryKnownPastMissIsNowSelected:
+    """The regret check: each past miss, recorded with the card that paid for it.
+
+    Each row is ``(card, what the card changed, the test the gate then
+    reddened)``. The claim is the superset one -- the derivation now selects
+    the test that caught it -- and every row was read out of a card's own
+    notes (see the CARD-286 closing material), not reconstructed.
+    """
+
+    REGRETS = (
+        # CARD-271: a CSS/JS card; eleven readers sat outside the selection.
+        (
+            "CARD-271 (static asset)",
+            ["src/nonogram/admin/static/admin.css", "src/nonogram/admin/static/solver.js"],
+            "tests/test_puzzle_solver_page.py",
+        ),
+        (
+            "CARD-271 (static asset, the book reader of the shared sheet)",
+            ["src/nonogram/admin/static/admin.css"],
+            "tests/test_book_finalise_guide_preview_layout.py",
+        ),
+        # CARD-271, CARD-269, CARD-218: the registry guard reached by subprocess.
+        (
+            "CARD-271 / CARD-269 / CARD-218 (browser-fixture registry)",
+            ["tests/test_puzzle_solver_clues.py"],
+            "tests/test_browser_fixture_scope.py",
+        ),
+        # CARD-268: five sibling browser tests red at the gate on a CSS shift.
+        (
+            "CARD-268 (CSS shift reddened sibling browser tests)",
+            ["src/nonogram/admin/static/admin.css"],
+            "tests/test_puzzle_solver_zoom.py",
+        ),
+        # CARD-251: a route test gained a render call; the frozen snapshot reddened.
+        (
+            "CARD-251 (frozen render-heavy snapshot)",
+            ["tests/test_puzzle_edit_routes.py"],
+            "tests/test_suite_profile.py",
+        ),
+        # CARD-223: a profiling script's output is quoted by a document test.
+        (
+            "CARD-223 (a script whose output a test quotes)",
+            ["meta/profiling/rank_durations.py"],
+            "tests/test_browser_fixture_scope.py",
+        ),
+        # CARD-314 / CARD-308: a frozen reference census over the trace.
+        (
+            "CARD-314 / CARD-308 (frozen ref census)",
+            ["meta/architecture/trace.yml"],
+            "tests/test_check_ref_resolution.py",
+        ),
+        # CARD-305: a migration plus a model column; TestMigration012 reddened.
+        (
+            "CARD-305 (a migration chain test outside the review selection)",
+            ["src/nonogram/db/models.py"],
+            "tests/test_book_floor.py",
+        ),
+    )
+
+    @pytest.mark.parametrize(
+        "card,changed,caught_by", REGRETS, ids=[r[0] for r in REGRETS]
+    )
+    def test_the_derivation_includes_the_test_that_caught_it(self, card, changed, caught_by):
+        selected = _real_select(changed)
+        assert selected == impact.FULL or caught_by in selected, (
+            f"{card}: the test that caught it ({caught_by}) is outside the selection"
+        )
+        # FULL is a safe answer for a regret, but the rows above are the ones
+        # the derivation is meant to answer NARROWLY (G-4), so say so:
+        assert selected != impact.FULL or card.startswith("CARD-305"), (
+            f"{card}: answered FULL where a narrow derivation exists"
+        )
+
+    def test_a_migration_change_is_full_by_rule(self):
+        derived = _real_derive(["migrations/versions/017_book_divider_pages.py"])
+        assert derived.full
+        assert [r.rule for r in derived.reasons] == ["migrations"]
+
+    def test_the_regret_table_keeps_its_own_size(self):
+        assert len(self.REGRETS) >= 8, "a regret row was deleted"
+
+
+class TestImpactSet_AMentionIsNotALoad:
+    """The chain follows what LOADS a file, not what talks about it.
+
+    Measured on the real tree before this rule: ``admin.css`` mentions
+    ``solver.js`` in a comment, ``base.html`` links the sheet, so a change to
+    ``solver.js`` selected every page-rendering test (95 files, 58% of the
+    collected tests).
+    """
+
+    def test_a_comment_in_a_stylesheet_does_not_make_it_a_referencer(self, web_tree):
+        static = web_tree / "src" / "nonogram" / "admin" / "static"
+        (static / "other.css").write_text("/* styled by widget.js */ .other-thing { x: 1; }\n")
+        (web_tree / "src/nonogram/admin/templates/second.html").write_text(
+            '<link href="/static/other.css">\n'
+        )
+        (web_tree / "src/nonogram/admin/second.py").write_text(
+            'def second():\n    return render_template("second.html")\n'
+        )
+        (web_tree / "tests" / "test_second_page_browser.py").write_text(
+            "from nonogram.admin import second\nimport playwright\n"
+            "def test_q():\n    assert second\n"
+        )
+        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.js"])
+        assert selected != impact.FULL
+        assert "tests/test_second_page_browser.py" not in selected
+
+    def test_a_docstring_in_a_module_is_not_a_load(self, web_tree):
+        (web_tree / "src/nonogram/admin/other.py").write_text(
+            '"""Talks about widget.css but loads nothing."""\nW = 1\n'
+        )
+        (web_tree / "tests" / "test_other_browser.py").write_text(
+            "from nonogram.admin import other\nimport playwright\n"
+            "def test_r():\n    assert other\n"
+        )
+        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.css"])
+        assert selected != impact.FULL
+        assert "tests/test_other_browser.py" not in selected
+
+    def test_a_string_in_code_is_a_load(self, web_tree):
+        (web_tree / "src/nonogram/admin/other.py").write_text(
+            'STYLE = "widget.css"\n'
+        )
+        (web_tree / "tests" / "test_other_browser.py").write_text(
+            "from nonogram.admin import other\nimport playwright\n"
+            "def test_r():\n    assert other\n"
+        )
+        selected = impact.select(web_tree, ["src/nonogram/admin/static/widget.css"])
+        assert "tests/test_other_browser.py" in selected
+
+
+class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
+    """G-6: the root stays closed; the readers of the repo-root ``player/`` are derived."""
+
+    def test_the_real_player_assets_select_every_public_player_test(self):
+        public = sorted(
+            p.relative_to(REPO).as_posix()
+            for p in (REPO / "tests").glob("test_public_player*.py")
+        )
+        assert len(public) >= 9, "the control's own corpus shrank"
+        for asset in ("player/play.js", "player/player.css", "player/play.html"):
+            selected = _real_select([asset])
+            assert selected != impact.FULL, asset
+            assert sorted(set(public) - set(selected)) == [], asset
+
+    def test_a_root_level_prose_file_stays_full_with_its_reason(self, tree):
+        derived = impact.derive(tree, ["ONLINE_GAME_SPECIFICATION.md"])
+        assert derived.full
+        assert derived.reasons[0].rule == "outside-known-roots"
+        assert "ONLINE_GAME_SPECIFICATION.md" in str(derived.reasons[0])
+
+    def test_an_unread_page_outside_the_roots_is_full(self, tree):
+        (tree / "site").mkdir()
+        (tree / "site" / "index.html").write_text("<p>hi</p>\n")
+        derived = impact.derive(tree, ["site/index.html"])
+        assert derived.full
+        assert derived.reasons[0].rule == "no-reader"
+
+    def test_a_page_outside_the_roots_selects_the_browser_test_that_names_it(self, tree):
+        (tree / "site").mkdir()
+        (tree / "site" / "page.js").write_text("const a = 'site-cell';\n")
+        (tree / "tests" / "test_site_browser.py").write_text(
+            "import playwright\nPAGE = 'site/page.js'\ndef test_s():\n    assert PAGE\n"
+        )
+        selected = impact.select(tree, ["site/page.js"])
+        assert selected != impact.FULL
+        assert "tests/test_site_browser.py" in selected
