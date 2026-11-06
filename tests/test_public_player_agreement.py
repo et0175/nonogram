@@ -3346,3 +3346,283 @@ class TestPlayerLooksAgree_TheCirclesAreTheSameLook:
         assert "board.--player-circle" in found
         assert found["board.--player-circle"] != DECLARED_CIRCLE_DIVERGENCES["board.--player-circle"][0]
         assert found != {k: v[0] for k, v in DECLARED_CIRCLE_DIVERGENCES.items()}
+
+
+# ==========================================================================
+# CARD-327 - the hint ladder's look and words are the same
+# ==========================================================================
+#
+# The hint is the third look in this file that the public page REIMPLEMENTS
+# from the admin's (``admin.css`` + ``solver.js``'s CARD-183 and CARD-269, and
+# ``player.css`` + ``play.js``'s CARD-327): WHICH cell and line the hint names is
+# the shared module's (``nextRung``, ``hintReason``, ``hintStroke``,
+# ``hintCount``, byte-identical by ADR-0041/R3) or the page's own native
+# deduction (held to the module in tests/test_public_player_hint.py); what DRAWS
+# and SAYS it is two copies. Same discipline as the crosshair and circle
+# classes above: every compared fact is DERIVED from the four sources, the facts
+# that disagree are computed and asserted equal to a table of DECLARED
+# divergences, and an entry is over the PAIR of values (found admin value, found
+# public value), so content drifting inside a declared fact reds as well as a new
+# fact.
+#
+# The sheet's facts are the WHOLE declaration set of every rule that names a
+# hint mark, every property (CARD-326's first extractor was default-allow on
+# properties it did not list, and a one-sided z-index went unseen).
+
+_HINT_ANIMATIONS = (".player-cell.is-hint-line", ".player-clue.is-hint-line", ".player-cell.is-hinted")
+_HINT_KEYFRAMES = ("player-hint-line-in", "player-hinted-in")
+_HINT_MARKERS = re.compile(r'classList\.(?:toggle|add|remove)\(\s*"(is-hint-line|is-hinted)"')
+_PLACEHOLDER = re.compile(r"\$\{[^}]*\}")
+
+
+def _hint_rules(css: str) -> dict[str, dict[str, str]]:
+    """``{selector: {property: value}}`` for every flat rule that names a hint mark.
+
+    A rule is a hint rule when its selector names ``.is-hint-line`` or
+    ``.is-hinted``, or its body declares ``--player-hint-line``. The reduced-motion
+    rules (a bare ``animation: none``) are a separate fact, :func:`_hint_quieting`.
+    """
+    out: dict[str, dict[str, str]] = {}
+    for selector, body in _RULE.findall(_css_code(css)):
+        selector = _squeezed(selector)
+        if not (re.search(r"is-hint-line|is-hinted", selector) or "--player-hint-line" in body):
+            continue
+        found = declarations(body)
+        if found == {"animation": "none"} or found == {"animation": "none !important"}:
+            continue
+        out.setdefault(selector, {}).update(found)
+    return out
+
+
+def _hint_quieting(css: str) -> dict[str, str]:
+    """For each animated hint selector, whether a reduced-motion block quiets it."""
+    blocks = reduced_motion_blocks(css)
+    admin_style = any(".player-stage *" in b and "animation: none" in b for b in blocks)
+    return {
+        selector: str(admin_style or any(selector in b and "animation: none" in b for b in blocks))
+        for selector in _HINT_ANIMATIONS
+    }
+
+
+def _sentence(js: str, patterns: tuple[str, ...]) -> str:
+    """The template literal the first matching pattern captures, placeholders reduced to ``{}``
+    and the page's ``line.`` receiver dropped, so two spellings of one sentence compare equal."""
+    for pattern in patterns:
+        match = re.search(pattern, js)
+        if match is not None:
+            return _PLACEHOLDER.sub("{}", match.group(1)).replace("line.", "").strip("`")
+    return _ABSENT
+
+
+def hint_facts(css: str, js: str) -> dict[str, str]:
+    facts: dict[str, str] = {}
+    for selector, found in _hint_rules(css).items():
+        for prop, value in found.items():
+            facts[f"rule[{selector}].{prop}"] = value
+    for name in _HINT_KEYFRAMES:
+        facts[f"keyframes.{name}"] = keyframes_body(css, name)
+    for selector, quieted in _hint_quieting(css).items():
+        facts[f"reduced_motion.quiets[{selector}]"] = quieted
+    code = "\n".join(line for _, line in _js_code_lines_of(js))
+    facts["marker.classes"] = ",".join(sorted(set(_HINT_MARKERS.findall(code))))
+    facts["reveal.stroke_call"] = " | ".join(sorted(set(re.findall(r"\bhintStroke\(([^)]*)\)", code))))
+    facts["say.point"] = _sentence(js, (r"function ladderPointText\(axis, index\) \{\s*return (`[^`]*`);", r"const hintPointText = \(line\) =>\s*(`[^`]*`);"))
+    for reason, head in (("runs-complete", r'"runs-complete": \(axis\) =>'), ("overlap", r"overlap: \(axis, run\) =>"), ("generic", r"generic: \(axis\) =>")):
+        facts[f"say.reason[{reason}]"] = _sentence(js, (head + r"\s*(`[^`]*`)",))
+    reveal = _sentence(js, (r"const cell = (`row[^`]*`);", r"const hintRevealText = \(\{ row, col, state \}\) =>\s*(`Hint: row[^`]*`);"))
+    facts["say.reveal"] = reveal.removeprefix("Hint: ").removesuffix(".")
+    exhausted = re.search(r'(?:LADDER_EXHAUSTED|HINT_EXHAUSTED) =\s*\n?\s*"([^"]*)"', js)
+    facts["say.exhausted"] = exhausted.group(1) if exhausted else _ABSENT
+    return facts
+
+
+def hint_disagreements(admin_css_text: str, public_css_text: str, admin_js: str, public_js: str) -> dict[str, tuple[str, str]]:
+    admin, public = hint_facts(admin_css_text, admin_js), hint_facts(public_css_text, public_js)
+    return {
+        k: (admin.get(k, _ABSENT), public.get(k, _ABSENT))
+        for k in sorted(admin.keys() | public.keys())
+        if admin.get(k, _ABSENT) != public.get(k, _ABSENT)
+    }
+
+
+#: What the public hint does or says DIFFERENTLY from the admin's, each over the PAIR of
+#: values found and each with the decision it rests on. MEASURED, 2026-11-06, in headless
+#: Chromium over the assembled site (tests/test_public_player_hint.py, AC-10): on this
+#: page's clue box the panel's hint tint is 6 levels (max channel, of 255) from this page's
+#: crosshair grey; the public tint is 20 levels from it, and the plain box is 24 from the
+#: hinted one; where a lit line is also crossed the blend is 10 from each pure tint and 14
+#: from the plain box.
+DECLARED_HINT_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
+    "rule[.player-stage].--player-hint-line": (
+        ("var(--color-accent-tint)", "color-mix(in srgb, var(--color-accent) 18%, var(--grid-paper))"),
+        "The line's tint. The panel uses --color-accent-tint, the accent's palest green, and "
+        "CARD-325 left that token to the hint on this page on purpose. Measured on this page's "
+        "clue box it is 6 levels (max channel) from the crosshair's grey, which is not "
+        "distinguishable by pixels (CARD-327 AC-10 asks for exactly that), so the public line "
+        "mixes 18% of the accent into the paper: 20 levels from the crosshair, 24 from the "
+        "plain box. Tokens only; no token is added (tokens.css is a byte-identical copy).",
+    ),
+    "rule[.player-stage].--player-hint-line-ink": (
+        ("color-mix(in srgb, var(--color-accent-tint) 24%, var(--grid-ink))", "color-mix(in srgb, var(--player-hint-line) 24%, var(--grid-ink))"),
+        "The same 24% mix into the ink, taken from this page's own tint so a filled cell on a "
+        "lit line is the darkest thing on the board in both pages (measured: 73,80,91 against "
+        "215,225,220 for a blank cell on the same line, a max-channel distance of 142).",
+    ),
+    "rule[.player-cell.is-hint-line.is-crossed, .player-clue.is-hint-line.is-crossed].background": (
+        (_ABSENT, "color-mix(in srgb, var(--player-hint-line) 50%, var(--player-cross))"),
+        "Where a lit line is ALSO crossed the panel lets the highlight win outright, so the "
+        "crosshair vanishes on that line. This page shows a 50/50 mix of the two tints so a "
+        "line that is hinted, crossed and circled shows all three marks at once (AC-10): the "
+        "blend is 10 levels from each pure tint and 14 from the plain box, above the 8-level "
+        "floor tests/test_public_player_hint.py declares and holds with a control that fails "
+        "past it.",
+    ),
+    'rule[.player-cell.is-hint-line.is-crossed[data-state="filled"]].background': (
+        (_ABSENT, "color-mix(in srgb, var(--player-hint-line-ink) 50%, var(--player-cross-ink))"),
+        "The filled-cell twin of the blend above, for the reason the panel gives its own "
+        "filled variants: a filled cell's ground is the ink and the pale blend would repaint it.",
+    ),
+    'rule[.player-cell.is-hinted[data-probe]].outline-color': (
+        ("var(--color-accent)", _ABSENT),
+        "Probe mode (CARD-268, the panel's hypothesis marks) is the admin player's own and has "
+        "no counterpart on the public page, so there is no hinted-and-probed cell to style.",
+    ),
+    "say.exhausted": (
+        ("Hint: no single row or column decides a cell right now.",
+         "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board."),
+        "The exhausted state. The panel's sentence is followed by a fallback reveal at rung 3 "
+        "(hintCell's deduced: false branch, which reads the answer); this page has no fallback "
+        "(CARD-327 G-3), so its sentence must stand alone and says the clues decide nothing "
+        "more by themselves, which is the card's wording (AC-4). 117 characters against the "
+        "panel's 55; measured in the bar under the board it is 3 lines (60 px) at 320 and at "
+        "390 px wide and 1 line (20 px) at 1440, which tests/test_public_player_hint.py holds "
+        "whole and inside the viewport.",
+    ),
+}
+
+
+class TestPlayerLooksAgree_TheHintIsTheSameLookAndTheSameWords:
+    """CARD-327 (GAP 2): the hint line, the hinted cell and the ladder's sentences."""
+
+    def _sources(self) -> tuple[str, str, str, str]:
+        return (
+            ADMIN_CSS.read_text(encoding="utf-8"),
+            PUBLIC_CSS.read_text(encoding="utf-8"),
+            ADMIN_JS.read_text(encoding="utf-8"),
+            PUBLIC_JS.read_text(encoding="utf-8"),
+        )
+
+    def test_the_disagreements_are_exactly_the_declared_pairs(self) -> None:
+        found = hint_disagreements(*self._sources())
+        assert found == {k: v[0] for k, v in DECLARED_HINT_DIVERGENCES.items()}
+
+    def test_a_declaration_is_a_real_divergence_with_a_reason_over_a_fact_the_extractor_makes(self) -> None:
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        known = hint_facts(admin_css_text, admin_js).keys() | hint_facts(public_css_text, public_js).keys()
+        for fact, (pair, reason) in DECLARED_HINT_DIVERGENCES.items():
+            assert fact in known, f"{fact} is declared but the extractor does not produce it"
+            assert pair[0] != pair[1], f"{fact} is declared but does not diverge"
+            assert len(reason) >= _REASON_FLOOR, f"{fact}: a reason is a sentence, not a word"
+
+    def test_the_facts_that_agree_are_enumerated_and_each_is_a_real_value_on_both_sides(self) -> None:
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        a, p = hint_facts(admin_css_text, admin_js), hint_facts(public_css_text, public_js)
+        agreeing = sorted((set(a) & set(p)) - set(DECLARED_HINT_DIVERGENCES))
+        assert agreeing == [
+            "keyframes.player-hint-line-in", "keyframes.player-hinted-in", "marker.classes",
+            "reduced_motion.quiets[.player-cell.is-hint-line]", "reduced_motion.quiets[.player-cell.is-hinted]", "reduced_motion.quiets[.player-clue.is-hint-line]", "reveal.stroke_call",
+            "rule[.player-cell.is-hint-line, .player-clue.is-hint-line].animation", "rule[.player-cell.is-hint-line[data-state=\"filled\"]].background",
+            "rule[.player-cell.is-hint-line].background", "rule[.player-cell.is-hinted].animation", "rule[.player-cell.is-hinted].box-shadow",
+            "rule[.player-cell.is-hinted].outline", "rule[.player-cell.is-hinted].outline-offset", "rule[.player-clue.is-hint-line].background",
+            "say.point", "say.reason[generic]", "say.reason[overlap]", "say.reason[runs-complete]", "say.reveal",
+        ], agreeing
+        for fact in agreeing:
+            assert a[fact] == p[fact] and a[fact] not in {"", _ABSENT, "False"}, (fact, a[fact])
+        assert p["marker.classes"] == "is-hint-line,is-hinted"
+        assert p["reveal.stroke_call"] == "hint.row, hint.col, hint.state"
+
+    def test_the_sentences_the_extractor_reads_are_the_sentences(self) -> None:
+        """A template read as ``(none)`` on both sides would 'agree': the values are asserted."""
+        _, public_css_text, _, public_js = self._sources()
+        p = hint_facts(public_css_text, public_js)
+        assert p["say.point"] == "Hint: look at {} {}."
+        assert p["say.reason[runs-complete]"] == "every run in this {} is placed; the rest is white."
+        assert p["say.reason[overlap]"] == "the {}-run must overlap in the middle whatever its position."
+        assert p["say.reveal"] == 'row {}, column {} is {}'
+
+    # -- the controls: both sides, and the decisions that are held equal ----
+
+    @pytest.mark.parametrize(
+        ("side", "target", "old", "new", "moves"),
+        [
+            *[
+                (side, "css", ".player-cell.is-hint-line { background: var(--player-hint-line); }",
+                 ".player-cell.is-hint-line { background: var(--player-hint-line); " + declaration + " }", f"rule[.player-cell.is-hint-line].{declaration.split(':')[0]}")
+                for side in ("admin", "public")
+                for declaration in ("z-index: 3;", "opacity: 0.5;", "transition: background 1s;", "transform: scale(2);")
+            ],
+            ("admin", "css", ".player-clue.is-hint-line { background: var(--player-hint-line); }", ".player-clue.is-hint-line { background: var(--color-accent); }", "rule[.player-clue.is-hint-line].background"),
+            ("public", "css", ".player-clue.is-hint-line { background: var(--player-hint-line); }", ".player-clue.is-hint-line { background: var(--color-accent); }", "rule[.player-clue.is-hint-line].background"),
+            ("admin", "css", "@keyframes player-hinted-in { from { outline-color: transparent; } }", "@keyframes player-hinted-in { from { outline-color: red; } }", "keyframes.player-hinted-in"),
+            ("public", "css", "@keyframes player-hinted-in { from { outline-color: transparent; } }", "@keyframes player-hinted-in { from { outline-color: red; } }", "keyframes.player-hinted-in"),
+            ("admin", "js", 'part.classList.toggle("is-hint-line", on);', 'part.classList.toggle("is-lit", on);', "marker.classes"),
+            ("public", "js", 'part.classList.toggle("is-hint-line", on);', 'part.classList.toggle("is-lit", on);', "marker.classes"),
+            ("admin", "js", "every placement of this ${axis}'s clues agrees on at least one cell.", "every placement of this ${axis}'s clues agrees on one cell.", "say.reason[generic]"),
+            ("public", "js", "every placement of this ${axis}'s clues agrees on at least one cell.", "every placement of this ${axis}'s clues agrees on one cell.", "say.reason[generic]"),
+            ("admin", "js", "return `Hint: look at ${axis} ${index + 1}.`;", "return `Hint: see ${axis} ${index + 1}.`;", "say.point"),
+            ("public", "js", "`Hint: look at ${line.axis} ${line.index + 1}.`", "`Hint: see ${line.axis} ${line.index + 1}.`", "say.point"),
+            ("admin", "js", "hintStroke(hint.row, hint.col, hint.state)", "hintStroke(hint.row, hint.col, FILLED)", "reveal.stroke_call"),
+            ("public", "js", "hintStroke(hint.row, hint.col, hint.state)", "hintStroke(hint.row, hint.col, FILLED)", "reveal.stroke_call"),
+            ("public", "css", "  .player-cell.is-hint-line, .player-clue.is-hint-line, .player-cell.is-hinted { animation: none; }", "", "reduced_motion.quiets[.player-cell.is-hinted]"),
+        ],
+        ids=[
+            *[f"{side}-line-{name}" for side in ("admin", "public") for name in ("z-index", "opacity", "transition", "transform")],
+            "admin-clue-tint-in-accent", "public-clue-tint-in-accent",
+            "admin-hinted-keyframe", "public-hinted-keyframe",
+            "admin-marker-renamed", "public-marker-renamed",
+            "admin-generic-sentence", "public-generic-sentence",
+            "admin-point-sentence", "public-point-sentence",
+            "admin-reveal-ignores-the-state", "public-reveal-ignores-the-state",
+            "public-hint-animations-not-quieted",
+        ],
+    )
+    def test_a_one_sided_change_to_a_held_fact_is_reported(self, side, target, old, new, moves) -> None:
+        """Each plant moves one AGREEING fact on one side and the comparison reports it; the
+        unplanted pair, in this same run, reports only the declared set (the matched control)."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        baseline = hint_disagreements(admin_css_text, public_css_text, admin_js, public_js)
+        assert set(baseline) == set(DECLARED_HINT_DIVERGENCES), "the matched control"
+        texts = {"admin": {"css": admin_css_text, "js": admin_js}, "public": {"css": public_css_text, "js": public_js}}
+        text = texts[side][target]
+        assert text.count(old) == 1, f"the plant must apply exactly once: {old!r} ({text.count(old)})"
+        texts[side][target] = text.replace(old, new)
+        found = hint_disagreements(texts["admin"]["css"], texts["public"]["css"], texts["admin"]["js"], texts["public"]["js"])
+        assert moves in found and moves not in baseline, (moves, sorted(found))
+
+    def test_a_declared_divergence_that_stops_diverging_is_reported(self) -> None:
+        """The stale-exemption arm: give the public sheet the panel's tint and the stage
+        variable stops diverging (and the blend becomes a different story), which the set
+        equality must notice."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        old = "--player-hint-line: color-mix(in srgb, var(--color-accent) 18%, var(--grid-paper));"
+        assert public_css_text.count(old) == 1
+        planted = public_css_text.replace(old, "--player-hint-line: var(--color-accent-tint);")
+        found = hint_disagreements(admin_css_text, planted, admin_js, public_js)
+        assert "rule[.player-stage].--player-hint-line" not in found
+        assert set(found) == set(DECLARED_HINT_DIVERGENCES) - {"rule[.player-stage].--player-hint-line"}
+
+    def test_a_declared_value_that_drifts_inside_its_fact_is_reported(self) -> None:
+        """An exemption is over the PAIR: the public tint drifting to another mix still
+        diverges from the panel, and the PAIR comparison is what reds."""
+        admin_css_text, public_css_text, admin_js, public_js = self._sources()
+        planted = public_css_text.replace("var(--color-accent) 18%", "var(--color-accent) 25%")
+        found = hint_disagreements(admin_css_text, planted, admin_js, public_js)
+        assert "rule[.player-stage].--player-hint-line" in found
+        assert found["rule[.player-stage].--player-hint-line"] != DECLARED_HINT_DIVERGENCES["rule[.player-stage].--player-hint-line"][0]
+        assert found != {k: v[0] for k, v in DECLARED_HINT_DIVERGENCES.items()}
+
+    def test_the_exhausted_sentence_figures_in_the_reason_are_the_sentences(self) -> None:
+        admin_pair = DECLARED_HINT_DIVERGENCES["say.exhausted"][0]
+        reason = DECLARED_HINT_DIVERGENCES["say.exhausted"][1]
+        assert len(admin_pair[1]) == 117 and len(admin_pair[0]) == 55
+        assert "117 characters against the panel's 55" in reason

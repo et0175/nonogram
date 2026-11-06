@@ -2486,6 +2486,10 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
         "undo-button": lambda: page.click('[data-player-action="undo"]', force=True),
         "redo-button": lambda: page.click('[data-player-action="redo"]', force=True),
         "reset": press_reset,
+        # SCOPE+ (CARD-327): the Hint control, derived into the expected set by
+        # the sibling test below from the ``data-player-action`` buttons. A
+        # press on a rung that records a stroke is an ordinary history change.
+        "hint-button": lambda: page.click('[data-player-action="hint"]', force=True),
         # CARD-324's zoom group, here for the same reason the Maybe brush is:
         # the sibling test below derives this table from play.html, and reds
         # on a control that is not walked — which is what it did when this
@@ -2593,7 +2597,11 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     # than two more names in the list below.
     zoom_actions = set(re.findall(r'data-player-zoom-action="([a-z]+)"', page_html))
     assert tools == set(walked.values()), tools
-    assert actions == {"undo", "redo", "reset"}, actions
+    # SCOPE+ (CARD-327): the Hint control is a ``data-player-action`` button,
+    # the admin's own attribute, so it joins the derived action set. It is NOT in
+    # the toolbar (tests/test_public_player_hint.py, AC-9); this census reads the
+    # page's markup, not the toolbar, so it sees it all the same.
+    assert actions == {"undo", "redo", "reset", "hint"}, actions
     assert zoom_actions == {"in", "out"}, zoom_actions
     assert "data-player-region" in page_html
     # The names the walk uses, derived from the same markup: one per brush,
@@ -2605,7 +2613,7 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
         | {f"zoom-{direction}" for direction in zoom_actions}
         | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
     )
-    assert len(expected) == 12 + len(zoom_actions), sorted(expected)
+    assert len(expected) == 12 + len(zoom_actions) + 1, sorted(expected)  # SCOPE+ (CARD-327): + hint-button
     assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
     assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
     source = Path(__file__).read_text(encoding="utf-8")
