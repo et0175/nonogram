@@ -362,13 +362,21 @@ class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
     def test_the_control_every_other_failure_still_flashes_the_generic_text(
         self, admin_app, monkeypatch, caplog, route
     ) -> None:
-        # Same lift, same book, a Latin title: the generator the panel builds
-        # has no downstream writer, so the export fails for a reason that is
-        # NOT the refusal -- and says what it always said.
+        # Same lift, same book, a Latin title (so the refusal does not apply)
+        # and a failure injected at the interior export: it is NOT the
+        # refusal, and says what it always said. Injected rather than left to
+        # happen (a writer-less generator), so the cell is the same in a tree
+        # whose generator is assembled.
         _lift_answer(monkeypatch)
         client = admin_app.test_client()
         book_id = _make_book(admin_app)
         _retitle_first(admin_app, book_id, "Winter Star")
+        _raise_once(
+            monkeypatch,
+            BookPDFGenerator,
+            "export_interior",
+            RuntimeError("card383-other-failure"),
+        )
 
         with caplog.at_level("ERROR", logger=PANEL_LOGGER):
             response = _request_export(client, route, book_id)
