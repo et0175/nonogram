@@ -3815,6 +3815,17 @@ DECLARED_PROBE_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
 }
 
 
+#: What a layout-forced reason must name (review cycle 1, F-005: the first version's alternation included "panel",
+#: which every reason contains, so it could not fail). Each word is a layout fact of THIS page that forces a
+#: difference from the panel's: it is not in the toolbar, it must be a 44 px touch target, it stands in the slot
+#: the usage paragraph has, it sits beside the Hint bar, or it is the panel's own toolbar line.
+FORCING_LAYOUT = re.compile(r"toolbar|touch|44 px|\bslot\b|Hint bar|usage paragraph|flex line|\.player-bars")
+
+
+def forcing_layout(reason: str) -> bool:
+    return FORCING_LAYOUT.search(reason) is not None
+
+
 _DASHED = '.player-cell[data-probe] { outline: var(--player-rule-major) dashed var(--player-probe); outline-offset: calc(-1 * var(--player-rule-major)); }'
 
 
@@ -3843,7 +3854,7 @@ class TestPlayerLooksAgree_TheProbeIsTheSameLook:
             assert pair[0] != pair[1], f"{fact} is declared but does not diverge"
             assert len(reason) >= _REASON_FLOOR, f"{fact}: a reason is a sentence, not a word"
             # a divergence that is only a preference is not allowed: each reason names the layout that forces it
-            assert re.search(r"toolbar|touch|44 px|slot|panel|row|column|group|Hint", reason), fact
+            assert forcing_layout(reason), fact
 
     def test_the_look_is_the_same_declaration_for_declaration(self) -> None:
         """The look itself is NOT among the divergences, and its values are what the owner chose."""
@@ -4011,3 +4022,22 @@ class TestPlayerLooksAgree_TheProbeIsTheSameLook:
         assert planted != p_css
         found = probe_disagreements(a_css, planted, a_js, p_js, a_html, p_html)
         assert "rule[.player-cell[data-probe]].mix-blend-mode" in found
+
+
+class TestPlayerLooksAgree_AReasonMustNameTheLayoutThatForcesIt:
+    """Review cycle 1, F-005: the check the divergence table leans on can fail."""
+
+    def test_every_declared_reason_names_a_forcing_layout_fact(self) -> None:
+        assert all(forcing_layout(reason) for _, reason in DECLARED_PROBE_DIVERGENCES.values())
+
+    @pytest.mark.parametrize(
+        "preference",
+        [
+            "The panel does it this way and this page prefers another, a matter of taste and nothing the layout asks for at all.",
+            "The panel's value looked a little cramped, so this page picked a roomier one on a whim, which is only a preference.",
+        ],
+        ids=["taste", "roomier"],
+    )
+    def test_a_reason_that_is_only_a_preference_fails_it(self, preference: str) -> None:
+        assert not forcing_layout(preference)
+        assert forcing_layout(preference + " The control is not in the toolbar.")

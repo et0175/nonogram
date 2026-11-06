@@ -483,7 +483,7 @@ body {
   gap: 0 var(--space-4);
 }
 
-.player-below > .player-hint { flex: 1 1 12rem; }
+.player-below > .player-hint { flex: 1 1 20rem; }
 
 .player-hint-bar {
   display: flex;
@@ -542,29 +542,36 @@ body {
    `display: none`, and the rule must come AFTER `.player-probe .btn`: the two
    tie on specificity).
 
-   WHY THE LAYOUT IS WHAT IT IS, measured over the zoom module's own viewport
-   grid (tests/test_public_player_zoom.py pins that the space below the stage
-   stays smaller than the stage's offset from the top; the cut's least margin
-   was 21 px, so a control that adds a row there breaks it). Three regimes:
-     * up to 23.1 rem (a 370 px phone): the usage paragraph already wraps under
-       the Hint bar, so the Probe bar sits BESIDE the Hint bar in the same
-       44 px row and adds nothing;
-     * 23.1 to 43.75 rem: the paragraph is beside the bars and is the taller of
+   WHY THE LAYOUT IS WHAT IT IS, measured over a ONE-PIXEL width sweep (the
+   zoom module's own grid steps 40 px from 320 and skips 388 to 391, which is
+   where this layout first failed in review cycle 1; the module is not edited
+   and its blind spot is declared in tests/test_public_player_probe.py).
+   tests/test_public_player_zoom.py pins that the space below the stage stays
+   smaller than the stage's offset from the top; the cut's least margin was 21
+   px at a desktop width, so a control that adds a row there breaks it. Three
+   regimes:
+     * below 32.5 rem (520 px): the usage paragraph does not fit beside the
+       Hint bar (its basis is 20 rem, as in the cut) and sits UNDER it, so the
+       Probe bar goes in the Hint bar's own 44 px row and adds nothing: the
+       height is the cut's;
+     * 32.5 to 43.75 rem: the paragraph is beside the bars and is the taller of
        the two, so the two bars STACK in a column beside it (a stack is 112 px;
-       the paragraph there is 100 to 180 px). The least margin in this range,
-       measured, is 5 px at 400 px;
+       the paragraph there is 100 to 180 px). The column starts 18 px above
+       the width where the paragraph first fits beside it, so the 3 % of
+       letter-spacing the cut survives does not tip a paragraph that cannot
+       fit beside the column down under it (a stack plus a paragraph is 56 px
+       taller than the cut's);
      * wider: the bars sit side by side and do not wrap (flex-wrap: nowrap), so
        a long hint sentence wraps INSIDE the Hint bar instead of pushing the
        Probe bar onto a row of its own.
    Their combined width costs the paragraph a line at some widths: the least
-   margin at rest is 1 px, at 840 px (was 21), and tests/test_public_player_probe
-   .py declares that bound with its control. While a probe is open the note
-   takes the paragraph's slot (play.js giveTheSlot: a hint sentence, else the
-   note, else the paragraph), which is why the open margins (50 px) are larger.
-   The paragraph's own flex-basis is 12 rem (was 20 rem) so that it stays beside
-   the bars on a 400 to 480 px viewport instead of dropping under them. */
+   margin at rest is 1 px, at 839 to 842 px (the cut's was 21 there), and
+   tests/test_public_player_probe.py declares that bound with its control.
+   While a probe is open the note takes the paragraph's slot (play.js
+   giveTheSlot: a hint sentence, else the note, else the paragraph), which is
+   why the open margins (50 px) are larger. */
 .player-bars { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--space-3); }
-@media (min-width: 23.125rem) and (max-width: 43.75rem) { .player-bars { flex-direction: column; } }
+@media (min-width: 32.5rem) and (max-width: 43.75rem) { .player-bars { flex-direction: column; } }
 @media (min-width: 43.8125rem) { .player-bars { flex-wrap: nowrap; } }
 .player-probe { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
 .player-probe .btn { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 44px; justify-content: center; padding: 0 var(--space-2); font-size: var(--text-sm); line-height: 1; }

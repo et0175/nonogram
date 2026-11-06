@@ -487,7 +487,10 @@ def sc_reset(page, host) -> list[str]:
     page.click(UNDO, force=True)
     s = st(page)
     check(p, s["cells"][at(1, 1)] == "filled" and s["marked"] == [] and s["open"] == "false", "undoing a reset brought a probe back")
-    # a Reset that does nothing (a blank board) closes nothing
+    # A Reset that does nothing (a blank board) closes nothing. NOTE (review cycle 1, F-006): a user CANNOT press
+    # Reset on a blank board (it is aria-disabled), so this pin guards the `===` comparison in play.js's reset
+    # handler (the plant `a-blank-reset-closes-the-probe`) and not a user-reachable behaviour; the reachable
+    # case, Reset on a non-blank board, is the first half of this scenario.
     fresh(page, host)
     page.click(PROBE, force=True)
     page.click(RESET, force=True)
@@ -1275,8 +1278,11 @@ class TestPublicProbe_TheControlsAreOutsideTheToolbar:
 CLOSED_WORST_MARGIN_PX = 1
 OPEN_WORST_MARGIN_PX = 50
 OPEN_SENTENCE_WORST_MARGIN_PX = 2
-VIOLATIONS_WITH_BOTH_OCCUPANTS = 191  # MEASURED 2026-11-06, of 232 viewports: the note AND the usage paragraph showing
-VIOLATIONS_WITH_A_LINE_MORE_AT_REST = 15  # MEASURED 2026-11-06, of 232 viewports: 20 px more under the paragraph at rest
+#: Review cycle 1 (F-001) changed the layout (paragraph basis back to 20 rem, the column regime from 32.5 rem), so
+#: these two CONTROL counts moved with it (were 191 and 15); the coarse-grid least margins above did not. These
+#: coarse-grid pins are true of the zoom module's 40 px grid only; the one-pixel sweep below is what holds the page.
+VIOLATIONS_WITH_BOTH_OCCUPANTS = 166  # MEASURED 2026-11-06, of 232 viewports: the note AND the usage paragraph showing
+VIOLATIONS_WITH_A_LINE_MORE_AT_REST = 7  # MEASURED 2026-11-06, of 232 viewports: 20 px more under the paragraph at rest
 
 
 def bar_margins(page, host, *, mode: str, extra: str = "") -> dict[tuple[int, int], int]:
@@ -1622,3 +1628,187 @@ class TestPublicProbe_NoAnswerAndNoRequest:
         assert sorted(re.findall(r"^\s{4}(\w+)[:,]", exposed.group(1), re.M)) == sorted(
             ["payload", "getBoard", "getHistory", "isSolved", "getTool", "isRegion", "getZoom", "saveKey"]
         ), "the probe exposed something on the page object"
+
+
+# ==========================================================================
+# Review cycle 1 (CARD-380): F-001 the one-pixel sweep, F-003, F-004
+# ==========================================================================
+#
+# F-001. The zoom module's own grid steps 40 px from 320 (320, 360, 400 ...), so it never visits 388 to 391, and
+# the first version of this card's layout broke its premise there (margin -11 .. -15 at 390 x 844, the module's
+# own PHONE constant) while every coarse-grid pin above stayed green. THE ZOOM MODULE IS NOT EDITED; its blind
+# spot is declared here, and the sweep below is the check that has none. The coarse pins above are kept (they
+# are true of the grid they name); these are the ones that hold the page.
+#
+# DECLARED BOUNDS (ADR-0039/R3), MEASURED 2026-11-06 in headless Chromium on the 30 x 30 board, widths 320..999
+# at one pixel, heights 390 and 844 (and a 3 px sample at 450, 520, 600, 700, 900):
+FINE_CLOSED_WORST_MARGIN_PX = 1  # at 839 .. 842 px, heights 390 and 600: one paragraph line (20 px) of the cut's 21
+FINE_PHONE_WIDTH_MARGINS = (13, 13, 13, 9)  # 388, 389, 390, 391 px at height 390; the cut's least over the sweep was 9
+FINE_OPEN_WORST_MARGIN_PX = 50
+FINE_OPEN_SENTENCE_WORST_MARGIN_PX = 2
+#: Letter-spacing the layout survives (every margin > 0 over 480..700 px at heights 390 and 844): 3 % (the cut's own
+#: figure); the same sweep at 5 % fails, 20 viewports, least -7 at 521 px. The residue is declared, not fixed.
+LETTER_SPACING_SURVIVED = "3%"
+LETTER_SPACING_BROKEN_BY = "5%"
+LETTER_SPACING_BROKEN_VIEWPORTS = 20
+LETTER_SPACING_BROKEN_LEAST = -7
+#: The control that fails: the first version's layout (paragraph basis 12 rem, column from 23.125 rem) restored by
+#: a style tag. It violates the premise at exactly these widths at height 390.
+OLD_LAYOUT_STYLE = (
+    ".player-below > .player-hint { flex: 1 1 12rem !important; }"
+    " @media (min-width: 23.125rem) and (max-width: 32.49rem) { .player-bars { flex-direction: column !important; } }"
+)
+OLD_LAYOUT_VIOLATING_WIDTHS = [388, 389, 390, 391]
+
+
+def fine_margins(page, host, *, mode: str, widths, heights, style: str = "") -> dict[tuple[int, int], int]:
+    page.set_viewport_size(PHONE)
+    _board(page, host, host[2]["max"], FIXTURES["max"], [])
+    if style:
+        page.add_style_tag(content=style)
+    if mode in ("open", "sentence"):
+        page.click(PROBE, force=True)
+    if mode == "sentence":
+        press(page)
+        press(page)
+    out: dict[tuple[int, int], int] = {}
+    for height in heights:
+        for width in widths:
+            page.set_viewport_size({"width": width, "height": height})
+            _settle(page)
+            r = page.evaluate(_GEOMETRY)
+            out[(width, height)] = r["innerTop"] - (r["docHeight"] - r["docBottom"])
+    return out
+
+
+@pytest.mark.browser
+class TestPublicProbe_TheBarsKeepThePremiseOnAOnePixelSweep:
+    def test_at_rest_every_width_from_320_to_999_at_two_heights_holds_and_includes_the_phone_widths(self, browser_page, host) -> None:
+        margins = fine_margins(browser_page, host, mode="closed", widths=range(320, 1000), heights=(390, 844))
+        assert len(margins) == 680 * 2
+        assert all(v > 0 for v in margins.values()), sorted(k for k, v in margins.items() if v <= 0)
+        assert min(margins.values()) == FINE_CLOSED_WORST_MARGIN_PX
+        assert tuple(margins[(w, 390)] for w in (388, 389, 390, 391)) == FINE_PHONE_WIDTH_MARGINS
+        assert margins[(390, 844)] > 0, "the zoom module's own PHONE constant"
+        least_at = {w for (w, _), v in margins.items() if v == FINE_CLOSED_WORST_MARGIN_PX}
+        assert 839 in least_at and all(838 <= w <= 860 for w in least_at), sorted(least_at)  # the 840 px column, as in the first version
+
+    def test_at_rest_a_sample_of_other_heights_holds(self, browser_page, host) -> None:
+        margins = fine_margins(browser_page, host, mode="closed", widths=range(320, 1000, 3), heights=(450, 520, 600, 700, 900))
+        assert len(margins) == len(range(320, 1000, 3)) * 5
+        assert min(margins.values()) == FINE_CLOSED_WORST_MARGIN_PX > 0, sorted(k for k, v in margins.items() if v <= 0)
+
+    def test_with_a_probe_open_and_with_a_sentence_too_the_premise_holds_on_a_two_pixel_sweep(self, browser_page, host) -> None:
+        for mode, worst in (("open", FINE_OPEN_WORST_MARGIN_PX), ("sentence", FINE_OPEN_SENTENCE_WORST_MARGIN_PX)):
+            margins = fine_margins(browser_page, host, mode=mode, widths=range(320, 1000, 2), heights=(390, 844))
+            assert min(margins.values()) == worst > 0, (mode, sorted(k for k, v in margins.items() if v <= 0))
+            assert all(margins[(w, 390)] > 0 for w in (388, 390)), mode
+
+    def test_the_first_versions_layout_violates_the_premise_at_exactly_the_phone_widths(self, browser_page, host) -> None:
+        """The control that fails: restoring paragraph basis 12 rem and the column from 23.125 rem reds the sweep."""
+        margins = fine_margins(browser_page, host, mode="closed", widths=range(320, 520), heights=(390,), style=OLD_LAYOUT_STYLE)
+        assert sorted(w for (w, _), v in margins.items() if v <= 0) == OLD_LAYOUT_VIOLATING_WIDTHS
+        clean = fine_margins(browser_page, host, mode="closed", widths=range(320, 520), heights=(390,))
+        assert all(v > 0 for v in clean.values()), "the matched control"
+
+    def test_the_letter_spacing_the_layout_survives_and_the_one_that_breaks_it(self, browser_page, host) -> None:
+        widths = range(480, 700)
+        survived = fine_margins(browser_page, host, mode="closed", widths=widths, heights=(390, 844), style=f"body {{ letter-spacing: {LETTER_SPACING_SURVIVED}; }}")
+        assert all(v > 0 for v in survived.values()), sorted(k for k, v in survived.items() if v <= 0)
+        broken = fine_margins(browser_page, host, mode="closed", widths=widths, heights=(390, 844), style=f"body {{ letter-spacing: {LETTER_SPACING_BROKEN_BY}; }}")
+        bad = [v for v in broken.values() if v <= 0]
+        assert (len(bad), min(bad)) == (LETTER_SPACING_BROKEN_VIEWPORTS, LETTER_SPACING_BROKEN_LEAST)
+
+
+# F-003. Rule 9 against the module. The shared module documents it as a declared divergence: while a probe is open
+# the save is checkpointHistory(...), which carries NO redo stack, so undoing past the checkpoint inside a probe
+# changes what a reload resumes at. Pinned here as the CURRENT behaviour and a declared limit, not as a fix: the
+# cost is bounded (it needs an undo past the checkpoint while a probe is open) and the live redo stack is untouched.
+
+
+def sc_redo_limit(page, host) -> list[str]:
+    p: list[str] = []
+    steps = [("filled", 0, 0), ("filled", 1, 1)]
+
+    def play(probing: bool) -> dict:
+        fresh(page, host)
+        for tool, row, col in steps:
+            mark(page, tool, row, col)
+        page.click(UNDO, force=True)  # B on the redo stack, A on the undo stack
+        if probing:
+            page.click(PROBE, force=True)
+        page.click(UNDO, force=True)  # past the checkpoint: A too. The live redo stack is now [A, B]
+        return st(page)
+
+    outside = play(False)
+    inside = play(True)  # last, so the reload below resumes from the probe-time save
+    check(p, inside["undone"] == 2 and outside["undone"] == 2, f"the live redo stacks are {inside['undone']} / {outside['undone']}, not 2 / 2")
+    check(p, len(json.loads(outside["save"])["undone"]) == 2, "with no probe the save does not hold the redo stack")
+    check(p, json.loads(inside["save"])["undone"] == [] and json.loads(inside["save"])["done"] == [], "an open probe's save holds a redo stack or a stroke")
+    reload(page)
+    r = st(page)
+    check(p, r["undone"] == 0 and all(c == "unknown" for c in r["cells"]), "a reload after the probe-time undo resumed anywhere but the blank board")
+    return p
+
+
+@pytest.mark.browser
+class TestPublicProbe_ARedoStackIsNotSavedWhileOpen:
+    def test_undoing_past_the_checkpoint_inside_a_probe_changes_what_a_reload_resumes_at(self, plant_page, host) -> None:
+        """DECLARED LIMIT (rule 9 versus the module, review F-003). Measured: with no probe the same steps save
+        undone == 2 and a reload offers a redo; with a probe open the save is empty (done 0, undone 0) and the
+        reload is the blank board with nothing to redo. Reason: checkpointHistory carries no redo stack (the
+        module's own comment). The residue is bounded: it needs an undo past the checkpoint while a probe is
+        open, and the live redo stack is intact until the page is left."""
+        page, errors = plant_page
+        assert sc_redo_limit(page, host) == []
+        assert errors == []
+
+    def test_a_save_that_does_hold_the_redo_stack_is_caught(self, plant_page, host) -> None:
+        page, errors = plant_page
+        assert sc_redo_limit(page, host) == [], "the matched control"
+        serve_planted(page, host, "play.js", [(_SAVE, "serialize(history, payload)")], "redo-limit")
+        problems = sc_redo_limit(page, host)
+        assert page.evaluate("window.__served") == "redo-limit"
+        assert any("an open probe's save holds" in x for x in problems), problems
+
+
+# F-004. A Region drag in a probe: one stroke, one probe member set, save equals the checkpoint save, abandon restores.
+
+
+def sc_region(page, host) -> list[str]:
+    from tests.test_public_player import _drag
+
+    p: list[str] = []
+    fresh(page, host)
+    mark(page, "filled", 0, 0)
+    pre = st(page)
+    page.click(PROBE, force=True)
+    page.click("[data-player-region]", force=True)
+    page.click(brush("filled"), force=True)
+    cells = [(2, 2), (2, 3), (2, 4), (2, 5)]  # a drag marks one straight line
+    _drag(page, cells)
+    s = st(page)
+    check(p, s["marked"] == sorted(at(r, c) for r, c in cells), f"a Region drag's cells are not the probe's alone: {s['marked']}")
+    check(p, s["done"] == pre["done"] + 1, "a drag is not one stroke")
+    check(p, json.loads(s["save"]) == json.loads(pre["save"]), "a Region drag in a probe changed the save")
+    page.click(ABANDON, force=True)
+    a = st(page)
+    check(p, a["cells"] == pre["cells"] and a["dom"] == pre["dom"], "abandon did not restore the board after a Region drag")
+    p.extend(closed_problems(a, "after the Region drag was abandoned"))
+    return p
+
+
+@pytest.mark.browser
+class TestPublicProbe_ARegionDragIsOneProbeStroke:
+    def test_the_save_is_the_checkpoint_save_abandon_restores_and_no_marker_is_left(self, plant_page, host) -> None:
+        page, errors = plant_page
+        assert sc_region(page, host) == []
+        assert errors == []
+
+    def test_a_save_that_holds_the_drag_is_caught_beside_its_clean_control(self, plant_page, host) -> None:
+        page, _ = plant_page
+        assert sc_region(page, host) == [], "the matched control"
+        serve_planted(page, host, "play.js", [(_SAVE, "serialize(history, payload)")], "region")
+        problems = sc_region(page, host)
+        assert page.evaluate("window.__served") == "region"
+        assert any("changed the save" in x for x in problems), problems
