@@ -1,6 +1,6 @@
 # CARD-382: Seven interior-reading modules the census never covered, plus two unowned placed-edge reds, go green BOTH ways — carved out of CARD-322
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 2c (1d)
@@ -9,18 +9,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/382-pre-flip-seven-modules
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-382
 **Source:** CARD-322's re-cut, 2026-11-06 (draft kept at `~/Documents/nonogram-reviews/CARD-322/` once applied; the measurements are the re-cut author's, run in a private clone of main at `bb8d1121`), accepted by the owner as "pre-flip card A": the seven modules the five-kind census never covered (45 reds, owned by nobody) plus the unowned reds. Follows the module-slice pattern of CARD-354 to CARD-360 and CARD-379.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_page_frame.py, tests/test_book_toc.py, tests/test_book_page_numbers.py, tests/test_book_qr_slot.py, tests/property/test_book_order.py, tests/test_book_detail_page.py, tests/test_book_puzzle_page_vector.py, tests/test_book_pdf_two_up.py
 <!-- Conflict edges, derived by grep over the Touches line of every ready / in_progress / backlog card on 2026-11-06 and not exhaustive: CARD-231 and CARD-289 name tests/test_book_toc.py; CARD-226, CARD-229 and CARD-231 name tests/test_book_page_numbers.py. CARD-229 and CARD-231 depend on CARD-322, which depends on this card, so the order is already serial; whether CARD-226 and CARD-289 depend on CARD-322 was not checked, and a card of theirs that edits those modules first changes this card's starting tree: re-run item 0 at dispatch. CARD-342 and CARD-343 own tests/helpers/page_ink.py, which this card does NOT edit (G-3). -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T13:29Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
