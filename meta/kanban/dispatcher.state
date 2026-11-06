@@ -736,6 +736,7 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-286   # P1 3c  FIRST in the queue, owner 2026-11-06 ("go, queue 286 first"; "I think we shall dispatch tests by impact"): make impact_set.py trustworthy (static assets, the subprocess guard, fail closed), then the orchestrator switches the merge gate from the full suite to impact + always-on, full at wave close. Takes the slot CARD-343's merge frees. Unstamped.
 - id: CARD-386   # P1 2c  PREVIEW SITE from the admin's own player files, no overrides, not deployed, for the owner to test (design A step 2). Depends on CARD-385. Owner 2026-11-06: "yes to A and don't do differences override level until I test it". Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #

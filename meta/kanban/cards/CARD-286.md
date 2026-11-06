@@ -3,7 +3,8 @@
 **Status:** ready
 **Priority:** P2
 **Category:** ops
-**Estimate:** 1d
+**Estimate:** 3c (1d)
+<!-- RESTATED in review cycles 2026-11-06 at queueing (the board counts Nc since ADR-0055; a waved card with no Nc term reddens tests/test_kanban_review_record.py). The day figure is the old estimate, unchanged. -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -135,6 +136,16 @@ them; a narrowing whose saving is not measured is a guess.
 - **AC-7** (happy, measured): *Given* the 2026-10-23 profile, *then* the card
   records what a player card and a book card each save under the repaired
   derivation, against the full-suite figure. (recorded, not asserted)
+
+
+## [Addendum 2026-11-06, OWNER RULING] — the merge gate will run this derivation
+
+The owner said on 2026-11-06, after the shared-player spike: "I think we shall dispatch tests by impact". The October ruling (2026-10-22 `review.test_scope: impact`, 2026-10-23 "we wouldn't run book rendering tests for changes in player or in core algorithms and vice versa") covered review cycles only; the MERGE GATE has run the full armed suite (about 11,100 tests, 35 to 50 minutes, holding `meta/kanban/.full-suite.lock`, which makes every other pytest run on the machine fail while it is held). **Once this card lands, the gate policy becomes: the impact selection plus the always-on set; the full suite runs at wave close and whenever the derivation answers `FULL`.** That puts this derivation under EVERY merge, so its correctness is now load-bearing rather than advisory, and design A of the shared-player spike (`solver.js` and `admin.css` shared with the public site) makes the static-asset blind spot above the most expensive one. The policy switch itself (config.yml and the gate briefs) is NOT part of this card: the orchestrator makes it after this card is certified.
+
+Two more items for this card, beyond the three measurements above:
+
+* **AC-8** (the gate recipe, recorded and tested): *Given* a changed set, *then* the script has a documented gate invocation that prints the selection, its size against the full suite's collected count, and, when it answers `FULL`, the path and rule that caused it; the output is one block a gate can paste into the card's note. There is no Makefile in this repository; do not add one (ADR-0006/R1 spirit): the invocation is the script. (test: named by the implementation)
+* **AC-9** (replay, measured not asserted): *Given* the diffs of the last 20 merge commits on `main` (`git log --merges`), *then* the card records, per merge, the selection size, whether it answered `FULL`, and which of the three known misses (static asset, subprocess guard, always-on scanners) each would have hit; and the card states the fraction of merges that would have been `FULL`. This is the evidence for the owner's switch. (recorded, verified by review)
 
 ## Guardrails
 
