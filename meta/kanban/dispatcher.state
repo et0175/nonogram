@@ -716,6 +716,7 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-380   # P2 1d  PLAYER CARD (probe mode), owner 2026-11-06 ("draft the probe card, queue it behind 327"). Depends on CARD-327 (hint strokes join a probe; the non-toolbar control placement) so it cannot start before CARD-327 merges. Rule 7 default to be CONFIRMED AT DISPATCH. Estimate stated in cycles at draft time.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
