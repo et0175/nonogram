@@ -1,0 +1,74 @@
+# CARD-385: Public mode for the admin player — solver.js and solver_state.js run with no solution, and a gesture sweep proves it
+
+**Status:** in_progress
+**Priority:** P1
+**Category:** feature
+**Estimate:** 3c (1d)
+<!-- Stated in review cycles at DRAFT time. The spike's own estimate for this step was 4c (its confidence is low); 3c is the board's one-day size. If the author finds it does not fit, STOP after the solver_state.js half and report; do not stretch. -->
+**Complexity:** architectural
+**Revision pending:** false
+**Skill:** python-pro
+**TDD:** true
+**Branch:** card/385-public-mode
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-385
+**Source:** owner ruling 2026-11-06 after the shared-player spike (`~/Documents/nonogram-reviews/spike-shared-player/REPORT.md`): "I'd say yes to A" (the public page uses the admin's own solver.js and admin.css as build-time copies, so a feature is built once) "and don't do differences override level until I test it". This card is step 1 of A and is independent of every look decision.
+**Idea:** —
+**Wave:** 79
+**Created wave:** 79
+**Deferred waves:** 0
+**Depends on:** —
+**Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, tests/test_player_public_mode.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_editor_ui.py
+<!-- A starting list from the spike (it listed 8-10 admin modules by grep and ran none): the author derives which admin test modules actually move by running the admin solver and editor suites against the change, and names any file outside the list as SCOPE+. NO file under player/ changes in this card. -->
+**Review score:** —
+**Started:** 2026-11-06T19:40Z
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
+**Blocked by:** —
+
+## Why this card exists
+
+The public player (`player/play.js`, `player/player.css`) is a second implementation of the admin solver (`solver.js`, `admin.css`); only `solver_state.js` and `tokens.css` are shared as byte-identical copies (ADR-0041/R3, `player/assemble.py` `COPIED_FROM_ADMIN`). Every player feature was built twice and 21,700 lines of public-player tests plus an agreement file keep them aligned. The owner ruled (2026-11-06) to move to design A of the spike: the public page runs the admin's own files. The one thing that stops `solver.js` running on the public site today is that it needs the SOLUTION grid, which no public asset may carry (ADR-0041/R2).
+
+The spike proved it feasible [its measurement, carried]: with a 10-line loader reading the public `puzzle/<key>.json`, about 20 patched lines in `solver.js` and about 18 in `solver_state.js` (`experiment/patch_public_mode.py` in the spike folder is a working but throwaway patch, NOT to be copied blindly), the admin solver ran in headless Chromium on a real 20x13 puzzle with no page errors, no non-GET requests and no solution string in any served file. The unpatched `solver.js` refuses to draw on the public JSON. Where `solver.js` reads the solution (the spike's table): `readPayload`/`isSolution` (refuses the page), `errorCount`, `solvedPercent`, `isSolved` in `showProgress`, the `solves` callback (probe auto-commit), `hintCell(..., solution)` (including the answer-reveal fallback), `hintLine`/`knownLine`, `firstWrongRow` (Check), `boardOfGrid(solution)` (edit mode start), and `serializeState`/`deserializeState` through `gridFingerprint(solution)` in `solver_state.js` (the validity stamp of every save).
+
+## What to implement
+
+1. **A "public" mode in `solver.js` and `solver_state.js`, selected by the payload's `mode` (`"public"`)**, reusing the contract the editor already uses (`mode: "edit"`; `test_the_edit_mode_contract_counts_its_own_branches` counts that contract, read it first and keep it honest for a third mode). In public mode: `readPayload` accepts a payload WITHOUT `solution` (and REFUSES one that has it); solved detection comes from the clues (`isClueSolved`, moved from `player/play.js` into `solver_state.js` as a solution-free twin; play.js is NOT edited here, so for now both exist and the later deletion card removes the duplicate); the hint is derived from the clues and the marks as the player has them, with NO answer-reveal fallback (the spike's `hintCell` change; reuse the module's `lineForced`/`nextRung`/`hintReason`); the probe auto-commit uses `isClueSolved`; Errors, Progress and Check are not offered (their elements are absent or inert; decide which and say so); saves carry no fingerprint (a constant for a null solution) and use the key the admin uses (`nonogram-player:<id>`), the consequence for already-published public saves is recorded in the card's closing note, not solved here.
+2. **No solution-reading code path is reachable in public mode.** Make that a MECHANICAL property: with the payload lacking `solution`, a read of null must throw in tests, not be tolerated; list every site that reads the solution and show each is either gated by mode or unreachable.
+3. **The gesture sweep (the R2 proof).** A new `tests/test_player_public_mode.py` serves an assembled scratch tree built from the real admin files (a minimal throwaway shell in the test fixture; the real assembler is the NEXT card) with a payload that has no `solution`, in headless Chromium, and exercises EVERY control: every `data-player-action`, every brush, Region, drag, undo/redo, reset, Maybe, zoom/pinch, crosshair hover, hint to rung 3 and beyond, probe open/keep/abandon, solve-to-the-end (banner), reload and resume. A page error, a non-GET request or the solution string in any served file fails it. A census test requires every `data-player-action` found in the admin template to have a sweep step, with a plant that adds an unswept action and reds.
+4. **The admin is unchanged in behaviour.** In admin mode (the default) every existing admin solver and editor test passes unedited, except where a counted contract sentence must move (name each such edit and why).
+
+## Acceptance criteria
+
+* **AC-1** *Given* a payload with `mode: "public"` and no `solution`, *then* the board draws and the sweep (item 3) completes with zero page errors and zero non-GET requests. (test: `tests/test_player_public_mode.py`, named by the implementation)
+* **AC-2** *Given* a payload in public mode that HAS a `solution`, *then* `readPayload` refuses it. (test: named by the implementation)
+* **AC-3** *Given* admin mode, *then* the existing admin solver and editor suites pass with no edits except the counted-contract sentence(s), each named. (test: the existing modules, node ids compared before and after, 0 removed)
+* **AC-4** *Given* the sweep tree, *then* the solution string appears in no served file, and a plant that serves it reds the scan. (test: named by the implementation)
+* **AC-5** *Given* the census, *then* every `data-player-action` has a sweep step, with a plant. (test: named by the implementation)
+* **AC-6** *Given* public mode, *then* the hint never reveals a cell from an answer (there is none) and a hint taken from a wrong mark behaves as `player/play.js`'s `derivedHint` does today (declared, inherent to ADR-0041/R2), cross-checked against an independent brute-force oracle on a seeded corpus (min case counts asserted inside the test). (test: named by the implementation)
+* **AC-7** *Given* the edit mode contract test, *then* it still counts its branches and now also holds the public mode's. (test: `test_the_edit_mode_contract_counts_its_own_branches`, extended)
+
+## Guardrails
+
+* **G-1** `player/` is NOT touched (no play.js, player.css, play.html, assemble.py). The public site keeps working exactly as today until the later cards.
+* **G-2** `tokens.css` is not edited. `solver_state.js` and `solver.js` stay the admin's files, still byte-identical copies wherever they are copied (the existing `COPIED_FROM_ADMIN` equality checks must stay green; if `solver_state.js` changes, the public site's copy changes with it at the next assembly, which is intended: say so).
+* **G-3** No network call in any mode (`fetch`, `XMLHttpRequest`, `sendBeacon`): add a scan that the admin solver files contain none, with a plant.
+* **G-4** `touch-action` stays as it is. No look or layout decision is made here: no CSS change.
+* **G-5** No test deleted, renamed, skipped or merged, `parametrize` ids included (node-id set difference). Controls that can fail (ADR-0039/R1); a bound carries reason and measured residue (R3).
+* **G-6** If the solution-free hint or solved detection in `solver_state.js` differs in behaviour from `play.js`'s (`forcedLine`, `derivedHint`, `isClueSolved`), report the difference with a seeded corpus; do not silently pick one.
+
+## System contract
+
+* ADR-0041/R2 — no public asset carries a solution grid or recoverable solution data (check: AC-1, AC-2, AC-4, AC-5)
+* ADR-0041/R3 — `solver_state.js` and `tokens.css` are byte-identical build-time copies (check: the existing assembly equality tests, G-2)
+* ADR-0038/R4 — state logic is a pure module (check: review-lens)
+* ADR-0039/R1, R3 — controls that can fail; declared bounds with a measured residue (check: review-lens)
+
+## Lessons the author must be told
+
+Read the spike report (`~/Documents/nonogram-reviews/spike-shared-player/REPORT.md`) and its `experiment/` scripts as evidence, not as code to paste. Read the Worktree notes of CARD-246 (edit mode), CARD-268 (probe), CARD-324..327 and CARD-380 on main. The admin solver tests are the most heavily tested files in the repo (577 node ids in the 15 `test_puzzle_solver_*` modules plus 117 editor ids): run them all after any change to `solver.js`. Do not hand-edit counts of `editing` reads: the contract test is the authority.
+
+## Worktree notes
+
+(none yet)
