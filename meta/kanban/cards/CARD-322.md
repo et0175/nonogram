@@ -31,7 +31,7 @@
 **Merge commit:** —
 **Blocked by:** —
 
-**NOT READY TO DISPATCH until every card in `Depends on` is `done`, and two reds below have no card at all.** The long history of this card (the 2026-10-30/31 re-cuts, the 233/94/80-red censuses, the premise pass, withdrawn findings) is in git: the last long version is commit `8aa9ad89` (`git show 8aa9ad89:meta/kanban/cards/CARD-322.md`). Nothing in this file depends on reading it.
+**NOT READY TO DISPATCH until every card in `Depends on` is `done` (as of 2026-11-06 CARD-382 and CARD-383 are; CARD-342, 343 and 350 are not yet). The two reds that had no card are RULED (see the placed-edge ruling) and are item 13's.** The long history of this card (the 2026-10-30/31 re-cuts, the 233/94/80-red censuses, the premise pass, withdrawn findings) is in git: the last long version is commit `8aa9ad89` (`git show 8aa9ad89:meta/kanban/cards/CARD-322.md`). Nothing in this file depends on reading it.
 
 ## Why this card exists
 
@@ -40,7 +40,7 @@ ADR-0042/R1 says puzzle pages, answer pages, the TOC and the guide are PDF conte
 ## Read first: state of the world (read from the card files on main, 2026-11-06)
 
 * **Done:** CARD-309 (assembly point), 329, 330, 331, 336, 337, 338, 354, 355, 356, 357, 358, 359, 360 (the slice cards), CARD-379 (pre-flip repairs: the 13 `delitem` reds, the guide expected side, the `_write_pdf` refusal pair, `interior_face`), CARD-381 (hang guard default 300 s; set nothing about `NONOGRAM_TEST_HANG_SECONDS`).
-* **CARD-382** (`in_progress`, wave 79, `2c`): the seven modules the census never covered (45 reds) plus two `test_book_pdf_two_up` reds. **CARD-383** (`in_progress`, wave 79, `2c`): the D4 refusal. Both are prerequisites.
+* **CARD-382** (`done`, merge `01edc331`): the seven modules the census never covered (45 reds) plus one of the two `test_book_pdf_two_up` reds; the other, `test_that_row_is_the_top_margin_plus_the_band`, stays red under the probe and is item 13's. **CARD-383** (`done`, merge `d78fd683`): the D4 refusal, DORMANT today (the answer-key page is a bitmap), it fires when the ANSWER declaration is removed here; the refusal's message and the `UnsettablePuzzleTitle` handler branches are on main. Both prerequisites are merged.
 * **CARD-342** (`ready`, `1c`: `test_book_puzzle_frame` 3), **CARD-343** (`ready`, `2c`: `test_book_guide_page` 2), **CARD-350** (`ready`, `1c`: the geometry module's trim-height cells, with an addendum for a third cell) own reds that are red at the real end state, not only under the probe.
 * **Reds with no card:** the F-4 cell (item 13) and any `test_book_pdf_two_up` red CARD-382 declares. Both are covered by the 2026-11-06 placed-edge ruling below.
 * **Starting tree (mine, 2026-11-06, a private clone of main at `bb8d1121`, before CARD-382/383 landed):** under the five-kind probe 80 red over the 22 census modules (`test_book_pdf` 39, `test_book_difficulty_dots` 29, `test_book_puzzle_frame` 3, `test_book_guide_page` 2, `test_book_pdf_two_up` 2, `property/test_book_pdf_geometry` 4, `test_book_pdf_band` 1) plus 45 in the seven CARD-382 modules. The on-disk end state with the default assembled (E2) reproduces the 39 `test_book_pdf` node ids exactly and adds the 2 memory reds no probe sees. The same tree with the default left deny (E1) is **491 red over 48 modules**, because the test tree builds a bare `BookPDFGenerator(` at 365 sites and 7 go through `interior_generator`. **Re-derive all of it on arrival; a different number is the finding.**
@@ -51,7 +51,7 @@ ADR-0042/R1 says puzzle pages, answer pages, the TOC and the guide are PDF conte
 * **D1 — the page-content oracle gap is DECLARED residue, not funded.** The flip lands with it declared (CARD-356's, CARD-357's and CARD-360's closing notes). No oracle, no second writer, no claim of whole-page content coverage.
 * **D2 — keep the two-patch workaround** for `book_guide_vector`'s by-value `TITLE_PAGE_COUNT`. `book_guide_vector.py` is NOT edited. If the flip changes how the constant is read, re-check the workaround in `tests/test_book_export_interior_cover.py` and say so.
 * **D3 — narrow ADR-0042/R1's WORDING so the proof sheet is outside the decision.** No proof-writer conversion. The proof sheet's purpose is inferred only from CARD-118's title (the re-cut read CARD-118's body and `book_proof`'s docstring and they support it: a press-check export of two fixed fixtures); item 4 re-reads both before editing the ADR.
-* **D4 — the refusal is CARD-383's.** Still the owner's, unanswered: whether any real book has a non-Latin title or name (production DB off limits). A wider embedded face is its own card.
+* **D4 — the refusal is CARD-383's (merged).** ANSWERED by the owner 2026-11-06 ("I don't plan non latin titles"): the refusal is a safety net, not an expected path, and no wider-embedded-face card is needed.
 * **D5 — ink mode (CARD-364) is RECORDED, not decided.** Converted pages are DeviceGray only (`ContentStream` has no colour operator); `books.interior_ink_mode` has no effect on them.
 * **D6 — done (CARD-381).**
 * **D7 — the 19 live book baselines and the 5 proof baselines stay historical and are NOT re-recorded.** CARD-355 settled that a stored digest is compared only against a bitmap page. `tests/fixtures/book_baseline_*.json` is not touched.
