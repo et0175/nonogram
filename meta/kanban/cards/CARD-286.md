@@ -1,6 +1,6 @@
 # CARD-286: The impact derivation cannot see a coupling no import edge carries — so it fails OPEN on the player, and wide on the book
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 3c (1d)
@@ -10,16 +10,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/286-impact-set-sees-what-tests-read
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-286
 **Source:** owner request 2026-10-23 ("we wouldn't run book rendering tests for changes in player or in core algorithms and vice versa") + CARD-271's fix pre-gate finding PG-2 and its merge gate, both measured; backlog.md @ops items "scripts/impact_set.py is blind to static assets" and "the browser-fixture family's node-id registry is discoverable only by a run nobody makes in the inner loop"
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 55
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** scripts/impact_set.py, tests/test_impact_set.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T20:52Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
