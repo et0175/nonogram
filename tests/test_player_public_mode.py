@@ -950,7 +950,8 @@ class TestPublicMode_TheSave:
 
 @pytest.mark.browser
 class TestPublicMode_TheStallBoard:
-    def test_hint_says_why_and_reveals_nothing_where_no_line_decides(self, browser_page, serve) -> None:
+    def test_hint_offers_and_reveals_nothing_where_no_line_decides(self, browser_page, serve) -> None:
+        """Id kept (G-5); since the F-3 fix Hint is offered AND says why."""
         assert stall_problems(browser_page, serve(public_payload(STALL_GRID, puzzle_id="stall"))) == []
 
     def test_the_sentence_is_play_js_s_own(self) -> None:
