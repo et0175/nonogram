@@ -10,8 +10,10 @@
   It also carries no answer, and cannot (ADR-0038/R6, ADR-0041/R2): nothing
   the site serves holds a solution grid. "Solved" is every row and column clue
   satisfied, which for a uniquely solvable puzzle is exactly the solution —
-  see play.js's isClueSolved. There is therefore no error count and no hint
-  button here, unlike the admin player: both need the answer (CARD-283 G-4).
+  see play.js's isClueSolved. There is therefore no error count, progress
+  percent or Check here, unlike the admin player: they need the answer
+  (CARD-283 G-4). The Hint button does not, and is here (CARD-327): it derives
+  the next cell from the clues, as play.js's THE HINT explains.
 
   There is no analytics script tag in THIS FILE, and CARD-285 reconciled the
   two rules by deciding where the tag lives rather than whether it exists.
@@ -123,6 +125,36 @@
     </p>
   </div>
 
+  <!--
+    The Hint control (CARD-327, FR-045). It is deliberately NOT a child of
+    .player-toolbar: the owner's ruling of 2026-11-06 keeps the toolbar's
+    button set exactly as it was, because tests/test_public_player_zoom.py pins
+    the toolbar's one-row bound and reds by design on any new toolbar button.
+    So it sits under the board, BESIDE the usage paragraph that follows it
+    (.player-below puts the two in one row where the viewport has the room):
+    the zoom module pins that the space below the stage stays smaller than the
+    stage's offset from the top, and that margin is 21 px at a desktop width
+    (measured at the cut), so a control that stacked above the paragraph there
+    would break it.
+
+    The admin's split of names is followed: "Hints: N" is .player-hints with
+    data-player-hints, and the singular .player-hint stays the usage paragraph
+    below (puzzle_solve.html records the same trap). The sentence a press says
+    goes in .player-hint-say, a role="status" region that is VISIBLE: rungs 1
+    and 2 exist to be read, and the page's own .player-announce is clipped to
+    1 x 1. It holds a sentence about the board as it was, so play.js empties it
+    on the next recorded change.
+
+    Hidden until play.js has drawn the board, like the toolbar: a page whose
+    script never ran shows no dead control.
+  -->
+  <div class="player-below">
+  <div class="player-hint-bar" data-player-hint-bar hidden>
+    <button type="button" class="btn player-hint-button" data-player-action="hint" aria-disabled="true">Hint</button>
+    <p class="player-hints" role="status" aria-atomic="true">Hints: <span class="player-hints-count" data-player-hints>0</span></p>
+    <p class="player-hint-say" data-player-hint-say role="status" aria-atomic="true"></p>
+  </div>
+
   <p class="player-hint" data-player-hint hidden>
     Tap a cell to mark it with the selected brush; tap it again to go on
     (Black: black, white, blank). With Maybe, a tap marks ? and a second tap
@@ -130,6 +162,7 @@
     On a touch screen, press Region first so a drag marks instead of scrolling
     the page.
   </p>
+  </div>
 </main>
 <script type="module" src="/play.js"></script>
 </body>

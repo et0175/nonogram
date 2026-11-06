@@ -1,6 +1,6 @@
 # CARD-380: Probe mode on the public player — the hypothesis transaction, needing no answer
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d) <!-- Stated in review cycles at DRAFT time, so the card cannot redden tests/test_kanban_review_record.py when it is stamped into a wave (CARD-325 did). A forecast, not a tuned figure: the pure state machine already exists and is solution-free (so this is wiring, like CARD-324/325/326, which took 3, 1 and 1 review cycles), but the semantic surface is larger than theirs (eleven declared rules, a save that must never hold probe strokes, a clamp, a fourth mark on a board that already carries three) and one rule (7) needs a design choice the admin never faced. -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/380-public-probe-mode
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-380
 **Source:** owner question 2026-11-06 ("do we have a card for contradiction-probe mode on player?") answered by the orchestrator with "no", then "draft the probe card, queue it behind 327". The admin's version is CARD-268, from the owner's decision of 2026-10-22: "for puzzles that need contradiction-probing add another color for probing cells", shaped in that session into a transaction.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-327 <!-- a REAL dependency and not only serialization: rule 3 says every mark made while a probe is open, hint strokes included, belongs to the probe; the public page has no hint until CARD-327 lands, so the interaction cannot be built or tested before it. CARD-327 also settles where a non-toolbar control lives on this page, which this card reuses. They also share play.js, play.html and player.css (overlap 1.0), so they could not run in one wave anyway. -->
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_probe.py, tests/test_public_player_agreement.py <!-- the agreement file because the probe's look is a look the public player reimplements, so it is held to the admin's there (CARD-328's one home), as CARD-325, 326 and 327 did; tests/test_public_player.py is a SCOPE+ edit only if the listener census demands it, declared as CARD-325's was -->
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_probe.py, tests/test_public_player_agreement.py, tests/test_public_player_hint.py, tests/test_public_player.py <!-- SCOPE+ added 2026-11-06 at dispatch, after CARD-327 landed (c8a19833): CARD-327's hint module holds play.js to a CLOSED DECLARATION CENSUS (every const/let/var/function/class in the whole file, 229 declarations / 186 names at that merge) and pins 45 member assignments, so any declaration this card adds to play.js REDS that census until the census is updated in the same change; the listener census in tests/test_public_player.py likewise. Update both deliberately, with the reason, and do not weaken them. Original note follows:  the agreement file because the probe's look is a look the public player reimplements, so it is held to the admin's there (CARD-328's one home), as CARD-325, 326 and 327 did; tests/test_public_player.py is a SCOPE+ edit only if the listener census demands it, declared as CARD-325's was -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T10:05Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
