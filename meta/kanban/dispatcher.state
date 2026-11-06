@@ -466,18 +466,21 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-382
-    branch: card/382-pre-flip-seven-modules
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-382
-    started: 2026-11-06T13:29Z
-    estimate: 2c (1d)
-    cut_from: 602f06fc
   - card: CARD-383
     branch: card/383-title-refusal
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-383
     started: 2026-11-06T15:22Z
     estimate: 2c (1d)
-    cut_from: CUTSHA
+    cut_from: 31a3281d
+  - card: CARD-384
+    branch: card/384-align-public-player-with-admin
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-384
+    started: 2026-11-06T16:53Z
+    estimate: 3c (1d)
+    cut_from: 2111a54f
+# CARD-382 CLEARED 2026-11-06T16:37:14Z at its merge gate: merged 01edc331, done, certified 8.5 on cycle 1 (fix round
+#   9081ff7b not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Its worktree is removed under the tidy rule
+#   after its instruments were copied to ~/Documents/nonogram-reviews/CARD-382/, so the entry is dropped.
 # CARD-380 CLEARED 2026-11-06T15:13Z at its merge gate: merged 652c16f8, done, certified 8.5 on cycle 2 (7.0 on
 #   cycle 1), estimate 3c -> 2 cycles = ratio 0.667. Its WORKTREE IS KEPT (holds the owner's unplayed
 #   build/site-probe play-test build), idle: no process runs there. The entry is dropped so no free-slot
@@ -740,7 +743,6 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-384   # P2 1d  PLAYER CARD, owner 2026-11-06 ("align the crosshair colour with admin and I'd align the max-min cell size also"): the public crosshair takes the admin's cream, the cell bounds take the admin's 14/28, every layout pin is re-measured, collisions are reported not dodged. Depends on CARD-380 (same files; must not overlap). Unstamped; estimate in cycles at draft time.
 - id: CARD-322   # P1 3c  LAST, and still the destination: the FLIP only after the 2026-11-06 re-cut and peel-off: five registry deletions, the D8 writing site, ADR-0042/R1's flip and its wording (D3), the conftest-rebind seam, the 39 + 2 retirements, the F-307 rename. Depends on CARD-382, 383, 342, 343, 350 (not done) so NOT dispatchable yet; unstamped. Seven gated cards wait on it.
 last_updated: 2026-11-04T20:25:00Z
 
