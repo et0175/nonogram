@@ -1,24 +1,24 @@
 # CARD-327: The public player gains a hint that DERIVES instead of reveals — and `play.js`'s comment saying it cannot is wrong
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
-**Estimate:** 1d
+**Estimate:** 3c (1d) <!-- RESTATED in review cycles 2026-11-06 at dispatch, in the SAME edit that stamps the wave (a waved card with no Nc term reddens tests/test_kanban_review_record.py: CARD-325 did). Was 1d. 3c is a forecast, not a tuned figure: this is an ARCHITECTURAL card (the first in-repo hint that derives and does not reveal, a native re-implementation of the deduction cross-checked against the module, and a declared reading of ADR-0041/R2 the reviewer must judge). Comparators among the player cards: CARD-325 1 cycle (est 2c), CARD-326 1 cycle (est 2c), CARD-324 3 cycles (est 1c); the mean ratio of wave 79 is about 1.1. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/327-public-derived-hint
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-327
 **Source:** owner request 2026-10-30 — "no maybe brush, no hints etc... I'd like both to reuse the same functionality". The orchestrator measured the hint question before carding it and found the shipped code's own account of it to be false; that measurement is this card's premise and is restated below so the implementation re-derives it rather than trusting it.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 69
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_hint.py
+**Touches:** player/play.js, player/play.html, player/player.css, tests/test_public_player_hint.py, tests/test_public_player_agreement.py <!-- agreement file added 2026-11-06 (SCOPE+ acceptable): the hint highlight is a look the public player reimplements, so it is held to the admin's there, as CARD-325 and CARD-326 did -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T04:35Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -172,6 +172,8 @@ worktree.** AC-6 is the mechanical half of the claim.
   count, the progress percent and Check named as needing the answer, the hint
   named as deriving. Asserted as a claim-vs-behaviour check, the shape
   ADR-0039/R1 requires. (test: `TestPublicHint_TheHeaderClaimIsTrue`)
+- **AC-9** (the control is OUTSIDE the toolbar; added 2026-11-06 on the owner's ruling): *Given* the built page, *then* the Hint control is not a child of `.player-toolbar`, `tests/test_public_player_zoom.py` and its measured one-row bound run UNEDITED and green, and the toolbar's button set is exactly what it was before this card. The control sits next to the usage paragraph or under the board, is at least 44 px in its touch dimension, and is reachable and legible at the zoom maximum and at a scrolled offset. (test: `TestPublicHint_TheControlIsOutsideTheToolbar`)
+- **AC-10** (the hint highlight is distinct; added 2026-11-06, makes G-9 testable): *Given* a hinted line, *then* its highlight is distinguishable by PIXELS from the crosshair's tint (CARD-325, `is-crossed`) and from a circled clue number's ring (CARD-326), and a line that is hinted, crossed AND circled shows all three. Tokens only. (test: named by the implementation; state it)
 
 ## Engineering constraints
 
@@ -276,6 +278,20 @@ player's feature set **from two directions at once**: these cards, and
 direct-to-`main` commits. **Re-measure this card's figures at dispatch rather
 than trusting the table above** — it is a record of one moment, and the moment
 had already moved once.
+
+## Owner rulings and premise re-verified 2026-11-06 (zoom, the crosshair and the circles have merged since this card was written)
+
+Read against `main` by the orchestrator. **Owner rulings (2026-11-06), asked and answered before this card was dispatched:** (1) **ADR-0041/R2 is read as a rule about what an ASSET CARRIES, not about what a browser can compute from it: ACCEPTED.** The derived hint adds no data to any asset (`puzzle/<key>.json` stays exactly `clues`, `height`, `key`, `tier`, `width`), runs in the player's browser over clues it already has, and published puzzles are uniquely solvable (CON-005 / INV-002), so the clues already determine every cell, as the player's own solved check already relies on. The reviewer still checks the reading and AC-6 is its mechanical half. (2) **The Hint control lives OUTSIDE the toolbar: DECIDED** (added as AC-9). The toolbar is one row only from 839 px in landscape and already wraps to two rows between about 780 and 838 px (the owner's open F-1 residue from CARD-324), and `tests/test_public_player_zoom.py` reds BY DESIGN on any new toolbar button; a toolbar button would have moved that pinned bound. If the author finds a Hint control cannot live outside the toolbar, STOP and report: do not move the zoom bound.
+
+**Verified true:** every export the card relies on is exported by `solver_state.js` today (`lineForced`, `nextRung`, `HINT_RUNGS`, `RUNG_POINT`, `RUNG_EXPLAIN`, `RUNG_REVEAL`, `HINT_REASONS`, `hintReason`, `hintCount`, `hintStroke`, `RUNG_EVENTS`, `hintCell`, `knownLine`); the false header sentence ("Adding any of them publicly needs the answer", "No error count, no progress percent, no hints (CARD-283 G-4)") is present in `play.js` verbatim; `play.html` already uses `.player-hint` (with `data-player-hint hidden`) for its usage paragraph, so the admin's split (`.player-hints` / `data-player-hints` for the counter) still applies (G-7); `play.js` carries 5 mentions of the word "hint", all comments, `play.html` 2, `player.css` 2: no hint behaviour exists yet.
+
+**STALE in this card, corrected here and not elsewhere:** (a) **G-1 and G-2 say CARD-268 is "editing" or "live in" `solver.js`, `solver_state.js`, `admin.css`, `tokens.css` and `puzzle_solve.html`: CARD-268 is DONE** (as are CARD-269, 282, 283, 323, 325 and 326). The guardrails themselves STAND: do not edit `solver_state.js`, `tokens.css` or anything under `src/nonogram/admin/**`; a solution-free `hintCell` in the shared module is still the right design and still the wrong card. (b) The Estimate was in DAYS (restated above). (c) The 2026-10-30 'Re-verified' table's zero counts for zoom, circle and crosshair rules are all STALE: zoom (CARD-324), the crosshair (CARD-325) and the circles (CARD-326) are merged and live, and the Worktree notes' sibling list ("CARD-323, 324, 325, 326") is finished: this card is the LAST of them. (d) Line numbers in the card (`play.js:83` and others) are stale: cite by NAME.
+
+**GAPS the card does not state (close each with a real test, as CARD-325 and CARD-326 did):** (1) **three marks now share the clue boxes and the board**: the crosshair tints the crossed row and column and their clue boxes (`is-crossed`), the circles draw a ring on clue numbers (`is-circled`), and the hint adds a highlight on a line: they must coexist (AC-10), from tokens only (G-9); read CARD-325's and CARD-326's records on `main` for how each was made not to hide the others (the circle is a BORDER on the number's `::before` precisely so the crosshair's background tint cannot hide it). (2) **the look joins `tests/test_public_player_agreement.py`** (CARD-328's one home for 'a look the public player reimplements is held to the admin's'): declare any divergence with its reason and a MEASURED figure; Touches now names the file. (3) **the listener census**: `test_every_player_control_is_in_the_ec_050_walk` in `tests/test_public_player.py` censuses every `addEventListener` type and reds on any addition; a Hint button's `click` is a type the file already registers for other controls, so it may need no edit, but if it does that file is a SCOPE+ edit and CARD-325's record shows what that edit looked like and why it was judged honest. (4) **zoom and scroll**: the hint highlight and the control must be legible and in place at the zoom maximum and at a scrolled offset (a test, as CARD-325's AC-7 and CARD-326's did). (5) **hint stroke and circles/crosshair**: a rung-3 hint is a recorded stroke, so it must move the circles exactly as any mark does and must not leave a crosshair behind. (6) **AC-4's trap**: the exhausted state must reveal NOTHING, and a plant that makes the page reveal a cell when no line forces one must red it; AC-7's cross-check against `hintCell` is only on boards with no wrong mark (`knownLine` is then the identity), and the test must assert that the two legitimately differ exactly where a mark is wrong. `touch-action` STAYS `auto` (owner decision 2026-11-05).
+
+**What cost review cycles on this board this week, so do these first time:** write each declared bound IN THE TEST with its reason, a MEASURED number and a control that fails just past it (ADR-0039/R3); a structural 'reads no solution' scanner must be default-deny on PROPERTY reads as well as identifiers, refuse computed member access, and refuse every operator in the code it vouches for (CARD-325's first scanner denied only by identifier and its reviewer planted seven bypasses; CARD-326's had a comma-operator hole); every claim needs a test that fails if it is false, with a matched control in the same run; for every `!=` and `not in` you touch, plant its failure; behavioural plants that rewrite the served `play.js` must go through a Playwright ROUTE with a SERVED CANARY (rewriting the file and disabling the cache through CDP both let plants go unserved at random: CARD-326's author measured it); and when a plant is 'killed', say which scenario fired, not just that something did.
+
+**STANDING CENSUS RULE** (it stopped two merge gates): after your work run on your tip, with `-rEfs`, `tests/test_suite_profile.py`, `tests/test_impact_set.py`, `tests/test_check_ref_resolution.py`, `tests/test_cli.py`, `tests/test_kanban_review_record.py`, `tests/test_collected_names.py`, `tests/test_guard_integrity.py`, `tests/test_shared_fixture_controls.py`, `tests/test_full_suite_lock.py`, `tests/test_browser_fixture_scope.py`, `tests/test_naming.py`, `tests/test_fixture_integrity.py`, `tests/test_card_349_cold_database.py` and the seven public-player modules. `test_suite_profile` counts any early `return` inside a test body as a silent host-state silence: write NO test body with a silent `return`; never add to a frozen registry to get green.
 
 ## Worktree notes
 
