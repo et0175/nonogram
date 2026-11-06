@@ -62,6 +62,7 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
+from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
@@ -90,7 +91,7 @@ from tests.helpers.book_corpus import (
     page_digest,
     puzzle,
 )
-from tests.helpers.page_ink import drawing_of
+from tests.helpers.page_ink import Drawing, drawing_of, frame_centre_of, ink_mask
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages
 
 # --------------------------------------------------------------------------
@@ -259,8 +260,23 @@ def new_export() -> bytes:
 @pytest.fixture(scope="module")
 def old_export() -> bytes:
     """The same book, exported with the pre-CARD-167 guide page patched in."""
+    # The pre-CARD-167 guide page is a BITMAP painted by ``create_guide_page``.
+    # The walk only calls that method for a kind ``page_medium`` calls raster;
+    # once GUIDE is declared vector (CARD-322's end state) the patched method is
+    # never reached and this "old" export silently carries the NEW guide
+    # (CARD-343). So the old page is stood up in the medium it was written in:
+    # ``page_medium`` answers RASTER for GUIDE here and is the real function for
+    # every other kind. Where GUIDE is already raster this changes nothing.
+    real_page_medium = book_pdf_generator.page_medium
+
+    def page_medium_with_old_guide(kind):
+        if kind is book_pdf_generator.PageKind.GUIDE:
+            return book_pdf_generator.PageMedium.RASTER
+        return real_page_medium(kind)
+
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(BookPDFGenerator, "create_guide_page", old_guide_page)
+        patch.setattr(book_pdf_generator, "page_medium", page_medium_with_old_guide)
         return export_of(BookPDFGenerator(corpus_book("card-167")), three_easy_20x20())
 
 
@@ -1668,11 +1684,22 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         )
         checked = 0
         for number, page in enumerate(mirrored_pages, start=1):
+            if number in GUIDE_INTERIOR_PAGES:
+                # A guide page is not a puzzle page, and its own diagrams
+                # (the worked example, the pipeline's boxes) are ruled: a
+                # PDF rasteriser's strokes of them read as a "drawing" where
+                # the bitmap's do not, and the offset of that is not a puzzle
+                # drawing's (CARD-343: page 3 read 160.5 px). They were
+                # skipped here through ``drawing_of``'s ValueError in the
+                # bitmap medium; they are now skipped for what they are, in
+                # either. Every other page is read exactly as before, and
+                # ``checked`` below still floors how many.
+                continue
             try:
                 drawing = drawing_of(page)
             except ValueError:
                 continue
-            offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
+            offset = drawing_centre_x(page, drawing) - page.width / 2
             assert (offset > 0) == (number % 2 == 1), (
                 f"interior page {number} is centred {offset:.1f} px off the "
                 f"middle, the wrong side for {'an odd' if number % 2 else 'an even'} page"
@@ -1685,6 +1712,30 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         # being width-bound (centring makes the offset independent of the
         # drawing's own width). Measured on this corpus: 12 of its 17 pages.
         assert checked >= 12, f"only {checked} pages carried a measurable drawing"
+
+
+def drawing_centre_x(page: Image.Image, drawing: Drawing) -> float:
+    """The middle of a framed drawing's two vertical **boundaries**, in pixels.
+
+    ``Drawing.left`` and ``Drawing.grid_right`` are ink extents, and a PDF
+    rasteriser's frame corner is mitred 3 px further out than the bitmap's
+    (``frame_centre_of``'s own table), so ``(left + grid_right) / 2`` reads 1.5
+    px further left on the operators page than on the bitmap for the very same
+    placement: 2.94 px against this test's 2 px bound in the vector medium and
+    0.94 in the raster one (CARD-343). Both ends are therefore read as the
+    boundary their rule is centred on: the left from the frame's own side
+    (``frame_centre_of``), the right from the width of the border's own run,
+    so the reading is the same in either medium and the bound is unchanged.
+    """
+    left = frame_centre_of(page, drawing).frame_left
+    band = ink_mask(page)[drawing.grid_top + 5 : drawing.grid_bottom - 4]
+    full = band.all(axis=0)
+    width = 0
+    while full[drawing.grid_right + width]:
+        width += 1
+    assert width, "the grid's right border is not a full-height rule here"
+    right = drawing.grid_right + (width - 1) / 2
+    return (left + right) / 2
 
 
 # --------------------------------------------------------------------------
