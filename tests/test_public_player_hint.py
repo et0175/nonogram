@@ -2369,6 +2369,32 @@ class TestPublicHint_ThreeMarksCoexist:
         assert _distance(centre["empty"], corner["empty"]) > 40, "the white mark's dot is not visible on a lit line"
         assert centre["unknown"] == corner["unknown"], "a blank cell on a lit line has a mark"
 
+    def test_a_maybe_cell_on_a_lit_line_keeps_its_glyph_and_the_tint_is_not_the_maybe_ground(self, browser_page, host) -> None:
+        """G-9: the hint highlight stays distinct from CARD-323's Maybe cell. On a lit line the
+        tint replaces the Maybe cell's ground (the later rule wins), so what keeps it a Maybe
+        cell is its ``?`` glyph: the cell holds pixels that are not the tint, and a blank cell
+        beside it holds none. The tint is also nowhere near the Maybe ground itself."""
+        page = browser_page
+        r, strokes = three_mark_board(page, host)
+        blank = [c for c in range(10) if cells_after(CIRCLES_GRID, strokes)[r * 10 + c] == "unknown"]
+        assert blank, "the scenario is vacuous: no blank cell on the row"
+        _board(page, host, host[2]["mixed"], CIRCLES_GRID, [*strokes, ("maybe", [(r, blank[0])])])
+        press(page)
+        assert sorted(read(page)["lit"]) == line_parts(page, "row", r)
+        page.wait_for_function("document.getAnimations().every((a) => a.playState !== 'running')")
+        distinct = {}
+        for name, col in (("maybe", blank[0]), ("blank", blank[1])):
+            box = page.query_selector(f"td.player-cell[data-row='{r}'][data-col='{col}']").bounding_box()
+            distinct[name] = len(_pixels(page, box["x"] + 3, box["y"] + 3, box["width"] - 6, box["height"] - 6).getcolors(100000) or [])
+        assert distinct["blank"] == 1, distinct
+        assert distinct["maybe"] > 1, distinct
+        maybe_ground = page.evaluate(
+            "() => { const p = document.createElement('i'); p.style.background = 'var(--color-surface-hover)'; document.body.append(p);"
+            " const c = getComputedStyle(p).backgroundColor; p.remove(); return c; }"
+        )
+        tint = _pixels(page, *[v for v in (lambda b: (b["x"] + 3, b["y"] + 3))(page.query_selector(f"td.player-cell[data-row='{r}'][data-col='{blank[1]}']").bounding_box())], 1, 1).getpixel((0, 0))
+        assert _distance(tint, _rgb(maybe_ground)) >= TINT_FLOOR, (tint, maybe_ground)
+
     @pytest.mark.parametrize(
         ("label", "css"),
         [
