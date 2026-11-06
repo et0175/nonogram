@@ -4585,9 +4585,31 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             page_medium(kind) is PageMedium.RASTER for kind in first_eleven
         ), written
 
+    #: The kind the bitmap stand-in pages are filed under. CARD-379 (M3): these
+    #: two tests claim a COUNT tripwire, not a medium, and they hand
+    #: ``_write_pdf`` a ``PIL`` page; ``_write_pdf`` refuses a bitmap filed under
+    #: a vector-declared kind ("page 1 is a vector puzzle page, but arrived as
+    #: Image"), which is what the puzzle kind they used to name becomes once
+    #: ADR-0042/R1's five conversions land. CARD-354 met the same refusal and
+    #: filed its raster twin under DIVIDER; the mechanism applies, the kind
+    #: does not: the divider's declaration expires with CARD-231, so it is a
+    #: temporary home. The cover is raster PERMANENTLY (ADR-0042/R2,
+    #: ``expires_with=()``), so a bitmap filed under it stays legal in every
+    #: tree and the test never has to move again.
+    _BITMAP_KIND = PageKind.COVER
+
+    def _the_kind_is_a_declared_bitmap(self) -> None:
+        """The precondition, asserted: the stand-in's kind IS a bitmap kind."""
+        assert page_medium(self._BITMAP_KIND) is PageMedium.RASTER, (
+            f"{self._BITMAP_KIND} is no longer a declared bitmap, so these "
+            "tests' bitmap pages would be refused for their MEDIUM and not "
+            "tested for their COUNT"
+        )
+
     def test_a_producer_that_yields_too_few_pages_never_reaches_the_trailer(self):
         """A short stream would leave the page tree pointing at nothing."""
         generator = BookPDFGenerator(corpus_book())
+        self._the_kind_is_a_declared_bitmap()
         blank = Image.new("RGB", (60, 80), "white")
 
         def two_of_three() -> Iterator[Image.Image]:
@@ -4596,7 +4618,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
 
         with pytest.raises(RuntimeError) as raised:
             generator._write_pdf(
-                two_of_three(), 3, mode="RGB", kinds=(PageKind.PUZZLE,) * 3
+                two_of_three(), 3, mode="RGB", kinds=(self._BITMAP_KIND,) * 3
             )
 
         assert "interior has 2 pages, its page plan says 3" in str(raised.value)
@@ -4604,6 +4626,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
     def test_a_producer_that_yields_too_many_is_refused_before_the_extra_page(self):
         """The surplus page has no object id, so it is refused, not written."""
         generator = BookPDFGenerator(corpus_book())
+        self._the_kind_is_a_declared_bitmap()
         blank = Image.new("RGB", (60, 80), "white")
         offered = []
 
@@ -4614,7 +4637,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
 
         with pytest.raises(RuntimeError) as raised:
             generator._write_pdf(
-                four_of_three(), 3, mode="RGB", kinds=(PageKind.PUZZLE,) * 3
+                four_of_three(), 3, mode="RGB", kinds=(self._BITMAP_KIND,) * 3
             )
 
         assert "interior has at least 4 pages, its page plan says 3" in str(
