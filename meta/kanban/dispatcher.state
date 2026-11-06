@@ -477,7 +477,7 @@ active:
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-384
     started: 2026-11-06T16:53Z
     estimate: 3c (1d)
-    cut_from: CUTSHA
+    cut_from: 2111a54f
 # CARD-382 CLEARED 2026-11-06T16:37:14Z at its merge gate: merged 01edc331, done, certified 8.5 on cycle 1 (fix round
 #   9081ff7b not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Its worktree is removed under the tidy rule
 #   after its instruments were copied to ~/Documents/nonogram-reviews/CARD-382/, so the entry is dropped.
