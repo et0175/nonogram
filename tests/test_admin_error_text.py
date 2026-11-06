@@ -20,9 +20,16 @@ from pathlib import Path
 import pytest
 
 import nonogram.admin.book_manager as book_manager_module
-from nonogram import clues
+from nonogram import clues, errors
 from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import (
+    _RASTER_DECLARATIONS,
+    BookPDFGenerator,
+    PageKind,
+    PageMedium,
+    RasterDeclaration,
+    page_medium,
+)
 
 #: The logger the panel logs through (``Flask(__name__)``'s own name).
 PANEL_LOGGER = "nonogram.admin.app"
@@ -290,3 +297,144 @@ def test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen(
         checked += 1
 
     assert checked >= 60
+
+
+# --------------------------------------------------------------------------
+# CARD-383: the one refusal the owner is shown in words
+# --------------------------------------------------------------------------
+
+GREEK = "Χιονονιφάδα"
+
+
+def _declare_answer(monkeypatch) -> None:
+    """The answer page's bitmap declaration, PRESENT (CARD-379's pattern)."""
+    monkeypatch.setitem(
+        _RASTER_DECLARATIONS,
+        PageKind.ANSWER,
+        _RASTER_DECLARATIONS.get(
+            PageKind.ANSWER,
+            RasterDeclaration(
+                reason="put back by this test: the tree has lifted it",
+                authority="CARD-383",
+                expires_with=("CARD-322",),
+            ),
+        ),
+    )
+    assert page_medium(PageKind.ANSWER) is PageMedium.RASTER
+
+
+def _lift_answer(monkeypatch) -> None:
+    _declare_answer(monkeypatch)
+    monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.ANSWER)
+    assert page_medium(PageKind.ANSWER) is PageMedium.VECTOR
+
+
+def _retitle_first(app, book_id, title) -> None:
+    first = app.book_manager.get_book(book_id).puzzle_ids[0]
+    assert app.book_manager.set_puzzle_title(book_id, first, title)
+
+
+def _error_flashes(client) -> list:
+    return [m for c, m in _flashes(client) if c == "error"]
+
+
+class TestBookPdfDownload_TheUnsettableTitleRefusalIsShownInWords:
+    """CARD-383 AC-6, cell (vii): three routes, one branch each, nothing broader."""
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_a_lifted_greek_title_flashes_the_refusal_and_not_the_generic_text(
+        self, admin_app, monkeypatch, route
+    ) -> None:
+        _lift_answer(monkeypatch)
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _retitle_first(admin_app, book_id, GREEK)
+
+        response = _request_export(client, route, book_id)
+
+        assert response.status_code == 302
+        (message,) = _error_flashes(client)
+        assert message != PDF_EXPORT_FAILED
+        assert GREEK in message and "U+03A7" in message
+        assert "Rename" in message and "Arrangement" in message
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_the_control_every_other_failure_still_flashes_the_generic_text(
+        self, admin_app, monkeypatch, caplog, route
+    ) -> None:
+        # Same lift, same book, a Latin title: the generator the panel builds
+        # has no downstream writer, so the export fails for a reason that is
+        # NOT the refusal -- and says what it always said.
+        _lift_answer(monkeypatch)
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _retitle_first(admin_app, book_id, "Winter Star")
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = _request_export(client, route, book_id)
+
+        assert response.status_code == 302
+        assert _error_flashes(client) == [PDF_EXPORT_FAILED]
+        assert len(_panel_errors(caplog)) == 1
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_today_a_greek_title_exports_and_nothing_is_refused(
+        self, admin_app, monkeypatch, route
+    ) -> None:
+        _declare_answer(monkeypatch)
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _retitle_first(admin_app, book_id, GREEK)
+
+        response = _request_export(client, route, book_id)
+
+        assert not any(GREEK in m for m in _error_flashes(client))
+        assert PDF_EXPORT_FAILED not in _error_flashes(client)
+        assert response.status_code == 200
+        assert response.data.startswith(b"%PDF")
+
+    @pytest.mark.parametrize("route", ROUTES)
+    @pytest.mark.parametrize(
+        "other",
+        [errors.UnletterableTitle, errors.InvalidPuzzleName, errors.NonogramError],
+        ids=lambda cls: cls.__name__,
+    )
+    def test_no_other_domain_error_is_caught_by_the_new_branch(
+        self, admin_app, monkeypatch, route, other
+    ) -> None:
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        _raise_once(monkeypatch, BookPDFGenerator, "__init__", other("their words"))
+
+        _request_export(client, route, book_id)
+
+        assert _error_flashes(client) == [PDF_EXPORT_FAILED]
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_what_is_flashed_is_the_refusals_own_text_and_never_its_cause(
+        self, admin_app, monkeypatch, caplog, route
+    ) -> None:
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        marker = "card383-driver-marker-password=hunter2"
+        refusal = errors.UnsettablePuzzleTitle(
+            f"Puzzle 1 (\u201c{GREEK}\u201d) cannot be printed. Rename it.",
+            puzzle_id="p",
+            puzzle_number=1,
+            title=GREEK,
+            characters=("\u03a7",),
+        )
+        refusal.__cause__ = RuntimeError(marker)
+        refusal.__context__ = RuntimeError(marker)
+        _raise_once(monkeypatch, BookPDFGenerator, "__init__", refusal)
+
+        with caplog.at_level("INFO", logger=PANEL_LOGGER):
+            response = _request_export(client, route, book_id)
+
+        body = response.get_data(as_text=True)
+        assert _error_flashes(client) == [str(refusal)]
+        assert marker not in body
+        assert marker not in html.unescape(body)
+        assert not any(marker in m for _, m in _flashes(client))
+        for name, value in response.headers.items():
+            assert marker not in value, name

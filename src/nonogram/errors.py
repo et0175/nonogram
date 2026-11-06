@@ -188,3 +188,43 @@ class UnletterableTitle(NonogramError):
     re-reads (CARD-234, AC-4). The message names every offending character and
     its codepoint, so the fix is to retype that character.
     """
+
+
+class UnsettablePuzzleTitle(InvalidPuzzleName):
+    """A puzzle's answer-page title holds a character the interior cannot set.
+
+    Raised by ``admin.book_pdf_generator`` before any interior page is drawn,
+    and only while the answer page is written as PDF operators
+    (``page_medium(PageKind.ANSWER)`` is ``VECTOR``): the operators show text
+    in one embedded face through a single-byte encoding, so a Greek, Cyrillic
+    or Hebrew title, or one with an emoji or a combining mark, cannot be set
+    and is refused by name rather than printed as a ``.notdef`` box nobody
+    re-reads (CARD-383, the owner's ruling D4: refuse loudly, transliterate
+    nothing, no wider face in this card).
+
+    A subclass of :class:`InvalidPuzzleName` so ``exit_code_for``'s MRO walk
+    groups it with the other "go and change what you typed" failures; it is
+    deliberately **not** an :class:`UnletterableTitle` (the cover's refusal),
+    so a handler that names this class does not also catch that one.
+
+    Carries what the handlers need so none of them re-parses the message: the
+    puzzle's id and its number in the book, the title that would be printed
+    (the per-book custom title when one is set, otherwise the puzzle's name)
+    and the distinct characters the encoding cannot set. All default to
+    "unknown" so the class can be built from a message alone.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        puzzle_id: object = None,
+        puzzle_number: int | None = None,
+        title: str | None = None,
+        characters: tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.puzzle_id = puzzle_id
+        self.puzzle_number = puzzle_number
+        self.title = title
+        self.characters = characters

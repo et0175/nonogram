@@ -407,13 +407,15 @@ from nonogram.admin.book_sheet_vector import (
 from nonogram.admin.book_vector import (
     ContentStream,
     FontMetrics,
+    UnrepresentableText,
+    encode_text,
     interior_face_bytes,
     interior_face_metrics,
     write_face_objects,
     write_vector_page,
 )
 from nonogram.difficulty import Tier, tier_of_record
-from nonogram.errors import UnletterableTitle
+from nonogram.errors import UnletterableTitle, UnsettablePuzzleTitle
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
@@ -4422,6 +4424,84 @@ COVER_TITLE_PX = 72
 _UNASSIGNED_CODEPOINT = "\ue000"
 
 
+#: How much of a title the refusal's message quotes, and how many distinct
+#: characters it lists, so a pasted paragraph does not become a wall of text on
+#: the owner's screen. The exception's own ``title`` and ``characters`` carry
+#: the whole of both.
+_REFUSAL_TITLE_CHARS = 60
+_REFUSAL_LISTED_CHARACTERS = 6
+
+
+def _refuse_unsettable_titles(
+    payloads: Sequence[Tuple[Any, ExportPayload]], titles: Mapping[str, str]
+) -> None:
+    """Refuse, before any page, an answer caption the interior cannot set.
+
+    CARD-383 (the owner's ruling D4: refuse loudly, transliterate nothing, no
+    wider face). A page written as operators shows text through
+    :func:`~nonogram.admin.book_vector.encode_text`, which raises for anything
+    outside the interior's encoding. Left to the walk, that raise would be
+    re-wrapped in a ``RuntimeError`` naming no character, so the one check is
+    made here, **eagerly and outside the walk's per-page ``try``**, and says
+    what the owner has to do.
+
+    **Gated on the medium.** It does nothing while
+    ``page_medium(PageKind.ANSWER)`` is ``RASTER``: that page is a bitmap, the
+    raster face sets Greek, and a book holding it exports today. It refuses
+    exactly when the declaration is lifted, which is the day the answer page
+    becomes operators.
+
+    The string checked is the one the caption prints, taken from the same
+    :func:`~nonogram.admin.book_answer_key.answer_title` call the walk makes
+    (the per-book custom title when set, otherwise the name), and
+    :func:`~nonogram.admin.book_answer_key.answer_caption` composes the line,
+    so the number and the separator are judged with it. ``encode_text`` is the
+    only authority; there is no second character table here. The first
+    puzzle in print order that fails is named.
+
+    Raises:
+        UnsettablePuzzleTitle: the first caption ``encode_text`` rejects.
+    """
+    if page_medium(PageKind.ANSWER) is not PageMedium.VECTOR:
+        return
+    for number, (puzzle_id, payload) in enumerate(payloads, start=1):
+        title = answer_title(titles.get(str(puzzle_id)), payload.name)
+        try:
+            encode_text(answer_caption(number, title))
+        except UnrepresentableText:
+            pass
+        else:
+            continue
+        refused: List[str] = []
+        for character in title or "":
+            if character in refused:
+                continue
+            try:
+                encode_text(character)
+            except UnrepresentableText:
+                refused.append(character)
+        shown = (title or "")[:_REFUSAL_TITLE_CHARS]
+        if shown != title:
+            shown += "..."
+        listed = ", ".join(
+            f"{character!r} (U+{ord(character):04X})"
+            for character in refused[:_REFUSAL_LISTED_CHARACTERS]
+        )
+        if len(refused) > _REFUSAL_LISTED_CHARACTERS:
+            listed += f" and {len(refused) - _REFUSAL_LISTED_CHARACTERS} more"
+        raise UnsettablePuzzleTitle(
+            f"Puzzle {number} \u201c{shown}\u201d (id {puzzle_id}) cannot be "
+            f"exported: its title holds {listed}, which the book's interior "
+            "cannot print. Rename the puzzle, or give it another title on the "
+            "Arrangement step, using letters the interior can set.",
+            puzzle_id=puzzle_id,
+            puzzle_number=number,
+            title=title,
+            characters=tuple(refused),
+        )
+
+
+
 def _cover_title_face(book_title: str) -> ImageFont.FreeTypeFont:
     """The face the generated title cover letters ``book_title`` in.
 
@@ -7468,7 +7548,9 @@ class BookPDFGenerator:
             answer_page_count=stream.answer_page_count,
         )
 
-    def interior_stream(self, puzzles: List[dict]) -> InteriorStream:
+    def interior_stream(
+        self, puzzles: List[dict], *, plan_only: bool = False
+    ) -> InteriorStream:
         """The interior's page plan, and its pages one at a time (CARD-145).
 
         The export path's entry point, and the lazy core :meth:`interior` is
@@ -7545,6 +7627,16 @@ class BookPDFGenerator:
         dividers = len(section) - len(plan)
         toc_page_count = decided.toc_page_count
         titles = self.custom_titles()
+
+        # CARD-383: refuse, by name, a title the interior's encoding cannot
+        # set -- before the first page, outside the walk's per-page `try`
+        # (which re-types every page exception as a RuntimeError), and only
+        # while the answer page is operators. DEFAULT-DENY on the door:
+        # `plan_only` is for the one caller that reads the plan and draws
+        # nothing (the Finalise counts in `app.py`), which must keep counting
+        # a book the export will refuse.
+        if not plan_only:
+            _refuse_unsettable_titles(payloads, titles)
 
         # The validation half of the old packed key's walk (CARD-198): each
         # answer's grid must still be a non-empty rectangle, checked and named

@@ -638,6 +638,11 @@ ERROR_EXIT_CODES = [
     # from the admin panel's book export — and like every row in this group,
     # what the user does about it is go and change what they typed.
     (errors.UnletterableTitle, cli.ExitCode.INVALID_INPUT),
+    # CARD-383: a puzzle title the vector interior's encoding cannot set. No
+    # CLI path raises it (it comes from the admin panel's book export) and, as
+    # for ``UnletterableTitle`` above, what the user does about it is rename
+    # the puzzle or retitle it, so it is a bad input and not a mapping gap.
+    (errors.UnsettablePuzzleTitle, cli.ExitCode.INVALID_INPUT),
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),
     (errors.SolverTimeout, cli.ExitCode.GENERATION_FAILED),

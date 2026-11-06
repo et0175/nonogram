@@ -132,6 +132,7 @@ from nonogram.errors import (
     NonogramError,
     NotUniquelySolvable,
     SizeOutOfRange,
+    UnsettablePuzzleTitle,
     UnsupportedDifficulty,
 )
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -972,7 +973,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
             paired_only_page_count=None,
         )
     try:
-        stream = generator.interior_stream(list(puzzles))
+        stream = generator.interior_stream(list(puzzles), plan_only=True)
     except Exception as error:
         # ``__name__`` is the name Flask gives ``app.logger`` too (the app is
         # ``Flask(__name__)``), so this is the panel's own logger, reachable
@@ -5720,6 +5721,18 @@ def create_app(debug=None):
             timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
             return _send_export_part(pdf_bytes, requested, f"book_{timestamp}")
 
+        except UnsettablePuzzleTitle as refusal:
+            # CARD-383: the one domain refusal the owner is told in words. This
+            # names ONE class, not NonogramError: the cover's
+            # `UnletterableTitle` and every other failure keep the generic
+            # text below. The text is the refusal's own, built from the
+            # owner's typed strings (CARD-177); its cause is never shown.
+            app.logger.warning(
+                "The PDF of book %s was refused: %s", book.book_id, refusal
+            )
+            flash(str(refusal), "error")
+            return redirect(back)
+
         except Exception:
             # CARD-171: logged with its traceback before it is flashed.
             app.logger.exception("The PDF of book %s could not be generated", book.book_id)
@@ -6092,6 +6105,14 @@ def create_app(debug=None):
             return _send_export_part(
                 pdf_bytes, part, book.metadata.title.replace(" ", "_")
             )
+
+        except UnsettablePuzzleTitle as refusal:
+            # CARD-383: as in `generate_book_pdf_download` -- this class only.
+            app.logger.warning(
+                "The PDF of book %s was refused: %s", book_id, refusal
+            )
+            flash(str(refusal), "error")
+            return redirect(url_for("book_detail", book_id=book_id))
 
         except Exception:
             app.logger.exception("The PDF of book %s could not be generated", book_id)

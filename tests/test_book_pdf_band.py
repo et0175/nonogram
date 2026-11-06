@@ -60,12 +60,18 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
-from nonogram import clues
+from nonogram import clues, errors
+from nonogram.admin import book_interior_vector
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     DPI,
+    _RASTER_DECLARATIONS,
     BookPDFGenerator,
+    PageKind,
+    PageMedium,
+    RasterDeclaration,
+    page_medium,
     band_identity,
     _draw_page_frame,
     _draw_qr_caption,
@@ -1554,6 +1560,7 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
     """
     random_source = random.Random(20260923)
     books = 0
+    refused_books = 0
     puzzles_checked = 0
     names_seen: set[str | None] = set()
     labels_seen: set[str] = set()
@@ -1587,6 +1594,39 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
                 )
             )
 
+        # CARD-383: the expectation is DERIVED FROM THE MEDIUM, never listed.
+        # While the answer page is a bitmap the raster page sets every name
+        # and no book is refused; once it is operators the interior's
+        # encoding sets only what ``encode_text`` accepts, and a book holding
+        # a name it cannot set is refused, by name, before any page. The
+        # refused book is then banded over what the interior CAN carry (the
+        # names it refused are dropped by this test, not by the product), so
+        # every floor below counts the same books in both media.
+        vector_answers = page_medium(PageKind.ANSWER) is PageMedium.VECTOR
+        refused = [
+            puzzle
+            for puzzle in puzzles
+            if vector_answers and not _carried_by_the_interior(puzzle["puzzle_name"])
+        ]
+        if refused:
+            with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+                _raw_interior(puzzles)
+            # The first in PRINT order (this module's own reading of FR-041),
+            # which is the one the generator reaches first.
+            first = min(
+                refused, key=lambda puzzle: print_plan(puzzles)[puzzles.index(puzzle)][0]
+            )
+            assert refusal.value.puzzle_id == first["id"], (
+                f"book {book_index}: refused {refusal.value.puzzle_id!r}, "
+                f"the first unsettable name is {first['id']!r}"
+            )
+            assert first["puzzle_name"] in str(refusal.value)
+            refused_books += 1
+            refused_ids = {puzzle["id"] for puzzle in refused}
+            puzzles = [
+                {**puzzle, "puzzle_name": None} if puzzle["id"] in refused_ids else puzzle
+                for puzzle in puzzles
+            ]
         pages = _raw_interior(puzzles)
         plan = print_plan(puzzles)
         nameless = _raw_interior([{**puzzle, "puzzle_name": None} for puzzle in puzzles])
@@ -1626,6 +1666,17 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
     assert len(names_seen) >= 8, names_seen
     assert any(name and not name.isascii() for name in names_seen), names_seen
     assert any(name and len(name) > 100 for name in names_seen), names_seen
+    # The refusal arm cannot be empty when the medium and the names say it
+    # must fire, and cannot fire when either says it must not (CARD-383,
+    # ADR-0039/R1): the matched control, which draws only carried names, must
+    # see no refusal in either medium.
+    must_refuse = page_medium(PageKind.ANSWER) is PageMedium.VECTOR and any(
+        not _carried_by_the_interior(name) for name in names
+    )
+    if must_refuse:
+        assert refused_books >= 1, refused_books
+    else:
+        assert refused_books == 0, refused_books
 
 
 def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
@@ -1648,17 +1699,17 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
     reading of FR-041 — so a band numbered by submission order, or by page,
     fails here.
 
-    **THIS TEST IS RED ON A CONVERTED INTERIOR AND THAT RED IS CARD-322's, NOT
-    THIS CARD'S (CARD-356, M3b).** :data:`CORPUS_NAMES` carries Cyrillic,
-    Greek and Hebrew titles, which the interior's ``cp1252`` encoding cannot
-    show, and the converted generator refuses the book with
-    ``'Χιονονιφάδα' (U+03A7) is not in the interior's cp1252 encoding`` --
-    a product behaviour change that appears only once the answer page is
-    operators. It is left red, over the whole corpus, on purpose: filtering
-    the names out here would absorb a product defect into a test, and G-1
-    forbids this card from touching the generator. The same body over the
-    names the interior can carry is the next test, so the repaired reading is
-    verified and the refusal stays visible.
+    **CARD-383: GREEN BOTH WAYS, with the expectation derived from the
+    medium.** :data:`CORPUS_NAMES` carries Cyrillic, Greek and Hebrew titles,
+    which the interior's ``cp1252`` encoding cannot show. While the answer page
+    is a bitmap (today) every name is set and every book is banded. Once it is
+    written as operators (the five-kind probe, and the tree after CARD-322) the
+    generator REFUSES a book holding such a name, by name and before any page
+    (``errors.UnsettablePuzzleTitle``); this body then asserts that refusal for
+    the first name the interior cannot carry and bands the rest of the book.
+    Which names are refused is asked of ``encode_text`` through
+    :func:`_carried_by_the_interior`, never listed. Its matched control, the
+    next test, is untouched.
     """
     _check_band_corpus(CORPUS_NAMES)
 
@@ -1693,6 +1744,286 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryNameTheInteriorCa
     assert len(carried) >= 8, carried
     assert "Snowflake" in carried and "L'étoile d'hiver" in carried
     _check_band_corpus(carried)
+
+
+# --------------------------------------------------------------------------
+# CARD-383 -- the vector interior refuses, by name and before any page, a
+# title its encoding cannot set; gated on the medium, green both ways
+# --------------------------------------------------------------------------
+
+GREEK = "Χιονονιφάδα"
+
+
+def _declare_answer(monkeypatch) -> None:
+    """Put the answer page's bitmap declaration BACK, and assert it is there.
+
+    The CARD-379 pattern (``_ensure_declared`` in ``test_book_pdf``): the
+    claims below are about today's tree (declared) and about the day the entry
+    is lifted, and each is observable only from a state in which the entry is
+    PRESENT. Under the five-kind probe it is already gone, and a bare
+    ``delitem`` would raise ``KeyError`` there; this puts it back instead.
+    """
+    monkeypatch.setitem(
+        _RASTER_DECLARATIONS,
+        PageKind.ANSWER,
+        _RASTER_DECLARATIONS.get(
+            PageKind.ANSWER,
+            RasterDeclaration(
+                reason="put back by this test: the tree has lifted it",
+                authority="CARD-383",
+                expires_with=("CARD-322",),
+            ),
+        ),
+    )
+    assert page_medium(PageKind.ANSWER) is PageMedium.RASTER
+
+
+def _lift_answer(monkeypatch) -> None:
+    """Declare then LIFT the answer page's declaration: it is now operators."""
+    _declare_answer(monkeypatch)
+    monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.ANSWER)
+    assert page_medium(PageKind.ANSWER) is PageMedium.VECTOR
+
+
+def _assembled(book: Book | None = None) -> BookPDFGenerator:
+    """A generator that HAS the downstream writers, so a lifted kind is drawn
+    and not refused for want of a writer."""
+    return BookPDFGenerator(
+        book if book is not None else _book(),
+        pages=book_interior_vector.DOWNSTREAM_WRITERS,
+    )
+
+
+def _watch_the_write(monkeypatch, generator: BookPDFGenerator) -> list[int]:
+    """Count the calls to ``_write_pdf`` -- the first byte of a file."""
+    calls: list[int] = []
+    original = generator._write_pdf
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(generator, "_write_pdf", counted)
+    return calls
+
+
+#: The doors into the walk that DRAW pages. ``interior_stream`` is the third
+#: ("one walk behind three doors"); all of them refuse.
+_DRAWING_DOORS = (
+    "export_interior",
+    "interior_stream",
+    "interior_pages",
+    "interior",
+    "export_book",
+)
+
+
+def _through(generator: BookPDFGenerator, door: str, puzzles: list[dict]):
+    if door == "export_book":
+        return generator.export_book(puzzles, "A title")
+    return getattr(generator, door)(puzzles)
+
+
+class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
+    """CARD-383 AC-1..AC-4 and AC-8: the refusal, its gate, and its limits."""
+
+    @pytest.mark.parametrize("door", _DRAWING_DOORS)
+    def test_a_greek_name_is_refused_by_name_before_any_page(
+        self, monkeypatch, door
+    ) -> None:
+        _lift_answer(monkeypatch)
+        generator = _assembled()
+        written = _watch_the_write(monkeypatch, generator)
+        book = [_puzzle(name=GREEK, puzzle_id="greek-1")]
+
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _through(generator, door, book)
+
+        error = refusal.value
+        text = str(error)
+        assert not isinstance(error, RuntimeError)
+        assert error.puzzle_id == "greek-1"
+        assert error.puzzle_number == 1
+        assert error.title == GREEK
+        assert "Χ" in error.characters
+        assert GREEK in text and "greek-1" in text and "Puzzle 1" in text
+        assert "U+03A7" in text
+        assert "Arrangement" in text and "Rename" in text
+        # Nothing was written: the file never got a first byte.
+        assert written == []
+
+    def test_the_refusal_is_a_domain_error_with_the_invalid_input_ancestry(
+        self,
+    ) -> None:
+        assert issubclass(errors.UnsettablePuzzleTitle, errors.InvalidPuzzleName)
+        assert issubclass(errors.UnsettablePuzzleTitle, errors.NonogramError)
+        assert not issubclass(errors.UnsettablePuzzleTitle, errors.UnletterableTitle)
+
+    def test_the_control_a_latin_name_exports_under_the_same_lift(
+        self, monkeypatch
+    ) -> None:
+        _lift_answer(monkeypatch)
+        generator = _assembled()
+        written = _watch_the_write(monkeypatch, generator)
+        data = generator.export_interior(
+            [_puzzle(name="L'étoile d'hiver", puzzle_id="latin-1")]
+        )
+        assert data.getvalue().startswith(b"%PDF")
+        assert written == [1]
+
+    def test_a_deleted_pre_check_is_what_the_refusal_test_is_red_without(
+        self, monkeypatch
+    ) -> None:
+        # AC-4's plant, run in-process: with the check removed, the same
+        # book is refused by the WALK instead -- as a RuntimeError that
+        # re-types the error and names no character -- so the typed refusal
+        # above reds. ``must_red`` is asserted non-empty before it runs.
+        from nonogram.admin import book_pdf_generator as module
+
+        must_red = [
+            name for name in ("_refuse_unsettable_titles",) if hasattr(module, name)
+        ]
+        assert must_red, "the module has no pre-check to delete"
+        _lift_answer(monkeypatch)
+        for name in must_red:
+            monkeypatch.setattr(module, name, lambda *a, **k: None)
+        with pytest.raises(RuntimeError) as walk:
+            _assembled().export_interior([_puzzle(name=GREEK, puzzle_id="g")])
+        assert not isinstance(walk.value, errors.NonogramError)
+
+    def test_the_first_unsettable_puzzle_in_print_order_is_the_one_named(
+        self, monkeypatch
+    ) -> None:
+        _lift_answer(monkeypatch)
+        book = [
+            _puzzle(name="Snowflake", puzzle_id="a"),
+            _puzzle(name="Снежинка", puzzle_id="b"),
+            _puzzle(name="פתית", puzzle_id="c"),
+        ]
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _assembled().export_interior(book)
+        assert refusal.value.puzzle_id == "b"
+        assert refusal.value.puzzle_number == 2
+        assert "Снежинка" in str(refusal.value)
+        assert "פתית" not in str(refusal.value)
+
+    def test_a_greek_custom_title_on_a_latin_named_puzzle_is_refused(
+        self, monkeypatch
+    ) -> None:
+        _lift_answer(monkeypatch)
+        book = _book()
+        book.puzzle_titles = {"p7": GREEK}
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _assembled(book).export_interior(
+                [_puzzle(name="Snowflake", puzzle_id="p7")]
+            )
+        # The printed string decides, and the string shown is the printed one.
+        assert refusal.value.title == GREEK
+        assert GREEK in str(refusal.value)
+        assert "Snowflake" not in refusal.value.characters
+
+    def test_a_latin_custom_title_on_a_greek_named_puzzle_is_not_refused(
+        self, monkeypatch
+    ) -> None:
+        _lift_answer(monkeypatch)
+        book = _book()
+        book.puzzle_titles = {"p7": "Winter Star"}
+        data = _assembled(book).export_interior([_puzzle(name=GREEK, puzzle_id="p7")])
+        assert data.getvalue().startswith(b"%PDF")
+
+    @pytest.mark.parametrize(
+        ("title", "refused"),
+        [
+            pytest.param("Café – 100 % €", False, id="encodable-punctuation-and-euro"),
+            pytest.param("Snow\u2014flake", False, id="em-dash"),
+            pytest.param("caf\u00e9", False, id="precomposed-accent"),
+            pytest.param("cafe\u0301", True, id="combining-mark"),
+            pytest.param("Snow \u2744", True, id="snowflake-symbol"),
+            pytest.param("Snow \U0001F9CA", True, id="emoji"),
+            pytest.param("soft\u00adhyphen", True, id="soft-hyphen-winansi-divergence"),
+            pytest.param("東京", True, id="cjk"),
+        ],
+    )
+    def test_the_title_the_encoder_refuses_is_the_title_the_book_refuses(
+        self, monkeypatch, title, refused
+    ) -> None:
+        # The matched pair of every row is ``encode_text`` itself, the
+        # authority: the book is refused exactly when it raises.
+        assert _carried_by_the_interior(title) is (not refused)
+        _lift_answer(monkeypatch)
+        book = [_puzzle(name=title, puzzle_id="edge")]
+        if refused:
+            with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+                _assembled().export_interior(book)
+            for character in refusal.value.characters:
+                assert not _carried_by_the_interior(character)
+        else:
+            assert _assembled().export_interior(book).getvalue().startswith(b"%PDF")
+
+    @pytest.mark.parametrize("name", ["", "   ", None])
+    def test_no_title_at_all_is_not_a_refusal(self, monkeypatch, name) -> None:
+        _lift_answer(monkeypatch)
+        data = _assembled().export_interior([_puzzle(name=name, puzzle_id="blank")])
+        assert data.getvalue().startswith(b"%PDF")
+
+    def test_a_very_long_title_is_shortened_in_the_message_and_not_in_the_fact(
+        self, monkeypatch
+    ) -> None:
+        _lift_answer(monkeypatch)
+        long_title = "Snowflake " * 30 + GREEK
+        with pytest.raises(errors.UnsettablePuzzleTitle) as refusal:
+            _assembled().export_interior([_puzzle(name=long_title, puzzle_id="long")])
+        assert refusal.value.title == long_title.strip()
+        assert len(str(refusal.value)) < 600
+
+    def test_today_the_greek_named_book_still_exports_and_the_check_never_fires(
+        self, monkeypatch
+    ) -> None:
+        # The guard against an UNGATED landing (G-1): the answer page is a
+        # bitmap here, the raster face sets Greek, and the book exports.
+        _declare_answer(monkeypatch)
+        book = [_puzzle(name=GREEK, puzzle_id="greek-1")]
+        for door in _DRAWING_DOORS:
+            _through(_assembled(), door, book)
+        generator = _assembled()
+        written = _watch_the_write(monkeypatch, generator)
+        data = generator.export_interior(book)
+        assert data.getvalue().startswith(b"%PDF")
+        assert written == [1]
+
+    def test_the_gate_is_the_declaration_and_nothing_else(self, monkeypatch) -> None:
+        # Same book, same generator: refused exactly when the declaration is
+        # lifted. Lifted and put back in one test, so the gate is read both
+        # ways in one run (the matched control of the two cells above).
+        book = [_puzzle(name=GREEK, puzzle_id="greek-1")]
+        _declare_answer(monkeypatch)
+        assert _assembled().export_interior(book).getvalue().startswith(b"%PDF")
+        monkeypatch.delitem(_RASTER_DECLARATIONS, PageKind.ANSWER)
+        with pytest.raises(errors.UnsettablePuzzleTitle):
+            _assembled().export_interior(book)
+
+    def test_a_caller_that_only_plans_the_interior_does_not_start_raising(
+        self, monkeypatch
+    ) -> None:
+        # AC-8. The Finalise counts read the plan and draw nothing; a book the
+        # export will refuse is still a book with a page count.
+        from nonogram.admin.app import _interior_counts
+
+        _lift_answer(monkeypatch)
+        book = _book()
+        greek = [_puzzle(name=GREEK, puzzle_id="g")]
+        latin = [_puzzle(name="Snowflake", puzzle_id="g")]
+        counts = _interior_counts(book, greek)
+        control = _interior_counts(book, latin)
+        assert counts is not None and control is not None
+        assert counts.page_count == control.page_count
+        assert counts.answer_page_count == control.answer_page_count
+        plan = _assembled(book).interior_stream(greek, plan_only=True)
+        assert plan.page_count == control.page_count
+        # The plan seam itself never drew a title either.
+        _assembled(book).section_plan(greek)
+        with pytest.raises(errors.UnsettablePuzzleTitle):
+            _assembled(book).interior_stream(greek)
 
 
 # --------------------------------------------------------------------------
