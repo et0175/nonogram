@@ -1,6 +1,6 @@
 # CARD-384: Align the public player's crosshair colour and cell-size bounds with the admin solver's
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -9,11 +9,11 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/384-align-public-player-with-admin
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-384
 **Source:** owner question 2026-11-06 ("why the cell size and crosshair color is different between public player and the admin player's solver?"), then the owner ruling "align the crosshair colour with admin and I'd align the max-min cell size also". Both differences were deliberate when made (the public page is mobile-first and reached by QR code; its grey crosshair was chosen to stay clear of the hint line's green and the Maybe cell's beige), so this card REVERSES two design choices at the owner's request; it does not fix a defect. **Owner ruling 2026-11-06, second message: "I don't like to drop the minimum to 0, I like your min-max rule as a principle, but I'd have cells smaller by default".** Read as: KEEP the floor-and-cap mechanism (`clamp(min, fit, max)`) and a non-zero floor on every viewport; do NOT adopt the admin's `@media (max-width: 820px)` zero-floor rule; make the default bounds smaller than the public page's current 28 to 34 px, which the admin's 14 and 28 px are. If the owner meant other numbers, they will say so; the card uses the admin's values.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-380
@@ -21,7 +21,7 @@
 **Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player.py, tests/test_public_player_zoom.py, tests/test_public_player_hint.py, tests/test_public_player_probe.py, tests/test_public_player_crosshair.py, tests/test_public_player_circles.py, tests/test_public_player_maybe.py, tests/test_public_player_pages.py
 <!-- A starting list, over-declared in the conservative direction: the author derives which of these actually change by running them, and names any file outside the list as SCOPE+. The zoom module is on the list because its pinned premise is geometry (board height against the offset above it) and a 14 to 28 px cell changes both. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T16:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
