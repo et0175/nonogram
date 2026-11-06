@@ -1484,16 +1484,27 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
 
         # AC-190's retired top edge: the band's foot, on every page and parity.
         #
-        # CARD-382: read as the frame's BOUNDARY (``frame_centre_of``), not as
-        # the first inked line. The first inked line is the stroke's own edge:
-        # in a bitmap it is the path, in an operators page it is half a
-        # six-line rule outside the path, so on this page it reads 0.27 px
-        # BELOW the band's foot in a bitmap and 2.73 px ABOVE it in operators
-        # (2.73 px is 0.231 mm, over this assertion's 0.2 mm). The boundary the
-        # rule is stroked on reads 0.77 px below it in a bitmap and 0.23 px
-        # above it in operators (0.065 mm and 0.020 mm): inside the 0.2 mm
-        # bound in both media, which is NOT widened.
-        retired_gap_mm = (TOP_MM + BAND_MM) - _mm(frame_centre_of(pages[5], upper).frame_top)
+        # CARD-382: each medium is read with ITS OWN reading of the slot's top
+        # edge. A bitmap keeps the first inked line, exactly as before this
+        # card (so a 3 px shift up still reds it there: 0.27 px off the band's
+        # foot). An operators page is read as the frame's BOUNDARY
+        # (``frame_centre_of``), because its first inked line is half a
+        # six-line rule outside the path: 2.73 px off, 0.231 mm, over this
+        # assertion's 0.2 mm; the boundary is 0.23 px (0.020 mm) off. The
+        # bound is 0.2 mm in both and is not widened.
+        raw = _raw_interior(
+            [
+                _puzzle(**_SMALL_PAIR, puzzle_id="one"),
+                _puzzle(**_SMALL_PAIR, puzzle_id="two"),
+                _puzzle(**self.BIG, puzzle_id="big"),
+            ]
+        )
+        top_edge_px = (
+            frame_centre_of(pages[5], upper).frame_top
+            if isinstance(raw[5], ContentStream)
+            else upper.top
+        )
+        retired_gap_mm = (TOP_MM + BAND_MM) - _mm(top_edge_px)
         assert abs(retired_gap_mm) < 0.2, (
             retired_gap_mm,
             "AC-252's placement really is the upper slot's own row",

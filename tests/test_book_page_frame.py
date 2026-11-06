@@ -67,6 +67,10 @@ from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from tests.helpers.pdf_pages import page_image
 from tests.helpers.pdf_vector import word_boxes
 
+#: The ``Image.info`` key that says an image is poppler's drawing of an operators
+#: page (CARD-382); a bitmap straight from the writer carries none.
+_RENDERED_FROM = "rendered_from"
+
 #: Pillow's ink threshold on a greyscale page, as ``page_ink.py`` sets it.
 INK_LEVEL = 128
 
@@ -142,6 +146,14 @@ def _min_trim_book() -> Book:
 # --------------------------------------------------------------------------
 
 
+def _as_pixels(page) -> Image.Image:
+    """``page`` as device pixels, an operators page tagged as poppler's drawing."""
+    image = page_image(page)
+    if isinstance(page, ContentStream):
+        image.info[_RENDERED_FROM] = "operators"
+    return image
+
+
 def _ink(page: Image.Image) -> np.ndarray:
     return np.asarray(page.convert("L")) < INK_LEVEL
 
@@ -163,11 +175,16 @@ def _rules_in(page: Image.Image, left: int, right: int, top: int, bottom: int) -
     # half-open one: measured on the baseline book's header and footer rules,
     # the bitmap run is columns 150..2400 and poppler's is 150..2399 (2250
     # columns of the 2251). The last column is a rasteriser's edge convention,
-    # not a property of the page, so a run is full when every column from
-    # ``left`` up to but excluding ``right`` is ink; the one column given up
-    # is 1/2251 of the rule. ``test_the_ruler_refuses_a_rule_that_stops_short``
-    # holds the other side: a rule that stops 3 px short is not a rule.
-    full = [y for y in range(top, bottom + 1) if ink[y, left:right].all()]
+    # not a property of the page, so on a page poppler drew a run is full when
+    # every column from ``left`` up to but excluding ``right`` is ink (the one
+    # column given up is 1/2251 of the rule); a bitmap keeps the closed
+    # interval. ``test_the_ruler_refuses_a_rule_that_stops_short`` holds both
+    # sides: one column short reds on a bitmap, 4 px short reds on both.
+    # Only an OPERATORS page gives up that column: a bitmap rule is held to the
+    # whole closed interval exactly as before this card (a bitmap rule one
+    # column short is not a rule).
+    end = right if page.info.get(_RENDERED_FROM) == "operators" else right + 1
+    full = [y for y in range(top, bottom + 1) if ink[y, left:end].all()]
     rules: List[Tuple[int, int]] = []
     run: List[int] = []
     for y in full:
@@ -258,7 +275,7 @@ class _Interior:
         self.written: Dict[int, object] = {}
         for number, page in enumerate(stream.pages, start=1):
             self.written[number] = page
-            self.pages[number] = page_image(page).copy()
+            self.pages[number] = _as_pixels(page).copy()
         self.page_count = stream.page_count
 
     def frame(self, page_number: int):
@@ -782,7 +799,7 @@ class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
         assert numbers, "no puzzle page was planned"
         number = numbers[0]
         frame = interior_frame(book_page_spec(book, number))
-        page = page_image(pages[number - 1])
+        page = _as_pixels(pages[number - 1])
         drawing_bottom = compute_layout(
             tuple(map(tuple, tall["clues_rows"])),
             tuple(map(tuple, tall["clues_cols"])),
@@ -894,7 +911,8 @@ class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
                 # the frame's baseline. DECLARED RESIDUE (ADR-0039/R3): the
                 # centre agrees to under VECTOR_CENTRE_BOUND_PX (the stream
                 # states its origin to 3 decimals of a point), measured worst
-                # XX px over the baseline book's two-up folios.
+                # 0.0018 px (0.001833, re-measured on this tree) over the
+                # baseline book's one two-up folio.
                 box = _vector_box(written, str(number))
                 error = abs((box.left + box.right) / 2.0 * written.dpi / 72.0 - frame.folio_x)
                 assert error <= VECTOR_CENTRE_BOUND_PX, (number, error)
@@ -928,11 +946,20 @@ class TestBookPageFrame_TheReadingsCanFail:
         return page
 
     def test_the_ruler_refuses_a_rule_that_stops_short(self) -> None:
-        # The bitmap writer's closed interval and poppler's half-open one are
-        # both a rule; the same rule stopping 4 px short is not.
+        # A bitmap rule is the closed interval: complete passes, ONE column
+        # short does not. A poppler page gives up exactly that last column and
+        # no more: one short passes there, 4 px short fails on both.
+        def operators(page: Image.Image) -> Image.Image:
+            page.info[_RENDERED_FROM] = "operators"
+            return page
+
         assert _rules_in(self._rule_page(10, 300), 10, 300, 90, 110) == [(100, 3)]
-        assert _rules_in(self._rule_page(10, 299), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(self._rule_page(10, 299), 10, 300, 90, 110) == []
+        assert _rules_in(operators(self._rule_page(10, 300)), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(operators(self._rule_page(10, 299)), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(operators(self._rule_page(10, 298)), 10, 300, 90, 110) == []
         assert _rules_in(self._rule_page(10, 296), 10, 300, 90, 110) == []
+        assert _rules_in(operators(self._rule_page(10, 296)), 10, 300, 90, 110) == []
 
     def test_an_operators_page_is_read_for_its_strings_and_not_for_others(self) -> None:
         stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
