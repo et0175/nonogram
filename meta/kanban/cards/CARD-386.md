@@ -59,6 +59,14 @@ Step 2 of design A of the spike (`~/Documents/nonogram-reviews/spike-shared-play
 * ADR-0041/R3 — byte-identical build-time copies (check: AC-2)
 * ADR-0006/R1 — dependency baseline closed (check: review-lens: Bootstrap stays out of the repo)
 
+
+## Carried from CARD-385's review (2026-11-07), for this card's author
+
+* **F-2** In public mode the admin template's usage paragraph `#puzzle-player-hint` still says "...the third reveals it; Check highlights the row of the first wrong mark..." and is visible; Check does not exist there. This card's assembled page must show a usage line that is true for the public player (the sentence is the owner's call; the author proposes one and says so).
+* **F-3** is fixed in CARD-385's fix round (Hint stays enabled where no line decides and says the clues decide nothing more); verify it on the assembled page.
+* The solved banner's picture name is blank in CARD-385's test shell: the real shell must provide the puzzle's public title (never `source_image`; `player_bundle` already falls back to a neutral title).
+* Old public saves (`nonogram-public:<key>`) are never read under the admin's key `nonogram-player:<id>`: the preview starts every visitor fresh; the owner decides at deploy whether a migration is worth it.
+
 ## Worktree notes
 
 (none yet)

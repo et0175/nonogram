@@ -1,6 +1,6 @@
 # CARD-231: A section opener names its section in large type, with dots, range and a line of what to expect
 
-**Status:** ready
+**Status:** parked
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -191,3 +191,7 @@ vector rather than the old one converted"*, and the declaration's `expires_with`
 names CARD-231. CARD-311 would make that page raster for a different and permanent
 reason, so if CARD-311 lands first, this card's vector ambition needs restating
 rather than assuming.
+
+## PARKED 2026-11-06 — the owner will upload the dividers instead
+
+The owner said on 2026-11-06: "I thought I'll add them directly (upload) and you just place them in the pdf", then "follow your plan 231 - just set \"postponed\" and agree about dividers". The board's word for this state is `parked` (`postponed` is not in its vocabulary; CARD-300 is parked the same way). The generated section opener this card designs (large type, dots, range, a line of what to expect) is not needed if the dividers are uploaded images: CARD-311 (upload four divider slots) now carries that, with the owner's rulings recorded on it. Nothing was built here. If the owner ever wants generated openers back, resume this card: its design is intact, and its dependency on CARD-222 and CARD-228 (both done) is unchanged. `expires_with=("CARD-231",)` on the DIVIDER raster declaration in `book_pdf_generator.py` and the comments that name this card are CARD-311's to rewrite (the declaration becomes permanent, like the cover's).

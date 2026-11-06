@@ -1,6 +1,6 @@
 # CARD-209: Wide-but-short solutions pack 3 to a page, one column × three rows
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -16,10 +16,10 @@
 **Depends on:** CARD-204, CARD-322
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_answer_key.py, tests/test_book_solved_answer_key.py, tests/test_layout_answer_tiles.py, tests/property/test_book_answer_tiles.py, tests/helpers/book_corpus.py
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-232** on 2026-11-07 under the owner's page-packing ruling ("1 puzzle per page for big, 2 for small, solutions 4"). No work was done and none is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-07
+**Actual:** none — retired before any work; its three-to-a-page tiling is withdrawn and wide-but-short solutions are tiles like every other (CARD-232, AC-5).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -199,3 +199,6 @@ decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: wi
   phase runs first: dispatching this card before it would mean writing
   pixel-measuring tests and then converting them.
 
+## RETIRED 2026-11-07 — solutions are always four to a page
+
+The owner ruled after the page-packing measurement: "1 puzzle per page for big, 2 for small, solutions 4." CARD-232 (every solution is a fixed tile, four to a page in a 2x2 grid) therefore carries the whole solution rule and CARD-209's one-column, three-row tiling for wide-but-short solutions is withdrawn: there is no 3-up. What this card measured and asked for survives only as history; the live statement of the rule is CARD-232's `[OWNER RULING 2026-11-07, page packing]` section and the `docs/BOOK_PAGE_PACKING.md` it delivers. Its `SOLVED_TILE_CAPACITIES = (2, 4)` gaining a 3 (its guardrail G-1) does NOT happen. Nothing in `src/` was changed by this card.

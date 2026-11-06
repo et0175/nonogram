@@ -1,7 +1,8 @@
 # CARD-350: Poppler rasterises a 282.1 mm trim 1.11 px taller than the dpi says, and two page-size cells have been hiding behind a first-failure attribution
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
+<!-- was the priority when cut; the card is retired, not deprioritised -->
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
 **Complexity:** standard
@@ -17,10 +18,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-336
 **Touches:** tests/property/test_book_pdf_geometry.py
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-322** on 2026-11-06 under the owner's process ruling ("yes, add vector goldens and update the flip card"). No work was done and none is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-06
+**Actual:** none — retired before any work; folded into CARD-322 as its second commit (item 15).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -143,3 +144,13 @@ Measured by the CARD-322 re-cut (mine, a private clone of main at `bb8d1121`, fi
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
 - ADR-0042/R1 — interior pages are operators (check: review-lens)
+
+## Worktree notes
+
+(none yet)
+
+## RETIRED 2026-11-06 — folded into CARD-322 (its commit 2, item 15)
+
+**Why.** Same ruling as CARD-342's. CARD-350's cells are reds of the converted tree in `tests/property/test_book_pdf_geometry.py`, and the flip card's placed-edge ruling already needs that module's F-4 cell (item 13) after these are closed; keeping the cards separate would have put two cards on one file in a serial chain and the flip behind both. They become the second commit of the flip branch.
+
+**What survives, and where.** CARD-322's item 15 and AC-14 carry this card's items and ACs with their ids cited: measure what poppler does with the page box in both media before touching anything (the page box as emitted, the dpi, the pixel count) and say which of three outcomes it supports (the bound, the expectation, the generator); fix the cells the measurement indicts; the same for the page-size count (cell 2); DERIVE the number of tests in the module whose first failing assertion masks a later one and card anything beyond these cells; a one-pixel plant must red; any widened bound is derived from the density. The 2026-11-06 addendum's third cell (the `DrawingFitsUsableAreaUnderStandardCell_pdf_pages` trim-height assertion at `(1629, 3333)`) is included. The addendum's cell 4, the `..._two_up_pages` F-4 site, is NOT in item 15: it is CARD-322's item 13 under the owner's placed-edge ruling (one reading on the one remaining medium; stop condition). Guardrails carried: no `src/` change unless the measurement indicts the generator; `EDGE_TOLERANCE_MM`, `EDGE_TOLERANCE_PX` and `HALF_PIXEL_MM` are not to be moved; do not re-express a placed-edge reading.

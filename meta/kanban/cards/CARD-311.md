@@ -3,7 +3,8 @@
 **Status:** ready
 **Priority:** P2
 **Category:** feature
-**Estimate:** 1d
+**Estimate:** 4c (1.5d)
+<!-- RESTATED in review cycles 2026-11-06 at the owner's divider ruling (was `1d`; the scope grew by the durable store with its migration and by deleting the generated divider). The owner lifted the one-day cap for deliverables on 2026-11-06. If the author finds it does not fit, STOP after the store and the upload slots and report; the deletion of the generated divider can follow. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -15,7 +16,8 @@
 **Wave:** —
 **Created wave:** 66
 **Deferred waves:** 0
-**Depends on:** CARD-298
+**Depends on:** CARD-298, CARD-322
+<!-- CARD-322 added 2026-11-06: it deletes the generated INTERIOR writers from book_pdf_generator.py (the same file this card edits) and keeps create_divider_page and its helpers for this card to remove; the two must not run concurrently. -->
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_finalize.html, tests/test_book_pdf.py, tests/test_book_workflow_steps.py, migrations/versions/
 **Review score:** —
 **Started:** —
@@ -88,6 +90,16 @@ navigation assume every interior page carries one. **Does an uploaded divider st
 get a folio drawn over the owner's artwork?** Decide and state it; "it looked
 better without" is a decision, not an accident, and an uploaded page with no folio
 is the first interior page without one.
+
+## [OWNER RULINGS 2026-11-06] — dividers are UPLOADED, and the generated divider goes away
+
+The owner said on 2026-11-06: "I thought I'll add them directly (upload) and you just place them in the pdf", and then agreed to the orchestrator's proposals. Consequences for this card, which SUPERSEDE item 1 below where they conflict:
+
+* **No upload, no divider.** A slot that is empty prints NO divider page. The "falls back to the drawn page when empty" rule below is withdrawn. The Print setup option becomes "dividers from uploads". Levels with no puzzles still get no page (G-1 about the page count stands, for an upload for an absent level too).
+* **The upload is stored durably.** Not in the temp folder and session key the cover uses (the "Why this is not copy the cover path" collision 1 below): in the database or a real directory with a migration. The author chooses and justifies, in the card, before writing code; the stored value must survive a restart and a temp purge, be named from the book id and never the client's filename, and be read only from inside the store's own directory.
+* **The divider is a permanent bitmap, like the cover.** The `PageKind.DIVIDER` declaration in `book_pdf_generator.py` becomes `expires_with=()` with a reason that says the page is an owner image; the `CARD-231` names in the declaration and the comments around it are rewritten. This answers collision 2 below: the medium is a function of the page kind again, because the kind is now always an uploaded bitmap.
+* **The generated divider is DELETED** by this card: `create_divider_page`, the helpers only it needs (check each with `ast`; `_draw_folio` and the others the vector writers or the cover use stay), and the tests of the drawn divider, with the retirement rule of ADR-0042/R5 (retire with a named survivor). CARD-322 deliberately leaves these in place for this card.
+* **CARD-231 (generated section openers) is parked**: this card replaces it.
 
 ## What to implement
 

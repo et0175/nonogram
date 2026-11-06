@@ -1,7 +1,8 @@
 # CARD-342: `_weights` demands two run widths and antialiasing gives it three — a stroke-weight reading, not an edge position
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
+<!-- was the priority when cut; the card is retired, not deprioritised -->
 **Category:** tech-debt
 **Estimate:** 1c (0.5d)
 **Complexity:** standard
@@ -17,10 +18,10 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_puzzle_frame.py, tests/helpers/page_ink.py
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-322** on 2026-11-06 under the owner's process ruling ("yes, add vector goldens and update the flip card"). No work was done and none is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-06
+**Actual:** none — retired before any work; folded into CARD-322 as its first commit (item 14).
 **Merge commit:** —
 **Blocked by:** —
 
@@ -95,3 +96,13 @@ absorbing them — which is why this card exists instead of a silent widening.
   hand-written (check: review-lens)
 - ADR-0039/R4 — a figure recomputed and refuted is retracted everywhere it was written
   (check: review-lens)
+
+## Worktree notes
+
+(none yet)
+
+## RETIRED 2026-11-06 — folded into CARD-322 (its commit 1, item 14)
+
+**Why.** The owner's process ruling of 2026-11-06 puts the flip card's whole red population on one branch: CARD-322 deletes the bitmap interior path and retires the tests that read it, and the three `_weights` cells in `tests/test_book_puzzle_frame.py` are reds of the same converted tree. They were prerequisites of CARD-322 (`Depends on`), which made the flip wait on a card that touches one test file. Folding them in as the first commit of the same branch removes the wait and keeps the work: checked green unlifted and under the five-kind probe before the next commit, exactly as this card would have been.
+
+**What survives, and where.** Everything this card measured and asked for is CARD-322's item 14 and AC-13, in this card's own words and with its own ids cited: the defect (`a row through the grid shows weights [2, 4, 6]`, three run widths where `_weights` demands two), its non-relation to CARD-336 (a stroke-WEIGHT claim, not an edge position), the three items (establish why there are three widths before implementing against the antialiasing hypothesis; decide what the test is entitled to claim; if the reading must change, change the reading not the bound), the three ACs (the derived count of `_weights` reds, the plant that adds a genuine third width and must red, the evidence for what produced the third width) and the guardrails (no `src/` change; no tolerance widened without a measured residue; no new dependency). The one `tests/helpers/page_ink.py` clause of this card's Touches is CARD-322's G-3c exception, limited to commit 1 and to the case the measurement proves it necessary. Nothing measured here is lost; only the card is.
