@@ -3279,6 +3279,10 @@ class InteriorStream:
     pages: Iterator[Union[Image.Image, ContentStream]]
     paired_only_page_count: int = 0
     page_kinds: Tuple[PageKind, ...] = ()
+    #: ``(puzzle id, title)`` for every puzzle, in print order: the title each
+    #: answer caption prints (CARD-383). Read by the doors that draw, through
+    #: :func:`_refuse_unsettable_titles`; the plan-only readers ignore it.
+    answer_titles: Tuple[Tuple[Any, Optional[str]], ...] = ()
 
     @property
     def pages_saved(self) -> int:
@@ -4433,7 +4437,7 @@ _REFUSAL_LISTED_CHARACTERS = 6
 
 
 def _refuse_unsettable_titles(
-    payloads: Sequence[Tuple[Any, ExportPayload]], titles: Mapping[str, str]
+    answer_titles: Sequence[Tuple[Any, Optional[str]]],
 ) -> None:
     """Refuse, before any page, an answer caption the interior cannot set.
 
@@ -4451,7 +4455,8 @@ def _refuse_unsettable_titles(
     exactly when the declaration is lifted, which is the day the answer page
     becomes operators.
 
-    The string checked is the one the caption prints, taken from the same
+    ``answer_titles`` is :attr:`InteriorStream.answer_titles`: ``(puzzle id,
+    title)`` in print order, the title being the very value of the same
     :func:`~nonogram.admin.book_answer_key.answer_title` call the walk makes
     (the per-book custom title when set, otherwise the name), and
     :func:`~nonogram.admin.book_answer_key.answer_caption` composes the line,
@@ -4459,13 +4464,19 @@ def _refuse_unsettable_titles(
     only authority; there is no second character table here. The first
     puzzle in print order that fails is named.
 
+    **Called by the doors that draw** (:meth:`export_book`,
+    :meth:`export_interior`, :meth:`interior`, which :meth:`interior_pages`
+    reads), after :meth:`interior_stream` has decided the plan and before the
+    first page is asked for -- and **not by :meth:`interior_stream` itself**,
+    which is also the plan the Finalise counts read (``app._interior_counts``)
+    and must keep counting a book the export will refuse (CARD-383, AC-8).
+
     Raises:
         UnsettablePuzzleTitle: the first caption ``encode_text`` rejects.
     """
     if page_medium(PageKind.ANSWER) is not PageMedium.VECTOR:
         return
-    for number, (puzzle_id, payload) in enumerate(payloads, start=1):
-        title = answer_title(titles.get(str(puzzle_id)), payload.name)
+    for number, (puzzle_id, title) in enumerate(answer_titles, start=1):
         try:
             encode_text(answer_caption(number, title))
         except UnrepresentableText:
@@ -5659,6 +5670,7 @@ class BookPDFGenerator:
         bound (F-1) — consecutive pages of a multi-page walk — not this one.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         interior = self._write_pdf(
             stream.pages,
             stream.page_count,
@@ -5683,6 +5695,7 @@ class BookPDFGenerator:
         list is exactly what a book cannot afford.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         return self._write_pdf(
             stream.pages,
             stream.page_count,
@@ -7542,15 +7555,14 @@ class BookPDFGenerator:
         same failures, and every page held at once at the end of it.
         """
         stream = self.interior_stream(puzzles)
+        _refuse_unsettable_titles(stream.answer_titles)
         return Interior(
             pages=list(stream.pages),
             unpaired_page_count=stream.unpaired_page_count,
             answer_page_count=stream.answer_page_count,
         )
 
-    def interior_stream(
-        self, puzzles: List[dict], *, plan_only: bool = False
-    ) -> InteriorStream:
+    def interior_stream(self, puzzles: List[dict]) -> InteriorStream:
         """The interior's page plan, and its pages one at a time (CARD-145).
 
         The export path's entry point, and the lazy core :meth:`interior` is
@@ -7627,16 +7639,6 @@ class BookPDFGenerator:
         dividers = len(section) - len(plan)
         toc_page_count = decided.toc_page_count
         titles = self.custom_titles()
-
-        # CARD-383: refuse, by name, a title the interior's encoding cannot
-        # set -- before the first page, outside the walk's per-page `try`
-        # (which re-types every page exception as a RuntimeError), and only
-        # while the answer page is operators. DEFAULT-DENY on the door:
-        # `plan_only` is for the one caller that reads the plan and draws
-        # nothing (the Finalise counts in `app.py`), which must keep counting
-        # a book the export will refuse.
-        if not plan_only:
-            _refuse_unsettable_titles(payloads, titles)
 
         # The validation half of the old packed key's walk (CARD-198): each
         # answer's grid must still be a non-empty rectangle, checked and named
@@ -8171,6 +8173,10 @@ class BookPDFGenerator:
                 del page
 
         return InteriorStream(
+            answer_titles=tuple(
+                (puzzle_id, answer_title(titles.get(str(puzzle_id)), payload.name))
+                for puzzle_id, payload in payloads
+            ),
             page_count=planned,
             # The baseline before *any* space-saving technique: one puzzle
             # page each (no two-up pairing) and one answer page each (no

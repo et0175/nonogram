@@ -973,7 +973,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
             paired_only_page_count=None,
         )
     try:
-        stream = generator.interior_stream(list(puzzles), plan_only=True)
+        stream = generator.interior_stream(list(puzzles))
     except Exception as error:
         # ``__name__`` is the name Flask gives ``app.logger`` too (the app is
         # ``Flask(__name__)``), so this is the panel's own logger, reachable

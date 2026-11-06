@@ -1807,11 +1807,11 @@ def _watch_the_write(monkeypatch, generator: BookPDFGenerator) -> list[int]:
     return calls
 
 
-#: The doors into the walk that DRAW pages. ``interior_stream`` is the third
-#: ("one walk behind three doors"); all of them refuse.
+#: The doors into the walk that DRAW pages; all of them refuse.
+#: ``interior_stream`` is the plan the Finalise counts read and is not one: it
+#: decides and draws nothing until its pages are asked for.
 _DRAWING_DOORS = (
     "export_interior",
-    "interior_stream",
     "interior_pages",
     "interior",
     "export_book",
@@ -2018,12 +2018,13 @@ class TestBookPdf_TheInteriorRefusesATitleItsEncodingCannotSet:
         assert counts is not None and control is not None
         assert counts.page_count == control.page_count
         assert counts.answer_page_count == control.answer_page_count
-        plan = _assembled(book).interior_stream(greek, plan_only=True)
+        plan = _assembled(book).interior_stream(greek)
         assert plan.page_count == control.page_count
         # The plan seam itself never drew a title either.
         _assembled(book).section_plan(greek)
+        # ... and the doors that draw, on the very same book, refuse.
         with pytest.raises(errors.UnsettablePuzzleTitle):
-            _assembled(book).interior_stream(greek)
+            _assembled(book).export_interior(greek)
 
 
 # --------------------------------------------------------------------------
