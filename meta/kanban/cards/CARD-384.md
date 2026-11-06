@@ -1,6 +1,6 @@
 # CARD-384: Align the public player's crosshair colour and cell-size bounds with the admin solver's
 
-**Status:** in_progress
+**Status:** parked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -79,3 +79,5 @@ Read the Worktree notes of `meta/kanban/cards/CARD-324.md`, `CARD-325.md`, `CARD
 ## Worktree notes
 
 (none yet)
+
+[PARKED 2026-11-06 by the orchestrator on the owner's ruling] After the shared-player spike the owner said "yes to A" (the public page will run the admin's own solver.js and admin.css, CARD-385 and CARD-386, with differences decided after the owner tests the result). Everything this card aligns (crosshair colour, Maybe ground, clue-box ground, cell bounds) is replaced by the admin's own files under A, so this card is parked, NOT cancelled: if A is reversed, resume it. State at parking: branch `card/384-align-public-player-with-admin`, worktree `/Users/omelnikova/PycharmProjects/PythonProject4-card-384` kept, tip `6ec4409c` (four commits over the cut `2111a54f`), clean; the AC-5 table, collision tables and renders are in `~/Documents/nonogram-reviews/CARD-384/`; ONE test is red (`tests/test_public_player.py::test_phone_viewport_is_playable`, clue numerals 8.8 px at the derived 21 px floor against a 10 px pin) awaiting the owner's A/B/C choice, which is now moot unless A is reversed. The probe module was not re-run in full after its last fix. Nothing was merged.
