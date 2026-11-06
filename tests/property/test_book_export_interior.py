@@ -533,7 +533,9 @@ def _title_page_is_blank(data: bytes, pages, label: str) -> None:
     )
 
 
-def _page_two_is_the_guide(data: bytes, pages, puzzles, label: str) -> None:
+def _page_two_is_the_guide(
+    data: bytes, pages, puzzles, label: str, book=None
+) -> None:
     """Interior page 2 is the guide's first page, in the medium it was written.
 
     The bitmap arm is ``same_page`` against the guide the generator draws for
@@ -565,7 +567,11 @@ def _page_two_is_the_guide(data: bytes, pages, puzzles, label: str) -> None:
     # determinism; it does not re-derive the glyphs -- the writer's own module
     # owns what the page draws, and an expected side drawn by the same writer
     # cannot see a drift INSIDE it (declared, not hidden).
-    generator = interior_generator()
+    # ``book`` is the book the interior was written for, when its margins are
+    # not the default profile's: Book 1's gutter equals its outside margin, so
+    # on it page 2 and page 3 have the SAME sheet and a spec taken from the
+    # wrong page position cannot be seen (CARD-379 plant E3 survived there).
+    generator = interior_generator(book)
     writer = generator.pages.guide
     assert writer is not None, (
         f"{label}: interior page 2 is written as operators but the assembled "
@@ -1610,6 +1616,11 @@ class TestInteriorReadings_TheStreamArmIsReached:
         )
         return data
 
+    @staticmethod
+    def _unequal_margins_book():
+        """A book whose gutter and outside margin differ, so the hand shows."""
+        return _parity_book("card-379-guide")
+
     def _vector_guide_interior(self, monkeypatch) -> bytes:
         """An interior whose guide pages (2 and 3) really are operators.
 
@@ -1627,7 +1638,7 @@ class TestInteriorReadings_TheStreamArmIsReached:
                 book_pdf_generator._RASTER_DECLARATIONS, kind, raising=False
             )
         data = (
-            interior_generator(corpus_book())
+            interior_generator(self._unequal_margins_book())
             .export_interior(baseline_puzzles())
             .getvalue()
         )
@@ -1735,7 +1746,13 @@ class TestInteriorReadings_TheStreamArmIsReached:
         """
         data = self._vector_guide_interior(monkeypatch)
 
-        _page_two_is_the_guide(data, None, baseline_puzzles(), "assembled guide")
+        _page_two_is_the_guide(
+            data,
+            None,
+            baseline_puzzles(),
+            "assembled guide",
+            self._unequal_margins_book(),
+        )
 
     def test_the_guide_pages_vector_arm_can_fail_on_a_wrong_page_or_a_stray_mark(
         self, monkeypatch
@@ -1765,7 +1782,9 @@ class TestInteriorReadings_TheStreamArmIsReached:
             lambda _data, _s=streams: [_s[0], _s[1] + "0 0 1 1 re f\n", *_s[2:]],
         )
         with pytest.raises(AssertionError, match="stray"):
-            _page_two_is_the_guide(data, None, puzzles, "stray mark")
+            _page_two_is_the_guide(
+                data, None, puzzles, "stray mark", self._unequal_margins_book()
+            )
 
         assert streams[1] != streams[2], (
             "the two guide pages are identical, so the page-index plant below "
@@ -1777,7 +1796,9 @@ class TestInteriorReadings_TheStreamArmIsReached:
             lambda _data, _s=streams: [_s[0], _s[2], _s[1], *_s[3:]],
         )
         with pytest.raises(AssertionError, match="swapped"):
-            _page_two_is_the_guide(data, None, puzzles, "swapped")
+            _page_two_is_the_guide(
+                data, None, puzzles, "swapped", self._unequal_margins_book()
+            )
 
     def test_no_interior_page_is_the_cover_reads_the_covers_permanent_declaration(
         self, monkeypatch
