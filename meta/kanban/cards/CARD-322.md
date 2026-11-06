@@ -12,7 +12,7 @@
 **Status:** ready
 **Priority:** P1 <!-- RAISED P2 -> P1 2026-10-31 at the re-cut: this card is the terminal node of the ADR-0042 interior phase and SEVEN ready cards wait on it (CARD-207, CARD-209, CARD-229, CARD-230, CARD-232, CARD-233, CARD-288), with CARD-273 behind them. Its two new prerequisites are P1 for the same reason. -->
 **Category:** enabler
-**Estimate:** 2d <!-- RE-CUT 2026-10-31 from 1d. The 1d was priced against "five page kinds plus one test module"; the measured residue is 225 reds under a probe of this card's own end state. Two mechanisms were split out (CARD-336, CARD-337) and what is left here is still not 1d: five conversions, 19 live baselines, R1's flip, CARD-331's arm re-point with its set DERIVED, CARD-297's clip divergence, CARD-306's F-307 rename and the owner render. See the re-cut section. -->
+**Estimate:** 3c (1.5d) <!-- RESTATED in review cycles 2026-11-06 at the SPLIT, before any stamp (a waved card with no Nc term reddens tests/test_kanban_review_record.py, as CARD-325 did). Was `2d`, itself a re-cut of 1d. The premise pass priced the card as written at 5c (2.5d) against the board's sizing.max_estimate of 1d and the owner split it: the part that needs no src/ change and no owner decision is CARD-379 (about 2c); this is the FLIP card, about 3c. Basis: comparators of 29 to 33 reds at 2c landed in 1 cycle (CARD-355, 354, 356), 15 reds at 2c took 2 (CARD-357), 8 to 12 reds at 1c took 2 or 1 (CARD-358, 359, 360), CARD-324 took 3; the mean of this wave's ratios is 1.15. NOT priced: the owner decisions D1 to D8 in the premise note, any content oracle, waits behind gates, and the case where the difficulty-dot instrument has no raster page to measure. -->
 **Complexity:** architectural <!-- RAISED from `standard` at the re-cut: this is the first and only flip of ADR-0042/R1, it is the first production call site of CARD-309's assembly point, it spans src/ + tests/ + fixtures/ + meta/architecture, and its `expires_with` interaction with a live board guard makes the landing order itself load-bearing. -->
 <!-- NOTE: `moderate` (CARD-329/CARD-331's value) is not in the skill's enum; `architectural` is the honest one here and resolves the implementation agent to the quality profile. -->
 
@@ -27,7 +27,7 @@
 **Wave:** —
 **Created wave:** 68
 **Deferred waves:** 0
-**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338, CARD-354, CARD-355, CARD-356, CARD-357, CARD-358, CARD-359, CARD-360
+**Depends on:** CARD-309, CARD-329, CARD-330, CARD-331, CARD-336, CARD-337, CARD-338, CARD-354, CARD-355, CARD-356, CARD-357, CARD-358, CARD-359, CARD-360, CARD-379
 <!--TWO FINDINGS ROUTED HERE BY CARD-337'S ROUND, 2026-11-04, both measured and neither fixable under its G-1.
  (A) A PRODUCT CONSEQUENCE NOBODY HAS DECIDED: the conversion makes `books.interior_ink_mode` have NO EFFECT on 10 of 14 baseline interior pages, and 131 of 171 across the EC-1 corpus, because book_vector.ContentStream's entire colour vocabulary is stroke_grey/fill_grey -- there is no `rg`, so a converted page is DeviceGray whichever mode the book stored. The owner intake that module cites ("we may add colors for book2") is therefore foreclosed on every converted page. Same class as M3b's cp1252 refusal and routed the same way: a product behaviour change that only appears once the page is operators.
  (B) FOUR BASELINE FIXTURES CARRY PROSE THE CONVERSION REFUTES -- e.g. book_baseline_card147.json's "A reader checking the colour space must read it off the PDF's image XObjects." tests/fixtures/book_baseline_*.json is already in this card's Touches (item 5), so this is scope it holds and has not named. -->
@@ -1013,6 +1013,10 @@ the choice CARD-330 already made for the placed-edge expectations it owns.
        this card by name ("that belongs with the conversion, i.e. to CARD-322").
        **CARD-336 owns the amendment that re-points that sentence**, and it is the
        only `meta/architecture` edit in that card's scope. Do not also edit it here. -->
+
+## [SPLIT 2026-11-06] — the pre-flip work moved to CARD-379; this card is the FLIP
+
+On the owner's instruction after the premise pass below, the part of this card that can go green BOTH unlifted and under the probe with no `src/` change moved to **CARD-379** (`Depends on` now includes it, so this card is not ready until it is done): the 13 `delitem` reds (`tests/property/test_book_export_interior.py` 5, `tests/test_book_interior_type_floor.py` 1, `tests/test_book_pdf.py` 7), the M2 expected-side gap, the 2 M3 `_write_pdf` refusal reds in `tests/test_book_pdf_memory.py` and the 2 unowned `tests/test_book_interior_face.py` reds, plus a measure-only look at whether the difficulty-dot instrument would have a raster page. **What stays HERE:** the five registry deletions, the A-decision, the 32 raster-reading cells and 7 registry assertions in `tests/test_book_pdf.py` (to be retired with named stream-medium survivors under a second named G-5 exception), `tests/test_book_difficulty_dots.py` (29), the M3b refusal in `tests/test_book_pdf_band.py` (a PRODUCT decision, D4), the R1 flip, the clip divergence, the rename, the baselines record and the owner render. **This card is NOT to be stamped into a wave, and its items, ACs, Touches and G-5 are NOT yet re-cut:** that re-cut waits on the owner's rulings D3, D4, D6 and D8 in the premise note (D1, D2 and D7 have defaults the pass proposed), and on CARD-379's census, which will be the starting tree. The text of items 0 to 7 and the ACs below still describes the UNSPLIT card and must be read through this banner.
 
 ## Premise re-verified 2026-11-06 (all 14 dependencies are done; main tip 51bbf6cf at the pass)
 
