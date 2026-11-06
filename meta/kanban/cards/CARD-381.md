@@ -1,6 +1,6 @@
 # CARD-381: Raise the hang guard's default to 300 s, and move every claim that quotes 120 s with it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1c (0.5d) <!-- Stated in review cycles at DRAFT time (see CARD-380). -->
@@ -8,17 +8,17 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/381-hang-guard-300
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-381
 **Source:** CARD-322 premise pass D6, owner ruling 2026-11-06 ("accept your recommendation for D6"). Cut bar: it blocks scheduled work (the flip card's geometry node, and every armed gate that runs `test_kill_matrix::test_ac7`).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/hang_guard.py, tests/test_suite_profile.py, tests/test_nfr001_generation_time.py, tests/test_book_pdf_memory.py, tests/test_db_isolation.py, tests/test_db_connect_timeout.py <!-- a starting list from a text search of "120 s" near "hang"; the author re-derives it by reading each hit (a text search is not a census) -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-11-06T08:46Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
