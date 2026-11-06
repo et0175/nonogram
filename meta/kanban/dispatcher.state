@@ -466,18 +466,16 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-327
-    branch: card/327-public-derived-hint
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-327
-    started: 2026-11-06T04:36Z
-    estimate: 3c (1d)
-    cut_from: 9ef90933
   - card: CARD-381
     branch: card/381-hang-guard-300
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-381
     started: 2026-11-06T08:46Z
     estimate: 1c (0.5d)
     cut_from: 979771c7
+# CARD-327 CLEARED 2026-11-06T10:03Z at its merge gate: merged c8a19833, done, certified 8.5 on cycle 1 (fix round
+#   9ad58a55 not re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Its WORKTREE IS KEPT (holds the owner's
+#   unplayed build/site-hint play-test build), idle: no process runs there. The entry is dropped so no
+#   free-slot check counts it as a running card.
 # CARD-379 CLEARED 2026-11-06 at its merge gate: merged adc8c9a5, done, certified 8.5 on cycle 1 (fix round
 #   875d19fd not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Its worktree was removed under the tidy rule
 #   after its instruments were copied to ~/Documents/nonogram-reviews/CARD-379/, so the entry is dropped.
