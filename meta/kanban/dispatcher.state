@@ -465,7 +465,13 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []
+active:
+  - card: CARD-379
+    branch: card/379-pre-flip-green-both-ways
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-379
+    started: 2026-11-06T04:29Z
+    estimate: 2c (1d)
+    cut_from: bf8ede84
 # CARD-358 CLEARED 2026-11-05 at its merge gate: merged f1c9ce93, done, certified 8.0 on cycle 2 (7.5 on
 #   cycle 1), estimate 1c -> 2 cycles = ratio 2.000. Its worktree was removed under the tidy rule after its
 #   instruments were copied to ~/Documents/nonogram-reviews/CARD-358/, so the entry is dropped rather than
