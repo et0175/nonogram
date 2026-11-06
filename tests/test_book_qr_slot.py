@@ -72,6 +72,7 @@ import inspect
 import math
 import random
 import re
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -80,15 +81,19 @@ import pytest
 from PIL import Image, ImageDraw
 
 from nonogram import clues
+from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_manager import Book, BookMetadata
 import nonogram.admin.book_pdf_generator as generator_module
 from nonogram.admin.book_pdf_generator import (
+    _RASTER_DECLARATIONS,
     BAND_SEPARATOR,
+    PageKind,
     QR_CAPTION_TEXT,
     QR_LINK_TEMPLATE,
     SIZE_LABEL_PT,
     BookPDFGenerator,
     PuzzlePagePlan,
+    RasterDeclaration,
     _band_font,
     _draw_page_frame,
     _draw_qr_placeholder as _admin_draw_qr_placeholder,
@@ -99,6 +104,7 @@ from nonogram.admin.book_pdf_generator import (
     qr_link,
     type_px,
 )
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     INTERIOR_FOOTER_MM,
@@ -119,6 +125,7 @@ from nonogram.export.png import render_image
 from nonogram.export.png import _draw_qr_placeholder as _png_draw_qr_placeholder
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
+from tests.helpers.pdf_vector import word_boxes
 
 DPI = 300
 PX_PER_MM = DPI / 25.4
@@ -521,12 +528,74 @@ class TestBookQrSlot_NeverPlacesInkOnTheGutterSide:
 # --------------------------------------------------------------------------
 
 
-def _text_calls(generator: BookPDFGenerator, puzzles, monkeypatch) -> List[dict]:
-    """Every ``draw.text`` call one interior export makes, with its font size.
+#: One text object on an operators page: ``/F1 <size> Tf <x> <y> Td (<text>) Tj``.
+_SHOWN = re.compile(
+    r"/\w+\s+(?P<size>-?\d+(?:\.\d+)?)\s+Tf\s+"
+    r"(?P<x>-?\d+(?:\.\d+)?)\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
+    r"\((?P<text>(?:\\.|[^()\\])*)\)\s+Tj"
+)
 
-    The same "spy on ``ImageDraw.text`` while walking ``interior_stream``"
-    technique ``tests/test_book_page_numbers.py`` and
-    ``tests/test_book_interior_type_floor.py`` already use.
+
+def _operators_text_calls(stream: ContentStream, number: int) -> List[dict]:
+    """The strings an operators page shows, in the shape a ``draw.text`` call has.
+
+    An operators page states where a string STARTS, so ``anchor`` is ``"lb"``
+    for every one, ``xy`` is that origin in pixels and ``size`` the ``Tf`` in
+    pixels. The far end of a footer line is poppler's (``right_px``): the stream
+    does not state a width, and the project's own metrics would only agree with
+    the project's own writer.
+    """
+    scale = stream.dpi / 72.0
+    calls: List[dict] = []
+    for match in _SHOWN.finditer(stream.render().decode("cp1252")):
+        text = match.group("text").replace(r"\)", ")").replace(r"\(", "(").replace("\\\\", "\\")
+        x_pt, y_pt = float(match.group("x")), float(match.group("y"))
+        calls.append(
+            {
+                "page": number,
+                "text": text,
+                "anchor": "lb",
+                "size": float(match.group("size")) * scale,
+                "xy": (x_pt * scale, stream.height_px - y_pt * scale),
+                "x_pt": x_pt,
+            }
+        )
+    footer = [
+        call
+        for call in calls
+        if QR_CAPTION_TEXT in call["text"] or call["text"].startswith("nonogram.example/")
+    ]
+    if footer:
+        with tempfile.TemporaryDirectory(prefix="qr_slot-") as directory:
+            data = write_vector_pdf([stream], 1).getvalue()
+            words = word_boxes(data, 1, out_dir=Path(directory))
+        for call in footer:
+            first = call["text"].split(" ")[0]
+            starts = [w for w in words if w.text == first and abs(w.left - call["x_pt"]) < 0.02]
+            assert starts, f"poppler found no word {first!r} at x={call['x_pt']} on page {number}"
+            line = sorted(
+                (w for w in words if abs(w.bottom - starts[0].bottom) < 0.5 and w.left >= call["x_pt"] - 0.02),
+                key=lambda w: w.left,
+            )
+            joined, last = "", None
+            for word in line:
+                joined = word.text if last is None else f"{joined} {word.text}"
+                last = word
+                if joined == call["text"]:
+                    break
+            assert joined == call["text"], (joined, call["text"])
+            call["right_px"] = last.right * scale
+    return calls
+
+
+def _text_calls(generator: BookPDFGenerator, puzzles, monkeypatch) -> List[dict]:
+    """Every string one interior export draws, with its font size, in either medium.
+
+    A bitmap page is read by the "spy on ``ImageDraw.text`` while walking
+    ``interior_stream``" technique ``tests/test_book_page_numbers.py`` and
+    ``tests/test_book_interior_type_floor.py`` already use; an operators page
+    (ADR-0042/R1) makes no such call, so it is read from its own stream
+    (:func:`_operators_text_calls`, CARD-382).
     """
     original = ImageDraw.ImageDraw.text
     calls: List[dict] = []
@@ -551,10 +620,12 @@ def _text_calls(generator: BookPDFGenerator, puzzles, monkeypatch) -> List[dict]
     while True:
         current["page"] = drawn + 1
         try:
-            next(pages)
+            page = next(pages)
         except StopIteration:
             break
         drawn += 1
+        if isinstance(page, ContentStream):
+            calls.extend(_operators_text_calls(page, drawn))
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
     return calls
 
@@ -638,11 +709,17 @@ class TestBookQrSlot_CarriesItsCaptionAndLink:
             assert call["size"] is not None and call["size"] >= FLOOR_PX, call
             spec = generator.page_spec(call["page"])
             placement = compute_layout(*_clue_sets(10, 10, 3, 3), spec).page
-            width = font.getlength(call["text"])
-            x = call["xy"][0]
-            left = x - width if call["anchor"] == "rb" else x
+            if "right_px" in call:
+                # An operators line: its origin is its left end and poppler's
+                # box is its far end.
+                left, right = call["xy"][0], call["right_px"]
+            else:
+                width = font.getlength(call["text"])
+                x = call["xy"][0]
+                left = x - width if call["anchor"] == "rb" else x
+                right = left + width
             assert left >= placement.usable_left, call
-            assert left + width <= placement.usable_right, call
+            assert right <= placement.usable_right, call
 
     def test_the_link_comes_from_exactly_one_constant(self) -> None:
         """AC-3's last clause: CARD-210 changes one line.
@@ -2512,3 +2589,87 @@ class TestTwoUpFooter_UsesTheSameFooterGeometryAsASinglePage:
                 assert qr_caption(layout) == qr_caption(layout, inset_px=0)
                 insets = qr_group_insets(layout, _drawn_group_lines((1,)), 1)
                 assert insets == (0,)
+
+
+# --------------------------------------------------------------------------
+# CARD-382 -- the controls for the operators reading of the footer lines
+# --------------------------------------------------------------------------
+
+
+def _declare_all(monkeypatch: pytest.MonkeyPatch, *, raster: bool) -> None:
+    """Put the five interior declarations back (``raster``) or take them out.
+
+    Whatever the tree is in, the walk that follows is in the medium the test
+    asked for, and the state reached is asserted (the move
+    ``tests/test_book_pdf.py``'s ``_ensure_declared`` makes, CARD-379).
+    """
+    for kind in (PageKind.TITLE, PageKind.GUIDE, PageKind.TOC, PageKind.ANSWER, PageKind.PUZZLE):
+        if raster:
+            monkeypatch.setitem(
+                _RASTER_DECLARATIONS,
+                kind,
+                _RASTER_DECLARATIONS.get(
+                    kind,
+                    RasterDeclaration(
+                        reason="put back by this test: the tree has lifted it",
+                        authority="CARD-382",
+                        expires_with=("CARD-322",),
+                    ),
+                ),
+            )
+        else:
+            monkeypatch.delitem(_RASTER_DECLARATIONS, kind, raising=False)
+        assert (kind in _RASTER_DECLARATIONS) is raster, kind
+
+
+class TestBookQrSlot_TheOperatorsReadingCanFail:
+    """The reading that stands in for ``draw.text`` on an operators page names
+    the same lines the bitmap spy names, and reports an overhang or a small face
+    when there is one."""
+
+    def test_the_two_mediums_draw_the_same_footer_lines_on_the_same_pages(
+        self, monkeypatch
+    ) -> None:
+        puzzles = baseline_puzzles()
+
+        def lines(calls):
+            return sorted(
+                (call["page"], call["text"])
+                for call in calls
+                if QR_CAPTION_TEXT in call["text"] or call["text"].startswith("nonogram.example/")
+            )
+
+        _declare_all(monkeypatch, raster=True)
+        raster = _text_calls(BookPDFGenerator(corpus_book()), puzzles, monkeypatch)
+        _declare_all(monkeypatch, raster=False)
+        vector = _text_calls(interior_generator(corpus_book()), puzzles, monkeypatch)
+        assert len(lines(raster)) >= 6, "the bitmap walk drew almost no footer lines"
+        assert lines(vector) == lines(raster)
+        # The operators walk is the one that carries poppler's far end; the
+        # bitmap walk has none: the two walks really are in two media.
+        assert all("right_px" in call for call in vector if QR_CAPTION_TEXT in call["text"])
+        assert not any("right_px" in call for call in raster)
+        for call in vector:
+            if QR_CAPTION_TEXT in call["text"] or call["text"].startswith("nonogram.example/"):
+                assert call["size"] >= FLOOR_PX, call
+
+    def _page(self, size_pt: float, x: float) -> ContentStream:
+        stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+        stream.text("Solve it online", x, 2900, size_pt)
+        return stream
+
+    def test_a_line_that_overhangs_the_usable_area_is_reported_as_overhanging(self) -> None:
+        generator = BookPDFGenerator(corpus_book())
+        placement = compute_layout(*_clue_sets(10, 10, 3, 3), generator.page_spec(7)).page
+        inside = _operators_text_calls(self._page(10.08, placement.usable_left + 10), 7)
+        outside = _operators_text_calls(self._page(10.08, placement.usable_right - 200), 7)
+        assert inside[0]["xy"][0] >= placement.usable_left
+        assert inside[0]["right_px"] <= placement.usable_right
+        assert outside[0]["right_px"] > placement.usable_right
+
+    def test_a_line_set_below_the_floor_is_reported_below_the_floor(self) -> None:
+        # 10.08 pt is what the footer lines are set at (42 px at 300 DPI).
+        floor = _operators_text_calls(self._page(10.08, 400), 7)[0]
+        small = _operators_text_calls(self._page(8.0, 400), 7)[0]
+        assert floor["size"] >= FLOOR_PX
+        assert small["size"] < FLOOR_PX

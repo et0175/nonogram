@@ -33,6 +33,7 @@ against the frame — not the frame against itself.
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
@@ -62,6 +63,13 @@ from nonogram.export.layout import (
     interior_frame,
 )
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
+from nonogram.admin.book_vector import ContentStream, write_vector_pdf
+from tests.helpers.pdf_pages import page_image
+from tests.helpers.pdf_vector import word_boxes
+
+#: The ``Image.info`` key that says an image is poppler's drawing of an operators
+#: page (CARD-382); a bitmap straight from the writer carries none.
+_RENDERED_FROM = "rendered_from"
 
 #: Pillow's ink threshold on a greyscale page, as ``page_ink.py`` sets it.
 INK_LEVEL = 128
@@ -69,6 +77,13 @@ INK_LEVEL = 128
 #: CON-020's floor in points, written out rather than imported: the footer's
 #: two marks are reader-facing type and are held to it.
 FLOOR_PT = 10.0
+
+#: How far poppler's centre for an operators page's folio may sit from the frame's
+#: ``folio_x``, in pixels (ADR-0039/R3). The reason: the stream states a string's
+#: origin to 3 decimals of a point and poppler lays the word out from the
+#: embedded ``/Widths``. The measured residue: the worst error over the baseline
+#: book's two-up folios is 0.0018 px, so the bound is 0.05 px, 27 times that.
+VECTOR_CENTRE_BOUND_PX = 0.05
 
 
 # --------------------------------------------------------------------------
@@ -131,6 +146,14 @@ def _min_trim_book() -> Book:
 # --------------------------------------------------------------------------
 
 
+def _as_pixels(page) -> Image.Image:
+    """``page`` as device pixels, an operators page tagged as poppler's drawing."""
+    image = page_image(page)
+    if isinstance(page, ContentStream):
+        image.info[_RENDERED_FROM] = "operators"
+    return image
+
+
 def _ink(page: Image.Image) -> np.ndarray:
     return np.asarray(page.convert("L")) < INK_LEVEL
 
@@ -147,7 +170,21 @@ def _rules_in(page: Image.Image, left: int, right: int, top: int, bottom: int) -
     the frame's own ``y`` lies inside the measured run (:func:`_holds`).
     """
     ink = _ink(page)
-    full = [y for y in range(top, bottom + 1) if ink[y, left : right + 1].all()]
+    # CARD-382, DECLARED RESIDUE (ADR-0039/R3). A rule spans ``left`` .. ``right``
+    # and the bitmap writer inks the closed interval, but poppler fills the
+    # half-open one: measured on the baseline book's header and footer rules,
+    # the bitmap run is columns 150..2400 and poppler's is 150..2399 (2250
+    # columns of the 2251). The last column is a rasteriser's edge convention,
+    # not a property of the page, so on a page poppler drew a run is full when
+    # every column from ``left`` up to but excluding ``right`` is ink (the one
+    # column given up is 1/2251 of the rule); a bitmap keeps the closed
+    # interval. ``test_the_ruler_refuses_a_rule_that_stops_short`` holds both
+    # sides: one column short reds on a bitmap, 4 px short reds on both.
+    # Only an OPERATORS page gives up that column: a bitmap rule is held to the
+    # whole closed interval exactly as before this card (a bitmap rule one
+    # column short is not a rule).
+    end = right if page.info.get(_RENDERED_FROM) == "operators" else right + 1
+    full = [y for y in range(top, bottom + 1) if ink[y, left:end].all()]
     rules: List[Tuple[int, int]] = []
     run: List[int] = []
     for y in full:
@@ -229,8 +266,16 @@ class _Interior:
                 )
         stream = BookPDFGenerator(book).interior_stream(puzzles)
         self.pages: Dict[int, Image.Image] = {}
+        # CARD-382: a page arrives in the medium its kind declares (ADR-0042/R1).
+        # ``page_image`` hands a bitmap back unchanged and has poppler draw an
+        # operators page at the stream's own DPI, so every ruler below reads
+        # device pixels in either medium.
+        #: The pages as the writer handed them over: a bitmap or a content
+        #: stream. ``pages`` above is the same set as device pixels.
+        self.written: Dict[int, object] = {}
         for number, page in enumerate(stream.pages, start=1):
-            self.pages[number] = page.copy()
+            self.written[number] = page
+            self.pages[number] = _as_pixels(page).copy()
         self.page_count = stream.page_count
 
     def frame(self, page_number: int):
@@ -481,11 +526,68 @@ class _TextCall(SimpleNamespace):
     pass
 
 
-def _text_calls(interior: _Interior) -> List[_TextCall]:
-    """Every ``draw.text`` call the baseline interior makes, tagged by page.
+#: One text object as an operators page spells it: ``/F1 <size> Tf <x> <y> Td
+#: (<text>) Tj``. The string is recovered beside its origin, in points from the
+#: page's bottom-left corner (PDF's own).
+_SHOWN = re.compile(
+    r"/\w+\s+(?P<size>-?\d+(?:\.\d+)?)\s+Tf\s+"
+    r"(?P<x>-?\d+(?:\.\d+)?)\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
+    r"\((?P<text>(?:\\.|[^()\\])*)\)\s+Tj"
+)
 
-    The same spy ``tests/test_book_page_numbers.py`` uses — recorded once and
-    kept, because it needs its own export of the interior.
+
+def _shown_on(stream: ContentStream, number: int) -> List[_TextCall]:
+    """The strings an operators page shows, each with its origin in pixels.
+
+    ``anchor`` is ``None`` on purpose: an operators page states where the
+    string STARTS (``Td``), not which of its points the caller meant, so a
+    claim about an anchor is made on the bitmap pages and a claim about where
+    the string sits is made from poppler's box (:func:`_vector_box`).
+    """
+    calls = []
+    for match in _SHOWN.finditer(stream.render().decode("cp1252")):
+        text = match.group("text")
+        for escaped, plain in ((r"\r", "\r"), (r"\n", "\n"), (r"\)", ")"), (r"\(", "(")):
+            text = text.replace(escaped, plain)
+        x_pt, y_pt = float(match.group("x")), float(match.group("y"))
+        calls.append(
+            _TextCall(
+                page=number,
+                text=text.replace("\\\\", "\\"),
+                anchor=None,
+                xy=(
+                    x_pt * stream.dpi / 72.0,
+                    stream.height_px - y_pt * stream.dpi / 72.0,
+                ),
+            )
+        )
+    return calls
+
+
+def _vector_box(stream: ContentStream, text: str):
+    """Poppler's box for the one word ``text`` on an operators page.
+
+    The independent reading of where a string sits: the box is poppler's own
+    layout from the embedded ``/Widths``, so asking it where the writer put a
+    centred folio asks an engine that did not write the file.
+    """
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory(prefix="page_frame-") as directory:
+        data = write_vector_pdf([stream], 1).getvalue()
+        words = [w for w in word_boxes(data, 1, out_dir=Path(directory)) if w.text == text]
+    assert len(words) == 1, f"{text!r} is on the page {len(words)} times"
+    return words[0]
+
+
+def _text_calls(interior: _Interior) -> List[_TextCall]:
+    """Every string the baseline interior draws, tagged by page, in either medium.
+
+    A bitmap page is read through the same ``draw.text`` spy
+    ``tests/test_book_page_numbers.py`` uses; an operators page (ADR-0042/R1)
+    makes no ``draw.text`` call at all, so it is read from its own stream.
+    Recorded once and kept, because it needs its own export of the interior.
     """
     key = f"texts:{interior.book.book_id}"
     if key in _CACHE:
@@ -508,10 +610,12 @@ def _text_calls(interior: _Interior) -> List[_TextCall]:
         while True:
             current["page"] = drawn + 1
             try:
-                next(pages)
+                page = next(pages)
             except StopIteration:
                 break
             drawn += 1
+            if isinstance(page, ContentStream):
+                calls.extend(_shown_on(page, drawn))
     finally:
         ImageDraw.ImageDraw.text = original  # noqa: B010
     _CACHE[key] = calls
@@ -695,7 +799,7 @@ class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
         assert numbers, "no puzzle page was planned"
         number = numbers[0]
         frame = interior_frame(book_page_spec(book, number))
-        page = pages[number - 1]
+        page = _as_pixels(pages[number - 1])
         drawing_bottom = compute_layout(
             tuple(map(tuple, tall["clues_rows"])),
             tuple(map(tuple, tall["clues_cols"])),
@@ -798,8 +902,24 @@ class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
                 if call.page == number and call.text == str(number)
             ]
             assert len(folio) == 1, f"page {number} drew {len(folio)} folios"
-            assert folio[0].anchor == "mb", "a two-up folio is now centred on the footer line"
-            assert folio[0].xy == (frame.folio_x, frame.baseline)
+            written = interior.written[number]
+            if isinstance(written, ContentStream):
+                # An operators page states where the string starts, not an
+                # anchor, so "centred on the footer line" is read as geometry:
+                # the centre of poppler's box for the folio against the
+                # frame's folio_x, and the baseline the stream states against
+                # the frame's baseline. DECLARED RESIDUE (ADR-0039/R3): the
+                # centre agrees to under VECTOR_CENTRE_BOUND_PX (the stream
+                # states its origin to 3 decimals of a point), measured worst
+                # 0.0018 px (0.001833, re-measured on this tree) over the
+                # baseline book's one two-up folio.
+                box = _vector_box(written, str(number))
+                error = abs((box.left + box.right) / 2.0 * written.dpi / 72.0 - frame.folio_x)
+                assert error <= VECTOR_CENTRE_BOUND_PX, (number, error)
+                assert folio[0].xy[1] == pytest.approx(frame.baseline, abs=VECTOR_CENTRE_BOUND_PX)
+            else:
+                assert folio[0].anchor == "mb", "a two-up folio is now centred on the footer line"
+                assert folio[0].xy == (frame.folio_x, frame.baseline)
 
     def test_the_one_exemption_left_is_the_grid_size_label(self, interior) -> None:
         """Narrowed, not dropped: a two-up page carries two grid sizes and so
@@ -813,6 +933,59 @@ class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
                 if call.page == number and " x " in call.text
             ]
             assert labels == [], (number, labels)
+
+
+class TestBookPageFrame_TheReadingsCanFail:
+    """CARD-382 — a matched control for every reading added to make this
+    module read an operators page, each green beside the plant that breaks it."""
+
+    @staticmethod
+    def _rule_page(first: int, last: int) -> Image.Image:
+        page = Image.new("L", (400, 200), 255)
+        ImageDraw.Draw(page).rectangle([first, 100, last, 102], fill=0)
+        return page
+
+    def test_the_ruler_refuses_a_rule_that_stops_short(self) -> None:
+        # A bitmap rule is the closed interval: complete passes, ONE column
+        # short does not. A poppler page gives up exactly that last column and
+        # no more: one short passes there, 4 px short fails on both.
+        def operators(page: Image.Image) -> Image.Image:
+            page.info[_RENDERED_FROM] = "operators"
+            return page
+
+        assert _rules_in(self._rule_page(10, 300), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(self._rule_page(10, 299), 10, 300, 90, 110) == []
+        assert _rules_in(operators(self._rule_page(10, 300)), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(operators(self._rule_page(10, 299)), 10, 300, 90, 110) == [(100, 3)]
+        assert _rules_in(operators(self._rule_page(10, 298)), 10, 300, 90, 110) == []
+        assert _rules_in(self._rule_page(10, 296), 10, 300, 90, 110) == []
+        assert _rules_in(operators(self._rule_page(10, 296)), 10, 300, 90, 110) == []
+
+    def test_an_operators_page_is_read_for_its_strings_and_not_for_others(self) -> None:
+        stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+        stream.text("8", 1200, 2885, 10.08)
+        stream.text("15 x 15", 300, 2885, 10.08)
+        calls = _shown_on(stream, 7)
+        assert [call.text for call in calls] == ["8", "15 x 15"]
+        assert all(call.page == 7 for call in calls)
+        assert calls[0].xy == pytest.approx((1200, 2885), abs=0.01)
+        assert "9" not in [call.text for call in calls]
+
+    def test_the_centre_reading_catches_a_folio_set_off_centre(self) -> None:
+        frame = interior_frame(book_page_spec(None, 7))
+
+        def error_of(left: float) -> float:
+            stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+            stream.text("8", left, frame.baseline, 10.08)
+            box = _vector_box(stream, "8")
+            return abs((box.left + box.right) / 2.0 * stream.dpi / 72.0 - frame.folio_x)
+
+        # The plant: the string STARTS at folio_x, so its centre is half a glyph
+        # to the right. The control: started half a glyph early, it is centred.
+        plant = error_of(frame.folio_x)
+        assert plant > VECTOR_CENTRE_BOUND_PX, plant
+        control = error_of(frame.folio_x - plant)
+        assert control <= VECTOR_CENTRE_BOUND_PX, control
 
 
 # --------------------------------------------------------------------------

@@ -66,8 +66,10 @@ import random
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from nonogram.admin.book_manager import BookManager
+from nonogram.admin.book_vector import ContentStream
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
@@ -357,6 +359,20 @@ def assert_prints_grouped_with_dividers(shelf, order, context) -> int:
     return len(names)
 
 
+def sheet_size(page) -> tuple:
+    """A page's sheet in pixels, in whichever medium the page is written.
+
+    A bitmap page is its ``Image.size``; an operators page (ADR-0042/R1) has no
+    bitmap and states its sheet as the ``width_px`` x ``height_px`` its
+    ``MediaBox`` is cut from (CARD-382). Both are the trim in device pixels, so
+    a book whose pages are in two media is still asked one question: is every
+    sheet the same size.
+    """
+    if isinstance(page, ContentStream):
+        return (page.width_px, page.height_px)
+    return page.size
+
+
 def assert_the_interior_really_prints_that(shelf, order, context) -> None:
     """The same book, exported: the page plan's own count, and a real file.
 
@@ -389,7 +405,7 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
     )
     assert stream.page_count == expected, context
     assert len(pages) == expected, context
-    assert {page.size for page in pages} == {pages[0].size}, context
+    assert {sheet_size(page) for page in pages} == {sheet_size(pages[0])}, context
 
 
 # --------------------------------------------------------------------------
@@ -554,3 +570,16 @@ def test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence(mode, tmp_path
             f"only {seen} {kind!r} steps in {steps}; the property would be vacuous "
             f"for that kind: {counts}"
         )
+
+
+def test_the_sheet_reading_tells_a_wrong_sheet_from_the_right_one_in_either_medium() -> None:
+    """CARD-382's control for :func:`sheet_size`: the same question asked of a
+    bitmap and of a content stream, each with a matched sheet and a wrong one."""
+    bitmap = Image.new("RGB", (2550, 3300), (255, 255, 255))
+    assert sheet_size(bitmap) == (2550, 3300)
+    assert sheet_size(Image.new("RGB", (2550, 3301), (255, 255, 255))) != sheet_size(bitmap)
+    stream = ContentStream(width_px=2550, height_px=3300, dpi=300)
+    assert sheet_size(stream) == sheet_size(bitmap)
+    assert sheet_size(ContentStream(width_px=2550, height_px=3301, dpi=300)) != sheet_size(stream)
+    assert len({sheet_size(page) for page in (bitmap, stream)}) == 1
+    assert len({sheet_size(page) for page in (bitmap, stream, Image.new("RGB", (10, 10)))}) == 2
