@@ -123,8 +123,11 @@
 //     never called;
 //   * the hint is derived from the clues and the marks as the player has them
 //     (hintCell and hintLine with a null solution), and has NO answer-reveal
-//     fallback: a board on which no line decides a cell has no hint at all,
-//     so Hint is disabled there. A wrong mark can mislead it, which is what
+//     fallback: a board on which no line decides a cell has no hint cell, and
+//     Hint stays ENABLED while any cell is undecided and says so in the same
+//     words as player/play.js (PUBLIC_EXHAUSTED) — in the explain line and
+//     the announce region, with nothing recorded, nothing counted, and the
+//     ladder where it was. A wrong mark can mislead it, which is what
 //     player/play.js's derivedHint does today and is inherent to having no
 //     answer to check a mark against;
 //   * Errors, Progress and Check are ABSENT, not inert: start() removes
@@ -136,15 +139,15 @@
 //   * the save carries a constant stamp instead of the solution's fingerprint
 //     (solver_state.js PUBLIC_GRID) under the admin's key, nonogram-player:<id>.
 // Edit mode and public mode are exclusive (one `mode`), and admin mode —
-// `mode` absent — is exactly what it was. The flag is read EIGHT times in
+// `mode` absent — is exactly what it was. The flag is read NINE times in
 // code (the `const publicMode` declaration aside): the seal, the removal of
 // the three elements, showProgress's two guards (Errors, Progress) and its
-// solved test, and the three callbacks start() hands wireMarking (nextHint,
-// hintLine, solves). The count is the control, as the edit flag's is:
+// solved test, and the four callbacks start() hands wireMarking (nextHint,
+// speaks, hintLine, solves). The count is the control, as the edit flag's is:
 // tests/test_puzzle_editor_ui.py's
 // test_the_edit_mode_contract_counts_its_own_branches reads this very
-// sentence AND counts the reads, so a ninth read added without amending
-// "EIGHT reads of `publicMode`" reds. The ten solution-reading sites are
+// sentence AND counts the reads, so a tenth read added without amending
+// "NINE reads of `publicMode`" reds. The ten solution-reading sites are
 // listed, each with how it is gated, in tests/test_player_public_mode.py.
 //
 // THE LIVE PLAYER — window.puzzlePlayer, set once the board is drawn:
@@ -612,6 +615,12 @@ const MAJOR_EVERY = 5;
 
 // The one value of payload.mode that is not the player (CARD-246).
 const EDIT_MODE = "edit";
+
+// What a Hint press says in public mode when the clues decide no cell: the
+// words of player/play.js's HINT_EXHAUSTED (tests/test_player_public_mode.py
+// reads both files and holds the two sentences equal).
+const PUBLIC_EXHAUSTED =
+  "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board.";
 
 // What public mode takes off the page (CARD-385; see PUBLIC MODE above).
 const PUBLIC_ABSENT = '#puzzle-player-errors, #puzzle-player-progress, [data-player-action="check"]';
@@ -1185,6 +1194,14 @@ function start() {
     // this answers null for the guards that ask anyway.
     nextHint: () => (editing ? null
       : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution)),
+    // Whether Hint has a SENTENCE to say where it has no cell (CARD-385).
+    // The admin's Hint is offered while nextHint() has a cell (its fallback
+    // reveals any undecided cell), so this is false there. In public mode
+    // there is no fallback, so no hint cell does not mean nothing to say:
+    // Hint stays on while any cell is undecided (UNKNOWN or "?"), as
+    // play.js's canHint does, and answers with PUBLIC_EXHAUSTED.
+    speaks: () => publicMode
+      && history.board.cells.some((state) => state === UNKNOWN || state === MAYBE),
     // CARD-269: the line rungs 1 and 2 point at for a nextHint() result, and
     // the row Check names — both read the RECORDED board and the payload, so
     // they are asked here, beside nextHint, rather than from wireMarking.
@@ -1997,7 +2014,8 @@ function wireMarking(container, player) {
     // Optional since CARD-246: the editor's page has no Hint button (see
     // EDIT MODE). `?.` rather than a mode flag of its own — this function
     // reads the DOM it was given and nothing about why.
-    actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
+    actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null
+      || (player.nextHint() === null && !player.speaks())));
     // CARD-269 rule 9: Check is disabled by the LOCK alone. It reads the
     // board and never changes it, so "nothing to reveal" (which disables
     // Hint) is not a reason to disable it — on a board with no undecided
@@ -2308,7 +2326,16 @@ function wireMarking(container, player) {
   actions.hint?.addEventListener("click", () => {
     if (gesture || player.locked()) return;
     const hint = player.nextHint();
-    if (hint === null) return;
+    if (hint === null) {
+      // Admin: no undecided cell at all, nothing to say (the button is
+      // disabled). Public: undecided cells but no line decides one: say so,
+      // record nothing, count nothing, leave the ladder where it is.
+      if (!player.speaks()) return;
+      lastClick = null;
+      setLadderLine(null);
+      say(PUBLIC_EXHAUSTED);
+      return;
+    }
     // A press is an INPUT, so it ends a run of repeat clicks even on rungs 1
     // and 2, which record nothing — the same rule the reset confirmation
     // follows ("opening the confirmation is an input", see MARKING). Without

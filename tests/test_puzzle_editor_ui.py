@@ -815,12 +815,12 @@ class TestPuzzleEditor_Guardrails:
                 line for line in text.splitlines() if not line.strip().startswith("//"))
             return len(re.findall(r"\bpublicMode\b", body)) - 1
 
-        assert "EIGHT reads of `publicMode`" in solver
-        assert public_reads(solver) == 8, public_reads(solver)
+        assert "NINE reads of `publicMode`" in solver
+        assert public_reads(solver) == 9, public_reads(solver)
         planted = solver.replace(
             "  if (publicMode) sealSolution(payload);\n",
-            "  if (publicMode) sealSolution(payload);\n  if (publicMode) { /* a ninth read */ }\n")
-        assert planted != solver and public_reads(planted) == 9
+            "  if (publicMode) sealSolution(payload);\n  if (publicMode) { /* a tenth read */ }\n")
+        assert planted != solver and public_reads(planted) == 10
         # And the two flags are exclusive: one `mode`, so neither can be read
         # as the other's alternative.
         assert 'const EDIT_MODE = "edit";' in solver and "PUBLIC_MODE" in solver

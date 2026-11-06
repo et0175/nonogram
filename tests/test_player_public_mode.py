@@ -98,6 +98,13 @@ def flat(grid) -> str:
     return "".join("1" if cell else "0" for row in grid for cell in row)
 
 
+def play_exhausted_sentence() -> str:
+    """player/play.js's exhausted-hint sentence, read from the file."""
+    match = re.search(r'const HINT_EXHAUSTED =\s*\n?\s*"([^"]+)";', (_PLAYER / "play.js").read_text())
+    assert match, "play.js no longer defines HINT_EXHAUSTED"
+    return match.group(1)
+
+
 def public_payload(grid, *, puzzle_id: str = SWEEP_ID, **extra) -> dict:
     rows, columns = clues_of(grid)
     payload = {"id": puzzle_id, "mode": "public", "width": len(grid[0]), "height": len(grid),
@@ -479,11 +486,14 @@ def step_hint(page, ctx):
     assert states(page) != before, "rung 3 reveals a cell"
     assert page.locator("[data-player-hints]").inner_text() == "1"
     for _ in range(3 * 90):
-        if disabled(hint) or page.locator("#puzzle-player-solved").is_visible():
+        if disabled(hint) or page.locator("#puzzle-player-solved").is_visible() or \
+                page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence():
             break
         hint.click()
-    assert disabled(hint) or page.locator("#puzzle-player-solved").is_visible(), "the ladder ran out of presses"
-    hint.click(force=True)  # beyond: a disabled or locked Hint is inert, not an error
+    assert (disabled(hint) or page.locator("#puzzle-player-solved").is_visible()
+            or page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence()), \
+        "the ladder ran out of presses"
+    hint.click(force=True)  # beyond: a locked Hint is inert, an exhausted one repeats its sentence
 
 
 def step_check_is_absent(page, ctx):
@@ -511,6 +521,31 @@ def step_crosshair(page, ctx):
     page.mouse.move(*centre(page, 3, 4))
     assert page.locator(".is-crossed").count() > 0
     page.mouse.move(0, 0)
+
+
+def step_same_count_wrong_board(page, ctx):
+    """F-1: a board with as many filled cells as the solution has, in the wrong
+    places, completed under an OPEN probe: it is not solved (no banner, no lock)
+    and the probe does not commit. Solved means the clues are met, not that the
+    number of black cells is right."""
+    if not disabled(action(page, "reset")):
+        action(page, "reset").click()
+        page.locator('[data-player-confirm="accept"]').click()
+    solution = [(r, c) for r, row in enumerate(SWEEP_GRID) for c, v in enumerate(row) if v]
+    blank = next((r, c) for r, row in enumerate(SWEEP_GRID) for c, v in enumerate(row) if not v)
+    wrong = solution[1:] + [blank]  # one solution cell moved: same count, wrong place
+    assert len(wrong) == len(solution) and set(wrong) != set(solution)
+    probe = page.locator("[data-player-probe]")
+    probe.click()
+    assert probe.get_attribute("aria-pressed") == "true"
+    for r, c in wrong:
+        cell(page, r, c).click()
+    assert not page.locator("#puzzle-player-solved").is_visible(), "a same-count wrong board was called solved"
+    assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-solved')")
+    assert probe.get_attribute("aria-pressed") == "true", "a same-count wrong board committed the probe"
+    assert not disabled(action(page, "undo")), "the board is locked"
+    page.locator('[data-player-probe-action="abandon"]').click()
+    assert set(states(page)) == {UNKNOWN}, "Contradiction restores the board the probe opened on"
 
 
 def step_pinch(page, ctx):
@@ -551,6 +586,7 @@ GESTURE_STEPS = {
     "brush-menu": step_brush_menu,
     "crosshair": step_crosshair,
     "pinch": step_pinch,
+    "same-count-wrong-board": step_same_count_wrong_board,
 }
 
 
@@ -652,10 +688,14 @@ class TestPublicMode_TheSweep:
         watch = Watch(browser_page)
         served = serve(public_payload(STALL_GRID, puzzle_id="stall"))
         open_page(browser_page, served)
-        assert disabled(action(browser_page, "hint")), "no line decides a cell: nothing to hint"
+        # CARD-385 fix round (F-3): the id is kept (G-5) and the claim moved.
+        # Hint used to be DISABLED here (a dead button with no reason); it now
+        # stays enabled and says play.js's sentence. Nothing is revealed.
+        assert not disabled(action(browser_page, "hint")), "undecided cells remain: Hint stays on"
         before = states(browser_page)
-        action(browser_page, "hint").click(force=True)
+        action(browser_page, "hint").click()
         assert states(browser_page) == before
+        assert browser_page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence()
         assert watch.problems() == []
 
 
@@ -682,25 +722,42 @@ def sweep_problems(page, served: Served, grid=SWEEP_GRID, steps=None, timeout=10
 
 
 def stall_problems(page, served: Served, timeout=3000) -> list[str]:
-    """On a board no line decides, Hint offers and reveals nothing."""
+    """On a board no line decides, Hint is still offered, says why nothing is
+    offered in play.js's words (explain line AND announce region), reveals
+    nothing, records nothing, counts nothing, and does not climb the ladder."""
     page.set_default_timeout(timeout)
     watch = Watch(page)
     problems: list[str] = []
     try:
         open_page(page, served)
-        hint = action(page, "hint")
-        if not disabled(hint):
-            problems.append("Hint is offered on a board where no line decides a cell")
-        before = states(page)
-        for _ in range(3):
-            hint.click(force=True)
-        if states(page) != before:
-            problems.append("Hint changed a cell on a board where no line decides one")
-        if page.locator("[data-player-hints]").inner_text() != "0":
-            problems.append("a hint was counted where none was derivable")
+        problems += exhausted_press_problems(page)
     except Exception as error:  # noqa: BLE001
         problems.append(f"aborted: {type(error).__name__}: {str(error).splitlines()[0][:160]}")
     return problems + watch.problems()
+
+
+def exhausted_press_problems(page) -> list[str]:
+    problems: list[str] = []
+    hint = action(page, "hint")
+    if disabled(hint):
+        problems.append("Hint is disabled where cells are undecided and no line decides one (a dead button)")
+    before = states(page)
+    sentence = play_exhausted_sentence()
+    for press in range(4):  # past three: the ladder must not reach a reveal
+        hint.click(force=True)
+        if page.locator("#puzzle-player-explain").inner_text() != sentence:
+            problems.append(f"press {press + 1}: the explain line is {page.locator('#puzzle-player-explain').inner_text()!r}")
+        if page.locator("#puzzle-player-announce").inner_text() != sentence:
+            problems.append(f"press {press + 1}: the announce region is {page.locator('#puzzle-player-announce').inner_text()!r}")
+    if states(page) != before:
+        problems.append("Hint changed a cell on a board where no line decides one")
+    if page.locator("[data-player-hints]").inner_text() != "0":
+        problems.append("a hint was counted where none was derivable")
+    if not disabled(action(page, "undo")):
+        problems.append("a stroke was recorded by a press that has no cell")
+    if page.locator(".is-hint-line, .is-hinted").count() != 0:
+        problems.append("something was highlighted where no line decides a cell")
+    return problems
 
 
 def refusal_problems(page, served: Served, timeout=3000) -> list[str]:
@@ -815,6 +872,14 @@ def admin_mode_problems(page, served: Served, timeout=5000) -> list[str]:
         saved = json.loads(page.evaluate(f"localStorage.getItem('nonogram-player:{SWEEP_ID}')"))
         if saved["grid"] == "public" or not re.fullmatch(r"[0-9a-f]{8}", saved["grid"]):
             problems.append(f"an admin save is stamped {saved['grid']!r}, not a fingerprint")
+        saved["grid"] = "public"  # a public page's stamp, on a save whose strokes would otherwise resume
+        page.evaluate(f"localStorage.setItem('nonogram-player:{SWEEP_ID}', {json.dumps(json.dumps(saved))})")
+        page.reload()
+        page.wait_for_function("window.puzzlePlayer !== undefined")
+        if set(states(page)) != {UNKNOWN}:
+            problems.append("a save stamped by a public page was resumed in admin mode")
+        if page.evaluate(f"localStorage.getItem('nonogram-player:{SWEEP_ID}')") is not None:
+            problems.append("a save stamped by a public page was not forgotten in admin mode")
     except Exception as error:  # noqa: BLE001
         problems.append(f"aborted: {type(error).__name__}: {str(error).splitlines()[0][:160]}")
     return problems + watch.problems()
@@ -885,8 +950,40 @@ class TestPublicMode_TheSave:
 
 @pytest.mark.browser
 class TestPublicMode_TheStallBoard:
-    def test_hint_offers_and_reveals_nothing_where_no_line_decides(self, browser_page, serve) -> None:
+    def test_hint_says_why_and_reveals_nothing_where_no_line_decides(self, browser_page, serve) -> None:
         assert stall_problems(browser_page, serve(public_payload(STALL_GRID, puzzle_id="stall"))) == []
+
+    def test_the_sentence_is_play_js_s_own(self) -> None:
+        """G-6: the same words as the public player says today."""
+        assert play_exhausted_sentence() in (_STATIC / "solver.js").read_text()
+        assert play_exhausted_sentence().startswith("Hint: the clues decide nothing more by themselves")
+
+    def test_the_oracle_s_stalled_boards_drive_it(self, browser_page, serve) -> None:
+        """Boards the brute-force oracle says no line decides (half of them
+        holding a '?'): Hint is enabled and says the sentence on each; and a
+        fully decided board that is not solved has nothing to hint, so it is
+        disabled (play.js's canHint)."""
+        stalled = [c for c in hint_corpus() if c["w"] <= ORACLE_MAX_SIDE and c["h"] <= ORACLE_MAX_SIDE
+                   and oracle_hint(c["cells"], c["w"], c["h"], c["rows"], c["cols"]) is None
+                   and any(s in (UNKNOWN, MAYBE) for s in c["cells"])]
+        assert len(stalled) >= 30 and sum(MAYBE in c["cells"] for c in stalled) >= 10
+        for n, case in enumerate(stalled[:24]):
+            served = serve(public_payload(case["grid"], puzzle_id=f"stalled{n}"))
+            page = browser_page.context.new_page()
+            open_page(page, served)
+            page.evaluate(
+                """async (cells) => { const S = await import('/solver_state.js'); const b = window.puzzlePlayer.getBoard();
+                   window.puzzlePlayer.setBoard(Object.freeze({ width: b.width, height: b.height, cells: Object.freeze(cells) })); }""",
+                case["cells"])
+            assert exhausted_press_problems(page) == [], (n, case["cells"])
+            page.close()
+        page = browser_page.context.new_page()
+        open_page(page, serve(public_payload(STALL_GRID, puzzle_id="decided")))
+        page.evaluate(
+            """() => { const b = window.puzzlePlayer.getBoard();
+               window.puzzlePlayer.setBoard(Object.freeze({ width: b.width, height: b.height,
+                 cells: Object.freeze(b.cells.map(() => 'filled')) })); }""")
+        assert disabled(action(page, "hint")), "no undecided cell: nothing to say, nothing to reveal"
 
 
 @pytest.mark.browser
@@ -1497,6 +1594,8 @@ _SOLVES = """    solves: (candidate) => !editing && (publicMode
       ? isClueSolved(candidate, payload.rows, payload.columns)
       : isSolved(candidate, payload.solution)),"""
 _FALLBACK = "      if (fallback === null && solution !== null) {\n        fallback = { row, col, state: truth(row, col), deduced: false };\n      }"
+_COUNT = ('candidate.cells.filter((c) => c === "filled").length'
+          ' === payload.rows.flat().reduce((a, b) => a + b, 0)')
 _STAMP = "  return payload.mode === PUBLIC_MODE ? PUBLIC_GRID : gridFingerprint(payload.solution);"
 
 #: (id, check that must red, [(file, old, new)]). Each edit's ``old`` is
@@ -1522,6 +1621,13 @@ MUTANTS = [
     ("admin-solved-is-read-from-the-clues", "admin", [("solver.js", _NOW, "    const now = isClueSolved(history.board, payload.rows, payload.columns);")]),
     ("admin-loses-its-counters-and-check", "admin", [("solver.js", "  if (publicMode) {\n    for (const element of toolbar", "  if (true) {\n    for (const element of toolbar")]),
     ("admin-save-is-stamped-public", "admin", [("solver_state.js", _STAMP, "  return PUBLIC_GRID;")]),
+    ("banner-decided-by-filled-count", "sweep", [("solver.js", _NOW, _NOW.replace("isClueSolved(history.board, payload.rows, payload.columns)", _COUNT.replace("candidate", "history.board")))]),
+    ("probe-auto-commit-decided-by-filled-count", "sweep", [("solver.js", _SOLVES, _SOLVES.replace("isClueSolved(candidate, payload.rows, payload.columns)", _COUNT))]),
+    ("hint-disabled-again-where-no-line-decides", "stall", [("solver.js", "(player.nextHint() === null && !player.speaks())", "player.nextHint() === null")]),
+    ("hint-reveals-a-cell-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      commit(record(player.getHistory(), hintStroke(0, 0, \"filled\")), null);\n      return;")]),
+    ("hint-is-silent-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      return;")]),
+    ("hint-counts-where-no-line-decides", "stall", [("solver.js", "      say(PUBLIC_EXHAUSTED);\n      return;", "      say(PUBLIC_EXHAUSTED);\n      commit(record(player.getHistory(), hintStroke(0, 0, \"filled\")), null);\n      return;")]),
+    ("admin-resumes-a-public-stamp", "admin", [("solver_state.js", "      || data.grid !== stampOf(payload)", "      || (data.grid !== stampOf(payload) && data.grid !== PUBLIC_GRID)")]),
     ("admin-hint-loses-its-fallback", "admin", [("solver_state.js", _FALLBACK, _FALLBACK.replace("solution !== null", "false"))]),
 ]
 
