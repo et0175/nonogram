@@ -805,6 +805,26 @@ class TestPuzzleEditor_Guardrails:
         assert "SIX reads of `editing`" in solver
         assert reads == 6, reads
 
+        # CARD-385 (AC-7): the third mode, `publicMode`, is held to the same
+        # standard. Counted the same way — every mention in code but the
+        # declaration — against the sentence in the header, and the count is
+        # also proved able to fail: one more read in a copy of the file moves
+        # the count off the sentence.
+        def public_reads(text: str) -> int:
+            body = "\n".join(
+                line for line in text.splitlines() if not line.strip().startswith("//"))
+            return len(re.findall(r"\bpublicMode\b", body)) - 1
+
+        assert "EIGHT reads of `publicMode`" in solver
+        assert public_reads(solver) == 8, public_reads(solver)
+        planted = solver.replace(
+            "  if (publicMode) sealSolution(payload);\n",
+            "  if (publicMode) sealSolution(payload);\n  if (publicMode) { /* a ninth read */ }\n")
+        assert planted != solver and public_reads(planted) == 9
+        # And the two flags are exclusive: one `mode`, so neither can be read
+        # as the other's alternative.
+        assert 'const EDIT_MODE = "edit";' in solver and "PUBLIC_MODE" in solver
+
     def test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other(
         self, admin_app
     ) -> None:

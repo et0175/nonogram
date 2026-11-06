@@ -16,8 +16,10 @@
 //     "height":   int >= 1,           H, rows
 //     "rows":     [[int, ...]] * H,   row clues, top to bottom
 //     "columns":  [[int, ...]] * W,   column clues, left to right
-//     "solution": [[bool] * W] * H    the solution grid (admin only — ADR-0038/R6)
-//     "mode":     "edit", optional      see EDIT MODE below
+//     "solution": [[bool] * W] * H    the solution grid (admin only — ADR-0038/R6);
+//                                       ABSENT in public mode, and a public payload
+//                                       that has it is refused
+//     "mode":     "edit" | "public", optional   see EDIT MODE and PUBLIC MODE below
 //   }
 // "rows"/"columns" are compute_clues(stored grid) — the one encoder, never
 // re-derived here (ADR-0038/R3). A line with no filled cell is [0] and is shown
@@ -100,6 +102,50 @@
 // code here. The grid still ships as `solution` under the same key: in edit
 // mode it is the stored grid the editor opens on, which is why it is also
 // still validated as a grid.
+//
+// PUBLIC MODE (CARD-385; ADR-0041/R2, the owner's ruling of 2026-11-06 that the
+// public page runs this player instead of a second implementation of it). The
+// public site may carry no solution grid and nothing from which one can be
+// recovered, so a payload with "mode": "public" HAS NO "solution" key —
+// readPayload accepts it without one and REFUSES one that carries it — and
+// `publicMode` below is the flag that makes every reader of the answer unreachable.
+// The mode is MECHANICAL, not a convention: start() replaces payload.solution
+// with a getter that throws, so a solution read that is not gated by the mode
+// is a page error on the first gesture that reaches it, never a tolerated
+// null (tests/test_player_public_mode.py sweeps every control, and a mutant
+// that leaves one ungated reds it). What the mode does, in the order of the
+// readers of the answer it replaces:
+//   * the page refuses/accepts by shape (readPayload): no solution grid is
+//     validated, and one that is present is a refusal;
+//   * solved comes from the clues (solver_state.js isClueSolved): the solved
+//     banner, the lock, the clue circles' board and the probe's rule-7
+//     auto-commit (`solves`) all ask it; the answer-comparing isSolved is
+//     never called;
+//   * the hint is derived from the clues and the marks as the player has them
+//     (hintCell and hintLine with a null solution), and has NO answer-reveal
+//     fallback: a board on which no line decides a cell has no hint at all,
+//     so Hint is disabled there. A wrong mark can mislead it, which is what
+//     player/play.js's derivedHint does today and is inherent to having no
+//     answer to check a mark against;
+//   * Errors, Progress and Check are ABSENT, not inert: start() removes
+//     their elements (#puzzle-player-errors, #puzzle-player-progress and
+//     [data-player-action="check"]) before anything is wired, because each is
+//     a statement about the answer and a control that does nothing is a dead
+//     button. The template stays the admin's one file; the page that serves
+//     it needs no knowledge of the mode;
+//   * the save carries a constant stamp instead of the solution's fingerprint
+//     (solver_state.js PUBLIC_GRID) under the admin's key, nonogram-player:<id>.
+// Edit mode and public mode are exclusive (one `mode`), and admin mode —
+// `mode` absent — is exactly what it was. The flag is read EIGHT times in
+// code (the `const publicMode` declaration aside): the seal, the removal of
+// the three elements, showProgress's two guards (Errors, Progress) and its
+// solved test, and the three callbacks start() hands wireMarking (nextHint,
+// hintLine, solves). The count is the control, as the edit flag's is:
+// tests/test_puzzle_editor_ui.py's
+// test_the_edit_mode_contract_counts_its_own_branches reads this very
+// sentence AND counts the reads, so a ninth read added without amending
+// "EIGHT reads of `publicMode`" reds. The ten solution-reading sites are
+// listed, each with how it is gated, in tests/test_player_public_mode.py.
 //
 // THE LIVE PLAYER — window.puzzlePlayer, set once the board is drawn:
 //   payload            the parsed payload above
@@ -529,6 +575,9 @@ import {
   dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, record,
   redo, resetStroke, undo,
 } from "./solver_state.js";
+// Public mode (CARD-385): see PUBLIC MODE above. The mode's one spelling and
+// its solution-free "solved" come from the pure module.
+import { PUBLIC_MODE, isClueSolved } from "./solver_state.js";
 // The progress percent (CARD-187): see PROGRESS above.
 import { solvedPercent } from "./solver_state.js";
 // Clue circles (CARD-188): see paintCircles below.
@@ -563,6 +612,9 @@ const MAJOR_EVERY = 5;
 
 // The one value of payload.mode that is not the player (CARD-246).
 const EDIT_MODE = "edit";
+
+// What public mode takes off the page (CARD-385; see PUBLIC MODE above).
+const PUBLIC_ABSENT = '#puzzle-player-errors, #puzzle-player-progress, [data-player-action="check"]';
 
 // "The recorded board changed" — dispatched on `document` in edit mode only
 // (see BOARD CHANGE above). Exported, and imported by static/puzzle_edit.js,
@@ -646,6 +698,18 @@ function isClueSet(lines, count) {
       && clue.every((n) => Number.isInteger(n) && n >= 0));
 }
 
+// The public mode's guarantee made mechanical (CARD-385): payload.solution
+// becomes a getter that THROWS. Not enumerable, so JSON.stringify and a spread
+// of the payload skip it; any code that reads the key reaches the throw.
+function sealSolution(payload) {
+  Object.defineProperty(payload, "solution", {
+    enumerable: false,
+    get() {
+      throw new Error("the solution was read in public mode: there is none here (ADR-0041/R2)");
+    },
+  });
+}
+
 function isSolution(grid, width, height) {
   return Array.isArray(grid) && grid.length === height && grid.every(
     (row) => Array.isArray(row) && row.length === width
@@ -662,10 +726,13 @@ function readPayload() {
   } catch (error) {
     throw new Error(`the puzzle data is not JSON (${error.message})`);
   }
+  if (payload && payload.mode === PUBLIC_MODE && Object.hasOwn(payload, "solution")) {
+    throw new Error("a public-mode payload carries a solution, which no public page may (ADR-0041/R2)");
+  }
   if (!payload || !isSide(payload.width) || !isSide(payload.height)
       || !isClueSet(payload.rows, payload.height)
       || !isClueSet(payload.columns, payload.width)
-      || !isSolution(payload.solution, payload.width, payload.height)) {
+      || (payload.mode !== PUBLIC_MODE && !isSolution(payload.solution, payload.width, payload.height))) {
     throw new Error("the puzzle data does not describe a width x height board with its clues");
   }
   return payload;
@@ -843,6 +910,9 @@ function start() {
   // CARD-246's one flag (see EDIT MODE above). Read once, here, so every
   // branch below names the same value.
   const editing = payload.mode === EDIT_MODE;
+  // CARD-385's flag (see PUBLIC MODE above), read once for the same reason.
+  const publicMode = payload.mode === PUBLIC_MODE;
+  if (publicMode) sealSolution(payload);
   const save = editing ? NO_SAVE : browserSave(saveKey(payload.id));
   let history = createHistory(
     editing ? boardOfGrid(payload.solution) : createBoard(payload.width, payload.height));
@@ -855,6 +925,13 @@ function start() {
   let board = history.board;
 
   const toolbar = document.getElementById("puzzle-player-controls");
+  // CARD-385: Errors, Progress and Check are statements about the answer, so
+  // in public mode they are not offered at all. Removed before wireMarking
+  // collects the page's controls, so nothing below sees them (`actions.check`
+  // is already optional, and the two counters are not read in public mode).
+  if (publicMode) {
+    for (const element of toolbar.querySelectorAll(PUBLIC_ABSENT)) element.remove();
+  }
   const errorsOut = toolbar.querySelector("[data-player-errors]");
   const hintsOut = toolbar.querySelector("[data-player-hints]");
   const progressOut = toolbar.querySelector("[data-player-progress]");
@@ -947,14 +1024,20 @@ function start() {
     // their elements. `solved` therefore stays false and the board never
     // locks, which is what lets the owner keep painting.
     if (editing) return;
-    const errors = String(errorCount(history.board, payload.solution));
     // Rewriting the same text would make the live region announce it again.
-    if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
+    if (!publicMode) {
+      const errors = String(errorCount(history.board, payload.solution));
+      if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
+    }
     const hints = String(hintCount(history));
     if (hintsOut.textContent !== hints) hintsOut.textContent = hints;
-    const percent = `${solvedPercent(history.board, payload.solution)}%`;
-    if (progressOut.textContent !== percent) progressOut.textContent = percent;
-    const now = isSolved(history.board, payload.solution);
+    if (!publicMode) {
+      const percent = `${solvedPercent(history.board, payload.solution)}%`;
+      if (progressOut.textContent !== percent) progressOut.textContent = percent;
+    }
+    const now = publicMode
+      ? isClueSolved(history.board, payload.rows, payload.columns)
+      : isSolved(history.board, payload.solution);
     if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
     else if (hint) {
       // Rung 3 (CARD-269 review F-2): the reveal's sentence goes to BOTH
@@ -1100,11 +1183,15 @@ function start() {
     // is what the owner is rewriting — "revealing" it would push the board
     // back to the stored grid. The editor's page ships no Hint button and
     // this answers null for the guards that ask anyway.
-    nextHint: () => (editing ? null : hintCell(history.board, payload.rows, payload.columns, payload.solution)),
+    nextHint: () => (editing ? null
+      : hintCell(history.board, payload.rows, payload.columns, publicMode ? null : payload.solution)),
     // CARD-269: the line rungs 1 and 2 point at for a nextHint() result, and
     // the row Check names — both read the RECORDED board and the payload, so
     // they are asked here, beside nextHint, rather than from wireMarking.
-    hintLine: (hint) => hintLine(history.board, payload.rows, payload.columns, payload.solution, hint),
+    hintLine: (hint) => hintLine(
+      history.board, payload.rows, payload.columns, publicMode ? null : payload.solution, hint),
+    // Check's reader of the answer: UNREACHABLE in public mode, because the
+    // button is removed above (and were it not, the sealed getter throws).
     wrongRow: () => firstWrongRow(history.board, payload.solution),
     show(next) {
       board = next;
@@ -1115,7 +1202,9 @@ function start() {
     // that reached the solved state can commit before the save is written
     // from it (rule 9). In edit mode there is no solved state at all
     // (showProgress returns at once), so no probe ever auto-commits there.
-    solves: (candidate) => !editing && isSolved(candidate, payload.solution),
+    solves: (candidate) => !editing && (publicMode
+      ? isClueSolved(candidate, payload.rows, payload.columns)
+      : isSolved(candidate, payload.solution)),
     // CARD-268: a probe opened or closed with nothing recorded, so only the
     // markers move — and the save, but only on the CLOSE. While a probe is
     // open the stored entry is already the entry as of the checkpoint (the

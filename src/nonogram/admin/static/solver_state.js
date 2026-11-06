@@ -23,12 +23,26 @@
 // never the value it was handed, and starts a new history at that copy.
 // errorCount, isSolved and solvedPercent ("Progress against the solution")
 // compare a board with the payload's solution grid; solver.js shows all three.
+//
+// PUBLIC MODE (CARD-385, ADR-0041/R2). A payload with mode PUBLIC_MODE has NO
+// solution, and this module has a solution-free twin for each thing it would
+// have measured against one: isClueSolved (solved, from the clues), hintCell /
+// knownLine / hintLine called with a `null` solution (the hint, derived from
+// the clues and the marks as the player has them), and a save stamped with
+// PUBLIC_GRID instead of gridFingerprint (a fingerprint OF a solution). The
+// three solution readers that have no twin (errorCount, solvedPercent,
+// firstWrongRow) and gridFingerprint itself THROW on a null solution: a call
+// with nothing to read is a defect to surface, never a quiet zero.
 
 export const UNKNOWN = "unknown";
 export const FILLED = "filled";
 export const EMPTY = "empty";
 export const MAYBE = "maybe";
 export const CELL_STATES = Object.freeze([UNKNOWN, FILLED, EMPTY, MAYBE]);
+
+//: The payload.mode of the public page (CARD-385): no `solution` key at all.
+//: Spelt once, here, and imported by solver.js, as EDIT_MODE's seam is.
+export const PUBLIC_MODE = "public";
 
 function isSide(n) {
   return Number.isInteger(n) && n >= 1;
@@ -389,10 +403,23 @@ export function redo(history) {
 // boards, the solution is a trusted in-page value; its sides are taken to
 // match the board's (solver.js checks the payload's shape at load).
 
+// The guard of every function here that can only be answered FROM a solution
+// (CARD-385): on the public page there is none, and a read of it must be a
+// loud error on every board, the blank one included. Without this a loop over
+// cells that are all UNKNOWN would never touch `solution` and the defect (a
+// caller that reached a solution reader in public mode) would pass silently
+// until the first mark.
+function requireSolution(solution, who) {
+  if (solution === null || solution === undefined) {
+    throw new TypeError(`${who} needs the solution, and this page has none (public mode)`);
+  }
+}
+
 // The number of wrong marks: cells marked FILLED whose solution is empty,
 // plus cells marked EMPTY whose solution is filled. UNKNOWN and MAYBE ("?")
 // never count.
 export function errorCount(board, solution) {
+  requireSolution(solution, "errorCount");
   let errors = 0;
   for (let row = 0; row < board.height; row += 1) {
     for (let col = 0; col < board.width; col += 1) {
@@ -409,6 +436,7 @@ export function errorCount(board, solution) {
 // EMPTY marks are optional, as on paper: a solution-empty cell may be EMPTY
 // or UNKNOWN.
 export function isSolved(board, solution) {
+  requireSolution(solution, "isSolved");
   if (board.cells.includes(MAYBE)) return false;
   for (let row = 0; row < board.height; row += 1) {
     for (let col = 0; col < board.width; col += 1) {
@@ -434,6 +462,48 @@ export function solvedPercent(board, solution) {
     }
   }
   return Math.floor((100 * correct) / (board.width * board.height));
+}
+
+// ---------------------------------------------------------------------------
+// Solved, from the clues alone (CARD-385; the twin of player/play.js's
+// isClueSolved, which stays where it is until the later deletion card)
+//
+// The lengths of `cells`' runs of FILLED cells, left to right: [0] when there
+// are none, the way a clue spells an empty line. Every other state (EMPTY,
+// UNKNOWN, MAYBE) breaks a run, so the marks are read as a printed line is.
+export function runsOf(cells) {
+  const runs = [];
+  let run = 0;
+  for (const state of cells) {
+    if (state === FILLED) {
+      run += 1;
+    } else if (run > 0) {
+      runs.push(run);
+      run = 0;
+    }
+  }
+  if (run > 0) runs.push(run);
+  return runs.length > 0 ? runs : [0];
+}
+
+const sameRuns = (a, b) => a.length === b.length && a.every((n, i) => n === b[i]);
+
+// Whether every row and column clue of `board` is met by its FILLED cells.
+// For a uniquely solvable puzzle the only board that meets every clue IS the
+// solution, so this is "solved" without the solution (ADR-0041/R2). It
+// differs from isSolved in exactly one way: a MAYBE ("?") elsewhere does not
+// stop it, because a "?" is no run — isSolved refuses any board holding one.
+export function isClueSolved(board, rows, columns) {
+  const { width, height, cells } = board;
+  for (let row = 0; row < height; row += 1) {
+    const line = Array.from({ length: width }, (_, col) => cells[row * width + col]);
+    if (!sameRuns(runsOf(line), rows[row])) return false;
+  }
+  for (let col = 0; col < width; col += 1) {
+    const line = Array.from({ length: height }, (_, row) => cells[row * width + col]);
+    if (!sameRuns(runsOf(line), columns[col])) return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -640,6 +710,14 @@ function isUndecided(state) {
 // reveals" (G-4, AC-328) structural instead of conventional, and gives the
 // claim a control: breaking knownLine now breaks the cell hintCell picks,
 // which the page-level AC-328 class sees.
+//
+// PUBLIC MODE (CARD-385): with `solution === null` the knowns are the marks as
+// the player has them (knownLine), `state` is the state the forcing line
+// decides, and there is NO fallback: a board where no line decides a cell has
+// no hint (null), because the only thing a fallback could reveal is an answer
+// that is not there. A wrong mark can mislead such a hint - inherent to having
+// no answer to check marks against, and exactly what play.js's derivedHint
+// does today.
 export function hintCell(board, rows, columns, solution) {
   const truth = (row, col) => (solution[row][col] ? FILLED : EMPTY);
   const rowForced = rows.map((clue, row) =>
@@ -651,11 +729,15 @@ export function hintCell(board, rows, columns, solution) {
   for (let row = 0; row < height; row += 1) {
     for (let col = 0; col < width; col += 1) {
       if (!isUndecided(board.cells[row * width + col])) continue;
-      if ((rowForced[row] !== null && rowForced[row][col] !== UNKNOWN)
-          || (colForced[col] !== null && colForced[col][row] !== UNKNOWN)) {
-        return { row, col, state: truth(row, col), deduced: true };
+      const byRow = rowForced[row] !== null && rowForced[row][col] !== UNKNOWN;
+      const byColumn = colForced[col] !== null && colForced[col][row] !== UNKNOWN;
+      if (byRow || byColumn) {
+        const forced = byRow ? rowForced[row][col] : colForced[col][row];
+        return { row, col, state: solution === null ? forced : truth(row, col), deduced: true };
       }
-      if (fallback === null) fallback = { row, col, state: truth(row, col), deduced: false };
+      if (fallback === null && solution !== null) {
+        fallback = { row, col, state: truth(row, col), deduced: false };
+      }
     }
   }
   return fallback;
@@ -767,6 +849,9 @@ export function knownLine(board, solution, axis, index) {
   const { width, height } = board;
   const known = (row, col) => {
     const state = board.cells[row * width + col];
+    // PUBLIC MODE (CARD-385): no solution to agree with, so every FILLED or
+    // EMPTY mark is a known and a "?" or a blank is not.
+    if (solution === null) return state === FILLED || state === EMPTY ? state : UNKNOWN;
     return state === (solution[row][col] ? FILLED : EMPTY) ? state : UNKNOWN;
   };
   return axis === "row"
@@ -922,6 +1007,7 @@ export function hintReason(clue, cells, at) {
 // — the same ladder discipline as rung 1. errorCount above says HOW MANY;
 // this says WHERE to start looking.
 export function firstWrongRow(board, solution) {
+  requireSolution(solution, "firstWrongRow");
   const { width, height } = board;
   for (let row = 0; row < height; row += 1) {
     for (let col = 0; col < width; col += 1) {
@@ -1276,9 +1362,25 @@ export function saveKey(puzzleId) {
   return "nonogram-player:" + puzzleId;
 }
 
+//: The `grid` stamp of a public-mode save (CARD-385). A fingerprint is a
+//: function OF the solution, and a public page has none, so this is a
+//: constant: it says "no solution was measured against" and nothing more.
+//: Spelt as the word it is, and different from any gridFingerprint (eight hex
+//: digits), so a save from the admin page is never read as a public one or the
+//: reverse.
+export const PUBLIC_GRID = "public";
+
+// The `grid` stamp of `payload`'s saves: the solution's fingerprint, or in
+// public mode the constant. The ONLY place a save asks for the solution, and
+// the only place that decides which of the two it gets.
+function stampOf(payload) {
+  return payload.mode === PUBLIC_MODE ? PUBLIC_GRID : gridFingerprint(payload.solution);
+}
+
 // 32-bit FNV-1a of the solution read row-major as "1" (filled) / "0", as
 // eight lower-case hex digits.
 export function gridFingerprint(solution) {
+  requireSolution(solution, "gridFingerprint");
   let hash = 0x811c9dc5;
   for (const row of solution) {
     for (const filled of row) {
@@ -1307,7 +1409,7 @@ export function serializeState(history, payload) {
     height: payload.height,
     rows: payload.rows,
     columns: payload.columns,
-    grid: gridFingerprint(payload.solution),
+    grid: stampOf(payload),
     done: history.done.map((entry) => savedStroke(entry.stroke)),
     undone: history.undone.map(savedStroke),
   });
@@ -1348,7 +1450,7 @@ export function deserializeState(text, payload) {
       || data.width !== payload.width || data.height !== payload.height
       || JSON.stringify(data.rows) !== JSON.stringify(payload.rows)
       || JSON.stringify(data.columns) !== JSON.stringify(payload.columns)
-      || data.grid !== gridFingerprint(payload.solution)
+      || data.grid !== stampOf(payload)
       || !Array.isArray(data.done) || !Array.isArray(data.undone)) {
     return null;
   }
