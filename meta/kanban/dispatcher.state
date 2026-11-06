@@ -477,7 +477,7 @@ active:
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-383
     started: 2026-11-06T15:22Z
     estimate: 2c (1d)
-    cut_from: CUTSHA
+    cut_from: 31a3281d
 # CARD-380 CLEARED 2026-11-06T15:13Z at its merge gate: merged 652c16f8, done, certified 8.5 on cycle 2 (7.0 on
 #   cycle 1), estimate 3c -> 2 cycles = ratio 0.667. Its WORKTREE IS KEPT (holds the owner's unplayed
 #   build/site-probe play-test build), idle: no process runs there. The entry is dropped so no free-slot
