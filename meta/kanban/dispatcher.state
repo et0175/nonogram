@@ -466,18 +466,15 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-382
-    branch: card/382-pre-flip-seven-modules
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-382
-    started: 2026-11-06T13:29Z
-    estimate: 2c (1d)
-    cut_from: 602f06fc
   - card: CARD-383
     branch: card/383-title-refusal
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-383
     started: 2026-11-06T15:22Z
     estimate: 2c (1d)
     cut_from: 31a3281d
+# CARD-382 CLEARED 2026-11-06T16:37:14Z at its merge gate: merged 01edc331, done, certified 8.5 on cycle 1 (fix round
+#   9081ff7b not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Its worktree is removed under the tidy rule
+#   after its instruments were copied to ~/Documents/nonogram-reviews/CARD-382/, so the entry is dropped.
 # CARD-380 CLEARED 2026-11-06T15:13Z at its merge gate: merged 652c16f8, done, certified 8.5 on cycle 2 (7.0 on
 #   cycle 1), estimate 3c -> 2 cycles = ratio 0.667. Its WORKTREE IS KEPT (holds the owner's unplayed
 #   build/site-probe play-test build), idle: no process runs there. The entry is dropped so no free-slot
