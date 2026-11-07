@@ -1600,3 +1600,35 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .editor-grade[data-tier="medium"] { --tier: var(--color-tier-medium); }
 .editor-grade[data-tier="hard"] { --tier: var(--color-tier-hard); }
 .editor-grade[data-tier="guess"] { --tier: var(--color-tier-hard); }
+
+/* Icon-only toolbar on phones (owner's ask, 2026-11-07). At 375 px the
+   30-wide puzzle's toolbar took four rows, about 40% of the screen, before
+   the board began. Below 600 px the words beside Undo, Redo, Reset and Hint
+   are hidden VISUALLY only: .player-btn-label stays in the accessibility
+   tree, so every button keeps its name ("Undo", ...) for screen readers and
+   for the tests that find buttons by role and name, and title= gives a mouse
+   a tooltip. The brush trigger drops its word (already aria-hidden; the
+   trigger's aria-label carries the brush) and keeps its swatch. Each button
+   is at least 44 px wide; heights stay --control-h, the toolbar's own.
+   Hint (a bulb) and the admin's Check (a tick) get icons on phones only: the 1280 px first row is exactly
+   full (see the block above), and an icon there would wrap it.
+   The tools' slot shrinks from 13rem to 116 px, too narrow for
+   "Solved: <name>" on one line, and a wrapped banner would push the board
+   down on solve (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth). So on
+   phones the banner shows the check and "Solved"; the name stays in the
+   accessibility tree, and the board's green frame says the rest. Wider
+   screens are untouched. */
+.player-phone-icon { display: none; }
+@media (max-width: 600px) {
+  .player-toolbar { gap: var(--space-2); }
+  .player-phone-icon { display: contents; }
+  .player-tools { min-width: 0; }
+  .player-tool-trigger { flex: 0 0 auto; min-width: 44px; justify-content: center; }
+  .player-tool-trigger-text { display: none; }
+  .player-btn-label, .player-solved-sep, .player-solved-name {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .player-history > .btn { min-width: 44px; justify-content: center; padding-left: var(--space-2); padding-right: var(--space-2); }
+  .player-zoom .btn { min-width: 44px; justify-content: center; }
+}

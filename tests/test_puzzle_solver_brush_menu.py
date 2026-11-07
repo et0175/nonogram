@@ -534,6 +534,16 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
             )
         finally:
             context.close()
+        if width == 390:
+            # The icon-only phone toolbar (2026-11-07, admin.css "Icon-only
+            # toolbar on phones") drops the 13rem floor below 600 px: the
+            # trigger is its swatch alone at the 44 px minimum, the toggle
+            # still 64, the gap 8 -> a 116 px group. The claim is unchanged:
+            # one width and one toggle offset for all four brushes.
+            assert round(boxes["slot"]) == round(boxes["tools"]) == 116, (brush, width, boxes)
+            assert round(boxes["trigger"]) == 44, (brush, width, boxes)
+            assert round(boxes["regionOffset"]) == 52, (brush, width, boxes)
+            return
         assert round(boxes["slot"]) == round(boxes["tools"]) == 208, (brush, width, boxes)
         # 136 px = 208 less the toggle (64 since CARD-247 — three 16 px cells
         # sharing two 1 px rules, plus the toggle's own padding and borders)

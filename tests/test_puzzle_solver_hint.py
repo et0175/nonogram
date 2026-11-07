@@ -903,8 +903,8 @@ class TestSolverHint_PlacesTheButtonAndTheCounter:
     the amended AC, not a superseded one. "Hints: N" is the element right after
     "Errors: N" and sits to its right in the same row, at the right end of
     the toolbar, at desktop width and at 390 px. Hint and Check share Reset's
-    row at desktop width and wrap onto a row of their own at 390 px, Check to
-    Hint's right in both.
+    row at both widths (at 390 px since the icon-only phone toolbar of
+    2026-11-07), Check to Hint's right in both.
     """
 
     @pytest.mark.parametrize("width", [1440, 390])
@@ -932,13 +932,14 @@ class TestSolverHint_PlacesTheButtonAndTheCounter:
         # ladder's neighbour, not a control of its own somewhere else.
         assert kt < bb and bt < kb, (got["hint"], got["check"])
         assert kl >= br, (got["hint"], got["check"])
-        if width == 1440:
-            assert bt < rb and rt < bb and bl >= rr  # Reset's row, to its right
-            assert kt < rb and rt < kb  # Check on that row too
-        else:
-            assert bt >= rb  # below Undo / Redo / Reset
-            assert bb <= et  # and above the counters: a row of their own
-            assert kb <= et
+        # Reset's row, to its right, at both widths. Until 2026-11-07 Hint and
+        # Check wrapped onto a row of their own at 390 px; the phone toolbar
+        # went icon-only that day (admin.css "Icon-only toolbar on phones"),
+        # and the whole History group now fits one row there.
+        assert bt < rb and rt < bb and bl >= rr
+        assert kt < rb and rt < kb  # Check on that row too
+        if width == 390:
+            assert bb <= et and kb <= et  # still above the counters
 
 
 @pytest.mark.browser
