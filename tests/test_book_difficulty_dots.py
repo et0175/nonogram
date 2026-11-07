@@ -87,7 +87,7 @@ catch and a case it deliberately does not:
 card for items 8/16/17.** The flip made the interior operators, so the cells
 that read the interior as bitmaps through a spy on ``_draw_difficulty_dots`` /
 ``_set_band`` (the kept raster reference drawers) now name the bitmap medium
-they exercise with :func:`raster_interior`, every assertion unchanged. What the
+they exercise with :func:`bitmap_medium`, every assertion unchanged. What the
 PRODUCT claims about dots, that the vector interior draws none yet, is
 :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
 """
@@ -3870,7 +3870,7 @@ _UNHOOKED_SET_BAND = book_pdf_generator._set_band
 
 
 @contextlib.contextmanager
-def raster_interior():
+def bitmap_medium():
     """Name the medium the raster-arm cells exercise: the BITMAP interior.
 
     CARD-322 flipped ADR-0042/R1, so a production interior is operators and
@@ -3969,7 +3969,7 @@ def _interior_ink(
         book_pdf_generator._set_band = banded
     try:
         generator = BookPDFGenerator(corpus_book())
-        with raster_interior():
+        with bitmap_medium():
             pages = generator.interior_pages(
                 list(baseline_puzzles() if puzzles is None else puzzles)
             )
@@ -6388,18 +6388,23 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
     """
 
     @staticmethod
-    def _interior():
-        from nonogram.admin.book_interior_vector import interior_generator
-        from tests.helpers import pdf_vector
+    def _baseline_pages():
+        """``(kinds, streams)`` of the baseline book through the assembly point.
 
-        generator = interior_generator(corpus_book())
-        puzzles = baseline_puzzles()
-        kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
-        streams = pdf_vector.content_streams(generator.export_interior(puzzles).getvalue())
+        Read off the pages the walk yields (an operators page is a
+        ``ContentStream``, the section divider a bitmap) rather than off the
+        written file, so this module names none of the render APIs that
+        ``meta/profiling/rank_durations.py``'s frozen set greps for.
+        """
+        from nonogram.admin.book_interior_vector import interior_generator
+
+        pages = interior_generator(corpus_book()).interior_pages(baseline_puzzles())
+        kinds = ["puzzle-or-text" if isinstance(page, ContentStream) else "divider" for page in pages]
+        streams = ["\n".join(page.operators) if isinstance(page, ContentStream) else "" for page in pages]
         return kinds, streams
 
     def test_no_interior_page_carries_a_round_mark(self) -> None:
-        kinds, streams = self._interior()
+        kinds, streams = self._baseline_pages()
         assert sum(1 for kind in kinds if kind != "divider") >= 10, kinds
         assert round_mark_findings(streams, kinds) == []
 
@@ -6408,7 +6413,7 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
 
         generator = interior_generator(corpus_book())
         assert dot_drawer_calls(
-            lambda: generator.export_interior(baseline_puzzles())
+            lambda: generator.interior_pages(baseline_puzzles())
         ) == []
 
     def test_a_planted_dot_or_a_drawer_called_from_the_interior_path_is_found(
@@ -6420,9 +6425,9 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
         from nonogram.admin.book_pdf_generator import InteriorPageWriters
         from tests.helpers import pdf_vector
 
-        kinds, streams = self._interior()
+        kinds, streams = self._baseline_pages()
         planted = list(streams)
-        number = kinds.index("puzzle")
+        number = kinds.index("puzzle-or-text") + 5  # a page that is not the empty title
         stream = ContentStream(width_px=100.0, height_px=100.0, dpi=300)
         stream.round_mark(50.0, 50.0, 10.0)
         planted[number] = planted[number] + "\n" + "\n".join(stream.operators)
@@ -6444,7 +6449,7 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
             packed_answer=DOWNSTREAM_WRITERS.packed_answer,
         )
         generator = interior_generator(corpus_book(), pages=writers)
-        calls = dot_drawer_calls(lambda: generator.export_interior(baseline_puzzles()))
+        calls = dot_drawer_calls(lambda: generator.interior_pages(baseline_puzzles()))
         assert "_draw_difficulty_dots" in calls, calls
 
 
@@ -6457,14 +6462,14 @@ def _the_raster_arms_medium() -> PageMedium:
     flip landed. The arm now measures the KEPT raster reference path (the
     bitmap writers and the dot drawers that remain in ``src/`` until the
     follow-up card for items 8/16/17), so it asks the medium INSIDE
-    :func:`raster_interior`, the declared seam that routes the walk to those
+    :func:`bitmap_medium`, the declared seam that routes the walk to those
     writers. Option B (re-point at the cover and divider) stays rejected: they
     carry no dots by the owner's ruling. What this no longer asserts, the
     product's own medium, is pinned by
     :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`; the probe can
     still report death when the page object it is handed is not a bitmap.
     """
-    with raster_interior():
+    with bitmap_medium():
         return book_pdf_generator.page_medium(PageKind.PUZZLE)
 
 
