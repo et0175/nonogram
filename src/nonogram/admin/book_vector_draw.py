@@ -59,6 +59,7 @@ card from being that card.
 
 from __future__ import annotations
 
+import math
 from typing import Iterable, NamedTuple, Sequence
 
 from nonogram.admin.book_vector import (
@@ -75,6 +76,7 @@ __all__ = [
     "MIN_MODULE_MM",
     "QR_QUIET_MODULES",
     "QrBox",
+    "QrBoxInvalid",
     "QrModuleTooSmall",
     "advance_px",
     "as_grey",
@@ -630,6 +632,13 @@ class QrBox(NamedTuple):
     side: float
 
 
+class QrBoxInvalid(ContentStreamError, ValueError):
+    """The box is not a finite square with a positive side.
+
+    ``nan`` and ``inf`` would otherwise reach the stream as ``nan`` operands.
+    """
+
+
 class QrModuleTooSmall(ContentStreamError):
     """The box would make a module smaller than :data:`MIN_MODULE_MM`."""
 
@@ -648,14 +657,19 @@ def draw_qr(
         QrModuleTooSmall: the module would be under :data:`MIN_MODULE_MM`. A
             refusal, never a smaller code, and **nothing has been written to
             ``stream``** when it is raised.
-        ValueError: ``modules`` is empty or not square, or ``box.side`` is not
-            positive.
+        ValueError: ``modules`` is empty or not square.
+        QrBoxInvalid: ``box`` has a non-finite number or a side that is not
+            positive. Raised before anything is written, like the others. No
+            check that the box lies on the page: the other drawers here do not
+            either (positions are the caller's).
     """
     size = len(modules)
     if size == 0 or any(len(row) != size for row in modules):
         raise ValueError("a QR code is a non-empty square of modules")
-    if not box.side > 0:
-        raise ValueError(f"a box has a positive side, not {box.side!r}")
+    if not all(math.isfinite(v) for v in box) or not box.side > 0:
+        raise QrBoxInvalid(
+            f"a box is a finite position and a positive finite side, not {tuple(box)!r}"
+        )
     module = box.side / (size + 2 * QR_QUIET_MODULES)
     module_mm = module / stream.dpi * _MM_PER_INCH
     # The epsilon is float noise only: a box built as exactly MIN_MODULE_MM per

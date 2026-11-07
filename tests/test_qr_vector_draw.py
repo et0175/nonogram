@@ -25,6 +25,7 @@ from nonogram.admin.book_vector_draw import (
     MIN_MODULE_MM,
     QR_QUIET_MODULES,
     QrBox,
+    QrBoxInvalid,
     QrModuleTooSmall,
     draw_qr,
 )
@@ -140,6 +141,31 @@ class TestQrVectorDraw_RefusesAModuleTooSmallToRead:
         with pytest.raises(ValueError):
             draw_qr(stream, book_qr.encode_text(URL), QrBox(0.0, 0.0, 0.0))
         assert stream.operators == ()
+
+
+class TestQrVectorDraw_RefusesANonFiniteBox:
+    @pytest.mark.parametrize(
+        "box",
+        [
+            QrBox(0.0, 0.0, float("inf")),
+            QrBox(0.0, 0.0, float("nan")),
+            QrBox(float("nan"), 0.0, 250.0),
+            QrBox(0.0, float("inf"), 250.0),
+            QrBox(float("-inf"), 0.0, 250.0),
+            QrBox(0.0, 0.0, -250.0),
+        ],
+    )
+    def test_it_raises_and_writes_nothing(self, box) -> None:
+        stream = _page()
+        with pytest.raises(QrBoxInvalid):
+            draw_qr(stream, book_qr.encode_text(URL), box)
+        assert stream.operators == ()
+
+    def test_the_control_a_finite_box_is_drawn_without_nan(self) -> None:
+        stream = _page()
+        draw_qr(stream, book_qr.encode_text(URL), QrBox(150.0, 150.0, TWO_CM_PX))
+        assert stream.operators
+        assert not any("nan" in row or "inf" in row for row in stream.operators)
 
 
 class TestQrVectorDraw_QuietZoneIsInsideTheBox:

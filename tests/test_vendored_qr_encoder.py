@@ -19,11 +19,13 @@ import ast
 import hashlib
 import random
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from nonogram.admin import book_qr
+from nonogram.admin._vendor import qrcodegen  # a test may; src may not
 from tests.helpers import qr_reader
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "nonogram"
@@ -138,6 +140,32 @@ def test_only_the_wrapper_imports_the_vendored_file() -> None:
     assert importers == {"admin/book_qr.py"}
 
 
+# -- F1: the sidecars ship in a built wheel --------------------------------------------
+
+PYPROJECT = SRC.parents[1] / "pyproject.toml"
+
+
+def _sidecars_missing_from(package_data: dict[str, list[str]]) -> set[str]:
+    listed = set(package_data.get("nonogram.admin._vendor", []))
+    return {"LICENSE.qrcodegen", "PROVENANCE.qrcodegen"} - listed
+
+
+def test_the_licence_and_provenance_sidecars_are_listed_as_package_data() -> None:
+    config = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    package_data = config["tool"]["setuptools"]["package-data"]
+    assert _sidecars_missing_from(package_data) == set()
+    for name in ("LICENSE.qrcodegen", "PROVENANCE.qrcodegen"):
+        assert (VENDOR / name).is_file()
+    # The control: dropping either one is seen.
+    for name in ("LICENSE.qrcodegen", "PROVENANCE.qrcodegen"):
+        planted = {
+            "nonogram.admin._vendor": [
+                n for n in package_data["nonogram.admin._vendor"] if n != name
+            ]
+        }
+        assert _sidecars_missing_from(planted) == {name}
+
+
 # -- the reader is a control that can fail -------------------------------------------
 
 
@@ -156,6 +184,24 @@ def test_the_reader_refuses_a_symbol_with_a_damaged_data_module() -> None:
     modules[20][21] = not modules[20][21]  # a data module, away from every pattern
     with pytest.raises(qr_reader.QrReadError):
         qr_reader.read_matrix(modules)
+
+
+def _flip(modules, cells):
+    grid = [list(row) for row in modules]
+    for row, column in cells:
+        grid[row][column] = not grid[row][column]
+    return grid
+
+
+def test_the_reader_checks_both_format_copies_exactly() -> None:
+    url = "https://nonogram.adverax.io/b/0123456789"
+    modules = book_qr.encode_text(url)
+    size = len(modules)
+    assert qr_reader.read_matrix(modules) == url
+    first_copy, second_copy = (8, 2), (size - 1, 8)  # one module of each copy
+    for cell in (first_copy, second_copy):
+        with pytest.raises(qr_reader.QrReadError):
+            qr_reader.read_matrix(_flip(modules, [cell]))
 
 
 # -- AC-1: round trip ---------------------------------------------------------------
@@ -206,6 +252,28 @@ class TestQrEncoder_RoundTripsThroughAnIndependentReader:
     def test_the_symbol_says_error_correction_level_q(self) -> None:
         modules = book_qr.encode_text("https://nonogram.adverax.io/b/0123456789")
         assert qr_reader.read_format(modules)[0] == "Q"
+
+    def test_every_length_from_one_to_the_maximum_is_level_q_never_boosted(self) -> None:
+        versions = set()
+        for length in range(1, book_qr.MAX_BYTES + 1):
+            text = "q" * length
+            modules = book_qr.encode_text(text)
+            versions.add((len(modules) - 17) // 4)
+            assert qr_reader.read_format(modules)[0] == "Q", length
+            assert qr_reader.read_matrix(modules) == text
+        assert versions == {1, 2, 3, 4, 5, 6}
+
+    def test_the_control_an_unfixed_level_would_be_boosted_and_is_seen(self) -> None:
+        # The library's own default boosts the level when it fits the version;
+        # a short text read back must then NOT say Q, or the check above is blind.
+        symbol = qrcodegen.QrCode.encode_segments(
+            [qrcodegen.QrSegment.make_bytes(b"q")], qrcodegen.QrCode.Ecc.QUARTILE
+        )
+        size = symbol.get_size()
+        modules = tuple(
+            tuple(symbol.get_module(x, y) for x in range(size)) for y in range(size)
+        )
+        assert qr_reader.read_format(modules)[0] != "Q"
 
     def test_the_matrix_is_the_boundary_type_and_nothing_else(self) -> None:
         modules = book_qr.encode_text("https://a.io/b/0123456789")

@@ -162,6 +162,11 @@ def read_format(modules: Sequence[Sequence[bool]]) -> tuple[str, int]:
     one, two = _decode_format(words[0]), _decode_format(words[1])
     if one != two:
         raise QrReadError(f"the two format copies disagree: {one} vs {two}")
+    # A real scanner would correct a damaged copy; this reader is a control on
+    # the ENCODER, so both copies must be the exact valid word, not merely near.
+    ecl_bits = next(bits for bits, level in _ECL_BITS.items() if level == one[0])
+    if words != [format_word(ecl_bits, one[1])] * 2:
+        raise QrReadError("a format-information copy is not the exact valid word")
     return one
 
 
