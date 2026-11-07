@@ -917,8 +917,8 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # (the bitmaps' own pixels count as their box), where the RENDERED
         # sizes may differ by poppler's outward pixel (see _RenderedInterior).
         boxes = {
-            (round(box[0], 6), round(box[1], 6)) if box is not None else page.size
-            for page, box in zip(pages, pages.boxes_px)
+            (round(box[0], 6), round(box[1], 6)) if box is not None else pages[number].size
+            for number, box in enumerate(pages.boxes_px)
         }
         assert len({tuple(round(v) for v in box) for box in boxes}) == 1, boxes
         checked += 1
