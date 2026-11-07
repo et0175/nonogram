@@ -3818,24 +3818,17 @@ def test_put_back_on_the_ink(page):
 #: sites and **13.984x** on the spare site, all three RED in vector. The margin
 #: is 0.4 %; the alternative was 3.5x the bound. Widening is what G-1 forbids,
 #: and these figures are what make that refusal checkable rather than a claim.
-PLACED_EDGE_ON_THE_INK_BY_DECLARATION = {
-    (
-        "tests/property/test_book_pdf_geometry.py",
-        "test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages",
-        1,
-    ): (
-        "CARD-336: the only site of either module whose bound is ONE half "
-        "pixel, which is below the quantisation of any reading of a binary "
-        "ink mask. The frame rule inks six pixel lines, so its centre is a "
-        "half-integer whose side is the rasteriser's: measured over this "
-        "corpus's 7 two-up pages, the ink reads 0.54x the bound in raster "
-        "and 5.46x in vector, and the centre reads 1.54x in raster and 0.46x "
-        "in vector. Neither reading is green in both media, and CARD-330's "
-        "measured 1 px cross-medium floor is above this bound either way. "
-        "The remedy is this site's own multiple (1 -> 2 admits both, at 0.77x "
-        "and 0.23x) and it is CARD-330's to move, not this card's (G-1)."
-    ),
-}
+PLACED_EDGE_ON_THE_INK_BY_DECLARATION: dict = {}
+#: **EMPTIED by CARD-322 (owner ruling 2026-11-06, the placed-edge cells).** The
+#: one entry this mapping held, the geometry module's
+#: ``..._PortraitWithFixedTopEdgeForEveryExtent_two_up_pages`` site at its ONE
+#: half-pixel bound, was declared on the ink because no single reading met the
+#: bound in both media. The interior is one medium now, and that site reads the
+#: frame BOUNDARY (``frame_centre_of``), measured at or under 0.46x the same
+#: bound, with a 1 px control; it is no longer on the ink and so no longer a
+#: declaration. The mapping stays (empty) because the guard tests below are
+#: written against it and ``test_every_declaration_is_a_site_that_is_really_on_the_ink``
+#: is what will refuse a future entry that names a site not on the ink.
 
 
 # --------------------------------------------------------------------------

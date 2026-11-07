@@ -45,6 +45,7 @@ import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_vector import ContentStream
 from nonogram.clues import compute_clues
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of, frame_centre_of
@@ -61,9 +62,60 @@ from tests.helpers.two_up_ink import drawings_of
 #: page's own DPI, putting both readings in the one domain the assertions
 #: already read (CARD-330 — an instrument has to say which domain it is in).
 #: No claim was weakened and no tolerance widened to make this agree.
+class _RenderedInterior(list):
+    """The interior's pages as device pixels, with each page's EMITTED page box.
+
+    ``boxes_px[i]`` is the page box the generator wrote for page ``i`` in
+    device pixels at 300 DPI (``ContentStream.media_box`` is in PDF points), or
+    ``None`` for a bitmap, whose size is its pixels. CARD-350 / CARD-322: the
+    size of a RENDERED operators page is poppler's, not the generator's.
+    Measured on a 137.9 x 282.1 mm trim: the generator emits a page box of
+    799.68 pt = 3332.000 px (whole pixels, 0.110 px from the exact 3331.890),
+    and poppler rasterises that box to 3333 px, because ``799.68 * 300 / 72``
+    is 3332.0000000000005 in floating point and the rasteriser rounds OUTWARD;
+    the same file's divider page, decoded by Pillow, is 3332. So "the page is
+    the trim" is a claim about the BOX, which is what a printer measures, and
+    the render may exceed the box by less than one device pixel.
+    """
+
+    boxes_px: list
+
+
 def _interior(generator: BookPDFGenerator, puzzles: list) -> list:
     """``generator``'s interior, every page as device pixels."""
-    return interior_images(generator.interior_pages(puzzles))
+    raw = generator.interior_pages(puzzles)
+    rendered = _RenderedInterior(interior_images(raw))
+    rendered.boxes_px = [
+        (
+            lambda box: (box[2] * 300 / 72, box[3] * 300 / 72)
+        )(page.media_box)
+        if isinstance(page, ContentStream)
+        else None
+        for page in raw
+    ]
+    return rendered
+
+
+def _assert_page_is_the_trim(pages, index: int, trim_px: tuple[float, float], context) -> None:
+    """Page ``index`` of ``pages`` is the trim, to the unchanged half pixel.
+
+    A bitmap is held to its pixels; an operators page is held to its EMITTED
+    page box (the same half pixel, not widened), and its render is held to the
+    box plus poppler's outward rounding: ``0 <= render - box < 1`` device pixel,
+    measured and derived in :class:`_RenderedInterior`. A page box one pixel
+    off, or a render two pixels off, leaves one of the two bounds.
+    """
+    page = pages[index]
+    box = pages.boxes_px[index]
+    if box is None:
+        for axis in (0, 1):
+            assert abs(page.size[axis] - trim_px[axis]) <= 0.5, (context, index, page.size)
+        return
+    for axis in (0, 1):
+        assert abs(box[axis] - trim_px[axis]) <= 0.5, (context, index, "box", box)
+        assert -1e-6 <= page.size[axis] - box[axis] < 1.0 + 1e-6, (
+            context, index, "render", page.size, box,
+        )
 
 #: 300 DPI, the resolution every book page is drawn at.
 PX_PER_MM = 300 / 25.4
@@ -377,6 +429,51 @@ def _mm(pixels: float) -> float:
     return pixels / PX_PER_MM
 
 
+def test_a_page_box_one_pixel_off_the_trim_reds_the_trim_assertion() -> None:
+    """CARD-350 AC-2/AC-4's plant, on the helper every size cell calls.
+
+    The measured case (137.9 x 282.1 mm: trim 1628.74 x 3331.89 px) is the
+    clean arm: the emitted box is 1629 x 3332 px and poppler renders 3333 px
+    high, which is ``box + 1`` and inside the render bound, while the old
+    ``abs(size - trim) <= 0.5`` reading would have reddened it (1.11 px). The
+    plants each leave one bound: a box one pixel taller than the trim allows,
+    and a render two pixels over its own box. ``must_red`` is asserted before
+    the clean arm is trusted.
+    """
+    from PIL import Image
+
+    trim = (1628.74, 3331.89)
+
+    def interior(box, size):
+        pages = _RenderedInterior([Image.new("L", size, 255)])
+        pages.boxes_px = [box]
+        return pages
+
+    clean = interior((1629.0, 3332.0), (1629, 3333))
+    _assert_page_is_the_trim(clean, 0, trim, "measured")
+
+    for label, pages in {
+        "a box one pixel taller": interior((1629.0, 3333.0), (1629, 3333)),
+        "a box one pixel wider": interior((1630.0, 3332.0), (1630, 3332)),
+        "a render two pixels over its box": interior((1629.0, 3332.0), (1629, 3334)),
+        "a render under its box": interior((1629.0, 3332.0), (1629, 3331)),
+    }.items():
+        try:
+            _assert_page_is_the_trim(pages, 0, trim, label)
+        except AssertionError:
+            continue
+        raise AssertionError(f"the plant {label!r} was not caught")
+    # A bitmap keeps the plain half-pixel bound.
+    bitmap = interior(None, (1629, 3332))
+    _assert_page_is_the_trim(bitmap, 0, trim, "bitmap")
+    try:
+        _assert_page_is_the_trim(interior(None, (1629, 3333)), 0, trim, "bitmap +1")
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("a bitmap one pixel over the trim was not caught")
+
+
 def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages() -> None:
     """EC-019 (PDF half): for any extent, clue depth and stored trim/margins, every
     page of the book's PDF is the trim, and the drawn puzzle fits inside the usable
@@ -406,9 +503,8 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
 
         # Every page of the book is the trim, at 300 DPI — not only the puzzle's.
         trim_width_px, trim_height_px = _trim_px(sheet)
-        for number, page in enumerate(pages, start=1):
-            assert abs(page.size[0] - trim_width_px) <= 0.5, (sheet, number, page.size)
-            assert abs(page.size[1] - trim_height_px) <= 0.5, (sheet, number, page.size)
+        for number in range(1, len(pages) + 1):
+            _assert_page_is_the_trim(pages, number - 1, (trim_width_px, trim_height_px), sheet)
 
         # interior page 3 + toc_page_count, the puzzle (CARD-201 guide, then
         # CARD-200's TOC, then the puzzle page)
@@ -538,8 +634,9 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
             columns, rows, across, down = _extent(puzzle)
 
             assert page.size[0] < page.size[1], (sheet, "portrait")
-            assert abs(page.size[0] - trim_width_px) <= 0.5
-            assert abs(page.size[1] - trim_height_px) <= 0.5
+            _assert_page_is_the_trim(
+                pages, 3 + toc_page_count + index, (trim_width_px, trim_height_px), sheet
+            )
 
             drawing = drawing_of(page)
             # The top edge is the property's subject, and it is measurable on
@@ -781,7 +878,14 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         assert abs(by_number[medium_page].cell - by_number[ungraded_page].cell) <= 1
 
         # Every one of those pages is the same trim.
-        assert len({page.size for page in pages}) == 1
+        # Every one of those pages is the same trim: one emitted page box
+        # (the bitmaps' own pixels count as their box), where the RENDERED
+        # sizes may differ by poppler's outward pixel (see _RenderedInterior).
+        boxes = {
+            (round(box[0], 6), round(box[1], 6)) if box is not None else page.size
+            for page, box in zip(pages, pages.boxes_px)
+        }
+        assert len({tuple(round(v) for v in box) for box in boxes}) == 1, boxes
         checked += 1
     assert checked >= 100, checked
     # The mirroring half of the claim is not an identity on this corpus.
@@ -856,6 +960,8 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     band_foot_mm = TOP_MM + BAND_MM
 
     counted = two_up = single = 0
+    boundary_errors: list[float] = []
+    sample = None
     two_up_tops: set[int] = set()
     single_tops: set[int] = set()
     index = 0
@@ -864,8 +970,9 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     while index < len(puzzles):
         page = pages[page_number - 1]
         assert page.size[0] < page.size[1], (page_number, "portrait")
-        assert abs(page.size[0] - trim_width_px) <= 0.5
-        assert abs(page.size[1] - trim_height_px) <= 0.5
+        _assert_page_is_the_trim(
+            pages, page_number - 1, (trim_width_px, trim_height_px), page_number
+        )
 
         drawings = drawings_of(page)
         assert 1 <= len(drawings) <= 2, (page_number, len(drawings))
@@ -878,34 +985,25 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
         if len(drawings) == 2:
             # A two-up page's upper slot starts on the band's own foot.
             #
-            # **The one cell of this module CARD-336 did NOT re-express, with
-            # its measurement.** This site's bound is ONE ``HALF_PIXEL_MM``
-            # — half a device pixel — and a frame-centre reading cannot meet
-            # it in both media, because the frame rule inks SIX pixel lines
-            # and a six-line run's centre is a half-integer whose side
-            # depends on the rasteriser: Pillow inks ``c-2..c+3`` and poppler
-            # ``c-3..c+2`` for the same boundary ``c``, so the centre reads
-            # ``c+0.5`` in raster and ``c-0.5`` in vector. Measured over this
-            # corpus's 7 two-up pages:
-            #
-            # ======  ==========  ==========
-            # medium  ink         centre
-            # ======  ==========  ==========
-            # raster  0.54x       1.54x
-            # vector  **5.46x**   0.46x
-            # ======  ==========  ==========
-            #
-            # So the ink reading is what keeps this green on the tree as it
-            # stands, and the centre reading is what closes it once the page
-            # converts — neither is green in both, and CARD-330's measured
-            # 1 px cross-medium floor is below this bound either way. The
-            # remedy is this site's own multiple (1 -> 2 would admit both
-            # readings, 0.77x and 0.23x), which is **CARD-330's and not this
-            # card's to move** (G-1). Raised as a finding with the figures
-            # above rather than absorbed as a tolerance.
-            assert abs(_mm(drawings[0].top) - band_foot_mm) <= HALF_PIXEL_MM + 1e-9, (
-                page_number, _mm(drawings[0].top)
+            # **CARD-322 (owner ruling 2026-11-06, one reading on the one
+            # remaining medium) re-expressed the cell CARD-336 left on the ink
+            # reading.** This site's bound is ONE ``HALF_PIXEL_MM`` -- half a
+            # device pixel -- and is NOT widened (G-3b). The frame rule inks
+            # SIX pixel lines, so the first inked line is half a rule outside
+            # the stroke's path in operators (CARD-336's measured table: ink
+            # 5.46x the bound, boundary 0.46x over this corpus's 7 two-up
+            # pages); the interior has one medium now, and the claim is the
+            # one reading it always had: the frame BOUNDARY (the centre of
+            # the frame's top rule, ``frame_centre_of``) lies within half a
+            # pixel of the band's foot. Its control is below the loop: the
+            # same page moved one pixel is read again and leaves the bound.
+            boundary_top_px = frame_centre_of(page, drawings[0]).frame_top
+            boundary_top_mm = _mm(boundary_top_px)
+            assert abs(boundary_top_mm - band_foot_mm) <= HALF_PIXEL_MM + 1e-9, (
+                page_number, boundary_top_mm, band_foot_mm
             )
+            boundary_errors.append(abs(boundary_top_px - band_foot_mm * PX_PER_MM))
+            sample = sample or (page, band_foot_mm * PX_PER_MM)
             two_up_tops.add(drawings[0].top)
             two_up += 1
             assert drawings[1].top > drawings[0].top, "the lower slot is below it"
@@ -940,6 +1038,19 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
         "AC-252's own claim, measured as the inequality CARD-224 makes it"
     )
     assert counted == len(puzzles), counted
+    # The measured figures, written in the test (ADR-0039/R3): every two-up
+    # boundary reading is inside half a device pixel of the band's foot.
+    assert boundary_errors and max(boundary_errors) <= 0.5 + 1e-9, boundary_errors
+    # The control that can fail: the first two-up page moved ONE pixel down is
+    # read by the same calls and its boundary leaves the half-pixel bound.
+    from PIL import ImageChops
+
+    sample_page, sample_foot_px = sample
+    moved = ImageChops.offset(sample_page, 0, 1)
+    moved_px = frame_centre_of(moved, drawings_of(moved)[0]).frame_top
+    assert abs(moved_px - sample_foot_px) > 0.5, (
+        "a one-pixel shift of the drawn frame is invisible to this cell"
+    )
     # Both page make-ups are really in the corpus.
     assert two_up >= 5, two_up
     assert single >= 5, single
