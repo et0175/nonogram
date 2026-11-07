@@ -759,6 +759,11 @@ queued:
 - id: CARD-392   # P2 4c  ONE-LINE FOOTER: band shrinks, pairing + cell sizes re-derived. Depends 391. Land BEFORE 232/233/226/230/229. Unstamped.
 - id: CARD-393   # P2 2c  GUIDE LINE 'Every puzzle ... scan the code on page N'. Depends 390, 229. Unstamped.
 - id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
+- id: CARD-395   # P1 4c  GATE STOPS RUNNING THE HEAVIEST SWEEPS: wave_close_only marker, subject lift, gate contract, wave-close definition (owner A, 2026-11-07). Depends 388. Unstamped.
+- id: CARD-396   # P2 2c  KILL-MATRIX cells in parallel (owner C). No deps. Unstamped.
+- id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
+- id: CARD-398   # P3 3c  Session render cache for the baseline book; held until 387; may close as a null (owner C). Depends 387, 395. Unstamped.
+- id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
