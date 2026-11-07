@@ -56,4 +56,8 @@
 
 ## Worktree notes
 
-(none yet)
+- Design: `Runner(workers=N)`; N>1 measures SHIPPED + each mutant as tasks on N threads, each thread on its OWN copy of repo_root (minus `.git`, `.full-suite.lock`, venvs, caches) with its own cp -p backups; results stored by task index and read in declared order; lowest-index refusal raised; LockHeld raised by the parent before any copy. Path outside repo_root -> serial. The earlier premise "each cell on a clean copy" was false: the serial runner edits the real tree in place.
+- Deviation: `workers` defaults to 1 on the Runner (in-place reading that ~20 existing cells rely on, e.g. the planted-leak cells); `km.default_workers()` is the derived rule (env KILL_MATRIX_WORKERS, else min(4, cpus-1), floor 1); the ac7 four-arm grid passes it. Tests never set the variable.
+- Measured (mine, solo, host with ordinary desktop background load): four-arm grid 14 cells, workers=1 81.0/87.0/94.9 s, default (4) 31.2/29.5/30.2 s; direct-call 1/2/4/6 workers = 81.1/52.1/31.5/29.5 s (cap 4 kept). Verdict JSON (figure, table, every cell, raw cells, records, exit codes, collected counts, shipped_between) byte-identical serial vs 2/4/6 workers. Lock-guard reproduction is ONE cell (SHIPPED only, no mutants) so the pool cannot help it: 6-10 s solo (the 21 s carried figure was contended). Whole test_kill_matrix.py with the 10 new cells: 113 s.
+- AC-5: saving on the grid ~64 % (>= 30 %), pool kept.
+- Declared bound: a parent hard-killed by the hang guard cannot clean up; its in-flight children finish alone and lane trees stay in the temp dir (same as the serial runner's children).
