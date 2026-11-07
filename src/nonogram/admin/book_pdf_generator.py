@@ -1729,6 +1729,47 @@ def print_order(puzzles: List[Any]) -> List[Any]:
     ]
 
 
+def numbered_rows(
+    puzzles: List[Any],
+) -> Tuple[List[Any], List[Any], List[Any], List[ExportPayload]]:
+    """The rows the interior numbers, decided once (INV-009, CARD-389).
+
+    Returns ``(ordered, ids, printed, payloads)``: ``ordered`` is every row in
+    print order (:func:`print_order`), undrawable ones included; ``ids``,
+    ``printed`` and ``payloads`` are the rows that built an export payload, in
+    print order and parallel, so ``printed[n - 1]`` is the row the interior
+    prints as puzzle ``n``. A row whose payload cannot be built (malformed
+    clues, say) is dropped here with a logged warning and takes no number.
+
+    This is the one filter: :meth:`BookPDFGenerator.section_plan` calls it,
+    and so does the player bundle when it names a book's puzzles, so the
+    printed numbering and the landing page's cannot be decided twice.
+    """
+    ordered = print_order(puzzles)
+    ids: List[Any] = []
+    printed: List[Any] = []
+    payloads: List[ExportPayload] = []
+    for puzzle in ordered:
+        # Read outside the try: a row so malformed it is not even a
+        # mapping must still be logged, not raise again inside the
+        # handler that is reporting it.
+        puzzle_id = puzzle.get("id") if hasattr(puzzle, "get") else None
+        try:
+            payload = BookPDFGenerator._payload(puzzle)
+        except Exception as e:
+            logger.warning(
+                "Dropping book puzzle %s from the interior: no export "
+                "payload could be built for it (%s)",
+                puzzle_id,
+                e,
+            )
+            continue
+        ids.append(puzzle_id)
+        printed.append(puzzle)
+        payloads.append(payload)
+    return ordered, ids, printed, payloads
+
+
 def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
     """The pages ``puzzles`` would print on in ``book``, and nothing drawn.
 
@@ -7252,28 +7293,7 @@ class BookPDFGenerator:
                 pair the walk offered (:meth:`puzzle_pages`). Either way the
                 message names the puzzle (:meth:`_unmeasurable_members`).
         """
-        ordered = print_order(puzzles)
-        ids: List[Any] = []
-        printed: List[Any] = []
-        payloads: List[ExportPayload] = []
-        for puzzle in ordered:
-            # Read outside the try: a row so malformed it is not even a
-            # mapping must still be logged, not raise again inside the
-            # handler that is reporting it.
-            puzzle_id = puzzle.get("id") if hasattr(puzzle, "get") else None
-            try:
-                payload = self._payload(puzzle)
-            except Exception as e:
-                logger.warning(
-                    "Dropping book puzzle %s from the interior: no export "
-                    "payload could be built for it (%s)",
-                    puzzle_id,
-                    e,
-                )
-                continue
-            ids.append(puzzle_id)
-            printed.append(puzzle)
-            payloads.append(payload)
+        ordered, ids, printed, payloads = numbered_rows(puzzles)
         # CARD-200: the table of contents sits between the guide and the
         # puzzle section, so every page this walk hands out moves by its own
         # length. Measured here, off this book's own trim

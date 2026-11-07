@@ -226,10 +226,13 @@ agrees with by construction: both read the book's puzzle keys in **print order**
 (easy, then medium, then hard, INV-009), so tile *i* on the landing page is the puzzle
 the interior prints as number *i*. A book stored in an older mixed order therefore
 gets the slug of its print order, which differs from the slug older exports named it
-by. A book holding a row with no readable grid gets no landing address and no
-`book/<slug>.json` (the exporter names the row), because the interior refuses to print
-such a book and any numbering written for it would shift. A book with no stored
-domain has no address at all.
+by. A book holding a row that is stored but has no readable grid gets no landing address
+and no `book/<slug>.json` (the exporter names the book and the row), because the
+interior refuses to print such a book. A puzzle id whose puzzle was deleted is
+different: the panel prints the surviving puzzles, numbered over the survivors, so the
+book is addressed over the survivors and the deleted id is only reported as left out.
+A row the interior drops (malformed clues) takes no number on the page and none in the
+landing page. A book with no stored domain has no address at all.
 
 The `base` above is the owner's **custom domain**, registered on 2026-10-30 and
 **observed serving this site the same day**: `/library`, `/play/<key>`, `/b/<slug>`

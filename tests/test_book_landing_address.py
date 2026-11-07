@@ -44,6 +44,10 @@ from nonogram.admin.book_manager import BookStatus
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from tests.helpers.book_corpus import corpus_book
 
+# The real panel (both storage modes), for the deleted-puzzle path.
+from tests.test_book_arrange_size_filter import Panel, panel  # noqa: F401
+from tests.test_book_player_domain import GRIDS, add_grid
+
 DOMAIN = "https://nonogram.adverax.io"
 
 #: Captured on main (20e3815d) for ``GROUPED_TIERS`` below, in stored order,
@@ -198,6 +202,24 @@ class TestBookLanding_NoDomainNoAddress:
         assert player_bundle.landing_address(GROUPED_ROWS, domain) is None
 
 
+class TestBookLanding_ADomainIsNotJoinedBlindly:
+    @pytest.mark.parametrize(
+        "domain", ["a.io", "http://a.io", "https://a.io/b/", "https://a.io/x", "https://a.io?q=1"]
+    )
+    def test_a_domain_that_is_not_an_https_origin_is_refused(self, domain):
+        with pytest.raises(ValueError):
+            player_bundle.landing_address(GROUPED_ROWS, domain)
+
+    def test_one_trailing_slash_and_case_are_normalised_like_the_stored_column(self):
+        address = player_bundle.landing_address(GROUPED_ROWS, "HTTPS://A.io:8443/")
+        assert address.url == f"https://a.io:8443/b/{GROUPED_SLUG}"
+        assert address.short == f"a.io:8443/b/{GROUPED_SLUG}"
+
+    def test_the_public_api_is_exported(self):
+        for name in ("landing_address", "LandingAddress", "print_ordered_keys", "BOOK_PATH"):
+            assert name in player_bundle.__all__
+
+
 class TestBookLanding_ShortAddressIsTypable:
     @pytest.mark.parametrize("domain", [DOMAIN, DOMAIN + "/"])
     def test_the_short_form_has_no_scheme_and_no_trailing_slash(self, domain):
@@ -226,11 +248,60 @@ class TestBookLanding_ADamagedRowCannotShiftNumbers:
         # The readable puzzles stay published.
         assert report.puzzle_count == len(GROUPED_ROWS) - 1
 
-    def test_a_missing_row_is_the_same_case(self, tmp_path):
+    def test_the_refusal_is_reported_per_book(self, tmp_path):
+        report, _ = exported(self.damaged(), tmp_path)
+        assert [(title, pid) for title, pid, _ in report.refused_books] == [("Winter", "g1")]
+        assert "ragged" in report.refused_books[0][2]
+
+    def test_a_deleted_row_is_skipped_and_the_book_is_addressed_over_the_survivors(
+        self, tmp_path
+    ):
+        """The panel's loader prints the survivors, so the book keeps a landing."""
         rows = [r for r in GROUPED_ROWS if r["id"] != "g1"]
         report, root = exported(rows, tmp_path, stored_order=[r["id"] for r in GROUPED_ROWS])
-        assert book_files(root) == []
+        survivors = player_bundle.landing_address(rows, DOMAIN)
+        assert [f.stem for f in book_files(root)] == [survivors.slug]
         assert dict(report.skipped)["g1"] == "no stored puzzle with this id"
+        assert report.refused_books == ()
+
+    def test_the_bundle_serves_the_slug_the_real_interior_prints_after_a_deletion(
+        self, panel, tmp_path, monkeypatch  # noqa: F811
+    ):
+        """B-1, through the panel's own loader (`_book_puzzles`) and the real interior."""
+        book_id = panel.books.create_book("Winter", "a book", "christmas", "adults")
+        ids = [add_grid(panel, GRIDS[name], name) for name in ("angel", "star", "box")]
+        panel.books.add_puzzles_to_book(book_id, ids)
+        assert panel.store.delete_puzzle(ids[1])
+        book = panel.books.get_book(book_id)
+        assert ids[1] in book.puzzle_ids  # premise: the book still names the deleted id
+
+        printed = []
+        real = BookPDFGenerator.section_plan
+
+        def spy(self, puzzles):
+            plan = real(self, puzzles)
+            printed.append(list(plan.printed))
+            return plan
+
+        monkeypatch.setattr(BookPDFGenerator, "section_plan", spy)
+        response = panel.client.post(f"/book/{book_id}/generate-pdf")
+        assert response.status_code == 200, response.get_data(as_text=True)[:300]
+        assert printed and [r["id"] for r in printed[-1]] == [ids[0], ids[2]]
+
+        class Books:
+            def get_all_books(self):
+                return [
+                    SimpleNamespace(
+                        status=BookStatus.READY_FOR_PDF.value,
+                        puzzle_ids=list(book.puzzle_ids),
+                        metadata=book.metadata,
+                    )
+                ]
+
+        player_bundle.export_bundle(Books(), panel.store, tmp_path / "bundle")
+        expected = slug_by_hand(key_by_hand(r["grid"]) for r in printed[-1])
+        assert [f.stem for f in book_files(tmp_path / "bundle")] == [expected]
+        assert player_bundle.landing_address(printed[-1], DOMAIN).slug == expected
 
     def test_the_address_refuses_rather_than_renumber(self):
         with pytest.raises(ValueError):
@@ -239,3 +310,26 @@ class TestBookLanding_ADamagedRowCannotShiftNumbers:
     def test_a_book_with_no_puzzles_has_no_address(self):
         with pytest.raises(ValueError):
             player_bundle.landing_address([], DOMAIN)
+
+
+class TestBookLanding_APuzzleTheInteriorDropsTakesNoNumber:
+    """F-2: the bundle's notion of 'printed' is the interior's own filter."""
+
+    def malformed(self):
+        rows = [dict(r) for r in GROUPED_ROWS]
+        rows[1]["clues_rows"] = [5, 5]  # a valid grid, clues the interior cannot read
+        return rows
+
+    def test_the_interior_drops_the_row(self):
+        plan = BookPDFGenerator(corpus_book()).section_plan(self.malformed())
+        assert plan.ids == ["g0", "g2", "g3"]  # premise, on the real interior
+
+    def test_the_bundle_numbers_exactly_what_the_interior_numbers(self, tmp_path):
+        rows = self.malformed()
+        plan = BookPDFGenerator(corpus_book()).section_plan(rows)
+        expected = [key_by_hand(r["grid"]) for r in plan.printed]
+        _, root = exported(rows, tmp_path)
+        (book_file,) = book_files(root)
+        assert json.loads(book_file.read_text())["puzzle_keys"] == expected
+        assert book_file.stem == slug_by_hand(expected)
+        assert player_bundle.landing_address(rows, DOMAIN).slug == book_file.stem

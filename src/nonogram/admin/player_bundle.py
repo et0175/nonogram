@@ -105,11 +105,14 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from nonogram.admin.book_manager import BookStatus
-from nonogram.admin.book_pdf_generator import print_order
+from nonogram.admin.book_pdf_generator import numbered_rows
+from nonogram.admin.print_specs import PLAYER_DOMAIN_SCHEME, PrintSpecValidator
 from nonogram.clues import compute_clues
 
 __all__ = [
     "BOOK_FILE_FIELDS",
+    "BOOK_PATH",
+    "LandingAddress",
     "BundleReport",
     "FINALIZED_STATUSES",
     "INDEX_ENTRY_FIELDS",
@@ -120,6 +123,8 @@ __all__ = [
     "SOLUTION_DERIVED_FIELDS",
     "PLAY_PATH",
     "book_slug",
+    "landing_address",
+    "print_ordered_keys",
     "default_output_dir",
     "export_bundle",
     "play_url",
@@ -369,24 +374,30 @@ def book_slug(puzzle_keys: Iterable[str]) -> str:
 
 
 def print_ordered_keys(records: Iterable[Mapping[str, Any]]) -> list[str]:
-    """The keys of ``records`` in the order the interior prints them (ADR-0041/R8).
+    """The keys of ``records`` in the order the interior numbers them (ADR-0041/R8).
 
     The one place a book's rows become the sequence its slug and its landing
-    page's numbering are read from: :func:`~nonogram.admin.book_pdf_generator.print_order`
-    (INV-009, level-grouped, stable inside a level) and then :func:`puzzle_key`
-    of each row's grid. ``print_order`` is idempotent, so rows already in print
-    order come back unchanged and a caller need not know which it holds. Entry
-    ``i`` is the puzzle the interior prints as number ``i + 1`` and the tile
-    the landing page shows as number ``i + 1``.
+    page's numbering are read from. The rows are the interior's own
+    (:func:`~nonogram.admin.book_pdf_generator.numbered_rows`, which
+    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.section_plan`
+    calls too): level-grouped (INV-009, stable inside a level), and with a row
+    the interior drops — one whose export payload cannot be built, such as
+    malformed clues — taking no number, exactly as on the page. It is
+    idempotent over rows already in print order. Entry ``i`` is the puzzle
+    printed as number ``i + 1`` and the landing tile numbered ``i + 1``.
+
+    Rows that are *absent* (a deleted id) are the caller's to leave out, as
+    the interior's own loader does; a row that is *present but unreadable* is
+    refused:
 
     Raises:
-        ValueError: a row holds no readable grid. The interior refuses to lay
-            such a book out (a ``RuntimeError`` naming the puzzle), so a book
-            holding one has no printed numbering to agree with, and a key list
-            that left the row out would number every later puzzle one less than
-            the page does.
+        ValueError: a numbered row holds no readable grid. The interior
+            refuses to lay such a book out (a ``RuntimeError`` naming the
+            puzzle), so a book holding one has no printed numbering to agree
+            with.
     """
-    return [puzzle_key(_grid_of(record)) for record in print_order(list(records))]
+    _, _, printed, _ = numbered_rows(list(records))
+    return [puzzle_key(_grid_of(record)) for record in printed]
 
 
 @dataclass(frozen=True)
@@ -420,20 +431,24 @@ def landing_address(
 
     Raises:
         ValueError: ``records`` is empty or holds a row with no readable grid
-            (see :func:`print_ordered_keys`); there is no honest address.
+            (see :func:`print_ordered_keys`), or ``player_domain`` is not an
+            absolute ``https://`` origin with no path; there is no honest
+            address.
     """
-    rows = list(records)
-    if not rows:
-        raise ValueError("a book with no puzzles has no landing address")
-    keys = print_ordered_keys(rows)
-    if not isinstance(player_domain, str) or not player_domain.strip():
+    keys = print_ordered_keys(records)
+    if not keys:
+        raise ValueError("a book with no printed puzzles has no landing address")
+    if player_domain is None or not str(player_domain).strip():
         return None
+    # The column's own normaliser (CARD-332): `https://host[:port]` and one
+    # optional trailing slash, nothing else. A scheme-less or path-carrying
+    # value is refused, not joined into a plausible-looking wrong address.
+    base = PrintSpecValidator.player_domain_as_stored(player_domain)
     slug = book_slug(keys)
-    base = player_domain.strip().rstrip("/")
     return LandingAddress(
         slug=slug,
         url=f"{base}/{BOOK_PATH}/{slug}",
-        short=f"{base.split('://', 1)[-1]}/{BOOK_PATH}/{slug}",
+        short=f"{base.removeprefix(PLAYER_DOMAIN_SCHEME)}/{BOOK_PATH}/{slug}",
     )
 
 
@@ -458,12 +473,17 @@ class BundleReport:
     ``skipped`` carries ``(puzzle id, reason)`` pairs sorted by id — a member
     whose stored grid is unreadable is left out of the bundle and *named*,
     rather than silently dropped or allowed to fail the whole export.
+    ``refused_books`` carries ``(book title, puzzle id, reason)`` for each
+    finalized book that got **no** book file because it holds a stored row with
+    no readable grid (CARD-389): the interior cannot print such a book, so it
+    has no landing address.
     """
 
     output_dir: Path
     puzzle_count: int
     book_count: int
     skipped: tuple[tuple[str, str], ...] = ()
+    refused_books: tuple[tuple[str, str, str], ...] = ()
 
 
 def default_output_dir() -> Path:
@@ -508,8 +528,10 @@ def export_bundle(
     order** (:func:`print_ordered_keys`, ADR-0041/R8), never its stored order,
     so the landing page's tile ``i`` is the puzzle the interior prints as
     number ``i`` and the slug equals :func:`landing_address`'s. A book holding
-    a row with no readable grid gets **no book file** (its row is named in
-    ``skipped``), because the interior refuses to print such a book.
+    a row with no readable grid gets **no book file** (named in ``skipped`` and
+    in ``refused_books``), because the interior refuses to print such a book. A
+    *deleted* id is only skipped: the interior prints the survivors, so the
+    book is addressed over them.
 
     The tree is rewritten rather than merged into: ``index.json`` and the two
     directories this module owns are removed first, so the output is a
@@ -529,6 +551,8 @@ def export_bundle(
     # grid are one public puzzle.
     candidates: dict[str, list[Mapping[str, Any]]] = {}
     skipped: dict[str, str] = {}
+    # (book title, puzzle id, reason) for each book that got no book file.
+    refused_books: list[tuple[str, str, str]] = []
     # Keyed by slug, because ADR-0041/R7 makes the slug the name of the book's
     # *content* too: two finalized books holding the same puzzles in the same
     # order are one public book file, and :func:`_book_file` settles the one
@@ -541,13 +565,16 @@ def export_bundle(
         for puzzle_id in book.puzzle_ids:
             record = records.get(puzzle_id)
             if record is None:
+                # A deleted id: the panel's own loader (`_book_puzzles`)
+                # leaves it out and prints the survivors, numbered over the
+                # survivors, so the book is still addressed over them.
                 skipped[str(puzzle_id)] = "no stored puzzle with this id"
-                damaged = True
                 continue
             try:
                 key = puzzle_key(_grid_of(record))
             except (TypeError, ValueError) as unreadable:
                 skipped[str(puzzle_id)] = str(unreadable)
+                refused_books.append((_book_title(book), str(puzzle_id), str(unreadable)))
                 damaged = True
                 continue
             members.append(record)
@@ -580,6 +607,7 @@ def export_bundle(
         puzzle_count=len(entries),
         book_count=len(book_keys),
         skipped=tuple(sorted(skipped.items())),
+        refused_books=tuple(sorted(refused_books)),
     )
 
 
