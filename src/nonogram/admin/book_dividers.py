@@ -262,13 +262,17 @@ def fit_to_page(
     try:
         _check_shape(image.width, image.height, page_width_px, page_height_px, dpi)
     except (WrongAspectRatio, BelowBookDpi) as refusal:
-        why = "a different shape" if isinstance(refusal, WrongAspectRatio) else "too few pixels"
-        raise type(refusal)(
+        wrong_shape = isinstance(refusal, WrongAspectRatio)
+        why = "a different shape" if wrong_shape else "too few pixels"
+        message = (
             f"The {slot_label(slot)} divider picture ({image.width} x {image.height} px) "
             f"no longer fits this book's page ({page_width_px} x {page_height_px} px "
             f"at {dpi} DPI): it has {why} for it. Remove or replace it on the "
             "Finalise screen."
-        ) from refusal
+        )
+        if wrong_shape:
+            raise WrongAspectRatio(message) from refusal
+        raise BelowBookDpi(message) from refusal
     if image.size != (page_width_px, page_height_px):
         image = image.resize((page_width_px, page_height_px), Image.Resampling.LANCZOS)
     return image
