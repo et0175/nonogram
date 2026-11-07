@@ -1,6 +1,6 @@
 # CARD-322: The last five interior kinds become operators, and ADR-0042/R1 flips with the final conversion
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 <!-- P1 since the 2026-10-31 re-cut: this card is the terminal node of the ADR-0042 interior phase; SEVEN ready cards wait on it (CARD-207, CARD-209, CARD-229, CARD-230, CARD-232, CARD-233, CARD-288), with CARD-273 behind them. -->
 **Category:** enabler
@@ -26,11 +26,11 @@
 <!-- Keep every comment on its OWN line: the card parser reads a same-line comment as part of the value, and `Depends on` is token-scanned for CARD-NNN, so an id in a same-line comment becomes an edge. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_puzzle_vector.py, tests/conftest.py, tests/helpers/book_corpus.py, tests/test_book_pdf.py, tests/test_book_pdf_band.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py, tests/test_book_solved_answer_key.py, tests/test_book_difficulty_dots.py, tests/test_book_pdf_two_up.py, tests/property/test_book_pdf_geometry.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_book_guide_page.py, tests/test_book_qr_slot.py, tests/test_book_toc.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_page_numbers.py, tests/test_book_pdf_ink_mode.py, tests/test_book_export_interior_cover.py, tests/test_book_proof_pages.py, tests/property/test_book_export_interior.py, tests/test_book_vector_goldens.py, tests/fixtures/book_vector_golden_*.json, docs/guides/how-to-solve-nonograms.md, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md, meta/profiling/rank_durations.py, src/nonogram/admin/book_page_spec.py, tests/fixtures/book_vector_golden_card322.json, tests/test_check_ref_resolution.py, tests/test_book_export_interior_cover.py
 <!-- Over-declared in the conservative direction (compute_excess penalises only under-declaration). By item: book_pdf_generator.py = items 2 and 16 (registry entries, the comment, the 23 writer functions (the D9 pair included, ruled 2026-11-06), the bitmap branches of interior_stream); app.py = item 3 (the one writing site only); book_interior_vector.py = item 3 (docstring only); book_puzzle_vector.py and test_book_pdf_band.py = item 9 (docstring consumers of the rename); conftest.py = item 1, only if its four checks pass; tests/helpers/book_corpus.py = item 6 (capped_export_report); test_book_puzzle_frame.py = item 14 (CARD-342's); property/test_book_pdf_geometry.py = items 15 and 13 (CARD-350's cells, then the F-4 cell); test_book_pdf_two_up.py = item 13; the ten test modules after test_book_pdf_band.py in the list (solved_page, guide_page, qr_slot, toc, guide_page_type, interior_type_floor, page_numbers, pdf_ink_mode, export_interior_cover, proof_pages, property/test_book_export_interior) = item 17, from the measurement's classes a and c, to be re-derived and narrowed to the modules that really change; test_book_vector_goldens.py and tests/fixtures/book_vector_golden_*.json = item 18 (NEW files; the existing tests/fixtures/book_baseline_*.json and proof_baseline_*.json are NOT touched, D7); the two docs files = item 16 (5 lines, mine); requirements.yml = item 16 (4 comment lines); the ADR = items 4 and 16. NOT in Touches on purpose: book_guide_vector.py (D2/G-8), book_proof.py and pdf_generator.py, errors.py, cli.py, tests/test_cli.py, tests/test_admin_error_text.py (CARD-383, done), tests/helpers/page_ink.py (G-3c; see the exception in item 14). Not edited but re-checked: tests/test_book_export_interior_cover.py's D2 workaround. app.py, book_pdf_generator.py and tests/conftest.py are conflict hotspots (CARD-320 also declares conftest.py): serialise, re-derive at dispatch. -->
-**Review score:** —
-**Started:** —
-**Closed:** —
+**Review score:** 8.2 (cycle 2/3 - CERTIFIED; cycle 1: 7.4 NOT certified; cycle 2: 8.2 CERTIFIED)
+**Started:** 2026-11-07T00:30Z
+**Closed:** 2026-11-07T07:20Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** f242da329630f92a0f30dfd875c49ba67bb1f826
 **Blocked by:** —
 
 **SCOPE (2026-11-07): this card lands the FLIP. Deleting the bitmap interior path and retiring its tests moved to CARD-387; where a Guardrail, a pricing comment or an older ruling below still speaks of that deletion, read it as CARD-387's.** **DISPATCHABLE NOW: every card in `Depends on` is `done` (CARD-309, 379, 381, 382, 383; CARD-343 is done too).** CARD-342 and CARD-350 are retired into this card as its first two commits. D9 is RULED (2026-11-06: the dots are drawn; item 8 is executable). The long history of this card (the 2026-10-30/31 re-cuts, the 233/94/80-red censuses, the premise pass, withdrawn findings) is in git: the last long version is commit `LASTLONG` (`git show LASTLONG:meta/kanban/cards/CARD-322.md`). Nothing in this file depends on reading it.
@@ -259,3 +259,23 @@ Figures labelled **mine** were produced by a command in this worktree; **carried
 * **F3 (done).** The bound is the closed interval `0 <= render - box <= 1` device pixel: measured exactly 1.0 on the 282.1 mm trim (ceil of 3332.0000000000005), so the earlier "< 1" in the notes and docstrings was wrong; the code allows 1e-6 for float noise. The notes, `_RenderedInterior` and `_assert_page_is_the_trim` now say that. Nothing widened.
 * **F4 (done).** The DrawingFits cell's docstring states that the trim loop checks every page's emitted box per case and the render bound only on pages it rendered. No behaviour change.
 * **CARRIED to CARD-387, not fixed:** **F5** no replacement guard for `test_book_pdf.py`'s own placed-edge sites (the retired raster-oracle guards had no survivor over this module; the survivor classifies the puzzle-frame and geometry modules' sites only). **F6** the dots module reaches the raster dot drawers through the `bitmap_medium` seam, which is test code no product path runs, and its new cells avoid the frozen render-census grep by the names they use. **F7** `generate_book_pdf` has no caller.
+
+### Review record
+
+[Review 1/3] Score: 7.4 (threshold 8.0 NOT reached; NOT CERTIFIED). The blocker was card text, not code, and was fixed on main; the code findings F1 to F7 went to fix round 6 above (F1 to F4 fixed, F5 to F7 carried to CARD-387). Reviewer-reported, not re-run by the orchestrator.
+
+[Review 2/3] Score: 8.2 (threshold 8.0 reached; 0 blockers; PASS; CERTIFIED). Reviewer-reported, not re-run by the orchestrator. The review gate was the owner-policy full armed suite at the merge gate (below), not an impact selection.
+
+### Closing note (merge gate, 2026-11-07)
+
+**Merged as f242da32** (`--no-ff` of `card/322-vector-interior-flip`, tip c7f79980 after merging main's CARD-322/CARD-387 board-text commits). **Size datum (mine, `git diff --shortstat 42180097 card/322-vector-interior-flip`): 26 files changed, 2075 insertions, 784 deletions.** Estimate 8c against 2 review cycles = ratio 0.25 (no wall-clock Actual, by the owner's call).
+
+**Gate (mine):** full suite, `DATABASE_URL` armed to the main checkout's per-worktree test database, `-o addopts= -q -rEfs --durations=15 -p no:cacheprovider`, hang guard 300 s: **11430 passed, 1 skipped, 1 xfailed in 3366.99 s (0:56:06)**; the one skip is the `setrlimit(RLIMIT_AS)` platform gate in `tests/test_book_pdf_memory.py`. No red. `git write-tree` before and after the run identical (039bac7a).
+
+**What the merge delivers:** interior pages (title, guide, TOC, answer, puzzle) are PDF operators on every production path; ADR-0042/R1 flipped; the vector goldens and the no-image-XObject check landed.
+
+**What it does NOT deliver:** the 23 raster interior writers and the ~390 raster tests STAY in the tree as the reference; their conversion, retirement and deletion is CARD-387 (Depends on CARD-322, unstamped). **No product page draws the difficulty dots yet**: CARD-207, CARD-233 and CARD-229 do (D9). The printed QR link is still the placeholder (`nonogram.example/p/NNN`); CARD-210 owns the stored `player_domain`.
+
+**Pointers:** D1 (page-content oracle gap DECLARED), D2, D5, D7 are recorded in the rulings section and rounds 4 to 5 above. Render record (not approved by anyone): `~/Documents/nonogram-reviews/CARD-322/`.
+
+**Carried to CARD-387 from the review:** F5 (no replacement guard for `test_book_pdf.py`'s own placed-edge sites), F6 (the dots module reaches the raster dot drawers through the test-only `bitmap_medium` seam), F7 (`generate_book_pdf` has no caller).
