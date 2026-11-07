@@ -1,6 +1,6 @@
 # CARD-311: The owner uploads a divider page, and the interior prints it in place of the drawn one — four slots, the folio decided, and the type floor's hole named
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -19,11 +19,11 @@
 **Depends on:** CARD-298, CARD-322
 <!-- CARD-322 added 2026-11-06: it deletes the generated INTERIOR writers from book_pdf_generator.py (the same file this card edits) and keeps create_divider_page and its helpers for this card to remove; the two must not run concurrently. -->
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/book_finalize.html, tests/test_book_pdf.py, tests/test_book_workflow_steps.py, migrations/versions/
-**Review score:** —
+**Review score:** 8.5 (cycle 2/3 - CERTIFIED; cycle 1: 7.4 NOT certified; cycle 2: 8.5 CERTIFIED)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-07T12:35Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** a2e9a252f9a02446fc21c1a0db31060ee0704c55
 **Blocked by:** —
 
 ## What exists today, measured
@@ -268,3 +268,15 @@ Two flagged oddities, both pre-existing and not this card's: `tests/integration_
 ### Author round 4 (merge-gate fix round)
 
 Three reds from frozen censuses that predate this branch's files. (1) `test_admin_binding`'s call sweep could not analyse `raise type(refusal)(...)` in `book_dividers.fit_to_page`: rewritten as an explicit `raise WrongAspectRatio(message)` / `raise BelowBookDpi(message)` from the original, so no exemption was added. (2) `tests/test_book_uploaded_dividers.py` joins `RENDER_HEAVY_SNAPSHOT` in `meta/profiling/rank_durations.py` (new module, absent from the committed duration artefacts, so no recorded figure moves; set difference derived by `regrep_render_set`: added exactly that one file, gone none). (3) the log-outcome test was the knock-on of (2). The callee-refusal table and door count (877/593/219/216, 24) were re-run by their own derivation and still equal. Also swept: every test file mentioning RENDER_HEAVY_SNAPSHOT, _UNANALYSABLE or _EXEMPTIONS (test_admin_binding, test_guard_integrity, test_impact_set, test_suite_profile, test_book_difficulty_dots, test_book_pdf, test_book_export_interior_cover) was run.
+
+[Review 1/3] Score: 7.4 (threshold 8.0 NOT reached; NOT CERTIFIED; 0 blockers). Reviewer-reported, not re-run by the merge gate. Findings: stale statements, the pixel cap, the refusal message, three unguarded decisions, alpha compositing; all went to author round 3 above.
+
+[Review 2/3] Score: 8.5 (threshold 8.0 reached; 0 blockers; PASS; CERTIFIED). Reviewer-reported, not re-run by the merge gate. Carried findings G1, G2, G3 are below.
+
+[Closing note, merge gate, merged `a2e9a252` (branch tip `705eb75d`, main merged into it as `b4ec5327` with no conflict; staged `--no-ff` merge into main on `0b4819d3`; the staged set equalled the branch diff, 18 files)] The first gate run (merge on `1dc46b31`) reddened on three frozen censuses that predate this branch's files (test_admin_binding's call sweep, test_suite_profile's frozen render set and its knock-on sandbox-outcome test); the author fixed them in round 4 and the gate was redone: fast sanity of nine files 1174 passed, then the FULL armed suite 11572 passed, 1 skipped (the setrlimit platform gate), 1 xfailed, no red. tests/test_wave1_e2e.py flaked once in the first run (`9 >= 10`, an unseeded draw; green alone) and did not flake in the second.
+What the merge delivers: the divider upload store (table `book_divider_images`, migration 019), four upload slots on the Finalise screen, the generator's `dividers=` kwarg and `divider_page`, DIVIDER as a permanent bitmap; an uploaded picture is fitted to the page. An EMPTY slot keeps the DRAWN divider (owner ruling 2026-11-07), so nothing changes for any existing book.
+What it does NOT deliver: no "no upload = no divider"; the drawn divider and its tests stay; CARD-231 stays parked.
+Size datum: `git diff --shortstat` of the branch vs its original merge-base 9a61a9cf: 36 files changed, 3579 insertions, 102 deletions (includes merged-in main changes; the net diff against current main is 18 files, 1591 insertions, 68 deletions). Estimate 4c vs 2 review cycles = ratio 0.5; no wall-clock Actual (owner's call).
+CARRIED (no new cards): G1 accepting MPO JPEG is untested (a plant refusing MPO survived); G2 AC-254's test names only the drawn-page test in its field names, the uploaded half is covered by tests/test_book_uploaded_dividers.py but not named; G3 (info) the 4x pixel cap refuses higher-resolution art.
+OWNER'S PENDING EYEBALL (AC-7): the owner has not yet looked at a divider rendered from their own picture. The render at `~/Documents/nonogram-reviews/CARD-311/` uses synthetic art. Not approved; to be checked after the merge.
+Divider upload format facts: PNG and JPEG only (MPO JPEG included); at most 10 MB; aspect ratio within 1% of the page; at least the page's pixels at the book's DPI, never upscaled; at most 4x the page's pixels; transparency is composited onto white; PDFs are not accepted.
