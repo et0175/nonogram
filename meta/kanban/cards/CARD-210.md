@@ -3,7 +3,8 @@
 **Status:** ready
 **Priority:** P2
 **Category:** feature
-**Estimate:** 1d
+**Estimate:** 3c (1d)
+<!-- RESTATED in review cycles 2026-11-06 at queueing (the board counts Nc since ADR-0055). The day figure is the old estimate; the encoder choice below can move it. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
@@ -13,7 +14,8 @@
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("I think about delivering some extra benefits with the book: 1. Qr code with each puzzle in the book to the puzzle online solver for this specific puzzle (this solver doesn't exist so far, so we need to think about its development)"); the slot it fills is CARD-204's placeholder glyph
 **Idea:** —
 **Wave:** —
-**Depends on:** CARD-204
+**Depends on:** CARD-204, CARD-322
+<!-- CARD-322 added 2026-11-06: it deletes the bitmap interior writers (including the QR placeholder bitmap drawers) from book_pdf_generator.py, the file this card edits, and the printed QR then lives only in the vector writers. The two must not run concurrently. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py, pyproject.toml, tests/test_book_pdf.py, tests/test_book_qr.py
 **Review score:** —
 **Started:** —
@@ -21,6 +23,12 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** — (unblocked 2026-10-30; both preconditions now exist, see Worktree notes)
+
+## [PREMISES RE-READ 2026-11-06] — what changed since this card was written, and the one open decision
+
+Written by the orchestrator when the owner asked for this card to be queued ("doesn't matter what's first: 210 or dividers"). **The two blockers named under "Why this card exists and is blocked" are RESOLVED:** (1) a public solver to point at EXISTS: the public player is deployed at `https://nonogram.adverax.io` (docs/deploy/player.md), with `/play/<key>`, `/b/<slug>` and `/library`; (2) the URL namespace is DECIDED by ADR-0041/R1: the key is the grid's SHA-256 truncated to 10 hex characters, one-way, stable across re-seeds. Each book also stores its own **player domain** (CARD-332), so the printed link for a puzzle is `{the book's stored domain}/play/{key}` and a book with no stored domain must print no QR rather than one built from a base nobody chose (the rule docs/deploy/player.md records). **What is true today (measured by the CARD-322 re-cut author on main, 2026-11-06):** the QR printed on every puzzle page is NOT a link. The constant `QR_LINK_TEMPLATE = "nonogram.example/p/{number:03d}"` in `book_pdf_generator.py` is a placeholder (its own comment says "until the online solver" exists), so a book exported today cannot be scanned to reach the site, whatever the page medium. **The one decision that is still open and is the OWNER's:** the encoder (item 2 of "What it will do"): ADR-0006/R1 closes the runtime dependency set to stdlib + Pillow + NumPy, so a QR encoder is (A) a new pure-Python runtime dependency with a revision of that ADR, (B) a single vendored third-party file (with its licence) that adds code but no `pyproject.toml` dependency, or (C) about 400 lines of in-repo Reed-Solomon, mask selection and version fitting, correctness-critical (a printed code that looks right and does not scan). The AC below also wants a DECODED round trip, which needs a QR decoder on the test side (a dev-only dependency or a vendored test helper): the same decision. The card must carry the owner's choice, recorded as an ADR delta BEFORE implementation. The author of this card stops and asks if it is not recorded.
+
+**[OWNER RULING 2026-11-06, after the above: "option 2, vendor one file"].** The QR ENCODER is a SINGLE vendored third-party source file, with its licence, in the repository: no new entry in `pyproject.toml`, ADR-0006/R1's dependency baseline (stdlib + Pillow + NumPy) is not widened. Consequences for the author: (1) choose the file and say why before writing code: the candidate the orchestrator had in mind is Project Nayuki's single-file Python QR Code generator (MIT licensed, no dependencies), but this is a recollection, NOT verified: read its actual licence text, version and size, and confirm its terms permit vendoring with attribution; if no single file with a permissive licence fits, STOP and report; (2) the vendored file carries its provenance in the repository: upstream URL, version or commit, the licence text beside it, and the sha256 of the vendored bytes, with a test that holds the bytes to that sha256 so an edit to vendored code is a deliberate act; (3) it lives where the layering guard and the closed-dependency check (tests/test_cli.py's import walk) accept it, and the card records the ADR delta BEFORE implementation: ADR-0006 gains a rule that third-party code may be vendored as a single provenance-stamped file under stated conditions (no network, no transitive dependency, a pinned hash), and what that does to R1's wording; (4) our wrapper stays thin and ours: the URL comes from the book's stored player domain and the puzzle key; the vendored file only turns bytes into a module matrix; the matrix is drawn into CARD-204's existing 2x2 cm slot by our code in both writers that remain after CARD-322 (the vector writers); (5) the DECODED round trip the AC asks for needs a QR decoder on the test side: survey the options (a pure-Python decoder vendored as a TEST helper under the same provenance rules, an installed decoder available to the dev extra, or a check against the encoder's published test vectors plus a render-and-sample reader of our own that is independent of the encoder code) and STOP and ask the owner if the only way is a new third-party dev dependency; (6) QR version and the longest URL it carries at a module size a phone camera resolves in 2x2 cm are stated in the card, as the original item 3 requires.
 
 ## What to implement
 

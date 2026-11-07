@@ -466,18 +466,21 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-385
-    branch: card/385-public-mode
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-385
-    started: 2026-11-06T19:40Z
-    estimate: 3c (1d)
-    cut_from: 67256d8d
   - card: CARD-286
     branch: card/286-impact-set-sees-what-tests-read
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-286
     started: 2026-11-06T20:52Z
     estimate: 3c (1d)
-    cut_from: CUTSHA
+    cut_from: 3d2b74f0
+  - card: CARD-322
+    branch: card/322-vector-interior-flip
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-322
+    started: 2026-11-07T00:30Z
+    estimate: 8c (2.5d)
+    cut_from: c9b1d7e4
+# CARD-385 CLEARED 2026-11-06T23:57Z at its merge gate: merged 35b1b9ba, done, certified 8.6 on cycle 1 (fix round
+#   bc99e72b+e024c41c not re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Its worktree is removed under the tidy
+#   rule (no worktree-only artefacts; instruments already in ~/Documents/nonogram-reviews/CARD-385/), so the entry is dropped.
 # CARD-343 CLEARED 2026-11-06T20:50Z at its merge gate: merged 4cb3e836, done, certified 8.4 on cycle 1 (fix round
 #   9c58767e not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Its worktree is removed under the tidy rule
 #   after its worktree-only artefacts were copied to ~/Documents/nonogram-reviews/CARD-343/, so the entry is dropped.
@@ -739,7 +742,10 @@ queued:
 #   CARD-348 alone -- so the stale figure went with the stale row.
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
+- id: CARD-322   # P1 8c (2.5d)  THE FLIP, dispatchable now (every dependency done): fold in 342+350, delete the bitmap interior path, vector goldens, the D9 dot arm retired onto the vector medium (D9 ruled 2026-11-06: the dots ARE drawn, by CARD-207, 233, 229 after this card). The owner knowingly lifts the 1d cap. Seven product cards wait on it. Unstamped. First in the queue.
 - id: CARD-386   # P1 2c  PREVIEW SITE from the admin's own player files, no overrides, not deployed, for the owner to test (design A step 2). Depends on CARD-385. Owner 2026-11-06: "yes to A and don't do differences override level until I test it". Unstamped.
+- id: CARD-210   # P2 3c  REAL QR LINKS (the printed QR is a placeholder today: nonogram.example/p/NNN). Owner 2026-11-06: order vs the dividers (CARD-311) does not matter. Depends on CARD-322 (same file). Encoder RULED 2026-11-06: ONE vendored single file with its licence (option 2); the test-side decoder is surveyed by the author, who stops and asks only if it needs a new dev dependency. Unstamped.
+- id: CARD-311   # P1 4c  DIVIDERS ARE UPLOADED (owner 2026-11-06: "I'll add them directly (upload) and you just place them in the pdf"): four slots, durable store with a migration, no upload = no divider, the DIVIDER declaration becomes permanent raster, the generated divider is deleted. Depends on CARD-322 (same file). Replaces the parked CARD-231. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
@@ -750,7 +756,6 @@ queued:
 #   card needing a pass. 6d total against the 1d CARD-322 carried, and the price
 #   is measured rather than estimated. If 6d is unacceptable the lever is
 #   CARD-337: a four-way split puts every piece under 1.5d.
-- id: CARD-322   # P1 3c  LAST, and still the destination: the FLIP only after the 2026-11-06 re-cut and peel-off: five registry deletions, the D8 writing site, ADR-0042/R1's flip and its wording (D3), the conftest-rebind seam, the 39 + 2 retirements, the F-307 rename. Depends on CARD-382, 383, 342, 343, 350 (not done) so NOT dispatchable yet; unstamped. Seven gated cards wait on it.
 last_updated: 2026-11-04T20:25:00Z
 
 # ─────────────────────────────────────────────────────────────────────────────
