@@ -4114,8 +4114,18 @@ class Generator:
         # the message's list and join calls inside the check, the doors' three
         # calls to it and the walk's ``answer_title`` for the new tuple -- and
         # no class started absorbing a new kind of thing.
-        ((), 874),
-        (("builtins",), 591),
+        #
+        # **CARD-322 re-measured it a fourth time, and the move is five
+        # deleted calls and nothing else.** 874 -> 869, 591 -> 586, 217 -> 217,
+        # 214 -> 214, and the steps 283/374/3/214 -> 283/369/3/214. The five are
+        # the ``RasterDeclaration(...)`` constructions of the five interior
+        # kinds that left ``_RASTER_DECLARATIONS``: a class this module
+        # defines, so they were absorbed by ``definitions and imports`` and by
+        # no other class, which is why exactly that step lost five and the
+        # other three did not move. Re-derived by running the table's own
+        # ``_page_positions`` per row, not pasted from the failure message.
+        ((), 869),
+        (("builtins",), 586),
         (("builtins", "definitions and imports"), 217),
         (("builtins", "definitions and imports", "parameters"), 214),
         (
