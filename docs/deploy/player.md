@@ -524,3 +524,14 @@ setting.
    depends on a vendor being reachable, and the cross-origin request shape CARD-283/284's
    same-origin controls forbid, re-introduced from the test side. Any new browser test
    over a counted tree carries the same two lines.
+
+## The shared-UI preview mode (CARD-386)
+
+The assembly helper's `--shared-ui` mode, given a local Bootstrap stylesheet with
+`--bootstrap`, assembles a **preview** tree in which `/play/<key>` runs the admin's own `solver.js`,
+`admin.css`, `solver_state.js` and `tokens.css` (byte-identical copies) with no override
+stylesheet. It is opt-in, it is for the owner to test locally with
+`scripts/preview_player_site.py`, and it is **not a deploy**: the tree needs a Bootstrap
+stylesheet that is deliberately not in the repository, and that file trips the AC-392
+scan (see the card's notes). Without the flag the output is exactly what this page
+describes above.
