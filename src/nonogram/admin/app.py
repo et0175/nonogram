@@ -119,6 +119,13 @@ from nonogram.admin.book_pdf_generator import (
     tier_breakdown,
 )
 from nonogram.admin import book_pdf_generator
+from nonogram.admin.book_dividers import (
+    DIVIDER_SLOTS,
+    DividerRefused,
+    accept_upload,
+    require_slot,
+    slot_label,
+)
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_proof import render_proof_pdf
 from nonogram.admin import player_bundle
@@ -5510,6 +5517,13 @@ def create_app(debug=None):
                 else None
             ),
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
+            # CARD-311: the four divider slots, each with whether a picture is
+            # stored for it (read from the store, never from the session).
+            "divider_slots": [
+                {"slot": slot, "label": slot_label(slot), "uploaded": slot in stored}
+                for stored in [book_mgr.divider_images(book_id)]
+                for slot in DIVIDER_SLOTS
+            ],
             "trim_width_cm": trim_width_cm,
             "trim_height_cm": trim_height_cm,
             # CARD-147 (owner intake, raw-requirements.md, 2026-09-25): which
@@ -5679,7 +5693,9 @@ def create_app(debug=None):
         or counts pages and keeps the default, which refuses a kind it cannot
         draw.
         """
-        generator = interior_generator(book)
+        generator = interior_generator(
+            book, dividers=book_mgr.divider_images(book.book_id)
+        )
         if part == "interior":
             if puzzles is None:
                 puzzles = _book_puzzles(book)
@@ -5729,7 +5745,9 @@ def create_app(debug=None):
             timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
             return _send_export_part(pdf_bytes, requested, f"book_{timestamp}")
 
-        except UnsettablePuzzleTitle as refusal:
+        except (UnsettablePuzzleTitle, DividerRefused) as refusal:
+            # CARD-311: an uploaded divider the book's trim no longer suits is
+            # refused in words too, by the same rule as the title below.
             # CARD-383: the one domain refusal the owner is told in words. This
             # names ONE class, not NonogramError: the cover's
             # `UnletterableTitle` and every other failure keep the generic
@@ -5746,6 +5764,56 @@ def create_app(debug=None):
             app.logger.exception("The PDF of book %s could not be generated", book.book_id)
             flash(PDF_EXPORT_FAILED, "error")
             return redirect(back)
+
+    @app.route("/book/<book_id>/divider/<slot>", methods=["POST"])
+    def upload_book_divider(book_id, slot):
+        """Store the owner's picture for one divider slot of a book (CARD-311).
+
+        The slot is checked against the closed set, the file against the
+        page the book's own print setup lays out (shape, then resolution), and
+        what is stored is the panel's re-encode, never the client's bytes or
+        filename. A refusal says which check failed and leaves the stored
+        state as it was.
+        """
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+        back = url_for("finalize_book", book_id=book_id)
+        if slot not in DIVIDER_SLOTS:
+            flash(f"Unknown divider {slot!r}", "error")
+            return redirect(back)
+        file = request.files.get("divider")
+        if not file or not file.filename:
+            flash(f"Choose an image for the {slot_label(slot)} divider", "error")
+            return redirect(back)
+        try:
+            generator = BookPDFGenerator(book)
+            png = accept_upload(
+                file.stream,
+                generator.page_width_px,
+                generator.page_height_px,
+                generator.dpi,
+            )
+        except DividerRefused as refusal:
+            flash(f"The {slot_label(slot)} divider was refused: {refusal}", "error")
+            return redirect(back)
+        except ValueError as unreadable:
+            flash(f"The page size cannot be read, so nothing was stored: {unreadable}", "error")
+            return redirect(back)
+        book_mgr.set_divider_image(book_id, require_slot(slot), png)
+        flash(f"{slot_label(slot)} divider uploaded", "success")
+        return redirect(back)
+
+    @app.route("/book/<book_id>/divider/<slot>/clear", methods=["POST"])
+    def clear_book_divider(book_id, slot):
+        """Remove the owner's picture for one divider slot (CARD-311)."""
+        if not book_mgr.get_book(book_id):
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+        if slot in DIVIDER_SLOTS and book_mgr.clear_divider_image(book_id, slot):
+            flash(f"{slot_label(slot)} divider removed", "success")
+        return redirect(url_for("finalize_book", book_id=book_id))
 
     @app.route("/book/<book_id>/download-pdf", methods=["POST"])
     def download_book_pdf(book_id):
@@ -6114,8 +6182,8 @@ def create_app(debug=None):
                 pdf_bytes, part, book.metadata.title.replace(" ", "_")
             )
 
-        except UnsettablePuzzleTitle as refusal:
-            # CARD-383: as in `generate_book_pdf_download` -- this class only.
+        except (UnsettablePuzzleTitle, DividerRefused) as refusal:
+            # CARD-311: and an unsuitable uploaded divider. CARD-383: as in `generate_book_pdf_download` -- this class only.
             app.logger.warning(
                 "The PDF of book %s was refused: %s", book_id, refusal
             )

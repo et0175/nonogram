@@ -303,6 +303,10 @@ PAGE_FACTORIES = (
     "create_title_page",
     "create_guide_page",
     "create_divider_page",
+    # CARD-311: the divider the interior walk actually asks for -- the owner's
+    # uploaded picture fitted to the page, or the drawn page above. A page
+    # factory in its own right (it builds the fitted bitmap itself).
+    "divider_page",
     # CARD-200 adds the table of contents page beside the guide and the
     # divider — the same "draw something generic on page_frame" shape, and
     # a page factory `interior_stream`'s own producer calls just like them.

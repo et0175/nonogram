@@ -642,7 +642,7 @@ class TestBookExport_TheShippedDefaultStillDownloadsAVectorInterior:
         assert len(media) == STANDARD_BOOK_PAGES, len(media)
         assert media[:3] == [pdf_vector.VECTOR] * 3, media  # title page and both guide pages
         images = [index + 1 for index, resources in enumerate(keys) if "XObject" in resources]
-        # Images only on the section dividers (CARD-231 replaces them): a
+        # Images only on the section dividers (owner-uploaded, CARD-311): a
         # minority of the interior, never the title, the guide, a puzzle or an answer.
         assert images and len(images) <= 4, (images, media)
         assert [media[number - 1] for number in images] == [pdf_vector.RASTER] * len(images)
@@ -662,7 +662,9 @@ class TestBookExport_TheShippedDefaultStillDownloadsAVectorInterior:
 
         client, book_id = covered_book
         monkeypatch.setattr(
-            app_module, "interior_generator", lambda book: BookPDFGenerator(book)
+            app_module,
+            "interior_generator",
+            lambda book, **_: BookPDFGenerator(book),
         )
 
         # Control: the rebind in force hides the regression.
@@ -4197,10 +4199,21 @@ class Generator:
         # no other class, which is why exactly that step lost five and the
         # other three did not move. Re-derived by running the table's own
         # ``_page_positions`` per row, not pasted from the failure message.
-        ((), 869),
-        (("builtins",), 586),
-        (("builtins", "definitions and imports"), 217),
-        (("builtins", "definitions and imports", "parameters"), 214),
+        #
+        # **CARD-311 re-measured it a fifth time, and the move is eight added
+        # calls attributed one by one.** 869 -> 877, 586 -> 593, 217 -> 219,
+        # 214 -> 216, and the steps 283/369/3/214 -> 284/374/3/216: ``bytes``
+        # in the generator's divider-store comprehension (+1 builtin);
+        # ``require_slot`` twice, ``fit_to_page``, ``slot_for_level`` and
+        # ``page_frame`` in ``divider_page`` and the walk (+5, all names this
+        # module imports); and ``.items()`` on the injected mapping and
+        # ``.get`` on the stored one (+2, receivers this module does not
+        # define). Steps still strict drops, last two still 0. Re-derived by
+        # running the table's own ``_page_positions`` per row.
+        ((), 877),
+        (("builtins",), 593),
+        (("builtins", "definitions and imports"), 219),
+        (("builtins", "definitions and imports", "parameters"), 216),
         (
             (
                 "builtins",
@@ -6142,7 +6155,13 @@ class Generator:
         # cross-check that the figure is the gates and not a drift: the module
         # holds 23 ``self.page_spec(`` occurrences against HEAD's 19, counted
         # by a plain text search, which is a second domain for the same four.
-        assert inside == 23, inside
+        # CARD-311: 24, and the one added call is named rather than counted --
+        # ``self.page_spec(page_number)`` inside ``divider_page``, which takes
+        # the frame an uploaded divider is fitted to from its own position
+        # exactly as ``create_divider_page`` does. Same door, definition count
+        # still one, so 23 + 1 = 24 (24 ``self.page_spec(`` occurrences by a
+        # plain text search, the second domain for the one call).
+        assert inside == 24, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

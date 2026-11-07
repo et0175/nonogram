@@ -10,6 +10,8 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     JSON,
+    LargeBinary,
+    UniqueConstraint,
     func,
     text,
 )
@@ -247,6 +249,35 @@ class Book(Base):
     # arrangement screen says so plainly rather than printing a guess
     # (CARD-332 AC-3). A wrong domain is wrong in every printed copy.
     player_domain = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class BookDividerImage(Base):
+    """One uploaded divider page of a book (CARD-311, migration 019).
+
+    ``slot`` is one of ``nonogram.admin.book_dividers.DIVIDER_SLOTS`` -- the
+    three levels and the answer key -- and ``image`` is the PNG the panel
+    re-encoded from the owner's upload. Kept in the database, not in a
+    directory: the host's disk is ephemeral, and an upload that a redeploy or a
+    temp purge can remove is the cover's weakness this table exists to avoid.
+    There is no client filename here and no path, by construction.
+
+    One row per (book, slot); deleting the book deletes its rows.
+    """
+
+    __tablename__ = 'book_divider_images'
+    __table_args__ = (UniqueConstraint('book_id', 'slot', name='uq_book_divider_slot'),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    book_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('books.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    slot = Column(String(16), nullable=False)
+    image = Column(LargeBinary, nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

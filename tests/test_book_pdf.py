@@ -2439,16 +2439,17 @@ def test_no_declaration_outlives_the_cards_that_remove_it() -> None:
     temporary = {
         kind for kind, entry in _RASTER_DECLARATIONS.items() if entry.expires_with
     }
-    # Re-derived by CARD-322, which removed the five interior entries: ONE
-    # temporary entry is left, the divider's (CARD-231 replaces the page), and
-    # it is named here because the floor is now the thing itself. The test
-    # needs there to be something to judge, so that an emptiness below means
-    # "nothing stale" and not "nothing looked at"; the day CARD-231 lands and
-    # removes the divider this reds, and the cell has to be re-derived to the
-    # permanent cover alone (its non-vacuity moves to the synthetic board of
-    # ``test_a_declaration_outliving_its_done_card_is_a_defect``).
-    assert temporary == {PageKind.DIVIDER}, sorted(kind.value for kind in temporary)
+    # Re-derived by CARD-311: the divider's exception stopped being
+    # temporary when dividers became owner uploads (a picture is a bitmap by
+    # nature; CARD-231, the redesign it waited for, is parked). The registry
+    # is now the two permanent entries and nothing temporary, so the
+    # emptiness below holds over nothing -- its non-vacuity is the synthetic
+    # board of ``test_a_declaration_outliving_its_done_card_is_a_defect``,
+    # which is where a temporary entry is planted. Both entries are pinned
+    # permanent here so that a temporary one reappearing is seen at once.
+    assert temporary == set(), sorted(kind.value for kind in temporary)
     assert _RASTER_DECLARATIONS[PageKind.COVER].expires_with == ()
+    assert _RASTER_DECLARATIONS[PageKind.DIVIDER].expires_with == ()
 
     cards = _board_cards()
     assert cards.is_dir(), cards
@@ -2496,9 +2497,9 @@ def test_the_registry_declares_the_cover_and_the_divider_and_nothing_else() -> N
     ``test_no_declaration_outlives_the_cards_that_remove_it`` the day that card
     is marked done, which is the merge gate and not the review.
 
-    Both directions, because "names no CARD-322" is also true of a registry
-    that names nobody at all: the divider's entry must name CARD-231 and the
-    cover's must be permanent.
+    Both entries are permanent since CARD-311 (the divider is an uploaded
+    picture), so a registry in which either one names a card is the defect --
+    the plants below put one back.
     """
     assert _registry_shape_findings(_RASTER_DECLARATIONS) == []
     for kind in set(PageKind) - {PageKind.COVER, PageKind.DIVIDER}:
@@ -2511,7 +2512,7 @@ def _registry_shape_findings(registry) -> list[str]:
     if set(registry) != {PageKind.COVER, PageKind.DIVIDER}:
         findings.append(f"declares {sorted(kind.value for kind in registry)}")
     named = {kind: entry.expires_with for kind, entry in registry.items() if entry.expires_with}
-    if named != {PageKind.DIVIDER: ("CARD-231",)}:
+    if named != {}:
         findings.append(f"expiries are {named}")
     cover = registry.get(PageKind.COVER)
     if cover is None or cover.expires_with != ():
@@ -2538,6 +2539,10 @@ def test_a_registry_that_is_not_the_flipped_shape_is_found() -> None:
         "the cover given an expiry": {
             **real,
             PageKind.COVER: RasterDeclaration("plant", "plant", ("CARD-231",)),
+        },
+        "the divider given its old expiry back": {
+            **real,
+            PageKind.DIVIDER: RasterDeclaration("plant", "plant", ("CARD-231",)),
         },
         "the divider naming the converting card": {
             **real,

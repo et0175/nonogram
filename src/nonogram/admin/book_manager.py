@@ -601,6 +601,9 @@ class BookManager:
         # of the selection within reach (G-2), exactly as in DB mode where
         # save_plan writes one column.
         self._plans: Dict[str, DistributionPlan] = {}
+        # In-memory uploaded divider pictures, book id -> slot -> PNG bytes
+        # (CARD-311); in DB mode they are rows of ``book_divider_images``.
+        self._divider_images: Dict[str, Dict[str, bytes]] = {}
         self._next_id = 1
 
     def create_book(
@@ -2422,6 +2425,7 @@ class BookManager:
             self._mirror_onto_puzzles(list(book.puzzle_ids or []), None)
             del self.books[book_id]
             self._plans.pop(book_id, None)
+            self._divider_images.pop(book_id, None)
             return True
         else:
             # DB mode: delete Book row
@@ -2482,6 +2486,85 @@ class BookManager:
 
                 db.commit()
                 return True
+
+    def set_divider_image(self, book_id: str, slot: str, png: bytes) -> bool:
+        """Store ``png`` as the book's uploaded divider for ``slot`` (CARD-311).
+
+        One picture per (book, slot): a second upload replaces the first. The
+        bytes are the panel's own re-encode (``book_dividers.accept_upload``),
+        never the client's file, and ``slot`` must be one of
+        ``book_dividers.DIVIDER_SLOTS``.
+
+        Returns:
+            True if stored, False if the book does not exist.
+
+        Raises:
+            ValueError: ``slot`` is not a divider slot.
+        """
+        from nonogram.admin.book_dividers import require_slot
+
+        require_slot(slot)
+        if self._session_factory is None:
+            if book_id not in self.books:
+                return False
+            self._divider_images.setdefault(book_id, {})[slot] = bytes(png)
+            return True
+
+        from nonogram.db.models import Book as DBBook, BookDividerImage
+
+        book_uuid = uuid_module.UUID(book_id)
+        with self._session_factory() as db:
+            if db.query(DBBook.id).filter(DBBook.id == book_uuid).first() is None:
+                return False
+            row = (
+                db.query(BookDividerImage)
+                .filter(BookDividerImage.book_id == book_uuid, BookDividerImage.slot == slot)
+                .first()
+            )
+            if row is None:
+                db.add(BookDividerImage(book_id=book_uuid, slot=slot, image=bytes(png)))
+            else:
+                row.image = bytes(png)
+                row.updated_at = datetime.utcnow()
+            db.commit()
+            return True
+
+    def clear_divider_image(self, book_id: str, slot: str) -> bool:
+        """Remove the book's uploaded divider for ``slot``; True if one was there."""
+        from nonogram.admin.book_dividers import require_slot
+
+        require_slot(slot)
+        if self._session_factory is None:
+            return self._divider_images.get(book_id, {}).pop(slot, None) is not None
+
+        from nonogram.db.models import BookDividerImage
+
+        with self._session_factory() as db:
+            removed = (
+                db.query(BookDividerImage)
+                .filter(
+                    BookDividerImage.book_id == uuid_module.UUID(book_id),
+                    BookDividerImage.slot == slot,
+                )
+                .delete()
+            )
+            db.commit()
+            return bool(removed)
+
+    def divider_images(self, book_id: str) -> Dict[str, bytes]:
+        """The book's uploaded dividers, ``{slot: png bytes}``; empty if none."""
+        if self._session_factory is None:
+            return dict(self._divider_images.get(book_id, {}))
+
+        from nonogram.db.models import BookDividerImage
+
+        with self._session_factory() as db:
+            rows = (
+                db.query(BookDividerImage)
+                .filter(BookDividerImage.book_id == uuid_module.UUID(book_id))
+                .all()
+            )
+            return {row.slot: bytes(row.image) for row in rows}
 
     def set_pdf_url(self, book_id: str, pdf_url: str) -> bool:
         """Set generated PDF URL.
