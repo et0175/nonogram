@@ -157,6 +157,14 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_guide_page_type.py",
     "tests/test_book_interior_face.py",
     "tests/test_book_interior_type_floor.py",
+    # ADDED 2026-11-07 (CARD-389). tests/test_book_landing_address.py asks the
+    # REAL interior (`section_plan` for the printed numbers, `interior_stream`
+    # for the refusal of a book with a damaged row) what it prints, so it
+    # matches RENDER_API_PATTERN honestly. It is a few tenths of a second --
+    # the refusal comes from the layout before any page is drawn -- so the
+    # share it adds is negligible; it is listed because the grep defines the
+    # set, not because it is heavy.
+    "tests/test_book_landing_address.py",
     "tests/test_book_page_frame.py",
     "tests/test_book_page_numbers.py",
     "tests/test_book_pdf.py",

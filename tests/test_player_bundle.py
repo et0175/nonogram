@@ -417,10 +417,10 @@ def bundle_sources(records, books) -> dict:
         if book.status not in player_bundle.FINALIZED_STATUSES:
             continue
         keys = []
-        for puzzle_id in book.puzzle_ids:
-            record = by_id.get(puzzle_id)
-            if record is None:
-                continue
+        # ADR-0041/R8: the book's keys are read in print order (INV-009),
+        # spelled out here independently of print_order.
+        members = [by_id[pid] for pid in book.puzzle_ids if pid in by_id]
+        for record in sorted(members, key=_level_rank):
             grid = [[bool(cell) for cell in row] for row in record["grid"]]
             if not grid or not grid[0] or any(len(r) != len(grid[0]) for r in grid):
                 continue  # the exporter's named skip; no key, so nothing published
@@ -1249,10 +1249,18 @@ def test_bundle_tree_and_clues_match_the_encoder(shelf, tmp_path):
     assert book["puzzle_keys"] == _book_order(store, manager, book_id)
 
 
+def _level_rank(record):
+    """INV-009's level rank, spelled out here: easy, medium, hard, then no tier."""
+    tier = record.get("difficulty_tier")
+    tier = tier.lower() if isinstance(tier, str) else tier
+    return {"easy": 0, "medium": 1, "hard": 2}.get(tier, 3)
+
+
 def _book_order(store, manager, book_id):
-    """The book's puzzle keys in book order, by the independent recipe."""
+    """The book's puzzle keys in print order (R8), by the independent recipe."""
     book = manager.get_book(book_id)
-    return [independent_key(store.get_puzzle(pid)["grid"]) for pid in book.puzzle_ids]
+    members = sorted((store.get_puzzle(pid) for pid in book.puzzle_ids), key=_level_rank)
+    return [independent_key(record["grid"]) for record in members]
 
 
 # ==========================================================================

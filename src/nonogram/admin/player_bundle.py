@@ -40,7 +40,7 @@ that set rather than being told about it: it is the routing table deciding
 which of two checks each declared field gets, so the exemption is stated and
 falsifiable instead of absorbed (ADR-0039/R3 — see the set's own comment for
 how, and for the two premises it rests on). Everything else written here is
-extent, tier, title or book order. The **picture name is not written
+extent, tier, title or the book's print order. The **picture name is not written
 at all**: the title falls back from the stored ``puzzle_name`` to a neutral
 string built from the key, never to ``source_image`` the way the admin panel's
 own solve page does (``app.py``'s ``puzzle_solve``) — this is the public
@@ -105,6 +105,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from nonogram.admin.book_manager import BookStatus
+from nonogram.admin.book_pdf_generator import print_order
 from nonogram.clues import compute_clues
 
 __all__ = [
@@ -304,6 +305,13 @@ def play_url(base: str, key: str) -> str:
     return f"{base.strip().rstrip('/')}/{PLAY_PATH}/{key}"
 
 
+#: The one path segment a book's landing page sits behind: ``vercel.json``'s
+#: own rewrite source for ``/b/<slug>``, recorded in ``docs/deploy/player.md``'s
+#: ``qr-url-shapes`` block as ``book = {base}/b/{slug}``. Named once, as
+#: :data:`PLAY_PATH` is for the per-puzzle door (CARD-389).
+BOOK_PATH = "b"
+
+
 def puzzle_key_of_record(record: Mapping[str, Any]) -> str:
     """:func:`puzzle_key` of the grid ``record`` stores — the one door for a caller holding a row.
 
@@ -327,7 +335,9 @@ def book_slug(puzzle_keys: Iterable[str]) -> str:
 
     The first :data:`KEY_LENGTH` lowercase hexadecimal characters of SHA-256
     over the UTF-8 bytes of ``"book:"`` followed by the book's puzzle keys in
-    book order, concatenated **with no separator** — every key is exactly
+    print order (INV-009, :func:`~nonogram.admin.book_pdf_generator.print_order`:
+    easy, then medium, then hard — the order the interior numbers its puzzles
+    in; R8), concatenated **with no separator** — every key is exactly
     :data:`KEY_LENGTH` characters by R1, so the concatenation is unambiguous
     without one, and the shape is R1's own: a prefix naming the domain, then a
     fixed-width payload. This is the one implementation (R7: "Exactly one
@@ -356,6 +366,75 @@ def book_slug(puzzle_keys: Iterable[str]) -> str:
     """
     text = _BOOK_PREFIX + "".join(puzzle_keys)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:KEY_LENGTH]
+
+
+def print_ordered_keys(records: Iterable[Mapping[str, Any]]) -> list[str]:
+    """The keys of ``records`` in the order the interior prints them (ADR-0041/R8).
+
+    The one place a book's rows become the sequence its slug and its landing
+    page's numbering are read from: :func:`~nonogram.admin.book_pdf_generator.print_order`
+    (INV-009, level-grouped, stable inside a level) and then :func:`puzzle_key`
+    of each row's grid. ``print_order`` is idempotent, so rows already in print
+    order come back unchanged and a caller need not know which it holds. Entry
+    ``i`` is the puzzle the interior prints as number ``i + 1`` and the tile
+    the landing page shows as number ``i + 1``.
+
+    Raises:
+        ValueError: a row holds no readable grid. The interior refuses to lay
+            such a book out (a ``RuntimeError`` naming the puzzle), so a book
+            holding one has no printed numbering to agree with, and a key list
+            that left the row out would number every later puzzle one less than
+            the page does.
+    """
+    return [puzzle_key(_grid_of(record)) for record in print_order(list(records))]
+
+
+@dataclass(frozen=True)
+class LandingAddress:
+    """Where a book's one QR code points (ADR-0041/R8, CARD-389).
+
+    ``url`` is the full address the code encodes, ``short`` the same address
+    without its scheme, for a reader to type, and ``slug`` the book's R7 slug.
+    """
+
+    slug: str
+    url: str
+    short: str
+
+
+def landing_address(
+    records: Iterable[Mapping[str, Any]], player_domain: str | None
+) -> LandingAddress | None:
+    """A book's landing address: ``{player_domain}/b/{slug}`` — the one implementation.
+
+    ``records`` is the book's stored rows (``print_order`` is applied, and is
+    idempotent, so the interior may pass the rows it already ordered);
+    ``player_domain`` is the book's own stored domain
+    (:func:`~nonogram.admin.print_specs.stored_player_domain`). The slug is
+    :func:`book_slug` over :func:`print_ordered_keys` — exactly what
+    :func:`export_bundle` names ``book/<slug>.json`` with, so the printed code
+    and the file the site serves cannot disagree. Nothing is stored (R7).
+
+    ``None`` when the book has no player domain (blank counts as none): no
+    domain, no address, never one built from a base nobody chose.
+
+    Raises:
+        ValueError: ``records`` is empty or holds a row with no readable grid
+            (see :func:`print_ordered_keys`); there is no honest address.
+    """
+    rows = list(records)
+    if not rows:
+        raise ValueError("a book with no puzzles has no landing address")
+    keys = print_ordered_keys(rows)
+    if not isinstance(player_domain, str) or not player_domain.strip():
+        return None
+    slug = book_slug(keys)
+    base = player_domain.strip().rstrip("/")
+    return LandingAddress(
+        slug=slug,
+        url=f"{base}/{BOOK_PATH}/{slug}",
+        short=f"{base.split('://', 1)[-1]}/{BOOK_PATH}/{slug}",
+    )
 
 
 # --------------------------------------------------------------------------
@@ -425,6 +504,13 @@ def export_bundle(
     Returns:
         A :class:`BundleReport`.
 
+    Each book's slug and ``puzzle_keys`` are read in the book's **print
+    order** (:func:`print_ordered_keys`, ADR-0041/R8), never its stored order,
+    so the landing page's tile ``i`` is the puzzle the interior prints as
+    number ``i`` and the slug equals :func:`landing_address`'s. A book holding
+    a row with no readable grid gets **no book file** (its row is named in
+    ``skipped``), because the interior refuses to print such a book.
+
     The tree is rewritten rather than merged into: ``index.json`` and the two
     directories this module owns are removed first, so the output is a
     function of the input alone and a bundle diff at deploy time means what it
@@ -450,19 +536,32 @@ def export_bundle(
     book_keys: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
     for book in books:
         records = puzzle_store.get_puzzles(book.puzzle_ids)
-        keys: list[str] = []
+        members: list[Mapping[str, Any]] = []
+        damaged = False
         for puzzle_id in book.puzzle_ids:
             record = records.get(puzzle_id)
             if record is None:
                 skipped[str(puzzle_id)] = "no stored puzzle with this id"
+                damaged = True
                 continue
             try:
                 key = puzzle_key(_grid_of(record))
             except (TypeError, ValueError) as unreadable:
                 skipped[str(puzzle_id)] = str(unreadable)
+                damaged = True
                 continue
-            keys.append(key)
+            members.append(record)
             candidates.setdefault(key, []).append(record)
+        if damaged:
+            # The interior refuses to print a book holding a row it cannot
+            # lay out, so there is no printed numbering for this book's
+            # landing page to agree with: a book file listing the readable
+            # rows would renumber every puzzle after the damaged one. The
+            # readable puzzles stay published; the book gets no landing
+            # until its damaged row is dealt with, and the row is named in
+            # the report (CARD-389).
+            continue
+        keys = print_ordered_keys(members)
         book_keys.setdefault(book_slug(keys), []).append(
             (_book_title(book), tuple(keys))
         )
