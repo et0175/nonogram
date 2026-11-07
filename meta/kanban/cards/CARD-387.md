@@ -82,6 +82,6 @@ Work in MODULE BATCHES, each its own commits, each checked green before the next
 * **F7** — `BookPDFGenerator.generate_book_pdf` has no caller (derive again; delete only with evidence).
 * The dual-medium controls (`_ensure_declared`, `_declare_all`, the lifts in `test_book_pdf.py`, `test_the_raster_twin_of_the_same_page_does_carry_one`) and `_DECLARED_CLIP_DIVERGENCE` + its three consumers (CARD-322 kept both because the raster writers stay): go or change with the writers.
 * ADR-0042/R6 is in tension with the kept bitmap-reading tests (not false); R2's comment ("registry holds SEVEN", "unlike R1's the flip is honest") is stale history without a "since" marker: fix both.
-* **Estimate:** `20c (6d)` exceeds the 1d sizing cap. The owner has not lifted the cap for THIS card (they did for CARD-322). Before dispatch: either obtain the lift or split by module batch at the first re-price; the orchestrator decides, the author does not.
+* **Estimate:** `20c (6d)` exceeds the 1d sizing cap. The owner LIFTED the cap for this card on 2026-11-07 ("let's lift the cap"). It stays one card, worked in module batches; the first batch re-prices it and STOPS if it costs more than 3c.
 
 ## Worktree notes
