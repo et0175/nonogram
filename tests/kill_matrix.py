@@ -120,11 +120,26 @@ Safety discipline
   path-and-text refusal, not an analysis of what an edit would do: it is the
   set of sites that carry the guard today, and the text half catches only an
   edit that *names* one of two literals (see ``_FORBIDDEN_TEXT``).
+* **Concurrent cells are isolated, not shared (CARD-396).** With
+  ``Runner(workers=N)`` for ``N > 1`` the cells of one :meth:`Runner.run` are
+  measured by ``N`` worker threads, each on **its own copy** of ``repo_root``
+  (minus ``.git`` and the lock file, see ``_LANE_SKIPS``) with its own ``cp -p``
+  backups, so no worker ever sees another's edit. The verdicts are read back in
+  the order the mutants were declared, never the order they finished, and the
+  refusals are the serial ones in the serial order. The foreign-lock refusal is
+  made by the parent before any copy exists. A path outside ``repo_root`` has no
+  copy to be given, so such a matrix is measured serially, in place.
+  ``workers`` defaults to ``1`` (the in-place reading every existing caller
+  relies on); :func:`default_workers` is the derived rule for callers that
+  want the pool. **Declared bound:** a parent process killed hard (the hang
+  guard's ``faulthandler`` exit) cannot clean up, so its in-flight child
+  pytests finish on their own and their lane trees stay in the temp directory.
 * Takes no timing measurements and reports none. The ``timeout=`` passed to
   ``subprocess.run`` is a bound on a hung child, not a measurement: nothing
   reads a clock and no figure here is a duration.
 
-Stdlib (``ast``, ``collections.abc``, ``dataclasses``, ``enum``, ``json``,
+Stdlib (``ast``, ``collections.abc``, ``concurrent.futures``, ``dataclasses``,
+``enum``, ``json``, ``threading``,
 ``os``, ``pathlib``, ``re``, ``shutil``, ``subprocess``, ``sys``, ``tempfile``
 — every one of them, and no ``hashlib``: the digest comes from the external
 ``shasum`` binary) plus exactly one module from this tree's own
@@ -137,6 +152,7 @@ holds that set.
 from __future__ import annotations
 
 import ast
+import concurrent.futures
 import enum
 import json
 import os
@@ -145,8 +161,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 try:  # imported as ``tests.kill_matrix`` by the suite ...
@@ -175,6 +192,7 @@ __all__ = [
     "assert_linenos",
     "assert_shapes",
     "board_lock_path",
+    "default_workers",
     "collected_tests",
     "child_dependent_linenos",
 ]
@@ -326,6 +344,61 @@ class UnmeasuredRun(Exception):
 #: ``-q`` summary and would read ``None`` on a perfectly good run the day that
 #: summary's wording changes. It stays print-only for that reason.
 _RAN_EXIT_CODES = frozenset({0, 1})
+
+#: The one environment variable that sets how many cells run at once. It is read
+#: by :func:`default_workers` only; the test-suite never sets it (its cells pass
+#: ``workers=`` explicitly), so it is an owner's knob, not a test input.
+_ENV_WORKERS = "KILL_MATRIX_WORKERS"
+
+#: The ceiling of the derived default. Each cell is a whole child pytest, and
+#: they contend for the same cores and the same disk: past this the cells
+#: slow each other down faster than they finish.
+_WORKER_CAP = 4
+
+#: Names a lane's copy of the tree leaves behind. ``.git`` (a directory in the
+#: main checkout, a file in a linked worktree) is what
+#: :func:`full_suite_lock.main_repo_root` follows back to the board's lock, and
+#: the lock itself is the other half: a copy that carried either would be a
+#: **foreign** tree to the lock it was copied beside, and its child pytest would
+#: refuse to start. The parent has already answered the lock question for the
+#: whole matrix (see :meth:`Runner._refuse_if_lock_held`), before any lane
+#: exists; a lane's child has nothing left to ask.
+_LANE_SKIPS = frozenset(
+    {
+        ".git",
+        ".full-suite.lock",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".idea",
+    }
+)
+
+
+def default_workers() -> int:
+    """How many cells run at once when the caller does not say.
+
+    ``KILL_MATRIX_WORKERS`` if set (an integer of at least 1), else one fewer
+    than the machine's cores, capped at :data:`_WORKER_CAP` and never below 1.
+    Leaving a core free is what keeps an author's own editor, browser and
+    second terminal from being the thing a child pytest times out behind.
+    """
+    named = os.environ.get(_ENV_WORKERS)
+    if named:
+        try:
+            count = int(named)
+        except ValueError:
+            count = 0
+        if count < 1:
+            raise ValueError(
+                f"{_ENV_WORKERS}={named!r} is not an integer of at least 1"
+            )
+        return count
+    return max(1, min(_WORKER_CAP, (os.cpu_count() or 1) - 1))
 
 
 def board_lock_path() -> Path:
@@ -915,6 +988,15 @@ def collected_tests(output: str) -> int | None:
 
 
 @dataclass
+class _Lane:
+    """One worker's copy of the tree: its runner, its path map and its backups."""
+
+    runner: "Runner"
+    moved: Mapping[Path, Path]
+    registry: Mapping[Path, Path] = field(default_factory=dict)
+
+
+@dataclass
 class Runner:
     """Measures one target file under a targeted selection.
 
@@ -955,9 +1037,22 @@ class Runner:
     repo_root: Path
     child_instrumentation: bool = False
     env: Mapping[str, str] = field(default_factory=dict)
+    #: How many cells run at once. ``1`` (the default) is the serial reading:
+    #: every edit is made **in place** in ``repo_root``. Above ``1`` each worker
+    #: measures its cells in its **own copy** of ``repo_root`` and the verdicts
+    #: come back in the order the mutants were declared, so the table is the
+    #: serial table (see :meth:`_run_in_lanes`). Callers that want the derived
+    #: default pass :func:`default_workers`.
+    workers: int = 1
     _workdir: Path | None = None
+    #: The task indices of the last lane run, in the order they **finished**.
+    #: Observation only: nothing reads it to build a result, and a test uses it
+    #: to show that the finishing order and the declared order really differed.
+    _completion: list[int] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.workers, int) or self.workers < 1:
+            raise ValueError(f"workers must be an integer of at least 1, got {self.workers!r}")
         self.repo_root = Path(self.repo_root)
         self._refuse_if_lock_held()
         self.target = self._resolve_selection()
@@ -1184,6 +1279,8 @@ class Runner:
             for path in mutant.paths:
                 if path not in paths:
                     paths.append(path)
+        if self.workers > 1 and self._lane_paths(paths) is not None:
+            return self._run_in_lanes(pass_, mutants, pristine, denominator, paths)
         registry = self._backup_registry(paths)
         try:
             shipped = self._measure("SHIPPED", pass_, denominator, pristine)
@@ -1191,18 +1288,8 @@ class Runner:
             measured: dict[str, Matrix] = {}
             between: dict[str, Matrix] = {}
             for mutant in mutants:
-                self._apply(mutant, registry)
-                try:
-                    self._refuse_unless_topology_holds(
-                        pristine, f"mutant {mutant.name}"
-                    )
-                    measured[mutant.name] = self._measure(
-                        mutant.name, pass_, denominator, pristine
-                    )
-                finally:
-                    self._restore(registry)
-                check = self._measure(
-                    f"SHIPPED after {mutant.name}", pass_, denominator, pristine
+                measured[mutant.name], check = self._measure_mutant(
+                    mutant, registry, pass_, denominator, pristine
                 )
                 between[mutant.name] = check
                 self._refuse_unless_clean(check, shipped, f"after {mutant.name}")
@@ -1225,6 +1312,243 @@ class Runner:
                     "the one case where the backup is the only intact copy"
                 ) from exc
             self._discard_workdir()
+
+    def _measure_mutant(
+        self,
+        mutant: Mutant,
+        registry: Mapping[Path, Path],
+        pass_: Pass,
+        denominator: int,
+        pristine: str,
+    ) -> tuple[Matrix, Matrix]:
+        """One cell: the mutant's reading, then SHIPPED re-read after it.
+
+        Shared by the serial loop and by every lane, so the two readings are
+        made by one body and cannot drift apart. The comparison of the
+        re-read against SHIPPED is **not** here: it is the caller's, because a
+        lane does not hold the baseline.
+        """
+        self._apply(mutant, registry)
+        try:
+            self._refuse_unless_topology_holds(pristine, f"mutant {mutant.name}")
+            measured = self._measure(mutant.name, pass_, denominator, pristine)
+        finally:
+            self._restore(registry)
+        check = self._measure(
+            f"SHIPPED after {mutant.name}", pass_, denominator, pristine
+        )
+        return measured, check
+
+    # -- lanes: the same cells, concurrently --------------------------------
+
+    def _lane_paths(self, paths: Sequence[Path]) -> dict[Path, Path] | None:
+        """Each path's place relative to ``repo_root``, or ``None``.
+
+        ``None`` when any path lies outside ``repo_root``: such an edit cannot
+        be given a copy of its own, and it is measured serially, in place,
+        rather than shared between lanes.
+        """
+        root = os.path.realpath(self.repo_root)
+        relative: dict[Path, Path] = {}
+        for path in paths:
+            real = os.path.realpath(path)
+            if os.path.commonpath([root, real]) != root:
+                return None
+            relative[path] = Path(os.path.relpath(real, root))
+        return relative
+
+    def _make_lane(self) -> "Runner":
+        """A runner of the same class on its own copy of ``repo_root``.
+
+        The copy lives inside the lane's own temp tree, so removing that tree
+        removes the copy, the backups, the plugin and every ``records-*``
+        together, and a lane whose restore failed keeps all of it (G-5, per
+        tree).
+        """
+        lane_dir = Path(tempfile.mkdtemp(prefix="kill-matrix-lane-"))
+        tree = lane_dir / "tree"
+        try:
+            shutil.copytree(
+                self.repo_root,
+                tree,
+                symlinks=True,
+                ignore=shutil.ignore_patterns(*sorted(_LANE_SKIPS)),
+            )
+            selection = []
+            for item in self.selection:
+                head, separator, rest = item.partition("::")
+                head_path = Path(head)
+                if head_path.is_absolute():
+                    head_path = tree / self._relative(head_path)
+                selection.append(f"{head_path}{separator}{rest}")
+            return type(self)(
+                selection=selection,
+                repo_root=tree,
+                child_instrumentation=self.child_instrumentation,
+                env=self.env,
+                workers=1,
+                _workdir=lane_dir,
+            )
+        except BaseException:
+            shutil.rmtree(lane_dir, ignore_errors=True)
+            raise
+
+    def _relative(self, path: Path) -> Path:
+        return Path(os.path.relpath(os.path.realpath(path), os.path.realpath(self.repo_root)))
+
+    def _run_in_lanes(
+        self,
+        pass_: Pass,
+        mutants: Sequence[Mutant],
+        pristine: str,
+        denominator: int,
+        paths: Sequence[Path],
+    ) -> KillMatrix:
+        """The serial matrix, with its cells measured concurrently.
+
+        Tasks are SHIPPED and then each mutant, **in declared order**, handed
+        to a pool of ``workers`` threads (each mostly waiting on a child
+        pytest). A thread's first task copies ``repo_root`` into a lane of its
+        own, and every later task reuses that lane, so two cells never share a
+        tree: ``_apply`` reads from the lane's backups and ``_restore`` puts the
+        lane back before the next cell, exactly as the serial loop does for its
+        one tree.
+
+        What does not change is what a reader sees. Results are stored by task
+        index, never by completion, and read back in declared order, so the
+        table is the serial table; and the refusals are the serial refusals in
+        the serial order: a task that raises stops every task **after** it from
+        starting (those before it have all started already, because the pool
+        takes tasks in order), and the exception raised is the lowest-indexed
+        one -- or the first baseline comparison that fails -- whichever the
+        serial loop would have reached first. The foreign-lock refusal is made
+        before any lane exists.
+        """
+        self._completion.clear()
+        self._refuse_if_lock_held()
+        relative = self._lane_paths(paths)
+        assert relative is not None
+        tasks: list[Mutant | None] = [None, *mutants]
+        results: dict[int, tuple[Matrix, Matrix | None]] = {}
+        errors: dict[int, BaseException] = {}
+        lanes: list[_Lane] = []
+        guard = threading.Lock()
+        local = threading.local()
+        stop_after = [len(tasks)]
+
+        def lane_for_this_thread() -> _Lane:
+            if not hasattr(local, "lane"):
+                runner = self._make_lane()
+                # Registered before anything else can fail, so that the tree it
+                # owns is removed (or kept, and named) whatever happens next.
+                lane = _Lane(runner, {path: runner.repo_root / rel for path, rel in relative.items()})
+                with guard:
+                    lanes.append(lane)
+                lane.registry = runner._backup_registry(list(lane.moved.values()))
+                local.lane = lane
+            return local.lane
+
+        def work(index: int) -> None:
+            if index > stop_after[0]:
+                return
+            try:
+                lane = lane_for_this_thread()
+                mutant = tasks[index]
+                if mutant is None:
+                    shipped = lane.runner._measure(
+                        "SHIPPED", pass_, denominator, pristine
+                    )
+                    outcome = (replace(shipped, target=self.target), None)
+                else:
+                    moved_mutant = Mutant(
+                        mutant.name,
+                        tuple(
+                            replace(edit, path=lane.moved[edit.path])
+                            for edit in mutant.edits
+                        ),
+                    )
+                    got, check = lane.runner._measure_mutant(
+                        moved_mutant, lane.registry, pass_, denominator, pristine
+                    )
+                    outcome = (
+                        replace(got, target=self.target),
+                        replace(check, target=self.target),
+                    )
+                with guard:
+                    results[index] = outcome
+                    self._completion.append(index)
+            except BaseException as exc:  # noqa: BLE001 - re-raised below, in order
+                with guard:
+                    errors[index] = exc
+                    stop_after[0] = min(stop_after[0], index)
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=min(self.workers, len(tasks)),
+                thread_name_prefix="kill-matrix-lane",
+            ) as pool:
+                for index in range(len(tasks)):
+                    pool.submit(work, index)
+        finally:
+            kept = self._close_lanes(lanes)
+
+        if kept:
+            raise LeakedPatch(
+                f"{kept}. The cp -p backups are kept rather than discarded: a "
+                "restore that did not verify is the one case where the backup is "
+                "the only intact copy"
+            )
+        shipped = None
+        for index in range(len(tasks)):
+            if index in errors:
+                raise errors[index]
+            matrix, check = results[index]
+            if index == 0:
+                shipped = matrix
+                self._refuse_unless_clean(shipped, None, "before any mutant")
+                continue
+            name = tasks[index].name
+            assert shipped is not None and check is not None
+            self._refuse_unless_clean(check, shipped, f"after {name}")
+        order = [i for i in self._assembly_order(len(tasks)) if i > 0]
+        return KillMatrix(
+            target=self.target,
+            pass_=pass_,
+            denominator=denominator,
+            shipped=shipped,
+            mutants={tasks[i].name: results[i][0] for i in order},
+            shipped_between={tasks[i].name: results[i][1] for i in order},
+            child_instrumentation=self.child_instrumentation,
+        )
+
+    def _assembly_order(self, count: int) -> list[int]:
+        """The order results are read back in: the order they were **declared**.
+
+        A seam on purpose, like :meth:`_backup_registry`: the determinism
+        control plants a collector that reads them back in the order they
+        finished (:attr:`_completion`) and shows the table change, which is how
+        we know the declared order is doing work here.
+        """
+        return list(range(count))
+
+    @staticmethod
+    def _close_lanes(lanes: Sequence["_Lane"]) -> str:
+        """Verify and remove every lane's tree; name any whose restore failed.
+
+        A lane that finished a cell has restored it already, so this is the
+        second verification (the serial runner's ``finally``) and it keeps the
+        same rule: a tree whose restore does not verify is **kept**, because
+        its backup is the only intact copy of what it mutated.
+        """
+        kept: list[str] = []
+        for lane in lanes:
+            try:
+                lane.runner._restore(lane.registry)
+            except LeakedPatch as exc:
+                kept.append(f"{exc} (lane tree kept at {lane.runner.workdir})")
+                continue
+            lane.runner._discard_workdir()
+        return "; ".join(kept)
 
     def _refuse_unless_clean(
         self, matrix: Matrix, baseline: Matrix | None, when: str

@@ -18,10 +18,13 @@ from __future__ import annotations
 
 import ast
 import io
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import threading
 import tokenize
 from pathlib import Path
 
@@ -2434,6 +2437,309 @@ def test_g6_the_timing_censuses_catch_a_planted_clock():
 
 
 # ==========================================================================
+# CARD-396 — the cells of one matrix run concurrently, and nothing else moves
+# ==========================================================================
+
+#: A target whose cells can be told apart and made slow. ``DELAY`` is what a
+#: mutant moves to make its cell outlive the others; ``MARK`` is a line two
+#: mutants can both edit. Every arm below the sleep is an ``assert`` the matrix
+#: keys on.
+LANE_TARGET = '''\
+"""Three arms. DELAY makes a cell slow; MARK is a line two cells may both edit."""
+import time
+
+DELAY = 0
+MARK = "shipped"
+SIDE = "shipped"
+
+
+def test_arms():
+    time.sleep(DELAY)
+    assert MARK != "xxxxxxx"
+    assert MARK != "yyyyyyy"
+    assert SIDE == "shipped"
+'''
+
+
+@pytest.fixture
+def lane_target(tmp_path) -> Path:
+    return _write(tmp_path, "km_lane_target.py", LANE_TARGET)
+
+
+def _lane_mutants(target: Path) -> list[Mutant]:
+    """Declared SLOW first, so that it finishes **last** under any pool."""
+    return [
+        Mutant("SLOW", (Edit(path=target, old="DELAY = 0", new="DELAY = 2"),)),
+        Mutant("MARK-X", (Edit(path=target, old='MARK = "shipped"', new='MARK = "xxxxxxx"'),)),
+        Mutant("SIDE-ROT", (Edit(path=target, old='SIDE = "shipped"', new='SIDE = "rotted!"'),)),
+    ]
+
+
+def _signature(result: KillMatrix) -> dict:
+    """Everything a reader can see of a matrix, as plain comparable data."""
+
+    def seen(matrix: Matrix) -> tuple:
+        return (
+            matrix.label,
+            matrix.pass_,
+            matrix.denominator,
+            tuple(sorted(matrix.cells.items())),
+            tuple(sorted(matrix.raw_cells.items())),
+            tuple(sorted((k, tuple(sorted(v))) for k, v in matrix.records.items())),
+            matrix.collected_tests,
+            matrix.exit_code,
+            matrix.child_instrumentation,
+        )
+
+    return {
+        "figure": result.figure(),
+        "table": result.table(),
+        "shipped": seen(result.shipped),
+        "mutants": [(name, seen(m)) for name, m in result.mutants.items()],
+        "between": [(name, seen(m)) for name, m in result.shipped_between.items()],
+    }
+
+
+def _lane_root(tmp_path_factory, monkeypatch) -> Path:
+    """A temp directory OUTSIDE any repo_root a test copies, for the lane trees."""
+    root = tmp_path_factory.mktemp("lanes")
+    monkeypatch.setattr(tempfile, "tempdir", str(root))
+    return root
+
+
+def test_card_396_one_worker_and_many_return_the_same_matrix(lane_target):
+    """AC-2: the lane runner's table is the serial table, cell for cell."""
+    mutants = _lane_mutants(lane_target)
+    serial = _runner(lane_target, workers=1).run(Pass.RECORDING, mutants)
+    lanes = _runner(lane_target, workers=3)
+    parallel = lanes.run(Pass.RECORDING, mutants)
+
+    assert [name for name in parallel.mutants] == ["SLOW", "MARK-X", "SIDE-ROT"]
+    assert _signature(parallel) == _signature(serial)
+    # The control's precondition: the cells really did FINISH in another order,
+    # or "declared order" and "finishing order" were the same list and this
+    # test could not tell a collector that sorts by completion from one that
+    # does not.
+    assert lanes._completion != sorted(lanes._completion), lanes._completion
+
+
+def test_card_396_a_collector_in_completion_order_changes_the_table(lane_target):
+    """AC-2's plant: read the results back as they FINISHED and the table moves."""
+
+    class CompletionOrder(Runner):
+        def _assembly_order(self, count):
+            return list(self._completion)
+
+    mutants = _lane_mutants(lane_target)
+    expected = _runner(lane_target, workers=1).run(Pass.RECORDING, mutants)
+    planted = CompletionOrder(
+        selection=[str(lane_target)], repo_root=lane_target.parent, workers=3
+    ).run(Pass.RECORDING, mutants)
+
+    assert list(planted.mutants) != list(expected.mutants), planted.table()
+    assert _signature(planted) != _signature(expected)
+
+
+def _two_cells_edit_one_line(runner_class, target: Path, workers: int = 3):
+    """MARK-X and MARK-Y both rewrite the SAME line; each must see only its own.
+
+    A barrier after ``_apply`` makes the overlap a fact instead of a race: both
+    edits are on disk before either child starts.
+    """
+    barrier = threading.Barrier(2, timeout=60)
+
+    class Overlapping(runner_class):
+        def _apply(self, mutant, registry):
+            super()._apply(mutant, registry)
+            if mutant.name in {"MARK-X", "MARK-Y"}:
+                barrier.wait()
+
+    mutants = [
+        Mutant("MARK-X", (Edit(path=target, old='MARK = "shipped"', new='MARK = "xxxxxxx"'),)),
+        Mutant("MARK-Y", (Edit(path=target, old='MARK = "shipped"', new='MARK = "yyyyyyy"'),)),
+    ]
+    runner = Overlapping(
+        selection=[str(target)], repo_root=target.parent, workers=workers
+    )
+    return runner.run(Pass.RECORDING, mutants)
+
+
+def _mark_arms(target: Path) -> tuple[int, int]:
+    first, second, _ = km.assert_linenos(target.read_text(encoding="utf-8"))
+    return first, second
+
+
+def test_card_396_two_cells_editing_one_line_do_not_see_each_other(lane_target):
+    """AC-3: each worker's tree is its own."""
+    seen_x, seen_y = _mark_arms(lane_target)
+    result = _two_cells_edit_one_line(Runner, lane_target)
+
+    assert result.cell("MARK-X", seen_x) == FAIL, result.table()
+    assert result.cell("MARK-X", seen_y) == PASS, result.table()
+    assert result.cell("MARK-Y", seen_y) == FAIL, result.table()
+    assert result.cell("MARK-Y", seen_x) == PASS, result.table()
+    assert lane_target.read_text(encoding="utf-8") == LANE_TARGET
+
+
+def test_card_396_workers_sharing_one_tree_are_what_the_isolation_cell_catches(
+    lane_target,
+):
+    """AC-3's plant: lanes that all work in the ONE tree red the cell above."""
+
+    class SharedTree(Runner):
+        def _make_lane(self):
+            lane = type(self)(
+                selection=self.selection,
+                repo_root=self.repo_root,
+                child_instrumentation=self.child_instrumentation,
+                env=self.env,
+                workers=1,
+            )
+            return lane
+
+        def _lane_paths(self, paths):
+            return {path: Path(os.path.relpath(path, self.repo_root)) for path in paths}
+
+    seen_x, seen_y = _mark_arms(lane_target)
+    try:
+        result = _two_cells_edit_one_line(SharedTree, lane_target)
+    except (LeakedPatch, MutantRefused, UnmeasuredRun):
+        return  # a shared tree that cannot even finish is not isolated either
+    clean = (
+        result.cell("MARK-X", seen_x) == FAIL
+        and result.cell("MARK-X", seen_y) == PASS
+        and result.cell("MARK-Y", seen_y) == FAIL
+        and result.cell("MARK-Y", seen_x) == PASS
+    )
+    assert not clean, (
+        "a shared tree read as isolated, so the isolation cell above cannot "
+        "tell a lane from a shared tree: " + result.table()
+    )
+
+
+def test_card_396_a_worker_that_leaks_a_patch_is_reported_not_absorbed(
+    lane_target, tmp_path
+):
+    """AC-3: the leak is planted in a lane's bookkeeping, as in the serial cell."""
+    leaky = _write(tmp_path, "km_leaky.py", LEAKY)
+
+    class LeakingRunner(Runner):
+        def _backup_registry(self, paths):
+            return super()._backup_registry([p for p in paths if p.name != "km_leaky.py"])
+
+    mutants = [
+        Mutant("LEAKS", (Edit(path=leaky, old='LEAK = "shipped"', new='LEAK = "leaked!!"'),)),
+        Mutant("AFTER", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
+    ]
+    runner = LeakingRunner(
+        selection=[str(lane_target)], repo_root=tmp_path, workers=3
+    )
+    with pytest.raises(LeakedPatch) as caught:
+        runner.run(Pass.RECORDING, mutants)
+
+    assert "after LEAKS" in str(caught.value) or "backups are kept" in str(
+        caught.value
+    ) or "not its backup" in str(caught.value), str(caught.value)
+    assert leaky.read_text(encoding="utf-8") == LEAKY, (
+        "the real tree must not carry a lane's edit"
+    )
+
+
+def test_card_396_a_refusal_mid_matrix_leaves_no_tree_and_no_child(
+    lane_target, tmp_path_factory, monkeypatch
+):
+    """AC-4: the exception type is the serial one; every lane tree is gone."""
+    lane_root = _lane_root(tmp_path_factory, monkeypatch)
+    mutants = [
+        Mutant("SLOW", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 2"),)),
+        Mutant("NO-OP", (Edit(path=lane_target, old="NOT-IN-THE-FILE", new="x"),)),
+    ]
+    runner = _runner(lane_target, workers=3)
+
+    with pytest.raises(MutantRefused):
+        runner.run(Pass.RECORDING, mutants)
+
+    assert sorted(lane_root.iterdir()) == [], "a lane tree outlived the refusal"
+    assert (
+        subprocess.run(["pgrep", "-f", str(lane_root)], capture_output=True).returncode
+        == 1
+    ), "a child pytest of a lane is still running"
+    assert lane_target.read_text(encoding="utf-8") == LANE_TARGET
+
+
+def test_card_396_the_lowest_declared_refusal_is_the_one_raised(
+    lane_target, tmp_path_factory, monkeypatch
+):
+    """AC-2: with two refused cells, completion order does not pick the message."""
+    _lane_root(tmp_path_factory, monkeypatch)
+    mutants = [
+        Mutant("OK", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
+        Mutant("BAD-A", (Edit(path=lane_target, old="NOT-THERE-A", new="x"),)),
+        Mutant("BAD-B", (Edit(path=lane_target, old="NOT-THERE-B", new="x"),)),
+    ]
+    with pytest.raises(MutantRefused, match="NOT-THERE-A"):
+        _runner(lane_target, workers=4).run(Pass.RECORDING, mutants)
+
+
+def test_card_396_a_foreign_lock_refuses_before_any_lane_exists(
+    lane_target, tmp_path, tmp_path_factory, monkeypatch
+):
+    """AC-4: the lock is the parent's question, answered before a tree is copied."""
+    lane_root = _lane_root(tmp_path_factory, monkeypatch)
+    monkeypatch.delenv(full_suite_lock.OVERRIDE, raising=False)
+    lock = tmp_path_factory.mktemp("lock") / ".full-suite.lock"
+    monkeypatch.setenv(full_suite_lock.LOCK_PATH_VAR, str(lock))
+    runner = _runner(lane_target, workers=3)  # no lock yet: construction passes
+    lock.write_text(f"worktree: {tmp_path / 'another-worktree'}\n", encoding="utf-8")
+
+    with pytest.raises(LockHeld, match="holds the board's full-suite lock"):
+        runner.run(Pass.RECORDING, _lane_mutants(lane_target))
+
+    assert sorted(lane_root.iterdir()) == [], "a lane was made before the refusal"
+
+
+def test_card_396_an_edit_outside_repo_root_is_measured_serially(
+    lane_target, tmp_path, monkeypatch
+):
+    """A path with no copy of its own is not given to a lane."""
+    inside = tmp_path / "inside"
+    inside.mkdir()
+    target = _write(inside, "km_lane_target.py", LANE_TARGET)
+    outside = _write(tmp_path, "km_outside.py", 'OUTSIDE = "shipped"\n')
+    mutants = [
+        Mutant("OUT", (Edit(path=outside, old='"shipped"', new='"rotted!"'),)),
+        Mutant("IN", (Edit(path=target, old="DELAY = 0", new="DELAY = 1"),)),
+    ]
+
+    class NoLanes(Runner):
+        def _run_in_lanes(self, *args, **kwargs):
+            raise AssertionError("a path outside repo_root was handed to a lane")
+
+    result = NoLanes(
+        selection=[str(target)], repo_root=inside, workers=3
+    ).run(Pass.RECORDING, mutants)
+    assert list(result.mutants) == ["OUT", "IN"]
+    assert outside.read_text(encoding="utf-8") == 'OUTSIDE = "shipped"\n'
+
+
+def test_card_396_the_worker_count_rule(monkeypatch):
+    """One fewer than the cores, at most four, at least one; one variable wins."""
+    monkeypatch.delenv(km._ENV_WORKERS, raising=False)
+    for cores, expected in ((None, 1), (1, 1), (2, 1), (3, 2), (5, 4), (11, 4), (64, 4)):
+        monkeypatch.setattr(os, "cpu_count", lambda cores=cores: cores)
+        assert km.default_workers() == expected, (cores, expected)
+
+    monkeypatch.setenv(km._ENV_WORKERS, "7")
+    assert km.default_workers() == 7
+    for bad in ("0", "-1", "many"):
+        monkeypatch.setenv(km._ENV_WORKERS, bad)
+        with pytest.raises(ValueError, match=km._ENV_WORKERS):
+            km.default_workers()
+    with pytest.raises(ValueError):
+        Runner(selection=["x"], repo_root=Path("."), workers=0)
+
+
+# ==========================================================================
 # AC-7 — the two matrices this board already measured three independent ways
 # ==========================================================================
 
@@ -2711,7 +3017,9 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     mutants, reds = _four_arm_grid()
     assert len(mutants) == 14, [m.name for m in mutants]
 
-    result = Runner(selection=[FOUR_ARM], repo_root=REPO).run(Pass.RECORDING, mutants)
+    result = Runner(
+        selection=[FOUR_ARM], repo_root=REPO, workers=km.default_workers()
+    ).run(Pass.RECORDING, mutants)
 
     for arm in arms:
         assert result.shipped.cells[arm] == PASS, result.shipped.table()
