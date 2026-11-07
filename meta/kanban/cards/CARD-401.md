@@ -1,0 +1,91 @@
+# CARD-401: Icon-only toolbar on phones and short screens — Region shows two cells, the title and tier badge share a line
+
+**Status:** ready
+**Priority:** P2
+**Category:** feature
+**Estimate:** 3c (1d)
+<!-- A branch commit (b47d8988) already implements most of the phone half; it is starting material only (it did not go through a gate; its two test edits and its blind spots are listed in Why). The cost is the short-screen switch, the icons for every control, the two-cell Region icon and the 44 px-versus-52 px question, each measured at four viewports. -->
+**Complexity:** standard
+**Revision pending:** false
+**Skill:** python-pro
+**TDD:** true
+**Branch:** —
+**Worktree:** —
+**Source:** owner player findings 2026-11-07, items 1 and 5 ("Mobile - have only icons on buttons, no text. And reduce region icon to 2 cells."; "Smaller title, or the title on the same line as the difficulty badge"; "Icon-only should switch on for short screens as well as narrow ones"). All findings apply to the admin solver and the public player alike (one source).
+**Idea:** —
+**Wave:** —
+**Created wave:** 79
+**Deferred waves:** 0
+**Depends on:** —
+**Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/templates/_icons.html, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
+<!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. Conflict edges: CARD-400 (none: disjoint production files), CARD-402/403/404 (all edit admin.css and puzzle_solve.html: serialize). -->
+**Review score:** —
+**Started:** —
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
+**Blocked by:** —
+
+## Why this card exists
+
+On a 390 px phone the 30 x 29 puzzle's toolbar wraps onto four rows (about 40% of the screen) before the board starts, and the admin's `--player-chrome-h` assumes ONE row. The owner wants buttons to carry icons only on phones, and the switch to apply to short screens (landscape phones, 844 x 390) as well as narrow ones, plus a two-cell Region icon and a smaller title.
+
+**The existing branch commit** `claude/project-thread-2wh6wp` b47d8988 ("feat(player): icon-only toolbar on phones", written by another session, never gated; the owner told that agent to stop; do not merge, cherry-pick or check it out) was read for this card. Assessment, so the author does not rediscover it:
+* Right: visually hides the word (`.player-btn-label` clip pattern) so the accessible name stays, adds `title=` tooltips, a bulb icon for Hint and a tick for Check that appear on phones only, brush trigger shows its swatch alone, solved banner shows the tick and "Solved", 44 px minimum width; measured 1280 px layout unchanged and the board 96 px higher at 375 px. The phone-only icon trick (`.player-phone-icon { display: contents }`) is reasonable.
+* Breaks or misses: (1) the switch is `max-width: 600px` only: a landscape phone (844 x 390) gets none, which is finding 5's explicit ask; (2) Region still shows THREE cells (`player-brush-run` unchanged) and is in the 116 px group by accident of width; (3) zoom buttons are not iconised and `Hint`/`Check` keep their text above 600 px, so the 600-820 px band (tablet portrait, the 820 mirror breakpoint) is a third layout; (4) the solved banner loses the picture name visually on phones (the name was the answer reveal, CARD-163: it stays in the accessibility tree but a sighted player no longer sees what they solved; this is a behaviour change nobody ruled on); (5) `Check` gets an icon in markup but Check is admin-only: in public mode the markup is shared, so the bulb/tick spans ship twice; harmless but unmeasured; (6) the new CSS is appended at the file's end after all the rules it overrides, with no test that pins the breakpoint to a measurement (the 13rem `.player-tools` floor and the wrap point are re-derived by hand in a comment).
+* Tests it edited: `tests/test_puzzle_solver_brush_menu.py` (adds a 390 px branch to the slot-width test: slot 116, trigger 44, region offset 52, `return`s early before the old 208/136 assertions: the old claim is still asserted for 1280/1440, so this is a re-measure of a changed layout, not a weakening, but the early `return` skips the remaining 390 px assertions of that test, which now go unasserted at 390: the new card must assert them at their new values) and `tests/test_puzzle_solver_hint.py` (Hint and Check now on Reset's row at 390: the old assertions "below Undo/Redo/Reset" and "above the counters, a row of their own" were replaced by "on Reset's row" plus a kept "above the counters"; a changed layout claim, and the test's docstring is updated, so honest in form; but the claim was never an owner decision, it was a measurement, so the new card re-derives it from the owner's finding rather than inheriting it).
+* Verdict: usable starting material for the label-hiding mechanism, the accessible-name approach and the bulb icon; NOT usable as the implementation, because it does not deliver the short-screen switch or the Region icon and it silently drops the visible picture name. Take the ideas, write the card's own cells.
+
+## What to implement
+
+1. **One switch for "compact": narrow OR short.** A single media condition (for example `(max-width: 600px), (max-height: 500px)`; the exact numbers are measured on the toolbar's real wrap points and held by a test, the way the public player held its landscape bound: the width at which the groups wrap is found in the page and the breakpoint must cover it) turns the labelled buttons into icon-only buttons. Undo, Redo, Reset, Hint, Check (admin), Zoom out/in, Probe (see CARD-411 for Keep/Wrong guess) each get an icon (owner Q3 picks the set; recommended defaults in the question). The word stays in the accessibility tree and `title`/`aria-label` give the name; the tests that find buttons by role and name keep finding them.
+2. **Region shows two cells,** not three (`.player-brush-run` holds two `.player-swatch`; the aria-label "Region" stays; `syncTrigger` paints two). On all widths (the owner's finding is about the icon, not the breakpoint): decide in Q4 whether desktop keeps three. Recommended: two everywhere, one definition.
+3. **The title and the tier badge on one line** on compact screens (the `h1` shrinks on compact screens, the badge sits beside it); the explain line stays as it is in this card (CARD-409 moves it).
+4. **Measured chrome, not the one-row estimate:** the card does not fix `--player-chrome-h` (CARD-403 does) but must not make it worse; state the toolbar's height at each viewport before and after.
+5. **Solved banner keeps the picture name visible** on compact screens (the answer is the reward, CARD-163): shorten the label, not the name, or wrap into the board-does-not-move budget; whichever is chosen is asserted by `TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth` unchanged.
+6. **Tap targets** stay at least 44 px wide and `--control-h` tall in compact mode (CARD-195 AC-11 floor is 24 px; the owner's strip in CARD-402 is 52 px wide: nothing here may be narrower than 44 px).
+
+## Acceptance criteria
+
+* **AC-1** (icons only when compact): at 390 x 844 and at 844 x 390 every toolbar button's visible box contains no text node taller than 0 and an icon; at 1280 x 720 and 1440 x 900 the labelled buttons are unchanged. (test: new cells in `tests/test_puzzle_solver_phone.py` or a new module; plant: widen the media query by 1 px / drop the `max-height` arm and the 844 x 390 arm reds)
+* **AC-2** (names survive): every button still has its accessible name ("Undo", "Redo", "Reset", "Hint", "Check", "Zoom in", "Zoom out", "Brush: <chosen>", "Region") and `title`; the keyboard Tab order of CARD-161 is unchanged. (test: role/name cells, the existing order test unchanged; plant: remove one label span's text)
+* **AC-3** (Region is two cells): `.player-region` holds exactly two `.player-swatch` in the chosen brush's state; the button's box is no wider than it needs. (test: `tests/test_puzzle_solver_brush_menu.py` Region cells re-pointed; the old "three" claim retired with its date)
+* **AC-4** (the toolbar shrinks as measured): the toolbar occupies at most N rows (N measured and written in the card at 390 x 844 and 844 x 390; the target is the owner's: one row of tools plus one of history/zoom or better), and the board's top is higher than before by the measured amount. (test: new geometry cell; evidence: Worktree note numbers)
+* **AC-5** (nothing else moves): the 1280 x 720 and 1440 x 900 toolbar geometry equals the merge-base's to the pixel (the existing percent / maybe / brush-menu layout cells pass unchanged at those widths). (test: the existing cells)
+* **AC-6** (the picture name stays readable): solved at 390 x 844 the banner shows the name and the board has not moved. (test: `TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth` unchanged + a new visible-name cell; plant: hide the name visually)
+* **AC-7** (every changed pin is a changed decision): the two test edits of b47d8988 are not inherited; each test changed here names the owner finding that changed its claim, and the 390 px assertions the branch's early `return` skipped are asserted at the new values. (test: node-id set difference + review-lens on the diff)
+
+## Guardrails
+
+* **G-1** Admin files are the only source edited (see "How this reaches the public player"); no `play.js` / `player.css` / `play.html` work.
+* **G-2** `touch-action` on the board is not touched (owner 2026-11-05: stays as it is; do not reopen), and the crosshair, the Maybe ground and the cell min/max principle (owner 2026-11-06: keep a floor-and-cap rule, cells smaller by default) are not reopened unless this card's Source says so.
+* **G-3** Nothing is saved that was not saved before: view settings stay out of `serializeState` and localStorage (CARD-195 rule 6).
+* **G-4** The branch commit b47d8988 is not merged, cherry-picked or built upon as a git object; its ideas are re-implemented under this card's gate.
+* **G-T** No test is deleted, renamed, skipped or weakened to fit. A test is changed ONLY if its claim is a CHANGED owner decision named in this card's Source: the old claim is retired in the test's docstring with the decision's date and the new claim is asserted in the same cell (a number is re-measured, not relaxed). The owner's rule applies: a test is kept only if its claim is a live decision. Node-id set difference against the merge-base is shown in Worktree notes, and every new cell has a plant that makes it red (an edge mutant, not only a happy path).
+
+## System contract
+
+* ADR-0041/R3 — the public player runs byte-identical copies of the admin files (check: `TestSharedUi_ByteIdentity`, unchanged table)
+* ADR-0041/R2 — no solution in any public asset (check: `TestSharedUi_TheServedTreeCarriesNoAnswer`, unchanged)
+* ADR-0038/R3, R4 — pure rules live in `solver_state.js`, clues come from the payload (check: the pure cells named in the ACs)
+* CON-021 — the admin player remains the single admin-side play surface (check: review-lens)
+
+## Architecture context
+
+FR-044 (the admin puzzle player, TERM-037) and FR-045 (public player, COMP-011) — the public player gets this behaviour by the shared-UI mode, not by its own code. The author reads the AC ids in `requirements.yml` FR-044 and amends exactly the ones whose claim changes (do not guess ids; AC-345..AC-347 are the circling ACs).
+
+## How this reaches the public player
+
+One source of truth (owner direction 2026-11-07; ADR-0041/R3): the change is made ONLY in the admin files (`src/nonogram/admin/static/solver.js`, `solver_state.js`, `admin.css`, `tokens.css` and the admin templates). Nothing in `player/play.js`, `player/player.css` or `player/play.html` is edited or tested by this card: CARD-399 retires them, and production serves `play.js` until the owner deploys the shared-UI mode, so this card reaches production only through the shared-UI rebuild and that deploy (the owner's timing; CARD-394 and CARD-399 are NOT dependencies of this card). What the card owes the public side:
+
+* the shared-UI tree assembled from the changed files passes `tests/test_player_shared_ui_site.py::TestSharedUi_ByteIdentity` with no edit to the table it holds (the copies stay byte-identical; no override layer, no public-only rule);
+* every new behavioural cell runs on the admin page AND on the public-mode page (`mode: "public"`, no solution, CARD-385's sweep in `tests/test_player_public_mode.py`), or the card says in one line why the behaviour does not exist in public mode (for example Check and the error counter);
+* the served-tree scan (`TestSharedUi_TheServedTreeCarriesNoAnswer`) still passes: a feature that needs the answer is not allowed to read it in public mode (ADR-0041/R2).
+
+## Viewports the card must verify
+
+Measured in a browser, not asserted from CSS, and recorded in Worktree notes with the numbers: **390 x 844** (phone portrait), **844 x 390** (phone landscape), **1280 x 720** and **1440 x 900** (desktop), each on a 15 x 15 board and on the owner's 30 x 29 class of board (use a 30 x 30 stored grid; the exact puzzle 1750b436-... is in the production database, which is off limits to this work). For each: no horizontal page scroll, no control clipped, the board does not move when the thing the card changes appears or disappears, and the card's own claim.
+
+## Worktree notes
+
+(none yet)

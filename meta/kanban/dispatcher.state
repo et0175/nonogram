@@ -771,6 +771,20 @@ queued:
 - id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
 - id: CARD-398   # P3 3c  Session render cache for the baseline book; held until 387; may close as a null (owner C). Depends 387, 395. Unstamped.
 - id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
+- id: CARD-400   # P2 3c CIRCLED CLUE NUMBERS: enumerate uncircled-but-solved cases, reproduce, fix what the owner rules in. Owner findings 2026-11-07. Unstamped.
+- id: CARD-401   # P1 3c ICON-ONLY toolbar on phones + short screens, 2-cell Region, title+badge on one line. Owner findings 2026-11-07. Unstamped.
+- id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
+- id: CARD-403   # P1 3c STAGE ends above the fold at any toolbar height; the jump. Owner findings 2026-11-07. Unstamped.
+- id: CARD-404   # P1 4c CLUE NUMERALS capped (~14 px) while cells grow; strips pinned at every zoom. Owner findings 2026-11-07. Unstamped.
+- id: CARD-405   # P2 3c PHONE: retire the right-hand mirror, clues left and top. Depends 404. Owner findings 2026-11-07. Unstamped.
+- id: CARD-406   # P2 4c FIT zoom step. Depends 403, 404. Owner findings 2026-11-07. Unstamped.
+- id: CARD-407   # P2 2c BIG puzzles open at Fit (phones). Depends 406. Owner findings 2026-11-07. Unstamped.
+- id: CARD-408   # P1 3c HINT/Check scroll the target into view. Depends 403, 404. Owner findings 2026-11-07. Unstamped.
+- id: CARD-409   # P2 3c HINT stronger tint/pulse, text overlay strip, wording. Depends 408. Owner findings 2026-11-07. Unstamped.
+- id: CARD-410   # P2 3c PROBE flags broken lines. Depends 404. Owner findings 2026-11-07. Unstamped.
+- id: CARD-411   # P2 2c PROBE buttons Keep / Wrong guess at full size. Depends 404. Owner findings 2026-11-07. Unstamped.
+- id: CARD-412   # P2 3c PROBE offer to mark the cell the other way (asks). Depends 411. Owner findings 2026-11-07. Unstamped.
+- id: CARD-413   # P3 2c HOW TO PLAY collapsible; retire the F-2 hook. Depends 406, 409, 411. Owner findings 2026-11-07. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
