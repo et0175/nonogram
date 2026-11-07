@@ -803,3 +803,29 @@ CARD-283 are blocked on exactly this delta.
   the gate holds onto, not registry ids — the quick-card rule. Whether FR-044 should grow registry
   ACs for the ladder and for Check is a formalisation question for the architect side, not a decision
   this delta takes. Source: CARD-269, "Architecture context".
+
+## Delta 2026-11-07 — one QR for the whole book (owner decision; ADR-0041/R8, ADR-0006/R2)
+
+Owner, 2026-11-07: "we decided to remove individual QR codes altogether and add the 'Play online'
+section for a QR code for the library." The design is version B of the owner's "One-QR Book Layout"
+artifact. Raw lines, to be formalised by the delivery cards (CARD-390, CARD-391, CARD-392, CARD-393)
+into `requirements.yml` in the same delta as the code, not before it (CARD-311 is editing that file):
+
+- **Puzzle pages carry no QR code.** Supersedes FR-032's QR-slot and footer-link clauses (CARD-204,
+  CARD-223, CARD-248) and the per-puzzle printed link CARD-210 planned. The footer keeps a hairline
+  rule, the grid size on the inner side (single puzzle pages) and, on the outer side, one line:
+  `Play puzzle 53 online · p. 167`. The grid area runs down to that line. A two-up page has one shared
+  footer line. Source: owner, "Puzzle pages without a code", "Two to a page".
+- **One `Play online` right-hand page** after the last puzzle and before the solutions opener. Its QR
+  code opens the book's landing page `/b/<slug>` on the book's stored player domain (ADR-0041/R7's slug);
+  the short address is printed under the code. The page and the footer pointer exist only for a book
+  with a stored player domain. Source: owner, "The Play online page".
+- **FR-040 (two-up pairing) loses clause (c)** (the width needed for two QR groups; AC-377) and its
+  height thresholds are re-derived from the one-line footer. Source: owner, "Without the QR column, the
+  two grids centre across the full width and share one footer line."
+- **How to Solve gains one line under its intro**: "Every puzzle in this book can also be played
+  online. Scan the code on page 167." The page number is the Play online page's, read from the plan.
+  Source: owner, "How to Solve mentions it up front".
+- Everything else (header, grid placement, cell sizes, guide spread, section openers, solution tiles)
+  is version A and is already carded (CARD-207, CARD-226, CARD-229, CARD-230, CARD-231, CARD-232,
+  CARD-233); this delta changes only CARD-226's per-slot QR and adds the cards above.

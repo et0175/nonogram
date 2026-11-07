@@ -13,7 +13,8 @@
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — issue 3 ("Two-up pages don't line up. Two stacked puzzles get different cell sizes and different left edges (pp. 9, 12), and nothing separates them") and "Small puzzles, two to a page"
 **Idea:** —
 **Wave:** —
-**Depends on:** CARD-224 (centring), CARD-225 (the shared cell size), CARD-223 (each slot's own QR corner)
+**Depends on:** CARD-224 (centring), CARD-225 (the shared cell size), CARD-391 (the QR is gone and the two-up page has one shared footer line), CARD-392 (the footer band and so the area the two slots divide)
+<!-- AMENDED 2026-11-07 (one-QR decision): was CARD-223 (each slot's own QR corner), which CARD-391 supersedes. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_two_up.py, tests/test_book_page_numbers.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card226.json, tests/helpers/two_up_ink.py, meta/profiling/rank_durations.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
@@ -21,6 +22,16 @@
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
+
+## AMENDMENT 2026-11-07 — the owner removed individual QR codes (ADR-0041/R8); read this before the body
+
+The body below was written for version A of the owner's layout (a QR at each slot's outer corner). The owner chose version B: puzzle pages carry NO QR, and a two-up page has ONE shared footer line below both slots ("Without the QR column, the two grids centre across the full width and share one footer line"). Consequences for this card, and only these:
+
+- **What-to-implement item 2:** read "and its QR at the slot's outer bottom corner" as nothing. Each slot is the header, the centred grid at 42% and nothing at its foot; the page's one footer line (CARD-391) lies below BOTH slots, not inside each. The two slots divide the area between the header rule and that line.
+- **AC-4 is replaced** by: *Given* a two-up page, *then* no QR ink lies on it and the page's single footer line lies below the lower slot and is not part of either slot's height. (test: `TestBookTwoUp_NoQrAndOneSharedFooterLine`)
+- **AC-6** loses "and QR": both slots still hold their own grid and rule.
+- The slot height is measured from the area CARD-392 sets (the footer band shrinks); do not take a number from the old 29.878 mm band. This is why the dependencies changed.
+- Everything else (equal slots, light rule, shared left edge, aligned bottoms, the folio, the pairing-rate attribution) stands.
 
 ## What to implement
 
@@ -53,14 +64,14 @@ real region.
   *then* their grids' left edges are identical. (test: `TestBookTwoUp_GridsShareTheirLeftEdge`)
 - **AC-3** (happy, aligned bottoms): *Given* any admitted pair, *then* each grid's bottom sits
   at the same offset from its own slot's bottom. (test: `TestBookTwoUp_BottomsAlign`)
-- **AC-4** (happy, a QR per slot, outer): *Given* each slot, *then* its QR sits at the slot's
-  **outer** bottom corner, and no QR ink lies in the gutter half of the page at either parity.
-  (test: `TestBookTwoUp_EachSlotsQrIsOuter`)
+- **AC-4** (REPLACED 2026-11-07, see the amendment; the QR is gone): *Given* a two-up page,
+  *then* no QR ink lies on it and the page's single footer line lies below the lower slot,
+  outside both slots' heights. (test: `TestBookTwoUp_NoQrAndOneSharedFooterLine`)
 - **AC-5** (guard, the folio survives): *Given* every two-up page, *then* it carries its
   folio, and the lower slot's reservation is unchanged.
   (test: `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`)
 - **AC-6** (edge, different grid sizes): *Given* a 15x15 and a 10x20 sharing a page, *then*
-  both draw at the smaller book size and both slots still hold their own grid, rule and QR.
+  both draw at the smaller book size and both slots still hold their own grid and rule (the QR clause was removed 2026-11-07).
   (test: `TestBookTwoUp_MixedGridSizes`)
 - **AC-7** (edge, the pairing rate): *Given* the corpus, *when* the interior is exported,
   *then* the number of pages is recorded against the figure before this card, and any change
