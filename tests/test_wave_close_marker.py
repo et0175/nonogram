@@ -535,3 +535,58 @@ class TestWaveCloseMarker_TheHotspotsShareIsDerivedFromTheRegistry:
         assert out.returncode == 0, out.stderr
         assert "## Wave-close share (wave_close_only)" in out.stdout
         assert f"registry patterns: {len(wcm.marked_patterns())}" in out.stdout
+
+
+def share_block(report_text: str) -> str:
+    """The script's own 'Wave-close share' section, heading to end."""
+    return report_text.partition("## Wave-close share")[2]
+
+
+def share_problems(document: str, generated: str) -> list[str]:
+    """What is wrong with a hotspots document's wave-close row against the script's."""
+    wanted = share_block(generated)
+    figures = [line for line in wanted.splitlines() if line.startswith(("tests:", "time:", "share of attributed time:"))]
+    got = share_block(document)
+    return [f"missing from the document: {line!r}" for line in figures if line not in got]
+
+
+class TestWaveCloseMarker_TheHotspotsDocumentCarriesTheScriptsOwnShare:
+    """AC-8's document half. Every hotspots document dated on or after the
+    marker (2026-11-07) must carry the share block the script prints for its
+    artefact, line for line; older documents pre-date the marker and are exempt
+    BY DATE, not by absence (so a new document cannot dodge it by omitting the
+    block)."""
+
+    FIRST_DATE = "20261107"
+
+    @staticmethod
+    def _pairs():
+        profiling = REPO / "meta" / "profiling"
+        for artefact in sorted(profiling.glob("suite-durations-*.txt")):
+            date = artefact.stem.removeprefix("suite-durations-")
+            yield date, artefact, profiling / f"suite-hotspots-{date}.md"
+
+    def test_every_document_from_the_marker_onward_carries_the_block(self):
+        ranker = _ranker()
+        for date, artefact, document in self._pairs():
+            if date < self.FIRST_DATE:
+                continue
+            raw = artefact.read_bytes()
+            import hashlib
+
+            profile = ranker.parse_artefact(raw.decode("utf-8", errors="replace"))
+            generated = ranker.report(
+                profile, artefact, hashlib.sha256(raw).hexdigest(), wcm.marked_patterns()
+            )
+            assert "## Wave-close share" in document.read_text(encoding="utf-8"), f"{document.name} omits the block"
+            assert share_problems(document.read_text(encoding="utf-8"), generated) == [], document.name
+
+    def test_the_plant_a_falsified_or_missing_row_is_caught(self):
+        ranker = _ranker()
+        artefact = REPO / "meta" / "profiling" / "suite-durations-20261023.txt"
+        profile = ranker.parse_artefact(artefact.read_text(encoding="utf-8"))
+        generated = ranker.report(profile, artefact, "0" * 64, wcm.marked_patterns())
+        assert share_problems(generated, generated) == []
+        falsified = re.sub(r"time: \d+\.\d\ds", "time: 1.00s", generated)
+        assert share_problems(falsified, generated)
+        assert share_problems("# nothing here\n", generated)
