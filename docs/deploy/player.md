@@ -217,6 +217,23 @@ stored value. So:
 The two can therefore disagree, and that is the intended state once a domain
 moves: the books printed before the move keep the base they were printed with.
 
+**What a book prints (CARD-389, ADR-0041/R8).** The printed shape is
+`{book's stored domain}/b/{slug}` and nothing else: one code for the whole book.
+`/play/<key>` stays served, because the landing page's tiles and anything already
+printed link to it, but it is no longer printed. The slug is computed, never stored
+(R7), by `player_bundle.landing_address`, which the bundle's own `export_bundle`
+agrees with by construction: both read the book's puzzle keys in **print order**
+(easy, then medium, then hard, INV-009), so tile *i* on the landing page is the puzzle
+the interior prints as number *i*. A book stored in an older mixed order therefore
+gets the slug of its print order, which differs from the slug older exports named it
+by. A book holding a row that is stored but has no readable grid gets no landing address
+and no `book/<slug>.json` (the exporter names the book and the row), because the
+interior refuses to print such a book. A puzzle id whose puzzle was deleted is
+different: the panel prints the surviving puzzles, numbered over the survivors, so the
+book is addressed over the survivors and the deleted id is only reported as left out.
+A row the interior drops (malformed clues) takes no number on the page and none in the
+landing page. A book with no stored domain has no address at all.
+
 The `base` above is the owner's **custom domain**, registered on 2026-10-30 and
 **observed serving this site the same day**: `/library`, `/play/<key>`, `/b/<slug>`
 and `puzzle/<key>.json` all answer 200 on it, the served puzzle file carries the same

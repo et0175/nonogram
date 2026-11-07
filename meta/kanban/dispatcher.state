@@ -472,12 +472,8 @@ active:
     started: 2026-11-07T13:00Z
     estimate: 3c (1d)
     cut_from: fabb7832
-  - card: CARD-389
-    branch: card/389-landing-address
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-389
-    started: 2026-11-07T13:00Z
-    estimate: 2c (1d)
-    cut_from: fabb7832
+# CARD-389 CLEARED 2026-11-07T20:20Z at its merge gate: merged 833a0efd, done, certified 8.2 on cycle 2 (6.0 on cycle 1, not
+#   certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11600 passed, 1 skipped, 1 xfailed. Entry dropped.
 # CARD-311 CLEARED 2026-11-07 at its merge gate: merged a2e9a252, done, certified 8.5 on cycle 2 (7.4 on cycle 1, not
 #   certified), estimate 4c -> 2 cycles = ratio 0.5. Full armed suite 11572 passed, 1 skipped, 1 xfailed (the first gate run
 #   reddened on three frozen censuses, fixed on the branch and re-run green). The entry is dropped; the worktree is removed
@@ -763,6 +759,11 @@ queued:
 - id: CARD-392   # P2 4c  ONE-LINE FOOTER: band shrinks, pairing + cell sizes re-derived. Depends 391. Land BEFORE 232/233/226/230/229. Unstamped.
 - id: CARD-393   # P2 2c  GUIDE LINE 'Every puzzle ... scan the code on page N'. Depends 390, 229. Unstamped.
 - id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
+- id: CARD-395   # P1 4c  GATE STOPS RUNNING THE HEAVIEST SWEEPS: wave_close_only marker, subject lift, gate contract, wave-close definition (owner A, 2026-11-07). Depends 388. Unstamped.
+- id: CARD-396   # P2 2c  KILL-MATRIX cells in parallel (owner C). No deps. Unstamped.
+- id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
+- id: CARD-398   # P3 3c  Session render cache for the baseline book; held until 387; may close as a null (owner C). Depends 387, 395. Unstamped.
+- id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:

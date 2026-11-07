@@ -1,6 +1,6 @@
 # CARD-389: A book's landing address is computed once — the bundle serves and the interior will print the same /b/<slug>, numbered in print order
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (1d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/player_bundle.py, src/nonogram/admin/print_specs.py, tests/test_player_bundle.py, tests/test_book_landing_address.py, docs/deploy/player.md
-**Review score:** —
+**Review score:** 8.2 (cycle 2/3 - CERTIFIED; cycle 1: 6.0 NOT certified; cycle 2: 8.2 CERTIFIED)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-07T20:20Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 833a0efd7bd2701e285b3885b6229f781f49550d
 **Blocked by:** —
 
 ## Why this card exists
@@ -72,4 +72,30 @@ What is NOT yet true, read from the code on main (2026-11-07): `export_bundle` c
 
 ## Worktree notes
 
-(none yet)
+**Measurement (item 1), on tests/test_player_bundle.py's real in-memory shelf, never the production database.** Slug over the stored order vs over `print_order`, unchanged main code: grouped 4-puzzle book (easy, easy, medium, hard) `d99a138bf3` = `d99a138bf3`; grouped 10-puzzle book (4 easy, 4 medium, 2 hard) `7b8dfb3d9f` = `7b8dfb3d9f`; the same four-puzzle fixture stored mixed (medium, easy, hard, easy) `d99a138bf3` stored vs `64b6f83d49` print. So a GROUPED book's slug does not move (G-1/AC-3 hold, no STOP); a legacy MIXED book's slug does move by construction, which is G-3's owner question (the one published bundle, 160 puzzles, could not be re-derived here). Also measured: `BookManager.add_puzzles_to_book` already stores a grouped order, so a mixed book exists only as a pre-INV-009 row.
+
+**Item 3, the damaged row (decision and why).** Measured on the real `BookPDFGenerator`: `section_plan` keeps a row with an unreadable grid in its numbering, but `interior_stream` raises `RuntimeError` naming the puzzle (ragged, missing and empty grids alike), so the interior never prints such a book. The two sets are therefore not made the same set by a shared predicate; instead the bundle refuses the book: no `book/<slug>.json` is written for a book holding a row with no stored record or no readable grid, the row is named in `BundleReport.skipped` as before, and the book's readable puzzles stay in the library. `landing_address` raises `ValueError` for the same input. `export_bundle` previously wrote the book with the damaged row left out, which renumbered every later puzzle by one against the page.
+
+**What changed.** `player_bundle.py`: `print_ordered_keys` (the one place rows become keys in print order, via `book_pdf_generator.print_order`), `landing_address` returning a `LandingAddress(slug, url, short)` or `None` with no domain, `BOOK_PATH`; `export_bundle` reads keys in print order. `print_specs.py` needed no change (`stored_player_domain` is the caller's: CARD-390 passes its result). Test oracles in `tests/test_player_bundle.py` (`provenance_violations`, `_book_order`) now state the expected order independently as print order. `tests/test_book_landing_address.py` is new and is listed in `RENDER_HEAVY_SNAPSHOT` (it matches the render grep through `interior_stream`). The sandbox test `test_the_outcomes_are_identical_with_and_without_the_log` mirrors only TRACKED files, so it reds on an uncommitted new render-matching module until the module is committed.
+
+**Review cycle 1 fix round.** B-1: the refusal applies only to a row that is PRESENT AND UNREADABLE; a deleted id is skipped as before and the book is addressed over the survivors (the panel's `_book_puzzles` prints the survivors). Test through the real panel loader and interior: `test_the_bundle_serves_the_slug_the_real_interior_prints_after_a_deletion`; `test_a_missing_row_is_the_same_case` was inverted. F-2: the interior's drop filter is now one function, `book_pdf_generator.numbered_rows` (print order, then the payload drop), called by `section_plan` and by `player_bundle.print_ordered_keys`, so the bundle cannot decide "printed" a second way (plant: replacing it with bare `print_order` reds `TestBookLanding_APuzzleTheInteriorDropsTakesNoNumber`). F-1: `BundleReport.refused_books` and the panel's flash "Book <title> was not exported: puzzle X cannot be printed (<reason>)"; `export_bundle` has no caller outside the panel route (no CLI). F-3: `test_a_book_stored_mixed_is_bundled_in_print_order` gives the oracles a mixed fixture (plant: stored order reds it and two others). F-4: `landing_address`, `LandingAddress`, `print_ordered_keys`, `BOOK_PATH` in `__all__`. F-5: `landing_address` normalises through `PrintSpecValidator.player_domain_as_stored` and refuses (`ValueError`) a scheme-less, `http://`, or path-carrying domain.
+
+Census restated deliberately: `tests/test_book_export_interior_cover.py` `CALLEE_EXEMPTION_COST` moved 877/593/219/216 -> 879/595/220/217 (the loop moved from `section_plan` into `numbered_rows`, +1 call to a module function, and `self._payload` became `BookPDFGenerator._payload`; AST call diff against main shows exactly those two shapes).
+
+### Review record
+
+[Review 1/3] Score: 6.0 (threshold 8.0 NOT reached; NOT CERTIFIED). Blocker B-1: a book with a DELETED puzzle id lost its landing page; fixed in the review cycle 1 fix round above. Reviewer-reported, not re-run by the orchestrator.
+
+[Review 2/3] Score: 8.2 (threshold 8.0 reached; 0 blockers; CERTIFIED). Reviewer-reported, not re-run by the orchestrator. The gate was the owner-policy full armed suite at the merge gate (below).
+
+### Closing note (merge gate, 2026-11-07)
+
+**Merged as 833a0efd** (`--no-ff` of `card/389-landing-address`, tip c9f01089 after merging main's CARD-388 board-text commit). **Size datum (mine, `git diff --shortstat 77777179 card/389-landing-address`): 9 files changed, 606 insertions, 37 deletions.** Estimate 2c against 2 review cycles = ratio 1.0 (no wall-clock Actual, by the owner's call).
+
+**Gate (mine):** full suite, `DATABASE_URL` armed to the main checkout's per-worktree test database, `-o addopts= -q -rEfs --durations=0 --durations-min=0 -p no:cacheprovider`, hang guard 300 s: **11600 passed, 1 skipped, 1 xfailed in 4578.18 s (1:16:18)**; the one skip is the setrlimit platform gate (the armed expectation). No red. Per-file durations: `~/Documents/nonogram-reviews/suite-profile-2026-11-07/gate-card389-durations.txt` and `gate-card389-per-file.md`.
+
+**What the merge delivers:** one landing-address function (`landing_address` returning `LandingAddress(slug, url, short)`, `print_ordered_keys`); the bundle and the interior agree on the slug and the numbering in print order; a DELETED puzzle id is skipped and the book is addressed over the survivors; an unreadable row refuses the book (with the refused-books flash in the panel); the interior's print-order-then-drop loop is now one function, `numbered_rows`, shared by `section_plan` and the bundle (a refactor of the interior, shown behaviour-identical on 17 cases). `docs/deploy/player.md` states the printed shape is `/b/<slug>` only. The owner's G-3 (a legacy mixed-stored book's slug moves) is closed: the only deployed bundle is already grouped and no book has been printed.
+
+**What it does NOT deliver:** no Play page or QR on the interior yet (CARD-390); no `player/**` change; nothing deployed.
+
+**Carried (low, no new cards):** **G-1** the refused-book flash text has no test (a plant removing the flash survives). **G-2** a row with BOTH malformed clues and an unreadable grid is dropped by the interior but refuses the whole book in the bundle (two kinds of damage on one row). **G-3 (review's, distinct from the card's owner G-3)** a finalized book whose every row the interior drops gets a book file with empty `puzzle_keys` while `landing_address` raises ValueError.

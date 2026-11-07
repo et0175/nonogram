@@ -417,10 +417,10 @@ def bundle_sources(records, books) -> dict:
         if book.status not in player_bundle.FINALIZED_STATUSES:
             continue
         keys = []
-        for puzzle_id in book.puzzle_ids:
-            record = by_id.get(puzzle_id)
-            if record is None:
-                continue
+        # ADR-0041/R8: the book's keys are read in print order (INV-009),
+        # spelled out here independently of print_order.
+        members = [by_id[pid] for pid in book.puzzle_ids if pid in by_id]
+        for record in sorted(members, key=_level_rank):
             grid = [[bool(cell) for cell in row] for row in record["grid"]]
             if not grid or not grid[0] or any(len(r) != len(grid[0]) for r in grid):
                 continue  # the exporter's named skip; no key, so nothing published
@@ -1249,10 +1249,46 @@ def test_bundle_tree_and_clues_match_the_encoder(shelf, tmp_path):
     assert book["puzzle_keys"] == _book_order(store, manager, book_id)
 
 
+def test_a_book_stored_mixed_is_bundled_in_print_order(shelf, tmp_path):
+    """The oracle's own control (CARD-389 F-3): a MIXED fixture, so the oracle bites.
+
+    Stored medium, easy, hard, easy (a pre-INV-009 arrangement, which the
+    manager no longer produces, so the stored order is set directly). Both
+    oracles spell the INV-009 rank themselves and never call ``print_order``.
+    """
+    store, manager = shelf
+    ids = [
+        add_rectangle(store, index, tier=tier, name=f"P{index}")
+        for index, tier in enumerate(("medium", "easy", "hard", "easy"))
+    ]
+    book_id = finalized_book(manager, store, ids)
+    manager.books[book_id].puzzle_ids[:] = ids  # legacy stored order
+    stored = [independent_key(store.get_puzzle(pid)["grid"]) for pid in ids]
+    root = tmp_path / "bundle"
+
+    player_bundle.export_bundle(manager, store, root)
+
+    expected = _book_order(store, manager, book_id)
+    assert expected != stored, "the fixture must be mixed or this oracle is vacuous"
+    (book_file,) = (root / "book").glob("*.json")
+    assert json.loads(book_file.read_text())["puzzle_keys"] == expected
+    assert book_file.stem == player_bundle.book_slug(expected)
+    records = [store.get_puzzle(pid) for pid in ids]
+    assert provenance_violations(root, records, manager.get_all_books()) == []
+
+
+def _level_rank(record):
+    """INV-009's level rank, spelled out here: easy, medium, hard, then no tier."""
+    tier = record.get("difficulty_tier")
+    tier = tier.lower() if isinstance(tier, str) else tier
+    return {"easy": 0, "medium": 1, "hard": 2}.get(tier, 3)
+
+
 def _book_order(store, manager, book_id):
-    """The book's puzzle keys in book order, by the independent recipe."""
+    """The book's puzzle keys in print order (R8), by the independent recipe."""
     book = manager.get_book(book_id)
-    return [independent_key(store.get_puzzle(pid)["grid"]) for pid in book.puzzle_ids]
+    members = sorted((store.get_puzzle(pid) for pid in book.puzzle_ids), key=_level_rank)
+    return [independent_key(record["grid"]) for record in members]
 
 
 # ==========================================================================

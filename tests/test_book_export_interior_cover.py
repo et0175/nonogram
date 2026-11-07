@@ -4210,10 +4210,22 @@ class Generator:
         # ``.get`` on the stored one (+2, receivers this module does not
         # define). Steps still strict drops, last two still 0. Re-derived by
         # running the table's own ``_page_positions`` per row.
-        ((), 877),
-        (("builtins",), 593),
-        (("builtins", "definitions and imports"), 219),
-        (("builtins", "definitions and imports", "parameters"), 216),
+        #
+        # **CARD-389 re-measured it a sixth time (+2 calls; 877 -> 879,
+        # 593 -> 595, 219 -> 220, 216 -> 217, last two still 0).** The
+        # interior's print-order-and-drop loop left ``section_plan`` for the
+        # module function ``numbered_rows`` (the player bundle calls it too),
+        # so ``section_plan`` gained one call to a function this module
+        # defines and the loop's ``self._payload`` became
+        # ``BookPDFGenerator._payload``, a class this module defines. An AST
+        # diff of the file's call expressions against main shows exactly those
+        # two shapes changing; the four figures are read off this test's own
+        # measurement, not pasted from the failure message. Steps still strict
+        # drops.
+        ((), 879),
+        (("builtins",), 595),
+        (("builtins", "definitions and imports"), 220),
+        (("builtins", "definitions and imports", "parameters"), 217),
         (
             (
                 "builtins",

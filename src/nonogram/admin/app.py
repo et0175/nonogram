@@ -6137,6 +6137,12 @@ def create_app(debug=None):
                 "bundle. Take it out of draft and export again.",
                 "warning",
             )
+        for title, puzzle_id, reason in report.refused_books:
+            flash(
+                f"Book {title} was not exported: puzzle {puzzle_id} cannot be "
+                f"printed ({reason})",
+                "warning",
+            )
         for puzzle_id, reason in report.skipped:
             flash(f"Left out puzzle {puzzle_id}: {reason}", "warning")
         return redirect(url_for("book_detail", book_id=book_id))
