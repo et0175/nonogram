@@ -1,0 +1,20 @@
+# Provenance of the vendored file (ADR-0006/R2). One "key: value" per line;
+# tests/test_vendored_qr_encoder.py reads this file and holds the bytes to it.
+# CARD-388, fetched 2026-11-07.
+file: qrcodegen.py
+project: QR Code generator library (Python), Project Nayuki
+upstream_repository: https://github.com/nayuki/QR-Code-generator
+upstream_url: https://raw.githubusercontent.com/nayuki/QR-Code-generator/v1.8.0/python/qrcodegen.py
+upstream_path: python/qrcodegen.py
+version: v1.8.0
+tag_object: 7ad95cedd8464a87f82221283612732ae4f3f305
+commit: 720f62bddb7226106071d4728c292cb1df519ceb
+bytes: 39337
+sha256: b089855caf16185c61421ea4927c1b213cf9468940d71fa8ab11ef83662dcc84
+modifications: none (byte-identical to the upstream file at the tag above)
+licence: MIT
+licence_file: LICENSE.qrcodegen
+licence_file_sha256: bd6f20772e35c873b5c93b62fe9e83aadfe9b377cab8c8cc92c598ff3fe7b979
+licence_source: the permission notice in the upstream file's own header (lines 3-21) and the License section of the upstream Readme.markdown; the upstream repository has no separate LICENSE file. LICENSE.qrcodegen is that notice with the title "MIT License" added, nothing else changed.
+attribution: the notice travels inside qrcodegen.py itself (its header), so any copy of the file, in a wheel included, carries it; "Copyright (c) Project Nayuki." is also in LICENSE.qrcodegen.
+standard_library_imports: __future__, collections, itertools, re, collections.abc, typing

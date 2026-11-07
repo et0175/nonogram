@@ -1,6 +1,6 @@
 # CARD-388: A vendored single-file QR encoder and a vector QR the interior can draw — any URL in, a code a phone reads out
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -16,13 +16,13 @@
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
-**Touches:** src/nonogram/__init__.py, src/nonogram/admin/book_vector_draw.py, tests/test_vendored_qr_encoder.py, tests/test_qr_vector_draw.py, tests/helpers/qr_reader.py, tests/test_cli.py, meta/architecture/decisions/adr/0006-dependency-baseline.md
+**Touches:** src/nonogram/__init__.py, src/nonogram/admin/book_vector_draw.py, tests/test_vendored_qr_encoder.py, tests/test_qr_vector_draw.py, tests/helpers/qr_reader.py, tests/test_cli.py, meta/architecture/decisions/adr/0006-dependency-baseline.md, src/nonogram/admin/book_qr.py, src/nonogram/admin/_vendor/__init__.py, src/nonogram/admin/_vendor/qrcodegen.py, src/nonogram/admin/_vendor/LICENSE.qrcodegen, src/nonogram/admin/_vendor/PROVENANCE.qrcodegen, scripts/impact_set.py, tests/test_impact_set.py, tests/property/test_grid_dimensions.py, tests/test_book_page_frame.py, tests/test_book_puzzle_page_vector.py, pyproject.toml
 <!-- Touches also names the new files this card creates: the vendored encoder itself, its licence text and its provenance record, at a location the author chooses against the import walk (see item 2). They are not listed because the path is the author's decision; the author appends them to this line. src/nonogram/__init__.py is in because the component map is a test-held docstring (item 2). tests/test_cli.py is in only if the layering guard needs a deliberate, named allowance for the vendored file; the author states which. -->
-**Review score:** —
+**Review score:** 8.6 (cycle 1/3 - CERTIFIED; fix round 4415d6a2 not re-reviewed)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-07T21:18Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 2d81b270fca485259e17e34149a6788e284f3f29
 **Blocked by:** —
 
 ## Why this card exists
@@ -72,4 +72,18 @@ The owner's 2026-11-07 decision puts exactly one QR code in each book (ADR-0041/
 
 ## Worktree notes
 
-(none yet)
+- **Encoder chosen and why (item 1).** Project Nayuki's `python/qrcodegen.py`, v1.8.0 (tag object 7ad95ced, commit 720f62bd), fetched 2026-11-07 from `https://raw.githubusercontent.com/nayuki/QR-Code-generator/v1.8.0/python/qrcodegen.py`: 39337 bytes, sha256 `b089855c...dcc84`, MIT, imports `__future__`, `collections`, `collections.abc`, `itertools`, `re`, `typing` only (stdlib). Upstream has no separate LICENSE file; `LICENSE.qrcodegen` is the permission notice from the file's own header (which also travels in any copy of the file). Byte-identical to upstream, no patch. Full record: `src/nonogram/admin/_vendor/PROVENANCE.qrcodegen`.
+- **Placement (item 2).** `src/nonogram/admin/_vendor/`, inside `admin/`: the import walk's component is the top-level name, so this is COMP-009's own subtree, needs NO new component row, and `tests/test_cli.py` needed no allowance (its walk only reads `nonogram.*` imports; the vendored file has none). `src/nonogram/__init__.py` is unchanged for the same reason. Packaging: the `.py` ships as part of the `nonogram.admin` package; LICENSE/PROVENANCE are named in `[tool.setuptools.package-data]` (review-cycle-1 F1; G-1 was amended on main to allow exactly that one line), so a built wheel carries them; the notice is also inside the shipped `.py` header.
+- **Wrapper**: `admin/book_qr.py`. Level Q, byte mode, ASCII only, versions 1..6, `MAX_BYTES = 74`. The real address (40 bytes) is version 4 (33 modules, 41 with the quiet zone: 0.488 mm at 2 cm).
+- **Minimum module: `MIN_MODULE_MM = 0.4`** (`book_vector_draw`). A rule of thumb, NOT a phone measurement. Indirect evidence: Apple's CoreImage `CIDetector` (an independent production decoder, run once by hand, not in the suite) decoded the poppler render of a code drawn at exactly 0.4 mm per module for version 4 and version 6 at 300, 150 and 100 dpi (100 dpi is about 1.6 px per module); the suite's own reader decodes at 150 dpi. A scan of a printed proof stays the owner's check.
+- **Test-side reader (item 6)**: option (c), `tests/helpers/qr_reader.py`, written from ISO 18004 (versions 1..6), including a Reed-Solomon syndrome check per block so wrong error-correction bytes fail. No decoder is installed (no zbar/OpenCV/ZXing in the venv; `zbarimg` absent) and none was added.
+- **ADR-0006/R2 flipped** to `kind: test`, ref `test_the_vendored_bytes_match_their_recorded_sha256`. The ref only resolves once the test file is TRACKED (`git grep`), so `tests/test_check_ref_resolution.py`'s frozen `HONEST_DEAD`/`CENSUS`/`TRACE_TESTS` census values were re-derived at the commit.
+- **Fix round after review cycle 1.** F1 package-data line + test (`test_the_licence_and_provenance_sidecars_are_listed_as_package_data`, with a plant). F2 `draw_qr` refuses a non-finite or non-positive box with `QrBoxInvalid` before any write (plants: inf/nan/-inf/negative); no on-the-page check was added, because the other drawers in `book_vector_draw` do none. F3 the reader now requires BOTH format copies to be the exact valid word (a BCH-correctable flip in either copy is refused), plant `test_the_reader_checks_both_format_copies_exactly`. F4 level Q read back for every length 1..74 (versions 1..6) with a boosted-encoder control. F7 the imports list above corrected.
+- **Gate fix round (5 reds).** (1) `tests/property/test_grid_dimensions.py` now walks `_own_modules`, which excludes any directory carrying a `PROVENANCE.*` record (the same record the sha256 pin reads): a rule, not a path; plant `test_vendored_code_is_excluded_by_its_provenance_record_and_our_code_is_not`. (2) `MIN_MODULE_MM` (0.4 mm) joins `PRE_EXISTING_SAME_NUMBER` in `tests/test_book_page_frame.py` with its reason: a different unit from the 0.4 pt footer stroke, and a rule-of-thumb figure with no formula, so deriving it would only disguise it. (3) The player-domain scan matched the word "sha256" in two docstrings (`book_qr.py`, `_vendor/__init__.py`), not a second spelling of the recipe; the text now says "digest"; the expected set is unchanged. (4) `math` added to the pinned import set of `book_vector_draw` (stdlib, for `isfinite`). (5) `ASSET_RULES[".qrcodegen"] = "named"` in `scripts/impact_set.py` plus a test with a plant (a sidecar change selects `tests/test_vendored_qr_encoder.py`; without the rule it is FULL). Sixth hunt: ran every test module that scans src/ (list in the report); none other reddened.
+
+[Review 1/3] Score: 8.6 (threshold 8.0 reached; 0 blockers; PASS; certified). Reviewer-reported, not re-run by the merge gate. The first fix round (4415d6a2: F1 licence-sidecar package-data line, F2 isfinite guard, F3, F4, F7) was NOT re-reviewed; the second (f2ce628c, below) was not either.
+
+[Closing note, merge gate, merged `2d81b270` (tip `f2ce628c`; main merged into the branch first as `4e528e7b` with no conflict; staged `--no-ff` merge into main)] What the merge delivers: the vendored Project Nayuki qrcodegen v1.8.0 single file (byte-identical, digest-pinned) with its licence and provenance sidecars under `src/nonogram/admin/_vendor/`; the wrapper `admin/book_qr.py`; a vector QR drawer in `book_vector_draw.py`; the test reader `tests/helpers/qr_reader.py`; ADR-0006/R2 with a test check ref. The ONE `pyproject.toml` package-data line ships `LICENSE.qrcodegen` and `PROVENANCE.qrcodegen` in a wheel (allowed by the amended G-1). Nothing uses the drawer yet: CARD-390 will.
+The first gate attempt (suite on tip 4415d6a2) reddened on five frozen censuses/registries, fixed on the branch in f2ce628c (the scalar-extent scan excludes directories carrying a PROVENANCE.* file; a named allowance for MIN_MODULE_MM vs INTERIOR_FOOTER_RULE_PT; `math` in book_vector_draw's pinned imports; ASSET_RULES['.qrcodegen']); the second run was green: 11650 passed, 1 skipped (setrlimit platform gate), 1 xfailed. Size datum: 18 files, +2204/-15 (branch vs merge-base). Estimate 3c -> 1 review cycle = ratio 0.333 (no wall-clock Actual).
+CARRIED (no new cards): F5 MIN_MODULE_MM=0.4 is a rule of thumb, never scanned on a phone: the owner's check on a printed proof. F6 the test reader is the same author's work; independence came from the reviewer's CoreImage/Quartz runs, which are not in the suite. The vendored-header 'Permission is hereby granted' removal survives only when the pin is also updated (the digest pin protects the real file).
+Durations: ~/Documents/nonogram-reviews/suite-profile-2026-11-07/gate-card388-rerun-durations.txt and gate-card388-rerun-per-file.md (quiet run, 3660s); the first attempt's per-file aggregate is gate-card388-per-file.md (noisy, overlapped by other pytest runs; its raw file was overwritten).

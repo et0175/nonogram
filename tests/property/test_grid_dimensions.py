@@ -519,6 +519,23 @@ def _scalar_extent_offences(path: Path) -> list[str]:
     return offences
 
 
+def _own_modules(root: Path) -> list[Path]:
+    """The modules under ``root`` that are OURS to hold to ADR-0022/R1.
+
+    A directory carrying a ``PROVENANCE.*`` record is third-party code kept
+    byte-for-byte under ADR-0006/R2 (the record is what the sha256 pin test
+    reads), so it is excluded BY THAT RULE and not by a path or a line: the
+    vendored file's own signatures (``qrcodegen.QrCode.append_bits(n: int)``)
+    are not a boundary of this package and cannot be edited without breaking
+    the pin.
+    """
+    def vendored(path: Path) -> bool:
+        directories = [root / parent for parent in path.relative_to(root).parents]
+        return any(next(d.glob("PROVENANCE.*"), None) for d in directories)
+
+    return sorted(path for path in root.rglob("*.py") if not vendored(path))
+
+
 def test_no_public_boundary_reduces_a_grid_to_one_scalar() -> None:
     """ADR-0022/R1, over the whole package rather than over the files one card
     happened to touch.
@@ -528,7 +545,7 @@ def test_no_public_boundary_reduces_a_grid_to_one_scalar() -> None:
     reason ``tests/test_cli.py`` discovers the package from disk for the
     ADR-0007 import rule.
     """
-    modules = sorted(_PACKAGE_DIR.rglob("*.py"))
+    modules = _own_modules(_PACKAGE_DIR)
     assert len(modules) >= 20, "the package walk found suspiciously few modules"
 
     offences = [
@@ -606,6 +623,27 @@ def test_the_guard_reaches_exactly_the_shapes_it_claims_to(tmp_path: Path) -> No
             f"{label}: guard {'missed' if must_flag else 'wrongly flagged'} "
             f"this shape — if that is a deliberate change, update _GUARD_SHAPES"
         )
+
+
+def test_vendored_code_is_excluded_by_its_provenance_record_and_our_code_is_not(
+    tmp_path: Path,
+) -> None:
+    """The plant for :func:`_own_modules`: the same scalar-extent function is
+    reached in our module and left alone inside a directory with a provenance
+    record."""
+    source = "def generate(size: int) -> list[list[bool]]: ...\n"
+    (tmp_path / "admin").mkdir()
+    (tmp_path / "admin" / "ours.py").write_text(source, encoding="utf-8")
+    vendor = tmp_path / "admin" / "_vendor"
+    vendor.mkdir()
+    (vendor / "theirs.py").write_text(source, encoding="utf-8")
+    (vendor / "PROVENANCE.theirs").write_text("file: theirs.py\n", encoding="utf-8")
+
+    modules = _own_modules(tmp_path)
+
+    assert [m.name for m in modules] == ["ours.py"]
+    assert _scalar_extent_offences(modules[0])
+    assert _scalar_extent_offences(vendor / "theirs.py")  # it WOULD red unexcluded
 
 
 def test_the_scalar_extent_guard_would_catch_a_violation(tmp_path: Path) -> None:
