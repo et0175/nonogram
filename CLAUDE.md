@@ -17,6 +17,14 @@ Run the whole suite:
 ./.venv/bin/python -m pytest        # or: pytest, once the venv is active
 ```
 
+A few of the heaviest sweeps carry the `wave_close_only` marker (registry: `tests/wave_close_marker.py`): the merge gate defers them and says how many, and the wave close runs everything bare:
+
+```bash
+make test-gate           # merge gate: the diff's selection, minus the marked tests unless a changed path reaches their subject
+make test-marked         # only the marked tests (a bisect over a wave's merges, or a pre-wave-close check)
+make test-wave-close     # wave close: the bare full suite; refuses -m in PYTEST_ADDOPTS
+```
+
 Run a single test / file / pattern:
 
 ```bash

@@ -32,7 +32,9 @@ frozen here, with the exact command that produced it recorded alongside, and
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
+import importlib.util
 import re
 import sys
 from collections import defaultdict
@@ -718,8 +720,57 @@ def regrep_render_set(tests_dir: Path) -> list[str]:
     return found
 
 
-def report(profile: Profile, source: Path, digest: str) -> str:
-    """Build the full stdout report. Pure function of its arguments."""
+def wave_close_share(
+    profile: Profile, patterns: tuple[str, ...]
+) -> tuple[float, int, int]:
+    """``(seconds, tests, files)`` of the tests the registry defers to the wave close.
+
+    CARD-395. ``patterns`` are the registry's fnmatch node-id patterns
+    (``tests/wave_close_marker.py``), passed in rather than read here: the
+    report stays a pure function of the artefact and its arguments. The share
+    is derived from the registry, never typed, so it moves when the registry
+    does.
+    """
+    seconds = 0.0
+    tests = 0
+    files: set[str] = set()
+    for record in profile.tests.values():
+        if any(fnmatch.fnmatchcase(record.nodeid, p) for p in patterns):
+            seconds += record.total
+            tests += 1
+            files.add(record.file)
+    return seconds, tests, len(files)
+
+
+def load_registry_patterns(path: Path) -> tuple[str, ...]:
+    """The marked node-id patterns of ``tests/wave_close_marker.py`` at ``path``.
+
+    Loaded by path, not imported: this script runs from ``meta/profiling`` and
+    must not depend on ``sys.path`` or on the ``tests`` package being importable.
+    """
+    spec = importlib.util.spec_from_file_location("wave_close_marker_registry", path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"cannot load a registry from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return tuple(module.marked_patterns())
+
+
+def report(
+    profile: Profile,
+    source: Path,
+    digest: str,
+    marked_patterns: tuple[str, ...] | None = None,
+) -> str:
+    """Build the full stdout report. Pure function of its arguments.
+
+    ``marked_patterns`` (CARD-395) adds one section, "Wave-close share", after
+    everything else; without it the report is byte-for-byte what it was, so the
+    hotspots documents committed before the marker still match their script.
+    It is a section and not a row of the deciding table on purpose: the table's
+    block is quoted verbatim in each committed hotspots document, and a new row
+    would red the two committed before the marker existed.
+    """
     out: list[str] = []
     add = out.append
 
@@ -797,6 +848,19 @@ def report(profile: Profile, source: Path, digest: str) -> str:
     add(f"time: {attributed - heavy_secs:.2f}s")
     add(f"share of attributed time: {_pct(attributed - heavy_secs, attributed)}")
 
+    if marked_patterns is not None:
+        marked_secs, marked_tests, marked_files = wave_close_share(profile, marked_patterns)
+        add("")
+        add("## Wave-close share (wave_close_only)")
+        add("")
+        add(f"registry patterns: {len(marked_patterns)}")
+        add(f"files that contributed timings: {marked_files}")
+        add(f"tests: {marked_tests}")
+        add(f"time: {marked_secs:.2f}s")
+        add(f"share of attributed time: {_pct(marked_secs, attributed)}")
+        if profile.wall_clock is not None:
+            add(f"share of wall clock: {_pct(marked_secs, profile.wall_clock)}")
+
     return "\n".join(out) + "\n"
 
 
@@ -834,6 +898,16 @@ def main(argv: list[str] | None = None) -> int:
         help="re-grep this tests/ tree and report drift from the frozen set "
         "(stderr only; stdout is unaffected)",
     )
+    parser.add_argument(
+        "--wave-close-registry",
+        type=Path,
+        metavar="PATH",
+        dest="wave_close_registry",
+        default=None,
+        # No default, for the reason --check-log gives: the path is the caller's.
+        help="tests/wave_close_marker.py: add the 'Wave-close share' section, "
+        "derived from that registry's patterns (CARD-395)",
+    )
     args = parser.parse_args(argv)
 
     if args.check_log is not None:
@@ -859,7 +933,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    sys.stdout.write(report(profile, args.artefact, digest))
+    patterns = (
+        load_registry_patterns(args.wave_close_registry)
+        if args.wave_close_registry is not None
+        else None
+    )
+    sys.stdout.write(report(profile, args.artefact, digest, patterns))
 
     if args.verify_render_set is not None:
         live = set(regrep_render_set(args.verify_render_set))

@@ -99,7 +99,21 @@ review:
   family_regression: warn
   parallel: false    # keep off: heavy reviewers x max_concurrent is the cost cliff
 
+  # BARE, on purpose, and it must never carry `-m`. Since CARD-395 a few of the
+  # heaviest sweeps carry the `wave_close_only` marker (registry:
+  # tests/wave_close_marker.py): the MERGE GATE does not run them unless the
+  # changed paths reach their subject, and the WAVE CLOSE runs them. The forge
+  # skill runs this command for `/merge --test-cmd` and for the wave smoke test
+  # ("always the full suite"); a `-m` here would delete the backstop the
+  # deselection relies on. A repo test holds this value bare.
   test_command: "./.venv/bin/python -m pytest"
+
+  # The MERGE-GATE form (CARD-395): derives the gate block from the diff, runs the
+  # command(s) it prints, and states how many marked tests are owed at the wave
+  # close. This is the repo's own statement of the gate; the forge skill does not
+  # read this key (an unknown key is ignored by it), so an orchestrator briefs it
+  # by name. Wave close: `make test-wave-close`, the bare suite.
+  gate_test_command: "make test-gate"
 
   # HOW A GATE RECORDS THE HOST (CARD-292 / AC-6, owner-facing convention).
   # A gate that reds under contention and greens idle is not a verdict about
