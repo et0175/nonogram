@@ -4305,10 +4305,12 @@ def _refuse_unsettable_titles(
     what the owner has to do.
 
     **Gated on the medium.** It does nothing while
-    ``page_medium(PageKind.ANSWER)`` is ``RASTER``: that page is a bitmap, the
-    raster face sets Greek, and a book holding it exports today. It refuses
-    exactly when the declaration is lifted, which is the day the answer page
-    becomes operators.
+    ``page_medium(PageKind.ANSWER)`` is ``RASTER``, which was the case until
+    CARD-322 removed that declaration: the answer page was then a bitmap and
+    the raster face sets Greek. Since the flip the answer page is always
+    operators, so the check always runs on the interior path; the gate stays
+    as the mechanism that keeps a future raster declaration for the kind
+    honest (a bitmap answer page would not need it).
 
     ``answer_titles`` is :attr:`InteriorStream.answer_titles`: ``(puzzle id,
     title)`` in print order, the title being the very value of the same

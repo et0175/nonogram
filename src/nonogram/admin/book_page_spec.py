@@ -235,9 +235,11 @@ class PrintProfile:
     #: 0.1058 (0.3 pt in millimetres) was refused outright, because a floor
     #: set *at* the figure it is meant to protect asserts nothing and reads as
     #: licence. It is scoped and not dropped because the pages it governs are
-    #: still here: the live interior walk is raster until CARD-298 flips it,
-    #: and on that surface R2 keeps a 2-device-pixel floor and 0.25 mm is
-    #: 3 px at 300 DPI — above it, which is the point of keeping it.
+    #: still here: the cover and the section divider are still bitmaps
+    #: (ADR-0042/R2; the interior itself became operators with CARD-322, where
+    #: R2's floor no longer binds), and on a raster surface R2 keeps a
+    #: 2-device-pixel floor and 0.25 mm is 3 px at 300 DPI — above it, which is
+    #: the point of keeping it.
     min_thin_rule_mm: float
     #: ADR-0037/R2's three physical grid-rule weights, as a content stream
     #: declares them. The interior's figures live here, on the print profile,

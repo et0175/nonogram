@@ -1663,7 +1663,7 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
 
         The mechanism AC-2 really wants: the kernel refuses the memory, so the
         list shape raises :class:`MemoryError` (or dies) without any code of
-        ours deciding that it should. It is kept beside the sentry rather than
+        ours deciding that it should. It was kept beside the (since retired, CARD-322) sentry test rather than
         instead of it because **it is not available everywhere**, and the
         probe that decides is a measurement, not a platform name: a child sets
         the cap and then asks for twice it, and only a :class:`MemoryError`
@@ -1677,15 +1677,16 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         address-space cap to be had here at any value, let alone one this book
         could be measured against; ``RLIMIT_DATA`` is refused the same way.
         That is a platform fact, not a property of this book, which is why the
-        sentry twin above exists and carries the executed half here.
+        retired sentry twin carried the executed half here; since CARD-322 the in-process cells of PeakDoesNotGrowWithPageCount do.
         """
         verdict = _address_space_cap_verdict()
         if verdict != "bites":
             pytest.skip(
                 f"setrlimit(RLIMIT_AS) cannot bound a process on this "
                 f"platform — {verdict}. AC-2's executed half is carried here "
-                "by test_one_cap_the_streaming_shape_survives_and_the_list_"
-                "shape_dies_under (a resident-set sentry) and by the "
+                "by TestBookPdfMemory_PeakDoesNotGrowWithPageCount (the "
+                "medium-blind live-page peak; the resident-set sentry test "
+                "that used to carry it was retired by CARD-322) and by the "
                 "arithmetic derivation; the kernel-enforced address-space "
                 "version of it is NOT run on this machine."
             )
