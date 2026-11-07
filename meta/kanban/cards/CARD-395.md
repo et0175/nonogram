@@ -1,6 +1,6 @@
 # CARD-395: The gate stops running the heaviest sweeps — a `wave_close_only` marker the gate deselects, lifts by subject, and states; the wave close still runs everything
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 4c (1.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner ruling 2026-11-07 ("I'd do a+c, after measurement"; memory `gate-time-cuts-a-and-c`): A = a wave-close-only marker for the heaviest property / kill-matrix / mutant-arm / order-probe tests; the gate keeps a smoke slice AND every test that can fail (controls); corpus floors never shrink (G-4), only WHEN they run changes; the full suite still runs at every wave close as the backstop. B (teach impact_set that heavy files are reachable only from their subjects) was NOT chosen; this card's lift rule is the narrow part of B that A cannot be safe without, and is written as a RULE over the existing derivation, not as new reachability modelling. Measurement: `~/Documents/nonogram-reviews/suite-profile-2026-11-07/gate-card388-durations.txt` (one full armed run, 4626 s wall, 4607 s summed over 249 files, 11,606 passed, 12 failed, CONTENDED by other pytest runs and edits: usable for shares, not for seconds-saved and not committable as the artefact).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-388
