@@ -602,6 +602,79 @@ class TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover:
 ROUTES = ("finalise", "download-pdf", "generate-pdf")
 
 
+class TestBookExport_TheShippedDefaultStillDownloadsAVectorInterior:
+    """CARD-322 review F1: the route test the conftest rebind could not be.
+
+    ``tests/conftest.py`` rebinds the generator's default writer set to the
+    assembled one for the whole session, so with ``_export_part`` switched
+    back to a bare ``BookPDFGenerator(book)`` every route test in the tree
+    stayed green (198 of them, measured by the reviewer) and only the ``ast``
+    cell in ``tests/test_book_pdf.py`` redded. This class restores the SHIPPED
+    default for its own duration, like the pin
+    (``TestShippedDefault_TheTestTreesRebindDoesNotHideIt``, which lives in
+    ``test_book_pdf.py``; this class is here because the admin app, the cover
+    fixtures and the download helpers are), and drives the real download
+    routes: the downloaded interior must be vector, with images on the
+    section dividers only.
+    """
+
+    @staticmethod
+    def _shipped_default(monkeypatch):
+        import nonogram.admin.book_pdf_generator as generator_module
+        from tests.conftest import SHIPPED_DEFAULT_WRITERS
+
+        monkeypatch.setattr(
+            generator_module, "NO_DOWNSTREAM_WRITERS", SHIPPED_DEFAULT_WRITERS
+        )
+
+    @staticmethod
+    def _media_of(data):
+        return pdf_vector.page_media(data), pdf_vector.page_resource_keys(data)
+
+    @pytest.mark.parametrize("route", ROUTES)
+    def test_each_route_downloads_a_vector_interior_with_the_shipped_default(
+        self, covered_book, monkeypatch, route
+    ):
+        self._shipped_default(monkeypatch)
+        client, book_id = covered_book
+        media, keys = self._media_of(_download(client, route, book_id, "interior"))
+
+        assert len(media) == STANDARD_BOOK_PAGES, len(media)
+        assert media[:3] == [pdf_vector.VECTOR] * 3, media  # title page and both guide pages
+        images = [index + 1 for index, resources in enumerate(keys) if "XObject" in resources]
+        # Images only on the section dividers (CARD-231 replaces them): a
+        # minority of the interior, never the title, the guide, a puzzle or an answer.
+        assert images and len(images) <= 4, (images, media)
+        assert [media[number - 1] for number in images] == [pdf_vector.RASTER] * len(images)
+        assert pdf_vector.VECTOR in media[3:], media
+
+    def test_a_default_generator_in_the_writing_site_is_found(self, covered_book, monkeypatch):
+        """The plant: ``_export_part`` builds a bare ``BookPDFGenerator(book)``.
+
+        With the shipped default restored the bare generator refuses a guide
+        page, so the download fails (an error from the route or a non-200
+        answer, both are the plant being caught); ``must_red`` is asserted.
+        The control arm shows why the restore matters: with the session
+        rebind LEFT IN FORCE the very same plant downloads fine, which is the
+        hole the reviewer measured.
+        """
+        import nonogram.admin.app as app_module
+
+        client, book_id = covered_book
+        monkeypatch.setattr(
+            app_module, "interior_generator", lambda book: BookPDFGenerator(book)
+        )
+
+        # Control: the rebind in force hides the regression.
+        hidden = client.post(f"/book/{book_id}/download-pdf?part=interior")
+        assert hidden.status_code == 200, "the session rebind no longer hides a bare generator"
+
+        self._shipped_default(monkeypatch)
+        with pytest.raises(Exception):  # noqa: B017 - the refusal's type is the route's business
+            response = client.post(f"/book/{book_id}/download-pdf?part=interior")
+            assert response.status_code == 200, response.status_code
+
+
 class TestBookExport_EveryRouteSeparatesInteriorAndCover:
     """AC-289 — all three export routes yield the same interior + cover pair."""
 
@@ -4114,8 +4187,18 @@ class Generator:
         # the message's list and join calls inside the check, the doors' three
         # calls to it and the walk's ``answer_title`` for the new tuple -- and
         # no class started absorbing a new kind of thing.
-        ((), 874),
-        (("builtins",), 591),
+        #
+        # **CARD-322 re-measured it a fourth time, and the move is five
+        # deleted calls and nothing else.** 874 -> 869, 591 -> 586, 217 -> 217,
+        # 214 -> 214, and the steps 283/374/3/214 -> 283/369/3/214. The five are
+        # the ``RasterDeclaration(...)`` constructions of the five interior
+        # kinds that left ``_RASTER_DECLARATIONS``: a class this module
+        # defines, so they were absorbed by ``definitions and imports`` and by
+        # no other class, which is why exactly that step lost five and the
+        # other three did not move. Re-derived by running the table's own
+        # ``_page_positions`` per row, not pasted from the failure message.
+        ((), 869),
+        (("builtins",), 586),
         (("builtins", "definitions and imports"), 217),
         (("builtins", "definitions and imports", "parameters"), 214),
         (

@@ -1316,35 +1316,109 @@ class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
 class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
     """Every frame rule on a printed pair is the heavy weight, and pure black."""
 
+    #: The owner's three declared grid weights in points (ADR-0037/R2 as
+    #: amended 2026-10-17, CARD-227: 0.3 pt grey cell lines, 0.8 pt every fifth
+    #: line, 1.3 pt outer border). Written out, not imported from the writer.
+    DECLARED_PT = (0.3, 0.8, 1.3)
+    #: What poppler inks them as at 300 DPI, MEASURED on this page (CARD-322,
+    #: CARD-342's finding): 2 / 4 / 6 pixel runs, grey 89 for the first and
+    #: pure black for the other two, no blend pixels. It is ceil(pt*300/72) =
+    #: ceil(1.25), ceil(3.33), ceil(5.42).
+    MEASURED_PX = (2, 4, 6)
+
     @staticmethod
-    def _weights(dark: np.ndarray, drawing) -> tuple[int, int]:
-        """``(thin, thick)`` as this page actually strokes them, off its own ink.
+    def weight_findings(widths_pt, runs_px=None) -> list[str]:
+        """Every way a page's stroke widths (and a grid row's runs) break the
+        owner's three-weight claim. Pure, so the plants can drive it."""
+        found: list[str] = []
+        declared = TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly.DECLARED_PT
+        used = {round(w, 4) for w in widths_pt}
+        for name, weight in zip(("thin", "fifth", "border"), declared):
+            if weight not in used:
+                found.append(f"the {name} weight {weight} pt is not stroked")
+        if not declared[0] < declared[1] < declared[2]:
+            found.append("the declared weights are not thin < fifth < border")
+        if runs_px is not None:
+            distinct = sorted({len(run) for run in runs_px})
+            expected = list(TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly.MEASURED_PX)
+            if distinct != expected:
+                found.append(f"a grid row shows run widths {distinct}, not {expected}")
+            else:
+                widths = [len(run) for run in runs_px]
+                for index, width in enumerate(widths):
+                    border = index in (0, len(widths) - 1)
+                    fifth = index % 5 == 0 and not border
+                    want = expected[2] if border else expected[1] if fifth else expected[0]
+                    if width != want:
+                        found.append(f"rule {index} is {width} px, not {want}")
+        return found
+
+    @staticmethod
+    def _weights(dark: np.ndarray, drawing) -> tuple[int, int, int]:
+        """``(thin, fifth, border)`` run widths on a row through the grid.
 
         Measured on a pixel row half a cell below the grid's top border and
-        **bounded to the grid itself**, where the only ink is the grid's
-        verticals: every fifth of them and the two borders are heavy, the rest
-        thin. The bound matters — a row half a cell into the grid crosses that
-        row's clue digits out in the gutter, and a digit's stem is its own
-        number of pixels wide. Nothing here is imported from the layout; the
-        two weights are counted.
+        bounded to the grid itself (see the history of this helper: the bound
+        keeps clue digits out). Returns the three DISTINCT widths, smallest
+        first, and refuses anything but three.
         """
         row = drawing.grid_top + round(drawing.cell / 2)
         runs = _runs_across(
             dark, row, drawing.grid_left, drawing.grid_right + _RULE_WINDOW_PX
         )
-        widths = {len(run) for run in runs}
-        assert len(widths) == 2, f"a row through the grid shows weights {sorted(widths)}"
-        return min(widths), max(widths)
+        widths = sorted({len(run) for run in runs})
+        assert len(widths) == 3, f"a row through the grid shows weights {widths}"
+        return widths[0], widths[1], widths[2]
 
-    def test_the_two_up_page_strokes_exactly_two_weights(self, pages) -> None:
+    @staticmethod
+    def _two_up_stream_widths() -> list[float]:
+        """Every stroke width the two-up page's own content stream sets, in points."""
+        from tests.helpers import pdf_vector
+
+        raw = BookPDFGenerator(_book()).interior_pages(
+            [
+                _book_puzzle(**UPPER_PUZZLE, puzzle_id="one"),
+                _book_puzzle(**LOWER_PUZZLE, puzzle_id="two"),
+                _book_puzzle(**SINGLE_PUZZLE, puzzle_id="three"),
+            ]
+        )
+        return pdf_vector.stroke_widths("\n".join(raw[TWO_UP_PAGE - 1].operators))
+
+    def test_the_two_up_stream_strokes_the_three_declared_weights(self) -> None:
+        """Exact widths from the STREAM: 0.3, 0.8 and 1.3 pt, thin < fifth < border."""
+        widths = self._two_up_stream_widths()
+        assert self.weight_findings(widths) == []
+        assert self.DECLARED_PT[0] < self.DECLARED_PT[1] < self.DECLARED_PT[2]
+
+    def test_a_missing_or_merged_weight_is_found(self) -> None:
+        """Plants: one per weight, and two weights merged into one."""
+        widths = self._two_up_stream_widths()
+        assert self.weight_findings(widths) == []
+        for weight in self.DECLARED_PT:
+            planted = [w for w in widths if round(w, 4) != weight]
+            assert self.weight_findings(planted), weight
+        merged = [0.3 if round(w, 4) == 0.8 else w for w in widths]
+        assert self.weight_findings(merged), "fifth merged into thin"
+        merged = [1.3 if round(w, 4) == 0.8 else w for w in widths]
+        assert self.weight_findings(merged), "fifth merged into border"
+
+    def test_a_grid_row_shows_exactly_the_three_weights_at_their_positions(self, pages) -> None:
+        """2 / 4 / 6 px, the 4 px runs at every fifth rule, the 6 px runs the borders."""
         dark = _dark(pages[TWO_UP_PAGE - 1])
-
         for drawing in drawings_of(pages[TWO_UP_PAGE - 1]):
-            thin, thick = self._weights(dark, drawing)
-            assert thick == 2 * thin, f"the heavy rule is {thick} to the thin's {thin}"
-            assert thin / PX_PER_MM >= MIN_THIN_RULE_MM
+            row = drawing.grid_top + round(drawing.cell / 2)
+            runs = _runs_across(dark, row, drawing.grid_left, drawing.grid_right + _RULE_WINDOW_PX)
+            assert self.weight_findings([0.3, 0.8, 1.3], runs) == []
+            assert self._weights(dark, drawing) == self.MEASURED_PX
+            # Plants on the row itself: an extra genuine run width, and two
+            # weights merged (every fifth rule drawn as a thin one).
+            extra = [list(run) for run in runs]
+            extra[1] = extra[1] + [extra[1][-1] + 1]
+            assert self.weight_findings([0.3, 0.8, 1.3], extra)
+            flat = [list(run)[:2] if len(run) == 4 else list(run) for run in runs]
+            assert self.weight_findings([0.3, 0.8, 1.3], flat)
 
-    def test_every_frame_side_is_the_heavy_rule_and_no_new_weight(self, pages) -> None:
+    def test_every_frame_side_is_the_border_weight_and_no_new_weight(self, pages) -> None:
         page = pages[TWO_UP_PAGE - 1]
         dark = _dark(page)
         drawings = drawings_of(page)
@@ -1352,25 +1426,19 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
 
         for drawing, box in zip(drawings, boxes):
             left, top, right, bottom = _pixel_box(box)
-            _thin, thick = self._weights(dark, drawing)
+            _thin, _fifth, thick = self._weights(dark, drawing)
             assert bottom - top > 4 * thick, "these crops really are inside the drawing"
-            # A row inside the column-clue band, clear of the frame's own top
-            # side: the first and last runs of ink across the slot's span are
-            # the frame's two vertical sides.
             columns = _runs_across(
                 dark, top + 2 * thick, left - _RULE_WINDOW_PX, right + _RULE_WINDOW_PX
             )
             assert len(columns) >= 3
             assert abs(columns[0][0] - left) <= thick, (
                 "the leftmost rule in this band is not on the drawing's own left "
-                f"edge ({columns[0][0]} against {left}) — there is no frame here, "
+                f"edge ({columns[0][0]} against {left}) -- there is no frame here, "
                 "only the grid's border a whole clue gutter further in"
             )
-            assert len(columns[0]) == thick, "the frame's left side is not the heavy rule"
+            assert len(columns[0]) == thick, "the frame's left side is not the border weight"
             assert len(columns[-1]) == thick, "nor is its right side"
-            # A column inside the row-clue band, clear of the frame's left side
-            # and bounded to this slot's own rows — the other slot's frame is
-            # in the same pixel columns further down the sheet.
             rows = _runs_down(
                 dark, left + 2 * thick, top - _RULE_WINDOW_PX, bottom + _RULE_WINDOW_PX
             )
@@ -1379,31 +1447,17 @@ class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
                 "the topmost rule in this gutter is not on the drawing's own top "
                 f"edge ({rows[0][0]} against {top})"
             )
-            assert len(rows[0]) == thick, "the frame's top side is not the heavy rule"
+            assert len(rows[0]) == thick, "the frame's top side is not the border weight"
             assert len(rows[-1]) == thick, "nor is its bottom side"
 
-    def test_the_two_up_page_introduces_no_weight_the_single_page_lacks(
-        self, pages
-    ) -> None:
-        """The pair and the single page of the same book stroke the same two rules.
-
-        Not the same *pixel counts* — the two pages print different cells, and
-        ADR-0037/R2's rules scale with the cell — but the same shape of answer:
-        two weights, the heavy exactly twice the thin. A third weight invented
-        for the pair shows up as a third run length.
-        """
+    def test_the_pair_and_the_single_page_stroke_the_same_three_weights(self, pages) -> None:
+        """Not the same pixel counts' cells (the pages print different cells) but
+        the same three widths, so a fourth weight invented for the pair shows."""
         two_up, single = pages[TWO_UP_PAGE - 1], pages[SINGLE_PAGE - 1]
-        single_dark, two_up_dark = _dark(single), _dark(two_up)
-        thin, thick = self._weights(single_dark, drawing_of(single))
-        assert thick == 2 * thin, "the single page itself strokes two weights"
-
+        reference = self._weights(_dark(single), drawing_of(single))
+        assert reference == self.MEASURED_PX
         for drawing in drawings_of(two_up):
-            paired_thin, paired_thick = self._weights(two_up_dark, drawing)
-            assert paired_thick == 2 * paired_thin, (
-                f"a slot strokes {paired_thick} to the thin's {paired_thin}"
-            )
-        # The negative control: the two pages print different cells, so this
-        # comparison is of the *rule*, not of two pages that happen to agree.
+            assert self._weights(_dark(two_up), drawing) == reference
         assert drawing_of(single).cell != drawings_of(two_up)[0].cell
 
     def test_the_frames_pixels_are_pure_black(self, pages) -> None:
@@ -3818,24 +3872,17 @@ def test_put_back_on_the_ink(page):
 #: sites and **13.984x** on the spare site, all three RED in vector. The margin
 #: is 0.4 %; the alternative was 3.5x the bound. Widening is what G-1 forbids,
 #: and these figures are what make that refusal checkable rather than a claim.
-PLACED_EDGE_ON_THE_INK_BY_DECLARATION = {
-    (
-        "tests/property/test_book_pdf_geometry.py",
-        "test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages",
-        1,
-    ): (
-        "CARD-336: the only site of either module whose bound is ONE half "
-        "pixel, which is below the quantisation of any reading of a binary "
-        "ink mask. The frame rule inks six pixel lines, so its centre is a "
-        "half-integer whose side is the rasteriser's: measured over this "
-        "corpus's 7 two-up pages, the ink reads 0.54x the bound in raster "
-        "and 5.46x in vector, and the centre reads 1.54x in raster and 0.46x "
-        "in vector. Neither reading is green in both media, and CARD-330's "
-        "measured 1 px cross-medium floor is above this bound either way. "
-        "The remedy is this site's own multiple (1 -> 2 admits both, at 0.77x "
-        "and 0.23x) and it is CARD-330's to move, not this card's (G-1)."
-    ),
-}
+PLACED_EDGE_ON_THE_INK_BY_DECLARATION: dict = {}
+#: **EMPTIED by CARD-322 (owner ruling 2026-11-06, the placed-edge cells).** The
+#: one entry this mapping held, the geometry module's
+#: ``..._PortraitWithFixedTopEdgeForEveryExtent_two_up_pages`` site at its ONE
+#: half-pixel bound, was declared on the ink because no single reading met the
+#: bound in both media. The interior is one medium now, and that site reads the
+#: frame BOUNDARY (``frame_centre_of``), measured at or under 0.46x the same
+#: bound, with a 1 px control; it is no longer on the ink and so no longer a
+#: declaration. The mapping stays (empty) because the guard tests below are
+#: written against it and ``test_every_declaration_is_a_site_that_is_really_on_the_ink``
+#: is what will refuse a future entry that names a site not on the ink.
 
 
 # --------------------------------------------------------------------------

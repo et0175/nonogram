@@ -40,7 +40,7 @@ is still true of *this module*: a page drawn by
 :func:`puzzle_page_stream` carries the drawing and the band and no sheet
 furniture, and a page the **book** writes carries both.
 ``tests/test_book_puzzle_page_vector.py``'s
-``TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture`` holds that
+``TestPuzzlePageStream_TheBareWriterDrawsOnlyTheDrawingAndTheBand`` holds that
 boundary where this docstring claims it is, on this module's own call.
 
 **Two-up pages are in scope** (:func:`two_up_page_stream`), because a two-up

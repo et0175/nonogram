@@ -1,0 +1,32 @@
+{
+  "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
+  "digests": {
+    "answer_full": "5a7595d5f8eb57ea59a0a3400fdf5afd537ba0533258a45aaeecb22fe90f4448",
+    "answer_packed_one": "6c9ea7444091eb291f95d655e221f4153b5509ff983a05cc1e919cfd1b04ac68",
+    "answer_packed_two": "6d8c0ecf2258fa835fcb23c84e8b4c933502f40559161f9ae06782a7d8c506b3",
+    "guide_1": "e96d06e8854da51da9d6845d1e03bf412a6697a2c455b9d04e8f984cc269ef15",
+    "guide_2": "d8282a5b9025c5166a4721c4d70c071a74d0d2f7c582bc3d6105358738ad82f9",
+    "puzzle_single_15x15": "e09831dcd40e155d79e87482d76101b1fae432044ddfba65bda3bc7ca5a8308a",
+    "puzzle_single_30x30": "ca2e535834a0b3c43ab1766fddf14e90352263266796462513bf6d4c3466e1c3",
+    "puzzle_two_up": "350803551c57ffd2064c73681d17a6f6a41ed190f6998c9ee480afb67d0e47cf",
+    "title": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "toc": "d84f43c994ae32f9bf1da547e6f2a09b3d0af3f972c65b6a6e9df9c8a1ae1106"
+  },
+  "hash": "sha-256 of the decoded content stream (cp1252)",
+  "plan": [
+    "title",
+    "guide",
+    "guide",
+    "toc",
+    "divider",
+    "puzzle",
+    "divider",
+    "puzzle",
+    "divider",
+    "puzzle",
+    "divider",
+    "answer",
+    "answer",
+    "answer"
+  ]
+}

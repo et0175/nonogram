@@ -1523,43 +1523,46 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         )
 
     def test_that_row_is_the_top_margin_plus_the_band(self):
-        """**DECLARED RESIDUE, CARD-382 (ADR-0039/R3): this claim is half a pixel
-        and it is met in a bitmap and NOT in operators, and it is left red.**
+        """The upper slot's frame BOUNDARY is the top margin plus the band, to
+        half a device pixel -- one reading, on the one medium the interior has.
 
-        The bound is ``_mm(0.5)``, half a device pixel (0.0423 mm), and it is
-        not widened. What the two readings give on this page, in pixels from the
-        stated coordinate ``(TOP_MM + BAND_MM) * PX_PER_MM`` = 306.73
-        (:meth:`test_the_declared_residue_of_the_half_pixel_claim` pins every
-        figure):
+        **CARD-322 (owner ruling 2026-11-06, placed-edge cells).** CARD-382
+        found this claim could not be met in BOTH media by any single reading
+        (first inked line: +0.27 px bitmap, -2.73 px operators; frame
+        boundary: +0.77 bitmap, -0.23 operators, against the stated coordinate
+        306.73 px) and left it red as declared residue. After the flip the
+        interior exists in operators only, so the claim is the one reading it
+        always had: the frame boundary (``frame_centre_of``, the centre of the
+        frame's top rule) is within half a pixel of the stated row.
 
-        ==============================  ============  ============
-        reading of the upper slot       bitmap        operators
-        ==============================  ============  ============
-        first inked line (``.top``)     +0.27         **-2.73**
-        frame boundary (``frame_top``)  **+0.77**     -0.23
-        ==============================  ============  ============
-
-        Neither reading is inside half a pixel in both media. The first inked
-        line is the stroke's edge, which the two media place half a rule apart
-        (3 px for this six-line frame); the boundary is the rule's centre, which
-        is a half-integer in index space and falls on a different side of the
-        stated coordinate in each rasteriser (CARD-336's F-4 shape: a bitmap
-        rounds the coordinate up to row 307 and Pillow centres an even stroke
-        half a pixel below it, a PDF rasteriser keeps 306.73 and lands on
-        306.5). Reading each medium with whichever of the two happens to pass it
-        would be a reading chosen to fit, and snapping the stated coordinate to
-        307 would pass a shift of one pixel in operators undetected, so neither
-        is done. The claim stays as the card stated it; it passes on the
-        bitmap page and fails on the operators page by the figures above, and
-        closing it needs a decision (whether the claim is "within half a pixel
-        of the stated coordinate" or "on the stated whole-pixel boundary, to
-        the medium's own centring"), not a measurement.
+        Measured on this page: **-0.23 px** (the stated 306.73 against a rule
+        centred on 306.5), inside the bound ``_mm(0.5)`` = 0.0423 mm with 0.27
+        px of room, which is why neither the bound nor the coordinate is moved
+        (G-3b). The control: a frame drawn one pixel off the boundary is outside
+        the bound on either side (-1.23 and +0.77 px), where the old first-
+        inked-line reading could not tell a 1 px shift from the 2.73 px it
+        already carried.
         """
         pages = self._pages()
-
         upper, _ = drawings_of(pages[5])
+        boundary = frame_centre_of(pages[5], upper)
 
-        assert abs(_mm(upper.top) - (TOP_MM + BAND_MM)) <= _mm(0.5) + 1e-9
+        stated_px = (TOP_MM + BAND_MM) * PX_PER_MM
+        error_px = boundary.frame_top - stated_px
+        assert abs(error_px) <= 0.5 + 1e-9, (error_px, "the frame is not on the row")
+        # The measured figure, written in the test (ADR-0039/R3).
+        assert error_px == pytest.approx(-0.23, abs=0.01), error_px
+        # The control that can fail, on the page itself: the rendered operators
+        # page moved one pixel down or up is read again by the same two calls,
+        # and each reading leaves the bound.
+        from PIL import ImageChops
+
+        for shift in (-1, +1):
+            moved = ImageChops.offset(pages[5], 0, shift)
+            moved_upper, _ = drawings_of(moved)
+            moved_error = frame_centre_of(moved, moved_upper).frame_top - stated_px
+            assert abs(moved_error) > 0.5, (shift, moved_error, "a 1 px shift of the frame is invisible")
+            assert moved_error == pytest.approx(error_px + shift, abs=0.01), (shift, moved_error)
 
     def test_the_declared_residue_of_the_half_pixel_claim(self):
         """The figures :meth:`test_that_row_is_the_top_margin_plus_the_band`

@@ -6991,7 +6991,8 @@ constraints:
       # `page_medium` declares for its kind — the ImageDraw spy for a bitmap
       # page, the stream's `Tf` operands for a page of operators. Measured at
       # CARD-298's merge, all seven page kinds are still declared raster
-      # (`book_pdf_generator._RASTER_DECLARATIONS`), so the floor's force
+      # (since removed by CARD-322, 2026-11-07: only COVER and DIVIDER are
+      # declared now) (`book_pdf_generator._RASTER_DECLARATIONS`), so the floor's force
       # today is exactly what it was; the stream arm is proved non-dormant on
       # a real vector page by TestInteriorType_TheStreamArmIsReached, and the
       # non-vacuity floor that makes this constraint real is carried across in
@@ -7050,8 +7051,9 @@ constraints:
       # ADR-0042 / DEC-048 accepted the same day): the statement above is
       # UNAFFECTED — a reader-facing type floor is a physical measure and is
       # medium-independent. What ADR-0042/R6 retires is this ref's MECHANISM.
-      # The ref stands and is green today (the interior still ships raster;
-      # CARD-231 is the delivery card and has not merged), so it is kept as
+      # The ref stands and is green today (CARD-322 flipped the interior to
+      # operators on 2026-11-07 and the floor is now read from the content
+      # stream; only the dividers and the cover stay bitmaps), so it is kept as
       # `kind: test` rather than flipped back to `kind: review-lens` — the
       # 2026-10-06 note above records why a live test ref beats a lens.
       # What the card that converts the interior must carry:

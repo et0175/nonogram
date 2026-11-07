@@ -220,6 +220,14 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # mentions any of them"); the entry is correct by that definition and must
     # not be read as a cost ranking after this card.
     "tests/test_book_toc.py",
+    # RESTATED DELIBERATELY 2026-11-07 (CARD-322), which is what this freeze
+    # exists to force. The vector-golden module exports the real baseline
+    # interior (``export_interior``, which carries ``interior(`` as a
+    # substring, and ``interior_stream`` for the page plan) and so mentions
+    # the pattern honestly: the entry is correct by this set's definition and,
+    # like the others, is a mention and not a cost ranking. Re-derived by
+    # running ``regrep_render_set`` over the tree, not copied from the failure.
+    "tests/test_book_vector_goldens.py",
     "tests/test_export_pdf.py",
     "tests/test_layout_page_spec.py",
     # RESTATED DELIBERATELY 2026-10-19 (CARD-251), which is what this freeze

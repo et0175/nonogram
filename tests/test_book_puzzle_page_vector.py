@@ -1982,7 +1982,7 @@ class TestGridRoutine_DrawsALayoutItWasNotWrittenFor:
 # --------------------------------------------------------------------------
 
 
-class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture:
+class TestPuzzlePageStream_TheBareWriterDrawsOnlyTheDrawingAndTheBand:
     """The boundary this card stops at, held where its docstring claims it.
 
     ``book_puzzle_vector``'s docstring says the sheet's furniture — the

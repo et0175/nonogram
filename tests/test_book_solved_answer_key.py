@@ -4070,6 +4070,19 @@ _FLOOR_PT = 10.0
 #: being faithful rather than broken. It is recorded here because it is a
 #: product fact no cell stated, and exact agreement is **not** achievable
 #: without one medium measuring with the other's engine.
+# CARD-322 item 10 (AC-5): resolved by keeping the entry WITH A NEW ARGUMENT.
+# After the flip the vector writer's page is the PRODUCTION page (every answer
+# page of a downloaded interior is operators); the raster writer
+# (`solved_puzzle_page`) is still in `src/` at this commit and is the REFERENCE
+# oracle this comparison clips against, so the comparison still has two live
+# writers and the entry is a statement about two writers, one of which is the
+# printed one. It is not a statement about a page nobody prints. The vector
+# reading "Puzzle 2 — Owl in a …" is what the book prints; the raster reading
+# differs by one character because the two media clip by different measures
+# (Pillow text width vs the embedded face's /Widths), the standing argument of
+# this entry. If item 16 deletes the raster writer, this dict and its three
+# consumers go with it, with the measurement above as the record. NOT
+# re-measured on a second page: the module was green in E1fix and E2 (mine).
 _DECLARED_CLIP_DIVERGENCE = {
     "Puzzle 2 — Owl in a Pine": (
         "Puzzle 2 — Owl in a P…",

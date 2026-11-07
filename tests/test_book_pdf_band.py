@@ -1547,7 +1547,7 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
     and
     ``tests/test_book_puzzle_page_vector.py::TestSheetFurniture_TheProductionPageCarriesTheFurniture::test_the_page_carries_all_four_pieces_of_furniture``
     (the rule and the text run are also caught by
-    ``tests/test_book_puzzle_page_vector.py::TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture::test_the_page_shows_only_the_clue_digits_and_the_band``).
+    ``tests/test_book_puzzle_page_vector.py::TestPuzzlePageStream_TheBareWriterDrawsOnlyTheDrawingAndTheBand::test_the_page_shows_only_the_clue_digits_and_the_band``).
     ``tests/test_book_grid_rules.py`` catches only the stray *rule*, by
     ``tests/test_book_grid_rules.py::TestBookGridRules_FifthLinesOnBothAxes::test_the_stream_strokes_both_axes_at_the_fifth_weight``
     and

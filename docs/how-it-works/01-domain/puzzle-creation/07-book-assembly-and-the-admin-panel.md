@@ -288,7 +288,7 @@ its three integer coefficients sum to 65536, "so 0 stays 0, 255 stays 255 and no
 value between them is invented." No ADR or component description mentions ink mode
 at all (CARD-147 / migration 013).
 
-## The book PDF: one page bitmap at a time
+## The book PDF: one page at a time
 
 `book_pdf_generator.py` is 7,114 lines and its central claim (ADR-0036/R2, `:25`)
 is a *negative* one:
@@ -303,6 +303,17 @@ It replaced a hard-coded 2550×3300 letter page that printed each puzzle through
 **A4** layout — "a book puzzle was sized for A4 and then laid on a sheet it had
 never been measured against" (`:9`). Every page is now the book's own trim at 300
 DPI: 2550 × 3300 px on Book 1, 1800 × 2700 px on a 6 × 9 in book.
+
+> **Since CARD-322 (2026-11-07) an interior page is PDF operators, not a bitmap.** The
+> guide, TOC, puzzle and answer pages are content streams written by the vector
+> writers and reached through `book_interior_vector.interior_generator`, the one
+> place the download route builds an interior; only the section dividers (and the
+> cover file) are still bitmaps (ADR-0042/R1-R2). "One page at a time" is still the
+> shape (`interior_stream` yields a page, `_write_pdf` writes it), but a typical
+> interior page is now a few kilobytes of operators and the 25.2 MB bitmap figures
+> below describe the divider and cover pages and the kept raster reference writers.
+> Pixel sizes quoted below (2550 x 3300) are the page box at 300 DPI, which the
+> vector pages keep.
 
 **Band text (ADR-0037/R1, FR-033).** A puzzle page's 12 mm band reads
 `"Puzzle N · Tier"` and nothing else (`band_identity`, `:1275`). The title is

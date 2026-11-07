@@ -12,6 +12,8 @@ from sqlalchemy.engine import Engine as _SQLAlchemyEngine
 from nonogram.admin.app import create_app
 from nonogram.admin.puzzle_review import get_puzzle_review_service, PuzzleReviewService
 from nonogram.admin.batch_generator import get_batch_generator, BatchGenerator
+from nonogram.admin import book_interior_vector as _book_interior_vector
+from nonogram.admin import book_pdf_generator as _book_pdf_generator
 
 from tests import db_name
 from tests.helpers.mock_generator import MockGenerator
@@ -203,6 +205,54 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     note = armed_database_note()
     if note:
         terminalreporter.write_line(note, yellow=True)
+
+
+# --------------------------------------------------------------------------
+# CARD-322 item 1 -- the test tree's default interior writer set is assembled.
+# --------------------------------------------------------------------------
+#
+# ADR-0042/R1 makes every interior page operators, and the generator draws a
+# kind it cannot write itself only through ``InteriorPageWriters``. Production
+# keeps that set EMPTY by default (``NO_DOWNSTREAM_WRITERS``): the one site
+# that writes an interior builds through ``book_interior_vector`` (D8), and
+# every other ``BookPDFGenerator(`` refuses a kind it cannot draw. The tests
+# build ``BookPDFGenerator(book)`` at several hundred sites and expect a page
+# back, so for the TEST PROCESS the default is rebound to the assembled set
+# (``BookPDFGenerator.__init__`` reads the module global when it is called, so
+# one rebind reaches every site that did not pass ``pages=``).
+#
+# What this means, plainly: the test tree no longer exercises the shipped
+# default. That is replaced by (1) ``SHIPPED_DEFAULT_WRITERS`` below, captured
+# at import BEFORE the fixture can rebind it, which
+# ``TestShippedDefault_TheTestTreesRebindDoesNotHideIt`` restores and reads,
+# with a subprocess plant that rebinds the default in a copy of ``src/``; and
+# (2) the ``ast`` cell in ``tests/test_book_pdf.py`` that holds every
+# ``BookPDFGenerator(`` in ``src/`` to the two shapes D8 allows.
+#
+# SESSION scope, not function scope: a class- or module-scoped fixture that
+# builds a generator runs BEFORE any function-scoped autouse fixture, and
+# measured at the first attempt (144 refusals) a function-scoped rebind leaves
+# exactly those fixtures on the shipped default. A test that must see the
+# shipped default restores it itself, for its own duration, with
+# ``monkeypatch.setattr`` -- and a child interpreter a test starts never sees
+# this rebind (it imports the package afresh), so a child builds its generator
+# through ``book_interior_vector.interior_generator`` as production does.
+SHIPPED_DEFAULT_WRITERS = _book_pdf_generator.NO_DOWNSTREAM_WRITERS
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _assembled_default_interior_writers():
+    """Rebind the generator's default writer set to the assembled one, for the session."""
+    patch = pytest.MonkeyPatch()
+    patch.setattr(
+        _book_pdf_generator,
+        "NO_DOWNSTREAM_WRITERS",
+        _book_interior_vector.DOWNSTREAM_WRITERS,
+    )
+    try:
+        yield
+    finally:
+        patch.undo()
 
 
 @pytest.fixture(scope="session")

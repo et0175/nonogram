@@ -885,14 +885,22 @@ def capped_export_report(shape: str) -> Dict[str, Any]:
     tree**, never taken from the page plan — a memory test must not fake a
     page count, and the capped run is the one most tempted to.
     """
-    from nonogram.admin.book_pdf_generator import BookPDFGenerator
+    from nonogram.admin.book_interior_vector import interior_generator
     from tests.helpers.pdf_pages import pdf_page_count
 
     imported = resident_bytes()
-    generator = BookPDFGenerator(corpus_book())
+    # CARD-322: through the assembly point, as production's writing site does.
+    # This runs in a CHILD interpreter that imports the package afresh, so the
+    # test tree's conftest rebind of the generator's default writer set is not
+    # in force here, and a bare ``BookPDFGenerator(book)`` would refuse the
+    # guide page (ADR-0042/R1, D8).
+    generator = interior_generator(corpus_book())
 
     if shape == BASELINE_SHAPE:
-        page = generator.create_guide_page(4, 2, 1, 1)
+        # The reference bitmap is a section divider: the interior's only page
+        # that is still a full-size bitmap (CARD-322 -- the guide page this
+        # used to draw is operators now).
+        page = generator.create_divider_page(4)
         page_bytes = page.width * page.height * len(page.mode)
         del page
         return {
