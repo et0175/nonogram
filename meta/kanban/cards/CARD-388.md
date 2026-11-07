@@ -1,6 +1,6 @@
 # CARD-388: A vendored single-file QR encoder and a vector QR the interior can draw — any URL in, a code a phone reads out
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner decision 2026-11-07 (one QR for the whole book; ADR-0041/R8), which keeps exactly one thing of CARD-210: the encoder. The encoder choice is the owner's ruling of 2026-11-06, "option 2, vendor one file", recorded in ADR-0006/R2 by the architect pass of 2026-11-07. CARD-210's text on the encoder, the test-side reader and the "longest URL at a readable module size" requirement moves here (CARD-210 is retired into CARD-388..393).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —

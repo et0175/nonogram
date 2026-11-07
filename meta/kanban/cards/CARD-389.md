@@ -1,6 +1,6 @@
 # CARD-389: A book's landing address is computed once — the bundle serves and the interior will print the same /b/<slug>, numbered in print order
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (1d)
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner decision 2026-11-07 (one QR for the whole book): the code on the Play-online page opens `/b/<slug>`, "which lists the puzzles in book order", and each puzzle page says "Play puzzle 53 online". The architect pass found two ways the printed address and the landing page can disagree with the book, both measured below.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
