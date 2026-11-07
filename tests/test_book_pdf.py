@@ -4953,55 +4953,10 @@ class TestEdgeOffset_TheGapIsUniformlyTwoDevicePixels:
         assert offsets == {-2}, offsets
         assert len(edge_corpus) >= _MIN_EDGE_CASES, len(edge_corpus)
 
-    def test_that_two_pixels_is_half_a_rule_and_not_a_quantisation_step(
-        self, edge_corpus
-    ) -> None:
-        """The control: the offset tracks the **rule's weight**, not the grid.
+    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_that_two_pixels_is_half_a_rule_and_not_a_quantisation_step`.
+    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
+    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_TheReadingIsABoundaryInBothMedia (the boundary reading in the one remaining medium)
 
-        A rule is centred on its boundary, so a reading taken at its first
-        inked line sits ``(width - 1) // 2`` outside that boundary — 2 px for
-        the raster's 6 px border and 1 px for its 3 px cell line. A
-        quantisation of the grid's *position* would be the same figure for
-        both. The two widths are read off the page here, so this is the page's
-        answer and not arithmetic restated.
-        """
-        assert (_RASTER_HEAVY_PX - 1) // 2 == 2
-        assert (_RASTER_THIN_PX - 1) // 2 == 1
-
-        page = _interior(_book(), [_puzzle(20, 20, 4)])[FIRST_PUZZLE_PAGE - 1]
-        mask = np.asarray(page.convert("L")) < 128
-        drawing = drawing_of(page)
-        # The middle of a cell ROW, so the scan crosses the grid's vertical
-        # rules and no horizontal one: a row landing on a horizontal rule
-        # reads one unbroken run the whole width of the grid, which is the
-        # reading this choice of row exists to avoid.
-        inside = drawing.grid_top + round(drawing.cell / 2)
-        # One cell past the right border, so the last rule's own run is whole:
-        # ``grid_right`` is its FIRST inked column, which is the reading this
-        # test is about, so a slice ending there would cut it to 1 px.
-        spans = [
-            len(group)
-            for group in _consecutive(
-                np.flatnonzero(
-                    mask[
-                        inside,
-                        drawing.grid_left : drawing.grid_right + round(drawing.cell),
-                    ]
-                )
-            )
-        ]
-        assert len(spans) == drawing.columns + 1, (len(spans), drawing.columns)
-
-        assert max(spans) == _RASTER_HEAVY_PX, spans
-        assert min(spans) == _RASTER_THIN_PX, spans
-        # And the offset the corpus measured is half the heavier of the two,
-        # which is the rule the grid's own borders are stroked at.
-        offsets = {
-            round((reading.raster_ink[edge] - reading.vector_stream[edge]) * PX_PER_MM)
-            for reading in edge_corpus
-            for edge in _GRID_EDGES
-        }
-        assert offsets == {-((max(spans) - 1) // 2)}, (offsets, spans)
 
     def test_the_two_media_ink_differs_by_one_device_pixel_not_two(
         self, edge_corpus
@@ -5570,9 +5525,7 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
     #: sentence: each one must match the register on the **whole** key.
     _EXEMPTING_CELLS = (
         "test_the_exemption_list_names_only_sites_that_exist",
-        "test_every_site_reads_its_page_through_the_raster_ink_oracle",
-        "test_no_site_reaches_a_stream_reader_through_a_helper_either",
-    )
+    )  # CARD-322: the other two consulting cells are retired (see below)
 
     def test_the_exemption_list_names_only_sites_that_exist(self) -> None:
         """No dead entry: a renamed test would otherwise leave a name that
@@ -5638,11 +5591,10 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
             assert "_BOUND_ONLY_SITES" in mentioned, name
             assert "_bare" not in mentioned, name
 
-    def test_every_site_reads_its_page_through_the_raster_ink_oracle(self) -> None:
-        for name, readers in self._sites().items():
-            if name in self._BOUND_ONLY_SITES:
-                continue
-            assert self._RASTER_READER in readers, (name, sorted(readers))
+    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_every_site_reads_its_page_through_the_raster_ink_oracle`.
+    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
+    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
+
 
     def test_every_stream_reader_named_here_is_a_real_reader(self) -> None:
         """No dead member: a name the guard treats as a reader that nothing in
@@ -5761,104 +5713,15 @@ class TestEdgeOffset_EveryPlacedEdgeExpectationNamesItsMedium:
         for name, called in self._sites().items():
             assert not (called & readers), (name, sorted(called & readers))
 
-    def test_no_site_reaches_a_stream_reader_through_a_helper_either(
-        self,
-    ) -> None:
-        """The same deny, closed over the call graph — `cycle 1 F-001`.
+    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_no_site_reaches_a_stream_reader_through_a_helper_either`.
+    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
+    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
 
-        The pin was shut at depth 0 only, and measured: with the three
-        ``pdf_pages`` names in the set, a medium crossing written *inside* a
-        site was killed, and the identical crossing written one frame in — at
-        this module's own page-source helper, ``_interior`` — **survived**.
 
-        That is not an exotic shape. The one-line seam
-        ``interior_images(...)`` at a module's page-source function is exactly
-        what CARD-329 standardised across five modules and exactly what
-        CARD-322 is instructed to apply to nine more; applied here it would
-        have silently retired this pin over 30 of the 38 reds the card says
-        it protects. The lesson was already on the board one walk over:
-        :func:`_page_consuming_functions` needs a fixed point because
-        ``drawing_of`` hands its page to ``_dark`` one frame in. The closure
-        was applied to the population walk and not to this pin; this is that
-        correction.
+    # RETIRED by CARD-322 (G-5 exception 2; owner ruling): `test_the_site_walk_closes_over_the_call_graph_it_claims_to`.
+    # Its subject, a placed-edge site pinned to the raster ink oracle, no longer exists.
+    # SURVIVOR: tests/test_book_puzzle_frame.py::TestFrameCentre_EveryPlacedEdgeSiteIsClassified::test_every_placed_edge_site_lands_in_exactly_one_class, with ::test_the_control_a_site_put_back_on_the_ink_is_caught as its plant (scope: the two Touches modules' sites; this module's sites now read the boundary through _frame_left/frame_centre_of)
 
-        :data:`_BOUND_ONLY_SITES` is exempt here for the reason it is exempt
-        from the raster-oracle cell: those sites measure no page with the
-        bound, they *compare the two media's* figures against it, so reaching
-        a stream reader is their job — and, measured, both of them do
-        (``content_streams`` and ``rendered_page``, through ``_edge_reading``).
-        Every other site must reach none.
-
-        The exemption is matched on the **whole** key, class included —
-        cycle 2's F-008. Matched on the bare name, as it was, any future
-        site in any class could take a registered name and buy itself out of
-        this deny and the raster-oracle cell at once, with nothing added to
-        the register; measured, that dodge turned a two-cell red into five
-        green. :meth:`test_the_exemption_lookup_does_not_strip_the_class` is
-        the control.
-        """
-        readers = self._stream_readers()
-        for name, reachable in self._closed_sites().items():
-            if name in self._BOUND_ONLY_SITES:
-                continue
-            assert not (reachable & readers), (
-                name,
-                sorted(reachable & readers),
-            )
-
-    def test_the_site_walk_closes_over_the_call_graph_it_claims_to(
-        self,
-    ) -> None:
-        """F-001's own control: the closure is a property of the walk, not a
-        sentence in the docstring above it.
-
-        Stated on the site the plant used, and in both directions: the
-        reader set the site's body names must be a **strict** subset of what
-        it can reach, and the names that prove the further frames were
-        entered are the ones the site itself never writes. The page-source
-        chain at this site is three frames deep —
-        ``_mirrored_pages`` → ``_interior`` → ``interior_pages`` — and
-        ``_interior`` is where the seam goes, so a closure removed, or taken
-        at depth 1 and *called* a fixed point, fails here.
-
-        And it is **not only** those two depths, which is cycle 2's scope
-        note: hard-stopped at two rounds this cell still passed, because
-        every name it named is within two frames. The oracle chain at this
-        same site runs one frame further — ``drawing_of`` → ``_dark`` →
-        ``ink_mask`` → :data:`~tests.helpers.page_ink.INK_LEVEL`, and no
-        body nearer than ``ink_mask``'s mentions that threshold — so the
-        depth-3 assertion below reds any bounded stop at 2 as well. The walk
-        itself settles at 4 rounds here, measured.
-        """
-        direct = self._sites()
-        closed = self._closed_sites()
-        site = (
-            "TestBookPdf_DrawingCentredOnRightHandPage"
-            "::test_the_drawing_sits_25_45_mm_from_the_left_trim_edge"
-        )
-        assert site in direct and site in closed, sorted(direct)
-        # Depth 0: the only page-source name the site's own body writes.
-        assert "_mirrored_pages" in direct[site], sorted(direct[site])
-        assert "_interior" not in direct[site], sorted(direct[site])
-        # Depth 1, and the function a seam edit would change.
-        assert "_interior" in closed[site], sorted(closed[site])
-        # Depth 2: `_interior`'s own body, two frames from the site — so this
-        # is a fixed point and not one extra hop.
-        assert "interior_pages" in closed[site], sorted(closed[site])
-        assert direct[site] < closed[site], (
-            len(direct[site]),
-            len(closed[site]),
-        )
-        # And the lesson that taught the board the closure: `drawing_of`
-        # reads nothing off its own page and hands it to `_dark`.
-        assert "drawing_of" in direct[site]
-        assert "_dark" in closed[site], sorted(closed[site])
-        # Depth 2 and depth 3 on that same chain: `_dark` asks `ink_mask`,
-        # whose body is the only one within reach that names the threshold.
-        # A walk hard-stopped at two rounds reaches `ink_mask` and stops,
-        # passing everything above and failing the next line.
-        assert "ink_mask" in closed[site], sorted(closed[site])
-        assert "INK_LEVEL" in closed[site], sorted(closed[site])
 
 
 class TestEdgeOffset_ThePixelOraclesStillReadPixels:
