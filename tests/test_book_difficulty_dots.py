@@ -82,15 +82,25 @@ catch and a case it deliberately does not:
   that the first version of this guard let through).
 * AC-5's "it fits" is paired with a box the function declines, so "fits" is a
   measurement and not a tautology.
+
+**CARD-322: the raster-arm cells of this module are retired by the follow-up
+card for items 8/16/17.** The flip made the interior operators, so the cells
+that read the interior as bitmaps through a spy on ``_draw_difficulty_dots`` /
+``_set_band`` (the kept raster reference drawers) now name the bitmap medium
+they exercise with :func:`raster_interior`, every assertion unchanged. What the
+PRODUCT claims about dots, that the vector interior draws none yet, is
+:class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
 """
 
 from __future__ import annotations
 
 import ast
+import contextlib
 import inspect
 import math
 import random
 import textwrap
+from unittest import mock
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -3859,6 +3869,36 @@ _UNHOOKED_SITE = book_pdf_generator._draw_difficulty_dots
 _UNHOOKED_SET_BAND = book_pdf_generator._set_band
 
 
+@contextlib.contextmanager
+def raster_interior():
+    """Name the medium the raster-arm cells exercise: the BITMAP interior.
+
+    CARD-322 flipped ADR-0042/R1, so a production interior is operators and
+    never reaches ``_draw_difficulty_dots`` / ``_set_band`` (the raster dot
+    drawers this module's raster-arm cells instrument). Those drawers are KEPT
+    as the reference writers (the kept bitmap path), so the cells that claim
+    their behaviour declare the bitmap medium here, for their own duration:
+    the five interior kinds are put back in ``_RASTER_DECLARATIONS`` (the same
+    declared dual-medium seam ``test_book_pdf.py`` uses), the walk then calls
+    the bitmap writers, and the declarations are restored on exit. Every
+    assertion below is unchanged. **These raster-arm cells are retired by the
+    follow-up card for items 8/16/17**, together with the drawers they read;
+    what the PRODUCT claims about dots is held by
+    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
+    """
+    declared = {
+        kind: book_pdf_generator.RasterDeclaration(
+            reason="the raster-arm cells name the bitmap medium (CARD-322)",
+            authority="CARD-322",
+            expires_with=(),
+        )
+        for kind in book_pdf_generator.PageKind
+        if kind not in (book_pdf_generator.PageKind.COVER, book_pdf_generator.PageKind.DIVIDER)
+    }
+    with mock.patch.dict(book_pdf_generator._RASTER_DECLARATIONS, declared):
+        yield
+
+
 def _interior_ink(
     plant: object = None, puzzles: Sequence[dict] | None = None
 ) -> BookInk:
@@ -3929,9 +3969,10 @@ def _interior_ink(
         book_pdf_generator._set_band = banded
     try:
         generator = BookPDFGenerator(corpus_book())
-        pages = generator.interior_pages(
-            list(baseline_puzzles() if puzzles is None else puzzles)
-        )
+        with raster_interior():
+            pages = generator.interior_pages(
+                list(baseline_puzzles() if puzzles is None else puzzles)
+            )
     finally:
         book_pdf_generator._draw_difficulty_dots = site
         book_pdf_generator._set_band = set_band
@@ -6295,6 +6336,138 @@ class ArmLiveness:
     what: str
 
 
+def round_mark_findings(streams, kinds) -> list[str]:
+    """Pages (non-divider) whose content stream carries a curve operator.
+
+    The interior's one round-shape primitive, ``ContentStream.round_mark``, is
+    four Bezier ``c`` segments, and no interior page of the baseline book
+    otherwise draws a curve (measured: the guide, TOC, puzzle and answer pages
+    carry only ``m``/``l``/``re``/``f``/``S``). So a ``c`` operator on an
+    interior page is a round mark, which is a dot or a glyph: not drawn by
+    this card (G-14; CARD-207, CARD-233 and CARD-229 draw them).
+    """
+    from tests.helpers import pdf_vector
+
+    return [
+        f"page {number} ({kind}) draws {pdf_vector.operator_tally(stream)['c']} curve operators"
+        for number, (kind, stream) in enumerate(zip(kinds, streams), start=1)
+        if kind != "divider" and pdf_vector.operator_tally(stream)["c"]
+    ]
+
+
+def dot_drawer_calls(export) -> list[str]:
+    """The raster dot drawers called while ``export()`` runs (empty when none)."""
+    called: list[str] = []
+    site, set_band = book_pdf_generator._draw_difficulty_dots, book_pdf_generator._set_band
+
+    def spy_site(*args, **kwargs):
+        called.append("_draw_difficulty_dots")
+        return site(*args, **kwargs)
+
+    def spy_band(*args, **kwargs):
+        called.append("_set_band")
+        return set_band(*args, **kwargs)
+
+    with mock.patch.object(book_pdf_generator, "_draw_difficulty_dots", spy_site), mock.patch.object(
+        book_pdf_generator, "_set_band", spy_band
+    ):
+        export()
+    return called
+
+
+class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
+    """The PRODUCT claim D9 option A makes (CARD-322): the vector interior draws NO dots.
+
+    The dots are a product feature and WILL be drawn (D9), but by CARD-207
+    (the puzzle page header), CARD-233 (the solution tile header) and CARD-229
+    (the guide's key strip), not by the flip, which is a pure medium switch.
+    Two readings of the written interior, each with a plant: no interior page
+    carries a round mark, and the raster dot drawers are not called from the
+    interior path. When the first of those cards lands, this class is the
+    place that is changed deliberately, with the render that justifies it.
+    """
+
+    @staticmethod
+    def _interior():
+        from nonogram.admin.book_interior_vector import interior_generator
+        from tests.helpers import pdf_vector
+
+        generator = interior_generator(corpus_book())
+        puzzles = baseline_puzzles()
+        kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
+        streams = pdf_vector.content_streams(generator.export_interior(puzzles).getvalue())
+        return kinds, streams
+
+    def test_no_interior_page_carries_a_round_mark(self) -> None:
+        kinds, streams = self._interior()
+        assert sum(1 for kind in kinds if kind != "divider") >= 10, kinds
+        assert round_mark_findings(streams, kinds) == []
+
+    def test_the_raster_dot_drawers_are_not_called_from_the_interior_path(self) -> None:
+        from nonogram.admin.book_interior_vector import interior_generator
+
+        generator = interior_generator(corpus_book())
+        assert dot_drawer_calls(
+            lambda: generator.export_interior(baseline_puzzles())
+        ) == []
+
+    def test_a_planted_dot_or_a_drawer_called_from_the_interior_path_is_found(
+        self, monkeypatch
+    ) -> None:
+        """Plants: a round mark appended to a puzzle page's stream, and a TOC
+        writer that calls the raster drawer on a throwaway canvas."""
+        from nonogram.admin.book_interior_vector import DOWNSTREAM_WRITERS, interior_generator
+        from nonogram.admin.book_pdf_generator import InteriorPageWriters
+        from tests.helpers import pdf_vector
+
+        kinds, streams = self._interior()
+        planted = list(streams)
+        number = kinds.index("puzzle")
+        stream = ContentStream(width_px=100.0, height_px=100.0, dpi=300)
+        stream.round_mark(50.0, 50.0, 10.0)
+        planted[number] = planted[number] + "\n" + "\n".join(stream.operators)
+        assert round_mark_findings(planted, kinds), "a planted round mark was not found"
+
+        original = DOWNSTREAM_WRITERS.toc
+
+        def toc_that_draws_dots(*args, **keywords):
+            canvas = Image.new("RGB", (400, 100), "white")
+            book_pdf_generator._draw_difficulty_dots(
+                ImageDraw.Draw(canvas), "easy", 0, 0, 399, 99
+            )
+            return original(*args, **keywords)
+
+        writers = InteriorPageWriters(
+            guide=DOWNSTREAM_WRITERS.guide,
+            toc=toc_that_draws_dots,
+            answer=DOWNSTREAM_WRITERS.answer,
+            packed_answer=DOWNSTREAM_WRITERS.packed_answer,
+        )
+        generator = interior_generator(corpus_book(), pages=writers)
+        calls = dot_drawer_calls(lambda: generator.export_interior(baseline_puzzles()))
+        assert "_draw_difficulty_dots" in calls, calls
+
+
+def _the_raster_arms_medium() -> PageMedium:
+    """The medium the RASTER ARM's puzzle page is written in, on the path it exercises.
+
+    CARD-322, D9 option A, changed deliberately: this probe used to ask the
+    product ``page_medium(PageKind.PUZZLE)`` and reported the arm DEAD the day
+    the product stopped writing that page as a bitmap, which is the day the
+    flip landed. The arm now measures the KEPT raster reference path (the
+    bitmap writers and the dot drawers that remain in ``src/`` until the
+    follow-up card for items 8/16/17), so it asks the medium INSIDE
+    :func:`raster_interior`, the declared seam that routes the walk to those
+    writers. Option B (re-point at the cover and divider) stays rejected: they
+    carry no dots by the owner's ruling. What this no longer asserts, the
+    product's own medium, is pinned by
+    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`; the probe can
+    still report death when the page object it is handed is not a bitmap.
+    """
+    with raster_interior():
+        return book_pdf_generator.page_medium(PageKind.PUZZLE)
+
+
 def _raster_arm_liveness(medium: PageMedium, page: object) -> ArmLiveness:
     """The raster arm's mechanism, probed — **its inputs as arguments**.
 
@@ -6401,9 +6574,7 @@ ARMS: tuple[InstrumentArm, ...] = (
             "options while PageMedium keeps RASTER: an arm set that loses a "
             "medium reds test_there_is_one_arm_per_medium_the_product_can_write"
         ),
-        probe=lambda page: _raster_arm_liveness(
-            book_pdf_generator.page_medium(PageKind.PUZZLE), page.bitmap
-        ),
+        probe=lambda page: _raster_arm_liveness(_the_raster_arms_medium(), page.bitmap),
     ),
     InstrumentArm(
         name="vector",
