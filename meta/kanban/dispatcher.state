@@ -466,18 +466,16 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-286
-    branch: card/286-impact-set-sees-what-tests-read
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-286
-    started: 2026-11-06T20:52Z
-    estimate: 3c (1d)
-    cut_from: 3d2b74f0
   - card: CARD-322
     branch: card/322-vector-interior-flip
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-322
     started: 2026-11-07T00:30Z
     estimate: 8c (2.5d)
     cut_from: c9b1d7e4
+# CARD-286 CLEARED 2026-11-07T03:00Z at its merge gate: merged 0d94002b, done, certified 8.4 on cycle 2 (5.5 on cycle 1; fix round
+#   6168b506+70f4c966 re-reviewed), estimate 3c -> 2 cycles = ratio 0.667. The first gate attempt was aborted by a
+#   clobbered full-suite lock (50 reds, none attributable to the card); the second ran green. Its worktree is removed under
+#   the tidy rule, so the entry is dropped.
 # CARD-385 CLEARED 2026-11-06T23:57Z at its merge gate: merged 35b1b9ba, done, certified 8.6 on cycle 1 (fix round
 #   bc99e72b+e024c41c not re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Its worktree is removed under the tidy
 #   rule (no worktree-only artefacts; instruments already in ~/Documents/nonogram-reviews/CARD-385/), so the entry is dropped.
