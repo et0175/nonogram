@@ -1516,7 +1516,13 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # check ref (its string is not spelled in this module: G-2),
 # declared by ADR-0042/R1 (adr/0042-...md, `check: {kind: test, ref: ...}`), the
 # flip of that rule from a review lens; nothing left.
-CENSUS = (574, "8a2c9e08b961b896")
+# CARD-388 (2026-11-07): 574 -> 575. Re-derived as the symmetric difference of
+# the declared-ref sets on main and on the branch (sorted refs of
+# _declared_refs() in both trees): ONE entrant (IN 1, OUT 0), the bare test name
+# ADR-0006/R2 now names as its check ref -- the flip of that rule from a review
+# lens, which the card owed -- declared by adr/0006-dependency-baseline.md and
+# defined by a def in the card's new test module, so DEFINED moves with it.
+CENSUS = (575, "8f9bae1a413648a7")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1650,7 +1656,10 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 # to one `def` in
 # tests/test_book_pdf.py), i.e. a dead-ref-free flip, the direction of
 # movement that needs no repair.
-DEFINED = (410, "807b0b0af38c812f")
+# CARD-388 (2026-11-07): 410 -> 411, the same single entrant as CENSUS above,
+# a declaration arriving with its definition in place (one `def` in
+# tests/test_vendored_qr_encoder.py), with HONEST_DEAD unmoved at 9.
+DEFINED = (411, "3e33017f2a87bb65")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

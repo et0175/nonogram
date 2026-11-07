@@ -144,6 +144,13 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   because the test that holds the vendored bytes to their sha256 does not exist
   yet; CARD-388 writes it and OWES THE FLIP to `kind: test` in the same delta.
 
+- 2026-11-07 (CARD-388, the flip it owed): R2's `check` is now `kind: test`,
+  ref `test_the_vendored_bytes_match_their_recorded_sha256`. The vendored file
+  is Project Nayuki's `qrcodegen.py` v1.8.0 (MIT), kept byte-identical at
+  `src/nonogram/admin/_vendor/qrcodegen.py` beside `LICENSE.qrcodegen` and
+  `PROVENANCE.qrcodegen`; `src/nonogram/admin/book_qr.py` is its only importer.
+  No `pyproject.toml` change, R1's baseline untouched.
+
 - 2026-08-27: Created — adopted stdlib + Pillow + NumPy over the recommended stdlib + Pillow-only default, trading a second dependency for vectorized solver headroom at the 50x50 upper bound.
 - 2026-09-01 — Revised — resolves DEC-027. Previous decision: the baseline
   admitted no bundled assets, so PDF header text used Pillow's ASCII-only
@@ -304,11 +311,14 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
     pyproject.toml. Any second vendored file, or a file that fails one of
     these conditions, revises this ADR first.
   scope: {code: ["src/nonogram/**", "pyproject.toml", "tests/**"]}
-  # 2026-11-07: kind review-lens ON PURPOSE. The pinning test does not exist
-  # yet (planned node id: tests/test_vendored_qr_encoder.py::
-  # test_the_vendored_bytes_match_their_recorded_sha256). CARD-388 writes it and
-  # owes the flip of this check to `kind: test` as part of its scope, not as a
-  # follow-up (memory: adr-check-refs-must-be-honest).
-  check: {kind: review-lens}
+  # 2026-11-07: flipped from review-lens to a test by CARD-388, which owed it.
+  # The ref is the bare test name (the form every other live ref in this model
+  # takes); it resolves to the def in tests/test_vendored_qr_encoder.py, which
+  # holds the vendored bytes to the sha256 in
+  # src/nonogram/admin/_vendor/PROVENANCE.qrcodegen. The other R2 conditions
+  # are held by sibling tests in the same module (stdlib-only imports, one
+  # vendored file, the wrapper is the only importer, the licence text), which
+  # this single ref does not name.
+  check: {kind: test, ref: test_the_vendored_bytes_match_their_recorded_sha256}
   severity: mandatory
 ```

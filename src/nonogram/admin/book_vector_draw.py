@@ -59,14 +59,23 @@ card from being that card.
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Iterable, NamedTuple, Sequence
 
-from nonogram.admin.book_vector import CLUE_DIGIT_TAG, ContentStream, FontMetrics
+from nonogram.admin.book_vector import (
+    CLUE_DIGIT_TAG,
+    ContentStream,
+    ContentStreamError,
+    FontMetrics,
+)
 from nonogram.export.layout import ClueEntry, GridLine, Layout, PuzzleFrame
 from nonogram.export.png import INK
 
 __all__ = [
     "INK_GREY",
+    "MIN_MODULE_MM",
+    "QR_QUIET_MODULES",
+    "QrBox",
+    "QrModuleTooSmall",
     "advance_px",
     "as_grey",
     "ascent_px",
@@ -75,6 +84,7 @@ __all__ = [
     "draw_frame",
     "draw_grid_lines",
     "draw_folio",
+    "draw_qr",
     "draw_ruled_grid",
     "line_height_px",
     "page_stream",
@@ -577,3 +587,102 @@ def _set_entries(
             metrics,
             grey=grey,
         )
+
+
+# -- the QR code (CARD-388) ---------------------------------------------------
+
+#: The quiet zone the QR standard requires, in modules, on every side. It sits
+#: INSIDE the box :func:`draw_qr` is handed (CARD-388 item 5), so the caller's
+#: square is the whole footprint of the code and nothing outside it is spoken for.
+QR_QUIET_MODULES = 4
+
+#: The smallest module, in millimetres, :func:`draw_qr` will print.
+#:
+#: **A rule of thumb, not a measurement with a phone.** Printed-code guidance
+#: puts the floor of what a phone camera resolves at about a third of a
+#: millimetre per module; 0.4 mm keeps a margin over that, and it is the
+#: figure at which the longest text the wrapper accepts
+#: (``book_qr.MAX_BYTES``, version 6, 49 modules with its quiet zone) still
+#: fits a 2 cm square (0.408 mm). Nothing in this repository can hold a phone
+#: to the page, so the evidence is indirect: ``tests/test_qr_vector_draw.py``
+#: renders a code at exactly this size and decodes it from pixels at a
+#: resolution (150 dpi, about 2.4 px per module) well below what a phone
+#: delivers. A physical scan of a printed proof stays the owner's check.
+MIN_MODULE_MM = 0.4
+
+_MM_PER_INCH = 25.4
+
+#: A code is pure black whatever the interior's own tone is: contrast is the
+#: one thing a scanner asks of it.
+_QR_GREY = 0.0
+
+
+class QrBox(NamedTuple):
+    """The square a code is drawn into, in device pixels, top-left origin.
+
+    ``side`` is the whole footprint: the symbol AND its quiet zone. The caller
+    (CARD-390, from ``export/layout.py``) chooses all three numbers; this
+    module chooses no position (ADR-0036/R2).
+    """
+
+    left: float
+    top: float
+    side: float
+
+
+class QrModuleTooSmall(ContentStreamError):
+    """The box would make a module smaller than :data:`MIN_MODULE_MM`."""
+
+
+def draw_qr(
+    stream: ContentStream, modules: Sequence[Sequence[bool]], box: QrBox
+) -> None:
+    """Draw ``modules`` (``True`` = dark) as black fills inside ``box``.
+
+    The symbol is centred in the box with :data:`QR_QUIET_MODULES` modules of
+    paper on every side, so one module is ``box.side`` over ``len(modules) + 8``.
+    Consecutive dark modules in a row are merged into one rectangle -- the ink
+    is identical, the stream is a fraction of the size.
+
+    Raises:
+        QrModuleTooSmall: the module would be under :data:`MIN_MODULE_MM`. A
+            refusal, never a smaller code, and **nothing has been written to
+            ``stream``** when it is raised.
+        ValueError: ``modules`` is empty or not square, or ``box.side`` is not
+            positive.
+    """
+    size = len(modules)
+    if size == 0 or any(len(row) != size for row in modules):
+        raise ValueError("a QR code is a non-empty square of modules")
+    if not box.side > 0:
+        raise ValueError(f"a box has a positive side, not {box.side!r}")
+    module = box.side / (size + 2 * QR_QUIET_MODULES)
+    module_mm = module / stream.dpi * _MM_PER_INCH
+    # The epsilon is float noise only: a box built as exactly MIN_MODULE_MM per
+    # module must be admitted, and one a hair under must not.
+    if module_mm < MIN_MODULE_MM - 1e-9:
+        raise QrModuleTooSmall(
+            f"a module of {module_mm:.3f} mm is under the {MIN_MODULE_MM} mm a "
+            f"phone is trusted to read ({size + 2 * QR_QUIET_MODULES} modules "
+            f"across {box.side:g} px at {stream.dpi:g} dpi)"
+        )
+    stream.fill_grey(_QR_GREY)
+    origin_x = box.left + QR_QUIET_MODULES * module
+    origin_y = box.top + QR_QUIET_MODULES * module
+    for row_index, row in enumerate(modules):
+        column = 0
+        while column < size:
+            if not row[column]:
+                column += 1
+                continue
+            end = column
+            while end < size and row[end]:
+                end += 1
+            stream.rectangle(
+                origin_x + column * module,
+                origin_y + row_index * module,
+                origin_x + end * module,
+                origin_y + (row_index + 1) * module,
+                paint="fill",
+            )
+            column = end
