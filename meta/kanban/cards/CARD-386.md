@@ -69,4 +69,13 @@ Step 2 of design A of the spike (`~/Documents/nonogram-reviews/spike-shared-play
 
 ## Worktree notes
 
-(none yet)
+Author round 1 (branch card/386-shared-ui-preview-site, 2026-11-07).
+
+* Markup source (item 1 choice): the DRIVER renders the admin's own `puzzle_solve.html` with Jinja (base replaced by a bare content block) and hands the HTML to `player/assemble.py` in memory (`main(argv, shared_ui_fragment=...)`; `assemble(shared_ui=SharedUi(fragment, bootstrap))`). One source of markup (the admin's), the assembler stays stdlib-only, and the driver still writes no file (the existing `test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself` forbids it, so a temp file was not an option). Per-puzzle holes (header size, tier chip, banner name, tab title) are filled by the shell's loader from `puzzle/<key>.json`; the tier hue is `var(--color-tier-*)` from tokens.css.
+* F-2: the usage paragraph's Check clause is replaced at assembly time; the assembler REFUSES a fragment where the clause (or any loader hook) is not found exactly once. Proposed sentence (owner's call): "... the third reveals it, and each press writes its answer in the line beside the puzzle's title."
+* Banner name: a puzzle's title is in no served schema (EC-048), so the banner reads "Solved: Puzzle <key>" (player_bundle's neutral stand-in), never source_image.
+* Old `nonogram-public:<key>` saves are not read (tested): the preview starts every visitor fresh.
+* Finding: CARD-385's sweep boards (10x8, 7x6) are below `limits.MIN_SIZE`, so the real assembler refuses to serve them; this card's tests use 10x10 equivalents (seeds 1/0.6 and 3095/0.4, properties re-asserted), and its sweep reuses CARD-385's steps with the Hint step's press bound (3*90) scaled to 3*cells.
+* Finding for the Bootstrap decision (G-3, item 2): the real Bootstrap 5.3 file (spike copy) passes the CARD-385 sweep and all AC-1/AC-5 tests here, but fails AC-392's `scan_site`: 3 foreign (the w3.org SVG namespace in its data-URIs and two licence-comment URLs) and 2 unclassifiable data-URI fragments. Vendoring it needs either a scan allowance or a stripped build. Tests use a one-rule stand-in. The scan also lists solver.js's relative `import './solver_state.js'` as unclassifiable; the test pins that one line as the only residue.
+* Not touched: vercel.json, library/book pages, player.css, play.html, play.js, the default tree (byte-identical; tested). The preview tree keeps vercel.json's three rewrites unchanged.
+
