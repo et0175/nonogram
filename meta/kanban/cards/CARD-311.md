@@ -101,6 +101,10 @@ The owner said on 2026-11-06: "I thought I'll add them directly (upload) and you
 * **The generated divider is DELETED** by this card: `create_divider_page`, the helpers only it needs (check each with `ast`; `_draw_folio` and the others the vector writers or the cover use stay), and the tests of the drawn divider, with the retirement rule of ADR-0042/R5 (retire with a named survivor). CARD-322 deliberately leaves these in place for this card.
 * **CARD-231 (generated section openers) is parked**: this card replaces it.
 
+## [OWNER RULING 2026-11-07, on the author's STOP report] — the drawn divider STAYS as the fallback
+
+The author found that "no upload = no divider page" contradicts this card's own guards (G-1, G-3, AC-3, the EC): every existing book prints its divider pages today, so an empty slot printing nothing would shift page count, page numbers, TOC rows, the KDP page count and the spine for every existing book and would move the 21 stored baselines. The owner chose, when asked: **an empty slot KEEPS the drawn divider page; an uploaded picture replaces it; one book may mix uploaded and drawn dividers. Nothing changes for any existing book.** Consequences: (1) the "generated divider is deleted" ruling and the deletion item are DROPPED from this card (`create_divider_page` and its tests stay; a later, deliberate change may switch to "no upload = no divider" once the owner's books have uploads: it is not carded); (2) the "no upload = no divider" sentence in the 2026-11-06 rulings above is superseded; (3) the Print setup wording for dividers is updated to say that an upload replaces the drawn page; (4) AC-3 and the EC stay as written (they now hold). The author's limits (1% aspect tolerance, refuse below the page's pixels at the book's DPI and never upscale, 10 MB cap, PNG and JPG) and "no folio over an uploaded divider" are ACCEPTED as written in the author's notes unless the owner overrules after the render.
+
 ## What to implement
 
 1. **Four slots, not one file.** Easy, Medium, Hard, SOLUTIONS, each independently

@@ -750,7 +750,13 @@ queued:
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
 - id: CARD-387   # P2 20c  CONVERT OR RETIRE the ~390 raster interior tests by the claim audit, then delete the 23 bitmap writers (CARD-322's items 8/16/17). Depends on CARD-322. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
-- id: CARD-210   # P2 3c  REAL QR LINKS (the printed QR is a placeholder today: nonogram.example/p/NNN). Owner 2026-11-06: order vs the dividers (CARD-311) does not matter. Depends on CARD-322 (same file). Encoder RULED 2026-11-06: ONE vendored single file with its licence (option 2); the test-side decoder is surveyed by the author, who stops and asks only if it needs a new dev dependency. Unstamped.
+- id: CARD-388   # P2 3c  VENDORED single-file QR encoder + vector QR drawer (ADR-0006/R2). No deps; starts when a slot frees. Owner 2026-11-07: one QR per book. Unstamped.
+- id: CARD-389   # P2 2c  LANDING ADDRESS computed once: bundle and interior agree on /b/<slug> and print-order numbering. No deps; starts beside 388. Unstamped.
+- id: CARD-390   # P2 4c  'PLAY ONLINE' PAGE (PageKind.PLAY, recto, QR + short address). Depends 388, 389, 311. Unstamped.
+- id: CARD-391   # P2 4c  PUZZLE PAGES LOSE THE QR; footer pointer 'Play puzzle N online · p. X'. Depends 390. Land BEFORE 387. Unstamped.
+- id: CARD-392   # P2 4c  ONE-LINE FOOTER: band shrinks, pairing + cell sizes re-derived. Depends 391. Land BEFORE 232/233/226/230/229. Unstamped.
+- id: CARD-393   # P2 2c  GUIDE LINE 'Every puzzle ... scan the code on page N'. Depends 390, 229. Unstamped.
+- id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
