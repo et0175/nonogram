@@ -63,7 +63,8 @@ from tests.helpers.two_up_ink import drawings_of
 #: already read (CARD-330 — an instrument has to say which domain it is in).
 #: No claim was weakened and no tolerance widened to make this agree.
 class _RenderedInterior(list):
-    """The interior's pages as device pixels, with each page's EMITTED page box.
+    """The interior's pages as device pixels, rendered LAZILY, with each page's
+    EMITTED page box.
 
     ``boxes_px[i]`` is the page box the generator wrote for page ``i`` in
     device pixels at 300 DPI (``ContentStream.media_box`` is in PDF points), or
@@ -76,19 +77,48 @@ class _RenderedInterior(list):
     the same file's divider page, decoded by Pillow, is 3332. So "the page is
     the trim" is a claim about the BOX, which is what a printer measures, and
     the render may exceed the box by less than one device pixel.
+
+    **Lazy, for time and not for coverage.** The list holds the pages as the
+    walk yielded them (operators or bitmaps) and a page is rasterised the
+    first time a cell indexes or iterates it, then cached. The cells that
+    measure ink read one or two pages of a book; before this every page of
+    every case was rasterised whether read or not, and the 220-case cell
+    outran the 300 s hang guard under pytest (measured by CARD-322: the run
+    was killed at that node, twice). Every page's BOX is still checked for
+    every case, because the box needs no render; no corpus was shrunk (G-4).
     """
 
     boxes_px: list
 
+    def __init__(self, raw):
+        super().__init__(raw)
+        self._cache: dict[int, object] = {}
+
+    def is_rendered(self, index: int) -> bool:
+        return index in self._cache or not isinstance(list.__getitem__(self, index), ContentStream)
+
+    def _page(self, index: int):
+        if index < 0:
+            index += len(self)
+        if index not in self._cache:
+            self._cache[index] = interior_images([list.__getitem__(self, index)])[0]
+        return self._cache[index]
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self._page(i) for i in range(*index.indices(len(self)))]
+        return self._page(index)
+
+    def __iter__(self):
+        return (self._page(i) for i in range(len(self)))
+
 
 def _interior(generator: BookPDFGenerator, puzzles: list) -> list:
-    """``generator``'s interior, every page as device pixels."""
+    """``generator``'s interior, every page as device pixels (rendered on demand)."""
     raw = generator.interior_pages(puzzles)
-    rendered = _RenderedInterior(interior_images(raw))
+    rendered = _RenderedInterior(raw)
     rendered.boxes_px = [
-        (
-            lambda box: (box[2] * 300 / 72, box[3] * 300 / 72)
-        )(page.media_box)
+        (lambda box: (box[2] * 300 / 72, box[3] * 300 / 72))(page.media_box)
         if isinstance(page, ContentStream)
         else None
         for page in raw
@@ -100,22 +130,27 @@ def _assert_page_is_the_trim(pages, index: int, trim_px: tuple[float, float], co
     """Page ``index`` of ``pages`` is the trim, to the unchanged half pixel.
 
     A bitmap is held to its pixels; an operators page is held to its EMITTED
-    page box (the same half pixel, not widened), and its render is held to the
-    box plus poppler's outward rounding: ``0 <= render - box < 1`` device pixel,
+    page box (the same half pixel, not widened) for every page, and, where the
+    page has been rendered (the cell read it), its render is held to the box
+    plus poppler's outward rounding: ``0 <= render - box < 1`` device pixel,
     measured and derived in :class:`_RenderedInterior`. A page box one pixel
     off, or a render two pixels off, leaves one of the two bounds.
     """
-    page = pages[index]
     box = pages.boxes_px[index]
     if box is None:
+        page = pages[index]
         for axis in (0, 1):
             assert abs(page.size[axis] - trim_px[axis]) <= 0.5, (context, index, page.size)
         return
     for axis in (0, 1):
         assert abs(box[axis] - trim_px[axis]) <= 0.5, (context, index, "box", box)
-        assert -1e-6 <= page.size[axis] - box[axis] < 1.0 + 1e-6, (
-            context, index, "render", page.size, box,
-        )
+    if pages.is_rendered(index):
+        page = pages[index]
+        for axis in (0, 1):
+            assert -1e-6 <= page.size[axis] - box[axis] < 1.0 + 1e-6, (
+                context, index, "render", page.size, box,
+            )
+
 
 #: 300 DPI, the resolution every book page is drawn at.
 PX_PER_MM = 300 / 25.4
