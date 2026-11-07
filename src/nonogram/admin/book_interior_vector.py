@@ -62,7 +62,7 @@ yields.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from nonogram.admin.book_answer_vector import answer_page, packed_answer_page
 from nonogram.admin.book_guide_vector import guide_page
@@ -126,7 +126,9 @@ DOWNSTREAM_WRITERS = InteriorPageWriters(
 
 
 def interior_generator(
-    book: Any = None, pages: Optional[InteriorPageWriters] = None
+    book: Any = None,
+    pages: Optional[InteriorPageWriters] = None,
+    dividers: Optional[Mapping[str, bytes]] = None,
 ) -> BookPDFGenerator:
     """A :class:`~nonogram.admin.book_pdf_generator.BookPDFGenerator` that can
     write **every** interior kind in the medium its kind declares.
@@ -141,7 +143,12 @@ def interior_generator(
     that needs a partial set: the refusal's own test has to be able to hand in
     a writer set with one kind missing, and reaching into a module constant to
     do it would be mutating the thing under test.
+
+    ``dividers`` is the book's uploaded divider pictures, ``{slot: PNG}``
+    (CARD-311), passed through to the generator unread.
     """
     return BookPDFGenerator(
-        book, pages=DOWNSTREAM_WRITERS if pages is None else pages
+        book,
+        pages=DOWNSTREAM_WRITERS if pages is None else pages,
+        dividers=dividers,
     )

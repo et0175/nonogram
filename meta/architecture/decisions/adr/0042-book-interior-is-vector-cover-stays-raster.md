@@ -64,8 +64,12 @@ and text through an embedded font). No such page carries an image XObject. **The
 cover remains raster**, because a cover is a photograph and raster is the right
 representation for it.
 
-**Section dividers are deliberately left raster for now** (owner, 2026-10-25),
-and the reason is scheduling rather than technique. **CARD-231 redesigns the
+**Section dividers are raster, permanently, since 2026-11-07** (owner, CARD-311):
+a divider is a picture the owner uploads, a bitmap by nature, so it is a second
+permanent counter-example to R1 beside the cover; the generated one-word page is
+only the fallback for a slot with no upload. The paragraph that follows is the
+2026-10-25 reasoning, kept because it is why the entry was once temporary: it
+was *scheduling rather than technique*. **CARD-231 (now parked) was to redesign the
 divider page outright** — "a section opener names its section in large type, with
 dots, range and a line of what to expect" — against today's page, whose own
 docstring is *"one word on the book's trim, one page"*. Converting a page that is
@@ -200,9 +204,9 @@ guidance are measured by nobody; and the revisit trigger is the first printed
 book or proof. A reader of these two rules should take the question as **open**
 rather than infer a floor neither rule grants.
 
-**Dividers are untouched by all of this** — R2 makes the divider an exception by
-*scheduling* and not by technique, and CARD-231 redesigns that page to be *born*
-vector.
+**Dividers are untouched by all of this** — since 2026-11-07 the divider is a
+permanent raster exception because it is an owner-uploaded picture (CARD-311);
+before that R2 made it one by *scheduling*, pending CARD-231 (now parked).
 
 ## Alternatives considered
 
@@ -476,6 +480,15 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   because the exception **expires when CARD-231 lands** — a declaration whose
   reason has gone is itself a defect under R2.
 
+- 2026-11-07: **The divider's exception became permanent** (CARD-311, owner
+  ruling 2026-11-06 "dividers are uploaded"). An uploaded picture is a bitmap
+  by nature, so `PageKind.DIVIDER` is declared with `expires_with=()` and the
+  reason "an owner-uploaded picture"; CARD-231 (generated section openers) is
+  parked because uploads replace it. The drawn one-word page remains the
+  fallback for an empty slot, written as the same declared bitmap. The divider
+  is thereby a permanent counter-example to R1, as the cover is. CON-020's
+  10 pt floor is not claimed for lettering inside an uploaded picture.
+
 - 2026-10-29: **The medium is now chosen per page, and the declared set is
   seven rather than two** (CARD-298). `_write_pdf` takes one `PageKind` per
   planned page and asks `page_medium` — the module's single decision point,
@@ -555,12 +568,14 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     the authority, and this rule's business is that every bitmap page in a
     written file matches a live entry in it. Two entries are this ADR's own:
     the COVER, because it is a photograph, permanently; and the SECTION
-    DIVIDERS, because CARD-231 redesigns that page and the new design should be
-    born vector rather than the old one converted. Per-page mixing is a
-    sanctioned end state, not a migration artefact — each PDF page is its own
-    content stream. A page that is raster without a declaration is a defect,
-    and so is a declaration whose reason has expired: once CARD-231 lands, the
-    divider's exception goes with it.
+    DIVIDERS, permanently too, because a divider is a picture the owner uploads
+    and a picture is a bitmap by nature (the generated one-word page is the
+    fallback for a slot with no upload, and is written as the same declared
+    bitmap). Per-page mixing is a sanctioned end state, not a migration
+    artefact — each PDF page is its own content stream. A page that is raster
+    without a declaration is a defect, and so is a declaration whose reason has
+    expired: a temporary entry names the cards that remove it, and the two
+    permanent ones name none.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
   check: {kind: test, ref: test_every_raster_page_is_declared_with_its_reason}
   # FLIPPED FROM review-lens 2026-10-29 by CARD-298, in CARD-298's own feature
@@ -597,8 +612,8 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # closed by two different cards. The CONVERSION direction (a page became
   # vector while its declaration stayed) is `test_a_declaration_whose_reason_
   # expired_is_a_defect`, CARD-298's original work. The LANDING direction — this
-  # statement's own wording, "once CARD-231 lands, the divider's exception goes
-  # with it" — was UNGUARDED at CARD-298 review cycle 1 and is closed by
+  # statement's own wording (until CARD-311 rewrote it: "once CARD-231 lands,
+  # the divider's exception goes with it") — was UNGUARDED at CARD-298 review cycle 1 and is closed by
   #   tests/test_book_pdf.py::test_no_declaration_outlives_the_cards_that_remove_it
   # with its control over a synthetic board at
   #   tests/test_book_pdf.py::test_a_declaration_outliving_its_done_card_is_a_defect

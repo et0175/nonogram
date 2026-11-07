@@ -376,7 +376,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from importlib import resources
-from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, List, Sequence, Tuple, Union
 from PIL import Image, ImageDraw, ImageFont, PdfParser
 from io import BytesIO
 
@@ -387,6 +387,12 @@ from nonogram.admin.book_answer_key import (
     answer_caption,
     answer_title,
     plan_small_answer_pages,
+)
+from nonogram.admin.book_dividers import (
+    SOLUTIONS_SLOT,
+    fit_to_page,
+    require_slot,
+    slot_for_level,
 )
 from nonogram.admin.book_page_spec import (
     GridSize,
@@ -560,11 +566,12 @@ class RasterDeclaration:
 #: The **whole** of ADR-0042/R2's declared set, keyed by page kind: the two
 #: pages that are still a bitmap, and nothing else.
 #:
-#: **The cover is permanent** -- "a cover is a photograph and raster is the
-#: right representation for it" -- and **the section divider is scheduling
-#: rather than technique**: CARD-231 redesigns the page outright and "the new
-#: design can be born vector instead", so converting today's one-word page is
-#: throwaway work. Those two are the pair ADR-0042/R2 names.
+#: **Both are permanent.** The cover is "a photograph and raster is the right
+#: representation for it", and since CARD-311 the section divider is the same
+#: thing: a picture the owner uploads (``book_dividers``), which is a bitmap by
+#: nature and has no vector form to be converted to. The divider's old
+#: exception was scheduling (CARD-231 was to redesign the page "born vector");
+#: that card is parked, because uploaded dividers replace it.
 #:
 #: **CARD-322 removed five entries**, the title, guide, TOC, answer and puzzle
 #: kinds, when it flipped ADR-0042/R1: every interior page of those kinds is
@@ -582,16 +589,15 @@ class RasterDeclaration:
 #: ``TestRasterDeclarations_TheCommentAgreesWithTheRegistry``, which holds
 #: these lines to the mapping in both directions.
 #:
-#: **Each entry names the cards that between them remove it, and the shrink is
-#: guarded in two directions.**
+#: **An entry that names cards is a temporary one, and the shrink is guarded in
+#: two directions** (the two permanent entries name none).
 #: ``test_a_declaration_whose_reason_expired_is_a_defect`` reds the day a kind
 #: goes vector and its entry stays (the CONVERSION direction);
 #: ``test_a_declaration_outliving_its_done_card_is_a_defect`` reds the day the
 #: last card named in an ``expires_with`` reaches ``done`` and the entry is
-#: still here (the LANDING direction, which is the direction ADR-0042/R2's own
-#: clause is written in -- "once CARD-231 lands, the divider's exception goes
-#: with it"). Reading a card file tells you the card is *done*; it does not
-#: tell you the conversion happened, which is why there are two.
+#: still here (the LANDING direction). Reading a card file tells you the card
+#: is *done*; it does not tell you the conversion happened, which is why there
+#: are two.
 #:
 #: **Nothing else may be a bitmap.** :func:`page_medium` returns ``VECTOR``
 #: for every kind absent from this mapping, so a new page kind is vector by
@@ -608,11 +614,13 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
     ),
     PageKind.DIVIDER: RasterDeclaration(
         reason=(
-            "CARD-231 replaces the divider page outright, so the new design "
-            "can be born vector instead of this one being converted twice"
+            "a divider is a picture the owner uploaded, and a picture is a "
+            "bitmap by nature; its lettering is the owner's, so CON-020's "
+            "10 pt floor, which is checked on text this module sets, is "
+            "not claimed for it (book_dividers)"
         ),
-        authority="owner decision 2026-10-25, recorded in ADR-0042/R2",
-        expires_with=("CARD-231",),
+        authority="owner decision 2026-11-06 (dividers are uploaded), CARD-311",
+        expires_with=(),
     ),
 }
 
@@ -4472,6 +4480,11 @@ class BookPDFGenerator:
             :class:`InteriorPageWriters` for why the direction is a parameter
             and :mod:`nonogram.admin.book_interior_vector` for the one module
             that builds a full set.
+        dividers: The owner's uploaded divider pictures, ``{slot: PNG
+            bytes}`` over :data:`~nonogram.admin.book_dividers.DIVIDER_SLOTS`
+            (CARD-311). A divider page whose slot is present prints the
+            picture, fitted to the page; the others are drawn. They change what
+            a divider page shows and never the page plan.
 
     Raises:
         ValueError: the book's stored print specification cannot be laid out
@@ -4480,9 +4493,21 @@ class BookPDFGenerator:
     """
 
     def __init__(
-        self, book: Any = None, pages: Optional[InteriorPageWriters] = None
+        self,
+        book: Any = None,
+        pages: Optional[InteriorPageWriters] = None,
+        dividers: Optional[Mapping[str, bytes]] = None,
     ):
         self.book = book
+        # CARD-311: the owner's uploaded divider pictures, ``{slot: PNG}``,
+        # handed in by the caller that read them from the store -- this class
+        # holds no database. A slot with no picture prints the drawn page, and
+        # a slot for a page the book does not have prints nothing: this is read
+        # only when the walk reaches a divider the page plan already contains,
+        # so it can change what a page shows and never how many there are.
+        self.divider_images: Dict[str, bytes] = {
+            require_slot(slot): bytes(png) for slot, png in (dividers or {}).items()
+        }
         # CARD-309: read once, here, for the same reason `ink_mode` and
         # `divider_pages` are — the walk below asks it per page and two page
         # walks of one export must not be able to disagree about which writer
@@ -5241,6 +5266,26 @@ class BookPDFGenerator:
             width_px=frame.width, height_px=frame.height, dpi=self.dpi
         )
         return stream
+
+    def divider_page(self, slot: str, page_number: int, text: str) -> Image.Image:
+        """The divider page for ``slot``: the owner's picture if one is stored, else the drawn word.
+
+        CARD-311. The picture is fitted to this page's own frame
+        (:func:`~nonogram.admin.book_dividers.fit_to_page`), derived from
+        :meth:`page_spec` and not from a constant, and **no folio is drawn over
+        it**: it is the owner's artwork, and the blank title page already
+        establishes that an interior page may carry none. Parity and the page
+        number are the plan's and are untouched either way (FR-043, G-1).
+
+        Raises:
+            DividerRefused: the stored picture no longer suits the page (the
+                trim was changed after the upload). Raised, never stretched.
+        """
+        stored = self.divider_images.get(require_slot(slot))
+        if stored is None:
+            return self.create_divider_page(page_number, text)
+        frame = page_frame(self.page_spec(page_number))
+        return fit_to_page(stored, slot, frame.width, frame.height, self.dpi)
 
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
         """A divider page: one word on the book's trim, one page (TERM-031).
@@ -7901,8 +7946,10 @@ class BookPDFGenerator:
                     # A level's divider: its name on the book's trim and
                     # nothing else (AC-254, G-3). Yielded as an expression, so
                     # this frame never holds it while the next page is built.
-                    yield self.create_divider_page(
-                        page_plan.page_number, page_plan.text
+                    yield self.divider_page(
+                        slot_for_level(page_plan.level),
+                        page_plan.page_number,
+                        page_plan.text,
                     )
                     continue
                 members = [payloads[number - 1] for number in page_plan.numbers]
@@ -7970,7 +8017,9 @@ class BookPDFGenerator:
             # `first_answer_page`, which has already accounted for this page
             # being absent, so the answer key simply starts one page earlier.
             if self.divider_pages:
-                yield self.create_divider_page(first_answer_page - 1)
+                yield self.divider_page(
+                    SOLUTIONS_SLOT, first_answer_page - 1, "SOLUTIONS"
+                )
             for index, entry in enumerate(answer_plan):
                 page_number = first_answer_page + index
                 # CARD-309, as the guide and the TOC above: the plan — which
@@ -8108,7 +8157,7 @@ class BookPDFGenerator:
         Each PDF page is its own content stream, so a file may mix the two
         media freely; **that is a sanctioned end state and not a migration
         artefact** (ADR-0042/R2's own words), because the cover is a
-        photograph and the section divider is a page CARD-231 replaces.
+        photograph and the section divider is a picture the owner uploads (CARD-311).
 
         **The medium and the page object must agree, and disagreement is a
         refusal.** A page kind whose medium is ``VECTOR`` must arrive as a

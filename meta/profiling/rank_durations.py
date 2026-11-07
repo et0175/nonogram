@@ -220,6 +220,16 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # mentions any of them"); the entry is correct by that definition and must
     # not be read as a cost ranking after this card.
     "tests/test_book_toc.py",
+    # RESTATED DELIBERATELY 2026-11-07 (CARD-311), which is what this freeze
+    # exists to force. The uploaded-dividers module walks the real interior
+    # (``interior_stream`` for the page plan and the page kinds, and
+    # ``export_interior`` for the written file) to show an upload changes ink
+    # and never geometry, so it mentions the pattern honestly; like the
+    # others, a mention and not a cost ranking. It is a NEW module, absent from
+    # the committed duration artefacts, so no recorded figure moves. Re-derived
+    # by running ``regrep_render_set`` over the tree, not copied from the
+    # failure.
+    "tests/test_book_uploaded_dividers.py",
     # RESTATED DELIBERATELY 2026-11-07 (CARD-322), which is what this freeze
     # exists to force. The vector-golden module exports the real baseline
     # interior (``export_interior``, which carries ``interior(`` as a

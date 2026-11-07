@@ -43,6 +43,29 @@
             </div>
         </div>
 
+        <div class="card mt-3" id="divider-pages">
+            <div class="card-header"><h2 class="card-title mb-0">Divider pages <small class="text-muted fw-normal fs-6">optional</small></h2></div>
+            <div class="card-body">
+                <p class="text-muted">A picture for each page that opens a level or the answer key. A picture replaces the drawn divider page and changes no page number; a slot without one keeps the drawn word. Nothing prints here if the book's divider pages are turned off in Print setup. Each picture must be the interior page's shape and at least its size at the book's resolution; it is checked on upload and never stretched or enlarged. No page number is printed over it.</p>
+                {% for item in divider_slots %}
+                <div class="d-flex justify-content-between align-items-center mb-2" data-divider-slot="{{ item.slot }}">
+                    <strong>{{ item.label }}</strong>
+                    {% if item.uploaded %}
+                    <form method="POST" action="/book/{{ book.book_id }}/divider/{{ item.slot }}/clear">
+                        <span class="me-2">{{ icons.icon('check') }} Uploaded{% if item.size %} ({{ item.size[0] }} × {{ item.size[1] }} px){% endif %}</span>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Remove</button>
+                    </form>
+                    {% else %}
+                    <form method="POST" enctype="multipart/form-data" action="/book/{{ book.book_id }}/divider/{{ item.slot }}" class="d-flex gap-2">
+                        <input type="file" class="form-control form-control-sm" name="divider" accept="image/png,image/jpeg" aria-label="{{ item.label }} divider image">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Upload</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><h2 class="card-title mb-0">Guide page <small class="text-muted fw-normal fs-6">generated</small></h2></div>
             <div class="card-body">
