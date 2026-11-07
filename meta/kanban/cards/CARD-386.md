@@ -1,6 +1,6 @@
 # CARD-386: A preview site built from the admin's own player files, with no overrides, for the owner to test
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 2c (1d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner ruling 2026-11-06 after the shared-player spike: "yes to A and don't do differences override level until I test it". This card produces the site the owner tests: the admin's own look and behaviour on the public pages, NO override layer, NOT deployed.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-385

@@ -1,6 +1,6 @@
 # CARD-311: The owner uploads a divider page, and the interior prints it in place of the drawn one — four slots, the folio decided, and the type floor's hole named
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** Owner request 2026-10-29, after asking whether the panel already had it. Measured answer: it does not — the dividers are drawn, and the only control is CARD-305's all-or-none toggle. The cover is the sole uploadable page in the whole panel.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 66
 **Deferred waves:** 0
 **Depends on:** CARD-298, CARD-322
