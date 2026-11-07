@@ -400,6 +400,116 @@ class TestBookSolvedPage_GrayOnlyBetweenFilledCells:
 
 
 # --------------------------------------------------------------------------
+# AC-3 on the VECTOR page (CARD-322, owner ruling 2026-11-07)
+# --------------------------------------------------------------------------
+
+
+#: The vector answer page's two greys (measured on the baseline run grid,
+#: poppler at 300 DPI): the owner's 0.3 pt cell line is 89 on white, and the
+#: same rule inside the solid black mass between two filled cells is the
+#: lighter 160, so it stays visible. Written out here, not imported.
+VECTOR_THIN_GREY_ON_WHITE = (89, 89, 89)
+VECTOR_THIN_GREY_ON_BLACK = (160, 160, 160)
+
+
+def _window(arr, fixed, centre, vertical: bool) -> set:
+    """The set of RGB triples within 2 px either side of ``centre``."""
+    if vertical:
+        return {tuple(int(v) for v in arr[fixed, x]) for x in range(centre - 2, centre + 3)}
+    return {tuple(int(v) for v in arr[y, fixed]) for y in range(centre - 2, centre + 3)}
+
+
+def thin_grey_rule_findings(arr, xs, ys, layout, grid) -> list:
+    """Every interior boundary of ``grid`` whose thin grey rule is missing or the wrong tone.
+
+    The owner's three-weight design (ADR-0037/R2 as amended 2026-10-17: 0.3 pt
+    grey cell lines) draws that rule on EVERY interior boundary of the vector
+    answer page: 160 where both neighbours are filled, 89 anywhere else
+    (filled-to-empty, empty-to-empty). The raster writer's "black unless both
+    filled" is the raster reference's rule, not the product's. The rule is 2 px
+    wide and poppler centres it, so it is read in a 2 px window either side of
+    the layout coordinate.
+    """
+    found = []
+    for c in range(1, layout.columns):
+        for r in range(layout.rows):
+            want = VECTOR_THIN_GREY_ON_BLACK if (grid[r][c - 1] and grid[r][c]) else VECTOR_THIN_GREY_ON_WHITE
+            window = _window(arr, (ys[r] + ys[r + 1]) // 2, xs[c], vertical=True)
+            if want not in window:
+                found.append(("vertical", r, c, want, sorted(window)))
+    for r in range(1, layout.rows):
+        for c in range(layout.columns):
+            want = VECTOR_THIN_GREY_ON_BLACK if (grid[r - 1][c] and grid[r][c]) else VECTOR_THIN_GREY_ON_WHITE
+            window = _window(arr, (xs[c] + xs[c + 1]) // 2, ys[r], vertical=False)
+            if want not in window:
+                found.append(("horizontal", r, c, want, sorted(window)))
+    return found
+
+
+class TestBookSolvedPage_TheVectorBoundariesAreTheThinGreyRule:
+    """AC-3, re-expressed for the page the product prints (owner ruling 2026-11-07:
+    the grey 0.3 pt rule on a filled/empty boundary is CORRECT).
+
+    Replaces, on the vector page, the raster reference's three "is black"
+    claims (``test_a_filled_to_empty_boundary_is_black``,
+    ``test_an_empty_to_empty_boundary_is_black``,
+    ``test_every_interior_boundary_matches_its_both_filled_verdict``), which
+    stay in :class:`TestBookSolvedPage_GrayOnlyBetweenFilledCells` as claims
+    about the raster writer. Measured on the baseline run grid: the pixel row
+    across a filled-to-empty boundary reads black, then two pixels of grey 89,
+    then white.
+    """
+
+    @staticmethod
+    def _render():
+        from nonogram.admin.book_answer_vector import answer_page
+        from tests.helpers.pdf_pages import page_image
+
+        payload = _payload(_RUN_GRID, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page_number = 2
+        page = page_image(
+            answer_page(generator.page_spec(page_number), generator.dpi, payload, 1, page_number)
+        )
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        xs = [line.position for line in layout.vertical_lines]
+        ys = [line.position for line in layout.horizontal_lines]
+        return _array(page.convert("RGB")), xs, ys, layout
+
+    def test_a_filled_to_empty_boundary_is_the_thin_grey_rule(self):
+        arr, xs, ys, _ = self._render()
+        mid_y = (ys[0] + ys[1]) // 2  # row 0, columns 2-3: filled, then empty
+        assert VECTOR_THIN_GREY_ON_WHITE in _window(arr, mid_y, xs[3], vertical=True)
+
+    def test_an_empty_to_empty_boundary_is_the_thin_grey_rule(self):
+        arr, xs, ys, _ = self._render()
+        mid_y = (ys[2] + ys[3]) // 2  # row 2, columns 0-1: both empty
+        assert VECTOR_THIN_GREY_ON_WHITE in _window(arr, mid_y, xs[1], vertical=True)
+
+    def test_every_interior_boundary_carries_the_thin_grey_rule(self):
+        arr, xs, ys, layout = self._render()
+        assert thin_grey_rule_findings(arr, xs, ys, layout, _RUN_GRID) == []
+
+    def test_a_boundary_drawn_black_or_missing_is_found(self):
+        """Plants: one filled/empty boundary painted black, one painted white,
+        and a rule in the wrong tone; each must red the reading, and the
+        clean page must not."""
+        arr, xs, ys, layout = self._render()
+        assert thin_grey_rule_findings(arr, xs, ys, layout, _RUN_GRID) == []
+        mid_y = (ys[0] + ys[1]) // 2
+        for label, value in (("black", 0), ("white", 255), ("wrong tone", 140)):
+            planted = arr.copy()
+            planted[mid_y, xs[3] - 2 : xs[3] + 3] = value  # row 0: filled | empty
+            assert thin_grey_rule_findings(planted, xs, ys, layout, _RUN_GRID), label
+        mid_y2 = (ys[2] + ys[3]) // 2
+        planted = arr.copy()
+        planted[mid_y2, xs[1] - 2 : xs[1] + 3] = 255  # row 2: empty | empty
+        assert thin_grey_rule_findings(planted, xs, ys, layout, _RUN_GRID)
+
+
+# --------------------------------------------------------------------------
 # AC-4
 # --------------------------------------------------------------------------
 
