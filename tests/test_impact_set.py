@@ -890,6 +890,24 @@ class TestImpactSet_EveryShippedAssetHasADerivation:
             else:
                 assert derived.files, rel
 
+    @pytest.mark.parametrize("sidecar", ["LICENSE.qrcodegen", "PROVENANCE.qrcodegen"])
+    def test_a_vendored_sidecar_selects_the_test_that_names_it(self, sidecar):
+        """CARD-388: the two sidecars are NAMED assets, read by the pin test."""
+        rel = f"src/nonogram/admin/_vendor/{sidecar}"
+        derived = _real_derive([rel])
+        assert not derived.full, derived.reasons
+        assert "tests/test_vendored_qr_encoder.py" in {
+            p.as_posix() if hasattr(p, "as_posix") else str(p) for p in derived.files
+        }
+
+    def test_the_control_without_the_rule_a_sidecar_is_full(self, monkeypatch):
+        rules = dict(impact.ASSET_RULES)
+        del rules[".qrcodegen"]
+        monkeypatch.setattr(impact, "ASSET_RULES", rules)
+        derived = _real_derive(["src/nonogram/admin/_vendor/LICENSE.qrcodegen"])
+        assert derived.full
+        assert derived.reasons[0].rule == "unknown-asset-type"
+
     def test_an_asset_type_removed_from_the_table_fails_closed(self, web_tree, monkeypatch):
         """The control for "a new asset extension with no rule"."""
         rules = dict(impact.ASSET_RULES)

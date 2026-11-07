@@ -82,6 +82,9 @@ where = ["src"]
 # puzzle player's client (ADR-0038/R5); without it an editable install works
 # and a built wheel serves a player page with no script.
 "nonogram.admin" = ["templates/*.html", "static/*.css", "static/*.js"]
+# The vendored QR encoder's licence and provenance record (ADR-0006/R2, CARD-388):
+# package data, not a dependency. The .py itself ships as a module.
+"nonogram.admin._vendor" = ["LICENSE.qrcodegen", "PROVENANCE.qrcodegen"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
