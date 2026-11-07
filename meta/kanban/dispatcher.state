@@ -466,18 +466,16 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-386
-    branch: card/386-shared-ui-preview-site
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-386
-    started: 2026-11-07T08:00Z
-    estimate: 2c (1d)
-    cut_from: 426329cf
   - card: CARD-311
     branch: card/311-uploaded-dividers
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-311
     started: 2026-11-07T08:00Z
     estimate: 4c (1.5d)
     cut_from: 426329cf
+# CARD-386 CLEARED 2026-11-07T11:25Z at its merge gate: merged 381c9a3b, done, certified 8.5 on cycle 1 (fix round
+#   075bffee not re-reviewed), estimate 2c -> 1 cycle = ratio 0.500. Full armed suite 11483 passed, 1 skipped, 1 xfailed. Its
+#   worktree is removed under the tidy rule (no worktree-only artefacts; renders already in ~/Documents/nonogram-reviews/CARD-386/),
+#   so the entry is dropped.
 # CARD-322 CLEARED 2026-11-07T07:20Z at its merge gate: merged f242da32, done, certified 8.2 on cycle 2 (7.4 on cycle 1, not
 #   certified), estimate 8c -> 2 cycles = ratio 0.25. Full armed suite 11430 passed, 1 skipped, 1 xfailed. The 23 raster
 #   writers stay; CARD-387 (unstamped) owns their deletion. Its worktree is removed under the tidy rule, so the entry is dropped.
