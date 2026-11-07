@@ -1,6 +1,6 @@
 # CARD-210: Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -17,12 +17,29 @@
 **Depends on:** CARD-204, CARD-322
 <!-- CARD-322 added 2026-11-06: after it the printed QR lives only in the vector writers (CARD-322 FLIPS the interior to operators; the deletion of the bitmap QR drawers moved to CARD-387 on 2026-11-07, so they may still exist in book_pdf_generator.py: this card changes the VECTOR writer's link and does not touch the dead bitmap drawers). The two must not run concurrently. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py, pyproject.toml, tests/test_book_pdf.py, tests/test_book_qr.py
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-388..393** on 2026-11-07 under the owner's decision "we decided to remove individual QR codes altogether and add the 'Play online' section for a QR code for the library". No work was done and none is owed here.
 **Started:** —
-**Closed:** —
-**Actual:** —
+**Closed:** 2026-11-07
+**Actual:** none — retired before any work.
 **Merge commit:** —
 **Blocked by:** — (unblocked 2026-10-30; both preconditions now exist, see Worktree notes)
+
+## RETIRED 2026-11-07 — individual QR codes are removed; folded into CARD-388..393
+
+**Why.** The owner decided on 2026-11-07 to remove individual QR codes altogether: a book carries ONE QR, on a "Play online" page after the last puzzle, opening the book's landing page `/b/<slug>` (owner artifact "One-QR Book Layout", version B). The per-puzzle printed link this card was written to make real (`<book.player_domain>/<key>`, including the 2026-11-07 "link design" paragraph above) no longer exists in any printed book. The decision is recorded as ADR-0041/R8 (and ADR-0006/R2 for the vendored encoder); the raw requirement is `meta/architecture/inputs/raw-requirements.md`, "Delta 2026-11-07".
+
+**What survives, and where.**
+
+| This card's content | Now |
+|---|---|
+| The ENCODER ruling 2026-11-06 ("option 2, vendor one file"), the provenance + sha256 test, the QR version and longest-URL statement, the decoded round trip, the test-side reader survey and its "stop and ask if a new dev dependency" rule, whole-module sizing | CARD-388 (vendored encoder + vector QR drawer); the ADR delta this card said must come BEFORE implementation is ADR-0006/R2, written by the architect pass |
+| The base from the book's stored `player_domain`; "a book with no stored domain prints no QR" | CARD-389 (the landing address function) and CARD-390 (no domain, no Play page) |
+| `/<id>` root-path route for a puzzle key | Dropped: nothing prints a per-puzzle address. `/play/<key>` stays served for shared links and the library |
+| The future LIBRARY page (`/library`, "list only what the owner chooses") | Out of scope and not re-opened: it concerns `/library`, not a book's own landing, which must list every puzzle the book prints (numbers on the page must match numbers in the landing) |
+| The placeholder (`QR_LINK_TEMPLATE`, the checkerboard, "Solve it online") and its tests | Deleted by CARD-391 |
+| AC-1..AC-6 above | AC-1/AC-2 (every puzzle page decodes to its own URL) are void by decision; AC-3/AC-4 (slot geometry, whole-pixel modules) become CARD-388 AC-6/AC-7 and CARD-390 AC-8; AC-5 (dependency baseline) CARD-388 AC-4; AC-6 (carries only a public URL) CARD-390 AC-4 and G-2 |
+
+**Dispatcher.** CARD-210 is in `dispatcher.state` `queued:` as of 2026-11-07; it is to be removed there by the orchestrator (the architect pass does not edit that file).
 
 ## [PREMISES RE-READ 2026-11-06] — what changed since this card was written, and the one open decision
 

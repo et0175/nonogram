@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-23
 **Deciders:** Olga (project owner)
-**Revised:** —
+**Revised:** 2026-11-07
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -232,6 +232,28 @@ write — the thing R4 exists to forbid.
 
 ## History
 
+- 2026-11-07: **R8 added — a printed book carries ONE QR code, to its own
+  landing page; no puzzle page carries one. Owner decision 2026-11-07**: "we
+  decided to remove individual QR codes altogether and add the 'Play online'
+  section for a QR code for the library." This ADR's Context named the
+  per-puzzle QR as the purpose of the public phase; the owner chose the design
+  the owner's "One-QR Book Layout" artifact calls version B instead, for five
+  stated reasons: 158 printed addresses become one; the puzzle footer shrinks
+  to a line and the grids get the room; Amazon's preview shows the front pages,
+  and the code sits at the back, outside it; a reader who must type gets one
+  short address instead of a 10-character key per puzzle; the guide's front
+  page can still sell it in one sentence. R1 and R7 are untouched, and so is
+  every printed book's namespace: `/play/<key>` stays served (shared links, the
+  library), it is simply no longer printed. R7's "book order" is made explicit
+  in R8: it is PRINT order, because the landing page numbers its tiles and the
+  puzzle pages say "Play puzzle N", and the two N must be the same N. For a
+  book whose stored arrangement is already level-grouped (INV-009) nothing
+  moves; for a legacy book stored mixed, the bundle and the interior currently
+  hash different orders, which CARD-389 measures and does not paper over. The
+  owner's earlier idea that a library should list only chosen puzzles concerns
+  `/library`, not a book's own landing, which must list every puzzle the book
+  prints; that decision is not re-opened here.
+
 - 2026-10-24: **R7 added — the book-slug recipe, which this ADR named but never
   specified.** CARD-282's implementation round found that the Decision, the file
   layout (`book/<slug>.json`) and DEC-046's tracking paragraph all refer to "the
@@ -377,5 +399,28 @@ write — the thing R4 exists to forbid.
     breaking change to every printed book and requires a new ADR.
   scope: {code: ["src/nonogram/admin/**", "player/**", "tests/**"]}
   check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder"}   # FR-045 AC-380 (CARD-282); the title-independence half is test_the_slug_does_not_move_when_the_title_is_edited
+  severity: mandatory
+- id: ADR-0041/R8
+  statement: >-
+    A printed book carries exactly one QR code: the address of its own landing
+    page, "<the book's stored player domain>/b/<slug>" with the slug of R7,
+    printed on one "Play online" right-hand page after the last puzzle and
+    before the solutions. No puzzle page, two-up page or other interior page
+    carries a QR code or a per-puzzle address; a puzzle page may say only which
+    interior page the code is on. A book with no stored player domain prints
+    neither the page nor that pointer, because a printed base nobody chose
+    cannot be corrected after the run. The slug printed and the slug the bundle
+    exports for the same book are computed by the one implementation of R7 over
+    the book's puzzle keys in PRINT order (INV-009), and the landing page
+    numbers its tiles in that same order, so the number a puzzle page prints
+    names the same puzzle on the landing page.
+  scope: {code: ["src/nonogram/admin/**", "player/**", "tests/**"]}
+  # 2026-11-07: kind review-lens ON PURPOSE; the tests do not exist yet.
+  # Planned node ids: tests/test_book_landing_address.py::
+  # test_the_printed_slug_is_the_bundles_slug and
+  # tests/test_book_play_online_page.py::test_no_interior_page_but_the_play_page_carries_a_qr.
+  # CARD-389 and CARD-391 write them and OWE THE FLIP to `kind: test` as part of
+  # their scope (memory: adr-check-refs-must-be-honest).
+  check: {kind: review-lens}
   severity: mandatory
 ```

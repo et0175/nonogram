@@ -1,9 +1,9 @@
 # ADR-0006: Dependency baseline — stdlib + Pillow + NumPy
 
-**Status:** Accepted (revised 2026-09-01)
+**Status:** Accepted (revised 2026-11-07)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** 2026-09-01
+**Revised:** 2026-11-07
 **Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
@@ -53,6 +53,26 @@ subset it to the covered scripts to cut the install footprint — subsetting
 tools are build-time, not runtime, and so do not touch this baseline either.
 The specific file and any subsetting are settled inside the boundary this ADR
 draws; the boundary itself is: fonts ship as data, never as a pip dependency.
+
+**One third-party source file may be vendored, under conditions** (revision
+2026-11-07, owner ruling 2026-11-06 "option 2, vendor one file", taken for the
+QR encoder the printed books need, CARD-388). The runtime dependency set stays
+exactly stdlib + Pillow + NumPy and `pyproject.toml` gains no entry; what grows
+is the source tree, by one file that is not ours. The line that keeps this from
+reopening the baseline is the same one the font revision drew, one step
+further: a vendored file is **pinned bytes in the repository**, not an installed
+package, so it brings no resolver, no version drift, no transitive dependency
+and no network at build or run time. Conditions, all of them (R2): one single
+file; permissive licence whose text sits beside it and permits redistribution
+with attribution; it imports nothing outside the standard library; provenance
+(upstream URL, version or commit, licence, sha256 of the vendored bytes) is
+recorded in the repository and a test holds the bytes to that sha256, so an edit
+to vendored code is a deliberate act and never a drive-by; our own thin wrapper
+is the only caller (the vendored file's API does not leak into our modules).
+Alternatives weighed by the owner on 2026-11-06 and not taken: a new pure-Python
+runtime dependency (widens R1), and about 400 lines of in-repo Reed-Solomon,
+mask selection and version fitting (correctness-critical, and its failure mode
+is a printed code that looks right and does not scan).
 
 ## Alternatives considered
 
@@ -116,6 +136,13 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
 - DEC-012 (grid-representation decision, narrowed but not resolved by this ADR)
 
 ## History
+
+- 2026-11-07 — Revised (owner ruling 2026-11-06, recorded by the architect pass
+  of 2026-11-07 for the one-QR change): R2 added. The baseline of R1 is
+  unchanged; the new rule admits exactly one vendored third-party source file
+  (the QR encoder) under stated conditions. R2 is `review-lens`, not a test,
+  because the test that holds the vendored bytes to their sha256 does not exist
+  yet; CARD-388 writes it and OWES THE FLIP to `kind: test` in the same delta.
 
 - 2026-08-27: Created — adopted stdlib + Pillow + NumPy over the recommended stdlib + Pillow-only default, trading a second dependency for vectorized solver headroom at the 50x50 upper bound.
 - 2026-09-01 — Revised — resolves DEC-027. Previous decision: the baseline
@@ -263,5 +290,25 @@ Zero third-party dependencies: hand-roll a minimal PNG encoder/decoder (zlib + s
   # assertion. The line is left in place as the human-readable record of what
   # the ref used to be; it now resolves nothing, because nothing declares the
   # retired name any more.
+  severity: mandatory
+- id: ADR-0006/R2
+  statement: >-
+    A third-party library may enter the repository as ONE vendored source file
+    only when all of these hold: it is a single file that imports nothing but
+    the standard library; its licence is permissive, the licence text is kept
+    beside it and the attribution it requires is printed where it requires;
+    its provenance (upstream URL, version or commit, licence name, sha256 of
+    the vendored bytes) is recorded in the repository and a test fails when the
+    bytes no longer match that sha256; and only our own wrapper imports it.
+    This is not a dependency in R1's sense and adds nothing to
+    pyproject.toml. Any second vendored file, or a file that fails one of
+    these conditions, revises this ADR first.
+  scope: {code: ["src/nonogram/**", "pyproject.toml", "tests/**"]}
+  # 2026-11-07: kind review-lens ON PURPOSE. The pinning test does not exist
+  # yet (planned node id: tests/test_vendored_qr_encoder.py::
+  # test_the_vendored_bytes_match_their_recorded_sha256). CARD-388 writes it and
+  # owes the flip of this check to `kind: test` as part of its scope, not as a
+  # follow-up (memory: adr-check-refs-must-be-honest).
+  check: {kind: review-lens}
   severity: mandatory
 ```
