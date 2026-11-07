@@ -301,6 +301,7 @@ __all__ = [
     "SHARED_UI_BOOTSTRAP",
     "SHARED_UI_COPIED_FROM_ADMIN",
     "SHARED_UI_PLAYER_FILES",
+    "SHARED_UI_TEXT_EDITS",
     "SITE_BOOK_DIR",
     "SITE_INDEX_FILE",
     "SITE_MARKER_FILE",
@@ -456,13 +457,37 @@ SHARED_UI_BOOTSTRAP = "bootstrap.min.css"
 
 #: The page's usage paragraph is the admin's, and its last sentence describes
 #: Check, which the public player does not have (public mode removes it,
-#: CARD-385; review finding F-2). The clause is replaced, and the replacement
-#: is a REFUSAL when the clause is not found exactly once, so an edit to the
-#: admin template cannot quietly bring a false sentence back.
+#: CARD-385; review finding F-2), and says the answer is written "beside the
+#: puzzle's title", which is false on a phone, where the line sits UNDER the
+#: title (admin.css, <= 820 px; owner ruling 2026-11-07, review F-1). The tail
+#: is replaced, and the replacement is a REFUSAL when the clause is not found
+#: exactly once, so an edit to the admin template cannot quietly bring a false
+#: sentence back. "At the top of the page" is true at every width, and the
+#: tests measure it from the DOM at 390 and 1280 px.
 SHARED_UI_HINT_CLAUSE = (
     "; Check highlights the row of the first wrong mark, and each press writes"
+    " its answer in the line beside the puzzle's title."
 )
-SHARED_UI_HINT_REPLACEMENT = ", and each press writes"
+SHARED_UI_HINT_REPLACEMENT = (
+    ", and each press writes its answer in the line at the top of the page."
+)
+
+#: Other exact edits to the admin markup, each refused unless found once.
+#: ``(old, new)``. The fallback paragraph names ``static/solver.js``, the
+#: panel's path; the preview serves ``/solver.js`` and the paragraph also
+#: stays when scripts are off. The tier chip starts hidden and the loader
+#: shows it, so a bad address does not show the template's placeholder chip.
+SHARED_UI_TEXT_EDITS: tuple[tuple[str, str], ...] = (
+    (
+        "(static/solver.js) did not load.",
+        "(solver.js) did not load, or JavaScript is off.",
+    ),
+    ('class="player-tier"', 'class="player-tier" hidden'),
+)
+
+#: The header's size is per-puzzle and rendered blank by the driver; until the
+#: loader fills it the header says just "Puzzle", never "Puzzle x".
+_SHARED_UI_H1 = re.compile(r"<h1>Puzzle [^<]*</h1>")
 
 #: The one element the loader replaces: the admin template's payload element,
 #: which carries the admin's solution. The shell builds its own from
@@ -558,6 +583,7 @@ async function main() {
   if (label === "") {
     chip.remove();
   } else {
+    chip.hidden = false;
     const badge = chip.querySelector(".badge");
     badge.textContent = label;
     if (TIER_HUES.includes(tier.toLowerCase())) {
@@ -609,6 +635,15 @@ def shared_ui_play_page(fragment: str) -> str:
                 f"the admin markup must hold exactly one {hook!r}; found {body.count(hook)}"
             )
     body = body.replace(SHARED_UI_HINT_CLAUSE, SHARED_UI_HINT_REPLACEMENT)
+    for before, after in SHARED_UI_TEXT_EDITS:
+        if body.count(before) != 1:
+            raise ValueError(
+                f"the admin markup must hold exactly one {before!r}; found {body.count(before)}"
+            )
+        body = body.replace(before, after)
+    if len(_SHARED_UI_H1.findall(body)) != 1:
+        raise ValueError("the admin markup must hold exactly one <h1>Puzzle ...</h1>")
+    body = _SHARED_UI_H1.sub("<h1>Puzzle</h1>", body)
     return _SHARED_UI_PAGE.replace("@@CONTENT@@", body.strip()).replace(
         "@@LOADER@@", _SHARED_UI_LOADER
     )

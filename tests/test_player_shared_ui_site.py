@@ -227,6 +227,38 @@ def step_hint_on_a_bigger_board(page, ctx):
 STEPS = {**CONTROL_STEPS, "data-player-action=hint": step_hint_on_a_bigger_board}
 
 
+def usage_line_problems(page) -> list[str]:
+    """Where the usage paragraph says the answer line is, against where it is.
+
+    Read from the DOM: the paragraph's claim is parsed from its own text, and
+    each claim is held to the rectangles of the header, the answer line and the
+    toolbar. A paragraph that makes neither claim is a problem too.
+    """
+    text = page.locator("#puzzle-player-hint").inner_text()
+    box = page.evaluate(
+        """() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect();
+          return {top: b.top, bottom: b.bottom, width: b.width}; };
+          return {h1: r('.player-head h1'), line: r('#puzzle-player-explain'), tools: r('#puzzle-player-controls')}; }"""
+    )
+    line, h1, tools = box["line"], box["h1"], box["tools"]
+    problems = []
+    if line["width"] <= 0:
+        problems.append("the answer line is not on the page")
+    claimed = False
+    if "beside the puzzle's title" in text:
+        claimed = True
+        middle = (line["top"] + line["bottom"]) / 2
+        if not h1["top"] <= middle <= h1["bottom"]:
+            problems.append("says beside the title, but the line is not on the title's row")
+    if "at the top of the page" in text:
+        claimed = True
+        if line["bottom"] > tools["top"] + 1:
+            problems.append("says at the top of the page, but the line is below the toolbar")
+    if not claimed:
+        problems.append("the paragraph does not say where the answer line is")
+    return problems
+
+
 def test_the_two_boards_are_what_the_sweep_needs() -> None:
     """The same properties as CARD-385's ``test_the_sweep_puzzles_are_what_the_sweep_needs``."""
 
@@ -306,11 +338,59 @@ class TestSharedUi_ThePageRuns:
         assert hint.is_visible()
         text = hint.inner_text()
         assert "Check" not in text and "wrong mark" not in text, text
-        assert "the third reveals it, and each press writes its answer" in text, text
+        assert text.endswith("the third reveals it, and each press writes its answer in the line at the top of the page."), text
+        assert "beside the puzzle" not in text, text
         assert browser_page.locator('[data-player-action="check"]').count() == 0
         # And the admin-only counters are gone from the toolbar.
         assert not browser_page.locator("#puzzle-player-errors").is_visible()
         assert not browser_page.locator("#puzzle-player-progress").is_visible()
+
+    @pytest.mark.parametrize("width, height", [(390, 844), (1280, 900)])
+    def test_the_line_the_usage_text_names_is_where_it_says_at_both_widths(
+        self, browser_page, preview_host, width, height
+    ) -> None:
+        """F-1, measured from the DOM: after a Hint press the answer line is above the toolbar."""
+        url, report, keys, _ = preview_host
+        browser_page.set_viewport_size({"width": width, "height": height})
+        open_play(browser_page, url, keys["sweep"])
+        action(browser_page, "hint").click()
+        assert browser_page.locator("#puzzle-player-explain").is_visible()
+        assert usage_line_problems(browser_page) == []
+
+    def test_the_old_wording_is_false_on_a_phone_and_the_check_sees_it(self, browser_page, preview_host) -> None:
+        """The plant: the admin's own sentence, put back, must red at 390 px (and only there)."""
+        url, report, keys, _ = preview_host
+        old = "its answer in the line beside the puzzle's title."
+        problems = {}
+        for width, height in ((390, 844), (1280, 900)):
+            browser_page.set_viewport_size({"width": width, "height": height})
+            open_play(browser_page, url, keys["sweep"])
+            action(browser_page, "hint").click()
+            browser_page.evaluate(
+                "(old) => { const p = document.querySelector('#puzzle-player-hint');"
+                " p.textContent = p.textContent.replace(/its answer in the line at the top of the page\\./, old); }",
+                old,
+            )
+            assert old in browser_page.locator("#puzzle-player-hint").inner_text()
+            problems[width] = usage_line_problems(browser_page)
+        assert problems[390] != [], "the old wording must red at 390 px"
+        assert problems[1280] == [], "and it is true on a desktop, which is why it survived"
+
+    def test_a_bad_address_shows_no_placeholder_header_chip_or_false_fallback(
+        self, browser_page, preview_host
+    ) -> None:
+        """F-2: not 'Puzzle x', no template tier chip, and a fallback sentence that is true here."""
+        url, *_ = preview_host
+        browser_page.goto(f"{url}/play/0000000000", timeout=PAGES_SETTLE_MS)
+        browser_page.wait_for_function(
+            "() => !document.querySelector('[data-player-fallback]').textContent.startsWith('Drawing')",
+            timeout=PAGES_SETTLE_MS,
+        )
+        assert browser_page.locator(".player-head h1").inner_text() == "Puzzle"
+        assert not browser_page.locator(".player-tier").is_visible()
+        html = (preview_host[1].site_dir / "play" / "index.html").read_text(encoding="utf-8")
+        assert "static/solver.js" not in html and "\u00d7</h1>" not in html
+        assert "(solver.js) did not load, or JavaScript is off." in html
 
     def test_hint_stays_on_and_says_why_where_no_line_decides(self, browser_page, preview_host) -> None:
         """F-3, verified on the assembled page (the stall board of CARD-385's sweep)."""
