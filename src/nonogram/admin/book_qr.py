@@ -2,7 +2,7 @@
 
 CARD-388, ADR-0006/R2. The encoder itself is Project Nayuki's
 ``qrcodegen.py``, kept byte-for-byte under ``admin/_vendor/`` and held to its
-recorded sha256 by ``tests/test_vendored_qr_encoder.py``. **This module is the
+recorded content digest by ``tests/test_vendored_qr_encoder.py``. **This module is the
 only importer of it** (R2's last condition), and it exists so that nothing
 else in the package ever sees the vendored file's types: a caller gets
 ``tuple[tuple[bool, ...], ...]`` -- the codebase's grid boundary type, row

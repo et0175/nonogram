@@ -448,6 +448,10 @@ ASSET_RULES = {
     ".txt": "named",
     "LICENSE": "named",
     "PKG-INFO": "named",
+    # The vendored QR encoder's licence and provenance sidecars (CARD-388,
+    # ADR-0006/R2): both sit at src/nonogram/admin/_vendor/ with the suffix
+    # ".qrcodegen" and are read as bytes by tests that name them.
+    ".qrcodegen": "named",
     ".DS_Store": "inert",
 }
 ASSET_KINDS = ("executed", "template", "named", "inert")

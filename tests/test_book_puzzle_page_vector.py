@@ -1968,8 +1968,12 @@ class TestGridRoutine_DrawsALayoutItWasNotWrittenFor:
             elif isinstance(node, ast.Import):
                 imported.update(alias.name for alias in node.names)
 
+        # ``math`` joined with CARD-388's ``draw_qr``: ``math.isfinite`` refuses
+        # a nan/inf box before any operator is written. Standard library, and
+        # knows no page kind, so it widens nothing this test guards.
         assert imported == {
             "__future__",
+            "math",
             "typing",
             "nonogram.admin.book_vector",
             "nonogram.export.layout",

@@ -1016,8 +1016,14 @@ FRAME_FIGURES = {
 #: ``10.0`` is CON-020's type floor, which three constants state in points for
 #: their own mark; ``MIN_TRIM_CM`` is 10 centimetres, a different unit
 #: entirely; ``_RULE_LENGTH_RATIO`` is a fraction of a line's length, not a
-#: stroke weight.
+#: stroke weight. ``MIN_MODULE_MM`` (CARD-388) is 0.4 MILLIMETRES, the smallest
+#: QR module the drawer will print: a legibility floor for a phone camera, in a
+#: different unit from the 0.4 POINT footer stroke and unrelated to it. It is
+#: stated as the plain figure rather than derived, because it is a recorded
+#: rule of thumb with no formula behind it; dressing it as arithmetic to dodge
+#: this census would hide that.
 PRE_EXISTING_SAME_NUMBER = {
+    ("book_vector_draw.py", "MIN_MODULE_MM"),
     ("book_page_spec.py", "MIN_TRIM_CM"),
     ("book_pdf_generator.py", "FOLIO_PT"),
     ("book_pdf_generator.py", "TOC_ENTRY_PT"),
