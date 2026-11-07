@@ -472,12 +472,8 @@ active:
     started: 2026-11-07T13:00Z
     estimate: 3c (1d)
     cut_from: fabb7832
-  - card: CARD-389
-    branch: card/389-landing-address
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-389
-    started: 2026-11-07T13:00Z
-    estimate: 2c (1d)
-    cut_from: fabb7832
+# CARD-389 CLEARED 2026-11-07T20:20Z at its merge gate: merged 833a0efd, done, certified 8.2 on cycle 2 (6.0 on cycle 1, not
+#   certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11600 passed, 1 skipped, 1 xfailed. Entry dropped.
 # CARD-311 CLEARED 2026-11-07 at its merge gate: merged a2e9a252, done, certified 8.5 on cycle 2 (7.4 on cycle 1, not
 #   certified), estimate 4c -> 2 cycles = ratio 0.5. Full armed suite 11572 passed, 1 skipped, 1 xfailed (the first gate run
 #   reddened on three frozen censuses, fixed on the branch and re-run green). The entry is dropped; the worktree is removed
