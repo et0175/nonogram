@@ -51,7 +51,7 @@ The owner's 2026-11-07 decision puts exactly one QR code in each book (ADR-0041/
 
 ## Guardrails
 
-- G-1: No new runtime dependency, no `pyproject.toml` change (ADR-0006/R1, R2).
+- G-1: No new runtime dependency (ADR-0006/R1, R2). `pyproject.toml` changes only by the ONE package-data line that ships the licence and provenance sidecars in a built wheel (`"nonogram.admin._vendor" = ["LICENSE.qrcodegen", "PROVENANCE.qrcodegen"]`), allowed 2026-11-07 after review cycle 1 found the sidecars missing from a built wheel: package data is not a dependency, and the dependency-baseline test must stay green.
 - G-2: One vendored file only. A second needs an ADR-0006 revision first.
 - G-3: This card places a QR on NO page and changes no page geometry.
 - G-4: The matrix never crosses a module boundary except as `tuple[tuple[bool, ...], ...]`; the vendored file's own types do not leak (CLAUDE.md boundary-type rule).

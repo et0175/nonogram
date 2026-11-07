@@ -248,6 +248,19 @@ ADR-0041/R1's 10 hex characters.
 
 Not observed: a real phone, how the hint reads at 300% zoom on one (the lit line can be out of view; neither page auto-scrolls, recorded on CARD-327), the other machines' rendering of the hint tint (a floor of 8 against a smallest measured 10, one machine), Auto-Deploy's dashboard state, and any counting.
 
+**The probe publish, 2026-11-07.** The public player gained probe mode (CARD-380, merge `652c16f8`: the hypothesis transaction: Probe, Keep and Contradiction), and the same recipe was run a fifth time. The tree also carries one file change that is not probe mode: CARD-385's public-mode additions to `src/nonogram/admin/static/solver_state.js`, which ADR-0041/R3's byte-identical copy ships whether wanted or not (the owner ruled: no partial deploy). Main then carried zoom, the crosshair, the circles, the hint and probe.
+
+| Step | What was observed |
+| --- | --- |
+| What changed against production | `play.js` `687a5bd061d7` to `31e430147309`, `player.css` `5251cc51502e` to `6aa20c7eddc1`, `play/index.html` `d6cf779ca491` to `3172d3d7cf0d` (the Probe bar and its note): probe mode. `solver_state.js` `e586c9da20b6` to `e3ff8f5760f5`: CARD-385 (`PUBLIC_MODE`, `PUBLIC_GRID`, `runsOf`, `isClueSolved`, `requireSolution`, a null-solution branch in `hintCell`, a `stampOf` save stamp). `play.js` imports none of the changed paths and the puzzle JSON carries no `mode`, so it is inert on the public page; the browser run below is the evidence. `tokens.css`, `pages.js`, `library/index.html`, `b/index.html` and the puzzle files unchanged. |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out ~/Documents/nonogram-reviews/deploy-2026-11-07/site`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. The four files SHA-256 identical to their sources; no goatcounter reference; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; the default tree is the same file set as before (no `--shared-ui` output). |
+| Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported: deployment `nonogram-studio-einto95gr`, Ready within about a minute. The six files above matched the local hashes; `/play/<key>`, `/b/<slug>` and `/library` 200, an unknown path 404. |
+| Behaviour on the preview | Headless Chromium on a 10x10 (`22f1a32460`) and a 20x20 (`6259eb2b56`) puzzle: a click marks and undo clears; zoom 100% to 125% and back; hover crossed 21 (10x10) and 41 (20x20) elements and 0 after leaving; closing row 0's runs circled 2 numbers; Hint ladder advanced point, explain, reveal (counter 1); Probe opened with Keep and Contradiction shown, one probe mark, Keep kept the cell as filled, Contradiction abandoned the cell back to unknown; the save was restored identically on reload (`nonogram-public:<key>`); Reset cleared the board; marking the solution (computed here by the solver from the clues) set `body[data-solved]` true and showed the Solved banner. Zero page errors, zero non-GET requests, no served JSON containing a `solution` key. |
+| Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-qu83cb3hw`, Ready about 20 seconds later. `https://nonogram.adverax.io` then served the same six hashes, 200 on the three doors and 404 on an unknown path, the puzzle file with the same five fields, and the same browser run gave the same figures (0 page errors, 0 non-GET). |
+| Rollback target | The production deployment before it, `nonogram-studio-6s7mfek5n` (the hint build), was still Ready afterwards. A rollback was not tried. |
+
+Not observed: a real phone, how probe reads there, Auto-Deploy's dashboard state, and any counting.
+
 ## Publishing a new bundle
 
 Nothing here is automatic, and that is deliberate: per ADR-0041/R5 a bundle export is an
