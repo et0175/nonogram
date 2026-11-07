@@ -756,6 +756,7 @@ queued:
 - id: CARD-391   # P2 4c  PUZZLE PAGES LOSE THE QR; footer pointer 'Play puzzle N online · p. X'. Depends 390. Land BEFORE 387. Unstamped.
 - id: CARD-392   # P2 4c  ONE-LINE FOOTER: band shrinks, pairing + cell sizes re-derived. Depends 391. Land BEFORE 232/233/226/230/229. Unstamped.
 - id: CARD-393   # P2 2c  GUIDE LINE 'Every puzzle ... scan the code on page N'. Depends 390, 229. Unstamped.
+- id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
 - id: CARD-320   # P1 0.5d  tail: a float reaching uuid.UUID under the full suite only.
 #
 # THE VECTOR CHAIN, as CARD-322's re-cut left it 2026-10-31. Strictly serialized:
