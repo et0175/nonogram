@@ -1,6 +1,6 @@
 # CARD-396: The kill-matrix reproductions run their cells in parallel — same cells, same verdicts, a fraction of the 192 seconds
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 2c (0.5d)
@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner ruling 2026-11-07 ("I'd do a+c, after measurement"; memory gate-time-cuts-a-and-c): C = pure speed, NO coverage move, each saving proven by a before/after --durations on the file alone. Measurement: ~/Documents/nonogram-reviews/suite-profile-2026-11-07/gate-card388-durations.txt (contended full run; shares only).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —

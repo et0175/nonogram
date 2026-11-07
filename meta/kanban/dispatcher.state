@@ -465,7 +465,13 @@ max_concurrent_override: 2
 #   the tool is not failing, it is being killed, and _grep_batch swallows the
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
-active: []
+active:
+  - card: CARD-396
+    branch: card/396-parallel-kill-matrix
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-396
+    started: 2026-11-07T21:30Z
+    estimate: 2c (0.5d)
+    cut_from: 422d6709
 # CARD-388 CLEARED 2026-11-07T21:18Z at its merge gate: merged 2d81b270, done, certified 8.6 on cycle 1 (fix rounds 4415d6a2 and f2ce628c not
 #   re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Full armed suite 11650 passed, 1 skipped, 1 xfailed (the first gate run
 #   reddened on five frozen censuses, fixed on the branch and re-run green). Entry dropped; worktree removed under the tidy rule.
@@ -757,7 +763,6 @@ queued:
 - id: CARD-393   # P2 2c  GUIDE LINE 'Every puzzle ... scan the code on page N'. Depends 390, 229. Unstamped.
 - id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
 - id: CARD-395   # P1 4c  GATE STOPS RUNNING THE HEAVIEST SWEEPS: wave_close_only marker, subject lift, gate contract, wave-close definition (owner A, 2026-11-07). Depends 388. Unstamped.
-- id: CARD-396   # P2 2c  KILL-MATRIX cells in parallel (owner C). No deps. Unstamped.
 - id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
 - id: CARD-398   # P3 3c  Session render cache for the baseline book; held until 387; may close as a null (owner C). Depends 387, 395. Unstamped.
 - id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
