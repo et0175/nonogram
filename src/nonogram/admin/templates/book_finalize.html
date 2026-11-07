@@ -46,7 +46,7 @@
         <div class="card mt-3" id="divider-pages">
             <div class="card-header"><h2 class="card-title mb-0">Divider pages <small class="text-muted fw-normal fs-6">optional</small></h2></div>
             <div class="card-body">
-                <p class="text-muted">A picture for each page that opens a level or the answer key. A slot without a picture prints the drawn word. Each picture must be the interior page's shape and at least its size at the book's resolution; it is checked on upload and never stretched or enlarged. No page number is printed over it.</p>
+                <p class="text-muted">A picture for each page that opens a level or the answer key. A picture replaces the drawn divider page and changes no page number; a slot without one keeps the drawn word. Nothing prints here if the book's divider pages are turned off in Print setup. Each picture must be the interior page's shape and at least its size at the book's resolution; it is checked on upload and never stretched or enlarged. No page number is printed over it.</p>
                 {% for item in divider_slots %}
                 <div class="d-flex justify-content-between align-items-center mb-2" data-divider-slot="{{ item.slot }}">
                     <strong>{{ item.label }}</strong>
