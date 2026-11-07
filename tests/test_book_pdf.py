@@ -2448,6 +2448,7 @@ def test_no_declaration_outlives_the_cards_that_remove_it() -> None:
     # which is where a temporary entry is planted. Both entries are pinned
     # permanent here so that a temporary one reappearing is seen at once.
     assert temporary == set(), sorted(kind.value for kind in temporary)
+    assert set(_RASTER_DECLARATIONS) == {PageKind.COVER, PageKind.DIVIDER}
     assert _RASTER_DECLARATIONS[PageKind.COVER].expires_with == ()
     assert _RASTER_DECLARATIONS[PageKind.DIVIDER].expires_with == ()
 

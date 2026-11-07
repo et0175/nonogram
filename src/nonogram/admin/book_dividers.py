@@ -29,6 +29,12 @@ new trim no longer suits is *refused at that moment*, loudly, not stretched.
   more than :data:`ASPECT_TOLERANCE` (:class:`WrongAspectRatio`). *Refused*,
   not letterboxed or cropped: either would silently print something other than
   what the owner uploaded;
+* in a format other than PNG or JPEG, or animated (:class:`UnsupportedFormat`):
+  the server holds the line the form's ``accept`` only suggests;
+* too many pixels (:class:`TooManyPixels`): more than
+  :data:`MAX_PIXEL_FACTOR` times the page's pixels, judged from the file's
+  header **before** it is decoded, because a small file can declare a huge
+  picture (a 20 KB 1-bit PNG of 13000 x 13000 px costs about 1.1 GB to decode);
 * too few pixels for the page at the book's resolution
   (:class:`BelowBookDpi`). *Refused*, never upscaled: an upscaled picture
   prints soft and says nothing about it.
@@ -66,6 +72,15 @@ DIVIDER_SLOTS: Tuple[str, ...] = tuple(tier.value for tier in Tier) + (SOLUTIONS
 #: sheet.
 ASPECT_TOLERANCE = 0.01
 
+#: The most pixels an upload may hold, as a multiple of the page's own pixels
+#: (so derived from the page spec, not a constant): twice the page's size in
+#: each direction. That is generous for artwork and bounds the decode at about
+#: 100 MB for a letter page at 300 DPI. Judged before the picture is decoded.
+MAX_PIXEL_FACTOR = 4
+
+#: The only formats the server accepts, whatever the form's ``accept`` says.
+ACCEPTED_FORMATS = ("PNG", "JPEG")
+
 #: The largest upload accepted, in bytes (the cover form states the same 10 MB).
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -86,6 +101,14 @@ class BelowBookDpi(DividerRefused):
     """The picture has too few pixels to fill the page at the book's DPI."""
 
 
+class UnsupportedFormat(DividerRefused):
+    """The upload is not a PNG or a JPEG, or is animated."""
+
+
+class TooManyPixels(DividerRefused):
+    """The picture declares more pixels than :data:`MAX_PIXEL_FACTOR` pages."""
+
+
 class TooLarge(DividerRefused):
     """The upload is larger than :data:`MAX_UPLOAD_BYTES`."""
 
@@ -99,6 +122,12 @@ def slot_label(slot: str) -> str:
     """The word the drawn divider for ``slot`` prints: ``"Easy"``, ``"SOLUTIONS"``."""
     require_slot(slot)
     return slot.upper() if slot == SOLUTIONS_SLOT else Tier(slot).label
+
+
+def stored_picture_size(stored: bytes) -> Tuple[int, int]:
+    """``(width, height)`` in pixels of a stored picture, read from its header only."""
+    with Image.open(io.BytesIO(stored)) as image:
+        return image.size
 
 
 def require_slot(slot: Any) -> str:
@@ -134,6 +163,21 @@ def _check_shape(
         )
 
 
+def _flatten(image: Image.Image) -> Image.Image:
+    """``image`` as RGB, any transparency composited onto **white**.
+
+    ``convert("RGB")`` alone drops the alpha channel and keeps whatever colour
+    sits under it, so a PNG whose transparent pixels are (0, 0, 0, 0) would
+    print as a black page. A page is paper: transparent means white.
+    """
+    if image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info:
+        rgba = image.convert("RGBA")
+        page = Image.new("RGB", rgba.size, "white")
+        page.paste(rgba, mask=rgba.getchannel("A"))
+        return page
+    return image.convert("RGB")
+
+
 def accept_upload(
     stream: Any, page_width_px: int, page_height_px: int, dpi: int
 ) -> bytes:
@@ -157,12 +201,33 @@ def accept_upload(
         )
     try:
         image = Image.open(io.BytesIO(raw))
-        image.load()
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
         raise NotAnImage(
             f"the file is not an image this panel can read ({error.__class__.__name__})"
         ) from error
-    image = ImageOps.exif_transpose(image).convert("RGB")
+    # Everything below up to ``load`` reads the header only.
+    # MPO is how many phones write a JPEG (the first frame is the picture, the
+    # rest are previews), so it is a JPEG here; an APNG is the animated case.
+    animated = image.format == "PNG" and getattr(image, "n_frames", 1) > 1
+    if image.format not in ACCEPTED_FORMATS + ("MPO",) or animated:
+        raise UnsupportedFormat(
+            f"the file is {'an animated ' if animated else 'a '}"
+            f"{image.format} image; only still PNG and JPEG pictures are accepted"
+        )
+    cap = MAX_PIXEL_FACTOR * page_width_px * page_height_px
+    if image.width * image.height > cap:
+        raise TooManyPixels(
+            f"the picture is {image.width} x {image.height} px, more than "
+            f"{MAX_PIXEL_FACTOR} times this book's page ({page_width_px} x "
+            f"{page_height_px} px at {dpi} DPI). Upload a smaller one."
+        )
+    try:
+        image.load()
+    except (OSError, ValueError, Image.DecompressionBombError) as error:
+        raise NotAnImage(
+            f"the file is not an image this panel can read ({error.__class__.__name__})"
+        ) from error
+    image = _flatten(ImageOps.exif_transpose(image))
     _check_shape(image.width, image.height, page_width_px, page_height_px, dpi)
     out = io.BytesIO()
     image.save(out, format="PNG")
@@ -170,7 +235,7 @@ def accept_upload(
 
 
 def fit_to_page(
-    stored: bytes, page_width_px: int, page_height_px: int, dpi: int
+    stored: bytes, slot: str, page_width_px: int, page_height_px: int, dpi: int
 ) -> Image.Image:
     """The stored picture as an RGB page of exactly ``page_width_px`` x ``page_height_px``.
 
@@ -179,6 +244,10 @@ def fit_to_page(
     after the upload refuses here rather than printing a stretched page. The
     only resampling is a *reduction* by a factor within :data:`ASPECT_TOLERANCE`
     of uniform; the picture is never enlarged (:class:`BelowBookDpi` first).
+
+    ``slot`` names the divider in the refusal, which is read by the owner at
+    export time, long after the upload: it says which picture, both pixel
+    sizes, and what to do about it.
 
     Raises:
         NotAnImage: the stored bytes are not a picture.
@@ -190,7 +259,16 @@ def fit_to_page(
             image = opened.convert("RGB")
     except (UnidentifiedImageError, OSError, ValueError) as error:
         raise NotAnImage("the stored divider is not a readable image") from error
-    _check_shape(image.width, image.height, page_width_px, page_height_px, dpi)
+    try:
+        _check_shape(image.width, image.height, page_width_px, page_height_px, dpi)
+    except (WrongAspectRatio, BelowBookDpi) as refusal:
+        why = "a different shape" if isinstance(refusal, WrongAspectRatio) else "too few pixels"
+        raise type(refusal)(
+            f"The {slot_label(slot)} divider picture ({image.width} x {image.height} px) "
+            f"no longer fits this book's page ({page_width_px} x {page_height_px} px "
+            f"at {dpi} DPI): it has {why} for it. Remove or replace it on the "
+            "Finalise screen."
+        ) from refusal
     if image.size != (page_width_px, page_height_px):
         image = image.resize((page_width_px, page_height_px), Image.Resampling.LANCZOS)
     return image

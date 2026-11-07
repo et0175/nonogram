@@ -308,7 +308,11 @@ DPI: 2550 × 3300 px on Book 1, 1800 × 2700 px on a 6 × 9 in book.
 > guide, TOC, puzzle and answer pages are content streams written by the vector
 > writers and reached through `book_interior_vector.interior_generator`, the one
 > place the download route builds an interior; only the section dividers (and the
-> cover file) are still bitmaps (ADR-0042/R1-R2). "One page at a time" is still the
+> cover file) are still bitmaps (ADR-0042/R1-R2). **A divider is the owner's
+> uploaded picture or, for a slot with none, the drawn one-word page**
+> (CARD-311: four slots, Easy / Medium / Hard / SOLUTIONS, stored in
+> `book_divider_images`; an upload is fitted to the page and no folio is drawn
+> over it; it changes no page number). "One page at a time" is still the
 > shape (`interior_stream` yields a page, `_write_pdf` writes it), but a typical
 > interior page is now a few kilobytes of operators and the 25.2 MB bitmap figures
 > below describe the divider and cover pages and the kept raster reference writers.

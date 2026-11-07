@@ -5285,7 +5285,7 @@ class BookPDFGenerator:
         if stored is None:
             return self.create_divider_page(page_number, text)
         frame = page_frame(self.page_spec(page_number))
-        return fit_to_page(stored, frame.width, frame.height, self.dpi)
+        return fit_to_page(stored, slot, frame.width, frame.height, self.dpi)
 
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
         """A divider page: one word on the book's trim, one page (TERM-031).

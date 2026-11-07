@@ -4044,7 +4044,11 @@ functional:
       - id: AC-254
         given: the book of AC-253, which prints its divider pages
         when: its divider pages are read
-        then: each divider page's only content is its level's name
+        then: >-
+          each divider page that is the drawn page has its level's name as its
+          only content; a divider page for which the owner uploaded a picture
+          (CARD-311) contains that picture, fitted to the page, and nothing
+          drawn over it (no folio)
         kind: happy
         test: TestBookPdf_DividerPageCarriesLevelNameOnly
       - id: AC-255
@@ -7072,11 +7076,13 @@ constraints:
       #    non-vacuity floor is the part that must survive the rewrite,
       #    re-expressed against the written PDF's text-showing operators and
       #    their `Tf` sizes per ADR-0042/R6.
-      #  - `divider` stays RASTER (owner decision 2026-10-25: the dividers
-      #    are left out of the conversion pending a nicer design, so
-      #    CARD-231's redesign is born vector rather than converting today's
-      #    page) and keeps its current reading — the rewritten recording is
-      #    therefore mixed-source, not wholly content-stream.
+      #  - `divider` stays RASTER and keeps its current reading — the
+      #    rewritten recording is therefore mixed-source, not wholly
+      #    content-stream. (Owner decision 2026-10-25 left it out of the
+      #    conversion pending a redesign; since 2026-11-07, CARD-311, it is
+      #    raster permanently: an owner-uploaded picture. The floor is NOT
+      #    claimed for lettering inside an uploaded picture; only the drawn
+      #    fallback page sets text the recording can see.)
     severity: mandatory
   - id: CON-021
     # LINKED 2026-10-03 to ADR-0038 (DEC-040): the client-approach ADR

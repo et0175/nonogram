@@ -23,7 +23,7 @@ import uuid
 from dataclasses import replace
 
 import pytest
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_dividers import (
@@ -31,8 +31,11 @@ from nonogram.admin.book_dividers import (
     DIVIDER_SLOTS,
     BelowBookDpi,
     DividerRefused,
+    MAX_PIXEL_FACTOR,
     NotAnImage,
     TooLarge,
+    TooManyPixels,
+    UnsupportedFormat,
     WrongAspectRatio,
     accept_upload,
     fit_to_page,
@@ -47,11 +50,14 @@ from nonogram.admin.book_pdf_generator import (
     PageKind,
     PageMedium,
     _RASTER_DECLARATIONS,
+    _draw_folio,
+    page_frame,
     page_medium,
 )
 from nonogram.difficulty import Tier
 from tests.helpers.db import sqlite_session_scope
 from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of
+from tests.test_book_export_interior_cover import _make_book, admin_app  # noqa: F401
 from tests.test_book_plan_storage import MODES, _build_app, _new_book
 
 W, H, DPI = 600, 900, 300
@@ -159,21 +165,21 @@ class TestRefusals_NameWhichAndStoreNothing:
 
 class TestFit_IsMadeAtExportAndNeverStretchesOrEnlarges:
     def test_a_larger_page_shaped_picture_is_reduced_to_the_page(self) -> None:
-        fitted = fit_to_page(_png(2 * W, 2 * H), W, H, DPI)
+        fitted = fit_to_page(_png(2 * W, 2 * H), "easy", W, H, DPI)
 
         assert fitted.size == (W, H) and fitted.mode == "RGB"
 
     def test_a_trim_changed_after_the_upload_refuses_rather_than_stretches(self) -> None:
         with pytest.raises(WrongAspectRatio):
-            fit_to_page(_png(W, H), W, H + 300, DPI)
+            fit_to_page(_png(W, H), "easy", W, H + 300, DPI)
 
     def test_a_trim_grown_after_the_upload_refuses_rather_than_enlarges(self) -> None:
         with pytest.raises(BelowBookDpi):
-            fit_to_page(_png(W, H), 2 * W, 2 * H, DPI)
+            fit_to_page(_png(W, H), "easy", 2 * W, 2 * H, DPI)
 
     def test_stored_bytes_that_are_not_a_picture(self) -> None:
         with pytest.raises(NotAnImage):
-            fit_to_page(b"garbage", W, H, DPI)
+            fit_to_page(b"garbage", "easy", W, H, DPI)
 
 
 # --------------------------------------------------------------------------
@@ -550,3 +556,261 @@ class TestMigration019:
 
         command.downgrade(config, "018")
         assert "book_divider_images" not in sa.inspect(engine).get_table_names()
+
+
+# --------------------------------------------------------------------------
+# review cycle 1 (F2-F5): the pixel cap, the format line, transparency,
+# the export-time refusal in words, and the unguarded decisions
+# --------------------------------------------------------------------------
+
+
+class TestUpload_PixelCapIsJudgedFromTheHeaderBeforeDecoding:
+    CAP = MAX_PIXEL_FACTOR * W * H  # 2 160 000 px for the 600 x 900 test page
+
+    def test_exactly_the_cap_is_accepted_and_one_step_over_is_refused(self) -> None:
+        """The boundary pair: 1200 x 1800 is the cap, 1202 x 1803 is just over it."""
+        assert 1200 * 1800 == self.CAP
+        assert _accept(_png(1200, 1800))
+        with pytest.raises(TooManyPixels, match="more than 4 times"):
+            _accept(_png(1202, 1803))
+
+    def test_a_small_file_declaring_a_huge_picture_is_refused_without_decoding_it(
+        self, monkeypatch
+    ) -> None:
+        """The plant: a 1-bit 13000 x 13000 PNG is a few KB and ~1 GB decoded.
+
+        ``load`` is rigged to fail the test if it is reached, so the refusal
+        is shown to come from the header and not from a decode that happened
+        to survive. The size assertion shows the plant really is small.
+        """
+        out = io.BytesIO()
+        Image.new("1", (13000, 13000), 1).save(out, format="PNG")
+        small = out.getvalue()
+        assert len(small) < 100 * 1024
+
+        def decoded(self, *a, **k):  # pragma: no cover - reached only on a regression
+            raise AssertionError("the picture was decoded before the cap was checked")
+
+        monkeypatch.setattr(Image.Image, "load", decoded)
+        monkeypatch.setattr(
+            __import__("PIL.PngImagePlugin", fromlist=["PngImageFile"]).PngImageFile,
+            "load",
+            decoded,
+        )
+        with pytest.raises(TooManyPixels):
+            accept_upload(io.BytesIO(small), 2550, 3300, 300)
+
+
+class TestUpload_OnlyStillPngAndJpegAreAccepted:
+    @pytest.mark.parametrize("fmt", ["GIF", "BMP", "TIFF", "WEBP"])
+    def test_another_format_is_refused_by_name(self, fmt) -> None:
+        out = io.BytesIO()
+        Image.new("RGB", (W, H), (5, 5, 5)).save(out, format=fmt)
+
+        with pytest.raises(UnsupportedFormat, match=f"{fmt} image; only still PNG and JPEG"):
+            _accept(out.getvalue())
+
+    def test_an_animated_png_is_refused(self) -> None:
+        out = io.BytesIO()
+        frame = Image.new("RGB", (W, H), (5, 5, 5))
+        frame.save(
+            out, format="PNG", save_all=True,
+            append_images=[Image.new("RGB", (W, H), (9, 9, 9))],
+        )
+
+        with pytest.raises(UnsupportedFormat, match="animated PNG"):
+            _accept(out.getvalue())
+
+    def test_the_two_accepted_formats_are_accepted(self) -> None:
+        assert _accept(_png(W, H, fmt="PNG")) and _accept(_png(W, H, fmt="JPEG"))
+
+
+class TestUpload_TransparencyIsPaperNotBlack:
+    @staticmethod
+    def _stored_pixels(image, **save):
+        out = io.BytesIO()
+        image.save(out, format="PNG", **save)
+        stored = _accept(out.getvalue())
+        return Image.open(io.BytesIO(stored)).convert("RGB")
+
+    @pytest.mark.parametrize("mode", ["RGBA", "LA"])
+    def test_fully_transparent_black_prints_white(self, mode) -> None:
+        clear = (0, 0, 0, 0) if mode == "RGBA" else (0, 0)
+        page = self._stored_pixels(Image.new(mode, (W, H), clear))
+
+        assert page.getextrema() == ((255, 255), (255, 255), (255, 255))
+
+    def test_a_palette_picture_with_a_transparent_index_prints_white(self) -> None:
+        palette = Image.new("P", (W, H), 0)
+        palette.putpalette([0, 0, 0] + [255, 0, 0] * 255)
+        page = self._stored_pixels(palette, transparency=0)
+
+        assert page.getextrema() == ((255, 255), (255, 255), (255, 255))
+
+    def test_the_plant_a_bare_convert_would_have_printed_black(self) -> None:
+        """The control: the assertions above are not satisfied by any input."""
+        bare = Image.new("RGBA", (W, H), (0, 0, 0, 0)).convert("RGB")
+
+        assert bare.getextrema() == ((0, 0), (0, 0), (0, 0))
+
+    def test_opaque_pixels_keep_their_colour_where_a_picture_is_half_transparent(self) -> None:
+        image = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(image).rectangle([0, 0, W // 2, H], fill=(10, 20, 30, 255))
+
+        page = self._stored_pixels(image)
+
+        assert page.getpixel((5, 5)) == (10, 20, 30)
+        assert page.getpixel((W - 5, 5)) == (255, 255, 255)
+
+
+class TestInterior_NoFolioIsDrawnOverAnUpload:
+    COLOUR = COLOURS["easy"]
+
+    @staticmethod
+    def _bare(page, colour) -> bool:
+        return page.convert("RGB").getextrema() == tuple((c, c) for c in colour)
+
+    def test_the_uploaded_page_is_the_picture_and_nothing_else(self) -> None:
+        generator = _generator(uploads=["easy"])
+
+        page = generator.divider_page("easy", 5, "Easy")
+
+        assert self._bare(page, self.COLOUR)
+
+    def test_the_plant_a_folio_over_the_picture_is_seen(self) -> None:
+        class Folioed(BookPDFGenerator):
+            def divider_page(self, slot, page_number, text):
+                page = super().divider_page(slot, page_number, text)
+                frame = page_frame(self.page_spec(page_number))
+                _draw_folio(
+                    ImageDraw.Draw(page), frame.left, frame.top, frame.right,
+                    frame.bottom, page_number, self.dpi, content_bottom=frame.top,
+                )
+                return page
+
+        base = BookPDFGenerator(_book())
+        planted = Folioed(
+            _book(),
+            dividers={"easy": _png(base.page_width_px, base.page_height_px, self.COLOUR)},
+        )
+
+        assert not self._bare(planted.divider_page("easy", 5, "Easy"), self.COLOUR)
+
+
+class TestStore_OneRowPerBookAndSlotIsTheDatabasesRule:
+    def test_a_duplicate_row_is_an_integrity_error(self, scope) -> None:
+        from sqlalchemy.exc import IntegrityError
+
+        from nonogram.db.models import BookDividerImage
+        from tests.helpers.db import make_book
+
+        book_id = uuid.UUID(make_book(scope))
+        with scope() as db:
+            db.add(BookDividerImage(book_id=book_id, slot="easy", image=b"a"))
+        with pytest.raises(IntegrityError):
+            with scope() as db:
+                db.add(BookDividerImage(book_id=book_id, slot="easy", image=b"b"))
+
+    def test_the_plant_without_the_constraint_takes_the_duplicate(self, tmp_path) -> None:
+        """The control: the same two inserts into a table with no unique pair succeed."""
+        import sqlalchemy as sa
+
+        engine = sa.create_engine(f"sqlite:///{tmp_path / 'plant.db'}")
+        with engine.begin() as conn:
+            conn.execute(sa.text("CREATE TABLE d (book_id TEXT, slot TEXT, image BLOB)"))
+            conn.execute(sa.text("INSERT INTO d VALUES ('b', 'easy', x'61')"))
+            conn.execute(sa.text("INSERT INTO d VALUES ('b', 'easy', x'62')"))
+            assert conn.execute(sa.text("SELECT count(*) FROM d")).scalar() == 2
+
+    def test_the_models_constraint_is_the_unique_pair(self) -> None:
+        from sqlalchemy import UniqueConstraint
+
+        from nonogram.db.models import BookDividerImage
+
+        pairs = [
+            tuple(sorted(c.name for c in constraint.columns))
+            for constraint in BookDividerImage.__table__.constraints
+            if isinstance(constraint, UniqueConstraint)
+        ]
+        assert pairs == [("book_id", "slot")]
+
+
+class TestInterior_TheDrawnFallbackIsTheDrawnPageItAlwaysWas:
+    """An empty slot's divider is byte-identical to the one the pre-change code drew.
+
+    The digests were taken by running the MERGE-BASE generator (9a61a9cf,
+    ``create_divider_page`` as it stood before CARD-311) on the AC-253 book's
+    own sheet (``_book()``) and hashing ``Image.tobytes()``; the same script on
+    this branch printed the same three values. They are literals, not
+    recomputed, so a change to the drawn page reds here.
+    """
+
+    DIGESTS = {
+        ("Easy", 5): "de268a41b3a1a03fa1036ab591e47a408cf988858c6dbe069fa911262c1f3f45",
+        ("SOLUTIONS", 12): "00f657409e0955437b57aab215dbf0d2969c19ef69eeb4644c3d8d874a242328",
+        ("Hard", 11): "9dbcc6c6c9d9e93aa3e4f91975915ab47ba47c65ad6177845497688fe4051a9c",
+    }
+    SLOTS = {"Easy": "easy", "SOLUTIONS": "solutions", "Hard": "hard"}
+
+    @pytest.mark.parametrize("key", sorted(DIGESTS))
+    def test_an_empty_slot_prints_the_pre_change_pixels(self, key) -> None:
+        import hashlib
+
+        text, number = key
+        page = BookPDFGenerator(_book()).divider_page(self.SLOTS[text], number, text)
+
+        assert hashlib.sha256(page.tobytes()).hexdigest() == self.DIGESTS[key]
+
+
+class TestRoute_ATrimChangedAfterTheUploadIsRefusedInWords:
+    @pytest.fixture
+    def exported(self, admin_app):
+        client = admin_app.test_client()
+        book_id = _make_book(admin_app)
+        generator = BookPDFGenerator(admin_app.book_manager.get_book(book_id))
+        w, h = generator.page_width_px, generator.page_height_px
+        response = _post(client, book_id, "easy", _png(w, h))
+        assert "Easy divider uploaded" in response.get_data(as_text=True)
+        return admin_app, client, book_id, (w, h)
+
+    def test_the_flash_names_the_slot_both_sizes_and_the_remedy_then_remove_exports(
+        self, exported
+    ) -> None:
+        app, client, book_id, (w, h) = exported
+        book = app.book_manager.get_book(book_id)
+        book.trim_width_cm, book.trim_height_cm = "15.24", "22.86"  # a 6 x 9 in trim
+        page = BookPDFGenerator(book)
+
+        refused = client.post(
+            f"/book/{book_id}/download-pdf?part=interior", follow_redirects=True
+        )
+
+        html = refused.get_data(as_text=True)
+        assert refused.mimetype != "application/pdf"
+        assert "The Easy divider picture" in html
+        assert f"({w} x {h} px)" in html
+        assert f"({page.page_width_px} x {page.page_height_px} px" in html
+        assert "Remove or replace it on the" in html and "Finalise" in html
+
+        client.post(f"/book/{book_id}/divider/easy/clear")
+        exported_pdf = client.post(f"/book/{book_id}/download-pdf?part=interior")
+
+        assert exported_pdf.status_code == 200
+        assert exported_pdf.mimetype == "application/pdf"
+        assert exported_pdf.get_data().startswith(b"%PDF")
+
+    def test_the_message_reads_as_a_sentence(self) -> None:
+        with pytest.raises(WrongAspectRatio) as caught:
+            fit_to_page(_png(W, H), "hard", W, H + 300, DPI)
+
+        text = str(caught.value)
+        assert text[0].isupper() and text.startswith("The Hard divider picture")
+        assert "600 x 900 px" in text and "600 x 1200 px" in text
+        assert text.endswith("Remove or replace it on the Finalise screen.")
+
+    def test_the_finalise_card_shows_the_uploaded_size(self, exported) -> None:
+        app, client, book_id, (w, h) = exported
+
+        page = client.get(f"/book/{book_id}/finalize").get_data(as_text=True)
+
+        assert f"Uploaded ({w} × {h} px)" in page

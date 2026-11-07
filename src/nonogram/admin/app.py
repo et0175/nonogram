@@ -125,6 +125,7 @@ from nonogram.admin.book_dividers import (
     accept_upload,
     require_slot,
     slot_label,
+    stored_picture_size,
 )
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_proof import render_proof_pdf
@@ -5520,7 +5521,12 @@ def create_app(debug=None):
             # CARD-311: the four divider slots, each with whether a picture is
             # stored for it (read from the store, never from the session).
             "divider_slots": [
-                {"slot": slot, "label": slot_label(slot), "uploaded": slot in stored}
+                {
+                    "slot": slot,
+                    "label": slot_label(slot),
+                    "uploaded": slot in stored,
+                    "size": stored_picture_size(stored[slot]) if slot in stored else None,
+                }
                 for stored in [book_mgr.divider_images(book_id)]
                 for slot in DIVIDER_SLOTS
             ],

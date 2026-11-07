@@ -52,7 +52,7 @@
                     <strong>{{ item.label }}</strong>
                     {% if item.uploaded %}
                     <form method="POST" action="/book/{{ book.book_id }}/divider/{{ item.slot }}/clear">
-                        <span class="me-2">{{ icons.icon('check') }} Uploaded</span>
+                        <span class="me-2">{{ icons.icon('check') }} Uploaded{% if item.size %} ({{ item.size[0] }} × {{ item.size[1] }} px){% endif %}</span>
                         <button type="submit" class="btn btn-sm btn-outline-secondary">Remove</button>
                     </form>
                     {% else %}
