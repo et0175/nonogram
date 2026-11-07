@@ -1510,7 +1510,13 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # where the same four stay members. Re-derived as the symmetric difference of
 # the whole census before and after, not read off this cell's failure message
 # -- which never fired, which is the point.
-CENSUS = (573, "2e0233d69e413369")
+# CARD-322 (2026-11-07): 573 -> 574. Re-derived as the symmetric difference of
+# the declared-ref sets on main and on the branch (set(_declared_refs()) in both
+# trees): ONE entrant, the bare test name ADR-0042/R1 now names as its
+# check ref (its string is not spelled in this module: G-2),
+# declared by ADR-0042/R1 (adr/0042-...md, `check: {kind: test, ref: ...}`), the
+# flip of that rule from a review lens; nothing left.
+CENSUS = (574, "8a2c9e08b961b896")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1639,7 +1645,12 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 # So 406 - 1 + 4 = 409, and three of the four entrants are DECLARATIONS arriving
 # with their definitions already in place -- the one direction of movement that
 # needs no repair.
-DEFINED = (409, "a8f3ac02034906d1")
+# CARD-322 (2026-11-07): 409 -> 410, the same single entrant as CENSUS above. It
+# is a DECLARATION arriving with its definition in place (the bare name resolves
+# to one `def` in
+# tests/test_book_pdf.py), i.e. a dead-ref-free flip, the direction of
+# movement that needs no repair.
+DEFINED = (410, "807b0b0af38c812f")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
