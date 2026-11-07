@@ -119,6 +119,7 @@ from nonogram.admin.book_pdf_generator import (
     tier_breakdown,
 )
 from nonogram.admin import book_pdf_generator
+from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_proof import render_proof_pdf
 from nonogram.admin import player_bundle
 
@@ -5670,8 +5671,15 @@ def create_app(debug=None):
         draws — guide, puzzles, divider, answers, and the cover file's page —
         is the book's own stored trim at 300 DPI, and takes its mirrored
         margins from its position in the interior (FR-030/FR-032/FR-043).
+
+        **The one site that writes an interior builds through the assembly
+        point** (CARD-322, ADR-0042/R1, D8): the interior is operators on
+        every kind, and only ``interior_generator`` holds the writers that
+        draw them. Every other ``BookPDFGenerator(`` in this module only plans
+        or counts pages and keeps the default, which refuses a kind it cannot
+        draw.
         """
-        generator = BookPDFGenerator(book)
+        generator = interior_generator(book)
         if part == "interior":
             if puzzles is None:
                 puzzles = _book_puzzles(book)

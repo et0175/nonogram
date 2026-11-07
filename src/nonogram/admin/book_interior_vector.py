@@ -29,25 +29,29 @@ needs — :class:`~nonogram.admin.book_pdf_generator.InteriorPageWriters`, four
 callables with the downstream writers' own signatures — and nothing more; the
 walk calls through an instance and imports no writer that imports it. This
 module is downstream of **all** of them, so it is the only module in the
-package that can see every page writer at once, and it is a leaf: **nothing in
-``src/`` imports it**, which is what keeps the resolution a direction rather
-than a loop with a door in it.
+package that can see every page writer at once, and **exactly one module
+imports it: ``nonogram.admin.app``** (CARD-322, D8), at the one site that
+writes an interior. Nothing the writers import can reach it back, which is what
+keeps the resolution a direction rather than a loop with a door in it; a second
+importer would be a finding, held by
+``tests/test_book_pdf.py::TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden``.
 
 The puzzle page is deliberately **not** in the writer set. Its writer imports
 no generator, so ``book_pdf_generator`` already imports it and composes the
 page itself (``vector_puzzle_page``/``vector_two_up_page``, CARD-295 with
-CARD-306's furniture). That is why the puzzle page is the kind CARD-309
-converts and the other four are CARD-322's: converting it needs no assembly
-point at all, so the two halves of this card can be judged separately.
+CARD-306's furniture). That is why the puzzle page was converted first and the
+other kinds waited for this module: converting it needed no assembly point at
+all. CARD-322 then removed the last declarations and routed the download path
+through here.
 
 **What this module does NOT do.** It chooses no medium. Which kinds are
 operators is :func:`~nonogram.admin.book_pdf_generator.page_medium`'s single
 decision, read off
 :data:`~nonogram.admin.book_pdf_generator._RASTER_DECLARATIONS`, and a
 generator built here draws exactly the kinds that registry leaves undeclared.
-Composing an interior through this module therefore does **not** make the
-interior vector; lifting a declaration does, and this module is what stops
-that lift from being a refusal.
+Composing an interior through this module therefore does **not** itself make a
+kind vector; the registry does, and this module is what stops a vector kind
+from being refused for want of a writer.
 
 It also measures nothing and draws nothing: every figure a page is drawn from
 is the walk's own (ADR-0042/R3), and the four entries below are bindings, not

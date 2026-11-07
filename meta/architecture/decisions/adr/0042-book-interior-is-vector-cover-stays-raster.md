@@ -510,54 +510,42 @@ one remaining lever (width) for distinguishing furniture from grid ink.
 ```yaml
 - id: ADR-0042/R1
   statement: >-
-    Puzzle pages, answer pages, the table of contents and the guide are
-    written as PDF content-stream operators. None of those pages references
-    an image XObject, on any export path — the interior PDF, the proof sheet,
-    or any future one. The cover and the section dividers are the declared
-    raster exceptions and are governed by R2.
+    Puzzle pages, answer pages, the table of contents, the guide and the title
+    page of a book's interior PDF are written as PDF content-stream operators.
+    None of those pages references an image XObject, on any export path that
+    writes a book interior. The cover and the section dividers are the declared
+    raster exceptions and are governed by R2. The proof sheet
+    (`book_proof.render_proof_pdf`, a press-check export of two fixed fixtures)
+    is not a book interior and is outside this decision.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
-  check: {kind: review-lens}
-  # The test now EXISTS and is green:
+  check: {kind: test, ref: test_no_interior_page_carries_an_image_xobject}
+  # FLIPPED FROM review-lens by CARD-322, the card that removed the last five
+  # temporary entries from `_RASTER_DECLARATIONS` (TITLE, GUIDE, TOC, ANSWER,
+  # PUZZLE). The ref is the BARE test name, as R2's and R5's notes measured: a
+  # `file::name` node id reports as a dead ref (107 to 108 warnings).
   #   tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject
-  # **CARD-298 deliberately did NOT flip this check, and the reason is a
-  # measurement.** That test asserts the equivalence "every page is the medium
-  # its kind declares", page by page over the plan, and it is derived and
-  # default-DENY. It is NOT the statement above: as of CARD-298 every interior
-  # page kind is a DECLARED raster exception (see R2 and
-  # `book_pdf_generator._RASTER_DECLARATIONS`), so the sentence "puzzle pages,
-  # answer pages, the table of contents and the guide are written as PDF
-  # content-stream operators" is false of every book this product ships.
-  # Flipping the check would mark a rule as mechanically checked by a test that
-  # passes while the rule is violated — the exact defect repaired in `c12c33ce`
-  # and again in ADR-0032/R3, arrived at from the other direction.
+  # The test holds the statement and not only the registry: besides the
+  # page-by-page equivalence with `page_medium`, it asserts that no page of the
+  # written file other than a divider references an image XObject, with
+  # `test_a_bitmap_under_a_puzzle_page_reds_the_image_xobject_assertion` as the
+  # control that plants a bitmap under a PUZZLE page.
   #
-  # Three blockers, each measured by CARD-298, and the first is the one that
-  # fixes the ordering:
+  # **D3 (owner, 2026-11-06): the proof sheet is outside the decision.** The
+  # earlier statement said "...the interior PDF, the proof sheet, or any future
+  # one". CARD-118 builds the proof sheet as a press check over two frozen
+  # fixtures for the owner to print and measure (its title and body), and
+  # `book_proof`'s docstring says the same; it is not a book interior, and
+  # converting its writer was not bought by this ADR.
+  # `test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision` holds
+  # both halves of that, so the exclusion cannot go stale.
   #
-  #   1. **The readers.** `tests/helpers/pdf_pages.py` asserts "a book page is
-  #      exactly one image" and requires a DCTDecode XObject on EVERY page of
-  #      every book PDF; 60 call sites across 14 test modules read a book
-  #      interior through it. Converting the single cheapest page kind — the
-  #      blank title page, whose two media draw the same page by construction —
-  #      reds **59 failures and 53 errors, 112 cells**, in the impact-scoped set
-  #      alone (measured 2026-10-29 on this branch, `KeyError: b'XObject'` and
-  #      `'ContentStream' object has no attribute 'tobytes'`). That conversion
-  #      is R6's, owned by CARD-299. **So R1's own card depends on CARD-299 and
-  #      not the other way round**, which is the opposite of the order the
-  #      kanban cut them in.
-  #   2. **The puzzle page's furniture.** `book_puzzle_vector` draws no sheet
-  #      furniture at all — no folio, no frame rules, no grid-size label, no QR
-  #      block — which that module's own docstring raises as a gap "not drawn by
-  #      any card in the ADR-0042 phase". A vector puzzle page today prints with
-  #      no page number on it.
-  #   3. **The layering.** `book_guide_vector`, `book_toc_vector` and
-  #      `book_answer_vector` all import `book_pdf_generator` at module level,
-  #      so the interior's own page walk — which lives in that module — cannot
-  #      call three of the four vector page writers. The assembly point for a
-  #      vector interior is downstream of all of them and does not exist yet.
-  #
-  # Flip this check when the statement is true of a shipped interior, i.e. when
-  # the five temporary entries in `_RASTER_DECLARATIONS` are gone.
+  # The three blockers CARD-298 measured (the readers, the puzzle page's
+  # furniture, the layering) were cleared by CARD-299, CARD-306 and CARD-309,
+  # and are in those cards' notes. Declared residue the flip does NOT close
+  # (D1): no oracle checks a converted page's whole content; the slice cards'
+  # closing notes (CARD-356, CARD-357, CARD-360) carry the three declarations.
+  # Ink mode is recorded, not decided (D5): converted pages are DeviceGray
+  # only, see CARD-364.
   severity: mandatory
 - id: ADR-0042/R2
   statement: >-

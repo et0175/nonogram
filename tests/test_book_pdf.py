@@ -97,7 +97,7 @@ from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests import full_suite_lock
 from tests.helpers import pdf_vector
-from tests.helpers.page_ink import drawing_of, pdf_page_boxes
+from tests.helpers.page_ink import drawing_of, frame_centre_of, pdf_page_boxes
 from tests.helpers.pdf_pages import (
     PageMediumRefused,
     _derived_dpi,
@@ -315,8 +315,26 @@ def _mm(pixels: float) -> float:
 
 
 def _interior(book: Book, puzzles: list[dict]) -> list:
-    """The book's interior pages in print order; ``pages[n - 1]`` is page ``n``."""
-    return BookPDFGenerator(book).interior_pages(puzzles)
+    """The book's interior pages in print order; ``pages[n - 1]`` is page ``n``.
+
+    Every page as DEVICE PIXELS (CARD-322): the puzzle pages arrive as
+    operators under ADR-0042/R1 and ``interior_images`` rasterises them with
+    poppler at the page's own DPI, which is the domain the pixel instruments
+    below read (the same one-line seam CARD-329 put in the slice modules).
+    """
+    return interior_images(BookPDFGenerator(book).interior_pages(puzzles))
+
+
+def _frame_left(page) -> float:
+    """The drawing's LEFT BOUNDARY on ``page``, in device pixels.
+
+    The centre of the frame's left rule (``frame_centre_of``), not
+    ``Drawing.left``, which is the leading INK edge: half a rule off the
+    coordinate in one medium and 2.5 px in the other (CARD-336's measured
+    table in ``FrameCentre``). A claim about where the drawing is placed is a
+    claim about the boundary, in the one medium the interior now has.
+    """
+    return frame_centre_of(page, drawing_of(page)).frame_left
 
 
 # --------------------------------------------------------------------------
@@ -627,14 +645,14 @@ class TestBookPdf_DrawingCentredOnRightHandPage:
     def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[FIRST_PUZZLE_PAGE]  # interior page 7, right-hand
 
-        left_mm = _mm(drawing_of(page).left)
+        left_mm = _mm(_frame_left(page))
 
         assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_left(self):
         page = _mirrored_pages()[FIRST_PUZZLE_PAGE]
 
-        left_mm = _mm(drawing_of(page).left)
+        left_mm = _mm(_frame_left(page))
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
@@ -668,14 +686,14 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
     def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[FIRST_PUZZLE_PAGE - 1]  # interior page 6, left-hand (CARD-206)
 
-        left_mm = _mm(drawing_of(page).left)
+        left_mm = _mm(_frame_left(page))
 
         assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_right(self):
         page = _mirrored_pages()[FIRST_PUZZLE_PAGE - 1]
 
-        left_mm = _mm(drawing_of(page).left)
+        left_mm = _mm(_frame_left(page))
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
@@ -700,8 +718,8 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
         """
         pages = _mirrored_pages()
 
-        right_hand = drawing_of(pages[FIRST_PUZZLE_PAGE]).left
-        left_hand = drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left
+        right_hand = _frame_left(pages[FIRST_PUZZLE_PAGE])
+        left_hand = _frame_left(pages[FIRST_PUZZLE_PAGE - 1])
 
         assert abs(_mm(right_hand - left_hand) - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
 
@@ -860,12 +878,12 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        left_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
 
-        unequal_mm = _mm(drawing_of(self._unequal_pages()[FIRST_PUZZLE_PAGE - 1]).left)
+        unequal_mm = _mm(_frame_left(self._unequal_pages()[FIRST_PUZZLE_PAGE - 1]))
 
         assert abs(unequal_mm - self._unequal_expected_left_mm(right_hand=False)) < (
             EDGE_TOLERANCE_MM
@@ -886,7 +904,7 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        left_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
         spare = (BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM) - (7 + 15) * STANDARD_CELL_MM
 
         assert abs(OUTSIDE_MM - 12.7) < 1e-9, "the profile's outside margin is 0.5 in"
@@ -910,7 +928,7 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = self._unequal_pages()
 
-        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        left_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
         right_hand = self._unequal_expected_left_mm(right_hand=True)
         left_hand = self._unequal_expected_left_mm(right_hand=False)
 
@@ -939,7 +957,7 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        left_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
         right_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
         left_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
@@ -972,7 +990,7 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = self._unequal_pages(count=3)
 
-        lefts = [_mm(drawing_of(page).left) for page in pages[FIRST_PUZZLE_PAGE - 1 : FIRST_PUZZLE_PAGE + 2]]
+        lefts = [_mm(_frame_left(page)) for page in pages[FIRST_PUZZLE_PAGE - 1 : FIRST_PUZZLE_PAGE + 2]]
         expected = {
             hand: self._unequal_expected_left_mm(right_hand=hand) for hand in (True, False)
         }
@@ -1073,8 +1091,8 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         # height<=20) and the same tier, so CARD-202 packs them onto one
         # shared answer page, 9 — not two full pages.
         assert len(pages) == 9
-        first_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
-        second_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE]).left)
+        first_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
+        second_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE]))
 
         # Interior page 6 is left-hand, page 7 right-hand (CARD-206: the title
         # page flips the parity CARD-200's own version of this comment once
@@ -1120,8 +1138,8 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
             ],
         )
 
-        first_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
-        second_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE]).left)
+        first_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE - 1]))
+        second_mm = _mm(_frame_left(pages[FIRST_PUZZLE_PAGE]))
         expected = {
             hand: _expected_left_mm(
                 15,
@@ -1705,19 +1723,16 @@ def test_no_interior_page_carries_an_image_xobject() -> None:
     fails (it raises on anything that is not a
     :class:`~nonogram.admin.book_pdf_generator.PageKind`).
 
-    **What this measures today, stated plainly.** Every interior kind is
-    still declared raster at this commit — see :data:`_RASTER_DECLARATIONS`,
-    whose five temporary entries name their blockers and now all name
-    CARD-322 — so the *vector* arm of the equivalence is not exercised by
-    production's own default. It is exercised, through production's own
-    writer, by
-    :func:`test_no_interior_page_carries_an_image_xobject_in_a_mixed_file`
-    below, which lifts one declaration and watches a real mixed-media interior
-    come out, and by
-    :class:`TestAssemblyPoint_TheDownstreamWritersAreReachable`, which lifts
-    **all five** and watches a wholly vector interior come out. Without those
-    companions this test would be a true sentence about a file with no vector
-    page in it.
+    **What this measures, stated plainly (CARD-322 flipped ADR-0042/R1).**
+    Two things, under one node id. The equivalence above holds every page to
+    the medium its kind declares. And a REGISTRY-INDEPENDENT assertion holds
+    the statement itself: every page of the written file whose kind is not the
+    section divider (the cover is not in an interior) references no image
+    XObject, whatever :data:`_RASTER_DECLARATIONS` says. Without the second
+    half this test derives its expectation from :func:`page_medium` and would
+    pass with any registry, a bitmap puzzle page included, as long as the
+    registry declared it. Its control is
+    :func:`test_a_bitmap_under_a_puzzle_page_reds_the_image_xobject_assertion`.
 
     The expectation is read off :func:`page_medium` per page and is
     deliberately **not** a list of which kinds are vector: the registry is the
@@ -1752,6 +1767,71 @@ def test_no_interior_page_carries_an_image_xobject() -> None:
             f"interior page {index} is a {kind.value} page: its kind declares "
             f"{expected} and the file holds {medium}"
         )
+
+    # ADR-0042/R1 itself, with no registry in it: the written file's own
+    # resources say which pages reference an image.
+    data = generator.export_interior(puzzles).getvalue()
+    assert _image_xobject_findings(pdf_vector.page_resource_keys(data), kinds) == []
+    # Non-vacuity: the sweep really judged pages of the five converted kinds.
+    judged = {kind for kind in kinds if kind is not PageKind.DIVIDER}
+    assert judged >= {
+        PageKind.TITLE,
+        PageKind.GUIDE,
+        PageKind.TOC,
+        PageKind.PUZZLE,
+        PageKind.ANSWER,
+    }, sorted(kind.value for kind in judged)
+
+
+def _image_xobject_findings(keys, kinds) -> list[str]:
+    """Pages of ``kinds`` (parallel to ``keys``) that reference an image XObject,
+    other than the section divider -- the one interior page still a bitmap
+    (CARD-231 replaces it). Reads the file's resources and no registry."""
+    return [
+        f"page {index}: a {kind.value} page references an image XObject"
+        for index, (kind, resources) in enumerate(zip(kinds, keys, strict=True), start=1)
+        if kind is not PageKind.DIVIDER and "XObject" in resources
+    ]
+
+
+def test_a_bitmap_under_a_puzzle_page_reds_the_image_xobject_assertion(
+    monkeypatch,
+) -> None:
+    """The control for ``test_no_interior_page_carries_an_image_xobject``.
+
+    A PUZZLE page written as a bitmap, by declaring that kind raster for the
+    duration (the writer refuses a bitmap under a vector declaration, G-6, so
+    the declaration is the only way to put one in a file), must produce a
+    finding; the same plan written as operators must not. ``must_red`` is
+    asserted non-empty before the clean arm is trusted.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    generator = BookPDFGenerator(_book())
+    monkeypatch.setitem(
+        generator_module._RASTER_DECLARATIONS,
+        PageKind.PUZZLE,
+        RasterDeclaration(
+            reason="planted by a control", authority="CARD-322", expires_with=()
+        ),
+    )
+    bitmap = Image.new("L", (64, 64), 255)
+    planted = generator._write_pdf(
+        iter([bitmap]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+    ).getvalue()
+    must_red = _image_xobject_findings(
+        pdf_vector.page_resource_keys(planted), (PageKind.PUZZLE,)
+    )
+    assert must_red, "the plant did not put an image XObject under a PUZZLE page"
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.PUZZLE)
+    clean = generator._write_pdf(
+        iter([generator.vector_title_page(1)]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+    ).getvalue()
+    assert (
+        _image_xobject_findings(pdf_vector.page_resource_keys(clean), (PageKind.PUZZLE,))
+        == []
+    )
 
 
 def _ensure_declared(monkeypatch, *kinds: PageKind) -> None:
@@ -2359,12 +2439,15 @@ def test_no_declaration_outlives_the_cards_that_remove_it() -> None:
     temporary = {
         kind for kind, entry in _RASTER_DECLARATIONS.items() if entry.expires_with
     }
-    # A floor, deliberately NOT the count: the registry is the authority for
-    # how many exceptions there are, and a number restated beside the mapping
-    # is the drift CARD-261 found twice. All this needs is that there is
-    # something to judge, so that an emptiness below means "nothing stale"
-    # and not "nothing looked at".
-    assert len(temporary) >= 2, sorted(kind.value for kind in temporary)
+    # Re-derived by CARD-322, which removed the five interior entries: ONE
+    # temporary entry is left, the divider's (CARD-231 replaces the page), and
+    # it is named here because the floor is now the thing itself. The test
+    # needs there to be something to judge, so that an emptiness below means
+    # "nothing stale" and not "nothing looked at"; the day CARD-231 lands and
+    # removes the divider this reds, and the cell has to be re-derived to the
+    # permanent cover alone (its non-vacuity moves to the synthetic board of
+    # ``test_a_declaration_outliving_its_done_card_is_a_defect``).
+    assert temporary == {PageKind.DIVIDER}, sorted(kind.value for kind in temporary)
     assert _RASTER_DECLARATIONS[PageKind.COVER].expires_with == ()
 
     cards = _board_cards()
@@ -2392,61 +2475,82 @@ def test_no_declaration_outlives_the_cards_that_remove_it() -> None:
     assert findings == [], findings
 
 
-#: The card whose round wrote this cell, and the one id the registry must not
-#: name. Spelled out rather than derived, because what it pins is a decision
-#: and not a measurement: see the test below.
+#: The card the five interior declarations used to name, and the one the
+#: closing card used to be. CARD-322 removed the declarations; the cell below
+#: is the survivor of ``test_no_declaration_names_the_card_that_is_closing`` and
+#: ``test_the_registry_lost_nothing_and_five_entries_name_the_converting_card``,
+#: both retired under G-5's second exception (their subject, a registry that
+#: still declared the interior kinds raster and named CARD-322, no longer
+#: exists).
 _THE_CLOSING_CARD = "CARD-309"
-#: The card the five interior declarations were re-pointed at.
 _THE_CONVERTING_CARD = "CARD-322"
 
 
-def test_no_declaration_names_the_card_that_is_closing() -> None:
-    """CARD-309's AC-1 half that is bookkeeping, and it is load-bearing.
+def test_the_registry_declares_the_cover_and_the_divider_and_nothing_else() -> None:
+    """The flipped registry's shape, derived from the enum (CARD-322 item 5).
 
-    :func:`test_no_declaration_outlives_the_cards_that_remove_it` above reds
-    the day **every** card an entry names is ``done`` — so an entry still
-    naming :data:`_THE_CLOSING_CARD` reds on ``main`` the moment that card is
-    marked done, which is the merge gate and not the review. That cell cannot
-    be the control for this one: it reads the *board*, and while this card is
-    ``in_progress`` it passes with CARD-309 named all over the registry
-    (measured — planting ``("CARD-299", "CARD-309")`` back onto an entry
-    leaves it green). This is the cell that fails instead.
+    ``set(_RASTER_DECLARATIONS) == {COVER, DIVIDER}``, i.e. every other
+    :class:`PageKind` is vector by :func:`page_medium`'s default, and no entry
+    names a card that has finished (CARD-309, the assembly point) or the one
+    that removed the rest (CARD-322): an entry still naming either would red
+    ``test_no_declaration_outlives_the_cards_that_remove_it`` the day that card
+    is marked done, which is the merge gate and not the review.
 
-    **Why the re-point rather than the removal.** CARD-309 built ADR-0042/R1's
-    assembly point and measured the reader conversion that is left; the
-    measurement is in its Worktree notes and in each entry's ``reason``, and
-    it is larger than the card's AC-3 predicted. Its own body sanctions
-    exactly this outcome — *"if this card converts only some kinds ... it must
-    re-point the surviving entries at whatever card finishes the job, in the
-    same commit. Say which, explicitly."* — and
-    :data:`_THE_CONVERTING_CARD` is which.
-
-    Both directions, because "names no CARD-309" is also true of a registry
-    that names nobody at all.
+    Both directions, because "names no CARD-322" is also true of a registry
+    that names nobody at all: the divider's entry must name CARD-231 and the
+    cover's must be permanent.
     """
-    named = {
-        kind: entry.expires_with
-        for kind, entry in _RASTER_DECLARATIONS.items()
-        if entry.expires_with
+    assert _registry_shape_findings(_RASTER_DECLARATIONS) == []
+    for kind in set(PageKind) - {PageKind.COVER, PageKind.DIVIDER}:
+        assert page_medium(kind) is PageMedium.VECTOR, kind.value
+
+
+def _registry_shape_findings(registry) -> list[str]:
+    """Every way ``registry`` is not the flipped shape; empty means it is."""
+    findings: list[str] = []
+    if set(registry) != {PageKind.COVER, PageKind.DIVIDER}:
+        findings.append(f"declares {sorted(kind.value for kind in registry)}")
+    named = {kind: entry.expires_with for kind, entry in registry.items() if entry.expires_with}
+    if named != {PageKind.DIVIDER: ("CARD-231",)}:
+        findings.append(f"expiries are {named}")
+    cover = registry.get(PageKind.COVER)
+    if cover is None or cover.expires_with != ():
+        findings.append("the cover's exception is not permanent")
+    for card in (_THE_CLOSING_CARD, _THE_CONVERTING_CARD):
+        offenders = [k.value for k, e in registry.items() if card in e.expires_with]
+        if offenders:
+            findings.append(f"{offenders} still name {card}")
+    return findings
+
+
+def test_a_registry_that_is_not_the_flipped_shape_is_found() -> None:
+    """The survivor's plant: each way the shape can be lost reds it.
+
+    ``must_red`` is asserted non-empty for every plant before the real
+    registry is trusted, and the real registry is the clean arm.
+    """
+    real = dict(_RASTER_DECLARATIONS)
+    stand_in = RasterDeclaration(reason="plant", authority="plant", expires_with=())
+    plants = {
+        "an interior kind declared again": {**real, PageKind.PUZZLE: stand_in},
+        "the divider gone": {k: v for k, v in real.items() if k is not PageKind.DIVIDER},
+        "the cover gone": {k: v for k, v in real.items() if k is not PageKind.COVER},
+        "the cover given an expiry": {
+            **real,
+            PageKind.COVER: RasterDeclaration("plant", "plant", ("CARD-231",)),
+        },
+        "the divider naming the converting card": {
+            **real,
+            PageKind.DIVIDER: RasterDeclaration("plant", "plant", ("CARD-231", "CARD-322")),
+        },
+        "the divider naming the closed assembly card": {
+            **real,
+            PageKind.DIVIDER: RasterDeclaration("plant", "plant", ("CARD-309",)),
+        },
     }
-    assert len(named) >= 2, sorted(kind.value for kind in named)
-    offenders = sorted(
-        kind.value for kind, cards in named.items() if _THE_CLOSING_CARD in cards
-    )
-    assert offenders == [], offenders
-    # And the interior kinds really were re-pointed, so the registry is not
-    # merely silent about who removes them. The divider is excluded by name
-    # because its expiry is CARD-231's and always was (ADR-0042/R2, G-2).
-    interior = {
-        kind: cards for kind, cards in named.items() if kind is not PageKind.DIVIDER
-    }
-    assert len(interior) >= 4, sorted(kind.value for kind in interior)
-    unpointed = sorted(
-        kind.value
-        for kind, cards in interior.items()
-        if _THE_CONVERTING_CARD not in cards
-    )
-    assert unpointed == [], unpointed
+    for label, registry in plants.items():
+        assert _registry_shape_findings(registry), label
+    assert _registry_shape_findings(real) == []
 
 
 class TestRasterDeclarations_TheCommentAgreesWithTheRegistry:
@@ -2661,36 +2765,6 @@ class TestRasterDeclarations_TheCommentAgreesWithTheRegistry:
                 "the comment claims a removal the registry cannot show "
                 f"({claims}); every PageKind is still declared raster"
             )
-
-    def test_the_registry_lost_nothing_and_five_entries_name_the_converting_card(
-        self,
-    ) -> None:
-        """The shape the corrected paragraph asserts, derived from the enum.
-
-        Seven is not written here as a number: it is
-        ``set(PageKind) == set(_RASTER_DECLARATIONS)``, i.e. **no page kind has
-        converted**, which is the fact "CARD-309 removed no entry" rests on.
-        Five is written once, beside a second derivation that writes no number
-        at all, because the paragraph writes "five" and a figure a comment
-        states is a figure a cell owes.
-        """
-        kinds = set(PageKind)
-        declared = set(_RASTER_DECLARATIONS)
-        assert declared == kinds, sorted(kind.value for kind in kinds ^ declared)
-        re_pointed = {
-            kind
-            for kind, entry in _RASTER_DECLARATIONS.items()
-            if _THE_CONVERTING_CARD in entry.expires_with
-        }
-        assert re_pointed == declared - {PageKind.COVER, PageKind.DIVIDER}, sorted(
-            kind.value for kind in re_pointed
-        )
-        assert len(re_pointed) == 5, sorted(kind.value for kind in re_pointed)
-        assert [
-            kind.value
-            for kind, entry in _RASTER_DECLARATIONS.items()
-            if _THE_CLOSING_CARD in entry.expires_with
-        ] == []
 
     def test_the_reading_catches_the_claims_and_spares_the_honest_sentences(
         self,
@@ -3247,22 +3321,25 @@ def _corpus_books():
     return cases
 
 
-def test_PropertyTest_Interior_NoVectorPageCarriesABitmap(monkeypatch) -> None:
+def test_PropertyTest_Interior_NoVectorPageCarriesABitmap() -> None:
     """EC(ADR-0042/R1) — swept over a seeded corpus of books.
 
-    Nine books over three trims and three puzzle counts, each exported
-    **twice**: once with the declarations as they ship (every interior kind a
-    bitmap) and once with the title page's declaration lifted, which is the
-    only kind that can go vector at this commit and so the only way this
-    property can be swept over a page that is actually operators.
+    Nine books over three trims and three puzzle counts, each exported once as
+    it ships. Since CARD-322 flipped the rule there is ONE arm: every interior
+    kind but the divider is vector, so the sweep sees both media in the same
+    file, and the floor is asserted **per medium** because a corpus that lost
+    its divider pages would otherwise still clear a total.
+
+    Re-derived at CARD-322 (G-4: derived, never lowered), by walking the
+    corpus: 98 vector pages (9 title, 18 guide, 9 TOC, 33 puzzle, 29 answer)
+    and 30 raster pages, all of them section dividers. The vector floor keeps
+    the 90 the raster arm used to carry; the raster floor is the divider
+    count. The pre-flip second arm (lift the title page, the one kind that
+    could go vector) described a state that no longer exists and is gone.
 
     The minimum case count is asserted inside the test, as this tree's
-    property tests do, so the corpus cannot silently shrink — and it is
-    asserted **per arm**, because a corpus that lost its vector arm would
-    otherwise still clear a total.
+    property tests do, so the corpus cannot silently shrink.
     """
-    import nonogram.admin.book_pdf_generator as generator_module
-
     vector_pages = 0
     raster_pages = 0
     books = 0
@@ -3279,38 +3356,16 @@ def test_PropertyTest_Interior_NoVectorPageCarriesABitmap(monkeypatch) -> None:
             else:
                 raster_pages += 1
                 assert medium == _RASTER, (label, index, kind.value)
+                # The registry-independent half: the only bitmap in an
+                # interior is a section divider (ADR-0042/R1 and R2).
+                assert kind is PageKind.DIVIDER, (label, index, kind.value)
 
     assert books == 9, books
-    assert raster_pages >= 90, raster_pages
-    # As it ships, no interior page is of a vector kind — which is why the
-    # arm below exists rather than this figure being left to read as a sweep.
-    assert vector_pages == 0, vector_pages
-
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
-    mixed_vector = 0
-    mixed_raster = 0
-    for label, generator, puzzles in _corpus_books():
-        by_kind, kinds, media = _media_by_kind(generator, puzzles)
-        for index, (kind, medium) in enumerate(
-            zip(kinds, media, strict=True), start=1
-        ):
-            assert medium != _UNCLASSIFIABLE, (label, index, kind.value)
-            if page_medium(kind) is PageMedium.VECTOR:
-                mixed_vector += 1
-                assert medium == _VECTOR, (label, index, kind.value)
-            else:
-                mixed_raster += 1
-                assert medium == _RASTER, (label, index, kind.value)
-
-    # One title page per book, so the vector arm is nine pages — the floor is
-    # the corpus size, not a number chosen to be clearable.
-    assert mixed_vector >= 9, mixed_vector
-    assert mixed_raster >= 90, mixed_raster
+    assert vector_pages >= 90, vector_pages
+    assert raster_pages >= 30, raster_pages
 
 
-def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages(
-    monkeypatch,
-) -> None:
+def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages() -> None:
     """EC(ADR-0042/R2) — the two sets are equal, **neither direction slack**.
 
     Over the same corpus: the set of page kinds the file wrote as bitmaps is
@@ -3318,13 +3373,12 @@ def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages(
     inclusions are asserted separately so the message says which way it broke
     — a bitmap nobody declared, or a declaration whose page is no longer one.
 
-    The second arm lifts the title page's declaration so that the equality is
-    swept over a plan where the two sets genuinely differ from the set of all
-    kinds, rather than over nine books in which every kind is declared and
-    the equality holds for the least interesting reason.
+    After CARD-322 that set is the section divider alone in an interior (the
+    cover is not in one), which is asserted by name so the equality cannot
+    hold for the least interesting reason. The pre-flip second arm lifted the
+    title page's declaration to make the sets differ from the set of all
+    kinds; the sets differ from it now without a lift.
     """
-    import nonogram.admin.book_pdf_generator as generator_module
-
     def arm() -> int:
         swept = 0
         for label, generator, puzzles in _corpus_books():
@@ -3343,14 +3397,11 @@ def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages(
                 "a declared kind this plan wrote as operators",
                 sorted(k.value for k in declared_here - written_raster),
             )
+            assert written_raster == {PageKind.DIVIDER}, (label, written_raster)
             assert _declaration_findings(by_kind) == [], label
             swept += 1
         return swept
 
-    assert arm() == 9
-
-    _ensure_declared(monkeypatch, PageKind.TITLE)  # CARD-379: lift from present
-    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
     assert arm() == 9
 
 
@@ -3657,6 +3708,16 @@ def _imported_names(source: str) -> set[str]:
     return {name for name in names if name.split(".")[0] == "nonogram"}
 
 
+def _assembly_point_importers(sources: dict[str, str]) -> list[str]:
+    """Every module of ``sources`` (name -> text), other than the assembly point
+    itself, that imports it at any depth. Pure, so a plant can drive it."""
+    return sorted(
+        name
+        for name, text in sources.items()
+        if name != _ASSEMBLY_POINT and _ASSEMBLY_POINT in _imported_names(text)
+    )
+
+
 class TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden:
     """AC-5's structural half, by AST over the package on disk.
 
@@ -3667,8 +3728,11 @@ class TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden:
     #. the generator imports **none** of the three writers that import it —
        at any depth, so a function-body import is caught;
     #. the assembly point imports **all three** and the generator;
-    #. **nothing in the package imports the assembly point**, so it is a leaf
-       and no module can reach the writers back through it.
+    #. **exactly one module in the package imports the assembly point,
+       ``nonogram.admin.app``** (CARD-322, D8: the one site that writes an
+       interior), so no module the writers import can reach them back through
+       it. Before CARD-322 the assembly point was a leaf; the claim is now
+       "one importer, and it is the application's top".
 
     The third is the one a reader is most likely to think unnecessary. It is
     the load-bearing one: without it a later card could import the assembly
@@ -3716,15 +3780,47 @@ class TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden:
         assert "nonogram.admin.book_pdf_generator" in imported, sorted(imported)
 
     def test_nothing_in_the_package_imports_the_assembly_point(self) -> None:
+        """The leaf test, re-pointed by CARD-322 (D8): ``app`` is the one importer.
+
+        The name is kept (G-5); the claim is now "the importers are exactly
+        ``["nonogram.admin.app"]``", derived by :func:`_assembly_point_importers`
+        over every module of the package on disk.
+        """
         modules = _package_modules()
         assert _ASSEMBLY_POINT in modules, sorted(modules)
-        importers = sorted(
-            name
-            for name, path in modules.items()
-            if name != _ASSEMBLY_POINT
-            and _ASSEMBLY_POINT in _imported_names(path.read_text(encoding="utf-8"))
+        importers = _assembly_point_importers(
+            {name: path.read_text(encoding="utf-8") for name, path in modules.items()}
         )
-        assert importers == [], importers
+        assert importers == ["nonogram.admin.app"], importers
+
+    def test_a_second_importer_of_the_assembly_point_is_found(self) -> None:
+        """The plant for the leaf test: another module imports the assembly point.
+
+        Planted as source text, in both shapes (top level, and the function
+        body that hides a cycle), so nothing is written into the tree. An
+        importer reading that returned only ``app`` whatever it was handed
+        would pass the cell above; this is the cell that says it cannot.
+        """
+        sources = {
+            "nonogram.admin.app": f"from {_ASSEMBLY_POINT} import interior_generator\n",
+            "nonogram.admin.other_top": f"import {_ASSEMBLY_POINT}\n",
+            "nonogram.admin.other_body": (
+                "def f():\n"
+                f"    from {_ASSEMBLY_POINT} import DOWNSTREAM_WRITERS\n"
+            ),
+            "nonogram.admin.innocent": "import math\n",
+            _ASSEMBLY_POINT: "import math\n",
+        }
+        found = _assembly_point_importers(sources)
+        assert found == [
+            "nonogram.admin.app",
+            "nonogram.admin.other_body",
+            "nonogram.admin.other_top",
+        ], found
+        # And with only the legitimate importer present the cell's own answer holds.
+        assert _assembly_point_importers(
+            {"nonogram.admin.app": sources["nonogram.admin.app"]}
+        ) == ["nonogram.admin.app"]
 
     def test_the_import_reading_finds_a_planted_edge_at_any_depth(self) -> None:
         """The control :meth:`_imported_names` owes, in both shapes.
@@ -3745,6 +3841,283 @@ class TestAssemblyPoint_TheDirectionIsResolvedAndNotHidden:
         assert "nonogram.admin.book_guide_vector" in _imported_names(top_level)
         assert "nonogram.admin.book_toc_vector" in _imported_names(in_a_body)
         assert _imported_names(plain_module) == set()
+
+
+def _generator_calls(source: str) -> list[tuple[str, int, str, str]]:
+    """Every ``BookPDFGenerator(`` call in ``source`` as ``(kind, line, scope, shape)``.
+
+    ``kind`` is ``"call"`` for a recognised call and ``"unclassified"`` for a
+    shape this reading cannot analyse: a starred positional or ``**`` keyword
+    (it may carry ``pages`` and the reader cannot see), or the name used as a
+    value that is not a call's callee (``factory = BookPDFGenerator``), which
+    could be called later with anything. ``scope`` is the innermost enclosing
+    function's name (``""`` at module level). ``shape`` is ``"no-pages"`` or
+    ``"pages"``. ADR-0039/R2: a shape it cannot classify is a FAILURE for the
+    caller, never a pass.
+    """
+    tree = ast.parse(source)
+    parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+
+    def scope_of(node: ast.AST) -> str:
+        while node in parents:
+            node = parents[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return node.name
+        return ""
+
+    def is_generator(node: ast.AST) -> bool:
+        return (isinstance(node, ast.Name) and node.id == "BookPDFGenerator") or (
+            isinstance(node, ast.Attribute) and node.attr == "BookPDFGenerator"
+        )
+
+    found: list[tuple[str, int, str, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and is_generator(node.func):
+            starred = any(isinstance(a, ast.Starred) for a in node.args) or any(
+                k.arg is None for k in node.keywords
+            )
+            if starred:
+                found.append(("unclassified", node.lineno, scope_of(node), "starred"))
+                continue
+            passes = len(node.args) >= 2 or any(k.arg == "pages" for k in node.keywords)
+            found.append(
+                ("call", node.lineno, scope_of(node), "pages" if passes else "no-pages")
+            )
+        elif is_generator(node):
+            parent = parents.get(node)
+            as_callee = isinstance(parent, ast.Call) and parent.func is node
+            # An import alias, an annotation, a class-body reference and a
+            # ``isinstance`` second argument are not constructions.
+            def in_annotation(start: ast.AST) -> bool:
+                child, cursor = start, parents.get(start)
+                while cursor is not None:
+                    if isinstance(cursor, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        return cursor.returns is child
+                    if isinstance(cursor, ast.arg):
+                        return cursor.annotation is child
+                    if isinstance(cursor, ast.AnnAssign):
+                        return cursor.annotation is child
+                    if isinstance(cursor, (ast.stmt, ast.Call)):
+                        return False
+                    child, cursor = cursor, parents.get(cursor)
+                return False
+
+            harmless = in_annotation(node) or isinstance(
+                parent, (ast.alias, ast.ImportFrom)
+            ) or (
+                isinstance(parent, ast.Call)
+                and isinstance(parent.func, ast.Name)
+                and parent.func.id in {"isinstance", "issubclass"}
+            ) or (isinstance(parent, ast.Attribute) and parent.value is node)
+            if not as_callee and not harmless and isinstance(node, ast.Name):
+                found.append(("unclassified", node.lineno, scope_of(node), "alias"))
+    return sorted(found, key=lambda row: row[1])
+
+
+def _assembled_calls(source: str) -> list[tuple[int, str]]:
+    """``(line, scope)`` of every ``interior_generator(`` call in ``source``."""
+    tree = ast.parse(source)
+    parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+    rows: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = node.func
+        named = (isinstance(callee, ast.Name) and callee.id == "interior_generator") or (
+            isinstance(callee, ast.Attribute) and callee.attr == "interior_generator"
+        )
+        if named:
+            scope, cursor = "", node
+            while cursor in parents:
+                cursor = parents[cursor]
+                if isinstance(cursor, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    scope = cursor.name
+                    break
+            rows.append((node.lineno, scope))
+    return sorted(rows)
+
+
+def _construction_findings(sources: dict[str, str]) -> list[str]:
+    """D8 as a finding list over ``{module: text}``; empty means it holds.
+
+    * every ``BookPDFGenerator(`` passes no ``pages`` -- except
+      ``interior_generator``'s own call inside ``book_interior_vector``;
+    * ``interior_generator(`` is called from exactly one place in the package,
+      ``_export_part`` in ``nonogram.admin.app`` (the writing site);
+    * a ``BookPDFGenerator`` shape this reading cannot classify is a finding.
+    """
+    findings: list[str] = []
+    assembled: list[tuple[str, str]] = []
+    for module, text in sorted(sources.items()):
+        for kind, line, scope, shape in _generator_calls(text):
+            if kind == "unclassified":
+                findings.append(f"{module}:{line} unclassifiable ({shape})")
+            elif shape == "pages" and not (
+                module == _ASSEMBLY_POINT and scope == "interior_generator"
+            ):
+                findings.append(f"{module}:{line} ({scope or 'module'}) passes pages")
+        if module != _ASSEMBLY_POINT:
+            assembled += [(module, scope) for _, scope in _assembled_calls(text)]
+    if assembled != [("nonogram.admin.app", "_export_part")]:
+        findings.append(f"interior_generator( is called from {assembled}")
+    return findings
+
+
+class TestAssemblyPoint_OnlyTheWritingSiteIsAssembled:
+    """D8 (CARD-322 item 3): by ``ast`` over ``src/``, every other site keeps the deny."""
+
+    def test_every_other_construction_site_passes_no_pages(self) -> None:
+        modules = _package_modules()
+        sources = {name: path.read_text(encoding="utf-8") for name, path in modules.items()}
+        assert _construction_findings(sources) == []
+        # Non-vacuity: the reading really sees the sites it is about.
+        seen = [
+            (name, scope)
+            for name, text in sorted(sources.items())
+            for kind, _, scope, shape in _generator_calls(text)
+            if kind == "call" and shape == "no-pages"
+        ]
+        assert ("nonogram.admin.book_pdf_generator", "puzzle_page_plan") in seen, seen
+        assert any(name == "nonogram.admin.app" for name, _ in seen), seen
+
+    def test_the_reading_fails_on_each_shape_it_must(self) -> None:
+        """Each plant is a source text that must produce a finding."""
+        clean_app = (
+            "def _export_part(book):\n"
+            "    return interior_generator(book)\n"
+            "def plan(book):\n"
+            "    return BookPDFGenerator(book)\n"
+        )
+        base = {"nonogram.admin.app": clean_app}
+        assert _construction_findings(base) == []
+        plants = {
+            "a pages keyword": "def f(b):\n    return BookPDFGenerator(b, pages=W)\n",
+            "a positional pages": "def f(b):\n    return BookPDFGenerator(b, W)\n",
+            "a **kwargs": "def f(b, **k):\n    return BookPDFGenerator(b, **k)\n",
+            "a *args": "def f(a):\n    return BookPDFGenerator(*a)\n",
+            "an alias": "make = BookPDFGenerator\ndef f(b):\n    return make(b)\n",
+            "an attribute call with pages": (
+                "def f(b):\n    return m.BookPDFGenerator(b, pages=W)\n"
+            ),
+        }
+        for label, text in plants.items():
+            assert _construction_findings({**base, "nonogram.admin.x": text}), label
+        # A second interior_generator( caller, and the writing site losing it.
+        second = "def g(b):\n    return interior_generator(b)\n"
+        assert _construction_findings({**base, "nonogram.admin.x": second})
+        assert _construction_findings(
+            {"nonogram.admin.app": "def _export_part(b):\n    return BookPDFGenerator(b)\n"}
+        )
+        # The assembly point's own construction is the one allowed `pages` call.
+        own = (
+            "def interior_generator(book=None, pages=None):\n"
+            "    return BookPDFGenerator(book, pages=W)\n"
+        )
+        assert _construction_findings({**base, _ASSEMBLY_POINT: own}) == []
+        # ...and only inside that function.
+        assert _construction_findings(
+            {**base, _ASSEMBLY_POINT: own.replace("interior_generator", "elsewhere")}
+        )
+
+
+class TestShippedDefault_TheTestTreesRebindDoesNotHideIt:
+    """CARD-322 item 1, check 2: the default the PRODUCT ships is still deny.
+
+    ``tests/conftest.py`` rebinds ``NO_DOWNSTREAM_WRITERS`` for the whole
+    session, so the tree no longer exercises the shipped default; these cells
+    are what replace that. Each one restores the shipped default for its own
+    duration (``monkeypatch``), so what it reads is the constructor reading
+    the module global, with the product's value in it. The reference is
+    ``tests.conftest.SHIPPED_DEFAULT_WRITERS``, captured at conftest import
+    before any fixture could touch it, and it is compared with a LITERAL (all
+    four fields ``None``) so a ``src/`` change that ships an assembled default
+    cannot move the reference with it.
+    """
+
+    NODE = (
+        "tests/test_book_pdf.py::TestShippedDefault_TheTestTreesRebindDoesNotHideIt"
+        "::test_the_shipped_default_is_still_deny"
+    )
+
+    def test_the_shipped_default_is_still_deny(self, monkeypatch) -> None:
+        import dataclasses
+
+        import nonogram.admin.book_pdf_generator as generator_module
+        from tests.conftest import SHIPPED_DEFAULT_WRITERS
+
+        fields = {
+            f.name: getattr(SHIPPED_DEFAULT_WRITERS, f.name)
+            for f in dataclasses.fields(SHIPPED_DEFAULT_WRITERS)
+        }
+        assert set(fields) == {"guide", "toc", "answer", "packed_answer"}, fields
+        assert all(value is None for value in fields.values()), (
+            "the shipped default writer set carries a writer: " + repr(fields)
+        )
+        # The session fixture's rebind is in force here; restore the shipped
+        # value for this test and read what a bare generator then holds.
+        monkeypatch.setattr(
+            generator_module, "NO_DOWNSTREAM_WRITERS", SHIPPED_DEFAULT_WRITERS
+        )
+        assert BookPDFGenerator(_book()).pages is SHIPPED_DEFAULT_WRITERS
+        # And a bare generator still refuses a guide page rather than drawing
+        # it (no registry edit needed: GUIDE is vector once CARD-322 lands).
+        with pytest.raises(ValueError, match="guide page is written as operators"):
+            BookPDFGenerator(_book()).export_interior([])
+
+    def test_a_shipped_default_that_carries_writers_reds_the_pin(self, tmp_path) -> None:
+        """The plant: ``src/`` ships an assembled default, in a COPY of the tree.
+
+        The copy gets two lines appended that rebind the default to the
+        assembly point's set, and the pin is run in a child pytest whose
+        ``pythonpath`` is the copy. ``must_red`` is asserted first: the same
+        child against an UNMUTATED copy must pass, so the red below is the
+        plant's and not the child's environment.
+        """
+        import shutil
+        import subprocess
+        import sys
+
+        root = pathlib.Path(__file__).resolve().parents[1]
+
+        def child(label: str, mutate: bool) -> subprocess.CompletedProcess:
+            tree = tmp_path / label
+            shutil.copytree(
+                root / "src", tree, ignore=shutil.ignore_patterns("__pycache__")
+            )
+            if mutate:
+                target = tree / "nonogram" / "admin" / "book_pdf_generator.py"
+                target.write_text(
+                    target.read_text(encoding="utf-8")
+                    + "\nfrom nonogram.admin.book_interior_vector import "
+                    "DOWNSTREAM_WRITERS as _PLANT\nNO_DOWNSTREAM_WRITERS = _PLANT\n",
+                    encoding="utf-8",
+                )
+            return subprocess.run(
+                [sys.executable, "-m", "pytest", self.NODE, "-p", "no:cacheprovider",
+                 "-o", f"pythonpath={tree}", "-q", "-rEfs"],
+                cwd=root, capture_output=True, text=True, timeout=600,
+            )
+
+        control = child("control", mutate=False)
+        assert control.returncode == 0, control.stdout[-1500:]
+        planted = child("planted", mutate=True)
+        assert planted.returncode == 1, planted.stdout[-1500:]
+        assert "carries a writer" in planted.stdout, planted.stdout[-1500:]
+
+
+def test_an_ordinary_test_sees_the_assembled_default() -> None:
+    """The other half of the seam: with no restore, a bare generator is assembled."""
+    from nonogram.admin import book_interior_vector
+
+    assert (
+        BookPDFGenerator(_book()).pages is book_interior_vector.DOWNSTREAM_WRITERS
+    )
 
 
 class TestAssemblyPoint_TheDownstreamWritersAreReachable:
@@ -3771,11 +4144,14 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
     #: joining the registry is swept here instead of silently skipped.
     @staticmethod
     def _interior_kinds() -> list[PageKind]:
+        # CARD-322: derived from the enum and not from the registry. The five
+        # interior kinds are vector by default now, so no declaration is left
+        # to read them off; the cover and the divider are the bitmaps.
         return sorted(
             (
                 kind
-                for kind, entry in _RASTER_DECLARATIONS.items()
-                if entry.expires_with and kind is not PageKind.DIVIDER
+                for kind in PageKind
+                if kind not in (PageKind.COVER, PageKind.DIVIDER)
             ),
             key=lambda kind: kind.value,
         )
@@ -3806,8 +4182,7 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
         # to reach, so the equivalence below is not about a single page.
         assert len(lifted) >= 4, [kind.value for kind in lifted]
         for kind in lifted:
-            monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, kind)
-            assert page_medium(kind) is PageMedium.VECTOR
+            assert page_medium(kind) is PageMedium.VECTOR, kind.value
 
         puzzles = self._puzzles()
         generator = assembly.interior_generator(_book())
@@ -3831,9 +4206,6 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
 
         import nonogram.admin.book_interior_vector as assembly
         import nonogram.admin.book_pdf_generator as generator_module
-
-        for kind in self._interior_kinds():
-            monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, kind)
 
         used: dict[str, int] = {}
 
@@ -5951,17 +6323,35 @@ class TestPdfPagesReader_ARasterPageIsUnchanged:
             _old_one_image_reader(data)
         )
 
-    def test_every_raster_page_of_a_whole_book_is_unchanged(self) -> None:
-        """The interior too, not just the one-page cover: on `main` every
-        interior page is a bitmap, so this is the regression AC-2 names."""
+    @staticmethod
+    def _the_books_raster_pages_as_a_file() -> bytes:
+        """A whole book's interior, reduced to the pages that are still bitmaps.
+
+        CARD-322: an interior is no longer all-raster, so the one-image
+        reference reader cannot read the interior file itself. The bitmaps a
+        whole book still writes (the section dividers) are taken out of the
+        walk as the page objects it yields and written as a file of their own
+        through the same writer, so the claim stays about the book's own raster
+        pages and the reference reader is not asked to read an operators page.
+        """
         book = _book()
-        export = BookPDFGenerator(book).export_book(
-            [_puzzle(10, 10, 2, name="A"), _puzzle(12, 12, 2, name="B")],
-            book.metadata.title,
+        generator = BookPDFGenerator(book)
+        pages = generator.interior_pages(
+            [_puzzle(10, 10, 2, name="A"), _puzzle(12, 12, 2, name="B")]
         )
-        data = export.interior.getvalue()
+        bitmaps = [page for page in pages if isinstance(page, Image.Image)]
+        return generator._write_pdf(
+            iter(bitmaps),
+            len(bitmaps),
+            mode="L",
+            kinds=(PageKind.DIVIDER,) * len(bitmaps),
+        ).getvalue()
+
+    def test_every_raster_page_of_a_whole_book_is_unchanged(self) -> None:
+        """The interior's raster pages: after CARD-322 these are the dividers."""
+        data = self._the_books_raster_pages_as_a_file()
         reference = _old_one_image_reader(data)
-        assert len(reference) > 5, f"only {len(reference)} pages compared"
+        assert len(reference) >= 2, f"only {len(reference)} pages compared"
         assert [page.tobytes() for page in pdf_pages(data)] == reference
 
     def test_a_live_raster_page_is_handed_back_as_the_very_same_object(
@@ -5984,8 +6374,8 @@ class TestPdfPagesReader_ARasterPageIsUnchanged:
             [_puzzle(10, 10, 2, name="Raster")], book.metadata.title
         )
         cover = _old_one_image_reader(export.cover.getvalue())
-        interior = _old_one_image_reader(export.interior.getvalue())
-        assert cover != interior[:1]
+        dividers = _old_one_image_reader(self._the_books_raster_pages_as_a_file())
+        assert cover != dividers[:1]
 
 
 #: CARD-329 AC-3, population A's filter, as code: a module is in A when its

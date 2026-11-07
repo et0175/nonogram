@@ -557,70 +557,45 @@ class RasterDeclaration:
     expires_with: Tuple[str, ...] = ()
 
 
-#: The **whole** of ADR-0042/R2's declared set, keyed by page kind.
+#: The **whole** of ADR-0042/R2's declared set, keyed by page kind: the two
+#: pages that are still a bitmap, and nothing else.
 #:
-#: **Two of these are the ADR's own; the rest are CARD-298's findings, and
-#: CARD-309 removed no entry.** The cover is permanent — "a cover is a
-#: photograph and raster is the right representation for it" — and the section
-#: divider is scheduling rather than technique: CARD-231 redesigns the page
-#: outright and "the new design can be born vector instead", so converting
-#: today's one-word page is throwaway work. Those two are the pair
-#: ADR-0042/R2 names.
+#: **The cover is permanent** -- "a cover is a photograph and raster is the
+#: right representation for it" -- and **the section divider is scheduling
+#: rather than technique**: CARD-231 redesigns the page outright and "the new
+#: design can be born vector instead", so converting today's one-word page is
+#: throwaway work. Those two are the pair ADR-0042/R2 names.
 #:
-#: The rest are the interior kinds the ADR means to be vector and which
-#: measurably cannot be yet. **Read their reasons rather than their count**:
-#: they are not "not converted yet", they are named blockers, and the count of
-#: this mapping is the one honest reading of how far ADR-0042/R1 has actually
-#: got.
+#: **CARD-322 removed five entries**, the title, guide, TOC, answer and puzzle
+#: kinds, when it flipped ADR-0042/R1: every interior page of those kinds is
+#: written as PDF content-stream operators on every export path, through
+#: ``nonogram.admin.book_interior_vector``. The reasons those entries carried
+#: (a reader conversion still owed, a placed-edge convention still undecided)
+#: were cleared by the slice cards and by CARD-322 itself, and are in git and
+#: in those cards' notes, not here: a declaration that names a blocker which
+#: has been cleared reads as further from done than it is.
 #:
-#: **What CARD-309 did to this mapping, and what it did not.** It built
-#: ADR-0042/R1's assembly point, **converted nothing**, and **re-pointed five
-#: entries** from itself at CARD-322 — the comment on the first of them below
-#: says why, and each ``reason`` records which blocker is cleared and which
-#: remains. **The mapping did not shrink.** Two earlier sentences in these
-#: lines asserted that this card had taken an entry out of it; review cycle 1
-#: re-derived the registry and measured both false — and the second of them
-#: cited CARD-261's drift precedent as its own justification while being that
-#: drift. The verbatim pair, and the diff that shows nothing was taken out,
-#: are in CARD-309's ``## Worktree notes``; they are not reproduced here,
-#: because a false claim quoted in the comment it was removed from is a claim
-#: the next reader has to re-adjudicate.
-#:
-#: That history is why **no count of the live mapping is written here**: a
-#: number in a comment nobody re-reads is exactly what goes stale when the
-#: mapping *does* shrink. The re-pointing above is a **finished, past** fact
-#: about one card and so cannot drift. The live shape is pinned where it can
-#: be checked instead, by ``tests/test_book_pdf.py``'s
+#: No count of the live mapping is written here. A number in a comment nobody
+#: re-reads is what goes stale when the mapping changes again (CARD-261 found
+#: it twice), so the live shape is pinned where it can be checked: by
+#: ``tests/test_book_pdf.py``'s
 #: ``TestRasterDeclarations_TheCommentAgreesWithTheRegistry``, which holds
-#: these lines to the mapping in **both** directions — it reds on a prose
-#: claim of a removal the registry cannot show, **and** on a registry that has
-#: lost an entry while these lines still claim nothing was taken out.
+#: these lines to the mapping in both directions.
 #:
 #: **Each entry names the cards that between them remove it, and the shrink is
-#: guarded in two directions — neither of which alone is the whole claim.**
+#: guarded in two directions.**
 #: ``test_a_declaration_whose_reason_expired_is_a_defect`` reds the day a kind
 #: goes vector and its entry stays (the CONVERSION direction);
 #: ``test_a_declaration_outliving_its_done_card_is_a_defect`` reds the day the
 #: last card named in an ``expires_with`` reaches ``done`` and the entry is
 #: still here (the LANDING direction, which is the direction ADR-0042/R2's own
-#: clause is written in — "once CARD-231 lands, the divider's exception goes
-#: with it"). The second was **added by CARD-298's fix round 1**: before it,
-#: this comment claimed AC-3's expiry check "exists to force" the shrink, and
-#: that was half the truth — review cycle 1 measured that the finding fires
-#: only on ``declaration is not None and _RASTER not in media``, i.e. only
-#: when a page's medium actually changed, so a card could close without
-#: converting its page and five entries would go silently stale.
-#:
-#: **The bound both directions leave.** Reading a card file tells you the card
-#: is *done*; it does not tell you the conversion happened. A done card that
-#: converted nothing reds here (the landing direction), a conversion whose
-#: card is still open reds there (the conversion direction) — and a card
-#: wrongly *marked* done still reds, because the board is the authority for
-#: "done" and nothing else in this tree claims to be.
+#: clause is written in -- "once CARD-231 lands, the divider's exception goes
+#: with it"). Reading a card file tells you the card is *done*; it does not
+#: tell you the conversion happened, which is why there are two.
 #:
 #: **Nothing else may be a bitmap.** :func:`page_medium` returns ``VECTOR``
 #: for every kind absent from this mapping, so a new page kind is vector by
-#: default and a kind that wants to be a bitmap has to say why here — which is
+#: default and a kind that wants to be a bitmap has to say why here -- which is
 #: the direction ADR-0042/R2 asks for and the opposite of a vector allow-list.
 _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
     PageKind.COVER: RasterDeclaration(
@@ -638,126 +613,6 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
         ),
         authority="owner decision 2026-10-25, recorded in ADR-0042/R2",
         expires_with=("CARD-231",),
-    ),
-    # **CARD-309 built the assembly point and did NOT convert a kind.** Its
-    # AC-1 asked for PageKind.PUZZLE's entry to go; the card measured why it
-    # cannot go yet and re-pointed all five entries at CARD-322 instead, which
-    # is the second of the two things its own body sanctions ("if this card
-    # converts only some kinds ... it must re-point the surviving entries at
-    # whatever card finishes the job, in the same commit. Say which,
-    # explicitly."). The measurement is in CARD-309's Worktree notes and in
-    # PUZZLE's reason below. What the card DID ship is the thing that was
-    # missing: the walk above now reaches all four downstream writers
-    # (`InteriorPageWriters`, `nonogram.admin.book_interior_vector`), so no
-    # entry below names an assembly point any more.
-    #
-    # **Why five entries changed card rather than going.** CARD-309 was SPLIT
-    # on 2026-10-30, by owner decision, into the architecture (the assembly
-    # point, `InteriorPageWriters` and `book_interior_vector`) and the
-    # repetition (the remaining four kinds). The seam is the card's own: the
-    # puzzle page is the one interior kind whose writer imports no generator,
-    # so this module reaches it by import and converting it needed no assembly
-    # point; the other four need the one this card built, plus ADR-0042/R6's
-    # reader conversion for the pages THEY draw, which is a different set of
-    # test modules from the puzzle page's. **CARD-322 is the card that removes
-    # these four**, and `expires_with` names it instead of CARD-309 because an
-    # `expires_with` is a claim about who removes the exception and leaving
-    # CARD-309 in it would have reddened
-    # `test_no_declaration_outlives_the_cards_that_remove_it` the day this card
-    # was marked done — which is what that guard is for.
-    #
-    # **What is no longer in these reasons, and why.** Each of GUIDE, TOC and
-    # ANSWER used to say "an assembly point has to be built before any page
-    # walk can reach it". That blocker is GONE: the walk now calls all three
-    # through `InteriorPageWriters`, and a vector interior with every interior
-    # kind written as operators is composed through `book_interior_vector`,
-    # written and read back in
-    # `tests/test_book_pdf.py::TestAssemblyPoint_TheDownstreamWritersAreReachable`.
-    # A reason that named a blocker which has been cleared would be a
-    # declaration reading as further from done than it is.
-    PageKind.TITLE: RasterDeclaration(
-        reason=(
-            "the readers of a book PDF in the test tree that are still "
-            "medium-blind read EVERY page of an interior, so a page kind "
-            "cannot change medium until ADR-0042/R6's reader conversion has "
-            "reached the modules that read THIS page — measured on this, the "
-            "one kind whose two media are ink-identical by construction, at "
-            "112 red cells across 14 modules (CARD-298)"
-        ),
-        authority=(
-            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
-            "(CARD-309 was split and took the assembly point and the puzzle "
-            "page); the reader conversion is ADR-0042/R6's"
-        ),
-        expires_with=("CARD-299", "CARD-322"),
-    ),
-    PageKind.GUIDE: RasterDeclaration(
-        reason=(
-            "its vector writer exists (book_guide_vector.guide_page) and the "
-            "interior's walk now reaches it through the assembly point "
-            "CARD-309 built, so what is left for this kind is ADR-0042/R6's "
-            "reader conversion for the modules that read a guide page"
-        ),
-        authority=(
-            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
-            "(CARD-309 was split and took the assembly point and the puzzle "
-            "page); the reader conversion is ADR-0042/R6's"
-        ),
-        expires_with=("CARD-299", "CARD-322"),
-    ),
-    PageKind.TOC: RasterDeclaration(
-        reason=(
-            "its vector writer exists (book_toc_vector.toc_page_stream) and "
-            "the interior's walk now reaches it through the assembly point "
-            "CARD-309 built, so what is left for this kind is ADR-0042/R6's "
-            "reader conversion for the modules that read a TOC page"
-        ),
-        authority=(
-            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
-            "(CARD-309 was split and took the assembly point and the puzzle "
-            "page); the reader conversion is ADR-0042/R6's"
-        ),
-        expires_with=("CARD-299", "CARD-322"),
-    ),
-    PageKind.ANSWER: RasterDeclaration(
-        reason=(
-            "its vector writers exist (book_answer_vector.answer_page and "
-            "packed_answer_page) and the interior's walk now reaches both "
-            "through the assembly point CARD-309 built, so what is left for "
-            "this kind is ADR-0042/R6's reader conversion for the modules "
-            "that read an answer page — the larger half of CON-020's exempt "
-            "clue digits is on this kind (CARD-299 measured 258 against the "
-            "puzzle page's 204)"
-        ),
-        authority=(
-            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
-            "(CARD-309 was split and took the assembly point and the puzzle "
-            "page); the reader conversion is ADR-0042/R6's"
-        ),
-        expires_with=("CARD-299", "CARD-322"),
-    ),
-    PageKind.PUZZLE: RasterDeclaration(
-        reason=(
-            "both blockers this entry used to name are cleared — the "
-            "furniture is CARD-306's and is drawn, and the interior's walk "
-            "draws the vector page through this module's own "
-            "vector_puzzle_page/vector_two_up_page — and the reader "
-            "conversion that is left is LARGER than ADR-0042/R6 recorded: "
-            "lifting this entry reds 189 cells and 75 errors across 22 test "
-            "modules, whose root causes are four distinct instruments and "
-            "not one reader, and the raster and vector media place the same "
-            "grid 2 device pixels (0.169 mm) apart on all four edges against "
-            "a 0.1 mm placed-edge tolerance, so every placed-edge "
-            "expectation in the tree changes value with the medium — a "
-            "per-site disposition, which is CARD-312's subject"
-        ),
-        authority=(
-            "ADR-0042/R1, whose page conversion for this kind is CARD-322's "
-            "(CARD-309 built the assembly point and measured the reader "
-            "surface instead of converting); the reader conversion is "
-            "ADR-0042/R6's and its per-site half is CARD-312's"
-        ),
-        expires_with=("CARD-299", "CARD-322"),
     ),
 }
 
