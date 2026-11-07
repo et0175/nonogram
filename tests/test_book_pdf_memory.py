@@ -1647,54 +1647,16 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
             f"({probe.peak / 1e6:.1f} MB) over {probe.seen} pages"
         )
 
-    def test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under(self):
-        """AC-2's second half, **executed**: the same book, one cap, two fates.
+    # RETIRED by CARD-322 (G-5 exception 2, item 6). `test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under`:
+    # its "list shape dies" half has almost no subject once the interior is operators (the only full-size
+    # bitmaps left are the dividers and the cover), and the marginal-cost figure it rested on is unstable
+    # (-7372800 B and -5603328 B measured by two readers). SURVIVOR: TestBookPdfMemory_PeakDoesNotGrowWithPageCount
+    # (::test_a_big_books_peak_is_a_small_books_peak, ::test_neither_book_holds_more_than_one_page_bitmap), which
+    # reads the medium-blind live-page unit. PLANT RUN (direct call, CARD-322): holding every page alive in
+    # _write_pdf reds both ("308 pages peaked at 308 live pages, 14 pages at 14"; "14 pages peaked at 4.00 page
+    # bitmaps"); clean tree green. The RLIMIT_AS twin skips on this platform, so after this retirement only the
+    # in-process cells are executed here.
 
-        Two fresh interpreters — spawned, never forked, so neither starts
-        inside this session's heap — install the same 807.8 MB bound before
-        they import PIL, and then export the same 150-puzzle book. The
-        streaming child finishes and reports 305 pages *read back out of the
-        PDF it wrote*; the list child (``interior_pages``, then written) is
-        killed by the cap partway through. Nothing about pytest is at risk:
-        the process that dies is a child.
-
-        The bound here is the child's own resident set, watched by a sentry
-        thread that calls ``os._exit`` — a real process-level cap, enforced
-        against the real process, and not an assertion over an instrumented
-        allocation category. It is used because this machine's kernel refuses
-        ``RLIMIT_AS`` outright (the twin test below says so with the kernel's
-        own words); where ``RLIMIT_AS`` does work, the twin runs the same pair
-        under the kernel's bound instead.
-
-        **Why this is not a flake.** The cap is 32 page bitmaps; the streaming
-        child measures ~7.80 of them (CARD-198: up from 5.97-6.73 on the
-        smaller corpus) and the list shape needs ~307. Both margins are
-        re-measured on every run, not trusted: the **export's own** cost —
-        the streaming child's resident set less the floor child's, which is
-        the half of that figure this code owns — is asserted
-        (:data:`CHILD_EXPORT_COST_IN_PAGES`, CARD-237: the assertion used to
-        be on the child's total, which drifts with CPython rather than with
-        the export and so returned a false red on most full-suite runs), the
-        platform's own floor is measured first and skips the test if it has
-        grown into the cap (:func:`_habitable`), and the list child is
-        required to die *by the cap* — the sentry's exit status and its marker
-        on stderr — rather than merely to fail.
-        """
-        floor, streaming, materialised = _the_pair_under_one_cap(SENTRY_MECHANISM)
-
-        _assert_the_streaming_child_fitted(streaming, floor)
-
-        assert materialised.returncode == CHILD_OVER_CAP_EXIT, (
-            "the list shape did not die of the cap: it ended with "
-            f"{materialised.outcome}. AC-2's second half rests on it dying, "
-            "and on dying for this reason — "
-            f"{materialised.stderr.strip()[-500:]!r}"
-        )
-        assert "OVER THE CAP" in materialised.stderr
-        assert materialised.report is None, (
-            "the list shape reported a finished export under a cap it cannot "
-            "fit — the cap is not being enforced"
-        )
 
     def test_the_same_pair_under_an_address_space_cap_the_kernel_enforces(self):
         """The same two children, bounded by ``setrlimit(RLIMIT_AS)`` instead.
