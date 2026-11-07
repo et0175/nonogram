@@ -101,6 +101,13 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # entry, this one genuinely draws, so the share it contributes is a real
     # render cost rather than an over-statement.
     "tests/test_book_cell_size.py",
+    # RESTATED DELIBERATELY 2026-11-07 (CARD-322), which is what this freeze
+    # exists to force: the dots module's new product-claim class exports the
+    # real baseline interior (``export_interior``, which carries ``interior(``
+    # as a substring, and ``interior_stream``) to read its content streams, so
+    # the module mentions the pattern honestly. Re-derived by running
+    # ``regrep_render_set`` over the tree, not copied from the failure.
+    "tests/test_book_difficulty_dots.py",
     # RESTATED DELIBERATELY 2026-10-28 (CARD-305 fix round 1), which is what
     # this freeze exists to force. The card's own new test file walks the real
     # interior through ``interior_stream`` in both settings of the divider-
