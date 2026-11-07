@@ -76,7 +76,9 @@ class _RenderedInterior(list):
     is 3332.0000000000005 in floating point and the rasteriser rounds OUTWARD;
     the same file's divider page, decoded by Pillow, is 3332. So "the page is
     the trim" is a claim about the BOX, which is what a printer measures, and
-    the render may exceed the box by less than one device pixel.
+    the render may exceed the box by AT MOST one device pixel (ceil: the measured
+    difference on that trim is exactly 1.0, so the bound is the closed interval
+    ``0 <= render - box <= 1``; the code allows 1e-6 either side for float noise).
 
     **Lazy, for time and not for coverage.** The list holds the pages as the
     walk yielded them (operators or bitmaps) and a page is rasterised the
@@ -132,7 +134,8 @@ def _assert_page_is_the_trim(pages, index: int, trim_px: tuple[float, float], co
     A bitmap is held to its pixels; an operators page is held to its EMITTED
     page box (the same half pixel, not widened) for every page, and, where the
     page has been rendered (the cell read it), its render is held to the box
-    plus poppler's outward rounding: ``0 <= render - box < 1`` device pixel,
+    plus poppler's outward rounding: ``0 <= render - box <= 1`` device pixel (the
+    code adds 1e-6 for float noise; measured 1.0 exactly on the 282.1 mm trim),
     measured and derived in :class:`_RenderedInterior`. A page box one pixel
     off, or a render two pixels off, leaves one of the two bounds.
     """
@@ -512,7 +515,14 @@ def test_a_page_box_one_pixel_off_the_trim_reds_the_trim_assertion() -> None:
 def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages() -> None:
     """EC-019 (PDF half): for any extent, clue depth and stored trim/margins, every
     page of the book's PDF is the trim, and the drawn puzzle fits inside the usable
-    area below the band at a cell that never exceeds the 7.5 mm standard cell."""
+    area below the band at a cell that never exceeds the 7.5 mm standard cell.
+
+    **What the trim loop checks (CARD-322, review F4).** For every case, every
+    page's EMITTED page box is within the unchanged half pixel of the trim
+    (``_assert_page_is_the_trim``); the render-versus-box bound is applied only
+    to pages the cell has rendered, i.e. the puzzle page it measures ink on,
+    because the interior renders lazily (see :class:`_RenderedInterior`). No
+    behaviour changed in this paragraph's writing."""
     rng = random.Random(1160019)
     windowed = 0
     checked = at_cap = below_book_floor = 0
