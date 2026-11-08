@@ -4,7 +4,8 @@
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
-**Estimate:** 1d
+**Estimate:** 4c (1.5d)
+<!-- RESTATED 2026-11-08 in review cycles: was `1d`; +2c for CARD-393 folded in (the Play-online sentence under the guide intro), and a refresh of the starting facts (the guide is a VECTOR page since CARD-322). -->
 **Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
@@ -13,9 +14,9 @@
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "How to Solve, as a facing spread"
 **Idea:** —
 **Wave:** —
-**Depends on:** CARD-206 (the title page that makes page 1, so the guide can start on page 2 and face page 3), CARD-222 (the frame it borrows), CARD-228 (the dots its key strip teaches), CARD-322
+**Depends on:** CARD-206 (the title page that makes page 1, so the guide can start on page 2 and face page 3), CARD-222 (the frame it borrows), CARD-228 (the dots its key strip teaches), CARD-322, CARD-390 (the Play online page: this card's folded-in sentence names its page number)
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_finalise_guide_preview.py, tests/test_book_page_numbers.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card229.json, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_finalise_guide_preview.py, tests/test_book_page_numbers.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card229.json, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_interior_vector.py, docs/guides/how-to-solve-nonograms.md
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -69,6 +70,26 @@ example on the right."*
 
 **Deliberately not in this card:** the worked example's four steps and the rows/columns
 callout at the foot of page 2 — CARD-230, so that this card's diff is the spread and the frame.
+
+## FOLDED IN 2026-11-08 (owner: "fold 393 into 229") — CARD-393's work: the Play online sentence in the guide
+
+**STARTING FACTS ARE STALE; RE-DERIVE FIRST.** This card was written when the guide was drawn by the raster `create_guide_page` in `book_pdf_generator.py`. Since CARD-322 the guide is a VECTOR page written by `src/nonogram/admin/book_guide_vector.py` through `InteriorPageWriters.guide` (the 23 raster writers still exist in `src/` until CARD-387 deletes them: do not edit them). Before implementing, re-derive what each statement above names (constants, line numbers, `GUIDE_PAGE_COUNT`, type scale, the writer's inputs) from the tree you start from and say which statements changed. The owner's requirement text above stands. Owner test budget (2026-11-07, 'fewer tests'): change existing guide tests rather than add; one control per concern; report the net collected-node-id change. Dependencies: CARD-390 must have merged (the sentence names the Play page's number).
+
+### Items from CARD-393 (verbatim; AC ids prefixed 393.)
+
+1. The guide writer (`book_guide_vector.py`, called through `InteriorPageWriters.guide` from `book_pdf_generator.py`) takes the Play page's interior page number (`None` when the book prints no Play page) and sets one line under the guide's intro: `Every puzzle in this book can also be played online. Scan the code on page {X}.` At or above the interior type floor, in the guide's own face and column, position from the guide's layout (not a new coordinate in the writer).
+2. No Play page (no stored domain): the line is absent, and the guide is exactly today's. The line never appears for a page that was not printed (ADR-0041/R8).
+3. The guide stays two pages. If the line makes the intro overflow its page on any admitted trim, the intro's spacing yields, never the line, and the author states the margin that remains.
+4. `docs/guides/how-to-solve-nonograms.md` is touched only if it is the text the writer reads; the author states whether it is, and if so the sentence appears there with the page number as a described variable.
+
+### Acceptance criteria from CARD-393 (verbatim; ids prefixed)
+
+- **AC-393.1** (happy): *Given* a book with a Play page at interior page 167, *then* the guide's text layer holds the sentence with `167` exactly, below the intro and above the first technique heading. (test: `TestGuidePage_NamesThePlayPage`)
+- **AC-393.2** (guard, true number): *Given* books of several sizes, *then* the number in the guide equals the interior page number of the PLAY page in the exported PDF, read from the PDF. (test: `TestGuidePage_PlayPageNumberIsTheRealOne`)
+- **AC-393.3** (negative, no domain): *Given* a book with no stored domain, *then* the guide has no such line and its text equals the guide on main before this card. (test: `TestGuidePage_NoPlayPageNoLine`)
+- **AC-393.4** (edge, fit): *Given* every trim in CON-018's profile set, *then* the guide is still two pages and the line overlaps no other guide mark. (test: `TestGuidePage_TheLineFitsEveryTrim`)
+- **AC-393.5** (guard, type floor): *Given* the line, *then* it is at or above the interior type floor. (test: `tests/test_book_guide_page_type.py` floor cell, extended to the new line)
+- **AC-393.6** (guard, preview): *Given* the interior, *then* the first QR-bearing page is not within the first pages Amazon previews: the guide carries no code, only the sentence (this is a restatement of ADR-0041/R8 against this page). (test: `TestGuidePage_CarriesNoQr`)
 
 ## Acceptance criteria
 
