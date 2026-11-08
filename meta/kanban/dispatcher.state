@@ -472,12 +472,7 @@ active:
     started: 2026-11-08T08:30Z
     estimate: 2c (1d)
     cut_from: 79c5052d
-  - card: CARD-391
-    branch: card/391-puzzle-pages-lose-the-qr
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-391
-    started: 2026-11-08T10:30Z
-    estimate: 4c (1.5d)
-    cut_from: e906e6cd
+# CARD-391 CLEARED 2026-11-08 at its merge gate (second attempt): merged 826f2f34, done, certified 8.6 on cycle 1 (gate-found dots-floors fix round not re-reviewed). Entry dropped; worktree removed under the tidy rule.
 # CARD-415 CLEARED 2026-11-08T08:49Z at its merge gate: merged ff562181, done, certified 8.6 on cycle 1, estimate 1c -> 1 cycle = ratio 1.0. Impact SELECTION gate green (one environmental port red, green alone). Entry dropped; worktree removed under the tidy rule.
 # CARD-390 CLEARED 2026-11-08T06:41Z at its merge gate: merged 5028c17e, done, certified 8.6 on cycle 1 (fix round b7bf51ef
 #   not re-reviewed), estimate 4c -> 1 cycle = ratio 0.25. Full armed suite 11690 passed, 1 skipped, 1 xfailed + 11 lifted

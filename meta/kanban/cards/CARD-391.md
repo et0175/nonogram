@@ -1,6 +1,6 @@
 # CARD-391: Puzzle pages carry no QR — the per-puzzle code, its caption and link are retired, and the footer points at the Play online page
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -20,11 +20,11 @@
 <!-- CARD-390 is the page the footer line names and the plan it reads the page number from. Do not export or print a book between the merges of CARD-390 and this card: the interior would carry both the old per-puzzle code and the new page. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_puzzle_vector.py, src/nonogram/admin/book_sheet_vector.py, src/nonogram/admin/book_proof.py, src/nonogram/export/layout.py, src/nonogram/export/png.py, tests/test_book_qr_slot.py, tests/test_book_vector_goldens.py, tests/test_book_pdf_two_up.py, tests/test_layout_page_spec.py, tests/test_book_pdf.py, tests/test_book_page_frame.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_band.py, tests/test_book_grid_rules.py, tests/test_book_proof_pages.py, tests/test_book_page_numbers.py, tests/test_book_arrange_page_breaks.py, tests/test_book_finalise_gutter.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_page_vector.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_pairing.py, tests/test_book_footer_pointer.py, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0041-public-player-static-bundle-and-hash-urls.md
 <!-- The test list is `git grep -l "qr_slot\|qr_link\|QR_LINK_TEMPLATE\|qr_caption\|qr_group\|QR_CAPTION_TEXT" -- tests src` as read on main 2026-11-07, plus the new file. Re-derive it; do not trust it. -->
-**Review score:** —
+**Review score:** 8.6 (cycle 1/3 - CERTIFIED; gate-found fix round, dots floors, author round 4, not re-reviewed)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T11:23Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 826f2f340409a500b2e75ef8bf76e860b692bf1c
 **Blocked by:** —
 
 ## Why this card exists
@@ -125,3 +125,9 @@ Cause: removing the QR group lowered the denominators and removed the nearest-sh
 - `VECTOR_CORPUS_MIN_SHAPED` 170 -> **12**: 13 subpaths with extent on both axes (was 182; the QR modules were 169 of them); what is left is one grid frame per page, so the floor is the pages floor (12) and would fail if a page lost its frame. It was not reached by the failing run (the subpaths assertion fires first) but was stale too.
 - Nearest-shape witness (`test_the_closest_a_vector_page_comes_to_a_round_mark_is_derived`): the nearest shape is now the grid frame, a **stroked** (`S`) 276.48 x 276.48 pt square (baseline book page 0; aspect 1.0, fill 4/pi). The margin 2.276996 is unchanged because a rectangle's enclosed area is its box's whatever the paint; the assertion `paint in PAINTS_THAT_FILL` was only the witness's identity (the QR module was filled), so it is restated to `PAINTS_THAT_FILL | {"S"}` while the aspect-1.0 and fill = 4/pi assertions, which carry the derivation, are kept and still derived, not hard-coded.
 
+
+### Merge gate (second attempt)
+
+Gate-found fix round: dots floors, author round 4 (above). Merged 826f2f340409a500b2e75ef8bf76e860b692bf1c after merging main (a7c636e2) into the branch (tip a69651f3); full armed suite (run 1, not wave_close_only) 11599 passed, 1 skipped (test_book_pdf_memory setrlimit), 1 xfailed, exit 0; run 2 (lifted wave_close_only) 11 passed.
+
+[Review 1/3] Score: 8.6 (threshold 8.0 reached; PASS; certified). Reviewer-reported as relayed to the merge gate; the review text itself was not on the branch's card copy. The gate-found fix round (author round 4, dots floors) was not re-reviewed.
