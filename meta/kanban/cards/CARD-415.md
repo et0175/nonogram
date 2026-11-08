@@ -1,6 +1,6 @@
 # CARD-415: The test PDF rasteriser stops asking poppler for PNG — raw gray pages, pixel-identical, about nine minutes off the gate
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** enabler
 **Estimate:** 1c (0.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner request 2026-11-08 ("measure pdf_pages overhead then") and its measurement (~/Documents/nonogram-reviews/pdf-pages-overhead/analysis.md): the carried premise "2.5 s of Python overhead per call" was WRONG; 88 % of a `pdf_pages` call is `pdftoppm`'s PNG deflate (about 0.14 s per page), not spawn or Python. Dropping `-png` (raw gray PGM) is pixel-identical and 3.8x to 5x faster.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —
