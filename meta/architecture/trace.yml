@@ -2481,6 +2481,29 @@ links:
     card.
   status: partial
 
+- req: FR-047
+  description: "A book with a stored player domain prints one Play online page after its last puzzle page and before the SOLUTIONS divider, on a right-hand page (one blank page before it exactly when the last puzzle page is right-hand); it carries the heading, one line of instruction, a QR code opening the book's landing page and the typed address under it; a book with no stored domain prints neither; the plan, the file, the KDP baseline and the gutter band's page count agree, the TOC and folios follow, and Finalise states the page"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: [ADR-0036, ADR-0041, ADR-0042]
+  tests:
+  - tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_the_plan_the_file_and_the_kdp_baseline_say_one_thing
+  - tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_a_book_with_no_stored_domain_prints_no_play_page_and_no_blank
+  - tests/test_book_play_online_page.py::TestPlayPage_TocAndFoliosFollowTheInsertedPages::test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers
+  - tests/test_book_play_online_page.py::TestPlayPage_QrDecodesToTheLandingUrl::test_the_code_decodes_and_the_address_is_printed_under_it
+  - tests/test_book_play_online_page.py::TestPlayPage_FitsEveryTrimAtAReadableModule::test_the_code_decodes_the_type_holds_the_floor_and_the_ink_stays_inside
+  - tests/test_book_finalise_gutter.py::TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated::test_a_stored_domain_adds_the_page_and_its_blank_and_the_band_follows
+  notes: >-
+    New 2026-11-08 (raw-requirements.md Delta 2026-11-07; owner decision
+    2026-11-07, version B of the "One-QR Book Layout"; CARD-390). COMP-009
+    owns the page kind, the plan (SectionPlan.play_page and its blank), the
+    three counters and the Finalise line; COMP-007 owns where the page's
+    marks go (export/layout.py play_page_layout, ADR-0036/R2). The page is a
+    vector page (ADR-0042/R1) with no raster declaration. The per-puzzle
+    codes and the footer pointer are CARD-391; the guide's line is CARD-393.
+  status: covered
+
 - req: NFR-008
   description: "Every puzzle printed in a book has 4.75 mm <= cell <= 7.5 mm, chosen per grid size per book on the book's own trim and fitted to the deepest-clued member of that size; below 4.75 mm only by explicit override"
   capabilities: [CAP-006]

@@ -949,6 +949,37 @@ class TestBookFinalise_GutterCheckAtHundredFiftyPageBoundary:
         assert over_it - at_the_boundary == 1
 
 
+class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
+    """CARD-390 AC-3 and AC-9 — the true count, and the line that says why.
+
+    The exactly-150-page book of :data:`AC288_CORPUS` is accepted at a 0.375 in
+    gutter. Given a stored player domain it prints a Play online page, and its
+    last puzzle page is a recto (page 67), so a blank page goes in front of it:
+    page 68 blank, page 69 the Play page, 152 pages in all. The gutter band is
+    read at that TRUE total, so the same book is now refused at the band it
+    crosses into; and the screen says, either way, whether the page prints and
+    where.
+    """
+
+    DOMAIN = "https://nonogram.adverax.io"
+
+    def test_a_stored_domain_adds_the_page_and_its_blank_and_the_band_follows(
+        self, panel
+    ) -> None:
+        plain = panel.book(AC288_CORPUS)
+        with_domain = panel.book(AC288_CORPUS, title="Spring")
+        panel.books.get_book(with_domain).player_domain = self.DOMAIN
+
+        assert panel.counts(plain).page_count == AC288_PAGES
+        assert panel.counts(with_domain).page_count == 152
+        assert "No player domain set: this book prints no Play online page." in panel.shown(plain)
+        assert "Prints a Play online page at page 69." in panel.shown(with_domain)
+        assert panel.finalise(plain).status_code == 302
+        refused = refusal_of(panel.finalise(with_domain))
+        assert "152 pages" in refused and KDP_BAND_TEXT in refused
+        assert panel.status(with_domain) == DRAFT
+
+
 # --------------------------------------------------------------------------
 # CARD-199 — the table extended past the old 300-page ceiling
 # --------------------------------------------------------------------------

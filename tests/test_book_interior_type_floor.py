@@ -407,7 +407,7 @@ def below_floor(calls: List[TextCall]) -> List[str]:
 #: to derive "letters something" from: whether a kind letters is a fact about
 #: what its writer draws, and the writers are exactly what this file is the
 #: independent statement of.
-LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer"})
+LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer", "play"})
 
 #: The interior's remaining page kinds, each with the reason it letters
 #: nothing — the complement of :data:`LETTERING_KINDS`, written out so the
@@ -421,6 +421,10 @@ NON_LETTERING_KINDS = {
         "blank by AC-283 (CARD-206): the interior's first page carries no ink "
         "of any kind, so a lettered title page is a defect a different test "
         "catches"
+    ),
+    "blank": (
+        "the page that puts the Play online page on a right-hand page "
+        "(CARD-390): the title page's own empty stream, no ink and no folio"
     ),
 }
 

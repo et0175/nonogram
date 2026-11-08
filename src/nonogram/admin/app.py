@@ -897,6 +897,9 @@ class InteriorCounts:
             laid out at all, and the count is the sheet-free upper bound
             (:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`).
         unreadable: Why the plan could not be built, when it could not.
+        play_page: The interior page the Play online page prints on
+            (CARD-390), read from the page plan; ``None`` when the book prints
+            none or the plan could not be built.
     """
 
     page_count: int
@@ -905,6 +908,7 @@ class InteriorCounts:
     exact: bool
     unreadable: Optional[str] = None
     paired_only_page_count: Optional[int] = None
+    play_page: Optional[int] = None
 
 
 def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
@@ -1017,6 +1021,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         answer_page_count=stream.answer_page_count,
         exact=True,
         paired_only_page_count=stream.paired_only_page_count,
+        play_page=stream.play_page,
     )
 
 
@@ -5512,6 +5517,12 @@ def create_app(debug=None):
                 if counts and counts.paired_only_page_count is not None
                 else None
             ),
+            # CARD-390: whether the book prints the Play online page, and where.
+            # The page number is the page plan's (`counts.play_page`); the
+            # panel adds none. A silent omission is how a book goes to print
+            # without its code, so the screen says it either way.
+            "has_player_domain": stored_player_domain(book) is not None,
+            "play_page": counts.play_page if counts else None,
             "pages_saved_by_packing": (
                 counts.paired_only_page_count - counts.page_count
                 if counts and counts.paired_only_page_count is not None

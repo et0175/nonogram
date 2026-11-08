@@ -207,6 +207,11 @@
                     figure really is a bound. The cover file is never one of
                     these pages (AC-288). -#}
                 <small class="text-muted d-block mb-3">{% if page_count is none %}The interior's pages cannot be counted — check the book's puzzles and its <a href="/book/{{ book.book_id }}/setup-print">print setup</a>.{% else %}{% if not page_count_exact %}About {% endif %}{{ page_count }} interior page{{ '' if page_count == 1 else 's' }}{% if trim_width_cm %} at {{ trim_width_cm }} × {{ trim_height_cm }} cm{% endif %}. The cover is not counted.{% endif %}</small>
+                {#- CARD-390: the Play online page, said either way — a book
+                    with no stored player domain prints no page and no code,
+                    and a silent omission is how it would go to print without
+                    one. The page number is the page plan's. -#}
+                <small class="text-muted d-block mb-3" data-play-online>{% if not has_player_domain %}No player domain set: this book prints no Play online page.{% elif play_page %}Prints a Play online page at page {{ play_page }}.{% else %}Prints a Play online page after the last puzzle.{% endif %}</small>
                 {#- CARD-153 (AC-2): why the figure above is approximate —
                     the sheet builder's own reason for refusing the stored
                     print specification — and where it is fixed. -#}

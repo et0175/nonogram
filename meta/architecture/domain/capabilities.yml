@@ -173,6 +173,9 @@ capabilities:
     # cover, cover file separate). FR-030/FR-032/FR-041/FR-042 amended in
     # place — already listed; no new event or command (INV-013 rides on
     # CMD-019 -> EVT-020).
+    # AMENDED 2026-11-08: FR-047 appended (the Play online page, CARD-390):
+    # one more interior page of the same book export; no new event or
+    # command (it is part of what CMD-019 writes).
     events: [EVT-016, EVT-017, EVT-018, EVT-019, EVT-020, EVT-021, EVT-022,
              EVT-023]
     commands: [CMD-015, CMD-016, CMD-017, CMD-018, CMD-019, CMD-020, CMD-021,
@@ -181,7 +184,7 @@ capabilities:
     stories: [US-023, US-024, US-025, US-026, US-027]
     requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036,
                    FR-037, FR-038, FR-039, FR-040, FR-041, FR-042,
-                   FR-043, NFR-008]
+                   FR-043, FR-047, NFR-008]
 
   - id: CAP-007
     name: Puzzle play

@@ -48,6 +48,8 @@ it, so the stored-domain shape is NOT asserted here.
 from __future__ import annotations
 
 import ast
+import copy
+import functools
 import hashlib
 import json
 import os
@@ -97,6 +99,22 @@ PAGE_TYPES = {
 }
 
 
+#: The Play online page (CARD-390) exists only for a book with a stored player
+#: domain, so the baseline book (which has none, and whose plan this file
+#: pins) cannot carry it. Its golden is taken from the SAME baseline puzzles on
+#: the same book with a domain set, where it is page 11 (the last puzzle page
+#: is 10, a verso, so no blank precedes it).
+PLAY_PAGE = 11
+PLAY_DOMAIN = "https://nonogram.adverax.io"
+
+
+@functools.lru_cache(maxsize=1)
+def _play_export() -> bytes:
+    book = copy.copy(corpus_book())
+    book.player_domain = PLAY_DOMAIN
+    return interior_generator(book).export_interior(baseline_puzzles()).getvalue()
+
+
 def _export() -> tuple[list[str], bytes]:
     generator = interior_generator(corpus_book())
     puzzles = baseline_puzzles()
@@ -107,10 +125,13 @@ def _export() -> tuple[list[str], bytes]:
 def digests_of(data: bytes) -> dict[str, str]:
     """``{page type: sha-256 of the decoded content stream}`` for ``data``."""
     streams = pdf_vector.content_streams(data)
-    return {
+    digests = {
         label: hashlib.sha256(streams[number - 1].encode("cp1252")).hexdigest()
         for number, label in PAGE_TYPES.items()
     }
+    play = pdf_vector.content_streams(_play_export())[PLAY_PAGE - 1]
+    digests["play"] = hashlib.sha256(play.encode("cp1252")).hexdigest()
+    return digests
 
 
 RE_RECORD_HINT = (
@@ -192,7 +213,7 @@ class TestVectorGoldens_EveryInteriorPageTypeIsPinned:
         assert "Do not re-record to make a red go away" in RE_RECORD_HINT
 
     def test_every_page_type_is_goldened(self, golden) -> None:
-        assert sorted(golden["digests"]) == sorted(PAGE_TYPES.values())
+        assert sorted(golden["digests"]) == sorted([*PAGE_TYPES.values(), "play"])
 
 
 class TestVectorGoldens_AnOperatorChangeInAWriterRedsItsPageType:

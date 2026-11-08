@@ -112,6 +112,7 @@ from nonogram.admin.book_pdf_generator import (
     print_order,
     structural_toc_entry_count,
 )
+from nonogram.admin.print_specs import stored_player_domain
 from nonogram.difficulty import tier_of_record
 
 __all__ = [
@@ -563,6 +564,11 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
         level_dividers=dividers,
         toc_pages=toc_pages,
         solutions_divider=divider_pages,
+        # CARD-390: the Play online page (and the blank that puts it on a
+        # right-hand page) is counted by the same formula the generator uses,
+        # from this plan's own pages before it, so the baseline and the band
+        # read the book the export writes.
+        play_online=stored_player_domain(book) is not None,
     )
 
 
