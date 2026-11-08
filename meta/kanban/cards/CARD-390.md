@@ -21,7 +21,7 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_play_vector.py, src/nonogram/admin/book_sheet_vector.py, src/nonogram/export/layout.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_play_online_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** 8.6 (cycle 1/3 - CERTIFIED; fix round b7bf51ef not re-reviewed)
 **Started:** —
-**Closed:** 2026-11-08T06:50Z
+**Closed:** 2026-11-08T06:41Z
 **Actual:** —
 **Merge commit:** 5028c17e1cba4018c0341bdb47a96033c5b19cec
 **Blocked by:** —

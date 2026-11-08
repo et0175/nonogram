@@ -466,7 +466,7 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active: []
-# CARD-390 CLEARED 2026-11-08T06:50Z at its merge gate: merged 5028c17e, done, certified 8.6 on cycle 1 (fix round b7bf51ef
+# CARD-390 CLEARED 2026-11-08T06:41Z at its merge gate: merged 5028c17e, done, certified 8.6 on cycle 1 (fix round b7bf51ef
 #   not re-reviewed), estimate 4c -> 1 cycle = ratio 0.25. Full armed suite 11690 passed, 1 skipped, 1 xfailed + 11 lifted
 #   wave_close_only passed; 2 owed at the wave close. Entry dropped; worktree removed under the tidy rule.
 # CARD-396 CLEARED 2026-11-08 at its merge gate: merged 49c3a7a1, done, certified 8.6 on cycle 2 (7.5 on cycle 1), estimate 2c -> 2 cycles = ratio 1.0. Its worktree is removed; the entry is dropped.
