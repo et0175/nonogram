@@ -1,6 +1,6 @@
 # CARD-392: The one-line footer gives the grid its room — the footer band shrinks, and pairing and cell sizes are re-derived from the larger area
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -20,11 +20,11 @@
 <!-- Recommended to land BEFORE CARD-232 (solution tiles), CARD-226 (two-up slots), CARD-229/230 (guide) and CARD-233: all of them measure against the frame's usable area, which this card changes. -->
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_layout_page_spec.py, tests/test_book_page_frame.py, tests/test_book_pdf_two_up.py, tests/test_book_pdf.py, tests/test_book_toc.py, tests/test_book_page_numbers.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/, meta/architecture/requirements.yml, docs/how-it-works/01-domain/puzzle-creation/07-book-assembly-and-the-admin-panel.md
 <!-- tests/fixtures/ is the baseline directory (re-recorded here); the author names the exact files. -->
-**Review score:** —
+**Review score:** 8.7 (cycle 2/3 - CERTIFIED; cycle 1 scored 7.6)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T16:27:35Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 5513b2051ee128c8abf0e3124ce02a5b798bc32e
 **Blocked by:** —
 
 ## Why this card exists
@@ -153,3 +153,17 @@ No assertion weakened, no test added or removed: the 77 ids of the file are unch
 **Mutant.** `INTERIOR_FOOTER_MM + 20.0` in `layout.py` (the old strip height, scratch edit, restored): the class reds on exactly the same three tests (the base pair is 31 cells and splits at the old 28-cell boundary); restored, 73 passed, 4 skipped (DB tests, unarmed) in the file.
 
 **Sweep before the next gate, ARMED** (`DATABASE_URL` = `resolve_test_database_url(main)`, under the advisory lock, branch `src`). The whole `tests/` tree was grepped for the vocabulary of pairing, page counts and the footer (`DEPTH_5`, `compute_pair_layout`, `puzzle_page_plan`, `PuzzlePagePlan`, two-up, `page_count`, `interior_frame`, `INTERIOR_FOOTER`, `KDP_GUTTER`, `footer_depth`, pairing, `"changes"`, interior counts, `book_cell_sizes`, `section_plan`, `interior_stream`, gutter, finalise, footer, band, spine, `"pages"`), and every `tests/test_book_*.py`, `tests/property/test_book_*.py` and `tests/test_admin_*.py` file was added: **153 test files** (every file that matched, except `test_impact_set` and `test_wave_close_marker`, which are not geometry tests and stay for the gate). Result: **1 failed, 8753 passed, 1 skipped, 1 xfailed** in 26 min. The one red, `test_card_349_cold_database::..test_a_swallowed_stop_still_errors_every_test_that_asks_for_the_database`, is an artifact of arming with main's database name (its child run finds the database it expects to be absent; the child reports 2 passed); the same file, `test_check_ref_resolution` and `test_puzzle_edit_routes` unarmed: 124 passed, 7 skipped. So no other file depends on the old pairing or footer geometry; `test_puzzle_edit_routes` was the only one outside Touches.
+
+### Merge gate record (2026-11-08T16:27:35Z)
+
+[Review 1/3] Score: 7.6 (FAIL narrowly: the AC-5 test could not fail on its regression; stale compute_pair_layout docstring; AC-7 weights not held against literals). Reviewer-reported as relayed to the merge gate.
+
+[Review 2/3] Score: 8.7 (threshold 8.0 reached; PASS; certified). All three cycle-1 findings closed, verified with the reviewer's own mutants. Reviewer-reported as relayed to the merge gate.
+
+Owner accepted AC-3 and AC-7 as built on 2026-11-08 (AC text amended).
+
+Nits (recorded, no card): AC-7 weight literals are measured pre-card values, not independently derived; on two-up pages the lower grid's heavy border sits on the footer rule (pre-existing, owner-accepted).
+
+KDP consequence for the owner: Book 1 and 6x9 120-puzzle books go 156 -> 96 interior pages, gutter band (151,300) -> (1,150), minimum gutter 0.5 -> 0.375 in; 5x8 unchanged. Pairing only removes pages, so a book with a stored gutter between 0.375 and 0.5 in may flip refused -> accepted.
+
+Gate-found reds: merge gate #1 (tip 5c762f96 + main) was RED on three card-caused tests in tests/test_puzzle_edit_routes.py (TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove; green on clean main, the re-derived pairing lets the old DEPTH_5 pair share a page). Fixed on the branch by author round 3 (17c532b2, fixtures re-derived). Gate #2 (merged tip 17c532b2): run 1 11611 passed, 1 skipped, 1 xfailed, 13 deselected; run 2 (5 lifted files) 11 passed; AC-413 defined here, next free id AC-414.

@@ -466,18 +466,13 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-392
-    branch: card/392-one-line-footer
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-392
-    started: 2026-11-08T11:30Z
-    estimate: 4c (1.5d)
-    cut_from: 0ca1fe28
   - card: CARD-399
     branch: card/399-retire-play-js
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-399
     started: 2026-11-08T13:00Z
     estimate: 5c (2d)
     cut_from: ac5e423d
+# CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
 # CARD-394 CLEARED 2026-11-08T12:36Z at its merge gate: merged 93d951f7, done, certified 9.0 on cycle 2 (6.5 on cycle 1, not certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11602 passed, 1 skipped, 1 xfailed + 6 lifted wave_close_only passed. Entry dropped.
 # CARD-391 CLEARED 2026-11-08 at its merge gate (second attempt): merged 826f2f34, done, certified 8.6 on cycle 1 (gate-found dots-floors fix round not re-reviewed). Entry dropped; worktree removed under the tidy rule.
 # CARD-415 CLEARED 2026-11-08T08:49Z at its merge gate: merged ff562181, done, certified 8.6 on cycle 1, estimate 1c -> 1 cycle = ratio 1.0. Impact SELECTION gate green (one environmental port red, green alone). Entry dropped; worktree removed under the tidy rule.
