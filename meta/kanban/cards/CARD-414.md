@@ -54,4 +54,8 @@ One source of truth: the behaviour lives in the admin files and the public site 
 
 ## Worktree notes
 
-(none yet)
+- Ported from player/play.js wireCrosshair (the `down` Map / `pinching` flag, the pointerdown branch with the per-type isPrimary reset, `follow`'s `if (pinching) return`, the pointerup/pointercancel `lift`) into solver.js `wireCrosshair`, unchanged in rule; a single pointer takes the old path (`follow`) exactly as before. The existing `forget()` stays (the admin redraws; play.js's isPainted shortcut was not ported, no behaviour change asked).
+- ONE cell: `TestSolverCrosshair_TouchKeepsTheLastCell::test_a_pinch_has_no_crosshair_and_a_pen_counts_toward_one`. Scratch mutants, each reds it with its own message: guard `if (down.size >= 2)` -> `if (false)` ("the second finger did not take the crosshair off"); wipe of all pointer types instead of the pointer's own ("a pen did not count toward the pinch"); no stale-entry wipe ("a stale pen entry stuck the pinch"); `follow` without the `pinching` return ("the crosshair followed a pinch's spread"). Source restored after each.
+- CARD-268 budget: this card adds or resizes no button; the claim 'the bar is paid for above the toolbar' is not touched, nothing to re-pay (the Estimate comment names the larger buttons of a sibling card).
+- Net collected node ids: +1 (test_puzzle_solver_crosshair.py 17 -> 18); the 7 play.js tests retire with play.js in CARD-399.
+

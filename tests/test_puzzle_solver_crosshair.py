@@ -509,6 +509,91 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             context.close()
 
 
+    def test_a_pinch_has_no_crosshair_and_a_pen_counts_toward_one(self, browser, live) -> None:
+        """CARD-414 AC-1/AC-2 — ONE scenario, ported from play.js: two touch/pen
+        pointers down take the crosshair off and nothing follows or leaves one;
+        a third finger changes nothing; a pen is a pinch pointer; a pen pointerup
+        that never arrived does not leave the pinch stuck; crossing resumes with
+        the next single pointer. Each ``then`` is asserted against the full
+        enumeration (:func:`_expected`), and every step that expects NOTHING is
+        preceded by one that expects a cross, so no arm is vacuous. The control
+        is the guard itself: with ``pinching``/``clear()`` dropped from
+        ``wireCrosshair`` this reds at the first two-finger step."""
+        context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
+        page = context.new_page()
+        nothing = ([], [])
+        try:
+            _open(page, live, live.store(GRID))
+            cdp = context.new_cdp_session(page)
+
+            def fingers(kind, *points):
+                cdp.send("Input.dispatchTouchEvent", {
+                    "type": kind, "touchPoints": [{"x": x, "y": y, "id": i} for i, (x, y) in enumerate(points)]})
+
+            def pen(kind, x, y):
+                cdp.send("Input.dispatchMouseEvent", {
+                    "type": kind, "x": x, "y": y, "pointerType": "pen", "button": "left", "buttons": 1, "clickCount": 1})
+
+            def synthetic(kind, pointer_id, x, y):  # a real pen cannot lose its own release
+                page.evaluate(
+                    "([k, id, x, y]) => document.getElementById('puzzle-player').dispatchEvent("
+                    "new PointerEvent(k, {pointerType: 'pen', isPrimary: true, pointerId: id,"
+                    " clientX: x, clientY: y, bubbles: true, cancelable: true}))", [kind, pointer_id, x, y])
+
+            def is_crossed_at(row, col, why):
+                board = _board(page)
+                assert _crossed(board) == _expected(board, row, col), why
+
+            def is_not_crossed(why):
+                assert _crossed(_board(page)) == nothing, why
+
+            # An earlier tap leaves a crosshair; the second finger of a pinch takes it off.
+            fingers("touchStart", _centre(page, 2, 3))
+            fingers("touchEnd")
+            is_crossed_at(2, 3, "the tap's cross is the premise of the arm below")
+            a = _centre(page, 6, 0)
+            fingers("touchStart", a)
+            is_crossed_at(6, 0, "a lone finger is crossed")
+            fingers("touchStart", a, (a[0] + 80, a[1]))
+            is_not_crossed("the second finger did not take the crosshair off")
+            fingers("touchMove", a, (a[0] + 160, a[1]))
+            page.wait_for_timeout(100)
+            is_not_crossed("the crosshair followed a pinch's spread")
+            # A third finger neither paints nor follows.
+            fingers("touchStart", a, (a[0] + 160, a[1]), (a[0], a[1] + 60))
+            fingers("touchMove", a, (a[0] + 160, a[1]), (a[0] + 30, a[1] + 60))
+            page.wait_for_timeout(100)
+            is_not_crossed("a third finger painted or followed")
+            fingers("touchEnd")
+            page.wait_for_timeout(100)
+            is_not_crossed("the lifted pinch left a crosshair")
+
+            # Resumes with the next single pointer (the pinch zoomed: re-read the geometry).
+            fingers("touchStart", _centre(page, 9, 4))
+            fingers("touchEnd")
+            is_crossed_at(9, 4, "crossing did not resume after the pinch")
+
+            # A pen is the second pointer of a pinch.
+            x, y = _centre(page, 3, 1)
+            fingers("touchStart", (x, y))
+            is_crossed_at(3, 1, "the finger alone is crossed")
+            pen("mousePressed", x + 60, y)
+            page.wait_for_timeout(100)
+            is_not_crossed("a pen did not count toward the pinch")
+            pen("mouseReleased", x + 60, y)
+            fingers("touchEnd")
+
+            # A pen pointerup that never reached the stage must not stick the pinch.
+            (ax, ay), (bx, by) = _centre(page, 6, 0), _centre(page, 7, 1)
+            synthetic("pointerdown", 71, ax, ay)
+            is_crossed_at(6, 0, "a lone pen is crossed")
+            synthetic("pointerdown", 72, bx, by)  # 71's pointerup was lost
+            is_crossed_at(7, 1, "a stale pen entry stuck the pinch")
+            synthetic("pointerup", 72, bx, by)
+        finally:
+            context.close()
+
+
 # ==========================================================================
 # AC-5 — the hover crosshair clears when the pointer leaves the board
 # ==========================================================================
