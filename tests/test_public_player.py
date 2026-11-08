@@ -3056,7 +3056,9 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     # the same edit a stray file would need. A source file nobody publishes,
     # or a published source that is not on disk, fails here.
     files = sorted(path.name for path in PLAYER_DIR.iterdir() if path.is_file())
-    assert files == sorted({*assembler.PLAYER_FILES, "assemble.py"})
+    # ... plus the one source only the opt-in preview publishes (CARD-394): its
+    # own base stylesheet, which is why it is named here rather than in PLAYER_FILES.
+    assert files == sorted({*assembler.PLAYER_FILES, assembler.SHARED_UI_BASE_SOURCE, "assemble.py"})
     assert len(files) >= 8, files
     for forbidden in ("package.json", "node_modules", "package-lock.json"):
         assert not (PLAYER_DIR / forbidden).exists(), forbidden

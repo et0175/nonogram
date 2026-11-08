@@ -298,6 +298,8 @@ __all__ = [
     "SERVED_TIERS",
     "SERVED_TITLE_MAX_CHARS",
     "SERVED_VALUE_SPACE",
+    "SHARED_UI_BASE",
+    "SHARED_UI_BASE_SOURCE",
     "SHARED_UI_BOOTSTRAP",
     "SHARED_UI_COPIED_FROM_ADMIN",
     "SHARED_UI_PLAYER_FILES",
@@ -415,7 +417,9 @@ COPIED_FROM_ADMIN: dict[str, str] = {
 # * ``solver.js`` and ``admin.css`` join ``solver_state.js`` and
 #   ``tokens.css`` as byte-identical copies (:data:`SHARED_UI_COPIED_FROM_ADMIN`,
 #   the same assembly-time equality check, the same table the tests read);
-# * a Bootstrap stylesheet is copied from a path the caller names.
+# * the project's own base stylesheet (:data:`SHARED_UI_BASE_SOURCE`) is
+#   published beside them, and a Bootstrap stylesheet is published INSTEAD of
+#   it only when the caller names one (:class:`SharedUi`).
 #
 # **Where the toolbar markup comes from: the admin's own template, rendered
 # once, by the DRIVER.** The ~70 lines of toolbar live in
@@ -428,13 +432,18 @@ COPIED_FROM_ADMIN: dict[str, str] = {
 # as :class:`SharedUi`; this module imports nothing new (ADR-0006/R1) and
 # there is exactly one copy of the markup, the admin's.
 #
-# **Bootstrap is not in the repository.** ``admin.css`` relies on Bootstrap
-# 5.3 (54 ``--bs-`` references; the panel loads it from a CDN and the public
-# site bans external references). For the preview the caller names a local
-# copy and it is placed at :data:`SHARED_UI_BOOTSTRAP`. Whether to vendor
-# Bootstrap, or to replace it with a small button stylesheet, is a separate
-# owner decision on the dependency baseline (ADR-0006/R1), recorded on the
-# card and not made here.
+# **Bootstrap is not in the repository, and is not needed.** ``admin.css``
+# relies on Bootstrap 5.3 (54 ``--bs-`` references; the panel loads it from a
+# CDN and the public site bans external references). Of Bootstrap the page
+# uses four classes (``btn``, ``btn-outline-secondary``, ``btn-danger``,
+# ``badge``), a fifth that ``solver.js`` creates when a board cannot be drawn
+# (``alert``) and a few reboot rules, so the repository owns a small
+# hand-written stylesheet for exactly that (CARD-394,
+# :data:`SHARED_UI_BASE_SOURCE`); its values were measured in a browser
+# against the real file, and ``tests/test_player_base_css.py`` holds it to
+# them. The caller can still name a local copy of the real Bootstrap to build
+# the page with INSTEAD (``SharedUi.bootstrap``), to compare by eye; that file
+# is never committed and a tree built with it fails the served-tree scan.
 
 #: ``player/`` source -> published path, for the preview: the default table
 #: without the two files only the default ``/play/<key>`` page uses.
@@ -452,7 +461,13 @@ SHARED_UI_COPIED_FROM_ADMIN: dict[str, str] = {
     "src/nonogram/admin/static/admin.css": "admin.css",
 }
 
-#: Where the caller's Bootstrap stylesheet is published.
+#: The project's own stylesheet for the part of Bootstrap the page uses, under
+#: ``player/``, and where the preview publishes it (CARD-394).
+SHARED_UI_BASE_SOURCE = "shared-ui-base.css"
+SHARED_UI_BASE = "base.css"
+
+#: Where the caller's own Bootstrap stylesheet is published when one is named;
+#: the page then links it in the place of :data:`SHARED_UI_BASE`.
 SHARED_UI_BOOTSTRAP = "bootstrap.min.css"
 
 #: The page's usage paragraph is the admin's, and its last sentence describes
@@ -523,7 +538,7 @@ _SHARED_UI_PAGE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nonogram</title>
-<link rel="stylesheet" href="/bootstrap.min.css">
+<link rel="stylesheet" href="@@BASE@@">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/admin.css">
 </head>
@@ -609,16 +624,22 @@ class SharedUi:
     """What the preview mode needs from outside this module.
 
     ``fragment`` is the admin's ``puzzle_solve.html`` content block, rendered
-    (the driver does that, see "The shared-UI preview"); ``bootstrap`` is the
-    stylesheet to publish at :data:`SHARED_UI_BOOTSTRAP`.
+    (the driver does that, see "The shared-UI preview"); ``bootstrap`` is
+    ``None`` for the project's own stylesheet, or the path of a local copy of
+    the real Bootstrap to publish at :data:`SHARED_UI_BOOTSTRAP` instead, for
+    the owner's comparison by eye.
     """
 
     fragment: str
-    bootstrap: Path
+    bootstrap: Path | None = None
 
 
-def shared_ui_play_page(fragment: str) -> str:
+def shared_ui_play_page(fragment: str, base: str = SHARED_UI_BASE) -> str:
     """The preview's ``play/index.html``, from the rendered admin markup.
+
+    ``base`` is the published name of the stylesheet that stands in for
+    Bootstrap: the project's own by default, the caller's Bootstrap when one
+    was named.
 
     Raises :class:`ValueError` unless the fragment has the payload element
     the shell replaces, the usage clause :data:`SHARED_UI_HINT_CLAUSE`, and
@@ -644,8 +665,10 @@ def shared_ui_play_page(fragment: str) -> str:
     if len(_SHARED_UI_H1.findall(body)) != 1:
         raise ValueError("the admin markup must hold exactly one <h1>Puzzle ...</h1>")
     body = _SHARED_UI_H1.sub("<h1>Puzzle</h1>", body)
-    return _SHARED_UI_PAGE.replace("@@CONTENT@@", body.strip()).replace(
-        "@@LOADER@@", _SHARED_UI_LOADER
+    return (
+        _SHARED_UI_PAGE.replace("@@BASE@@", f"/{base}")
+        .replace("@@CONTENT@@", body.strip())
+        .replace("@@LOADER@@", _SHARED_UI_LOADER)
     )
 
 
@@ -1680,7 +1703,7 @@ def assemble(
     ``shared_ui`` is ``None`` for the deployable tree. Given, it assembles the
     opt-in PREVIEW (CARD-386): ``/play/<key>`` runs the admin's own player
     files and nothing else differs (see "The shared-UI preview"). The shell
-    is built, and the Bootstrap file read, BEFORE the output directory is
+    is built, and a named Bootstrap file read, BEFORE the output directory is
     touched, so a fragment the shell refuses leaves the previous tree alone.
     """
     capacity = check_capacity()
@@ -1693,8 +1716,14 @@ def assemble(
     if shared_ui is not None:
         player_files = SHARED_UI_PLAYER_FILES
         admin_copies = SHARED_UI_COPIED_FROM_ADMIN
-        extra_pages["play/index.html"] = shared_ui_play_page(shared_ui.fragment)
-        bootstrap = shared_ui.bootstrap.read_bytes()
+        if shared_ui.bootstrap is None:
+            player_files = {**player_files, SHARED_UI_BASE_SOURCE: SHARED_UI_BASE}
+            extra_pages["play/index.html"] = shared_ui_play_page(shared_ui.fragment)
+        else:
+            bootstrap = shared_ui.bootstrap.read_bytes()
+            extra_pages["play/index.html"] = shared_ui_play_page(
+                shared_ui.fragment, SHARED_UI_BOOTSTRAP
+            )
     if site.exists():
         shutil.rmtree(site)
     site.mkdir(parents=True)
@@ -1857,18 +1886,26 @@ def main(argv: list[str] | None = None, *, shared_ui_fragment: str | None = None
     parser.add_argument(
         "--bootstrap",
         default=None,
-        help="PREVIEW mode: a local copy of Bootstrap 5.3's stylesheet (not in the repository)",
+        help=(
+            "PREVIEW mode, optional: a local copy of Bootstrap 5.3's stylesheet to build the "
+            "page with instead of the project's own (never committed; for comparing by eye)"
+        ),
     )
     args = parser.parse_args(argv)
     if args.shared_ui_fragment is not None and shared_ui_fragment is not None:
         parser.error("the markup came both as --shared-ui-fragment and in memory")
-    if (args.shared_ui_fragment is None and shared_ui_fragment is None) != (args.bootstrap is None):
-        parser.error("the preview needs both the admin markup (--shared-ui-fragment) and --bootstrap")
+    if args.shared_ui_fragment is None and shared_ui_fragment is None and args.bootstrap is not None:
+        parser.error("--bootstrap belongs to the preview, which needs the admin markup (--shared-ui-fragment)")
     fragment = shared_ui_fragment
     if args.shared_ui_fragment is not None:
         fragment = Path(args.shared_ui_fragment).read_text(encoding="utf-8")
     shared_ui = (
-        None if fragment is None else SharedUi(fragment=fragment, bootstrap=Path(args.bootstrap))
+        None
+        if fragment is None
+        else SharedUi(
+            fragment=fragment,
+            bootstrap=None if args.bootstrap is None else Path(args.bootstrap),
+        )
     )
     # Both or neither: a run given one of the two would otherwise write a tag
     # pointing at half an endpoint, and a typo in one flag name would silently

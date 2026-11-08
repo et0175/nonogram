@@ -226,8 +226,9 @@ def delegated_argv(
 
     Separate from :func:`main` so that ``--print-only`` prints the same list
     that runs, and so a test can read the driver's whole contribution without
-    assembling anything. ``bootstrap`` is the local Bootstrap stylesheet of the
-    opt-in preview mode (CARD-386) and ``None`` for the deployable tree; the
+    assembling anything. ``bootstrap`` is the optional local Bootstrap stylesheet of
+    the opt-in preview mode (CARD-386; CARD-394 made it an override, ``None``
+    meaning the project's own stylesheet); the
     rendered admin markup that goes with it travels in-process, as
     ``assemble.main``'s keyword, because this driver writes no file.
     """
@@ -273,15 +274,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "PREVIEW (CARD-386): /play/<key> runs the admin's own player files, "
-            "with no override layer. Never deploy this tree. Needs --bootstrap"
+            "with no override layer, styled by the project's own base stylesheet. "
+            "Never deploy this tree"
         ),
     )
     parser.add_argument(
         "--bootstrap",
         default=None,
         help=(
-            "with --shared-ui: a local copy of Bootstrap 5.3's stylesheet, "
-            "published beside the page. It is not in the repository"
+            "with --shared-ui, optional: a local copy of Bootstrap 5.3's stylesheet, "
+            "used instead of the project's own to compare by eye. Never committed"
         ),
     )
     parser.add_argument(
@@ -299,8 +301,8 @@ def main(argv: list[str] | None = None) -> int:
         runtime, _ = allow_list()
         analytics = (runtime["count"], runtime["script"])
 
-    if args.shared_ui != (args.bootstrap is not None):
-        parser.error("--shared-ui and --bootstrap go together")
+    if args.bootstrap is not None and not args.shared_ui:
+        parser.error("--bootstrap belongs to --shared-ui")
     delegated = delegated_argv(
         bundle=args.bundle,
         out=args.out,
