@@ -1,6 +1,6 @@
 # CARD-392: The one-line footer gives the grid its room — the footer band shrinks, and pairing and cell sizes are re-derived from the larger area
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -9,11 +9,11 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/392-one-line-footer
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-392
 **Source:** owner decision 2026-11-07, version B: "A one-line footer, so grids get a little more room" and "The grid area now runs down to that line."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-391
