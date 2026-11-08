@@ -86,6 +86,7 @@ this card's main edge.
   `TestInteriorType_EveryFaceHoldsTheFloor`).
 - G-5: Out of scope — the tiles themselves (CARD-232), the dots glyph (CARD-228).
 - G-6: Baselines re-recorded with provenance; no earlier fixture regenerated or deleted.
+- G-7: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module. The solved_page + answer_key group (103 ids per CARD-387's recount) retires with CARD-232/233.
 
 ## System contract
 

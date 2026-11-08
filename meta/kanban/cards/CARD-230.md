@@ -162,6 +162,7 @@ breaking your own diff, say so in the notes rather than claiming it as evidence.
   is the control here, and the honest move is to check it still passes rather than to write a
   new test that claims the credit** (test:
   `TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep`).
+- G-9: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module. The guide_page group (58 ids per CARD-387's recount) retires with CARD-229/230.
 
 ## System contract
 

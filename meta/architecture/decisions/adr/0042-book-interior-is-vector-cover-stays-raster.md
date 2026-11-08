@@ -330,6 +330,15 @@ one remaining lever (width) for distinguishing furniture from grid ink.
 
 ## History
 
+- 2026-11-08: **The QR block CARD-306 decided on (operators, not an image)
+  left the puzzle pages.** CARD-391 (owner decision 2026-11-07, ADR-0041/R8)
+  removed the placeholder chequer, its two caption lines and `QrGroup`;
+  `book_sheet_vector` now draws the two frame rules, the grid-size label, the
+  folio and one footer pointer line, all as text and rules. The decision's
+  other half stands unchanged and is still held by
+  `TestSheetFurniture_TheWriterRefusesAnXObject`: `write_vector_page` refuses a
+  stream that paints an XObject.
+
 - 2026-10-31: **The 0.169 mm the two media "disagreed" by is half a rule, not a
   placement — and `EDGE_TOLERANCE_MM` was not widened.** CARD-330. CARD-309's
   round measured the raster's ink and the vector's stream 2 device pixels apart

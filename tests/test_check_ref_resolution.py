@@ -1525,7 +1525,13 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # CARD-390 (2026-11-08): 575 -> 580, the same five FR-047 class refs as DEFINED
 # below (each a new declaration with its `class` in place), so CENSUS,
 # TRACE_TESTS and DEFINED all move by the same five.
-CENSUS = (580, "6b8602404069ebd3")
+# CARD-391 (2026-11-08): 580 -> 583, three new declarations, each with its
+# definition in place: the two ADR-0041/R8 node-id refs (see SAME_FILE_PROSE
+# below) and AC-377's
+# rewritten `test:` class (the one about narrow trims now pairing, in
+# requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
+# does not (none of the three is declared in trace.yml).
+CENSUS = (583, "e0a8c03c0eed6b00")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1671,7 +1677,8 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # not spelled here, because a literal test name in this module would revive the
 # ref for the validator), each declared by requirements.yml and trace.yml with
 # its definition in place; HONEST_DEAD unmoved at 9.
-DEFINED = (416, "08f25c2e55ce5fab")
+# CARD-391: 416 -> 419, the same three (see CENSUS above).
+DEFINED = (419, "0a91e9a7753e31ec")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1693,7 +1700,15 @@ DEFINED = (416, "08f25c2e55ce5fab")
 #: a text search, and the symmetric difference on this class is exactly those
 #: three entering. That the shim module was already one of the four listed above
 #: is why nothing else here had to change.
-SAME_FILE_PROSE = (19, "e899a08818a9c4be")
+#:
+#: CARD-391 (2026-11-08): 19 -> 21, the two node-id refs ADR-0041/R8's check
+#: now declares. Each has its ``def`` in a ``tests/`` module and is now spelled
+#: whole in that same module's docstring (the test says which ADR rule it
+#: holds), which is what makes the validator's text search find them alive: the
+#: warning set on ``meta/architecture`` is identical to main's (0 errors, 89
+#: warnings, forge_1), where a first draft with no such citation read one
+#: DEAD-ref warning more. Verified against the two ``def`` lines.
+SAME_FILE_PROSE = (21, "531805932c7ba2e5")
 
 #: **Per-member digests of the two classes whose shrink is answerable
 #: mechanically** -- the enforceable half of repair-vs-signal-loss, and the

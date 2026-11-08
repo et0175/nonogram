@@ -449,6 +449,12 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
     asked what the file says, and the answer is pixels. Returns a
     ``numpy`` array of 0..255 greys indexed ``[row, column]``.
 
+    Poppler is asked for raw gray (``-gray`` with no ``-png``, a binary PGM)
+    rather than PNG (CARD-415): the PNG deflate was 88 % of a ``pdf_pages``
+    call and the pixels are byte-identical, which
+    ``TestBookPdfMemory_TheSharedReaderReadsEachPageForItself`` holds against
+    an independent PNG render.
+
     Raises:
         RuntimeError: poppler is installed but produced nothing — a failure,
             never a pass. A host with no poppler at all is the caller's
@@ -462,13 +468,13 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
     source = directory / "vector.pdf"
     source.write_bytes(data)
     # SCOPE+ (CARD-355): the output prefix is unique to the page asked for. It
-    # was a fixed "page", and the read-back below took the FIRST png sorted in
+    # was a fixed "page", and the read-back below took the FIRST file sorted in
     # the directory, so a caller sharing one directory across pages (the shared
     # reader ``pdf_pages`` does) got page 1's render for every later page.
     # Stale files of this page's own prefix are removed first, so a re-render of
     # the same page with different data cannot be read back either.
     prefix = f"pg{page}"
-    for stale in directory.glob(f"{prefix}-*.png"):
+    for stale in directory.glob(f"{prefix}-*.pgm"):
         stale.unlink()
     subprocess.run(
         [
@@ -480,18 +486,22 @@ def rendered_page(data: bytes, dpi: int, page: int = 1, out_dir: Path | None = N
             "-l",
             str(page),
             "-gray",
-            "-png",
             str(source),
             str(directory / prefix),
         ],
         check=True,
         capture_output=True,
     )
-    rendered = sorted(directory.glob(f"{prefix}-*.png"))
+    rendered = sorted(directory.glob(f"{prefix}-*.pgm"))
     if not rendered:
         raise RuntimeError(f"pdftoppm wrote no image for page {page}")
-    with Image.open(rendered[0]) as image:
-        return np.asarray(image.convert("L"), dtype=np.int16)
+    raw = rendered[0].read_bytes()
+    # A binary PGM: b"P5\nW H\n255\n" then W*H bytes, row-major.
+    magic, size, maxval, pixels = raw.split(b"\n", 3)
+    width, height = map(int, size.split())
+    if magic != b"P5" or maxval != b"255" or len(pixels) != width * height:
+        raise RuntimeError(f"pdftoppm wrote an unexpected PGM for page {page}")
+    return np.frombuffer(pixels, dtype=np.uint8).reshape(height, width).astype(np.int16)
 
 
 def extracted_text(data: bytes, out_dir: Path | None = None) -> str:

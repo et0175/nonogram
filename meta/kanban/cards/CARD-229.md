@@ -131,6 +131,7 @@ callout at the foot of page 2 — CARD-230, so that this card's diff is the spre
 - G-4: Out of scope — the worked example's steps and the callout (CARD-230), the title page
   itself (CARD-206).
 - G-5: Baselines re-recorded with provenance; no earlier fixture regenerated or deleted.
+- G-6: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module. The guide_page group (58 ids in test_book_guide_page / test_book_guide_page_type per CARD-387's recount) retires with CARD-229/230.
 
 ## System contract
 

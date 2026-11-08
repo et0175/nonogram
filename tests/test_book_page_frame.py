@@ -54,7 +54,7 @@ from nonogram.export.layout import (
     INTERIOR_FOOTER_RULE_PT,
     INTERIOR_HEADER_RULE_PT,
     MM_PER_POINT,
-    QR_SLOT_MM,
+    FOOTER_RESERVED_ROW_MM,
     DPI,
     OrientationPolicy,
     PageParity,
@@ -1148,10 +1148,14 @@ class TestBookPageFrame_EachFigureIsDeclaredOnce:
                         offenders.append(module.name)
         assert set(offenders) <= {"book_page_spec.py"}, offenders
 
-    def test_the_footer_band_is_derived_from_the_icon_it_has_to_hold(self) -> None:
-        assert INTERIOR_FOOTER_MM > QR_SLOT_MM
+    def test_the_footer_band_is_derived_from_its_three_rows(self) -> None:
+        """CARD-391 held the band: the row the QR icon used to fill is still
+        reserved (CARD-392 shrinks it), so the band is that row, the footer
+        line and two gaps -- 29.878 mm, as before this card."""
+        assert INTERIOR_FOOTER_MM > FOOTER_RESERVED_ROW_MM
+        assert INTERIOR_FOOTER_MM == pytest.approx(29.878, abs=1e-3)
         assert INTERIOR_FOOTER_MM == pytest.approx(
-            QR_SLOT_MM
+            FOOTER_RESERVED_ROW_MM
             + FRAME_FIGURES["INTERIOR_FOOTER_LINE_PT"] * MM_PER_POINT
             + 2 * FRAME_FIGURES["INTERIOR_FOOTER_GAP_PT"] * MM_PER_POINT
         )
