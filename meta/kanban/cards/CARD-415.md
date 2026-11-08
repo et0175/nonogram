@@ -56,4 +56,9 @@
 
 ## Worktree notes
 
-(none yet)
+Author notes (CARD-415, 2026-11-08; all figures from commands run in this worktree on a contended host, load average 4 to 8):
+
+* Edit: `tests/helpers/pdf_vector.py::rendered_page` drops `-png`, globs `pg{N}-*.pgm`, parses `P5\nW H\n255\n`, returns `np.frombuffer(...).reshape(h, w).astype(np.int16)` (same dtype as the PNG path). Comment text only in `test_book_pdf_band.py` and `test_book_pdf_memory.py`. `_poppler_alone` stays PNG.
+* AC-1 (identity): recorded one-shot script, no new test (the existing `TestBookPdfMemory_TheSharedReaderReadsEachPageForItself` already holds `rendered_page` against an independent PNG render). Old function (merge-base copy) vs new, every page, 72/100/150/300 dpi: baseline interior 14 pages, landscape 15, odd trim 15, square 15, cover 1 (the baseline carries the raster divider pages): 0 mismatches of shape, dtype and bytes. Control: a page rendered at the wrong dpi (100 vs 150, and 100 vs 101) differs. Not covered: a book with uploaded dividers.
+* AC-2 (time): median `pdf_pages` on the baseline interior, 3 runs each, interleaved twice: before 3.64 s and 3.09 s, after 1.19 s and 0.81 s. Five heaviest files solo, before to after: property/test_book_pdf_geometry 281 s to 113 s; test_book_pdf 163 s to 101 s; test_book_export_interior_cover 157 s to 102 s; test_book_pdf_two_up 82 s to 26 s; property/test_book_export_interior 91 s to 34 s (another author ran modules concurrently throughout).
+* Net collected node ids: 0.
