@@ -1,6 +1,6 @@
 # CARD-391: Puzzle pages carry no QR — the per-puzzle code, its caption and link are retired, and the footer points at the Play online page
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner decision 2026-11-07: "we decided to remove individual QR codes altogether". Version B, "Puzzle pages without a code": the footer keeps a hairline rule, the grid size on the inner side and, on the outer side, a short line "Play puzzle 53 online · p. 167"; "Two to a page": the two grids centre across the full width and share one footer line.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-390

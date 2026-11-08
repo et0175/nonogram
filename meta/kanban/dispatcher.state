@@ -466,14 +466,22 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-# CARD-396 CLEARED 2026-11-08 at its merge gate: merged 49c3a7a1, done, certified 8.6 on cycle 2 (7.5 on cycle 1), estimate 2c -> 2 cycles = ratio 1.0. Its worktree is removed; the entry is dropped.
-  - card: CARD-390
-    branch: card/390-play-online-page
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-390
-    started: 2026-11-08T08:00Z
+  - card: CARD-394
+    branch: card/394-project-stylesheet
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-394
+    started: 2026-11-08T08:30Z
+    estimate: 2c (1d)
+    cut_from: 79c5052d
+  - card: CARD-391
+    branch: card/391-puzzle-pages-lose-the-qr
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-391
+    started: 2026-11-08T10:30Z
     estimate: 4c (1.5d)
-    cut_from: 58a78986
-    # OWNER 2026-11-08 "start 390 now": a THIRD active card, over the standing cap of 2, by the owner's explicit instruction.
+    cut_from: e906e6cd
+# CARD-390 CLEARED 2026-11-08T06:41Z at its merge gate: merged 5028c17e, done, certified 8.6 on cycle 1 (fix round b7bf51ef
+#   not re-reviewed), estimate 4c -> 1 cycle = ratio 0.25. Full armed suite 11690 passed, 1 skipped, 1 xfailed + 11 lifted
+#   wave_close_only passed; 2 owed at the wave close. Entry dropped; worktree removed under the tidy rule.
+# CARD-396 CLEARED 2026-11-08 at its merge gate: merged 49c3a7a1, done, certified 8.6 on cycle 2 (7.5 on cycle 1), estimate 2c -> 2 cycles = ratio 1.0. Its worktree is removed; the entry is dropped.
 # CARD-388 CLEARED 2026-11-07T21:18Z at its merge gate: merged 2d81b270, done, certified 8.6 on cycle 1 (fix rounds 4415d6a2 and f2ce628c not
 #   re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Full armed suite 11650 passed, 1 skipped, 1 xfailed (the first gate run
 #   reddened on five frozen censuses, fixed on the branch and re-run green). Entry dropped; worktree removed under the tidy rule.
@@ -759,16 +767,15 @@ queued:
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
 # OWNER 2026-11-07: 'start 390 when a slot frees' and 'you can go 394 - 399 when the slot is ready': dispatch order for the next free slots = 390, 394, 397 (after 395 merges), 399 (audit step first; its deletion needs the owner's go for a production deploy of the shared-UI mode), then 398 (needs 387 + 395). Cap of 2 stands; a slot frees at MERGE.
-- id: CARD-229   # P2 4c  "HOW TO SOLVE" AS A FACING SPREAD on pages 2-3 + the Play-online sentence (CARD-393 folded in 2026-11-08, owner). REFRESH the starting facts first (the guide is vector since 322). Depends 390. Unstamped.
-- id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
-- id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
-- id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
-- id: CARD-387   # P2 20c  CONVERT OR RETIRE the ~390 raster interior tests by the claim audit, then delete the 23 bitmap writers (CARD-322's items 8/16/17). Depends on CARD-322. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
-- id: CARD-391   # P2 4c  PUZZLE PAGES LOSE THE QR; footer pointer 'Play puzzle N online · p. X'. Depends 390. Land BEFORE 387. Unstamped.
+# OWNER 2026-11-08 ('ok . agree'): after CARD-390 merges: 391 beside 394 (394 is already active); then 392, 229; 400 (circled numbers) beside the chain; 387 AFTER the one-QR chain (391/392/229) has merged (it collides with 391's QR-test retirement and the book_pdf_generator.py edits); 399's audit runs now, its deletion waits for the owner's go on a production deploy of the shared-UI mode; 398 only after a measurement clears its floor and 387.
 - id: CARD-392   # P2 4c  ONE-LINE FOOTER: band shrinks, pairing + cell sizes re-derived. Depends 391. Land BEFORE 232/233/226/230/229. Unstamped.
-- id: CARD-398   # P3 3c  Session render cache for the baseline book; held until 387; may close as a null (owner C). Depends 387, 395. Unstamped.
+- id: CARD-229   # P2 4c  "HOW TO SOLVE" AS A FACING SPREAD on pages 2-3 + the Play-online sentence (CARD-393 folded in 2026-11-08, owner). REFRESH the starting facts first (the guide is vector since 322). Depends 390. Unstamped.
 - id: CARD-400   # P2 3c CIRCLED CLUE NUMBERS: enumerate uncircled-but-solved cases, reproduce, fix what the owner rules in. Owner findings 2026-11-07. Unstamped.
+- id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
 - id: CARD-401   # P1 3c ICON-ONLY toolbar on phones + short screens, 2-cell Region, title+badge on one line. Owner findings 2026-11-07. Unstamped.
+- id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
+- id: CARD-387   # P2 20c  CONVERT OR RETIRE the ~390 raster interior tests by the claim audit, then delete the 23 bitmap writers (CARD-322's items 8/16/17). Depends on CARD-322. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
+- id: CARD-414   # P2 1c  SHARED CROSSHAIR stops during a pinch and counts a pen as part of one (ported from play.js; owner 2026-11-08, CARD-399 audit). Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
 - id: CARD-403   # P1 3c STAGE ends above the fold at any toolbar height; the jump. Owner findings 2026-11-07. Unstamped.
 - id: CARD-404   # P1 4c CLUE NUMERALS capped (~14 px) while cells grow; strips pinned at every zoom. Owner findings 2026-11-07. Unstamped.

@@ -1,6 +1,6 @@
 # CARD-394: A small project stylesheet replaces Bootstrap on the public player — the four classes and the base reset, owned by the repo
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 2c (1d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner ruling 2026-11-07 on CARD-386's review (reviewer's recommendation, accepted): "Small project stylesheet" for how the public site gets Bootstrap's styling long-term. CARD-386 assembles the admin's own player files into a preview site and takes the REAL Bootstrap file from the owner's machine at build time (never committed). Real Bootstrap 5.3 is 233 KB, fails AC-392's served-tree scan (3 foreign references: the w3.org SVG namespace, getbootstrap.com, the licence URL on GitHub; plus 2 unclassifiable data-URI fragments), and a CDN is out (ADR-0041 bans external references).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-386

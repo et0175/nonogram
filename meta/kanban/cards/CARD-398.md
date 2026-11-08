@@ -1,6 +1,6 @@
 # CARD-398: The baseline book render is built once per session and shared — the bitmap-interior tests that are left after the claim audit
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** ops
 **Estimate:** 3c (1d)
@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-387, CARD-395
 **Touches:** tests/helpers/book_corpus.py, tests/conftest.py, tests/test_book_pdf.py, tests/test_book_pdf_two_up.py, tests/test_book_cell_size.py, tests/test_book_divider_pages_option.py, tests/test_book_pdf_levels.py
-**Review score:** —
+**Review score:** n/a — **CLOSED AS A RECORDED NULL** on 2026-11-08: the measurement (~/Documents/nonogram-reviews/CARD-398-measure/) found 16 to 28 s of removable duplicate rasterisation per full run before CARD-387 (0 to 10 s after), against the card's own 40 s floor; the card's premise (the listed files re-render the SAME baseline book) is false for 7 of the files (they build ad-hoc puzzles). No work was done and none is owed.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -57,3 +57,7 @@ The book-PDF family is 1810 s in the measured run (39.3 % of summed time, 78 fil
 ## Worktree notes
 
 (none yet)
+
+## CLOSED AS A NULL 2026-11-08
+
+Measured read-only (not pytest) on a contended host (upper bounds): one baseline export 0.07 s; one `pdf_pages` rasterisation of the 14 baseline pages 3.45 s (about 2.5 s of it is Python overhead around poppler: one process spawn per page, the Pillow parse, the numpy conversion; one `pdftoppm` over all pages takes 0.65 to 0.89 s). Removable duplicates: test_book_pdf_memory 5 of 6 identical rasters, test_book_solved_answer_key 1, test_book_interior_face 1 to 2 => about 21 to 28 s per full run contended, 16 to 27 s quiet (assumed), 0 to 10 s after CARD-387. Under the 40 s floor. A possible cheaper lever, NOT carded: the per-call Python overhead of `pdf_pages` (applies to every rasterisation, needs no cache invalidation): needs its own measurement of how many calls a full run makes.

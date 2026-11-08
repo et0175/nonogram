@@ -129,6 +129,22 @@ def stored_player_domain(book) -> Optional[str]:
     return value.strip()
 
 
+def printable_player_domain(book) -> Optional[str]:
+    """``book``'s stored player domain when a printed address can be made of it.
+
+    CARD-390. :func:`stored_player_domain` answers what the column holds; this
+    answers whether the interior may print a code for it. A value the domain
+    validator refuses (only reachable by editing the row by hand, since the
+    panel validates before it stores) is treated exactly like no domain, so
+    the page plan, the counts, the KDP baseline and the export all read one
+    answer and cannot disagree about whether the Play online page exists.
+    """
+    stored = stored_player_domain(book)
+    if stored is None or not PrintSpecValidator.validate_player_domain(stored)[0]:
+        return None
+    return stored
+
+
 @dataclass(frozen=True)
 class TrimLimits:
     """KDP's trim bounds in cm, and in the inches that are always accepted (CARD-174).

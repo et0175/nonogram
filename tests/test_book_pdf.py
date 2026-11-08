@@ -65,6 +65,7 @@ to keep. See their own docstrings for what they are and are not evidence of.
 from __future__ import annotations
 
 import ast
+import copy
 import pathlib
 import random
 import re
@@ -1207,7 +1208,7 @@ class TestBookPdf_PagePlanGuardIsLive:
             # and forgotten here would then be dropped silently, and this
             # guard would start asserting against a plan computed without it.
             # CARD-305 found it the loud way, which is the right way.
-            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None, solutions_divider=True: (
+            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None, solutions_divider=True, play_online=False: (
                 planned(
                     count,
                     puzzle_pages,
@@ -1215,6 +1216,7 @@ class TestBookPdf_PagePlanGuardIsLive:
                     level_dividers,
                     toc_pages=toc_pages,
                     solutions_divider=solutions_divider,
+                    play_online=play_online,
                 )
                 + 1
             ),
@@ -4061,7 +4063,7 @@ class TestShippedDefault_TheTestTreesRebindDoesNotHideIt:
             f.name: getattr(SHIPPED_DEFAULT_WRITERS, f.name)
             for f in dataclasses.fields(SHIPPED_DEFAULT_WRITERS)
         }
-        assert set(fields) == {"guide", "toc", "answer", "packed_answer"}, fields
+        assert set(fields) == {"guide", "toc", "answer", "packed_answer", "play"}, fields
         assert all(value is None for value in fields.values()), (
             "the shipped default writer set carries a writer: " + repr(fields)
         )
@@ -4178,6 +4180,15 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             for index, (columns, rows, depth) in enumerate(self.BOOK)
         ]
 
+    @staticmethod
+    def _book_with_a_player_domain() -> Book:
+        """The book, with a stored player domain, so its interior holds the
+        Play online page (and, on :data:`BOOK`, the blank before it): the fifth
+        writer is reached only by a book that prints that page (CARD-390)."""
+        book = copy.copy(_book())
+        book.player_domain = "https://nonogram.adverax.io"
+        return book
+
     def _vector_interior(self, monkeypatch):
         import nonogram.admin.book_interior_vector as assembly
         import nonogram.admin.book_pdf_generator as generator_module
@@ -4191,7 +4202,7 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             assert page_medium(kind) is PageMedium.VECTOR, kind.value
 
         puzzles = self._puzzles()
-        generator = assembly.interior_generator(_book())
+        generator = assembly.interior_generator(self._book_with_a_player_domain())
         kinds = generator.interior_stream(puzzles).page_kinds
         data = generator.export_interior(puzzles).getvalue()
         return generator, kinds, data, lifted
@@ -4230,7 +4241,9 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
                 for name in fields
             }
         )
-        generator = assembly.interior_generator(_book(), pages=wrapped)
+        generator = assembly.interior_generator(
+            self._book_with_a_player_domain(), pages=wrapped
+        )
         generator.export_interior(self._puzzles())
 
         assert sorted(used) == sorted(fields), (sorted(used), fields)

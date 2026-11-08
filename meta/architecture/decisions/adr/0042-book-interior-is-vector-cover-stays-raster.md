@@ -480,6 +480,16 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   because the exception **expires when CARD-231 lands** — a declaration whose
   reason has gone is itself a defect under R2.
 
+- 2026-11-08: **Two interior kinds joined the list, both vector with no
+  declaration** (CARD-390). The Play online page (`PageKind.PLAY`: a heading,
+  one line, the book's QR code and its typed address, ADR-0041/R8) and the
+  blank page that puts it on a right-hand page (`PageKind.BLANK`, the title
+  page's own empty stream). `page_medium` answers VECTOR for both by its
+  default, so R2's registry is unchanged (the cover and the divider are still
+  its only entries); the page is placed by `export/layout.py`'s
+  `play_page_layout` and drawn by `book_play_vector`, downstream of the
+  generator and reached through `InteriorPageWriters.play`, like the guide.
+
 - 2026-11-07: **The divider's exception became permanent** (CARD-311, owner
   ruling 2026-11-06 "dividers are uploaded"). An uploaded picture is a bitmap
   by nature, so `PageKind.DIVIDER` is declared with `expires_with=()` and the
