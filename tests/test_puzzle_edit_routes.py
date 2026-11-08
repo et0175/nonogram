@@ -477,53 +477,108 @@ def _grid(picture: str) -> list[list[bool]]:
     return [[cell == "#" for cell in line] for line in picture.strip().splitlines()]
 
 
-#: Three 10x10 grids, all uniquely solvable and all **Easy** (score 33.0 — the
+#: Six 12x12 grids, all uniquely solvable and all **Easy** (score 33.0 -- the
 #: whole Easy band is that one point, ADR-0029's 2026-09-13 correction), whose
-#: clue gutters are 3, 4 and 5 boxes deep. They were found with a seeded
-#: ``random.Random(251)`` search over density-45 grids and are written out as
-#: literals so the fixture costs no search; every property the tests lean on —
-#: the extent, the tier and the depth — is asserted in
-#: :class:`TestBookedEdit_TheDepthFixtureIsWhatItClaims`.
+#: clue gutters are 3, 4 and 5 boxes deep (two of each: ``DEPTH_n`` and
+#: ``DEPTH_nB``; the column gutter is the named depth and the row gutter is no
+#: deeper). They were found with a seeded ``random.Random(392)`` search over
+#: 12x12 grids (the solver's own uniqueness check, then the store's Easy
+#: gate) and are written out as literals so the fixture costs no search; every
+#: property the tests lean on -- the extent, the tier and the depth -- is
+#: asserted in :class:`TestBookedEdit_TheDepthFixtureIsWhatItClaims`.
 #:
-#: The depths are what AC-9 drives, and they are the card's own measured
-#: boundary on the Book 1 profile: two equal-tier 10x10 puzzles pair at a
-#: shared cell of 7.500 mm at depth 3, still pair at 7.129 mm at depth 4, and
-#: **do not pair at depth 5** — the page splits and every folio after it moves.
+#: **Re-derived by CARD-392 (old -> new).** The fixture was three 10x10 grids
+#: (depth 3, 4, 5) built on CARD-248's boundary, where two 10x10 puzzles
+#: paired up to a combined 28 cells and split at 29 (depth 4 + 5). The
+#: one-line footer lifts Book 1's boundary to 31 cells (``compute_pair_layout``
+#: at FR-040's 7.0 mm floor: 219.586 mm / 7.0), and a 10x10 grid's deepest
+#: gutter is 5, so two of them reach only 30 cells and can never split: the
+#: fixture moved to 12x12, where the cells are ``24 + depth + depth``. On
+#: Book 1: depth 4 + 3 = 31 pairs (the last pair that does), 5 + 3 = 32 and
+#: 5 + 4 = 33 split (measured through ``puzzle_page_plan``).
 DEPTH_3 = _grid("""
-###.#..#..
-.##....##.
-.##....##.
-.##.##...#
-..#...##.#
-.#.....#.#
-.#..#.####
-..#..#.##.
-...#..###.
-.###..#..#
+##.#.....###
+##.###....##
+###.#....###
+######..####
+#.....#.###.
+#.####.####.
+...######.#.
+##.#######.#
+#.####...#..
+############
+.###.####...
+#.##.#......
+""")
+DEPTH_3B = _grid("""
+####..#.##..
+..#..####...
+..#.##.###..
+###...######
+###..#####..
+##.#..#####.
+#..#..######
+#..##....###
+#######.#.##
+.#######.#.#
+.##.##..##..
+.#.#....####
 """)
 DEPTH_4 = _grid("""
-...#..#..#
-..##.#.#..
-.........#
-#...#.#.#.
-#.....####
-##.##...#.
-#....####.
-#.#.##....
-.##.###...
-....######
+###.##.#....
+#########.#.
+.#....####..
+#####.#.#.##
+.##.##.#....
+#..####.#...
+#.###...####
+.########.##
+#..######.#.
+#..#.##..#..
+####.#.##.#.
+.##..###.###
+""")
+DEPTH_4B = _grid("""
+####.###..#.
+##..#...###.
+.####...#.##
+####.#.#.##.
+###.##.##.#.
+###.###..###
+#..##.##.#..
+##.########.
+..######...#
+##..#....##.
+.###.######.
+#.########..
 """)
 DEPTH_5 = _grid("""
-#...#.....
-######..##
-.#####.#.#
-#.#.#..#.#
-.##.#.#.##
-#.##..####
-.##..##.#.
-#.###....#
-.....#...#
-#####...#.
+..#..#.#.#..
+#..#...####.
+####....##.#
+..###.##..##
+.#####.##..#
+...#######.#
+.#.#.#.#.##.
+...#.#.#....
+###..##.##..
+.###..##.###
+#...####..#.
+####.#..#..#
+""")
+DEPTH_5B = _grid("""
+###..#.#..##
+#####.##..#.
+#..#.###.###
+.##..##.#...
+#..#..#..#.#
+#.#..##.###.
+#.##.####.#.
+.######.####
+#...#.####.#
+###.###.#.#.
+#...#######.
+######.....#
 """)
 
 
@@ -615,24 +670,28 @@ class TestBookedEdit_TheDepthFixtureIsWhatItClaims:
     """
 
     @pytest.mark.parametrize(
-        "grid, depth",
-        [(DEPTH_3, 3), (DEPTH_4, 4), (DEPTH_5, 5)],
+        "grids, depth",
+        [((DEPTH_3, DEPTH_3B), 3), ((DEPTH_4, DEPTH_4B), 4), ((DEPTH_5, DEPTH_5B), 5)],
         ids=["depth-3", "depth-4", "depth-5"],
     )
-    def test_each_grid_is_a_10x10_easy_puzzle_of_the_depth_it_is_named_for(
-        self, admin_app, grid, depth
+    def test_each_grid_is_a_12x12_easy_puzzle_of_the_depth_it_is_named_for(
+        self, admin_app, grids, depth
     ):
         from nonogram.clues import compute_clues
 
-        rows, columns = compute_clues(grid)
-        assert (len(grid[0]), len(grid)) == (10, 10)
-        assert max(gutter_depth(rows), gutter_depth(columns)) == depth
-        # Easy, and uniquely solvable — the store's own gate answers both, and
-        # it refuses anything that is not a puzzle.
-        puzzle_id = seed_with_real_clues(admin_app, grid)
-        code, body = post(admin_app, VERIFY.format(puzzle_id), grid)
-        assert code == 200, body
-        assert body["grade"]["difficulty_tier"] == "easy"
+        for grid in grids:
+            rows, columns = compute_clues(grid)
+            assert (len(grid[0]), len(grid)) == (12, 12)
+            # The column gutter is the height term the pairing walk adds to
+            # the 12 rows; the row gutter is no deeper than it.
+            assert gutter_depth(columns) == depth
+            assert gutter_depth(rows) <= depth
+            # Easy, and uniquely solvable — the store's own gate answers both,
+            # and it refuses anything that is not a puzzle.
+            puzzle_id = seed_with_real_clues(admin_app, grid)
+            code, body = post(admin_app, VERIFY.format(puzzle_id), grid)
+            assert code == 200, body
+            assert body["grade"]["difficulty_tier"] == "easy"
 
 
 class TestBookedEditRoutes_TheConfirmationIsTheServers:
@@ -1032,9 +1091,12 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
 
     @staticmethod
     def _pair(admin_app, books):
-        """A book of two 10x10 Easy puzzles that share one page at depth 4."""
+        """A book of two 12x12 Easy puzzles that share one page: depth 4 + 3,
+        24 + 4 + 3 = 31 combined cells, the last pair Book 1 prints together
+        (CARD-392: it was two 10x10 depth-4 puzzles, 28 cells, under the old
+        boundary)."""
         first = seed_with_real_clues(admin_app, DEPTH_4, source_image="first.png")
-        second = seed_with_real_clues(admin_app, DEPTH_4, source_image="second.png")
+        second = seed_with_real_clues(admin_app, DEPTH_3, source_image="second.png")
         a_book(books, [first, second])
         return first, second
 
@@ -1112,12 +1174,12 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
     ):
         """The delta is SIGNED, and nothing constrains it to +1 (review cycle
         1, F-004 — the old sentence asserted "gets one page longer" beside a
-        computed number). Two depth-5 puzzles print on a page each; replacing
-        one with a depth-3 grid lets the pair fit, and the book gets one page
+        computed number). A depth-5 and a depth-4 puzzle (33 cells) print on a
+        page each; replacing the first with a depth-3 grid (31) lets the pair fit, and the book gets one page
         SHORTER. Measured on both sides, like the test above.
         """
         first = seed_with_real_clues(admin_app, DEPTH_5, source_image="first.png")
-        _second = seed_with_real_clues(admin_app, DEPTH_5, source_image="second.png")
+        _second = seed_with_real_clues(admin_app, DEPTH_4, source_image="second.png")
         a_book(books, [first, _second])
         before = self._interior_page_count(admin_app, books)
 
@@ -1160,12 +1222,14 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         self, admin_app, books
     ):
         """The measured boundary's other side, and this test's own control:
-        depth 4 still pairs (at a shared cell already shrunk to 7.129 mm), so
-        there is nothing to warn about — which is what makes the warning above
-        a statement about the geometry and not about every booked edit."""
+        a different depth-4 grid still pairs with the depth-3 partner -- 31
+        combined cells, the boundary itself (219.586 mm / 31 = 7.083 mm, over
+        FR-040's 7.0 mm; 32 cells is the refusal the warning above drives) --
+        so there is nothing to warn about, which is what makes the warning a
+        statement about the geometry and not about every booked edit."""
         first, _second = self._pair(admin_app, books)
 
-        code, body = post(admin_app, VERIFY.format(first), DEPTH_4)
+        code, body = post(admin_app, VERIFY.format(first), DEPTH_4B)
 
         assert code == 200, body
         pages = body["book"]["pages"]
@@ -1174,11 +1238,11 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         assert pages["added"] == 0
 
     def test_a_shallower_replacement_also_keeps_the_page(self, admin_app, books):
-        """Depth 3 pairs at the full 7.500 mm cap: the pair survives a
-        replacement in the other direction too."""
+        """Depth 3 + 3 is 30 combined cells, a pair with a cell to spare: the
+        pair survives a replacement in the other direction too."""
         first, _second = self._pair(admin_app, books)
 
-        _code, body = post(admin_app, VERIFY.format(first), DEPTH_3)
+        _code, body = post(admin_app, VERIFY.format(first), DEPTH_3B)
 
         assert body["book"]["pages"]["changes"] is False
 

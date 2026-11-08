@@ -1531,7 +1531,13 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # rewritten `test:` class (the one about narrow trims now pairing, in
 # requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
 # does not (none of the three is declared in trace.yml).
-CENSUS = (583, "e0a8c03c0eed6b00")
+# CARD-392 (2026-11-08): 583 -> 584, ONE new declaration, measured by the diff
+# of the `test:` lines against main (IN 1, OUT 0): AC-413's class (the pair
+# thresholds on three trims, in requirements.yml; its name is not spelled here,
+# G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
+# other AC rows that CARD-392 restated keep their class names. CENSUS and
+# DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
+CENSUS = (584, "9a935fa131ddf749")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1678,7 +1684,9 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # ref for the validator), each declared by requirements.yml and trace.yml with
 # its definition in place; HONEST_DEAD unmoved at 9.
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
-DEFINED = (419, "0a91e9a7753e31ec")
+# CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
+# against its `class` line and not pasted from the printed figure.
+DEFINED = (420, "49c6c5cc1a6f80dc")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

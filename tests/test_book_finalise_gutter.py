@@ -155,7 +155,9 @@ def pairs_up(tier: str, number: int) -> dict:
     """A puzzle that **does** share a page with its same-tier neighbour.
 
     21 x 10 with 4-deep clues: 14 cells down, so two of them fit one page at
-    a 7.13 mm shared cell, over FR-040's 7.0 mm — which is what AC-271 and
+    the 7.5 mm standard cell (28 cells would fit 7.84 mm of the 219.586 mm a
+    pair has under the one-line footer; 7.13 mm under CARD-248's strip), over
+    FR-040's 7.0 mm — which is what AC-271 and
     CK-1 need: a book that pairs on the puzzle pages while its answer section
     still prints one full page per puzzle behind the SOLUTIONS divider
     (CARD-198).
@@ -163,11 +165,12 @@ def pairs_up(tier: str, number: int) -> dict:
     **5-deep until CARD-248.** That card reserves a 29.878 mm footer strip
     out of every pair's height so a two-up page can carry both its puzzles'
     QR links, leaving 199.605 mm rather than 229.492 mm: 30 cells of combined
-    drawing height, which the 5-deep pair needs, now asks for 6.65 mm and is
-    refused, while 28 asks for 7.13 mm and is not. One cell shallower keeps
-    every page count in this module what it was, which is what these corpora
-    are tuned to; the cost of the strip is CARD-248's own subject and is
-    measured in ``tests/test_book_qr_slot.py``.
+    drawing height, which the 5-deep pair needs, then asked for 6.65 mm and
+    was refused, while 28 asked for 7.13 mm and was not. (CARD-392's one-line
+    footer leaves 219.586 mm: 30 cells would pair now at 7.32 mm, the 4-deep
+    fixture is still the one these corpora are tuned to and is capped at the
+    7.5 mm standard cell.) The cost of the strip is CARD-248's own subject and
+    is measured in ``tests/test_book_qr_slot.py``.
     """
     return _record(21, 10, 4, tier, number)
 

@@ -166,11 +166,11 @@ HALF_PIXEL_MM = 0.5 / PX_PER_MM
 #: CARD-222's puzzle area and CARD-224's split, in millimetres, written out
 #: here rather than imported (this module imports no geometry): the header
 #: rule sits an eighth of the band's depth above its foot, the footer rule one
-#: footer strip above the bottom margin, and the strip is the QR icon's 2 cm
-#: plus its 10 pt line plus a 9 pt gap above and below.
+#: footer strip above the bottom margin, and the strip is its 10 pt line plus a
+#: 9 pt gap above and below (CARD-392: the 2 cm QR row it once carried is gone).
 HEADER_RULE_LIFT_SHARE = 1 / 8
 POINT_MM = 25.4 / 72
-FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * POINT_MM
+FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * POINT_MM
 #: FR-032's optical figure (AC-366/AC-367).
 SPARE_ABOVE = 0.42
 #: How close to zero spare this module stops predicting which of the two rows
@@ -533,6 +533,20 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
             continue  # the floor wins and the drawing is allowed to overflow
         expected_cell = sheet.cell_mm(across, down)
+        tops_mm = sheet.drawing_top_mm(across, down)
+        if len(tops_mm) > 1:
+            # CARD-392: a drawing whose spare is inside the clearance window
+            # (:data:`CLEARANCE_WINDOW_MM`) has a header-rule-to-frame gap of a
+            # couple of device pixels, which poppler's anti-aliasing and
+            # ``drawing_of``'s ink threshold merge into one object (measured:
+            # the 2-pixel white gap of a 21 x 26 drawing on a 20.05 x 24.27 cm
+            # sheet read as 17 x 23 columns and rows, the header rule counted
+            # as grid). The one-line footer's 20 mm made that window reachable
+            # by this corpus; the window's own boundary is pinned by
+            # ``TestBookPuzzleFrame_GridClearsBothRules`` on the layout, where
+            # the instrument is not in the way. Counted, and capped below.
+            windowed += 1
+            continue
 
         generator = BookPDFGenerator(sheet.book)
         # CARD-200: a table of contents sits between the 2-page guide and the
@@ -597,11 +611,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         # frame rule's centre, off the rule's own measured width, rather than
         # its leading inked line — which sits half a rule above the boundary
         # and by a different amount in each medium.
-        tops_mm = sheet.drawing_top_mm(across, down)
         assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
             3 * HALF_PIXEL_MM + 1e-9
         ), (sheet, _mm(boundary.frame_top), tops_mm)
-        windowed += len(tops_mm) > 1
 
         # The grid is exactly as wide and as tall as its cells say it is.
         assert abs(_mm(drawing.grid_right - drawing.grid_left) - columns * expected_cell) < 0.2
@@ -977,7 +989,12 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     any more** (measured: ``two_up`` fell to 0). A property about where a
     two-up page's upper drawing starts cannot be stated on a corpus with no
     two-up pages in it, so the extents are unchanged and the pictures are
-    built with 2-deep gutters instead (:func:`_shallow_puzzle`). The cost of
+    built with shallow gutters instead (:func:`_shallow_puzzle`). **3-deep
+    since CARD-392**: its one-line footer admits 31 cells of combined drawing
+    height where 28 were admitted, so with 2-deep gutters nearly every
+    neighbour pairs (13 two-up pages and 2 single ones of the 28 puzzles) and
+    the single-page arm of this property starves; 3-deep gives 7 two-up and 14
+    single pages (measured), both arms well over the floor of 5. The cost of
     the strip is CARD-248's own subject and is measured in
     ``tests/test_book_qr_slot.py``; what is kept here is EC-022.
     """
@@ -996,7 +1013,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     # now inserts its own TOC pages between the guide and that divider, so
     # both numbers are shifted by the real ``toc_page_count`` for this book.
     puzzles = [
-        _shallow_puzzle(columns, rows, 2, "easy") for columns, rows in extents
+        _shallow_puzzle(columns, rows, 3, "easy") for columns, rows in extents
     ]
     generator = BookPDFGenerator(sheet.book)
     toc_page_count = generator.section_plan(puzzles).toc_page_count

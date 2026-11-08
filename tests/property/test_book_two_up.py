@@ -215,11 +215,11 @@ def _mm(pixels: float) -> float:
 #: rather than imported from ``export.layout`` (the independence every number
 #: in this module keeps): the header rule sits an eighth of the band's depth
 #: above its foot, the footer rule one footer strip above the bottom margin,
-#: and the strip is the QR icon's 2 cm plus its 10 pt line plus a 9 pt gap
-#: above and below.
+#: and the strip is its 10 pt line plus a 9 pt gap above and below
+#: (CARD-392: the 2 cm QR row it once carried is gone).
 HEADER_RULE_LIFT_SHARE = 1 / 8
 POINT_MM = 25.4 / 72
-FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * POINT_MM
+FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * POINT_MM
 SPARE_ABOVE = 0.42
 
 

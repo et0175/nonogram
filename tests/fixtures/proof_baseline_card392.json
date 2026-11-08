@@ -1,0 +1,99 @@
+{
+  "card": "CARD-392",
+  "supersedes": "tests/fixtures/proof_baseline_card391.json",
+  "source_commit": "card/392-one-line-footer, branched from main at 1f15721a (0ca1fe28 plus the dispatch stamp). Recorded against this card's own implementation on its worktree, after INTERIOR_FOOTER_MM became the footer line plus its two gaps (layout.py) and before this file was written. A commit cannot carry its own hash, so the tree these digests were taken from is the implementation commit this file is added beside.",
+  "produced_by": "proof_pages(book) on this card's own src/, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='1.27' — CON-018's amended outside margin (0.5 in), where CARD-204's recording stored the retired '0.95' (0.375 in).",
+  "why_a_new_baseline": "CARD-392 shrinks the footer band from 29.878 mm to 9.878 mm (the 2 cm QR row is gone, owner decision 2026-11-07, version B). A proof page is the book's own sheet drawn through the same render_pages() call a real interior page uses, so the puzzle area it floats the drawing in is 20 mm deeper (42% of a larger spare above the drawing) and its footer rule and folio sit 20 mm lower. Nothing else moved: book_proof.py is untouched.",
+  "warning": "Never regenerated to make a test pass. A proof page that stops matching this file is either a deliberate change — which earns its own successor, with its own note — or a regression.",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "1.27",
+  "moved_from_card391": [
+    "12.70x20.32",
+    "13.34x20.32",
+    "13.97x21.59",
+    "15.24x22.86",
+    "15.60x23.39",
+    "17.78x25.40",
+    "19.05x23.50",
+    "20.32x25.40",
+    "21.59x27.94"
+  ],
+  "moved_from_card391_note": "Measured trim by trim against CARD-391's recording before this file was written, not asserted from the change's intent: the drawing's float and the footer rule are downstream of the band on every one of these nine sheets, so all nine digests moved.",
+  "unmoved_control_page_px": {
+    "12.70x20.32": [
+      1500,
+      2400
+    ],
+    "13.34x20.32": [
+      1576,
+      2400
+    ],
+    "13.97x21.59": [
+      1650,
+      2550
+    ],
+    "15.24x22.86": [
+      1800,
+      2700
+    ],
+    "15.60x23.39": [
+      1843,
+      2763
+    ],
+    "17.78x25.40": [
+      2100,
+      3000
+    ],
+    "19.05x23.50": [
+      2250,
+      2776
+    ],
+    "20.32x25.40": [
+      2400,
+      3000
+    ],
+    "21.59x27.94": [
+      2550,
+      3300
+    ]
+  },
+  "unmoved_control_page_px_note": "THE RECORDING'S OWN INTERNAL CONTROL (added in CARD-224 review cycle 1, F-009). Every one of the nine digests above is a new number, because every pixel of a proof page is downstream of the one placed drawing it carries -- unlike book_baseline_card224.json, whose interior holds dividers, a guide, a table of contents and answer pages that carry no placed single-puzzle drawing and so supply seven unmoved digests as that recording's control. A recording in which every number is new cannot, on its own, tell 'the placement moved' from 'the recorder moved'. So this block records the one thing about each sheet that the placement cannot reach: the page's size in device pixels, both pages of a trim alike. It is the trim at 300 DPI and nothing else -- CARD-223's recorder produced these same eighteen numbers, and a recorder that had changed its DPI, its reading of the stored centimetres or its orientation would differ here while the digests alone would only say 'everything moved'. test_the_recording_carries_a_control_that_did_not_move checks them against the pages this recorder returns and against the trim arithmetic restated in the test.",
+  "digests": {
+    "12.70x20.32": [
+      "6e8cd53f167ea7a498e5846752b0e088101386e9adf08a89179d931836ff7d47",
+      "21f708cb775ce68dab4686f53403a21befd3fe9dc7ce0ee70c5ff260a7c0ae86"
+    ],
+    "13.34x20.32": [
+      "23d23ff5721e9399454c0c44150e808a21f91da00d0958530a840175874685c2",
+      "2ce1113d52e6d72438998ef47487a1468fb8f970902deb5785ebf03857b2f43b"
+    ],
+    "13.97x21.59": [
+      "4497580c01fe113691a1d1d53578d925609cb2c900f3b7e3f38aea7a11fc92cf",
+      "6418a05385161c79d9c946adeff6be3d344881bd77b0dfc3fb67fb5214dc43ce"
+    ],
+    "15.24x22.86": [
+      "f3a4dbfb1e6c27aa54d6e4969f8d2f4ddc8e7262e81cf0e7a026b16ef33b6888",
+      "1fe3989d9184c65847e0a815f341e8028826fa7090b6f32f2ada93b403698055"
+    ],
+    "15.60x23.39": [
+      "4a8f814df660d8480a8292f3cfc8423544f28426b04b9c4878bb35d6807185bf",
+      "54a330ac2682146c4d081d51615d89e93d5a11473d859019f6948010fb71d5f9"
+    ],
+    "17.78x25.40": [
+      "85933be75175d23f7c40dfd3c1d02b37a02b957e0822dcf390f8ae187fe96f4b",
+      "5e79304f7b086bbc40d395a06d634c6e9bc3287a2a9701d73bcc978378e062d3"
+    ],
+    "19.05x23.50": [
+      "88087aa332b895434fcc485f8c6ae2aef587555fd7cef820ece6a2f8436c6b1e",
+      "712d41d4856a5564ca0d7998e37cbb731cd38c3ab0aa69951007623ce8816c12"
+    ],
+    "20.32x25.40": [
+      "0ec7661bedd31d9a231a372170fc1c5cc7aef8d4a1aa92f4dc18a0f6dee0e24b",
+      "c89918d1ee95276603da55394825199f8d6eb3a4f6eff93cd0d6a077e94c81ad"
+    ],
+    "21.59x27.94": [
+      "ba514787cd6cd3326516e7a0adce99f3a20f47cc4a83022aafbf57f71d2ec5ad",
+      "b2d4693ddea5432086476ffa94d2fad97a2f477a2362ed694090e7c22aa98799"
+    ]
+  }
+}

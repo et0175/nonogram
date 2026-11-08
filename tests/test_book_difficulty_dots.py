@@ -7468,9 +7468,15 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
             "the closest shape is neither filled nor stroked: "
             f"paint {closest.paint!r}"
         )
-        assert closest.aspect == pytest.approx(1.0, abs=1e-9), (
+        # Every rectangle ties on ``fill``, so which one the loop keeps is
+        # decided by the aspect's own last digits (a pair-slot grid frame is
+        # 1.0007 here, a square one 1.0): the witness is "the aspect term is
+        # far below the margin", so the margin rests on fill alone, not
+        # "the aspect is exactly square" (CARD-392: the one-line footer made
+        # a near-square slot frame the first of the tied rectangles).
+        assert abs(closest.aspect - 1.0) / ROUND_ASPECT_TOLERANCE < margin / 100, (
             "the margin no longer rests on fill alone: the closest shape's "
-            f"footprint is {closest.aspect} rather than square"
+            f"footprint is {closest.aspect}, too far from square"
         )
         assert closest.fill == pytest.approx(4.0 / math.pi, abs=1e-6), (
             "the closest shape no longer encloses its own box, so it is not a "

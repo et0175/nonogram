@@ -2513,6 +2513,24 @@ functional:
     #      UNCHANGED and still true: parity moves the drawing sideways only,
     #      never vertically.
     #
+    # AMENDED 2026-11-08 (CARD-392, owner decision 2026-11-07, version B "a
+    # one-line footer, so grids get a little more room"): the footer is a
+    # hairline, then ONE line -- the grid size on the inner side, the pointer
+    # to the Play online page on the outer side, the folio at the centre --
+    # with no row beneath it for a QR icon. The footer band, the strip from the
+    # footer rule down to the bottom margin, is the line (10 pt) plus a 9 pt
+    # gap under the rule and a 9 pt gap under the line: 9.878 mm, where it was
+    # 29.878 mm with the 20 mm QR row. The puzzle area runs down to that rule,
+    # so on Book 1 it is 233.1 mm (2753 px) deep where it was 213.1 mm
+    # (2517 px), 236 px more; on the shortest admitted trim (10.00 cm) 53.7 mm
+    # where it was 33.7. The cell a single page prints at is NOT changed: it is
+    # fitted against the usable height less the title band, never against the
+    # footer band (the one-cell-per-grid-size table, NFR-008, holds); what the
+    # freed row moves is where a drawing floats (42% of a larger spare), which
+    # drawings the area holds (the page that omits its footer group because
+    # the drawing overruns the rule is rarer: 457 of a 2646-placement sweep on
+    # Book 1 against 676), and which pairs fit (FR-040).
+    #
     # CLOSED 2026-10-17 (propagation pass, same day): the split (a) describes
     # is gone — FR-031, TERM-024, INV-006, CAP-006 and trace.yml were all
     # propagated to 4.75 mm (or to the reference form this statement already
@@ -3656,9 +3674,20 @@ functional:
     # (one code per book, on the Play online page), so nothing needs that
     # width and a narrow trim (about 175.6 mm and below, e.g. 6 x 9 in) now
     # pairs on the height and width rules alone. AC-377 is rewritten to say so.
-    # The footer strip's HEIGHT is unchanged (CARD-392 owns that), so (a) and
-    # AC-242..AC-246, AC-376 are untouched. The strip now carries the folio and
-    # one shared pointer line to the Play online page (FR-047).
+    # AMENDED 2026-11-08 (CARD-392, owner decision 2026-11-07: "without QR
+    # codes some puzzles may go two per page instead of one"): the footer
+    # strip is one line (9.878 mm, 117 px; it was 29.878 mm with the 20 mm QR
+    # row), so a pair keeps 20 mm more height. EVERY THRESHOLD BELOW IS
+    # RE-DERIVED, none re-recorded: on Book 1 (usable height 253.492 mm) two
+    # 12 mm bands and the 117 px strip leave 219.586 mm, which at FR-040's 7.0
+    # mm floor admits at most 31 cells of combined drawing height (219.586 /
+    # 7.0 = 31.37); 31 cells pair at 7.083 mm and 32 do not (6.862 mm). The
+    # same arithmetic on the narrow trims: 6 x 9 in 24 cells (7.033 mm) and 25
+    # do not (6.751 mm); 5 x 8 in 20 cells, which no two puzzles can reach
+    # (the smallest pair, two 10 x 10 with 1-deep gutters, is 22), so a 5 x 8
+    # in book never pairs. The strip the pointer shares is carried in the
+    # statement's clause (a); clause (b) is unchanged. AC-242..AC-246, AC-376
+    # and AC-377 below are restated from these figures.
     # AMENDED 2026-10-18 at the architect station, after CARD-248 merged
     # (1256982). CARD-248 gives a two-up page ONE footer strip carrying both
     # puzzles' links and the folio, reserved out of the pair's own height, so
@@ -3689,10 +3718,11 @@ functional:
       standard cell (NFR-008), at which (a) the pair's combined drawing
       height — grid rows plus column-clue rows of both puzzles — times the
       cell, plus one 12 mm title band per puzzle, AND the page's one footer
-      strip (INTERIOR_FOOTER_MM — the strip that carries the page's folio
-      and its one shared pointer line; it is ADR-0036 page geometry and still
-      has no requirement of its own, the gap this registry already records
-      at FR-032's note "that frame still has no requirement of its own"), fit the
+      strip (INTERIOR_FOOTER_MM = 9.878 mm — one line under the footer rule,
+      the line that carries the page's grid size, folio and shared pointer to
+      the Play online page; it is ADR-0036 page geometry and still has no
+      requirement of its own, the gap this registry already records at
+      FR-032's note "that frame still has no requirement of its own"), fit the
       book's usable
       height (trim height minus top and bottom margins), and (b) each
       puzzle's drawing width — grid columns plus row-clue columns — times
@@ -3700,7 +3730,11 @@ functional:
       clue depth (TERM-021). There is no third clause: the width clause
       CARD-248 added for two QR groups went with the groups (CARD-391), so a
       two-up page is possible on a narrow trim (6 x 9 in) whenever (a) and (b)
-      hold. Both puzzles of a two-up page print at that
+      hold. Worked, with each boundary's neighbour (the 7.0 mm floor, 117 px
+      strip): Book 1 pairs up to 31 cells of combined drawing height (7.08
+      mm) and refuses 32 (6.86 mm); a 6 x 9 in trim pairs up to 24 (7.03 mm)
+      and refuses 25 (6.75 mm); a 5 x 8 in trim's 20 (7.17 mm) is below any
+      pair of puzzles (22 at least), so it never pairs. Both puzzles of a two-up page print at that
       one shared cell, each under its own band ("Puzzle N · Tier",
       ADR-0037), the earlier puzzle in the book order in the upper slot.
       Pairing walks the book order from the first puzzle: a puzzle pairs
@@ -3718,84 +3752,93 @@ functional:
       evidence: ["src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
     acceptance:
       - id: AC-242
-        # RE-MEASURED 2026-10-18 (CARD-248, 1256982). Was "7.5 mm, the page
-        # fit of 8.44 mm capped at the standard cell". The footer strip takes
-        # the cap out of play here: 28 cells is now the LARGEST pair that
-        # pairs at all, so this criterion is the top of the paired range and
-        # says so. 199.614/28 = 7.1291.
-        given: a Book 1 profile book whose order starts with two easy 10x10 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 28 cells)
+        # RE-DERIVED 2026-11-08 (CARD-392, one-line footer). The 26-cell pair
+        # the test builds (3-deep gutters on two 10x10s) is above the cap:
+        # 219.586 / 26 = 8.446 mm, so the 7.5 mm standard cell binds again
+        # (it did not under CARD-248's strip, where the 28-cell pair fitted
+        # 7.13 mm). The registry's own 28-cell fixture is capped as well now:
+        # 219.586 / 28 = 7.842 mm.
+        given: a Book 1 profile book whose order starts with two easy 10x10 puzzles, each with 3-deep row- and column-clue gutters (combined drawing height 26 cells)
         when: the book PDF is generated
-        then: both puzzles print on one page at a 7.13 mm shared cell (+/- 0.05 mm; 199.614 mm over 28 cells, after the footer strip is reserved) — and 28 cells is the largest combined drawing height that pairs at all, so the 7.5 mm standard cell no longer binds here
+        then: both puzzles print on one page at the 7.5 mm standard cell (+/- 0.05 mm), the cap binding because 26 cells would fit 8.45 mm of the 219.586 mm a pair has left after two title bands and the one-line footer strip
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_TwoSmallSameTierNeighboursShareAPage
       - id: AC-243
-        # VERDICT FLIPPED 2026-10-18 (CARD-248, 1256982) — this criterion used
-        # to say the pair SHARES a page. It no longer can: 199.614/32 =
-        # 6.2379 mm, under FR-040's 7.0 mm minimum. Its old 7.39 mm figure was
-        # additionally stale BEFORE this card (the measured pre-card value is
-        # 7.1716 mm), so neither half of the old statement survived.
-        given: a Book 1 profile book whose order starts with two easy 12x12 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 32 cells)
+        # RE-DERIVED 2026-11-08 (CARD-392). Pairs at a height-bound cell again:
+        # 219.586 / 30 = 7.3195 mm. (Under CARD-248's strip the 4-deep twelves,
+        # 32 cells, were refused at 6.24 mm; they still are, at 6.86 mm -- that
+        # verdict is AC-245's and AC-376's.)
+        given: a Book 1 profile book whose order starts with two easy 12x12 puzzles, each with 3-deep row- and column-clue gutters (combined drawing height 30 cells)
         when: the book PDF is generated
-        then: the two puzzles print on two separate pages, each with its own footer strip — 32 cells would need 6.24 mm, under the 7.0 mm two-up minimum, once the footer strip is reserved
+        then: both puzzles print on one page at a 7.32 mm shared cell (+/- 0.05 mm; 219.586 mm over 30 cells), below the 7.5 mm standard cell and above the 7.0 mm two-up minimum
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_TwelvePairSharesPageBelowStandardCell
       - id: AC-244
-        # CORRECTED 2026-10-18. This one was wrong BEFORE CARD-248 and the
-        # slip is arithmetic, not drift: 7.1716 mm is the **32**-cell value,
-        # and the given names **33** cells. 33 cells measured 6.9543 mm even
-        # before the strip — already under the 7.0 mm minimum — so this pair
-        # has been printing on two pages while the registry said otherwise.
-        # CARD-222 left a deferral here; this is what it was hiding.
-        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 10x10 puzzle with a 3-deep column-clue gutter (combined drawing height 33 cells)
+        # RE-DERIVED 2026-11-08 (CARD-392). The pair that sits ON the boundary
+        # and pairs: 31 cells, 219.586 / 31 = 7.0834 mm. Its neighbour is
+        # AC-245's 32 cells. (The earlier figures -- 33 cells at 6.95 mm
+        # before the strip, 28 under CARD-248's -- are superseded.)
+        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 1-deep column-clue gutter followed by an easy 10x10 puzzle with a 5-deep one (combined drawing height 31 cells)
         when: the book PDF is generated
-        then: the two puzzles print on two separate pages — 33 cells gives 6.95 mm even before the footer strip, under the 7.0 mm two-up minimum
+        then: both puzzles print on one page at a 7.08 mm shared cell (+/- 0.05 mm; 219.586 mm over 31 cells), at or above the 7.0 mm two-up minimum
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_PairJustAboveTwoUpMinimumShares
       - id: AC-245
-        # Verdict HOLDS; only the parenthetical figure was restated
-        # 2026-10-18 — 6.95 mm is the 33-cell value, 34 cells is 6.7498 mm
-        # before the strip and 5.8710 mm after it.
-        given: the same book but the 15x15 puzzle's column-clue gutter is 6 deep (combined drawing height 34 cells, 6.75 mm before the footer strip and 5.87 mm after it — under the 7.0 mm minimum either way)
+        # RE-DERIVED 2026-11-08 (CARD-392): the neighbour of AC-244, one cell
+        # of column-clue gutter more -- 32 cells, 219.586 / 32 = 6.8621 mm.
+        given: the same book but the 15x15 puzzle's column-clue gutter is 2 deep (combined drawing height 32 cells, 6.86 mm after the footer strip -- under the 7.0 mm minimum)
         when: the book PDF is generated
         then: the two puzzles print on two separate pages
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare
       - id: AC-246
-        # Verdict HOLDS; figure restated 2026-10-18 (36 cells is 6.3748 mm
-        # before the footer strip, 5.5448 mm after it).
-        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 12x12 puzzle with a 4-deep one (combined 36 cells, 6.37 mm before the footer strip and 5.54 mm after it)
+        # RE-DERIVED 2026-11-08 (CARD-392): 36 cells is 6.37 mm before any
+        # strip and 6.10 mm after the one-line strip (219.586 / 36 = 6.0996).
+        given: a Book 1 profile book whose order has an easy 15x15 puzzle with a 5-deep column-clue gutter followed by an easy 12x12 puzzle with a 4-deep one (combined 36 cells, 6.37 mm before the footer strip and 6.10 mm after it)
         when: the book PDF is generated
         then: the two puzzles print on two separate pages
         kind: negative
         invariant: INV-010
         test: TestBookPdf_FifteenPlusTwelveDoesNotPair
       - id: AC-376
-        # NEW 2026-10-18 (CARD-248). With AC-243..AC-246 all now reading "two
-        # separate pages", nothing left in this registry pinned the boundary
-        # itself. This states it as an EXACT SET rather than a range, so a
-        # later card that widens the refusal reds instead of passing quietly
-        # (ADR-0039/R1, R3 — the refused set is an exemption and needs a
-        # control that can fail).
-        given: a Book 1 profile book and the footer strip reserved on every two-up page
+        # RE-DERIVED 2026-11-08 (CARD-392). NEW 2026-10-18 (CARD-248) as an
+        # EXACT SET rather than a range, so a later card that widens the
+        # refusal reds instead of passing quietly (ADR-0039/R1, R3). Under
+        # that card's strip it was 29, 30, 31 and 32; the one-line strip
+        # gives 20 mm back, which leaves only the top of the pre-strip range.
+        given: a Book 1 profile book and the one-line footer strip reserved on every two-up page
         when: every pair the book order can offer is laid out
-        then: the combined drawing heights that stopped pairing when the strip arrived are exactly 29, 30, 31 and 32 cells, at any width — 28 cells still pairs and 33 was already refused before the strip
+        then: the combined drawing heights that stopped pairing when the strip arrived are exactly 32 cells, at any width -- 31 cells still pairs (219.586 / 31 = 7.08 mm) and 33 was already refused before the strip
         kind: boundary
         invariant: INV-010
         test: TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages
+      - id: AC-413
+        # NEW 2026-11-08 (CARD-392): the thresholds as one table over three
+        # trims, derived from the sheet by hand (usable height less two
+        # 12 mm bands and the 117 px strip, over the 7.0 mm floor).
+        given: the Book 1 profile on an 8.5 x 11 in, a 6 x 9 in and a 5 x 8 in trim
+        when: a pair is offered at N and at N + 1 cells of combined drawing height, N being the largest the sheet admits
+        then: N pairs at the shared cell the arithmetic gives (+/- 0.05 mm) while N + 1 prints as two single pages, N being 31 on 8.5 x 11 in (7.08 mm; 32 is 6.86), 24 on 6 x 9 in (7.03 mm; 25 is 6.75) and 20 on 5 x 8 in, which is below the smallest pair of puzzles (22), so that trim never pairs
+        kind: boundary
+        invariant: INV-010
+        test: TestTwoUp_ThresholdsRederivedFromTheOneLineFooter
       - id: AC-377
         # REWRITTEN 2026-11-08 (CARD-391, owner decision 2026-11-07,
-        # ADR-0041/R8). It was NEW 2026-10-18 (CARD-248) as clause (c): a
-        # trim narrower than about 175.60 mm could not hold two QR groups
-        # side by side, so no pair could print there. The groups are gone and
-        # so is the clause; this now states what replaced it, as a control
-        # that can fail (a narrow trim that still refused pairs reds it).
+        # ADR-0041/R8); RE-DERIVED the same day by CARD-392. It was NEW
+        # 2026-10-18 (CARD-248) as clause (c): a trim narrower than about
+        # 175.60 mm could not hold two QR groups side by side, so no pair
+        # could print there. The groups are gone and so is the clause; this
+        # states what replaced it, as a control that can fail (a narrow trim
+        # that still refused pairs reds it). CARD-392's boundary on 6 x 9 in is
+        # 24 cells, so the refusing control is a 26-cell pair (12 x 12 with
+        # 1-deep gutters), not the 22-cell 10 x 10 pair CARD-391 used.
         given: a book on a 6 x 9 in trim (usable width 127.0 mm, narrower than the 175.60 mm the retired clause (c) needed) whose order holds four easy 10 x 8 puzzles with 1-deep clue gutters
         when: the book PDF is generated
-        then: the puzzles print as two two-up pages, (1, 2) and (3, 4), where they printed as four single pages before CARD-391; and four easy 10 x 10 puzzles on the same trim still print as four single pages, on the height rule (22 cells need more than the strip leaves), so the verdict is taken from the sheet and the face alone, never from a puzzle or from the page's own number
+        then: the puzzles print as two two-up pages, (1, 2) and (3, 4), where they printed as four single pages before CARD-391; and four easy 12 x 12 puzzles on the same trim still print as four single pages, on the height rule (26 cells need more than the 24 the one-line strip leaves), so the verdict is taken from the sheet and the face alone, never from a puzzle or from the page's own number
         kind: edge
         invariant: INV-010
         test: TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone
