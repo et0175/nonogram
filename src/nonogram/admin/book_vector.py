@@ -1033,8 +1033,8 @@ class ContentStream:
         if embolden_pt:
             tone = _number(_grey(grey))
             self._operators.append(
-                f"q {tone} g {tone} G {_number(embolden_pt)} w BT /{resource} "
-                f"{_number(size_pt)} Tf 2 Tr {self._x(x)} {self._y(y)} Td "
+                f"q {tone} g {tone} G {_number(embolden_pt)} w BT 2 Tr /{resource} "
+                f"{_number(size_pt)} Tf {self._x(x)} {self._y(y)} Td "
                 f"({_escape(value)}) Tj ET Q"
             )
             return
