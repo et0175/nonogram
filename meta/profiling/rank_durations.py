@@ -154,6 +154,10 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # Dodging the grep would have left the single most expensive render in
     # this phase outside the set that exists to see it, which is CARD-223's
     # silent divergence in the other direction.
+    # CARD-391: the pointer's own tests. Added rather than dodged (see the
+    # CARD-223 restatement above); the file is absent from every recorded
+    # artefact, so no measured second or share moves.
+    "tests/test_book_footer_pointer.py",
     "tests/test_book_grid_rules.py",
     "tests/test_book_guide_page.py",
     "tests/test_book_guide_page_type.py",

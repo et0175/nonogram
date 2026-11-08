@@ -254,6 +254,20 @@ write — the thing R4 exists to forbid.
   `/library`, not a book's own landing, which must list every puzzle the book
   prints; that decision is not re-opened here.
 
+- 2026-11-08: **R8's check flipped from `review-lens` to `kind: test` at CARD-391's
+  merge, and the puzzle pages stopped carrying the per-puzzle QR.** The
+  placeholder checkerboard, its "Solve it online" caption, the typed
+  `nonogram.example/p/NNN` link and FR-040's clause (c) (a two-up page's
+  width had to hold two such groups) are removed; a puzzle page's footer now
+  carries the grid size on the inner side and `Play puzzle N online · p. X`
+  on the outer (a two-up page: one shared line, `Play puzzles N and M online
+  · p. X`, and no grid size), only in a book that prints a Play page. A line
+  the page number would collide with is omitted rather than printed over it:
+  at 10 pt the single line is 52 mm and the shared one 65 mm, against about
+  58 mm of room on a 6 x 9 in page, so that trim's two-up pages carry no
+  pointer (recorded for the owner on CARD-391). The footer band's height is
+  deliberately unchanged here (CARD-392).
+
 - 2026-10-24: **R7 added — the book-slug recipe, which this ADR named but never
   specified.** CARD-282's implementation round found that the Decision, the file
   layout (`book/<slug>.json`) and DEC-046's tracking paragraph all refer to "the
@@ -415,12 +429,6 @@ write — the thing R4 exists to forbid.
     numbers its tiles in that same order, so the number a puzzle page prints
     names the same puzzle on the landing page.
   scope: {code: ["src/nonogram/admin/**", "player/**", "tests/**"]}
-  # 2026-11-07: kind review-lens ON PURPOSE; the tests do not exist yet.
-  # Planned node ids: tests/test_book_landing_address.py::
-  # test_the_printed_slug_is_the_bundles_slug and
-  # tests/test_book_play_online_page.py::test_no_interior_page_but_the_play_page_carries_a_qr.
-  # CARD-389 and CARD-391 write them and OWE THE FLIP to `kind: test` as part of
-  # their scope (memory: adr-check-refs-must-be-honest).
-  check: {kind: review-lens}
+  check: {kind: test, ref: "tests/test_book_landing_address.py::test_the_address_and_the_bundle_name_one_slug, tests/test_book_play_online_page.py::test_no_interior_page_but_the_play_page_carries_a_qr"}   # FR-045 AC-380 / FR-047. FLIP APPLIED 2026-11-08 at CARD-391 (it had been review-lens on purpose since 2026-11-07, while its tests were planned). Both resolve as real node ids in the tree this edit sits in. The first is the node CARD-389 wrote for the "printed slug is the bundle's slug" half (the planned name `test_the_printed_slug_is_the_bundles_slug` was never used; the class is TestBookLanding_PrintedSlugIsTheBundlesSlug); the second is CARD-391 AC-1, which decodes every interior page and finds the one code on the Play page. NOT closed by these refs: "a puzzle page may say only which interior page the code is on" and "no pointer without the page" are held by tests/test_book_footer_pointer.py (TestFooterPointer_*), and the print-order numbering by TestBookLanding_NumbersMatchPrintNumbers.
   severity: mandatory
 ```

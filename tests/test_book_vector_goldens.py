@@ -35,14 +35,14 @@ message with the render that justified it (G-16).
 
 **The two absolute checks (AC-18)** take their expected values from the BOOK
 and from literal strings written below, never from ``compute_layout`` or
-``QR_LINK_TEMPLATE``: the grid-size label of each single puzzle page is
-``"{columns} x {rows}"`` of THAT puzzle and a two-up page prints none; each
-puzzle's QR caption ``Solve it online`` and its link text are on its page,
-below the grid and inside the usable area, read from the text layer
-(poppler). **Measured fact the owner should know: the printed link is the
-placeholder** ``QR_LINK_TEMPLATE = "nonogram.example/p/{number:03d}"`` and
-not the book's stored ``player_domain``; CARD-210 is the card that changes
-it, so the stored-domain shape is NOT asserted here.
+``footer_pointer_text``: the grid-size label of each single puzzle page is
+``"{columns} x {rows}"`` of THAT puzzle and a two-up page prints none; and
+(CARD-391, replacing the per-puzzle QR caption and typed link that stood here)
+each puzzle page's footer line ``Play puzzle 3 online · p. 11`` -- or, on a
+two-up page, ONE line ``Play puzzles 1 and 2 online · p. 11`` -- is on its
+page, below the grid and inside the usable area, read from the text layer
+(poppler) of the same book with a stored player domain. The control: neither
+``Solve it online`` nor ``nonogram.example`` is on any page of either export.
 """
 
 from __future__ import annotations
@@ -334,15 +334,16 @@ class TestVectorGoldens_TheSuiteCannotReRecord:
 #: ``baseline_puzzles`` (Tree 15x15 on page 8, Snowflake 30x30 on page 10); the
 #: two-up page 6 (Duck + Owl) prints none, by design.
 LABELS = {8: (15, 15), 10: (30, 30)}
-#: Interior page -> the link texts printed on it: the puzzle's own number in
-#: the book (print order is easy, medium, hard: Duck 1, Owl 2, Tree 3,
-#: Snowflake 4), written as LITERALS so they are independent of the writer.
-LINKS = {
-    6: ["nonogram.example/p/001", "nonogram.example/p/002"],
-    8: ["nonogram.example/p/003"],
-    10: ["nonogram.example/p/004"],
+#: Interior page -> the footer line printed on it, in the book with a stored
+#: player domain (``_play_export``, whose Play page is :data:`PLAY_PAGE`): the
+#: puzzles' own numbers in the book (print order is easy, medium, hard: Duck 1,
+#: Owl 2, Tree 3, Snowflake 4), written as LITERALS so they are independent of
+#: the writer.
+POINTERS = {
+    6: "Play puzzles 1 and 2 online · p. 11",
+    8: "Play puzzle 3 online · p. 11",
+    10: "Play puzzle 4 online · p. 11",
 }
-CAPTION = ["Solve", "it", "online"]
 
 
 def _words(data: bytes, page: int, tmp_path) -> list[pdf_vector.Word]:
@@ -364,35 +365,30 @@ def label_findings(words, columns: int | None, rows: int | None) -> list[str]:
     return []
 
 
-def qr_findings(words, links, page_width_pt, page_height_pt, margin_pt) -> list[str]:
-    """Each link and its caption are on the page, below the grid, inside the margins."""
+def pointer_findings(words, pointer, page_width_pt, page_height_pt, margin_pt) -> list[str]:
+    """The pointer line is on the page once, below the grid, inside the margins."""
     findings: list[str] = []
     texts = [w.text for w in words]
-    captions = [
-        words[i] for i in range(len(texts) - 2) if texts[i : i + 3] == CAPTION
+    tokens = pointer.split()
+    starts = [
+        i for i in range(len(texts) - len(tokens) + 1) if texts[i : i + len(tokens)] == tokens
     ]
-    if len(captions) != len(links):
-        findings.append(f"{len(captions)} captions for {len(links)} links")
-    caption_top = min((w.top for w in captions), default=page_height_pt)
-    # The grid's lowest text: the digit-only words (clue digits) above the caption.
+    if len(starts) != 1:
+        return [f"pointer {pointer!r} read {len(starts)} times"]
+    line = words[starts[0] : starts[0] + len(tokens)]
+    top = min(w.top for w in line)
+    # The grid's lowest text: the digit-only words (clue digits) above the line.
     grid_bottom = max(
-        (w.bottom for w in words if w.text.isdigit() and w.top < caption_top),
-        default=0.0,
+        (w.bottom for w in words if w.text.isdigit() and w.top < top), default=0.0
     )
-    for link in links:
-        found = [w for w in words if w.text == link]
-        if len(found) != 1:
-            findings.append(f"link {link!r} read {len(found)} times")
-            continue
-        box = found[0]
-        if not box.top > grid_bottom:
-            findings.append(f"link {link!r} is not below the grid ({box.top} <= {grid_bottom})")
-        if not (
-            box.left >= margin_pt
-            and box.right <= page_width_pt - margin_pt
-            and box.bottom <= page_height_pt
-        ):
-            findings.append(f"link {link!r} is outside the usable area: {box}")
+    if not top > grid_bottom:
+        findings.append(f"pointer {pointer!r} is not below the grid ({top} <= {grid_bottom})")
+    if not (
+        min(w.left for w in line) >= margin_pt
+        and max(w.right for w in line) <= page_width_pt - margin_pt
+        and max(w.bottom for w in line) <= page_height_pt
+    ):
+        findings.append(f"pointer {pointer!r} is outside the usable area")
     return findings
 
 
@@ -402,7 +398,7 @@ def _trim_pt(data: bytes) -> tuple[float, float]:
     return float(match.group(1)), float(match.group(2))
 
 
-class TestVectorSide_TheGridSizeLabelAndTheQrLinkAreTheBooks:
+class TestVectorSide_TheGridSizeLabelAndThePointerAreTheBooks:
     def test_the_grid_size_label_is_columns_x_rows_and_a_two_up_page_prints_none(
         self, exported, tmp_path
     ) -> None:
@@ -419,42 +415,55 @@ class TestVectorSide_TheGridSizeLabelAndTheQrLinkAreTheBooks:
         assert label_findings(good[:1], 15, 15), "a missing label must red"
         assert label_findings(good, None, None), "a label on a two-up page must red"
 
-    def test_each_puzzles_caption_and_link_are_on_its_page_below_the_grid(
+    def test_each_puzzle_pages_pointer_is_on_its_page_below_the_grid(
         self, exported, tmp_path
     ) -> None:
-        _, data = exported
+        data = _play_export()
         width, height = _trim_pt(data)
         margin = min(
             float(corpus_book().gutter_margin_cm), float(corpus_book().outside_margin_cm)
         ) * 72 / 2.54
-        for page, links in LINKS.items():
+        for page, pointer in POINTERS.items():
             assert (
-                qr_findings(_words(data, page, tmp_path), links, width, height, margin) == []
+                pointer_findings(_words(data, page, tmp_path), pointer, width, height, margin)
+                == []
             ), page
+        # The control: the per-puzzle QR's words are on no page of either book.
+        for export in (data, exported[1]):
+            text = pdf_vector.extracted_text(export, out_dir=tmp_path)
+            assert "Solve it online" not in text and "nonogram.example" not in text
 
-    def test_the_qr_reading_fails_on_a_wrong_digit_a_moved_link_and_a_missing_caption(
-        self, exported, tmp_path
+    def test_the_pointer_reading_fails_on_a_wrong_digit_a_moved_line_and_a_missing_word(
+        self, tmp_path
     ) -> None:
-        _, data = exported
+        data = _play_export()
         width, height = _trim_pt(data)
         words = _words(data, 8, tmp_path)
         margin = 36.0
-        links = LINKS[8]
-        assert qr_findings(words, links, width, height, margin) == []
-        assert qr_findings(words, ["nonogram.example/p/009"], width, height, margin), (
+        pointer = POINTERS[8]
+        assert pointer_findings(words, pointer, width, height, margin) == []
+        assert pointer_findings(words, "Play puzzle 9 online · p. 11", width, height, margin), (
             "a wrong digit must red"
         )
+        line = set(pointer.split())
         moved = [
-            w._replace(top=50.0, bottom=62.0) if w.text == links[0] else w for w in words
-        ]
-        assert qr_findings(moved, links, width, height, margin), "a link moved above the grid must red"
-        outside = [
-            w._replace(left=width - 10, right=width + 100) if w.text == links[0] else w
+            w._replace(top=50.0, bottom=62.0) if w.text in line and w.bottom > 600 else w
             for w in words
         ]
-        assert qr_findings(outside, links, width, height, margin), "a link outside the area must red"
-        no_caption = [w for w in words if w.text != "online"]
-        assert qr_findings(no_caption, links, width, height, margin), "a missing caption must red"
+        assert pointer_findings(moved, pointer, width, height, margin), (
+            "a line moved above the grid must red"
+        )
+        outside = [
+            w._replace(left=width - 10, right=width + 100) if w.text == "Play" else w
+            for w in words
+        ]
+        assert pointer_findings(outside, pointer, width, height, margin), (
+            "a line outside the area must red"
+        )
+        no_word = [w for w in words if w.text != "online"]
+        assert pointer_findings(no_word, pointer, width, height, margin), (
+            "a missing word must red"
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

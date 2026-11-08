@@ -84,7 +84,6 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _draw_page_frame,
-    _draw_qr_caption,
     grid_size_label,
     page_frame,
 )
@@ -96,7 +95,7 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout, interior_frame, qr_caption, qr_slot
+from nonogram.export.layout import compute_layout, interior_frame
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
@@ -606,12 +605,9 @@ class TestBookProof_BandAndAnnotation:
     ) -> None:
         """The control: COMP-007's own page of the same payload has a blank foot.
 
-        **Except CARD-204's placeholder QR icon**, when this extent's own
-        geometry falls back to the foot slack for it (no horizontal slack on
-        either margin, as the 30x30 proof puzzle's own full-width fit does —
-        index 0). Masked out below before the check, so the control still
-        proves the *note's* own ink is new, not that COMP-007 draws nothing
-        at all down there any more.
+        (Until CARD-391 a placeholder QR icon could fall back into the foot
+        slack on a trim with no horizontal slack, and this control masked it
+        out; the icon is gone, so the foot is blank outright.)
         """
         book = _book()
         page = proof_pages(book)[index]
@@ -621,14 +617,7 @@ class TestBookProof_BandAndAnnotation:
             puzzle.payload(EXPECTED_BANDS[index]),
             page_spec=spec,
         )
-        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
-        icon = qr_slot(layout)
-        masked = plain.copy()
-        if icon is not None:
-            ImageDraw.Draw(masked).rectangle(
-                (icon.left, icon.top, icon.right, icon.bottom), fill=(255, 255, 255)
-            )
-        assert not _has_ink(_foot_strip(masked))
+        assert not _has_ink(_foot_strip(plain))
         assert _has_ink(_foot_strip(page))
 
     def test_changing_the_trim_changes_what_the_note_says(self) -> None:
@@ -782,14 +771,6 @@ class TestBookProof_AnnotationIsProofOnly:
             size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if layout.page is None else layout.page.drawing_bottom,
         )
-        # CARD-223: the footer's fourth and fifth marks, the QR icon's two
-        # lines. Built through the generator's own drawer with ``_blank_page``'s
-        # own arguments, for the same reason the frame above is: what this
-        # asserts is still "no proof annotation reaches a book page", not a
-        # reimplementation of the footer.
-        caption = qr_caption(layout)
-        assert caption is not None, "this fixture's page carries a QR icon to caption"
-        _draw_qr_caption(draw, caption, 1, generator.dpi)
         assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
         assert page.tobytes() == expected.tobytes()
 
@@ -1515,6 +1496,14 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
 
+    **CARD-391:** the fixture this class reads against is now
+    ``proof_baseline_card391.json``. That card removes the placeholder QR icon
+    from ``render_pages``, and a proof page is drawn through the same call a
+    real interior page uses, so the icon leaves it too: **all nine** portrait
+    trims move, and only by that icon. ``book_proof.py`` loses only the branch
+    that cleared the strip of an icon that never sat there. All superseded
+    fixtures stay.
+
     **CARD-224:** the fixture this class reads against is now
     ``proof_baseline_card224.json``. That card reverses CARD-204's central
     decision — the drawing is centred across the usable width again — and
@@ -1563,13 +1552,13 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     """
 
     BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card224.json").read_text(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card391.json").read_text(
             encoding="utf-8"
         )
     )
 
-    CARD223_BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card223.json").read_text(
+    CARD224_BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card224.json").read_text(
             encoding="utf-8"
         )
     )
@@ -1586,17 +1575,17 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         )
     )
 
-    def test_every_trim_moved_off_the_card223_recording(self) -> None:
-        """The attribution, measured rather than written down (CARD-224).
+    def test_every_trim_moved_off_the_card224_recording(self) -> None:
+        """The attribution, measured rather than written down (CARD-391).
 
-        Centring the drawing and floating it at 42% of the puzzle area's spare
-        must have moved every one of these trims — if one of them still
-        matched CARD-223's recording, the move never reached that trim and
-        this class's new reference would be pinning the wrong thing.
+        Taking the placeholder QR icon out of ``render_pages`` must have moved
+        every one of these trims — if one of them still matched CARD-224's
+        recording, the move never reached that trim and this class's new
+        reference would be pinning the wrong thing.
         """
-        assert set(self.BASELINE["moved_from_card223"]) == set(self.BASELINE["digests"])
+        assert set(self.BASELINE["moved_from_card224"]) == set(self.BASELINE["digests"])
         for key, digests in self.BASELINE["digests"].items():
-            assert digests != self.CARD223_BASELINE["digests"][key], key
+            assert digests != self.CARD224_BASELINE["digests"][key], key
 
     def test_every_trim_also_differs_from_the_card222_recording(self) -> None:
         """The older link in the chain, kept: CARD-223's own move took every
@@ -1633,7 +1622,7 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         control = self.BASELINE["unmoved_control_page_px"]
 
         assert set(control) == set(self.BASELINE["digests"])
-        assert set(control) == set(self.CARD223_BASELINE["digests"]), (
+        assert set(control) == set(self.CARD224_BASELINE["digests"]), (
             "a control is only a control while this recording covers the same "
             "trims as the recording it is attributed against"
         )

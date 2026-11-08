@@ -182,20 +182,19 @@ never reorders**, never looks past the immediate successor for a better
 partner, and never skips a puzzle to keep a later pair intact, so
 concatenating the pages front to back yields the book order exactly (EC-027).
 
-**Since CARD-248 the walk makes a second check, and it is still a verdict
-about the pair's page and not about the book.** A two-up page carries one
-footer strip holding **both** puzzles' QR groups (the owner's decision of
-2026-10-18 — a puzzle's scannable link must not be lost), so the walk tells
-``compute_pair_layout`` to reserve that strip out of the pair's height
-(:attr:`~nonogram.export.layout.InteriorFrame.footer_depth`) and then asks
-:func:`~nonogram.export.layout.qr_group_insets` whether the strip is wide
-enough for two groups. Either refusal means the same thing the 7.0 mm floor
-means: the two puzzles print on two single pages, each with its own footer
-and its own link, which is one more interior page and never a two-up page with
-a link missing. Both figures are constants of the sheet and the face —
-:func:`_qr_group_line_px`, like :func:`_folio_reserve_px`, is measured from the
-font and the DPI alone — so neither lets a page number or a book's own scale
-decide whether two puzzles pair (INV-010).
+**Since CARD-248 the walk reserves the footer strip, and that is still a
+verdict about the pair's page and not about the book.** A two-up page carries
+one footer, so the walk tells ``compute_pair_layout`` to reserve that strip out
+of the pair's height
+(:attr:`~nonogram.export.layout.InteriorFrame.footer_depth`); a pair that cannot
+reach the 7.0 mm floor with it reserved prints on two single pages, each with
+its own footer, which is one more interior page. **Until CARD-391 the walk
+also refused a pair whose footer could not hold both puzzles' QR groups side
+by side; that clause (c) is gone with the groups** (ADR-0041/R8), so a narrow
+trim now pairs on the height and width rules alone. The folio reserve is a
+constant of the sheet and the face — :func:`_folio_reserve_px` is measured from
+the font and the DPI alone — so neither lets a page number or a book's own
+scale decide whether two puzzles pair (INV-010).
 
 What the panel decides is *which neighbours to offer* and nothing else (G-1,
 ADR-0036/R2): the shared cell, both slot positions, every ruled line and every
@@ -407,7 +406,6 @@ from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.admin.print_specs import printable_player_domain
 from nonogram.admin.book_puzzle_vector import puzzle_page_stream, two_up_page_stream
 from nonogram.admin.book_sheet_vector import (
-    QrGroup,
     SheetFurniture,
     draw_sheet_furniture,
 )
@@ -433,12 +431,9 @@ from nonogram.export.layout import (
     HeaderBand,
     InteriorFrame,
     Layout,
-    PageParity,
     PageRule,
     PageSpec,
     PairLayout,
-    QrCaption,
-    QrSlot,
     caption_slot,
     compute_layout,
     compute_packed_solved_layout,
@@ -446,9 +441,6 @@ from nonogram.export.layout import (
     difficulty_dots,
     header_band,
     interior_frame,
-    qr_caption,
-    qr_group_insets,
-    qr_slot,
     refuse_rasterised_rule,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
@@ -906,7 +898,7 @@ FOLIO_PT = 10.0
 #: :data:`~nonogram.export.layout.INTERIOR_FOOTER_LINE_PT` rather than
 #: restated, because that is the figure the footer band's own depth is
 #: measured from: a label set larger than the band was built for would print
-#: into the QR icon's row (G-1).
+#: into the band's reserved foot row (G-1).
 SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
 
 #: What stands between a puzzle's width and its height in the footer's
@@ -920,31 +912,6 @@ SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
 #: standing commitment for every future face. The AC spells the ASCII form, so
 #: no glyph is added for a mark the AC does not ask for.
 SIZE_LABEL_SEPARATOR = " x "
-
-#: The invitation set on the first of the QR icon's two footer lines
-#: (CARD-223, the owner's artifact of 2026-10-14). Plain ASCII, for the reason
-#: :data:`SIZE_LABEL_SEPARATOR` is: the interior's character repertoire is
-#: asserted glyph by glyph (``tests/test_book_interior_face.py``) and no glyph
-#: is added for a mark the artifact does not ask for.
-QR_CAPTION_TEXT = "Solve it online"
-
-#: The typed link set on the second line — **the one line CARD-210 edits.**
-#:
-#: Still a placeholder, and deliberately: the owner's artifact writes
-#: ``nonogram.example/p/052`` and calls it a stand-in "until the online solver
-#: has a real address", and CON-021 refuses a printed link that points at a
-#: dead or admin-only URL. ``.example`` is one of the names RFC 2606 reserves
-#: precisely so that it can never resolve, so this text cannot become a live
-#: address by accident — the same inertness
-#: :func:`_draw_qr_placeholder`'s checkerboard has, stated for the words
-#: instead of for the glyph.
-#:
-#: Per **puzzle**, not per page: the number interpolated is the puzzle's own
-#: position in the book, so a two-up page's two slots print two different
-#: links, and the three-digit padding is the artifact's own (``052``). One
-#: template in one module, read only by :func:`qr_link`, so the whole of
-#: CARD-210's edit to the printed link is this string.
-QR_LINK_TEMPLATE = "nonogram.example/p/{number:03d}"
 
 #: How many digits of a page number :func:`_folio_reserve_px` plans room for
 #: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
@@ -2188,198 +2155,6 @@ def _draw_difficulty_dots(
     return dots
 
 
-#: CARD-204's placeholder QR icon: a plain alternating checkerboard, never a
-#: real QR module pattern — see :func:`_draw_qr_placeholder`'s own docstring.
-#: Reimplemented from :mod:`nonogram.export.png`'s identical helper rather
-#: than imported (the native-reimplementation convention this module already
-#: follows for :func:`_stroke_drawing`/:func:`_write_clues`: ``export/``
-#: exposes no call that draws onto a page it is handed, CARD-146).
-_QR_PLACEHOLDER_MODULES = 5
-
-
-def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
-    """Draw CARD-204's placeholder QR icon inside ``icon``'s box.
-
-    **Deliberately not a real QR code (owner's confirmed option 2(b)).** A
-    bordered square around a plain alternating checkerboard — no finder
-    squares, no real module data, "a generic grid-of-squares glyph, never
-    claiming to scan". No URL, admin or otherwise, appears anywhere in this
-    function (CON-021, G-3): there is nothing here to point anywhere, which
-    is what keeps it inert. See
-    :func:`nonogram.export.png._draw_qr_placeholder`'s own docstring for the
-    full reasoning — identical here, for a two-up slot rather than a single
-    page.
-    """
-    draw.rectangle((icon.left, icon.top, icon.right, icon.bottom), outline=INK, width=2)
-    side = icon.right - icon.left
-    step = side / _QR_PLACEHOLDER_MODULES
-    for row in range(_QR_PLACEHOLDER_MODULES):
-        for column in range(_QR_PLACEHOLDER_MODULES):
-            if (row + column) % 2 == 0:
-                continue
-            draw.rectangle(
-                (
-                    icon.left + round(column * step),
-                    icon.top + round(row * step),
-                    icon.left + round((column + 1) * step),
-                    icon.top + round((row + 1) * step),
-                ),
-                fill=INK,
-            )
-
-
-def qr_link(puzzle_number: int) -> str:
-    """The typed link the footer prints for puzzle ``puzzle_number`` (CARD-223).
-
-    The one reader of :data:`QR_LINK_TEMPLATE`, so "the link comes from one
-    constant" (AC-3) is a property of this module rather than of each page
-    kind that prints it, exactly as :func:`grid_size_label` is for the footer's
-    other label. Still a placeholder address until CARD-210 — see that
-    constant for why it cannot resolve.
-    """
-    return QR_LINK_TEMPLATE.format(number=puzzle_number)
-
-
-def qr_group_caption(puzzle_number: int) -> str:
-    """The invitation line of one footer QR group, with its puzzle named (CARD-248).
-
-    ``"Puzzle 12 · Solve it online"``: the same *shape* :func:`band_identity`
-    prints — the word, the number, :data:`BAND_SEPARATOR` — with
-    :data:`QR_CAPTION_TEXT` where the band puts the tier.
-
-    **This function re-spells ``f"Puzzle {n}"``; it does not read
-    :func:`band_identity`'s form, and it is the fifth place in the package
-    that spells those seven characters** (:func:`band_identity`'s band,
-    ``book_answer_key.answer_caption``'s answer-key caption,
-    :func:`_puzzle_range_label`'s single-puzzle table-of-contents row, the
-    review PDF's own page header in ``admin.pdf_generator``, and this). Said
-    outright because an earlier draft of this docstring claimed the form was
-    *taken from* :func:`band_identity`, which it never was, and a docstring
-    that claims a coupling the code does not have is worse than the fifth
-    spelling it was covering for.
-
-    **Why it is not worth removing.** The only way to actually read that form
-    is ``band_identity(number, None)``, which leans on the "a row with no
-    tier of record prints 'Puzzle 12' and stops" branch — a branch that
-    exists to report a **missing grade**, not to compose a prefix. That
-    function's own docstring weighs printing "Unrated" there and rejects it;
-    were it ever re-decided, this caption would change with it, and a
-    baseline fixture pins this caption's rendered string. One real coupling
-    traded for one false one is no bargain, so the word stays spelled here
-    and the claim is corrected instead.
-
-    **What G-1 pins is the two strings, and those are reused rather than
-    retyped**: :data:`QR_CAPTION_TEXT`, the owner's own words, which exist
-    once in ``src/nonogram/**`` and are carried through unchanged, and
-    :data:`QR_LINK_TEMPLATE`, read only by :func:`qr_link` so that CARD-210
-    stays a one-line change — plus :data:`BAND_SEPARATOR` for the mark that
-    joins a number to what follows it.
-    ``TestTwoUpFooter_EachGroupNamesItsPuzzleNumber``'s
-    ``test_the_invitations_words_are_still_one_constant`` is the guard that
-    holds those, by reading this function's own source.
-
-    **Why a two-up page's groups name their puzzle and a single page's does
-    not.** A single puzzle page has one group, and the page's own band already
-    says which puzzle it belongs to. A two-up page stacks its puzzles
-    vertically and sets their two links **side by side**, so "which link is the
-    upper puzzle's" is a question the reader cannot answer by position alone,
-    however the two groups are ordered. The number answers it outright. The
-    measurement that makes this free rather than a trade: the group's width is
-    set by its widest line, and the typed link (549 px on Book 1's footer face)
-    already runs wider than the bare invitation (300 px); naming the puzzle
-    takes the invitation to 567 px, so two groups measure 140.0 mm of a
-    190.5 mm usable width where two unnamed ones measured 137.0 mm.
-
-    Args:
-        puzzle_number: The puzzle's 1-based position in the print order — the
-            same number its band, its answer-key entry and its own
-            :func:`qr_link` carry.
-
-    Returns:
-        The line, ready to set.
-
-    Raises:
-        ValueError: ``puzzle_number`` is not a print position (below 1), the
-            same refusal :func:`band_identity` makes on the same quantity.
-    """
-    if puzzle_number < 1:
-        raise ValueError(f"puzzles are numbered from 1, got {puzzle_number}")
-    return f"Puzzle {puzzle_number}{BAND_SEPARATOR}{QR_CAPTION_TEXT}"
-
-
-def _qr_group_line_px(dpi: int) -> int:
-    """How wide one footer QR group's widest line can **ever** be, in pixels.
-
-    The horizontal twin of :func:`_folio_reserve_px`, and a constant for
-    exactly the same reason (CARD-204 Fix 4's own argument, which CARD-248
-    inherits rather than re-litigates): this figure takes part in the pairing
-    **verdict** — a page whose footer could not hold both groups must not be a
-    two-up page at all (:meth:`BookPDFGenerator.puzzle_pages`) — so it may not
-    be read off a page's own numbers, or the identical pair would pair on page
-    9 and refuse on page 1009. It is therefore the widest line this face can
-    set for *any* puzzle number up to :data:`FOLIO_RESERVE_DIGITS` digits,
-    from the font and the DPI alone.
-
-    ``slack`` covers the one thing ``9999`` does not: were some other digit of
-    this face wider than ``9``, a four-digit number could measure that much
-    more. It is ``0`` on the packaged DejaVu Sans, whose digits are tabular
-    (measured), and it is kept so that the bound is a bound rather than a
-    property of one face.
-
-    The **drawing** uses the real measure instead
-    (:meth:`BookPDFGenerator._two_up_page`), which is never wider than this,
-    so a page the verdict admitted always has room for the groups it draws.
-    """
-    font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, dpi))
-    number = 10**FOLIO_RESERVE_DIGITS - 1
-    slack = FOLIO_RESERVE_DIGITS * (
-        max(font.getlength(digit) for digit in "0123456789") - font.getlength("9")
-    )
-    return math.ceil(
-        max(font.getlength(qr_group_caption(number)), font.getlength(qr_link(number))) + slack
-    )
-
-
-def _draw_qr_caption(
-    draw: ImageDraw.ImageDraw,
-    caption: QrCaption,
-    puzzle_number: int,
-    dpi: int,
-    *,
-    name_the_puzzle: bool = False,
-) -> None:
-    """Set the QR icon's two footer lines beside it (CARD-223).
-
-    The invitation over the typed link, both at
-    :data:`~nonogram.export.layout.INTERIOR_FOOTER_LINE_PT` — CON-020's 10 pt
-    floor, the same size and the same face the footer's grid-size label and
-    folio are set in, because the three are one line of small print and a
-    reader should not be told which of them matters more.
-
-    Every coordinate comes off ``caption``
-    (:func:`~nonogram.export.layout.qr_caption`) and nothing is measured
-    here (ADR-0036/R2); the only choice this function makes is the Pillow
-    anchor that turns ``right_aligned`` into a direction, the same
-    translation :func:`_draw_page_frame` makes for the grid-size label. The
-    bottom-of-bbox anchors (``rb``/``lb``) keep both glyph boxes above their
-    own baselines, so neither line can descend past the icon's row.
-
-    ``name_the_puzzle`` sets :func:`qr_group_caption`'s named form on the
-    first line instead of the bare :data:`QR_CAPTION_TEXT` — what a two-up
-    page's two side-by-side groups need and a single page's one group does
-    not (see that function). The default keeps every single page's footer
-    byte-for-byte what CARD-223 drew (G-3).
-    """
-    font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, dpi))
-    anchor = "rb" if caption.right_aligned else "lb"
-    invitation = qr_group_caption(puzzle_number) if name_the_puzzle else QR_CAPTION_TEXT
-    for text, baseline in (
-        (invitation, caption.caption_baseline),
-        (qr_link(puzzle_number), caption.link_baseline),
-    ):
-        draw.text((caption.x, baseline), text, font=font, fill=INK, anchor=anchor)
-
-
 def _folio_reserve_px(dpi: int) -> int:
     """The fixed pixel reserve CARD-200's folio gets on a two-up page's lower slot.
 
@@ -2427,10 +2202,10 @@ def _draw_folio(
     """Draw ``page_number``'s plain-decimal folio at the bottom-outer corner (CARD-200).
 
     **Or at the bottom centre, when the caller passes ``centred_x``**
-    (CARD-222). The frame the owner's artifact asks for puts the QR icon in
-    the footer's outer corner (CARD-223), which is where this folio has sat
-    since CARD-200, so on a page that carries the frame the page number moves
-    to the footer line's centre —
+    (CARD-222). The frame the owner's artifact asks for gave the footer's
+    outer corner to a QR icon (CARD-223, retired by CARD-391), which is where
+    this folio has sat since CARD-200, so on a page that carries the frame the
+    page number moves to the footer line's centre —
     :attr:`~nonogram.export.layout.InteriorFrame.folio_x`, the trim's own
     centre, so it lands in the same place on every page of the book whichever
     side of the spread it is on. The room check below is **not** made in that
@@ -2581,6 +2356,35 @@ def grid_size_label(columns: int, rows: int) -> str:
     return f"{columns}{SIZE_LABEL_SEPARATOR}{rows}"
 
 
+def footer_pointer_text(numbers: Sequence[int], play_page: int) -> str:
+    """The footer line that points at the Play online page (CARD-391).
+
+    ``Play puzzle 53 online · p. 167`` on a page that carries one puzzle,
+    ``Play puzzles 9 and 10 online · p. 167`` on a two-up page, which shares
+    ONE footer line between its two puzzles (owner rulings of 2026-11-07).
+    ``numbers`` are the page's print numbers, the ones its bands and the
+    answer key carry, and ``play_page`` is the Play page's interior page number
+    **read from the plan** (:attr:`SectionPlan.play_page`): this function
+    computes no page number, so a pointer cannot name a page the plan did not
+    lay (ADR-0041/R8, G-2/G-3). The ``" · "`` is :data:`BAND_SEPARATOR`.
+
+    Raises:
+        ValueError: ``numbers`` is not one or two print positions (below 1),
+            or ``play_page`` is not a page number: a line pointing at nothing
+            is refused, not printed.
+    """
+    if play_page < 1:
+        raise ValueError(f"a pointer names a page from 1, got {play_page}")
+    if len(numbers) not in (1, 2) or min(numbers) < 1:
+        raise ValueError(f"a page carries one or two puzzles numbered from 1, got {tuple(numbers)}")
+    names = (
+        f"puzzle {numbers[0]}"
+        if len(numbers) == 1
+        else f"puzzles {numbers[0]} and {numbers[1]}"
+    )
+    return f"Play {names} online{BAND_SEPARATOR}p. {play_page}"
+
+
 def _draw_rule(draw: ImageDraw.ImageDraw, rule: PageRule) -> None:
     """Stroke one of the frame's ruled lines (CARD-222).
 
@@ -2665,15 +2469,10 @@ def _draw_page_frame(
     under it, or a number sitting on a grid) is worse than the corner this card
     inherited.
 
-    **The footer's other two marks are drawn by this function's callers**
-    (CARD-223: the QR icon and its two lines, at the footer's outer corner),
-    and they are gated by the *same* condition rather than by this function's
-    return value — :func:`~nonogram.export.layout.qr_slot` makes the identical
-    test on the identical figure, which ``tests/test_book_qr_slot.py`` pins as
-    an equivalence over a seeded corpus. They are not drawn here because the
-    icon is a **per-drawing** mark and this frame is a property of the
-    *sheet*: a two-up page has one footer and two icons, so a frame-level
-    drawer would have to be handed the slots it refuses to know about.
+    **The footer's pointer to the Play online page is not drawn here** (CARD-391).
+    It is the vector page's alone, set by the same all-or-nothing footer
+    block (:func:`~nonogram.admin.book_sheet_vector.draw_sheet_furniture`),
+    because this raster path is dead code that CARD-387 deletes.
 
     Args:
         draw: The page's draw object.
@@ -5886,15 +5685,12 @@ class BookPDFGenerator:
         CARD-200's corner folio and gets no footer rule, because a hairline
         across its bottom row is the collision this check exists to avoid.
 
-        **Since CARD-223 the footer also carries the QR icon's two lines.**
-        The glyph itself is drawn by ``render_pages`` above, which reads the
-        same :func:`~nonogram.export.layout.qr_slot` this method's
-        :func:`~nonogram.export.layout.qr_caption` call reads — one pure
-        function, so the words are set beside an icon that is really there
-        and are omitted on exactly the pages that have no icon (AC-5). The
-        link needs the **puzzle's** number, not the page's: a reader typing
-        it is after this puzzle, and the two differ on every page of the
-        book.
+        **CARD-391 took the QR icon and its two lines out of the footer**
+        (ADR-0041/R8: one code per book, on the Play online page). The
+        pointer that replaced them is the vector page's alone
+        (:meth:`vector_puzzle_page`): this bitmap path is dead code that
+        CARD-387 deletes, and gaining a line for its last days would only
+        give that card something to remove.
         """
         page_spec = self._puzzle_page_spec(
             puzzle_page,
@@ -5915,9 +5711,6 @@ class BookPDFGenerator:
             size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if placement is None else placement.drawing_bottom,
         )
-        caption = qr_caption(layout)
-        if caption is not None:
-            _draw_qr_caption(draw, caption, puzzle_number, self.dpi)
         return blank
 
     def vector_puzzle_page(
@@ -5926,6 +5719,7 @@ class BookPDFGenerator:
         puzzle_number: int,
         puzzle_page: int,
         cell_sizes: Optional[Dict[GridSize, float]] = None,
+        play_page: Optional[int] = None,
     ) -> ContentStream:
         """:meth:`_blank_page`'s vector twin: the same page as operators (CARD-295).
 
@@ -5946,8 +5740,9 @@ class BookPDFGenerator:
 
         **And since CARD-306 it carries the sheet's furniture too** — the
         interior frame's two rules, the footer's grid-size label, the folio
-        and the QR group, which :meth:`_blank_page` adds after
-        ``render_pages`` returns and which this page went without for as long
+        and (CARD-391) the pointer to the Play online page, which
+        :meth:`_blank_page` added after ``render_pages`` returned (the QR
+        group, until CARD-391) and which this page went without for as long
         as nothing could call it. It is **not** drawn by
         :mod:`nonogram.admin.book_puzzle_vector`, which still draws only what
         makes a page a puzzle page: every interior page kind carries the same
@@ -5960,10 +5755,14 @@ class BookPDFGenerator:
         same objects on the same ``Layout``: the frame from
         :func:`~nonogram.export.layout.interior_frame`, the label from
         :func:`grid_size_label`, the footer's verdict from
-        ``placement.drawing_bottom``, the icon and its two lines from
-        :func:`~nonogram.export.layout.qr_slot` /
-        :func:`~nonogram.export.layout.qr_caption` and :func:`qr_link`. So the
-        two media differ in the medium and in nothing else here either.
+        ``placement.drawing_bottom``. So the two media differ in the medium
+        and in nothing else here — except the pointer, which only this twin
+        draws (:meth:`_blank_page`).
+
+        ``play_page`` is the interior page number of the Play online page,
+        read from the plan (:attr:`SectionPlan.play_page`) by the caller; a
+        book that prints no Play page passes ``None`` and the footer carries
+        the grid size and the folio only (G-2).
         """
         page_spec = self._puzzle_page_spec(
             puzzle_page,
@@ -5983,7 +5782,7 @@ class BookPDFGenerator:
                 puzzle_page,
                 size_label=grid_size_label(layout.columns, layout.rows),
                 content_bottom=None if placement is None else placement.drawing_bottom,
-                groups=self._vector_qr_group(layout, puzzle_number),
+                pointer=self._pointer(play_page, (puzzle_number,)),
             ),
             interior_face_metrics(),
         )
@@ -5998,17 +5797,17 @@ class BookPDFGenerator:
         content_bottom: Optional[int] = None,
         content_right: Optional[int] = None,
         content_left: Optional[int] = None,
-        groups: Tuple[QrGroup, ...] = (),
+        pointer: Optional[str] = None,
     ) -> SheetFurniture:
         """One vector interior page's furniture, composed from this module's own figures.
 
         The **only** place a :class:`~nonogram.admin.book_sheet_vector.SheetFurniture`
         is built, so the three type sizes, the folio's spelling and the
-        placeholder's module count have one reader each (CARD-306, AC-3):
+        folio's reserved width have one reader each (CARD-306, AC-3):
         :data:`FOLIO_PT`, :data:`SIZE_LABEL_PT` and
         :data:`~nonogram.export.layout.INTERIOR_FOOTER_LINE_PT` through
         :func:`type_px` — the same conversion the raster footer's fonts are
-        asked for — :data:`_QR_PLACEHOLDER_MODULES`, and
+        asked for — :func:`_folio_reserve_px`, and
         :func:`page_is_right_hand` for the fallback corner's parity (FR-043).
 
         Every *position* comes from :func:`~nonogram.export.layout.interior_frame`
@@ -6020,43 +5819,31 @@ class BookPDFGenerator:
             folio_size_px=type_px(FOLIO_PT, self.dpi),
             size_label=size_label,
             label_size_px=type_px(SIZE_LABEL_PT, self.dpi),
-            caption_size_px=type_px(INTERIOR_FOOTER_LINE_PT, self.dpi),
-            qr_modules=_QR_PLACEHOLDER_MODULES,
-            groups=groups,
+            pointer=pointer,
+            pointer_size_px=type_px(INTERIOR_FOOTER_LINE_PT, self.dpi),
+            folio_reserve_px=_folio_reserve_px(self.dpi),
             content_bottom=content_bottom,
             content_right=content_right,
             content_left=content_left,
             right_hand=page_is_right_hand(page_number),
         )
 
-    def _vector_qr_group(
-        self, layout: Layout, puzzle_number: int
-    ) -> Tuple[QrGroup, ...]:
-        """A single puzzle page's one QR group, or none at all.
+    def _pointer(
+        self, play_page: Optional[int], numbers: Tuple[int, ...]
+    ) -> Optional[str]:
+        """The footer pointer for a page of ``numbers``, or ``None`` with no Play page.
 
-        The icon and its two lines on one extent and one inset — the pairing
-        :class:`~nonogram.admin.book_sheet_vector.QrGroup` exists to keep
-        together — with :data:`QR_CAPTION_TEXT` as the invitation, which is
-        the unnamed form a page carrying one group wants (:func:`qr_link` and
-        :func:`_draw_qr_caption`'s ``name_the_puzzle`` default). Empty exactly
-        when :func:`~nonogram.export.layout.qr_slot` declines the corner,
-        which is the same verdict the footer group as a whole is gated on.
+        The one place the "pointer and Play page exist together or not at
+        all" rule is applied (ADR-0041/R8, G-2): the page number is the
+        plan's, and a book whose plan laid no Play page has none to name.
         """
-        icon = qr_slot(layout)
-        caption = qr_caption(layout)
-        if icon is None or caption is None:
-            return ()
-        return (
-            QrGroup(
-                icon=icon,
-                caption=caption,
-                invitation=QR_CAPTION_TEXT,
-                link=qr_link(puzzle_number),
-            ),
-        )
+        return None if play_page is None else footer_pointer_text(numbers, play_page)
 
     def vector_two_up_page(
-        self, plan: "PuzzlePagePlan", payloads: Sequence[ExportPayload]
+        self,
+        plan: "PuzzlePagePlan",
+        payloads: Sequence[ExportPayload],
+        play_page: Optional[int] = None,
     ) -> ContentStream:
         """:meth:`_two_up_page`'s vector twin: two puzzles, one sheet (CARD-295).
 
@@ -6067,6 +5854,10 @@ class BookPDFGenerator:
         whose numbers and payloads disagree with its two slots is a bug in the
         walk, and a half-drawn page is the one way a book could ship a puzzle
         nobody printed.
+
+        The page carries ONE footer line for its two puzzles, naming both
+        (:func:`footer_pointer_text`), and no grid-size label: two slots carry
+        two sizes. ``play_page`` is as :meth:`vector_puzzle_page` takes it.
 
         Raises:
             ValueError: ``plan`` is not a two-up page.
@@ -6092,53 +5883,18 @@ class BookPDFGenerator:
                 content_bottom=footer_area.drawing_bottom,
                 content_right=footer_area.drawing_right,
                 content_left=footer_area.drawing_left,
-                groups=self._vector_two_up_qr_groups(pair, plan.numbers),
+                pointer=self._pointer(play_page, plan.numbers),
             ),
             interior_face_metrics(),
         )
         return stream
-
-    def _vector_two_up_qr_groups(
-        self, pair: PairLayout, numbers: Tuple[int, ...]
-    ) -> Tuple[QrGroup, ...]:
-        """The two QR groups a vector two-up page's one footer strip carries.
-
-        :meth:`_draw_two_up_qr_groups`' twin, and deliberately **not** a
-        second copy of it: the placement — which extent is measured, how wide
-        the row is, which group each puzzle takes at each parity — is
-        :meth:`_two_up_qr_insets`, one definition read by both media
-        (CARD-306, AC-3). What is left here is the pairing of each icon with
-        its own caption and its own two strings, where the invitation is
-        :func:`qr_group_caption`'s **named** form because this footer carries
-        two groups and a reader has to be able to tell which puzzle is which
-        (CARD-248).
-
-        Raises:
-            ValueError: a reserved strip whose group measurements disagree —
-                :meth:`_draw_two_up_qr_groups`' own refusal, unreachable for
-                the same reason.
-        """
-        groups: list[QrGroup] = []
-        for number, inset in self._two_up_qr_insets(pair, numbers):
-            icon = qr_slot(pair.lower, inset_px=inset)
-            caption = qr_caption(pair.lower, inset_px=inset)
-            if icon is None or caption is None:  # pragma: no cover - insets imply both
-                raise ValueError("a reserved footer strip must carry its own QR group")
-            groups.append(
-                QrGroup(
-                    icon=icon,
-                    caption=caption,
-                    invitation=qr_group_caption(number),
-                    link=qr_link(number),
-                )
-            )
-        return tuple(groups)
 
     def vector_puzzle_pages(
         self,
         payloads: List[ExportPayload],
         first_page: int = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT,
         cell_sizes: Optional[Dict[GridSize, float]] = None,
+        play_page: Optional[int] = None,
     ) -> Iterator[ContentStream]:
         """Every puzzle page of ``payloads``, in print order, as content streams.
 
@@ -6164,16 +5920,18 @@ class BookPDFGenerator:
                 :meth:`puzzle_pages` takes it.
             cell_sizes: The book's cell map; measured over ``payloads`` when
                 not given.
+            play_page: The Play online page's interior page number, from the
+                plan, for the footer's pointer; ``None`` for no pointer.
         """
         measured = self.cell_sizes(payloads) if cell_sizes is None else cell_sizes
         for entry in self.puzzle_pages(payloads, first_page, cell_sizes=measured):
             members = [payloads[number - 1] for number in entry.numbers]
             if entry.pair is None:
                 yield self.vector_puzzle_page(
-                    members[0], entry.numbers[0], entry.page_number, measured
+                    members[0], entry.numbers[0], entry.page_number, measured, play_page
                 )
             else:
-                yield self.vector_two_up_page(entry, members)
+                yield self.vector_two_up_page(entry, members, play_page)
 
     def custom_titles(self) -> Dict[str, str]:
         """The per-book titles the Arrangement step set, ``{puzzle_id: title}``.
@@ -6316,15 +6074,15 @@ class BookPDFGenerator:
         margin on every two-up page (the algebraic identity above), so the
         frame's own all-or-nothing footer condition refused the strip and the
         page kept CARD-200's corner folio. The owner's decision of 2026-10-18
-        is that the lower puzzle's scannable link "definitely should not be
-        lost", so
+        was that the lower puzzle's scannable link "definitely should not be
+        lost" (since superseded: CARD-391 removed the per-puzzle links), so
         :func:`~nonogram.export.layout.compute_pair_layout` is now told to
         reserve one footer strip out of the pair's height
         (``footer_reserve_px``, from :attr:`InteriorFrame.footer_depth`) before
         it fits anything. Three things follow, none of them decided here:
         ``content_bottom`` clears ``footer_rule.y`` so the hairline and the
-        **centred folio** are drawn; the strip carries one QR group per puzzle
-        (:meth:`_draw_two_up_qr_groups`); and the corner folio and the
+        **centred folio** are drawn; the strip carries (on the vector page) one
+        shared pointer line for both puzzles; and the corner folio and the
         horizontal reserve Fix 4 built for it are untouched, still the
         fallback for a pair laid out without the strip. CARD-226 AC-5's
         requirement that the reserve be unchanged is met: the card adds a
@@ -6364,117 +6122,7 @@ class BookPDFGenerator:
             content_right=footer_area.drawing_right,
             content_left=footer_area.drawing_left,
         )
-        self._draw_two_up_qr_groups(draw, pair, plan.numbers)
         return page
-
-    def _draw_two_up_qr_groups(
-        self,
-        draw: ImageDraw.ImageDraw,
-        pair: PairLayout,
-        numbers: Tuple[int, ...],
-    ) -> None:
-        """The two QR groups a two-up page's one footer strip carries (CARD-248).
-
-        One group per puzzle — the placeholder icon, the named invitation
-        (:func:`qr_group_caption`) and the typed link
-        (:func:`qr_link`) — set side by side in the strip
-        :func:`~nonogram.export.layout.compute_pair_layout` reserved for them.
-        Both are measured on the **lower** slot's extent, because that is the
-        one whose ``usable_bottom`` is the sheet's own bottom margin: the
-        footer belongs to the page, not to a slot, and the lower slot's box is
-        the page's (:class:`~nonogram.export.layout.PairLayout`). The upper
-        slot is not asked — CARD-223 asked it, and got a box at the *midline*
-        between the two drawings while the lower slot got none at all, which
-        is the 3-links-for-4-puzzles defect this card exists to fix.
-
-        **Which side the upper puzzle's group takes, and why: the left, at
-        both parities.** A stacked pair of puzzles maps onto a side-by-side
-        pair of links, so the two orders have to be reconciled by a rule the
-        reader already has; the one they have is reading order. The upper
-        puzzle is therefore the group met **first reading left to right** —
-        the inner group on an ``ODD`` (right-hand) page, where the row packs
-        rightward from the outer margin, and the outer group on an ``EVEN``
-        one. The *positions* mirror by parity exactly as every other mark on
-        a book page does (FR-030); what does not mirror is which puzzle is
-        named first, because a reader does not read a left-hand page
-        backwards. Neither group relies on that: each names its own puzzle
-        number outright (AC-3), and the order is the redundant second cue.
-
-        **The measure is the real one, the verdict's was a constant.** The
-        pitch comes from the widest of the four lines this page actually
-        sets, so the row is as far from the spine as these two puzzles'
-        numbers allow; the pairing walk's own gate used
-        :func:`_qr_group_line_px`'s page-independent ceiling instead, which
-        is never narrower, so a page the walk admitted always fits the row
-        drawn here (see that function and :meth:`puzzle_pages`).
-
-        **No strip, no groups — the frame's own verdict, read and not
-        re-derived.** A pair laid out with no ``footer_reserve_px`` (nothing
-        production builds, but what a test or a future caller may hand in)
-        leaves its lower slot's drawing on the bottom margin, so
-        :func:`~nonogram.export.layout.qr_slot` answers ``None`` and
-        :func:`_draw_page_frame` has already fallen back to CARD-200's corner
-        folio. This method then draws nothing, which is the same
-        omit-rather-than-overlap discipline and the same single verdict
-        CARD-223 established. A strip that exists but cannot hold the groups
-        is the other case and is a **failure**: the pairing walk refuses such
-        a pair before it becomes a page, so reaching here means the two
-        disagree.
-
-        Raises:
-            ValueError: the footer strip is there but cannot hold this many
-                groups. Unreachable from :meth:`puzzle_pages`, which refuses
-                such a pair before it becomes a page; raised rather than
-                passed over because a two-up page with one link is the defect
-                this card exists to remove, not a degradation to accept.
-        """
-        for number, inset in self._two_up_qr_insets(pair, numbers):
-            icon = qr_slot(pair.lower, inset_px=inset)
-            caption = qr_caption(pair.lower, inset_px=inset)
-            if icon is None or caption is None:  # pragma: no cover - insets imply both
-                raise ValueError("a reserved footer strip must carry its own QR group")
-            _draw_qr_placeholder(draw, icon)
-            _draw_qr_caption(draw, caption, number, self.dpi, name_the_puzzle=True)
-
-    def _two_up_qr_insets(
-        self, pair: PairLayout, numbers: Tuple[int, ...]
-    ) -> Tuple[Tuple[int, int], ...]:
-        """``(puzzle number, inset)`` for each QR group this page's footer carries.
-
-        The whole of :meth:`_draw_two_up_qr_groups`' placement arithmetic,
-        named so that the **vector** two-up page
-        (:meth:`vector_two_up_page`) reads these insets through this
-        definition instead of carrying a second copy of them (CARD-306, AC-3).
-        Empty for a pair with no footer strip, which is the same
-        omit-rather-than-overlap verdict :func:`qr_slot` and
-        :func:`_draw_page_frame` already reach — see that method's docstring,
-        which is where every judgement below is argued.
-
-        Raises:
-            ValueError: the footer strip is there but cannot hold this many
-                groups, exactly as before — unreachable from
-                :meth:`puzzle_pages`.
-        """
-        if qr_slot(pair.lower) is None:
-            return ()
-        font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, self.dpi))
-        widest = max(
-            math.ceil(font.getlength(text))
-            for number in numbers
-            for text in (qr_group_caption(number), qr_link(number))
-        )
-        insets = qr_group_insets(pair.lower, widest, len(numbers))
-        if insets is None:
-            raise ValueError(
-                f"this page's footer cannot carry {len(numbers)} QR groups "
-                f"{widest} px wide"
-            )
-        placement = pair.lower.page
-        if placement.parity is PageParity.ODD:
-            # The row packs rightward from the outer (right) margin, so the
-            # outermost group is the *last* one a reader meets.
-            insets = tuple(reversed(insets))
-        return tuple(zip(numbers, insets, strict=True))
 
     def _draw_solved_slot(
         self,
@@ -7152,16 +6800,6 @@ class BookPDFGenerator:
                         f"puzzle {_named_puzzles(ids, numbers, first_number)} "
                         f"could not be laid out: {e}"
                     ) from e
-                if pair is not None and (
-                    qr_group_insets(pair.lower, _qr_group_line_px(self.dpi), len(numbers))
-                    is None
-                ):
-                    # The strip fits the sheet's height but not two groups
-                    # across it (a 10 cm trim at the narrowest margins
-                    # ``book_page_spec`` admits, measured). Unpaired, not
-                    # half-linked: the two puzzles print on two single pages,
-                    # each with its own footer and its own link.
-                    pair = None
             if pair is None:
                 plan.append(PuzzlePagePlan(page_number, (number,)))
                 index += 1
@@ -8084,6 +7722,7 @@ class BookPDFGenerator:
                                 page_plan.numbers[0],
                                 page_plan.page_number,
                                 decided.cell_sizes,
+                                decided.play_page,
                             )
                             if vector
                             else self._blank_page(
@@ -8096,7 +7735,7 @@ class BookPDFGenerator:
                     else:
                         page = (
                             self.vector_two_up_page(
-                                page_plan, [p for _, p in members]
+                                page_plan, [p for _, p in members], decided.play_page
                             )
                             if vector
                             else self._two_up_page(

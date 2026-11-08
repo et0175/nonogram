@@ -56,9 +56,8 @@ A spec lays a puzzle out in one of two ways, and its ``parity`` decides which:
   title band sits at the top of the usable area, and the drawing is **centred
   horizontally** in it (FR-032's own clause, restored by CARD-224 after
   CARD-204's flush-by-parity anchor: that anchor existed to free the
-  gutter-side strip for the 2x2cm placeholder QR icon, and since CARD-223 put
-  the icon in the footer's *outer* bottom corner -- a code printed toward the
-  spine does not scan -- nothing reads that strip). So **parity no longer
+  gutter-side strip for a QR icon that has since left the puzzle pages
+  altogether, CARD-391, so nothing reads that strip). So **parity no longer
   moves the drawing sideways at all**: it moves the usable area, and the
   drawing sits in the middle of whatever that is. It is still
   :func:`caption_slot`'s clamp that keeps a solved page's right-aligned
@@ -234,6 +233,7 @@ __all__ = [
     "DIFFICULTY_DOT_RATIO",
     "DIFFICULTY_DOT_STROKE_RATIO",
     "DPI",
+    "FOOTER_RESERVED_ROW_MM",
     "GRID_SPARE_ABOVE",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
@@ -255,7 +255,6 @@ __all__ = [
     "PAGE_WIDTH_MM",
     "PLAY_BLOCK_GAP_MM",
     "PLAY_QR_MM",
-    "QR_SLOT_MM",
     "TWO_UP_MIN_CELL_MM",
     "SOLVED_TILE_CAPACITIES",
     "SOLVED_TILE_GAP_MM",
@@ -266,6 +265,7 @@ __all__ = [
     "CellCapPolicy",
     "ClueEntry",
     "DifficultyDots",
+    "FooterPointer",
     "GridLine",
     "GridRule",
     "GridRules",
@@ -282,8 +282,6 @@ __all__ = [
     "PlayPageLayout",
     "PairLayout",
     "PuzzleFrame",
-    "QrCaption",
-    "QrSlot",
     "RuleTier",
     "VerticalBound",
     "caption_slot",
@@ -293,12 +291,10 @@ __all__ = [
     "compute_packed_solved_layout",
     "compute_pair_layout",
     "difficulty_dots",
+    "footer_pointer",
     "header_band",
     "interior_frame",
     "play_page_layout",
-    "qr_caption",
-    "qr_group_insets",
-    "qr_slot",
     "rasterise_rule_px",
     "refuse_rasterised_rule",
 ]
@@ -368,12 +364,14 @@ MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
 #: delete it as dead should reach that conclusion on purpose.
 MIN_CELL_MM = 2.0
 
-#: CARD-204 (owner's Google Doc "Nonograms - Print layout1", item 3): the
-#: placeholder QR icon's side, in millimetres. 2x2 cm, as the owner specified.
-#: Real QR encoding and the public-solver link it would carry are both
-#: deliberately deferred (owner clarification 2026-10-08, CON-021) — this
-#: module reserves and sizes the icon's *slot* only; see :func:`qr_slot`.
-QR_SLOT_MM = 20.0
+#: The row, in millimetres, the footer band still reserves at its foot for a
+#: mark that no longer exists. It was the 2 x 2 cm placeholder QR icon's side
+#: (CARD-204); the owner removed the per-puzzle QR on 2026-11-07 (ADR-0041/R8,
+#: CARD-391), and the row is held at its old 20 mm on purpose: it is a term of
+#: :data:`INTERIOR_FOOTER_MM`, the unit every page's usable area is measured
+#: against, so shrinking it moves every grid and re-derives the pairing
+#: numbers. That is CARD-392's change, and this constant is retired by it.
+FOOTER_RESERVED_ROW_MM = 20.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
 MAJOR_RULE_EVERY = 5
@@ -1174,77 +1172,11 @@ class PuzzleFrame:
 
 
 @dataclass(frozen=True, slots=True)
-class QrSlot:
-    """Where CARD-204's 2x2cm placeholder QR icon sits, in device pixels.
-
-    A square: ``right - left == bottom - top == _mm_to_px(QR_SLOT_MM)``,
-    within one rounding pixel. Only :func:`qr_slot` constructs one — it
-    exists so a renderer draws the owner's placeholder glyph inside a box
-    COMP-007 measured, rather than picking a corner itself (ADR-0036/R2).
-
-    **Since CARD-223 that box is the footer's outer bottom corner**, not the
-    gutter-side strip CARD-204 first put it in; see :func:`qr_slot` for why
-    the move is functional rather than cosmetic.
-
-    Attributes:
-        left: The icon's left edge.
-        top: The icon's top edge.
-        right: The icon's right edge.
-        bottom: The icon's bottom edge.
-    """
-
-    left: int
-    top: int
-    right: int
-    bottom: int
-
-
-@dataclass(frozen=True, slots=True)
-class QrCaption:
-    """Where the QR icon's two footer lines are set, in device pixels (CARD-223).
-
-    The owner's artifact of 2026-10-14 sets two lines beside the icon — the
-    invitation (``Solve it online``) over the typed link — so a reader with
-    no phone camera can still reach the puzzle. Only :func:`qr_caption`
-    constructs one, and it exists for the reason :class:`CaptionSlot` and
-    :class:`PageRule` do: the renderer owns the words and the face, this
-    module owns the x they are set at and the rows they sit on
-    (ADR-0036/R2). Nothing here names either string — the copy and the link's
-    placeholder form are the book renderer's (COMP-009), which is what lets
-    CARD-210 swap the link without touching page geometry.
-
-    Both lines run **inward** from the icon, i.e. away from the trim edge the
-    icon is flush with, so the pair reads as one group with the icon and
-    neither line can be the mark nearest the spine.
-
-    Attributes:
-        x: The x both lines are set at: one footer gap in from the icon's
-            inner edge.
-        right_aligned: Whether the ink runs leftward from :attr:`x` (an ODD,
-            right-hand page, whose icon is flush right) or rightward from it
-            (an EVEN, left-hand one). A bool rather than a Pillow anchor
-            string: this module does not know what draws it, the same choice
-            :attr:`InteriorFrame.label_right_aligned` makes.
-        caption_baseline: The row the invitation's type is bottom-anchored
-            on.
-        link_baseline: The row the typed link's type is bottom-anchored on,
-            one footer line plus one footer gap below
-            :attr:`caption_baseline` — see :func:`qr_caption` for why the
-            white is not optional.
-    """
-
-    x: int
-    right_aligned: bool
-    caption_baseline: int
-    link_baseline: int
-
-
-@dataclass(frozen=True, slots=True)
 class CaptionSlot:
     """Where a solved slot's caption line may put its ink, in device pixels.
 
     Only :func:`caption_slot` constructs one. It exists for the same reason
-    :class:`QrSlot` does: the renderer measures its own text (only it knows
+    :class:`FooterPointer` does: the renderer measures its own text (only it knows
     the face it letters in) but does not get to pick the x it draws at
     (ADR-0036/R2).
 
@@ -1586,295 +1518,11 @@ def header_band(layout: Layout, page_spec: PageSpec | None = None) -> HeaderBand
     )
 
 
-def qr_slot(layout: Layout, *, inset_px: int = 0) -> QrSlot | None:
-    """Where the 2x2cm placeholder QR icon fits on ``layout``'s extent, or ``None``.
-
-    A second measurement laid on top of an already-computed :class:`Layout`,
-    the same way :func:`header_band` is (see that function's docstring for
-    why: additive, not a parameter of :func:`compute_layout`) — only a placed
-    page (``layout.page`` set) has margins to reserve an icon from, so the
-    default, unparitied spec (today's A4) never gets one.
-
-    **The outer bottom corner, and why that is a functional fix** (CARD-223,
-    the owner's artifact of 2026-10-14, issue 1). CARD-204 put the icon in
-    the strip reading (b)'s flush alignment frees, which is by construction
-    the **gutter** side — so the printed code sat beside the spine, where the
-    sheet curves and a phone cannot read it. A QR code that does not scan is
-    not a cosmetic defect, so the icon moves to the corner furthest from the
-    binding: a square flush with the usable area's own **outer** edge and its
-    own bottom edge. "Outer" is this module's existing meaning of the word —
-    the right edge on an ``ODD`` (right-hand) page, the left edge on an
-    ``EVEN`` (left-hand) one, the same mirroring
-    :func:`compute_layout`'s placed-page branch anchors the drawing with and
-    the same corner CARD-200's fallback folio has always used. There is no
-    gutter-side placement left: at either parity the icon's box lies wholly
-    in the outer half of the trim, which is what
-    ``tests/test_book_qr_slot.py`` pins by parity.
-
-    **And since CARD-224 there is no gutter-side strip at all.** That card
-    returns the drawing to FR-032's own centring, so the spare the flush
-    anchor had collected on the gutter side is split evenly across both sides
-    of the drawing and the strip this icon used to live in no longer exists as
-    a region. Nothing here changes: the icon's corner, its row and its one
-    room check are all measured from the sheet and the drawing's *bottom*
-    edge, none of which that card's horizontal change touches. What it does
-    move is the drawing's bottom edge itself (the 42% float), so the room
-    check below now answers "does the puzzle area hold this drawing" — which
-    is the same question :attr:`PagePlacement.vertical_bound` reports and the
-    same one the frame's own footer condition asks.
-
-    **The row it lands in is the one the frame already reserves.**
-    :data:`INTERIOR_FOOTER_MM` is built bottom-up from
-    :data:`QR_SLOT_MM` — the icon's own row at the footer band's foot — so
-    the box returned here is exactly that row's outer end, and the footer
-    line above it (:attr:`InteriorFrame.baseline`: the grid-size label and
-    the folio) clears it by :data:`INTERIOR_FOOTER_GAP_PT`. Nothing is
-    re-derived: both read the same two constants.
-
-    **One room check, and it is the footer's own** (AC-5). The icon is
-    returned only when this extent's drawing stops at or above the row
-    :func:`interior_frame` strokes its hairline on, i.e. only when there is a
-    whole footer strip of clearance under the drawing. That single condition
-    does three things at once:
-
-    * it is the condition :func:`~nonogram.admin.book_pdf_generator._draw_page_frame`
-      already applies to the footer group as a whole, so the icon is drawn on
-      exactly the pages that have a footer and never on a page that fell back
-      to CARD-200's bottom-outer-corner folio — **the corner this icon now
-      wants**. A looser check of :data:`QR_SLOT_MM` alone would print the
-      glyph over that folio on any page whose slack fell between the two
-      figures (236 px and 353 px on Book 1, measured);
-    * because :data:`INTERIOR_FOOTER_MM` is strictly greater than
-      :data:`QR_SLOT_MM`, it already implies the icon's own 2 cm of room, so
-      there is one check rather than two that can disagree;
-    * it leaves the icon's two footer lines nothing to check: they are set
-      *beside* the icon, inside its own row (:func:`qr_caption`), so a row
-      deep enough for the icon is deep enough for the group.
-
-    It is read off ``layout.page``'s own usable box, not off a
-    :class:`PageSpec`, so a two-up slot gets the same answer for *its* own
-    extent (``usable_bottom`` is the slot's bottom, not the sheet's).
-
-    **Which extent a two-up page hands it, since CARD-248.** A two-up page
-    has one footer strip and two puzzles' links in it, so both of its groups
-    are measured on the extent whose ``usable_bottom`` *is* the sheet's
-    bottom margin — the **lower** slot's, which
-    :func:`compute_pair_layout` now leaves exactly one footer strip of slack
-    under its drawing (``footer_reserve_px``). The two groups differ only in
-    ``inset_px``. CARD-223's own arrangement, where each slot was asked for
-    an icon on its own extent, is **retired**: it gave the upper slot a box
-    at the *midline* (an icon floating between the two drawings) and the
-    lower slot none at all, which is the 3-links-for-4-puzzles defect
-    CARD-248 exists to fix. Nothing in this module enforces that — a caller
-    that asks about the upper slot still gets the upper slot's own answer —
-    so the one caller that composes a two-up page
-    (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._two_up_page`)
-    asks only about the footer's own extent, and
-    ``tests/test_book_qr_slot.py`` asserts on measured ink that no two-up
-    page carries QR ink above its footer strip.
-
-    **``inset_px``: how far in from the outer edge this group sits** (CARD-248).
-    ``0`` — the default, and every single page's call — is the outer corner
-    described above, unchanged to the pixel. A positive value shifts the box
-    that many pixels **inward** (leftward on an ``ODD`` page, rightward on an
-    ``EVEN`` one), which is how a footer strip carries a second group beside
-    the first without a second definition of where a group goes.
-    :func:`qr_group_insets` is the only thing that computes one, and it
-    refuses a row that would not fit, so a box this function returns is
-    always inside the usable area.
-
-    **Omission, not overlap.** When the check fails the icon is omitted, the
-    same discipline the answer caption and the footer group already apply
-    rather than printing over something. ``None`` is the whole verdict:
-    :func:`qr_caption` reads it, so the icon and its two lines are drawn
-    together or not at all.
-
-    Args:
-        layout: The already-computed placed-page geometry — exactly what
-            :func:`compute_layout` or the two-up pair-aware call returned.
-            Nothing here fits a cell or moves a line (ADR-0036/R2): every
-            number is read off ``layout.page`` and the module's own
-            constants.
-        inset_px: How far inward of the outer edge to put this group's icon,
-            in device pixels. ``0`` is the outer corner itself.
-
-    Returns:
-        The icon's own box, or ``None`` when this extent has no footer room
-        for one.
-    """
-    page = layout.page
-    if page is None:
-        return None
-    if page.usable_bottom - page.drawing_bottom < _mm_to_px(INTERIOR_FOOTER_MM):
-        return None
-    size = _mm_to_px(QR_SLOT_MM)
-    if page.parity is PageParity.ODD:
-        # A right-hand page: the gutter is on its left, so outer is right.
-        outer = page.usable_right - inset_px
-        left, right = outer - size, outer
-    else:
-        # A left-hand page: the gutter is on its right, so outer is left.
-        outer = page.usable_left + inset_px
-        left, right = outer, outer + size
-    return QrSlot(
-        left=left,
-        top=page.usable_bottom - size,
-        right=right,
-        bottom=page.usable_bottom,
-    )
-
-
-def qr_caption(layout: Layout, *, inset_px: int = 0) -> QrCaption | None:
-    """Where the QR icon's two footer lines are set on ``layout``, or ``None``.
-
-    A fifth measurement laid on the sheet, beside :func:`header_band`,
-    :func:`qr_slot`, :func:`caption_slot` and :func:`interior_frame`
-    (CARD-223). The owner's artifact sets an invitation over a typed link
-    beside the icon, for a reader with no phone camera; this says where, and
-    the book renderer says what (COMP-009 owns both strings, so CARD-210
-    changes the link in one place and no geometry at all).
-
-    **Inward from the icon, in the icon's own row.** The anchor is one
-    :data:`INTERIOR_FOOTER_GAP_PT` in from the icon's inner edge — the
-    footer's own white, not a new figure — and the ink runs away from the
-    trim edge the icon hugs, so the group reads as icon-then-words on a
-    right-hand page and words-then-icon on a left-hand one, and no part of
-    it is ever the mark nearest the spine. Their pitch is one footer line
-    (:data:`INTERIOR_FOOTER_LINE_MM`, CON-020's floor, the depth the footer's
-    other line is already set at) plus that same gap of white again — **the
-    footer's own rhythm rather than a second, invented one**. That it is not
-    the bare line depth is measured, not preferred: a 10 pt face's ascent and
-    descent together stand taller than a 10 pt em, so baselines one bare line
-    apart set the link's ascenders into the invitation's descenders. The pair
-    is centred on the icon's own box, so the words sit optically level with
-    it and reach neither the footer line above
-    (:attr:`InteriorFrame.baseline`) nor below the bottom margin.
-
-    **No room check of its own, by construction.** Two lines at that pitch
-    are far shallower than :data:`QR_SLOT_MM`,
-    and the room inward of the icon is the usable width
-    less the icon — at the shortest trim ``book_page_spec`` admits, still
-    several times the words' own measure. Both are asserted by
-    ``tests/test_book_qr_slot.py`` on that shortest trim rather than argued
-    here, which is why there is no second branch: this function answers
-    ``None`` exactly when :func:`qr_slot` does, so AC-5's "draws neither" is
-    one verdict and not two that could disagree.
-
-    **``inset_px`` is passed straight through to :func:`qr_slot`** (CARD-248),
-    so a footer strip's second group's lines sit beside *its* icon by the same
-    arithmetic as the first's. There is no second placement rule for an inset
-    group: the anchor is always one footer gap in from this icon's own inner
-    edge, whichever icon that is.
-
-    Args:
-        layout: The same placed-page geometry :func:`qr_slot` is given.
-        inset_px: This group's inset, exactly as :func:`qr_slot` reads it.
-
-    Returns:
-        The two lines' anchor, or ``None`` when this extent carries no icon
-        for them to sit beside.
-    """
-    page = layout.page
-    icon = qr_slot(layout, inset_px=inset_px)
-    if page is None or icon is None:
-        return None
-    gap = _mm_to_px(INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
-    pitch = _mm_to_px(INTERIOR_FOOTER_LINE_MM) + gap
-    # The pair, centred on the icon's box: its own top is half the slack down.
-    block_top = icon.top + ((icon.bottom - icon.top) - 2 * pitch) // 2
-    if page.parity is PageParity.ODD:
-        # The icon is flush right, so the words run leftward from its left edge.
-        anchor_x, right_aligned = icon.left - gap, True
-    else:
-        # Flush left, so they run rightward from its right edge.
-        anchor_x, right_aligned = icon.right + gap, False
-    return QrCaption(
-        x=anchor_x,
-        right_aligned=right_aligned,
-        caption_baseline=block_top + pitch,
-        link_baseline=block_top + 2 * pitch,
-    )
-
-
-def qr_group_insets(
-    layout: Layout, widest_line_px: int, count: int
-) -> tuple[int, ...] | None:
-    """Where ``count`` QR groups sit in ``layout``'s footer strip, or ``None`` (CARD-248).
-
-    One footer strip, one group per puzzle on the page. A single puzzle page
-    asks for one and gets ``(0,)``; a two-up page asks for two and gets
-    ``(0, pitch)`` — the outer corner, and one group's width further in. Each
-    inset is fed back to :func:`qr_slot` / :func:`qr_caption`, so there is
-    exactly one statement of where a group goes and this function only says
-    how many of them fit and how far apart they stand (G-1).
-
-    **The row packs from the outer edge inward, tight, and that is the choice
-    that keeps the owner's complaint fixed.** The ink a row of groups needs is
-    fixed — ``count`` icons plus ``count`` lines plus the white between them —
-    so no arrangement of them can be narrower; what is chosen here is only
-    *which end of the usable width the slack falls at*. It falls at the
-    **gutter** end, so every group is as far from the spine as the row allows.
-    Dividing the strip into ``count`` equal columns instead (the obvious
-    alternative) would put the inner group's own words **264 px (22.4 mm)
-    nearer the binding** on Book 1's own two-up page, measured.
-
-    **One group's pitch.** The icon's own 2 cm (:data:`QR_SLOT_MM`), one
-    footer gap of white to its lines, the widest of those lines, and one more
-    footer gap before the next group's icon — :data:`INTERIOR_FOOTER_GAP_PT`
-    twice, the footer's own white and no new figure. ``widest_line_px`` is the
-    **renderer's** measurement, exactly as :func:`caption_slot` takes a
-    caption's own width: only COMP-009 knows the face its words are lettered
-    in, and only this module decides where a thing that wide may go
-    (ADR-0036/R2).
-
-    **What the refusal is for.** ``None`` means this sheet's usable width
-    cannot hold ``count`` groups of that measure — a 10 cm trim at the
-    narrowest margins ``book_page_spec`` admits holds one group and not two
-    (measured) — so a caller must not compose a page that needs them. The
-    pairing walk reads it that way: a pair whose page could not carry both
-    links is not paired at all and prints as two single pages, which is a
-    longer interior and never a two-up page with a missing link
-    (``book_pdf_generator.puzzle_pages``). ``None`` is also the answer when
-    this extent has no footer strip at all, so this function agrees with
-    :func:`qr_slot` on that by reading it rather than by re-deriving it.
-
-    Args:
-        layout: The extent whose footer strip the groups sit in — for a
-            two-up page, the **lower** slot's (the one whose
-            ``usable_bottom`` is the sheet's own bottom margin).
-        widest_line_px: The widest any one group's lines are set, in device
-            pixels, as the renderer measures them.
-        count: How many groups the page needs. At least one.
-
-    Returns:
-        One inset per group, outermost first, or ``None`` when this many do
-        not fit.
-
-    Raises:
-        ValueError: ``count`` is below 1, or ``widest_line_px`` is negative —
-            neither is a page this module can be asked about.
-    """
-    if count < 1:
-        raise ValueError(f"a footer strip carries at least one QR group, not {count}")
-    if widest_line_px < 0:
-        raise ValueError(f"a line's measure is not negative, got {widest_line_px}")
-    page = layout.page
-    if page is None or qr_slot(layout) is None:
-        return None
-    gap = _mm_to_px(INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
-    pitch = _mm_to_px(QR_SLOT_MM) + 2 * gap + widest_line_px
-    # The last group's own ink ends one gap short of its own pitch, so the row
-    # measures `count * pitch - gap` and not `count * pitch`.
-    if count * pitch - gap > page.usable_right - page.usable_left:
-        return None
-    return tuple(index * pitch for index in range(count))
-
-
 def caption_slot(layout: Layout, text_width: int) -> CaptionSlot | None:
     """Where a caption ``text_width`` device pixels wide sits on ``layout``, or ``None``.
 
     A third measurement laid on top of an already-computed :class:`Layout`,
-    exactly the way :func:`header_band` and :func:`qr_slot` are (see
+    exactly the way :func:`header_band` and :func:`footer_pointer` are (see
     :func:`header_band`'s docstring for why these are additive rather than
     parameters of :func:`compute_layout`). ``None`` for an unplaced layout,
     which has no margins to keep a caption inside of.
@@ -2032,11 +1680,11 @@ INTERIOR_FOOTER_LINE_MM = INTERIOR_FOOTER_LINE_PT * MM_PER_POINT
 
 #: The strip the footer takes out of the bottom of the usable area, in
 #: millimetres: from the footer rule down to the bottom margin, where the
-#: grid-size label, the folio and (CARD-223) the QR icon are set.
+#: grid-size label, the folio and the pointer to the Play online page are set.
 #:
-#: **Three rows, measured bottom-up from what each has to hold**: the QR
-#: icon's own row at the band's foot (:data:`QR_SLOT_MM`, 2 cm — the icon is
-#: CARD-223's to place, the row it needs is the frame's to reserve), the
+#: **Three rows, measured bottom-up from what each has to hold**: the row the
+#: QR icon used to occupy at the band's foot (:data:`FOOTER_RESERVED_ROW_MM`,
+#: 2 cm; empty since CARD-391 and held until CARD-392 shrinks it), the
 #: footer line above it (:data:`INTERIOR_FOOTER_LINE_MM`, the grid-size label
 #: and the folio), and :data:`INTERIOR_FOOTER_GAP_PT` of white twice: once
 #: under the rule and once between the line and the icon. 29.878 mm in all.
@@ -2052,15 +1700,13 @@ INTERIOR_FOOTER_LINE_MM = INTERIOR_FOOTER_LINE_PT * MM_PER_POINT
 #: would have printed in black over the icon's own black checkerboard on every
 #: page of the book.
 #:
-#: **CARD-223 has since taken the icon to the outer corner, and this band
-#: deliberately keeps its three rows.** The artifact's own 23.175 mm — the
-#: label dropped onto the icon's row — is now *possible* and is not taken
-#: here: the band's depth is what the puzzle area is measured against
-#: (:attr:`InteriorFrame.area_bottom`), so shortening it moves every grid on
-#: every page, which is CARD-224's subject and not this one's. What the move
-#: buys instead is the icon's row's **inner** end, which is where CARD-223
-#: sets the icon's two lines (:func:`qr_caption`) — beside the icon, below the
-#: label, colliding with neither.
+#: **CARD-391 removed the icon and this band deliberately keeps its three
+#: rows.** The footer is now one line (the owner's version B), so the row
+#: under it is empty; it is not given back here because the band's depth is
+#: what the puzzle area is measured against (:attr:`InteriorFrame.area_bottom`):
+#: shortening it moves every grid on every page and re-derives the pairing
+#: numbers, which is CARD-392's change, made on its own so that this card's
+#: diff shows only the ink that left and the line that arrived.
 #:
 #: Measured consequence of the figure: on the Book 1 profile the band takes
 #: 353 px of the usable area's 2994 px of height, leaving the puzzle area
@@ -2068,7 +1714,7 @@ INTERIOR_FOOTER_LINE_MM = INTERIOR_FOOTER_LINE_PT * MM_PER_POINT
 #: ``book_page_spec`` admits (10.00 cm) it leaves 398 px (33.7 mm) — positive,
 #: which is AC-7's claim.
 INTERIOR_FOOTER_MM = (
-    QR_SLOT_MM + INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
+    FOOTER_RESERVED_ROW_MM + INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
 )
 
 #: How much of the puzzle area's spare height goes **above** the drawing; the
@@ -2100,7 +1746,7 @@ class PageRule:
 
     A horizontal rule across the page's text width. Only
     :func:`interior_frame` constructs one, and it exists for the same reason
-    :class:`QrSlot` and :class:`CaptionSlot` do: the renderer strokes the
+    :class:`FooterPointer` and :class:`CaptionSlot` do: the renderer strokes the
     line, but it does not get to pick where the line is or how heavy it is
     (ADR-0036/R2).
 
@@ -2151,7 +1797,8 @@ class InteriorFrame:
         label_x: Where the grid-size label is set: the usable area's **inner**
             edge — the gutter side, so the left edge on an ODD (right-hand)
             page and the right edge on an EVEN (left-hand) one. The outer
-            corner is left for the QR (CARD-223).
+            side is left for the pointer to the Play online page
+            (:func:`footer_pointer`, CARD-391).
         label_right_aligned: Whether the label's ink runs leftward from
             :attr:`label_x` (an EVEN page) or rightward from it (an ODD page).
             A bool rather than a Pillow anchor string: this module does not
@@ -2161,10 +1808,9 @@ class InteriorFrame:
             every page of the book whichever side of the spread it is on
             (the artifact's own ``x="297"`` on a 612 pt page).
         baseline: The row the footer line's type sits on — one gap above the
-            QR icon's own row, so the label and the folio are legible beside
-            an icon that is still in the band's inner corner (see
-            :data:`INTERIOR_FOOTER_MM`). Both marks are set bottom-anchored
-            there, so neither crosses into the icon's row.
+            band's reserved foot row (:data:`FOOTER_RESERVED_ROW_MM`, see
+            :data:`INTERIOR_FOOTER_MM`). Its marks are set bottom-anchored
+            there, so none crosses into that row.
         page_bottom: The bottom margin — the usable area's own bottom edge,
             and **not** where this frame's own marks go. It is carried because
             a page that cannot use the footer group falls back to CARD-200's
@@ -2269,7 +1915,7 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
     """The frame of one interior page laid out on ``page_spec`` (CARD-222).
 
     A fourth measurement laid on the sheet, beside :func:`header_band`,
-    :func:`qr_slot` and :func:`caption_slot` — and the only one of the four
+    :func:`footer_pointer` and :func:`caption_slot` — and the only one of the four
     that takes the **spec** rather than a computed :class:`Layout`. That is
     deliberate and is the whole point of the region: a frame read off a
     drawing would move with the drawing, and a two-up slot's own
@@ -2295,9 +1941,9 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
         )
     left, _, right, bottom = _usable_box_px(page_spec)
     header_y, footer_y = _puzzle_area_px(page_spec)
-    # The footer line sits one gap above the QR icon's own row at the band's
-    # foot, not on the bottom margin (:data:`INTERIOR_FOOTER_MM`).
-    baseline = bottom - _mm_to_px(QR_SLOT_MM + INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
+    # The footer line sits one gap above the band's reserved foot row, not on
+    # the bottom margin (:data:`INTERIOR_FOOTER_MM`).
+    baseline = bottom - _mm_to_px(FOOTER_RESERVED_ROW_MM + INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
     gutter_on_left = page_spec.parity is PageParity.ODD
     return InteriorFrame(
         header_rule=PageRule(
@@ -2312,6 +1958,77 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
         baseline=baseline,
         page_bottom=bottom,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class FooterPointer:
+    """Where the footer's pointer to the Play online page is set (CARD-391).
+
+    The one line a puzzle page carries about the book's online player
+    (``Play puzzle 53 online · p. 167``), on the **outer** side of the footer
+    line: the side opposite the grid-size label, so it mirrors by parity like
+    every other mark on a book page. Only :func:`footer_pointer` constructs
+    one; the words and the face are the renderer's, this module owns the x the
+    line starts at and the direction it runs (ADR-0036/R2).
+
+    Attributes:
+        x: The usable area's outer edge: the right edge on an ODD (right-hand)
+            page, the left edge on an EVEN one.
+        right_aligned: Whether the ink runs leftward from :attr:`x` (an ODD
+            page) or rightward from it (an EVEN one). A bool for the reason
+            :attr:`InteriorFrame.label_right_aligned` is one.
+    """
+
+    x: int
+    right_aligned: bool
+
+
+def footer_pointer(
+    frame: InteriorFrame, text_width: int, folio_reserve_px: int
+) -> FooterPointer | None:
+    """Where a pointer ``text_width`` device pixels wide sits on ``frame``, or ``None``.
+
+    Laid on the sheet's :class:`InteriorFrame`, beside :func:`header_band` and
+    :func:`caption_slot`. The line starts at the outer edge and runs inward
+    along the footer line; the folio is centred on the trim, so the line
+    **declines** (``None``) when its inner end would come within one
+    :data:`INTERIOR_FOOTER_GAP_PT` of the folio's ink, the same
+    omit-rather-than-overlap discipline every footer mark keeps. On the
+    shortest trims a long line therefore prints nothing rather than
+    printing over the page number.
+
+    **The folio's width is a reserve, not this page's number.**
+    ``folio_reserve_px`` is the fixed width the generator plans for any folio
+    (``_folio_reserve_px``, four digits at the folio's size, from the face and
+    the DPI alone), so the verdict does not flip between page 99 and page 100
+    for the same two puzzles (INV-010's reason, restated).
+
+    Args:
+        frame: The page's frame, from :func:`interior_frame`.
+        text_width: The line's measured width, in device pixels.
+        folio_reserve_px: How wide the folio's ink may be, in device pixels.
+
+    Returns:
+        The line's anchor, or ``None`` when the folio leaves no room for it.
+
+    Raises:
+        ValueError: ``text_width`` or ``folio_reserve_px`` is negative.
+    """
+    if text_width < 0 or folio_reserve_px < 0:
+        raise ValueError(
+            f"a measure is not negative, got {text_width} and {folio_reserve_px}"
+        )
+    gap = _mm_to_px(INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
+    folio_half = (folio_reserve_px + 1) // 2
+    if frame.label_right_aligned:
+        # An EVEN page: the gutter is on the right, so outer is the left edge
+        # and the line runs rightward from it.
+        x = frame.footer_rule.left
+        fits = x + text_width + gap <= frame.folio_x - folio_half
+    else:
+        x = frame.footer_rule.right
+        fits = x - text_width - gap >= frame.folio_x + folio_half
+    return FooterPointer(x=x, right_aligned=not frame.label_right_aligned) if fits else None
 
 
 # --------------------------------------------------------------------------
@@ -2473,8 +2190,8 @@ DIFFICULTY_DOT_STROKE_RATIO = 0.125
 #: The smallest dot worth putting on paper, in millimetres. Below a
 #: millimetre a filled dot and an outlined one are the same grey speck to a
 #: reader, so the glyph would be saying nothing — :func:`difficulty_dots`
-#: declines (answers ``None``) rather than draw it, the way :func:`qr_slot`
-#: declines a corner too small for the icon.
+#: declines (answers ``None``) rather than draw it, the way
+#: :func:`footer_pointer` declines a line the folio would collide with.
 MIN_DIFFICULTY_DOT_MM = 1.0
 
 
@@ -2483,7 +2200,7 @@ class DifficultyDots:
     """Where a tier's dots sit inside a box, in device pixels (CARD-228).
 
     Only :func:`difficulty_dots` constructs one, and it exists for the same
-    reason :class:`QrSlot` and :class:`CaptionSlot` do: the renderer strokes
+    reason :class:`FooterPointer` and :class:`CaptionSlot` do: the renderer strokes
     the circles (it owns the draw object), but it does not get to pick their
     size or their spacing (ADR-0036/R2).
 
@@ -3036,7 +2753,7 @@ def _placed_drawing_top(
       one pixel of drawing past the footer rule. ``_round_px`` is monotone, so
       ``drawing_bottom >= area_bottom + 1`` follows from that top edge by
       arithmetic, and :func:`_puzzle_area_px`'s footer row *is* the row the
-      renderer and :func:`qr_slot` measure their strip from — one shared
+      renderer and the footer line measure their strip from — one shared
       definition, so the two cannot disagree. **The side of the invariant that
       now always holds is therefore the second one: a refused page never has a
       footer group**, which is what this regime's prose has claimed since
@@ -3154,7 +2871,7 @@ def _placed_drawing_top(
         # band's foot is higher than that — whichever is LOWER on the page.
         # The `max` is what makes the refused page's footer group omitted by
         # arithmetic rather than by the band's depth (CARD-224 review cycle 2,
-        # F2-001): the renderer and `qr_slot` draw the group only while
+        # F2-001): the renderer draws the footer group only while
         # `drawing_bottom <= area_bottom`, `_round_px` is monotone, and
         # `_puzzle_area_px`'s footer row is the row they both measure from, so
         # a top edge at or below `area_bottom + 1 - drawing_height` refuses the
@@ -3747,7 +3464,7 @@ class PairLayout:
             puzzle it labels, never midway between two drawings. Its slot's
             own ``usable_bottom`` is the bottom margin either way, which is
             what lets the page's one footer be measured on this slot's extent
-            (CARD-248: :func:`qr_slot`, :func:`qr_group_insets`).
+            (CARD-248).
         cell_mm: The shared cell, exactly as both slots report it
             (:attr:`PagePlacement.cell_mm`): at least :data:`TWO_UP_MIN_CELL_MM`
             and never above the spec's flat cap.
@@ -3933,8 +3650,8 @@ def compute_pair_layout(
     ``folio_reserve_px`` does to ``outside_mm`` — and the lower slot's drawing
     is then placed on the row that leaves, while the slot's own
     ``usable_bottom`` stays the real bottom margin. Two consequences, both
-    deliberate: :func:`qr_slot` reads exactly one strip of slack under that
-    drawing and so returns the page's own footer corner, and
+    deliberate: the footer strip is exactly one strip of slack under that
+    drawing, and
     :func:`interior_frame`'s ``content_bottom <= footer_rule.y`` test passes,
     so the page carries the hairline and its folio too.
 
@@ -3958,13 +3675,11 @@ def compute_pair_layout(
       surviving case is the 13-row band, 7.5000 -> 7.1287 mm, **4.95%**;
     * a pair whose combined drawing height is **29 to 32 cells** is
       **refused** — it cannot reach 7.0 mm with the strip reserved — and
-      prints as two single pages, each with its own footer and its own link.
-      That is one more interior page per refused pair, and on KDP a higher
-      print cost per copy, which is the same consequence ``folio_reserve_px``
-      already carries (above) and was accepted on the same grounds: a puzzle
-      printed without its scannable link is the feature failing for that
-      puzzle. The exact refused band is asserted as an exact set, not a
-      range, by ``tests/test_book_qr_slot.py``'s
+      prints as two single pages, each with its own footer. That is one more
+      interior page per refused pair, and on KDP a higher print cost per
+      copy, which is the same consequence ``folio_reserve_px`` already
+      carries (above). The exact refused band is asserted as an exact set,
+      not a range, by ``tests/test_book_qr_slot.py``'s
       ``TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages``.
 
     Like ``folio_reserve_px``, this reserve is page- and book-independent —
