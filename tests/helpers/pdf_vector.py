@@ -665,3 +665,35 @@ def frame_rules(stream: str) -> list[tuple[float, float, float, float]]:
     longest = max(x2 - x1 for x1, x2, _, _ in lines)
     long_lines = [rule for rule in lines if rule[1] - rule[0] >= longest - 0.01]
     return [max(long_lines, key=lambda rule: rule[2]), min(long_lines, key=lambda rule: rule[2])]
+
+
+#: The tier words a puzzle page's header sets, flush right, in capitals.
+_HEADER_TIERS = ("EASY", "MEDIUM", "HARD")
+#: The header's number is the one ``Puzzle N`` set emboldened (text render mode 2),
+#: which is what tells it from a table-of-contents row carrying the same words.
+_HEADER_NUMBER_SET = re.compile(
+    r"BT 2 Tr /\w+\s+-?\d+(?:\.\d+)?\s+Tf\s+(?P<x>-?\d+(?:\.\d+)?)\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
+    r"\((?P<text>Puzzle \d+)\)\s+Tj"
+)
+
+
+def header_lines(stream: str) -> list[str]:
+    """Each puzzle header on the page, read back as ``band_identity``'s line.
+
+    Since the approved mockup's header (CARD-207 scope) a puzzle page sets its
+    identity as two pieces on one baseline: ``Puzzle N`` flush left and the
+    tier in capitals flush right (with the difficulty dots between, which are
+    not text). This joins the pieces back into ``"Puzzle N · Tier"`` so a test
+    can compare against :func:`band_identity` as before; a number with no tier
+    on its baseline reads ``"Puzzle N"``. Upper slot first (PDF y is upward).
+    """
+    placed = placed_text(stream)
+    lines = []
+    for match in _HEADER_NUMBER_SET.finditer(stream):
+        x, y, text = float(match["x"]), float(match["y"]), match["text"]
+        tier = next(
+            (t for tx, ty, _, t in placed if t in _HEADER_TIERS and abs(ty - y) < 0.5 and tx > x),
+            None,
+        )
+        lines.append((y, text if tier is None else f"{text} · {tier.capitalize()}"))
+    return [line for _, line in sorted(lines, key=lambda item: -item[0])]

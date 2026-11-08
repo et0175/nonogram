@@ -68,6 +68,7 @@ from nonogram.difficulty import tier_of_record
 from nonogram.export.layout import (
     DIFFICULTY_DOT_GAP_RATIO,
     DIFFICULTY_DOT_RATIO,
+    INTERIOR_FOOTER_LINE_PT,
     INTERIOR_HEADER_RULE_PT,
     HeaderBand,
     Layout,
@@ -200,8 +201,6 @@ CLUE_SHADE = 0.945
 #: number as a semibold on the one embedded face (ADR-0042/R5).
 _TIER_RATIO = 0.75
 _BOLD_RATIO = 0.04
-#: CON-020's floor, in points: the tier word never sets under it.
-_FLOOR_PT = 10.0
 
 
 def shade_clue_cells(stream: ContentStream, layout: Layout, *, shade: float = CLUE_SHADE) -> None:
@@ -238,7 +237,8 @@ def draw_puzzle_header(
     left = band.center_x - room / 2 if placement is None else placement.usable_left
     right = band.center_x + room / 2 if placement is None else placement.usable_right
     size_px = band_type_size(text, band, room, metrics)
-    floor_px = _FLOOR_PT * stream.dpi / 72.0
+    # CON-020's floor: the tier word never sets under it.
+    floor_px = INTERIOR_FOOTER_LINE_PT * stream.dpi / 72.0
     baseline = band.center_y + _middle_em(metrics) * size_px
     stream.text(
         number, left, baseline, stream.to_points(size_px), grey=grey,
