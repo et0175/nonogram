@@ -478,6 +478,13 @@ active:
     started: 2026-11-07T22:00Z
     estimate: 4c (1.5d)
     cut_from: 25cad3dd
+  - card: CARD-390
+    branch: card/390-play-online-page
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-390
+    started: 2026-11-08T08:00Z
+    estimate: 4c (1.5d)
+    cut_from: 58a78986
+    # OWNER 2026-11-08 "start 390 now": a THIRD active card, over the standing cap of 2, by the owner's explicit instruction.
 # CARD-388 CLEARED 2026-11-07T21:18Z at its merge gate: merged 2d81b270, done, certified 8.6 on cycle 1 (fix rounds 4415d6a2 and f2ce628c not
 #   re-reviewed), estimate 3c -> 1 cycle = ratio 0.333. Full armed suite 11650 passed, 1 skipped, 1 xfailed (the first gate run
 #   reddened on five frozen censuses, fixed on the branch and re-run green). Entry dropped; worktree removed under the tidy rule.
@@ -763,7 +770,6 @@ queued:
 # CARD-320 is next and runs ALONE for the same measured reason: it and CARD-349 both touch
 #   tests/conftest.py, the highest blast-radius file in the tree.
 # OWNER 2026-11-07: 'start 390 when a slot frees' and 'you can go 394 - 399 when the slot is ready': dispatch order for the next free slots = 390, 394, 397 (after 395 merges), 399 (audit step first; its deletion needs the owner's go for a production deploy of the shared-UI mode), then 398 (needs 387 + 395). Cap of 2 stands; a slot frees at MERGE.
-- id: CARD-390   # P2 4c  'PLAY ONLINE' PAGE (PageKind.PLAY, recto, QR + short address). Depends 388, 389, 311. Unstamped.
 - id: CARD-394   # P2 2c  PROJECT STYLESHEET replaces Bootstrap on the public player's shared-UI mode (owner 2026-11-07). Depends 386. Unstamped.
 - id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
 - id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.

@@ -1,6 +1,6 @@
 # CARD-390: A "Play online" page after the last puzzle — a right-hand page whose QR opens the book's landing page, with the short address under it
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner decision 2026-11-07, "The Play online page": "a right-hand page after the last puzzle and before the solutions opener, which comes next. Readers reach it when they finish, or when they're stuck and about to look up an answer. The code opens the book's own landing page (/b/<slug>), which lists the puzzles in book order. The short address is printed for anyone who would rather type it." (owner artifact "One-QR Book Layout", version B).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-388, CARD-389, CARD-311
