@@ -125,10 +125,10 @@
 //     (hintCell and hintLine with a null solution), and has NO answer-reveal
 //     fallback: a board on which no line decides a cell has no hint cell, and
 //     Hint stays ENABLED while any cell is undecided and says so in the same
-//     words as player/play.js (PUBLIC_EXHAUSTED) — in the explain line and
+//     words as PUBLIC_EXHAUSTED (the same sentence the retired player/play.js said) — in the explain line and
 //     the announce region, with nothing recorded, nothing counted, and the
 //     ladder where it was. A wrong mark can mislead it, which is what
-//     player/play.js's derivedHint does today and is inherent to having no
+//     the retired player/play.js's derivedHint did too and is inherent to having no
 //     answer to check a mark against;
 //   * Errors, Progress and Check are ABSENT, not inert: start() removes
 //     their elements (#puzzle-player-errors, #puzzle-player-progress and
@@ -617,8 +617,8 @@ const MAJOR_EVERY = 5;
 const EDIT_MODE = "edit";
 
 // What a Hint press says in public mode when the clues decide no cell: the
-// words of player/play.js's HINT_EXHAUSTED (tests/test_player_public_mode.py
-// reads both files and holds the two sentences equal).
+// words of the retired player/play.js's HINT_EXHAUSTED (CARD-399 deleted that
+// file; tests/test_player_public_mode.py reads this constant for the sweep).
 const PUBLIC_EXHAUSTED =
   "Hint: the clues decide nothing more by themselves; no single row or column forces a cell from the marks on the board.";
 
@@ -1199,7 +1199,7 @@ function start() {
     // reveals any undecided cell), so this is false there. In public mode
     // there is no fallback, so no hint cell does not mean nothing to say:
     // Hint stays on while any cell is undecided (UNKNOWN or "?"), as
-    // play.js's canHint does, and answers with PUBLIC_EXHAUSTED.
+    // the retired play.js's canHint did, and answers with PUBLIC_EXHAUSTED.
     speaks: () => publicMode
       && history.board.cells.some((state) => state === UNKNOWN || state === MAYBE),
     // CARD-269: the line rungs 1 and 2 point at for a nextHint() result, and

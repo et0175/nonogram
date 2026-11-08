@@ -97,20 +97,17 @@ What that does NOT claim, named rather than omitted:
 ==============================
 Tests, by node id (FR-045)
 ==============================
-Written out in full — path and name on one line each — because the
-architecture validator resolves a check ref by ``git grep -lw`` of the WHOLE
-``path::name`` string over tracked, non-Markdown code. A ref whose string
-appears nowhere reads as a DEAD check ref however green the test is, and the
-four this card owns were wrapped across two lines in the card, so writing the
-tests did not by itself revive them. The table is held to the registry by
-``test_the_registrys_check_refs_for_this_card_all_resolve``, so it cannot
-outlive a rename in either direction:
+CARD-399 retired the separate ``player/play.js`` / ``play.html`` this module
+used to drive, and with them the tests that held that implementation: the
+AC-383..AC-386 and EC-050 verifying refs now name the shared player's own
+tests (each cites its ref whole in its own module, which is what the
+architecture validator's ``git grep -lw`` reads):
 
-* AC-383 — ``tests/test_public_player.py::test_play_page_renders_and_marks``
-* AC-384 — ``tests/test_public_player.py::test_solved_fires_on_clue_satisfaction_only``
-* AC-385 — ``tests/test_public_player.py::test_resume_is_local_and_the_page_writes_nowhere``
-* AC-386 — ``tests/test_public_player.py::test_phone_viewport_is_playable``
-* EC-050 — ``tests/test_public_player.py::test_no_write_request_for_any_interaction``
+* AC-383 — ``tests/test_player_shared_ui_site.py::test_a_real_puzzle_plays_to_the_solved_banner``
+* AC-384 — ``tests/test_player_public_mode.py::test_it_agrees_with_the_oracle``
+* AC-385 — ``tests/test_puzzle_solver_resume.py::test_reload_restores``
+* AC-386 — ``tests/test_puzzle_solver_page.py::test_a_phone_width_page_never_scrolls_sideways``
+* EC-050 — ``tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean``
 * EC-048 — ``tests/test_public_player.py::test_served_tree_is_clean_of_answers``
 
 The last one is listed for a different reason, and the difference is a finding
@@ -156,6 +153,7 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures used by n
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLAYER_DIR = REPO_ROOT / "player"
+STATIC_DIR = REPO_ROOT / "src" / "nonogram" / "admin" / "static"
 
 
 def _load_assembler():
@@ -1354,25 +1352,6 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
     assert assembler.assemble(root, tmp_path / "site-good").puzzle_count == 1
 
 
-def test_the_state_module_and_tokens_are_byte_identical_copies(site) -> None:
-    """ADR-0041/R3 — reused by copy, never by fork, and never by edit (G-1).
-
-    Both directions: the served copy equals its source byte for byte, and the
-    comparison can tell a one-byte difference from equality (a comparison that
-    could not is how a byte-identity claim stops being one).
-    """
-    report, _ = site
-    checked = 0
-    for source, published in assembler.COPIED_FROM_ADMIN.items():
-        origin = (REPO_ROOT / source).read_bytes()
-        served = (report.site_dir / published).read_bytes()
-        assert served == origin, published
-        assert served != origin + b" ", f"{published}: the comparison is not reading bytes"
-        checked += 1
-    assert checked == len(assembler.COPIED_FROM_ADMIN) >= 2
-    assert "solver_state.js" in assembler.COPIED_FROM_ADMIN["src/nonogram/admin/static/solver_state.js"]
-
-
 def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) -> None:
     """No asset but ``puzzle/<key>.json`` moves with what was published.
 
@@ -1384,7 +1363,8 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
     CARD-284 added two data files that DO vary with the corpus (``index.json``
     and ``book/<slug>.json``), so "the static half" stopped being "not under
     ``puzzle/``" and is now the published paths of the two copy tables —
-    :data:`PLAYER_FILES` and :data:`COPIED_FROM_ADMIN`, which is the
+    :data:`PLAYER_FILES`, :data:`COPIED_FROM_ADMIN` and the generated
+    :data:`PLAY_PAGE`, which are the
     enumerable authority for what the site serves that is NOT a function of
     the bundle (ADR-0039/R2). The change defaults to deny rather than to
     "static": every file in the tree is either one of those published paths
@@ -1401,6 +1381,7 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
     # carries nothing about the bundle, so it is compared byte for byte with
     # the published assets rather than exempted from the comparison.
     published = {
+        assembler.PLAY_PAGE,
         *assembler.PLAYER_FILES.values(),
         *assembler.COPIED_FROM_ADMIN.values(),
         assembler.SITE_MARKER_FILE,
@@ -1430,7 +1411,7 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
         return found
 
     assert statics(one) == statics(two)
-    assert len(statics(one)) == len(published) == 1 + len(assembler.PLAYER_FILES) + len(
+    assert len(statics(one)) == len(published) == 2 + len(assembler.PLAYER_FILES) + len(
         assembler.COPIED_FROM_ADMIN
     )
     planted = dict(statics(one))
@@ -1594,7 +1575,7 @@ def host(site):
 def _open(page, host, key):
     url, _, _ = host
     page.goto(f"{url}/play/{key}")
-    page.wait_for_function("window.publicPlayer !== undefined")
+    page.wait_for_function("window.puzzlePlayer !== undefined")
 
 
 def _save(key, grid, cells, state="filled"):
@@ -1619,69 +1600,8 @@ def _save(key, grid, cells, state="filled"):
     )
 
 
-def _filled_cells(grid):
-    return [(r, c) for r, row in enumerate(grid) for c, cell in enumerate(row) if cell]
-
-
-def _count_preserving_swap(grid):
-    """``grid``'s filled cells with one 2x2 rectangle rotated.
-
-    Two filled corners of a rectangle become empty and the other two become
-    filled, so **every row sum and every column sum is unchanged** while the
-    runs are not. This is the board AC-384 actually needs: a wrong board that a
-    solved check comparing filled COUNTS per line would accept.
-
-    It is needed because the obvious wrong board — the solution with one extra
-    cell — does *not* need the rule under test. CARD-283's own mutation round
-    measured that: ``isClueSolved`` rewritten to compare per-line filled totals
-    instead of runs left ``test_solved_fires_on_clue_satisfaction_only``
-    GREEN. The control was dead, in exactly the family this board escalates on,
-    and this function is the fix.
-    """
-    height, width = len(grid), len(grid[0])
-    for r1, r2, c1, c2 in itertools.product(range(height), range(height), range(width), range(width)):
-        if r1 >= r2 or c1 >= c2:
-            continue
-        if grid[r1][c1] and grid[r2][c2] and not grid[r1][c2] and not grid[r2][c1]:
-            swapped = [list(row) for row in grid]
-            swapped[r1][c1] = swapped[r2][c2] = False
-            swapped[r1][c2] = swapped[r2][c1] = True
-            assert [sum(row) for row in swapped] == [sum(row) for row in grid]
-            assert [sum(col) for col in zip(*swapped)] == [sum(col) for col in zip(*grid)]
-            assert swapped != [list(row) for row in grid]
-            return _filled_cells(swapped)
-    raise AssertionError("no count-preserving swap exists in this grid")
-
-
-def _prefill(page, host, key, text):
-    """Load the page, plant a save, reload onto it."""
-    url, _, _ = host
-    page.goto(f"{url}/play/{key}")
-    page.evaluate("([k, v]) => window.localStorage.setItem(k, v)", [f"nonogram-public:{key}", text])
-    page.goto(f"{url}/play/{key}")
-    page.wait_for_function("window.publicPlayer !== undefined")
-
-
 def _tap(page, row, col):
     page.click(f'td.player-cell[data-row="{row}"][data-col="{col}"]')
-
-
-def _css_token(name: str) -> str:
-    """One ``--token: value`` from ``player/player.css``'s own declaration.
-
-    So an assertion about the phone layout is measured against the number the
-    page actually declares (ADR-0039/R2), not against a copy of it in the
-    test. The declared value is asserted on its own where it is used, so this
-    reading cannot follow a regression down.
-    """
-    match = re.search(rf"^\s*{re.escape(name)}:\s*([^;]+);", (PLAYER_DIR / "player.css").read_text(encoding="utf-8"), re.M)
-    assert match is not None, f"{name} is not declared in player.css"
-    return match.group(1).strip()
-
-
-#: AC-386's tap-target floor, as the page declares it. The card's named mobile
-#: guarantee is 28 px; this is where that number comes from.
-_CELL_FLOOR_PX = float(_css_token("--player-cell-min").removesuffix("px"))
 
 
 def _cell_centre(page, row, col):
@@ -1702,49 +1622,6 @@ def _drag(page, cells):
     for cell in cells[1:]:
         page.mouse.move(*_cell_centre(page, *cell))
     page.mouse.up()
-
-
-def _touch_drag(page, cells, *, end: str = "touchEnd"):
-    """A real TOUCH drag across ``cells``, driven through a CDP session.
-
-    ``end="touchCancel"`` ends the stream the way a system gesture does — the
-    one input that reaches ``play.js``'s pointercancel handler on purpose
-    rather than as a side effect of ``touch-action: auto``.
-
-    Playwright's own input API cannot produce one: ``page.mouse`` reports
-    ``pointerType === "mouse"`` and ``page.touchscreen.tap`` is a tap, not a
-    drag. ``Input.dispatchTouchEvent`` produces real touch events with real
-    pointer ids — ``setPointerCapture`` accepts them, which an earlier
-    revision of this file declared it would not, and cycle 2 of this card's
-    review measured that declaration false. Chromium only, which is the one
-    browser ADR-0038/R7 declares, and the session comes off the page's own
-    context, so no dependency is added.
-
-    What this device measures is narrower than it looks, and
-    :func:`_pen_drag` exists because of it: with Region off the cells are
-    ``touch-action: auto``, so Chromium's own gesture recognizer takes the
-    stream over and fires **pointercancel** after the first pointermove
-    (measured: ``pointerdown touch`` / ``pointermove touch`` /
-    ``pointercancel touch``). So the Region-off half of a touch drag is
-    carried by the CSS rule and by ``play.js``'s pointercancel handler, NOT
-    by ``gesturePaints`` — which is why the pointer-type rule needs the pen.
-    """
-    session = page.context.new_cdp_session(page)
-    try:
-        x, y = _cell_centre(page, *cells[0])
-        session.send(
-            "Input.dispatchTouchEvent",
-            {"type": "touchStart", "touchPoints": [{"x": x, "y": y, "id": 1}]},
-        )
-        for cell in cells[1:]:
-            x, y = _cell_centre(page, *cell)
-            session.send(
-                "Input.dispatchTouchEvent",
-                {"type": "touchMove", "touchPoints": [{"x": x, "y": y, "id": 1}]},
-            )
-        session.send("Input.dispatchTouchEvent", {"type": end, "touchPoints": []})
-    finally:
-        session.detach()
 
 
 def _pen_drag(page, cells):
@@ -1782,1202 +1659,18 @@ def _state(page, row, col):
 
 
 @pytest.mark.browser
-def test_play_page_renders_and_marks(browser_page, host) -> None:
-    """AC-383 — the board renders, and marking matches ``solver_state.js``.
-
-    The transitions are not merely *observed* to be three states: the expected
-    sequence is computed in the page by calling the served
-    ``solver_state.js``'s own ``clickedState``, so this test fails if the page
-    ever stops routing clicks through the module ADR-0041/R3 makes it share
-    with the admin player.
-    """
-    page = browser_page
-    url, report, keys = host
-    grid = GRIDS["oblong"]
-    _open(page, host, keys["oblong"])
-
-    drawn = page.evaluate(
-        """() => {
-      const text = (box) => [...box.querySelectorAll('.player-clue-num')].map((n) => n.textContent);
-      return {
-        rows: [...document.querySelectorAll('.player-board tbody tr')]
-                .map((tr) => tr.querySelectorAll('td.player-cell').length),
-        rowClues: [...document.querySelectorAll('th.player-clue.is-row')].map(text),
-        colClues: [...document.querySelectorAll('th.player-clue.is-col')].map(text),
-        states: [...new Set([...document.querySelectorAll('td.player-cell')]
-                .map((c) => c.dataset.state))],
-        title: document.querySelector('[data-player-title]').textContent,
-      };
-    }"""
-    )
-    assert drawn["rows"] == [len(grid[0])] * len(grid)
-    assert drawn["rowClues"] == [[str(n) for n in _encode(row)] for row in grid]
-    assert drawn["colClues"] == [[str(n) for n in _encode(col)] for col in zip(*grid)]
-    assert drawn["states"] == ["unknown"]
-    assert drawn["title"] == f"Puzzle {len(grid[0])}×{len(grid)}"
-
-    # The three states, against the module's own answer for each step.
-    expected = page.evaluate(
-        """async () => {
-      const m = await import('/solver_state.js');
-      const seq = [];
-      let state = m.UNKNOWN;
-      for (let k = 0; k < 3; k++) { state = m.clickedState(state, m.FILLED, k > 0); seq.push(state); }
-      return seq;
-    }"""
-    )
-    assert expected == ["filled", "empty", "unknown"]
-    for step, state in enumerate(expected):
-        _tap(page, 1, 1)
-        assert _state(page, 1, 1) == state, step
-
-    # A drag along the first-move line marks every cell it covers.
-    board = page.query_selector('td.player-cell[data-row="3"][data-col="0"]').bounding_box()
-    far = page.query_selector('td.player-cell[data-row="3"][data-col="4"]').bounding_box()
-    page.mouse.move(board["x"] + board["width"] / 2, board["y"] + board["height"] / 2)
-    page.mouse.down()
-    for step in range(1, 5):
-        at = page.query_selector(f'td.player-cell[data-row="3"][data-col="{step}"]').bounding_box()
-        page.mouse.move(at["x"] + at["width"] / 2, at["y"] + at["height"] / 2)
-    page.mouse.up()
-    assert [_state(page, 3, col) for col in range(5)] == ["filled"] * 5
-    assert far["y"] == board["y"], "the drag did not stay on one row"
-
-    # Undo takes the whole drag back as one step; redo puts it back.
-    page.click('[data-player-action="undo"]')
-    assert [_state(page, 3, col) for col in range(5)] == ["unknown"] * 5
-    page.click('[data-player-action="redo"]')
-    assert [_state(page, 3, col) for col in range(5)] == ["filled"] * 5
-
-    # Reset clears every mark, and is itself one undo step.
-    page.click('[data-player-action="reset"]')
-    assert page.evaluate("() => window.publicPlayer.getBoard().cells.every((s) => s === 'unknown')")
-    page.click('[data-player-action="undo"]')
-    assert [_state(page, 3, col) for col in range(5)] == ["filled"] * 5
-
-    # Every fifth line is the heavier rule, never the last (CARD-160).
-    rules = page.evaluate(
-        """() => {
-      const px = (el, side) => parseFloat(getComputedStyle(el)[`border${side}Width`]);
-      const cells = [...document.querySelectorAll('tbody tr:first-child td.player-cell')];
-      return cells.map((cell) => px(cell, 'Right'));
-    }"""
-    )
-    heavy = {index for index, width in enumerate(rules) if width == max(rules)}
-    assert max(rules) > min(rules)
-    assert heavy == {
-        index
-        for index in range(len(grid[0]))
-        if (index + 1) % MAJOR_EVERY == 0 and index + 1 != len(grid[0])
-    }
-
-
-@pytest.mark.browser
-def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
-    """AC-384 — solved is every clue satisfied, and nothing weaker.
-
-    The board is prefilled through the page's own save to one cell short of
-    the solution, so the **last mark is a real click**, which is what the AC
-    says. Then the same board with one extra wrong cell: the identical final
-    click must not report solved. The page has no answer to compare against in
-    either case — ``window.publicPlayer.isSolved()`` reads the clues.
-    """
-    page = browser_page
-    grid = GRIDS["min"]
-    key = host[2]["min"]
-    filled = _filled_cells(grid)
-    last = filled[-1]
-    empty = next(
-        (r, c)
-        for r in range(len(grid))
-        for c in range(len(grid[0]))
-        if not grid[r][c]
-    )
-
-    _prefill(page, host, key, _save(key, grid, filled[:-1]))
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is False
-    assert page.is_hidden("[data-player-solved]")
-
-    _tap(page, *last)
-
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is True
-    assert page.is_visible("[data-player-solved]")
-    assert page.get_attribute("body", "data-solved") == "true"
-
-    # One wrong cell, same final click: not solved.
-    _prefill(page, host, key, _save(key, grid, [*filled[:-1], empty]))
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is False
-    _tap(page, *last)
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is False
-    assert page.is_hidden("[data-player-solved]")
-    assert page.get_attribute("body", "data-solved") == "false"
-
-    # The case that makes this an assertion about CLUES and not about counts:
-    # a board with every row's and every column's filled count exactly right
-    # and one 2x2 rectangle rotated, so the runs are wrong. A solved check
-    # comparing per-line totals would call this solved; the clue rule must not.
-    swapped = _count_preserving_swap(grid)
-    assert len(swapped) == len(filled)
-    _prefill(page, host, key, _save(key, grid, swapped))
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 1, (
-        "the save was rejected, so the board under test was never on screen"
-    )
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is False
-    assert page.is_hidden("[data-player-solved]")
-
-    # ------------------------------------------------------------------
-    # The rule itself, per line, on boards a real puzzle cannot produce.
-    #
-    # This table exists because the page-level cases above cannot isolate the
-    # rule: on a uniquely solvable puzzle almost every wrong board breaks many
-    # lines in many ways, so a WEAKENED check still rejects it and the control
-    # reports a pass. CARD-283's mutation round measured exactly that — three
-    # separate weakenings of ``isClueSolved`` (compare per-line totals, skip
-    # the columns, ignore the order of the runs) all left this test GREEN
-    # against real boards. ``isClueSolved`` is a pure function, so it is tested
-    # as one: hand-made clue sets where exactly one thing is wrong.
-    # ------------------------------------------------------------------
-    cases = [
-        # (name, width, height, marks, rows, columns, expected)
-        ("the clue exactly", 5, 1, "#x###", [[1, 3]], [[1], [0], [1], [1], [1]], True),
-        ("whites left undecided", 5, 1, "#.###", [[1, 3]], [[1], [0], [1], [1], [1]], True),
-        ("the runs in the wrong order", 5, 1, "###x#", [[1, 3]], [[1], [1], [1], [0], [1]], False),
-        ("the right count, the wrong runs", 5, 1, "##x##", [[1, 3]], [[1], [1], [0], [1], [1]], False),
-        ("every row right, one column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [0]], False),
-        ("every column right, one row wrong", 2, 2, "#xx#", [[2], [0]], [[1], [1]], False),
-        # Both ends of both sweeps, one case each, and that is what the four
-        # rows below establish — no more. The family was measured twice. Cycle
-        # 1 found `row < height - 1` dying on the table above (the single-row
-        # cases make the last row the only row) while `col < width - 1`
-        # SURVIVED it and the whole module, because no case had its only error
-        # in the last column. Cycle 2 then found the OTHER end still open
-        # after the last-index pair was added: `let col = 1` survived too,
-        # because case 5's columns [[2], [0]] over "#xx#" are BOTH wrong, so
-        # skipping column 0 still trips on column 1.
-        #
-        # So each of these four has its only wrong clue at one named index of
-        # one axis, with every other clue of both axes right:
-        #
-        #   first column -> kills `let col = 1`      (column 0, clue [2] / [1])
-        #   last column  -> kills `col < width - 1`  (column 1, clue [2] / [1])
-        #   first row    -> kills `let row = 1`      (row 0, clue [2] / [1])
-        #   last row     -> kills `row < height - 1` (row 1, clue [2] / [1])
-        #
-        # All four mutants were fired against this table and each one reds on
-        # the case named beside it. The claim is exactly that: the four
-        # off-by-one mutants of `isClueSolved`'s two loop bounds are each
-        # refused. It is not a claim about every weakening of the sweeps —
-        # the three the cycle-1 round measured (per-line totals, skipping the
-        # columns, ignoring run order) are carried by the cases above.
-        ("every row right, the FIRST column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [1]], False),
-        ("every row right, the LAST column wrong", 2, 2, "#xx#", [[1], [1]], [[1], [2]], False),
-        ("every column right, the FIRST row wrong", 2, 2, "#xx#", [[2], [1]], [[1], [1]], False),
-        ("every column right, the LAST row wrong", 2, 2, "#xx#", [[1], [2]], [[1], [1]], False),
-        # And the conjunct one step to the LEFT of those two loop bounds: the
-        # length comparison inside ``sameNumbers``. Cycle 3 measured it
-        # uncontrolled — dropping `a.length === b.length` announced a 4x4
-        # UNIQUELY SOLVABLE board SOLVED while one cell short, and reversing
-        # the comparison to `b.every(...)` announced one with an extra mark
-        # solved, both with the whole module green. The ten rows above cannot
-        # reach either weakening: they are all 5x1 or 2x2, where a wrong board
-        # makes some line read `[0]`, and `[0]` is neither a prefix nor an
-        # extension of a nonzero clue. These two are built so NO line is empty
-        # and exactly one line's runs are a strict PREFIX of its clue (the
-        # first) or a strict EXTENSION of it (the second):
-        #
-        #   short of its clue -> kills `a.every(...)` (row runs [1] prefix [1, 3])
-        #   past its clue     -> kills `b.every(...)` (row runs [1, 1] extend [1])
-        #
-        # Each kills one direction and survives the other, so these are two
-        # live controls and not one row carrying both.
-        ("a line short of its clue", 5, 1, "#xxxx", [[1, 3]], [[1], [0], [0], [0], [0]], False),
-        ("a line past its clue", 5, 1, "#x#xx", [[1]], [[1], [0], [1], [0], [0]], False),
-        ("an empty line, empty", 5, 1, "xxxxx", [[0]], [[0], [0], [0], [0], [0]], True),
-        ("an empty line, marked", 5, 1, "#xxxx", [[0]], [[1], [0], [0], [0], [0]], False),
-        # A "?" is not a filled cell, so it breaks no run it does not sit in.
-        # The public page has no Maybe brush at all, so this board is only
-        # reachable from a hand-edited save; it is here as a decision on the
-        # record rather than an untested corner. Clue satisfaction is the
-        # whole rule (ADR-0041), and a board whose FILLED cells are the
-        # solution is solved whatever notes sit on its white cells — which is
-        # a deliberate divergence from the admin player's isSolved, where any
-        # "?" means not solved because that function compares with the answer.
-        ("a note on a white cell", 5, 1, "#?###", [[1, 3]], [[1], [0], [1], [1], [1]], True),
-    ]
-    answers = page.evaluate(
-        """async (cases) => {
-      const play = await import('/play.js');
-      const m = await import('/solver_state.js');
-      const of = { '#': m.FILLED, 'x': m.EMPTY, '.': m.UNKNOWN, '?': m.MAYBE };
-      return cases.map(([name, width, height, marks, rows, columns]) => {
-        const board = Object.freeze({
-          width, height,
-          cells: Object.freeze([...marks].map((ch) => of[ch])),
-        });
-        if (!m.isBoard(board)) throw new Error(`${name}: not a board`);
-        return play.isClueSolved(board, rows, columns);
-      });
-    }""",
-        [list(case[:-1]) for case in cases],
-    )
-    assert answers == [case[-1] for case in cases], [
-        (case[0], got, case[-1]) for case, got in zip(cases, answers) if got != case[-1]
-    ]
-    assert len(cases) >= 15 and sum(case[-1] for case in cases) == 4
-
-    # And the solved state is a function of the board, not of history: undoing
-    # the last mark on a solved board takes the banner away again.
-    _prefill(page, host, key, _save(key, grid, filled[:-1]))
-    _tap(page, *last)
-    page.click('[data-player-action="undo"]')
-    assert page.evaluate("() => window.publicPlayer.isSolved()") is False
-    assert page.is_hidden("[data-player-solved]")
-
-
-@pytest.mark.browser
-def test_the_empty_mark_is_a_dot_and_solving_is_revealed(browser_page, host) -> None:
-    """The owner's two calls of 2026-10-30, held where each one can drift.
-
-    **The empty mark is a dot.** It was a cross here — two linear-gradient
-    strokes painted into the cell's background — while the admin player drew
-    a centred dot, so the same mark meant one thing in the panel and another
-    on the public page. The dot is asserted through the ``::after`` box and
-    the cell's own ``background-image``, not through the declaration: a rule
-    that stops applying (an override, a specificity change, a later edit that
-    puts the cross back as a background) reds here.
-
-    **Solving is revealed, not merely recorded.** The page set a success
-    frame and showed a banner; the panel also plays a reveal, and the owner
-    asked for it. Two animations, and both are asserted through the
-    *computed* ``animation-*`` properties rather than through
-    ``getAnimations()``: a running animation is gone from that list once it
-    finishes, so a test that reads it races the 440 ms it is testing. The
-    computed delay is what makes the sweep a sweep — it varies per cell with
-    ``--player-wave`` (row + col, set in ``play.js``) — and it is a value, so
-    it can be asserted exactly.
-
-    The negative half matters as much: while the board is NOT solved the same
-    cell animates nothing, so the reveal is keyed on solving rather than on
-    being drawn.
-    """
-    page = browser_page
-    grid = GRIDS["min"]
-    key = host[2]["min"]
-    filled = _filled_cells(grid)
-    blanks = [
-        (r, c)
-        for r in range(len(grid))
-        for c in range(len(grid[0]))
-        if not grid[r][c]
-    ]
-
-    # ---- the empty mark -------------------------------------------------
-    _prefill(page, host, key, _save(key, grid, blanks, state="empty"))
-    mark = page.evaluate(
-        """() => {
-      const cell = document.querySelector('.player-cell[data-state="empty"]');
-      const after = getComputedStyle(cell, '::after');
-      const box = cell.getBoundingClientRect();
-      return {
-        content: after.content,
-        widthRatio: parseFloat(after.width) / box.width,
-        heightRatio: parseFloat(after.height) / box.height,
-        radius: after.borderRadius,
-        colour: after.backgroundColor,
-        cellBackgroundImage: getComputedStyle(cell).backgroundImage,
-        secondary: getComputedStyle(document.documentElement)
-          .getPropertyValue('--color-text-secondary').trim(),
-      };
-    }"""
-    )
-    assert mark["content"] in ('""', "''"), mark["content"]
-    assert 0.24 <= mark["widthRatio"] <= 0.32, mark
-    assert 0.24 <= mark["heightRatio"] <= 0.32, mark
-    assert mark["radius"].startswith("50%"), mark["radius"]
-    # A round mark in the secondary ink, and NOT the cross: the cross was a
-    # pair of gradients on the cell itself, so an empty cell's own
-    # background-image has to be nothing at all.
-    assert mark["cellBackgroundImage"] == "none", mark["cellBackgroundImage"]
-    assert mark["colour"] not in ("rgba(0, 0, 0, 0)", "transparent"), mark["colour"]
-    assert mark["secondary"], "tokens.css did not reach the page"
-
-    # ---- the reveal -----------------------------------------------------
-    # One cell short of the solution, so the board becomes solved by a click,
-    # which is the transition the reveal is keyed on.
-    _prefill(page, host, key, _save(key, grid, filled[:-1]))
-    before = page.evaluate(
-        """() => {
-      const cell = document.querySelector('.player-cell[data-state="filled"]');
-      return getComputedStyle(cell).animationName;
-    }"""
-    )
-    assert before == "none", before
-
-    _tap(page, *filled[-1])
-    assert page.get_attribute("body", "data-solved") == "true"
-
-    reveal = page.evaluate(
-        """() => {
-      const cells = [...document.querySelectorAll('.player-cell[data-state="filled"]')];
-      const read = (el) => {
-        const style = getComputedStyle(el);
-        return {
-          name: style.animationName,
-          delay: style.animationDelay,
-          duration: style.animationDuration,
-          wave: el.style.getPropertyValue('--player-wave'),
-          row: Number(el.dataset.row),
-          col: Number(el.dataset.col),
-        };
-      };
-      const banner = getComputedStyle(document.querySelector('[data-player-solved]'));
-      return {
-        cells: cells.map(read),
-        banner: { name: banner.animationName, duration: banner.animationDuration },
-      };
-    }"""
-    )
-    assert reveal["banner"]["name"] == "player-solved-in", reveal["banner"]
-    assert reveal["cells"], "no filled cell on a solved board"
-    for cell in reveal["cells"]:
-        assert cell["name"] == "player-solved-flash", cell
-        # The sweep: the delay IS the cell's diagonal, 12 ms a step. Compared
-        # as seconds and not as text -- Chrome writes a zero delay "0s", not
-        # "0.0s", and the unit is the browser's to choose.
-        assert cell["wave"] == str(cell["row"] + cell["col"]), cell
-        assert cell["delay"].endswith("s"), cell
-        assert float(cell["delay"].removesuffix("s")) == pytest.approx(
-            (cell["row"] + cell["col"]) * 0.012
-        ), cell
-    delays = {cell["delay"] for cell in reveal["cells"]}
-    assert len(delays) > 1, f"every cell flashes at once, so it is not a sweep: {delays}"
-
-    # ---- and none of it under prefers-reduced-motion --------------------
-    page.emulate_media(reduced_motion="reduce")
-    try:
-        _prefill(page, host, key, _save(key, grid, filled[:-1]))
-        _tap(page, *filled[-1])
-        assert page.get_attribute("body", "data-solved") == "true"
-        still = page.evaluate(
-            """() => {
-          const cell = document.querySelector('.player-cell[data-state="filled"]');
-          const banner = document.querySelector('[data-player-solved]');
-          return {
-            cell: getComputedStyle(cell).animationName,
-            banner: getComputedStyle(banner).animationName,
-            frame: getComputedStyle(document.querySelector('.player-board')).outlineStyle,
-            bannerShown: !banner.hidden,
-          };
-        }"""
-        )
-    finally:
-        page.emulate_media(reduced_motion="no-preference")
-    assert still["cell"] == "none" and still["banner"] == "none", still
-    # The reveal is still a reveal: the frame and the banner do not move.
-    assert still["bannerShown"] is True and still["frame"] == "solid", still
-
-
-@pytest.mark.browser
-def test_resume_is_local_and_the_page_writes_nowhere(browser_page, host) -> None:
-    """AC-385 — marks come back after a reload, from this browser only.
-
-    Both halves in one test because the AC is one sentence: the marks are
-    restored, and no request other than this page's own static assets was
-    ever issued. Every request the context makes is recorded, including the
-    ones the reload makes, and each one is held to the site's own origin and
-    to GET.
-    """
-    page = browser_page
-    url, report, keys = host
-    grid = GRIDS["min"]
-    key = keys["min"]
-    seen: list[tuple[str, str]] = []
-    page.context.on("request", lambda request: seen.append((request.method, request.url)))
-
-    _open(page, host, key)
-    for row, col in ((0, 0), (0, 1), (2, 3)):
-        _tap(page, row, col)
-    marked = {(row, col): _state(page, row, col) for row, col in ((0, 0), (0, 1), (2, 3))}
-    assert set(marked.values()) == {"filled"}
-
-    stored = page.evaluate("(k) => window.localStorage.getItem(k)", f"nonogram-public:{key}")
-    assert stored is not None, "nothing was saved, so there is nothing to resume from"
-    assert "solution" not in stored and "grid" not in stored
-
-    page.reload()
-    page.wait_for_function("window.publicPlayer !== undefined")
-    assert {(row, col): _state(page, row, col) for row, col in marked} == marked
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 3
-
-    assert seen, "no request was recorded, so this half of the AC measured nothing"
-    assert [method for method, _ in seen] == ["GET"] * len(seen)
-    assert all(request.startswith(url + "/") for _, request in seen), seen
-    served = {
-        path.relative_to(report.site_dir).as_posix() for path in report.site_dir.rglob("*") if path.is_file()
-    }
-    for _, request in seen:
-        path = request[len(url) + 1 :].split("?", 1)[0]
-        assert path in served or path == f"play/{key}", path
-
-
-@pytest.mark.browser
-def test_phone_viewport_is_playable(browser_page, host) -> None:
-    """AC-386 — 390 px wide, ``MAX_SIZE`` per side, and still playable.
-
-    Four readings, because "playable" is four things: the page itself never
-    scrolls sideways, the cells are big enough for a thumb, the clue numerals
-    are drawn, and the far corner can be reached. The last one is the
-    accepted trade-off stated in ``player.css``: 30 cells do not fit 390 px at
-    a tappable size, so the BOARD scrolls inside its stage while the page
-    does not — and the clue gutters stay in view while it does.
-    """
-    page = browser_page
-    grid = GRIDS["max"]
-    page.set_viewport_size({"width": 390, "height": 844})
-    _open(page, host, host[2]["max"])
-
-    reading = page.evaluate(
-        """() => {
-      const stage = document.querySelector('[data-player-stage]');
-      const cell = document.querySelector('td.player-cell');
-      const rowClue = document.querySelector('th.player-clue.is-row');
-      const colClue = document.querySelector('th.player-clue.is-col');
-      const box = cell.getBoundingClientRect();
-      return {
-        pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        cellWidth: box.width, cellHeight: box.height,
-        stageScrollable: stage.scrollWidth > stage.clientWidth,
-        rowClueSticky: getComputedStyle(rowClue).position,
-        colClueSticky: getComputedStyle(colClue).position,
-        clueFont: parseFloat(getComputedStyle(colClue).fontSize),
-        clueText: colClue.textContent.trim(),
-        viewport: document.querySelector('meta[name=viewport]').content,
-        cells: document.querySelectorAll('td.player-cell').length,
-      };
-    }"""
-    )
-    assert reading["cells"] == MAX_SIZE * MAX_SIZE
-    assert reading["pageScroll"] <= 0, reading
-    # The floor is the page's own token, read from the file rather than
-    # hand-picked — and the token's VALUE is asserted too, because an
-    # assertion against the token alone would follow the token down. Cycle 1
-    # of this card's review measured exactly that gap: the assertion was
-    # `>= 24` while the card, the token and the mutation record all said
-    # 28 px, so a 25 px token passed.
-    assert _CELL_FLOOR_PX >= 28, _CELL_FLOOR_PX
-    assert reading["cellWidth"] >= _CELL_FLOOR_PX, (reading, _CELL_FLOOR_PX)
-    assert reading["cellHeight"] >= _CELL_FLOOR_PX, (reading, _CELL_FLOOR_PX)
-    assert reading["stageScrollable"] is True, "nothing to pan: the reading below is vacuous"
-    assert reading["rowClueSticky"] == "sticky" and reading["colClueSticky"] == "sticky"
-    assert reading["clueFont"] >= 10 and reading["clueText"] != ""
-    assert "user-scalable=no" not in reading["viewport"]
-    assert "maximum-scale" not in reading["viewport"]
-
-    # The far corner is reachable, and the clues are still there when it is.
-    far = page.evaluate(
-        """() => {
-      const stage = document.querySelector('[data-player-stage]');
-      stage.scrollLeft = stage.scrollWidth;
-      stage.scrollTop = stage.scrollHeight;
-      const last = [...document.querySelectorAll('td.player-cell')].at(-1);
-      const cellBox = last.getBoundingClientRect();
-      const stageBox = stage.getBoundingClientRect();
-      const rowClue = document.querySelector('th.player-clue.is-row').getBoundingClientRect();
-      return {
-        inView: cellBox.right <= stageBox.right + 1 && cellBox.left >= stageBox.left - 1,
-        rowClueInView: rowClue.right > stageBox.left && rowClue.left < stageBox.right,
-        pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    }"""
-    )
-    assert far["inView"], far
-    assert far["rowClueInView"], "the row clues did not stay in view while panning"
-    assert far["pageScroll"] <= 0
-
-    # And a tap on the far cell marks it, which is what "reachable" is for.
-    page.click(".player-board tbody tr:last-child td.player-cell:last-child")
-    assert _state(page, MAX_SIZE - 1, MAX_SIZE - 1) == "filled"
-
-
-@pytest.mark.browser
-def test_the_stage_fits_the_board_on_a_wide_screen(browser_page, host) -> None:
-    """The bordered stage is the board's box, not the page's — and still scrolls.
-
-    Nothing in this card read the desktop layout at all, and cycle 1 of its
-    review measured the consequence: at 1440 px the stage was 1408 px wide
-    beside a 465 px board, so 942 px of empty bordered box sat to the right of
-    the 10x10. ``width: fit-content`` is the fix, and both halves of it are
-    read here, because the phone behaviour is what the width was defending:
-
-    #. wide screen, small board — the stage is the board's width, not the
-       page's, and there is nothing to scroll;
-    #. phone, largest board — the stage is clamped to the viewport and the
-       board scrolls INSIDE it, with the page still not scrolling sideways
-       (AC-386's trade-off, re-read here against the same change).
-    """
-    page = browser_page
-    page.set_viewport_size({"width": 1440, "height": 900})
-    _open(page, host, host[2]["min"])
-    wide = page.evaluate(
-        """() => {
-      const stage = document.querySelector('[data-player-stage]');
-      const board = document.querySelector('.player-board');
-      return {
-        stage: stage.getBoundingClientRect().width,
-        board: board.getBoundingClientRect().width,
-        page: document.documentElement.clientWidth,
-        scrollable: stage.scrollWidth > stage.clientWidth,
-      };
-    }"""
-    )
-    assert wide["page"] >= 1400, wide
-    assert wide["board"] < wide["page"] / 2, wide  # the 10x10 is a small board
-    # The stage is the board plus its own 1 px rules, never the page.
-    assert wide["stage"] - wide["board"] <= 4, wide
-    assert wide["scrollable"] is False, wide
-
-    page.set_viewport_size({"width": 390, "height": 844})
-    _open(page, host, host[2]["max"])
-    phone = page.evaluate(
-        """() => {
-      const stage = document.querySelector('[data-player-stage]');
-      const board = document.querySelector('.player-board');
-      return {
-        stage: stage.getBoundingClientRect().width,
-        board: board.getBoundingClientRect().width,
-        page: document.documentElement.clientWidth,
-        scrollable: stage.scrollWidth > stage.clientWidth,
-        pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    }"""
-    )
-    assert phone["board"] > phone["page"], phone  # 30 cells do not fit 390 px
-    assert phone["stage"] <= phone["page"], phone
-    assert phone["scrollable"] is True, phone
-    assert phone["pageScroll"] <= 0, phone
-
-
-@pytest.mark.browser
-def test_no_write_request_for_any_interaction(browser_page, host) -> None:
-    """EC-050 / ADR-0041/R4 — for every interaction, zero writes leave the page.
-
-    "Every interaction sequence" is approximated in two passes over the same
-    control set, and the first pass is the one that makes the approximation
-    honest: **every control is driven once, deterministically**, and then a
-    seeded walk runs over the set. The exercised set is asserted EQUAL to the
-    control set, so a reseed — or a control added to the page and not to this
-    table — reds here instead of quietly dropping a path.
-
-    That assertion is the fix for a measured hole. Cycle 1 of this card's
-    review found the seeded draw never produced Reset (``Random(2831)``'s 24
-    draws from 8 simply do not contain 6) and contained no drag at all, both
-    of which EC-050's statement names by word: a ``fetch(POST)`` planted in
-    the reset handler, and the same planted in the drag branch, each left this
-    test and the whole module GREEN. Three of the controls below therefore
-    also assert that the path was really reached — the drag marks its line,
-    Region's state flips, Reset announces itself — because "the control was
-    clicked" is not "the handler ran".
-
-    The assertion about requests is on the METHOD, the ORIGIN and the PATH of
-    every one — not on a count, because a count passes when nothing happened
-    at all, so the number of interactions is asserted too. The path half is
-    cycle 3's M-2: method and origin alone are satisfied by a same-origin GET
-    of the whole board, and the sibling test three tests up the file already
-    held requests to the served file set while never pressing Reset, dragging
-    or using the keys.
-    """
-    page = browser_page
-    url, report, keys = host
-    key = keys["min"]
-    writes: list[tuple[str, str]] = []
-    requests: list[str] = []
-
-    def record(request):
-        requests.append(request.url)
-        if request.method != "GET":
-            writes.append((request.method, request.url))
-
-    page.context.on("request", record)
-    _open(page, host, key)
-    after_load = len(requests)
-
-    def drag_a_line():
-        page.click('[data-player-tool="filled"]')
-        _drag(page, [(5, 0), (5, 1), (5, 2)])
-        marked = [_state(page, 5, col) for col in range(3)]
-        assert marked == ["filled"] * 3, f"the drag marked nothing: {marked}"
-
-    def toggle_region():
-        before = page.evaluate("() => window.publicPlayer.isRegion()")
-        page.click("[data-player-region]")
-        assert page.evaluate("() => window.publicPlayer.isRegion()") is not before
-
-    def press_reset():
-        # force=True on purpose here and below: an aria-disabled button is one
-        # of the interactions this test must cover, and Playwright's
-        # actionability check would otherwise refuse to press it at all.
-        page.click('[data-player-action="reset"]', force=True)
-        announced = page.inner_text("[data-player-announce]").strip()
-        assert announced.startswith("Board reset"), f"the reset handler did not run: {announced!r}"
-
-    def zoom_percent():
-        return int(page.inner_text("[data-player-zoom-readout]").rstrip("%"))
-
-    def one_zoom_press(direction):
-        """One press, checked against ``stepZoom``'s own answer.
-
-        The expectation is asked of the served module for the percent the
-        readout showed before the press, never written down. "The readout
-        changed" would not do: a press at either end of the range is a no-op,
-        and the walk reaches both ends.
-        """
-        before = zoom_percent()
-        page.click(f'[data-player-zoom-action="{direction}"]', force=True)
-        expected = page.evaluate(
-            "async ([current, direction]) =>"
-            " (await import('/solver_state.js')).stepZoom(current, direction)",
-            [before, direction],
-        )
-        assert zoom_percent() == expected, (before, direction, zoom_percent(), expected)
-
-    def press_zoom(direction):
-        """CARD-324's two controls, with the "the handler ran" half the three
-        above also carry — and the zoom put back where it was afterwards.
-
-        The restoration is DEFENSIVE, not a fix for a failure anyone observed.
-        Zoom changes the size of every cell, so a walk that left it raised
-        would hand every later control a board whose geometry is not the
-        one it was written against. A first draft of this docstring said such
-        a walk "would fail" :func:`drag_a_line`; cycle 1 of CARD-324's review
-        planted the removal of the loop and both walk tests stayed green, so at
-        this module's fixtures and seed the coupling does not bite and no seed
-        is known at which it does. The loop stays because the walk's later
-        controls are driven by cell geometry and should not inherit a
-        raised zoom, and its cost is a handful of extra presses, each checked
-        like the first. What this test claims is that every
-        control issues no write; the zoom's independence from the board is
-        ``tests/test_public_player_zoom.py``'s AC-3, where it belongs. Every
-        press on the way back is checked the same way, so the restoration is
-        more presses of the same two controls rather than a way around them.
-        """
-        start = zoom_percent()
-        one_zoom_press(direction)
-        for _ in range(16):
-            if zoom_percent() == start:
-                break
-            one_zoom_press("out" if zoom_percent() > start else "in")
-        assert zoom_percent() == start, (start, zoom_percent())
-
-    #: Every control the page has, by the thing a player does. The page's own
-    #: markup is the authority for what exists: ``test_every_player_control_is
-    #: _in_the_ec_050_walk`` holds this table to the buttons in play.html, so a
-    #: fourth brush or a new action cannot be added without being walked — and
-    #: holds ``play.js``'s own listener set and its one request separately,
-    #: because markup cannot see a key binding (cycle 2's N-3).
-    controls = {
-        "brush-black": lambda: page.click('[data-player-tool="filled"]'),
-        "brush-white": lambda: page.click('[data-player-tool="empty"]'),
-        # CARD-323's fourth brush. It is here because the sibling test below
-        # derives this table from play.html's buttons and reds on a brush that
-        # is not walked — which is exactly what it did when the brush landed.
-        "brush-maybe": lambda: page.click('[data-player-tool="maybe"]'),
-        "brush-clear": lambda: page.click('[data-player-tool="unknown"]'),
-        "region": toggle_region,
-        "tap": lambda: _tap(page, rng.randrange(MIN_SIZE), rng.randrange(MIN_SIZE)),
-        "drag": drag_a_line,
-        "undo-button": lambda: page.click('[data-player-action="undo"]', force=True),
-        "redo-button": lambda: page.click('[data-player-action="redo"]', force=True),
-        "reset": press_reset,
-        # SCOPE+ (CARD-327): the Hint control, derived into the expected set by
-        # the sibling test below from the ``data-player-action`` buttons. A
-        # press on a rung that records a stroke is an ordinary history change.
-        "hint-button": lambda: page.click('[data-player-action="hint"]', force=True),
-        # CARD-324's zoom group, here for the same reason the Maybe brush is:
-        # the sibling test below derives this table from play.html, and reds
-        # on a control that is not walked — which is what it did when this
-        # group landed.
-        "zoom-out": lambda: press_zoom("out"),
-        "zoom-in": lambda: press_zoom("in"),
-        # SCOPE+ (CARD-380): the Probe controls, derived into the expected set by the sibling test below
-        # from play.html. Keep and Contradiction are hidden unless a probe is open, so they are pressed
-        # by the DOM's own ``click()``: a press on a hidden control is a no-op the walk must also survive.
-        "probe-open": lambda: page.evaluate("document.querySelector('[data-player-probe]').click()"),
-        "probe-keep": lambda: page.evaluate("document.querySelector('[data-player-probe-action=\"keep\"]').click()"),
-        "probe-abandon": lambda: page.evaluate("document.querySelector('[data-player-probe-action=\"abandon\"]').click()"),
-        "undo-key": lambda: page.keyboard.press("Control+z"),
-        "redo-key": lambda: page.keyboard.press("Control+Shift+z"),
-    }
-
-    rng = random.Random(2831)
-    exercised: list[str] = []
-    # Pass one: every control, once, in a fixed order.
-    for name, drive in controls.items():
-        drive()
-        exercised.append(name)
-    # Pass two: a seeded walk over the same set, for sequences the sweep's
-    # fixed order cannot reach.
-    order = sorted(controls)
-    for _ in range(24):
-        name = order[rng.randrange(len(order))]
-        controls[name]()
-        exercised.append(name)
-    page.reload()
-    page.wait_for_function("window.publicPlayer !== undefined")
-
-    assert set(exercised) == set(controls), sorted(set(controls) - set(exercised))
-    assert len(exercised) == len(controls) + 24 >= 35
-    assert writes == []
-    assert len(requests) > after_load, "the reload issued nothing, so nothing was watched"
-    assert all(request.startswith(url + "/") for request in requests), requests
-    # The one request kind this page makes at all, named: its own assets.
-    assert any(request.endswith(f"/puzzle/{key}.json") for request in requests)
-    # And every request held to the SET of files this site serves, not only to
-    # GET and to the origin. ``test_resume_is_local_and_the_page_writes
-    # _nowhere`` already carried this assertion three tests up the file;
-    # cycle 3 measured what the weaker pair here let through. A same-origin
-    # GET exfil of the whole board, planted in the *walked* reset handler —
-    # `globalThis.fetch.bind(globalThis)("/collect?b=" + cells)`, `new
-    # Image().src = ...`, `import("/collect.js?b=" + cells)` — shipped all 100
-    # cells on every Reset with the whole module green, because a safe method
-    # to this page's own origin satisfied both of the assertions above. The
-    # walk is the test that presses Reset, toggles Region, drags and uses the
-    # keys, so the allowlist belongs here and not only there.
-    served = {
-        path.relative_to(report.site_dir).as_posix() for path in report.site_dir.rglob("*") if path.is_file()
-    }
-    for request in requests:
-        # The query string is deliberately NOT stripped (the sibling strips
-        # it): a SERVED path carrying the board in its query is the one exfil
-        # shape a path allowlist alone cannot see, and this page asks for
-        # nothing with a query at all. `assert any(... .json)` above is the
-        # positive control that this loop is reading real requests.
-        assert request[len(url) + 1 :] in served or request == f"{url}/play/{key}", request
-    # One shape further out, because a path allowlist reads the URL and a
-    # request has more than a URL: the board can ride out in a HEADER on this
-    # page's own allowlisted asset request. Measured here — `document.cookie =
-    # "b=" + cells` in the reset handler ships all 100 cells on the next
-    # `/puzzle/<key>.json` fetch and leaves every assertion above green. The
-    # page stores play state in localStorage by ADR-0041/R4 and has no reason
-    # to set a cookie at all, so "no cookie" is the whole of it, and the walk
-    # has driven every control before it is read.
-    assert page.context.cookies() == [], page.context.cookies()
-
-
-def test_every_player_control_is_in_the_ec_050_walk() -> None:
-    """EC-050's walk is held to the page's own controls (ADR-0039/R1-R2).
-
-    The walk above drives a named table of controls. A table is a hand-written
-    set unless something holds it to an authority the runtime enumerates, so
-    this reads ``play.html``'s buttons — the brushes by ``data-player-tool``,
-    the actions by ``data-player-action``, Region by its own attribute — and
-    insists every one of them is walked. A fourth brush or a new action added
-    to the page reds here, which is the completeness half ADR-0039/R1 asks for
-    before the set is trusted. That is not hypothetical: CARD-323 added the
-    Maybe brush and this test red on three assertions at once — the tool set,
-    the control count and the walk's own table — until the brush was walked.
-
-    The two keyboard paths are the exception the rule allows: they are not
-    elements, so they are listed rather than derived, and they are named in
-    the page as ``aria-keyshortcuts`` on the two buttons they duplicate —
-    which this test checks, so "listed" is still held to the markup.
-
-    Markup is not the whole authority, and cycle 2 of this card's review
-    measured the gap: a second branch in ``play.js``'s keydown listener that
-    POSTs is a new player-visible control writing to a server, and no element
-    changes, so all 31 tests stayed green. The second half of this test is
-    therefore held to ``play.js`` itself — its registered event types, the one
-    key its keydown handler may read, and the one request the file is allowed
-    to make at all. What that covers and what it does not is stated with each
-    assertion; it is a narrower authority than "every interaction sequence",
-    and the gap that remains is named at the end.
-    """
-    page_html = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
-    walked = {
-        "brush-black": "filled",
-        "brush-white": "empty",
-        "brush-maybe": "maybe",
-        "brush-clear": "unknown",
-    }
-    tools = set(re.findall(r'data-player-tool="([a-z]+)"', page_html))
-    actions = set(re.findall(r'data-player-action="([a-z]+)"', page_html))
-    # CARD-324's zoom group is its own attribute, as the admin's is
-    # (``data-player-zoom-action``), so it is a third derived set here rather
-    # than two more names in the list below.
-    zoom_actions = set(re.findall(r'data-player-zoom-action="([a-z]+)"', page_html))
-    assert tools == set(walked.values()), tools
-    # SCOPE+ (CARD-327): the Hint control is a ``data-player-action`` button,
-    # the admin's own attribute, so it joins the derived action set. It is NOT in
-    # the toolbar (tests/test_public_player_hint.py, AC-9); this census reads the
-    # page's markup, not the toolbar, so it sees it all the same.
-    assert actions == {"undo", "redo", "reset", "hint"}, actions
-    assert zoom_actions == {"in", "out"}, zoom_actions
-    # SCOPE+ (CARD-380): the Probe controls are the admin's attribute names, like the zoom group's, so they
-    # are one more derived set here: Keep and Contradiction by ``data-player-probe-action`` and the toggle by
-    # its own ``data-player-probe`` button. They are NOT in the toolbar (tests/test_public_player_probe.py).
-    probe_actions = set(re.findall(r'data-player-probe-action="([a-z]+)"', page_html))
-    probe_toggles = len(re.findall(r"<button[^>]*\bdata-player-probe\b(?!-)", page_html))
-    assert probe_actions == {"keep", "abandon"}, probe_actions
-    assert probe_toggles == 1, probe_toggles
-    assert "data-player-region" in page_html
-    # The names the walk uses, derived from the same markup: one per brush,
-    # one per action button, one per zoom button, plus region, tap, drag and
-    # the two key paths.
-    expected = (
-        set(walked)
-        | {f"{action}-button" for action in actions if action != "reset"}
-        | {f"zoom-{direction}" for direction in zoom_actions}
-        | {f"probe-{name}" for name in probe_actions}
-        | {"probe-open"}
-        | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
-    )
-    # SCOPE+ (CARD-327): + hint-button. SCOPE+ (CARD-380): + probe-open, probe-keep, probe-abandon.
-    assert len(expected) == 12 + len(zoom_actions) + 1 + 3, sorted(expected)
-    assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
-    assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
-    source = Path(__file__).read_text(encoding="utf-8")
-    parts = source.split("\ndef test_no_write_request_for_any_interaction")
-    assert len(parts) == 2, "the walk is not where this test looks for it"
-    walk = parts[1].split("\ndef ")[0]
-    named = set(re.findall(r'^\s{8}"([a-z-]+)": ', walk, re.M))
-    assert named == expected, sorted(expected ^ named)
-
-    # ------------------------------------------------------------------
-    # The listener half (cycle 2's N-3): the controls that are not markup.
-    # ------------------------------------------------------------------
-    script = (PLAYER_DIR / "play.js").read_text(encoding="utf-8")
-    #: Every event type ``play.js`` binds, by registration. The four stage
-    #: pointer events are the drag (``tap``/``drag`` above drive the first
-    #: three; ``pointercancel`` is driven by
-    #: ``test_a_touch_or_pen_drag_marks_only_while_region_is_armed``), and the
-    #: click count is the markup's rather than a number: one shared handler in
-    #: the loop over ``[data-player-tool]``, one on Region, one per action
-    #: button and — since CARD-324 — one per zoom button. A new event type, or
-    #: a second handler on an existing one, reds.
-    #:
-    #: CARD-324's zoom added no event TYPE, and that is a claim rather than a
-    #: coincidence: its pinch runs inside the four stage pointer listeners
-    #: that were already here, and its buttons bind no key, so the pointer
-    #: and keydown halves of this list are unchanged by the zoom.
-    #:
-    #: CARD-324's review (F-1) then added the ONE listener that is not on a
-    #: control at all: ``window``'s ``resize``, which re-asks which clue
-    #: gutters stay pinned. It is derived below rather than added to the list
-    #: by name — the set of ``window``-bound listeners is read out of the
-    #: file, held to exactly the one (type, handler) pair this card declares,
-    #: and its types join the expected census from that read. It is not a
-    #: control: nothing a player presses or types reaches it, and it issues no
-    #: write; ``tests/test_public_player_zoom.py::TestPublicZoom_AZoomedGutterNeverCoversTheBoard``
-    #: rotates a zoomed viewport to hold the behaviour.
-    viewport_listeners = re.findall(r'window\.addEventListener\("([a-z]+)", (\w+)\)', script)
-    assert viewport_listeners == [("resize", "keepCluesInView")], viewport_listeners
-    # CARD-324's review (cycle 2) then added the one OBSERVER: a
-    # ``ResizeObserver`` on the toolbar, so the stage's height cap follows a
-    # toolbar that changes size with no resize event (the Solved banner
-    # wrapping onto a row, a late font). It is not an ``addEventListener``, so
-    # it joins the census here by its own derivation rather than the list
-    # above: exactly one is constructed, it is handed the same function the
-    # ``resize`` listener is, and it observes exactly one element.
-    observers = re.findall(r"new ResizeObserver\((\w+)\)\.observe\((\w+)", script)
-    assert observers == [("keepCluesInView", "controls")], observers
-    assert script.count("ResizeObserver") == 1 and script.count(".observe(") == 1
-    #: What this census does NOT see, declared rather than left to read as
-    #: stronger than it is: ``viewport_listeners`` above is a pair regex over
-    #: ``window.addEventListener("<type>", <name>)`` and is BLIND to an inline
-    #: arrow -- ``window.addEventListener("resize", () => ...)`` or a listener
-    #: on ``document`` / ``visualViewport`` -- so a second ``resize`` handler
-    #: spelled that way leaves the pair list unchanged. What catches it is the
-    #: TOTAL below: ``registered`` counts every ``addEventListener("<type>"``
-    #: whatever its receiver and handler, and an extra one changes the count.
-    #: The residue after both is a listener attached under a computed type
-    #: name (``addEventListener(kind, ...)``), which neither regex matches; no
-    #: such call exists in play.js (``re.findall(r"addEventListener\((?!\")")``
-    #: below is empty), and that is asserted rather than assumed.
-    assert re.findall(r"addEventListener\((?!\")", script) == [], "a listener with a computed type"
-    registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
-    # SCOPE+ (CARD-325): the crosshair is the one feature since zoom that
-    # needs a listener TYPE the stage did not already have (pointerleave: a
-    # pointer leaving the stage is what clears it), and it keeps its own
-    # listeners rather than folding into marking's four, so marking's handlers
-    # see exactly the events they saw before (G-5). Its five are DERIVED from
-    # ``wireCrosshair``'s own text and pinned by name, so the census still
-    # reds on a sixth, and the rest of this list is unchanged.
-    crosshair_body = re.search(r"\nfunction wireCrosshair\(stage\) \{.*?\n\}\n", script, re.S)
-    assert crosshair_body is not None, "play.js has no wireCrosshair"
-    crosshair_events = sorted(re.findall(r'addEventListener\("([a-z]+)"', crosshair_body.group(0)))
-    assert crosshair_events == ["pointercancel", "pointerdown", "pointerleave", "pointermove", "pointerup"], crosshair_events
-    assert registered == sorted(
-        ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
-        + crosshair_events
-        + [kind for kind, _handler in viewport_listeners]
-        + ["click"] * (2 + len(actions) + len(zoom_actions) + len(probe_actions) + probe_toggles)
-    ), registered
-
-    # The keydown handler's guard, pinned to the one key it may read: the
-    # planted second branch compared `event.key` to "r", and a key binding is
-    # the one control shape the markup authority above cannot see.
-    halves = script.split('document.addEventListener("keydown"')
-    assert len(halves) == 2, "play.js does not bind keydown exactly once"
-    handler = halves[1].split("\n  });", 1)[0]
-    assert re.findall(r'event\.key[^;]*?"([a-z]+)"', handler) == ["z"], handler
-    assert sorted(set(re.findall(r"event\.([a-zA-Z]+)", handler))) == [
-        "ctrlKey",
-        "key",
-        "metaKey",
-        "preventDefault",
-        "shiftKey",
-    ], handler
-
-    # And EC-050's own word, as a flat property of the file: ``play.js`` makes
-    # exactly ONE request, and it is the puzzle file by GET. This is what
-    # closes the planted POST whatever control reaches it — a branch that
-    # writes without reading `event` at all is still refused here, which the
-    # two assertions above would not catch.
-    assert re.findall(r"\bfetch\(", script) == ["fetch("], "play.js makes more than one request"
-    assert 'fetch(`/puzzle/${key}.json`, { cache: "no-store" })' in script
-    for forbidden in ("XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "method:"):
-        assert forbidden not in script, forbidden
-        assert forbidden not in page_html, forbidden
-    # The residual, named by its SHAPE rather than enumerated: this holds the
-    # SHAPE of play.js's writes and the SET of its listeners, not every
-    # interaction sequence. A write smuggled through an element attribute in
-    # play.html (a form action, an img src) is covered by
-    # ``test_the_page_carries_no_answer_and_no_third_party_asset``'s
-    # same-origin assertion and by the walk's recorded requests.
-    #
-    # The earlier version of this sentence said the one thing outside all
-    # three was "a write a future file other than play.js makes", and cycle 3
-    # measured that false: a safe-method, same-origin request from play.js
-    # itself, reached through a name other than ``fetch(`` (a rebound
-    # ``fetch``, ``new Image().src``, a dynamic ``import()``), satisfied every
-    # assertion here and shipped all 100 cells from a WALKED control. The
-    # walk now holds every request to the served file set — query included —
-    # and the context to no cookie, which is where those shapes die. So what
-    # the three authorities together still miss is stated by shape: a channel
-    # the context's request recorder cannot see at all, leaving nothing in a
-    # method, an origin, a URL or a cookie; and a write made by a file other
-    # than play.js or play.html.
-    assert set(assembler.PLAYER_FILES) >= {"play.js", "play.html"}, assembler.PLAYER_FILES
-
-
-@pytest.mark.browser
-def test_a_save_or_a_puzzle_file_the_page_cannot_trust_is_refused(browser_page, host) -> None:
-    """The page checks its two inputs rather than trusting them, and both halves
-    of that were unexercised (cycle 1 of this card's review, F-4 A and B).
-
-    Two mechanisms, each with its own positive control:
-
-    #. ``deserialize``'s clue comparison — "a re-export that changed a
-       puzzle's clues under the same key cannot replay marks onto a different
-       puzzle" (``play.js``'s own words). A save carrying another 10x10's
-       clues under this puzzle's key must be dropped, leaving a blank board,
-       while the same save with the right clues restores its stroke;
-    #. ``readPayload``'s clue checks — the page's half of the deliberately
-       duplicated "checked rather than trusted" rule. A key-shaped file whose
-       row clue cannot fit its line must leave the fallback paragraph up, no
-       board and no ``window.publicPlayer`` at all, while the published file
-       next to it loads.
-    """
-    page = browser_page
-    url, report, keys = host
-    grid = GRIDS["min"]
-    key = keys["min"]
-    other = _unique_grid(MIN_SIZE, MIN_SIZE, seed=28311)
-    assert [_encode(row) for row in other] != [_encode(row) for row in grid]
-    assert (len(other), len(other[0])) == (len(grid), len(grid[0]))
-
-    # The positive control first, so "blank" below is a refusal and not the
-    # page failing to restore anything at all.
-    _prefill(page, host, key, _save(key, grid, _filled_cells(grid)[:1]))
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 1
-
-    _prefill(page, host, key, _save(key, other, _filled_cells(grid)[:1]))
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0, (
-        "a save carrying another puzzle's clues replayed its marks onto this one"
-    )
-    assert page.evaluate("() => window.publicPlayer.getBoard().cells.every((s) => s === 'unknown')")
-
-    # The payload half: a file the schema would have refused, planted into the
-    # served tree after assembly (the assembler refuses to write one, which is
-    # the other side of the same rule).
-    planted_key = "abcdef0123"
-    bad = {
-        "key": planted_key,
-        "width": MIN_SIZE,
-        "height": MIN_SIZE,
-        "tier": "easy",
-        "clues": {
-            "rows": [[MIN_SIZE + 1]] + [[0]] * (MIN_SIZE - 1),
-            "columns": [[0]] * MIN_SIZE,
-        },
-    }
-    (report.site_dir / "puzzle" / f"{planted_key}.json").write_text(
-        json.dumps(bad), encoding="utf-8"
-    )
-    page.goto(f"{url}/play/{planted_key}")
-    page.wait_for_selector(".player-fallback")
-    assert page.evaluate("() => window.publicPlayer === undefined")
-    assert page.query_selector("td.player-cell") is None
-    assert page.inner_text(".player-fallback").strip() != ""
-
-
-@pytest.mark.browser
-def test_the_brush_region_and_touch_bindings_are_the_modules(browser_page, host) -> None:
-    """What a brush writes, what a drag does to Region, and what a cell allows.
-
-    Three bindings between ``play.js`` and ``solver_state.js`` that cycle 1 of
-    this card's review measured as unexercised — ``tool = FILLED`` in the
-    brush handler, ``setRegion(region)`` in place of ``nextRegion(region,
-    "drag")``, and nothing reading ``touch-action`` at all:
-
-    #. the brush decides the mark: White writes "empty" and Clear writes
-       "unknown" (``clickedState``'s answer for each, and neither is the
-       default brush, so a handler that ignored the chosen brush would show);
-    #. Region is ONE-SHOT: it disarms itself the instant a drag is recorded,
-       which is ``nextRegion(region, "drag")`` and not "leave it as it was";
-    #. the cell's ``touch-action`` follows Region — ``auto`` while it is off,
-       so a touch drag pans the page (``gesturePaints``'s rule, item 5 of the
-       card), and ``none`` while it is armed, so the drag marks instead. This
-       is the CSS half; the pointer-type half — what ``play.js`` itself does
-       with a touch or pen drag — is
-       ``test_a_touch_or_pen_drag_marks_only_while_region_is_armed``.
-    """
-    page = browser_page
-    _open(page, host, host[2]["min"])
-
-    page.click('[data-player-tool="empty"]')
-    assert page.evaluate("() => window.publicPlayer.getTool()") == "empty"
-    _tap(page, 2, 2)
-    assert _state(page, 2, 2) == "empty"
-    page.click('[data-player-tool="unknown"]')
-    _tap(page, 2, 2)
-    assert _state(page, 2, 2) == "unknown"
-
-    touch_action = """() => getComputedStyle(document.querySelector('td.player-cell')).touchAction"""
-    assert page.evaluate(touch_action) == "auto"
-    page.click("[data-player-region]")
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
-    assert page.evaluate(touch_action) == "none"
-
-    # A drag disarms it, and the drag itself still marks its line.
-    page.click('[data-player-tool="filled"]')
-    _drag(page, [(7, 1), (7, 2), (7, 3)])
-    assert [_state(page, 7, col) for col in (1, 2, 3)] == ["filled"] * 3
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is False, (
-        "Region stayed armed after a drag, so it is not one-shot"
-    )
-    assert page.evaluate(touch_action) == "auto"
-
-
-@pytest.mark.browser
-def test_a_touch_or_pen_drag_marks_only_while_region_is_armed(browser_page, host) -> None:
-    """Item 5 of the card, on the pointer TYPE rather than on the CSS shadow.
-
-    ``play.js`` reads ``gesturePaints(event.pointerType, region)`` once, at
-    pointerdown, and a touch or pen drag marks only while Region is armed —
-    with Region off the gesture marks nothing and the browser is free to pan
-    the page instead. ``test_the_brush_region_and_touch_bindings_are_the
-    _modules`` reads the ``touch-action`` the CSS sets, which is the browser's
-    half of that bargain; this reads ``play.js``'s own.
-
-    Two devices, because they measure different mechanisms and cycle 2 of
-    this card's review conflated them:
-
-    #. **the pen** is what isolates ``gesturePaints``. A pen stream is not
-       cancelled by the compositor, so with Region off the drag branch is
-       fully reached and only ``gesturePaints("pen", false)`` stops it from
-       marking. This is the half that kills ``const paints = true``, and the
-       only half that does — measured.
-    #. **the touch drag** is what a phone actually sends, and with Region off
-       Chromium fires ``pointercancel`` after the first move (``touch-action:
-       auto``), so the board is left alone by the CSS rule and ``play.js``'s
-       pointercancel handler rather than by ``gesturePaints``. It is here
-       because ``pointercancel`` otherwise has no control at all (cycle 2's
-       N-3 named it unreachable), and it is named for what it measures.
-
-    ``done.length`` is read as well as the cell states in both, so "marked
-    nothing" is "recorded no stroke" and not "repainted over it".
-
-    The residual, because the split above is an attribution and not a claim
-    of coverage: ``gesturePaints``'s **touch** branch has no control on any
-    browser this suite runs. Cycle 3 measured it — `event.pointerType ===
-    "touch" ? true : gesturePaints(...)` survives all 33, because in Chromium
-    with ``touch-action: auto`` the compositor cancels the stream whatever
-    ``gesturePaints`` returns, even with ``preventDefault()`` called. That
-    mutant is behaviourally equivalent on the one browser ADR-0038/R7
-    declares, so it is evidence for the attribution rather than a hole to
-    plug here; the branch is load-bearing only on a browser that honours
-    ``preventDefault`` for a touch stream, and a control for it needs WebKit,
-    which this suite does not drive.
-    """
-    page = browser_page
-    _open(page, host, host[2]["min"])
-    page.click('[data-player-tool="filled"]')
-    pen_line = [(5, 0), (5, 1), (5, 2)]
-    touch_line = [(7, 0), (7, 1), (7, 2)]
-
-    # The pen, Region off: the drag runs to pointerup and marks nothing.
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
-    _pen_drag(page, pen_line)
-    assert [_state(page, *cell) for cell in pen_line] == ["unknown"] * 3
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0
-
-    # The touch drag, Region off: cancelled, so also nothing.
-    _touch_drag(page, touch_line)
-    assert [_state(page, *cell) for cell in touch_line] == ["unknown"] * 3
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0
-
-    # The pen, Region armed: the same drag marks the line, records one stroke
-    # and disarms Region (the one-shot rule, from a third input device).
-    page.click("[data-player-region]")
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
-    _pen_drag(page, pen_line)
-    assert [_state(page, *cell) for cell in pen_line] == ["filled"] * 3
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 1
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
-
-    # The touch drag, Region armed: touch-action is none, so no cancel, and
-    # the touch device marks too.
-    page.click("[data-player-region]")
-    _touch_drag(page, touch_line)
-    assert [_state(page, *cell) for cell in touch_line] == ["filled"] * 3
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 2
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
-
-    # And the pointercancel handler's OTHER statement, read directly (cycle
-    # 3's m-4). Gutting the whole listener already reds this test, but it reds
-    # at the pen-armed assertion above, because the stale `gesture` blocks the
-    # NEXT pointerdown — sequencing, not rollback. So the rollback half had no
-    # control: `gesture = null; refresh();` without `shown = history.board`
-    # left all 33 green, and on a phone a Region-armed touch drag interrupted
-    # by a system gesture would leave phantom marks on the board that are in
-    # no stroke, in no history and in no save.
-    #
-    # Region armed, a drag that paints a preview, and then a real
-    # touchCancel: the cells go back and no stroke is recorded.
-    cancel_line = [(8, 0), (8, 1), (8, 2)]
-    page.click("[data-player-region]")
-    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
-    _touch_drag(page, cancel_line, end="touchCancel")
-    assert [_state(page, *cell) for cell in cancel_line] == ["unknown"] * 3
-    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 2
-    # Rolled back TO ``history.board``, not to a blank one: the marks the two
-    # committed drags left are still there. Measured — `shown =
-    # applyStroke(history.board, resetStroke(history.board))` in the cancel
-    # handler wipes the board on every interrupted gesture and the three
-    # assertions above do not see it.
-    assert [_state(page, *cell) for cell in touch_line] == ["filled"] * 3
-    assert [_state(page, *cell) for cell in pen_line] == ["filled"] * 3
-
-
-@pytest.mark.browser
 def test_the_page_carries_no_answer_and_no_third_party_asset(browser_page, host) -> None:
     """EC-048 in the browser: what the live page has, not only what disk has.
 
     The disk sweep is the guarantee; this is the reading a reviewer actually
     wants — after a full load, the page's own serialised DOM and every script
     it fetched are swept for the grid, and the page is held to loading nothing
-    from another origin (which is also why no analytics tag is on it yet; see
-    play.html).
+    from another origin (which is also why no analytics tag is on it unless the
+    deploy asks for one).
+
+    CARD-399: the page is the shared player (``solver.js`` in public mode), so
+    the live object is ``window.puzzlePlayer`` and its payload is the shell
+    loader's own.
     """
     page = browser_page
     url, report, keys = host
@@ -2993,50 +1686,18 @@ def test_the_page_carries_no_answer_and_no_third_party_asset(browser_page, host)
     # The page's own idea of its puzzle: clues and extent, and nothing the
     # answer could be read out of. Asserted on the live object rather than on
     # the file, because this is what the browser actually holds.
-    assert page.evaluate("() => Object.keys(window.publicPlayer.payload).sort()") == [
+    assert page.evaluate("() => Object.keys(window.puzzlePlayer.payload).sort()") == [
         "columns",
         "height",
-        "key",
+        "id",
+        "mode",
         "rows",
-        "tier",
         "width",
     ]
-
-
-@pytest.mark.browser
-def test_an_unknown_or_malformed_key_draws_no_board(browser_page, host) -> None:
-    """A link to nothing says so, and sets no player — never a blank board.
-
-    The soft not-found PAGE is CARD-284's; what belongs here is that this
-    route refuses rather than half-renders, and that a key-shaped path cannot
-    become a request for some other file.
-    """
-    page = browser_page
-    url, report, keys = host
-    asked: list[str] = []
-    page.context.on("request", lambda request: asked.append(request.url))
-
-    # A path that is not key-shaped is refused BEFORE anything is fetched, so
-    # a hand-typed or hostile path never becomes a request for another file.
-    # The "no request" half is the one with teeth: without the shape check the
-    # fetch simply 404s and the page shows the same message, so a test that
-    # only read the message passed either way (mutation round, M15).
-    for path in ("/play/not-a-key", "/play/", "/play/..%2f..%2findex.json", "/play/ABCDEF0123"):
-        asked.clear()
-        page.goto(f"{url}{path}")
-        page.wait_for_selector(".player-fallback")
-        assert page.evaluate("() => window.publicPlayer === undefined"), path
-        assert page.query_selector("td.player-cell") is None, path
-        assert page.inner_text(".player-fallback").strip() != "", path
-        assert [request for request in asked if "/puzzle/" in request] == [], (path, asked)
-
-    # A key-shaped path that names nothing published does ask, and is told no.
-    asked.clear()
-    page.goto(f"{url}/play/0000000000")
-    page.wait_for_selector(".player-fallback")
-    assert page.evaluate("() => window.publicPlayer === undefined")
-    assert [request for request in asked if request.endswith("/puzzle/0000000000.json")], asked
-    assert page.query_selector("td.player-cell") is None
+    # ... and reading the sealed solution is an error, never a tolerated null.
+    assert page.evaluate(
+        "() => { try { window.puzzlePlayer.payload.solution; return false; } catch (e) { return true; } }"
+    ) is True
 
 
 # ==========================================================================
@@ -3058,10 +1719,13 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     # the same edit a stray file would need. A source file nobody publishes,
     # or a published source that is not on disk, fails here.
     files = sorted(path.name for path in PLAYER_DIR.iterdir() if path.is_file())
-    # ... plus the one source only the opt-in preview publishes (CARD-394): its
-    # own base stylesheet, which is why it is named here rather than in PLAYER_FILES.
-    assert files == sorted({*assembler.PLAYER_FILES, assembler.SHARED_UI_BASE_SOURCE, "assemble.py"})
-    assert len(files) >= 8, files
+    assert files == sorted({*assembler.PLAYER_FILES, "assemble.py"})
+    # CARD-399 AC-4: the retired separate player is gone from the tree, by name.
+    assert not {"play.js", "play.html"} & set(files), files
+    # 8 before CARD-399 (play.html and play.js were two of them), 7 now:
+    # library.html, book.html, pages.js, player.css, shared-ui-base.css,
+    # vercel.json and assemble.py.
+    assert len(files) >= 7, files
     for forbidden in ("package.json", "node_modules", "package-lock.json"):
         assert not (PLAYER_DIR / forbidden).exists(), forbidden
     # "Nothing under ``src/`` imports it", resolved by ``ast`` rather than by
@@ -3122,47 +1786,6 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     assert "player/" not in manifest and '"player"' not in manifest
 
 
-def test_the_player_assets_carry_no_colour_literal_and_only_defined_tokens() -> None:
-    """Colours belong to tokens.css, and every token the page uses exists.
-
-    The second half is the one with teeth: a ``var(--typo)`` resolves to
-    nothing and renders as an unstyled page, which no assertion about classes
-    would notice. The set of names comes from the token file itself
-    (ADR-0039/R2), and the control plants an undefined name.
-    """
-    css = (PLAYER_DIR / "player.css").read_text(encoding="utf-8")
-    script = (PLAYER_DIR / "play.js").read_text(encoding="utf-8")
-    page = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
-    for name, text in (("player.css", css), ("play.js", script), ("play.html", page)):
-        assert not re.search(r"#[0-9a-fA-F]{3,8}\b", text), name
-        assert "rgb(" not in text and "hsl(" not in text, name
-
-    def undefined_in(text: str) -> list[str]:
-        """Which ``var(--name)`` in ``text`` no definition answers.
-
-        The defined set is read from the token file and from ``text``'s own
-        ``--player-*`` declarations; ``--player-width`` / ``--player-height``
-        are set on the element by ``play.js`` and so are declared in script
-        rather than in CSS, which is why they are named here.
-        """
-        defined = set(
-            re.findall(
-                r"(--[a-z0-9-]+)\s*:",
-                (REPO_ROOT / "src/nonogram/admin/static/tokens.css").read_text(encoding="utf-8"),
-            )
-        )
-        assert len(defined) >= 40, len(defined)
-        defined |= set(re.findall(r"^\s*(--player-[a-z-]+):", text, re.M))
-        defined |= {"--player-width", "--player-height"}
-        used = set(re.findall(r"var\((--[a-z0-9-]+)\)", text))
-        assert used, "no token is used, so this rule measures nothing"
-        return sorted(used - defined)
-
-    assert undefined_in(css) == []
-    # The control: the same rule over the same file with one token misspelt.
-    assert undefined_in(css.replace("var(--color-bg)", "var(--color-bgg)")) == ["--color-bgg"]
-
-
 def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
     """The five refs the model gives the public player's ACs are defined and cited.
 
@@ -3218,29 +1841,30 @@ def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
 def test_the_runtime_dependency_baseline_is_untouched() -> None:
     """G-3 / ADR-0006/R1 — nothing here is a runtime dependency.
 
-    The page vendors no JavaScript library at all: it imports exactly one
-    module, the admin player's own ``solver_state.js``, by build-time copy. No
+    The page vendors no JavaScript library at all: the admin player's own
+    ``solver.js`` imports exactly one module, its sibling ``solver_state.js``,
+    and both are byte-identical build-time copies. No
     npm manifest, no CDN URL, no bundled third-party file — which is what
     makes "no new dependency" a statement about this tree rather than about
     ``pyproject.toml`` alone.
     """
-    script = (PLAYER_DIR / "play.js").read_text(encoding="utf-8")
-    page = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
+    script = (STATIC_DIR / "solver.js").read_text(encoding="utf-8")
+    page = assembler.shared_ui_play_page(assembler.render_shared_ui_fragment())
+    # Every import of the admin player is of its one byte-identical sibling, and
+    # the shell's loader imports the player and nothing else.
     imports = re.findall(r"""from\s+["']([^"']+)["']""", script)
-    assert imports == ["/solver_state.js"], imports
-    for name, text in (("play.js", script), ("play.html", page)):
+    assert imports and set(imports) == {"./solver_state.js"}, imports
+    assert re.findall(r"""import\(["']([^"']+)["']\)""", page) == ["/solver.js"]
+    for name, text in (("solver.js", script), ("the play page", page)):
         assert "http://" not in text.replace("http://127.0.0.1", ""), name
-        # No exemption here, because neither file needs a URL. The disjunct
-        # this assertion used to carry ("or openapi.vercel.sh in text") was
-        # dead — that host is vercel.json's $schema, which this assertion
-        # never reads — and while it was dead it would have absorbed any
-        # https:// URL added to either file beside a mention of that host.
-        # ADR-0039/R3: an exemption is a claim, and an exemption with nothing
-        # to exempt is a hole. It now lives where the URL actually is, below.
+        # No exemption here, because neither file needs a URL. ADR-0039/R3: an
+        # exemption is a claim, and an exemption with nothing to exempt is a
+        # hole. The one URL this tree carries lives where it is, below.
         assert "https://" not in text, name
     assert "cdn" not in script.lower()
-    srcs = re.findall(r'src="([^"]+)"', page)
-    assert srcs == ["/play.js"], srcs
+    # Only same-origin stylesheets, and no script element with a source.
+    assert re.findall(r'href="([^"]+)"', page) == ["/base.css", "/tokens.css", "/admin.css"]
+    assert re.findall(r'src="([^"]+)"', page) == []
 
     # The one https:// URL this tree does carry, and the exemption stated as
     # an EQUALITY against the URLs that exist rather than as a disjunct that

@@ -4,7 +4,7 @@
 ' field tuples :140-:159, puzzle_key :215, book_slug :257, FINALIZED_STATUSES
 ' :302) and player/assemble.py (COPIED_FROM_ADMIN :381, SERVED_SCHEMA :733,
 ' EXEMPT_SERVED_FIELDS :541, EXEMPT_LISTING_FIELDS :902, check_capacity :572,
-' SITE_MARKER_FILE :487) and player/play.js (fetch + isClueSolved :174).
+' SITE_MARKER_FILE :487) and the generated play shell's loader (shared_ui_play_page; CARD-399 retired play.js).
 skinparam monochrome true
 skinparam shadowing false
 skinparam defaultFontName Helvetica
@@ -34,7 +34,7 @@ rectangle "COMP-011 player/assemble.py" as asm {
 }
 
 rectangle "build/site  (the deployable tree)" as site {
-  card "play/index.html · play.js · player.css\npuzzle/<key>.json (rebuilt)\nindex.json · book/<slug>.json\nvercel.json · .player-site" as tree
+  card "play/index.html (generated) · solver.js · solver_state.js · admin.css · tokens.css · base.css · player.css\npuzzle/<key>.json (rebuilt)\nindex.json · book/<slug>.json\nvercel.json · .player-site" as tree
 }
 
 rectangle "the visitor's browser" as browser {

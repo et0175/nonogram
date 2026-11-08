@@ -53,7 +53,6 @@ _ROOT = Path(__file__).resolve().parent.parent
 _ADMIN = _ROOT / "src" / "nonogram" / "admin"
 _STATIC = _ADMIN / "static"
 _TEMPLATES = _ADMIN / "templates"
-_PLAYER = _ROOT / "player"
 
 #: The four files the admin page really serves, copied byte for byte.
 ADMIN_FILES = ("solver.js", "solver_state.js", "admin.css", "tokens.css")
@@ -955,16 +954,6 @@ class TestPublicMode_TheStallBoard:
     def test_hint_offers_and_reveals_nothing_where_no_line_decides(self, browser_page, serve) -> None:
         """Id kept (G-5); since the F-3 fix Hint is offered AND says why."""
         assert stall_problems(browser_page, serve(public_payload(STALL_GRID, puzzle_id="stall"))) == []
-
-    def test_the_sentence_is_play_js_s_own(self) -> None:
-        """G-6: the same words as the public player says today. Read from
-        play.js directly (not through the helper, which now reads solver.js):
-        this is the one cell that still compares the two files, and it retires
-        with play.js (CARD-399 step 3)."""
-        match = re.search(r'const HINT_EXHAUSTED =\s*\n?\s*"([^"]+)";', (_PLAYER / "play.js").read_text())
-        assert match, "play.js no longer defines HINT_EXHAUSTED"
-        assert public_exhausted_sentence() == match.group(1)
-        assert public_exhausted_sentence().startswith("Hint: the clues decide nothing more by themselves")
 
     def test_the_oracle_s_stalled_boards_drive_it(self, browser_page, serve) -> None:
         """Boards the brute-force oracle says no line decides (half of them

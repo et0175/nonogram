@@ -366,11 +366,14 @@ write — the thing R4 exists to forbid.
   statement: >-
     The public player is static files only: plain hand-written JavaScript and
     CSS in the top-level player/ directory, no framework, no build toolchain,
-    no npm, nothing added to the Python package. The board state module is
-    reused from the admin player by byte-identical build-time copy of
-    src/nonogram/admin/static/solver_state.js, never by editing it and never
-    by a fork. ADR-0038/R1's "served by the admin panel" clause stays scoped
-    to the admin player; this rule owns the public player's serving.
+    no npm, nothing added to the Python package. The play surface is the
+    admin player's own: solver.js, solver_state.js, admin.css and tokens.css
+    are reused by byte-identical build-time copy of the files under
+    src/nonogram/admin/static/ (four files plus a generated page shell, CARD-399),
+    never by editing the copy and never by a fork; there is no second
+    implementation of the player. ADR-0038/R1's "served by the admin panel"
+    clause stays scoped to the admin player; this rule owns the public
+    player's serving.
   scope: {code: ["player/**"]}
   check: {kind: review-lens}
   severity: mandatory

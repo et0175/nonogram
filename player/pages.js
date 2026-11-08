@@ -62,7 +62,7 @@
 // There is no localStorage write here either — a filter choice is not play
 // state, and a page that remembered it would be keeping something about the
 // visitor for no gain. ADR-0041/R6's counting tag belongs to CARD-285, which
-// owns the test its check ref names; the note in play.html applies here too.
+// owns the test its check ref names; the note in the retired play.html applied here too.
 //
 // window.playerPages, set once a page has rendered (and left unset when the
 // listing could not be read, so a test cannot mistake a failed load for an
@@ -79,7 +79,7 @@
 // truncation, so the same shape). Checked before anything is fetched, so a
 // hand-typed path cannot turn into a request for an arbitrary file. Held to
 // player_bundle.KEY_LENGTH from the test tree, where importing the package is
-// legal; the same reimplement-and-cross-check precedent play.js's KEY uses.
+// legal; the same reimplement-and-cross-check precedent the retired play.js's KEY used.
 const SLUG = /^[0-9a-f]{10}$/;
 
 // The tier labels a chip and a filter may show, in the runtime's own order
@@ -101,7 +101,7 @@ export const TIERS = ["easy", "medium", "hard"];
 // is the one thing CLAUDE.md's "use limits.py rather than writing 10 or 30"
 // cannot have in a browser; the equality with limits.py — and the partition
 // (every supported side in exactly one band, no gap, no overlap) — is held
-// from the test tree instead. That is the same arrangement play.js's KEY and
+// from the test tree instead. That is the same arrangement the retired play.js's KEY and
 // assemble.py's SERVED_TIERS live under.
 // How many characters of a book's display title the page will render,
 // equal to assemble.py's SERVED_TITLE_MAX_CHARS and held to it from the
@@ -137,7 +137,7 @@ export function bandOf(entry) {
 // Whether `entry` is one listing tile: a key-shaped key, two integer extents
 // within the supported range, and a tier that is one of the served labels or
 // blank. The same rule assemble.py applies when it writes the file —
-// deliberately twice, once on each side of the wire, for the reason play.js
+// deliberately twice, once on each side of the wire, for the reason the retired play.js
 // gives: a page that trusts its input is a page whose input decides what it
 // does.
 export function isEntry(value) {

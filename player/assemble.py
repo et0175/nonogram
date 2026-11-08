@@ -22,13 +22,15 @@ What it produces
 ----------------
 ::
 
-    play/index.html     the /play/<key> page            (from player/play.html)
-    play.js             its glue                        (from player/play.js)
+    play/index.html     the /play/<key> page            (generated, see "The /play/<key> page")
     library/index.html  the /library page               (from player/library.html)
     b/index.html        the /b/<slug> landing           (from player/book.html)
     pages.js            the two listing pages' glue     (from player/pages.js)
-    player.css          its styling                     (from player/player.css)
+    player.css          the listing pages' styling      (from player/player.css)
+    base.css            the page's Bootstrap stand-in   (from player/shared-ui-base.css)
+    solver.js           the admin player                (byte-identical copy)
     solver_state.js     the admin player's pure module  (byte-identical copy)
+    admin.css           the admin player's stylesheet   (byte-identical copy)
     tokens.css          the design tokens               (byte-identical copy)
     vercel.json         the host's rewrites for the three doors
     .player-site        the marker check_out_dir recognises this tree by
@@ -36,9 +38,11 @@ What it produces
     index.json          the REBUILT library index        (see "The two listings")
     book/<slug>.json    one REBUILT file per bundle book (see "The two listings")
 
-The opt-in PREVIEW mode (CARD-386, ``assemble(..., shared_ui=...)``, see "The
-shared-UI preview" below) publishes a different ``/play/<key>`` page and
-copies two more admin files; the default tree above is unchanged by it.
+Since CARD-399 the ``/play/<key>`` page is the admin's own player: there is ONE
+implementation of the play surface, ``solver.js`` and its siblings, and the
+public site runs it in public mode (no solution grid, CARD-385). The separate
+``player/play.js`` / ``play.html`` of CARD-283 are gone (the local git tag
+``play-js-last`` marks the last commit that has them).
 
 Each published ``.html`` also carries ONE counting snippet
 (:data:`ANALYTICS_SNIPPET`), and only when ``--analytics-count`` /
@@ -46,11 +50,12 @@ Each published ``.html`` also carries ONE counting snippet
 fixture and every local run assembles, so the pages render with it absent as
 the ordinary case rather than as a case written for a test (CARD-285, AC-391).
 
-The two copies are copies and not forks: ADR-0041/R3 requires the board-state
-module to be reused from ``src/nonogram/admin/static/solver_state.js`` by
-byte-identical build-time copy, never by editing it, and the design tokens
-travel the same way for the same reason (one definition of the colours, as
-``tests/test_admin_design_tokens.py`` already holds for the panel's own copy).
+The four copies are copies and not forks: ADR-0041/R3 requires the admin's
+player files to be reused from ``src/nonogram/admin/static/`` by byte-identical
+build-time copy, never by editing them (``solver.js``, ``solver_state.js``,
+``admin.css``), and the design tokens travel the same way for the same reason
+(one definition of the colours, as ``tests/test_admin_design_tokens.py``
+already holds for the panel's own copy).
 :data:`COPIED_FROM_ADMIN` is the table, and the equality is checked here at
 assembly time *and* from the test tree.
 
@@ -290,6 +295,7 @@ __all__ = [
     "KEY_PATTERN",
     "LISTING_STRUCTURE_FIELDS",
     "MIRRORED_FROM_PUZZLE_FILE",
+    "PLAY_PAGE",
     "PLAYER_FILES",
     "SERVED_BOOK_SCHEMA",
     "SERVED_ENTRY_SCHEMA",
@@ -300,9 +306,6 @@ __all__ = [
     "SERVED_VALUE_SPACE",
     "SHARED_UI_BASE",
     "SHARED_UI_BASE_SOURCE",
-    "SHARED_UI_BOOTSTRAP",
-    "SHARED_UI_COPIED_FROM_ADMIN",
-    "SHARED_UI_PLAYER_FILES",
     "SHARED_UI_TEXT_EDITS",
     "SITE_BOOK_DIR",
     "SITE_INDEX_FILE",
@@ -311,7 +314,6 @@ __all__ = [
     "SITE_PUZZLE_DIR",
     "TITLE_CODE_POINTS",
     "AssembleReport",
-    "SharedUi",
     "assemble",
     "book_title_residual_bits",
     "check_capacity",
@@ -319,6 +321,7 @@ __all__ = [
     "check_out_dir",
     "free_capacity_bits",
     "listing_entry",
+    "render_shared_ui_fragment",
     "served_book",
     "served_index",
     "served_puzzle",
@@ -359,9 +362,10 @@ MIN_SIZE, MAX_SIZE = _limits()
 # The tree: what is copied, and from where
 # --------------------------------------------------------------------------
 
-#: ``player/`` source -> published path. The page is published as
-#: ``play/index.html`` so that a plain static host serves ``/play/`` without a
-#: rewrite and ``vercel.json``'s rewrite only has to cover ``/play/<key>``.
+#: ``player/`` source -> published path. The play page is published as
+#: ``play/index.html`` (:data:`PLAY_PAGE`, generated, so it has no source here)
+#: so that a plain static host serves ``/play/`` without a rewrite and
+#: ``vercel.json``'s rewrite only has to cover ``/play/<key>``.
 #:
 #: ``library.html`` and ``book.html`` travel the same way for the same
 #: reason (CARD-284) — but ``vercel.json`` carries a rule for **both** of
@@ -375,62 +379,59 @@ MIN_SIZE, MAX_SIZE = _limits()
 #: the loopback fixture's ``^/library/?$`` is the same rule read from the
 #: same file.
 PLAYER_FILES: dict[str, str] = {
-    "play.html": "play/index.html",
-    "play.js": "play.js",
     "library.html": "library/index.html",
     "book.html": "b/index.html",
     "pages.js": "pages.js",
     "player.css": "player.css",
+    "shared-ui-base.css": "base.css",
     "vercel.json": "vercel.json",
 }
 
+#: The published path of the generated ``/play/<key>`` shell
+#: (:func:`shared_ui_play_page`). Not in :data:`PLAYER_FILES` because no file
+#: under ``player/`` is its source; every tree-describing table reads it here.
+PLAY_PAGE = "play/index.html"
+
 #: ADR-0041/R3's byte-identical build-time copies: admin source -> published
-#: path. ``solver_state.js`` is the rule's own subject; ``tokens.css`` travels
-#: the same way so the public page's colours are the one definition the panel
-#: already uses (``meta/design/tokens.css``, mirrored into the panel's static
-#: directory and held equal by ``tests/test_admin_design_tokens.py``).
+#: path. ``solver.js``, ``solver_state.js`` and ``admin.css`` ARE the public
+#: player (CARD-385/386/399); ``tokens.css`` travels the same way so the
+#: page's colours are the one definition the panel already uses
+#: (``meta/design/tokens.css``, mirrored into the panel's static directory and
+#: held equal by ``tests/test_admin_design_tokens.py``).
 #: **Copied, never edited** — G-1.
 COPIED_FROM_ADMIN: dict[str, str] = {
+    "src/nonogram/admin/static/solver.js": "solver.js",
     "src/nonogram/admin/static/solver_state.js": "solver_state.js",
+    "src/nonogram/admin/static/admin.css": "admin.css",
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
 
 # --------------------------------------------------------------------------
-# The shared-UI preview (CARD-386, ADR-0041/R3): the admin's own player files
+# The /play/<key> page (CARD-386, ADR-0041/R3): the admin's own player files
 # --------------------------------------------------------------------------
 #
-# Step 2 of the shared-player spike's design A. CARD-385 made the admin's
-# ``solver.js`` and ``solver_state.js`` run with no solution grid ("public
-# mode"); this mode assembles a site that actually uses them, so that the
-# owner can open ``/play/<key>`` and judge the ADMIN's look and behaviour on
-# the public pages before deciding which differences deserve an override
-# layer. It is **opt-in** (``assemble(shared_ui=...)``; ``--shared-ui`` on the
-# command line) and the default tree is byte-for-byte what it was. It is a
-# preview, never deployed (no ``vercel.json`` route is added, none changed).
+# CARD-385 made the admin's ``solver.js`` and ``solver_state.js`` run with no
+# solution grid ("public mode"); CARD-386 assembled a page that uses them and
+# CARD-399 made it the only ``/play/<key>`` page: ``player/play.js`` and
+# ``play.html``, the separate implementation, were deleted.
 #
-# What differs from the default tree, and nothing else:
-#
-# * ``play/index.html`` is a thin generated shell (:func:`shared_ui_play_page`)
-#   and ``play.js`` is not published; ``player.css`` still is, because the two
-#   listing pages (``/library``, ``/b/<slug>``) are styled by it and are
-#   unchanged;
-# * ``solver.js`` and ``admin.css`` join ``solver_state.js`` and
-#   ``tokens.css`` as byte-identical copies (:data:`SHARED_UI_COPIED_FROM_ADMIN`,
-#   the same assembly-time equality check, the same table the tests read);
-# * the project's own base stylesheet (:data:`SHARED_UI_BASE_SOURCE`) is
-#   published beside them, and a Bootstrap stylesheet is published INSTEAD of
-#   it only when the caller names one (:class:`SharedUi`).
+# * ``play/index.html`` is a thin generated shell (:func:`shared_ui_play_page`);
+# * ``solver.js``, ``solver_state.js``, ``admin.css`` and ``tokens.css`` are
+#   byte-identical copies (:data:`COPIED_FROM_ADMIN`, the same assembly-time
+#   equality check, the same table the tests read);
+# * the project's own base stylesheet (:data:`SHARED_UI_BASE_SOURCE`) stands in
+#   for the part of Bootstrap the page uses and is published beside them as
+#   :data:`SHARED_UI_BASE`; ``player.css`` is published for the two listing
+#   pages (``/library``, ``/b/<slug>``) only.
 #
 # **Where the toolbar markup comes from: the admin's own template, rendered
-# once, by the DRIVER.** The ~70 lines of toolbar live in
-# ``admin/templates/puzzle_solve.html``, not in ``solver.js``. The choice was
-# between rendering that template at build time (Jinja, which this
-# stdlib-only module must not import) and keeping a second copy of the markup
-# as a static fragment (a second source of truth that drifts, which is the
-# defect this whole design exists to remove). So ``scripts/assemble_player_
-# site.py`` renders the template with Jinja and hands the HTML to this module
-# as :class:`SharedUi`; this module imports nothing new (ADR-0006/R1) and
-# there is exactly one copy of the markup, the admin's.
+# once, at build time, by :func:`render_shared_ui_fragment`.** The ~70 lines of
+# toolbar live in ``admin/templates/puzzle_solve.html``, not in ``solver.js``;
+# keeping a second copy of the markup as a static fragment would be a second
+# source of truth that drifts, the defect this whole design exists to remove.
+# Rendering needs Jinja (the panel's extra), imported lazily INSIDE that
+# function, so importing this module still needs the standard library only
+# (ADR-0006/R1) and only an assembly needs the extra.
 #
 # **Bootstrap is not in the repository, and is not needed.** ``admin.css``
 # relies on Bootstrap 5.3 (54 ``--bs-`` references; the panel loads it from a
@@ -441,34 +442,13 @@ COPIED_FROM_ADMIN: dict[str, str] = {
 # hand-written stylesheet for exactly that (CARD-394,
 # :data:`SHARED_UI_BASE_SOURCE`); its values were measured in a browser
 # against the real file, and ``tests/test_player_base_css.py`` holds it to
-# them. The caller can still name a local copy of the real Bootstrap to build
-# the page with INSTEAD (``SharedUi.bootstrap``), to compare by eye; that file
-# is never committed and a tree built with it fails the served-tree scan.
-
-#: ``player/`` source -> published path, for the preview: the default table
-#: without the two files only the default ``/play/<key>`` page uses.
-SHARED_UI_PLAYER_FILES: dict[str, str] = {
-    source: published
-    for source, published in PLAYER_FILES.items()
-    if source not in ("play.html", "play.js")
-}
-
-#: The byte-identity table of the preview: the default table's two files and
-#: the two the preview adds. AC-2 reads this table, not a list of its own.
-SHARED_UI_COPIED_FROM_ADMIN: dict[str, str] = {
-    **COPIED_FROM_ADMIN,
-    "src/nonogram/admin/static/solver.js": "solver.js",
-    "src/nonogram/admin/static/admin.css": "admin.css",
-}
+# them.
 
 #: The project's own stylesheet for the part of Bootstrap the page uses, under
-#: ``player/``, and where the preview publishes it (CARD-394).
+#: ``player/``, and where the tree publishes it (CARD-394); it is also a row of
+#: :data:`PLAYER_FILES`, so these two names are that row, spelled once.
 SHARED_UI_BASE_SOURCE = "shared-ui-base.css"
 SHARED_UI_BASE = "base.css"
-
-#: Where the caller's own Bootstrap stylesheet is published when one is named;
-#: the page then links it in the place of :data:`SHARED_UI_BASE`.
-SHARED_UI_BOOTSTRAP = "bootstrap.min.css"
 
 #: The page's usage paragraph is the admin's, and its last sentence describes
 #: Check, which the public player does not have (public mode removes it,
@@ -526,12 +506,12 @@ _SHARED_UI_HOOKS: tuple[str, ...] = (
 #: replace rather than ``str.format`` because the loader is full of braces.
 _SHARED_UI_PAGE = """<!doctype html>
 <!--
-  The /play/<key> PREVIEW page (CARD-386): the admin's own player on the
+  The /play/<key> page (CARD-386, CARD-399): the admin's own player on the
   public data. Generated by player/assemble.py; do not edit the output.
   Everything between <main> and the script is the admin's puzzle_solve.html,
   rendered once at build time; solver.js, solver_state.js, admin.css and
   tokens.css are byte-identical copies of the admin's files; there is no
-  override stylesheet. Not deployed.
+  override stylesheet.
 -->
 <html lang="en">
 <head>
@@ -619,27 +599,49 @@ async function main() {
 main();"""
 
 
-@dataclass(frozen=True)
-class SharedUi:
-    """What the preview mode needs from outside this module.
+#: The admin template the page's toolbar is rendered from.
+SHARED_UI_TEMPLATE = "puzzle_solve.html"
 
-    ``fragment`` is the admin's ``puzzle_solve.html`` content block, rendered
-    (the driver does that, see "The shared-UI preview"); ``bootstrap`` is
-    ``None`` for the project's own stylesheet, or the path of a local copy of
-    the real Bootstrap to publish at :data:`SHARED_UI_BOOTSTRAP` instead, for
-    the owner's comparison by eye.
+
+def render_shared_ui_fragment() -> str:
+    """The admin's ``puzzle_solve.html`` content block, rendered once.
+
+    The base template is replaced by a bare content block, so what comes back
+    is exactly the page's own markup: no admin sidebar, no flash messages, no
+    Bootstrap ``<script>`` and not the template's module script (the shell's
+    loader brings ``solver.js`` in once the payload exists). The per-puzzle
+    holes (the header's size, the tier chip, the banner's name) are rendered
+    blank and filled by the shell's loader from the puzzle file.
+
+    ``jinja2`` comes with the panel's extra and is imported here, not at the
+    top of the module: importing the assembler stays standard-library-only
+    (ADR-0006/R1); a checkout without the extra gets a message that says so.
     """
+    try:
+        import jinja2
+    except ImportError as missing:  # pragma: no cover - environment
+        raise SystemExit(
+            "assembling the site renders the admin template and needs jinja2 "
+            "(the panel's extra: pip install -e '.[admin]')"
+        ) from missing
+    templates = REPO_ROOT / "src" / "nonogram" / "admin" / "templates"
+    environment = jinja2.Environment(
+        loader=jinja2.ChoiceLoader(
+            [
+                jinja2.DictLoader({"base.html": "{% block content %}{% endblock %}"}),
+                jinja2.FileSystemLoader(str(templates)),
+            ]
+        ),
+        autoescape=True,
+    )
+    environment.globals["url_for"] = lambda endpoint, filename: f"/{filename}"
+    return environment.get_template(SHARED_UI_TEMPLATE).render(
+        title="", extent=("", ""), tier_label="tier", payload={}
+    )
 
-    fragment: str
-    bootstrap: Path | None = None
 
-
-def shared_ui_play_page(fragment: str, base: str = SHARED_UI_BASE) -> str:
-    """The preview's ``play/index.html``, from the rendered admin markup.
-
-    ``base`` is the published name of the stylesheet that stands in for
-    Bootstrap: the project's own by default, the caller's Bootstrap when one
-    was named.
+def shared_ui_play_page(fragment: str) -> str:
+    """The ``play/index.html`` shell, from the rendered admin markup.
 
     Raises :class:`ValueError` unless the fragment has the payload element
     the shell replaces, the usage clause :data:`SHARED_UI_HINT_CLAUSE`, and
@@ -666,7 +668,7 @@ def shared_ui_play_page(fragment: str, base: str = SHARED_UI_BASE) -> str:
         raise ValueError("the admin markup must hold exactly one <h1>Puzzle ...</h1>")
     body = _SHARED_UI_H1.sub("<h1>Puzzle</h1>", body)
     return (
-        _SHARED_UI_PAGE.replace("@@BASE@@", f"/{base}")
+        _SHARED_UI_PAGE.replace("@@BASE@@", f"/{SHARED_UI_BASE}")
         .replace("@@CONTENT@@", body.strip())
         .replace("@@LOADER@@", _SHARED_UI_LOADER)
     )
@@ -1605,7 +1607,7 @@ def _site_entries() -> set[str]:
     top-level shape: ``tests/test_public_player.py::test_an_out_dir_that_is
     _not_a_previous_site_is_refused``'s positive control.
     """
-    published = [*PLAYER_FILES.values(), *COPIED_FROM_ADMIN.values()]
+    published = [PLAY_PAGE, *PLAYER_FILES.values(), *COPIED_FROM_ADMIN.values()]
     return {path.split("/", 1)[0] for path in published} | {
         SITE_PUZZLE_DIR,
         SITE_BOOK_DIR,
@@ -1680,7 +1682,7 @@ def assemble(
     *,
     force: bool = False,
     analytics: tuple[str, str] | None = None,
-    shared_ui: SharedUi | None = None,
+    fragment: str | None = None,
 ) -> AssembleReport:
     """Write the deployable site into ``out_dir``. Read-only against the input.
 
@@ -1700,30 +1702,19 @@ def assemble(
     ``docs/deploy/player.md``, and a default in this file would be a second
     place that holds them.
 
-    ``shared_ui`` is ``None`` for the deployable tree. Given, it assembles the
-    opt-in PREVIEW (CARD-386): ``/play/<key>`` runs the admin's own player
-    files and nothing else differs (see "The shared-UI preview"). The shell
-    is built, and a named Bootstrap file read, BEFORE the output directory is
-    touched, so a fragment the shell refuses leaves the previous tree alone.
+    ``fragment`` is the admin's rendered ``puzzle_solve.html`` markup the
+    ``/play/<key>`` shell is built from; ``None`` (every real run) renders it
+    here (:func:`render_shared_ui_fragment`). It is a seam for the tests that
+    hand the shell a damaged fragment. The shell is built BEFORE the output
+    directory is touched, so a fragment the shell refuses leaves the previous
+    tree alone.
     """
     capacity = check_capacity()
     check_listing_capacity()
     site = check_out_dir(out_dir, force=force)
-    player_files = PLAYER_FILES
-    admin_copies = COPIED_FROM_ADMIN
-    extra_pages: dict[str, str] = {}
-    bootstrap: bytes | None = None
-    if shared_ui is not None:
-        player_files = SHARED_UI_PLAYER_FILES
-        admin_copies = SHARED_UI_COPIED_FROM_ADMIN
-        if shared_ui.bootstrap is None:
-            player_files = {**player_files, SHARED_UI_BASE_SOURCE: SHARED_UI_BASE}
-            extra_pages["play/index.html"] = shared_ui_play_page(shared_ui.fragment)
-        else:
-            bootstrap = shared_ui.bootstrap.read_bytes()
-            extra_pages["play/index.html"] = shared_ui_play_page(
-                shared_ui.fragment, SHARED_UI_BOOTSTRAP
-            )
+    if fragment is None:
+        fragment = render_shared_ui_fragment()
+    extra_pages: dict[str, str] = {PLAY_PAGE: shared_ui_play_page(fragment)}
     if site.exists():
         shutil.rmtree(site)
     site.mkdir(parents=True)
@@ -1738,7 +1729,7 @@ def assemble(
     counted: list[str] = []
     pages = {
         published: (PLAYER_DIR / source).read_text(encoding="utf-8")
-        for source, published in player_files.items()
+        for source, published in PLAYER_FILES.items()
     }
     pages.update(extra_pages)
     for published, text in pages.items():
@@ -1750,7 +1741,7 @@ def assemble(
             counted.append(published)
         _write(site / published, text)
         copied.append(published)
-    for source, published in admin_copies.items():
+    for source, published in COPIED_FROM_ADMIN.items():
         origin = REPO_ROOT / source
         data = origin.read_bytes()
         (site / published).write_bytes(data)
@@ -1759,9 +1750,6 @@ def assemble(
         if (site / published).read_bytes() != data:  # pragma: no cover - I/O
             raise RuntimeError(f"the copy of {source} is not byte-identical")
         copied.append(published)
-    if bootstrap is not None:
-        (site / SHARED_UI_BOOTSTRAP).write_bytes(bootstrap)
-        copied.append(SHARED_UI_BOOTSTRAP)
 
     dropped: list[tuple[str, str]] = []
     narrowed: list[tuple[str, str]] = []
@@ -1850,7 +1838,7 @@ def assemble(
     )
 
 
-def main(argv: list[str] | None = None, *, shared_ui_fragment: str | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--bundle", default=None, help="a CARD-282 player bundle directory")
     parser.add_argument("--out", default=None, help="where to write the site")
@@ -1874,39 +1862,7 @@ def main(argv: list[str] | None = None, *, shared_ui_fragment: str | None = None
         default=None,
         help="the GoatCounter script URL; docs/deploy/player.md holds it",
     )
-    parser.add_argument(
-        "--shared-ui-fragment",
-        default=None,
-        help=(
-            "PREVIEW mode (CARD-386): a file holding the admin's rendered "
-            "puzzle_solve.html markup (scripts/assemble_player_site.py "
-            "--shared-ui renders it and passes it in memory instead)"
-        ),
-    )
-    parser.add_argument(
-        "--bootstrap",
-        default=None,
-        help=(
-            "PREVIEW mode, optional: a local copy of Bootstrap 5.3's stylesheet to build the "
-            "page with instead of the project's own (never committed; for comparing by eye)"
-        ),
-    )
     args = parser.parse_args(argv)
-    if args.shared_ui_fragment is not None and shared_ui_fragment is not None:
-        parser.error("the markup came both as --shared-ui-fragment and in memory")
-    if args.shared_ui_fragment is None and shared_ui_fragment is None and args.bootstrap is not None:
-        parser.error("--bootstrap belongs to the preview, which needs the admin markup (--shared-ui-fragment)")
-    fragment = shared_ui_fragment
-    if args.shared_ui_fragment is not None:
-        fragment = Path(args.shared_ui_fragment).read_text(encoding="utf-8")
-    shared_ui = (
-        None
-        if fragment is None
-        else SharedUi(
-            fragment=fragment,
-            bootstrap=None if args.bootstrap is None else Path(args.bootstrap),
-        )
-    )
     # Both or neither: a run given one of the two would otherwise write a tag
     # pointing at half an endpoint, and a typo in one flag name would silently
     # assemble an uncounted site.
@@ -1963,12 +1919,8 @@ def main(argv: list[str] | None = None, *, shared_ui_fragment: str | None = None
         return 0
     if args.out is None:
         parser.error("--out is required unless --capacity is given")
-    report = assemble(
-        args.bundle, args.out, force=args.force, analytics=analytics, shared_ui=shared_ui
-    )
+    report = assemble(args.bundle, args.out, force=args.force, analytics=analytics)
     print(f"{report.puzzle_count} puzzles into {report.site_dir}")
-    if shared_ui is not None:
-        print("  PREVIEW: /play/<key> runs the admin's own player files; do not deploy this tree")
     print(f"  {report.book_count} book landings")
     if report.counted:
         print(f"  counted ({args.analytics_count}): {', '.join(report.counted)}")

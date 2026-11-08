@@ -6,8 +6,8 @@
 
 **This is a driver and not an assembler.** Every byte of the output tree is
 written by ``player/assemble.py`` — the player pages, the exported bundle's
-rebuilt JSON, the byte-identical ``solver_state.js`` and ``tokens.css`` copies
-from the panel, ``vercel.json`` and the ``.player-site`` marker. Nothing here
+rebuilt JSON, the byte-identical copies of the panel's player files
+(``solver.js``, ``solver_state.js``, ``admin.css``, ``tokens.css``), ``vercel.json`` and the ``.player-site`` marker. Nothing here
 copies a file, and nothing here knows the published paths. That is deliberate:
 ``COPIED_FROM_ADMIN``'s equality is checked at assembly time *and* from the
 test tree precisely so the two copies cannot drift, and a second assembler
@@ -170,67 +170,18 @@ def assembler(root: Path = REPO_ROOT):
     return module
 
 
-#: The admin template the preview's toolbar is rendered from (CARD-386).
-SHARED_UI_TEMPLATE = "puzzle_solve.html"
-
-
-def render_shared_ui_fragment(root: Path = REPO_ROOT) -> str:
-    """The admin's ``puzzle_solve.html`` content block, rendered once.
-
-    The preview's one source of toolbar markup is the admin's own template
-    (``player/assemble.py``, "The shared-UI preview", argues the choice), and
-    rendering it needs Jinja, which the stdlib-only assembler must not
-    import: so the DRIVER renders it and hands the text on. The base template
-    is replaced by a bare content block, so what comes back is exactly the
-    page's own markup — no admin sidebar, no flash messages, no Bootstrap
-    ``<script>`` and not the template's module script (the shell's loader
-    brings ``solver.js`` in once the payload exists). The per-puzzle holes
-    (the header's size, the tier chip, the banner's name) are rendered blank
-    and filled by the shell's loader from the puzzle file.
-
-    ``jinja2`` comes with the panel's extra; a checkout without it gets a
-    message that says so rather than an ``ImportError``.
-    """
-    try:
-        import jinja2
-    except ImportError as missing:  # pragma: no cover - environment
-        raise SystemExit(
-            "--shared-ui renders the admin template and needs jinja2 "
-            "(the panel's extra: pip install -e '.[admin]')"
-        ) from missing
-    templates = root / "src" / "nonogram" / "admin" / "templates"
-    environment = jinja2.Environment(
-        loader=jinja2.ChoiceLoader(
-            [
-                jinja2.DictLoader({"base.html": "{% block content %}{% endblock %}"}),
-                jinja2.FileSystemLoader(str(templates)),
-            ]
-        ),
-        autoescape=True,
-    )
-    environment.globals["url_for"] = lambda endpoint, filename: f"/{filename}"
-    return environment.get_template(SHARED_UI_TEMPLATE).render(
-        title="", extent=("", ""), tier_label="tier", payload={}
-    )
-
-
 def delegated_argv(
     *,
     bundle: str | None,
     out: str,
     force: bool,
     analytics: tuple[str, str] | None,
-    bootstrap: str | None = None,
 ) -> list[str]:
     """The ``player/assemble.py`` command line this script would run.
 
     Separate from :func:`main` so that ``--print-only`` prints the same list
     that runs, and so a test can read the driver's whole contribution without
-    assembling anything. ``bootstrap`` is the optional local Bootstrap stylesheet of
-    the opt-in preview mode (CARD-386; CARD-394 made it an override, ``None``
-    meaning the project's own stylesheet); the
-    rendered admin markup that goes with it travels in-process, as
-    ``assemble.main``'s keyword, because this driver writes no file.
+    assembling anything.
     """
     argv = ["--out", out]
     if bundle is not None:
@@ -239,8 +190,6 @@ def delegated_argv(
         argv.append("--force")
     if analytics is not None:
         argv += ["--analytics-count", analytics[0], "--analytics-script", analytics[1]]
-    if bootstrap is not None:
-        argv += ["--bootstrap", bootstrap]
     return argv
 
 
@@ -270,23 +219,6 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "--shared-ui",
-        action="store_true",
-        help=(
-            "PREVIEW (CARD-386): /play/<key> runs the admin's own player files, "
-            "with no override layer, styled by the project's own base stylesheet. "
-            "Never deploy this tree"
-        ),
-    )
-    parser.add_argument(
-        "--bootstrap",
-        default=None,
-        help=(
-            "with --shared-ui, optional: a local copy of Bootstrap 5.3's stylesheet, "
-            "used instead of the project's own to compare by eye. Never committed"
-        ),
-    )
-    parser.add_argument(
         "--print-only",
         action="store_true",
         help="print the delegated player/assemble.py command line and stop",
@@ -301,14 +233,11 @@ def main(argv: list[str] | None = None) -> int:
         runtime, _ = allow_list()
         analytics = (runtime["count"], runtime["script"])
 
-    if args.bootstrap is not None and not args.shared_ui:
-        parser.error("--bootstrap belongs to --shared-ui")
     delegated = delegated_argv(
         bundle=args.bundle,
         out=args.out,
         force=args.force,
         analytics=analytics,
-        bootstrap=args.bootstrap,
     )
     print(f"driving player/assemble.py {' '.join(delegated)}")
     if analytics is None:
@@ -317,12 +246,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  counting endpoints from {DEPLOY_DOC}: {analytics[0]}")
     if args.print_only:
         return 0
-    if args.shared_ui:
-        # Rendered here, in memory, and handed over as a value: this driver
-        # writes no file (tests/test_public_player_pages.py holds that).
-        return int(
-            assembler().main(delegated, shared_ui_fragment=render_shared_ui_fragment())
-        )
     return int(assembler().main(delegated))
 
 

@@ -1538,7 +1538,10 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
 # other AC rows that CARD-392 restated keep their class names. CENSUS and
 # DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
-CENSUS = (584, "9a935fa131ddf749")
+# CARD-399 step 3 (measured after merging main with CARD-392 and CARD-414 in): digest
+# 9a935fa131ddf749 -> 7dc31f115b77a2ed, count 584 unchanged; the step-2 swap of five refs for five
+# is what moves it (main alone: 9a935fa131ddf749).
+CENSUS = (584, "7dc31f115b77a2ed")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1698,7 +1701,9 @@ TRACE_TESTS = (512, "9647eab2ad3c4fa3")
 # DEFINED: digest 0a91e9a7753e31ec -> 9af7b521f444e194, count 419 unchanged.
 # CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
 # against its `class` line and not pasted from the printed figure.
-DEFINED = (420, "49c6c5cc1a6f80dc")
+# CARD-399 step 3 (measured, same cause as CENSUS): digest 49c6c5cc1a6f80dc -> d2183a0cc37abe68,
+# count 420 unchanged.
+DEFINED = (420, "d2183a0cc37abe68")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

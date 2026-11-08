@@ -25,7 +25,7 @@ and solved states).
 What it compares against:
 
 * with ``NONOGRAM_REAL_BOOTSTRAP=<path to the real bootstrap.min.css>`` it
-  builds a second preview with that file and compares live (the file is never
+  builds a second tree with that file published as ``base.css`` and compares live (the file is never
   committed); if the file is the one the table was recorded from (same sha256)
   it also asserts the table equals the live measurement, so the table cannot
   rot;
@@ -203,7 +203,9 @@ def test_the_project_stylesheet_matches_the_real_bootstrap(
     if real is not None:
         real_file = Path(real)
         assert real_file.is_file(), f"{REAL_ENV} names no file: {real}"
-        theirs = preview_of(root, tmp_path / "theirs", fragment, tmp_path, bootstrap=real_file).site_dir
+        theirs = preview_of(root, tmp_path / "theirs", fragment, tmp_path).site_dir
+        # CARD-399: the page links /base.css, so the real file replaces that one published file.
+        (theirs / "base.css").write_bytes(real_file.read_bytes())
         live = measured_tree(theirs, keys["sweep"], width, browser_page)
         if hashlib.sha256(real_file.read_bytes()).hexdigest() == PROVENANCE["sha256"]:
             assert differences(FROZEN[width], live) == [], "FROZEN no longer equals the real file's measurement"

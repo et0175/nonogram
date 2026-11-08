@@ -179,7 +179,7 @@ in the output directory" below; it does not survive by default).
 
 | URL | Serves | Why a rewrite |
 | --- | --- | --- |
-| `/play/<key>` | `play/index.html` | One document plays every puzzle; `play.js` reads the key out of the path and fetches `puzzle/<key>.json`. |
+| `/play/<key>` | `play/index.html` | One document plays every puzzle; its loader reads the key out of the path and fetches `puzzle/<key>.json`, then hands it to the admin's `solver.js`. |
 | `/b/<slug>` | `b/index.html` | The QR landing for one book. |
 | `/library` | `library/index.html` | The extensionless path needs the rule; `/library/` would resolve by directory index. |
 
@@ -270,7 +270,7 @@ Not observed: a real phone, how the hint reads at 300% zoom on one (the lit line
 | Step | What was observed |
 | --- | --- |
 | What changed against production | `play.js` `687a5bd061d7` to `31e430147309`, `player.css` `5251cc51502e` to `6aa20c7eddc1`, `play/index.html` `d6cf779ca491` to `3172d3d7cf0d` (the Probe bar and its note): probe mode. `solver_state.js` `e586c9da20b6` to `e3ff8f5760f5`: CARD-385 (`PUBLIC_MODE`, `PUBLIC_GRID`, `runsOf`, `isClueSolved`, `requireSolution`, a null-solution branch in `hintCell`, a `stampOf` save stamp). `play.js` imports none of the changed paths and the puzzle JSON carries no `mode`, so it is inert on the public page; the browser run below is the evidence. `tokens.css`, `pages.js`, `library/index.html`, `b/index.html` and the puzzle files unchanged. |
-| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out ~/Documents/nonogram-reviews/deploy-2026-11-07/site`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. The four files SHA-256 identical to their sources; no goatcounter reference; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; the default tree is the same file set as before (no `--shared-ui` output). |
+| Assemble | `scripts/assemble_player_site.py --bundle build/player-bundle --out ~/Documents/nonogram-reviews/deploy-2026-11-07/site`, no `--analytics`. 160 puzzles, one book landing; the bundle is still the 2026-10-29 export. The four files SHA-256 identical to their sources; no goatcounter reference; every `puzzle/<key>.json` carries exactly `clues`, `height`, `key`, `tier`, `width`; the default tree is the same file set as before (the opt-in shared-UI preview, since retired, was not built). |
 | Preview | `vercel deploy --yes` with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` exported: deployment `nonogram-studio-einto95gr`, Ready within about a minute. The six files above matched the local hashes; `/play/<key>`, `/b/<slug>` and `/library` 200, an unknown path 404. |
 | Behaviour on the preview | Headless Chromium on a 10x10 (`22f1a32460`) and a 20x20 (`6259eb2b56`) puzzle: a click marks and undo clears; zoom 100% to 125% and back; hover crossed 21 (10x10) and 41 (20x20) elements and 0 after leaving; closing row 0's runs circled 2 numbers; Hint ladder advanced point, explain, reveal (counter 1); Probe opened with Keep and Contradiction shown, one probe mark, Keep kept the cell as filled, Contradiction abandoned the cell back to unknown; the save was restored identically on reload (`nonogram-public:<key>`); Reset cleared the board; marking the solution (computed here by the solver from the clues) set `body[data-solved]` true and showed the Solved banner. Zero page errors, zero non-GET requests, no served JSON containing a `solution` key. |
 | Production | `vercel promote <the preview URL> --scope <team> --yes` created production deployment `nonogram-studio-qu83cb3hw`, Ready about 20 seconds later. `https://nonogram.adverax.io` then served the same six hashes, 200 on the three doors and 404 on an unknown path, the puzzle file with the same five fields, and the same browser run gave the same figures (0 page errors, 0 non-GET). |
@@ -555,22 +555,31 @@ setting.
    same-origin controls forbid, re-introduced from the test side. Any new browser test
    over a counted tree carries the same two lines.
 
-## The shared-UI preview mode (CARD-386)
+## One implementation: the public page runs the admin's own player (CARD-386, CARD-399)
 
-The assembly helper's `--shared-ui` mode assembles a **preview** tree in which `/play/<key>`
-runs the admin's own `solver.js`, `admin.css`, `solver_state.js` and `tokens.css`
-(byte-identical copies) with no override stylesheet. It is opt-in, it is for the owner to
-test locally with `scripts/preview_player_site.py`, and it is **not a deploy**. Without the
-flag the output is exactly what this page describes above.
+`/play/<key>` runs the admin's own `solver.js`, `solver_state.js`, `admin.css` and
+`tokens.css`, published as byte-identical build-time copies (ADR-0041/R3,
+`COPIED_FROM_ADMIN` in `player/assemble.py`) with no override stylesheet; `solver.js` runs
+in public mode, with no solution grid (CARD-385). `play/index.html` is a thin generated
+shell: the admin's `puzzle_solve.html` markup rendered once at build time (the assembler
+imports Jinja lazily for that, so **assembling needs the admin extra**, `pip install -e
+'.[admin]'`), plus a loader that reads the key from the path, fetches `puzzle/<key>.json`
+and hands `solver.js` an answer-free payload. There is no second implementation: the old
+`player/play.js`, `play.html` and the play half of `player.css` were deleted in CARD-399, and
+every change to the play surface is made once, in the admin files. `player/player.css` is
+now the listing pages' stylesheet only.
 
-The preview needs **no Bootstrap file** (CARD-394). `admin.css` was written for a page that
+The page needs **no Bootstrap file** (CARD-394). `admin.css` was written for a page that
 also loads Bootstrap 5.3; the tree links the project's own `player/shared-ui-base.css`
 instead (published as `/base.css`), a small hand-written file with the base rules and the
 few classes the page uses, whose computed styles and layout rectangles are held to the real
 Bootstrap's by `tests/test_player_base_css.py`. The tree passes the served-tree scan with
-one known residue, `solver.js`'s relative `./solver_state.js` import. To compare by eye
-against the real thing, build with `--shared-ui --bootstrap <a local copy of Bootstrap
-5.3's CSS>`: that file is used instead of the project's and is never committed (it fails
-the scan: three foreign references and two unclassifiable fragments). To re-run the
-fidelity comparison live, set `NONOGRAM_REAL_BOOTSTRAP` to that file when running the module;
-without it the module compares against the values recorded from it.
+one known residue, `solver.js`'s relative `./solver_state.js` import. To re-run the fidelity
+comparison live, set `NONOGRAM_REAL_BOOTSTRAP` to a local copy of Bootstrap 5.3's CSS
+(never committed) when running that module; without it the module compares against the values
+recorded from it.
+
+**The old player can be rebuilt** until the shared-UI build is live in production: the local
+git tag `play-js-last` marks the last commit that has `player/play.js` and the opt-in
+shared-UI preview assembly (the old command-line flag for it is gone). Production itself serves whatever tree was last deployed; the
+"What production is" tables above describe `play.js` deployments and are dated history.

@@ -1,10 +1,11 @@
-"""CARD-386 - the shared-UI PREVIEW site: the admin's own player files on the
-public data, no override layer, never deployed.
+"""CARD-386 / CARD-399 - the public site's ``/play/<key>``: the admin's own player
+files on the public data, no override layer.
 
 CARD-385 made ``solver.js`` / ``solver_state.js`` run with no solution grid.
-This card assembles a site that uses them (``assemble(shared_ui=...)``;
-``scripts/assemble_player_site.py --shared-ui``) so that the owner can open
-``/play/<key>`` and judge the admin's look and behaviour on the public pages.
+CARD-386 assembled a site that uses them; since CARD-399 that is the ONLY
+assembly (``assemble()`` and ``scripts/assemble_player_site.py`` with no
+flag) and the separate ``player/play.js`` is gone. The cells below were the
+preview's; they now describe the default tree.
 The acceptance criteria and where each is held:
 
 * AC-1 - ``TestSharedUi_ThePageRuns``: a real puzzle plays to the Solved banner
@@ -19,12 +20,11 @@ The acceptance criteria and where each is held:
   any served file, the puzzle JSON key set is exactly ``clues, height, key,
   tier, width``, a plant that adds a solution key or string reds, the copied JS
   has no network call, and AC-392's own scan of the tree is empty.
-* AC-4 - ``TestSharedUi_TheDefaultIsUnchanged``: without the flag the tree is
-  the default tree and the preview differs from it in a named set of paths only.
-  (The existing assembler and public-player modules are re-run by node id; see
-  the card's notes.)
+* AC-4 - ``TestSharedUi_TheDefaultIsUnchanged``: two default runs are byte
+  identical, the driver's command line and its end-to-end tree equal the
+  in-process assembly, and the retired flags are refused.
 * AC-5 - ``TestSharedUi_TheDoorsKeepTheirShapes``: ``/library`` and ``/b/<slug>``
-  are byte-identical to the default tree's and work in Chromium; the preview
+  are the ``player/`` sources' bytes and work in Chromium; the preview
   server serves all three URL shapes.
 
 Beside them: the F-2 usage line (no sentence about Check), F-3 (Hint stays on
@@ -32,12 +32,12 @@ and says why where no line decides), the banner's neutral name, the fresh start
 (old ``nonogram-public:`` saves are not read), and the refusals of the shell
 and of the two CLIs.
 
-Bootstrap is NOT in the repository (G-3). Since CARD-394 the preview needs none:
+Bootstrap is NOT in the repository (G-3). Since CARD-394 the page needs none:
 it links the project's own ``player/shared-ui-base.css``, held to the real
 Bootstrap's measured computed styles and rectangles by
-``tests/test_player_base_css.py``. The ``--bootstrap`` flag stays as an
-override for the owner's comparison by eye; the cells that build with it use a
-one-rule stand-in file.
+``tests/test_player_base_css.py``. CARD-399 retired the ``--bootstrap``
+override with the preview (``tests/test_player_base_css.py``'s optional
+real-file arm swaps the published ``base.css`` instead).
 """
 
 from __future__ import annotations
@@ -79,6 +79,7 @@ from tests.test_player_public_mode import (  # noqa: F401 - fixtures are used by
 from tests.test_public_player import REPO_ROOT, _bundle_payload, _leaky_title, assembler
 from tests.test_public_player_pages import (
     BOOK_ORDER,
+    COPIED_JS_RESIDUE,
     PAGE_GRIDS,
     PAGES_SETTLE_MS,
     _open_pages,
@@ -106,25 +107,15 @@ FOUR_FILES = {
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
 
-#: What stands in for a caller's Bootstrap file in the cells that exercise the
-#: ``--bootstrap`` override (G-3: the real file is not in the repository).
-BOOTSTRAP_STAND_IN = "/* stand-in for Bootstrap 5.3 (tests only) */\n[hidden] { display: none !important; }\n"
-
-#: The files the preview's tree differs from the default tree in.
-PREVIEW_ONLY = {"admin.css", "base.css", "solver.js"}
-PREVIEW_REPLACED = {"play/index.html"}
-PREVIEW_DROPPED = {"play.js"}
-
-
 # --------------------------------------------------------------------------
-# The fixtures: a bundle, a default tree, a preview tree
+# The fixtures: a bundle and the assembled tree
 # --------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
 def fragment() -> str:
-    """The admin template, rendered by the driver (the one source of markup)."""
-    return driver.render_shared_ui_fragment()
+    """The admin template, rendered by the assembler (the one source of markup)."""
+    return assembler.render_shared_ui_fragment()
 
 
 def write_extra_puzzle(root: Path, grid, tier: str) -> str:
@@ -144,17 +135,9 @@ def bundle(tmp_path):
     return root, keys, slug
 
 
-def stand_in_bootstrap(tmp_path: Path) -> Path:
-    path = tmp_path / "bootstrap.min.css"
-    path.write_text(BOOTSTRAP_STAND_IN, encoding="utf-8")
-    return path
-
-
-def preview_of(bundle_root: Path, out: Path, fragment: str, tmp_path: Path, *, bootstrap: Path | None = None, **kwargs):
-    """The default preview (the project's stylesheet), or the override with ``bootstrap``."""
-    return assembler.assemble(
-        bundle_root, out, shared_ui=assembler.SharedUi(fragment=fragment, bootstrap=bootstrap), **kwargs
-    )
+def preview_of(bundle_root: Path, out: Path, fragment: str, tmp_path: Path, **kwargs):
+    """The assembled tree, built from ``fragment`` (the rendered admin markup)."""
+    return assembler.assemble(bundle_root, out, fragment=fragment, **kwargs)
 
 
 @pytest.fixture
@@ -162,12 +145,6 @@ def preview(bundle, fragment, tmp_path):
     root, keys, slug = bundle
     report = preview_of(root, tmp_path / "preview", fragment, tmp_path)
     return report, keys, slug
-
-
-@pytest.fixture
-def default_tree(bundle, tmp_path):
-    root, _, _ = bundle
-    return assembler.assemble(root, tmp_path / "default").site_dir
 
 
 @pytest.fixture
@@ -494,10 +471,7 @@ class TestSharedUi_TheCard385SweepOnThisTree:
 
 class TestSharedUi_ByteIdentity:
     def test_the_table_covers_exactly_the_four_files(self) -> None:
-        assert assembler.SHARED_UI_COPIED_FROM_ADMIN == FOUR_FILES
-        # The default table is untouched (AC-4).
-        assert assembler.COPIED_FROM_ADMIN == {
-            k: v for k, v in FOUR_FILES.items() if v in ("solver_state.js", "tokens.css")}
+        assert assembler.COPIED_FROM_ADMIN == FOUR_FILES
 
     @staticmethod
     def identity_problems(site: Path) -> list[str]:
@@ -631,8 +605,7 @@ class TestSharedUi_TheServedTreeCarriesNoAnswer:
         # same-origin module import. That one line is the whole of the residue, and the
         # test names it so that a SECOND unplaceable reference reds.
         assert scan_site(report.site_dir, runtime, static) == {
-            "foreign": [], "identifiers": [],
-            "unclassifiable": ["solver.js: './solver_state.js' is neither absolute nor rooted at the site"]}
+            "foreign": [], "identifiers": [], "unclassifiable": COPIED_JS_RESIDUE}
         page = report.site_dir / "play" / "index.html"
         original = page.read_text(encoding="utf-8")
         page.write_text(original.replace("</head>", '<script src="https://evil.example/x.js"></script></head>'))
@@ -658,40 +631,15 @@ class TestSharedUi_TheServedTreeCarriesNoAnswer:
 
 
 class TestSharedUi_TheDefaultIsUnchanged:
-    def test_without_the_flag_the_tree_is_the_default_tree(self, default_tree) -> None:
-        tree = tree_bytes(default_tree)
-        for absent in PREVIEW_ONLY:
-            assert absent not in tree, absent
-        assert tree["play/index.html"] == (REPO_ROOT / "player" / "play.html").read_bytes()
-        assert tree["play.js"] == (REPO_ROOT / "player" / "play.js").read_bytes()
-        assert assembler.PLAYER_FILES.keys() == {
-            "play.html", "play.js", "library.html", "book.html", "pages.js", "player.css", "vercel.json"}
-
     def test_two_default_runs_are_byte_identical(self, bundle, tmp_path) -> None:
         root, *_ = bundle
         a = tree_bytes(assembler.assemble(root, tmp_path / "a").site_dir)
-        b = tree_bytes(assembler.assemble(root, tmp_path / "b", shared_ui=None).site_dir)
+        b = tree_bytes(assembler.assemble(root, tmp_path / "b").site_dir)
         assert a == b
-
-    def test_the_preview_differs_from_the_default_in_the_named_paths_only(
-        self, preview, default_tree
-    ) -> None:
-        shared, plain = tree_bytes(preview[0].site_dir), tree_bytes(default_tree)
-        assert set(shared) - set(plain) == PREVIEW_ONLY
-        assert set(plain) - set(shared) == PREVIEW_DROPPED
-        changed = {name for name in set(shared) & set(plain) if shared[name] != plain[name]}
-        assert changed == PREVIEW_REPLACED, sorted(changed)
-
-    def test_the_cli_flags_are_all_or_nothing(self, tmp_path) -> None:
-        """Since CARD-394 the markup alone is a complete preview; ``--bootstrap`` is only its override."""
-        with pytest.raises(SystemExit):
-            assembler.main(["--out", str(tmp_path / "o"), "--bootstrap", str(tmp_path / "b.css")])
 
     def test_the_drivers_default_command_line_is_unchanged(self) -> None:
         assert driver.delegated_argv(bundle="b", out="o", force=False, analytics=None) == [
             "--out", "o", "--bundle", "b"]
-        assert driver.delegated_argv(bundle="b", out="o", force=False, analytics=None, bootstrap="x.css") == [
-            "--out", "o", "--bundle", "b", "--bootstrap", "x.css"]
 
     def test_the_driver_still_writes_no_file_and_names_no_published_path(self) -> None:
         """The existing guard, extended to the preview's table (the guard itself is unchanged)."""
@@ -701,50 +649,44 @@ class TestSharedUi_TheDefaultIsUnchanged:
         calls = {n.func.attr for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)}
         assert not calls & {"write_text", "write_bytes", "copy", "copytree", "rmtree", "mkdir"}
         literals = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
-        published = {*assembler.SHARED_UI_PLAYER_FILES, *assembler.SHARED_UI_PLAYER_FILES.values(),
-                     *assembler.SHARED_UI_COPIED_FROM_ADMIN, *assembler.SHARED_UI_COPIED_FROM_ADMIN.values(),
-                     assembler.SHARED_UI_BOOTSTRAP, assembler.SHARED_UI_BASE, assembler.SHARED_UI_BASE_SOURCE}
+        published = {*assembler.PLAYER_FILES, *assembler.PLAYER_FILES.values(),
+                     *assembler.COPIED_FROM_ADMIN, *assembler.COPIED_FROM_ADMIN.values(),
+                     assembler.PLAY_PAGE, assembler.SHARED_UI_BASE, assembler.SHARED_UI_BASE_SOURCE}
         assert sorted(p for p in published if any(p in text for text in literals if len(text) < 80)) == []
 
     def test_the_driver_end_to_end_equals_the_in_process_assembly(self, bundle, fragment, tmp_path) -> None:
-        """The default driven preview, and (CARD-394 AC-5) the one built with ``--bootstrap``."""
+        """The driven tree (no flag: there is one assembly) equals the in-process one."""
         root, *_ = bundle
-        css = stand_in_bootstrap(tmp_path)
-        for flags, override in (([], None), (["--bootstrap", str(css)], css)):
-            out = tmp_path / f"driven{len(flags)}"
-            run = subprocess.run(
-                [sys.executable, str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
-                 "--bundle", str(root), "--out", str(out), "--shared-ui", *flags],
-                capture_output=True, text=True, cwd=REPO_ROOT, check=False,
-                env={"PYTHONPATH": str(REPO_ROOT / "src"), "PATH": "/usr/bin:/bin"},
-            )
-            assert run.returncode == 0, run.stderr
-            assert "PREVIEW" in run.stdout
-            in_process = preview_of(root, tmp_path / f"inproc{len(flags)}", fragment, tmp_path, bootstrap=override).site_dir
-            assert tree_bytes(out) == tree_bytes(in_process)
-            page = (out / "play" / "index.html").read_text(encoding="utf-8")
-            assert ('href="/bootstrap.min.css"' in page) is (override is not None)
-            assert (out / "bootstrap.min.css").is_file() is (override is not None)
-            assert (out / "base.css").is_file() is (override is None)
+        out = tmp_path / "driven"
+        run = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
+             "--bundle", str(root), "--out", str(out)],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+            env={"PYTHONPATH": str(REPO_ROOT / "src"), "PATH": "/usr/bin:/bin"},
+        )
+        assert run.returncode == 0, run.stderr
+        in_process = preview_of(root, tmp_path / "inproc", fragment, tmp_path).site_dir
+        assert tree_bytes(out) == tree_bytes(in_process)
+        page = (out / "play" / "index.html").read_text(encoding="utf-8")
+        assert 'href="/base.css"' in page and (out / "base.css").is_file()
+        assert not (out / "play.js").exists() and not (out / "bootstrap.min.css").exists()
 
-    def test_the_driver_refuses_one_of_the_two_flags_and_print_only_renders_nothing(
-        self, bundle, tmp_path
-    ) -> None:
-        """``--bootstrap`` without ``--shared-ui`` is refused; ``--shared-ui`` alone is a whole preview."""
+    def test_the_retired_flags_are_refused_and_print_only_renders_nothing(self, bundle, tmp_path) -> None:
+        """``--shared-ui`` and ``--bootstrap`` no longer exist on either command line."""
         root, *_ = bundle
         script = str(REPO_ROOT / "scripts" / "assemble_player_site.py")
-        run = subprocess.run(
-            [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"),
-             "--bootstrap", str(tmp_path / "x.css")],
-            capture_output=True, text=True, cwd=REPO_ROOT, check=False)
-        assert run.returncode == 2 and "belongs to --shared-ui" in run.stderr, run.stderr
-        for flags, named in (([], False), (["--bootstrap", str(tmp_path / "x.css")], True)):
+        for flags in (["--shared-ui"], ["--bootstrap", str(tmp_path / "x.css")]):
             run = subprocess.run(
-                [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), "--shared-ui",
-                 "--print-only", *flags],
+                [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), *flags],
                 capture_output=True, text=True, cwd=REPO_ROOT, check=False)
-            assert run.returncode == 0, run.stderr
-            assert ("--bootstrap" in run.stdout) is named and not (tmp_path / "o").exists()
+            assert run.returncode == 2 and "unrecognized arguments" in run.stderr, (flags, run.stderr)
+        run = subprocess.run(
+            [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), "--print-only"],
+            capture_output=True, text=True, cwd=REPO_ROOT, check=False)
+        assert run.returncode == 0, run.stderr
+        assert not (tmp_path / "o").exists()
+        with pytest.raises(SystemExit):
+            assembler.main(["--out", str(tmp_path / "o"), "--shared-ui-fragment", str(tmp_path / "f.html")])
 
 
 # ==========================================================================
@@ -780,18 +722,6 @@ class TestSharedUi_TheShellRefusesAFragmentItCannotTrust:
             preview_of(root, out, fragment.replace(assembler.SHARED_UI_HINT_CLAUSE, "."), tmp_path)
         assert tree_bytes(out) == before
 
-    def test_a_missing_bootstrap_file_is_an_error_before_the_tree_is_touched(
-        self, bundle, fragment, tmp_path
-    ) -> None:
-        root, *_ = bundle
-        out = tmp_path / "keep"
-        preview_of(root, out, fragment, tmp_path)
-        before = tree_bytes(out)
-        with pytest.raises(FileNotFoundError):
-            assembler.assemble(root, out, shared_ui=assembler.SharedUi(fragment, tmp_path / "none.css"))
-        assert tree_bytes(out) == before
-
-
 # ==========================================================================
 # AC-5 - the QR landing, the library and the URL shapes
 # ==========================================================================
@@ -806,13 +736,10 @@ def load_preview_server():
 
 
 class TestSharedUi_TheDoorsKeepTheirShapes:
-    def test_the_two_listing_pages_and_their_assets_are_the_default_trees_bytes(
-        self, preview, default_tree
-    ) -> None:
-        shared, plain = tree_bytes(preview[0].site_dir), tree_bytes(default_tree)
-        for name in ("library/index.html", "b/index.html", "pages.js", "player.css", "vercel.json",
-                     "index.json", *(n for n in plain if n.startswith(("book/", "puzzle/")))):
-            assert shared[name] == plain[name], name
+    def test_the_two_listing_pages_and_their_assets_are_the_sources_bytes(self, preview) -> None:
+        tree = tree_bytes(preview[0].site_dir)
+        for source, published in assembler.PLAYER_FILES.items():
+            assert tree[published] == (REPO_ROOT / "player" / source).read_bytes(), published
 
     def test_the_preview_server_serves_the_three_url_shapes(self, preview) -> None:
         report, keys, slug = preview

@@ -465,8 +465,8 @@ export function solvedPercent(board, solution) {
 }
 
 // ---------------------------------------------------------------------------
-// Solved, from the clues alone (CARD-385; the twin of player/play.js's
-// isClueSolved, which stays where it is until the later deletion card)
+// Solved, from the clues alone (CARD-385; it was the twin of the retired
+// player/play.js's isClueSolved, which CARD-399 deleted)
 //
 // The lengths of `cells`' runs of FILLED cells, left to right: [0] when there
 // are none, the way a clue spells an empty line. Every other state (EMPTY,
@@ -716,8 +716,8 @@ function isUndecided(state) {
 // decides, and there is NO fallback: a board where no line decides a cell has
 // no hint (null), because the only thing a fallback could reveal is an answer
 // that is not there. A wrong mark can mislead such a hint - inherent to having
-// no answer to check marks against, and exactly what play.js's derivedHint
-// does today.
+// no answer to check marks against, and exactly what the retired play.js's
+// derivedHint did.
 export function hintCell(board, rows, columns, solution) {
   const truth = (row, col) => (solution[row][col] ? FILLED : EMPTY);
   const rowForced = rows.map((clue, row) =>
