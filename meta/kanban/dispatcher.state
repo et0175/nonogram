@@ -472,13 +472,6 @@ active:
     started: 2026-11-08T13:00Z
     estimate: 5c (2d)
     cut_from: ac5e423d
-  # CARD-414 DISPATCHED 2026-11-08 as a THIRD active card: the owner lifted the cap of 2 for this card (ruling 2026-11-08) so CARD-399 step 3 can proceed.
-  - card: CARD-414
-    branch: card/414-shared-crosshair-pinch
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-414
-    started: 2026-11-08T16:30Z
-    estimate: 1c (0.5d)
-    cut_from: 3e8617e7
   # CARD-229 DISPATCHED 2026-11-08 as a THIRD active card (owner ruling 2026-11-08: cap of 2 lifted; active = 399, 414, 229). CARD-393 is folded in.
   - card: CARD-229
     branch: card/229-guide-spread
@@ -486,6 +479,7 @@ active:
     started: 2026-11-08T17:00Z
     estimate: 4c (1.5d)
     cut_from: a12c39dd
+# CARD-414 CLEARED 2026-11-08T20:09:24Z at its merge gate: merged 1d1e1c58, done, certified 8.6 on cycle 2 (6.5 on cycle 1, not certified), estimate 1c -> 2 cycles = ratio 2.0. Gate 1 red on 6 playwright goto timeouts, not reproduced; gate 2 full suite 11612 passed, 1 skipped, 1 xfailed + 7 lifted wave_close_only passed. Entry dropped.
 # CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
 # CARD-394 CLEARED 2026-11-08T12:36Z at its merge gate: merged 93d951f7, done, certified 9.0 on cycle 2 (6.5 on cycle 1, not certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11602 passed, 1 skipped, 1 xfailed + 6 lifted wave_close_only passed. Entry dropped.
 # CARD-391 CLEARED 2026-11-08 at its merge gate (second attempt): merged 826f2f34, done, certified 8.6 on cycle 1 (gate-found dots-floors fix round not re-reviewed). Entry dropped; worktree removed under the tidy rule.

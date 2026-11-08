@@ -1,6 +1,6 @@
 # CARD-414: The shared crosshair stops during a pinch and counts a pen as part of one — ported from play.js, with one test
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d)
@@ -19,11 +19,11 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_crosshair.py
 <!-- Derived from the tree at drafting time (2026-11-07), by reading which files hold the named behaviour; the author re-derives after the Depends-on cards merge, and the full-suite census of frozen registries (trace.yml, browser-family lists, tests/test_browser_fixture_scope.py) is named in the brief, not assumed. The accessible names 'Keep' and 'Contradiction' are used by tests that find buttons by role and name and by the `data-player-probe-action` attributes (the attributes are the stable handle and do not change). Serialize after CARD-410 (same bar) if both are in flight. -->
-**Review score:** —
+**Review score:** 8.6 (cycle 2/3 - CERTIFIED; cycle 1 scored 6.5)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T20:09:24Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 1d1e1c580a03026d10647c1d30624607c8017ee3
 **Blocked by:** —
 
 ## Why this card exists
@@ -63,3 +63,14 @@ One source of truth: the behaviour lives in the admin files and the public site 
 - G-2 reading, OWNER RULING 2026-11-08 ('fix the stuck pen case too'): the stuck-pen fix is an owner-ruled addition BEYOND play.js parity. Repro (probe A): a real CDP pen pressed on the board, moved OUTSIDE the stage and released there never delivers its pointerup to the stage (no pointer capture without Region), so its entry stays in `down`; a finger tap is then not crossed, nor a later mouse hover, until the next primary PEN press (a finger primary wipes only touch entries). Remedy chosen: the pointerup/pointercancel `lift` listens on the WINDOW instead of the stage (the window hears a release anywhere and everything the stage hears bubbles to it), so a lost up lifts its entry; a pen genuinely still down has produced no up, so a pen-then-finger pinch still counts (the S1 arm, play.js behaviour 6), and a single pointer is unchanged. Chosen over a timeout or an event.buttons check on the next move because it is the standard cure and needs no state. play.js had the same flaw; it retires with CARD-399 and is not fixed there. The cell gained the probe-A arm (pen press, move and release outside the stage, finger tap crossed, mouse hover crossed); the scratch mutant that drops the window listener (M6) reds it ("a pen released outside the stage stuck the pinch"). The pen helper now sends `buttons: 0` on release (a release with buttons 1 is not a pointerup), and the mouse pointer is parked off the stage before the tap (its pointerleave would clear a touch cross). Census re-derived by measurement: `crosshair_disagreements` still returns exactly the two redraw/forget facts (the window listener reads as the same listened events), nothing loosened.
 - Process blip: a stray `git stash; git stash pop` was run in this worktree; the tree was clean so nothing was stashed, the pop failed on an older unrelated stash and left it; `git stash list` is unchanged (4 pre-existing entries, none mine).
 
+### Merge gate record (2026-11-08T20:09:24Z)
+
+[Review 1/3] Score: 6.5 (FAIL: the browser-family census test_browser_fixture_scope::...card_217_measured was red because the new cell's [chromium] id was not in ADDED_SINCE_BEFORE; pen-then-finger behaviour uncovered). Reviewer-reported as relayed to the merge gate.
+
+[Review 2/3] Score: 8.6 (threshold 8.0 reached; PASS; certified). Both findings fixed; the stuck-pen window-listener fix verified safe by the reviewer's own probes. Reviewer-reported as relayed to the merge gate.
+
+Owner ruling 2026-11-08: the stuck-pen fix goes beyond play.js parity (G-2); play.js had the same flaw and retires with CARD-399.
+
+Nits (recorded, no card): no arm lifts one finger while another is still down and no arm sends a stray mouse/unknown-id pointerup during a pinch (reviewer mutants N3/N4/N8 survive: "the pinch survives until the last pointer lifts" is untested, behaviour correct as coded); no test exercises the window pointercancel listener (N1); a comment in solver.js wraps oddly after "(owner ruling 2026-11-08; play.js had the flaw)".
+
+Gate record: gate 1 RED: 6 playwright Page.goto timeouts in test_puzzle_solver_progress (5) and, in the wave_close_only run, test_browser_fixture_scope::test_reverse_order_passes via test_puzzle_solver_resume; not reproduced; gate 2 green (run 1: 11612 passed, 1 skipped, 1 xfailed, 13 deselected; run 2, 3 lifted files: 7 passed). Artefacts in ~/Documents/nonogram-reviews/suite-profile-2026-11-07/: gate-card414-* (gate 1) and gate-card414b-* (gate 2, with gate-card414b-load.txt, a 30 s host and process sample).
