@@ -1,6 +1,6 @@
 # CARD-394: A small project stylesheet replaces Bootstrap on the public player — the four classes and the base reset, owned by the repo
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 2c (1d)
@@ -17,13 +17,13 @@
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-386
-**Touches:** player/assemble.py, scripts/assemble_player_site.py, player/bootstrap-lite.css, tests/test_player_shared_ui_site.py, tests/test_player_bootstrap_lite.py, docs/deploy/player.md
+**Touches:** player/assemble.py, scripts/assemble_player_site.py, player/shared-ui-base.css, tests/test_player_shared_ui_site.py, tests/test_player_base_css.py, docs/deploy/player.md
 <!-- The stylesheet's file name and place are the author's to pick under player/ (it must be hand-written, repo-owned, and carry no third-party text); the list above is the starting point. The live assembly path (the one deployed today) stays untouched: this card changes the OPT-IN shared-UI mode only. -->
-**Review score:** —
+**Review score:** 9.0 (cycle 2/3 - CERTIFIED; cycle 1 scored 6.5, clean-room rewrite)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T12:36Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 93d951f75a18dbeef6fcba4da4e81d44630e9bb6
 **Blocked by:** —
 
 ## Why this card exists
@@ -82,3 +82,11 @@ Author round 2 (clean-room stylesheet landed; plant strings re-pointed), 2026-11
 * Provenance, as reported by the writer (not independently verified by this author): the clean-room writer read only the spec JSON, the template, `solver.js`, `admin.css`, `tokens.css`, the head of `assemble.py`, and the test's frozen table; no Bootstrap source file. Size: `player/shared-ui-base.css`, 148 lines. Fidelity residue 0 at 390 and 1280 px, in frozen-table and live-real-file mode.
 * `test_a_changed_stylesheet_reds_the_fidelity_check` planted strings that only the old sheet contained. Now: drop the `[hidden]` block as formatted in the new sheet (`[hidden] {\n  display: none !important;\n}\n`), and `0.4rem 0.75rem` -> `0.4rem 0.9rem` (the `.btn` padding). Each still asserts `planted != original` and that the comparison reds. No test added or removed (net 0).
 * Mutant re-proof of the two declarations the writer could not re-run, on a scratch test (since deleted) planting into a copy served from the preview tree, committed sheet untouched: `.btn` `color` -> `#ff0000` reds the frozen comparison at 1280 px (20 differences, e.g. `color 'rgb(28, 35, 51)' != 'rgb(255, 0, 0)'`); `.btn:disabled` `border-color` -> `#ff0000` reds it (2 differences, `disabled plain` and `disabled danger` border-top-color).
+
+[Review 1/3] Score: 6.5 (FAIL: the first stylesheet was not independent of Bootstrap; rewritten clean-room). Reviewer-reported as relayed to the merge gate.
+
+[Review 2/3] Score: 9.0 (threshold 8.0 reached; PASS; certified). Verdict INDEPENDENT: 8-gram overlap with Bootstrap 65.4% -> 5.1% of tokens; declaration order 68/90 -> 10/65. Reviewer-reported as relayed to the merge gate.
+
+Reviewer should-fix (no card, note only): five declarations are in the sheet but not observed by the fidelity check (caption-side, text-size-adjust, user-select, appearance: button, outline-width: 0); caption-side looks dead. Nit fixed at bookkeeping: the Touches line named player/bootstrap-lite.css and tests/test_player_bootstrap_lite.py, now the real names.
+
+Merge gate (2026-11-08): full armed suite, run 1 11602 passed, 1 skipped (test_book_pdf_memory setrlimit), 1 xfailed, 13 deselected; run 2 (lifted wave_close_only files) 6 passed; fidelity test also passed against the real Bootstrap file via NONOGRAM_REAL_BOOTSTRAP. 7 wave_close_only tests owed at the wave close.
