@@ -1434,7 +1434,9 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
         assembler.COPIED_FROM_ADMIN
     )
     planted = dict(statics(one))
-    planted["play.js"] += b"//"
+    # A copied admin file, not play.js: that one is the file CARD-399 retires,
+    # and the comparison must be shown able to fail on a file that stays.
+    planted[next(iter(assembler.COPIED_FROM_ADMIN.values()))] += b"//"
     assert planted != statics(two), "the comparison would not notice a changed asset"
 
 
@@ -3162,7 +3164,7 @@ def test_the_player_assets_carry_no_colour_literal_and_only_defined_tokens() -> 
 
 
 def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
-    """Every ``tests/test_public_player.py::…`` the model names is defined here.
+    """The five refs the model gives the public player's ACs are defined and cited.
 
     The defect this closes is the one the card arrived with: FR-045's AC-383
     through AC-386 named node ids in a file that did not exist, and the
@@ -3171,43 +3173,46 @@ def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
     the fix, because the validator matches the whole ``path::name`` string and
     finds it in no code file unless something names it.
 
-    So this test is the other half, in both directions and derived from the
-    registry rather than from a list kept here:
+    CARD-399 step 2 re-pointed this cell: the five refs (AC-383..AC-386 and
+    EC-050) no longer name this module — they name the shared player's own
+    tests, which are what verify the public page now that it runs the admin's
+    files. The claim is unchanged and derived from the registry, in both
+    directions:
 
-    #. every ref ``meta/architecture/requirements.yml`` points at this module
-       resolves to a module-level function in it — a renamed test reds here
-       instead of going quietly dead in the model;
-    #. every one of them is written out in this module's docstring, which is
-       what the validator's ``git grep`` actually reads, so a ref cannot be
-       alive in pytest and dead in the model at the same time.
+    #. each of the five ACs' ``test:`` ref names a file that exists and a
+       function defined in it (found by ``ast``, class methods included) — a
+       renamed test reds here instead of going quietly dead in the model;
+    #. the ref is written out whole in that same file, which is what the
+       validator's ``git grep`` actually reads, so a ref cannot be alive in
+       pytest and dead in the model at the same time.
 
     The registry is parsed with a regex rather than a YAML library: there is
     no YAML parser in the dependency baseline (ADR-0006/R1), and the shape
     being read is one line.
     """
     registry = (REPO_ROOT / "meta" / "architecture" / "requirements.yml").read_text(encoding="utf-8")
-    module = Path(__file__).relative_to(REPO_ROOT).as_posix()
-    refs = sorted(set(re.findall(rf"({re.escape(module)}::[A-Za-z_][A-Za-z0-9_]*)", registry)))
-    # Five today: AC-383..AC-386 and EC-050. EC-048's served half is the one
-    # the registry does not yet name — see this module's docstring.
-    assert len(refs) >= 5, refs
+    ids = ("AC-383", "AC-384", "AC-385", "AC-386", "EC-050")
+    refs = {}
+    for ident in ids:
+        found = re.search(rf"- id: {ident}\n(?:(?!\n      - id:).)*?\n\s+test: (\S+)::(\w+)", registry, re.S)
+        assert found, f"{ident} has no test: ref in requirements.yml"
+        refs[ident] = (found.group(1), found.group(2))
+    assert len(refs) == 5, refs
 
-    defined = {
-        name
-        for name, value in globals().items()
-        if name.startswith("test_") and callable(value) and getattr(value, "__module__", "") == __name__
-    }
-    assert len(defined) >= 20, sorted(defined)
-
-    missing = [ref for ref in refs if ref.split("::", 1)[1] not in defined]
-    assert missing == [], missing
-
-    docstring = __doc__ or ""
-    unnamed = [ref for ref in refs if ref not in docstring]
-    assert unnamed == [], (
-        "these refs resolve in pytest but the validator's git grep will not "
-        f"find their node id in any code file: {unnamed}"
-    )
+    for ident, (path, name) in refs.items():
+        module = REPO_ROOT / path
+        assert module.is_file(), f"{ident}: {path} does not exist"
+        text = module.read_text(encoding="utf-8")
+        defined = {
+            node.name
+            for node in ast.walk(ast.parse(text))
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_")
+        }
+        assert name in defined, f"{ident}: {path} defines no {name}"
+        assert f"{path}::{name}" in text, (
+            f"{ident}: {path}::{name} resolves in pytest but the validator's git grep "
+            "will not find its node id in any code file"
+        )
 
 
 def test_the_runtime_dependency_baseline_is_untouched() -> None:

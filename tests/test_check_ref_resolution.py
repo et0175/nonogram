@@ -1531,7 +1531,8 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # rewritten `test:` class (the one about narrow trims now pairing, in
 # requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
 # does not (none of the three is declared in trace.yml).
-CENSUS = (583, "e0a8c03c0eed6b00")
+# CARD-399 step 2: digest e0a8c03c0eed6b00 -> 9d527d75b1c0f220, count 583 unchanged (five refs replaced by five; see DEFINED).
+CENSUS = (583, "9d527d75b1c0f220")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1577,7 +1578,8 @@ CENSUS = (583, "e0a8c03c0eed6b00")
 # CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
 # FR-047's trace.yml row (the one declaration site for each: the criteria
 # repeat two of them, which this list does not count twice).
-TRACE_TESTS = (512, "c3123e749dd9300d")
+# CARD-399 step 2: digest c3123e749dd9300d -> 9647eab2ad3c4fa3, count 512 unchanged (see DEFINED).
+TRACE_TESTS = (512, "9647eab2ad3c4fa3")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1678,7 +1680,17 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # ref for the validator), each declared by requirements.yml and trace.yml with
 # its definition in place; HONEST_DEAD unmoved at 9.
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
-DEFINED = (419, "0a91e9a7753e31ec")
+# CARD-399 step 2: the model's five verifying refs for the public player (AC-383..386 and
+# EC-050) moved from tests/test_public_player.py, whose twins retire, to the shared player's
+# own tests (declared in requirements.yml, trace.yml and ADR-0041/R4). Same count, five
+# refs replaced by five that each have a def and a one-line citation in their own module, so
+# the validator reads them alive: DEFINED, SAME_FILE_PROSE and TRACE_TESTS keep their
+# counts and take the digest of the new member set (measured by this module's own
+# derivation, not pasted from a prediction); CENSUS and the dead classes did not move
+# (FALSELY_DEAD stays 13 because the citations are what keeps these five out of it).
+# CENSUS moved the same way (digest only); its own line below says so.
+# DEFINED: digest 0a91e9a7753e31ec -> 9af7b521f444e194, count 419 unchanged.
+DEFINED = (419, "9af7b521f444e194")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1708,7 +1720,8 @@ DEFINED = (419, "0a91e9a7753e31ec")
 #: warning set on ``meta/architecture`` is identical to main's (0 errors, 89
 #: warnings, forge_1), where a first draft with no such citation read one
 #: DEAD-ref warning more. Verified against the two ``def`` lines.
-SAME_FILE_PROSE = (21, "531805932c7ba2e5")
+# CARD-399 step 2: digest 531805932c7ba2e5 -> 5cb45488b9f74d4c, count 21 unchanged (see DEFINED).
+SAME_FILE_PROSE = (21, "5cb45488b9f74d4c")
 
 #: **Per-member digests of the two classes whose shrink is answerable
 #: mechanically** -- the enforceable half of repair-vs-signal-loss, and the

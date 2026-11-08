@@ -1168,8 +1168,13 @@ class TestImpactSet_APageOutsideTheKnownRootsIsDerivedNotRefused:
             p.relative_to(REPO).as_posix()
             for p in (REPO / "tests").glob("test_public_player*.py")
         )
-        assert len(public) >= 9, "the control's own corpus shrank"
-        for asset in ("player/play.js", "player/player.css", "player/play.html"):
+        # CARD-399: the three assets named here before (play.js, play.html,
+        # player.css) are two files that retire and one that splits; this walks
+        # the assets that stay. The floor is the two files that stay
+        # (test_public_player.py, test_public_player_pages.py), not the nine
+        # that exist before the retirement, so it holds on both sides of it.
+        assert len(public) >= 2, "the control's own corpus shrank"
+        for asset in ("player/player.css", "player/pages.js", "player/library.html"):
             selected = _real_select([asset])
             assert selected != impact.FULL, asset
             assert sorted(set(public) - set(selected)) == [], asset

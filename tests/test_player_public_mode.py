@@ -10,9 +10,9 @@ R2 proof of the fix, in three parts:
 * the PURE half - ``solver_state.js``'s solution-free twins (``isClueSolved``,
   ``hintCell`` / ``hintLine`` / ``knownLine`` with a ``null`` solution, a save
   with no fingerprint) against an independent brute-force oracle on a seeded
-  corpus, and against ``player/play.js``'s ``derivedHint`` / ``isClueSolved`` /
-  ``forcedLine`` on the same corpus (G-6: the two implementations exist side by
-  side until the later deletion card, so any difference is reported here);
+  corpus (CARD-399 dropped the comparison with ``player/play.js``'s
+  ``derivedHint`` / ``isClueSolved`` / ``forcedLine``: the shared player is the
+  one implementation, the oracle is the independent second one);
 * the SWEEP - an assembled scratch tree built from the REAL admin files
   (``solver.js``, ``solver_state.js``, ``admin.css``, ``tokens.css`` and the
   real ``puzzle_solve.html`` rendered by Jinja behind a throwaway shell that
@@ -98,10 +98,12 @@ def flat(grid) -> str:
     return "".join("1" if cell else "0" for row in grid for cell in row)
 
 
-def play_exhausted_sentence() -> str:
-    """player/play.js's exhausted-hint sentence, read from the file."""
-    match = re.search(r'const HINT_EXHAUSTED =\s*\n?\s*"([^"]+)";', (_PLAYER / "play.js").read_text())
-    assert match, "play.js no longer defines HINT_EXHAUSTED"
+def public_exhausted_sentence() -> str:
+    """The exhausted-hint sentence of public mode, read from solver.js's own
+    ``PUBLIC_EXHAUSTED`` (CARD-399: the shared player is the one implementation,
+    so the sentence is read where it is defined, not from player/play.js)."""
+    match = re.search(r'const PUBLIC_EXHAUSTED =\s*\n?\s*"([^"]+)";', (_STATIC / "solver.js").read_text())
+    assert match, "solver.js no longer defines PUBLIC_EXHAUSTED"
     return match.group(1)
 
 
@@ -487,11 +489,11 @@ def step_hint(page, ctx):
     assert page.locator("[data-player-hints]").inner_text() == "1"
     for _ in range(3 * 90):
         if disabled(hint) or page.locator("#puzzle-player-solved").is_visible() or \
-                page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence():
+                page.locator("#puzzle-player-explain").inner_text() == public_exhausted_sentence():
             break
         hint.click()
     assert (disabled(hint) or page.locator("#puzzle-player-solved").is_visible()
-            or page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence()), \
+            or page.locator("#puzzle-player-explain").inner_text() == public_exhausted_sentence()), \
         "the ladder ran out of presses"
     hint.click(force=True)  # beyond: a locked Hint is inert, an exhausted one repeats its sentence
 
@@ -690,12 +692,12 @@ class TestPublicMode_TheSweep:
         open_page(browser_page, served)
         # CARD-385 fix round (F-3): the id is kept (G-5) and the claim moved.
         # Hint used to be DISABLED here (a dead button with no reason); it now
-        # stays enabled and says play.js's sentence. Nothing is revealed.
+        # stays enabled and says the public sentence. Nothing is revealed.
         assert not disabled(action(browser_page, "hint")), "undecided cells remain: Hint stays on"
         before = states(browser_page)
         action(browser_page, "hint").click()
         assert states(browser_page) == before
-        assert browser_page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence()
+        assert browser_page.locator("#puzzle-player-explain").inner_text() == public_exhausted_sentence()
         assert watch.problems() == []
 
 
@@ -723,7 +725,7 @@ def sweep_problems(page, served: Served, grid=SWEEP_GRID, steps=None, timeout=10
 
 def stall_problems(page, served: Served, timeout=3000) -> list[str]:
     """On a board no line decides, Hint is still offered, says why nothing is
-    offered in play.js's words (explain line AND announce region), reveals
+    offered in the public sentence (explain line AND announce region), reveals
     nothing, records nothing, counts nothing, and does not climb the ladder."""
     page.set_default_timeout(timeout)
     watch = Watch(page)
@@ -742,7 +744,7 @@ def exhausted_press_problems(page) -> list[str]:
     if disabled(hint):
         problems.append("Hint is disabled where cells are undecided and no line decides one (a dead button)")
     before = states(page)
-    sentence = play_exhausted_sentence()
+    sentence = public_exhausted_sentence()
     for press in range(4):  # past three: the ladder must not reach a reveal
         hint.click(force=True)
         if page.locator("#puzzle-player-explain").inner_text() != sentence:
@@ -955,15 +957,20 @@ class TestPublicMode_TheStallBoard:
         assert stall_problems(browser_page, serve(public_payload(STALL_GRID, puzzle_id="stall"))) == []
 
     def test_the_sentence_is_play_js_s_own(self) -> None:
-        """G-6: the same words as the public player says today."""
-        assert play_exhausted_sentence() in (_STATIC / "solver.js").read_text()
-        assert play_exhausted_sentence().startswith("Hint: the clues decide nothing more by themselves")
+        """G-6: the same words as the public player says today. Read from
+        play.js directly (not through the helper, which now reads solver.js):
+        this is the one cell that still compares the two files, and it retires
+        with play.js (CARD-399 step 3)."""
+        match = re.search(r'const HINT_EXHAUSTED =\s*\n?\s*"([^"]+)";', (_PLAYER / "play.js").read_text())
+        assert match, "play.js no longer defines HINT_EXHAUSTED"
+        assert public_exhausted_sentence() == match.group(1)
+        assert public_exhausted_sentence().startswith("Hint: the clues decide nothing more by themselves")
 
     def test_the_oracle_s_stalled_boards_drive_it(self, browser_page, serve) -> None:
         """Boards the brute-force oracle says no line decides (half of them
         holding a '?'): Hint is enabled and says the sentence on each; and a
         fully decided board that is not solved has nothing to hint, so it is
-        disabled (play.js's canHint)."""
+        disabled (the same rule play.js's canHint had)."""
         stalled = [c for c in hint_corpus() if c["w"] <= ORACLE_MAX_SIDE and c["h"] <= ORACLE_MAX_SIDE
                    and oracle_hint(c["cells"], c["w"], c["h"], c["rows"], c["cols"]) is None
                    and any(s in (UNKNOWN, MAYBE) for s in c["cells"])]
@@ -1187,7 +1194,7 @@ class TestPublicMode_EverySolutionReadIsListedAndGated:
 
 # ==========================================================================
 # AC-6 / G-6 - the solution-free deduction, against a brute-force oracle and
-# against player/play.js's, on seeded corpora
+# on seeded corpora (CARD-399: no longer compared with player/play.js)
 # ==========================================================================
 
 
@@ -1236,7 +1243,9 @@ def oracle_hint(cells, width, height, rows, columns):
 
 
 #: Extents of the hint corpus. The first five are small enough for the oracle's
-#: enumeration; the last two are the supported range's extremes (module vs play.js only).
+#: enumeration; the last two are the supported range's extremes (beyond the oracle: held by
+#: the clean-board comparison with the admin's deduced hint, and since CARD-399
+#: no longer also by a comparison with play.js).
 HINT_EXTENTS = [(6, 5), (8, 8), (10, 8), (11, 10), (12, 12), (20, 20), (30, 30)]
 ORACLE_MAX_SIDE = 12
 
@@ -1293,35 +1302,25 @@ def has_wrong_mark(case) -> bool:
 _HINT_JS = """async (cases) => {
   document.body.insertAdjacentHTML('beforeend', '<div data-player-stage></div>');
   const S = await import('/solver_state.js');
-  const P = await import('/play.js');
-  const lines = (b, rows, cols) => [
-    ...rows.map((clue, r) => [clue, Array.from({ length: b.width }, (_, c) => b.cells[r * b.width + c])]),
-    ...cols.map((clue, c) => [clue, Array.from({ length: b.height }, (_, r) => b.cells[r * b.width + c])])];
   return cases.map((c) => {
     const board = { width: c.w, height: c.h, cells: c.cells };
     const pub = S.hintCell(board, c.rows, c.cols, null);
     const line = pub === null ? null : S.hintLine(board, c.rows, c.cols, null, pub);
-    const play = P.derivedHint(board, c.rows, c.cols);
     const admin = S.hintCell(board, c.rows, c.cols, c.grid);
     const adminLine = admin === null ? null : S.hintLine(board, c.rows, c.cols, c.grid, admin);
-    const forcedDiffers = lines(board, c.rows, c.cols).filter(([clue, cells]) =>
-      JSON.stringify(S.lineForced(clue, cells)) !== JSON.stringify(P.forcedLine(clue, cells))).length;
     return {
       pub: pub && [pub.row, pub.col, pub.state, pub.deduced], line: line && [line.axis, line.index],
-      play: play && [play.row, play.col, play.state, play.line.axis, play.line.index],
       admin: admin && [admin.row, admin.col, admin.state, admin.deduced],
       adminLine: adminLine && [adminLine.axis, adminLine.index],
-      forcedDiffers,
     };
   });
 }"""
 
 
 def pure_site(serve, tmp_path_factory_edits=()):
-    """A tree for the pure checks: the real modules plus a COPY of play.js,
-    whose absolute import of /solver_state.js resolves to the tree's own."""
-    return serve(public_payload(SWEEP_GRID), edits=list(tmp_path_factory_edits),
-                 extra_files=[("play.js", (_PLAYER / "play.js").read_text())])
+    """A tree for the pure checks: the real modules and nothing else (CARD-399:
+    play.js is no longer copied in, the module is checked against the oracle)."""
+    return serve(public_payload(SWEEP_GRID), edits=list(tmp_path_factory_edits))
 
 
 def hint_problems(page, served: Served, cases) -> list[str]:
@@ -1331,12 +1330,8 @@ def hint_problems(page, served: Served, cases) -> list[str]:
     problems: list[str] = []
     for n, (case, g) in enumerate(zip(cases, got, strict=True)):
         small = case["w"] <= ORACLE_MAX_SIDE and case["h"] <= ORACLE_MAX_SIDE
-        pub, play = g["pub"], g["play"]
+        pub = g["pub"]
         cell_of = lambda h: None if h is None else tuple(h[:3])  # noqa: E731
-        if g["forcedDiffers"]:
-            problems.append(f"case {n}: lineForced != forcedLine on {g['forcedDiffers']} lines")
-        if (cell_of(pub), g["line"] and tuple(g["line"])) != (cell_of(play), play and tuple(play[3:])):
-            problems.append(f"case {n}: hintCell(null) {pub}/{g['line']} != derivedHint {play}")
         if pub is not None and pub[3] is not True:
             problems.append(f"case {n}: a public hint that is not deduced: {pub}")
         if small:
@@ -1384,19 +1379,20 @@ class TestPublicMode_TheHintIsDerivedFromTheCluesAndTheMarks:
         assert sum(o is None for o in oracle) >= 40 and sum(o is not None for o in oracle) >= 150
         assert sum(o is not None and o[3] == "column" for o in oracle) >= 20
 
-    def test_it_agrees_with_the_brute_force_oracle_and_with_play_js(self, browser_page, serve, cases) -> None:
+    def test_it_agrees_with_the_brute_force_oracle(self, browser_page, serve, cases) -> None:
         """AC-6 and G-6: hintCell/hintLine with a null solution equal the
-        enumeration (cell, state AND the line that decides it) and equal
-        player/play.js's derivedHint and forcedLine on every case, wrong marks
-        included; and on a board with no wrong mark they equal the admin's
+        enumeration (cell, state AND the line that decides it) on every case
+        within the oracle's reach, wrong marks included; and on a board with no wrong mark they equal the admin's
         deduced cell, so the answer-free hint is the admin hint minus its
         fallback and nothing else."""
         assert hint_problems(browser_page, pure_site(serve), cases) == []
 
-    def test_a_wrong_mark_misleads_it_exactly_as_it_misleads_play_js(self, browser_page, serve, cases) -> None:
+    def test_a_wrong_mark_misleads_it_as_adr_0041_r2_declares(self, browser_page, serve, cases) -> None:
         """AC-6's declared half (inherent to ADR-0041/R2): on a board with a
-        wrong mark the derived cell is sometimes not the answer's - and play.js
-        gives the same cell. Measured on this corpus, not assumed."""
+        wrong mark the derived cell is sometimes not the answer's, and the
+        public hint then differs from the admin's. Measured on this corpus, not
+        assumed. (CARD-399: the third arm, "play.js gives the same cell", went
+        with the comparator; the claim that a wrong mark misleads is unchanged.)"""
         browser_page.goto(pure_site(serve).url + "/")
         got = browser_page.evaluate(_HINT_JS, cases)
         misled = [(n, g["pub"]) for n, (c, g) in enumerate(zip(cases, got, strict=True))
@@ -1406,7 +1402,6 @@ class TestPublicMode_TheHintIsDerivedFromTheCluesAndTheMarks:
                               if has_wrong_mark(c) and (g["pub"] and g["pub"][:3]) != (
                                   g["admin"] and g["admin"][3] and g["admin"][:3] or None)]
         assert len(misled) >= 3, "the corpus must contain boards a wrong mark misleads"
-        assert all(got[n]["play"][:3] == got[n]["pub"][:3] for n, _ in misled)
         assert len(differs_from_admin) >= 3, "and boards where the public hint differs from the admin's"
 
     def test_there_is_never_a_hint_where_no_line_decides(self, browser_page, serve, cases) -> None:
@@ -1488,10 +1483,9 @@ def clue_truth(case) -> bool:
 _SOLVED_JS = """async (cases) => {
   document.body.insertAdjacentHTML('beforeend', '<div data-player-stage></div>');
   const S = await import('/solver_state.js');
-  const P = await import('/play.js');
   return cases.map((c) => {
     const board = { width: c.w, height: c.h, cells: c.cells };
-    return { mine: S.isClueSolved(board, c.rows, c.cols), play: P.isClueSolved(board, c.rows, c.cols),
+    return { mine: S.isClueSolved(board, c.rows, c.cols),
              admin: S.isSolved(board, c.grid) };
   });
 }"""
@@ -1507,8 +1501,6 @@ def solved_problems(page, served: Served, cases) -> list[str]:
             problems.append(f"case {n}: the two oracles disagree (a non-unique puzzle slipped in)")
         if g["mine"] != truth:
             problems.append(f"case {n}: isClueSolved {g['mine']} != oracle {truth}")
-        if g["play"] != g["mine"]:
-            problems.append(f"case {n}: play.js isClueSolved {g['play']} != the module's {g['mine']}")
         if g["admin"] != (truth and MAYBE not in case["cells"]):
             problems.append(f"case {n}: admin isSolved {g['admin']} drifted")
         if len(problems) > 8:
@@ -1530,7 +1522,8 @@ class TestPublicMode_SolvedComesFromTheClues:
         assert sum(t and MAYBE in c["cells"] for t, c in zip(truths, cases)) >= 20, "solved boards holding a '?'"
         assert all(clue_truth(c) == t for c, t in zip(cases, truths))
 
-    def test_it_agrees_with_the_oracle_and_with_play_js(self, browser_page, serve, cases) -> None:
+    # AC-384: the model's verifying ref, tests/test_player_public_mode.py::test_it_agrees_with_the_oracle (CARD-399: moved here from play.js's twin).
+    def test_it_agrees_with_the_oracle(self, browser_page, serve, cases) -> None:
         """AC-6 / G-6. Declared: it differs from the admin's isSolved only
         where a '?' sits on an otherwise solved board (a '?' is no run)."""
         assert solved_problems(browser_page, pure_site(serve), cases) == []
@@ -1574,7 +1567,6 @@ def _solved_check(page, served, timeout=3000):
 
 
 #: name -> (payload factory, the check, files the tree also needs)
-_PLAY = [("play.js", (_PLAYER / "play.js").read_text())]
 CHECKS = {
     "sweep": (lambda: public_payload(SWEEP_GRID), sweep_problems, []),
     "stall": (lambda: public_payload(STALL_GRID, puzzle_id="stall"), stall_problems, []),
@@ -1582,8 +1574,8 @@ CHECKS = {
     "save": (lambda: public_payload(SWEEP_GRID), save_problems, []),
     "admin": (lambda: admin_payload(STALL_GRID, puzzle_id=SWEEP_ID), admin_mode_problems, []),
     "sealed": (lambda: public_payload(SWEEP_GRID), sealed_problems, []),
-    "hint": (lambda: public_payload(SWEEP_GRID), _hint_check, _PLAY),
-    "solved": (lambda: public_payload(SWEEP_GRID), _solved_check, _PLAY),
+    "hint": (lambda: public_payload(SWEEP_GRID), _hint_check, []),
+    "solved": (lambda: public_payload(SWEEP_GRID), _solved_check, []),
 }
 
 _HINTLINE_READ = "      history.board, payload.rows, payload.columns, publicMode ? null : payload.solution, hint),"

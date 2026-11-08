@@ -66,7 +66,7 @@ from tests.test_player_public_mode import (  # noqa: F401 - fixtures are used by
     disabled,
     flat,
     network_calls,
-    play_exhausted_sentence,
+    public_exhausted_sentence,
     solution_leaks,
     CONTROL_STEPS,
     _random_grid,
@@ -221,7 +221,7 @@ def step_hint_on_a_bigger_board(page, ctx):
 
     def finished() -> bool:
         return (disabled(hint) or page.locator("#puzzle-player-solved").is_visible()
-                or page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence())
+                or page.locator("#puzzle-player-explain").inner_text() == public_exhausted_sentence())
 
     for _ in range(3 * len(SWEEP_GRID) * len(SWEEP_GRID[0])):
         if finished():
@@ -288,6 +288,7 @@ def test_the_two_boards_are_what_the_sweep_needs() -> None:
 
 @pytest.mark.browser
 class TestSharedUi_ThePageRuns:
+    # AC-383: the model's verifying ref, tests/test_player_shared_ui_site.py::test_a_real_puzzle_plays_to_the_solved_banner (CARD-399: moved here from play.js's twin).
     def test_a_real_puzzle_plays_to_the_solved_banner(self, browser_page, preview_host) -> None:
         """AC-1."""
         url, report, keys, _ = preview_host
@@ -411,7 +412,7 @@ class TestSharedUi_ThePageRuns:
         before = states(browser_page)
         action(browser_page, "hint").click()
         assert states(browser_page) == before
-        assert browser_page.locator("#puzzle-player-explain").inner_text() == play_exhausted_sentence()
+        assert browser_page.locator("#puzzle-player-explain").inner_text() == public_exhausted_sentence()
 
     def test_old_public_saves_are_not_read_and_the_visitor_starts_fresh(
         self, browser_page, preview_host
@@ -447,6 +448,7 @@ class TestSharedUi_ThePageRuns:
 
 @pytest.mark.browser
 class TestSharedUi_TheCard385SweepOnThisTree:
+    # EC-050 and ADR-0041/R4: the model's verifying ref, tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean (CARD-399: moved here from play.js's twin).
     def test_every_control_every_gesture_the_solve_and_the_reload_are_clean(
         self, touch_page, preview, monkeypatch
     ) -> None:

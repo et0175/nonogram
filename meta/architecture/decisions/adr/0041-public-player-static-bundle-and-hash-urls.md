@@ -380,7 +380,7 @@ write — the thing R4 exists to forbid.
     only. For every interaction sequence the page issues zero write requests;
     there are no accounts and no server-side state of any kind.
   scope: {code: ["player/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_public_player.py::test_no_write_request_for_any_interaction"}   # FR-045 AC-385/EC-050 (planned, CARD-283)
+  check: {kind: test, ref: "tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean"}   # FR-045 AC-385/EC-050 (planned, CARD-283)
   severity: mandatory
 - id: ADR-0041/R5
   statement: >-

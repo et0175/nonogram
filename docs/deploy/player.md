@@ -412,8 +412,8 @@ Nothing we ship reads, stores or transmits a visitor's IP or any per-visitor ide
 neither alone: the assembled site's external references are a closed set, held to the
 allow-list below, so there is no egress a visitor identifier could leave by; and every
 request the pages actually issue is observed in a browser and held to method, origin and
-path (`tests/test_public_player.py::test_no_write_request_for_any_interaction` and the
-three controls beside it). The static scan is the first half and it has a stated bound:
+path (`tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean` and its
+plant, the `a-network-call-is-added` mutant of `tests/test_player_public_mode.py`). The static scan is the first half and it has a stated bound:
 it is lexical, single-file and one-hop, it is default-deny **within** the reference
 shapes it knows — a shape it finds and cannot place is a failure, never a silent pass —
 and it is silent about a sink shape that is not in its set at all, such as a fetch
