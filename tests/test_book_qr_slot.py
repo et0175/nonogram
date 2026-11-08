@@ -74,11 +74,11 @@ DOMAIN = "https://nonogram.adverax.io"
 #: sides.
 TWO_UP_MINIMUM_MM = 7.0
 
-#: The footer strip's depth in device pixels, stated from CON-020's own three
-#: rows rather than read off :data:`INTERIOR_FOOTER_MM`: the 20 mm row the QR
-#: icon used to fill (still reserved, CARD-392 shrinks it), one 10 pt line and
-#: 9 pt of white twice. 29.878 mm.
-FOOTER_STRIP_PX = 353
+#: The footer strip's depth in device pixels, stated from the one-line footer's own
+#: two rows rather than read off :data:`INTERIOR_FOOTER_MM`: one 10 pt line and
+#: 9 pt of white twice, 28 pt = 9.878 mm (CARD-392; 29.878 mm with the 20 mm
+#: QR row before it).
+FOOTER_STRIP_PX = 117
 
 #: How many cells of combined drawing height a Book 1 pair may have, with and
 #: without the strip reserved, before its shared cell falls under 7.0 mm. Both
@@ -86,13 +86,14 @@ FOOTER_STRIP_PX = 353
 #: the strip for the second), never from ``compute_pair_layout``:
 #:
 #:     unreserved  229.492 / 7.0 = 32.78  ->  32 cells
-#:     reserved    199.605 / 7.0 = 28.51  ->  28 cells
+#:     reserved    219.586 / 7.0 = 31.37  ->  31 cells
 #:
 #: so the pairs the strip refuses are **exactly** those whose combined drawing
-#: height is 29, 30, 31 or 32 cells.
+#: height is 32 cells (CARD-392; 29, 30, 31 and 32 under the 29.878 mm strip
+#: of CARD-248, when 28 cells was the largest that paired).
 MAX_PAIR_CELLS_UNRESERVED = 32
-MAX_PAIR_CELLS_RESERVED = 28
-NEWLY_REFUSED_PAIR_CELLS = frozenset({29, 30, 31, 32})
+MAX_PAIR_CELLS_RESERVED = 31
+NEWLY_REFUSED_PAIR_CELLS = frozenset({32})
 
 
 def _spec(
@@ -286,7 +287,8 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
     and a 15-row depth-1 pair's is **zero** — the pair is already height-bound
     — so the strip cannot be found anywhere and the pair is **refused**
     outright rather than printed 2 % smaller (AC-6). The real worst surviving
-    cost is the 13-row band, measured below: 7.5000 -> 7.1287 mm, **4.95 %**.
+    cost is the 14-row band, measured below: 7.5000 -> 7.3195 mm, **2.41 %**
+    (CARD-392's one-line footer; 4.95 % at 13 rows under the old strip).
     """
 
     def test_the_strip_is_free_wherever_the_gap_between_the_slots_already_holds_it(
@@ -298,7 +300,7 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
         of the cell."""
         spec = _spec()
         checked = 0
-        for rows in (10, 11, 12):
+        for rows in (10, 11, 12, 13):
             bare = _two_up(spec, (10, rows, 1, 1), reserve_footer=False)
             reserved = _two_up(spec, (10, rows, 1, 1))
             assert bare is not None and reserved is not None, rows
@@ -311,7 +313,7 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
                 == gap - FOOTER_STRIP_PX
             )
             checked += 1
-        assert checked == 3
+        assert checked == 4
 
     def test_the_committed_cell_is_the_independently_written_fit(self) -> None:
         """Every pair that still pairs commits exactly
@@ -333,15 +335,16 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
                 checked += 1
         assert checked >= 45, checked
 
-    def test_the_worst_surviving_cost_is_the_thirteen_row_band_at_4_95_percent(
+    def test_the_worst_surviving_cost_is_the_fourteen_row_band_at_2_41_percent(
         self,
     ) -> None:
         """The figure the card asked for, measured and pinned.
 
-        13-row depth-1 pairs are the deepest that still pair with the strip
-        reserved: 28 cells of drawing height, which 199.605 mm fits at
-        7.1287 mm. Unreserved they print at the 7.5 mm cap, so the strip
-        costs them 0.3713 mm — **4.95 %**, not the card's guessed 2 %.
+        14-row depth-1 pairs are the worst that still pair with the strip
+        reserved: 30 cells of drawing height, which 219.586 mm fits at
+        7.3195 mm. Unreserved they print at the 7.5 mm cap, so the strip
+        costs them 0.1805 mm — **2.41 %** (4.95 % at 13 rows under the
+        29.878 mm strip, before CARD-392 shrank it).
         """
         spec = _spec()
         worst = 0.0
@@ -356,10 +359,10 @@ class TestTwoUpFooter_TheCellCostIsMeasuredAndBounded:
                 if drop > worst:
                     worst, worst_case = drop, (columns, rows, bare.cell_mm, reserved.cell_mm)
         assert worst_case is not None
-        assert worst_case[1] == 13, worst_case
+        assert worst_case[1] == 14, worst_case
         assert abs(worst_case[2] - STANDARD_CELL_MM) < 1e-9
-        assert abs(worst_case[3] - 7.1287) < 1e-3, worst_case
-        assert abs(worst - 4.95) < 0.01, (worst, worst_case)
+        assert abs(worst_case[3] - 7.3195) < 1e-3, worst_case
+        assert abs(worst - 2.41) < 0.01, (worst, worst_case)
 
     def test_both_slots_keep_one_shared_cell_with_the_strip_reserved(self) -> None:
         """G-4, which CARD-226 builds its aligned bottoms on: the reserve is
@@ -392,9 +395,10 @@ class TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
     so the set can be stated over the second of them and be complete. The
     usable height is 253.492 mm; two 12 mm bands leave 229.492 mm, and
     FR-040's 7.0 mm floor therefore admits at most 32 cells of drawing height.
-    One 353 px strip leaves 199.605 mm, which admits at most 28. So the pairs
-    this card stops pairing are **exactly** those whose combined drawing
-    height is 29, 30, 31 or 32 cells — and no others, at any width.
+    One 117 px strip (CARD-392's one-line footer; 353 px before it) leaves
+    219.586 mm, which admits at most 31. So the pairs the strip stops pairing
+    are **exactly** those whose combined drawing height is 32 cells — and no
+    others, at any width.
 
     **What they do instead**: two single pages, each with its own footer.
     That is option 1 of the four the owner was shown, and it costs one
@@ -409,7 +413,7 @@ class TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
     own prose estimated, and the cost is a longer interior.
     """
 
-    def test_the_refused_set_is_exactly_the_29_to_32_cell_pairs(self) -> None:
+    def test_the_refused_set_is_exactly_the_32_cell_pairs(self) -> None:
         """Over every width and height a book puzzle can have, the verdict
         changes for exactly the combined-height band named above — compared
         against the independently written fit, not against the function."""
@@ -443,28 +447,28 @@ class TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
         assert max(kept_heights) == MAX_PAIR_CELLS_RESERVED, kept_heights
 
     def test_the_boundary_is_where_the_hand_arithmetic_puts_it(self) -> None:
-        """The control for the set above (ADR-0039/R1): 28 cells is accepted
-        and 29 refused, and the two figures come from the sheet by hand, not
+        """The control for the set above (ADR-0039/R1): 31 cells is accepted
+        and 32 refused, and the two figures come from the sheet by hand, not
         from the function under test."""
         pair_height_mm = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
         assert abs(pair_height_mm - 229.492) < 1e-9
         reserved_mm = pair_height_mm - FOOTER_STRIP_PX / PX_PER_MM
-        assert abs(reserved_mm - 199.6047) < 1e-3, reserved_mm
+        assert abs(reserved_mm - 219.5860) < 1e-3, reserved_mm
         assert int(pair_height_mm / TWO_UP_MINIMUM_MM) == MAX_PAIR_CELLS_UNRESERVED
         assert int(reserved_mm / TWO_UP_MINIMUM_MM) == MAX_PAIR_CELLS_RESERVED
         spec = _spec()
-        # 14 drawing rows a slot (a depth-1 13-row puzzle) is 28 cells: paired.
-        assert _two_up(spec, (10, 13, 1, 1)) is not None
-        # 15 a slot (a depth-1 14-row puzzle) is 30: refused.
-        assert _two_up(spec, (10, 14, 1, 1)) is None
-        # 29, the odd member of the band, needs an unequal pair.
-        assert _two_up(spec, (10, 13, 1, 1), (10, 14, 1, 1)) is None
+        # 15 drawing rows a slot (a depth-1 14-row puzzle) is 30 cells: paired.
+        assert _two_up(spec, (10, 14, 1, 1)) is not None
+        # 16 a slot (a depth-1 15-row puzzle) is 32: refused.
+        assert _two_up(spec, (10, 15, 1, 1)) is None
+        # 31, the odd top of the paired range, needs an unequal pair.
+        assert _two_up(spec, (10, 14, 1, 1), (10, 15, 1, 1)) is not None
 
     def test_such_a_pair_prints_as_two_single_pages_each_with_its_own_footer(self) -> None:
         """Through the production walk: two puzzles in the refused band become
         two plans of one puzzle each, two pages, never one page."""
         generator = BookPDFGenerator(corpus_book("card248-split"))
-        payloads = [_payload(10, 14, 1, 1), _payload(10, 14, 1, 1)]
+        payloads = [_payload(10, 15, 1, 1), _payload(10, 15, 1, 1)]
         plans = generator.puzzle_pages(payloads)
         assert [plan.numbers for plan in plans] == [(1,), (2,)], plans
         assert all(plan.pair is None for plan in plans)
@@ -475,7 +479,7 @@ class TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
         the identical two puzzles pair, on one page. If the refusal ever became
         a blanket rule this reds."""
         generator = BookPDFGenerator(corpus_book("card248-nosplit"))
-        payloads = [_payload(10, 13, 1, 1), _payload(10, 13, 1, 1)]
+        payloads = [_payload(10, 14, 1, 1), _payload(10, 14, 1, 1)]
         plans = generator.puzzle_pages(payloads)
         assert [plan.numbers for plan in plans] == [(1, 2)], plans
         assert plans[0].pair is not None

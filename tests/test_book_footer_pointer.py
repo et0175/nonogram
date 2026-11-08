@@ -15,7 +15,8 @@ that card made and the footer claims of CARD-223/CARD-248 that survived it.
     AC-3  TestFooterPointer_TwoUpSharesOneLine
     AC-4  TestFooterPointer_AbsentWithoutADomain
     AC-5  TestFooterPointer_NamesARealPlayPage
-    AC-6  TestPuzzlePages_GeometryHeldExceptTheFooter
+    AC-6  (the held geometry; CARD-392 changed it on purpose, its successor is
+          TestPuzzlePages_OnlyAreaDependentMarksMove, CARD-392's AC-7)
     AC-7  TestTwoUp_BookOneVerdictsUnchanged,
           TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone
           TestFooterPointer_YieldsRatherThanCollideWithTheFolio  (the one new
@@ -37,7 +38,6 @@ here that holds the part of the claim that does not depend on the QR.
 from __future__ import annotations
 
 import copy
-import hashlib
 import random
 import re
 from pathlib import Path
@@ -53,6 +53,7 @@ from nonogram.admin.book_pdf_generator import (
     page_is_right_hand,
 )
 from nonogram.export import ExportPayload
+import nonogram.export.layout as layout_module
 from nonogram.export.layout import (
     INTERIOR_FOOTER_MM,
     OrientationPolicy,
@@ -93,26 +94,11 @@ DOMAIN = "https://nonogram.adverax.io"
 #: sides.
 TWO_UP_MINIMUM_MM = 7.0
 
-#: The footer strip's depth in device pixels, stated from CON-020's own three
-#: rows rather than read off :data:`INTERIOR_FOOTER_MM`: the 20 mm row the QR
-#: icon used to fill (still reserved, CARD-392 shrinks it), one 10 pt line and
-#: 9 pt of white twice. 29.878 mm.
-FOOTER_STRIP_PX = 353
-
-#: How many cells of combined drawing height a Book 1 pair may have, with and
-#: without the strip reserved, before its shared cell falls under 7.0 mm. Both
-#: stated from the usable height by hand (253.492 mm less two 12 mm bands, less
-#: the strip for the second), never from ``compute_pair_layout``:
-#:
-#:     unreserved  229.492 / 7.0 = 32.78  ->  32 cells
-#:     reserved    199.605 / 7.0 = 28.51  ->  28 cells
-#:
-#: so the pairs the strip refuses are **exactly** those whose combined drawing
-#: height is 29, 30, 31 or 32 cells.
-MAX_PAIR_CELLS_UNRESERVED = 32
-MAX_PAIR_CELLS_RESERVED = 28
-NEWLY_REFUSED_PAIR_CELLS = frozenset({29, 30, 31, 32})
-
+#: The footer strip's depth in device pixels, stated from the one-line footer's own
+#: two rows rather than read off :data:`INTERIOR_FOOTER_MM`: one 10 pt line and
+#: 9 pt of white twice, 28 pt = 9.878 mm (CARD-392; 29.878 mm with the 20 mm
+#: QR row before it).
+FOOTER_STRIP_PX = 117
 
 def _spec(
     *,
@@ -376,65 +362,24 @@ class TestFooterPointer_NamesARealPlayPage:
 
 
 # ==========================================================================
-# AC-6 -- the geometry is held; only the QR left and the line arrived
+# CARD-392 AC-7 -- only the marks that depend on the area move
 # ==========================================================================
 
-#: sha-256 of the decoded content stream of each puzzle page below, recorded
-#: from main at a4ebdd53 (the commit this card was cut from) with the QR group
-#: switched off in-process, on the corpora named by the keys. They pin
-#: that, apart from the removed group, every mark on every puzzle page -- grid,
-#: clue boxes, band, rules, folio -- is at the coordinate it was at before this
-#: card, and that the footer band's height is unchanged. Never regenerated to
-#: make a test pass: a page that stops matching is either a deliberate
-#: geometry change (CARD-392's, which earns its own successor) or a regression.
-MAIN_PAGE_DIGESTS = {
-    "baseline:6": (
-        "41bb74ea1ddc7020773cf414a943f9344f207c0feeae3be11f9df71d1b35bbd2"
-    ),
-    "baseline:8": (
-        "ee99aa8749c00243211bd3477229522b528ce10647db0b9bd4447c5a0fa58d47"
-    ),
-    "baseline:10": (
-        "a51c2ad2f4d0b71a4189613046077ad9618dc202d92b56fd38fcb765901816b8"
-    ),
-    "singles:6": (
-        "63c9a92cb97bcd22bab6103e28cd707c4703e3004b5c982b9eca5dfc324379c8"
-    ),
-    "singles:7": (
-        "a8db3bba4261bfcbfea5c8499de6831d55a6d971facba58ea48ff06e4a726aa1"
-    ),
-    "singles:9": (
-        "11e869a44dbcdfe945bcd1dd2317dfcdad6aec555d519e01df2ca872af8eda39"
-    ),
-    "singles:10": (
-        "e91bbef67ecaae636a28b66be99ce596803e3ac27ed00ec03fadf6a681cd7450"
-    ),
-    "singles:12": (
-        "3bf7bb91bd50b57133c5a90542f8d8009416f7a9a32e0159efb8457491257fee"
-    ),
-    "pairs:6": (
-        "32f3511591097f687f026c50447626626bbf711f46a8c6e814be8de3d4b75ed5"
-    ),
-    "pairs:7": (
-        "8d1ff69c06fcae839e9fc982cef640deb10d9dd35d7c8c5727c0a834adc2bae3"
-    ),
-    "unequal:6": (
-        "978c58fee21a8058d21078a5068e73c35768c303cb407eb48df9d08f68aa0597"
-    ),
-    "unequal:8": (
-        "b51d25d9a4bd84d3b9fff8ac037f23d880ad3543a812c53087f9e3d3b8cd10a9"
-    ),
-    "unequal:10": (
-        "a01408f79d95385fc663e80e9ec9f0e94dc4e16a7c2789621029617c45d644e8"
-    ),
-}
+def _stream_marks(book, rows: List[dict], tmp_path) -> dict:
+    """``{page: (numbers, stroke widths, type sizes)}`` for each puzzle page.
 
-
-def _stream_digests(book, rows: List[dict], tmp_path) -> dict[int, str]:
+    The three things AC-7 names as independent of the area: the rule weights
+    (ADR-0037/R2's three fixed weights), every point size the page sets (the
+    clue digits' and the band's among them), and which puzzles share the page.
+    """
     export = _Export(book, rows, tmp_path)
     streams = pdf_vector.content_streams(export.data)
     return {
-        entry.page_number: hashlib.sha256(streams[entry.page_number - 1].encode()).hexdigest()
+        entry.page_number: (
+            entry.numbers,
+            sorted(pdf_vector.stroke_widths(streams[entry.page_number - 1])),
+            sorted(pdf_vector.type_sizes(streams[entry.page_number - 1])),
+        )
         for entry in export.puzzle_pages
     }
 
@@ -455,19 +400,98 @@ GEOMETRY_CORPUS = {
 }
 
 
-class TestPuzzlePages_GeometryHeldExceptTheFooter:
-    def test_every_puzzle_page_is_the_page_main_drew_without_its_qr_group(
-        self, tmp_path
+#: Every stroke weight (pt) a puzzle page sets, held as LITERALS (measured on
+#: this tree: a single page, then a two-up page, the same five weights --
+#: 0.3 grid line, 0.48 footer hairline, 0.72 header rule, 0.8 and 1.3 the
+#: grid's thick lines and border). The control below patches only the band
+#: back, so a drift in an area-independent weight (the footer rule 0.4 -> 0.6
+#: pt reads 0.72 for 0.48 here) would pass a comparison against itself; these
+#: do not.
+SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.8, 0.8, 1.3, 1.3, 1.3, 1.3]
+PAIR_PAGE_WEIGHTS = [
+    0.3, 0.3, 0.48, 0.72, 0.8, 0.8, 0.8, 0.8,
+    1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3,
+]  # fmt: skip
+
+
+class TestPuzzlePages_OnlyAreaDependentMarksMove:
+    """CARD-392 AC-7: the band shrank by 20 mm and nothing else was told.
+
+    The control is the same code with the footer band put back to its height
+    before this card (``INTERIOR_FOOTER_MM`` + 20 mm, patched in process): the
+    two exports differ in the area and in nothing else the test lets differ.
+    A single puzzle page's cell is fitted against the usable height less the
+    band, not against the footer band, so it keeps its cell and with it every
+    point size; the rule weights are fixed points. A pair is the exception
+    (its cell *is* fitted against the area), so a pair's type sizes are allowed
+    to scale and its weights are not.
+
+    **One reading of AC-7 is not kept, and the reason is arithmetic.** The
+    card lists the folio's position "relative to the page bottom" among the
+    marks that stay put. It cannot: the footer rule sits one band above the
+    bottom margin and the folio sits one line below the rule, so shrinking the
+    band by 20 mm moves the folio down by 20 mm (274 px -> 38 px above the
+    page's bottom edge on Book 1, measured). What stays is the folio's
+    position relative to the *rule* (79 px) and its x, held below.
+    """
+
+    def test_weights_sizes_and_sharing_hold_and_the_folio_keeps_its_place_in_the_band(
+        self, tmp_path, monkeypatch
     ) -> None:
-        # The footer band is the unit every usable area is measured against.
-        assert INTERIOR_FOOTER_MM == pytest.approx(29.878, abs=1e-3)
-        assert interior_frame(_spec()).footer_depth == FOOTER_STRIP_PX
-        found = {}
+        assert INTERIOR_FOOTER_MM == pytest.approx(9.878, abs=1e-3)
+        frames = {}
+        for trim in ("book1", "6x9", "5x8"):
+            width, height = {"book1": (21.59, 27.94), "6x9": (15.24, 22.86), "5x8": (12.7, 20.32)}[trim]
+            book = _no_domain_book(f"card392-frame-{trim}")
+            book.trim_width_cm, book.trim_height_cm = f"{width:.2f}", f"{height:.2f}"
+            frames[trim] = [interior_frame(BookPDFGenerator(book).page_spec(n)) for n in (1, 2)]
+        after = {}
         for label, (make_book, make_rows) in GEOMETRY_CORPUS.items():
-            for page, digest in _stream_digests(make_book(), make_rows(), tmp_path).items():
-                found[f"{label}:{page}"] = digest
-        assert found == MAIN_PAGE_DIGESTS
-        assert len(found) >= 13, len(found)
+            after[label] = _stream_marks(make_book(), make_rows(), tmp_path)
+
+        monkeypatch.setattr(layout_module, "INTERIOR_FOOTER_MM", INTERIOR_FOOTER_MM + 20.0)
+        before = {}
+        for label, (make_book, make_rows) in GEOMETRY_CORPUS.items():
+            before[label] = _stream_marks(make_book(), make_rows(), tmp_path)
+        control_frame = interior_frame(_spec())
+        monkeypatch.undo()
+
+        compared = singles = 0
+        for label in GEOMETRY_CORPUS:
+            for page, (numbers, weights, sizes) in after[label].items():
+                was = before[label].get(page)
+                if was is None or was[0] != numbers:
+                    continue  # the band gave this page a different make-up
+                assert weights == was[1], (label, page, "a rule weight moved")
+                literal = SINGLE_PAGE_WEIGHTS if len(numbers) == 1 else PAIR_PAGE_WEIGHTS
+                assert weights == literal, (label, page, "a weight left its literal")
+                if len(numbers) == 1:
+                    assert sizes == was[2], (label, page, "a point size moved")
+                    singles += 1
+                compared += 1
+        assert compared >= 10 and singles >= 8, (compared, singles)
+
+        # The frame, per trim, against the control's own figures read off the
+        # same code with the old band: the header rule, the rule weights, the
+        # folio's x and its distance from the footer rule are the band's, the
+        # rest of the frame is the area.
+        now = interior_frame(_spec())
+        assert now.header_rule == control_frame.header_rule
+        assert now.footer_rule.width == control_frame.footer_rule.width
+        # ... and both held against literals (px at 300 DPI; Book 1, odd page):
+        # the header rule is 3 px at y 289 across 150..2400, the footer rule 2 px.
+        assert (now.header_rule.left, now.header_rule.right) == (150, 2400)
+        assert (now.header_rule.y, now.header_rule.width) == (289, 3)
+        assert now.footer_rule.width == 2
+        assert (now.folio_x, now.label_x) == (control_frame.folio_x, control_frame.label_x)
+        # The folio sits 79 px under the rule (the line plus a gap, 10 + 9 pt),
+        # on main before this card and now. What moved is its distance from the
+        # page's bottom edge, 274 px on main (measured from main's frame) and
+        # 38 px now: the band's 20 mm.
+        assert now.baseline - now.footer_rule.y == 79
+        assert now.page_bottom - now.baseline == 38
+        assert control_frame.footer_rule.y - now.footer_rule.y == -236
+        assert all(f.baseline - f.footer_rule.y == 79 for pair in frames.values() for f in pair)
 
 
 # ==========================================================================
@@ -494,24 +518,28 @@ def _pairing_corpus() -> List[dict]:
     return rows
 
 
-#: The pages of the corpus above on Book 1, recorded from main at a4ebdd53
-#: before this card removed the pairing walk's width clause (c): which
-#: puzzles share a page and which stand alone. Eleven and sixteen are left
-#: alone on purpose of the corpus (a tier's odd tail and a pair that does not
-#: fit), so both verdicts are in the list.
-BOOK_ONE_PAGES_ON_MAIN = [
-    (1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11,), (12, 13), (14, 15), (16,),
+#: The pages of the corpus above on Book 1 under the one-line footer
+#: (CARD-392). Recorded from main at a4ebdd53 before it, the walk left 11, 16
+#: standing alone and paired the rest ((11,), (12, 13), (14, 15), (16,), (17,
+#: 18)); the 20 mm the footer band gave back lifts the pair boundary from 28
+#: to 31 combined cells, and 11 + 12 and 16 + 17 now fit (measured with the
+#: walk in this worktree; the tiers are 10 puzzles each, so no pair crosses
+#: one, and the refusing verdict is held by the AC-4 class in
+#: ``tests/test_book_pdf_two_up.py``, stated from the sheet by hand).
+BOOK_ONE_PAGES_NOW = [
+    (1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16),
     (17, 18), (19, 20), (21, 22), (23, 24), (25, 26), (27, 28), (29, 30),
 ]  # fmt: skip
 
 
-class TestTwoUp_BookOneVerdictsUnchanged:
-    def test_the_walk_pairs_exactly_the_puzzles_it_paired_on_main(self) -> None:
+class TestTwoUp_BookOneVerdictsFollowTheFreedHeight:
+    def test_the_walk_pairs_what_the_one_line_footer_lets_it(self) -> None:
         generator = BookPDFGenerator(_no_domain_book("card391-verdicts"))
         plan = generator.section_plan(_pairing_corpus())
         pages = [e.numbers for e in plan.pages if isinstance(e, PuzzlePagePlan)]
-        assert pages == BOOK_ONE_PAGES_ON_MAIN
-        assert {len(numbers) for numbers in pages} == {1, 2}, "both verdicts are in the corpus"
+        assert pages == BOOK_ONE_PAGES_NOW
+        # The refusing verdict is held where it is stated from first
+        # principles: TestTwoUp_ThresholdsRederivedFromTheOneLineFooter.
 
 
 class TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone:
@@ -520,7 +548,9 @@ class TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone:
         groups did not fit across its 127 mm; with the groups gone the pair is
         judged by FR-040's height and width rules alone. Four 10 x 8 Easies
         print as four single pages on main (the recorded verdict) and as two
-        pairs now; four 10 x 10 ones still do not pair, on the height rule."""
+        pairs now; four 12 x 12 ones still do not pair, on the height rule
+        (CARD-392: four 10 x 10 ones, 22 cells, pair since the band shrank --
+        the 6 x 9 boundary is 24 cells, 168.786 mm / 7.0)."""
         book = _no_domain_book("card391-6x9")
         book.trim_width_cm = "15.24"
         book.trim_height_cm = "22.86"
@@ -535,7 +565,7 @@ class TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone:
             ]
 
         assert pages(10, 8) == [(1, 2), (3, 4)]  # main: [(1,), (2,), (3,), (4,)]
-        assert pages(10, 10) == [(1,), (2,), (3,), (4,)]  # 22 cells of height: refused
+        assert pages(12, 12) == [(1,), (2,), (3,), (4,)]  # 26 cells of height: refused
 
 
 # ==========================================================================

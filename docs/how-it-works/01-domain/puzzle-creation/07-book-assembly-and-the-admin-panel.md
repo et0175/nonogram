@@ -261,6 +261,26 @@ never uses the 4.75 mm floor or its override; the spec's flat cap (the 7.5 mm
 standard cell) still caps the shared cell. A named constant rather than a
 `PageSpec` field: it is the owner's rule for every book, not a property of a trim."
 
+**The footer band (FR-032, FR-040; CARD-392).** A puzzle page's footer is a
+hairline and **one line** under it: the grid size on the inner side, the folio at
+the centre, the pointer to the Play online page on the outer side. The band the
+hairline opens is `INTERIOR_FOOTER_MM` in `export/layout.py`, "the footer line
+plus its two gaps" -- a 10 pt line and 9 pt of white above and below it, 9.878 mm
+(117 px at 300 DPI) -- where it was 29.878 mm while a 2 cm row at its foot was
+held for the per-puzzle QR icon. The band is the unit the puzzle area is measured
+against, so the 20 mm it gave back is the area's: on Book 1 the area between the
+header rule and the footer rule is 233.1 mm (2753 px) deep, not 213.1 mm (2517),
+and on the shortest trim `book_page_spec` admits (10.00 cm) 53.7 mm, not 33.7.
+What it changes and what it does not: a single page's cell is fitted against the
+usable height less the title band, never against the footer band, so the
+one-cell-per-grid-size table does not move; where a drawing floats does (42% of a
+larger spare), and so do FR-040's pair boundaries, because a pair's height is
+fitted against what is left after two bands and the strip -- 31 cells of combined
+drawing height on Book 1 (219.586 mm over 7.0 mm), 24 on 6 x 9 in, 20 on 5 x 8 in
+(where no two puzzles pair at all). On a book of 120 easy 10 x 10 puzzles with
+5-deep gutters that is 156 interior pages becoming 96, which crosses KDP's
+150-page gutter band (0.5 in minimum to 0.375 in).
+
 `BOOK1_PROFILE` in full (`book_page_spec.py:248`, CON-018): trim 8.5 × 11 in,
 gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, `band_mm=12.0`,
 `cell_cap_mm=7.5`, `min_thin_rule_mm=0.25` (ADR-0037/R2). Inches are `Decimal`

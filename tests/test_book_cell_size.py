@@ -1150,3 +1150,84 @@ class TestBookCellSize_TheCostOfABookWideCell:
         assert was == pytest.approx(186, abs=10)
         assert now == pytest.approx(325, abs=15)
         assert now > was
+
+
+# --------------------------------------------------------------------------
+# CARD-392 AC-5 -- the held table, and the cap does not move
+# --------------------------------------------------------------------------
+
+
+class TestBookCellSizes_HeldTableAndTheCapDoesNotMove:
+    """The cell chosen per grid size, held as a literal table (CARD-392).
+
+    The one-line footer returned 20 mm to the puzzle area. This table is the
+    deepest-clued member of each square grid size (every line alternating, so
+    ``ceil(n / 2)`` deep each way) on Book 1, 6 x 9 in and 5 x 8 in, measured
+    with the footer band at its old and its new height. **No entry changed**,
+    and the attribution is the finding rather than a gap: a single page's cell
+    is fitted against the usable height less the title band (FR-030,
+    ``_placed_cell_mm``), never against the footer band, so the freed row
+    moves where a drawing is placed and which pairs fit, not the cell
+    ``book_cell_sizes`` picks. Every entry already at the 7.5 mm cap is
+    unchanged by construction (AC-5's guard). If a later card fits the cell to
+    the puzzle area, THIS table is the place its changes are attributed.
+    """
+
+    #: ``(columns, rows)``. The five squares are width-bound (deep clues on both
+    #: axes); the last two are TALL with one-deep row clues and ``ceil(rows / 2)``
+    #: deep column clues, so the page's HEIGHT term binds -- the only entries
+    #: that move if a later change fits the single-page cell against the
+    #: footer band or the puzzle area too (planted and measured: with the
+    #: footer strip subtracted from ``_placed_cell_mm``'s usable height, the
+    #: squares do not move and 10x30 / 12x25 go 5.3665 -> 5.1470 /
+    #: 6.3551 -> 6.0951 on Book 1, 4.2376 -> 4.0181 / 5.0182 -> 4.7583 on
+    #: 6 x 9 in, 3.6732 -> 3.4536 / 4.3498 -> 4.0898 on 5 x 8 in).
+    SHAPES = ((10, 10), (15, 15), (20, 20), (25, 25), (30, 30), (10, 30), (12, 25))
+    #: trim -> cell mm per shape, from ``compute_layout`` on this tree.
+    TABLE = {
+        None: (7.5, 7.5, 6.35, 5.0132, 4.2333, 5.3665, 6.3551),
+        ("15.24", "22.86"): (7.5, 5.5217, 4.2333, 3.3421, 2.8222, 4.2376, 5.0182),
+        ("12.70", "20.32"): (6.7733, 4.4174, 3.3867, 2.6737, 2.2578, 3.6732, 4.3498),
+    }
+
+    @staticmethod
+    def _alternating(n: int):
+        return tuple((1,) * ((n + 1) // 2) for _ in range(n))
+
+    def _cells(self, trim) -> Tuple[float, ...]:
+        from types import SimpleNamespace
+
+        from nonogram.admin.book_page_spec import book_cell_sizes, book_page_spec
+
+        book = SimpleNamespace() if trim is None else SimpleNamespace(
+            trim_width_cm=trim[0], trim_height_cm=trim[1]
+        )
+        spec = book_page_spec(book)
+        members = [
+            (
+                tuple((1,) for _ in range(r)),
+                tuple((1,) * ((r + 1) // 2) for _ in range(c)),
+            )
+            if (c, r) in self.SHAPES[5:]
+            else (self._alternating(c), self._alternating(c))
+            for c, r in self.SHAPES
+        ]
+        sizes = book_cell_sizes(spec, members)
+        return tuple(round(sizes[shape], 4) for shape in self.SHAPES)
+
+    def test_the_table_is_held_and_nothing_changed_with_the_band(self, monkeypatch) -> None:
+        from nonogram.export import layout
+
+        after = {trim: self._cells(trim) for trim in self.TABLE}
+        monkeypatch.setattr(layout, "INTERIOR_FOOTER_MM", layout.INTERIOR_FOOTER_MM + 20.0)
+        before = {trim: self._cells(trim) for trim in self.TABLE}
+        assert after == before == self.TABLE
+        changed = [
+            (trim, n)
+            for trim, row in self.TABLE.items()
+            for n, was, now in zip(self.SHAPES, before[trim], after[trim])
+            if was != now
+        ]
+        assert changed == []
+        # AC-5's guard: the three entries at the 7.5 mm cap are the cap, held.
+        assert sorted(c for row in self.TABLE.values() for c in row if c == 7.5) == [7.5] * 3

@@ -466,18 +466,20 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-392
-    branch: card/392-one-line-footer
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-392
-    started: 2026-11-08T11:30Z
-    estimate: 4c (1.5d)
-    cut_from: 0ca1fe28
   - card: CARD-399
     branch: card/399-retire-play-js
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-399
     started: 2026-11-08T13:00Z
     estimate: 5c (2d)
     cut_from: ac5e423d
+  # CARD-414 DISPATCHED 2026-11-08 as a THIRD active card: the owner lifted the cap of 2 for this card (ruling 2026-11-08) so CARD-399 step 3 can proceed.
+  - card: CARD-414
+    branch: card/414-shared-crosshair-pinch
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-414
+    started: 2026-11-08T16:30Z
+    estimate: 1c (0.5d)
+    cut_from: 3e8617e7
+# CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
 # CARD-394 CLEARED 2026-11-08T12:36Z at its merge gate: merged 93d951f7, done, certified 9.0 on cycle 2 (6.5 on cycle 1, not certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11602 passed, 1 skipped, 1 xfailed + 6 lifted wave_close_only passed. Entry dropped.
 # CARD-391 CLEARED 2026-11-08 at its merge gate (second attempt): merged 826f2f34, done, certified 8.6 on cycle 1 (gate-found dots-floors fix round not re-reviewed). Entry dropped; worktree removed under the tidy rule.
 # CARD-415 CLEARED 2026-11-08T08:49Z at its merge gate: merged ff562181, done, certified 8.6 on cycle 1, estimate 1c -> 1 cycle = ratio 1.0. Impact SELECTION gate green (one environmental port red, green alone). Entry dropped; worktree removed under the tidy rule.
@@ -777,7 +779,6 @@ queued:
 - id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
 - id: CARD-387   # P2 10c  (387a) CONVERT OR RETIRE the raster interior tests no queued card owns + the dot arm (items 8/17); 369 true class a+c ids, 21 writers remain (recount 2026-11-08); the tail is CARD-416. Depends on CARD-322, CARD-391. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
 - id: CARD-416   # P2 6c  (387b) TAIL OF CARD-387, runs LAST: convert the ~62 'convert after' ids (pdf, pdf_band, type_floor, page_frame, page_numbers, toc), delete the 21 remaining raster writers + bitmap arms, restate docs/ADRs/censuses. Depends on CARD-387, 392, 207, 229, 230, 232, 233. Unstamped.
-- id: CARD-414   # P2 1c  SHARED CROSSHAIR stops during a pinch and counts a pen as part of one (ported from play.js; owner 2026-11-08, CARD-399 audit). Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
 - id: CARD-403   # P1 3c STAGE ends above the fold at any toolbar height; the jump. Owner findings 2026-11-07. Unstamped.
 - id: CARD-404   # P1 4c CLUE NUMERALS capped (~14 px) while cells grow; strips pinned at every zoom. Owner findings 2026-11-07. Unstamped.

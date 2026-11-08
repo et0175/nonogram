@@ -54,7 +54,6 @@ from nonogram.export.layout import (
     INTERIOR_FOOTER_RULE_PT,
     INTERIOR_HEADER_RULE_PT,
     MM_PER_POINT,
-    FOOTER_RESERVED_ROW_MM,
     DPI,
     OrientationPolicy,
     PageParity,
@@ -755,12 +754,13 @@ class TestBookPageFrame_RefusesAnInvertedPuzzleArea:
         """F-3 — an inverted region is raised on, never handed back.
 
         The sheet below is legal to :class:`PageSpec` (its usable area is
-        positive) and too short for a frame: 40 mm of height, 12 mm of band
-        and a 29.878 mm footer band leave nothing between the rules.
+        positive) and too short for a frame: 30 mm of height, 12 mm of band
+        and a 9.878 mm footer band leave nothing between the rules (40 mm did
+        under the 29.878 mm band of CARD-248).
         """
         spec = PageSpec(
             width_mm=100.0,
-            height_mm=40.0,
+            height_mm=30.0,
             top_mm=5.0,
             bottom_mm=5.0,
             gutter_mm=7.0,
@@ -1148,17 +1148,122 @@ class TestBookPageFrame_EachFigureIsDeclaredOnce:
                         offenders.append(module.name)
         assert set(offenders) <= {"book_page_spec.py"}, offenders
 
-    def test_the_footer_band_is_derived_from_its_three_rows(self) -> None:
-        """CARD-391 held the band: the row the QR icon used to fill is still
-        reserved (CARD-392 shrinks it), so the band is that row, the footer
-        line and two gaps -- 29.878 mm, as before this card."""
-        assert INTERIOR_FOOTER_MM > FOOTER_RESERVED_ROW_MM
-        assert INTERIOR_FOOTER_MM == pytest.approx(29.878, abs=1e-3)
+
+class TestFooterBand_IsOneLineAndTwoGaps:
+    """AC-1 (CARD-392): the band is the footer line plus the two gaps around
+    it, each term read from the constant that states it, and the 2 cm row the
+    QR icon filled is gone from ``src/`` (it was retired, not renamed)."""
+
+    def test_the_band_is_the_line_and_two_gaps(self) -> None:
         assert INTERIOR_FOOTER_MM == pytest.approx(
-            FOOTER_RESERVED_ROW_MM
-            + FRAME_FIGURES["INTERIOR_FOOTER_LINE_PT"] * MM_PER_POINT
+            FRAME_FIGURES["INTERIOR_FOOTER_LINE_PT"] * MM_PER_POINT
             + 2 * FRAME_FIGURES["INTERIOR_FOOTER_GAP_PT"] * MM_PER_POINT
         )
+        # 10 pt of line and 2 x 9 pt of white, written out: 28 pt = 9.878 mm.
+        assert INTERIOR_FOOTER_MM == pytest.approx(28 * 25.4 / 72, abs=1e-9)
+
+    def test_no_symbol_of_the_retired_row_remains_in_src(self) -> None:
+        retired = ("QR_SLOT_MM", "FOOTER_RESERVED_ROW_MM")
+        offenders = [
+            (module.name, name)
+            for module in _package()
+            for name in retired
+            if name in module.read_text(encoding="utf-8")
+        ]
+        assert offenders == []
+
+
+class TestFrame_PuzzleAreaGrowsByTheFreedRow:
+    """AC-2 (CARD-392): the area's depth is the usable height less the header
+    offset and the one-line band, worked out from the profile's millimetres,
+    and it is larger than the QR-era area by exactly the 20 mm row the band
+    gave back (236 px at 300 DPI).
+
+    The old depths are literals measured on main before this card (2517 px on
+    Book 1, 398 px on the shortest admitted trim, 10.00 cm).
+    """
+
+    #: (trim height mm, header offset below the top margin, the old depth in px)
+    HEADER_OFFSET_MM = 12.0 * (1 - 1 / 8)
+    PROFILE_TOP_MM, PROFILE_BOTTOM_MM = 0.55 * 25.4, 0.47 * 25.4
+    CASES = {"Book 1": (11 * 25.4, 2517), "shortest trim": (100.0, 398)}
+
+    def test_the_depth_is_the_usable_height_less_the_header_offset_and_the_band(self) -> None:
+        for label, (height_mm, _) in self.CASES.items():
+            usable_mm = height_mm - self.PROFILE_TOP_MM - self.PROFILE_BOTTOM_MM
+            depth_mm = usable_mm - self.HEADER_OFFSET_MM - 28 * 25.4 / 72
+            book = _min_trim_book() if label == "shortest trim" else _unequal_book()
+            for page_number in (1, 2):
+                frame = interior_frame(book_page_spec(book, page_number))
+                assert abs(frame.area_height - depth_mm * 300 / 25.4) <= 1.0, (label, frame.area_height)
+
+    def test_it_is_larger_than_before_by_exactly_the_freed_row(self) -> None:
+        freed_px = round(20.0 * 300 / 25.4)
+        assert freed_px == 236
+        for label, (_, old_px) in self.CASES.items():
+            book = _min_trim_book() if label == "shortest trim" else _unequal_book()
+            frame = interior_frame(book_page_spec(book, 1))
+            assert frame.area_height - old_px == freed_px, (label, frame.area_height, old_px)
+
+
+class TestPuzzlePages_GridRunsDownToTheFooterLine:
+    """AC-3 (CARD-392): the grid reaches the line the freed row opened.
+
+    "The tallest admitted grid on a single page" is read as the tallest drawing
+    the area holds (the ``"ratio"`` regime): a taller one is height-bound, is
+    fitted against the usable height less the title band (FR-030) and
+    overruns the area, so its page prints no footer group at all and no mark
+    crosses a rule that is not drawn (``vertical_bound == "footer"``, held by
+    ``TestBookPuzzleFrame_TallestGridYieldsToTheFooter``). That class of page
+    shrank (676 to 457 of a 2646-placement sweep on Book 1, measured) and did
+    not vanish; fitting it to the area would cost those cells, which is the
+    owner's to rule and is stated in CARD-392's Worktree notes.
+
+    For the tallest drawing the area does hold, the bottom plus the drawing's
+    heavy rule's half and the hairline's half sits above the footer line, and
+    it stands 230+ px deeper than the tallest one the QR-era area held.
+    """
+
+    @staticmethod
+    def _tallest_held(spec):
+        from nonogram.export.layout import compute_layout
+
+        tallest = None
+        for columns in range(10, 31):
+            for rows in range(10, 31):
+                for depth in (1, 2, 3, 4, 6, 8, 10, 15):
+                    row_depth = min(depth, (columns + 1) // 2)
+                    column_depth = min(depth, (rows + 1) // 2)
+                    layout = compute_layout(
+                        tuple((1,) * row_depth for _ in range(rows)),
+                        tuple((1,) * column_depth for _ in range(columns)),
+                        spec,
+                    )
+                    placement = layout.page
+                    if placement.vertical_bound != "ratio":
+                        continue
+                    height = placement.drawing_bottom - placement.drawing_top
+                    if tallest is None or height > tallest[0]:
+                        tallest = (height, placement.drawing_bottom, layout.thick_rule)
+        return tallest
+
+    def test_the_tallest_held_drawing_clears_the_line_and_runs_down_to_it(self, monkeypatch) -> None:
+        from nonogram.export import layout as layout_module
+
+        spec = book_page_spec(_unequal_book(), 1)
+        frame = interior_frame(spec)
+        height, bottom, thick = self._tallest_held(spec)
+        furniture = 2  # the 0.4 pt hairline at 300 DPI, rounded up to whole pixels
+        assert bottom + -(-thick // 2) + -(-furniture // 2) < frame.footer_rule.y
+        # It reaches the line: measured, the tallest drawing the area holds is
+        # 2734 px of its 2753 and stops 11 px (0.9 mm) above the rule; the bound
+        # is 30 px, a third of one 7 mm cell, 83 px.
+        assert frame.footer_rule.y - bottom < 30, (bottom, frame.footer_rule.y)
+
+        monkeypatch.setattr(layout_module, "INTERIOR_FOOTER_MM", layout_module.INTERIOR_FOOTER_MM + 20.0)
+        old_spec = book_page_spec(_unequal_book(), 1)
+        old_height, _, _ = self._tallest_held(old_spec)
+        assert height - old_height >= 230, (height, old_height)
 
 
 #: The floor a line that has to print is held to: **2 device pixels** at

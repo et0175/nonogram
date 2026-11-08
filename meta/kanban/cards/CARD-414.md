@@ -1,6 +1,6 @@
 # CARD-414: The shared crosshair stops during a pinch and counts a pen as part of one — ported from play.js, with one test
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1c (0.5d)
@@ -9,11 +9,11 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/414-shared-crosshair-pinch
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-414
 **Source:** owner ruling 2026-11-08 on the CARD-399 audit: play.js suppresses its crosshair during a two-finger pinch and treats a pen as part of a pinch; solver.js (`wireCrosshair`) has no such suppression, so the shared UI would change what a phone user sees. Port it into solver.js once; the seven play.js tests that covered it retire with play.js (CARD-399), replaced by ONE test.
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** —

@@ -1,15 +1,15 @@
 {
   "book": "tests.helpers.book_corpus.corpus_book() + baseline_puzzles()",
   "digests": {
-    "answer_full": "5a7595d5f8eb57ea59a0a3400fdf5afd537ba0533258a45aaeecb22fe90f4448",
+    "answer_full": "d3775b05104a70e25eb259df94834f25eec2fce9bbbe1911eeb372733ce2bcb3",
     "answer_packed_one": "6c9ea7444091eb291f95d655e221f4153b5509ff983a05cc1e919cfd1b04ac68",
     "answer_packed_two": "6d8c0ecf2258fa835fcb23c84e8b4c933502f40559161f9ae06782a7d8c506b3",
     "guide_1": "e96d06e8854da51da9d6845d1e03bf412a6697a2c455b9d04e8f984cc269ef15",
     "guide_2": "d8282a5b9025c5166a4721c4d70c071a74d0d2f7c582bc3d6105358738ad82f9",
-    "play": "76f3a5ee4c429d7ab6e670845036538c8c3b88c626bc712a4d07f380a944062f",
-    "puzzle_single_15x15": "9eaaec4b338de50d325d656970a978afe4fc700c15fc0b0bb0c00c3eef6693be",
-    "puzzle_single_30x30": "69f55f807eb97b56d80a29a9746368a1504dac615a300db836a2c034c4eb4d3c",
-    "puzzle_two_up": "446b30a417fb14def0bd9d17ed18380691790cf51ec8c7d7bc455483b9047778",
+    "play": "ac74b15fe37b4677ebe5634ae93cae4b4d50aaa35e2827615863982b8037281e",
+    "puzzle_single_15x15": "271740764b75ea6314d7ed47798ccaa8dddc82831ac167131399d28e484d98ee",
+    "puzzle_single_30x30": "8eb0f92cbf035eb96b1221201b53c666f8b1e79741a414024a36670c5e31a5ab",
+    "puzzle_two_up": "9d3c3e396ae6a39433b5ac2db44eb23abee92d9e5aaf7979faf005578d771e58",
     "title": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "toc": "d84f43c994ae32f9bf1da547e6f2a09b3d0af3f972c65b6a6e9df9c8a1ae1106"
   },
