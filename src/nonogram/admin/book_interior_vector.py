@@ -90,6 +90,7 @@ def guide_page_stream(
     easy_count: int = 0,
     medium_count: int = 0,
     hard_count: int = 0,
+    play_page: Optional[int] = None,
 ) -> ContentStream:
     """One guide page as the stream the interior's walk yields.
 
@@ -108,6 +109,7 @@ def guide_page_stream(
         easy_count=easy_count,
         medium_count=medium_count,
         hard_count=hard_count,
+        play_page=play_page,
     ).stream
 
 

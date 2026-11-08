@@ -68,8 +68,8 @@ from nonogram.admin.book_vector import (
     ContentStreamError,
     FontMetrics,
 )
-from nonogram.export.layout import ClueEntry, GridLine, Layout, PuzzleFrame
-from nonogram.export.png import INK
+from nonogram.export.layout import ClueEntry, DifficultyDots, GridLine, Layout, PuzzleFrame
+from nonogram.export.png import BACKGROUND, INK
 
 __all__ = [
     "INK_GREY",
@@ -83,6 +83,7 @@ __all__ = [
     "ascent_px",
     "descent_px",
     "draw_clue_digits",
+    "draw_difficulty_dots",
     "draw_frame",
     "draw_grid_lines",
     "draw_folio",
@@ -122,6 +123,10 @@ def as_grey(colour: tuple[int, int, int]) -> float:
 #: every interior mark with — rather than written as ``0.0``, so the two
 #: media cannot disagree about what "ink" is without a test noticing.
 INK_GREY = as_grey(INK)
+
+#: The paper, as a grey level: the tone an outlined difficulty dot is filled
+#: with, so the white inside the ring is painted and not left to the page.
+PAPER_GREY = as_grey(BACKGROUND)
 
 
 def page_stream(layout: Layout) -> ContentStream:
@@ -713,3 +718,33 @@ def draw_qr(
                 paint="fill",
             )
             column = end
+
+
+def draw_difficulty_dots(
+    stream: ContentStream, dots: DifficultyDots, *, grey: float = INK_GREY
+) -> None:
+    """A tier's row of dots, the vector spelling of the raster ``_draw_difficulty_dots``.
+
+    **The interior's one place that puts a round mark on a content stream**
+    (CARD-229, ADR-0036/R3): the guide's key strip is the only page that calls
+    it, and every dot it draws is
+    :func:`~nonogram.export.layout.difficulty_dots`'s own — the box, the
+    diameter, the gap and the stroke arrive in ``dots`` and nothing here
+    measures one.
+
+    Pillow strokes an ellipse's outline *inside* its bounding box, and a PDF
+    strokes a path *on* its centre line, so the path is the ring's middle: a
+    radius of half the diameter less half the stroke, painted ``both`` ways so
+    the outer silhouette is the bounding box exactly. A solid dot is inked
+    inside and out; an outlined one is filled with the paper, which keeps
+    "white inside the ring" a painted fact of the stream. One stroke serves the
+    row, as :attr:`DifficultyDots.stroke` states.
+    """
+    stream.stroke_grey(grey)
+    stream.stroke_width(stream.to_points(dots.stroke))
+    radius = (dots.diameter - dots.stroke) / 2
+    for index, (left, top, right, bottom) in enumerate(dots.dots):
+        stream.fill_grey(grey if dots.is_filled(index) else PAPER_GREY)
+        stream.round_mark(
+            (left + right + 1) / 2, (top + bottom + 1) / 2, radius, paint="both"
+        )

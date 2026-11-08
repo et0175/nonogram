@@ -2132,9 +2132,9 @@ links:
   - TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel
   - TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
   - PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
-  - TestGuidePage_TitledHowToSolveNonograms
-  - TestGuidePage_CarriesAWorkedExampleOnOnePage
-  - TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
+  - TestGuideSpread_SitsOnPagesTwoAndThree
+  - TestGuidePage_WorkedExampleClueDigitsAreNotExempt
+  - TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity
   - TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
   - TestDividerPages_EveryPagesParityIsStillItsOwnPosition
   - TestDividerPages_PrintSetupStoresTheChoice
@@ -2499,6 +2499,10 @@ links:
   - TestPlayPage_QrDecodesToTheLandingUrl
   - TestPlayPage_FitsEveryTrimAtAReadableModule
   - TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated
+  - TestGuidePage_NamesThePlayPage
+  - TestGuidePage_PlayPageNumberIsTheRealOne
+  - TestGuidePage_NoPlayPageNoLine
+  - TestGuidePage_TheLineFitsEveryTrim
   notes: >-
     New 2026-11-08 (raw-requirements.md Delta 2026-11-07; owner decision
     2026-11-07, version B of the "One-QR Book Layout"; CARD-390). COMP-009
@@ -2506,7 +2510,8 @@ links:
     three counters and the Finalise line; COMP-007 owns where the page's
     marks go (export/layout.py play_page_layout, ADR-0036/R2). The page is a
     vector page (ADR-0042/R1) with no raster declaration. The per-puzzle
-    codes and the footer pointer are CARD-391; the guide's line is CARD-393.
+    codes and the footer pointer are CARD-391; the guide's line is CARD-393,
+    folded into CARD-229 (AC-414..AC-417).
   status: covered
 
 - req: NFR-008
@@ -2586,9 +2591,7 @@ links:
   components: [COMP-009, COMP-007]
   adrs: [ADR-0036]
   tests:
-  - TestGuidePage_TypeIsBookSized
-  - TestGuidePage_PointSizeIsIndependentOfDpi
-  - TestGuidePage_LeadingClearsTheType
+  - TestGuidePage_EveryFaceHoldsTheFloorInTheStream
   - TestInteriorType_EveryFaceHoldsTheFloor
   - TestInteriorType_FloorHoldsWithoutArial
   - TestInteriorType_OnlyPuzzleClueDigitsAreExempt

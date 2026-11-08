@@ -5591,6 +5591,24 @@ def create_app(debug=None):
             # CARD-201 (AC-7): the 2-page tutorial's new constants join them
             # here, the same way and for the same reason — every one of them
             # is read from book_pdf_generator at request time, never copied.
+            # CARD-229: the guide is interior pages 2 and 3 (the title page is
+            # page 1), and its first page names the Play online page when the
+            # plan prints one -- the same sentence the writer sets, from the
+            # same plan figure, so the preview cannot name a page the export
+            # does not print.
+            "guide_page_numbers": tuple(
+                range(
+                    1 + book_pdf_generator.TITLE_PAGE_COUNT,
+                    1
+                    + book_pdf_generator.TITLE_PAGE_COUNT
+                    + book_pdf_generator.GUIDE_PAGE_COUNT,
+                )
+            ),
+            "guide_play_sentence": (
+                book_pdf_generator.guide_play_sentence(counts.play_page)
+                if counts and counts.play_page
+                else None
+            ),
             "guide_title": book_pdf_generator.GUIDE_TITLE,
             "guide_intro": book_pdf_generator.GUIDE_INTRO,
             "guide_basic_rule_heading": book_pdf_generator.GUIDE_BASIC_RULE_HEADING,

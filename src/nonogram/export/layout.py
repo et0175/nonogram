@@ -234,6 +234,9 @@ __all__ = [
     "DIFFICULTY_DOT_STROKE_RATIO",
     "DPI",
     "GRID_SPARE_ABOVE",
+    "GUIDE_BODY_INSET_MM",
+    "GUIDE_COLUMN_GAP_MM",
+    "GUIDE_EXAMPLE_MAX_SHARE",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
     "INTERIOR_FOOTER_GAP_PT",
@@ -268,6 +271,7 @@ __all__ = [
     "GridLine",
     "GridRule",
     "GridRules",
+    "GuideSpreadLayout",
     "HeaderBand",
     "InteriorFrame",
     "Layout",
@@ -291,6 +295,8 @@ __all__ = [
     "compute_pair_layout",
     "difficulty_dots",
     "footer_pointer",
+    "guide_example_limit",
+    "guide_spread_layout",
     "header_band",
     "interior_frame",
     "play_page_layout",
@@ -2120,6 +2126,132 @@ def play_page_layout(
         qr_top=qr_top,
         qr_side=side,
         address_top=qr_top + side + (gap if address_height else 0),
+    )
+
+
+# --------------------------------------------------------------------------
+# The "How to Solve" spread (CARD-229)
+# --------------------------------------------------------------------------
+
+#: The white between the guide's text column and its example column, in
+#: millimetres (CARD-229). Wide enough that a column of 11 pt words and a
+#: ruled diagram never read as one block, narrow enough that the examples keep
+#: the room the digit floor makes them need.
+GUIDE_COLUMN_GAP_MM = 6.0
+
+#: The white the guide keeps between the frame's header rule and its first
+#: row, and between its last row and the footer rule, in millimetres.
+GUIDE_BODY_INSET_MM = 6.0
+
+#: The most of the usable width the example column may take, as a share of it
+#: (CARD-229). Above it the text column is a sliver, so the examples' shared
+#: cell is stepped down (never below the clue-digit floor, which the caller
+#: holds) until they fit or the floor is reached.
+GUIDE_EXAMPLE_MAX_SHARE = Fraction(55, 100)
+
+
+@dataclass(frozen=True, slots=True)
+class GuideSpreadLayout:
+    """Where one page of the "How to Solve" spread keeps its marks (CARD-229).
+
+    Only :func:`guide_spread_layout` constructs one. The guide's two pages are
+    set in the puzzle pages' own frame: the same margins, the same header rule
+    and footer rule rows (``interior`` is the page's :func:`interior_frame`), the
+    title in the band above the rule where a puzzle page sets its identity,
+    and the body between the two rules. The writer sets the words and draws
+    the diagrams; it does not pick where a column starts (ADR-0036/R2).
+
+    Attributes:
+        interior: The page's :func:`interior_frame`.
+        band: The title band, exactly as :func:`header_band` measures a puzzle
+            page's: the strip between the top margin and the band's foot.
+        left: The usable area's left edge.
+        right: Its right edge.
+        body_top: The first row below the header rule's white.
+        body_bottom: The last row above the footer rule's white.
+        text_right: The text column's right edge. The usable area's own right
+            edge on a page that is not set in two columns.
+        example_left: The example column's left edge. The usable area's own
+            left edge on a page that is not set in two columns.
+        two_column: Whether the text and example columns sit side by side.
+            ``False`` when the text column would be narrower than the caller's
+            ``text_min``: the example is then set under its text, in the one
+            column.
+    """
+
+    interior: InteriorFrame
+    band: HeaderBand
+    left: int
+    right: int
+    body_top: int
+    body_bottom: int
+    text_right: int
+    example_left: int
+    two_column: bool
+
+    @property
+    def text_width(self) -> int:
+        """How wide the text column is, in device pixels."""
+        return self.text_right - self.left
+
+    @property
+    def example_width(self) -> int:
+        """How wide the example column is, in device pixels."""
+        return self.right - self.example_left
+
+
+def guide_example_limit(page_spec: PageSpec) -> int:
+    """The widest an example column may be on ``page_spec``, in device pixels."""
+    left, _, right, _ = _usable_box_px(page_spec)
+    return int((right - left) * GUIDE_EXAMPLE_MAX_SHARE)
+
+
+def guide_spread_layout(
+    page_spec: PageSpec, *, example_width: int, text_min: int
+) -> GuideSpreadLayout:
+    """Place one page of the "How to Solve" spread on ``page_spec`` (CARD-229).
+
+    ``example_width`` is the widest example the page draws, in device pixels,
+    measured by the caller from the layouts it will draw; ``text_min`` is the
+    narrowest text column the caller can set its words in (its longest word),
+    because how wide a word sets is a type fact and where a column starts is
+    this function's. The example column is flush with the usable area's right
+    edge and the text column runs from the left edge to one
+    :data:`GUIDE_COLUMN_GAP_MM` short of it. Where that leaves the text column
+    under ``text_min``, the page is not set in two columns.
+
+    Raises:
+        ValueError: ``page_spec`` has no parity, a width is not positive, or
+            the sheet leaves the body no height (see :class:`InteriorFrame`).
+    """
+    if example_width <= 0 or text_min <= 0:
+        raise ValueError(
+            f"a column has a positive width, got example_width={example_width}, "
+            f"text_min={text_min}"
+        )
+    interior = interior_frame(page_spec)
+    left, top, right, _ = _usable_box_px(page_spec)
+    inset = _mm_to_px(GUIDE_BODY_INSET_MM)
+    band_height = _round_px(_exact_px(page_spec.band_mm))
+    band = HeaderBand(
+        height=band_height,
+        center_x=(left + right) // 2,
+        center_y=top + band_height // 2,
+        font_size=max(1, min(_mm_to_px(HEADER_FONT_MM), band_height)),
+    )
+    example_left = right - example_width
+    text_right = example_left - _mm_to_px(GUIDE_COLUMN_GAP_MM)
+    two_column = text_right - left >= text_min
+    return GuideSpreadLayout(
+        interior=interior,
+        band=band,
+        left=left,
+        right=right,
+        body_top=interior.area_top + inset,
+        body_bottom=interior.area_bottom - inset,
+        text_right=text_right if two_column else right,
+        example_left=example_left if two_column else left,
+        two_column=two_column,
     )
 
 
