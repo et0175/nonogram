@@ -2063,7 +2063,7 @@ links:
   status: partial
 
 - req: FR-040
-  description: "Two same-tier neighbours in the book order share a two-up page when both fit at one shared cell >= 7.0 mm (capped 7.5 mm) WITH the page's one footer strip reserved, and the page's usable width holds both their QR groups; pairing walks the order and never reorders"
+  description: "Two same-tier neighbours in the book order share a two-up page when both fit at one shared cell >= 7.0 mm (capped 7.5 mm) WITH the page's one footer strip reserved; there is no width clause (CARD-391 retired the one for two QR groups); pairing walks the order and never reorders"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-007, COMP-009]

@@ -1306,8 +1306,8 @@ def _drawing_ink_box(plain: Image.Image) -> tuple[int, int, int, int]:
     overhang) rather than the full page width — CARD-204: the placeholder QR
     icon can now sit just outside that span, on the gutter side, and a full
     -width crop would fold its ink into "the drawing's own box", which it
-    is not (``qr_slot()``'s own box never overlaps ``[drawing_left,
-    drawing_right]``).
+    is not (that icon's box never overlapped ``[drawing_left,
+    drawing_right]``; it left the page in CARD-391).
     """
     drawing = drawing_of(plain)
     slack = round(drawing.cell / 2) + 2
@@ -1524,7 +1524,7 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     tightens its room check from two centimetres of slack below the drawing
     to a whole footer strip of it, so the icon moves (or goes) on every one
     of these nine trims. ``book_proof.py`` itself is untouched by that card:
-    what changed under this page is COMP-007's answer to ``qr_slot``, which
+    what changed under this page is COMP-007's answer about the icon's box, which
     is exactly the kind of move this comparison exists to make visible.
     All superseded fixtures stay.
 
