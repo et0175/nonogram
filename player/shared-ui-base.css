@@ -1,136 +1,148 @@
-/*
-  The public player's base stylesheet for the shared-UI preview (CARD-394).
+/* Base stylesheet of the shared player page (puzzle_solve.html and the
+   markup solver.js adds to it).
 
-  admin.css was written for a page that also loads a CSS framework. The page
-  the preview builds uses only four of that framework's classes (btn,
-  btn-outline-secondary, btn-danger, badge), the alert box that solver.js
-  shows when a board cannot be drawn, and a few base rules ([hidden], box
-  sizing, margins, the button reset). This file is those rules, and nothing
-  else, written for this repository from computed styles measured in a
-  browser. admin.css supplies the values through the --bs-* custom properties
-  it already sets, so this file reads them; the only colours it holds itself are
-  the badge's default text and the two focus rings'. It stands where the framework
-  would, and nothing here restyles admin.css.
-*/
+   Written from a table of measured computed values for this page's elements
+   (per element, per state, per viewport width and media condition); no
+   third-party stylesheet was used in writing it. It supplies what the
+   panel's admin.css and tokens.css leave unset when they are the only
+   stylesheets present: the page frame, the table and button resets, the
+   button and badge and alert components, and the colours of their states.
+   Colours, radii and fonts come from the tokens.css custom properties;
+   the --ui-* properties below are this sheet's own. Load it before
+   admin.css, which refines these rules. */
 
-*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --ui-ring-plain: rgb(108 117 125 / 0.5);
+  --ui-ring-danger: rgb(225 83 97 / 0.5);
+}
 
-[hidden] { display: none !important; }
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  font-family: var(--bs-body-font-family);
-  font-size: var(--bs-body-font-size);
-  font-weight: 400;
-  line-height: var(--bs-body-line-height);
-  color: var(--bs-body-color);
-  background-color: var(--bs-body-bg);
-  text-align: start;
-  -webkit-text-size-adjust: 100%;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  line-height: var(--leading-base);
+  text-size-adjust: 100%;
 }
 
-h1 {
-  margin: 0 0 0.5rem;
-  font-size: calc(1.375rem + 1.5vw);
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--bs-heading-color);
+[hidden] {
+  display: none !important;
 }
-@media (min-width: 1200px) { h1 { font-size: 2.5rem; } }
 
-p { margin: 0 0 1rem; }
-strong { font-weight: bolder; }
-svg { vertical-align: middle; }
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
 
-table { caption-side: bottom; }
-th { text-align: inherit; }
-thead, tbody, tr, th, td { border: 0 solid; border-color: inherit; }
+table {
+  caption-side: bottom;
+}
+
+thead,
+tbody,
+tr,
+th,
+td {
+  border: 0 solid;
+}
 
 button {
-  margin: 0;
-  border-radius: 0;
   font-family: inherit;
-  font-size: inherit;
   line-height: inherit;
-  text-transform: none;
-  -webkit-appearance: button;
+}
+
+button[type="button"] {
   appearance: button;
-}
-button:not(:disabled) { cursor: pointer; }
-button:focus:not(:focus-visible) { outline: 0; }
-
-.btn {
-  --bs-btn-padding-x: 0.75rem;
-  --bs-btn-padding-y: 0.375rem;
-  --bs-btn-font-size: 1rem;
-  --bs-btn-line-height: 1.5;
-  --bs-btn-border-width: 1px;
-  --bs-btn-disabled-opacity: 0.65;
-  --bs-btn-focus-box-shadow: 0 0 0 0.25rem rgba(var(--bs-btn-focus-shadow-rgb), 0.5);
-  display: inline-block;
-  padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x);
-  font-family: var(--bs-btn-font-family);
-  font-size: var(--bs-btn-font-size);
-  font-weight: var(--bs-btn-font-weight);
-  line-height: var(--bs-btn-line-height);
-  color: var(--bs-btn-color);
-  text-align: center;
-  text-decoration: none;
-  vertical-align: middle;
-  user-select: none;
-  background-color: var(--bs-btn-bg);
-  border: var(--bs-btn-border-width) solid var(--bs-btn-border-color);
-  border-radius: var(--bs-btn-border-radius);
-  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
-}
-.btn:hover,
-.btn:focus-visible {
-  color: var(--bs-btn-hover-color);
-  background-color: var(--bs-btn-hover-bg);
-  border-color: var(--bs-btn-hover-border-color);
-}
-.btn:focus-visible { outline: 0; }
-/* One class more than the rules above: a pressed button shows its pressed colours even
-   while admin.css's keyboard ring (same weight as the rules above, loaded after them)
-   would otherwise win. */
-.btn:not(.btn-check):active {
-  color: var(--bs-btn-active-color);
-  background-color: var(--bs-btn-active-bg);
-  border-color: var(--bs-btn-active-border-color);
-}
-.btn:not(.btn-check):active:focus-visible { box-shadow: var(--bs-btn-focus-box-shadow); }
-.btn:disabled {
-  color: var(--bs-btn-disabled-color);
-  background-color: var(--bs-btn-disabled-bg);
-  border-color: var(--bs-btn-disabled-border-color);
-  opacity: var(--bs-btn-disabled-opacity);
-  pointer-events: none;
-}
-
-.btn-outline-secondary { --bs-btn-focus-shadow-rgb: 108, 117, 125; }
-.btn-danger { --bs-btn-focus-shadow-rgb: 225, 83, 97; }
-
-.alert {
-  --bs-alert-padding-x: 1rem;
-  --bs-alert-padding-y: 1rem;
-  position: relative;
-  padding: var(--bs-alert-padding-y) var(--bs-alert-padding-x);
-  margin-bottom: 1rem;
-  color: var(--bs-alert-color);
-  background-color: var(--bs-alert-bg);
-  border: 1px solid var(--bs-alert-border-color);
-  border-radius: var(--bs-alert-border-radius);
 }
 
 .badge {
-  display: inline-block;
-  padding: 0.35em 0.65em;
-  font-size: 0.75em;
-  font-weight: 700;
-  line-height: 1;
-  color: #fff;
   text-align: center;
-  white-space: nowrap;
-  vertical-align: baseline;
-  border-radius: var(--bs-border-radius);
+}
+
+.alert {
+  position: relative;
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border-width) solid;
+  border-radius: var(--radius-container);
+}
+
+.alert-danger {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-tint);
+}
+
+/* Buttons: one rule for the shape, two variants for the colours. */
+
+.btn {
+  padding: 0.4rem 0.75rem;
+  border: var(--border-width) solid var(--ui-rest-edge);
+  border-radius: var(--radius-control);
+  background-color: var(--ui-rest-bg);
+  color: var(--ui-ink, var(--color-text));
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-outline-secondary {
+  --ui-rest-bg: var(--color-surface);
+  --ui-rest-edge: var(--color-border-strong);
+  --ui-hover-bg: var(--color-surface-hover);
+  --ui-hover-edge: var(--color-border-strong);
+  --ui-press-bg: var(--color-surface-hover);
+  --ui-press-edge: var(--color-border-strong);
+  --ui-off-bg: var(--color-surface);
+  --ui-off-edge: var(--color-border);
+  --ui-off-ink: var(--color-text-secondary);
+  --ui-ring: var(--ui-ring-plain);
+}
+
+.btn-danger {
+  --ui-ink: #fff;
+  --ui-rest-bg: var(--color-danger);
+  --ui-rest-edge: var(--color-danger);
+  --ui-hover-bg: var(--color-danger-hover);
+  --ui-hover-edge: var(--color-danger-hover);
+  --ui-press-bg: var(--color-danger);
+  --ui-press-edge: var(--color-danger);
+  --ui-off-bg: var(--color-surface);
+  --ui-off-ink: var(--color-danger);
+  --ui-ring: var(--ui-ring-danger);
+}
+
+.btn:hover,
+.btn:focus-visible {
+  border-color: var(--ui-hover-edge);
+  background-color: var(--ui-hover-bg);
+}
+
+.btn:focus:not(:focus-visible) {
+  outline-width: 0;
+}
+
+.btn:active {
+  border-color: var(--ui-press-edge);
+  background-color: var(--ui-press-bg);
+}
+
+.btn:active:focus-visible {
+  border-color: var(--ui-press-edge);
+  box-shadow: 0 0 0 4px var(--ui-ring);
+}
+
+.btn:disabled {
+  border-color: var(--ui-off-edge, currentcolor);
+  background-color: var(--ui-off-bg);
+  color: var(--ui-off-ink);
+  pointer-events: none;
 }
