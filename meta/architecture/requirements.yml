@@ -5818,43 +5818,43 @@ functional:
         when: the interior is planned and exported with a stored player domain
         then: the page sequence is the last puzzle page, one blank page only when that page is a recto, the Play online page on an odd page number, the SOLUTIONS divider; the blank has no ink; the plan, the exported pages and the sheet-free baseline count the same pages
         kind: happy
-        test: tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_the_plan_the_file_and_the_kdp_baseline_say_one_thing
+        test: TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees
       - id: AC-407
         given: a book with no stored player domain
         when: the interior is planned
         then: the interior has exactly the pages it had before the Play online page existed
         kind: negative
-        test: tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_a_book_with_no_stored_domain_prints_no_play_page_and_no_blank
+        test: TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees
       - id: AC-408
         given: a book with the Play online page and its blank
         when: the interior is exported
         then: every page number after the inserted pages, in the TOC and in the folios, equals the real page number read from the PDF
         kind: guard
-        test: tests/test_book_play_online_page.py::TestPlayPage_TocAndFoliosFollowTheInsertedPages::test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers
+        test: TestPlayPage_TocAndFoliosFollowTheInsertedPages
       - id: AC-409
         given: a book with a stored player domain
         when: the Play online page is rendered
         then: the QR code decodes, with a reader written from ISO 18004, to exactly the landing URL, and the typed short address is in the text layer under the code
         kind: happy
-        test: tests/test_book_play_online_page.py::TestPlayPage_QrDecodesToTheLandingUrl::test_the_code_decodes_and_the_address_is_printed_under_it
+        test: TestPlayPage_QrDecodesToTheLandingUrl
       - id: AC-410
         given: the three trims the panel offers and the shortest storable trim
         when: the Play online page is rendered on each
         then: the code still decodes, no type is set under 10 pt, and the ink stays inside the usable area
         kind: edge
-        test: tests/test_book_play_online_page.py::TestPlayPage_FitsEveryTrimAtAReadableModule::test_the_code_decodes_the_type_holds_the_floor_and_the_ink_stays_inside
+        test: TestPlayPage_FitsEveryTrimAtAReadableModule
       - id: AC-411
         given: a book of exactly 150 interior pages and the same book with a stored player domain, at a 0.375 in gutter
         when: both are finalised
         then: the second is refused at the gutter band its true total, the Play online page and its blank included, crosses into
         kind: boundary
-        test: tests/test_book_finalise_gutter.py::TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated::test_a_stored_domain_adds_the_page_and_its_blank_and_the_band_follows
+        test: TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated
       - id: AC-412
         given: a book with a stored player domain and a book without one
         when: the Finalise screen is shown for each
         then: it states, with the real page number, whether the Play online page prints
         kind: happy
-        test: tests/test_book_finalise_gutter.py::TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated::test_a_stored_domain_adds_the_page_and_its_blank_and_the_band_follows
+        test: TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated
 
 non_functional:
   - id: NFR-001

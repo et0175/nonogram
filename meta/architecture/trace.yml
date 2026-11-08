@@ -2488,12 +2488,11 @@ links:
   components: [COMP-009, COMP-007]
   adrs: [ADR-0036, ADR-0041, ADR-0042]
   tests:
-  - tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_the_plan_the_file_and_the_kdp_baseline_say_one_thing
-  - tests/test_book_play_online_page.py::TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees::test_a_book_with_no_stored_domain_prints_no_play_page_and_no_blank
-  - tests/test_book_play_online_page.py::TestPlayPage_TocAndFoliosFollowTheInsertedPages::test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers
-  - tests/test_book_play_online_page.py::TestPlayPage_QrDecodesToTheLandingUrl::test_the_code_decodes_and_the_address_is_printed_under_it
-  - tests/test_book_play_online_page.py::TestPlayPage_FitsEveryTrimAtAReadableModule::test_the_code_decodes_the_type_holds_the_floor_and_the_ink_stays_inside
-  - tests/test_book_finalise_gutter.py::TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated::test_a_stored_domain_adds_the_page_and_its_blank_and_the_band_follows
+  - TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees
+  - TestPlayPage_TocAndFoliosFollowTheInsertedPages
+  - TestPlayPage_QrDecodesToTheLandingUrl
+  - TestPlayPage_FitsEveryTrimAtAReadableModule
+  - TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated
   notes: >-
     New 2026-11-08 (raw-requirements.md Delta 2026-11-07; owner decision
     2026-11-07, version B of the "One-QR Book Layout"; CARD-390). COMP-009
