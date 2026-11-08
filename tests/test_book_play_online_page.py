@@ -46,10 +46,10 @@ from tests.helpers.book_corpus import (
     puzzle,
 )
 
-pytestmark = pytest.mark.skipif(
-    pdf_vector.PDFTOPPM is None or pdf_vector.PDFTOTEXT is None,
-    reason="poppler is the independent reader these tests need",
-)
+
+def _poppler() -> None:
+    """Poppler is the independent reader: a host without it is a failure, not a skip."""
+    assert pdf_vector.PDFTOPPM and pdf_vector.PDFTOTEXT, "poppler is not on this host"
 
 DOMAIN = "https://nonogram.adverax.io"
 
@@ -134,6 +134,7 @@ class TestPlayPage_SitsAfterTheLastPuzzleIsRightHandAndEveryCountAgrees:
 
 class TestPlayPage_TocAndFoliosFollowTheInsertedPages:
     def test_the_solutions_row_and_every_later_folio_are_the_real_page_numbers(self) -> None:
+        _poppler()
         label, puzzles, play, blank, solutions, total = CASES[0]
         data = interior_generator(_book()).export_interior(puzzles).getvalue()
         pages = pdf_vector.extracted_text(data).split("\f")
@@ -158,6 +159,7 @@ def _text_free_codes(page: np.ndarray, words, dpi: int) -> np.ndarray:
 
 
 def _play_page_of(book, tmp_path, dpi: int = 150):
+    _poppler()
     generator = interior_generator(book)
     puzzles = baseline_puzzles()
     kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
