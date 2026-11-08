@@ -2470,7 +2470,8 @@ def _exported_pages(data: bytes) -> list[Image.Image]:
     CARD-356: **``pdf_pages`` cannot be asked for a book with two or more
     operators pages.** It rasterises each one through
     ``pdf_vector.rendered_page`` into ONE shared scratch directory, and that
-    function returns ``sorted(directory.glob("page-*.png"))[0]`` -- the
+    function returned ``sorted(directory.glob("page-*.png"))[0]`` (PNG then,
+    PGM since CARD-415) -- the
     *earliest file left there*, not the page it was asked for. So every
     operators page of the book comes back as the first one rendered (here the
     blank title page): measured on this module's own book, 9 of its 14 pages

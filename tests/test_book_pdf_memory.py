@@ -377,8 +377,9 @@ def interior_pages_of(data: bytes) -> ReadInterior:
 
     CARD-355 history, kept because the number matters: before this card the
     shared reader returned page 1's render for every operators page after the
-    first (``rendered_page`` read back ``sorted(glob("page-*.png"))[0]`` from a
-    scratch directory shared across pages). Measured on the baseline book under
+    first (``rendered_page`` read back ``sorted(glob("page-*.png"))[0]`` (PNG
+    then, PGM since CARD-415) from a scratch directory shared across pages).
+    Measured on the baseline book under
     the five-kind lift -- 4 raster pages (the dividers) and 10 operators pages
     -- the 9 operators pages after the first (page 1 itself was right: it is the
     blank title page) all came back as that blank render, 0 ink each. This
