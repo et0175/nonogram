@@ -580,7 +580,33 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             pen("mousePressed", x + 60, y)
             page.wait_for_timeout(100)
             is_not_crossed("a pen did not count toward the pinch")
-            pen("mouseReleased", x + 60, y)
+            pen("mouseMoved", x + 60, y + 40)
+            page.wait_for_timeout(100)
+            is_not_crossed("a pen's move crossed during a pinch")
+            pen("mouseReleased", x + 60, y + 40)
+            fingers("touchEnd")
+
+            # The mirror: a pen is down FIRST, then a finger lands (a finger's primary
+            # must not wipe the pen's entry); a lift resumes crossing.
+            x, y = _centre(page, 5, 2)
+            pen("mousePressed", x, y)
+            is_crossed_at(5, 2, "the pen alone is crossed")
+            fingers("touchStart", (x + 60, y))
+            page.wait_for_timeout(100)
+            is_not_crossed("a finger did not count toward a pinch a pen began")
+            fingers("touchEnd")
+            pen("mouseReleased", x, y)
+            fingers("touchStart", _centre(page, 8, 8))
+            fingers("touchEnd")
+            is_crossed_at(8, 8, "crossing did not resume after the pen-first pinch")
+
+            # A mouse is never one of a pinch's pointers: with a finger down, a hover crosses.
+            fingers("touchStart", _centre(page, 1, 1))
+            is_crossed_at(1, 1, "the finger alone is crossed")
+            page.mouse.move(*_centre(page, 4, 4))
+            page.mouse.down()
+            is_crossed_at(4, 4, "a mouse press counted as a pinch pointer")
+            page.mouse.up()
             fingers("touchEnd")
 
             # A pen pointerup that never reached the stage must not stick the pinch.

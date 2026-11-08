@@ -1348,6 +1348,14 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "pointermove, which is why the crosshair follows pointerdown too",
     ),
     f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_TouchKeepsTheLastCell::"
+    "test_a_pinch_has_no_crosshair_and_a_pen_counts_toward_one[chromium]": (
+        "CARD-414",
+        "one scenario for the pinch ported from play.js: two touch/pen pointers "
+        "take the crosshair off and nothing follows or leaves one, a pen counts "
+        "either way round, a lost pen pointerup does not stick it",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
     "TestSolverCrosshair_ClearsWhenThePointerLeaves::"
     "test_leaving_the_stage_clears_it_and_a_clue_box_does_not": (
         "CARD-267",
