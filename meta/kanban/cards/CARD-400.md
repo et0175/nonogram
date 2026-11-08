@@ -91,4 +91,4 @@ Measured in a browser, not asserted from CSS, and recorded in Worktree notes wit
 
 ## Worktree notes
 
-(none yet)
+OWNER REPRODUCTION 2026-11-08 (the data "What to implement" item 1 asked for; supplied by the owner, not derived): on the admin panel, puzzle 32861a84-0750-44f7-b0b1-f7502368f0dc (https://nonogram-admin.onrender.com/puzzle/32861a84-0750-44f7-b0b1-f7502368f0dc/solve), line 27: the clue's 4 and 3 are solved (circled), and the 1 and 1 at the left could be circled but are not. The author reads the puzzle's clues from the puzzle file/bundle WITHOUT touching the production database (nonogram_poc is never connected); if the clue and the marks of line 27 cannot be recovered from a local copy, ask the owner for the clue and the state of each cell of line 27 (dark, white, undecided) instead of guessing. This is a second instance of the same class as the original item-10 example (a settled number beside a settled run not circled) and may separate H1/H2 (the two 1s share a value, so rule C refuses) from H3: record which hypothesis it supports.

@@ -90,11 +90,11 @@ BOOK_MIN_THIN_RULE_MM = 0.25
 #: rather than imported from ``export.layout`` — the same independence every
 #: other number in this module keeps. The header rule sits an eighth of the
 #: band's depth above its foot; the footer rule one footer strip above the
-#: bottom margin, that strip being the QR icon's 2 cm plus its 10 pt line plus
-#: a 9 pt gap above and below.
+#: bottom margin, that strip being its 10 pt line plus a 9 pt gap above and
+#: below (CARD-392: the 2 cm QR row it once carried is gone).
 HEADER_RULE_LIFT_SHARE = 1 / 8
 POINT_MM = 25.4 / 72
-FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * POINT_MM
+FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * POINT_MM
 #: FR-032's optical figure (AC-366/AC-367): 0.42 of the spare above the
 #: drawing, 0.58 below it.
 SPARE_ABOVE = 0.42

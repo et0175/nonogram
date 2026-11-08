@@ -2713,13 +2713,15 @@ class TestSheetFurniture_TheFooterIsAllOrNothing:
         assert with_rule == with_folio, (with_rule, with_folio)
         # The floor, and it is the reason this corpus is worth sweeping: the
         # equality would hold trivially on a corpus where every page, or no
-        # page, had a footer. **Measured: 47 of these 60 pages carry one and
-        # 13 do not** — the 13 are the page-fit-bound grids whose drawing
+        # page, had a footer. **Measured: 51 of these 60 pages carry one and
+        # 9 do not** (47 and 13 before CARD-392's one-line footer returned 20 mm
+        # to the area: four page-fit-bound grids now end above the rule) — the
+        # 9 are the page-fit-bound grids whose drawing
         # reaches past the footer rule, which is exactly the branch
         # ``_draw_page_frame`` keeps CARD-200's corner for. So both arms of
         # the all-or-nothing verdict are exercised by this one count.
-        assert with_rule == 47, with_rule
-        assert 0 < len(corpus) - with_rule == 13, (with_rule, len(corpus))
+        assert with_rule == 51, with_rule
+        assert 0 < len(corpus) - with_rule == 9, (with_rule, len(corpus))
 
 #: The numeric literals ``book_sheet_vector`` is allowed to contain, each with
 #: the reason it is not a coordinate. **A default-DENY allowlist**
@@ -3317,10 +3319,10 @@ class TestPropertyTest_SheetFurniture_EveryFrameRuleMeetsTheFurnitureFloor:
                     case.label,
                     mark.width,
                 )
-        # The floor on the reading itself: 47 pages with two rules and 13 with
-        # one is 107 rules, and a reading that found none would pass the loop
+        # The floor on the reading itself: 51 pages with two rules and 9 with
+        # one is 111 rules (107 before CARD-392), and a reading that found none would pass the loop
         # above trivially.
-        assert seen == 107, seen
+        assert seen == 111, seen
 
     def test_the_reading_would_see_a_sub_floor_rule(self, hero: Case) -> None:
         """Its control: the same reading on a frame whose rules are one pixel.

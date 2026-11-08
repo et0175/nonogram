@@ -2809,39 +2809,15 @@ def crosshair_disagreements(admin_js: str, public_js: str) -> dict[str, tuple[st
 
 
 #: What the public crosshair does DIFFERENTLY from the admin's, each with the
-#: decision it rests on. Five entries in two groups, and only the first group is
-#: about zoom: the first three (``events.listened``, ``events.that_clear_the_crosshair``,
-#: ``pointer_type.is_read_in``) exist because the public page has a pinch the
-#: crosshair had to be told about (CARD-324, AC-7); the last two
-#: (``position.is_forgotten_on_redraw`` and ``already_there.needs_the_cross_painted``)
-#: are one decision seen twice, CARD-267's fourth, because this page draws its
-#: table once and has no redraw to forget after. An entry is over a stated DIFFERENCE (the pair of
-#: values), not over a fact: see :func:`test_the_declared_values_are_the_stated_difference`.
+#: decision it rests on. Two entries, and they are one decision seen twice,
+#: CARD-267's fourth, because the public page draws its table once and has no
+#: redraw to forget after. (CARD-414 ported the public pinch count into the
+#: admin's ``wireCrosshair``, so the three entries about the pinch -- the events
+#: listened, the events that clear, the pointer type read in pointerdown -- are
+#: gone: a declaration of a difference that no longer exists is a defect.) An
+#: entry is over a stated DIFFERENCE (the pair of values), not over a fact: see
+#: :func:`test_the_declared_values_are_the_stated_difference`.
 DECLARED_CROSSHAIR_DIVERGENCES: dict[str, tuple[tuple[str, str], str]] = {
-    "events.listened": (
-        ("pointerdown,pointerleave,pointermove", "pointercancel,pointerdown,pointerleave,pointermove,pointerup"),
-        "The public crosshair counts the fingers that are down, so it needs to hear "
-        "them lift (pointerup, pointercancel). The admin's has no such count: its "
-        "pinch is handled in solver.js's marking code and wireCrosshair never "
-        "learns of it. Why the public one counts: CARD-325 AC-7, a pinch neither "
-        "starts a crosshair nor leaves one.",
-    ),
-    "events.that_clear_the_crosshair": (
-        ("pointerleave", "pointerdown,pointerleave"),
-        "A second finger landing (pointerdown) takes the crosshair the first "
-        "finger's pointerdown had painted OFF, because two fingers are a pinch and "
-        "a pinch has no crosshair (CARD-325 AC-7; zoom is CARD-324). The admin's "
-        "crosshair clears only on pointerleave, and the question what a pinch "
-        "does to it was not asked there: routed as a finding, not edited (G-2).",
-    ),
-    "pointer_type.is_read_in": (
-        ("pointerleave", "pointerdown,pointerleave"),
-        "CARD-267 decision 3 reads the pointer TYPE in the leave handler only. "
-        "The public page reads it in pointerdown as well, to tell a finger (which "
-        "can be one of two in a pinch) from a mouse (which never is). The leave "
-        "handler's own rule, touch exempt, is the SAME and is held equal in "
-        "leave.survivors.",
-    ),
     "position.is_forgotten_on_redraw": (
         ("True", "False"),
         "CARD-267 decision 4: the admin's redraw() replaces every cell and calls "
@@ -2925,7 +2901,7 @@ class TestPlayerLooksAgree_TheCrosshairMakesTheSameDecisions:
             ("public", 'if (event.pointerType === "touch") return;', "", "leave.survivors"),
             ("admin", 'if (event.pointerType === "touch") return;', 'if (event.pointerType === "pen") return;', "leave.survivors"),
             ("public", 'if (event.pointerType === "touch") return;', 'if (event.pointerType === "pen") return;', "leave.survivors"),
-            ("admin", 'container.addEventListener("pointerdown", follow);', "", "events.that_move_the_crosshair"),
+            ("admin", "    follow(event);\n  });\n  container.addEventListener(\"pointermove\", follow);", "  });\n  container.addEventListener(\"pointermove\", follow);", "events.that_move_the_crosshair"),
             ("public", 'stage.addEventListener("pointermove", follow);', "", "events.that_move_the_crosshair"),
             ("admin", "if (position !== null) moveTo(position);", "moveTo(position);", "a_non_cell_hit.moves_nothing"),
             ("public", "if (position !== null) moveTo(position);", "moveTo(position);", "a_non_cell_hit.moves_nothing"),

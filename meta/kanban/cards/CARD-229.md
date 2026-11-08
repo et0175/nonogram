@@ -1,6 +1,6 @@
 # CARD-229: "How to Solve" becomes a facing spread on pages 2 and 3, in the puzzle pages' own frame
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,11 +9,11 @@
 **Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/229-guide-facing-spread
-**Worktree:** —
+**Branch:** card/229-guide-spread
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-229
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "How to Solve, as a facing spread"
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Depends on:** CARD-206 (the title page that makes page 1, so the guide can start on page 2 and face page 3), CARD-222 (the frame it borrows), CARD-228 (the dots its key strip teaches), CARD-322, CARD-390 (the Play online page: this card's folded-in sentence names its page number)
 <!--ADDED 2026-10-30 on the owner's decision "move from raster to vector first", and it closes a MEASURED HOLE rather than encoding a preference. Re-derived that day: all 10 cards gated by the 2026-10-25 ADR-0042 pass had **zero open dependencies** -- every `Depends on` entry already `done` -- so the ONLY thing holding them was the `Revision pending: true` flag. A flag is cleared by decomposing, which means re-cutting any of these would have RELEASED it into the wave queue ahead of the conversion its tests are supposed to target. This card is one of the 6 whose tests retarget from measuring ink to reading the content stream, and that is a TECHNICAL dependency, not a sequencing preference: the pages must BE streams (CARD-322) and the placed-edge convention must be settled (CARD-330, which CARD-322 already depends on) before an AC here can name a value. Re-cut before that and these ACs get written against a convention that does not exist yet, then need re-cutting again. The board's standing rule is that a sequencing PREFERENCE must not be written as a dependency; this is the other case, so it is. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_finalise_guide_preview.py, tests/test_book_page_numbers.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card229.json, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/, src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_interior_vector.py, docs/guides/how-to-solve-nonograms.md

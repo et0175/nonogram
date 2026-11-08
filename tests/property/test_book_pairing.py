@@ -100,12 +100,12 @@ BAND_MM = 12.0
 #: The footer strip a two-up page has reserved out of its height since
 #: CARD-248, in device pixels, written out here, as this module writes every
 #: other figure out, rather than imported from ``nonogram.export.layout``:
-#: ``INTERIOR_FOOTER_MM`` 29.878 mm = **353 px** of height, kept free below
+#: ``INTERIOR_FOOTER_MM`` 9.878 mm = **117 px** of height, kept free below
 #: the lower slot's drawing so the page has a footer at all. (CARD-248 also
 #: made a pair's footer have to hold two QR groups across its width; that
 #: clause went with the groups in CARD-391, ADR-0041/R8, so a pair now pairs
 #: on the height and width rules of FR-040 alone.)
-FOOTER_STRIP_PX = 353
+FOOTER_STRIP_PX = 117
 
 #: CON-018's Book 1 profile in millimetres, stated in inches here rather than
 #: imported, and a 6 x 9 in book beside it — a trim on which far fewer pairs

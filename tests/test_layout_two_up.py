@@ -55,10 +55,10 @@ from nonogram.export.layout import (
 #: bottom and outside at 0.375 in, where the amended profile stores 13.97 /
 #: 11.938 / 12.7 mm. Pre-existing (the same literal is at ``cc4430b`` here and
 #: in nine other export-side modules) and deliberately left alone, but worth
-#: stating because every figure this module pins is measured on it: the 113 px
+#: stating because every figure this module pins is measured on it: the 213 px
 #: of ``TestPairLayout_UpperSlotSitsAtItsOwnBandFoot``
 #: ``::test_the_single_page_now_sits_lower_than_the_upper_slot`` is this
-#: profile's gap, and the 94 px its PDF-level sibling pins
+#: profile's gap, and the 193 px its PDF-level sibling pins
 #: (``tests/test_book_pdf_two_up.py``'s ``ROW_GAP_PX``) is the amended
 #: profile's. One construction on two sheets, not a contradiction.
 BOOK1_ODD = PageSpec(
@@ -241,7 +241,7 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
 
         The 20x20 alone floats in the page's puzzle area; the upper slot of a
         two-up page does not. The gap is this page's own 0.42 x spare, so it is
-        not a tolerance — and it is **asserted as a figure**, 113 px on this
+        not a tolerance — and it is **asserted as a figure**, 213 px on this
         module's own profile, twice over (CARD-224 review cycle 1, F-007): once
         as the pinned number, and once derived from the two rules' own rows
         through :func:`~nonogram.export.layout.interior_frame`, which is not
@@ -249,10 +249,10 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
         green on a float of 1% of the spare, which is what this test was until
         that review.
 
-        **Which profile the 113 is on** (review cycle 2, F2-008):
+        **Which profile the 213 is on** (review cycle 2, F2-008):
         :data:`BOOK1_ODD`, which is CON-018 *before* the 2026-10-17 amendment
         — see that constant. The same construction on the amended profile
-        gives 94 px, which is the figure ``tests/test_book_pdf_two_up.py``
+        gives 193 px, which is the figure ``tests/test_book_pdf_two_up.py``
         pins, so the two numbers are two sheets and not a disagreement. (The
         retired docstring's "112 px on Book 1's amended profile" was wrong
         twice: it was the float, ``0.42 x spare``, rather than this gap, and
@@ -270,7 +270,7 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
 
         gap = twenty.page.drawing_top - pair.upper.page.drawing_top
 
-        assert gap == 113, (
+        assert gap == 213, (
             "the single page's own float, in device pixels, on this module's "
             "profile — not a tolerance",
             gap,

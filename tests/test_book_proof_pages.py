@@ -1496,8 +1496,14 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
 
-    **CARD-391:** the fixture this class reads against is now
-    ``proof_baseline_card391.json``. That card removes the placeholder QR icon
+    **CARD-392:** the fixture this class reads against is now
+    ``proof_baseline_card392.json``. The footer band shrank from 29.878 mm to
+    9.878 mm, so the puzzle area a proof page's drawing floats in is 20 mm
+    deeper and its footer rule and folio sit 20 mm lower: **all nine**
+    portrait trims move again, and only by that band. ``book_proof.py`` is
+    untouched. All superseded fixtures stay.
+
+    **CARD-391:** the fixture before that was ``proof_baseline_card391.json``. That card removes the placeholder QR icon
     from ``render_pages``, and a proof page is drawn through the same call a
     real interior page uses, so the icon leaves it too: **all nine** portrait
     trims move, and only by that icon. ``book_proof.py`` loses only the branch
@@ -1552,6 +1558,12 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     """
 
     BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card392.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    CARD391_BASELINE = json.loads(
         (Path(__file__).parent / "fixtures" / "proof_baseline_card391.json").read_text(
             encoding="utf-8"
         )
@@ -1575,16 +1587,18 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         )
     )
 
-    def test_every_trim_moved_off_the_card224_recording(self) -> None:
-        """The attribution, measured rather than written down (CARD-391).
+    def test_every_trim_moved_off_the_card391_recording(self) -> None:
+        """The attribution, measured rather than written down (CARD-392).
 
-        Taking the placeholder QR icon out of ``render_pages`` must have moved
-        every one of these trims — if one of them still matched CARD-224's
-        recording, the move never reached that trim and this class's new
-        reference would be pinning the wrong thing.
+        Shrinking the footer band must have moved every one of these trims --
+        if one of them still matched CARD-391's recording, the move never
+        reached that trim and this class's new reference would be pinning the
+        wrong thing. CARD-391's own move off CARD-224's stays asserted on its
+        recording (every trim also differs from CARD-224's).
         """
-        assert set(self.BASELINE["moved_from_card224"]) == set(self.BASELINE["digests"])
+        assert set(self.BASELINE["moved_from_card391"]) == set(self.BASELINE["digests"])
         for key, digests in self.BASELINE["digests"].items():
+            assert digests != self.CARD391_BASELINE["digests"][key], key
             assert digests != self.CARD224_BASELINE["digests"][key], key
 
     def test_every_trim_also_differs_from_the_card222_recording(self) -> None:
@@ -1622,7 +1636,7 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         control = self.BASELINE["unmoved_control_page_px"]
 
         assert set(control) == set(self.BASELINE["digests"])
-        assert set(control) == set(self.CARD224_BASELINE["digests"]), (
+        assert set(control) == set(self.CARD391_BASELINE["digests"]), (
             "a control is only a control while this recording covers the same "
             "trims as the recording it is attributed against"
         )
