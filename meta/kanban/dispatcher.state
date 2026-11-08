@@ -466,12 +466,6 @@ max_concurrent_override: 2
 #   TimeoutExpired in a bare `except Exception`. "It is not a timeout" refuted.
 #
 active:
-  - card: CARD-399
-    branch: card/399-retire-play-js
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-399
-    started: 2026-11-08T13:00Z
-    estimate: 5c (2d)
-    cut_from: ac5e423d
   # CARD-229 DISPATCHED 2026-11-08 as a THIRD active card (owner ruling 2026-11-08: cap of 2 lifted; active = 399, 414, 229). CARD-393 is folded in.
   - card: CARD-229
     branch: card/229-guide-spread
@@ -479,6 +473,7 @@ active:
     started: 2026-11-08T17:00Z
     estimate: 4c (1.5d)
     cut_from: a12c39dd
+# CARD-399 CLEARED 2026-11-08T22:19:38Z at its merge gate: merged 635981c9, done, certified 8.4 on cycle 1, estimate 5c -> 1 cycle = ratio 0.2. Full armed suite 10908 passed, 1 skipped, 1 xfailed (collected 10923, net -704 ids; run 1 31m46s against 44m36s before) + 10 lifted wave_close_only passed. CARD-384 closed moot alongside. Entry dropped.
 # CARD-414 CLEARED 2026-11-08T20:09:24Z at its merge gate: merged 1d1e1c58, done, certified 8.6 on cycle 2 (6.5 on cycle 1, not certified), estimate 1c -> 2 cycles = ratio 2.0. Gate 1 red on 6 playwright goto timeouts, not reproduced; gate 2 full suite 11612 passed, 1 skipped, 1 xfailed + 7 lifted wave_close_only passed. Entry dropped.
 # CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
 # CARD-394 CLEARED 2026-11-08T12:36Z at its merge gate: merged 93d951f7, done, certified 9.0 on cycle 2 (6.5 on cycle 1, not certified), estimate 2c -> 2 cycles = ratio 1.0. Full armed suite 11602 passed, 1 skipped, 1 xfailed + 6 lifted wave_close_only passed. Entry dropped.

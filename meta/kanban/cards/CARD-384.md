@@ -1,6 +1,6 @@
 # CARD-384: Align the public player's crosshair colour and cell-size bounds with the admin solver's
 
-**Status:** parked
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 3c (1d)
@@ -20,9 +20,9 @@
 <!-- CARD-380 (probe mode) is in review and declares player/player.css, tests/test_public_player_agreement.py, tests/test_public_player_hint.py and tests/test_public_player.py as Touches, the same files this card edits; the two must not run concurrently. CARD-380's fix round also re-pins the zoom premise margins on a 1 px width sweep, which is the baseline this card re-measures against. -->
 **Touches:** player/player.css, tests/test_public_player_agreement.py, tests/test_public_player.py, tests/test_public_player_zoom.py, tests/test_public_player_hint.py, tests/test_public_player_probe.py, tests/test_public_player_crosshair.py, tests/test_public_player_circles.py, tests/test_public_player_maybe.py, tests/test_public_player_pages.py
 <!-- A starting list, over-declared in the conservative direction: the author derives which of these actually change by running them, and names any file outside the list as SCOPE+. The zoom module is on the list because its pinned premise is geometry (board height against the offset above it) and a 14 to 28 px cell changes both. -->
-**Review score:** —
+**Review score:** n/a — **CLOSED AS MOOT** on 2026-11-08: its subject (the old play.js crosshair colour and cell-size alignment with the admin solver) was deleted by CARD-399 (merged 635981c9); no work was done and none is owed.
 **Started:** 2026-11-06T16:53Z
-**Closed:** —
+**Closed:** 2026-11-08T22:19:38Z
 **Actual:** —
 **Merge commit:** —
 **Blocked by:** —
@@ -81,3 +81,7 @@ Read the Worktree notes of `meta/kanban/cards/CARD-324.md`, `CARD-325.md`, `CARD
 (none yet)
 
 [PARKED 2026-11-06 by the orchestrator on the owner's ruling] After the shared-player spike the owner said "yes to A" (the public page will run the admin's own solver.js and admin.css, CARD-385 and CARD-386, with differences decided after the owner tests the result). Everything this card aligns (crosshair colour, Maybe ground, clue-box ground, cell bounds) is replaced by the admin's own files under A, so this card is parked, NOT cancelled: if A is reversed, resume it. State at parking: branch `card/384-align-public-player-with-admin`, worktree `/Users/omelnikova/PycharmProjects/PythonProject4-card-384` kept, tip `6ec4409c` (four commits over the cut `2111a54f`), clean; the AC-5 table, collision tables and renders are in `~/Documents/nonogram-reviews/CARD-384/`; ONE test is red (`tests/test_public_player.py::test_phone_viewport_is_playable`, clue numerals 8.8 px at the derived 21 px floor against a 10 px pin) awaiting the owner's A/B/C choice, which is now moot unless A is reversed. The probe module was not re-run in full after its last fix. Nothing was merged.
+
+## CLOSED AS MOOT 2026-11-08
+
+CARD-399 retired play.js and play.html; the shared-UI player (the admin solver's own files, built into the public site) is the only /play/<key>. The crosshair colour and cell-size bounds this card meant to align between the public player and the admin solver are now one implementation, so there is nothing left to align. No work was done.
