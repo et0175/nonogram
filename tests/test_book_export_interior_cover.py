@@ -3703,7 +3703,7 @@ class Generator:
     #: total: the ``parameter default`` rows go 6 -> 7 and every other
     #: classification is unmoved, so the delta is attributable to one method
     #: and not to a drift somewhere in the other 24.
-    #: CARD-390: 34, not 25 -- **+9, all one feature, attributed one by one**.
+    #: CARD-390: 35, not 25 -- **+10, all one feature, attributed one by one**.
     #: The Play online page is the first page position decided after the
     #: puzzle section that is not an offset from the answer section: the plan
     #: names it (``SectionPlan.play_page`` and ``play_blank_page``, two field
@@ -3711,12 +3711,13 @@ class Generator:
     #: ``play_page`` assigned, bumped past the blank by an augmented
     #: assignment, and ``play_blank_page`` assigned, each with its ``None``
     #: initial: five more), and ``interior_page_count`` names the pages laid
-    #: down before it (``before_play``, one). Nine rows, the names added to
+    #: down before it (``before_play``, one), and ``InteriorStream.play_page`` carries
+    #: the page to Finalise (one). Ten rows, the names added to
     #: :data:`POSITION_NAMES` above (``before_play``, ``pages_before``,
     #: ``play_blank_page``, ``play_page``), and no row removed. Re-derived by
     #: running ``_page_positions`` against main and against the branch and
     #: reading the difference, not from the failure message.
-    POSITION_SITE_COUNT = 34
+    POSITION_SITE_COUNT = 35
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
