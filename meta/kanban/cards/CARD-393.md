@@ -1,6 +1,6 @@
 # CARD-393: How to Solve says where the code is — one line under the guide's intro, with the Play online page's real number
 
-**Status:** ready
+**Status:** skipped
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2c (1d)
@@ -18,7 +18,7 @@
 **Depends on:** CARD-390, CARD-229
 <!-- CARD-229 (the guide as a facing spread on pages 2 and 3, ready, unstarted) re-lays the guide's intro and frame; this line belongs under the intro it produces. If the owner wants this line sooner, drop the CARD-229 edge and accept that CARD-229 then re-seats one line. -->
 **Touches:** src/nonogram/admin/book_guide_vector.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, docs/guides/how-to-solve-nonograms.md
-**Review score:** —
+**Review score:** n/a — **RETIRED into CARD-229** on 2026-11-08 (owner: "fold 393 into 229"). No work was done and none is owed here.
 **Started:** —
 **Closed:** —
 **Actual:** —
@@ -64,3 +64,7 @@ The Play online page sits at the back, deliberately outside Amazon's preview (th
 ## Worktree notes
 
 (none yet)
+
+## RETIRED 2026-11-08 — folded into CARD-229
+
+The owner folded this card into CARD-229 ("How to Solve" as a facing spread): both edit the guide writer, and one review and one gate cover the page once. Items 1-4 and AC-1..6 now live in CARD-229 under 'FOLDED IN 2026-11-08' (AC ids prefixed 393.). CARD-229 depends on CARD-390 for the Play page's number. Nothing below needs reading.

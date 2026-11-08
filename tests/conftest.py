@@ -104,6 +104,7 @@ def pytest_configure(config):
     _database_guard.pytest_configure(config)
     _hang_guard_configure(config)
     _undefined_table_report.register(config)
+    _wave_close_marker.register(config)
     config.addinivalue_line("markers", "unit: isolated component tests")
     config.addinivalue_line("markers", "integration: multi-component tests")
     config.addinivalue_line("markers", "e2e: end-to-end workflow tests")
@@ -165,6 +166,11 @@ from tests.full_suite_lock import (
 # `-p no:undefined-table-report` can block — so the diagnostic can be shown
 # absent on the real suite, which is what AC-2 asks for.
 from tests.helpers import undefined_table_report as _undefined_table_report
+
+# CARD-395's wave-close marker: a registry hook in its own module, registered by
+# name (`-p no:wave_close_marker` shows the suite without it). The marked test
+# files carry no decorator; see the module docstring.
+from tests import wave_close_marker as _wave_close_marker
 
 
 def pytest_report_header(config):

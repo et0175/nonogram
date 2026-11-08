@@ -12,16 +12,68 @@
 # `test` is the full suite and the definition of done. `test-impact` is a CYCLE
 # gate only. Narrowing is safe because the full suite still runs at the merge
 # gate; it is not an alternative to that run.
+#
+# Since CARD-395 the MERGE GATE is `test-gate`, which does not run the tests
+# marked `wave_close_only` (the heaviest property sweeps and mutant grids; the
+# registry is tests/wave_close_marker.py) unless the changed paths lift them,
+# and which says how many it left for the wave close. The WAVE CLOSE is
+# `test-wave-close`: the bare suite, marker and all. `test` stays bare too.
 
 PY ?= ./.venv/bin/python
 BASE ?= $(shell git merge-base HEAD main 2>/dev/null || echo main)
 FILES ?=
 
-.PHONY: test test-impact impact-set
+.PHONY: test test-impact impact-set test-gate test-marked test-wave-close
 
-## Full suite. What the merge gate and the wave smoke test run.
+## Full suite, BARE: no marker deselection, nothing narrowed. What a local full
+## run and the wave smoke test run, and what the merge gate runs when the answer
+## is a conftest / pytest-config / Makefile / selector change (CARD-395 rule A).
 test:
 	$(PY) -m pytest
+
+## WAVE CLOSE: the full suite, no marker deselection. Refuses to run when
+## PYTEST_ADDOPTS carries any option that drops tests: -m/--markexpr, -k,
+## --deselect, --ignore (--ignore-glob included). A wave close that deselected
+## anything is not the backstop. Options that only change reporting are fine.
+test-wave-close:
+	@if printf '%s' "$$PYTEST_ADDOPTS" | grep -Eq '(^| )(-[A-Za-z]*[mk]|--markexpr|--deselect|--ignore)'; then \
+		echo "test-wave-close: PYTEST_ADDOPTS deselects tests (-m/--markexpr/-k/--deselect/--ignore); the wave close is the bare suite. Unset it." >&2; \
+		exit 2; \
+	fi
+	@echo "WAVE CLOSE: full suite, no marker deselection"
+	$(PY) -m pytest
+
+## The tests the gate defers (marker `wave_close_only`), alone: for a bisect
+## over a wave's merges when the wave close reds in one of them, or a
+## pre-wave-close check.
+test-marked:
+	$(PY) -m pytest -m wave_close_only
+
+## MERGE GATE (CARD-395): derive the gate's block, print it, run the command(s)
+## it names, propagate the exit code.
+##
+##   make test-gate                 # changes against the merge-base with main
+##   make test-gate BASE=<rev>
+##
+## PY defaults to ./.venv/bin/python, which a card WORKTREE does not have: there,
+## pass PY=/abs/path/to/main/.venv/bin/python (and PYTHONPATH=<worktree>/src).
+##
+## `run N:` lines in the block are the commands; `python` in them is $(PY).
+## Exit codes of impact_set.py --gate: 0 selection, 10 FULL, 11 count failed
+## (= FULL, run bare), 12 EMPTY (nothing to run, and NOT a pass: check BASE).
+## The block's closing sentence says 'nothing more is owed AT THIS GATE' and
+## states how many marked tests are owed at the wave close.
+test-gate:
+	@set +e; \
+	block=$$($(PY) scripts/impact_set.py --gate --against $(BASE)); code=$$?; \
+	printf '%s\n' "$$block"; \
+	if [ $$code -eq 12 ]; then exit 12; fi; \
+	if [ $$code -ne 0 ] && [ $$code -ne 10 ] && [ $$code -ne 11 ]; then \
+		echo "test-gate: impact_set.py exited $$code; nothing was run" >&2; exit $$code; \
+	fi; \
+	cmds=$$(printf '%s\n' "$$block" | sed -n 's|^run [0-9]*: python |$(PY) |p'); \
+	if [ -z "$$cmds" ]; then echo "test-gate: the block names no command; nothing was run" >&2; exit 3; fi; \
+	printf '%s\n' "$$cmds" | { rc=0; while IFS= read -r cmd; do echo "+ $$cmd"; sh -c "$$cmd" || rc=1; done; exit $$rc; }
 
 ## Print the derived selection without running it -- for reading a gate's scope
 ## before spending it.
