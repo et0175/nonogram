@@ -5605,25 +5605,25 @@ functional:
         when: /play/<key> loads
         then: the board renders that puzzle's grid and clues, and cells can be marked through the three states with undo and redo, with the same state transitions as the admin player's solver_state.js
         kind: happy
-        test: tests/test_public_player.py::test_play_page_renders_and_marks
+        test: tests/test_player_shared_ui_site.py::test_a_real_puzzle_plays_to_the_solved_banner
       - id: AC-384
         given: a board one mark short of satisfying every row and column clue
         when: the last mark lands
         then: the page shows the solved state; with one wrong cell instead, it does not
         kind: boundary
-        test: tests/test_public_player.py::test_solved_fires_on_clue_satisfaction_only
+        test: tests/test_player_public_mode.py::test_it_agrees_with_the_oracle
       - id: AC-385
         given: a partially solved puzzle
         when: the page reloads
         then: the marks are restored from localStorage, and no network request was ever issued other than fetching the page's own static assets
         kind: negative
-        test: tests/test_public_player.py::test_resume_is_local_and_the_page_writes_nowhere
+        test: tests/test_puzzle_solver_resume.py::test_reload_restores
       - id: AC-386
         given: a 390 px-wide viewport and the largest supported grid (limits.MAX_SIZE per side)
         when: the page renders
         then: the board is playable — cells reachable, clues legible, no horizontal page scroll
         kind: boundary
-        test: tests/test_public_player.py::test_phone_viewport_is_playable
+        test: tests/test_puzzle_solver_page.py::test_a_phone_width_page_never_scrolls_sideways
       # --- the QR landing and the library (CARD-284) ---
       - id: AC-387
         # The title clause is the owner's 2026-10-28 decision (CARD-284
@@ -5721,7 +5721,7 @@ functional:
           minimum length asserted in the test.
         kind: consistency
         instances: [AC-385]
-        test: tests/test_public_player.py::test_no_write_request_for_any_interaction
+        test: tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean
 
   - id: FR-046
     # New 2026-10-24 (raw-requirements.md "## Delta 2026-10-24"; OWNER
@@ -7276,7 +7276,7 @@ constraints:
     # still absences (no third surface, no play-state table, no account, no
     # server-side write) that no single named test proves; FR-045's
     # test_bundle_is_clean_of_answers and
-    # test_no_write_request_for_any_interaction cover the public player's
+    # test_every_control_every_gesture_the_solve_and_the_reload_are_clean cover the public player's
     # two sharpest clauses only.
     type: technical
     statement: >-

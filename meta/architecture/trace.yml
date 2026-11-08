@@ -2401,12 +2401,12 @@ links:
   - tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder
   - tests/test_player_bundle.py::test_bundle_is_clean_of_answers
   - tests/test_player_bundle.py::test_export_is_readonly_and_deterministic
-  - tests/test_public_player.py::test_play_page_renders_and_marks
-  - tests/test_public_player.py::test_solved_fires_on_clue_satisfaction_only
-  - tests/test_public_player.py::test_resume_is_local_and_the_page_writes_nowhere
-  - tests/test_public_player.py::test_phone_viewport_is_playable
+  - tests/test_player_shared_ui_site.py::test_a_real_puzzle_plays_to_the_solved_banner
+  - tests/test_player_public_mode.py::test_it_agrees_with_the_oracle
+  - tests/test_puzzle_solver_resume.py::test_reload_restores
+  - tests/test_puzzle_solver_page.py::test_a_phone_width_page_never_scrolls_sideways
   - tests/test_public_player.py::test_served_tree_is_clean_of_answers
-  - tests/test_public_player.py::test_no_write_request_for_any_interaction
+  - tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean
   - tests/test_public_player_pages.py::test_book_landing_lists_and_links
   - tests/test_public_player_pages.py::test_unknown_slug_lands_softly
   - tests/test_public_player_pages.py::test_library_filters_the_index

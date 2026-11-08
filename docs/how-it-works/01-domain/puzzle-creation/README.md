@@ -140,10 +140,10 @@ guard or the package ships.
 
 | Path | Lines | Role |
 |---|---|---|
-| `player/play.js` | 590 | the `/play/<key>` glue: fetch, draw, four brushes, drag strokes, undo/redo, the localStorage save, `isClueSolved` |
 | `player/pages.js` | 364 | the two listing pages' glue (`/library`, `/b/<slug>`) |
-| `player/player.css` | 536 | the player's own stylesheet; the empty cell's dot, the Maybe mark's "?" and the solved reveal live here |
-| `player/play.html` · `library.html` · `book.html` | 102 · 95 · 99 | one hand-written document per door |
+| `player/player.css` | 262 | the listing pages' stylesheet only (CARD-399: the play surface is the admin's `solver.js` / `admin.css`, copied byte for byte) |
+| `player/shared-ui-base.css` | — | the project's own stand-in for the part of Bootstrap the play page uses, published as `/base.css` |
+| `player/library.html` · `book.html` | 95 · 99 | one hand-written document per listing door (`/play/<key>` is a generated shell, see `assemble.py`) |
 | `player/vercel.json` | — | the host's three rewrites; the test fixtures route by reading this file |
 | `player/assemble.py` | 1,642 | writes the deployable tree: copies, rebuilds the served JSON from `SERVED_SCHEMA`, carries EC-048, refuses an `--out` it did not write |
 

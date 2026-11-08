@@ -410,9 +410,9 @@ def test_book_landing_lists_and_links(browser_page, pages_host) -> None:
 
     # Tap the second tile and arrive at that puzzle's board.
     browser_page.locator(".tile").nth(1).click()
-    browser_page.wait_for_function("() => window.publicPlayer !== undefined")
+    browser_page.wait_for_function("() => window.puzzlePlayer !== undefined")
     assert browser_page.url.endswith(f"/play/{expected[1]}")
-    assert browser_page.evaluate("() => window.publicPlayer.payload.key") == expected[1]
+    assert browser_page.evaluate("() => window.puzzlePlayer.payload.id") == expected[1]
 
 
 @pytest.mark.browser
@@ -1711,24 +1711,11 @@ def test_the_listing_pages_carry_no_colour_literal_and_only_defined_tokens() -> 
     }
 
     def undefined_in(text: str) -> list[str]:
-        # ``--player-width`` / ``--player-height`` are set on the board
-        # element by play.js and so are declared in script rather than in
-        # CSS, which is why they are named here — CARD-283's own rule names
-        # them for the same reason. ``--player-wave`` (2026-10-30) is the
-        # third of exactly that kind: play.js sets it per cell as row + col,
-        # the solved sweep's delay reads it, and solver.js sets it the same
-        # way for the admin player's own copy of that animation. Naming it
-        # costs the rule nothing — a typo in the *use* still reds, because
-        # the name a cell is given lives in play.js, not here.
-        # ``--player-above-h`` (CARD-324, cycle 2) is the fourth: play.js
-        # writes the stage's measured distance from the top of the page onto
-        # the stage, and the stage's height cap reads it with the old
-        # one-toolbar-row allowance as the fallback. A typo in the use still
-        # reds for the same reason as above, and a typo in the NAME play.js
-        # writes reds the fold sweep in test_public_player_zoom.py.
-        defined = tokens | {
-            "--player-width", "--player-height", "--player-wave", "--player-above-h",
-        }
+        # CARD-399: the four names declared in script by the retired play.js
+        # (--player-width, --player-height, --player-wave, --player-above-h)
+        # are no longer named here; none of these four files uses them, and a
+        # use of one would now red as an undefined token.
+        defined = set(tokens)
         defined |= set(re.findall(r"(--[a-z0-9-]+)\s*:", text))
         used = set(re.findall(r"var\(\s*(--[a-z0-9-]+)", text))
         return sorted(used - defined)
@@ -1762,7 +1749,7 @@ def test_the_two_pages_add_nothing_to_the_package_and_no_toolchain() -> None:
         assert not (PLAYER_DIR / forbidden).exists(), forbidden
     manifest = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "player/" not in manifest and '"player"' not in manifest
-    # The two pages are modules served from the site root, as play.html's is:
+    # The two pages are modules served from the site root, as the play page's loader is:
     # a relative src would break under the /b/<slug> and /library rewrites,
     # which serve one document at many paths.
     for name in ("library.html", "book.html"):
@@ -2023,6 +2010,13 @@ driver = _load_driver()
 #: bytes of the same file, or the scan measures its own copy.
 ALLOW_RUNTIME, ALLOW_STATIC = driver.allow_list(REPO_ROOT)
 
+#: What the default-deny scan cannot place in the assembled tree since CARD-399: the admin player's
+#: ``solver.js`` imports its byte-identical sibling as ``./solver_state.js``, a relative same-origin
+#: module import the scan reads as a reference it cannot place. That one line is the whole of the
+#: residue, named so that a SECOND unplaceable reference reds (tests/test_player_shared_ui_site.py
+#: holds the same equality).
+COPIED_JS_RESIDUE = ["solver.js: './solver_state.js' is neither absolute nor rooted at the site"]
+
 #: Where a reference may appear in a served file. Every pattern but
 #: :data:`_ABSOLUTE_TARGET` reads a QUOTED value, and that is the limit which
 #: makes the scan precise instead of noisy: a bare ``//`` is a JavaScript
@@ -2268,7 +2262,7 @@ _PROPERTY_SINK = re.compile(
 #:   could leave by, and the identifier shapes below are the trip-wire that
 #:   fires when somebody adds code. The browser-side closure is held
 #:   separately and already was before this card
-#:   (``tests/test_public_player.py::test_no_write_request_for_any_interaction``,
+#:   (``tests/test_player_shared_ui_site.py::test_every_control_every_gesture_the_solve_and_the_reload_are_clean``,
 #:   every request held to method, origin AND path).
 #:
 #: Every entry is COMPOUND on purpose. A bare ``fingerprint`` was the first
@@ -2593,7 +2587,7 @@ def _open_play(page, url: str, key: str) -> None:
     precedent for holding it to the shape.
     """
     page.goto(f"{url}/play/{key}", timeout=PAGES_SETTLE_MS)
-    page.wait_for_function("() => window.publicPlayer !== undefined", timeout=PAGES_SETTLE_MS)
+    page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
 
 
 @pytest.mark.browser
@@ -2711,6 +2705,7 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
     # (4a) completeness: everything the site serves is in the one directory.
     served = set(tree(out))
     expected = {
+        assembler.PLAY_PAGE,
         *assembler.PLAYER_FILES.values(),
         *assembler.COPIED_FROM_ADMIN.values(),
         assembler.SITE_MARKER_FILE,
@@ -2724,7 +2719,7 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
     # (4b) self-containment: every reference resolves inside the tree, or is
     # on the deploy page's allow-list, or the scan fails.
     found = scan_site(out, ALLOW_RUNTIME, ALLOW_STATIC)
-    assert found == {"foreign": [], "identifiers": [], "unclassifiable": []}, found
+    assert found == {"foreign": [], "identifiers": [], "unclassifiable": COPIED_JS_RESIDUE}, found
     # The instrument is reached: a tree with a dangling reference is caught,
     # so "no dangling reference" is a measurement and not an empty scan.
     (out / "b" / "index.html").write_text(
@@ -2857,7 +2852,7 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
     _open_pages(page, url, f"/b/{slug}")
     assert _tiles(page) == [keys[name] for name in BOOK_ORDER]
     page.click(f'.tile[data-key="{keys["h24"]}"]')
-    page.wait_for_function("() => window.publicPlayer !== undefined", timeout=PAGES_SETTLE_MS)
+    page.wait_for_function("() => window.puzzlePlayer !== undefined", timeout=PAGES_SETTLE_MS)
     assert page.url.endswith(f"/play/{keys['h24']}")
     _tap(page, 0, 0)
     _tap(page, 1, 2)
@@ -2924,7 +2919,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     assert scan_site(site, ALLOW_RUNTIME, ALLOW_STATIC) == {
         "foreign": [],
         "identifiers": [],
-        "unclassifiable": [],
+        "unclassifiable": COPIED_JS_RESIDUE,
     }
 
     # The scan is reached: the site really does reference the endpoints, so
@@ -2944,7 +2939,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     assert sorted(hit.split(":", 1)[0] for hit in caught["foreign"]) == sorted(
         report.counted
     ), caught["foreign"]
-    assert caught["identifiers"] == [] and caught["unclassifiable"] == [], caught
+    assert caught["identifiers"] == [] and caught["unclassifiable"] == COPIED_JS_RESIDUE, caught
 
     # Controls 2-4: planted probes in a copy of the site. A copy, so the
     # clean verdict above is not a verdict about a tree this test edited.
@@ -3349,7 +3344,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     assert scan_site(alone, ALLOW_RUNTIME, ALLOW_STATIC) == {
         "foreign": [],
         "identifiers": [],
-        "unclassifiable": [],
+        "unclassifiable": COPIED_JS_RESIDUE,
     }, "the baseline of the one-at-a-time copy is not clean"
     for name, body, needle, blanked, narrow_catches in shapes:
         plant = alone / name
@@ -3364,7 +3359,7 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
             assert [
                 hit for hit in got["foreign"] if name in hit and needle in hit
             ], (name, got)
-            assert got["identifiers"] == [] and got["unclassifiable"] == [], (name, got)
+            assert got["identifiers"] == [] and got["unclassifiable"] == COPIED_JS_RESIDUE, (name, got)
             monkeypatch.setattr(sys.modules[__name__], "_HOST_LITERAL", narrow_host)
             narrowed = scan_site(alone, ALLOW_RUNTIME, ALLOW_STATIC)
             monkeypatch.undo()
@@ -3490,7 +3485,7 @@ def test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself() ->
         and id(node) not in docstrings
     ]
     assert literals, "no string literal was read, so this proves nothing"
-    published = {*assembler.PLAYER_FILES, *assembler.PLAYER_FILES.values()}
+    published = {assembler.PLAY_PAGE, *assembler.PLAYER_FILES, *assembler.PLAYER_FILES.values()}
     published |= {*assembler.COPIED_FROM_ADMIN, *assembler.COPIED_FROM_ADMIN.values()}
     named = sorted(path for path in published if any(path in text for text in literals))
     assert named == [], named

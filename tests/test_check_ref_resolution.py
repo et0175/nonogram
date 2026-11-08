@@ -1531,13 +1531,17 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # rewritten `test:` class (the one about narrow trims now pairing, in
 # requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
 # does not (none of the three is declared in trace.yml).
+# CARD-399 step 2: digest e0a8c03c0eed6b00 -> 9d527d75b1c0f220, count 583 unchanged (five refs replaced by five; see DEFINED).
 # CARD-392 (2026-11-08): 583 -> 584, ONE new declaration, measured by the diff
 # of the `test:` lines against main (IN 1, OUT 0): AC-413's class (the pair
 # thresholds on three trims, in requirements.yml; its name is not spelled here,
 # G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
 # other AC rows that CARD-392 restated keep their class names. CENSUS and
 # DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
-CENSUS = (584, "9a935fa131ddf749")
+# CARD-399 step 3 (measured after merging main with CARD-392 and CARD-414 in): digest
+# 9a935fa131ddf749 -> 7dc31f115b77a2ed, count 584 unchanged; the step-2 swap of five refs for five
+# is what moves it (main alone: 9a935fa131ddf749).
+CENSUS = (584, "7dc31f115b77a2ed")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1583,7 +1587,8 @@ CENSUS = (584, "9a935fa131ddf749")
 # CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
 # FR-047's trace.yml row (the one declaration site for each: the criteria
 # repeat two of them, which this list does not count twice).
-TRACE_TESTS = (512, "c3123e749dd9300d")
+# CARD-399 step 2: digest c3123e749dd9300d -> 9647eab2ad3c4fa3, count 512 unchanged (see DEFINED).
+TRACE_TESTS = (512, "9647eab2ad3c4fa3")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1684,9 +1689,21 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # ref for the validator), each declared by requirements.yml and trace.yml with
 # its definition in place; HONEST_DEAD unmoved at 9.
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
+# CARD-399 step 2: the model's five verifying refs for the public player (AC-383..386 and
+# EC-050) moved from tests/test_public_player.py, whose twins retire, to the shared player's
+# own tests (declared in requirements.yml, trace.yml and ADR-0041/R4). Same count, five
+# refs replaced by five that each have a def and a one-line citation in their own module, so
+# the validator reads them alive: DEFINED, SAME_FILE_PROSE and TRACE_TESTS keep their
+# counts and take the digest of the new member set (measured by this module's own
+# derivation, not pasted from a prediction); CENSUS and the dead classes did not move
+# (FALSELY_DEAD stays 13 because the citations are what keeps these five out of it).
+# CENSUS moved the same way (digest only); its own line below says so.
+# DEFINED: digest 0a91e9a7753e31ec -> 9af7b521f444e194, count 419 unchanged.
 # CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
 # against its `class` line and not pasted from the printed figure.
-DEFINED = (420, "49c6c5cc1a6f80dc")
+# CARD-399 step 3 (measured, same cause as CENSUS): digest 49c6c5cc1a6f80dc -> d2183a0cc37abe68,
+# count 420 unchanged.
+DEFINED = (420, "d2183a0cc37abe68")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1716,7 +1733,8 @@ DEFINED = (420, "49c6c5cc1a6f80dc")
 #: warning set on ``meta/architecture`` is identical to main's (0 errors, 89
 #: warnings, forge_1), where a first draft with no such citation read one
 #: DEAD-ref warning more. Verified against the two ``def`` lines.
-SAME_FILE_PROSE = (21, "531805932c7ba2e5")
+# CARD-399 step 2: digest 531805932c7ba2e5 -> 5cb45488b9f74d4c, count 21 unchanged (see DEFINED).
+SAME_FILE_PROSE = (21, "5cb45488b9f74d4c")
 
 #: **Per-member digests of the two classes whose shrink is answerable
 #: mechanically** -- the enforceable half of repair-vs-signal-loss, and the

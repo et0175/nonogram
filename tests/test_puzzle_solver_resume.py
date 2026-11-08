@@ -465,6 +465,7 @@ class TestSolverResume_ReloadRestoresBoardCountsAndHistory:
     """AC-3 / AC-360 — five strokes, a hint, a "?" mark and an undo survive a
     reload: board, both counts, then Redo and Undo through the same steps."""
 
+    # AC-385: the model's verifying ref, tests/test_puzzle_solver_resume.py::test_reload_restores (CARD-399: moved here from play.js's twin).
     def test_reload_restores(self, browser_page, live) -> None:
         problems = _watch_problems(browser_page, live)
         puzzle_id = live.store(GRID)

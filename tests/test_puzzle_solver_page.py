@@ -1436,6 +1436,7 @@ class TestSolverPageFits:
         assert box["right"] <= 1440 and box["bottom"] <= 900, box
         assert box["cell"] >= 14
 
+    # AC-386 (the page fit; MAX_SIZE is the seeded grid here): the model's verifying ref, tests/test_puzzle_solver_page.py::test_a_phone_width_page_never_scrolls_sideways (CARD-399: moved here from play.js's twin).
     def test_a_phone_width_page_never_scrolls_sideways(self, browser_page, live) -> None:
         """AC-11 (CARD-193, rewritten 2026-10-07). The name is the hard,
         unconditional guarantee: the PAGE never scrolls sideways, whatever
