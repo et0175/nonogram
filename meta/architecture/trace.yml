@@ -2108,6 +2108,12 @@ links:
     Both refusals print two single pages, each with its own footer and link —
     never a two-up page with a link missing. AC-376 (the exact refused set
     {29,30,31,32}) and AC-377 (the width gate) are new.
+    AMENDED 2026-11-08 (CARD-392, the one-line footer): the strip is
+    INTERIOR_FOOTER_MM = 9.878 mm (117 px), so the two-up height budget is
+    219.586 mm and the largest pairing combined height 31 cells on Book 1
+    (24 on 6 x 9 in, 20 on 5 x 8 in). AC-376's refused set is now {32};
+    AC-413 holds the three trims' boundaries; AC-242..AC-246 and AC-377 are
+    restated from the same arithmetic.
   status: partial
 
 - req: FR-041

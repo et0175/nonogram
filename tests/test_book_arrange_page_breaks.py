@@ -459,19 +459,19 @@ def _folio_reserve_px() -> int:
 
 
 def _footer_reserve_px() -> int:
-    """CARD-248's footer strip, reimplemented here: 353 px at 300 DPI.
+    """CARD-248's footer strip, reimplemented here: 117 px at 300 DPI (CARD-392).
 
     **The pairing verdict depends on this one too.** A two-up page now carries
-    one footer strip holding both puzzles' QR groups and the page's own folio,
+    one footer strip holding the page's own folio and shared pointer line,
     so the generator's walk passes this many pixels of height into every
     ``compute_pair_layout`` call and the pair is fitted into what is left. A
     walk that omitted it would pair puzzles the book prints on two pages.
 
-    Reimplemented from the three rows the strip is built of, as this file
-    reimplements every other figure: the 2 cm icon, the 10 pt footer line, and
-    9 pt of white twice.
+    Reimplemented from the two rows the strip is built of, as this file
+    reimplements every other figure: the 10 pt footer line and 9 pt of white
+    twice (the 2 cm icon row of CARD-248's 353 px strip went with CARD-392).
     """
-    millimetres = 20.0 + 10.0 * 25.4 / 72.0 + 2 * (9.0 * 25.4 / 72.0)
+    millimetres = 10.0 * 25.4 / 72.0 + 2 * (9.0 * 25.4 / 72.0)
     return round(millimetres / 25.4 * DPI)
 
 

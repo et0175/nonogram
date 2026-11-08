@@ -4432,9 +4432,10 @@ _SPARE_ABOVE = 0.42
 #: of the band off the band's foot (CARD-222). The puzzle area's top edge.
 _HEADER_RULE_SHARE = 1 - 1 / 8
 
-#: The footer strip the puzzle area stops above, in millimetres: the 20 mm QR
-#: slot, the 10 pt footer line and the two 9 pt gaps around them (CARD-248).
-_FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * 25.4 / 72
+#: The footer strip the puzzle area stops above, in millimetres: the 10 pt
+#: footer line and the two 9 pt gaps around it (CARD-248; the 20 mm QR row it
+#: carried is gone, CARD-392).
+_FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * 25.4 / 72
 
 #: The raster grid's thin rule, in whole device pixels: the book's 0.25 mm
 #: floor rounded **up** at 300 DPI. The heavy rule is exactly twice it, and
@@ -6636,3 +6637,83 @@ class TestPdfPagesReader_BothReaderPopulationsAreDerived:
                 f"consumers"
             )
         assert len(classified) >= len(named), (len(classified), len(named))
+
+
+# --------------------------------------------------------------------------
+# CARD-392 AC-6 -- the page counts the one-line footer moves, attributed
+# --------------------------------------------------------------------------
+
+
+class TestInterior_PageCountChangeIsAttributedToTheBand:
+    """Which interior counts the 20 mm the footer band gave back moved, and which it did not.
+
+    The band is the unit a two-up pair is fitted against (FR-040) and the
+    puzzle area is measured from; a TOC page, the guide, the answer packing
+    and the Play page read the usable box, not the band, so they are held. The
+    only count that can move is the puzzle section's, through pairing, and with
+    it the interior total and the KDP band it lands in (FR-043, AC-179).
+
+    The "before" column is the same code with ``INTERIOR_FOOTER_MM`` put back
+    to its pre-CARD-392 height in process, the control that makes the
+    attribution a measurement rather than a story; each cell is also a
+    LITERAL, so the table cannot drift with the control.
+
+    **Books crossing a ``KDP_GUTTER_BANDS`` boundary, named:** A (Book 1, 120
+    easy 10x10s with 5-deep gutters, 15 + 15 = 30 cells a pair: refused at the
+    old 28-cell boundary, paired at the new 31) went from 156 interior pages
+    (band 151..300, minimum gutter 0.5 in) to 96 (band 1..150, 0.375 in); B
+    (6 x 9 in, 120 easy 10x10s with 1-deep gutters, 22 cells a pair: refused at
+    the old 21, paired at the new 24) went 156 -> 96 the same way. C (5 x 8 in)
+    cannot pair at any band -- its boundary is 20 cells and the smallest pair
+    the domain admits is 2 x (MIN_SIZE + 1) = 22 -- and is the control that
+    nothing moved.
+    """
+
+    #: (label, trim cm or None for Book 1, gutter depth) -> the counts, before
+    #: and after, as ``(toc rows per page, toc pages, puzzle pages, answer
+    #: pages, interior total, KDP band)``.
+    TABLE = {
+        "A": (None, 5, (40, 1, 120, 30, 156, (151, 300)), (40, 1, 60, 30, 96, (1, 150))),
+        "B": (("15.24", "22.86"), 1, (31, 1, 120, 30, 156, (151, 300)), (31, 1, 60, 30, 96, (1, 150))),
+        "C": (("12.70", "20.32"), 1, (27, 1, 120, 30, 156, (151, 300)), (27, 1, 120, 30, 156, (151, 300))),
+    }
+
+    @staticmethod
+    def _counts(trim, depth):
+        from collections import Counter
+
+        from nonogram.admin.book_kdp import kdp_page_band
+        from nonogram.admin.book_pdf_generator import _toc_entries_per_page
+        from tests.helpers.book_corpus import corpus_book
+        from tests.helpers.book_corpus import puzzle as corpus_puzzle
+
+        book = corpus_book("card392-counts")
+        if trim:
+            book.trim_width_cm, book.trim_height_cm = trim
+        generator = BookPDFGenerator(book)
+        rows = [corpus_puzzle(f"p{i}", 10, 10, depth, "easy", f"P{i}") for i in range(120)]
+        kinds = Counter(kind.value for kind in generator.interior_stream(rows).page_kinds)
+        total = sum(kinds.values())
+        per_page = _toc_entries_per_page(page_frame(generator.page_spec(1)), 300)
+        return (per_page, kinds["toc"], kinds["puzzle"], kinds["answer"], total, kdp_page_band(total))
+
+    def test_the_table_holds_after_and_the_control_reproduces_before(self, monkeypatch) -> None:
+        from nonogram.export import layout
+
+        after = {label: self._counts(trim, depth) for label, (trim, depth, _, _) in self.TABLE.items()}
+        assert after == {label: row[3] for label, row in self.TABLE.items()}
+        monkeypatch.setattr(layout, "INTERIOR_FOOTER_MM", layout.INTERIOR_FOOTER_MM + 20.0)
+        before = {label: self._counts(trim, depth) for label, (trim, depth, _, _) in self.TABLE.items()}
+        assert before == {label: row[2] for label, row in self.TABLE.items()}
+
+    def test_only_the_puzzle_pages_moved_and_two_books_crossed_a_gutter_band(self) -> None:
+        moved = {
+            label: (was[4] - now[4], was[5] != now[5])
+            for label, (_, _, was, now) in self.TABLE.items()
+        }
+        assert moved == {"A": (60, True), "B": (60, True), "C": (0, False)}
+        for label, (_, _, was, now) in self.TABLE.items():
+            # TOC rows, TOC pages and answer pages are the band's no business.
+            assert (was[0], was[1], was[3]) == (now[0], now[1], now[3]), label
+            # The whole move is the puzzle section's: 60 pairs of 120 puzzles.
+            assert was[4] - now[4] == was[2] - now[2], label

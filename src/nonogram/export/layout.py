@@ -233,7 +233,6 @@ __all__ = [
     "DIFFICULTY_DOT_RATIO",
     "DIFFICULTY_DOT_STROKE_RATIO",
     "DPI",
-    "FOOTER_RESERVED_ROW_MM",
     "GRID_SPARE_ABOVE",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
@@ -363,15 +362,6 @@ MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
 #: with a much deeper gutter, would reach — and a later reader tempted to
 #: delete it as dead should reach that conclusion on purpose.
 MIN_CELL_MM = 2.0
-
-#: The row, in millimetres, the footer band still reserves at its foot for a
-#: mark that no longer exists. It was the 2 x 2 cm placeholder QR icon's side
-#: (CARD-204); the owner removed the per-puzzle QR on 2026-11-07 (ADR-0041/R8,
-#: CARD-391), and the row is held at its old 20 mm on purpose: it is a term of
-#: :data:`INTERIOR_FOOTER_MM`, the unit every page's usable area is measured
-#: against, so shrinking it moves every grid and re-derives the pairing
-#: numbers. That is CARD-392's change, and this constant is retired by it.
-FOOTER_RESERVED_ROW_MM = 20.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
 MAJOR_RULE_EVERY = 5
@@ -1682,40 +1672,27 @@ INTERIOR_FOOTER_LINE_MM = INTERIOR_FOOTER_LINE_PT * MM_PER_POINT
 #: millimetres: from the footer rule down to the bottom margin, where the
 #: grid-size label, the folio and the pointer to the Play online page are set.
 #:
-#: **Three rows, measured bottom-up from what each has to hold**: the row the
-#: QR icon used to occupy at the band's foot (:data:`FOOTER_RESERVED_ROW_MM`,
-#: 2 cm; empty since CARD-391 and held until CARD-392 shrinks it), the
-#: footer line above it (:data:`INTERIOR_FOOTER_LINE_MM`, the grid-size label
-#: and the folio), and :data:`INTERIOR_FOOTER_GAP_PT` of white twice: once
-#: under the rule and once between the line and the icon. 29.878 mm in all.
-#: Every term is derived from the constant that states it rather than
-#: restated, so the icon and the row it has to fit in cannot drift apart (G-1).
+#: **Two gaps and one line**, measured from what the footer has to hold: the
+#: footer line (:data:`INTERIOR_FOOTER_LINE_MM`, the grid-size label, the
+#: folio and the pointer to the Play online page) and :data:`INTERIOR_FOOTER_GAP_PT`
+#: of white twice, once under the rule and once between the line and the
+#: bottom margin. 9.878 mm in all. Every term is derived from the constant
+#: that states it rather than restated, so the line and the band it has to fit
+#: in cannot drift apart.
 #:
-#: **Why the line sits above the icon's row and not beside it.** The owner's
-#: artifact sets the label on the band's bottom line, *beside* a QR icon in
-#: the band's **outer** corner. CARD-222 could not do that, because the icon
-#: was still in the band's **gutter-side** bottom corner — the inner side,
-#: where the grid-size label is set — on **150 of 150** pages of the
-#: 150-puzzle corpus (measured, not assumed), so a label on the bottom line
-#: would have printed in black over the icon's own black checkerboard on every
-#: page of the book.
+#: **History.** The band was once three rows, the third a 2 cm row at its foot
+#: for the per-puzzle QR icon (29.878 mm). The owner removed that icon on
+#: 2026-11-07 (ADR-0041/R8, CARD-391) and chose a one-line footer so the grid
+#: gets the room (version B); CARD-392 deleted the row, and with it the
+#: 20 mm the band is shorter by, which every grid, every pairing threshold and
+#: every cell size is measured against (:attr:`InteriorFrame.area_bottom`).
 #:
-#: **CARD-391 removed the icon and this band deliberately keeps its three
-#: rows.** The footer is now one line (the owner's version B), so the row
-#: under it is empty; it is not given back here because the band's depth is
-#: what the puzzle area is measured against (:attr:`InteriorFrame.area_bottom`):
-#: shortening it moves every grid on every page and re-derives the pairing
-#: numbers, which is CARD-392's change, made on its own so that this card's
-#: diff shows only the ink that left and the line that arrived.
-#:
-#: Measured consequence of the figure: on the Book 1 profile the band takes
-#: 353 px of the usable area's 2994 px of height, leaving the puzzle area
-#: 2517 px (213.1 mm) deep between the two rules; on the shortest trim
-#: ``book_page_spec`` admits (10.00 cm) it leaves 398 px (33.7 mm) — positive,
-#: which is AC-7's claim.
-INTERIOR_FOOTER_MM = (
-    FOOTER_RESERVED_ROW_MM + INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
-)
+#: Measured consequence: on the Book 1 profile the band takes 117 px of the
+#: usable area's 2994 px of height, leaving the puzzle area 2753 px (233.1 mm)
+#: deep between the two rules, 236 px (20.0 mm) more than before; on the
+#: shortest trim ``book_page_spec`` admits (10.00 cm) it leaves 634 px
+#: (53.7 mm) -- positive, which is AC-7's claim.
+INTERIOR_FOOTER_MM = INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
 
 #: How much of the puzzle area's spare height goes **above** the drawing; the
 #: rest (0.58) goes below it. FR-032 as amended 2026-10-17 (CARD-224,
@@ -1808,9 +1785,8 @@ class InteriorFrame:
             every page of the book whichever side of the spread it is on
             (the artifact's own ``x="297"`` on a 612 pt page).
         baseline: The row the footer line's type sits on — one gap above the
-            band's reserved foot row (:data:`FOOTER_RESERVED_ROW_MM`, see
-            :data:`INTERIOR_FOOTER_MM`). Its marks are set bottom-anchored
-            there, so none crosses into that row.
+            bottom margin (see :data:`INTERIOR_FOOTER_MM`). Its marks are set
+            bottom-anchored there, so none crosses into the margin.
         page_bottom: The bottom margin — the usable area's own bottom edge,
             and **not** where this frame's own marks go. It is carried because
             a page that cannot use the footer group falls back to CARD-200's
@@ -1941,9 +1917,9 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
         )
     left, _, right, bottom = _usable_box_px(page_spec)
     header_y, footer_y = _puzzle_area_px(page_spec)
-    # The footer line sits one gap above the band's reserved foot row, not on
-    # the bottom margin (:data:`INTERIOR_FOOTER_MM`).
-    baseline = bottom - _mm_to_px(FOOTER_RESERVED_ROW_MM + INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
+    # The footer line sits one gap above the bottom margin, the band's last
+    # row (:data:`INTERIOR_FOOTER_MM`).
+    baseline = bottom - _mm_to_px(INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
     gutter_on_left = page_spec.parity is PageParity.ODD
     return InteriorFrame(
         header_rule=PageRule(

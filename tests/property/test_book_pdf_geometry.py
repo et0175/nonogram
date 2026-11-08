@@ -166,11 +166,11 @@ HALF_PIXEL_MM = 0.5 / PX_PER_MM
 #: CARD-222's puzzle area and CARD-224's split, in millimetres, written out
 #: here rather than imported (this module imports no geometry): the header
 #: rule sits an eighth of the band's depth above its foot, the footer rule one
-#: footer strip above the bottom margin, and the strip is the QR icon's 2 cm
-#: plus its 10 pt line plus a 9 pt gap above and below.
+#: footer strip above the bottom margin, and the strip is its 10 pt line plus a
+#: 9 pt gap above and below (CARD-392: the 2 cm QR row it once carried is gone).
 HEADER_RULE_LIFT_SHARE = 1 / 8
 POINT_MM = 25.4 / 72
-FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * POINT_MM
+FOOTER_STRIP_MM = (10.0 + 2 * 9.0) * POINT_MM
 #: FR-032's optical figure (AC-366/AC-367).
 SPARE_ABOVE = 0.42
 #: How close to zero spare this module stops predicting which of the two rows

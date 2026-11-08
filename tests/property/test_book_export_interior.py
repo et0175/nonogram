@@ -134,10 +134,10 @@ PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
 #: reserves a band for each of two puzzles rather than one **and one footer
 #: strip** (CARD-248: a two-up page carries one footer holding both puzzles'
 #: QR groups and its own folio, taken out of the height before anything is
-#: fitted — ``INTERIOR_FOOTER_MM`` as this page's own pixels, 353 px, written
+#: fitted — ``INTERIOR_FOOTER_MM`` as this page's own pixels, 117 px, written
 #: out here as this file writes every other figure out).
 TWO_UP_MINIMUM_MM = 7.0
-FOOTER_STRIP_PX = 353
+FOOTER_STRIP_PX = 117
 PAIR_HEIGHT_MM = (
     11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0 - FOOTER_STRIP_PX * 25.4 / 300
 )

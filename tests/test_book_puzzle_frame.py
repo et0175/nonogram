@@ -209,6 +209,12 @@ PX_PER_MM = DPI / 25.4
 HEADER_RULE_LIFT_SHARE = 1 / 8
 SPARE_ABOVE = 0.42
 
+#: A drawing whose spare is positive but under this many millimetres sits in the
+#: clearance window the boundary test owns (the threshold is 1.21 mm at Book 1's
+#: cell); 2.0 mm is the tolerance ``tests/property/test_book_pdf_geometry`` uses
+#: for the same window.
+CLEARANCE_WINDOW_MM = 2.0
+
 #: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres —
 #: ``_folio_reserve_px`` is a font-measurement helper (not FR-040's own
 #: geometry), so it is imported directly rather than reimplemented a third
@@ -836,13 +842,13 @@ class TestPuzzleFrame_PairIsFramedPerPuzzle:
 USABLE_WIDTH_MM = BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM
 
 #: The footer strip a two-up page reserves since CARD-248 (``INTERIOR_FOOTER_MM``
-#: as this page's own pixels: 353 px, 29.878 mm), and the height its two
+#: as this page's own pixels: 117 px, 9.878 mm; 353 px, 29.878 mm before CARD-392), and the height its two
 #: drawings are left with. The strip carries both puzzles' QR groups and the
 #: page's folio, so it comes out of the pair's height before anything is
 #: fitted — and the lower slot's drawing now stops on the footer rule rather
 #: than on the bottom margin. Written out here, as this file writes every
 #: other figure out.
-FOOTER_STRIP_PX = 353
+FOOTER_STRIP_PX = 117
 FOOTER_STRIP_MM = FOOTER_STRIP_PX / PX_PER_MM
 PAIR_HEIGHT_MM = (
     BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM - FOOTER_STRIP_MM
@@ -1805,7 +1811,7 @@ def test_PropertyTest_PuzzleFrame_IsTheDrawingsBoxOnEveryTrimAndParity() -> None
         SIX_BY_NINE_MM,
         (7 * 25.4, 10 * 25.4),
     )
-    cases = 0
+    cases = skipped = 0
     for width_mm, height_mm in trims:
         for parity in PageParity:
             for _ in range(40):
@@ -1814,6 +1820,20 @@ def test_PropertyTest_PuzzleFrame_IsTheDrawingsBoxOnEveryTrimAndParity() -> None
                 row_depth = rng.randint(1, (columns + 1) // 2)
                 column_depth = rng.randint(1, (rows + 1) // 2)
                 spec = _spec(width_mm=width_mm, height_mm=height_mm, parity=parity)
+                # The boundary window is the clearance test's subject, not this
+                # property's: :func:`_expected_top_mm` does not model the
+                # threshold (see its docstring), so a drawing whose spare is
+                # positive but under CLEARANCE_WINDOW_MM is left to
+                # ``test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare``.
+                # The one-line footer (CARD-392) put 1 of this corpus's 240
+                # drawings there; before it, none.
+                area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
+                drawing_mm = (column_depth + rows) * _expected_cell_mm(
+                    spec, row_depth + columns, column_depth + rows
+                )
+                if 0 < (area_bottom_mm - area_top_mm) - drawing_mm < CLEARANCE_WINDOW_MM:
+                    skipped += 1
+                    continue
                 row_clues, column_clues = _clue_sets(columns, rows, row_depth, column_depth)
 
                 layout = compute_layout(row_clues, column_clues, spec)
@@ -1840,6 +1860,7 @@ def test_PropertyTest_PuzzleFrame_IsTheDrawingsBoxOnEveryTrimAndParity() -> None
                 cases += 1
 
     assert cases >= 200, f"the corpus cannot silently shrink: {cases} cases"
+    assert skipped <= 5, f"the boundary window is a rare exemption, not a hole: {skipped}"
 
 
 def test_the_frame_is_a_field_of_the_layout_and_not_a_line_of_the_grid() -> None:
@@ -2594,7 +2615,7 @@ class TestBookPuzzleFrame_GridClearsBothRules:
     #: brackets the one place the verdict changes to within a pixel of spare.
     #: The range is chosen to hold the boundary with both regimes either side
     #: of it, which the test asserts rather than assumes.
-    STRADDLE_HEIGHTS_MM = tuple(round(257.0 + 0.05 * step, 3) for step in range(41))
+    STRADDLE_HEIGHTS_MM = tuple(round(237.0 + 0.05 * step, 3) for step in range(41))
 
     def test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare(self) -> None:
         """The boundary itself (CARD-224 review cycle 1, F-001).
@@ -2848,16 +2869,17 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         # :func:`_area_ink_box` crops the page at ``round(area_bottom *
         # PX_PER_MM)``, so ``ink_bottom`` saturates on that row and would read
         # as "deeper than the area" for a drawing that stopped exactly on the
-        # footer rule. Measured on this fixture: the crop row is 1396 while the
-        # drawing's own bottom edge is 1749 px, 30 mm below the rule — which is
-        # the number that makes the claim (CARD-224 review cycle 1, F-003).
+        # footer rule. Measured on this fixture: the crop row is 1632 while the
+        # drawing's own bottom edge is 1749 px, 9.9 mm below the rule (30 mm
+        # before CARD-392 shrank the footer band) -- which is the number that
+        # makes the claim (CARD-224 review cycle 1, F-003).
         assert ink_bottom == round(area_bottom * PX_PER_MM), (
             "the crop saturates here, which is why the premise below is taken "
             "from the layout and not from this number"
         )
-        assert (layout.page.drawing_bottom + overhang) / PX_PER_MM > area_bottom + 25.0, (
+        assert (layout.page.drawing_bottom + overhang) / PX_PER_MM > area_bottom + 8.0, (
             "this page's drawing really is deeper than its puzzle area, by "
-            "tens of millimetres and not by the crop's own rounding"
+            "millimetres and not by the crop's own rounding"
         )
         # The ratio, had it been applied to a negative spare, would have
         # lifted the drawing *above* the header rule; "as low as it fits"
@@ -2873,14 +2895,16 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         assert _footer_group_omitted(layout, self.SHORT)
         assert layout.page.drawing_bottom / PX_PER_MM > _puzzle_area_mm(self.SHORT)[1]
 
-    #: Book 1's own trim and a 23x27 behind 11-deep gutters: the **third**
+    #: Book 1's own trim and an 18x22 behind 9- and 11-deep gutters (a 23x27
+    #: behind 11-deep ones until CARD-392 gave the area its 236 px back): the **third**
     #: case, which neither of the two names ``vertical_bound`` carries
     #: describes on its face. Its puzzle area *does* hold the drawing — the
     #: spare is a positive 3 px — and the page still reports ``"footer"``,
     #: because 42% of 3 px would not clear the header rule. Measured, not
-    #: contrived: 47 of the extents Book 1 admits at some clue depth land in
-    #: ``0 < spare < clearance / 0.42`` on this sheet alone.
-    THIRD_CASE = dict(columns=23, rows=27, row_depth=11, column_depth=11)
+    #: contrived: 107 distinct placements of a 21 x 21 extent sweep at depths 2 to 15
+    #: (mine, CARD-392) land in ``vertical_bound == "footer"`` with a
+    #: positive spare on this sheet alone.
+    THIRD_CASE = dict(columns=18, rows=22, row_depth=9, column_depth=11)
 
     def test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer(self) -> None:
         """The third case, named (CARD-224 review cycle 1, F-008).
@@ -2957,14 +2981,15 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         assert not _footer_group_omitted(layout, _spec())
 
     #: The shallow-band sheet and the drawing that lands in the window the
-    #: band's lift no longer covers (review cycle 2, F2-001). A 23x9 behind
+    #: band's lift no longer covers (review cycle 2, F2-001). A 23x12 behind
     #: 5-deep gutters on a 9 mm band and a 160 mm trim: 28 drawing columns by
-    #: 14 rows, a spare of 13 px against a 14.29 px threshold, so the ratio is
+    #: 17 rows, a spare of 8 px against a 14.29 px threshold (a 23x9 with a
+    #: spare of 13 px until CARD-392 gave the area its 236 px back), so the ratio is
     #: refused — and the band's lift is only 13.30 px, so the band's foot
     #: alone would leave the drawing's bottom edge **on** the footer rule.
     SHALLOW_BAND_MM = 9.0
     SHALLOW_TRIM_MM = 160.0
-    SHALLOW_CASE = dict(columns=23, rows=9, row_depth=5, column_depth=5)
+    SHALLOW_CASE = dict(columns=23, rows=12, row_depth=5, column_depth=5)
 
     def test_a_shallow_band_cannot_leave_ink_on_a_drawn_footer_rule(self) -> None:
         """EC-022 on a band the stored profiles do not store (review cycle 2,
