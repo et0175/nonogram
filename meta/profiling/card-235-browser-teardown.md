@@ -214,10 +214,10 @@ everything but the browser family      554.44s  60.22%   6660       83
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              256.57s  29.78%    422      608
-render-heavy frozen set                217.65s  25.26%   1091      199
+render-heavy frozen set                214.79s  24.93%   1074      200
 property corpora                       141.55s  16.43%    184      769
 property AND render                     72.91s   8.46%     11     6628
-property OR render                     286.29s  33.23%   1264      226
+property OR render                     283.43s  32.89%   1247      227
 admin-local script trio                122.67s  14.24%     83     1478
 everything but the browser family      605.06s  70.22%   6757       90
 ```

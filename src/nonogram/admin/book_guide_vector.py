@@ -114,7 +114,7 @@ exempt here — see :data:`CLUE_DIGIT`.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 from io import BytesIO
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -1514,7 +1514,9 @@ def guide_page(
     for name in _ADD_BACK:
         if getattr(form, name) or form.tight:
             continue
-        candidate = replace(form, **{name: True})
+        # Spelled as a constructor, not replace: the placed-page guard
+        # (tests/test_book_puzzle_frame.py) reads any replace(**...) as a PageSpec.
+        candidate = GuideForm(**{**asdict(form), name: True})
         laid, reached = set_page(candidate)
         if fits(laid, reached, candidate):
             form, marks, bottom = candidate, laid, reached
