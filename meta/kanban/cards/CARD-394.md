@@ -71,3 +71,8 @@ Author round 1 (branch card/394-project-stylesheet, 2026-11-08).
 * Served-tree scan on a preview built from `build/player-bundle` (160 puzzles): without `--bootstrap`: foreign 0, identifiers 0, unclassifiable 1 (solver.js relative import only); with the real file: foreign 3, unclassifiable 3.
 * ADR-0041/R3 wording ("plain hand-written JavaScript and CSS ... no framework") checked, still true, not edited. Not touched: vercel.json, admin files, live path.
 
+Review cycle 1 (6.5, one blocker: originality) - author step 1 of the clean-room rewrite, 2026-11-08.
+
+* The stylesheet is NOT edited in this step and is to be rewritten clean-room by someone who has not read the Bootstrap source; the author wrote only the computed-style specification `~/Documents/nonogram-reviews/CARD-394/computed-spec.json` (values measured in Chromium, real file present, minus a baseline of admin.css + tokens.css alone; no source text, selectors, custom-property names or declaration order).
+* F-2: the fidelity test now measures `html` under `prefers-reduced-motion: no-preference` (scroll-behavior is in PROPS); the table was re-recorded, so the test is RED on the current sheet by exactly one difference (`html: scroll-behavior 'smooth' != 'auto'`) until the new sheet is written. F-4: the failing assert names the recording Chromium and platform, the font-fallback cause, and the deliberate re-record command (`NONOGRAM_PRINT_FROZEN=1` with the real file prints the rows). F-5: the plain-button states are recorded on the enabled Hint button. F-6: no new test; net node ids unchanged (+3 for the card).
+

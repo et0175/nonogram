@@ -12,7 +12,8 @@ THE FIDELITY CELL (``test_the_project_stylesheet_matches_the_real_bootstrap``).
 At 390 and 1280 px it measures the computed layout styles and the bounding
 rectangle of a sample of the page's elements: the 22 the CARD-386 reviewer
 sampled (every button, the tier badge, the title, the toolbar, the stage and
-the first cell), the page's ``[hidden]`` elements, the error alert, and a plain
+the first cell), the ``html`` element (measured with motion not reduced, where
+the real file makes scrolling smooth), the page's ``[hidden]`` elements, the error alert, and a plain
 and a danger button in each of the states the page reaches (hover,
 focus-visible, active, disabled). Styles must be equal; rectangles may differ
 by ``RECT_TOLERANCE`` px, which is the layout engine's own rounding (1/64 px)
@@ -36,8 +37,8 @@ What it compares against:
 
 Caveat, stated rather than hidden: the frozen rectangles include text widths,
 so they hold on a machine whose font fallbacks resolve as on the recording
-machine; on another machine re-record with the real file
-(``NONOGRAM_REAL_BOOTSTRAP`` mode needs no table).
+machine; on another machine ``NONOGRAM_REAL_BOOTSTRAP`` mode needs no table, and
+a failing run's message says how to re-record it.
 """
 
 from __future__ import annotations
@@ -86,7 +87,7 @@ PROPS = (
     "font-size", "font-weight", "line-height", "flex", "align-items", "justify-content", "gap",
     "min-height", "text-align", "vertical-align", "white-space", "position",
     "color", "background-color", "border-top-color", "opacity", "box-shadow", "outline-style",
-    "cursor", "pointer-events", "text-decoration-line", "text-transform",
+    "cursor", "pointer-events", "text-decoration-line", "text-transform", "scroll-behavior",
 )
 
 _READ = """(e, props) => {
@@ -109,10 +110,11 @@ def _settle(page) -> None:
 def measure(page, url: str, key: str, width: int) -> dict[str, str]:
     """label -> "x|y|w|h|<PROPS>" for the sample, the button states and the error alert."""
     page.set_viewport_size({"width": width, "height": 900})
+    page.emulate_media(reduced_motion="no-preference")  # html's scroll-behavior is a fact of this setting
     open_play(page, url, key)
     _settle(page)
     assert len(page.query_selector_all(REVIEWER_SAMPLE)) == 22, "the page is not the one the reviewer sampled"
-    rows: dict[str, str] = {}
+    rows: dict[str, str] = {"html": _row(page.locator("html").evaluate(_READ, list(PROPS)))}
     for n, element in enumerate(page.query_selector_all(SAMPLE)):
         read = element.evaluate(_READ, list(PROPS))
         rows[f"{n:02d} {read[0]} {read[1]}"] = _row(read)
@@ -140,7 +142,8 @@ def measure(page, url: str, key: str, width: int) -> dict[str, str]:
             page.mouse.up()
             button.evaluate("(b) => { b.disabled = false; }")
 
-    states("plain", page.locator("button.btn-outline-secondary:not([class*=player-])").first, outside_click_ok=True)
+    # An ENABLED outline button: Undo and Redo start out aria-disabled, which dims them.
+    states("plain", page.locator('button[data-player-action="hint"]'), outside_click_ok=True)
     # The danger button lives in the reset confirmation: make a mark, press Reset.
     page.locator('td[data-row="0"][data-col="0"]').click()
     page.locator('[data-player-action="reset"]').click()
@@ -174,6 +177,10 @@ def differences(expected: dict[str, str], actual: dict[str, str]) -> list[str]:
     return sorted(problems)
 
 
+def frozen_literal(width: int, rows: dict[str, str]) -> str:
+    return "".join([f"    {width}: {{\n", *(f'        "{k}": "{v}",\n' for k, v in rows.items()), "    },\n"])
+
+
 def measured_tree(site: Path, key: str, width: int, page) -> dict[str, str]:
     url, stop = _serve(site)
     try:
@@ -201,8 +208,20 @@ def test_the_project_stylesheet_matches_the_real_bootstrap(
         if hashlib.sha256(real_file.read_bytes()).hexdigest() == PROVENANCE["sha256"]:
             assert differences(FROZEN[width], live) == [], "FROZEN no longer equals the real file's measurement"
         expected = live
-    assert len(expected) >= 22 + 9 + 1
-    assert differences(expected, actual) == []
+    assert len(expected) >= 1 + 22 + 9 + 1
+    if real is not None and os.environ.get("NONOGRAM_PRINT_FROZEN"):
+        print(f"\n# {PROVENANCE['file']} sha256 {hashlib.sha256(real_file.read_bytes()).hexdigest()}, "
+              f"Chromium {browser_page.context.browser.version}\n" + frozen_literal(width, expected))
+    problems = differences(expected, actual)
+    assert problems == [], (
+        f"{len(problems)} differences from the {'real file measured now' if real else 'FROZEN table'}. "
+        f"If the stylesheet is at fault, fix it. If the browser or fonts moved, re-record: the table was "
+        f"measured with {PROVENANCE['browser']} on {PROVENANCE['platform']}, this run is Chromium "
+        f"{browser_page.context.browser.version}; text widths in the rectangles follow the machine's font "
+        f"fallbacks. To re-record deliberately, run {REAL_ENV}=<the real bootstrap.min.css> "
+        f"NONOGRAM_PRINT_FROZEN=1 pytest tests/test_player_base_css.py -s -k matches_the_real, paste the printed "
+        f"rows over FROZEN, and update PROVENANCE (sha256, browser, platform, date). First problems: {problems[:5]}"
+    )
 
 
 @pytest.mark.browser
@@ -224,80 +243,82 @@ def test_a_changed_stylesheet_reds_the_fidelity_check(browser_page, bundle, frag
 # fmt: off
 FROZEN: dict[int, dict[str, str]] = {
     390: {
-        "00 h1 ": "16|16|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "01 span badge": "288.44|28.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none",
-        "02 div puzzle-player-controls": "16|113.33|358|188.14|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "03 button puzzle-player-tool-trigger": "16|113.33|136|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|1 0 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "04 div puzzle-player-tool-menu": "0|0|0|0|none|border-box|0px|8px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|4px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none",
-        "05 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|600|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(31, 95, 91)|rgb(230, 239, 236)|rgb(31, 95, 91)|1|none|none|pointer|auto|none|none",
-        "06 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "07 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "08 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "09 button puzzle-player-region": "160|113.33|64|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "10 p puzzle-player-solved": "0|0|0|0|none|border-box|0px|0px 12px|1px 1px 1px 3px|solid|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|start|baseline|normal|static|rgb(28, 35, 51)|rgb(231, 239, 230)|rgb(47, 107, 58)|1|none|none|auto|auto|none|none",
-        "11 button undo": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "12 button redo": "116.19|160.11|89.33|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "13 button reset": "213.52|160.11|92.77|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "14 div puzzle-player-confirm": "0|0|0|0|none|border-box|0px|12px 16px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none",
-        "15 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|none|none|pointer|auto|none|none",
-        "16 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "17 button hint": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "18 button btn": "16|253.67|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "19 button btn": "87.86|253.67|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "20 button puzzle-player-probe": "16|292.47|58.14|24|flex|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "21 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "22 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none",
-        "24 div puzzle-player": "16|317.47|358|360.75|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "25 td player-cell": "115.3|403.31|25.89|25.89|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|15.5384px|400|15.5384px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "hover plain": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "focus plain": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|solid|not-allowed|auto|none|none",
-        "active plain": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|not-allowed|auto|none|none",
-        "pressed plain": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "disabled plain": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(92, 96, 112)|rgb(251, 248, 241)|rgb(214, 205, 185)|0.55|none|none|not-allowed|none|none|none",
-        "hover danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(122, 45, 28)|1|none|none|pointer|auto|none|none",
-        "focus danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none",
-        "active danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|rgba(225, 83, 97, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none",
-        "disabled danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(155, 59, 38)|rgb(251, 248, 241)|rgb(155, 59, 38)|0.55|none|none|not-allowed|none|none|none",
-        "error alert": "16|84|358|108.39|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none",
+        "html": "0|0|390|984.48|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
+        "00 h1 ": "16|16|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "01 span badge": "288.44|28.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none|auto",
+        "02 div puzzle-player-controls": "16|113.33|358|188.14|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "03 button puzzle-player-tool-trigger": "16|113.33|136|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|1 0 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "04 div puzzle-player-tool-menu": "0|0|0|0|none|border-box|0px|8px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|4px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "05 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|600|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(31, 95, 91)|rgb(230, 239, 236)|rgb(31, 95, 91)|1|none|none|pointer|auto|none|none|auto",
+        "06 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "07 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "08 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "09 button puzzle-player-region": "160|113.33|64|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "10 p puzzle-player-solved": "0|0|0|0|none|border-box|0px|0px 12px|1px 1px 1px 3px|solid|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|start|baseline|normal|static|rgb(28, 35, 51)|rgb(231, 239, 230)|rgb(47, 107, 58)|1|none|none|auto|auto|none|none|auto",
+        "11 button undo": "16|160.11|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "12 button redo": "116.19|160.11|89.33|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "13 button reset": "213.52|160.11|92.77|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "14 div puzzle-player-confirm": "0|0|0|0|none|border-box|0px|12px 16px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "15 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|none|none|pointer|auto|none|none|auto",
+        "16 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "17 button hint": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "18 button btn": "16|253.67|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "19 button btn": "87.86|253.67|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "20 button puzzle-player-probe": "16|292.47|58.14|24|flex|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "21 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "22 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none|auto",
+        "24 div puzzle-player": "16|317.47|358|360.75|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "25 td player-cell": "115.3|403.31|25.89|25.89|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|15.5384px|400|15.5384px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "hover plain": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "focus plain": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
+        "active plain": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
+        "pressed plain": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "disabled plain": "16|206.89|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(92, 96, 112)|rgb(251, 248, 241)|rgb(214, 205, 185)|0.55|none|none|not-allowed|none|none|none|auto",
+        "hover danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(122, 45, 28)|1|none|none|pointer|auto|none|none|auto",
+        "focus danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
+        "active danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|rgba(225, 83, 97, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
+        "disabled danger": "33|329.8|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(155, 59, 38)|rgb(251, 248, 241)|rgb(155, 59, 38)|0.55|none|none|not-allowed|none|none|none|auto",
+        "error alert": "16|84|358|108.39|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none|auto",
     },
     1280: {
-        "00 h1 ": "40|28|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "01 span badge": "290.58|40.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none",
-        "02 div puzzle-player-controls": "40|87|1200|47.8|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "03 button puzzle-player-tool-trigger": "40|87|136|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|1 0 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "04 div puzzle-player-tool-menu": "0|0|0|0|none|border-box|0px|8px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|4px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none",
-        "05 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|600|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(31, 95, 91)|rgb(230, 239, 236)|rgb(31, 95, 91)|1|none|none|pointer|auto|none|none",
-        "06 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "07 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "08 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "09 button puzzle-player-region": "184|87|64|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "10 p puzzle-player-solved": "0|0|0|0|none|border-box|0px|0px 12px|1px 1px 1px 3px|solid|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|start|baseline|normal|static|rgb(28, 35, 51)|rgb(231, 239, 230)|rgb(47, 107, 58)|1|none|none|auto|auto|none|none",
-        "11 button undo": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "12 button redo": "364.19|87|89.33|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "13 button reset": "461.52|87|92.77|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "14 div puzzle-player-confirm": "0|0|0|0|none|border-box|0px|12px 16px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none",
-        "15 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|none|none|pointer|auto|none|none",
-        "16 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "17 button hint": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "18 button btn": "639.22|87|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "19 button btn": "711.08|87|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "20 button puzzle-player-probe": "40|125.8|58.14|24|flex|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "21 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "22 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none",
-        "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none",
-        "24 div puzzle-player": "40|150.8|1200|388.59|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none",
-        "25 td player-cell": "147.11|243.39|28|28|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|16.8px|400|16.8px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none",
-        "hover plain": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "focus plain": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|solid|not-allowed|auto|none|none",
-        "active plain": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|not-allowed|auto|none|none",
-        "pressed plain": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none",
-        "disabled plain": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(92, 96, 112)|rgb(251, 248, 241)|rgb(214, 205, 185)|0.55|none|none|not-allowed|none|none|none",
-        "hover danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(122, 45, 28)|1|none|none|pointer|auto|none|none",
-        "focus danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none",
-        "active danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|rgba(225, 83, 97, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none",
-        "disabled danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(155, 59, 38)|rgb(251, 248, 241)|rgb(155, 59, 38)|0.55|none|none|not-allowed|none|none|none",
-        "error alert": "40|96|1200|58.8|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none",
+        "html": "0|0|1280|684.7|block|border-box|0px|0px|0px|none|0px|16px|400|normal|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(0, 0, 0)|rgba(0, 0, 0, 0)|rgb(0, 0, 0)|1|none|none|auto|auto|none|none|smooth",
+        "00 h1 ": "40|28|234.58|48|block|border-box|0px 0px 4px|0px|0px|none|0px|40px|500|48px|0 1 auto|normal|normal|normal|auto|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "01 span badge": "290.58|40.77|85.56|26.47|inline-block|border-box|0px|5.04px 8.64px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|normal|normal|normal|0px|center|baseline|nowrap|static|color(srgb 0.531373 0.37451 0.135294)|color(srgb 0.979922 0.922039 0.822667)|color(srgb 0.970196 0.810196 0.551569)|1|none|none|auto|auto|none|none|auto",
+        "02 div puzzle-player-controls": "40|87|1200|47.8|flex|border-box|-9px 0px 16px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|flex-start|normal|8px 16px|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "03 button puzzle-player-tool-trigger": "40|87|136|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|1 0 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "04 div puzzle-player-tool-menu": "0|0|0|0|none|border-box|0px|8px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|4px|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "05 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|600|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(31, 95, 91)|rgb(230, 239, 236)|rgb(31, 95, 91)|1|none|none|pointer|auto|none|none|auto",
+        "06 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "07 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "08 button player-tool-item": "0|0|0|0|flex|border-box|0px|4px 8px|0px|none|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|left|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "09 button puzzle-player-region": "184|87|64|38.78|flex|border-box|0px|6.4px 8px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "10 p puzzle-player-solved": "0|0|0|0|none|border-box|0px|0px 12px|1px 1px 1px 3px|solid|3px|16px|400|24.8px|0 1 auto|center|normal|8px|36px|start|baseline|normal|static|rgb(28, 35, 51)|rgb(231, 239, 230)|rgb(47, 107, 58)|1|none|none|auto|auto|none|none|auto",
+        "11 button undo": "264|87|92.19|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "12 button redo": "364.19|87|89.33|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "13 button reset": "461.52|87|92.77|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "14 div puzzle-player-confirm": "0|0|0|0|none|border-box|0px|12px 16px|1px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|absolute|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|rgba(28, 35, 51, 0.22) 0px 12px 32px 0px|none|auto|auto|none|none|auto",
+        "15 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|none|none|pointer|auto|none|none|auto",
+        "16 button btn": "0|0|0|0|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "17 button hint": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "18 button btn": "639.22|87|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|0.55|none|none|not-allowed|auto|none|none|auto",
+        "19 button btn": "711.08|87|25.33|38.78|flex|border-box|0px|6.4px 5px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "20 button puzzle-player-probe": "40|125.8|58.14|24|flex|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "21 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "22 button btn": "0|0|0|0|none|border-box|0px|0px 8px|1px|solid|3px|14.4px|600|14.4px|0 1 auto|center|normal|4px|0px|center|middle|normal|static|rgb(28, 35, 51)|rgb(251, 248, 241)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "23 p puzzle-player-probe-note": "0|0|0|0|none|border-box|0px|0px|0px|none|0px|12.48px|400|12.48px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(92, 96, 112)|rgba(0, 0, 0, 0)|rgb(92, 96, 112)|1|none|none|auto|auto|none|none|auto",
+        "24 div puzzle-player": "40|150.8|1200|388.59|block|border-box|0px|0px|0px|none|0px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|static|rgb(28, 35, 51)|rgba(0, 0, 0, 0)|rgb(28, 35, 51)|1|none|none|auto|auto|none|none|auto",
+        "25 td player-cell": "147.11|243.39|28|28|table-cell|border-box|0px|0px|0px 1px 1px 0px|solid|0px|16.8px|400|16.8px|0 1 auto|normal|normal|normal|0px|start|middle|normal|static|rgb(28, 35, 51)|rgb(255, 253, 248)|rgb(28, 35, 51)|1|none|none|pointer|auto|none|none|auto",
+        "hover plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "focus plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
+        "active plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|rgba(108, 117, 125, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
+        "pressed plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(28, 35, 51)|rgb(241, 235, 221)|rgb(127, 117, 95)|1|none|none|pointer|auto|none|none|auto",
+        "disabled plain": "562.28|87|60.94|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(92, 96, 112)|rgb(251, 248, 241)|rgb(214, 205, 185)|0.55|none|none|not-allowed|none|none|none|auto",
+        "hover danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(122, 45, 28)|1|none|none|pointer|auto|none|none|auto",
+        "focus danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(122, 45, 28)|rgb(127, 117, 95)|1|none|solid|pointer|auto|none|none|auto",
+        "active danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(255, 255, 255)|rgb(155, 59, 38)|rgb(155, 59, 38)|1|rgba(225, 83, 97, 0.5) 0px 0px 0px 4px|solid|pointer|auto|none|none|auto",
+        "disabled danger": "281|209.91|117.3|38.78|flex|border-box|0px|6.4px 12px|1px|solid|3px|16px|600|24px|0 1 auto|center|normal|8px|36px|center|middle|normal|static|rgb(155, 59, 38)|rgb(251, 248, 241)|rgb(155, 59, 38)|0.55|none|none|not-allowed|none|none|none|auto",
+        "error alert": "40|96|1200|58.8|block|border-box|0px 0px 16px|16px|1px 1px 1px 4px|solid|4px|16px|400|24.8px|0 1 auto|normal|normal|normal|0px|start|baseline|normal|relative|rgb(28, 35, 51)|rgb(245, 230, 224)|rgb(155, 59, 38)|1|none|none|auto|auto|none|none|auto",
     },
 }
 # fmt: on
