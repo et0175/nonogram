@@ -6,7 +6,11 @@ A handful of tests re-prove a standing property over a seeded corpus or a mutant
 grid (the book PDF geometry sweeps, the kill-matrix reproductions, the interior
 parity sweep, the browser-order runs ...). They cannot go red on a card that did
 not touch their subject, and the merge gate paid for them on every card: about
-ten minutes of an hour (``meta/profiling``, CARD-395 Worktree notes). The owner's
+612 s of a quiet 3660 s full run at the very most; replayed over the last 60
+merges with the real import graph (a marked test is lifted back whenever a
+changed path reaches its subject) the mean saving is about 3.8 minutes per gate,
+and the lift rule is not to be weakened to buy more
+(``meta/profiling``, CARD-395 Worktree notes). The owner's
 ruling (2026-11-07) moves them to the WAVE CLOSE, where the full suite still runs
 bare and is the backstop. Only WHEN a test runs moves. What it asserts, how large
 its corpus is and whether it exists do not.

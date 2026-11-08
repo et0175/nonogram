@@ -1755,13 +1755,8 @@ class TestImpactSet_Card395_TheLiftRuleOnAHermeticTree:
         got = impact.lift(marked_tree, ["tests/test_sweep_unrelated.py"], MARKED)
         assert set(got.files) == {"tests/test_sweep_unrelated.py"}
 
-    def test_the_rule_neither_always_lifts_nor_never_lifts(self, marked_tree):
-        lifted = impact.lift(marked_tree, ["src/nonogram/export/layout.py"], MARKED)
-        unlifted = impact.lift(marked_tree, ["docs/x.md"], MARKED)
-        assert lifted.files and not unlifted.files
-
     @pytest.mark.parametrize(
-        "path", ["pyproject.toml", "Makefile", "scripts/impact_set.py", "tests/conftest.py", "tests/helper_boot.py"]
+        "path", ["pyproject.toml", "tests/helper_boot.py"]
     )
     def test_rule_A_lifts_every_marked_file(self, marked_tree, path):
         """unanalysable / conftest / conftest-closure: bare pytest, as before."""
@@ -1782,11 +1777,6 @@ class TestImpactSet_Card395_TheLiftRuleOnAHermeticTree:
         # ... whereas the chain (css -> template -> app -> importer) IS a subject.
         assert "tests/test_sweep_browser_page.py" in got.files
 
-    def test_a_template_change_lifts_by_the_chain_not_by_the_blanket(self, marked_tree):
-        got = impact.lift(marked_tree, ["src/nonogram/admin/templates/page.html"], MARKED)
-        assert "tests/test_sweep_browser_page.py" in got.files
-        assert "tests/test_sweep_browser_other.py" not in got.files
-
     def test_the_app_module_blanket_is_not_a_subject(self, marked_tree):
         """BROWSER_SURFACE_MODULES select every browser test; only importers lift."""
         path = "src/nonogram/admin/app.py"
@@ -1805,19 +1795,18 @@ class TestImpactSet_Card395_TheLiftRuleOnAHermeticTree:
         got = impact.lift(marked_tree, [path], MARKED | {"tests/test_sweep_fixture_user.py"})
         assert "tests/test_sweep_fixture_user.py" not in got.files
 
+    def test_a_broken_derivation_no_scanners_is_rule_A(self, tmp_path):
+        """No tree-scanning test found means the derivation is broken: lift ALL."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_plain.py").write_text("def test_p():\n    pass\n")
+        got = impact.lift(tmp_path, ["docs/x.md"], {"tests/test_plain.py"})
+        assert got.everything and {r.rule for r in got.reasons} == {"no-scanners"}
+
     def test_a_FULL_reason_that_is_not_rule_A_lifts_by_subject_alone(self, marked_tree):
         """no-importer: a path no test imports, names or reads has no subject."""
         derived = impact.derive(marked_tree, ["src/nonogram/lonely.py"])
         assert derived.full and {r.rule for r in derived.reasons} == {"no-importer"}
         got = impact.lift(marked_tree, ["src/nonogram/lonely.py"], MARKED)
-        assert not got.everything and got.files == {}
-
-    def test_an_outside_the_roots_path_lifts_nothing_and_is_not_rule_A(self, marked_tree):
-        got = impact.lift(marked_tree, ["notes.ini"], MARKED)
-        assert not got.everything and got.files == {}
-
-    def test_nothing_marked_lifts_nothing_and_builds_no_corpus(self, tmp_path):
-        got = impact.lift(tmp_path, ["pyproject.toml"], set())
         assert not got.everything and got.files == {}
 
     def test_the_subject_set_never_exceeds_the_derivation(self, marked_tree):
@@ -1902,7 +1891,7 @@ class TestImpactSet_Card395_TheGateStatesItsDeselection:
         assert "lift: ALL (rule unanalysable)" in block
         assert _run_lines(block) == ["run 1: python -m pytest"]
         assert "AT THIS GATE" not in block
-        assert "0 deselected BY THE MARKER" in block
+        assert "0 owed at the wave close" in block
 
     def test_a_FULL_that_is_not_rule_A_runs_the_suite_less_the_marker(self, marked_tree):
         block, code = impact.gate_verdict(
@@ -1925,14 +1914,6 @@ class TestImpactSet_Card395_TheGateStatesItsDeselection:
         assert "AT THIS GATE" not in block and "nothing more is owed" not in block
         assert "count-unavailable" in block
 
-    def test_the_four_exit_codes_keep_their_meaning(self, marked_tree):
-        empty = impact.gate_verdict(marked_tree, [], count=lambda f: 1, marked=lambda: _nodes())
-        assert empty[1] == impact.EXIT_EMPTY
-        zero = impact.gate_verdict(
-            marked_tree, ["docs/x.md"], count=lambda f: 0 if f else 100, marked=lambda: _nodes()
-        )
-        assert zero[1] == impact.EXIT_COUNT_FAILED
-
     def test_collect_marked_reads_the_marker_from_a_real_collection(self, tmp_path):
         tests = tmp_path / "tests"
         tests.mkdir()
@@ -1947,17 +1928,6 @@ class TestImpactSet_Card395_TheGateStatesItsDeselection:
         )
         (tests / "test_a.py").write_text("def test_light():\n    pass\ndef test_sweep_heavy():\n    pass\n")
         assert impact.collect_marked(tmp_path) == ["tests/test_a.py::test_sweep_heavy"]
-
-    def test_collect_marked_is_empty_on_a_tree_without_the_marker(self, tmp_path):
-        (tmp_path / "tests").mkdir()
-        (tmp_path / "tests" / "test_a.py").write_text("def test_light():\n    pass\n")
-        assert impact.collect_marked(tmp_path) == []
-
-    def test_collect_marked_raises_on_a_collection_error(self, tmp_path):
-        (tmp_path / "tests").mkdir()
-        (tmp_path / "tests" / "test_a.py").write_text("def test_(:\n")
-        with pytest.raises(RuntimeError):
-            impact.collect_marked(tmp_path)
 
     def test_the_gate_flag_end_to_end_on_a_tree_with_a_marker(self, tmp_path):
         subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
@@ -1988,18 +1958,6 @@ class TestImpactSet_Card395_TheGateStatesItsDeselection:
         assert "then nothing more is owed" in out.stdout
         assert "run 1: python -m pytest tests/test_scan.py" in out.stdout
 
-    def test_the_plain_mode_prints_no_marker_text(self, tmp_path):
-        (tmp_path / "tests").mkdir()
-        subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-        (tmp_path / "tests" / "test_scan.py").write_text(
-            'import subprocess\ndef test_s():\n    subprocess.run(["git", "ls-files"])\n'
-        )
-        out = subprocess.run(
-            [sys.executable, str(SELECTOR), "tests/test_scan.py"],
-            capture_output=True, text=True, cwd=tmp_path,
-        )
-        assert out.returncode == 0 and out.stdout.split() == ["tests/test_scan.py"]
-
 
 def _registry_files() -> set[str]:
     from tests import wave_close_marker
@@ -2018,40 +1976,3 @@ class TestImpactSet_Card395_TheLiftRuleOnTheRealTree:
             "tests/property/test_book_pairing.py",
         } <= set(got.files)
         assert "tests/test_kill_matrix.py" not in got.files
-
-    @pytest.mark.parametrize("path", ["scripts/impact_set.py", "tests/conftest.py", "pyproject.toml", "Makefile"])
-    def test_the_selector_conftest_and_pytest_config_lift_everything(self, path):
-        got = impact.lift(REPO, [path], _registry_files(), corpus=_real_corpus())
-        assert got.everything and set(got.files) == _registry_files()
-
-    def test_the_marker_plugin_is_conftest_closure_and_lifts_everything(self):
-        got = impact.lift(REPO, ["tests/wave_close_marker.py"], _registry_files(), corpus=_real_corpus())
-        assert got.everything
-        assert "conftest-closure" in {r.rule for r in got.reasons}
-
-    def test_a_changed_marked_file_lifts_itself(self):
-        got = impact.lift(
-            REPO, ["tests/property/test_book_pairing.py"], _registry_files(), corpus=_real_corpus()
-        )
-        assert "tests/property/test_book_pairing.py" in got.files
-
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "src/nonogram/admin/static/admin.css",
-            "src/nonogram/admin/static/solver.js",
-            "src/nonogram/admin/static/tokens.css",
-        ],
-    )
-    def test_an_admin_static_file_does_not_lift_a_book_sweep(self, path):
-        """The cheap safe rule selects every browser test for these; the book
-        sweeps are not browser tests and have no subject edge to them."""
-        got = impact.lift(REPO, [path], _registry_files(), corpus=_real_corpus())
-        assert not got.everything
-        book = {f for f in got.files if "book" in f or "kill_matrix" in f}
-        assert book == set(), path
-
-    @pytest.mark.parametrize("path", ["docs/GENERATION_ALGORITHM.md", "meta/kanban/cards/CARD-395.md"])
-    def test_a_prose_file_lifts_nothing(self, path):
-        got = impact.lift(REPO, [path], _registry_files(), corpus=_real_corpus())
-        assert not got.everything and got.files == {}

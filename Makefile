@@ -32,11 +32,12 @@ test:
 	$(PY) -m pytest
 
 ## WAVE CLOSE: the full suite, no marker deselection. Refuses to run when
-## PYTEST_ADDOPTS carries `-m` or `--markexpr`: a wave close that deselected the
-## marker would be the one backstop quietly gone (CARD-395 AC-7).
+## PYTEST_ADDOPTS carries any option that drops tests: -m/--markexpr, -k,
+## --deselect, --ignore (--ignore-glob included). A wave close that deselected
+## anything is not the backstop. Options that only change reporting are fine.
 test-wave-close:
-	@if printf '%s' "$$PYTEST_ADDOPTS" | grep -Eq '(^| )(-[A-Za-z]*m|--markexpr)'; then \
-		echo "test-wave-close: PYTEST_ADDOPTS narrows the run with -m/--markexpr; the wave close is the bare suite. Unset it." >&2; \
+	@if printf '%s' "$$PYTEST_ADDOPTS" | grep -Eq '(^| )(-[A-Za-z]*[mk]|--markexpr|--deselect|--ignore)'; then \
+		echo "test-wave-close: PYTEST_ADDOPTS deselects tests (-m/--markexpr/-k/--deselect/--ignore); the wave close is the bare suite. Unset it." >&2; \
 		exit 2; \
 	fi
 	@echo "WAVE CLOSE: full suite, no marker deselection"
@@ -53,6 +54,9 @@ test-marked:
 ##
 ##   make test-gate                 # changes against the merge-base with main
 ##   make test-gate BASE=<rev>
+##
+## PY defaults to ./.venv/bin/python, which a card WORKTREE does not have: there,
+## pass PY=/abs/path/to/main/.venv/bin/python (and PYTHONPATH=<worktree>/src).
 ##
 ## `run N:` lines in the block are the commands; `python` in them is $(PY).
 ## Exit codes of impact_set.py --gate: 0 selection, 10 FULL, 11 count failed

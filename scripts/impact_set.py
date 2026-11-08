@@ -1406,15 +1406,18 @@ def gate_verdict(root: Path, changed: list[str], count=None, marked=None) -> tup
     if nodes:
         plan = lift(root, shown, marked_files, derived=derived)
 
-    def marker_lines(owed: int) -> list[str]:
+    def marker_lines(owed: int, deselected_in_selection: int) -> list[str]:
         """The marker section: counts, the lift and why (empty when no test is marked)."""
         if marked_error is not None:
             return [f"marker: {MARKER} -- could not be collected ({marked_error}); the run is BARE, nothing is deselected"]
         if not nodes:
             return []
+        in_selection = deselected_in_selection
         out = [
             f"marker: {MARKER} -- {len(nodes)} marked tests in {len(marked_files)} files; "
-            f"{len(nodes) - owed} run at this gate; {owed} deselected BY THE MARKER (owed at the wave close)"
+            f"{len(nodes) - owed} run at this gate (lifted files); {owed} owed at the wave close "
+            f"(marked tests in files not lifted), of which {in_selection} sit in files this gate selects "
+            f"and are deselected there"
         ]
         assert plan is not None
         if plan.everything:
@@ -1456,7 +1459,7 @@ def gate_verdict(root: Path, changed: list[str], count=None, marked=None) -> tup
         )
         if owed:
             lines.append(f"tests at this gate: {(total or 0) - owed} of {total}")
-        lines += marker_lines(owed)
+        lines += marker_lines(owed, owed)  # a FULL run selects every file
         lines += commands(None, owed)
         lines.append("FULL because:")
         lines += [f"  - {r}" for r in derived.reasons]
@@ -1492,6 +1495,7 @@ def gate_verdict(root: Path, changed: list[str], count=None, marked=None) -> tup
     else:
         lines.append("answer: SELECTION -- run the files below, then nothing more is owed")
     lines.append(f"tests: {chosen} of {total} collected{pct}")
+    deferred_in_selection = 0
     if owed:
         selected_files = set(derived.files)
         deferred_in_selection = sum(
@@ -1499,7 +1503,7 @@ def gate_verdict(root: Path, changed: list[str], count=None, marked=None) -> tup
         )
         lines.append(f"tests at this gate: {chosen - deferred_in_selection} of {total}")
     lines.append(f"files: {len(derived.files)} test files, {len(always_on(root))} of them always-on")
-    lines += marker_lines(owed)
+    lines += marker_lines(owed, deferred_in_selection)
     lines += commands(derived.files, owed)
     lines += [f"exit code: {EXIT_SELECTION}", codes, "selection:"]
     lines += [f"  {f}" for f in derived.files]

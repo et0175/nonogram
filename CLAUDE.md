@@ -22,8 +22,10 @@ A few of the heaviest sweeps carry the `wave_close_only` marker (registry: `test
 ```bash
 make test-gate           # merge gate: the diff's selection, minus the marked tests unless a changed path reaches their subject
 make test-marked         # only the marked tests (a bisect over a wave's merges, or a pre-wave-close check)
-make test-wave-close     # wave close: the bare full suite; refuses -m in PYTEST_ADDOPTS
+make test-wave-close     # wave close: the bare full suite; refuses -m/-k/--deselect/--ignore in PYTEST_ADDOPTS
 ```
+
+The replayed saving of the marker is about 3.8 minutes per gate (the marked set is 612 s of a quiet 3660 s run, but a changed path that reaches a marked test's subject lifts it back). In a card worktree there is no `.venv`: pass `PY=<main checkout>/.venv/bin/python` to the `make` targets.
 
 Run a single test / file / pattern:
 

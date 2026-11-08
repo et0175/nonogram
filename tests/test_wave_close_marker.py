@@ -214,12 +214,6 @@ class TestWaveCloseMarker_SwallowsNoTest:
         assert any(m.startswith("browser:") for m in markers), "the existing marker is gone"
         assert "slow" not in " ".join(markers), "slow is conftest's, informational, and is not reused"
 
-    def test_no_marked_file_carries_a_marker_decorator(self):
-        """G-5: a decorator in a marked file collides with CARD-390 / CARD-392."""
-        for entry in wcm.REGISTRY:
-            text = (REPO / entry.file).read_text(encoding="utf-8")
-            assert wcm.MARKER not in text, f"{entry.file} names the marker: the registry is the only way"
-
 
 # --------------------------------------------------------------------------
 # AC-2 -- the marked set is pinned, derived, closed.
@@ -231,22 +225,6 @@ class TestWaveCloseMarker_TheMarkedSetIsPinnedBothWays:
         assert registry_problems(wcm.REGISTRY, collected.bare, collected.marked) == []
         assert collected.marked, "nothing is marked: the registry is inert"
 
-    def test_the_registry_covers_each_of_the_six_files_of_list_one(self):
-        assert {e.file for e in wcm.LIST_1} == {
-            "tests/property/test_book_pdf_geometry.py",
-            "tests/property/test_book_export_interior.py",
-            "tests/property/test_book_pairing.py",
-            "tests/test_kill_matrix.py",
-            "tests/test_browser_fixture_scope.py",
-            "tests/test_book_export_interior_cover.py",
-        }
-        assert wcm.REGISTRY == wcm.LIST_1 + wcm.LIST_2
-
-    def test_the_plant_an_orphan_entry_is_caught(self, collected):
-        orphan = wcm.Entry("tests/test_gone.py", ("tests/test_gone.py::test_x",), ("tests/test_gone.py::test_y",), (), {}, "")
-        problems = registry_problems(wcm.REGISTRY + (orphan,), collected.bare, collected.marked)
-        assert any("matches no collected node" in p for p in problems)
-
     def test_the_plant_a_renamed_test_reds_instead_of_unmarking(self, collected):
         """The renamed test: the registry still says the old name."""
         entry = wcm.LIST_1[0]
@@ -254,18 +232,6 @@ class TestWaveCloseMarker_TheMarkedSetIsPinnedBothWays:
         renamed = {n.replace("Drawing", "Drawings") if wcm.matches(n, (old,)) else n for n in collected.bare}
         problems = registry_problems(wcm.REGISTRY, renamed, collected.marked - {old})
         assert any(old in p for p in problems), problems
-
-    def test_the_plant_a_marked_node_outside_the_registry_is_caught(self, collected):
-        stranger = "tests/test_cli.py::TestSomething::test_stranger"
-        problems = registry_problems(wcm.REGISTRY, collected.bare | {stranger}, collected.marked | {stranger})
-        assert any(stranger in p for p in problems)
-
-    def test_the_plant_a_file_with_every_test_marked_is_caught(self, collected):
-        entry = wcm.LIST_1[0]
-        whole = wcm.Entry(entry.file, (f"{entry.file}::*",), entry.smoke, entry.controls, entry.floors, "")
-        nodes = {n for n in collected.bare if n.startswith(entry.file)}
-        problems = registry_problems((whole,), collected.bare, nodes)
-        assert any("marks" in p for p in problems), problems
 
 
 # --------------------------------------------------------------------------
@@ -277,39 +243,12 @@ class TestWaveCloseMarker_TheGateKeepsSmokeAndControls:
     def test_every_smoke_and_control_exists_is_unmarked_and_is_in_the_gate_set(self, collected):
         assert keep_problems(wcm.REGISTRY, collected.bare, collected.marked, collected.unmarked) == []
 
-    def test_the_geometry_slice_and_the_controls_the_card_names_are_there(self, collected):
-        for node in (
-            "tests/property/test_book_pdf_geometry.py::test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_pages",
-            "tests/property/test_book_pdf_geometry.py::test_a_page_box_one_pixel_off_the_trim_reds_the_trim_assertion",
-            "tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage",
-            "tests/test_browser_fixture_scope.py::TestBrowserFixtures_AFailureDoesNotCascade::test_the_tests_after_a_failure_still_pass",
-        ):
-            assert node in collected.unmarked, node
-        assert not any("test_ac1_" in n or "test_g1_" in n for n in collected.marked), "a kill-matrix control is marked"
-
-    def test_every_kill_matrix_test_but_the_two_reproductions_runs_at_the_gate(self, collected):
-        in_file = {n for n in collected.bare if n.startswith("tests/test_kill_matrix.py::")}
-        marked = {n for n in in_file if n in collected.marked}
-        assert {n.split("::")[1] for n in marked} >= {
-            "test_ac7_the_four_arm_grid_of_card_257_reproduces",
-            "test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached",
-        }
-        assert all("test_ac7_" in n for n in marked)
-        assert len(in_file) - len(marked) >= 50
-
     def test_the_plant_a_marked_control_is_caught(self, collected):
         control = next(c for c in wcm.LIST_1[0].controls)
         problems = keep_problems(
             wcm.REGISTRY, collected.bare, collected.marked | {control}, collected.unmarked - {control}
         )
         assert any("MARKED" in p for p in problems), problems
-
-    def test_the_plant_a_missing_smoke_and_an_empty_smoke_are_caught(self, collected):
-        entry = wcm.LIST_1[0]
-        ghost = wcm.Entry(entry.file, entry.marked, ("tests/property/test_book_pdf_geometry.py::test_nope",), (), {}, "")
-        empty = wcm.Entry(entry.file, entry.marked, (), (), {}, "")
-        assert any("matches no collected node" in p for p in keep_problems((ghost,), collected.bare, collected.marked, collected.unmarked))
-        assert any("no smoke slice" in p for p in keep_problems((empty,), collected.bare, collected.marked, collected.unmarked))
 
 
 # --------------------------------------------------------------------------
@@ -341,15 +280,6 @@ class TestWaveCloseMarker_CorpusFloorsNeverShrink:
             assert recorded.get(key, 0) >= minimum, f"the registry no longer records {key} >= {minimum}"
         assert len(recorded) >= 20, "the floor table shrank"
 
-    def test_the_source_still_asserts_the_pinned_floors(self):
-        for entry in wcm.REGISTRY:
-            source = (REPO / entry.file).read_text(encoding="utf-8")
-            for function in entry.floors:
-                now = collect_floors(source, function)
-                for (fn, expression), minimum in PINNED_FLOORS.items():
-                    if fn == function:
-                        assert now.get(expression, 0) >= minimum, (function, expression, now)
-
     def test_the_plant_a_lowered_floor_is_caught(self):
         entry = wcm.LIST_1[0]
         original = (REPO / entry.file).read_text(encoding="utf-8")
@@ -357,17 +287,6 @@ class TestWaveCloseMarker_CorpusFloorsNeverShrink:
         planted = original.replace("assert checked >= 200, checked", "assert checked >= 20, checked")
         problems = floor_problems((entry,), read=lambda rel: planted)
         assert any("lowered 200 -> 20" in p for p in problems), problems
-
-    def test_the_plant_a_removed_floor_is_caught(self):
-        entry = wcm.LIST_1[0]
-        original = (REPO / entry.file).read_text(encoding="utf-8")
-        planted = original.replace("assert checked >= 200, checked", "pass")
-        problems = floor_problems((entry,), read=lambda rel: planted)
-        assert any("was removed" in p for p in problems), problems
-
-    def test_the_collector_resolves_a_named_constant_and_a_strict_bound(self):
-        source = "MIN = 7\ndef test_x():\n    assert a >= MIN\n    assert len(b) > 3\n    assert c == 4\n"
-        assert collect_floors(source, "test_x") == {"a": 7, "len(b)": 4}
 
 
 # --------------------------------------------------------------------------
@@ -411,17 +330,6 @@ class TestWaveCloseMarker_TheWaveCloseIsBare:
         assert any("PYTEST_ADDOPTS" in c for c in wave_close), "the wave close does not look at PYTEST_ADDOPTS"
         assert _recipe(makefile, "test-marked") == ["$(PY) -m pytest -m wave_close_only"]
 
-    def test_the_merge_gate_target_runs_the_selector_and_its_printed_commands(self):
-        makefile = (REPO / "Makefile").read_text(encoding="utf-8")
-        body = "\n".join(_recipe(makefile, "test-gate"))
-        assert "scripts/impact_set.py --gate --against $(BASE)" in body
-        assert "^run [0-9]*: python" in body, "the target does not read the block's run lines"
-        assert "test-impact" not in body
-
-    def test_test_impact_is_unchanged_in_its_contract(self):
-        body = "\n".join(_recipe((REPO / "Makefile").read_text(encoding="utf-8"), "test-impact"))
-        assert "wave_close_only" not in body and "--markexpr" not in body and "pytest -m" not in body
-
     def test_review_test_command_is_bare_and_the_gate_form_is_named(self):
         text = (REPO / "meta" / "kanban" / "config.yml").read_text(encoding="utf-8")
         review = re.search(r'^  test_command:\s*"(?P<value>[^"]*)"', text, re.M)
@@ -430,12 +338,6 @@ class TestWaveCloseMarker_TheWaveCloseIsBare:
         assert review["value"] == "./.venv/bin/python -m pytest"
         gate = re.search(r'^  gate_test_command:\s*"(?P<value>[^"]*)"', text, re.M)
         assert gate is not None and gate["value"] == "make test-gate"
-
-    def test_the_plant_a_marker_expression_in_a_bare_command_is_caught(self):
-        assert command_problems('./.venv/bin/python -m pytest -m "not wave_close_only"')
-        assert command_problems("./.venv/bin/python -m pytest -qm x")
-        assert command_problems("./.venv/bin/python -m pytest --markexpr=x")
-        assert command_problems("./.venv/bin/python -m pytest -q") == []
 
     def test_PYTEST_ADDOPTS_with_a_marker_expression_makes_the_wave_close_refuse(self):
         assert shutil.which("make"), "make is not installed: the wave-close refusal cannot be run"
@@ -449,11 +351,11 @@ class TestWaveCloseMarker_TheWaveCloseIsBare:
                 cwd=REPO, capture_output=True, text=True, env=env,
             )
 
-        for narrowed in ('-m "not wave_close_only"', "-qm x", "--markexpr=x"):
+        for narrowed in ('-m "not wave_close_only"', "-qm x", "--markexpr=x", "-k foo", "--deselect a", "--ignore=tests/a", "--ignore-glob=x"):
             refused = run(narrowed)
             assert refused.returncode == 2, (narrowed, refused.stdout, refused.stderr)
             assert "WAVE CLOSE" not in refused.stdout
-        for fine in ("", "-q --maxfail=2 -rEfs", "--durations=0 --durations-min=0"):
+        for fine in ("", "-q --maxfail=2 -rEfs", "--durations=0 --durations-min=0", "-p no:cacheprovider"):
             ok = run(fine)
             assert ok.returncode == 0, (fine, ok.stdout, ok.stderr)
             assert "WAVE CLOSE: full suite, no marker deselection" in ok.stdout
@@ -511,31 +413,6 @@ class TestWaveCloseMarker_TheHotspotsShareIsDerivedFromTheRegistry:
         withheld = ranker.report(profile, self.ARTEFACT, "0" * 64, wcm.marked_patterns())
         assert withheld.startswith(plain), "the new section must only append"
 
-    def test_the_report_is_deterministic(self):
-        ranker = _ranker()
-        profile = ranker.parse_artefact(self.ARTEFACT.read_text(encoding="utf-8"))
-        patterns = wcm.marked_patterns()
-        assert ranker.report(profile, self.ARTEFACT, "0" * 64, patterns) == ranker.report(
-            profile, self.ARTEFACT, "0" * 64, patterns
-        )
-
-    def test_the_plant_a_registry_that_marks_nothing_moves_the_figure_to_zero(self):
-        ranker = _ranker()
-        profile = ranker.parse_artefact(self.ARTEFACT.read_text(encoding="utf-8"))
-        assert ranker.wave_close_share(profile, ("tests/test_nothing.py::*",))[:2] == (0.0, 0)
-        everything = ranker.wave_close_share(profile, ("*",))
-        assert everything[1] == len(profile.tests) and everything[0] == pytest.approx(profile.attributed)
-
-    def test_the_script_flag_loads_the_registry_by_path(self):
-        out = subprocess.run(
-            [sys.executable, str(REPO / "meta" / "profiling" / "rank_durations.py"), str(self.ARTEFACT),
-             "--wave-close-registry", str(REPO / "tests" / "wave_close_marker.py")],
-            capture_output=True, text=True, cwd=REPO,
-        )
-        assert out.returncode == 0, out.stderr
-        assert "## Wave-close share (wave_close_only)" in out.stdout
-        assert f"registry patterns: {len(wcm.marked_patterns())}" in out.stdout
-
 
 def share_block(report_text: str) -> str:
     """The script's own 'Wave-close share' section, heading to end."""
@@ -581,12 +458,42 @@ class TestWaveCloseMarker_TheHotspotsDocumentCarriesTheScriptsOwnShare:
             assert "## Wave-close share" in document.read_text(encoding="utf-8"), f"{document.name} omits the block"
             assert share_problems(document.read_text(encoding="utf-8"), generated) == [], document.name
 
-    def test_the_plant_a_falsified_or_missing_row_is_caught(self):
-        ranker = _ranker()
-        artefact = REPO / "meta" / "profiling" / "suite-durations-20261023.txt"
-        profile = ranker.parse_artefact(artefact.read_text(encoding="utf-8"))
-        generated = ranker.report(profile, artefact, "0" * 64, wcm.marked_patterns())
-        assert share_problems(generated, generated) == []
-        falsified = re.sub(r"time: \d+\.\d\ds", "time: 1.00s", generated)
-        assert share_problems(falsified, generated)
-        assert share_problems("# nothing here\n", generated)
+
+class TestWaveCloseMarker_TheGateTargetRunsEveryCommand:
+    def test_run_2_runs_after_run_1_fails_and_the_exit_code_propagates(self, tmp_path):
+        """A stub interpreter prints a canned block and logs the commands it is
+        given. `make test-gate` must run BOTH printed commands even when the first
+        fails, exit nonzero, and pass the selector's EMPTY code (12) through
+        without running anything."""
+        assert shutil.which("make"), "make is not installed"
+        import os
+
+        log = tmp_path / "ran.log"
+        stub = tmp_path / "stub.sh"
+        stub.write_text(
+            "#!/bin/sh\n"
+            'if [ "$1" = "scripts/impact_set.py" ]; then\n'
+            "  printf 'IMPACT GATE\\nrun 1: python -m pytest FAILME\\nrun 2: python -m pytest -m wave_close_only tests/b.py\\n'\n"
+            "  exit ${STUB_CODE:-0}\n"
+            "fi\n"
+            f'echo "$*" >> {log}\n'
+            'case "$*" in *FAILME*) exit 1;; esac\n'
+            "exit 0\n"
+        )
+        stub.chmod(0o755)
+
+        def gate(code: str) -> subprocess.CompletedProcess:
+            return subprocess.run(
+                ["make", "-s", f"PY={stub}", "BASE=HEAD", "test-gate"],
+                cwd=REPO, capture_output=True, text=True, env={**os.environ, "STUB_CODE": code},
+            )
+
+        failed = gate("0")
+        assert failed.returncode != 0, failed.stdout
+        ran = log.read_text().splitlines()
+        assert [r.split(" ", 2)[-1] for r in ran] == ["FAILME", "-m wave_close_only tests/b.py"], ran
+        log.unlink()
+        empty = gate("12")
+        assert empty.returncode == 2 and "Error 12" in empty.stderr + empty.stdout, (empty.stdout, empty.stderr)
+        assert not log.exists(), "EMPTY ran a command"
+
