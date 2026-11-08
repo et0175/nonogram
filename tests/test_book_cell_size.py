@@ -1173,12 +1173,21 @@ class TestBookCellSizes_HeldTableAndTheCapDoesNotMove:
     the puzzle area, THIS table is the place its changes are attributed.
     """
 
-    SIZES = (10, 15, 20, 25, 30)
-    #: trim -> cell mm per grid size, from ``compute_layout`` on this tree.
+    #: ``(columns, rows)``. The five squares are width-bound (deep clues on both
+    #: axes); the last two are TALL with one-deep row clues and ``ceil(rows / 2)``
+    #: deep column clues, so the page's HEIGHT term binds -- the only entries
+    #: that move if a later change fits the single-page cell against the
+    #: footer band or the puzzle area too (planted and measured: with the
+    #: footer strip subtracted from ``_placed_cell_mm``'s usable height, the
+    #: squares do not move and 10x30 / 12x25 go 5.3665 -> 5.1470 /
+    #: 6.3551 -> 6.0951 on Book 1, 4.2376 -> 4.0181 / 5.0182 -> 4.7583 on
+    #: 6 x 9 in, 3.6732 -> 3.4536 / 4.3498 -> 4.0898 on 5 x 8 in).
+    SHAPES = ((10, 10), (15, 15), (20, 20), (25, 25), (30, 30), (10, 30), (12, 25))
+    #: trim -> cell mm per shape, from ``compute_layout`` on this tree.
     TABLE = {
-        None: (7.5, 7.5, 6.35, 5.0132, 4.2333),
-        ("15.24", "22.86"): (7.5, 5.5217, 4.2333, 3.3421, 2.8222),
-        ("12.70", "20.32"): (6.7733, 4.4174, 3.3867, 2.6737, 2.2578),
+        None: (7.5, 7.5, 6.35, 5.0132, 4.2333, 5.3665, 6.3551),
+        ("15.24", "22.86"): (7.5, 5.5217, 4.2333, 3.3421, 2.8222, 4.2376, 5.0182),
+        ("12.70", "20.32"): (6.7733, 4.4174, 3.3867, 2.6737, 2.2578, 3.6732, 4.3498),
     }
 
     @staticmethod
@@ -1194,9 +1203,17 @@ class TestBookCellSizes_HeldTableAndTheCapDoesNotMove:
             trim_width_cm=trim[0], trim_height_cm=trim[1]
         )
         spec = book_page_spec(book)
-        members = [(self._alternating(n), self._alternating(n)) for n in self.SIZES]
+        members = [
+            (
+                tuple((1,) for _ in range(r)),
+                tuple((1,) * ((r + 1) // 2) for _ in range(c)),
+            )
+            if (c, r) in self.SHAPES[5:]
+            else (self._alternating(c), self._alternating(c))
+            for c, r in self.SHAPES
+        ]
         sizes = book_cell_sizes(spec, members)
-        return tuple(round(sizes[(n, n)], 4) for n in self.SIZES)
+        return tuple(round(sizes[shape], 4) for shape in self.SHAPES)
 
     def test_the_table_is_held_and_nothing_changed_with_the_band(self, monkeypatch) -> None:
         from nonogram.export import layout
@@ -1208,7 +1225,7 @@ class TestBookCellSizes_HeldTableAndTheCapDoesNotMove:
         changed = [
             (trim, n)
             for trim, row in self.TABLE.items()
-            for n, was, now in zip(self.SIZES, before[trim], after[trim])
+            for n, was, now in zip(self.SHAPES, before[trim], after[trim])
             if was != now
         ]
         assert changed == []

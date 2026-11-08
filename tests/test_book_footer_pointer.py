@@ -400,6 +400,20 @@ GEOMETRY_CORPUS = {
 }
 
 
+#: Every stroke weight (pt) a puzzle page sets, held as LITERALS (measured on
+#: this tree: a single page, then a two-up page, the same five weights --
+#: 0.3 grid line, 0.48 footer hairline, 0.72 header rule, 0.8 and 1.3 the
+#: grid's thick lines and border). The control below patches only the band
+#: back, so a drift in an area-independent weight (the footer rule 0.4 -> 0.6
+#: pt reads 0.72 for 0.48 here) would pass a comparison against itself; these
+#: do not.
+SINGLE_PAGE_WEIGHTS = [0.3, 0.48, 0.72, 0.8, 0.8, 1.3, 1.3, 1.3, 1.3]
+PAIR_PAGE_WEIGHTS = [
+    0.3, 0.3, 0.48, 0.72, 0.8, 0.8, 0.8, 0.8,
+    1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3, 1.3,
+]  # fmt: skip
+
+
 class TestPuzzlePages_OnlyAreaDependentMarksMove:
     """CARD-392 AC-7: the band shrank by 20 mm and nothing else was told.
 
@@ -449,6 +463,8 @@ class TestPuzzlePages_OnlyAreaDependentMarksMove:
                 if was is None or was[0] != numbers:
                     continue  # the band gave this page a different make-up
                 assert weights == was[1], (label, page, "a rule weight moved")
+                literal = SINGLE_PAGE_WEIGHTS if len(numbers) == 1 else PAIR_PAGE_WEIGHTS
+                assert weights == literal, (label, page, "a weight left its literal")
                 if len(numbers) == 1:
                     assert sizes == was[2], (label, page, "a point size moved")
                     singles += 1
@@ -462,6 +478,11 @@ class TestPuzzlePages_OnlyAreaDependentMarksMove:
         now = interior_frame(_spec())
         assert now.header_rule == control_frame.header_rule
         assert now.footer_rule.width == control_frame.footer_rule.width
+        # ... and both held against literals (px at 300 DPI; Book 1, odd page):
+        # the header rule is 3 px at y 289 across 150..2400, the footer rule 2 px.
+        assert (now.header_rule.left, now.header_rule.right) == (150, 2400)
+        assert (now.header_rule.y, now.header_rule.width) == (289, 3)
+        assert now.footer_rule.width == 2
         assert (now.folio_x, now.label_x) == (control_frame.folio_x, control_frame.label_x)
         # The folio sits 79 px under the rule (the line plus a gap, 10 + 9 pt),
         # on main before this card and now. What moved is its distance from the

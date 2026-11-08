@@ -3638,24 +3638,26 @@ def compute_pair_layout(
     room in the outer margin. The two are separate parameters because they
     reserve on separate axes.
 
-    **What the strip costs, measured on Book 1 and not estimated.** Book 1's
-    usable height leaves a pair 229.492 mm; the strip leaves 199.605 mm. At
-    FR-040's 7.0 mm floor that is at most **28** cells of combined drawing
-    height where it was 32, so:
+    **What the strip costs, measured on Book 1 and not estimated** (CARD-392's
+    one-line footer band; CARD-248's 353 px strip left 199.605 mm and refused
+    29 to 32 cells, and is history). Book 1's usable height leaves a pair
+    229.492 mm; the strip (117 px, 9.906 mm) leaves 219.586 mm. At FR-040's
+    7.0 mm floor that is at most **31** cells of combined drawing height where
+    it was 32 with no strip at all, so:
 
     * a pair whose slots already sat at least one strip apart pays **nothing**
       — the strip is taken out of the gap that was idling *between* the two
       slots, and the committed cell is identical (measured over every
-      depth-1 equal pair on Book 1: heights 10 to 12 are free);
+      depth-1 equal pair on Book 1: heights 10 to 13 are free);
     * a pair with less than a strip of gap commits a smaller cell: the worst
-      surviving case is the 13-row band, 7.5000 -> 7.1287 mm, **4.95%**;
-    * a pair whose combined drawing height is **29 to 32 cells** is
-      **refused** — it cannot reach 7.0 mm with the strip reserved — and
-      prints as two single pages, each with its own footer. That is one more
-      interior page per refused pair, and on KDP a higher print cost per
-      copy, which is the same consequence ``folio_reserve_px`` already
-      carries (above). The exact refused band is asserted as an exact set,
-      not a range, by ``tests/test_book_qr_slot.py``'s
+      surviving case is the 14-row band, 7.5000 -> 7.3195 mm, **2.41%**;
+    * a pair whose combined drawing height is **32 cells** is **refused** —
+      it cannot reach 7.0 mm with the strip reserved — and prints as two
+      single pages, each with its own footer. That is one more interior page
+      per refused pair, and on KDP a higher print cost per copy, which is the
+      same consequence ``folio_reserve_px`` already carries (above). The
+      exact refused set is asserted as an exact set, not a range, by
+      ``tests/test_book_qr_slot.py``'s
       ``TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages``.
 
     Like ``folio_reserve_px``, this reserve is page- and book-independent —
