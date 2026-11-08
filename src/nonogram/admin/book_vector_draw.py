@@ -619,6 +619,19 @@ _MM_PER_INCH = 25.4
 _QR_GREY = 0.0
 
 
+def qr_min_side_px(symbol_size: int, dpi: float) -> int:
+    """The smallest box side, in device pixels, :func:`draw_qr` accepts for a
+    ``symbol_size``-module symbol at ``dpi``: whole pixels, rounded up, so a box
+    of at least this side is never refused for its module size.
+
+    The symbol AND its quiet zone count, as in :func:`draw_qr`. A caller that
+    must place the code asks this first, so it can give a block of words up
+    rather than learn from the refusal that the code did not fit.
+    """
+    modules = symbol_size + 2 * QR_QUIET_MODULES
+    return math.ceil(modules * MIN_MODULE_MM / _MM_PER_INCH * dpi - 1e-9)
+
+
 class QrBox(NamedTuple):
     """The square a code is drawn into, in device pixels, top-left origin.
 

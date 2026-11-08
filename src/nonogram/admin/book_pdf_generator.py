@@ -404,6 +404,7 @@ from nonogram.admin.book_page_spec import (
     book_page_spec,
 )
 from nonogram.admin.book_plan import TIERS, book_level_order
+from nonogram.admin.print_specs import printable_player_domain
 from nonogram.admin.book_puzzle_vector import puzzle_page_stream, two_up_page_stream
 from nonogram.admin.book_sheet_vector import (
     QrGroup,
@@ -503,6 +504,13 @@ class PageKind(enum.Enum):
     TOC = "toc"
     DIVIDER = "divider"
     PUZZLE = "puzzle"
+    #: The page that carries the book's one QR code, after the last puzzle
+    #: (CARD-390). A vector page with no raster declaration, like every
+    #: interior kind that is not a picture.
+    PLAY = "play"
+    #: A page that exists only to put the next one on a right-hand page
+    #: (CARD-390): no ink and no folio, the blank title page's own shape.
+    BLANK = "blank"
     ANSWER = "answer"
 
 
@@ -697,6 +705,13 @@ class InteriorPageWriters:
         packed_answer: ``(spec, dpi, plan, payloads, page_number, titles) ->
             ContentStream`` — one page of 2 or 4 small answers (CARD-202), the
             twin of :meth:`BookPDFGenerator._packed_answer_page`.
+        play: ``(spec, dpi, page_number, rows, player_domain) ->
+            ContentStream`` — the Play online page (CARD-390). It has no
+            raster twin. ``rows`` is the book's rows in print order and
+            ``player_domain`` its stored domain: the landing address is made
+            downstream, where :mod:`nonogram.admin.player_bundle` (which
+            imports this module) can be reached, so the walk holds no second
+            way to spell the address.
 
     Each signature is the downstream writer's **own**, in its own order, so
     the assembly point binds rather than adapts: a shape stated here that the
@@ -707,6 +722,7 @@ class InteriorPageWriters:
     toc: Optional[Any] = None
     answer: Optional[Any] = None
     packed_answer: Optional[Any] = None
+    play: Optional[Any] = None
 
 
 #: An interior with no downstream writers at all — the generator every route
@@ -3070,6 +3086,16 @@ class SectionPlan:
             puzzle pages are drawn later, by
             :meth:`BookPDFGenerator.interior_stream`, which must size them by
             the same map rather than compute a second one.
+        play_page: The interior page number of the Play online page
+            (CARD-390), or ``None`` when the book prints none — it has no
+            stored player domain, or no puzzle to point at. A right-hand page
+            by construction (:func:`recto_blank_pages`). The page numbers the
+            footer pointers (CARD-391) and the guide's line (CARD-393) name are
+            read from here; they compute nothing.
+        play_blank_page: The interior page number of the blank page that sits
+            immediately before it so it is right-hand, or ``None`` when the last
+            puzzle page is a verso already (and whenever :attr:`play_page` is
+            ``None``).
     """
 
     puzzles: List[Any]
@@ -3079,6 +3105,13 @@ class SectionPlan:
     pages: List[SectionPage]
     toc_page_count: int = 0
     cell_sizes: Dict[GridSize, float] = field(default_factory=dict)
+    play_page: Optional[int] = None
+    play_blank_page: Optional[int] = None
+
+    @property
+    def play_page_count(self) -> int:
+        """How many pages the Play online block adds: its blank, if any, and itself."""
+        return (self.play_page is not None) + (self.play_blank_page is not None)
 
 
 @dataclass(frozen=True)
@@ -3187,6 +3220,14 @@ class InteriorStream:
     #: answer caption prints (CARD-383). Read by the doors that draw, through
     #: :func:`_refuse_unsettable_titles`; the plan-only readers ignore it.
     answer_titles: Tuple[Tuple[Any, Optional[str]], ...] = ()
+    #: The interior page number of the Play online page (CARD-390), or
+    #: ``None`` when the book prints none: :attr:`SectionPlan.play_page`, read
+    #: from the same plan the page count is, so Finalise can say where it is.
+    play_page: Optional[int] = None
+    #: How many pages the Play online block adds to :attr:`page_count`: 0, 1
+    #: (the page) or 2 (a blank before it), so a refusal made at that count can
+    #: say the block is part of it.
+    play_block_pages: int = 0
 
     @property
     def pages_saved(self) -> int:
@@ -3884,6 +3925,22 @@ def structural_toc_entries(
     return entries
 
 
+def recto_blank_pages(pages_before: int) -> int:
+    """How many blank pages put the next page on the right (FR-043, CARD-390).
+
+    ``pages_before`` pages have been laid down. If the last of them is
+    right-hand (:func:`page_is_right_hand`) the next is a verso and one blank
+    page goes first; if it is a verso the next is already a recto. The one
+    rule the Play online page's placement is made from, in the plan and in
+    :func:`interior_page_count` alike; a section opener that must start
+    right-hand (CARD-231, parked) would ask the same question.
+
+    ``pages_before`` is at least 1 in every caller (the blank title page is
+    interior page 1); :func:`page_is_right_hand` refuses a position under 1.
+    """
+    return 1 if page_is_right_hand(pages_before) else 0
+
+
 def interior_page_count(
     puzzle_count: int,
     puzzle_pages: Optional[int] = None,
@@ -3891,6 +3948,7 @@ def interior_page_count(
     level_dividers: Optional[int] = None,
     toc_pages: Optional[int] = None,
     solutions_divider: bool = True,
+    play_online: bool = False,
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
@@ -3999,6 +4057,14 @@ def interior_page_count(
     default; said here because a future caller could (CARD-305 cycle 1,
     F-006 — latent, and left latent on purpose: making the default follow
     this parameter would turn it into one book's figure).
+
+    ``play_online`` (CARD-390) is whether the book prints the Play online page
+    that follows the last puzzle page. It adds that page and, when the last
+    puzzle page is itself right-hand, the one blank page in front of it
+    (:func:`recto_blank_pages`) — so the term depends on the pages before it
+    and is counted here, from the same figures every caller already passes,
+    rather than in a caller. Like the SOLUTIONS page it needs a puzzle to point
+    at, and is not counted for a book with none.
     """
     if puzzle_count < 0:
         raise ValueError(f"puzzle count cannot be negative, got {puzzle_count}")
@@ -4031,18 +4097,18 @@ def interior_page_count(
     )
     if toc < 0:
         raise ValueError(f"TOC page count cannot be negative, got {toc}")
+    before_play = TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc + dividers + pages
     return (
-        TITLE_PAGE_COUNT
-        + GUIDE_PAGE_COUNT
-        + toc
-        + dividers
+        before_play
+        # CARD-390: the Play online page and its blank, after the last puzzle
+        # page and before the SOLUTIONS divider.
+        + (recto_blank_pages(before_play) + 1 if play_online and puzzle_count else 0)
         # CARD-305: the `+ 1` here has always been the SOLUTIONS divider, and
         # it is now the one term `level_dividers` could not express — that
         # parameter counts the *level* dividers, which a book without
         # dividers reports as 0 of its own accord, while this page is not a
         # level's and had nowhere to be said. A book that prints no dividers
         # passes `solutions_divider=False` and loses both.
-        + pages
         + (answers + (1 if solutions_divider else 0) if puzzle_count else 0)
     )
 
@@ -4571,6 +4637,12 @@ class BookPDFGenerator:
         # `interior_page_count` call in this module is passed it rather than
         # left to a default.
         self.divider_pages = book_divider_pages(self.book)
+        # CARD-390: the book's stored player domain, read once beside the
+        # other stored columns for the same reason. Whether the interior
+        # prints the Play online page is this and nothing else (ADR-0041/R8:
+        # no domain, no page); it moves the page COUNT, so every
+        # `interior_page_count` call here is told.
+        self.player_domain = printable_player_domain(self.book)
         # The trim, as the layout reports it for this book's sheet. Parity
         # never changes a page's size, so page 1's frame gives it for all.
         #
@@ -7371,16 +7443,32 @@ class BookPDFGenerator:
                 f"puzzle {self._unmeasurable_members(payloads, ids)} could not be "
                 f"laid out: {unmeasurable}"
             ) from unmeasurable
+        section = self.puzzle_section(
+            payloads, first_page=first_page, ids=ids, cell_sizes=cell_sizes
+        )
+        # CARD-390: the Play online page follows the last page of the puzzle
+        # section, on a right-hand page, and only when the book has a stored
+        # player domain and a puzzle for the code to open. The blank before it
+        # is the question `recto_blank_pages` answers about the pages laid
+        # down so far.
+        play_page = None
+        play_blank_page = None
+        if self.player_domain is not None and payloads:
+            pages_before = TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section)
+            play_page = pages_before + 1
+            if recto_blank_pages(pages_before):
+                play_blank_page = play_page
+                play_page += 1
         return SectionPlan(
             puzzles=ordered,
             ids=ids,
             printed=printed,
             payloads=payloads,
-            pages=self.puzzle_section(
-                payloads, first_page=first_page, ids=ids, cell_sizes=cell_sizes
-            ),
+            pages=section,
             toc_page_count=toc_page_count,
             cell_sizes=cell_sizes,
+            play_page=play_page,
+            play_blank_page=play_blank_page,
         )
 
     def interior_pages(
@@ -7636,7 +7724,7 @@ class BookPDFGenerator:
         # updated in the same commit, which is the edit this guard is built
         # to force.
         first_answer_page = (
-            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + (1 if self.divider_pages else 0)
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + decided.play_page_count + (1 if self.divider_pages else 0)
         )
 
         # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
@@ -7795,6 +7883,7 @@ class BookPDFGenerator:
             # is already 0 for a book that prints none; the SOLUTIONS page is
             # the term that has to be said out loud.
             solutions_divider=self.divider_pages,
+            play_online=decided.play_page is not None,
         )
 
         # CARD-200: measured once here, off this book's own trim, and reused
@@ -7844,6 +7933,12 @@ class BookPDFGenerator:
         # `produce()` returns before the answer section on a book with no
         # drawable member, so the kinds stop where the pages do.
         if payloads:
+            # CARD-390: the Play online page, and the blank that puts it on a
+            # right-hand page, sit between the puzzle section and SOLUTIONS.
+            if decided.play_page is not None:
+                if decided.play_blank_page is not None:
+                    page_kinds.append(PageKind.BLANK)
+                page_kinds.append(PageKind.PLAY)
             if self.divider_pages:
                 page_kinds.append(PageKind.DIVIDER)
             page_kinds.extend(PageKind.ANSWER for _ in answer_plan)
@@ -8026,6 +8121,24 @@ class BookPDFGenerator:
             # one page, CARD-202) — the walk above is what decided which.
             if not payloads:
                 return
+            # CARD-390: the Play online page, immediately after the last
+            # puzzle page and before the SOLUTIONS divider. Its blank, when
+            # the last puzzle page is right-hand, is the title page's own
+            # empty stream: no ink and no folio, the page's position the
+            # plan's. Both are vector by `page_medium`'s default; the page
+            # itself is drawn downstream, which can reach the landing address.
+            if decided.play_page is not None:
+                if decided.play_blank_page is not None:
+                    yield self.vector_title_page(decided.play_blank_page)
+                yield _drawn_downstream(
+                    self.pages.play,
+                    PageKind.PLAY,
+                    self.page_spec(decided.play_page),
+                    self.dpi,
+                    decided.play_page,
+                    puzzles,
+                    self.player_domain,
+                )
             # CARD-201: the guide grew by GUIDE_PAGE_COUNT pages, not one,
             # and CARD-206 put TITLE_PAGE_COUNT page(s) in front of it, so
             # the SOLUTIONS divider (immediately before the answer section)
@@ -8128,6 +8241,7 @@ class BookPDFGenerator:
                 level_dividers=dividers,
                 toc_pages=toc_page_count,
                 solutions_divider=self.divider_pages,
+                play_online=decided.play_page is not None,
             ),
             # Pairing's own baseline (review F-2): the puzzle section at its
             # actual, paired length, but the answer section still at one full
@@ -8143,10 +8257,13 @@ class BookPDFGenerator:
                 level_dividers=dividers,
                 toc_pages=toc_page_count,
                 solutions_divider=self.divider_pages,
+                play_online=decided.play_page is not None,
             ),
             answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),
             page_kinds=tuple(page_kinds),
+            play_page=decided.play_page,
+            play_block_pages=decided.play_page_count,
         )
 
     def _write_pdf(

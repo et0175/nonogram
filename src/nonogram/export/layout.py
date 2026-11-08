@@ -253,6 +253,8 @@ __all__ = [
     "PAGE_HEIGHT_MM",
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
+    "PLAY_BLOCK_GAP_MM",
+    "PLAY_QR_MM",
     "QR_SLOT_MM",
     "TWO_UP_MIN_CELL_MM",
     "SOLVED_TILE_CAPACITIES",
@@ -277,6 +279,7 @@ __all__ = [
     "PageRule",
     "PagePlacement",
     "PageSpec",
+    "PlayPageLayout",
     "PairLayout",
     "PuzzleFrame",
     "QrCaption",
@@ -292,6 +295,7 @@ __all__ = [
     "difficulty_dots",
     "header_band",
     "interior_frame",
+    "play_page_layout",
     "qr_caption",
     "qr_group_insets",
     "qr_slot",
@@ -2307,6 +2311,122 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
         folio_x=_round_px(_exact_px(page_spec.width_mm)) // 2,
         baseline=baseline,
         page_bottom=bottom,
+    )
+
+
+# --------------------------------------------------------------------------
+# The Play online page (CARD-390)
+# --------------------------------------------------------------------------
+
+#: The side the Play online page's QR code is drawn into, in millimetres, the
+#: quiet zone included (CARD-390). 40 mm is 0.98 mm a module for the 41 modules
+#: a version-4 code has with its quiet zone (the 40-byte landing address) and
+#: 0.82 mm for the 49 of a version-6 one, both comfortably over the 0.4 mm
+#: floor ``book_vector_draw.MIN_MODULE_MM`` holds: this page has nothing else to
+#: spend its room on, so the code is as large as is useful. A trim too small
+#: for it takes a smaller side (:func:`play_page_layout`), never a refusal.
+PLAY_QR_MM = 40.0
+
+#: The white between two of the Play page's blocks, in millimetres.
+PLAY_BLOCK_GAP_MM = 7.0
+
+
+@dataclass(frozen=True, slots=True)
+class PlayPageLayout:
+    """Where the Play online page's marks go, in device pixels (CARD-390).
+
+    Only :func:`play_page_layout` constructs one. The writer sets the words and
+    strokes the code; it does not pick where any of them is (ADR-0036/R2).
+
+    Attributes:
+        frame: The page's :func:`interior_frame` — the two rules and the
+            folio's place, which this page carries like every other.
+        centre_x: The usable area's horizontal centre: every block is centred
+            on it.
+        heading_top: The row the heading's line box starts on.
+        instruction_top: The row the instruction's first line starts on.
+        qr_left: The code box's left edge.
+        qr_top: The code box's top edge.
+        qr_side: The code box's side, quiet zone included.
+        address_top: The row the typed address's first line starts on.
+    """
+
+    frame: InteriorFrame
+    centre_x: int
+    heading_top: int
+    instruction_top: int
+    qr_left: int
+    qr_top: int
+    qr_side: int
+    address_top: int
+
+
+def play_page_layout(
+    page_spec: PageSpec,
+    *,
+    heading_height: int,
+    instruction_height: int,
+    address_height: int,
+    qr_min_side: int = 1,
+) -> PlayPageLayout:
+    """Place the Play online page's four blocks on ``page_spec`` (CARD-390).
+
+    Top to bottom: the heading, the instruction, the code, the typed address
+    under the code. The block is centred in the frame's puzzle area with the
+    spare room split the way a grid's is (:data:`GRID_SPARE_ABOVE`), so the page
+    sits where the book's other pages put their weight. The three heights are
+    the lines' own boxes in device pixels, measured by the caller in the face
+    it sets them in, because how tall a line is is a type fact and where it goes
+    is this function's. A height of 0 is a block the caller leaves out (a sheet
+    too short for the words keeps the code and its address), and it takes no
+    gap either.
+
+    The code's side is :data:`PLAY_QR_MM` where the page has the room, and
+    shrinks to the room left (never wider than the usable width) where it does
+    not. ``qr_min_side`` is the smallest side the caller can print its code at
+    (a module is the drawer's to size, so the figure is the caller's: this
+    module knows no module count): a sheet that leaves less is refused here,
+    so the caller can drop a block of words and ask again instead of being
+    handed a code nobody can read.
+
+    Raises:
+        ValueError: ``page_spec`` has no parity, or a height is negative, or
+            the page has no room for the blocks asked for and a code of at least
+            ``qr_min_side``.
+    """
+    for name, height in (
+        ("heading_height", heading_height),
+        ("instruction_height", instruction_height),
+        ("address_height", address_height),
+    ):
+        if height < 0:
+            raise ValueError(f"{name} cannot be negative, got {height}")
+    frame = interior_frame(page_spec)
+    left, _, right, _ = _usable_box_px(page_spec)
+    gap = _mm_to_px(PLAY_BLOCK_GAP_MM)
+    heights = (heading_height, instruction_height, address_height)
+    text_height = sum(heights) + sum(1 for height in heights if height) * gap
+    side = min(_mm_to_px(PLAY_QR_MM), right - left, frame.area_height - text_height)
+    if side < max(1, qr_min_side):
+        raise ValueError(
+            "this sheet has no room for the Play online page: its puzzle area is "
+            f"{frame.area_height} px deep, the words take {text_height} and the "
+            f"code needs {max(1, qr_min_side)}"
+        )
+    spare = frame.area_height - text_height - side
+    top = frame.area_top + _round_px(spare * GRID_SPARE_ABOVE)
+    instruction_top = top + (heading_height + gap if heading_height else 0)
+    qr_top = instruction_top + (instruction_height + gap if instruction_height else 0)
+    centre_x = (left + right) // 2
+    return PlayPageLayout(
+        frame=frame,
+        centre_x=centre_x,
+        heading_top=top,
+        instruction_top=instruction_top,
+        qr_left=centre_x - side // 2,
+        qr_top=qr_top,
+        qr_side=side,
+        address_top=qr_top + side + (gap if address_height else 0),
     )
 
 

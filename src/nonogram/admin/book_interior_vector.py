@@ -54,27 +54,30 @@ kind vector; the registry does, and this module is what stops a vector kind
 from being refused for want of a writer.
 
 It also measures nothing and draws nothing: every figure a page is drawn from
-is the walk's own (ADR-0042/R3), and the four entries below are bindings, not
-adapters — three of them are the writer's own function and the fourth unwraps
+is the walk's own (ADR-0042/R3), and the five entries below are bindings, not
+adapters — three of them are the writer's own function, one unwraps
 :class:`~nonogram.admin.book_guide_vector.GuidePage` to the stream the walk
-yields.
+yields and one (the Play page) makes the landing address its writer prints.
 """
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 from nonogram.admin.book_answer_vector import answer_page, packed_answer_page
 from nonogram.admin.book_guide_vector import guide_page
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, InteriorPageWriters
+from nonogram.admin.book_play_vector import play_page
 from nonogram.admin.book_toc_vector import toc_page_stream
 from nonogram.admin.book_vector import ContentStream
+from nonogram.admin.player_bundle import landing_address
 from nonogram.export.layout import PageSpec
 
 __all__ = [
     "DOWNSTREAM_WRITERS",
     "guide_page_stream",
     "interior_generator",
+    "play_page_stream",
 ]
 
 
@@ -108,11 +111,37 @@ def guide_page_stream(
     ).stream
 
 
+def play_page_stream(
+    spec: PageSpec,
+    dpi: int,
+    page_number: int,
+    rows: Sequence[Mapping[str, Any]],
+    player_domain: str | None,
+) -> ContentStream:
+    """The Play online page for the book whose rows and stored domain these are.
+
+    The landing address is made here, by the one function that makes it
+    (:func:`~nonogram.admin.player_bundle.landing_address`), because that
+    module imports the generator and the walk therefore cannot; the page writer
+    is handed the two spellings of it and decides neither.
+
+    Raises:
+        ValueError: the book has no landing address: no domain, or no readable
+            puzzle. The plan prints this page only for a book that has both, so
+            reaching it otherwise is a disagreement the export must not paper
+            over.
+    """
+    address = landing_address(rows, player_domain)
+    if address is None:
+        raise ValueError("the Play online page was planned for a book with no player domain")
+    return play_page(spec, dpi, page_number, url=address.url, short=address.short)
+
+
 #: Every downstream interior page writer, bound for the walk that cannot
 #: import them.
 #:
 #: A module-level constant rather than a factory because it holds no state and
-#: binds no book: the four entries are functions, and the figures each page is
+#: binds no book: the five entries are functions, and the figures each page is
 #: drawn from arrive at the call. One instance per process is therefore the
 #: honest shape, and a caller that wants a narrower set (one kind only, for a
 #: control) builds its own
@@ -122,6 +151,7 @@ DOWNSTREAM_WRITERS = InteriorPageWriters(
     toc=toc_page_stream,
     answer=answer_page,
     packed_answer=packed_answer_page,
+    play=play_page_stream,
 )
 
 

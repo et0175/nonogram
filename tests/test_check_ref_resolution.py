@@ -1522,7 +1522,10 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # ADR-0006/R2 now names as its check ref -- the flip of that rule from a review
 # lens, which the card owed -- declared by adr/0006-dependency-baseline.md and
 # defined by a def in the card's new test module, so DEFINED moves with it.
-CENSUS = (575, "8f9bae1a413648a7")
+# CARD-390 (2026-11-08): 575 -> 580, the same five FR-047 class refs as DEFINED
+# below (each a new declaration with its `class` in place), so CENSUS,
+# TRACE_TESTS and DEFINED all move by the same five.
+CENSUS = (580, "6b8602404069ebd3")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1565,7 +1568,10 @@ CENSUS = (575, "8f9bae1a413648a7")
 # the two ADR-rule spellings of the dependency-baseline test, which `trace.yml`
 # never declared, and AC-269's fix-round-1 caption read-back, which
 # requirements.yml declares alone.
-TRACE_TESTS = (507, "06021d84f972abd1")
+# CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
+# FR-047's trace.yml row (the one declaration site for each: the criteria
+# repeat two of them, which this list does not count twice).
+TRACE_TESTS = (512, "c3123e749dd9300d")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1659,7 +1665,13 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 # CARD-388 (2026-11-07): 410 -> 411, the same single entrant as CENSUS above,
 # a declaration arriving with its definition in place (one `def` in
 # tests/test_vendored_qr_encoder.py), with HONEST_DEAD unmoved at 9.
-DEFINED = (411, "3e33017f2a87bb65")
+# CARD-390 (2026-11-08): 411 -> 416, five entrants, re-derived against a
+# `class` line each rather than pasted: FR-047's five class refs (four in
+# tests/test_book_play_online_page.py, one in tests/test_book_finalise_gutter.py;
+# not spelled here, because a literal test name in this module would revive the
+# ref for the validator), each declared by requirements.yml and trace.yml with
+# its definition in place; HONEST_DEAD unmoved at 9.
+DEFINED = (416, "08f25c2e55ce5fab")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
