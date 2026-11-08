@@ -63,6 +63,45 @@ collected count (derived by ``pytest --collect-only``, never carried) and, when
 
 Run it with NO full-suite lock held: the collection is a pytest run.
 
+The gate states its deselection, and lifts by subject (CARD-395)
+----------------------------------------------------------------
+A few tests carry the ``wave_close_only`` marker (the registry is
+``tests/wave_close_marker.py``): seeded sweeps and mutant grids that re-prove a
+standing property and cannot go red on a card that did not touch their subject.
+The gate does not run them; the wave close does, bare. The ``--gate`` block
+therefore prints COMMANDS (``run 1:`` / ``run 2:`` lines, which ``make
+test-gate`` executes), the count the marker deselects (derived by a real
+``--collect-only -m wave_close_only``, never carried) and a closing sentence
+qualified by ``AT THIS GATE``. The unqualified phrase ``then nothing more is
+owed`` is printed only when nothing is deselected.
+
+A marked file is LIFTED into the gate (its marked tests run, command 2) iff
+
+* (S) it is in the SUBJECT SET of the changed paths: the file itself changed, or
+  a ``src/`` module or ``tests/`` helper it imports (transitively) changed, or a
+  changed asset/script/data file is named by it or reached through the declared
+  selector / referencer chain. That is the SAME corpus calls :func:`_derive_one`
+  and :func:`_derive_asset` make, minus exactly the blanket additions: the
+  always-on scanners, the ``tree_readers`` walk, ``executors()`` for
+  ``BROWSER_SURFACE_MODULES``, the cheap safe rule (``executors() |
+  conftest_users()`` for admin statics and templates) and ``conftest_users()``
+  through the conftest source closure. Those answer "I cannot see who reads
+  this, so run the browser tests"; they say nothing about a heavy sweep's
+  subject; or
+* (A) any FULL reason is ``unanalysable``, ``conftest``, ``conftest-closure``
+  (or ``no-scanners``, a broken derivation): then EVERY marked file is lifted
+  and the gate is a bare ``pytest``, as before. Every other FULL reason lifts by
+  (S) alone, and ``count-unavailable`` (exit 11) runs bare: a gate nobody could
+  size is not narrowed.
+
+The lift only ever ADDS marked tests to a gate; nothing is ever removed from it.
+
+Failure mode, accepted by the owner as the backstop: a coupling the derivation
+cannot see (a path built from pieces, a Jinja include through a helper, a JSON
+field name) is invisible to (S), so the marked test is deselected, the card
+merges, and the red appears at the wave close, attributed to the wave. The cost
+is a bisect over the wave's merges with ONE failing file (``make test-marked``).
+
 Not modelled (declared, so nobody reads silence as coverage): a test that
 builds the path of an asset from pieces (``STATIC / f"{stem}{ext}"``,
 ``os.path.join(..., "solver" + ".js")``) is invisible to the name rule and is
@@ -1035,7 +1074,16 @@ def derive(root: Path, changed: list[str], corpus: _Corpus | None = None) -> Der
     return Derivation(files=sorted(p.as_posix() for p in selected))
 
 
-def _derive_one(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reason | None]:
+def _derive_one(
+    root: Path, corpus: _Corpus, path: str, subject: bool = False
+) -> tuple[set[Path], Reason | None]:
+    """The tests ``path`` can affect, and a FULL reason when nobody reads it.
+
+    ``subject=True`` is the CARD-395 lift rule's view: the same calls minus the
+    blanket additions (``conftest_users`` through the conftest closure, and
+    ``executors()`` for :data:`BROWSER_SURFACE_MODULES`). The reasons it returns
+    are not used in that mode; :func:`derive` owns them.
+    """
     rel = Path(path)
     exists = (root / rel).exists()
 
@@ -1055,10 +1103,10 @@ def _derive_one(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reas
         if module.startswith("nonogram"):
             got = corpus.importers({module}, set())
             _, conftest_src = corpus.conftest_closure()
-            if module in conftest_src:
+            if module in conftest_src and not subject:
                 # conftest imports it, so every fixture it defines runs on it.
                 got |= corpus.conftest_users()
-            if module in BROWSER_SURFACE_MODULES:
+            if module in BROWSER_SURFACE_MODULES and not subject:
                 got |= corpus.executors()
         else:
             got = corpus.importers(set(), {module})
@@ -1074,7 +1122,7 @@ def _derive_one(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reas
     # --- an asset shipped under src/, or a derivable file outside the roots --
     outside = not path.startswith(KNOWN_ROOTS)
     if path.startswith("src/") or (outside and rel.suffix in (".css", ".js", ".html")):
-        return _derive_asset(root, corpus, path)
+        return _derive_asset(root, corpus, path, subject=subject)
 
     # --- code or data outside src/: named by a reader, or FULL ---------------
     prose_root = path.startswith(("meta/", "docs/")) and not path.endswith(".py")
@@ -1090,7 +1138,9 @@ def _derive_one(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reas
     return got, None
 
 
-def _derive_asset(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Reason | None]:
+def _derive_asset(
+    root: Path, corpus: _Corpus, path: str, subject: bool = False
+) -> tuple[set[Path], Reason | None]:
     key = asset_key(path)
     kind = ASSET_RULES.get(key)
     if kind is None:
@@ -1127,7 +1177,7 @@ def _derive_asset(root: Path, corpus: _Corpus, path: str) -> tuple[set[Path], Re
         # the cheap rule below must not paper over an asset nobody reads.
         return readers, Reason(path, RULE_NO_READER, f"a {kind} asset that no test names, no declared selector reaches, and no module renders")
 
-    if in_src and kind in ("executed", "template"):
+    if in_src and kind in ("executed", "template") and not subject:
         # The cheap safe rule. Tracing which browser test renders which page is
         # not provably complete (a test gets the app from a helper module, a
         # fixture or a subprocess; cycle 1 proved two misses by exactly that),
@@ -1215,7 +1265,89 @@ def collect_count(root: Path, files: list[str] | None) -> int:
     return sum(1 for line in out.stdout.splitlines() if "::" in line)
 
 
-def gate_verdict(root: Path, changed: list[str], count=None) -> tuple[str, int]:
+#: The marker the gate defers (registered in ``pyproject.toml``; applied by the
+#: registry in ``tests/wave_close_marker.py``).
+MARKER = "wave_close_only"
+
+#: FULL rules whose blast radius this script does not model: when one fires the
+#: gate is a bare ``pytest`` and every marked file is lifted (rule A).
+#: ``no-scanners`` is here because a broken derivation vouches for nothing.
+LIFT_ALL_RULES = (RULE_UNANALYSABLE, RULE_CONFTEST, RULE_CONFTEST_CLOSURE, RULE_NO_SCANNERS)
+
+
+def collect_marked(root: Path) -> list[str]:
+    """The node ids carrying :data:`MARKER`, by a real ``--collect-only -m``.
+
+    Derived, never carried: the registry is the authority on WHICH tests, but
+    only collection says which of them exist, and the count the gate prints is
+    what it will actually not run. Zero marked tests is a valid answer (a tree
+    without the plugin, such as a fixture repo) and returns ``[]``; any other
+    failure raises, and the gate then runs bare.
+    """
+    cmd = [
+        sys.executable, "-m", "pytest", "--collect-only", "-q",
+        "-o", "addopts=", "-p", "no:cacheprovider", "-m", MARKER,
+    ]
+    out = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+    text = out.stdout + out.stderr
+    if out.returncode not in (0, 5):  # 5: nothing collected -- every test deselected
+        tail = "\n".join(text.strip().splitlines()[-6:])
+        raise RuntimeError(f"pytest --collect-only -m {MARKER} exited {out.returncode}: {tail}")
+    return [line.strip() for line in out.stdout.splitlines() if re.match(r"^[\w./-]+\.py::\S", line.strip())]
+
+
+class Lift(NamedTuple):
+    """Which marked files this gate must run, and why."""
+
+    everything: bool                  # rule A: bare pytest, every marked file lifted
+    reasons: list[Reason]             # the rule-A reasons (empty unless ``everything``)
+    files: dict[str, list[str]]       # rule S: marked file -> the changed paths that reach it
+
+
+def subject_files(root: Path, corpus: _Corpus, path: str) -> set[Path]:
+    """The subject set of one changed path: :func:`_derive_one` without the blanket additions."""
+    if _classify_pre(path):
+        return set()  # outside the roots / migrations: no subject; unanalysable: rule A
+    dotted = _tests_dotted(path)
+    if dotted and dotted in corpus.conftest_closure()[0]:
+        return set()  # conftest-closure: rule A
+    got, _ = _derive_one(root, corpus, path, subject=True)
+    return got
+
+
+def lift(
+    root: Path,
+    changed: list[str],
+    marked_files: set[str],
+    corpus: _Corpus | None = None,
+    derived: Derivation | None = None,
+) -> Lift:
+    """Which of ``marked_files`` the gate for ``changed`` must run (S and A above).
+
+    Only ever widens a gate. An empty ``marked_files`` lifts nothing and builds
+    no corpus.
+    """
+    changed = [c for c in changed if c]
+    if not changed or not marked_files:
+        return Lift(False, [], {})
+    derived = derived or derive(root, changed, corpus=corpus)
+    rule_a = [r for r in derived.reasons if r.rule in LIFT_ALL_RULES]
+    if rule_a:
+        return Lift(True, rule_a, {f: [r.path for r in rule_a] for f in sorted(marked_files)})
+    corpus = corpus or _Corpus(root)
+    lifted: dict[str, list[str]] = {}
+    for path in changed:
+        for hit in sorted(subject_files(root, corpus, path)):
+            if hit.as_posix() in marked_files:
+                lifted.setdefault(hit.as_posix(), []).append(path)
+    return Lift(False, [], lifted)
+
+
+def _file_of(nodeid: str) -> str:
+    return nodeid.split("::", 1)[0]
+
+
+def gate_verdict(root: Path, changed: list[str], count=None, marked=None) -> tuple[str, int]:
     """The gate's one pasteable block AND its exit code.
 
     ``count`` is injectable so the format is testable without spawning pytest;
@@ -1224,16 +1356,32 @@ def gate_verdict(root: Path, changed: list[str], count=None) -> tuple[str, int]:
     selection is non-empty: a failed or zero count is FULL
     (``count-unavailable``), never a quiet pass -- a collection error or a held
     full-suite lock must not read as a narrow, green gate.
+
+    ``marked`` is a no-argument callable returning the node ids carrying
+    :data:`MARKER`. With neither injected it is :func:`collect_marked`; with
+    only ``count`` injected it is "none" (a format test around the CARD-286
+    contract, which must not spawn a pytest on a fixture tree). A marker that
+    cannot be collected makes a selection ``count-unavailable`` (run bare) and a
+    FULL run bare. The block prints ``run N:`` lines, the commands ``make
+    test-gate`` executes.
     """
     if count is None:
         def count(files):
             return collect_count(root, files)
+
+        if marked is None:
+            def marked():
+                return collect_marked(root)
+    elif marked is None:
+        def marked():
+            return []
 
     derived = derive(root, changed)
     shown = [c for c in changed if c]
     head = ", ".join(shown[:6]) + (f", ... +{len(shown) - 6} more" if len(shown) > 6 else "")
     lines = ["IMPACT GATE", f"changed ({len(shown)}): {head or '(nothing)'}"]
     codes = f"exit codes: {EXIT_SELECTION} selection | {EXIT_FULL} FULL | {EXIT_COUNT_FAILED} count failed (= FULL) | {EXIT_EMPTY} empty"
+    bare = "run 1: python -m pytest"
 
     if derived.empty:
         lines += [
@@ -1249,16 +1397,75 @@ def gate_verdict(root: Path, changed: list[str], count=None) -> tuple[str, int]:
     except Exception as exc:
         total, total_error = None, str(exc)
 
+    try:
+        nodes, marked_error = list(marked()), None
+    except Exception as exc:
+        nodes, marked_error = [], str(exc)
+    marked_files = {_file_of(n) for n in nodes}
+    plan = None
+    if nodes:
+        plan = lift(root, shown, marked_files, derived=derived)
+
+    def marker_lines(owed: int, deselected_in_selection: int) -> list[str]:
+        """The marker section: counts, the lift and why (empty when no test is marked)."""
+        if marked_error is not None:
+            return [f"marker: {MARKER} -- could not be collected ({marked_error}); the run is BARE, nothing is deselected"]
+        if not nodes:
+            return []
+        in_selection = deselected_in_selection
+        out = [
+            f"marker: {MARKER} -- {len(nodes)} marked tests in {len(marked_files)} files; "
+            f"{len(nodes) - owed} run at this gate (lifted files); {owed} owed at the wave close "
+            f"(marked tests in files not lifted), of which {in_selection} sit in files this gate selects "
+            f"and are deselected there"
+        ]
+        assert plan is not None
+        if plan.everything:
+            out.append("lift: ALL (rule " + "|".join(sorted({r.rule for r in plan.reasons})) + ")")
+            out += [f"  - {r}" for r in plan.reasons]
+        elif plan.files:
+            out.append("lift: " + str(len(plan.files)) + " marked file(s), their marked tests run at this gate (rule S, subject edge):")
+            out += [f"  - {f}  <- {', '.join(sorted(set(why)))}" for f, why in sorted(plan.files.items())]
+        else:
+            out.append("lift: none (no changed path reaches a marked file's subject)")
+        return out
+
+    def owed_count() -> int:
+        if plan is None or plan.everything:
+            return 0
+        return sum(1 for n in nodes if _file_of(n) not in plan.files)
+
+    def commands(files: list[str] | None, owed: int) -> list[str]:
+        """``run N:`` lines. ``files=None`` is the whole suite."""
+        target = (" " + " ".join(files)) if files else ""
+        if owed == 0 or plan is None:
+            return [f"run 1: python -m pytest{target}"]
+        out = [f'run 1: python -m pytest -m "not {MARKER}"{target}']
+        if plan.files:
+            out.append(f"run 2: python -m pytest -m {MARKER} " + " ".join(sorted(plan.files)))
+        return out
+
+    closing = lambda owed: (  # noqa: E731
+        f"after those: nothing more is owed AT THIS GATE; {owed} marked tests ({MARKER}) are owed at the wave close"
+    )
+
     if derived.full:
-        lines.append("answer: FULL -- run the whole suite")
+        owed = owed_count() if marked_error is None else 0
+        lines.append("answer: FULL -- run the whole suite" + (f" less the {owed} {MARKER} tests this gate defers" if owed else ""))
         lines.append(
             f"tests: {total} of {total} collected (100%)"
             if total is not None
             else f"tests: ? of unavailable ({total_error})"
         )
+        if owed:
+            lines.append(f"tests at this gate: {(total or 0) - owed} of {total}")
+        lines += marker_lines(owed, owed)  # a FULL run selects every file
+        lines += commands(None, owed)
         lines.append("FULL because:")
         lines += [f"  - {r}" for r in derived.reasons]
         lines += [f"exit code: {EXIT_FULL}", codes]
+        if owed:
+            lines.append(closing(owed))
         return "\n".join(lines), EXIT_FULL
 
     chosen, chosen_error = None, None
@@ -1267,28 +1474,47 @@ def gate_verdict(root: Path, changed: list[str], count=None) -> tuple[str, int]:
             chosen = count(derived.files)
         except Exception as exc:
             chosen_error = str(exc)
-    if total is None or chosen is None or chosen == 0:
-        why = total_error or chosen_error or "the selection collected 0 tests"
+    if total is None or chosen is None or chosen == 0 or marked_error is not None:
+        why = total_error or chosen_error or (
+            f"the marker could not be collected: {marked_error}" if marked_error else "the selection collected 0 tests"
+        )
         reason = Reason("(gate)", RULE_COUNT_UNAVAILABLE, f"the size could not be collected, so the selection cannot be vouched for: {why}")
         lines.append("answer: FULL -- the count failed, so this is treated as FULL")
         lines.append(f"tests: ? of {total if total is not None else 'unavailable'}")
+        lines.append(bare)
+        lines.append("  (a gate nobody could size is not narrowed: no marker deselection)")
         lines.append("FULL because:")
         lines.append(f"  - {reason}")
         lines += [f"exit code: {EXIT_COUNT_FAILED}", codes]
         return "\n".join(lines), EXIT_COUNT_FAILED
 
+    owed = owed_count()
     pct = f" ({100 * chosen / total:.1f}%)" if total else ""
-    lines.append("answer: SELECTION -- run the files below, then nothing more is owed")
+    if owed:
+        lines.append("answer: SELECTION -- run the commands below (marked tests are deferred: see marker)")
+    else:
+        lines.append("answer: SELECTION -- run the files below, then nothing more is owed")
     lines.append(f"tests: {chosen} of {total} collected{pct}")
+    deferred_in_selection = 0
+    if owed:
+        selected_files = set(derived.files)
+        deferred_in_selection = sum(
+            1 for n in nodes if _file_of(n) in selected_files and _file_of(n) not in plan.files
+        )
+        lines.append(f"tests at this gate: {chosen - deferred_in_selection} of {total}")
     lines.append(f"files: {len(derived.files)} test files, {len(always_on(root))} of them always-on")
+    lines += marker_lines(owed, deferred_in_selection)
+    lines += commands(derived.files, owed)
     lines += [f"exit code: {EXIT_SELECTION}", codes, "selection:"]
     lines += [f"  {f}" for f in derived.files]
+    if owed:
+        lines.append(closing(owed))
     return "\n".join(lines), EXIT_SELECTION
 
 
-def gate_report(root: Path, changed: list[str], count=None) -> str:
+def gate_report(root: Path, changed: list[str], count=None, marked=None) -> str:
     """:func:`gate_verdict`'s block alone."""
-    return gate_verdict(root, changed, count)[0]
+    return gate_verdict(root, changed, count, marked)[0]
 
 
 def main(argv: list[str] | None = None) -> int:

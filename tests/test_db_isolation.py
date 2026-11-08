@@ -880,6 +880,13 @@ _ROOT_CONTENTS = (
     # resolves a lock path of its own, finds nothing there, and the probes run
     # exactly as they did.
     "tests/full_suite_lock.py",
+    # CARD-395: the fourth. `tests/conftest.py` imports the wave-close marker
+    # plugin (a registry hook, registered by name), and a copied root without it
+    # dies with "ImportError while loading conftest" -- the same shape as above.
+    # The merge gate found it only after a 58-minute run. A manual entry rather
+    # than a derivation from conftest's import closure: the closure also holds
+    # src modules and `tests/helpers`, so deriving it would be a second copier.
+    "tests/wave_close_marker.py",
     "tests/helpers",
 )
 

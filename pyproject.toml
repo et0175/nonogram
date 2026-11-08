@@ -93,4 +93,5 @@ addopts = "-q"
 pythonpath = ["src"]
 markers = [
   "browser: drives the admin panel in Chromium through pytest-playwright (needs `playwright install chromium`; ADR-0038/R8)",
+  "wave_close_only: re-proves a standing property over a seeded corpus or a mutant grid; deselected at the merge gate (-m 'not wave_close_only') and run at the wave close, where the suite runs bare. Applied by the registry in tests/wave_close_marker.py, never by a decorator (CARD-395)",
 ]
