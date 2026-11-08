@@ -141,6 +141,7 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_CLOSING,
     GUIDE_CLOSING_HEADING,
     GUIDE_DIFFICULTY_HEADING,
+    GUIDE_DIFFICULTY_LINE,
     GUIDE_DIFFICULTY_LABELS,
     GUIDE_EXAMPLE_HEADING,
     GUIDE_INTRO,
@@ -1002,6 +1003,15 @@ class GuideForm:
             and the pipeline.
         pictures: The key strip's cell-state pictures and the last technique's
             diagram, and the looser gaps.
+        captions: The key strip's one-line gloss under each mark's word.
+        headings: The key strip's two headings and the section headings
+            ("Start with certainty", "Keep switching ...").
+        rule: The basic-rule block (its heading, text and diagram).
+        last: The last numbered technique of the page's first section.
+        legend_line: The one line under the legend's heading.
+        tight: The leanest setting: the body keeps
+            :data:`~nonogram.export.layout.GUIDE_LEAN_INSET_MM` of white above
+            and below instead of the ordinary inset, and the gaps close up.
     """
 
     prose: bool = True
@@ -1012,6 +1022,12 @@ class GuideForm:
     worked: bool = True
     reasoning: bool = True
     pictures: bool = True
+    captions: bool = True
+    tight: bool = False
+    headings: bool = True
+    rule: bool = True
+    last: bool = True
+    legend_line: bool = True
 
     @property
     def shows_worked_example(self) -> bool:
@@ -1046,6 +1062,82 @@ _FORMS: Tuple[GuideForm, ...] = (
         reasoning=False,
         pictures=False,
     ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+        rule=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+        rule=False,
+        last=False,
+    ),
+)
+
+#: What :func:`guide_page` offers back, most valuable first, once the ladder has
+#: settled on a form: a mark the ladder dropped comes back if the page still
+#: fits with it. The ladder only ever removes, so a page that settled low on a
+#: sheet with room to spare (a worked-example sentence dropped on one page,
+#: leaving a third of the next empty) would otherwise stay bare.
+_ADD_BACK: Tuple[str, ...] = (
+    "pictures",
+    "reasoning",
+    "text",
+    "worked",
+    "prose",
+    "notes",
+    "counts",
+    "steps",
+    "legend_line",
+    "captions",
 )
 
 
@@ -1111,6 +1203,9 @@ def guide_page(
     )
     text_min = math.ceil(max(advance_px(word, body_px, face) for word in _guide_words()))
     sheet = guide_spread_layout(spec, example_width=example_width, text_min=text_min)
+    lean_sheet = guide_spread_layout(
+        spec, example_width=example_width, text_min=text_min, lean=True
+    )
     left, right = sheet.left, sheet.right
     text_x, text_w = left, sheet.text_width
     example_x = sheet.example_left
@@ -1159,7 +1254,8 @@ def guide_page(
     def set_page(form: GuideForm) -> Tuple[List["_Mark"], float]:
         """Every mark below the band, and the lowest pixel they reach."""
         marks: List[_Mark] = []
-        reach = {"bottom": sheet.body_top}
+        body_top = (lean_sheet if form.tight else sheet).body_top
+        reach = {"bottom": body_top}
 
         def note(bottom: float) -> None:
             reach["bottom"] = max(reach["bottom"], bottom)
@@ -1180,6 +1276,8 @@ def guide_page(
         def gap(amount: Optional[float] = None) -> float:
             if amount is not None:
                 return amount
+            if form.tight:
+                return leading / 8
             return leading / 2 if form.pictures else leading / 6
 
         def technique(entry: GuideTechnique, rows: List["_Diagram"], y: float) -> float:
@@ -1223,7 +1321,7 @@ def guide_page(
             if form.pictures:
                 y = picture(cell_states[index], x, y) + leading / 4
             y = paragraph(state.heading, x, width, y)
-            return paragraph(state.caption, x, width, y)
+            return paragraph(state.caption, x, width, y) if form.captions else y
 
         def key_strip(y: float) -> float:
             """The three marks and the difficulty legend, as one strip."""
@@ -1233,16 +1331,23 @@ def guide_page(
                 for state in GUIDE_CELL_STATES
                 for word in (state.heading + " " + state.caption).split()
             ]
-            entry_w = dot_box_w + name_gap + max(
+            name_w = max(
                 advance_px(label.name, body_px, face) for label in GUIDE_DIFFICULTY_LABELS
             )
+            entry_w = dot_box_w + name_gap + name_w
             zone_pad = body_px / 2
             beside = measure / 4 - zone_pad >= max(max(mark_words), entry_w)
             if beside:
                 zone = measure / 4
-                top = paragraph(GUIDE_CELL_STATES_HEADING, left, 3 * zone - zone_pad, y)
-                legend_top = paragraph(
-                    GUIDE_DIFFICULTY_HEADING, left + 3 * zone, zone - zone_pad, y
+                top = (
+                    paragraph(GUIDE_CELL_STATES_HEADING, left, 3 * zone - zone_pad, y)
+                    if form.headings
+                    else y
+                )
+                legend_top = (
+                    paragraph(GUIDE_DIFFICULTY_HEADING, left + 3 * zone, zone - zone_pad, y)
+                    if form.headings
+                    else y
                 )
                 items = max(top, legend_top) + leading / 4
                 lowest = items
@@ -1255,48 +1360,76 @@ def guide_page(
                 for label in GUIDE_DIFFICULTY_LABELS:
                     legend_entry(label, left + 3 * zone, row)
                     row += dot_box_h
-                return max(lowest, row)
+                below = max(lowest, row)
+                if form.legend_line:
+                    # The line is the legend's, set across the measure under the
+                    # strip: a quarter of the measure is too narrow for a sentence.
+                    below = paragraph(GUIDE_DIFFICULTY_LINE, left, measure, below + leading / 4)
+                return below
             zone = measure / 3
-            items = paragraph(GUIDE_CELL_STATES_HEADING, left, measure, y) + leading / 4
+            items = (
+                paragraph(GUIDE_CELL_STATES_HEADING, left, measure, y) if form.headings else y
+            ) + leading / 4
             lowest = items
             for index in range(len(GUIDE_CELL_STATES)):
                 lowest = max(
                     lowest, cell_mark(index, left + index * zone, zone - zone_pad, items)
                 )
-            items = paragraph(GUIDE_DIFFICULTY_HEADING, left, measure, lowest + gap()) + leading / 4
-            for index, label in enumerate(GUIDE_DIFFICULTY_LABELS):
-                legend_entry(label, left + index * zone, items)
-            return items + dot_box_h
+            items = (
+                paragraph(GUIDE_DIFFICULTY_HEADING, left, measure, lowest + gap())
+                if form.headings
+                else lowest + gap()
+            )
+            if form.legend_line:
+                items = paragraph(GUIDE_DIFFICULTY_LINE, left, measure, items)
+            items += leading / 4
+            if entry_w <= zone - zone_pad:
+                for index, label in enumerate(GUIDE_DIFFICULTY_LABELS):
+                    legend_entry(label, left + index * zone, items)
+                return items + dot_box_h
+            # A name that does not fit its third of the measure would print over
+            # the next entry's dots, so the entries stack, one to a row.
+            for label in GUIDE_DIFFICULTY_LABELS:
+                legend_entry(label, left, items)
+                items += dot_box_h
+            return items
 
-        y = sheet.body_top
+        y = body_top
         if page_one:
             if form.prose:
                 y = paragraph(GUIDE_INTRO, left, right - left, y)
             if play_page is not None:
                 y = paragraph(guide_play_sentence(play_page), left, right - left, y)
-            if y > sheet.body_top:
+            if y > body_top:
                 y += gap()
 
             y = key_strip(y) + gap()
 
-            ly = paragraph(GUIDE_BASIC_RULE_HEADING, text_x, text_w, y)
-            if form.text:
-                ly = paragraph(GUIDE_BASIC_RULE_TEXT, text_x, text_w, ly)
-            ry = y if sheet.two_column else ly
-            ry = picture(basic_rule, example_x, ry)
-            if form.notes:
-                ry = paragraph(GUIDE_BASIC_RULE_CAPTION, example_x, example_w, ry)
-            y = max(ly, ry) + gap()
+            if form.rule:
+                ly = paragraph(GUIDE_BASIC_RULE_HEADING, text_x, text_w, y)
+                if form.text:
+                    ly = paragraph(GUIDE_BASIC_RULE_TEXT, text_x, text_w, ly)
+                ry = y if sheet.two_column else ly
+                ry = picture(basic_rule, example_x, ry)
+                if form.reasoning:
+                    # The basic rule's gloss is the explanation of its diagram:
+                    # it stays until the page gives up its multi-row reasoning.
+                    ry = paragraph(GUIDE_BASIC_RULE_CAPTION, example_x, example_w, ry)
+                y = max(ly, ry) + gap()
 
-            y = paragraph(GUIDE_CERTAINTY_HEADING, left, right - left, y)
+            if form.headings:
+                y = paragraph(GUIDE_CERTAINTY_HEADING, left, right - left, y)
             for index, entry in enumerate(GUIDE_TECHNIQUES_1):
                 last = index == len(GUIDE_TECHNIQUES_1) - 1
+                if last and not form.last:
+                    continue
                 if last and not form.pictures:
                     y = paragraph(entry.heading, text_x, text_w, y) + gap(0)
                     continue
                 y = technique(entry, technique_rows(entry), y)
 
-            y = paragraph(GUIDE_SWITCHING_HEADING, left, right - left, y)
+            if form.headings:
+                y = paragraph(GUIDE_SWITCHING_HEADING, left, right - left, y)
             if form.prose:
                 paragraph(GUIDE_SWITCHING_TEXT, left, right - left, y)
         else:
@@ -1347,10 +1480,10 @@ def guide_page(
 
         return marks, reach["bottom"]
 
-    def fits(marks: List["_Mark"], bottom: float) -> bool:
+    def fits(marks: List["_Mark"], bottom: float, form: GuideForm) -> bool:
         """Whether every drawn mark stays inside the body: below the header
         rule's white, above the footer rule's white, and inside the margins."""
-        if bottom > sheet.body_bottom:
+        if bottom > (lean_sheet if form.tight else sheet).body_bottom:
             return False
         for mark in marks:
             if mark.text is not None:
@@ -1363,12 +1496,26 @@ def guide_page(
         return True
 
     chosen = len(_FORMS) - 1
-    marks: List[_Mark] = []
-    bottom = sheet.body_top
-    for chosen, form in enumerate(_FORMS):
-        marks, bottom = set_page(form)
-        if fits(marks, bottom):
+    form = _FORMS[chosen]
+    marks, bottom = set_page(form)
+    for index, candidate in enumerate(_FORMS):
+        laid, reached = set_page(candidate)
+        if fits(laid, reached, candidate):
+            chosen, form, marks, bottom = index, candidate, laid, reached
             break
+    else:
+        # No form fits: the leanest is drawn, as the page this replaces drew
+        # its last form on a sheet too short for any.
+        marks, bottom = set_page(form)
+    # Offer back, most valuable first, every mark the ladder dropped that the
+    # page still has room for (the ladder alone only ever removes).
+    for name in _ADD_BACK:
+        if getattr(form, name) or form.tight:
+            continue
+        candidate = replace(form, **{name: True})
+        laid, reached = set_page(candidate)
+        if fits(laid, reached, candidate):
+            form, marks, bottom = candidate, laid, reached
 
     trim = page_frame(spec)
     stream = ContentStream(width_px=trim.width, height_px=trim.height, dpi=dpi)
@@ -1439,7 +1586,7 @@ def guide_page(
         stream=stream,
         faces=tuple(faces),
         fallback_level=chosen,
-        form=_FORMS[chosen],
+        form=form,
         content_bottom=bottom,
     )
 

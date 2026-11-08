@@ -2133,7 +2133,7 @@ links:
   - TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
   - PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
   - TestGuideSpread_SitsOnPagesTwoAndThree
-  - TestGuidePage_WorkedExampleClueDigitsAreNotExempt
+  - TestGuideSpread_TextComesFromTheConstants
   - TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity
   - TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
   - TestDividerPages_EveryPagesParityIsStillItsOwnPosition

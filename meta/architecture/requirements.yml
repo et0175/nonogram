@@ -4203,12 +4203,14 @@ functional:
         # Restated and re-pointed 2026-11-08 (CARD-229). The single-page
         # wording was superseded by CARD-201's two-page guide; the class this
         # named has not existed since. The worked example's clue digits are the
-        # reader's instruction text, drawn and never exempt from the floor.
-        test: TestGuidePage_WorkedExampleClueDigitsAreNotExempt
+        # reader's instruction text, drawn and never exempt from the floor
+        # (`TestGuidePage_WorkedExampleClueDigitsAreNotExempt`); the survivor
+        # named reads the four steps back cell by cell, drawn whole on page 3.
+        test: TestGuideSpread_TextComesFromTheConstants
       - id: AC-326
         given: one Book 1 profile book exported with the "How to Use This Book" guide page and again with the "How to Solve Nonograms" guide page carrying its worked example
         when: the two interior PDFs are compared
-        then: both hold the same number of pages, the guide is exactly its two pages (interior pages 2 and 3) in each, and every later page keeps its parity (FR-043)
+        then: both hold the same number of pages with the guide exactly its two pages (interior pages 2 and 3), so every later page keeps its parity (FR-043)
         kind: boundary
         # Re-pointed 2026-11-08 (CARD-229): the class this named was retired by
         # CARD-201, which made the guide two pages and left the claim to

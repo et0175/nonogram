@@ -584,7 +584,7 @@ def book_page_spec(book: object, page_number: int = 1) -> PageSpec:
             or a ``books`` row. A missing or empty attribute falls back to
             :data:`BOOK1_PROFILE`.
         page_number: The page's 1-based position in the interior PDF, as the
-            generator reports it. Interior page 1 is the guide page and is a
+            generator reports it. Interior page 1 is the blank title page and is a
             right-hand (odd) page, gutter on the left (FR-043). Parity moves
             the margins sideways and never changes the usable size, so any
             page gives the same cell (:func:`book_cell_mm`).

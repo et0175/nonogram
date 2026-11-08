@@ -36,15 +36,12 @@ from nonogram.admin.book_guide_vector import (
 )
 from nonogram.admin.book_interior_vector import interior_generator
 from nonogram.admin.book_pdf_generator import (
-    GUIDE_BASIC_RULE_CROSSED,
-    GUIDE_BASIC_RULE_FILLED,
     GUIDE_CELL_STATES,
     GUIDE_DIFFICULTY_LABELS,
     GUIDE_LEADING_PT,
     GUIDE_BODY_PT,
     GUIDE_TECHNIQUES_1,
     GUIDE_TECHNIQUES_2,
-    WORKED_EXAMPLE_STEPS,
     BookPDFGenerator,
     page_is_right_hand,
 )
@@ -104,8 +101,8 @@ class TestGuideSpread_SitsOnPagesTwoAndThree:
                 assert _guide_text(streams[number - 1])[-1] == str(number)
             # The pages are the guide's own: titled in the band, and nothing
             # of the retired "How to Use This Book" page remains.
-            assert _guide_text(streams[1])[0] == book_pdf_generator.GUIDE_TITLE
-            assert _guide_text(streams[2])[0] == book_pdf_generator.GUIDE2_TITLE
+            assert _guide_text(streams[1])[0] == "How to Solve Nonograms"
+            assert _guide_text(streams[2])[0] == "When the Puzzle Gets Harder"
             assert not any(
                 "How to Use This Book" in text for n in (2, 3) for text in _guide_text(streams[n - 1])
             )
@@ -133,6 +130,13 @@ class TestGuideSpread_SharesThePuzzlePagesFrame:
             assert pdf_vector.frame_rules(guide) == pdf_vector.frame_rules(puzzle), (guide_number, same_side)
             header, footer = pdf_vector.frame_rules(guide)
             assert footer[2] < header[2], "PDF y grows upward: the footer is lower"
+            # The title is a puzzle page's band line: the same size and the same
+            # baseline as the identity ("Puzzle N ...") a puzzle page sets there.
+            title = pdf_vector.placed_text(guide)[0]
+            identity = next(
+                item for item in pdf_vector.placed_text(puzzle) if item[3].startswith("Puzzle ")
+            )
+            assert (title[2], title[1]) == (identity[2], identity[1]), (title, identity)
             # The body's left edge is the rule's own left end: the margin.
             body_left = min(x for x, y, _, _ in pdf_vector.placed_text(guide) if y < header[2] and y > footer[2])
             assert abs(body_left - header[0]) < 0.01, (guide_number, body_left, header[0])
@@ -349,50 +353,84 @@ class TestGuideSpread_TextComesFromTheConstants:
         assert stray == []
 
     def test_every_diagram_is_the_constants_diagram(self):
-        """The diagrams come from the stored data too: the filled squares and
-        the crosses each page draws are the ones its constants state.
+        """The diagrams drawn are the diagrams the lesson teaches, read cell by cell.
 
-        A filled square is a ``re f`` and a cross is two diagonal strokes, the
-        two marks a line diagram, a cell icon and the pipeline's two shaped
-        icons are made of, so the count of each on a page is the sum over what
-        that page draws: the basic rule, the three cell icons (one filled, one
-        crossed), every technique's rows and the pipeline's ASSUME square and
-        PROVED cross on the first of Book 1's pages and the second's.
+        Each example is located by its playable squares' outline; its filled
+        and crossed squares are read back off the stream as column indices, and
+        held to **literals written out here** (the guide's own lesson, not the
+        constants under test) and to one brute force: the squeeze's "certain"
+        row is the overlap of every placement of ``8`` on ten squares, which
+        this recomputes. A same-size mutant (one filled square moved, a range
+        shifted) therefore reds where a count of marks would not.
         """
         _, streams = _interior(_spread_book(), corpus_puzzles(4))
+        diagonal = re.compile(r"(\S+) (\S+) m (\S+) (\S+) l S")
 
-        def counts(stream: str) -> Tuple[int, int]:
-            squares = len(re.findall(r" re f$", stream, re.M))
-            diagonals = [
-                m
-                for m in re.finditer(
-                    r"(\S+) (\S+) m (\S+) (\S+) l S", stream
-                )
+        def diagrams(stream: str):
+            """``(columns, filled, crossed)`` of every example, top of the page first."""
+            lines = stream.split("\n")
+            fills = [
+                tuple(float(v) for v in m.groups())
+                for line in lines
+                if (m := re.fullmatch(r"(\S+) (\S+) (\S+) (\S+) re f", line))
+            ]
+            crosses = [
+                tuple(float(v) for v in m.groups())
+                for m in diagonal.finditer(stream)
                 if m.group(1) != m.group(3) and m.group(2) != m.group(4)
             ]
-            return squares, len(diagonals) // 2
+            found = []
+            for ox, oy, width, cell in sorted(_outlines(stream), key=lambda o: -o[1]):
+                columns = round(width / cell)
+                filled = {
+                    round((x - ox) / cell)
+                    for x, y, w, h in fills
+                    if abs(y - oy) < cell and abs(h - cell) < 1 and ox - 1 <= x < ox + width
+                }
+                crossed = {
+                    int((min(x1, x2) - ox) / cell)
+                    for x1, y1, x2, y2 in crosses
+                    if oy - 1 <= min(y1, y2) and max(y1, y2) <= oy + cell + 1 and ox - 1 <= min(x1, x2) < ox + width
+                }
+                found.append((columns, frozenset(filled), frozenset(crossed)))
+            return found
 
-        def rows(techniques):
-            return [row for entry in techniques for row in entry.rows]
+        none = frozenset()
 
+        def span(a: int, b: int) -> frozenset:
+            return frozenset(range(a, b))
+
+        # The squeeze: every placement of a run of 8 on a line of 10, by brute force.
+        placements = [span(start, start + 8) for start in range(10 - 8 + 1)]
+        certain = frozenset.intersection(*placements)
+        assert certain == span(2, 8)
+
+        first = [
+            (8, frozenset({0, 1, 2, 4, 5, 7}), frozenset({3, 6})),  # 3 2 1: runs 3, 2, 1 with gaps
+            (10, span(0, 10), none),  # complete line
+            (10, placements[0], none),  # squeeze: as far left
+            (10, placements[-1], none),  # as far right
+            (10, certain, none),  # what both agree on
+            (8, frozenset({2, 3, 4}), frozenset({1, 5})),  # 3 done: its neighbours empty
+        ]
+        second = [
+            (10, none, frozenset({3, 5})),  # region split
+            (10, none, frozenset({3, 4, 5})),
+            (5, frozenset({0, 1, 2}), none),  # every placement of 3 on 5
+            (5, frozenset({1, 2, 3}), none),
+            (5, frozenset({2, 3, 4}), none),
+            (5, frozenset({2}), none),  # the one cell they agree on
+            (6, none, none),  # worked example, 3 1 on 6: the clue
+            (6, frozenset({1, 2}), none),  # overlap
+            (6, frozenset({1, 2, 3}), frozenset({0, 4})),  # gap
+            (6, frozenset({1, 2, 3, 5}), frozenset({0, 4})),  # solved
+        ]
         # Book 1 draws the first page whole and the second with the worked
         # example (asserted: an empty ``if`` here would be a vacuous pass).
         assert any("1. The clue" in text for text in _guide_text(streams[2]))
-        first = (
-            len(GUIDE_BASIC_RULE_FILLED) + 1 + sum(len(r.filled) for r in rows(GUIDE_TECHNIQUES_1)),
-            len(GUIDE_BASIC_RULE_CROSSED) + 1 + sum(len(r.crossed) for r in rows(GUIDE_TECHNIQUES_1)),
-        )
-        second = (
-            sum(len(r.filled) for r in rows(GUIDE_TECHNIQUES_2))
-            + 1
-            + sum(len(step.filled) for step in WORKED_EXAMPLE_STEPS),
-            sum(len(r.crossed) for r in rows(GUIDE_TECHNIQUES_2))
-            + 1
-            + sum(len(step.crossed) for step in WORKED_EXAMPLE_STEPS),
-        )
 
-        assert counts(streams[1]) == first
-        assert counts(streams[2]) == second
+        assert diagrams(streams[1]) == first
+        assert diagrams(streams[2]) == second
 
 
 _PLAY_NUMBER = re.compile(r"Scan the code on page (\d+)\.")

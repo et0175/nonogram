@@ -836,8 +836,8 @@ def _printed_places(book, puzzles):
         ``(places, divider_pages)``. ``places`` maps ``id(row)`` — the identity
         of a row object the caller passed in — to
         ``{"page", "opens_page", "shares_page"}``: the **interior** page number
-        the puzzle prints on (pages 1-2 are the guide, CARD-201's 2-page
-        tutorial, INV-013), whether it is
+        the puzzle prints on (page 1 is the blank title page, pages 2-3 are
+        the guide, CARD-201's 2-page tutorial, INV-013), whether it is
         the first puzzle on that page, and whether it shares the page with its
         neighbour (FR-040, INV-010). ``divider_pages`` maps a level's tier value
         to the interior page of the divider page that opens it (CARD-128).
@@ -5634,6 +5634,7 @@ def create_app(debug=None):
             "guide_assume_steps": book_pdf_generator.GUIDE_ASSUME_STEPS,
             "guide_assume_closing": book_pdf_generator.GUIDE_ASSUME_CLOSING,
             "guide_difficulty_heading": book_pdf_generator.GUIDE_DIFFICULTY_HEADING,
+            "guide_difficulty_line": book_pdf_generator.GUIDE_DIFFICULTY_LINE,
             "guide_difficulty_labels": book_pdf_generator.GUIDE_DIFFICULTY_LABELS,
             "guide_closing_heading": book_pdf_generator.GUIDE_CLOSING_HEADING,
             "guide_closing": book_pdf_generator.GUIDE_CLOSING,

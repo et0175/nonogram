@@ -236,6 +236,7 @@ __all__ = [
     "GRID_SPARE_ABOVE",
     "GUIDE_BODY_INSET_MM",
     "GUIDE_COLUMN_GAP_MM",
+    "GUIDE_LEAN_INSET_MM",
     "GUIDE_EXAMPLE_MAX_SHARE",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
@@ -2143,6 +2144,11 @@ GUIDE_COLUMN_GAP_MM = 6.0
 #: row, and between its last row and the footer rule, in millimetres.
 GUIDE_BODY_INSET_MM = 6.0
 
+#: The white the leanest form of the guide keeps instead of
+#: :data:`GUIDE_BODY_INSET_MM`, in millimetres: a sheet too short for the body
+#: at the ordinary inset gives it up before it gives up a mark (CARD-229).
+GUIDE_LEAN_INSET_MM = 1.0
+
 #: The most of the usable width the example column may take, as a share of it
 #: (CARD-229). Above it the text column is a sliver, so the examples' shared
 #: cell is stepped down (never below the clue-digit floor, which the caller
@@ -2207,7 +2213,7 @@ def guide_example_limit(page_spec: PageSpec) -> int:
 
 
 def guide_spread_layout(
-    page_spec: PageSpec, *, example_width: int, text_min: int
+    page_spec: PageSpec, *, example_width: int, text_min: int, lean: bool = False
 ) -> GuideSpreadLayout:
     """Place one page of the "How to Solve" spread on ``page_spec`` (CARD-229).
 
@@ -2218,7 +2224,9 @@ def guide_spread_layout(
     this function's. The example column is flush with the usable area's right
     edge and the text column runs from the left edge to one
     :data:`GUIDE_COLUMN_GAP_MM` short of it. Where that leaves the text column
-    under ``text_min``, the page is not set in two columns.
+    under ``text_min``, the page is not set in two columns. ``lean`` keeps
+    :data:`GUIDE_LEAN_INSET_MM` of white above and below the body instead of
+    :data:`GUIDE_BODY_INSET_MM`.
 
     Raises:
         ValueError: ``page_spec`` has no parity, a width is not positive, or
@@ -2231,14 +2239,11 @@ def guide_spread_layout(
         )
     interior = interior_frame(page_spec)
     left, top, right, _ = _usable_box_px(page_spec)
-    inset = _mm_to_px(GUIDE_BODY_INSET_MM)
-    band_height = _round_px(_exact_px(page_spec.band_mm))
-    band = HeaderBand(
-        height=band_height,
-        center_x=(left + right) // 2,
-        center_y=top + band_height // 2,
-        font_size=max(1, min(_mm_to_px(HEADER_FONT_MM), band_height)),
-    )
+    inset = _mm_to_px(GUIDE_LEAN_INSET_MM if lean else GUIDE_BODY_INSET_MM)
+    # The band is a puzzle page's own, from :func:`header_band` on the sheet's
+    # probe layout, so the title sits where and at the size a puzzle's identity
+    # does (the band reads the placement, never the drawing's clues).
+    band = header_band(compute_layout(((0,),), ((0,),), page_spec), page_spec)
     example_left = right - example_width
     text_right = example_left - _mm_to_px(GUIDE_COLUMN_GAP_MM)
     two_column = text_right - left >= text_min

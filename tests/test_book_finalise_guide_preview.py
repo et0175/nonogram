@@ -131,6 +131,7 @@ class GuideCard(HTMLParser):
         "data-guide-assume-text": "assume_text",
         "data-guide-assume-closing": "assume_closing",
         "data-guide-difficulty-heading": "difficulty_heading",
+        "data-guide-difficulty-line": "difficulty_line",
         "data-guide-example-heading": "example_heading",
         "data-guide-closing-heading": "closing_heading",
         "data-guide-closing": "closing",
@@ -658,7 +659,13 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         rather than assumed: nothing stops a template from reaching for
         ``label.text`` again.
         """
-        assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING
+        assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING == "Difficulty"
+        # The one line the owner approved (2026-11-08), as a literal: the same
+        # line the printed legend sets, from the one constant.
+        assert card.difficulty_line == (
+            "Easy puzzles need only direct deductions; Hard ones need "
+            "contradiction through much of the grid."
+        )
         assert len(card.difficulty) == len(generator.GUIDE_DIFFICULTY_LABELS) == 3
         for shown, label in zip(card.difficulty, generator.GUIDE_DIFFICULTY_LABELS):
             assert shown["name"] == label.name

@@ -1099,17 +1099,6 @@ GUIDE_EXAMPLE_HEADING = (
     + f" on a row of {WORKED_EXAMPLE_LENGTH} squares."
 )
 
-#: Page 2's closing heading and sentence, printed on the page's full form
-#: (CARD-167; a module constant since CARD-169).
-#:
-#: **CARD-201 replaced this constant's text.** The owner's reference guide's
-#: own closing is CON-005's uniqueness guarantee stated for a reader rather
-#: than for a requirements document — "Every puzzle in this book is checked
-#: by the solver before publication. There is exactly one solution, and no
-#: puzzle that requires guessing is included." — carried verbatim; "The
-#: answers are at the back of the book." is this book's own practical
-#: addition (CARD-167), kept because it is still true and still useful, and
-#: not part of what the source document asks to be verbatim.
 #: The line under the guide's intro that names the Play online page (CARD-229,
 #: folded in from CARD-393; the owner's wording, ADR-0041/R8). ``{page}`` is the
 #: Play page's interior page number, a described variable: the guide prints the
@@ -1126,6 +1115,17 @@ def guide_play_sentence(page: int) -> str:
     return GUIDE_PLAY_SENTENCE.format(page=page)
 
 
+#: Page 2's closing heading and sentence, printed on the page's full form
+#: (CARD-167; a module constant since CARD-169).
+#:
+#: **CARD-201 replaced this constant's text.** The owner's reference guide's
+#: own closing is CON-005's uniqueness guarantee stated for a reader rather
+#: than for a requirements document — "Every puzzle in this book is checked
+#: by the solver before publication. There is exactly one solution, and no
+#: puzzle that requires guessing is included." — carried verbatim; "The
+#: answers are at the back of the book." is this book's own practical
+#: addition (CARD-167), kept because it is still true and still useful, and
+#: not part of what the source document asks to be verbatim.
 GUIDE_CLOSING_HEADING = "One solution. No guessing."
 GUIDE_CLOSING = (
     "Every puzzle in this book is checked by the solver before publication. "
@@ -1483,9 +1483,10 @@ class DifficultyLabel:
             :data:`GUIDE_DIFFICULTY_LABELS`. Still shown by the Finalise
             screen's own preview of the page
             (``templates/book_finalize.html``), and still carried here as
-            data. CARD-229's key strip prints the :attr:`name` beside
-            CARD-228's dots and not this sentence (a wording question left to
-            the owner), so the printed page and its preview agree.
+            data that nothing prints or reads (owner, 2026-11-08: the legend
+            carries :data:`GUIDE_DIFFICULTY_LINE`, one line for the whole
+            ladder, and the :attr:`name` beside CARD-228's dots, not one
+            sentence per tier); both surfaces show the same heading and line.
     """
 
     name: str
@@ -1512,7 +1513,17 @@ class DifficultyLabel:
 #: preview to the names, and CARD-229's key strip, which moved the legend to the
 #: first guide page and drew CARD-228's dots beside each name, keeps the two
 #: agreeing. Printing the sentences is a wording question left to the owner.)
-GUIDE_DIFFICULTY_HEADING = "What the difficulty labels mean"
+GUIDE_DIFFICULTY_HEADING = "Difficulty"
+
+#: The one line under the legend's heading (owner approved 2026-11-08, the short
+#: form only): what the two ends of the ladder ask of a reader. The legend is
+#: this line, the heading and the three entries (CARD-228's dots beside each
+#: tier's name); the per-tier sentences of :class:`DifficultyLabel` are not
+#: printed.
+GUIDE_DIFFICULTY_LINE = (
+    "Easy puzzles need only direct deductions; Hard ones need contradiction "
+    "through much of the grid."
+)
 GUIDE_DIFFICULTY_LABELS: Tuple[DifficultyLabel, ...] = (
     DifficultyLabel(
         "EASY",

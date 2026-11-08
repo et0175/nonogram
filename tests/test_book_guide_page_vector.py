@@ -1226,6 +1226,15 @@ class TestGuidePage_DifficultyLegendCarriesTheTiersDots:
         ]
 
         assert names == [label.name for label in GUIDE_DIFFICULTY_LABELS]
+        # The legend's heading and its one line (owner approved 2026-11-08), as
+        # literals: the lines of a wrapped sentence run on to exactly it.
+        texts = [face.text for face in drawn("book1")[0].faces if face.kind == BODY_TEXT]
+        joined = " ".join(texts)
+        assert "Difficulty" in texts
+        assert (
+            "Easy puzzles need only direct deductions; Hard ones need contradiction "
+            "through much of the grid." in joined
+        )
 
     def test_only_the_key_strip_emits_curve_operators(self, profile):
         """Derived from the stream: nine dots, four Bezier segments each, on page 2.
