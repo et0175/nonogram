@@ -473,6 +473,13 @@ active:
     started: 2026-11-08T17:00Z
     estimate: 4c (1.5d)
     cut_from: a12c39dd
+  # CARD-207 DISPATCHED 2026-11-08T22:25Z as a second active card beside CARD-229 (owner ruling 2026-11-08: cap of 2 lifted). Vector puzzle-page header split; its dot drawer is shaped exactly as CARD-229's (reconcile trivially).
+  - card: CARD-207
+    branch: card/207-puzzle-header-split
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-207
+    started: 2026-11-08T22:25Z
+    estimate: 3c (1d)
+    cut_from: 3e60d102
 # CARD-399 CLEARED 2026-11-08T22:19:38Z at its merge gate: merged 635981c9, done, certified 8.4 on cycle 1, estimate 5c -> 1 cycle = ratio 0.2. Full armed suite 10908 passed, 1 skipped, 1 xfailed (collected 10923, net -704 ids; run 1 31m46s against 44m36s before) + 10 lifted wave_close_only passed. CARD-384 closed moot alongside. Entry dropped.
 # CARD-414 CLEARED 2026-11-08T20:09:24Z at its merge gate: merged 1d1e1c58, done, certified 8.6 on cycle 2 (6.5 on cycle 1, not certified), estimate 1c -> 2 cycles = ratio 2.0. Gate 1 red on 6 playwright goto timeouts, not reproduced; gate 2 full suite 11612 passed, 1 skipped, 1 xfailed + 7 lifted wave_close_only passed. Entry dropped.
 # CARD-392 CLEARED 2026-11-08T16:27:35Z at its merge gate: merged 5513b205, done, certified 8.7 on cycle 2 (7.6 on cycle 1, not certified), estimate 4c. Gate #1 red on three card-caused edit-route tests, fixed on the branch; gate #2 full suite 11611 passed, 1 skipped, 1 xfailed + 11 lifted wave_close_only passed. Entry dropped.
