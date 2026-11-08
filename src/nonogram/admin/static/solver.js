@@ -1640,6 +1640,14 @@ function wireCrosshair(container) {
   // Where the crosshair is, as [row, col], or null. A CELL and not an
   // element, for showHint's reason: a redraw replaces every element.
   let crossed = null;
+  // The touch/pen pointers currently down, id -> pointer type, and whether two
+  // of them make this a pinch (cleared when the last one is up). A PINCH HAS
+  // NO CROSSHAIR (ported from play.js, CARD-414): the second pointer takes the
+  // first one's cross off, nothing follows the spread, nothing is left when
+  // the fingers lift, and crossing resumes with the next single pointer. This
+  // is the crosshair's own count; it reads none of start()'s pinch state.
+  const down = new Map();
+  let pinching = false;
 
   function paintCrosshair([row, col], on) {
     const table = container.querySelector(".player-board");
@@ -1676,11 +1684,45 @@ function wireCrosshair(container) {
   // pointerup without a single move — leaves the crosshair on the cell it
   // tapped, and so a gesture is crossed from the moment it starts.
   const follow = (event) => {
+    if (pinching) return;
     const position = cellUnder(container, event.clientX, event.clientY);
     if (position !== null) moveTo(position);
   };
-  container.addEventListener("pointerdown", follow);
+  const isFinger = (event) => event.pointerType === "touch" || event.pointerType === "pen";
+  container.addEventListener("pointerdown", (event) => {
+    if (isFinger(event)) {
+      // A primary pointer starts a fresh session FOR ITS OWN TYPE (isPrimary
+      // is per pointer type): a pen's primary must not wipe a finger still
+      // down, and a pointerup that never reached the stage cannot leave a
+      // stale entry of the same type counting as a second pointer.
+      if (event.isPrimary) {
+        for (const [id, type] of down) if (type === event.pointerType) down.delete(id);
+        pinching = down.size >= 2;
+      }
+      down.set(event.pointerId, event.pointerType);
+      if (down.size >= 2) {
+        pinching = true;
+        clear();
+        return;
+      }
+    }
+    follow(event);
+  });
   container.addEventListener("pointermove", follow);
+  const lift = (event) => {
+    if (!down.delete(event.pointerId)) return;
+    if (down.size === 0) pinching = false;
+  };
+  // The lift listens on the WINDOW, not the stage. A pointer's up that never
+  // reaches the stage would leave its entry in `down`, and a stuck entry counts
+  // as a second pointer for ever: a real pen pressed on the board, moved off the
+  // stage and released there delivers no pointerup to it (no pointer capture
+  // without Region). The window hears that release, and everything the stage
+  // hears bubbles to it (owner ruling 2026-11-08; play.js had the flaw). A pen genuinely
+  // still down has had no up, so a pen-then-finger pinch is untouched, and
+  // lift ignores a pointer it does not count.
+  window.addEventListener("pointerup", lift);
+  window.addEventListener("pointercancel", lift);
   container.addEventListener("pointerleave", (event) => {
     // Touch is exempt, and that exemption is the whole of the touch rule
     // (see CROSSHAIR above): a released touch pointer leaves the stage
