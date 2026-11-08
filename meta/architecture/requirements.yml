@@ -3650,6 +3650,15 @@ functional:
     #  - ADR-0037: each slot carries its own 12 mm band "Puzzle N · Tier".
     #  - FR-041: pairs never span a level (same-tier rule), so a pair never
     #    straddles a divider page.
+    # AMENDED 2026-11-08 (CARD-391, owner decision 2026-11-07, ADR-0041/R8):
+    # clause (c) is RETIRED. CARD-248 had made the page's usable width hold
+    # BOTH puzzles' QR groups side by side; the per-puzzle QR groups are gone
+    # (one code per book, on the Play online page), so nothing needs that
+    # width and a narrow trim (about 175.6 mm and below, e.g. 6 x 9 in) now
+    # pairs on the height and width rules alone. AC-377 is rewritten to say so.
+    # The footer strip's HEIGHT is unchanged (CARD-392 owns that), so (a) and
+    # AC-242..AC-246, AC-376 are untouched. The strip now carries the folio and
+    # one shared pointer line to the Play online page (FR-047).
     # AMENDED 2026-10-18 at the architect station, after CARD-248 merged
     # (1256982). CARD-248 gives a two-up page ONE footer strip carrying both
     # puzzles' links and the folio, reserved out of the pair's own height, so
@@ -3680,23 +3689,18 @@ functional:
       standard cell (NFR-008), at which (a) the pair's combined drawing
       height — grid rows plus column-clue rows of both puzzles — times the
       cell, plus one 12 mm title band per puzzle, AND the page's one footer
-      strip (INTERIOR_FOOTER_MM — the strip that carries both puzzles'
-      links and the page's folio; it is ADR-0036 page geometry and still
+      strip (INTERIOR_FOOTER_MM — the strip that carries the page's folio
+      and its one shared pointer line; it is ADR-0036 page geometry and still
       has no requirement of its own, the gap this registry already records
       at FR-032's note "that frame still has no requirement of its own"), fit the
       book's usable
       height (trim height minus top and bottom margins), and (b) each
       puzzle's drawing width — grid columns plus row-clue columns — times
       the cell fits the usable width; clue depths are each puzzle's real
-      clue depth (TERM-021), and (c) the page's usable width holds BOTH
-      puzzles' QR groups side by side in that footer strip. Clause (c) is a
-      property of the sheet and the face alone, never of either puzzle or of
-      the page's own number (INV-010), and it is what makes a two-up page
-      impossible on a trim narrower than about 175.60 mm / 6.913 in at Book
-      1's side margins: a pair whose page could not carry both links is not
-      paired at all, and prints as two single pages each with its own footer
-      and its own link, rather than as a two-up page with a link missing.
-      Both puzzles of a two-up page print at that
+      clue depth (TERM-021). There is no third clause: the width clause
+      CARD-248 added for two QR groups went with the groups (CARD-391), so a
+      two-up page is possible on a narrow trim (6 x 9 in) whenever (a) and (b)
+      hold. Both puzzles of a two-up page print at that
       one shared cell, each under its own band ("Puzzle N · Tier",
       ADR-0037), the earlier puzzle in the book order in the upper slot.
       Pairing walks the book order from the first puzzle: a puzzle pairs
@@ -3733,7 +3737,7 @@ functional:
         # 7.1716 mm), so neither half of the old statement survived.
         given: a Book 1 profile book whose order starts with two easy 12x12 puzzles, each with 4-deep row- and column-clue gutters (combined drawing height 32 cells)
         when: the book PDF is generated
-        then: the two puzzles print on two separate pages, each with its own footer strip and its own link — 32 cells would need 6.24 mm, under the 7.0 mm two-up minimum, once the footer strip is reserved
+        then: the two puzzles print on two separate pages, each with its own footer strip — 32 cells would need 6.24 mm, under the 7.0 mm two-up minimum, once the footer strip is reserved
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_TwelvePairSharesPageBelowStandardCell
@@ -3783,16 +3787,18 @@ functional:
         invariant: INV-010
         test: TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages
       - id: AC-377
-        # NEW 2026-10-18 (CARD-248) — clause (c) of the statement. The
-        # horizontal gate did not exist before this card, and without this
-        # criterion a book on a narrow trim silently has no two-up pages at
-        # all with nothing in the registry explaining why.
-        given: a book whose trim is narrower than about 175.60 mm / 6.913 in at Book 1's side margins (e.g. a 6 x 9 in trim), so its usable width cannot hold two QR groups side by side
+        # REWRITTEN 2026-11-08 (CARD-391, owner decision 2026-11-07,
+        # ADR-0041/R8). It was NEW 2026-10-18 (CARD-248) as clause (c): a
+        # trim narrower than about 175.60 mm could not hold two QR groups
+        # side by side, so no pair could print there. The groups are gone and
+        # so is the clause; this now states what replaced it, as a control
+        # that can fail (a narrow trim that still refused pairs reds it).
+        given: a book on a 6 x 9 in trim (usable width 127.0 mm, narrower than the 175.60 mm the retired clause (c) needed) whose order holds four easy 10 x 8 puzzles with 1-deep clue gutters
         when: the book PDF is generated
-        then: no page of it is a two-up page — every pair is refused on width alone and prints as two single pages, each with its own footer and its own link, and the verdict is taken from the sheet and the face alone, never from a puzzle or from the page's own number
+        then: the puzzles print as two two-up pages, (1, 2) and (3, 4), where they printed as four single pages before CARD-391; and four easy 10 x 10 puzzles on the same trim still print as four single pages, on the height rule (22 cells need more than the strip leaves), so the verdict is taken from the sheet and the face alone, never from a puzzle or from the page's own number
         kind: edge
         invariant: INV-010
-        test: TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages
+        test: TestTwoUp_NarrowTrimsNowPairOnHeightAndWidthAlone
       - id: AC-247
         given: a Book 1 profile book whose order has an easy 22-wide x 10-tall puzzle with a 6-deep row-clue gutter (28 cells across, at most 6.92 mm on the 193.7 mm usable width) followed by an easy 10x10 puzzle with 3-deep gutters
         when: the book PDF is generated

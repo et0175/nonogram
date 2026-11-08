@@ -74,11 +74,10 @@ from nonogram.admin.book_pdf_generator import (
     page_medium,
     band_identity,
     _draw_page_frame,
-    _draw_qr_caption,
     grid_size_label,
 )
 from nonogram.export import ExportPayload
-from nonogram.export.layout import compute_layout, interior_frame, qr_caption
+from nonogram.export.layout import compute_layout, interior_frame
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from nonogram.admin import book_vector
@@ -464,7 +463,6 @@ def _pages_with_band(
     *,
     name: str | None,
     identity: str,
-    puzzle_number: int,
     book: Book | None = None,
 ) -> tuple[Image.Image, Image.Image]:
     """The pages COMP-007 draws for ``puzzle`` with a band written out here.
@@ -491,11 +489,8 @@ def _pages_with_band(
     arguments, so this helper reproduces the page and does not reimplement
     it.
 
-    **Since CARD-223 the footer carries two more marks**, the QR icon's
-    invitation and its typed link, which is why ``puzzle_number`` is now
-    asked for: the link is the **puzzle's**, not the page's, and the two
-    differ on every page of a real book. Drawn through the generator's own
-    drawer, for the same reason the frame is.
+    (Between CARD-223 and CARD-391 this helper also took the puzzle's number,
+    for the QR icon's typed link; the link is gone and so is the argument.)
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -519,9 +514,6 @@ def _pages_with_band(
         size_label=grid_size_label(layout.columns, layout.rows),
         content_bottom=None if layout.page is None else layout.page.drawing_bottom,
     )
-    caption = qr_caption(layout)
-    if caption is not None:
-        _draw_qr_caption(ImageDraw.Draw(blank), caption, puzzle_number, DPI)
     return blank, solved
 
 
@@ -672,7 +664,6 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
                 number,
                 name=None,
                 identity="Puzzle 1 · Easy",
-                puzzle_number=1,
             )
             assert page.tobytes() == expected.tobytes()
 
@@ -781,7 +772,6 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             puzzle_page_number([puzzle]),
             name=None,
             identity=identity,
-            puzzle_number=number,
         )
         assert pages[puzzle_page_number([puzzle]) - 1].tobytes() == expected_puzzle.tobytes()
 
@@ -1441,7 +1431,6 @@ class TestBookPdf_UngradedPuzzlePrintsItsNumberAlone:
             puzzle_page_number([puzzle]),
             name=None,
             identity="Puzzle 1",
-            puzzle_number=1,
         )
         assert page.tobytes() == expected.tobytes()
 
@@ -1649,7 +1638,6 @@ def _check_band_corpus(names: Sequence[str | None]) -> None:
             else:
                 expected, _ = _pages_with_band(
                     puzzle, page_number, name=None, identity=identity,
-                    puzzle_number=number,
                 )
                 assert _has_ink(_band_strip(page)), f"blank band on {identity!r}"
                 assert page.tobytes() == expected.tobytes(), where

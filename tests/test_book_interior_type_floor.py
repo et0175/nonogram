@@ -1112,9 +1112,10 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
           ``::test_the_footer_lines_sit_where_the_raster_page_sets_them`` is
           **corroboration only** (a descender / ink-row computation over the
           furniture record, ``offset == 9``; green under the plant), and so is
-          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``
+          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_one_shared_pointer_and_no_size_label``
           — the label is *absent* on a two-up page by design, so that test
-          reds for the QR links' lettering and not for the label's;
+          reds for the pointer's lettering (the QR links' until CARD-391) and
+          not for the label's;
         * ``answer caption`` — **converted medium (vector stream):**
           ``tests/test_book_solved_answer_key.py``'s
           ``TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt::test_the_caption_is_right_aligned_on_the_slot_comp_007_reports``
@@ -2559,7 +2560,7 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
             token
             for token in pdf_vector.operator_tokens(written)
             if token in painting
-        } == {"Tj", "S", "re", "f"}, sorted(
+        } == {"Tj", "S", "re"}, sorted(
             set(pdf_vector.operator_tokens(written))
         )
         # **One pair for the whole clue set, not one per digit** — 2

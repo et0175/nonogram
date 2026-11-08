@@ -147,6 +147,13 @@ MIXED_ROWS = [
 
 class TestBookLanding_PrintedSlugIsTheBundlesSlug:
     def test_the_address_and_the_bundle_name_one_slug(self, tmp_path):
+        """The slug the book prints is the slug the bundle exports (ADR-0041/R7).
+
+        Named by ADR-0041/R8's check as
+        ``tests/test_book_landing_address.py::test_the_address_and_the_bundle_name_one_slug``
+        (CARD-391 flipped that check to a test; the planned name of this test
+        was never used).
+        """
         _, root = exported(GROUPED_ROWS, tmp_path)
         address = player_bundle.landing_address(GROUPED_ROWS, DOMAIN)
 

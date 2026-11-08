@@ -93,7 +93,7 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
 )
 from nonogram.export import ExportPayload
-from nonogram.export.layout import DPI, Layout, PageParity, compute_layout, qr_slot
+from nonogram.export.layout import DPI, Layout, PageParity, compute_layout
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -515,18 +515,7 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
     assert placement is not None  # annotation_lines has already refused None
     overhang = -(-layout.thick_rule // 2)
     clear = overhang + round(_FALLBACK_INSET_MM * layout.dpi / _MM_PER_INCH)
-    # CARD-204: the gutter-side strip is also where qr_slot() reserves the
-    # placeholder QR icon, when there is room for it there (the same side,
-    # by the same reasoning) — a real book page draws both, through the
-    # same render_pages() call this card's own proof page uses, so the
-    # note must start clear of the icon rather than print over it. Only
-    # when the icon actually anchors at the strip's own top edge (its
-    # margin-slot placement, not its bottom-slack fallback) does this move
-    # the strip at all.
     side_top = placement.drawing_top
-    icon = qr_slot(layout)
-    if icon is not None and icon.top == placement.drawing_top:
-        side_top = icon.bottom + clear
     if placement.parity is PageParity.ODD:
         # The gutter is on the left of an odd page, so this is the left
         # strip (CARD-204 made it the only slack there was; since

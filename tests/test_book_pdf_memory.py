@@ -160,7 +160,6 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
-import math
 import os
 import subprocess
 import sys
@@ -193,19 +192,12 @@ from nonogram.admin.book_pdf_generator import (
     _degrade_infeasible_packed_pages,
     _folio_reserve_px,
     _pairable_tier,
-    _qr_group_line_px,
     page_frame,
-    qr_group_caption,
-    qr_link,
     type_px,
 )
 from nonogram.export.layout import (
-    INTERIOR_FOOTER_LINE_PT,
-    compute_layout,
     compute_pair_layout,
     interior_frame,
-    qr_group_insets,
-    qr_slot,
 )
 from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
@@ -337,32 +329,6 @@ BOOK_TITLE = "Winter Pictures"
 #: baseline's three answer pages hold 40,598, 34,972 and 30,621 such squares
 #: and its other five pages hold none at all.
 FILLED_CELL_PROBE = 20
-
-
-def _two_up_icon_boxes(pair, numbers, dpi) -> list:
-    """Every placeholder-QR box a two-up page draws, in order (CARD-248).
-
-    A two-up page's footer strip carries one group per puzzle, both measured
-    on the **lower** slot's extent (the one whose ``usable_bottom`` is the
-    sheet's bottom margin) at the insets
-    :func:`~nonogram.export.layout.qr_group_insets` returns. Until CARD-248
-    each *slot* was asked for a box of its own, which answered with the upper
-    slot's midline box and nothing at all for the lower.
-
-    The widest line is measured the way ``_two_up_page`` measures it — off
-    this page's own two numbers — so the boxes returned here are the boxes
-    that page really drew, which is what a mask has to be.
-    """
-    font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, dpi))
-    widest = max(
-        math.ceil(font.getlength(text))
-        for number in numbers
-        for text in (qr_group_caption(number), qr_link(number))
-    )
-    insets = qr_group_insets(pair.lower, widest, len(numbers))
-    if insets is None:  # pragma: no cover - the walk refuses such a pair
-        return []
-    return [qr_slot(pair.lower, inset_px=inset) for inset in insets]
 
 
 def solid_ink_blocks(page: Image.Image, side: int = FILLED_CELL_PROBE) -> int:
@@ -2443,41 +2409,12 @@ class TestBookPdfMemory_PagesAreUnchanged:
         # 4 either (CARD-200's TOC): a listing of plain text rows, no filled
         # cell on it at all. Not page 1 either (CARD-206's title page): it
         # carries no ink of any kind, asserted directly above.
-        #
-        # CARD-204 (SCOPE+): pages 6, 8 and 10 now also carry a placeholder
-        # QR icon, whose checkerboard modules (~47 px square) are each
-        # themselves a solid block at least FILLED_CELL_PROBE (20 px) wide —
-        # masked out below before the check, the same "this is decoration,
-        # not a cell" exclusion the AC-7 class already applies elsewhere,
-        # so this still proves the *grid* carries no revealed cell rather
-        # than being defeated by the icon's own, unrelated solid ink.
-        plan = generator.section_plan(baseline_puzzles())
-
-        def _icon_boxes(page_number: int) -> list:
-            for entry in plan.pages:
-                if entry.page_number != page_number:
-                    continue
-                spec = generator.page_spec(page_number)
-                if entry.pair is None:
-                    payload = plan.payloads[entry.numbers[0] - 1]
-                    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
-                    icon = qr_slot(layout)
-                    return [icon] if icon is not None else []
-                return _two_up_icon_boxes(entry.pair, entry.numbers, generator.dpi)
-            return []
-
+        # (Until CARD-391 pages 6, 8 and 10 also carried a placeholder QR
+        # icon whose checkerboard modules were each a solid block at least
+        # FILLED_CELL_PROBE wide, and this loop masked it out first. The icon
+        # is gone, so the pages are probed as drawn.)
         for number in (4, 5, 6, 7, 8, 9, 10, 11):
-            page = exported[number - 1]
-            boxes = _icon_boxes(number) if number in (6, 8, 10) else []
-            if boxes:
-                page = page.copy()
-                draw = ImageDraw.Draw(page)
-                for box in boxes:
-                    draw.rectangle(
-                        (box.left - 2, box.top - 2, box.right + 2, box.bottom + 2),
-                        fill=(255, 255, 255),
-                    )
-            assert not solid_ink_blocks(page), (
+            assert not solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"
             )
@@ -3940,44 +3877,6 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return reference_two_up_page(generator, old_entry, payloads)
 
-    def _qr_boxes(self, generator, plan, entry, page_number):
-        """CARD-204: this entry's placeholder QR icon box(es) at ``page_number``.
-
-``TITLE_PAGE_COUNT`` (1) is odd, so this class's
-        own comparison — unlike
-        :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`'s
-        even shift of ``toc_page_count + TITLE_PAGE_COUNT`` — compares two
-        *opposite* parities. (It was ``toc_page_count``, also 1 and also odd,
-        until CARD-206 re-pointed this class at its own insertion.) The icon mirrors sides with parity by design (it lives in
-        the gutter-side slack, CARD-204), so it is the one mark on this page
-        that is **not** a plain translation between the two sides being
-        compared — masked out below before the content comparison, the same
-        way a folio digit (which also differs legitimately) is already kept
-        out by cropping above the footer band first.
-        """
-        if isinstance(entry, DividerPagePlan):
-            return []
-        payloads = [plan.payloads[number - 1] for number in entry.numbers]
-        spec = generator.page_spec(page_number)
-        if entry.pair is None:
-            (payload,) = payloads
-            layout = compute_layout(payload.row_clues, payload.column_clues, spec)
-            icon = qr_slot(layout)
-            return [icon] if icon is not None else []
-        pair = compute_pair_layout(
-            (payloads[0].row_clues, payloads[0].column_clues),
-            (payloads[1].row_clues, payloads[1].column_clues),
-            spec,
-            # The same fixed reserve production pairs with (CARD-204
-            # Fix 4) — the lower slot's icon box moves with its drawing.
-            folio_reserve_px=_folio_reserve_px(generator.dpi),
-            # And CARD-248's footer strip, which is where both of a two-up
-            # page's icons now are.
-            footer_reserve_px=interior_frame(spec).footer_depth,
-        )
-        assert pair is not None
-        return _two_up_icon_boxes(pair, entry.numbers, generator.dpi)
-
     def _frame_boxes(self, generator, page_number):
         """CARD-222: the frame's header rule, as a box to mask.
 
@@ -3987,8 +3886,8 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         and mirrors with parity, and its own half-rule overhang rounds to a
         different pixel on the two sides — measured: a 1 px difference in the
         crop's width, which is not a translation and so not something this
-        comparison can absorb. Masked for the same reason the QR icon above
-        is, and like it the rule has its own, direct evidence elsewhere
+        comparison can absorb. Masked for that reason (the QR icon that was
+        masked beside it left in CARD-391), and the rule has its own, direct evidence elsewhere
         (``tests/test_book_page_frame.py``'s AC-2: one y, one weight, on every
         puzzle page).
 
@@ -4055,13 +3954,11 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             old_number = entry.page_number - TITLE_PAGE_COUNT
             new_page = self._masked(
                 exported[entry.page_number - 1],
-                self._qr_boxes(generator, plan, entry, entry.page_number)
-                + self._frame_boxes(generator, entry.page_number),
+                self._frame_boxes(generator, entry.page_number),
             )
             reference = self._masked(
                 self._reference(generator, plan, entry),
-                self._qr_boxes(generator, plan, entry, old_number)
-                + self._frame_boxes(generator, old_number),
+                self._frame_boxes(generator, old_number),
             )
             new_above = _above_footer(new_page, cutoff)
             reference_above = _above_footer(reference, cutoff)
@@ -4344,14 +4241,14 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         drawing again, and on CON-018 as amended the two side margins are
         equal — so a centred drawing lands on the *same* pixel column at
         either parity and its edges say nothing about which hand the page is.
-        What still mirrors is the page furniture: CARD-223 puts the 2 cm QR
-        placeholder in the footer's **outer** bottom corner (right on a
-        right-hand page, left on a left-hand one) and CARD-222 puts the
-        grid-size label on the **inner** side. The icon is a near-solid 2 cm
-        block, by far the heaviest ink in the footer strip, so the parity is
-        read as "which end of the footer strip holds that block" — ink, as
-        before, and a quantity that is still a function of the page's own
-        hand.
+        What still mirrors is the page furniture: CARD-222 puts the
+        grid-size label on the **inner** side of the footer line. (CARD-223's
+        2 cm QR placeholder in the outer corner was the heavier signal and
+        was read here until CARD-391 removed it; a book with a Play page also
+        puts its pointer on the outer side, and this baseline book has none.)
+        So the parity is read as "which end of the footer line holds the
+        label" — ink, as before, and a quantity that is still a function of
+        the page's own hand.
 
         **CARD-201 note (SCOPE+): this moved.** The baseline book's two
         single-puzzle pages are interior 6 and interior 8 now (up from 5 and
@@ -4374,8 +4271,8 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         **CARD-206 note (SCOPE+): this moved a third time, the same way.**
         The blank title / copyright page is reserved as interior page 1, so
         the two single-puzzle pages are interior **8 and 10** now, both
-        **even**, and their footer icon is back at the *left* end of the
-        strip. Interior page 1 itself no longer carries the guide: it carries
+        **even**, and their grid-size label is back at the *right* end of
+        the footer line. Interior page 1 itself no longer carries the guide: it carries
         no ink at all, so the guide's own leftmost-ink reading below moves to
         the guide's first page, interior 2 — a **left-hand** page, whose
         usable area starts at the outside margin. On CON-018 as amended both
@@ -4388,24 +4285,28 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         """
         interior = interior_pages_of(export.interior.getvalue())
 
-        #: The 2 cm QR placeholder's own box (CARD-223) and the usable area's
-        #: two edges, in this page's own pixels, written out rather than
-        #: imported: 0.5 in margins and a 20 mm icon at 300 DPI.
-        icon_px = round(20.0 / 25.4 * 300)
+        #: The footer line's rows and the usable area's two edges, in this
+        #: page's own pixels, written out rather than imported: 0.5 in margins
+        #: at 300 DPI, and the line the grid-size label and the folio are set
+        #: on, 274 px (a 20 mm reserved row plus one 9 pt gap) above the
+        #: bottom margin.
         usable_left, usable_right = 150, 2550 - 150
+        line_bottom = 3300 - 141 - 274
+        label_zone = 400
         for number in (8, 10):
             page = interior[number - 1]
             ink = np.asarray(page.convert("L")) < 128
-            strip = ink[-icon_px:]
-            at_the_left = strip[:, usable_left : usable_left + icon_px].sum()
-            at_the_right = strip[:, usable_right - icon_px : usable_right].sum()
-            # A left-hand (even) page's icon is at the left-hand end
+            strip = ink[line_bottom - 42 : line_bottom + 1]
+            at_the_left = strip[:, usable_left : usable_left + label_zone].sum()
+            at_the_right = strip[:, usable_right - label_zone : usable_right].sum()
+            # A left-hand (even) page's gutter is on its right, so the
+            # grid-size label (the inner side) is at the right-hand end
             # (CARD-206: these two pages are even now).
-            assert at_the_left > 4 * at_the_right, (
+            assert at_the_right > 4 * at_the_left, (
                 f"interior page {number} is a left-hand page, so the "
-                f"footer's 2 cm icon belongs at its left-hand end; the "
-                f"strip holds {at_the_left} dark pixels there against "
-                f"{at_the_right} at the right"
+                f"footer's grid-size label belongs at its right-hand end; "
+                f"the line holds {at_the_right} dark pixels there against "
+                f"{at_the_left} at the left"
             )
             # And the drawing itself is centred, which is why it can no
             # longer be asked: both of its side gaps are the same.

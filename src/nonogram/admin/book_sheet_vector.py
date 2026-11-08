@@ -1,10 +1,11 @@
-"""The interior sheet's furniture as PDF operators: folio, rules, label, QR.
+"""The interior sheet's furniture as PDF operators: folio, rules, label, pointer.
 
 CARD-306, under **ADR-0042** (DEC-048). The marks that belong to the *sheet*
 rather than to what is drawn on it — the interior frame's header rule and
-footer hairline, the footer's grid-size label, the folio, and the QR group
-(the placeholder icon with its invitation and typed link) — drawn as a
-content stream instead of onto a page bitmap.
+footer hairline, the footer's grid-size label, the folio, and the pointer to
+the Play online page (CARD-391; until then a placeholder QR icon with its
+invitation and typed link stood there) — drawn as a content stream instead of
+onto a page bitmap.
 
 Why this is its own module and not a paragraph in
 :mod:`nonogram.admin.book_puzzle_vector`
@@ -12,7 +13,7 @@ Why this is its own module and not a paragraph in
 
 Every interior page kind carries the **same** furniture off the **same**
 :func:`~nonogram.export.layout.interior_frame`
-(``book_pdf_generator._draw_page_frame``, CARD-222/CARD-223), so a page card
+(``book_pdf_generator._draw_page_frame``, CARD-222), so a page card
 that drew it would be the first of four copies — the objection
 ``book_puzzle_vector``'s own docstring raised and the reason it declined to
 draw any. This module is the one copy. ``book_puzzle_vector`` draws what makes
@@ -31,20 +32,18 @@ What is derived here and what arrives already decided (ADR-0042/R3)
 ----------------------------------------------------------------------------
 
 **Every position arrives.** The two rules' rows, ends and weights, the label's
-x and its direction, the folio's centre, the footer line's baseline and the
-QR icon's box and caption anchors are all read off
-:class:`~nonogram.export.layout.InteriorFrame`,
-:class:`~nonogram.export.layout.QrSlot` and
-:class:`~nonogram.export.layout.QrCaption` — the same three COMP-007 objects
-the raster footer reads, so there is one definition of where a mark goes and
-not two that can drift (AC-3, G-2). **No coordinate is written in this file.**
+x and its direction, the folio's centre and the footer line's baseline are
+read off :class:`~nonogram.export.layout.InteriorFrame`, and the pointer's
+anchor off :func:`~nonogram.export.layout.footer_pointer` — the same COMP-007
+objects, so there is one definition of where a mark goes (G-2). **No
+coordinate is written in this file.**
 
 **Every word arrives too**, composed by the caller: the folio's digits, the
-grid-size label (``book_pdf_generator.grid_size_label``), the invitation and
-the typed link (``QR_CAPTION_TEXT``/``qr_group_caption``/``qr_link``). Those
-live in COMP-009's generator, which this module cannot import, and the same
-arrangement ``book_puzzle_vector`` already uses for the band's identity: the
-caller keeps the strings, this sets the strings it is given.
+grid-size label (``book_pdf_generator.grid_size_label``) and the pointer line
+(``book_pdf_generator.footer_pointer_text``). Those live in COMP-009's
+generator, which this module cannot import, and the same arrangement
+``book_puzzle_vector`` already uses for the band's identity: the caller keeps
+the strings, this sets the strings it is given.
 
 **The type sizes arrive as device pixels**, from the caller's own
 ``type_px(FOLIO_PT, dpi)``/``type_px(SIZE_LABEL_PT, dpi)``/
@@ -60,51 +59,26 @@ The footer is all-or-nothing, and here it is one block
 
 ``_draw_page_frame``'s header rule is unconditional and its footer group is
 all-or-nothing: where the page's own content reaches below the footer rule's
-row, the rule, the label and the centred folio are **all** omitted and the
-page keeps CARD-200's bottom-outer-corner folio instead. *A rule with no
+row, the rule, the label, the pointer and the centred folio are **all** omitted
+and the page keeps CARD-200's bottom-outer-corner folio instead. *A rule with no
 number under it, or a number sitting on a grid, is worse than the corner.*
 
-The raster path spreads that one verdict over three call sites — this
-function's own ``content_bottom`` test, and
-:func:`~nonogram.export.layout.qr_slot`/:func:`~nonogram.export.layout.qr_caption`
-answering ``None`` on the identical figure, which ``tests/test_book_qr_slot.py``
-pins as an *equivalence over a corpus*. Here the four marks are one branch of
-one function, so the equivalence is not something a test has to establish:
+Here the marks are one branch of one function:
 :func:`draw_sheet_furniture` draws the footer rule, the label, the centred
-folio and the QR groups together or draws none of them, and it **refuses** a
-request that hands it QR groups for a page whose footer is not clear
-(:class:`SheetFurnitureError`) rather than drawing a half footer.
+folio and the pointer together or draws none of them.
 
-The QR block's medium, decided
-----------------------------------------------------------------------------
-
-**Operators, not an image XObject** (AC-4). The icon is CARD-204's placeholder
-— a bordered square around a plain alternating checkerboard, never a real QR
-module pattern — so it is a handful of rectangles, not a photograph: there is
-nothing in it that a bitmap would carry and a path would not. Declaring it
-raster would mean an entry in ``book_pdf_generator._RASTER_DECLARATIONS`` with
-a reason, an ``expires_with`` and an image object per page of the book, to ship
-a 5x5 chequer. So the decision is drawn rectangles, and
-:func:`~nonogram.admin.book_vector.ContentStream` has no XObject vocabulary at
-all to express the other choice with — which is what makes "undeclared XObject
-on a vector page" a refusal in ``write_vector_page`` rather than a convention
-(see that function).
-
-**What the checkerboard reimplements, and what cross-checks it.** The tiling
-below is ``book_pdf_generator._draw_qr_placeholder``'s own arithmetic written
-natively, per this package's standing convention for logic shared across a
-boundary (``_stroke_drawing``, ``mask_runs``, ``book_puzzle_vector``'s
-``BAND_WIDTH_RATIO``) — that generator cannot be imported from here. The
-**module count** is not reimplemented: it arrives as
-:attr:`SheetFurniture.qr_modules` from the generator's own
-``_QR_PLACEHOLDER_MODULES``, so the one number that decides what the glyph
-looks like has one definition. The tiling itself is held against the raster
-page's ink from the test tree, where the import is legal.
+The pointer has one more way to be absent that the other footer marks do not:
+:func:`~nonogram.export.layout.footer_pointer` declines a line the folio would
+collide with (a long line on a narrow trim), and the line is then simply not
+drawn. That is a verdict about the sheet and the line's width, never about the
+page number (the folio's width is a reserve), so the same two puzzles get the
+same answer wherever they print.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass
 
 from nonogram.admin.book_vector import ContentStream, FontMetrics
 from nonogram.admin.book_vector_draw import (
@@ -112,15 +86,13 @@ from nonogram.admin.book_vector_draw import (
     advance_px,
     draw_folio,
 )
-from nonogram.export.layout import InteriorFrame, PageRule, QrCaption, QrSlot
+from nonogram.export.layout import InteriorFrame, PageRule, footer_pointer
 
 __all__ = [
-    "QrGroup",
     "SheetFurniture",
     "SheetFurnitureError",
     "draw_page_rule",
     "draw_sheet_furniture",
-    "qr_module_boxes",
 ]
 
 
@@ -132,32 +104,6 @@ class SheetFurnitureError(ValueError):
     empty slot list), and a named subclass so a caller can tell this refusal
     from a mis-typed argument.
     """
-
-
-@dataclass(frozen=True, slots=True)
-class QrGroup:
-    """One QR group: where it sits, and the two lines it prints.
-
-    A *group* and not an icon, because the glyph and its two lines are one
-    mark to a reader and are omitted together — the arrangement
-    :func:`~nonogram.export.layout.qr_caption` already enforces by answering
-    ``None`` exactly when :func:`~nonogram.export.layout.qr_slot` does.
-
-    Attributes:
-        icon: The icon's box, from ``qr_slot(layout, inset_px=...)``.
-        caption: Its two lines' anchor, from ``qr_caption`` on the **same**
-            layout and the **same** inset. Pairing them in one object is what
-            stops a caller measuring the two on different extents, which is
-            the defect CARD-248 removed from the raster two-up page.
-        invitation: The first line — ``QR_CAPTION_TEXT`` on a single page,
-            ``qr_group_caption(number)`` where a page carries two groups.
-        link: The second line, ``qr_link(number)``.
-    """
-
-    icon: QrSlot
-    caption: QrCaption
-    invitation: str
-    link: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,11 +126,13 @@ class SheetFurniture:
             no one grid size to name — a two-up page, whose two slots carry
             two (the raster path passes ``size_label=None`` there).
         label_size_px: The size that label is set at, in device pixels.
-        caption_size_px: The size both QR lines are set at, in device pixels.
-        qr_modules: How many modules a side the placeholder chequer has, from
-            the generator's ``_QR_PLACEHOLDER_MODULES``.
-        groups: The QR groups this page's footer carries — none, one (a single
-            puzzle page), or one per puzzle (a two-up page's footer strip).
+        pointer: The line that points at the Play online page, or ``None``
+            for a page that prints none (a book with no Play page). One line
+            for the whole page, even a two-up one.
+        pointer_size_px: The size that line is set at, in device pixels.
+        folio_reserve_px: How wide the folio's ink may be taken to be when the
+            pointer is checked against it: the generator's fixed reserve, not
+            this page's number, so the verdict is the sheet's.
         content_bottom: The lowest row this page's own content already
             reaches, or ``None`` for a page nothing competes with the footer
             for. Read exactly as ``_draw_page_frame`` reads it: it is what
@@ -205,9 +153,9 @@ class SheetFurniture:
     folio_size_px: float
     size_label: str | None = None
     label_size_px: float = 0.0
-    caption_size_px: float = 0.0
-    qr_modules: int = 0
-    groups: tuple[QrGroup, ...] = field(default_factory=tuple)
+    pointer: str | None = None
+    pointer_size_px: float = 0.0
+    folio_reserve_px: int = 0
     content_bottom: float | None = None
     content_right: float | None = None
     content_left: float | None = None
@@ -281,44 +229,6 @@ def draw_page_rule(
     stream.line(rule.left, rule.y, rule.right, rule.y)
 
 
-def qr_module_boxes(icon: QrSlot, modules: int) -> tuple[tuple[int, int, int, int], ...]:
-    """The dark squares of the placeholder chequer inside ``icon``, in device pixels.
-
-    ``book_pdf_generator._draw_qr_placeholder``'s own tiling, reimplemented
-    natively (see this module's header for why it is not imported): the box is
-    cut into ``modules`` columns and ``modules`` rows of equal share, each
-    boundary rounded to a whole pixel the same way, and the squares on the
-    odd diagonal — ``(row + column) % 2 != 0`` — are the dark ones.
-
-    Returns them in row-major order, so the stream's operators come out in one
-    stated order and an oracle can say what the page must emit rather than
-    compare sets.
-
-    Raises:
-        SheetFurnitureError: ``modules`` is not positive. A chequer of no
-            modules is not a lighter glyph, it is a bordered empty square
-            claiming to be a code, which is the one thing CARD-204's
-            placeholder is careful not to be.
-    """
-    if modules <= 0:
-        raise SheetFurnitureError(
-            f"a placeholder chequer has at least one module a side, not {modules!r}"
-        )
-    side = icon.right - icon.left
-    step = side / modules
-    return tuple(
-        (
-            icon.left + round(column * step),
-            icon.top + round(row * step),
-            icon.left + round((column + 1) * step),
-            icon.top + round((row + 1) * step),
-        )
-        for row in range(modules)
-        for column in range(modules)
-        if (row + column) % 2 != 0
-    )
-
-
 def _set_at_baseline(
     stream: ContentStream,
     text: str,
@@ -334,10 +244,10 @@ def _set_at_baseline(
 
     ``align`` is ``"left"``, ``"right"`` or ``"centre"`` — the three the
     footer's marks need, which is the vector spelling of the ``lb``/``rb``/
-    ``mb`` anchors ``_draw_page_frame`` and ``_draw_qr_caption`` choose
-    between. The *choice* is the caller's, read off
+    ``mb`` anchors ``_draw_page_frame`` chooses between. The *choice* is the
+    caller's, read off
     :attr:`~nonogram.export.layout.InteriorFrame.label_right_aligned` and
-    :attr:`~nonogram.export.layout.QrCaption.right_aligned`; the only thing
+    :attr:`~nonogram.export.layout.FooterPointer.right_aligned`; the only thing
     done here is turning a direction into a pen position through the face's
     own advance.
 
@@ -346,10 +256,11 @@ def _set_at_baseline(
     (``book_vector_draw.draw_folio``, ``book_toc_vector``,
     ``book_answer_vector``) and is exact for a string with no descender.
     Measured on the bundled face: Pillow's ``b`` anchor puts the *ink* box's
-    bottom on the row, so for the folio's digits, ``"20 x 25"`` and
-    ``"Solve it online"`` the two agree to the pixel, while the typed link —
-    whose ``p``/``g`` descend — sets its ink one descender lower here than the
-    raster page sets it: **9 device px, 0.76 mm, at the book's 300 DPI**. That
+    bottom on the row, so for the folio's digits and ``"20 x 25"`` the two
+    agree to the pixel, while a string whose ``p``/``g``/``y`` descend (the
+    pointer, and the typed link the raster page once set) sits its ink one
+    descender lower here than a bottom-anchored raster line sets it: **9
+    device px, 0.76 mm, at the book's 300 DPI**. That
     is the face's own ink descent at the footer's size — 42 px of type whose
     declared ascent/descent is (39, 10) — so the offset is bounded by the
     declared descent rather than being a free figure. (An earlier draft of this
@@ -381,49 +292,6 @@ def _set_at_baseline(
     stream.text(text, pen, baseline, size_pt, grey=grey)
 
 
-def _draw_qr_group(
-    stream: ContentStream,
-    group: QrGroup,
-    furniture: SheetFurniture,
-    metrics: FontMetrics,
-    grey: float,
-) -> None:
-    """One QR group: the bordered chequer, then its two lines.
-
-    The border is stroked at the **footer hairline's own width**
-    (:attr:`~nonogram.export.layout.PageRule.width`), not at a weight picked
-    here. The raster placeholder strokes it at a literal ``width=2``, which is
-    the 2-device-pixel furniture floor CARD-222/CARD-248 cite — and that floor
-    is exactly what ``interior_frame`` already rounded the hairline up to, so
-    the two are the same number on a book page (asserted, not assumed, by
-    ``test_the_icons_border_is_the_hairlines_own_weight``). Reading it off the
-    frame is what makes it derived rather than transcribed (G-2).
-    """
-    stream.stroke_grey(grey)
-    stream.stroke_width(stream.to_points(furniture.frame.footer_rule.width))
-    stream.rectangle(
-        group.icon.left, group.icon.top, group.icon.right, group.icon.bottom
-    )
-    stream.fill_grey(grey)
-    for left, top, right, bottom in qr_module_boxes(group.icon, furniture.qr_modules):
-        stream.rectangle(left, top, right, bottom, paint="fill")
-    align = "right" if group.caption.right_aligned else "left"
-    for text, baseline in (
-        (group.invitation, group.caption.caption_baseline),
-        (group.link, group.caption.link_baseline),
-    ):
-        _set_at_baseline(
-            stream,
-            text,
-            group.caption.x,
-            baseline,
-            furniture.caption_size_px,
-            metrics,
-            align=align,
-            grey=grey,
-        )
-
-
 def draw_sheet_furniture(
     stream: ContentStream,
     furniture: SheetFurniture,
@@ -433,14 +301,14 @@ def draw_sheet_furniture(
 ) -> bool:
     """Draw one interior page's furniture onto ``stream``; say if it got a footer.
 
-    ``_draw_page_frame`` plus its callers' QR drawing, in operators and in one
-    place. The order is the raster page's: the header rule, then the footer
-    group, then the QR groups — so a reader of the stream meets the marks in
-    the order the page puts them down.
+    ``_draw_page_frame`` plus the pointer, in operators and in one place. The
+    order is the raster page's: the header rule, then the footer group, then
+    the pointer — so a reader of the stream meets the marks in the order the
+    page puts them down.
 
     **The footer group is one block** (AC-2). Where
     :attr:`SheetFurniture.footer_is_clear` is false the footer rule, the
-    grid-size label, the centred folio **and** every QR group are omitted
+    grid-size label, the centred folio **and** the pointer are omitted
     together and the page keeps CARD-200's bottom-outer-corner folio instead,
     which is where ``_folio_reserve_px`` keeps room. There is no state in which
     this page carries a frame rule with no number under it or a number
@@ -451,27 +319,10 @@ def draw_sheet_furniture(
         to the corner folio — the verdict is returned rather than re-derived by
         a caller that wants to assert it, exactly as ``_draw_page_frame``
         returns it.
-
-    Raises:
-        SheetFurnitureError: ``furniture`` carries QR groups for a page whose
-            footer is not clear. ``qr_slot`` answers ``None`` on exactly the
-            figure :attr:`SheetFurniture.footer_is_clear` reads, so a caller
-            that composed both from one layout cannot produce this; one that
-            can has measured the icon on a different extent from the frame,
-            which is the defect CARD-248 removed from the raster two-up page.
-            Refused rather than silently dropped: dropping it would make this
-            function's own verdict the second opinion on a question the caller
-            already got wrong.
     """
     draw_page_rule(stream, furniture.frame.header_rule, grey=grey)
     frame = furniture.frame
     if not furniture.footer_is_clear:
-        if furniture.groups:
-            raise SheetFurnitureError(
-                "this page's content reaches below the footer rule at "
-                f"y={frame.footer_rule.y}, so it has no footer to carry "
-                f"{len(furniture.groups)} QR group(s)"
-            )
         draw_folio(
             stream,
             frame.header_rule.left,
@@ -510,6 +361,22 @@ def draw_sheet_furniture(
         align="centre",
         grey=grey,
     )
-    for group in furniture.groups:
-        _draw_qr_group(stream, group, furniture, metrics, grey)
+    if furniture.pointer is not None:
+        pointer_size = furniture.pointer_size_px
+        slot = footer_pointer(
+            frame,
+            math.ceil(advance_px(furniture.pointer, pointer_size, metrics)),
+            furniture.folio_reserve_px,
+        )
+        if slot is not None:
+            _set_at_baseline(
+                stream,
+                furniture.pointer,
+                slot.x,
+                frame.baseline,
+                pointer_size,
+                metrics,
+                align="right" if slot.right_aligned else "left",
+                grey=grey,
+            )
     return True

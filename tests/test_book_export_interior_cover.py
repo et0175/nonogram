@@ -3717,7 +3717,16 @@ class Generator:
     #: ``play_blank_page``, ``play_page``), and no row removed. Re-derived by
     #: running ``_page_positions`` against main and against the branch and
     #: reading the difference, not from the failure message.
-    POSITION_SITE_COUNT = 35
+    #: CARD-391: 38, not 35 -- **+3, one name in three signatures, attributed
+    #: one by one**. The Play online page's number now reaches the page
+    #: writers, so ``vector_puzzle_page``, ``vector_two_up_page`` and
+    #: ``vector_puzzle_pages`` each gained a ``play_page`` parameter with a
+    #: ``None`` default (three ``parameter default`` rows, the name already in
+    #: :data:`POSITION_NAMES`). No row removed; the number is the plan's, read
+    #: where the walk already holds it (``decided.play_page``), and none is
+    #: computed here. Re-derived by running ``_page_positions`` against main
+    #: and the branch and reading the difference.
+    POSITION_SITE_COUNT = 38
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -4279,10 +4288,36 @@ class Generator:
         # refusal): 1 + 5 + 2 = 8 refusals, 10 calls. Steps still strict
         # drops (285, 380, 3, 219); the four figures are read off this
         # test's own measurement.
-        ((), 887),
-        (("builtins",), 602),
-        (("builtins", "definitions and imports"), 222),
-        (("builtins", "definitions and imports", "parameters"), 219),
+        #
+        # **CARD-391 re-measured it an eighth time, and the move is fifty-six
+        # DELETED refusals** (887 -> 831, 602 -> 561, 222 -> 210, 219 -> 207,
+        # last two still 0; steps 285/380/3/219 -> 270/351/3/207), every call
+        # attributed. ``ast.Call`` nodes in the module 967 -> 908 (-59), by an
+        # AST diff of the file against main. Gone with the QR group: the
+        # bitmap drawers, ``qr_link``/``qr_group_caption``, ``_qr_group_line_px``,
+        # the two vector group builders and the two-up inset arithmetic. By
+        # class, the step each lost: **builtins -15** (``round`` x4, ``max``
+        # x3, ``range`` x2, ``ValueError`` x2, ``tuple`` x2, ``zip``,
+        # ``reversed``, ``len`` -- 16 -- less the one ``min`` the new
+        # ``_pointer`` placement needs); **definitions and imports -29**
+        # (``qr_link`` x5, ``qr_caption`` x4, ``qr_group_caption`` x4,
+        # ``qr_slot`` x4, ``type_px`` x3, ``_band_font`` x3,
+        # ``_draw_qr_caption`` x2, ``QrGroup`` x2, ``qr_group_insets`` x2,
+        # ``_qr_group_line_px`` and ``_draw_qr_placeholder`` -- 31 -- less
+        # ``footer_pointer_text`` and ``_folio_reserve_px``, +2); **parameters
+        # 0**; **an attribute of a receiver this module does not define -12**
+        # (``font.getlength`` x5, ``math.ceil`` x2, ``draw.rectangle`` x2,
+        # ``draw.text``, ``groups.append``, ``QR_LINK_TEMPLATE.format``).
+        # 15 + 29 + 12 = 56 refusals; the other 3 of the 59 calls are the five
+        # ``self.<method>`` calls of the removed builders less the two
+        # ``self._pointer`` calls added, resolved because ``self`` is a
+        # receiver the module defines, so they cost no refusal. Steps still
+        # strict drops; the four figures are read off this test's own
+        # measurement.
+        ((), 831),
+        (("builtins",), 561),
+        (("builtins", "definitions and imports"), 210),
+        (("builtins", "definitions and imports", "parameters"), 207),
         (
             (
                 "builtins",
@@ -6131,7 +6166,10 @@ class Generator:
     #: matter at all, so a front-matter-relative position cannot be wrong in
     #: it; every other caller passes the door its book and lets the door's
     #: own default stand.
-    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 767),)
+    #: CARD-391: 767 -> 756. The same call, 11 lines higher: ``book_proof.py``
+    #: lost the 11-line branch that kept the proof note's strip clear of the
+    #: QR icon (the icon left ``render_pages``); no position changed.
+    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 756),)
 
     def test_the_module_axis_bound_is_measured_rather_than_declared(self):
         """AC-4 for the one axis this card leaves open, with its own control.

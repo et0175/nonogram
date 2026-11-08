@@ -206,3 +206,48 @@ class TestPlayPage_FitsEveryTrimAtAReadableModule:
             left, top, right, bottom = pdf_vector.ink_box(page)
             assert frame.left * scale <= left and right <= frame.right * scale + 1, label
             assert frame.top * scale <= top and bottom <= frame.bottom * scale + 1, label
+
+
+class TestPlayPage_IsTheOnlyPageWithACode:
+    """ADR-0041/R8 (CARD-391): one code per book, and it is on this page."""
+
+    def test_no_interior_page_but_the_play_page_carries_a_qr(self, tmp_path) -> None:
+        """The planned ref of ADR-0041/R8, now its check:
+        ``tests/test_book_play_online_page.py::test_no_interior_page_but_the_play_page_carries_a_qr``.
+
+        A book with a stored domain, exported whole; every page rendered and
+        read with the ISO 18004 reader (``tests/helpers/qr_reader.py``, written
+        from the standard, independent of the encoder) once its words and
+        rules are whitened. Exactly one page decodes -- the Play page, to its
+        landing address -- and no puzzle, two-up, guide, contents, divider or
+        answer page does. The control for the reading is the one page it does
+        read.
+
+        A restored placeholder checkerboard is not a decodable code, so the
+        reader alone would not see it; it is caught by what it was drawn with,
+        a filled rectangle (``re f``), which no puzzle or two-up page paints
+        any more.
+        """
+        _poppler()
+        generator = interior_generator(_book())
+        puzzles = baseline_puzzles()
+        kinds = [kind.value for kind in generator.interior_stream(puzzles).page_kinds]
+        data = generator.export_interior(puzzles).getvalue()
+        play = kinds.index("play") + 1
+        decoded: dict[int, str] = {}
+        for number in range(1, len(kinds) + 1):
+            page = pdf_vector.rendered_page(data, 150, page=number, out_dir=tmp_path)
+            words = pdf_vector.word_boxes(data, number, out_dir=tmp_path)
+            try:
+                decoded[number] = qr_reader.read_image(_text_free_codes(page, words, 150))
+            except qr_reader.QrReadError:
+                continue
+        assert decoded == {play: "https://nonogram.adverax.io/b/5e51610a53"}, decoded
+
+        plan = generator.section_plan(puzzles)
+        streams = pdf_vector.content_streams(data)
+        puzzle_pages = [entry.page_number for entry in plan.pages if hasattr(entry, "numbers")]
+        assert len(puzzle_pages) == 3, "the baseline holds a two-up page and two single pages"
+        for number in puzzle_pages:
+            assert pdf_vector.operator_tally(streams[number - 1])["f"] == 0, number
+
