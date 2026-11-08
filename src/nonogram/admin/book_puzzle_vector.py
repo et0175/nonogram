@@ -53,21 +53,33 @@ from __future__ import annotations
 from typing import Sequence
 
 from nonogram.admin.book_vector import ContentStream, FontMetrics, interior_face_metrics
+from nonogram.admin.book_plan import TIERS
 from nonogram.admin.book_vector_draw import (
     INK_GREY,
+    _middle_em,
     draw_clue_digits,
+    draw_difficulty_dots,
     draw_frame,
     draw_ruled_grid,
     page_stream,
     set_centred,
 )
-from nonogram.export.layout import HeaderBand, Layout
+from nonogram.difficulty import tier_of_record
+from nonogram.export.layout import (
+    DIFFICULTY_DOT_GAP_RATIO,
+    DIFFICULTY_DOT_RATIO,
+    INTERIOR_HEADER_RULE_PT,
+    HeaderBand,
+    Layout,
+    difficulty_dots,
+)
 
 __all__ = [
     "BAND_WIDTH_RATIO",
     "MIN_BAND_FONT_RATIO",
     "band_type_size",
     "draw_band",
+    "draw_puzzle_header",
     "draw_puzzle_slot",
     "puzzle_page_stream",
     "slot_room",
@@ -177,6 +189,89 @@ def draw_band(
     )
 
 
+#: The band line's separator, ``book_pdf_generator.BAND_SEPARATOR``'s value:
+#: restated rather than imported, because that module imports this one.
+_SEPARATOR = " · "
+
+#: The clue cells' tint (the approved mockup's #f1f2f4), as a grey level.
+CLUE_SHADE = 0.945
+
+#: The tier word against the number's size, and the stroke that sets the
+#: number as a semibold on the one embedded face (ADR-0042/R5).
+_TIER_RATIO = 0.75
+_BOLD_RATIO = 0.04
+#: CON-020's floor, in points: the tier word never sets under it.
+_FLOOR_PT = 10.0
+
+
+def shade_clue_cells(stream: ContentStream, layout: Layout, *, shade: float = CLUE_SHADE) -> None:
+    """Tint the row-clue and column-clue gutters, under the rules and digits."""
+    stream.fill_grey(shade)
+    if layout.row_gutter_cells:
+        left = layout.grid_left - layout.row_gutter_cells * layout.cell
+        stream.rectangle(left, layout.grid_top, layout.grid_left, layout.grid_bottom, paint="fill")
+    if layout.column_gutter_cells:
+        top = layout.grid_top - layout.column_gutter_cells * layout.cell
+        stream.rectangle(layout.grid_left, top, layout.grid_right, layout.grid_top, paint="fill")
+
+
+def draw_puzzle_header(
+    stream: ContentStream,
+    layout: Layout,
+    band: HeaderBand,
+    text: str,
+    room: float,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """The approved mockup's header: "Puzzle N" flush left, dots and tier flush right.
+
+    ``text`` is ``band_identity``'s line; it is split at its separator, so the
+    words are still that function's (ADR-0037/R1). A line with no tier prints
+    the number alone. Both pieces share one baseline in the band.
+    """
+    if band.height <= 0 or not text:
+        return
+    number, _, tier = text.partition(_SEPARATOR)
+    placement = layout.page
+    left = band.center_x - room / 2 if placement is None else placement.usable_left
+    right = band.center_x + room / 2 if placement is None else placement.usable_right
+    size_px = band_type_size(text, band, room, metrics)
+    floor_px = _FLOOR_PT * stream.dpi / 72.0
+    baseline = band.center_y + _middle_em(metrics) * size_px
+    stream.text(
+        number, left, baseline, stream.to_points(size_px), grey=grey,
+        embolden_pt=stream.to_points(size_px) * _BOLD_RATIO,
+    )
+    if not tier:
+        return
+    word = tier.upper()
+    tier_px = max(floor_px, size_px * _TIER_RATIO)
+    word_left = right - metrics.advance(word) * tier_px
+    stream.text(word, word_left, baseline, stream.to_points(tier_px), grey=grey)
+    record = tier_of_record(tier)
+    if record is None or record not in TIERS:
+        return
+    # The dots: CARD-228's glyph through the one round-mark site, its row
+    # ending one dot short of the word.
+    diameter = tier_px * 0.55
+    box_h = diameter / DIFFICULTY_DOT_RATIO
+    box_w = diameter * (1 + DIFFICULTY_DOT_GAP_RATIO) * len(TIERS)
+    row_right = word_left - diameter * 0.75
+    middle = baseline - _cap_height_em(metrics) * tier_px / 2
+    dots = difficulty_dots(
+        round(row_right - box_w), round(middle - box_h / 2), round(row_right), round(middle + box_h / 2),
+        filled=TIERS.index(record) + 1, total=len(TIERS),
+    )
+    if dots is not None:
+        draw_difficulty_dots(stream, dots, grey=grey)
+
+
+def _cap_height_em(metrics: FontMetrics) -> float:
+    return metrics.cap_height / metrics.units_per_em
+
+
 def draw_puzzle_slot(
     stream: ContentStream,
     layout: Layout,
@@ -211,11 +306,12 @@ def draw_puzzle_slot(
         grey: The ink, as a grey level.
     """
     measured = interior_face_metrics() if metrics is None else metrics
+    shade_clue_cells(stream, layout)
     draw_ruled_grid(stream, layout, grey=grey)
     if layout.frame is not None:
         draw_frame(stream, layout.frame, grey=grey)
     draw_clue_digits(stream, layout, measured, grey=grey)
-    draw_band(stream, band, text, room, measured, grey=grey)
+    draw_puzzle_header(stream, layout, band, text, room, measured, grey=grey)
 
 
 def puzzle_page_stream(
@@ -266,7 +362,14 @@ def two_up_page_stream(
     if not slots:
         raise ValueError("a puzzle page carries at least one puzzle")
     stream = page_stream(slots[0][0])
-    for layout, band, text in slots:
+    for index, (layout, band, text) in enumerate(slots):
+        if index and band.height > 0 and layout.page is not None:
+            # A lower slot's header gets the rule the page's header rule gives
+            # the first, at the same weight (the approved mockup's two-up).
+            rule_y = band.center_y + band.height * 0.35
+            stream.stroke_grey(grey)
+            stream.stroke_width(INTERIOR_HEADER_RULE_PT)
+            stream.line(layout.page.usable_left, rule_y, layout.page.usable_right, rule_y)
         draw_puzzle_slot(
             stream,
             layout,
