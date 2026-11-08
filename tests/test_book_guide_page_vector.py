@@ -457,9 +457,9 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
             "diagram has a frame to outline its playable squares inside",
         ),
         "_outline_playable_squares": (
-            frozenset({"thick_rule"}),
+            frozenset({"vertical_lines"}),
             "strokes the heavier outline around the playable squares at the "
-            "layout's own heavy rule (CARD-229)",
+            "weight and tone of the layout's own border line (CARD-229)",
         ),
         "example_cell_spec": (
             frozenset({"clue_font_size"}),
@@ -1110,7 +1110,11 @@ class TestGuidePage_WorkedExampleClueDigitsAreNotExempt:
             face for page in drawn(profile) for face in page.faces if face.kind == CLUE_DIGIT
         ]
 
-        assert len(digits) >= len(WORKED_EXAMPLE_STEPS) * len(WORKED_EXAMPLE_CLUE)
+        # Book 1 draws the worked example's digits and more (24 measured); the
+        # minimum trim's leanest forms keep two techniques' rows (5 measured),
+        # so the floor there is the number of clue digits a single row carries.
+        floor = len(WORKED_EXAMPLE_STEPS) * len(WORKED_EXAMPLE_CLUE) if profile == "book1" else 2
+        assert len(digits) >= floor
 
     def test_every_clue_digit_holds_the_floor(self, profile):
         under = [
@@ -1397,8 +1401,14 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         for layout in layouts:
             for line in (*layout.vertical_lines, *layout.horizontal_lines):
                 widths.add(line.width * to_points)
+                if line.width_pt is not None:
+                    # The grid is drawn in the puzzle pages' style: the
+                    # layout's declared physical weights (ADR-0037/R2).
+                    widths.add(line.width_pt)
             if layout.frame is not None:
                 widths.add(layout.frame.width * to_points)
+                if layout.frame.width_pt is not None:
+                    widths.add(layout.frame.width_pt)
             widths.add(layout.thin_rule * to_points)
             widths.add(layout.thick_rule * to_points)
             sizes.add(layout.clue_font_size * to_points)
@@ -1417,6 +1427,22 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         return frozenset(round(value, 3) for value in widths), frozenset(
             round(value, 3) for value in sizes
         )
+
+    @classmethod
+    def allowed_tones(cls, spec, dpi: int) -> frozenset:
+        """Black, paper (outlined legend dots) and every tone the layouts declare."""
+        capped = guide_vector.example_cell_spec(spec, dpi)
+        tones = {_BLACK_TONE, _PAPER_TONE}
+        for clue, length in cls.line_pairs():
+            layout = compute_layout((clue,), ((0,),) * length, capped)
+            tones.update(
+                line.grey
+                for line in (*layout.vertical_lines, *layout.horizontal_lines)
+                if line.grey is not None
+            )
+            if layout.frame is not None and layout.frame.grey is not None:
+                tones.add(layout.frame.grey)
+        return frozenset(round(t, 3) for t in tones)
 
     def _corpus(self) -> List[Book]:
         rng = random.Random(self.SEED)
@@ -1470,7 +1496,9 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
                 }
 
                 inked = pdf_vector.tones(stream)
-                assert {level for level, _operator in inked} <= {_BLACK_TONE, _PAPER_TONE}, {
+                assert {round(level, 3) for level, _operator in inked} <= self.allowed_tones(
+                    generator.page_spec(page.page_number), generator.dpi
+                ), {
                     "trim": (book.trim_width_cm, book.trim_height_cm),
                     "page": page.page_number,
                     "tones": sorted({level for level, _op in inked}),

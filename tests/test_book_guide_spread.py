@@ -170,7 +170,14 @@ def _outline_strokes(stream: str) -> List[Tuple[float, float, float, float, floa
                 (state, float(match["x"]), float(match["y"]), float(match["w"]), float(match["h"]))
             )
     heaviest = max(stroke for stroke, *_ in rectangles)
-    return [rect for rect in rectangles if rect[0] == heaviest]
+    # The frame (clue boxes and squares together) is stroked at the same border
+    # weight on the same row; the squares' outline is the one that starts
+    # furthest right.
+    rows: Dict[float, Tuple[float, float, float, float, float]] = {}
+    for rect in rectangles:
+        if rect[0] == heaviest and (rect[2] not in rows or rect[1] > rows[rect[2]][1]):
+            rows[rect[2]] = rect
+    return list(rows.values())
 
 
 def _outlines(stream: str) -> List[Tuple[float, float, float, float]]:

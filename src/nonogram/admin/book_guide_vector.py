@@ -181,7 +181,7 @@ from nonogram.admin.book_vector import (
     interior_face_metrics,
     write_vector_pdf,
 )
-from nonogram.admin.book_vector_draw import draw_difficulty_dots
+from nonogram.admin.book_vector_draw import draw_difficulty_dots, draw_frame, draw_grid_lines
 from nonogram.difficulty import tier_of_record
 from nonogram.export.layout import (
     MAX_CELL_MM,
@@ -607,6 +607,11 @@ def draw_line_diagram(
     xs = [line.position for line in layout.vertical_lines]
     ys = [line.position for line in layout.horizontal_lines]
 
+    # The grid first, in the puzzle pages' own style (their primitives, the
+    # layout's declared weights and tones: pale cell lines, heavier every fifth,
+    # a border), so the marks a reader fills go on top of it, dark.
+    _stroke_layout(stream, layout, dx=dx, dy=dy)
+
     stream.fill_grey(_BLACK)
     for column in sorted(step.filled):
         stream.rectangle(
@@ -627,7 +632,6 @@ def draw_line_diagram(
         stream.line(x0, y0, x1, y1)
         stream.line(x0, y1, x1, y0)
 
-    _stroke_layout(stream, layout, dx=dx, dy=dy)
     if layout.frame is not None:
         _outline_playable_squares(stream, layout, xs, ys, dx=dx, dy=dy)
     return _write_clue_digits(stream, layout, dx=dx, dy=dy, metrics=face)
@@ -648,13 +652,16 @@ def _outline_playable_squares(
     the squares a reader fills are closed off from the clue boxes beside them
     by the grid's own border. The frame :func:`_stroke_layout` strokes closes
     off the clues *and* the squares together, so the squares' own boundary is
-    stroked here at :attr:`Layout.thick_rule` — the same weight, from the same
-    layout, as the frame, and heavier than every cell line
-    (:attr:`Layout.thin_rule`). Every coordinate is one of the line positions
-    already read above.
+    stroked here at the grid's **border** weight and tone, the layout's own
+    first vertical line (a border line, the same figure the frame is stroked
+    at), and so heavier than every cell line. Every coordinate is one of the
+    line positions already read above.
     """
-    stream.stroke_grey(_BLACK)
-    stream.stroke_width(stream.to_points(layout.thick_rule))
+    border = layout.vertical_lines[0]
+    stream.stroke_grey(_BLACK if border.grey is None else border.grey)
+    stream.stroke_width(
+        stream.to_points(border.width) if border.width_pt is None else border.width_pt
+    )
     stream.rectangle(
         xs[0] + dx, ys[0] + dy, xs[-1] + dx, ys[1] + dy, paint="stroke"
     )
@@ -663,61 +670,56 @@ def _outline_playable_squares(
 def _stroke_layout(
     stream: ContentStream, layout: Layout, *, dx: float, dy: float
 ) -> None:
-    """Stroke every ruled line of ``layout``, thin ones first, then its frame.
+    """Stroke ``layout``'s ruled lines and frame with the puzzle pages' primitives.
 
-    :func:`~nonogram.admin.book_pdf_generator._stroke_drawing`'s loop, operator
-    for operator: the two line families merged, sorted on ``major`` so the
-    thin rules go down before the every-fifth rules and the border, and then
-    the frame's four sides last of all at :attr:`Layout.thick_rule`.
-
-    Every number is COMP-007's — each line's axis position, its two ends and
-    its width, and the frame's four boundaries. Nothing is measured, rounded
-    or offset, and a PDF stroke is centred on its path exactly as Pillow
-    centres a width on a coordinate, so the half a heavy rule that hangs
-    outside the frame's box hangs outside it here too.
+    :func:`~nonogram.admin.book_vector_draw.draw_grid_lines` and
+    :func:`~nonogram.admin.book_vector_draw.draw_frame`, the two routines a
+    puzzle page draws its grid with: one grid style in the book (CARD-229,
+    owner request 2026-11-08), the weights and tones the layout declares
+    (ADR-0037/R2) and nothing chosen here. What this adds is the clamp and the
+    translation: each line is cut to the box the raster routine cropped its
+    diagram out of (see :func:`diagram_box`; a bare cell icon's horizontal rules
+    otherwise run the whole sheet) and moved by ``dx``/``dy``, a translation
+    being the one operation that cannot re-derive geometry.
 
     ``layout.frame`` is ``None`` on
     :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`'s bare cell
-    icon — a live branch, taken three times on every page 1 of the guide, not
-    dead code.
+    icon: a live branch, taken three times on every page 1 of the guide.
     """
     box_left, box_top, box_right, box_bottom = diagram_box(layout)
-    oriented: List[Tuple[Any, bool]] = [
-        *((line, True) for line in layout.vertical_lines),
-        *((line, False) for line in layout.horizontal_lines),
+    verticals = [
+        replace(
+            line,
+            position=line.position + dx,
+            start=max(line.start, box_top) + dy,
+            end=min(line.end, box_bottom) + dy,
+        )
+        for line in layout.vertical_lines
+        if box_left <= line.position <= box_right and min(line.end, box_bottom) > max(line.start, box_top)
     ]
-    for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
-        # Clamped to the box the raster routine crops out of its canvas: ink
-        # outside it is ink that page never showed (see :func:`diagram_box`).
-        if vertical:
-            if not box_left <= line.position <= box_right:
-                continue
-            start = max(line.start, box_top)
-            end = min(line.end, box_bottom)
-            if end <= start:
-                continue
-            stream.stroke_width(stream.to_points(line.width))
-            stream.line(line.position + dx, start + dy, line.position + dx, end + dy)
-        else:
-            if not box_top <= line.position <= box_bottom:
-                continue
-            start = max(line.start, box_left)
-            end = min(line.end, box_right)
-            if end <= start:
-                continue
-            stream.stroke_width(stream.to_points(line.width))
-            stream.line(start + dx, line.position + dy, end + dx, line.position + dy)
-
+    horizontals = [
+        replace(
+            line,
+            position=line.position + dy,
+            start=max(line.start, box_left) + dx,
+            end=min(line.end, box_right) + dx,
+        )
+        for line in layout.horizontal_lines
+        if box_top <= line.position <= box_bottom and min(line.end, box_right) > max(line.start, box_left)
+    ]
+    draw_grid_lines(stream, verticals, horizontals)
     frame = layout.frame
-    if frame is None:
-        return
-    stream.stroke_width(stream.to_points(frame.width))
-    left, top = frame.left + dx, frame.top + dy
-    right, bottom = frame.right + dx, frame.bottom + dy
-    stream.line(left, top, right, top)
-    stream.line(left, bottom, right, bottom)
-    stream.line(left, top, left, bottom)
-    stream.line(right, top, right, bottom)
+    if frame is not None:
+        draw_frame(
+            stream,
+            replace(
+                frame,
+                left=frame.left + dx,
+                top=frame.top + dy,
+                right=frame.right + dx,
+                bottom=frame.bottom + dy,
+            ),
+        )
 
 
 def _write_clue_digits(
