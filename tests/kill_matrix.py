@@ -131,9 +131,15 @@ Safety discipline
   copy to be given, so such a matrix is measured serially, in place.
   ``workers`` defaults to ``1`` (the in-place reading every existing caller
   relies on); :func:`default_workers` is the derived rule for callers that
-  want the pool. **Declared bound:** a parent process killed hard (the hang
-  guard's ``faulthandler`` exit) cannot clean up, so its in-flight child
-  pytests finish on their own and their lane trees stay in the temp directory.
+  want the pool. A lane's copy also leaves out ``.env``, ``.env.*``, ``*.db``
+  and ``*.sqlite*``, so a lane carries no ``DATABASE_URL`` file and no local
+  database; a target that needs one of those files is outside what lanes
+  measure (use ``workers=1``). **Declared bounds on being stopped:** the real
+  tree is never edited when ``workers > 1`` (better than the serial runner).
+  SIGINT: the parent exits once its in-flight child pytests finish; no orphan,
+  lane trees removed. SIGTERM: the parent dies at once, its in-flight child
+  pytests finish alone and the lane trees stay in the temp directory. A hard
+  kill (the hang guard's ``faulthandler`` exit) cannot clean up either.
 * Takes no timing measurements and reports none. The ``timeout=`` passed to
   ``subprocess.run`` is a bound on a hung child, not a measurement: nothing
   reads a clock and no figure here is a duration.
@@ -375,6 +381,11 @@ _LANE_SKIPS = frozenset(
         ".mypy_cache",
         ".ruff_cache",
         ".idea",
+        ".env",
+        ".env.*",
+        "*.db",
+        "*.sqlite",
+        "*.sqlite3",
     }
 )
 
@@ -382,13 +393,14 @@ _LANE_SKIPS = frozenset(
 def default_workers() -> int:
     """How many cells run at once when the caller does not say.
 
-    ``KILL_MATRIX_WORKERS`` if set (an integer of at least 1), else one fewer
+    ``KILL_MATRIX_WORKERS`` if set (an integer of at least 1; set-but-empty is an
+    error, unset the variable to get the default), else one fewer
     than the machine's cores, capped at :data:`_WORKER_CAP` and never below 1.
     Leaving a core free is what keeps an author's own editor, browser and
     second terminal from being the thing a child pytest times out behind.
     """
     named = os.environ.get(_ENV_WORKERS)
-    if named:
+    if named is not None:
         try:
             count = int(named)
         except ValueError:

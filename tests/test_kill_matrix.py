@@ -2462,15 +2462,26 @@ def test_arms():
 '''
 
 
+#: What a lane's copy of the tree must NOT carry: the git pointer (a FILE in a
+#: linked worktree, a directory in the main checkout), the board's lock, and
+#: anything that can name a database. The fixture plants each, so a copy that
+#: forgot one reads them back.
+LANE_EXCLUDED = (".git", ".full-suite.lock", ".env", "data.db")
+
+
 @pytest.fixture
 def lane_target(tmp_path) -> Path:
+    (tmp_path / ".git").write_text("gitdir: /nowhere/.git/worktrees/x\n", encoding="utf-8")
+    (tmp_path / ".full-suite.lock").write_text("worktree: /nowhere\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("DATABASE_URL=postgres://nowhere/x\n", encoding="utf-8")
+    (tmp_path / "data.db").write_bytes(b"not a database")
     return _write(tmp_path, "km_lane_target.py", LANE_TARGET)
 
 
 def _lane_mutants(target: Path) -> list[Mutant]:
     """Declared SLOW first, so that it finishes **last** under any pool."""
     return [
-        Mutant("SLOW", (Edit(path=target, old="DELAY = 0", new="DELAY = 2"),)),
+        Mutant("SLOW", (Edit(path=target, old="DELAY = 0", new="DELAY = 1"),)),
         Mutant("MARK-X", (Edit(path=target, old='MARK = "shipped"', new='MARK = "xxxxxxx"'),)),
         Mutant("SIDE-ROT", (Edit(path=target, old='SIDE = "shipped"', new='SIDE = "rotted!"'),)),
     ]
@@ -2509,36 +2520,46 @@ def _lane_root(tmp_path_factory, monkeypatch) -> Path:
 
 
 def test_card_396_one_worker_and_many_return_the_same_matrix(lane_target):
-    """AC-2: the lane runner's table is the serial table, cell for cell."""
+    """AC-2, and what a lane's copy carries.
+
+    Killed here: a collector that reads results in finishing order (phase 2's
+    plant), a lane copy that carries ``.git`` (a FILE here, as in a linked
+    worktree), the lock file, ``.env`` or a ``*.db`` (the ``seen`` listing).
+    """
     mutants = _lane_mutants(lane_target)
     serial = _runner(lane_target, workers=1).run(Pass.RECORDING, mutants)
-    lanes = _runner(lane_target, workers=3)
+
+    class Listing(Runner):
+        seen: list = []
+
+        def _make_lane(self):
+            lane = super()._make_lane()
+            Listing.seen.append(sorted(p.name for p in lane.repo_root.rglob("*")))
+            return lane
+
+    lanes = Listing(selection=[str(lane_target)], repo_root=lane_target.parent, workers=3)
     parallel = lanes.run(Pass.RECORDING, mutants)
 
-    assert [name for name in parallel.mutants] == ["SLOW", "MARK-X", "SIDE-ROT"]
+    assert list(parallel.mutants) == ["SLOW", "MARK-X", "SIDE-ROT"]
     assert _signature(parallel) == _signature(serial)
-    # The control's precondition: the cells really did FINISH in another order,
-    # or "declared order" and "finishing order" were the same list and this
-    # test could not tell a collector that sorts by completion from one that
-    # does not.
+    # Precondition of the plant below: the cells really FINISHED in another
+    # order, or declared and finishing order were the same list.
     assert lanes._completion != sorted(lanes._completion), lanes._completion
+    assert Listing.seen, "no lane was made, so the listing below certifies nothing"
+    for names in Listing.seen:
+        assert "km_lane_target.py" in names, names
+        assert not set(LANE_EXCLUDED) & set(names), names
 
-
-def test_card_396_a_collector_in_completion_order_changes_the_table(lane_target):
-    """AC-2's plant: read the results back as they FINISHED and the table moves."""
-
+    # Phase 2, the plant: read the results back as they FINISHED.
     class CompletionOrder(Runner):
         def _assembly_order(self, count):
             return list(self._completion)
 
-    mutants = _lane_mutants(lane_target)
-    expected = _runner(lane_target, workers=1).run(Pass.RECORDING, mutants)
     planted = CompletionOrder(
         selection=[str(lane_target)], repo_root=lane_target.parent, workers=3
     ).run(Pass.RECORDING, mutants)
-
-    assert list(planted.mutants) != list(expected.mutants), planted.table()
-    assert _signature(planted) != _signature(expected)
+    assert list(planted.mutants) != list(serial.mutants), planted.table()
+    assert _signature(planted) != _signature(serial)
 
 
 def _two_cells_edit_one_line(runner_class, target: Path, workers: int = 3):
@@ -2565,56 +2586,45 @@ def _two_cells_edit_one_line(runner_class, target: Path, workers: int = 3):
     return runner.run(Pass.RECORDING, mutants)
 
 
-def _mark_arms(target: Path) -> tuple[int, int]:
-    first, second, _ = km.assert_linenos(target.read_text(encoding="utf-8"))
-    return first, second
-
-
 def test_card_396_two_cells_editing_one_line_do_not_see_each_other(lane_target):
-    """AC-3: each worker's tree is its own."""
-    seen_x, seen_y = _mark_arms(lane_target)
+    """AC-3: each worker's tree is its own. Phase 2 is the plant: one shared tree."""
+    first, second, _ = km.assert_linenos(lane_target.read_text(encoding="utf-8"))
     result = _two_cells_edit_one_line(Runner, lane_target)
 
-    assert result.cell("MARK-X", seen_x) == FAIL, result.table()
-    assert result.cell("MARK-X", seen_y) == PASS, result.table()
-    assert result.cell("MARK-Y", seen_y) == FAIL, result.table()
-    assert result.cell("MARK-Y", seen_x) == PASS, result.table()
+    assert result.cell("MARK-X", first) == FAIL, result.table()
+    assert result.cell("MARK-X", second) == PASS, result.table()
+    assert result.cell("MARK-Y", second) == FAIL, result.table()
+    assert result.cell("MARK-Y", first) == PASS, result.table()
     assert lane_target.read_text(encoding="utf-8") == LANE_TARGET
 
-
-def test_card_396_workers_sharing_one_tree_are_what_the_isolation_cell_catches(
-    lane_target,
-):
-    """AC-3's plant: lanes that all work in the ONE tree red the cell above."""
-
     class SharedTree(Runner):
+        """Every worker's 'lane' is the ONE real tree."""
+
         def _make_lane(self):
-            lane = type(self)(
+            return type(self)(
                 selection=self.selection,
                 repo_root=self.repo_root,
                 child_instrumentation=self.child_instrumentation,
                 env=self.env,
                 workers=1,
             )
-            return lane
 
         def _lane_paths(self, paths):
             return {path: Path(os.path.relpath(path, self.repo_root)) for path in paths}
 
-    seen_x, seen_y = _mark_arms(lane_target)
     try:
-        result = _two_cells_edit_one_line(SharedTree, lane_target)
+        shared = _two_cells_edit_one_line(SharedTree, lane_target)
     except (LeakedPatch, MutantRefused, UnmeasuredRun, threading.BrokenBarrierError):
         return  # a shared tree that cannot even finish is not isolated either
     clean = (
-        result.cell("MARK-X", seen_x) == FAIL
-        and result.cell("MARK-X", seen_y) == PASS
-        and result.cell("MARK-Y", seen_y) == FAIL
-        and result.cell("MARK-Y", seen_x) == PASS
+        shared.cell("MARK-X", first) == FAIL
+        and shared.cell("MARK-X", second) == PASS
+        and shared.cell("MARK-Y", second) == FAIL
+        and shared.cell("MARK-Y", first) == PASS
     )
     assert not clean, (
-        "a shared tree read as isolated, so the isolation cell above cannot "
-        "tell a lane from a shared tree: " + result.table()
+        "a shared tree read as isolated, so the cells above cannot tell a lane "
+        "from a shared tree: " + shared.table()
     )
 
 
@@ -2647,20 +2657,37 @@ def test_card_396_a_worker_that_leaks_a_patch_is_reported_not_absorbed(
     )
 
 
-def test_card_396_a_refusal_mid_matrix_leaves_no_tree_and_no_child(
+def test_card_396_a_refusal_mid_matrix_is_the_lowest_declared_and_leaves_nothing(
     lane_target, tmp_path_factory, monkeypatch
 ):
-    """AC-4: the exception type is the serial one; every lane tree is gone."""
+    """AC-4 and AC-2's refusal order.
+
+    Two refused cells and two that must never start: the exception is the
+    serial one (``MutantRefused``) naming the LOWER-declared refusal whichever
+    finished first, no cell declared after a refusal is entered, no lane tree
+    outlives it and no child pytest of a lane is still running.
+    """
     lane_root = _lane_root(tmp_path_factory, monkeypatch)
     mutants = [
-        Mutant("SLOW", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 2"),)),
-        Mutant("NO-OP", (Edit(path=lane_target, old="NOT-IN-THE-FILE", new="x"),)),
+        Mutant("SLOW", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
+        Mutant("BAD-A", (Edit(path=lane_target, old="NOT-THERE-A", new="x"),)),
+        Mutant("BAD-B", (Edit(path=lane_target, old="NOT-THERE-B", new="x"),)),
+        Mutant("LATE-1", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
+        Mutant("LATE-2", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
     ]
-    runner = _runner(lane_target, workers=3)
 
-    with pytest.raises(MutantRefused):
+    class Entering(Runner):
+        entered: list = []
+
+        def _measure_mutant(self, mutant, *args, **kwargs):
+            Entering.entered.append(mutant.name)
+            return super()._measure_mutant(mutant, *args, **kwargs)
+
+    runner = Entering(selection=[str(lane_target)], repo_root=lane_target.parent, workers=4)
+    with pytest.raises(MutantRefused, match="NOT-THERE-A"):
         runner.run(Pass.RECORDING, mutants)
 
+    assert {"SLOW", "BAD-A", "BAD-B"} >= set(Entering.entered) >= {"BAD-A"}, Entering.entered
     assert sorted(lane_root.iterdir()) == [], "a lane tree outlived the refusal"
     assert (
         subprocess.run(["pgrep", "-f", str(lane_root)], capture_output=True).returncode
@@ -2669,35 +2696,52 @@ def test_card_396_a_refusal_mid_matrix_leaves_no_tree_and_no_child(
     assert lane_target.read_text(encoding="utf-8") == LANE_TARGET
 
 
-def test_card_396_the_lowest_declared_refusal_is_the_one_raised(
-    lane_target, tmp_path_factory, monkeypatch
-):
-    """AC-2: with two refused cells, completion order does not pick the message."""
-    _lane_root(tmp_path_factory, monkeypatch)
-    mutants = [
-        Mutant("OK", (Edit(path=lane_target, old="DELAY = 0", new="DELAY = 1"),)),
-        Mutant("BAD-A", (Edit(path=lane_target, old="NOT-THERE-A", new="x"),)),
-        Mutant("BAD-B", (Edit(path=lane_target, old="NOT-THERE-B", new="x"),)),
-    ]
-    with pytest.raises(MutantRefused, match="NOT-THERE-A"):
-        _runner(lane_target, workers=4).run(Pass.RECORDING, mutants)
-
-
 def test_card_396_a_foreign_lock_refuses_before_any_lane_exists(
     lane_target, tmp_path, tmp_path_factory, monkeypatch
 ):
-    """AC-4: the lock is the parent's question, answered before a tree is copied."""
+    """AC-4: the lock is the parent's question, answered before a tree is copied.
+
+    The lane's own constructor asks the same question, so an empty temp
+    directory proves nothing (it refuses AFTER the copy). The spy counts the
+    copies instead. Phase 2 is the plant: the parent's check is skipped once,
+    the lanes' constructors still refuse, and the spy must then see a copy.
+    """
     lane_root = _lane_root(tmp_path_factory, monkeypatch)
     monkeypatch.delenv(full_suite_lock.OVERRIDE, raising=False)
     lock = tmp_path_factory.mktemp("lock") / ".full-suite.lock"
     monkeypatch.setenv(full_suite_lock.LOCK_PATH_VAR, str(lock))
+    copies: list = []
+    real_copytree = shutil.copytree
+
+    def spy(*args, **kwargs):
+        copies.append(args)
+        return real_copytree(*args, **kwargs)
+
+    monkeypatch.setattr(km.shutil, "copytree", spy)
+
     runner = _runner(lane_target, workers=3)  # no lock yet: construction passes
     lock.write_text(f"worktree: {tmp_path / 'another-worktree'}\n", encoding="utf-8")
-
     with pytest.raises(LockHeld, match="holds the board's full-suite lock"):
         runner.run(Pass.RECORDING, _lane_mutants(lane_target))
+    assert copies == [], "a tree was copied before the lock refusal"
+    assert sorted(lane_root.iterdir()) == []
 
-    assert sorted(lane_root.iterdir()) == [], "a lane was made before the refusal"
+    class NoParentCheck(Runner):
+        skip_next = False
+
+        def _refuse_if_lock_held(self):
+            if self.skip_next:
+                self.skip_next = False
+                return
+            super()._refuse_if_lock_held()
+
+    lock.unlink()
+    planted = NoParentCheck(selection=[str(lane_target)], repo_root=lane_target.parent, workers=3)
+    lock.write_text(f"worktree: {tmp_path / 'another-worktree'}\n", encoding="utf-8")
+    planted.skip_next = True
+    with pytest.raises(LockHeld):
+        planted.run(Pass.RECORDING, _lane_mutants(lane_target))
+    assert copies, "without the parent's pre-check no copy was made, so the spy cannot see it"
 
 
 def test_card_396_an_edit_outside_repo_root_is_measured_serially(
@@ -2733,7 +2777,7 @@ def test_card_396_the_worker_count_rule(monkeypatch):
 
     monkeypatch.setenv(km._ENV_WORKERS, "7")
     assert km.default_workers() == 7
-    for bad in ("0", "-1", "many"):
+    for bad in ("0", "-1", "many", ""):
         monkeypatch.setenv(km._ENV_WORKERS, bad)
         with pytest.raises(ValueError, match=km._ENV_WORKERS):
             km.default_workers()
