@@ -27,10 +27,10 @@ third family the card did not consider is larger than both combined.
 | group | time | share | tests | ms/test |
 |---|---|---|---|---|
 | **Chromium-driven admin player tests** (`tests/test_puzzle_solver_*.py`, 12 files) | **366.19 s** | **39.78 %** | 422 | **868** |
-| render-heavy files (the frozen set) | 195.42 s | 21.23 % | 1091 | 179 |
+| render-heavy files (the frozen set) | 193.13 s | 20.98 % | 1074 | 180 |
 | `tests/property/*` (the seeded corpora) | 140.19 s | 15.23 % | 184 | 762 |
 | — of which counted in *both* rows above | 70.75 s | 7.68 % | | |
-| render ∪ property (the card's two hypotheses together) | 264.86 s | 28.77 % | | |
+| render ∪ property (the card's two hypotheses together) | 262.57 s | 28.52 % | | |
 | admin-local script tests (`test_start_admin_local`, `test_run_admin_tests`, `test_setup_admin_local`) | 117.16 s | 12.73 % | 83 | 1412 |
 
 Derived, not hand-counted — this is `rank_durations.py`'s own
@@ -47,16 +47,29 @@ with the same sha256. The path count the row's label used to carry is dropped
 rather than restated: the set's size has moved twice since this recording and
 is not a property of it.
 
+**One more restatement, CARD-229 (2026-11-08), the same kind as that one and
+the opposite direction.** The frozen render set lost
+`tests/test_book_guide_page_type.py`, a file that *was* in this recording: the
+raster guide page's type and fit tests were retired with the raster guide
+(CARD-229, G-6), the file is deleted, and the live grep no longer finds it, so
+the set cannot keep it. Its 17 tests and 2.29 s leave the render row and the
+`render ∪ property` row (195.42 s -> 193.13 s, 21.23 % -> 20.98 %, 1091 -> 1074
+tests, 179 -> 180 ms/test; 264.86 s -> 262.57 s, 28.77 % -> 28.52 %), and the
+script's output moves with them. The measured recording is untouched and
+the artefact is the same file with the same sha256. The narrative below was
+written against the earlier set and still quotes its figures (195.42 s and
+21.23 %) where it discusses the set as it then stood.
+
 
 ```
 (the deciding table)
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              366.19s  39.78%    422      868
-render-heavy frozen set                195.42s  21.23%   1091      179
+render-heavy frozen set                193.13s  20.98%   1074      180
 property corpora                       140.19s  15.23%    184      762
 property AND render                     70.75s   7.68%     11     6432
-property OR render                     264.86s  28.77%   1264      210
+property OR render                     262.57s  28.52%   1247      211
 admin-local script trio                117.16s  12.73%     83     1412
 everything but the browser family      554.44s  60.22%   6660       83
 ```
@@ -287,11 +300,11 @@ There is no test to delete that materially changes the number.
 files in the frozen set: 29
 files that contributed timings: 27
 tests in those files: 1079
-time: 195.42s
-share of attributed time:  21.23%
-share of wall clock:  20.99%
+time: 193.13s
+share of attributed time:  20.98%
+share of wall clock:  20.75%
 
 (non-render remainder)
-time: 725.21s
-share of attributed time:  78.77%
+time: 727.50s
+share of attributed time:  79.02%
 ```

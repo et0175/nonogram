@@ -35,7 +35,8 @@ never satisfy it, so the discriminator is the same thing every assertion
 below already makes (the text is the page's own number) and it tightens the
 identification rather than loosening it. This file still never greps
 rendered pixels for a digit the way ``test_book_guide_page.py``'s ``probe``/
-``occurrences`` do, which is a second, independent way of finding the same
+``occurrences`` did (retired with the raster guide, CARD-229), which was a
+second, independent way of finding the same
 mark (CLAUDE.md's "prefer an independent second implementation" — the spy
 below reads *which call Pillow actually made*, not a template match that
 could in principle agree with a wrong implementation).
@@ -455,20 +456,27 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
                 1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
             )
         }
+        # CARD-229: the guide's SECOND page now prints its folio at this trim
+        # (its last form drops the pipeline, the worked example and the
+        # explanations, and the page's last mark is at y=904 px against the
+        # footer rule at y=923, measured), while the first still reaches past
+        # the footer rule (its last mark is at y=1706 px on a 1181 px sheet) and
+        # keeps the omit-rather-than-collide rule. So exactly the first guide
+        # page is folio-less.
+        first_guide_page = 1 + TITLE_PAGE_COUNT
         assert missing == (
             set(range(1, TITLE_PAGE_COUNT + 1))
-            | guide_pages
+            | {first_guide_page}
             | {blank_puzzle_page, answer_page}
         ), (
             "the min-trim book's folio-less pages are exactly its blank title "
-            "page, its two guide "
-            "pages, its page-fit-bound blank puzzle page and its answer "
-            f"page, and this book drew none on {sorted(missing)}"
+            "page, its first guide page, its page-fit-bound blank puzzle page "
+            f"and its answer page, and this book drew none on {sorted(missing)}"
         )
         assert set(folios) == set(range(1, drawn + 1)) - missing
-        assert len(folios) == 3, (
-            f"the TOC page and the two dividers carry folios; {len(folios)} "
-            "pages of this book drew one"
+        assert len(folios) == 4, (
+            f"the guide's second page, the TOC page and the two dividers carry "
+            f"folios; {len(folios)} pages of this book drew one"
         )
 
 
@@ -582,6 +590,13 @@ def _two_up_pages(generator: BookPDFGenerator, puzzles: List[dict]) -> set:
     }
 
 
+#: The guide's two interior pages (2 and 3): CARD-229 sets them in the puzzle
+#: pages' frame, so they print a centred folio under the footer rule.
+_GUIDE_PAGES = frozenset(
+    range(1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1)
+)
+
+
 def _check_every_folios_side(
     folios: dict, by_page: dict, labels: dict, two_up_pages: set
 ) -> int:
@@ -597,6 +612,13 @@ def _check_every_folios_side(
     the page carries a mark whose side is wrong if parity is wrong, which is
     what AC-9 is about; what no longer carries it is the folio's own x, and
     that is stated here rather than quietly dropped.
+
+    **A fourth form, CARD-229.** The guide's two pages are set in the puzzle
+    pages' own frame, so each carries the centred folio and the footer rule and
+    no grid-size label (a guide page has no grid). Its hand is told by its
+    margins, not by a mark, and is measured by
+    ``TestGuideSpread_SitsOnPagesTwoAndThree``; it is allowed to stand without
+    a side-bearing mark only because it is in :data:`_GUIDE_PAGES`.
 
     **A third form, since CARD-248, changed by CARD-391.** A two-up page
     carries the footer group too — and so a centred folio — but it prints *no*
@@ -629,9 +651,10 @@ def _check_every_folios_side(
                     f"grid size is set {label.anchor!r}, not against the inner margin"
                 )
             else:
-                assert page in two_up_pages, (
+                assert page in two_up_pages | _GUIDE_PAGES, (
                     f"page {page} drew a centred folio and no grid-size label but "
-                    "is not a two-up page, so nothing on it says which hand it is on"
+                    "is neither a two-up page nor a guide page, so nothing on it "
+                    "says which hand it is on"
                 )
         checked += 1
     return checked
@@ -711,7 +734,7 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         assert hands == {True, False}
         centred = {page for page, call in by_page.items() if call.anchor == "mb"}
         assert centred, "no page carried the frame's centred folio"
-        assert set(labels) >= centred, "a centred folio with no label beside it"
+        assert set(labels) | _GUIDE_PAGES >= centred, "a centred folio with no label beside it"
 
 
 # --------------------------------------------------------------------------
@@ -1277,15 +1300,25 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
         """The matched control, in ONE run: the baseline book walked as bitmaps
         and again as operators, and every folio and grid-size label
         comes back with the same page, text and anchor. (Measured across the
-        baseline, 60-puzzle and minimum-trim books: 267 marks, 0 differences.)"""
+        baseline, 60-puzzle and minimum-trim books: 267 marks, 0 differences, before
+        CARD-229 took the guide's pages out of the comparison.)"""
         puzzles = baseline_puzzles()
 
         def marks(calls):
+            # Not the guide's pages: since CARD-229 the vector guide is a
+            # different design (centred folio under a footer rule) from the
+            # raster ``create_guide_page`` it once twinned, which nothing in
+            # the product draws and CARD-387 deletes. Its folios are held by
+            # ``TestGuideSpread_SitsOnPagesTwoAndThree`` and the vector
+            # guide's own record-against-stream cells.
             return sorted(
                 (call.page, call.text, call.anchor)
                 for call in calls
-                if _is_folio(call)
-                or (call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text))
+                if call.page not in _GUIDE_PAGES
+                and (
+                    _is_folio(call)
+                    or (call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text))
+                )
             )
 
         _declare_all(monkeypatch, raster=True)
@@ -1297,7 +1330,9 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
             interior_generator(corpus_book()), puzzles, monkeypatch
         )
         assert raster_drawn == vector_drawn
-        assert len(marks(raster_calls)) >= 15, "the bitmap walk found almost no marks"
+        # 13 on the baseline book once the guide's two pages (two folios) are
+        # out of the comparison; it was 15 with them.
+        assert len(marks(raster_calls)) >= 13, "the bitmap walk found almost no marks"
         assert marks(vector_calls) == marks(raster_calls)
         # The operators walk really read operators: the bitmap walk made the
         # draw.text calls for a page, the operators walk made none for them.

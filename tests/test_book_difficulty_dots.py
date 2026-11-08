@@ -88,8 +88,8 @@ card for items 8/16/17.** The flip made the interior operators, so the cells
 that read the interior as bitmaps through a spy on ``_draw_difficulty_dots`` /
 ``_set_band`` (the kept raster reference drawers) now name the bitmap medium
 they exercise with :func:`bitmap_medium`, every assertion unchanged. What the
-PRODUCT claims about dots, that the vector interior draws none yet, is
-:class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
+PRODUCT claims about dots, that the vector interior's one round-mark site is the guide's key strip, is
+:class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`.
 """
 
 from __future__ import annotations
@@ -3884,7 +3884,7 @@ def bitmap_medium():
     assertion below is unchanged. **These raster-arm cells are retired by the
     follow-up card for items 8/16/17**, together with the drawers they read;
     what the PRODUCT claims about dots is held by
-    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
+    :class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`.
     """
     declared = {
         kind: book_pdf_generator.RasterDeclaration(
@@ -6336,23 +6336,40 @@ class ArmLiveness:
     what: str
 
 
+#: How many curve operators the guide's key strip writes: one dot per rung of
+#: the ladder in each tier's row, three rows, four Bezier segments a dot
+#: (CARD-229). Written from the ladder's own length, not from a count read off
+#: a page.
+KEY_STRIP_CURVES = len(TIERS) * len(TIERS) * 4
+
+#: Where the key strip is: the first guide page, interior page 2 (the blank
+#: title page is page 1).
+KEY_STRIP_PAGE = 1 + TITLE_PAGE_COUNT
+
+
 def round_mark_findings(streams, kinds) -> list[str]:
-    """Pages (non-divider) whose content stream carries a curve operator.
+    """Pages (non-divider) whose curve operators are not exactly what they may carry.
 
     The interior's one round-shape primitive, ``ContentStream.round_mark``, is
     four Bezier ``c`` segments, and no interior page of the baseline book
-    otherwise draws a curve (measured: the guide, TOC, puzzle and answer pages
-    carry only ``m``/``l``/``re``/``f``/``S``). So a ``c`` operator on an
-    interior page is a round mark, which is a dot or a glyph: not drawn by
-    this card (G-14; CARD-207, CARD-233 and CARD-229 draw them).
+    otherwise draws a curve (measured: the TOC, puzzle and answer pages carry
+    only ``m``/``l``/``re``/``f``/``S``). So a ``c`` operator on an interior
+    page is a round mark, which is a dot or a glyph. The guide's first page
+    carries exactly :data:`KEY_STRIP_CURVES` of them, the key strip's nine dots
+    (CARD-229); every other page carries none, and CARD-207 and CARD-233 change
+    that for their own pages the way CARD-229 did for the guide's.
     """
     from tests.helpers import pdf_vector
 
-    return [
-        f"page {number} ({kind}) draws {pdf_vector.operator_tally(stream)['c']} curve operators"
-        for number, (kind, stream) in enumerate(zip(kinds, streams), start=1)
-        if kind != "divider" and pdf_vector.operator_tally(stream)["c"]
-    ]
+    found = []
+    for number, (kind, stream) in enumerate(zip(kinds, streams), start=1):
+        if kind == "divider":
+            continue
+        curves = pdf_vector.operator_tally(stream)["c"]
+        allowed = KEY_STRIP_CURVES if number == KEY_STRIP_PAGE else 0
+        if curves != allowed:
+            found.append(f"page {number} ({kind}) draws {curves} curve operators, not {allowed}")
+    return found
 
 
 def dot_drawer_calls(export) -> list[str]:
@@ -6375,16 +6392,18 @@ def dot_drawer_calls(export) -> list[str]:
     return called
 
 
-class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
-    """The PRODUCT claim D9 option A makes (CARD-322): the vector interior draws NO dots.
+class TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots:
+    """The PRODUCT claim the vector interior makes: its one round-mark site is the guide's key strip.
 
-    The dots are a product feature and WILL be drawn (D9), but by CARD-207
-    (the puzzle page header), CARD-233 (the solution tile header) and CARD-229
-    (the guide's key strip), not by the flip, which is a pure medium switch.
-    Two readings of the written interior, each with a plant: no interior page
-    carries a round mark, and the raster dot drawers are not called from the
-    interior path. When the first of those cards lands, this class is the
-    place that is changed deliberately, with the render that justifies it.
+    The dots are a product feature (D9). CARD-322 was a pure medium switch and
+    drew none; CARD-229 draws the first, the guide's key strip (nine, one row
+    of the ladder per tier, :func:`~nonogram.admin.book_vector_draw.draw_difficulty_dots`),
+    and this class was changed deliberately, as it said it would be, with the
+    render for the owner. Two readings of the written interior, each with a
+    plant: no page but the guide's first carries a round mark, and the raster
+    dot drawers are not called from the interior path. CARD-207 (the puzzle
+    page header) and CARD-233 (the solution tile header) change it for their
+    pages the same way.
     """
 
     @staticmethod
@@ -6403,7 +6422,7 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
         streams = ["\n".join(page.operators) if isinstance(page, ContentStream) else "" for page in pages]
         return kinds, streams
 
-    def test_no_interior_page_carries_a_round_mark(self) -> None:
+    def test_no_interior_page_but_the_guides_key_strip_carries_a_round_mark(self) -> None:
         kinds, streams = self._baseline_pages()
         assert sum(1 for kind in kinds if kind != "divider") >= 10, kinds
         assert round_mark_findings(streams, kinds) == []
@@ -6466,7 +6485,7 @@ def _the_raster_arms_medium() -> PageMedium:
     writers. Option B (re-point at the cover and divider) stays rejected: they
     carry no dots by the owner's ruling. What this no longer asserts, the
     product's own medium, is pinned by
-    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`; the probe can
+    :class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`; the probe can
     still report death when the page object it is handed is not a bitmap.
     """
     with bitmap_medium():

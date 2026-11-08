@@ -160,7 +160,20 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_footer_pointer.py",
     "tests/test_book_grid_rules.py",
     "tests/test_book_guide_page.py",
-    "tests/test_book_guide_page_type.py",
+    # RESTATED DELIBERATELY 2026-11-08 (CARD-229), which is what this freeze
+    # exists to force, in both directions at once. GONE:
+    # ``tests/test_book_guide_page_type.py`` (the raster guide's type and fit
+    # tests, retired with the raster guide and the file deleted), which was in
+    # both recordings: the two hotspots documents restate the render row
+    # (195.42 s -> 193.13 s and 554.47 s -> 552.06 s) the way CARD-223 did
+    # for the opposite move. ADDED: ``tests/test_book_guide_spread.py``, whose
+    # tests export whole interiors (the guide beside a puzzle page, the Play
+    # page, the book's own page kinds) and so match the grep honestly; it is
+    # a new file, in neither recording, so it contributes 0 s and 0 tests to
+    # their figures. (The writer's own cells stayed in
+    # ``tests/test_book_guide_page_vector.py``, which builds no interior and
+    # whose helper is therefore not spelled ``_interior(``.)
+    "tests/test_book_guide_spread.py",
     "tests/test_book_interior_face.py",
     "tests/test_book_interior_type_floor.py",
     # ADDED 2026-11-07 (CARD-389). tests/test_book_landing_address.py asks the

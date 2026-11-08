@@ -1185,7 +1185,13 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # module that covers it -- and so was never bookkeeping-only. (The gate's own
 # class standing still while four others move is the reading worth keeping:
 # this card drained falsely-alive and honest-dead, not this one.)
-BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
+# RE-DERIVED 2026-11-08 at CARD-229 -- measured, not pasted: 11 -> 10. The one
+# departure is the guide-spread class AC-368 declares, which gained a real class
+# line in tests/test_book_guide_page_vector.py (it was registered on
+# 2026-10-17 for a test that did not exist yet). Membership was diffed at both
+# trees: OUT exactly that one ref, IN none, and `_refuse_unexplained_departures`
+# recovers it by name from the stored digests and judges it a repair.
+BOOKKEEPING_ONLY = (10, "462250d3ff57fe34")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
@@ -1235,7 +1241,9 @@ BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
 # NOT from this class: FR-042/AC-268's and AC-269's old refs. They resolved
 # from nothing at all, so they were honestly dead and left HONEST_DEAD -- the
 # distinction the pasted union block erased.
-FALSELY_ALIVE = (155, "8465e851f42f9867")
+# RE-DERIVED 2026-11-08 at CARD-229: 155 -> 154, the same single ref as
+# BOOKKEEPING_ONLY above (it was alive on prose alone and is defined now).
+FALSELY_ALIVE = (154, "3ac5e687e888be42")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1537,7 +1545,9 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
 # other AC rows that CARD-392 restated keep their class names. CENSUS and
 # DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
-CENSUS = (584, "9a935fa131ddf749")
+# RE-DERIVED 2026-11-08 at CARD-229: 584 -> 588. +4 declared refs, the four
+# classes AC-414..AC-417 name for the guide's Play online sentence (FR-047).
+CENSUS = (588, "61fe601f41a94226")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1686,7 +1696,11 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
 # CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
 # against its `class` line and not pasted from the printed figure.
-DEFINED = (420, "49c6c5cc1a6f80dc")
+# RE-DERIVED 2026-11-08 at CARD-229: 420 -> 425. +5 = the four new classes
+# above plus the one AC-368 ref that left BOOKKEEPING_ONLY; each is a class line
+# in tests/test_book_guide_page_vector.py (not a review report or a profiling
+# artefact), which is what makes it DEFINED rather than alive on bookkeeping.
+DEFINED = (425, "9a86c871430b962a")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a

@@ -1370,8 +1370,8 @@ def guide_page(
         if fits(marks, bottom):
             break
 
-    sheet_frame = page_frame(spec)
-    stream = ContentStream(width_px=sheet_frame.width, height_px=sheet_frame.height, dpi=dpi)
+    trim = page_frame(spec)
+    stream = ContentStream(width_px=trim.width, height_px=trim.height, dpi=dpi)
 
     title_text = GUIDE_TITLE if page_one else GUIDE2_TITLE
     title_px = band_type_size(title_text, sheet.band, right - left, face)

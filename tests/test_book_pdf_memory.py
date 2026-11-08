@@ -4333,9 +4333,9 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         # leftmost ink is now a diagram's frame (the basic-rule line or a
         # cell-state icon), not a letter — every framed drawing on this book
         # bleeds up to half a heavy rule past its own nominal edge by design
-        # (``_stroke_drawing``'s own docstring; this suite's other guide-page
-        # tests tolerate the same bleed as ``FRAME_BLEED_PX`` in
-        # ``tests/test_book_guide_page_type.py``), which a letter's ink never
+        # (``_stroke_drawing``'s own docstring; the raster guide-page tests
+        # CARD-229 retired tolerated the same bleed as ``FRAME_BLEED_PX``),
+        # which a letter's ink never
         # did. Measured at this book's own rule widths: 6 px short of 150,
         # comfortably inside a 10 px allowance.
         ink = np.asarray(interior[GUIDE_INTERIOR_PAGES[0] - 1].convert("L")) < 128
