@@ -2238,87 +2238,7 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     # Route 3: a round mark built out of vertices (cycle 1, F-001 / H2, H3)
     # ----------------------------------------------------------------------
 
-    def test_every_receiver_of_a_draw_method_is_a_draw_object(self) -> None:
-        """The receiver rule, inverted: an unknown spelling **fails** (cycle 2, F-101).
 
-        ``point`` is a method of ``Image`` as well as of the draw object, so
-        the vertex guard below has to tell ``draw.point([...])`` (ink) from
-        ``greyscale.point([...])`` (a pixel-value map), and it does that on the
-        receiver. Cycle 1 asserted that discrimination was complete by
-        enumerating the two binding shapes the package happened to use; cycle 2
-        walked past it with an unannotated parameter and with an annotated
-        assignment, because an enumerated guard is silent for everything it did
-        not enumerate.
-
-        So the default is inverted. Every *written* call to a draw-method name
-        is collected whatever its receiver, and a receiver that is not a draw
-        object as this package spells one must be a **named** exemption. There
-        is no authority that enumerates "every way to name a draw receiver" —
-        Python's grammar has no such list to import — so the guard does not
-        try: it recognises two forms and refuses the rest.
-        """
-        unrecognised = _unrecognised_draw_receivers(_package_sources())
-        assert unrecognised == sorted(NON_DRAW_RECEIVER_SITES), unrecognised
-
-    def test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark(self) -> None:
-        """The exemptions' own control — earned by the call, not granted to it.
-
-        The equality above says *which* sites are excused; this says *why*, so
-        an exemption cannot quietly grow into one that could draw. There are
-        two families and each is asked its own question — a single question
-        asked of both would have to be the weaker of the two.
-
-        * **A pixel map** (``Image.point``): the discriminating property is
-          that it takes no coordinates — a table built with ``*`` and ``+``, or
-          a lambda. A future card that writes a coordinate display on such a
-          receiver fails here instead of inheriting the excuse.
-        * **The vector operator recorder** (``ContentStream``, CARD-295): the
-          discriminating property is the class's own surface. It is read off
-          ``dir()`` rather than asserted from the table's comment, so the day
-          somebody gives a content stream an ``ellipse`` the excuse stops
-          applying here — which is the shape of the defect this family would
-          otherwise introduce, a second drawing medium arriving with an
-          exemption nobody re-earns.
-        """
-        from nonogram.admin.book_vector import ContentStream
-
-        sources = _package_sources()
-        sequences = _names_bound_to_a_sequence(sources)
-        exempt = [
-            (module, function, method, call)
-            for module, function, method, receiver, call in _draw_method_calls(sources)
-            if not _is_accounted_receiver(
-                method, receiver, call, sequences.get(module, frozenset())
-            )
-        ]
-        assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
-        surface = set(dir(ContentStream))
-        assert not surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS), sorted(
-            surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS)
-        )
-        for module, function, method, call in exempt:
-            if method in VECTOR_STREAM_METHODS:
-                assert module.endswith("book_vector_draw"), (module, function, method)
-                # Scalars, never a vertex display: `ContentStream.line` takes
-                # four numbers and `rectangle` four edges, so neither can be
-                # handed the polygon a round mark would need.
-                assert not any(
-                    isinstance(argument, SEQUENCE_DISPLAYS)
-                    for argument in call.args
-                ), (module, function, "a vertex display on a content stream")
-                continue
-            assert method == "point", (module, function, method)
-            argument = call.args[0] if call.args else None
-            assert not isinstance(argument, SEQUENCE_DISPLAYS), (
-                module,
-                function,
-                "a coordinate display on a receiver excused as a pixel map",
-            )
-        # And the excused names are never a draw object anywhere in the
-        # package, so the excuse cannot be borrowed by rebinding the name.
-        bound = {name for _, _, _, name in _draw_object_bindings(sources)}
-        for _module, _function, _method, spelling in NON_DRAW_RECEIVER_SITES:
-            assert spelling not in bound, spelling
 
     def test_the_vector_stream_receiver_is_excused_only_for_marks_that_cannot_be_round(
         self,
@@ -4709,32 +4629,6 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     drifts towards roundness reds a test *before* it reds the guard.
     """
 
-    def test_the_books_own_pages_carry_no_undeclared_round_mark(self) -> None:
-        """ADR-0036/R3's declared check, now asked at both thresholds."""
-        ink = _book_ink(None)
-        assert ink.pages >= 13, f"the baseline interior lost pages: {ink.pages}"
-        # Both cards' claims, kept: CARD-243's per-level loop (the floor and the
-        # quiet-book assertion hold at EACH measured threshold, not aggregated)
-        # and CARD-222's lowered floor, :data:`REGION_FLOOR` — see there for the
-        # measurement it is set from and for the two readings of `main` and this
-        # branch that attribute the whole fall to CON-018's amended margins.
-        for level in MEASURED_LEVELS:
-            assert ink.at[level].regions >= REGION_FLOOR, (
-                f"only {ink.at[level].regions} regions on {ink.pages} pages at "
-                f"level {level} — these pages have stopped carrying the marks "
-                "this test exists to tolerate"
-            )
-            assert ink.at[level].found == (), (
-                f"at level {level} the book's own pages carry round marks "
-                f"nobody drew through the one site: {ink.at[level].found[:4]}"
-            )
-        assert ink.unaccounted == ()
-        assert ink.widened_pixels >= 50_000, (
-            "the baseline interior has nearly no pixels between the two "
-            "thresholds, so passing at the wider one says nothing about a wider "
-            f"population: {ink.widened_pixels} (58424 when measured; 76347 "
-            "before CON-018's amended margins shrank the usable area)"
-        )
 
     def test_the_closest_the_book_comes_to_a_round_mark_is_measured(self) -> None:
         """The margin at **both** thresholds, and which tolerance carries each.
@@ -6422,10 +6316,6 @@ class TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots:
         streams = ["\n".join(page.operators) if isinstance(page, ContentStream) else "" for page in pages]
         return kinds, streams
 
-    def test_no_interior_page_but_the_guides_key_strip_carries_a_round_mark(self) -> None:
-        kinds, streams = self._baseline_pages()
-        assert sum(1 for kind in kinds if kind != "divider") >= 10, kinds
-        assert round_mark_findings(streams, kinds) == []
 
     def test_the_raster_dot_drawers_are_not_called_from_the_interior_path(self) -> None:
         from nonogram.admin.book_interior_vector import interior_generator

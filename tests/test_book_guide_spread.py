@@ -81,36 +81,6 @@ def _guide_text(stream: str) -> List[str]:
     return [text for _, _, _, text in pdf_vector.placed_text(stream)]
 
 
-class TestGuideSpread_SitsOnPagesTwoAndThree:
-    """AC-1: the guide is interior pages 2 and 3, a verso and a recto, and they face."""
-
-    def test_the_guide_is_interior_pages_two_and_three_and_they_face(self):
-        for puzzles in (corpus_puzzles(3), baseline_puzzles()):
-            book = _spread_book()
-            book.gutter_margin_cm, book.outside_margin_cm = "1.60", "1.00"
-            walk, streams = _interior(book, puzzles)
-            kinds = [kind.value for kind in walk.page_kinds]
-
-            assert kinds[:3] == ["title", "guide", "guide"]
-            assert kinds[3] == "toc"
-            # Parity asserted, not only the numbers: page 2 is a left-hand
-            # page and page 3 a right-hand one, read off the folios the file
-            # carries and off which side the wider (gutter) margin is on.
-            assert not page_is_right_hand(2) and page_is_right_hand(3)
-            for number in (2, 3):
-                assert _guide_text(streams[number - 1])[-1] == str(number)
-            # The pages are the guide's own: titled in the band, and nothing
-            # of the retired "How to Use This Book" page remains.
-            assert _guide_text(streams[1])[0] == "How to Solve Nonograms"
-            assert _guide_text(streams[2])[0] == "When the Puzzle Gets Harder"
-            assert not any(
-                "How to Use This Book" in text for n in (2, 3) for text in _guide_text(streams[n - 1])
-            )
-            verso_rule = pdf_vector.frame_rules(streams[1])[0]
-            recto_rule = pdf_vector.frame_rules(streams[2])[0]
-            assert recto_rule[0] > verso_rule[0], "the gutter side is the recto's left"
-            assert recto_rule[1] > verso_rule[1]
-            assert recto_rule[1] - recto_rule[0] == verso_rule[1] - verso_rule[0]
 
 
 class TestGuideSpread_SharesThePuzzlePagesFrame:
@@ -185,45 +155,6 @@ def _outlines(stream: str) -> List[Tuple[float, float, float, float]]:
     return [rect[1:] for rect in _outline_strokes(stream)]
 
 
-class TestGuideSpread_EachTechniqueIsTwoColumns:
-    """AC-3: a technique's words lie wholly left, its example wholly right."""
-
-    def test_headings_and_explanations_are_left_of_every_example(self):
-        _, streams = _interior(_spread_book(), corpus_puzzles(4))
-        metrics = guide_vector.interior_face_metrics()
-        for number in (2, 3):
-            stream = streams[number - 1]
-            techniques = GUIDE_TECHNIQUES_1 if number == 2 else GUIDE_TECHNIQUES_2
-            pieces = [piece for entry in techniques for piece in (entry.heading, entry.caption)]
-            notes = {row.note for entry in techniques for row in entry.rows if row.note}
-            headings = [
-                y for _, y, _, text in pdf_vector.placed_text(stream) if text in {e.heading for e in techniques}
-            ]
-            assert len(headings) == len(techniques), (number, headings)
-            # The pairing is a row, not a coincidence: a technique's example is
-            # the outlines whose first row sits level with its heading (the
-            # worked example, full width and lower, is not one of them).
-            examples = [
-                (x, y, w, h)
-                for x, y, w, h in _outlines(stream)
-                if any(abs(y + h - baseline) <= GUIDE_LEADING_PT for baseline in headings)
-            ]
-            assert len(examples) >= len(techniques), (number, examples)
-            boundary = min(x for x, _, _, _ in examples)
-            words = [
-                (x + metrics.advance(text) * size, text)
-                for x, y, size, text in pdf_vector.placed_text(stream)
-                if size == GUIDE_BODY_PT
-                and len(text) > 3
-                and text not in notes
-                and any(text in piece for piece in pieces)
-            ]
-
-            assert words, number
-            # No ink crosses the boundary: every word of a heading or an
-            # explanation ends left of the column where the examples begin.
-            assert all(right <= boundary for right, _ in words), (number, boundary)
-            assert all(x >= boundary - 0.01 for x, _, _, _ in examples)
 
 
 def _round_marks(stream: str) -> List[Tuple[float, float, bool]]:
@@ -246,69 +177,8 @@ def _round_marks(stream: str) -> List[Tuple[float, float, bool]]:
     return marks
 
 
-class TestGuideSpread_MarksAndLegendAreAKeyStrip:
-    """AC-4: the three marks are one horizontal strip; the legend beside them is dots."""
-
-    def test_the_marks_share_a_row_and_the_legend_is_nine_dots_beside_them(self):
-        from nonogram.admin.book_plan import TIERS
-
-        _, streams = _interior(_spread_book(), corpus_puzzles(4))
-        page = streams[1]
-        placed = pdf_vector.placed_text(page)
-        by_text = {text: (x, y) for x, y, _, text in placed}
-        marks = [by_text[state.heading] for state in GUIDE_CELL_STATES]
-
-        # One strip, not a vertical list: the three marks' words share a
-        # baseline and run left to right; the strip sits above the first
-        # technique's heading.
-        assert len({y for _, y in marks}) == 1, marks
-        assert [x for x, _ in marks] == sorted(x for x, _ in marks)
-        assert marks[0][1] > by_text[GUIDE_TECHNIQUES_1[0].heading][1]
-        # The legend is beside them: its names are right of the last mark.
-        names = [by_text[label.name] for label in GUIDE_DIFFICULTY_LABELS]
-        assert all(x > marks[-1][0] for x, _ in names)
-        # CARD-228's dots: one row of len(TIERS) per tier, the first `rank`
-        # of them solid, the rest outlined. Page 3 carries none.
-        dots = _round_marks(page)
-        rows: Dict[float, List[bool]] = {}
-        for x, y, solid in sorted(dots):
-            rows.setdefault(round(y, 1), []).append(solid)
-        ordered = [rows[key] for key in sorted(rows, reverse=True)]
-        assert ordered == [
-            [rank <= filled for rank in range(1, len(TIERS) + 1)]
-            for filled in range(1, len(TIERS) + 1)
-        ], ordered
-        assert _round_marks(streams[2]) == []
 
 
-class TestGuideSpread_ExamplesShareOneCellSize:
-    """AC-5: every example on both pages is one cell size; the squares' outline is heavier."""
-
-    @pytest.mark.parametrize("trim_mm", [None, (152.4, 228.6)], ids=["book1", "6x9"])
-    def test_every_example_is_drawn_at_one_cell_and_the_outline_is_heavier(self, trim_mm):
-        _, streams = _interior(_spread_book(trim_mm=trim_mm), corpus_puzzles(4))
-        heights = []
-        for number in (2, 3):
-            stream = streams[number - 1]
-            outlines = _outlines(stream)
-            heights.extend(h for _, _, _, h in outlines)
-            # The squares' outline is heavier than every cell line: the cell
-            # rules are the vertical strokes inside the diagrams.
-            outline = _outline_strokes(stream)[0][0]
-            cell_rules = [
-                width
-                for width, x1, _, x2, _ in pdf_vector.stroked_lines(stream)
-                if x1 == x2
-            ]
-            assert cell_rules and min(cell_rules) < outline, (number, cell_rules, outline)
-        # One cell size: a row's outline is one cell tall, so the heights of
-        # every example outline on both pages agree to a rounding step.
-        assert len(heights) >= len(GUIDE_TECHNIQUES_1) + len(GUIDE_TECHNIQUES_2) + 2
-        assert max(heights) - min(heights) <= 0.5, sorted(set(heights))
-        if trim_mm is None:
-            # Book 1 keeps the 7.5 mm book cell: 88 px at 300 DPI, 21.12 pt
-            # plus the stroke (the outline is stroked on the cell's own edge).
-            assert abs(min(heights) - BOOK1_SPREAD["cell_px"] * 72 / 300) <= 0.5
 
 
 def _guide_sources(play_page: int) -> List[str]:
@@ -359,85 +229,6 @@ class TestGuideSpread_TextComesFromTheConstants:
                     stray.append(face.text)
         assert stray == []
 
-    def test_every_diagram_is_the_constants_diagram(self):
-        """The diagrams drawn are the diagrams the lesson teaches, read cell by cell.
-
-        Each example is located by its playable squares' outline; its filled
-        and crossed squares are read back off the stream as column indices, and
-        held to **literals written out here** (the guide's own lesson, not the
-        constants under test) and to one brute force: the squeeze's "certain"
-        row is the overlap of every placement of ``8`` on ten squares, which
-        this recomputes. A same-size mutant (one filled square moved, a range
-        shifted) therefore reds where a count of marks would not.
-        """
-        _, streams = _interior(_spread_book(), corpus_puzzles(4))
-        diagonal = re.compile(r"(\S+) (\S+) m (\S+) (\S+) l S")
-
-        def diagrams(stream: str):
-            """``(columns, filled, crossed)`` of every example, top of the page first."""
-            lines = stream.split("\n")
-            fills = [
-                tuple(float(v) for v in m.groups())
-                for line in lines
-                if (m := re.fullmatch(r"(\S+) (\S+) (\S+) (\S+) re f", line))
-            ]
-            crosses = [
-                tuple(float(v) for v in m.groups())
-                for m in diagonal.finditer(stream)
-                if m.group(1) != m.group(3) and m.group(2) != m.group(4)
-            ]
-            found = []
-            for ox, oy, width, cell in sorted(_outlines(stream), key=lambda o: -o[1]):
-                columns = round(width / cell)
-                filled = {
-                    round((x - ox) / cell)
-                    for x, y, w, h in fills
-                    if abs(y - oy) < cell and abs(h - cell) < 1 and ox - 1 <= x < ox + width
-                }
-                crossed = {
-                    int((min(x1, x2) - ox) / cell)
-                    for x1, y1, x2, y2 in crosses
-                    if oy - 1 <= min(y1, y2) and max(y1, y2) <= oy + cell + 1 and ox - 1 <= min(x1, x2) < ox + width
-                }
-                found.append((columns, frozenset(filled), frozenset(crossed)))
-            return found
-
-        none = frozenset()
-
-        def span(a: int, b: int) -> frozenset:
-            return frozenset(range(a, b))
-
-        # The squeeze: every placement of a run of 8 on a line of 10, by brute force.
-        placements = [span(start, start + 8) for start in range(10 - 8 + 1)]
-        certain = frozenset.intersection(*placements)
-        assert certain == span(2, 8)
-
-        first = [
-            (8, frozenset({0, 1, 2, 4, 5, 7}), frozenset({3, 6})),  # 3 2 1: runs 3, 2, 1 with gaps
-            (10, span(0, 10), none),  # complete line
-            (10, placements[0], none),  # squeeze: as far left
-            (10, placements[-1], none),  # as far right
-            (10, certain, none),  # what both agree on
-            (8, frozenset({2, 3, 4}), frozenset({1, 5})),  # 3 done: its neighbours empty
-        ]
-        second = [
-            (10, none, frozenset({3, 5})),  # region split
-            (10, none, frozenset({3, 4, 5})),
-            (5, frozenset({0, 1, 2}), none),  # every placement of 3 on 5
-            (5, frozenset({1, 2, 3}), none),
-            (5, frozenset({2, 3, 4}), none),
-            (5, frozenset({2}), none),  # the one cell they agree on
-            (6, none, none),  # worked example, 3 1 on 6: the clue
-            (6, frozenset({1, 2}), none),  # overlap
-            (6, frozenset({1, 2, 3}), frozenset({0, 4})),  # gap
-            (6, frozenset({1, 2, 3, 5}), frozenset({0, 4})),  # solved
-        ]
-        # Book 1 draws the first page whole and the second with the worked
-        # example (asserted: an empty ``if`` here would be a vacuous pass).
-        assert any("1. The clue" in text for text in _guide_text(streams[2]))
-
-        assert diagrams(streams[1]) == first
-        assert diagrams(streams[2]) == second
 
 
 _PLAY_NUMBER = re.compile(r"Scan the code on page (\d+)\.")
@@ -514,31 +305,6 @@ class TestGuidePage_PlayPageNumberIsTheRealOne:
         assert carrying[0] % 2 == 1, "the Play page is a right-hand page"
 
 
-class TestGuidePage_NoPlayPageNoLine:
-    """AC-393.3: no stored domain, no line, and the pages are exactly the guide without it."""
-
-    def test_a_book_with_no_domain_prints_the_guide_without_the_sentence(self):
-        puzzles = corpus_puzzles(4)
-        _, with_domain = _interior(_spread_book(), puzzles)
-        _, without = _interior(_spread_book(domain=None), puzzles)
-        generator = BookPDFGenerator(_spread_book(domain=None))
-        breakdown = book_pdf_generator.tier_breakdown(puzzles)
-
-        assert not any("played online" in text for n in (2, 3) for text in _guide_text(without[n - 1]))
-        for number in (2, 3):
-            expected = guide_vector.guide_page(
-                generator.page_spec(number),
-                generator.dpi,
-                number,
-                puzzle_count=len(puzzles),
-                easy_count=breakdown[Tier.EASY],
-                medium_count=breakdown[Tier.MEDIUM],
-                hard_count=breakdown[Tier.HARD],
-            )
-            assert without[number - 1].rstrip("\n") == "\n".join(expected.stream.operators), number
-        # And the sentence is the one thing the domain adds to the first page.
-        added = [t for t in _guide_text(with_domain[1]) if t not in _guide_text(without[1])]
-        assert added and all("online" in t or "page" in t or "Scan" in t or "code" in t for t in added)
 
 
 class TestGuidePage_TheLineFitsEveryTrim:

@@ -151,7 +151,7 @@ class _Pen:
     def width(self, text: str, size_pt: float) -> float:
         return self.face.advance(text) * self.type_px(size_pt)
 
-    def text(
+    def put(
         self,
         value: str,
         x: float,
@@ -191,7 +191,7 @@ class _Pen:
         lead = self.type_px(size_pt * _LEAD)
         y = top_baseline
         for line in wrap(value, self.type_px(size_pt), width, self.face):
-            self.text(line, x, y, size_pt, grey=grey, bold=bold)
+            self.put(line, x, y, size_pt, grey=grey, bold=bold)
             y += lead
         return y
 
@@ -251,7 +251,7 @@ def _badge(pen: _Pen, cx: float, baseline: float, number: str) -> None:
         draw_difficulty_dots(pen.stream, disc, grey=_INK)
     digit_px = pen.type_px(_SMALL_PT)
     cap = pen.face.cap_height / pen.face.units_per_em * digit_px
-    pen.text(number, cx, cy + cap / 2, _SMALL_PT, grey=1.0, bold=True, align="centre")
+    pen.put(number, cx, cy + cap / 2, _SMALL_PT, grey=1.0, bold=True, align="centre")
 
 
 def _technique(
@@ -269,7 +269,7 @@ def _technique(
     text_left = pen.left + pen.px(26)
     text_right = pen.right - diagram_width - pen.px(24)
     _badge(pen, pen.left + pen.px(9), y, number)
-    pen.text(title, text_left, y, _HEAD_PT, bold=True)
+    pen.put(title, text_left, y, _HEAD_PT, bold=True)
     yb = pen.para(body, text_left, y + pen.px(17), text_right - text_left, _BODY_PT)
     yd = draw(pen.right - diagram_width, y - pen.px(10))
     if extra:
@@ -290,7 +290,7 @@ def _rows_draw(pen: _Pen, lines: _Lines, entry: GuideTechnique) -> Tuple[Callabl
         for row in entry.rows:
             r, b = _diagram(pen, layout, _step(row.filled, row.crossed), x, cur)
             if row.note and len(row.note) < 16:
-                pen.text(row.note, r + pen.px(8), (cur + b) / 2 + pen.px(3.5), _SMALL_PT, grey=_GREY)
+                pen.put(row.note, r + pen.px(8), (cur + b) / 2 + pen.px(3.5), _SMALL_PT, grey=_GREY)
             elif row.note:
                 pen.para(row.note, x, b + pen.px(13), width, _SMALL_PT, grey=_GREY)
                 b += pen.para_height(row.note, width, _SMALL_PT)
@@ -314,7 +314,7 @@ def _pipeline(pen: _Pen) -> Tuple[Callable[[float, float], float], float]:
             pen.stream.stroke_grey(_INK)
             pen.stream.stroke_width(0.8)
             pen.stream.rectangle(bx, y, bx + box_w, y + h, paint="both")
-            pen.text(label, bx + box_w / 2, y + h / 2 + pen.px(3.6), _SMALL_PT, bold=True,
+            pen.put(label, bx + box_w / 2, y + h / 2 + pen.px(3.6), _SMALL_PT, bold=True,
                      kind=PIPELINE_LABEL, align="centre")
             if k < len(labels) - 1:
                 ax0, ax1, ay = bx + box_w + pen.px(1.5), bx + box_w + gap - pen.px(1.5), y + h / 2
@@ -353,7 +353,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     """Interior page 2: the basics. Returns the lowest pixel drawn."""
     px = pen.px
     y = top + px(40)
-    pen.text(GUIDE_TITLE, pen.left, y, _TITLE_PT, bold=True, kind=TITLE)
+    pen.put(GUIDE_TITLE, pen.left, y, _TITLE_PT, bold=True, kind=TITLE)
     y = pen.para(GUIDE_INTRO, pen.left, y + px(24), pen.right - pen.left, _INTRO_PT, grey=_GREY)
     if play_page:
         y = pen.para(guide_play_sentence(play_page), pen.left, y + px(2), pen.right - pen.left, _BODY_PT)
@@ -362,7 +362,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     strip_top = y + px(4)
     strip_h = px(60)
     pen.box(pen.left, strip_top, pen.right, strip_top + strip_h, _SHADE)
-    pen.text(GUIDE_CELL_STATES_HEADING.upper(), pen.left + px(14), strip_top + px(19), _SMALL_PT, grey=_GREY, bold=True)
+    pen.put(GUIDE_CELL_STATES_HEADING.upper(), pen.left + px(14), strip_top + px(19), _SMALL_PT, grey=_GREY, bold=True)
     icon = guide_icon_layout(lines.spec)
     col = (pen.right - pen.left - px(28)) / len(GUIDE_CELL_STATES)
     for k, state in enumerate(GUIDE_CELL_STATES):
@@ -370,15 +370,15 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
         step = _step({0} if state.filled else (), {0} if state.crossed else ())
         r, b = _diagram(pen, icon, step, bx, strip_top + px(27))
         mid = (strip_top + px(27) + b) / 2
-        pen.text(state.heading, r + px(8), mid - px(1), 11.0, bold=True)
-        pen.text(state.caption, r + px(8), mid + px(11), _SMALL_PT, grey=_GREY)
+        pen.put(state.heading, r + px(8), mid - px(1), 11.0, bold=True)
+        pen.put(state.caption, r + px(8), mid + px(11), _SMALL_PT, grey=_GREY)
     y = strip_top + strip_h + px(34)
 
     # The basic rule: text left, the 3 2 1 line right with its caption under it.
     basic = lines.layout(GUIDE_BASIC_RULE_CLUE, GUIDE_BASIC_RULE_LENGTH)
     bl, bt, br, bb = diagram_box(basic)
     cap_w = max(br - bl, pen.width(GUIDE_BASIC_RULE_CAPTION, _SMALL_PT) / 2 + px(10))
-    pen.text(GUIDE_BASIC_RULE_HEADING, pen.left, y, _SECTION_PT, bold=True)
+    pen.put(GUIDE_BASIC_RULE_HEADING, pen.left, y, _SECTION_PT, bold=True)
     text_right = pen.right - cap_w - px(24)
     yb = pen.para(GUIDE_BASIC_RULE_TEXT, pen.left, y + px(20), text_right - pen.left, _BODY_PT)
     _, db = _diagram(pen, basic, _step(GUIDE_BASIC_RULE_FILLED, GUIDE_BASIC_RULE_CROSSED),
@@ -386,7 +386,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     yc = pen.para(GUIDE_BASIC_RULE_CAPTION, pen.right - cap_w, db + px(14), cap_w, _SMALL_PT, grey=_GREY)
     y = max(yb, yc) + px(22)
 
-    pen.text(GUIDE_CERTAINTY_HEADING, pen.left, y, _SECTION_PT, bold=True)
+    pen.put(GUIDE_CERTAINTY_HEADING, pen.left, y, _SECTION_PT, bold=True)
     pen.rule(y + px(8))
     y += px(36)
     for entry in GUIDE_TECHNIQUES_1:
@@ -397,7 +397,7 @@ def _page_two(pen: _Pen, lines: _Lines, top: float, bottom: float, play_page: Op
     callout_h = px(14) + pen.para_height(GUIDE_SWITCHING_TEXT, pen.right - pen.left - px(20), _BODY_PT)
     ct = max(y, bottom - callout_h - px(16))
     pen.box(pen.left, ct - px(12), pen.left + px(3), ct + callout_h, _INK)
-    pen.text(GUIDE_SWITCHING_HEADING, pen.left + px(14), ct + px(2), 11.5, bold=True)
+    pen.put(GUIDE_SWITCHING_HEADING, pen.left + px(14), ct + px(2), 11.5, bold=True)
     end = pen.para(GUIDE_SWITCHING_TEXT, pen.left + px(14), ct + px(19), pen.right - pen.left - px(20), _BODY_PT)
     return max(ct + callout_h, end)
 
@@ -406,7 +406,7 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
     """Interior page 3: the harder techniques, the worked example, difficulty."""
     px = pen.px
     y = top + px(36)
-    pen.text(GUIDE2_TITLE, pen.left, y, _TITLE2_PT, bold=True, kind=TITLE)
+    pen.put(GUIDE2_TITLE, pen.left, y, _TITLE2_PT, bold=True, kind=TITLE)
     y = pen.para(GUIDE2_INTRO, pen.left, y + px(22), pen.right - pen.left, 11.5, grey=_GREY) + px(8)
 
     for entry in GUIDE_TECHNIQUES_2:
@@ -417,7 +417,7 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
                    extra=GUIDE_ASSUME_CLOSING, gap_pt=14.0)
 
     # The worked example, 2 x 2.
-    pen.text(GUIDE_EXAMPLE_HEADING.rstrip("."), pen.left, y, 14.0, bold=True)
+    pen.put(GUIDE_EXAMPLE_HEADING.rstrip("."), pen.left, y, 14.0, bold=True)
     pen.rule(y + px(8))
     y += px(30)
     worked = lines.layout(WORKED_EXAMPLE_CLUE, WORKED_EXAMPLE_LENGTH)
@@ -431,7 +431,7 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
         if ": " in note:
             note = note.partition(": ")[2]
         note = note[0].upper() + note[1:]
-        pen.text(f"{number}  {label}", bx, by, 11.0, bold=True)
+        pen.put(f"{number}  {label}", bx, by, 11.0, bold=True)
         _, db = _diagram(pen, worked, step, bx, by + px(8))
         end = pen.para(note, bx, db + px(14), col - px(24), _SMALL_PT, grey=_GREY)
         if k < 2:
@@ -446,11 +446,11 @@ def _page_three(pen: _Pen, lines: _Lines, top: float, bottom: float) -> float:
     box_h = px(44) + pen.para_height(GUIDE_DIFFICULTY_LINE, inner, _BODY_PT)
     bt = max(y + px(4), bottom - box_h)
     pen.box(pen.left, bt, pen.right, bt + box_h, _SHADE)
-    pen.text(GUIDE_DIFFICULTY_HEADING, pen.left + px(14), bt + px(22), 13.0, bold=True)
+    pen.put(GUIDE_DIFFICULTY_HEADING, pen.left + px(14), bt + px(22), 13.0, bold=True)
     x = pen.left + px(14) + pen.width(GUIDE_DIFFICULTY_HEADING, 13.0) + px(28)
     for name in names:
         end = _dots(pen, x, bt + px(18), _tier_rank(name))
-        x = pen.text(name, end + px(6), bt + px(22), _SMALL_PT, bold=True, kind=LEGEND_NAME) + px(26)
+        x = pen.put(name, end + px(6), bt + px(22), _SMALL_PT, bold=True, kind=LEGEND_NAME) + px(26)
     end = pen.para(GUIDE_DIFFICULTY_LINE, pen.left + px(14), bt + px(42), inner, _BODY_PT)
     return max(bt + box_h, end)
 
