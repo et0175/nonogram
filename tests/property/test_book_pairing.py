@@ -69,7 +69,6 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _folio_reserve_px,
-    _qr_group_line_px,
 )
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
@@ -99,23 +98,14 @@ DPI = 300
 BAND_MM = 12.0
 
 #: The footer strip a two-up page has reserved out of its height since
-#: CARD-248, in device pixels, and the 2 cm QR icon and 9 pt footer gap the
-#: two groups in it are built from — all written out here, as this module
-#: writes every other figure out, rather than imported from
-#: ``nonogram.export.layout``:
-#:
-#: * ``INTERIOR_FOOTER_MM`` 29.878 mm = **353 px** of height, kept free below
-#:   the lower slot's drawing so the page has a footer at all;
-#: * one group is the icon, a gap, its widest line and a gap again, and two
-#:   groups must fit the usable width or the pair is not paired.
-#:
-#: The widest line itself comes from :func:`_qr_group_line_px`, imported for
-#: the same reason :func:`_folio_reserve_px` is: it measures a face, which
-#: this module does not reimplement; FR-040's geometry below is still this
-#: module's own arithmetic.
+#: CARD-248, in device pixels, written out here, as this module writes every
+#: other figure out, rather than imported from ``nonogram.export.layout``:
+#: ``INTERIOR_FOOTER_MM`` 29.878 mm = **353 px** of height, kept free below
+#: the lower slot's drawing so the page has a footer at all. (CARD-248 also
+#: made a pair's footer have to hold two QR groups across its width; that
+#: clause went with the groups in CARD-391, ADR-0041/R8, so a pair now pairs
+#: on the height and width rules of FR-040 alone.)
 FOOTER_STRIP_PX = 353
-QR_SLOT_PX = 236
-FOOTER_GAP_PX = 38
 
 #: CON-018's Book 1 profile in millimetres, stated in inches here rather than
 #: imported, and a 6 x 9 in book beside it — a trim on which far fewer pairs
@@ -192,10 +182,10 @@ class Sheet:
         """The height left once a page reserves a band for each of two puzzles
         **and one footer strip** (CARD-248).
 
-        The strip carries both puzzles' QR groups and the page's own folio, so
-        it is taken out of the height before anything is fitted — 353 px of it,
-        converted to millimetres exactly as the production call converts the
-        reserve it is handed.
+        The strip carries the page's folio (and, since CARD-391, its shared
+        pointer line), so it is taken out of the height before anything is
+        fitted — 353 px of it, converted to millimetres exactly as the
+        production call converts the reserve it is handed.
         """
         return (
             self.height_mm
@@ -268,24 +258,6 @@ class Sheet:
             cell = self.cell_mm(puzzle.across, puzzle.down)
             sizes[key] = cell if key not in sizes else min(sizes[key], cell)
         return sizes
-
-    def footer_carries_two_groups(self) -> bool:
-        """Whether this sheet's footer strip is wide enough for two QR groups.
-
-        The walk's second gate since CARD-248: a page that could not carry
-        both puzzles' links is not a two-up page at all, so the pair prints on
-        two single pages instead (AC-6). ``2 x (icon + gap + line + gap)``
-        less the last group's trailing gap, against the usable width — and the
-        line is the widest the face can ever set for any puzzle number, never
-        this page's own, so the gate is a property of the trim and the face
-        (INV-010).
-
-        Measured: Book 1's 190.5 mm usable width carries two; a 6 x 9 in
-        book's 127.0 mm carries one, so **no pair on a 6 x 9 trim is a two-up
-        page any more**.
-        """
-        pitch = QR_SLOT_PX + 2 * FOOTER_GAP_PX + _qr_group_line_px(DPI)
-        return 2 * pitch - FOOTER_GAP_PX <= self.usable_width_mm * DPI / 25.4
 
     def shared_cell_mm(
         self,
@@ -741,11 +713,7 @@ def _expected_pages(
     while index < len(order):
         first = order[index]
         second = order[index + 1] if index + 1 < len(order) else None
-        if (
-            second is not None
-            and first.tier_of_record is not None
-            and sheet.footer_carries_two_groups()
-        ):
+        if second is not None and first.tier_of_record is not None:
             if first.tier_of_record == second.tier_of_record:
                 cell = sheet.shared_cell_mm(
                     first,
@@ -771,7 +739,6 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     rng = random.Random(20260923127)
     books = pages = paired = single = 0
     refused_on_tier = refused_on_fit = ungraded = odd_tail = near_threshold = 0
-    refused_on_footer = 0
     at_cap = below_cap = 0
     # CARD-225 (review cycle 1, F-003): the two ways the grid size's own book
     # cell — a figure a *third* puzzle in the book can decide — changes this
@@ -850,10 +817,6 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
                     ungraded += 1
                 elif members[0].tier_of_record != follower.tier_of_record:
                     refused_on_tier += 1
-                elif not sheet.footer_carries_two_groups():
-                    # CARD-248: this trim's footer strip holds one group, not
-                    # two, so no pair on it can carry both links.
-                    refused_on_footer += 1
                 else:
                     # CARD-225: the cell this offer was really measured at is
                     # capped by the two grid sizes' own book cells, so a pair
@@ -937,9 +900,6 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     assert single >= 2500, single
     assert refused_on_tier >= 1000, refused_on_tier
     assert refused_on_fit >= 350, refused_on_fit
-    # CARD-248's own refusal reason: this trim's footer carries one group, not
-    # two. Asserted so the 6 x 9 sheet is really exercising it.
-    assert refused_on_footer >= 500, refused_on_footer
     assert ungraded >= 400, ungraded
     assert odd_tail >= 600, odd_tail
     # Both regimes of the shared cell: held at the standard cell, and fitted below it.

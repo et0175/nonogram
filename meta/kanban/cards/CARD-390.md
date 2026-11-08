@@ -1,6 +1,6 @@
 # CARD-390: A "Play online" page after the last puzzle — a right-hand page whose QR opens the book's landing page, with the short address under it
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -19,11 +19,11 @@
 **Depends on:** CARD-388, CARD-389, CARD-311
 <!-- CARD-311 is in progress and edits the same hotspots (book_pdf_generator.py, book_page_spec.py, app.py, templates/book_finalize.html, requirements.yml, ADR-0042): this card must start after it merges, or the two collide in the page plan and in the divider's folio decision. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_play_vector.py, src/nonogram/admin/book_sheet_vector.py, src/nonogram/export/layout.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_play_online_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** —
+**Review score:** 8.6 (cycle 1/3 - CERTIFIED; fix round b7bf51ef not re-reviewed)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T06:41Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 5028c17e1cba4018c0341bdb47a96033c5b19cec
 **Blocked by:** —
 
 ## Why this card exists
@@ -79,4 +79,37 @@ Read the code, not this list, for names; these are the anchors the architect rea
 
 ## Worktree notes
 
-(none yet)
+### Author round 1 (branch card/390-play-online-page)
+
+Figures labelled **mine** were produced by a command in this worktree.
+
+**Design.** `PageKind.PLAY` and `PageKind.BLANK` (the recto-forcing page: the title page's empty stream), both vector by `page_medium`'s default, so ADR-0042/R2's registry is unchanged. One rule, `recto_blank_pages(pages_before)` (a blank iff the last page laid is right-hand), used by `interior_page_count` (new `play_online` parameter, so the baseline and the KDP sheet-free count apply the rule to their OWN plan) and by `section_plan` (`SectionPlan.play_page`, `play_blank_page`, `play_page_count`); CARD-231 can reuse the rule. The generator reads the stored domain once (`self.player_domain`); the landing address is made downstream (`book_interior_vector.play_page_stream` -> `player_bundle.landing_address`) because `player_bundle` imports the generator; the page is reached through the new `InteriorPageWriters.play`. Placement is `export/layout.py` `play_page_layout` (+`PLAY_QR_MM` 40 mm, `PLAY_BLOCK_GAP_MM`); the writer `book_play_vector` adds only the centring offset of a string (its advance) and line steps. **Code side: 40 mm with its quiet zone** (0.98 mm a module for the 40-byte address, version 4). A sheet too short drops the instruction, then the heading, before the code (`qr_min_side_px` in `book_vector_draw`, so the layout refuses a side under the module floor); the shortest storable trim (10 x 10 cm) prints code plus address only, the address touching the footer rule. The address is tried at 12/11/10 pt and broken before `/b/` if 10 pt overruns. Wording is a draft: heading "Play online"; "Scan the code with your phone to play any puzzle in this book, then tap the puzzle's number."
+
+**Gate (item 3).** No stored domain, or no puzzle: no page and no blank; every pre-existing test is unchanged and green.
+
+**Counters (item 4), mine.** Books needing the blank (four singles: Play 13, blank 12; a pair and a single: blank 8, Play 9) and not (five singles; baseline; a pair): plan, kinds, exported pages and `unpaired_interior_page_count` agree (one test, literals worked by hand). KDP: the 150-page AC-288 book is 152 pages with a domain (blank 68, Play 69) and is refused at the 151-300 band at a 0.375 in gutter. `unpaired_page_count` baselines include the block, so `pages_saved` can read one less than the pairing saving when pairing changes the blank (never negative).
+
+**Test budget, mine.** Net collected node ids **+6** (counted by reading the definitions; no parametrised node added): five in `tests/test_book_play_online_page.py` (plan+counts, no-domain, TOC+folios, QR decode, every trim) and one in `tests/test_book_finalise_gutter.py`; 0 added elsewhere (the golden gained a `play` digest inside the existing nodes, the type-floor and registry cells gained entries). The Finalise line and AC-411/412 share that one node. AC-7 (medium) is already asserted for every non-cover non-divider kind by `test_book_pdf.py`'s registry cell, which now covers PLAY and BLANK; AC-10 is review-lens (the diff).
+
+**Frozen censuses restated deliberately.** `test_book_export_interior_cover.py`: callee table 879/595/220/217 -> 887/602/222/219 (+10 `ast.Call`, 957 -> 967, attributed one by one in the test); geometry doors 24 -> 25; counting expressions 9 -> 10; position sites 25 -> 35 (+10, listed), exemptions 5 -> 7. `test_check_ref_resolution.py`: CENSUS 575 -> 580, TRACE_TESTS 507 -> 512, DEFINED 411 -> 416 (the five FR-047 class refs, each against its class line). `test_book_pdf.py`: the writer-set cells know the fifth writer (`play`) and use a domain-bearing book so it is reached. `RENDER_HEAVY_SNAPSHOT` gained the new module (re-derived by `regrep_render_set`). Type-floor partition: `play` lettering, `blank` non-lettering. Golden re-recorded through the deliberate entry point: exactly one line added (`play`), no other digest moved.
+
+**Docs.** FR-047 with AC-406..AC-412 in `requirements.yml`, a `trace.yml` row and CAP-006 membership; ADR-0042 History entry. Validator (`forge_1`, mine): main 0 errors / 89 warnings; branch 0 errors / 89 warnings with the new tests tracked, warning sets identical.
+
+**Not done.** The pointers on puzzle pages (CARD-391), the guide's line (CARD-393), removal of the per-puzzle QR groups; no render of the guide/answer pages changed.
+
+### Author round 2 (review cycle 1: 8.6 CERTIFIED, small fix round)
+
+Main merged in first (CARD-395/396), no conflict. **F-1** Finalise's Play sentence now follows the PLAN, not the domain alone (`_play_online_state` in `app.py`): no domain, "No valid player domain set", the page at N, "No printable puzzle: this book prints no Play online page", or, when the plan could not be laid out, "Prints a Play online page after the last puzzle; its page number is known once the print setup can be laid out". **F-2** one read: `print_specs.printable_player_domain` (the stored value only if the domain validator accepts it) is what the generator reads once and what the sheet-free KDP baseline reads, so an invalid hand-edited value plans, counts and exports as NO domain (no page, no blank). **F-3** the KDP refusal at a count that includes the block says so ("That count includes the Play online page and a blank page before it, which this book prints because it has a player domain"), via `InteriorStream.play_block_pages` / `InteriorCounts.play_block_pages`; the existing refusal cell asserts it (and its absence for a no-domain book at 151). F-4 skipped by the orchestrator's ruling. No new node id: net stays **+6**.
+
+**Owner-visible choices for the render review:** heading "Play online"; the instruction line is a DRAFT ("Scan the code with your phone to play any puzzle in this book, then tap the puzzle's number."); the code is 40 mm square with its quiet zone (a shorter sheet shrinks it, and gives up the instruction, then the heading, before the code); the typed address sits under the code in 12 pt (down to 10 pt, broken before `/b/` only if that overruns); the block is centred in the page's frame with the spare room split 42/58 (above/below), so there is a lot of white space below the address; a book on the shortest storable trim (10 x 10 cm) prints code plus address only.
+
+[Review 1/3] Score: 8.6 (threshold 8.0 reached; 0 blockers; PASS; certified). Reviewer-reported, not re-run by the merge gate. The fix round (b7bf51ef: the Finalise sentence follows the PLAN via `_play_online_state`; `printable_player_domain` in print_specs.py makes an invalid stored domain behave exactly like no domain; the KDP refusal text names the Play page and the blank; 7 files, no new test) was NOT re-reviewed.
+
+[Closing note, merge gate, merged `5028c17e1cba4018c0341bdb47a96033c5b19cec` (tip `b7bf51ef`; main was already the merge-base, so `git merge main` was a no-op; staged --no-ff merge into main, staged set equal to the branch diff, 23 files)]
+What the merge delivers: PageKind.PLAY and PageKind.BLANK (vector), `recto_blank_pages(pages_before)`, SectionPlan.play_page / play_blank_page, the `play_online` term in interior_page_count, `src/nonogram/admin/book_play_vector.py`, `play_page_layout` in export/layout.py, a Finalise line, FR-047 with AC-406..412, a trace row, capabilities.yml, an ADR-0042 History entry, a `play` digest in the vector golden (re-recorded through the deliberate entry point) and the frozen-census restatements. A right-hand page after the last puzzle: the QR opens the book's landing page, the short address is printed under it.
+KDP consequence (for the owner): a book that would have been 148-150 interior pages becomes 150-152 with a domain; crossing 150 -> 151+ moves the gutter requirement from 0.375 in to 0.5 in.
+What it does NOT do: no footer pointers (CARD-391), no guide sentence (CARD-229); the per-puzzle QR groups are still printed until CARD-391. Nothing is deployed or printed. The PLAYER BUNDLE must be deployed before a book with a Play page goes to print.
+OWNER'S pending render rulings (not decided here): the heading "Play online"; the DRAFT instruction wording; the 40 mm code size; the white space below the address. Renders: ~/Documents/nonogram-reviews/CARD-390/.
+Carried, no new cards: reviewer F-4 (the AC-410 tests do not catch a smaller code or a 3-module quiet zone; only the golden digest does); the ISO test reader misses 4 of 24 decodes on 11x14 cm at 100 dpi only (its crude sampler; CoreImage decoded all); the `no_puzzle` and `unplanned` Finalise sentences have no test; the author ran one pytest in the main checkout during an earlier gate window (touched nothing); `pages_saved` can read one less than the pure pairing saving when pairing changes whether a blank is needed (never negative).
+Gate block (`scripts/impact_set.py --gate --against main`, rc 0): `answer: SELECTION`, tests 11560 of 11705, marker wave_close_only 13 marked tests in 6 files, 11 run at this gate (5 lifted files), 2 owed at the wave close. Owner policy for src changes is the full armed suite, so the gate ran the whole `tests/` tree with `-m "not wave_close_only"` (run 1) and then the block's run 2 verbatim (`-m wave_close_only` on the 5 lifted files). Fast sanity first: 1565 passed in 15 files. Run 1: 11690 passed, 1 skipped (tests/test_book_pdf_memory.py:1688, setrlimit(RLIMIT_AS) refused on this platform), 1 xfailed, 13 deselected, 49m46s, rc 0. Run 2: 11 passed, 7m39s, rc 0. Collected total 11705 (= 11690 + 1 + 1 + 13). `git write-tree` before and after the run both 596a0c68. Net added node ids vs main: +6 (author-derived).
+Size datum: 23 files changed, +1128/-36 (git diff --shortstat 79c5052d b7bf51ef, branch vs merge-base). Estimate 4c -> 1 review cycle = ratio 0.25 (no wall-clock Actual).

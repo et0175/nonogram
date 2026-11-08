@@ -557,11 +557,20 @@ setting.
 
 ## The shared-UI preview mode (CARD-386)
 
-The assembly helper's `--shared-ui` mode, given a local Bootstrap stylesheet with
-`--bootstrap`, assembles a **preview** tree in which `/play/<key>` runs the admin's own `solver.js`,
-`admin.css`, `solver_state.js` and `tokens.css` (byte-identical copies) with no override
-stylesheet. It is opt-in, it is for the owner to test locally with
-`scripts/preview_player_site.py`, and it is **not a deploy**: the tree needs a Bootstrap
-stylesheet that is deliberately not in the repository, and that file trips the AC-392
-scan (see the card's notes). Without the flag the output is exactly what this page
-describes above.
+The assembly helper's `--shared-ui` mode assembles a **preview** tree in which `/play/<key>`
+runs the admin's own `solver.js`, `admin.css`, `solver_state.js` and `tokens.css`
+(byte-identical copies) with no override stylesheet. It is opt-in, it is for the owner to
+test locally with `scripts/preview_player_site.py`, and it is **not a deploy**. Without the
+flag the output is exactly what this page describes above.
+
+The preview needs **no Bootstrap file** (CARD-394). `admin.css` was written for a page that
+also loads Bootstrap 5.3; the tree links the project's own `player/shared-ui-base.css`
+instead (published as `/base.css`), a small hand-written file with the base rules and the
+few classes the page uses, whose computed styles and layout rectangles are held to the real
+Bootstrap's by `tests/test_player_base_css.py`. The tree passes the served-tree scan with
+one known residue, `solver.js`'s relative `./solver_state.js` import. To compare by eye
+against the real thing, build with `--shared-ui --bootstrap <a local copy of Bootstrap
+5.3's CSS>`: that file is used instead of the project's and is never committed (it fails
+the scan: three foreign references and two unclassifiable fragments). To re-run the
+fidelity comparison live, set `NONOGRAM_REAL_BOOTSTRAP` to that file when running the module;
+without it the module compares against the values recorded from it.

@@ -154,6 +154,10 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # Dodging the grep would have left the single most expensive render in
     # this phase outside the set that exists to see it, which is CARD-223's
     # silent divergence in the other direction.
+    # CARD-391: the pointer's own tests. Added rather than dodged (see the
+    # CARD-223 restatement above); the file is absent from every recorded
+    # artefact, so no measured second or share moves.
+    "tests/test_book_footer_pointer.py",
     "tests/test_book_grid_rules.py",
     "tests/test_book_guide_page.py",
     "tests/test_book_guide_page_type.py",
@@ -176,6 +180,15 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_pdf_memory.py",
     "tests/test_book_pdf_packed_degrade.py",
     "tests/test_book_pdf_two_up.py",
+    # ADDED 2026-11-08 (CARD-390). tests/test_book_play_online_page.py walks the
+    # real interior (``interior_stream`` for the page plan and kinds,
+    # ``export_interior`` for the written file) to show where the Play online
+    # page lands and that its code decodes, so it mentions the pattern
+    # honestly; a mention and not a cost ranking. It is a NEW module, absent
+    # from the committed duration artefacts, so no recorded figure moves.
+    # Re-derived by running ``regrep_render_set`` over the tree, not copied
+    # from the failure.
+    "tests/test_book_play_online_page.py",
     "tests/test_book_proof_pages.py",
     # RESTATED DELIBERATELY 2026-10-26 (CARD-295), which is what this freeze
     # exists to force: 32 paths, with the vector puzzle page's own test file

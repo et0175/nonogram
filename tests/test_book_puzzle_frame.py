@@ -119,7 +119,7 @@ from nonogram.export.layout import (
     PageSpec,
     compute_layout,
     compute_pair_layout,
-    qr_slot,
+    interior_frame,
 )
 # The one private this module reads: the boundary
 # ``test_a_gap_of_exactly_one_clearance_floats`` pins is not reachable through
@@ -350,6 +350,17 @@ def _expected_box(
         (left + drawing_columns * cell) * PX_PER_MM,
         (top + drawing_rows * cell) * PX_PER_MM,
     )
+
+
+def _footer_group_omitted(layout, spec) -> bool:
+    """Whether the page's footer group is omitted: the drawing reaches past the rule.
+
+    The condition ``_draw_page_frame`` applies (``content_bottom`` against the
+    footer rule's own row), read off ``interior_frame``. Until CARD-391 these
+    tests proxied it through the QR icon's room check, which answered the same
+    question on the same figure.
+    """
+    return layout.page.drawing_bottom > interior_frame(spec).footer_rule.y
 
 
 def _puzzle_area_mm(spec: PageSpec) -> tuple[float, float]:
@@ -684,14 +695,6 @@ class TestPuzzleFrame_UsesTheHeavyRuleOnly:
         layout = compute_layout(*_clue_sets(**self.CASE), spec)
         frame = layout.frame
         dark = _dark(page)
-        # CARD-204: mask out the placeholder QR icon before probing — on
-        # this extent it falls back to the slack below the drawing, on the
-        # gutter side, which this test's own probe column (just inside the
-        # frame's left side) can sit directly above.
-        icon = qr_slot(layout)
-        if icon is not None:
-            dark[icon.top - 2 : icon.bottom + 2, icon.left - 2 : icon.right + 2] = False
-
         # A row inside the column-clue band, clear of the frame's own top side:
         # the ink groups there are the frame's left side, the grid's verticals
         # and the frame's right side.
@@ -2540,7 +2543,7 @@ class TestBookPuzzleFrame_GridClearsBothRules:
                             # rule" true: there is no footer rule on it.
                             assert placement.vertical_bound == "footer"
                             assert ink_bottom > area_bottom
-                            assert qr_slot(layout) is None, (
+                            assert _footer_group_omitted(layout, spec), (
                                 "the footer group's own all-or-nothing "
                                 "condition must refuse this page"
                             )
@@ -2636,7 +2639,7 @@ class TestBookPuzzleFrame_GridClearsBothRules:
                 # The degraded regime: held at the band's foot, and the
                 # renderer prints no footer group for the ink to cross.
                 assert placement.drawing_top == placement.band_bottom, where
-                assert qr_slot(layout) is None, where
+                assert _footer_group_omitted(layout, spec), where
                 continue
             assert gap_above >= clearance, (
                 "the gap ABOVE the drawing must pay a whole clearance; "
@@ -2867,7 +2870,7 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         page for the drawing to touch."""
         layout = compute_layout(*_clue_sets(**self.TALLEST), self.SHORT)
 
-        assert qr_slot(layout) is None
+        assert _footer_group_omitted(layout, self.SHORT)
         assert layout.page.drawing_bottom / PX_PER_MM > _puzzle_area_mm(self.SHORT)[1]
 
     #: Book 1's own trim and a 23x27 behind 11-deep gutters: the **third**
@@ -2939,7 +2942,7 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         # The invariant, which holds at every band depth: the drawing's bottom
         # edge is past the footer rule, so the renderer omits the whole group.
         assert placement.drawing_bottom > area_bottom, (lift, threshold, spare)
-        assert qr_slot(layout) is None
+        assert _footer_group_omitted(layout, spec)
 
     def test_the_control_a_trim_that_can_hold_it_floats_instead(self) -> None:
         """The control that can fail (ADR-0039/R1): the same 45-cell drawing on
@@ -2951,7 +2954,7 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
 
         assert placement.vertical_bound == "ratio"
         assert placement.drawing_top > placement.band_bottom
-        assert qr_slot(layout) is not None
+        assert not _footer_group_omitted(layout, _spec())
 
     #: The shallow-band sheet and the drawing that lands in the window the
     #: band's lift no longer covers (review cycle 2, F2-001). A 23x9 behind
@@ -3025,7 +3028,7 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
             placement.band_bottom,
         )
         assert placement.drawing_bottom > area_bottom
-        assert qr_slot(layout) is None, (
+        assert _footer_group_omitted(layout, spec), (
             "the footer group's own all-or-nothing condition must refuse "
             "this page"
         )
@@ -3055,7 +3058,7 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         assert (
             placement.drawing_bottom - placement.drawing_top > area_bottom - area_top
         ), "the control must be case (i): deeper than the area, not case (iii)"
-        assert qr_slot(layout) is None
+        assert _footer_group_omitted(layout, spec)
 
     def test_a_gap_of_exactly_one_clearance_floats(self) -> None:
         """Which side of the strict comparison the boundary falls on (review

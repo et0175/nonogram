@@ -191,9 +191,7 @@ def _operators_calls(
     """
     runs = _page_furniture_runs(stream)
     def is_wanted(text: str) -> bool:
-        return text.isdigit() or bool(_SIZE_LABEL.fullmatch(text)) or text.startswith(
-            "nonogram.example/"
-        )
+        return text.isdigit() or bool(_SIZE_LABEL.fullmatch(text))
 
     frame = interior_frame(generator.page_spec(number))
     scale = stream.dpi / 72.0
@@ -243,17 +241,7 @@ def _operators_calls(
         text = runs[index][0]
         left, right = box_of(index)
         anchor = None
-        if text.startswith("nonogram.example/"):
-            # The QR group's two lines run inward from an icon and share one
-            # edge: the caption above the link and the link are left-aligned
-            # (``"lb"``) when their left ends meet and right-aligned (``"rb"``)
-            # when their right ends do. A two-up page has two groups, so the
-            # page's halves say nothing; the caption beside the link does.
-            cap_left, cap_right = box_of(index - 1)
-            same_left = abs(left - cap_left) <= OPERATORS_ANCHOR_BOUND_PX
-            same_right = abs(right - cap_right) <= OPERATORS_ANCHOR_BOUND_PX
-            anchor = "lb" if same_left and not same_right else "rb" if same_right and not same_left else None
-        elif abs((left + right) / 2.0 - frame.folio_x) <= OPERATORS_ANCHOR_BOUND_PX:
+        if abs((left + right) / 2.0 - frame.folio_x) <= OPERATORS_ANCHOR_BOUND_PX:
             anchor = "mb"
         elif abs(left - frame.header_rule.left) <= OPERATORS_ANCHOR_BOUND_PX:
             anchor = "lb"
@@ -349,35 +337,6 @@ def _size_labels_by_page(calls: List[_TextCall]) -> dict:
         for call in calls
         if call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text)
     }
-
-
-def _qr_links_by_page(calls: List[_TextCall]) -> dict:
-    """``{page: the footer QR group's typed-link call}`` (CARD-248).
-
-    The **third** mark whose side carries a page's parity, and the only one a
-    two-up page has: the QR group's two lines run *inward* from an icon flush
-    with the page's **outer** margin, so the link is set right-aligned
-    (``"rb"``) on a right-hand page and left-aligned (``"lb"``) on a left-hand
-    one — the opposite hand to the grid-size label, which is set against the
-    inner margin.
-
-    A two-up page draws two of these (one group per puzzle, CARD-248). Both
-    run inward from their own icon in the same direction, so either carries
-    the parity; that they **agree** is asserted here rather than assumed,
-    since two groups anchored opposite ways would be a page with one group
-    running toward the spine.
-    """
-    found: dict = {}
-    for call in calls:
-        if not call.text.startswith("nonogram.example/"):
-            continue
-        previous = found.get(call.page)
-        assert previous is None or previous.anchor == call.anchor, (
-            f"page {call.page}'s two QR groups are anchored "
-            f"{previous.anchor!r} and {call.anchor!r}"
-        )
-        found[call.page] = call
-    return found
 
 
 # --------------------------------------------------------------------------
@@ -614,8 +573,17 @@ class TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic:
 # --------------------------------------------------------------------------
 
 
+def _two_up_pages(generator: BookPDFGenerator, puzzles: List[dict]) -> set:
+    """The interior page numbers of the book's two-up pages, from its plan."""
+    return {
+        entry.page_number
+        for entry in generator.section_plan(list(puzzles)).pages
+        if getattr(entry, "pair", None) is not None
+    }
+
+
 def _check_every_folios_side(
-    folios: dict, by_page: dict, labels: dict, links: dict
+    folios: dict, by_page: dict, labels: dict, two_up_pages: set
 ) -> int:
     """Assert every folio's page says which hand it is on, and count them.
 
@@ -630,14 +598,16 @@ def _check_every_folios_side(
     what AC-9 is about; what no longer carries it is the folio's own x, and
     that is stated here rather than quietly dropped.
 
-    **A third form, since CARD-248.** A two-up page now carries the footer
-    group too — and so a centred folio — but it still prints *no* grid-size
-    label, because its two slots carry two grid sizes (CARD-226 gives each
-    slot its own). Its parity evidence is the QR group's own typed link, which
-    runs **inward** from an icon flush with the **outer** margin and so is
-    anchored the opposite hand to the label. A page with a centred folio must
-    carry one or the other; a page with neither is still a failure, which is
-    what keeps this from becoming "any mark will do".
+    **A third form, since CARD-248, changed by CARD-391.** A two-up page
+    carries the footer group too — and so a centred folio — but it prints *no*
+    grid-size label, because its two slots carry two grid sizes. Its parity
+    evidence was the QR group's typed link, which ran inward from the outer
+    margin; the link is gone, and the pointer that replaced it exists only in
+    a book with a player domain, so a two-up page of this book has **no mark
+    whose side says its hand**, and says so: it is allowed to stand without
+    one only because it is in ``two_up_pages``. A page with a centred folio,
+    no label and no such excuse is still a failure, which is what keeps this
+    from becoming "any mark will do".
     """
     checked = 0
     for page in folios:
@@ -659,15 +629,9 @@ def _check_every_folios_side(
                     f"grid size is set {label.anchor!r}, not against the inner margin"
                 )
             else:
-                link = links.get(page)
-                assert link is not None, (
-                    f"page {page} drew a centred folio, no grid-size label and no "
-                    "QR link, so nothing on it says which hand it is on"
-                )
-                expected = "rb" if right_hand else "lb"
-                assert link.anchor == expected, (
-                    f"page {page} is {'right' if right_hand else 'left'}-hand but its "
-                    f"QR link is set {link.anchor!r}, not inward from the outer margin"
+                assert page in two_up_pages, (
+                    f"page {page} drew a centred folio and no grid-size label but "
+                    "is not a two-up page, so nothing on it says which hand it is on"
                 )
         checked += 1
     return checked
@@ -684,8 +648,9 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         labels = _size_labels_by_page(calls)
 
         assert page_is_right_hand(1), "interior page 1 (the guide) is right-hand (FR-043)"
-        links = _qr_links_by_page(calls)
-        checked = _check_every_folios_side(folios, by_page, labels, links)
+        two_up = _two_up_pages(generator, baseline_puzzles())
+        assert two_up, "the baseline book prints a two-up page"
+        checked = _check_every_folios_side(folios, by_page, labels, two_up)
         assert checked == len(folios) >= drawn - 1, "almost every page carried a checkable folio"
 
     def test_parity_holds_on_a_larger_book_across_the_toc_insertion(
@@ -738,7 +703,7 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             "or parity has nowhere to go wrong"
         )
         assert _check_every_folios_side(
-            folios, by_page, labels, _qr_links_by_page(calls)
+            folios, by_page, labels, _two_up_pages(generator, puzzles)
         ) == len(folios)
         # Both hands really are exercised on this book, so neither branch of
         # the check above is reached vacuously.
@@ -1310,7 +1275,7 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
 
     def test_the_two_mediums_name_the_same_marks_and_the_same_sides(self, monkeypatch) -> None:
         """The matched control, in ONE run: the baseline book walked as bitmaps
-        and again as operators, and every folio, grid-size label and QR link
+        and again as operators, and every folio and grid-size label
         comes back with the same page, text and anchor. (Measured across the
         baseline, 60-puzzle and minimum-trim books: 267 marks, 0 differences.)"""
         puzzles = baseline_puzzles()
@@ -1320,10 +1285,7 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
                 (call.page, call.text, call.anchor)
                 for call in calls
                 if _is_folio(call)
-                or (
-                    call.anchor in _CORNER_ANCHORS
-                    and (_SIZE_LABEL.fullmatch(call.text) or call.text.startswith("nonogram.example/"))
-                )
+                or (call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text))
             )
 
         _declare_all(monkeypatch, raster=True)
@@ -1381,38 +1343,3 @@ class TestBookPageNumbers_TheOperatorsReadingCanFail:
         # The same digit on the folio line, outside both: a folio.
         control = _operators_calls(self._page(("8", centred, frame.baseline)), 7, generator)
         assert _folios(control) == {7: "8"}
-
-    def test_a_qr_link_is_read_by_the_edge_it_shares_with_its_caption(self) -> None:
-        generator = BookPDFGenerator(corpus_book())
-        y = 2900
-        caption_width = self._width_of("Solve it online")
-        link_width = self._width_of("nonogram.example/p/001")
-        left = 300
-        right = 1200
-        aligned_left = _operators_calls(
-            self._page(
-                ("Solve it online", left, y),
-                ("nonogram.example/p/001", left, y + 40),
-            ),
-            7,
-            generator,
-        )
-        aligned_right = _operators_calls(
-            self._page(
-                ("Solve it online", right - caption_width, y),
-                ("nonogram.example/p/001", right - link_width, y + 40),
-            ),
-            7,
-            generator,
-        )
-        ragged = _operators_calls(
-            self._page(
-                ("Solve it online", left, y),
-                ("nonogram.example/p/001", left + 50, y + 40),
-            ),
-            7,
-            generator,
-        )
-        assert _qr_links_by_page(aligned_left)[7].anchor == "lb"
-        assert _qr_links_by_page(aligned_right)[7].anchor == "rb"
-        assert _qr_links_by_page(ragged)[7].anchor is None

@@ -407,7 +407,7 @@ def below_floor(calls: List[TextCall]) -> List[str]:
 #: to derive "letters something" from: whether a kind letters is a fact about
 #: what its writer draws, and the writers are exactly what this file is the
 #: independent statement of.
-LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer"})
+LETTERING_KINDS = frozenset({"guide", "toc", "divider", "puzzle", "answer", "play"})
 
 #: The interior's remaining page kinds, each with the reason it letters
 #: nothing — the complement of :data:`LETTERING_KINDS`, written out so the
@@ -421,6 +421,10 @@ NON_LETTERING_KINDS = {
         "blank by AC-283 (CARD-206): the interior's first page carries no ink "
         "of any kind, so a lettered title page is a defect a different test "
         "catches"
+    ),
+    "blank": (
+        "the page that puts the Play online page on a right-hand page "
+        "(CARD-390): the title page's own empty stream, no ink and no folio"
     ),
 }
 
@@ -1108,9 +1112,10 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
           ``::test_the_footer_lines_sit_where_the_raster_page_sets_them`` is
           **corroboration only** (a descender / ink-row computation over the
           furniture record, ``offset == 9``; green under the plant), and so is
-          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_two_links_and_no_size_label``
+          ``TestSheetFurniture_TheTwoUpPageCarriesItToo::test_the_pair_carries_one_folio_one_shared_pointer_and_no_size_label``
           — the label is *absent* on a two-up page by design, so that test
-          reds for the QR links' lettering and not for the label's;
+          reds for the pointer's lettering (the QR links' until CARD-391) and
+          not for the label's;
         * ``answer caption`` — **converted medium (vector stream):**
           ``tests/test_book_solved_answer_key.py``'s
           ``TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt::test_the_caption_is_right_aligned_on_the_slot_comp_007_reports``
@@ -2555,7 +2560,7 @@ class TestInteriorType_TheClueDigitMarkIsTheWritersOwn:
             token
             for token in pdf_vector.operator_tokens(written)
             if token in painting
-        } == {"Tj", "S", "re", "f"}, sorted(
+        } == {"Tj", "S", "re"}, sorted(
             set(pdf_vector.operator_tokens(written))
         )
         # **One pair for the whole clue set, not one per digit** — 2

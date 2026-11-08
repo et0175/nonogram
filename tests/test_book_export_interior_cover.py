@@ -1927,7 +1927,12 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # `[PageKind.GUIDE] * GUIDE_PAGE_COUNT` it reds the inner assertion
         # below instead of this count — measured, which is how the range
         # spelling was chosen.
-        assert len(sites) == 9, [text for _, _, text in sites]
+        # CARD-390 made it ten: ``section_plan`` counts the pages laid down
+        # before the Play online page (``pages_before``) to decide whether a
+        # blank must precede it. ``interior_page_count``'s own ``before_play``
+        # REPLACES the term the formula already held, so it is not a second
+        # site; the tenth is the plan's.
+        assert len(sites) == 10, [text for _, _, text in sites]
         for line, node, text in sites:
             names = {
                 inner.id for inner in ast.walk(node) if isinstance(inner, ast.Name)
@@ -3430,7 +3435,7 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     #: the laundering ``test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence``
     #: is about.
     DERIVED_POSITION = """        first_answer_page = (
-            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + (1 if self.divider_pages else 0)
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + decided.play_page_count + (1 if self.divider_pages else 0)
         )"""
 
     #: **A regression net over the shapes measured so far, never a
@@ -3679,10 +3684,14 @@ class Generator:
     #: happened — a name in that walk now carries the TOC's page number — and
     #: it is one claim rather than two moved counts.
     POSITION_NAMES = (
+        "before_play",
         "first_answer_page",
         "first_page",
         "guide_page_number",
         "page_number",
+        "pages_before",
+        "play_blank_page",
+        "play_page",
         "puzzle_page",
         "title_page_number",
         "toc_page_number",
@@ -3694,7 +3703,30 @@ class Generator:
     #: total: the ``parameter default`` rows go 6 -> 7 and every other
     #: classification is unmoved, so the delta is attributable to one method
     #: and not to a drift somewhere in the other 24.
-    POSITION_SITE_COUNT = 25
+    #: CARD-390: 35, not 25 -- **+10, all one feature, attributed one by one**.
+    #: The Play online page is the first page position decided after the
+    #: puzzle section that is not an offset from the answer section: the plan
+    #: names it (``SectionPlan.play_page`` and ``play_blank_page``, two field
+    #: declarations), ``section_plan`` computes it (``pages_before``, then
+    #: ``play_page`` assigned, bumped past the blank by an augmented
+    #: assignment, and ``play_blank_page`` assigned, each with its ``None``
+    #: initial: five more), and ``interior_page_count`` names the pages laid
+    #: down before it (``before_play``, one), and ``InteriorStream.play_page`` carries
+    #: the page to Finalise (one). Ten rows, the names added to
+    #: :data:`POSITION_NAMES` above (``before_play``, ``pages_before``,
+    #: ``play_blank_page``, ``play_page``), and no row removed. Re-derived by
+    #: running ``_page_positions`` against main and against the branch and
+    #: reading the difference, not from the failure message.
+    #: CARD-391: 38, not 35 -- **+3, one name in three signatures, attributed
+    #: one by one**. The Play online page's number now reaches the page
+    #: writers, so ``vector_puzzle_page``, ``vector_two_up_page`` and
+    #: ``vector_puzzle_pages`` each gained a ``play_page`` parameter with a
+    #: ``None`` default (three ``parameter default`` rows, the name already in
+    #: :data:`POSITION_NAMES`). No row removed; the number is the plan's, read
+    #: where the walk already holds it (``decided.play_page``), and none is
+    #: computed here. Re-derived by running ``_page_positions`` against main
+    #: and the branch and reading the difference.
+    POSITION_SITE_COUNT = 38
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -3896,16 +3928,32 @@ class Generator:
             }
         )
 
-        assert len(exempted) == 5, exempted
+        # CARD-390: seven, not five. The two added sites are the two positions
+        # that COUNT pages laid down before the Play online page --
+        # ``interior_page_count``'s ``before_play`` (terms ``toc``,
+        # ``dividers``, ``pages``) and ``section_plan``'s ``pages_before``
+        # (terms ``section``, ``toc_page_count``) -- the same arithmetic as
+        # ``first_page`` and ``first_answer_page`` already declared, over
+        # names this walk equally declines to follow; no new KIND of term.
+        # The other new rows (the Play and blank page numbers) are made of
+        # terms the walk follows and so are not exemptions.
+        assert len(exempted) == 7, exempted
         assert terms == [
             # CARD-305, and read as a pair: the attribute and the name it
             # hangs off, which is one term of one position — a book's stored
             # divider-pages choice.
             ".divider_pages",
+            # CARD-390: the plan's own count of the Play block's pages
+            # (``SectionPlan.play_page_count``), a property of a plan the
+            # walk cannot resolve, and the plan's name it hangs off.
+            ".play_page_count",
+            "decided",
+            "dividers",
             "index",
             "pages",
             "section",
             "self",
+            "toc",
             "toc_page_count",
         ], terms
 
@@ -4222,10 +4270,54 @@ class Generator:
         # two shapes changing; the four figures are read off this test's own
         # measurement, not pasted from the failure message. Steps still strict
         # drops.
-        ((), 879),
-        (("builtins",), 595),
-        (("builtins", "definitions and imports"), 220),
-        (("builtins", "definitions and imports", "parameters"), 217),
+        #
+        # **CARD-390 re-measured it a seventh time (+10 calls; 879 -> 887,
+        # 595 -> 602, 220 -> 222, 217 -> 219, last two still 0), every call
+        # attributed.** ``ast.Call`` nodes in the module 957 -> 967, by an AST
+        # diff of the file against main (the SectionPlan, InteriorStream and
+        # three ``interior_page_count`` calls only gained an argument and are
+        # unchanged as calls): ``len(section)`` (+1, a builtin);
+        # ``page_is_right_hand`` in ``recto_blank_pages``,
+        # ``recto_blank_pages`` twice (``interior_page_count`` and
+        # ``section_plan``), ``stored_player_domain`` in ``__init__`` and
+        # ``_drawn_downstream`` for the Play page (+5, names this module
+        # defines or imports); ``page_kinds.append`` twice for the blank and
+        # the Play kind (+2, a receiver this module does not define); and
+        # ``self.page_spec`` and ``self.vector_title_page`` (+2, resolved
+        # because ``self`` is a receiver the module defines, so they cost no
+        # refusal): 1 + 5 + 2 = 8 refusals, 10 calls. Steps still strict
+        # drops (285, 380, 3, 219); the four figures are read off this
+        # test's own measurement.
+        #
+        # **CARD-391 re-measured it an eighth time, and the move is fifty-six
+        # DELETED refusals** (887 -> 831, 602 -> 561, 222 -> 210, 219 -> 207,
+        # last two still 0; steps 285/380/3/219 -> 270/351/3/207), every call
+        # attributed. ``ast.Call`` nodes in the module 967 -> 908 (-59), by an
+        # AST diff of the file against main. Gone with the QR group: the
+        # bitmap drawers, ``qr_link``/``qr_group_caption``, ``_qr_group_line_px``,
+        # the two vector group builders and the two-up inset arithmetic. By
+        # class, the step each lost: **builtins -15** (``round`` x4, ``max``
+        # x3, ``range`` x2, ``ValueError`` x2, ``tuple`` x2, ``zip``,
+        # ``reversed``, ``len`` -- 16 -- less the one ``min`` the new
+        # ``_pointer`` placement needs); **definitions and imports -29**
+        # (``qr_link`` x5, ``qr_caption`` x4, ``qr_group_caption`` x4,
+        # ``qr_slot`` x4, ``type_px`` x3, ``_band_font`` x3,
+        # ``_draw_qr_caption`` x2, ``QrGroup`` x2, ``qr_group_insets`` x2,
+        # ``_qr_group_line_px`` and ``_draw_qr_placeholder`` -- 31 -- less
+        # ``footer_pointer_text`` and ``_folio_reserve_px``, +2); **parameters
+        # 0**; **an attribute of a receiver this module does not define -12**
+        # (``font.getlength`` x5, ``math.ceil`` x2, ``draw.rectangle`` x2,
+        # ``draw.text``, ``groups.append``, ``QR_LINK_TEMPLATE.format``).
+        # 15 + 29 + 12 = 56 refusals; the other 3 of the 59 calls are the five
+        # ``self.<method>`` calls of the removed builders less the two
+        # ``self._pointer`` calls added, resolved because ``self`` is a
+        # receiver the module defines, so they cost no refusal. Steps still
+        # strict drops; the four figures are read off this test's own
+        # measurement.
+        ((), 831),
+        (("builtins",), 561),
+        (("builtins", "definitions and imports"), 210),
+        (("builtins", "definitions and imports", "parameters"), 207),
         (
             (
                 "builtins",
@@ -6074,7 +6166,10 @@ class Generator:
     #: matter at all, so a front-matter-relative position cannot be wrong in
     #: it; every other caller passes the door its book and lets the door's
     #: own default stand.
-    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 767),)
+    #: CARD-391: 767 -> 756. The same call, 11 lines higher: ``book_proof.py``
+    #: lost the 11-line branch that kept the proof note's strip clear of the
+    #: QR icon (the icon left ``render_pages``); no position changed.
+    OUTSIDE_CALLERS_WITH_A_POSITION = (("nonogram/admin/book_proof.py", 756),)
 
     def test_the_module_axis_bound_is_measured_rather_than_declared(self):
         """AC-4 for the one axis this card leaves open, with its own control.
@@ -6173,7 +6268,14 @@ class Generator:
         # exactly as ``create_divider_page`` does. Same door, definition count
         # still one, so 23 + 1 = 24 (24 ``self.page_spec(`` occurrences by a
         # plain text search, the second domain for the one call).
-        assert inside == 24, inside
+        # CARD-390: 25, and the one added call is named rather than counted --
+        # ``self.page_spec(decided.play_page)`` in the walk, which takes the
+        # Play online page's sheet from the plan's own position for the
+        # writer, exactly as every other drawn kind does. Same door, definition
+        # count still one, so 24 + 1 = 25 (25 ``self.page_spec(`` occurrences by
+        # a plain text search; the blank is the title page's own empty stream
+        # and takes no sheet of its own here).
+        assert inside == 25, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

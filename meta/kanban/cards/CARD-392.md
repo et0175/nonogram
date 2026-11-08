@@ -1,6 +1,6 @@
 # CARD-392: The one-line footer gives the grid its room — the footer band shrinks, and pairing and cell sizes are re-derived from the larger area
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -9,11 +9,11 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/392-one-line-footer
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-392
 **Source:** owner decision 2026-11-07, version B: "A one-line footer, so grids get a little more room" and "The grid area now runs down to that line."
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-391
@@ -60,6 +60,7 @@
 - G-2: No stored setting changes meaning: a book's margins and trim are unchanged; only the interior frame's footer band is.
 - G-3: Do not re-record a threshold from the code's output. Every number the registry states is derived in the test from first principles (CLAUDE.md test style: an independent second implementation).
 - G-4: The page counts that move are reported, not hidden: the KDP gutter follows the true total.
+- G-5: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module. (This card's modules: test_book_page_frame, test_book_pdf_two_up, test_book_pdf, test_book_toc, test_book_page_numbers; their ids that CARD-387's recount marks 'convert after' stay with CARD-387's tail unless this card already rewrites them.)
 
 ## System contract
 

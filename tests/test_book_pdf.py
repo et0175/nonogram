@@ -65,6 +65,7 @@ to keep. See their own docstrings for what they are and are not evidence of.
 from __future__ import annotations
 
 import ast
+import copy
 import pathlib
 import random
 import re
@@ -733,30 +734,36 @@ class TestBookPdf_ParityNeverMovesTopEdge:
     Until CARD-222's amendment the drawing's own left edge said so; on the
     amended profile the two side margins are both 0.5 in, so a centred drawing
     lands on the same pixel column either way and that edge says nothing. The
-    premise is therefore read off the furniture that *does* mirror — CARD-223's
-    2 cm QR placeholder, which sits in the footer's **outer** bottom corner, so
-    it is at the right-hand end of a right-hand page and the left-hand end of a
-    left-hand one — the same signal
+    premise is therefore read off the furniture that *does* mirror — the
+    grid-size label, which sits on the **inner** side of the footer line, so
+    it is at the left-hand end of a right-hand page and the right-hand end of
+    a left-hand one (CARD-223's 2 cm QR placeholder, in the outer corner, was
+    the signal until CARD-391 removed it) — the same signal
     ``tests/test_book_pdf_memory.py::test_parity_still_counts_from_interior_page_1``
     reads, asserted here rather than cross-referenced, because a premise in
     another file cannot fail this test.
     """
 
-    #: The QR placeholder's own box and the usable area's two edges in this
-    #: page's own pixels, written out rather than imported: a 20 mm icon and
-    #: 0.5 in margins on a 8.5 in trim at 300 DPI.
-    ICON_PX = round(20.0 / 25.4 * 300)
+    #: The footer line's own rows and the usable area's two edges in this
+    #: page's own pixels, written out rather than imported: the line the
+    #: grid-size label is set on is 274 px (a 20 mm reserved row and one 9 pt
+    #: gap) above the 141 px bottom margin of a 3300 px page, 0.5 in margins
+    #: on a 8.5 in trim at 300 DPI; the label is read in 400 px at each end.
+    LINE_BOTTOM_PX = 3300 - 141 - 274
+    LABEL_ZONE_PX = 400
     USABLE_LEFT_PX = round(GUTTER_MM / 25.4 * 300)
     USABLE_RIGHT_PX = round((BOOK1_WIDTH_MM - OUTSIDE_MM) / 25.4 * 300)
 
     @classmethod
-    def _footer_icon_ends(cls, page) -> tuple[int, int]:
+    def _footer_label_ends(cls, page) -> tuple[int, int]:
         """``(ink at the left end, ink at the right end)`` of this page's
-        footer strip — the two boxes the 2 cm icon could occupy."""
+        footer line — the two ends the grid-size label could occupy."""
         ink = np.asarray(page.convert("L")) < 128
-        strip = ink[-cls.ICON_PX :]
-        left = int(strip[:, cls.USABLE_LEFT_PX : cls.USABLE_LEFT_PX + cls.ICON_PX].sum())
-        right = int(strip[:, cls.USABLE_RIGHT_PX - cls.ICON_PX : cls.USABLE_RIGHT_PX].sum())
+        strip = ink[cls.LINE_BOTTOM_PX - 42 : cls.LINE_BOTTOM_PX + 1]
+        left = int(strip[:, cls.USABLE_LEFT_PX : cls.USABLE_LEFT_PX + cls.LABEL_ZONE_PX].sum())
+        right = int(
+            strip[:, cls.USABLE_RIGHT_PX - cls.LABEL_ZONE_PX : cls.USABLE_RIGHT_PX].sum()
+        )
         return left, right
 
     def test_the_two_drawings_share_a_top_pixel_row(self):
@@ -766,18 +773,19 @@ class TestBookPdf_ParityNeverMovesTopEdge:
         left_hand = drawing_of(pages[FIRST_PUZZLE_PAGE - 1])
 
         # The premise: these two really are opposite parities, read off the
-        # footer icon's end of the strip (see the class docstring).
-        odd_left, odd_right = self._footer_icon_ends(pages[FIRST_PUZZLE_PAGE])
-        even_left, even_right = self._footer_icon_ends(pages[FIRST_PUZZLE_PAGE - 1])
-        assert odd_right > 4 * odd_left, (
-            "interior page 7 is right-hand, so its footer icon belongs at the "
-            "right-hand end of the strip",
+        # end of the footer line the grid-size label is at (see the class
+        # docstring): the inner end, so the left on a right-hand page.
+        odd_left, odd_right = self._footer_label_ends(pages[FIRST_PUZZLE_PAGE])
+        even_left, even_right = self._footer_label_ends(pages[FIRST_PUZZLE_PAGE - 1])
+        assert odd_left > 4 * odd_right, (
+            "interior page 7 is right-hand, so its grid-size label belongs at "
+            "the left-hand (inner) end of the footer line",
             odd_left,
             odd_right,
         )
-        assert even_left > 4 * even_right, (
-            "interior page 6 is left-hand, so its footer icon belongs at the "
-            "left-hand end of the strip",
+        assert even_right > 4 * even_left, (
+            "interior page 6 is left-hand, so its grid-size label belongs at "
+            "the right-hand (inner) end of the footer line",
             even_left,
             even_right,
         )
@@ -1207,7 +1215,7 @@ class TestBookPdf_PagePlanGuardIsLive:
             # and forgotten here would then be dropped silently, and this
             # guard would start asserting against a plan computed without it.
             # CARD-305 found it the loud way, which is the right way.
-            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None, solutions_divider=True: (
+            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None, solutions_divider=True, play_online=False: (
                 planned(
                     count,
                     puzzle_pages,
@@ -1215,6 +1223,7 @@ class TestBookPdf_PagePlanGuardIsLive:
                     level_dividers,
                     toc_pages=toc_pages,
                     solutions_divider=solutions_divider,
+                    play_online=play_online,
                 )
                 + 1
             ),
@@ -4061,7 +4070,7 @@ class TestShippedDefault_TheTestTreesRebindDoesNotHideIt:
             f.name: getattr(SHIPPED_DEFAULT_WRITERS, f.name)
             for f in dataclasses.fields(SHIPPED_DEFAULT_WRITERS)
         }
-        assert set(fields) == {"guide", "toc", "answer", "packed_answer"}, fields
+        assert set(fields) == {"guide", "toc", "answer", "packed_answer", "play"}, fields
         assert all(value is None for value in fields.values()), (
             "the shipped default writer set carries a writer: " + repr(fields)
         )
@@ -4178,6 +4187,15 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             for index, (columns, rows, depth) in enumerate(self.BOOK)
         ]
 
+    @staticmethod
+    def _book_with_a_player_domain() -> Book:
+        """The book, with a stored player domain, so its interior holds the
+        Play online page (and, on :data:`BOOK`, the blank before it): the fifth
+        writer is reached only by a book that prints that page (CARD-390)."""
+        book = copy.copy(_book())
+        book.player_domain = "https://nonogram.adverax.io"
+        return book
+
     def _vector_interior(self, monkeypatch):
         import nonogram.admin.book_interior_vector as assembly
         import nonogram.admin.book_pdf_generator as generator_module
@@ -4191,7 +4209,7 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             assert page_medium(kind) is PageMedium.VECTOR, kind.value
 
         puzzles = self._puzzles()
-        generator = assembly.interior_generator(_book())
+        generator = assembly.interior_generator(self._book_with_a_player_domain())
         kinds = generator.interior_stream(puzzles).page_kinds
         data = generator.export_interior(puzzles).getvalue()
         return generator, kinds, data, lifted
@@ -4230,7 +4248,9 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
                 for name in fields
             }
         )
-        generator = assembly.interior_generator(_book(), pages=wrapped)
+        generator = assembly.interior_generator(
+            self._book_with_a_player_domain(), pages=wrapped
+        )
         generator.export_interior(self._puzzles())
 
         assert sorted(used) == sorted(fields), (sorted(used), fields)
@@ -4284,17 +4304,15 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
 
         # Each of these is a string the kind's own writer sets and no other
         # writer does: the guide's title, the TOC's title, the answer page's
-        # caption word, and the puzzle page's QR invitation.
-        from nonogram.admin.book_pdf_generator import (
-            GUIDE_TITLE,
-            QR_CAPTION_TEXT,
-            TOC_TITLE,
-        )
+        # caption word, and the puzzle page's pointer to the Play online page
+        # (this book has a player domain; CARD-391 replaced the QR invitation
+        # that identified the page before). The pointer's tail, written out.
+        from nonogram.admin.book_pdf_generator import GUIDE_TITLE, TOC_TITLE
 
         wanted = {
             PageKind.GUIDE: GUIDE_TITLE,
             PageKind.TOC: TOC_TITLE,
-            PageKind.PUZZLE: QR_CAPTION_TEXT,
+            PageKind.PUZZLE: "online \u00b7 p. ",
         }
         for kind, word in wanted.items():
             pages = by_kind[kind]

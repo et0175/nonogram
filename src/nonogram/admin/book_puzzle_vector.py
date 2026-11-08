@@ -22,9 +22,8 @@ look covered
 ----------------------------------------------------------------------------
 
 **The sheet's furniture**: the interior frame's header rule and footer rule,
-the footer's grid-size label, the folio, and the QR icon with its two caption
-lines (``book_pdf_generator._draw_page_frame``, ``_draw_qr_caption``,
-CARD-200/CARD-222/CARD-223). None of it is a puzzle-page mark — every
+the footer's grid-size label, the folio, and the pointer to the Play online
+page (``book_pdf_generator._draw_page_frame``, CARD-200/CARD-222/CARD-391). None of it is a puzzle-page mark — every
 interior page kind carries the same furniture off the same
 :func:`~nonogram.export.layout.interior_frame`, and a page card that drew it
 would be the second of four to do so.

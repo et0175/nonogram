@@ -330,6 +330,15 @@ one remaining lever (width) for distinguishing furniture from grid ink.
 
 ## History
 
+- 2026-11-08: **The QR block CARD-306 decided on (operators, not an image)
+  left the puzzle pages.** CARD-391 (owner decision 2026-11-07, ADR-0041/R8)
+  removed the placeholder chequer, its two caption lines and `QrGroup`;
+  `book_sheet_vector` now draws the two frame rules, the grid-size label, the
+  folio and one footer pointer line, all as text and rules. The decision's
+  other half stands unchanged and is still held by
+  `TestSheetFurniture_TheWriterRefusesAnXObject`: `write_vector_page` refuses a
+  stream that paints an XObject.
+
 - 2026-10-31: **The 0.169 mm the two media "disagreed" by is half a rule, not a
   placement — and `EDGE_TOLERANCE_MM` was not widened.** CARD-330. CARD-309's
   round measured the raster's ink and the vector's stream 2 device pixels apart
@@ -479,6 +488,16 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   instance and turned CARD-231 from a retarget into a born-vector card, and
   because the exception **expires when CARD-231 lands** — a declaration whose
   reason has gone is itself a defect under R2.
+
+- 2026-11-08: **Two interior kinds joined the list, both vector with no
+  declaration** (CARD-390). The Play online page (`PageKind.PLAY`: a heading,
+  one line, the book's QR code and its typed address, ADR-0041/R8) and the
+  blank page that puts it on a right-hand page (`PageKind.BLANK`, the title
+  page's own empty stream). `page_medium` answers VECTOR for both by its
+  default, so R2's registry is unchanged (the cover and the divider are still
+  its only entries); the page is placed by `export/layout.py`'s
+  `play_page_layout` and drawn by `book_play_vector`, downstream of the
+  generator and reached through `InteriorPageWriters.play`, like the guide.
 
 - 2026-11-07: **The divider's exception became permanent** (CARD-311, owner
   ruling 2026-11-06 "dividers are uploaded"). An uploaded picture is a bitmap

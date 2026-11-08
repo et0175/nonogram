@@ -6973,13 +6973,16 @@ def _appended(page: ArmPage, write: object) -> str:
 
 #: How many connected ink regions one bitmap puzzle page of the baseline book
 #: must still carry — the raster arm's denominator, the twin of
-#: :data:`REGION_FLOOR` for a single page. 85, just under the 91 measured on
-#: this branch — a puzzle page is a grid of rules, a frame, a band, a folio
-#: and a QR group, and its ink merges into far fewer regions than the whole
-#: interior's 2640. The same 91 at both measured thresholds, because an
-#: unsolved puzzle page draws nothing in the book's own grey: the solved grid
-#: is the answer pages'.
-RASTER_ARM_MIN_REGIONS = 85
+#: :data:`REGION_FLOOR` for a single page. 50, just under the 53 measured on
+#: this branch (CARD-391 re-derivation; was 85 under 91 measured while the page
+#: still carried a QR group, whose modules were 38 of the regions) — a puzzle
+#: page is a grid of rules, a frame, a band and a folio (and the footer pointer
+#: line), and its ink merges into far fewer regions than the whole
+#: interior's 2640. The same 53 at every measured threshold (64, 128, 160, 208
+#: and 255; 0 finds no ink), because an unsolved puzzle page draws nothing in
+#: the book's own grey: the solved grid is the answer pages'. The margin is the
+#: file's usual one (85/91 = 0.934 became 50/53 = 0.943).
+RASTER_ARM_MIN_REGIONS = 50
 
 
 def _declaring_plant(
@@ -7050,12 +7053,17 @@ VECTOR_CORPUS_SOURCES: tuple[tuple[str, object], ...] = (
 #: Floors just under a measured value, and **neither is the assertion that
 #: keeps the corpus honest** — that one is the equality against each book's
 #: own row count above. Measured on this branch: 13 pages, 4 from the
-#: baseline book and 9 from the picture book, carrying 588 painted subpaths
-#: of which 182 have extent on both axes — the rest are the grid's own rules,
-#: which enclose nothing and so cannot be round.
+#: baseline book and 9 from the picture book, carrying 419 painted subpaths
+#: of which 13 have extent on both axes — the rest are the grid's own rules,
+#: which enclose nothing and so cannot be round. (CARD-391 re-derivation: the
+#: figures were 588 and 182 while each page carried a QR group, whose modules
+#: were 169 shaped subpaths, one filled rectangle each; with the group gone
+#: the only shaped subpath left is each page's grid frame, 13 pages -> 13.
+#: Floors keep the file's usual margin: 560/588 = 0.952 became 400/419 = 0.955,
+#: and the shaped floor is one frame per page at the pages floor, 12.)
 VECTOR_CORPUS_MIN_PAGES = 12
-VECTOR_CORPUS_MIN_SUBPATHS = 560
-VECTOR_CORPUS_MIN_SHAPED = 170
+VECTOR_CORPUS_MIN_SUBPATHS = 400
+VECTOR_CORPUS_MIN_SHAPED = 12
 
 
 def _vector_pages(puzzles: Sequence[dict]) -> list[ContentStream]:
@@ -7425,9 +7433,12 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
         """The margin, and it is a **derivation** rather than a recorded number.
 
         The closest shaped subpath on every page of the corpus is a square
-        filled rectangle — a QR placeholder module, 11.28 x 11.28 pt. A
-        rectangle's enclosed area is exactly its box's, so its ``fill`` is
-        exactly ``4 / pi`` whatever its size, and the margin is therefore
+        rectangle — since CARD-391 the grid's own frame, stroked (paint
+        ``S``) and 276.48 x 276.48 pt on the baseline book's first page; it
+        used to be a filled QR placeholder module, 11.28 x 11.28 pt. A
+        rectangle's enclosed area is exactly its box's whatever it is painted
+        with, so its ``fill`` is exactly ``4 / pi`` whatever its size, and the
+        margin is therefore
         ``(4 / pi - 1) / ROUND_FILL_TOLERANCE`` = 2.276996 by arithmetic and
         not by measurement. What is measured is that **this** is the shape
         that sets it: ``aspect`` exactly 1.0, so the whole margin rests on
@@ -7453,7 +7464,10 @@ class TestDifficultyDots_TheVectorArmReadsTheStream:
             f"the closest subpath is {margin} tolerances off, not the "
             f"{derived} a square filled rectangle is"
         )
-        assert closest.paint in PAINTS_THAT_FILL, "the closest shape is not filled"
+        assert closest.paint in PAINTS_THAT_FILL | {"S"}, (
+            "the closest shape is neither filled nor stroked: "
+            f"paint {closest.paint!r}"
+        )
         assert closest.aspect == pytest.approx(1.0, abs=1e-9), (
             "the margin no longer rests on fill alone: the closest shape's "
             f"footprint is {closest.aspect} rather than square"

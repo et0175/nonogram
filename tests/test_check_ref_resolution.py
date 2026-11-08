@@ -1522,7 +1522,16 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # ADR-0006/R2 now names as its check ref -- the flip of that rule from a review
 # lens, which the card owed -- declared by adr/0006-dependency-baseline.md and
 # defined by a def in the card's new test module, so DEFINED moves with it.
-CENSUS = (575, "8f9bae1a413648a7")
+# CARD-390 (2026-11-08): 575 -> 580, the same five FR-047 class refs as DEFINED
+# below (each a new declaration with its `class` in place), so CENSUS,
+# TRACE_TESTS and DEFINED all move by the same five.
+# CARD-391 (2026-11-08): 580 -> 583, three new declarations, each with its
+# definition in place: the two ADR-0041/R8 node-id refs (see SAME_FILE_PROSE
+# below) and AC-377's
+# rewritten `test:` class (the one about narrow trims now pairing, in
+# requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
+# does not (none of the three is declared in trace.yml).
+CENSUS = (583, "e0a8c03c0eed6b00")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1565,7 +1574,10 @@ CENSUS = (575, "8f9bae1a413648a7")
 # the two ADR-rule spellings of the dependency-baseline test, which `trace.yml`
 # never declared, and AC-269's fix-round-1 caption read-back, which
 # requirements.yml declares alone.
-TRACE_TESTS = (507, "06021d84f972abd1")
+# CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
+# FR-047's trace.yml row (the one declaration site for each: the criteria
+# repeat two of them, which this list does not count twice).
+TRACE_TESTS = (512, "c3123e749dd9300d")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1659,7 +1671,14 @@ TRACE_TESTS = (507, "06021d84f972abd1")
 # CARD-388 (2026-11-07): 410 -> 411, the same single entrant as CENSUS above,
 # a declaration arriving with its definition in place (one `def` in
 # tests/test_vendored_qr_encoder.py), with HONEST_DEAD unmoved at 9.
-DEFINED = (411, "3e33017f2a87bb65")
+# CARD-390 (2026-11-08): 411 -> 416, five entrants, re-derived against a
+# `class` line each rather than pasted: FR-047's five class refs (four in
+# tests/test_book_play_online_page.py, one in tests/test_book_finalise_gutter.py;
+# not spelled here, because a literal test name in this module would revive the
+# ref for the validator), each declared by requirements.yml and trace.yml with
+# its definition in place; HONEST_DEAD unmoved at 9.
+# CARD-391: 416 -> 419, the same three (see CENSUS above).
+DEFINED = (419, "0a91e9a7753e31ec")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1681,7 +1700,15 @@ DEFINED = (411, "3e33017f2a87bb65")
 #: a text search, and the symmetric difference on this class is exactly those
 #: three entering. That the shim module was already one of the four listed above
 #: is why nothing else here had to change.
-SAME_FILE_PROSE = (19, "e899a08818a9c4be")
+#:
+#: CARD-391 (2026-11-08): 19 -> 21, the two node-id refs ADR-0041/R8's check
+#: now declares. Each has its ``def`` in a ``tests/`` module and is now spelled
+#: whole in that same module's docstring (the test says which ADR rule it
+#: holds), which is what makes the validator's text search find them alive: the
+#: warning set on ``meta/architecture`` is identical to main's (0 errors, 89
+#: warnings, forge_1), where a first draft with no such citation read one
+#: DEAD-ref warning more. Verified against the two ``def`` lines.
+SAME_FILE_PROSE = (21, "531805932c7ba2e5")
 
 #: **Per-member digests of the two classes whose shrink is answerable
 #: mechanically** -- the enforceable half of repair-vs-signal-loss, and the

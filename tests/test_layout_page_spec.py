@@ -45,7 +45,6 @@ from nonogram.export.layout import (
     PageSpec,
     caption_slot,
     compute_layout,
-    qr_slot,
 )
 from tests.fixtures.a4_golden import golden
 
@@ -363,20 +362,11 @@ class TestRenderers_ThreadTheBookSpec:
         # 8.5 x 11 in at 300 DPI (AC-177's letter page).
         assert image.size == (2550, 3300)
         # Ink only inside the drawing, give or take half a heavy rule, and
-        # none in the band — except CARD-204's placeholder QR icon, which on
-        # this extent (a page-fit-bound 30x30: zero horizontal slack on
-        # either margin) falls back to the slack below the drawing, so the
-        # ink's own bounding box is allowed to reach down to the icon's
-        # bottom edge too.
+        # none in the band.
         ink = image.convert("L").point(lambda value: 255 if value < 250 else 0).getbbox()
         assert ink is not None
         half = layout.thick_rule // 2 + 1
-        icon = qr_slot(layout)
         bottom_bound = layout.page.drawing_bottom + half
-        if icon is not None:
-            # +2: the icon's own 2px border, centred on its boundary like
-            # every other rule, hangs half of itself outside the box.
-            bottom_bound = max(bottom_bound, icon.bottom + 2)
         assert ink[0] >= layout.page.drawing_left - half
         assert ink[1] >= layout.page.drawing_top - half
         assert ink[2] <= layout.page.drawing_right + half
@@ -633,8 +623,8 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
         assert clipped > 0, "the sweep must actually exercise the over-page case"
 
     def test_an_unplaced_layout_has_no_caption_slot(self) -> None:
-        """Same contract as ``qr_slot``: the default, unparitied spec has no
-        margins to keep a caption inside of."""
+        """The default, unparitied spec has no margins to keep a caption
+        inside of."""
         clues = compute_clues(_checkerboard(10, 10))
         layout = compute_layout(clues.rows, clues.columns)
         assert layout.page is None

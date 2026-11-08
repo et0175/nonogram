@@ -100,7 +100,6 @@ from nonogram.export.layout import (
     _device_rule_px,
     compute_answer_page_layout,
     interior_frame,
-    qr_slot,
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
@@ -183,12 +182,10 @@ class Drawn:
         self.layout = compute_layout(payload.row_clues, payload.column_clues, spec)
         stream = generator.vector_puzzle_page(payload, 1, A_PUZZLE_PAGE, sizes)
         # Since CARD-306 the production page also carries the **sheet's**
-        # furniture — the interior frame's two rules and the QR icon's
-        # border — which are not grid rules and which every reading in this
+        # furniture — the interior frame's two rules — which are not grid rules and which every reading in this
         # module is asked to leave alone. What they are is derived from
         # COMP-007's own frame, never named: see :meth:`furniture_widths`.
         self.frame = interior_frame(spec)
-        self.qr_groups = 0 if qr_slot(self.layout) is None else 1
         self.has_furniture = rules is None
         if rules is not None:
             # The generator's own door builds the sheet from the book profile,
@@ -198,7 +195,6 @@ class Drawn:
             book_vector_draw.draw_ruled_grid(stream, self.layout)
             if self.layout.frame is not None:
                 book_vector_draw.draw_frame(stream, self.layout.frame)
-            self.qr_groups = 0
         self.pdf = write_vector_pdf([stream], 1).getvalue()
         (self.text,) = pdf_vector.content_streams(self.pdf)
         self._tmp_path = tmp_path
@@ -220,18 +216,15 @@ class Drawn:
 
         Derived from COMP-007's :class:`~nonogram.export.layout.InteriorFrame`
         rather than named (CARD-306): the header rule's own device width in
-        points, then the footer hairline's, then one per QR group for the
-        icon's border — which ``book_sheet_vector`` strokes at the hairline's
-        own weight. Empty for a page drawn without furniture (the alternative
-        ``GridRules`` arm, which goes through the bare draw routines).
+        points, then the footer hairline's. Empty for a page drawn without
+        furniture (the alternative ``GridRules`` arm, which goes through the
+        bare draw routines).
         """
         if not self.has_furniture:
             return []
         scale = POINTS_PER_INCH / self.layout.dpi
         hairline = round(self.frame.footer_rule.width * scale, 3)
-        return [round(self.frame.header_rule.width * scale, 3), hairline] + [
-            hairline
-        ] * self.qr_groups
+        return [round(self.frame.header_rule.width * scale, 3), hairline]
 
     def stated_widths(self) -> list[float]:
         """Every ``w`` operand the **grid** sets, in order, in points.
