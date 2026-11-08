@@ -4,7 +4,7 @@ The owner removed the per-puzzle QR code on 2026-11-07 (ADR-0041/R8, "version B,
 puzzle pages without a code"): a puzzle page's footer is a hairline rule, the
 grid size on the inner side and, on the outer side, one short line --
 ``Play puzzle 53 online · p. 167``; a two-up page shares ONE such line,
-``Play puzzles 9 and 10 online · p. 167``, and prints no grid size; a book
+``Play 9 and 10 online · p. 167``, and prints no grid size; a book
 with no (valid) player domain prints no pointer. This file holds the claims
 that card made and the footer claims of CARD-223/CARD-248 that survived it.
 
@@ -313,7 +313,7 @@ class TestFooterPointer_TwoUpSharesOneLine:
         for entry in two_up:
             first, second = entry.numbers
             words = export.footer_words(entry.page_number)
-            expected = f"Play puzzles {first} and {second} online · p. {play}".split()
+            expected = f"Play {first} and {second} online · p. {play}".split()
             found = _sequence_at(words, expected)
             assert found is not None, (entry.page_number, [w.text for w in words])
             assert _on_outer_side(found, width, entry.page_number)
@@ -563,18 +563,20 @@ class TestFooterPointer_YieldsRatherThanCollideWithTheFolio:
             )
             assert footer_pointer(frame, room + 1, 100) is None
 
-    def test_a_6_by_9_book_prints_the_single_pointer_and_omits_the_two_up_one(
-        self, tmp_path
-    ) -> None:
-        """The cost, measured: at 10 pt the single line is 52 mm and the shared
-        two-up line 65 mm, against about 58 mm of room between a 6 x 9 in
-        page's outer margin and its folio -- so the two-up page of such a book
-        carries its Play page's number nowhere (owner question 1 of CARD-391)."""
-        rows = [puzzle(f"c391-six-{i}", 10, 8, 1, "easy", f"E{i}") for i in range(3)]
-        export = _Export(_domain_book((152.4, 228.6), "card391-6x9"), rows, tmp_path)
-        by_numbers = {entry.numbers: entry for entry in export.puzzle_pages}
-        assert set(by_numbers) == {(1, 2), (3,)}
-        single = [w.text for w in export.footer_words(by_numbers[(3,)].page_number)]
-        two_up = [w.text for w in export.footer_words(by_numbers[(1, 2)].page_number)]
-        assert "Play" in single
-        assert "Play" not in two_up and str(by_numbers[(1, 2)].page_number) in two_up
+    def test_both_lines_print_on_6_by_9_and_neither_on_5_by_8(self, tmp_path) -> None:
+        """The boundary, measured. At 10 pt the single line is 52.3 mm and the
+        shared two-up line 51.0 mm (two-digit numbers; the owner dropped the
+        word "puzzles" from it on 2026-11-08), against 55.8 mm of room between
+        a 6 x 9 in page's outer margin and its folio and 43.0 mm on 5 x 8 in:
+        both print on the first, neither on the second. For two-digit numbers
+        the smallest trim where both fit is about 145.5 mm (5.73 in) wide (the
+        single line decides; the shared one alone would fit from 142.9 mm)."""
+        rows = [puzzle(f"c391-six-{i}", 10, 7, 1, "easy", f"E{i}") for i in range(3)]
+        for trim, prints in (((152.4, 228.6), True), ((127.0, 203.2), False)):
+            export = _Export(_domain_book(trim, f"card391-{trim[0]}"), rows, tmp_path)
+            by_numbers = {entry.numbers: entry for entry in export.puzzle_pages}
+            assert set(by_numbers) == {(1, 2), (3,)}, trim
+            for numbers in ((3,), (1, 2)):
+                texts = [w.text for w in export.footer_words(by_numbers[numbers].page_number)]
+                assert ("Play" in texts) is prints, (trim, numbers, texts)
+                assert str(by_numbers[numbers].page_number) in texts

@@ -2360,8 +2360,10 @@ def footer_pointer_text(numbers: Sequence[int], play_page: int) -> str:
     """The footer line that points at the Play online page (CARD-391).
 
     ``Play puzzle 53 online · p. 167`` on a page that carries one puzzle,
-    ``Play puzzles 9 and 10 online · p. 167`` on a two-up page, which shares
-    ONE footer line between its two puzzles (owner rulings of 2026-11-07).
+    ``Play 9 and 10 online · p. 167`` on a two-up page, which shares
+    ONE footer line between its two puzzles (owner rulings of 2026-11-07; the
+    word "puzzles" was dropped from the shared line by the owner on 2026-11-08,
+    so that it fits beside the folio on a 6 x 9 in page).
     ``numbers`` are the page's print numbers, the ones its bands and the
     answer key carry, and ``play_page`` is the Play page's interior page number
     **read from the plan** (:attr:`SectionPlan.play_page`): this function
@@ -2380,7 +2382,7 @@ def footer_pointer_text(numbers: Sequence[int], play_page: int) -> str:
     names = (
         f"puzzle {numbers[0]}"
         if len(numbers) == 1
-        else f"puzzles {numbers[0]} and {numbers[1]}"
+        else f"{numbers[0]} and {numbers[1]}"
     )
     return f"Play {names} online{BAND_SEPARATOR}p. {play_page}"
 

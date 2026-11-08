@@ -39,7 +39,7 @@ and from literal strings written below, never from ``compute_layout`` or
 ``"{columns} x {rows}"`` of THAT puzzle and a two-up page prints none; and
 (CARD-391, replacing the per-puzzle QR caption and typed link that stood here)
 each puzzle page's footer line ``Play puzzle 3 online · p. 11`` -- or, on a
-two-up page, ONE line ``Play puzzles 1 and 2 online · p. 11`` -- is on its
+two-up page, ONE line ``Play 1 and 2 online · p. 11`` -- is on its
 page, below the grid and inside the usable area, read from the text layer
 (poppler) of the same book with a stored player domain. The control: neither
 ``Solve it online`` nor ``nonogram.example`` is on any page of either export.
@@ -340,7 +340,7 @@ LABELS = {8: (15, 15), 10: (30, 30)}
 #: Owl 2, Tree 3, Snowflake 4), written as LITERALS so they are independent of
 #: the writer.
 POINTERS = {
-    6: "Play puzzles 1 and 2 online · p. 11",
+    6: "Play 1 and 2 online · p. 11",
     8: "Play puzzle 3 online · p. 11",
     10: "Play puzzle 4 online · p. 11",
 }

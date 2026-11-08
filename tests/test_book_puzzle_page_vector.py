@@ -3394,7 +3394,7 @@ class TestSheetFurniture_TheTwoUpPageCarriesItToo:
         assert texts.count(str(plan.page_number)) == 1, texts
         # ONE shared pointer line naming both puzzles (a literal, built here).
         first, second = plan.numbers
-        shared = f"Play puzzles {first} and {second} online \u00b7 p. {TWO_UP_PLAY_PAGE}"
+        shared = f"Play {first} and {second} online \u00b7 p. {TWO_UP_PLAY_PAGE}"
         assert texts.count(shared) == 1, texts
         assert len([text for text in texts if text.startswith("Play ")]) == 1, texts
         # No grid-size label: there is no one grid size on this page.

@@ -260,12 +260,15 @@ write — the thing R4 exists to forbid.
   `nonogram.example/p/NNN` link and FR-040's clause (c) (a two-up page's
   width had to hold two such groups) are removed; a puzzle page's footer now
   carries the grid size on the inner side and `Play puzzle N online · p. X`
-  on the outer (a two-up page: one shared line, `Play puzzles N and M online
+  on the outer (a two-up page: one shared line, `Play N and M online
   · p. X`, and no grid size), only in a book that prints a Play page. A line
-  the page number would collide with is omitted rather than printed over it:
-  at 10 pt the single line is 52 mm and the shared one 65 mm, against about
-  58 mm of room on a 6 x 9 in page, so that trim's two-up pages carry no
-  pointer (recorded for the owner on CARD-391). The footer band's height is
+  the page number would collide with is omitted rather than printed over it.
+  The owner ruled on 2026-11-08 that the shared line drops the word "puzzles"
+  (the owner's text said `Play puzzles 9 and 10 online`) so that it fits
+  beside the folio on a 6 x 9 in page: at 10 pt the single line is 52.3 mm
+  and the shared one 51.0 mm (two-digit numbers), against 55.8 mm of room on
+  6 x 9, so both print there and neither on 5 x 8 in; the smallest trim where
+  both fit is about 145.5 mm (5.73 in) wide. The footer band's height is
   deliberately unchanged here (CARD-392).
 
 - 2026-10-24: **R7 added — the book-slug recipe, which this ADR named but never
