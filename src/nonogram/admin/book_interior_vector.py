@@ -101,15 +101,17 @@ def guide_page_stream(
     page — so the unwrapping is the assembly point's business and not a second
     guide-page function.
     """
-    return guide_page(
+    from nonogram.admin.book_guide_spread import spread_page
+
+    return spread_page(
         spec,
         dpi,
         page_number,
+        play_page=play_page,
         puzzle_count=puzzle_count,
         easy_count=easy_count,
         medium_count=medium_count,
         hard_count=hard_count,
-        play_page=play_page,
     ).stream
 
 
