@@ -46,8 +46,9 @@ CARD-197/198 put the solved grid, its clues and a caption on the answer pages; C
 CARD-203 moved the caption closer to the grid and right-aligned it with it; CARD-204 added
 `caption_slot` after a 65-character picture name put ink 9.6 mm outside the page, then fixed a
 clamped caption overprinting the folio. All of that machinery is in
-`book_answer_key.py` + `book_pdf_generator.py`'s `_draw_solved_slot` / `solved_puzzle_page` /
-`_packed_answer_page`.
+`book_answer_key.py` + `book_answer_vector.py`'s `draw_answer_slot` / `answer_page_stream` /
+`packed_answer_page_stream` (the vector writers; the raster `_draw_solved_slot` /
+`solved_puzzle_page` / `_packed_answer_page` they replaced are production-dead and are deleted by CARD-387's tail, not edited here).
 
 **What changes.**
 
@@ -59,8 +60,8 @@ clamped caption overprinting the folio. All of that machinery is in
 3. **Every grid is centred in its tile**, so the tiles line up across differing grid sizes.
 4. The tile header (number, name, dots) and the page's running head are **CARD-233**.
 
-**The trap, named.** `_draw_solved_slot`'s return value has **two** consumers,
-`solved_puzzle_page` and `_packed_answer_page`, which must change together; nothing in the code
+**The trap, named.** `draw_answer_slot`'s return value has **two** consumers,
+`answer_page_stream` and `packed_answer_page_stream`, which must change together; nothing in the code
 enforces it. That asymmetry produced gating defects in CARD-203 cycle 1, CARD-203 cycle 2,
 CARD-204 Fix 7 and CARD-204 cycle 5 — "the same two call sites, the same asymmetry, one card
 later", in the reviewer's words. It is in `backlog.md` as a standing retro item. This card
@@ -97,13 +98,14 @@ can be made a value object both must take, do that and say so.
   one (check: review-lens).
 - G-2: ADR-0033/R1 — book assembly never changes a puzzle's grid, clues, tier or strategies
   (check: review-lens).
-- G-3: Both consumers of `_draw_solved_slot`'s return value change together (G-3 of CARD-226,
+- G-3: Both consumers of `draw_answer_slot`'s return value (`answer_page_stream`, `packed_answer_page_stream`) change together (G-3 of CARD-226,
   restated because this is the card that actually rewrites them).
 - G-4: Every answer page keeps its folio (test:
   `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`).
 - G-5: Out of scope — the tile header and running head (CARD-233), the clue boxes' own drawing
   (CARD-208).
 - G-6: Baselines re-recorded with provenance; no earlier fixture regenerated or deleted.
+- G-7: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module (solved_page + answer_key group, 103 ids, per CARD-387's recount; CARD-233 shares the group).
 
 ## System contract
 

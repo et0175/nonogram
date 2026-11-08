@@ -60,6 +60,7 @@
 - G-2: No stored setting changes meaning: a book's margins and trim are unchanged; only the interior frame's footer band is.
 - G-3: Do not re-record a threshold from the code's output. Every number the registry states is derived in the test from first principles (CLAUDE.md test style: an independent second implementation).
 - G-4: The page counts that move are reported, not hidden: the KDP gutter follows the true total.
+- G-5: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module. (This card's modules: test_book_page_frame, test_book_pdf_two_up, test_book_pdf, test_book_toc, test_book_page_numbers; their ids that CARD-387's recount marks 'convert after' stay with CARD-387's tail unless this card already rewrites them.)
 
 ## System contract
 
