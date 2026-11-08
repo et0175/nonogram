@@ -1,6 +1,6 @@
 # CARD-396: The kill-matrix reproductions run their cells in parallel — same cells, same verdicts, a fraction of the 192 seconds
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** ops
 **Estimate:** 2c (0.5d)
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py
-**Review score:** —
+**Review score:** 8.6 (cycle 2/3 - CERTIFIED; cycle 1: 7.5 NOT certified; cycle 2: 8.6 CERTIFIED)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T04:07Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 49c3a7a144632d9a5ad1192903e5c1e0cadf60d4
 **Blocked by:** —
 
 ## Why this card exists
@@ -64,3 +64,21 @@
 - Fix round (review cycle 1): F-1 lock cell now spies on shutil.copytree (zero copies before the refusal) with a plant that skips the parent's check once; F-3 new cells 10 -> 7 (completion-order plant folded into the same-matrix cell, shared-tree plant into the two-cells cell, lowest-declared refusal into the refusal cell); F-4 refusal cell asserts later cells are never entered, same-matrix cell asserts `.git` (a FILE in the fixture), the lock file, `.env`, `*.db` are absent from every lane copy; F-7 lane copy excludes `.env`, `.env.*`, `*.db`, `*.sqlite*` (a target needing them runs with workers=1); F-8 `KILL_MATRIX_WORKERS=''` is an error.
 - Fix-round timings (mine, solo, whole `tests/test_kill_matrix.py`, serial baseline = main at the same time in a scratch worktree): before 110.1 / 118.6 s (76 tests), after 78.8 / 84.1 s (83 tests): net about 31-34 s with the 7 new cells included (reviewer measured 15 s at 10 cells). Node ids: 76 -> 83, none removed or renamed.
 - Plant -> killing cell (each run on a restored file): parent lock pre-check removed -> foreign_lock; completion-order collector -> same_matrix; shared tree -> two_cells (also leak, refusal, lock, same_matrix as collateral); `.git` or `.env` not skipped -> same_matrix; no skip of later cells -> refusal; lane trees not removed -> refusal; highest-index refusal raised -> refusal; path outside root handed to a lane -> outside_root; cap 5 -> worker_count_rule.
+
+### Review record
+
+[Review 1/3] Score: 7.5 (threshold 8.0 NOT reached; 0 blockers; NOT CERTIFIED). The lock cell could not fail, the saving was overstated, over-testing; fixed in the fix round above. Reviewer-reported, not re-run by the orchestrator.
+
+[Review 2/3] Score: 8.6 (threshold 8.0 reached; 0 blockers; CERTIFIED). Reviewer-reported, not re-run by the orchestrator.
+
+### Closing note (merge gate, 2026-11-08)
+
+**Merged as 49a7a144** (`--no-ff` of `card/396-parallel-kill-matrix`, tip 46fdef67 after merging main). **Size datum (mine, `git diff --shortstat c15f9148 card/396-parallel-kill-matrix`): 3 files changed, 713 insertions, 16 deletions.** Estimate 2c against 2 review cycles = ratio 1.0; no wall-clock Actual (the clock measures the queue).
+
+**Gate (mine):** the owner-policy impact selection: `scripts/impact_set.py --gate --against main` on the staged merge answered `SELECTION`, rc 0, 4740 of 11659 collected (40.7%), 54 test files (43 always-on). Run with `DATABASE_URL` armed to the main checkout's per-worktree test database, `-o addopts= -q -rEfs --durations=15 -p no:cacheprovider`: **4738 passed, 1 skipped, 1 xfailed in 1565.65 s (0:26:05)**; the one skip is the setrlimit platform gate in tests/test_book_pdf_memory.py. Fast sanity first (11 modules, unarmed): 1247 passed, 11 skipped (database not reachable, unarmed). Tree hash before and after the run 5c73e11f.
+
+**What the merge delivers:** `Runner(workers=N)` in tests/kill_matrix.py (threads, each on its own copy of repo_root without .git, the lock file, .env and *.db; results in declared order), `km.default_workers()` and `KILL_MATRIX_WORKERS`; `tests/test_kill_matrix.py` 76 -> 83 node ids. Honest saving: the whole file about 122 s -> about 76 s solo, the four-arm grid about 86 s -> about 28 s; once CARD-395 marks test_ac7_* wave_close_only this pays at wave close only.
+
+**What it does NOT deliver:** no change to which tests the gate runs; no coverage move.
+
+**Carried (low, no new cards):** (1) the refusal cell's entered-set check is a subset check (tolerates SLOW/BAD-B entering; it still kills the skip plant); (2) at an ordinary gate after CARD-395 the 7 new cells cost about 12 s that only wave close repays; (3) the hard-kill-by-hang-guard bound is documented, not probed.
