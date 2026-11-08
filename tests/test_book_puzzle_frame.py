@@ -1825,8 +1825,8 @@ def test_PropertyTest_PuzzleFrame_IsTheDrawingsBoxOnEveryTrimAndParity() -> None
                 # threshold (see its docstring), so a drawing whose spare is
                 # positive but under CLEARANCE_WINDOW_MM is left to
                 # ``test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare``.
-                # The one-line footer (CARD-392) put 1 of this corpus's 240
-                # drawings there; before it, none.
+                # Measured (CARD-392): 2 of this corpus's 240 drawings are in
+                # the window with the one-line footer, 1 was with the old band.
                 area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
                 drawing_mm = (column_depth + rows) * _expected_cell_mm(
                     spec, row_depth + columns, column_depth + rows
@@ -2981,15 +2981,17 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         assert not _footer_group_omitted(layout, _spec())
 
     #: The shallow-band sheet and the drawing that lands in the window the
-    #: band's lift no longer covers (review cycle 2, F2-001). A 23x12 behind
-    #: 5-deep gutters on a 9 mm band and a 160 mm trim: 28 drawing columns by
-    #: 17 rows, a spare of 8 px against a 14.29 px threshold (a 23x9 with a
-    #: spare of 13 px until CARD-392 gave the area its 236 px back), so the ratio is
+    #: band's lift no longer covers (review cycle 2, F2-001). A 29x17 behind
+    #: 14- and 9-deep gutters on a 9 mm band and a 160 mm trim: 43 drawing
+    #: columns by 26 rows, a spare of 14 px against a 14.29 px threshold (a 23x9
+    #: behind 5-deep gutters with a spare of 13 px until CARD-392 gave the area
+    #: its 236 px back; the window is 13..14 px wide, which is why it is a
+    #: search result and not a round figure), so the ratio is
     #: refused — and the band's lift is only 13.30 px, so the band's foot
     #: alone would leave the drawing's bottom edge **on** the footer rule.
     SHALLOW_BAND_MM = 9.0
     SHALLOW_TRIM_MM = 160.0
-    SHALLOW_CASE = dict(columns=23, rows=12, row_depth=5, column_depth=5)
+    SHALLOW_CASE = dict(columns=29, rows=17, row_depth=14, column_depth=9)
 
     def test_a_shallow_band_cannot_leave_ink_on_a_drawn_footer_rule(self) -> None:
         """EC-022 on a band the stored profiles do not store (review cycle 2,

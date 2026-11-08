@@ -3760,7 +3760,7 @@ functional:
         # 219.586 / 28 = 7.842 mm.
         given: a Book 1 profile book whose order starts with two easy 10x10 puzzles, each with 3-deep row- and column-clue gutters (combined drawing height 26 cells)
         when: the book PDF is generated
-        then: both puzzles print on one page at the 7.5 mm standard cell (+/- 0.05 mm) -- 26 cells would fit 8.45 mm of the 219.586 mm a pair has left after two title bands and the one-line footer strip, so the cap binds and not the height
+        then: both puzzles print on one page at the 7.5 mm standard cell (+/- 0.05 mm), the cap binding because 26 cells would fit 8.45 mm of the 219.586 mm a pair has left after two title bands and the one-line footer strip
         kind: boundary
         invariant: INV-010
         test: TestBookPdf_TwoSmallSameTierNeighboursShareAPage
@@ -3822,7 +3822,7 @@ functional:
         # 12 mm bands and the 117 px strip, over the 7.0 mm floor).
         given: the Book 1 profile on an 8.5 x 11 in, a 6 x 9 in and a 5 x 8 in trim
         when: a pair is offered at N and at N + 1 cells of combined drawing height, N being the largest the sheet admits
-        then: N pairs at the shared cell the arithmetic gives (+/- 0.05 mm) and N + 1 prints as two single pages -- N is 31 on 8.5 x 11 in (7.08 mm; 32 is 6.86), 24 on 6 x 9 in (7.03 mm; 25 is 6.75), and 20 on 5 x 8 in, which is below the smallest pair of puzzles (22), so that trim never pairs
+        then: N pairs at the shared cell the arithmetic gives (+/- 0.05 mm) while N + 1 prints as two single pages, N being 31 on 8.5 x 11 in (7.08 mm; 32 is 6.86), 24 on 6 x 9 in (7.03 mm; 25 is 6.75) and 20 on 5 x 8 in, which is below the smallest pair of puzzles (22), so that trim never pairs
         kind: boundary
         invariant: INV-010
         test: TestTwoUp_ThresholdsRederivedFromTheOneLineFooter

@@ -1111,7 +1111,7 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):
         """The millimetres the crops below are taken at, stated before use."""
-        assert abs(self.LOWER_BAND_TOP_MM - 128.075) < 1e-3
+        assert abs(self.LOWER_BAND_TOP_MM - 148.056) < 1e-3
 
     def test_the_upper_band_reads_puzzle_one_and_the_lower_puzzle_two(self):
         page, raw = self._page()
@@ -1180,11 +1180,13 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         (4), the "Easy"
         divider 5, the 15x15 alone on 6 — and an odd, right-hand page, which
         is what the reference bands (``_reference_band(puzzle, 7, ...)``) are
-        laid out on.
+        laid out on. The single is the 5-deep 15x15 (20 cells down): beside
+        a 13-cell puzzle that is 33, over the 31 the one-line footer admits,
+        so it still stands alone (CARD-392; the 2-deep one, 17, now pairs).
         """
         raw = _raw_interior(
             [
-                _puzzle(**_FIFTEEN_DEEPER, puzzle_id="alone"),
+                _puzzle(**TestBookPdf_FifteenPlusTwelveDoesNotPair.FIFTEEN_TALL, puzzle_id="alone"),
                 _puzzle(**_SMALL_PAIR, puzzle_id="one"),
                 _puzzle(**_SMALL_PAIR, puzzle_id="two"),
             ]

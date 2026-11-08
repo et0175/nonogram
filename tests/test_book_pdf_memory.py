@@ -4288,10 +4288,10 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         #: The footer line's rows and the usable area's two edges, in this
         #: page's own pixels, written out rather than imported: 0.5 in margins
         #: at 300 DPI, and the line the grid-size label and the folio are set
-        #: on, 274 px (a 20 mm reserved row plus one 9 pt gap) above the
-        #: bottom margin.
+        #: on, 38 px (one 9 pt gap; 274 px with the 20 mm reserved row before
+        #: CARD-392) above the bottom margin.
         usable_left, usable_right = 150, 2550 - 150
-        line_bottom = 3300 - 141 - 274
+        line_bottom = 3300 - 141 - 38
         label_zone = 400
         for number in (8, 10):
             page = interior[number - 1]

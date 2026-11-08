@@ -746,10 +746,11 @@ class TestBookPdf_ParityNeverMovesTopEdge:
 
     #: The footer line's own rows and the usable area's two edges in this
     #: page's own pixels, written out rather than imported: the line the
-    #: grid-size label is set on is 274 px (a 20 mm reserved row and one 9 pt
-    #: gap) above the 141 px bottom margin of a 3300 px page, 0.5 in margins
-    #: on a 8.5 in trim at 300 DPI; the label is read in 400 px at each end.
-    LINE_BOTTOM_PX = 3300 - 141 - 274
+    #: grid-size label is set on is 38 px (one 9 pt gap; 274 px with the 20 mm
+    #: reserved row before CARD-392) above the 141 px bottom margin of a 3300 px
+    #: page, 0.5 in margins on a 8.5 in trim at 300 DPI; the label is read in
+    #: 400 px at each end.
+    LINE_BOTTOM_PX = 3300 - 141 - 38
     LABEL_ZONE_PX = 400
     USABLE_LEFT_PX = round(GUTTER_MM / 25.4 * 300)
     USABLE_RIGHT_PX = round((BOOK1_WIDTH_MM - OUTSIDE_MM) / 25.4 * 300)
@@ -4477,10 +4478,20 @@ _SPEC_MEASURED_PX = 1.05
 #: The same, for the drawing's own outer edges — where the raster's ink is
 #: *at* the specified margin and the only disagreement is sub-pixel rounding.
 #: Measured worst 0.5437 px (``16x25 d5 page 13 on 190x235 mm``,
-#: ``drawing_left``), so the bound is 0.6 px = 0.0508 mm. Two live bounds
-#: rather than one is F-003's other half: no single constant decides AC-1's
-#: answer any more.
-_SPEC_DRAWING_MEASURED_PX = 0.6
+#: ``drawing_left``) until CARD-392, so the bound was 0.6 px = 0.0508 mm. Two
+#: live bounds rather than one is F-003's other half: no single constant
+#: decides AC-1's answer any more.
+#:
+#: **Re-measured for CARD-392: 0.9091 px (``23x26 d4 page 25 on 190x235 mm``,
+#: ``drawing_top``), bound 0.955 px (+5 %) = 0.0809 mm.** The one-line footer
+#: puts a footer-bound drawing's top on the *other* arm of the placement's
+#: ``max`` (``area_bottom + 1 px - drawing_height``, anchored on the rounded
+#: trim extent, whose measured worst is the 1.0 px of
+#: :data:`_SPEC_MEASURED_PX`) in a case the 29.878 mm band never reached,
+#: because the band's foot was always the lower row. That arm's residue is
+#: 0.9091 px here, under the 1.05 px and the 1.5 px above it, and inside
+#: :data:`EDGE_TOLERANCE_MM`; the left edge is still the 0.5437 px.
+_SPEC_DRAWING_MEASURED_PX = 0.955
 
 #: The corpus's **floor**, asserted inside the tests that read it so the
 #: corpus cannot silently shrink — CLAUDE.md's test style in terms:

@@ -100,21 +100,6 @@ TWO_UP_MINIMUM_MM = 7.0
 #: QR row before it).
 FOOTER_STRIP_PX = 117
 
-#: How many cells of combined drawing height a Book 1 pair may have, with and
-#: without the strip reserved, before its shared cell falls under 7.0 mm. Both
-#: stated from the usable height by hand (253.492 mm less two 12 mm bands, less
-#: the strip for the second), never from ``compute_pair_layout``:
-#:
-#:     unreserved  229.492 / 7.0 = 32.78  ->  32 cells
-#:     reserved    199.605 / 7.0 = 28.51  ->  28 cells
-#:
-#: so the pairs the strip refuses are **exactly** those whose combined drawing
-#: height is 29, 30, 31 or 32 cells.
-MAX_PAIR_CELLS_UNRESERVED = 32
-MAX_PAIR_CELLS_RESERVED = 28
-NEWLY_REFUSED_PAIR_CELLS = frozenset({29, 30, 31, 32})
-
-
 def _spec(
     *,
     parity: PageParity = PageParity.ODD,
@@ -478,9 +463,13 @@ class TestPuzzlePages_OnlyAreaDependentMarksMove:
         assert now.header_rule == control_frame.header_rule
         assert now.footer_rule.width == control_frame.footer_rule.width
         assert (now.folio_x, now.label_x) == (control_frame.folio_x, control_frame.label_x)
-        assert now.baseline - now.footer_rule.y == control_frame.baseline - control_frame.footer_rule.y == 79
-        assert control_frame.page_bottom - control_frame.baseline == 274
+        # The folio sits 79 px under the rule (the line plus a gap, 10 + 9 pt),
+        # on main before this card and now. What moved is its distance from the
+        # page's bottom edge, 274 px on main (measured from main's frame) and
+        # 38 px now: the band's 20 mm.
+        assert now.baseline - now.footer_rule.y == 79
         assert now.page_bottom - now.baseline == 38
+        assert control_frame.footer_rule.y - now.footer_rule.y == -236
         assert all(f.baseline - f.footer_rule.y == 79 for pair in frames.values() for f in pair)
 
 

@@ -101,6 +101,14 @@ depth the rows store rather than by the extent alone. The corpus therefore
 discriminates more than it did, not less, which is the direction this
 measurement exists to watch.
 
+**Re-measured for CARD-392**, whose one-line footer returns 20 mm of that
+strip to every pair (219.586 mm of height where there were 199.605): the
+boundary moves from 28 to 31 cells, so pairs that sat on the old boundary pair
+whatever their clue depth. Offered verdicts went 97 -> 96 and the flips
+11 -> **7** -- the same figures as before CARD-248, to the verdict: fewer
+pairs sit on the boundary the clues decide, and the corpus still discriminates
+(7 is not zero).
+
 Seven is a small number and is the whole point: it is not zero, so this corpus
 discriminates between the plan the book makes and a plan fitted from extents
 alone instead of agreeing with both — an extent-only planner would have put ten
@@ -817,9 +825,12 @@ CORPUS_MEASURED = {
     # the flips go 7 -> 11, i.e. the corpus discriminates *more* between the
     # book's own plan and one fitted from extents alone, not less. See the
     # module docstring.
-    "verdicts_offered": 97,
-    "flips_solid_grid": 11,
-    "flips_filled_count": 11,
+    # 97 and 11/11 until CARD-392: its one-line footer strip (117 px, where
+    # CARD-248's was 353) moves the pair boundary from 28 to 31 cells, so the
+    # figures go back to 96 and 7/7 (re-measured, not carried).
+    "verdicts_offered": 96,
+    "flips_solid_grid": 7,
+    "flips_filled_count": 7,
 }
 
 
