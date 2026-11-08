@@ -9,7 +9,7 @@ The acceptance criteria and where each is held:
 
 * AC-1 - ``TestSharedUi_ThePageRuns``: a real puzzle plays to the Solved banner
   with zero page errors and zero non-GET requests, the page links no stylesheet
-  beyond tokens / Bootstrap / ``admin.css``; and
+  beyond the project's base sheet / tokens / ``admin.css``; and
   ``TestSharedUi_TheCard385SweepOnThisTree`` runs CARD-385's whole gesture sweep
   (every control, the solve, the reload) against THIS assembled tree.
 * AC-2 - ``TestSharedUi_ByteIdentity``: the table covers the four admin files,
@@ -32,10 +32,12 @@ and says why where no line decides), the banner's neutral name, the fresh start
 (old ``nonogram-public:`` saves are not read), and the refusals of the shell
 and of the two CLIs.
 
-Bootstrap is NOT in the repository (G-3), so the tests assemble with a tiny
-stand-in stylesheet that holds the one Bootstrap rule the player needs
-(``[hidden]``). The real file was run through the same sweep by hand; the
-card's notes carry that measurement.
+Bootstrap is NOT in the repository (G-3). Since CARD-394 the preview needs none:
+it links the project's own ``player/shared-ui-base.css``, held to the real
+Bootstrap's measured computed styles and rectangles by
+``tests/test_player_base_css.py``. The ``--bootstrap`` flag stays as an
+override for the owner's comparison by eye; the cells that build with it use a
+one-rule stand-in file.
 """
 
 from __future__ import annotations
@@ -104,12 +106,12 @@ FOUR_FILES = {
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
 
-#: What stands in for Bootstrap in the tests (G-3: the real file is not in the
-#: repository). ``admin.css`` leans on Bootstrap's reboot for ``[hidden]``.
+#: What stands in for a caller's Bootstrap file in the cells that exercise the
+#: ``--bootstrap`` override (G-3: the real file is not in the repository).
 BOOTSTRAP_STAND_IN = "/* stand-in for Bootstrap 5.3 (tests only) */\n[hidden] { display: none !important; }\n"
 
 #: The files the preview's tree differs from the default tree in.
-PREVIEW_ONLY = {"admin.css", "bootstrap.min.css", "solver.js"}
+PREVIEW_ONLY = {"admin.css", "base.css", "solver.js"}
 PREVIEW_REPLACED = {"play/index.html"}
 PREVIEW_DROPPED = {"play.js"}
 
@@ -142,11 +144,16 @@ def bundle(tmp_path):
     return root, keys, slug
 
 
-def preview_of(bundle_root: Path, out: Path, fragment: str, tmp_path: Path, **kwargs):
-    stand_in = tmp_path / "bootstrap.min.css"
-    stand_in.write_text(BOOTSTRAP_STAND_IN, encoding="utf-8")
+def stand_in_bootstrap(tmp_path: Path) -> Path:
+    path = tmp_path / "bootstrap.min.css"
+    path.write_text(BOOTSTRAP_STAND_IN, encoding="utf-8")
+    return path
+
+
+def preview_of(bundle_root: Path, out: Path, fragment: str, tmp_path: Path, *, bootstrap: Path | None = None, **kwargs):
+    """The default preview (the project's stylesheet), or the override with ``bootstrap``."""
     return assembler.assemble(
-        bundle_root, out, shared_ui=assembler.SharedUi(fragment=fragment, bootstrap=stand_in), **kwargs
+        bundle_root, out, shared_ui=assembler.SharedUi(fragment=fragment, bootstrap=bootstrap), **kwargs
     )
 
 
@@ -295,22 +302,26 @@ class TestSharedUi_ThePageRuns:
         # Only the tree's own files, and every one of them a GET.
         requested = {u.removeprefix(url) for u in watch.urls}
         assert requested == {
-            f"/play/{key}", "/tokens.css", "/bootstrap.min.css", "/admin.css", "/solver.js",
+            f"/play/{key}", "/base.css", "/tokens.css", "/admin.css", "/solver.js",
             "/solver_state.js", f"/puzzle/{key}.json",
         }, sorted(requested)
 
     def test_the_page_links_no_stylesheet_beyond_the_admins_and_has_no_style_element(
         self, browser_page, preview_host
     ) -> None:
-        """G-1: no override layer. The page's sheets are tokens, Bootstrap, admin.css."""
+        """G-1 and CARD-394 AC-1: three sheets (the project's, tokens, admin.css), no override layer,
+        no third-party file in the tree, and no licence header or URL in the project's sheet."""
         url, report, keys, _ = preview_host
         open_play(browser_page, url, keys["sweep"])
         sheets = browser_page.evaluate("[...document.styleSheets].map(s => new URL(s.href).pathname)")
-        assert sheets == ["/bootstrap.min.css", "/tokens.css", "/admin.css"], sheets
+        assert sheets == ["/base.css", "/tokens.css", "/admin.css"], sheets
         assert browser_page.evaluate("document.querySelectorAll('style').length") == 0
         html = (report.site_dir / "play" / "index.html").read_text(encoding="utf-8")
         assert re.findall(r'rel="stylesheet" href="([^"]+)"', html) == [
-            "/bootstrap.min.css", "/tokens.css", "/admin.css"]
+            "/base.css", "/tokens.css", "/admin.css"]
+        assert [p for p in tree_bytes(report.site_dir) if "bootstrap" in p.lower()] == []
+        base = (report.site_dir / "base.css").read_text(encoding="utf-8")
+        assert not re.search(r"https?:|//[a-z]|/\*!|@import|url\(", base), "no URL, import or licence header"
 
     def test_the_header_the_tab_and_the_banner_name_come_from_the_puzzle_file(
         self, browser_page, preview_host
@@ -627,6 +638,12 @@ class TestSharedUi_TheServedTreeCarriesNoAnswer:
         page.write_text(original.replace("</head>", '<link rel="stylesheet" href="x.css"></head>'))
         assert len(scan_site(report.site_dir, runtime, static)["unclassifiable"]) == 2
         page.write_text(original)
+        # AC-1's plant: a reference appended to the project's own stylesheet reds the scan too.
+        base = report.site_dir / "base.css"
+        text = base.read_text(encoding="utf-8")
+        base.write_text(text + "\n.x { background: url(https://evil.example/x.png); }\n")
+        assert scan_site(report.site_dir, runtime, static)["foreign"] != []
+        base.write_text(text)
 
     def test_the_site_marker_is_there(self, preview) -> None:
         report, *_ = preview
@@ -664,10 +681,9 @@ class TestSharedUi_TheDefaultIsUnchanged:
         assert changed == PREVIEW_REPLACED, sorted(changed)
 
     def test_the_cli_flags_are_all_or_nothing(self, tmp_path) -> None:
+        """Since CARD-394 the markup alone is a complete preview; ``--bootstrap`` is only its override."""
         with pytest.raises(SystemExit):
             assembler.main(["--out", str(tmp_path / "o"), "--bootstrap", str(tmp_path / "b.css")])
-        with pytest.raises(SystemExit):
-            assembler.main(["--out", str(tmp_path / "o"), "--shared-ui-fragment", str(tmp_path / "f.html")])
 
     def test_the_drivers_default_command_line_is_unchanged(self) -> None:
         assert driver.delegated_argv(bundle="b", out="o", force=False, analytics=None) == [
@@ -685,41 +701,48 @@ class TestSharedUi_TheDefaultIsUnchanged:
         literals = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
         published = {*assembler.SHARED_UI_PLAYER_FILES, *assembler.SHARED_UI_PLAYER_FILES.values(),
                      *assembler.SHARED_UI_COPIED_FROM_ADMIN, *assembler.SHARED_UI_COPIED_FROM_ADMIN.values(),
-                     assembler.SHARED_UI_BOOTSTRAP}
+                     assembler.SHARED_UI_BOOTSTRAP, assembler.SHARED_UI_BASE, assembler.SHARED_UI_BASE_SOURCE}
         assert sorted(p for p in published if any(p in text for text in literals if len(text) < 80)) == []
 
     def test_the_driver_end_to_end_equals_the_in_process_assembly(self, bundle, fragment, tmp_path) -> None:
+        """The default driven preview, and (CARD-394 AC-5) the one built with ``--bootstrap``."""
         root, *_ = bundle
-        css = tmp_path / "bootstrap.min.css"
-        css.write_text(BOOTSTRAP_STAND_IN, encoding="utf-8")
-        out = tmp_path / "driven"
-        run = subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
-             "--bundle", str(root), "--out", str(out), "--shared-ui", "--bootstrap", str(css)],
-            capture_output=True, text=True, cwd=REPO_ROOT, check=False,
-            env={"PYTHONPATH": str(REPO_ROOT / "src"), "PATH": "/usr/bin:/bin"},
-        )
-        assert run.returncode == 0, run.stderr
-        assert "PREVIEW" in run.stdout
-        in_process = preview_of(root, tmp_path / "inproc", fragment, tmp_path).site_dir
-        assert tree_bytes(out) == tree_bytes(in_process)
+        css = stand_in_bootstrap(tmp_path)
+        for flags, override in (([], None), (["--bootstrap", str(css)], css)):
+            out = tmp_path / f"driven{len(flags)}"
+            run = subprocess.run(
+                [sys.executable, str(REPO_ROOT / "scripts" / "assemble_player_site.py"),
+                 "--bundle", str(root), "--out", str(out), "--shared-ui", *flags],
+                capture_output=True, text=True, cwd=REPO_ROOT, check=False,
+                env={"PYTHONPATH": str(REPO_ROOT / "src"), "PATH": "/usr/bin:/bin"},
+            )
+            assert run.returncode == 0, run.stderr
+            assert "PREVIEW" in run.stdout
+            in_process = preview_of(root, tmp_path / f"inproc{len(flags)}", fragment, tmp_path, bootstrap=override).site_dir
+            assert tree_bytes(out) == tree_bytes(in_process)
+            page = (out / "play" / "index.html").read_text(encoding="utf-8")
+            assert ('href="/bootstrap.min.css"' in page) is (override is not None)
+            assert (out / "bootstrap.min.css").is_file() is (override is not None)
+            assert (out / "base.css").is_file() is (override is None)
 
     def test_the_driver_refuses_one_of_the_two_flags_and_print_only_renders_nothing(
         self, bundle, tmp_path
     ) -> None:
+        """``--bootstrap`` without ``--shared-ui`` is refused; ``--shared-ui`` alone is a whole preview."""
         root, *_ = bundle
         script = str(REPO_ROOT / "scripts" / "assemble_player_site.py")
-        for flags in (["--shared-ui"], ["--bootstrap", str(tmp_path / "x.css")]):
-            run = subprocess.run(
-                [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), *flags],
-                capture_output=True, text=True, cwd=REPO_ROOT, check=False)
-            assert run.returncode == 2 and "go together" in run.stderr, run.stderr
         run = subprocess.run(
-            [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), "--shared-ui",
-             "--bootstrap", str(tmp_path / "x.css"), "--print-only"],
+            [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"),
+             "--bootstrap", str(tmp_path / "x.css")],
             capture_output=True, text=True, cwd=REPO_ROOT, check=False)
-        assert run.returncode == 0, run.stderr
-        assert "--bootstrap" in run.stdout and not (tmp_path / "o").exists()
+        assert run.returncode == 2 and "belongs to --shared-ui" in run.stderr, run.stderr
+        for flags, named in (([], False), (["--bootstrap", str(tmp_path / "x.css")], True)):
+            run = subprocess.run(
+                [sys.executable, script, "--bundle", str(root), "--out", str(tmp_path / "o"), "--shared-ui",
+                 "--print-only", *flags],
+                capture_output=True, text=True, cwd=REPO_ROOT, check=False)
+            assert run.returncode == 0, run.stderr
+            assert ("--bootstrap" in run.stdout) is named and not (tmp_path / "o").exists()
 
 
 # ==========================================================================

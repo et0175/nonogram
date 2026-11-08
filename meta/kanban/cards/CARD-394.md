@@ -61,4 +61,13 @@ The shared-UI preview (CARD-386) serves the admin's own `solver.js`, `solver_sta
 
 ## Worktree notes
 
-(none yet)
+Author round 1 (branch card/394-project-stylesheet, 2026-11-08).
+
+* Stylesheet: `player/shared-ui-base.css` (4.3 KB), published as `/base.css` in the preview tree, linked first in the shell where `/bootstrap.min.css` was. `SharedUi.bootstrap` is now optional: given, that file is published and linked INSTEAD (the owner's comparison); `--shared-ui` alone is a whole preview. Default (live) tree byte-identical to main's: `diff -r` of both built from `build/player-bundle` is empty (172 files).
+* Used classes derived by script (class tokens of solver.js/solver_state.js/puzzle_solve.html intersected with the real file's classes, plus the real file's rules matched against the live DOM): the card's four AND `alert alert-danger` (solver.js `showError`). `.alert` is covered; the card listed four.
+* Fidelity measured on the page of CARD-385's sweep board, 390 and 1280 px: every element (253) x every non-custom, non-logical computed property x rect, in normal, hover, focus-visible, active, disabled for all 13 `.btn`, the open menu, the confirm, the solved page and the error page: zero differences after one fix (first version missed that a pressed button under the keyboard ring keeps its pressed colours and shows the focus shadow; the frozen table caught it). Renders (390/1280, project vs real) are pixel-identical.
+* Test: `tests/test_player_base_css.py`: one fidelity test (x2 widths) and one plant test (two plants: no `[hidden]` rule, wider `.btn` padding). Without `NONOGRAM_REAL_BOOTSTRAP` it compares against `FROZEN` (provenance in the file: sha256 7f1d37f0..., Chromium 151.0.7922.34, macOS arm64, 2026-11-08); with it, live (run: passes). Tolerance 0.05 px on rectangles, exact on styles; measured residue 0. Caveat: frozen rects include text widths, so they hold where the fonts resolve as on the recording machine.
+* Existing cells re-pointed (none deleted/renamed): sheet list, requested set, PREVIEW_ONLY, default/override driver cells, flag cells in tests/test_player_shared_ui_site.py; `test_the_player_tree_is_static...` in tests/test_public_player.py now names `SHARED_UI_BASE_SOURCE` beside PLAYER_FILES. Net collected node ids: +3 (new module), 0 removed.
+* Served-tree scan on a preview built from `build/player-bundle` (160 puzzles): without `--bootstrap`: foreign 0, identifiers 0, unclassifiable 1 (solver.js relative import only); with the real file: foreign 3, unclassifiable 3.
+* ADR-0041/R3 wording ("plain hand-written JavaScript and CSS ... no framework") checked, still true, not edited. Not touched: vercel.json, admin files, live path.
+
