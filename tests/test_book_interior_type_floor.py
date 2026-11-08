@@ -1086,8 +1086,16 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         The medium each one reads is stated, because the retirement of a kind
         that *converted* is only answered by a survivor in the converted medium.
 
-        The *raster* worked example is covered elsewhere (cycle 2, F-203):
-        ``tests/test_book_guide_page.py::TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample::test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2``.
+        The *raster* worked example was covered elsewhere (cycle 2, F-203) by
+        ``tests/test_book_guide_page.py``'s pixel-identity cell, which CARD-229
+        retired with the raster guide (G-6). The narrative the vector page draws
+        is still data that solves its line:
+        ``tests/test_book_guide_page.py``'s
+        ``TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample::test_the_four_steps_solve_the_line_from_the_clue_to_the_finished_line``;
+        the vector worked example's other survivors are ``tests/test_book_guide_page_vector.py``'s
+        ``TestGuideSpread_TextComesFromTheConstants::test_every_diagram_is_the_constants_diagram``
+        and
+        ``TestGuidePage_WorkedExampleReusesTheGridRoutine::test_the_page_draws_every_diagram_through_that_one_routine``.
 
         * ``guide`` (vector stream/record) —
           ``tests/test_book_guide_page_vector.py``'s
@@ -1389,7 +1397,7 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
             "Either way it is a FAILURE and never a silent pass (ADR-0039/R2)."
         )
         kept = [
-            page for page in guide_pages_for(book) if page.fallback_level[2] == 0
+            page for page in guide_pages_for(book) if page.form.shows_worked_example
         ]
         if kept:
             expected = [
@@ -1438,7 +1446,7 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
         ) is book_pdf_generator.PageMedium.RASTER:
             return
         assert any(
-            page.fallback_level[2] == 0
+            page.form.shows_worked_example
             for book in BOOKS
             for page in guide_pages_for(book)
         ), "no book's vector guide page keeps the worked example any more"

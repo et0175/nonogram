@@ -578,9 +578,9 @@ BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_base
 #: ``BookPDFGenerator.create_guide_page`` takes an interior position and
 #: counts which half of the tutorial to draw from ``TITLE_PAGE_COUNT``, so
 #: these are the two numbers a test hands it when it wants the guide's first
-#: and second page. Shared by the three files that letter, measure and
-#: compare those pages (``test_book_guide_page.py``,
-#: ``test_book_guide_page_type.py``, ``test_book_pdf_memory.py``), so a later
+#: and second page. Shared by the files that letter, measure and compare those
+#: pages (``test_book_guide_page.py``, ``test_book_pdf_memory.py``; the raster
+#: ``test_book_guide_page_type.py`` was retired by CARD-229), so a later
 #: front-matter card moves them in one place.
 GUIDE_INTERIOR_PAGES = (2, 3)
 

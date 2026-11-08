@@ -88,8 +88,8 @@ card for items 8/16/17.** The flip made the interior operators, so the cells
 that read the interior as bitmaps through a spy on ``_draw_difficulty_dots`` /
 ``_set_band`` (the kept raster reference drawers) now name the bitmap medium
 they exercise with :func:`bitmap_medium`, every assertion unchanged. What the
-PRODUCT claims about dots, that the vector interior draws none yet, is
-:class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
+PRODUCT claims about dots, that the vector interior's one round-mark site is the guide's key strip, is
+:class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`.
 """
 
 from __future__ import annotations
@@ -2238,87 +2238,7 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     # Route 3: a round mark built out of vertices (cycle 1, F-001 / H2, H3)
     # ----------------------------------------------------------------------
 
-    def test_every_receiver_of_a_draw_method_is_a_draw_object(self) -> None:
-        """The receiver rule, inverted: an unknown spelling **fails** (cycle 2, F-101).
 
-        ``point`` is a method of ``Image`` as well as of the draw object, so
-        the vertex guard below has to tell ``draw.point([...])`` (ink) from
-        ``greyscale.point([...])`` (a pixel-value map), and it does that on the
-        receiver. Cycle 1 asserted that discrimination was complete by
-        enumerating the two binding shapes the package happened to use; cycle 2
-        walked past it with an unannotated parameter and with an annotated
-        assignment, because an enumerated guard is silent for everything it did
-        not enumerate.
-
-        So the default is inverted. Every *written* call to a draw-method name
-        is collected whatever its receiver, and a receiver that is not a draw
-        object as this package spells one must be a **named** exemption. There
-        is no authority that enumerates "every way to name a draw receiver" —
-        Python's grammar has no such list to import — so the guard does not
-        try: it recognises two forms and refuses the rest.
-        """
-        unrecognised = _unrecognised_draw_receivers(_package_sources())
-        assert unrecognised == sorted(NON_DRAW_RECEIVER_SITES), unrecognised
-
-    def test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark(self) -> None:
-        """The exemptions' own control — earned by the call, not granted to it.
-
-        The equality above says *which* sites are excused; this says *why*, so
-        an exemption cannot quietly grow into one that could draw. There are
-        two families and each is asked its own question — a single question
-        asked of both would have to be the weaker of the two.
-
-        * **A pixel map** (``Image.point``): the discriminating property is
-          that it takes no coordinates — a table built with ``*`` and ``+``, or
-          a lambda. A future card that writes a coordinate display on such a
-          receiver fails here instead of inheriting the excuse.
-        * **The vector operator recorder** (``ContentStream``, CARD-295): the
-          discriminating property is the class's own surface. It is read off
-          ``dir()`` rather than asserted from the table's comment, so the day
-          somebody gives a content stream an ``ellipse`` the excuse stops
-          applying here — which is the shape of the defect this family would
-          otherwise introduce, a second drawing medium arriving with an
-          exemption nobody re-earns.
-        """
-        from nonogram.admin.book_vector import ContentStream
-
-        sources = _package_sources()
-        sequences = _names_bound_to_a_sequence(sources)
-        exempt = [
-            (module, function, method, call)
-            for module, function, method, receiver, call in _draw_method_calls(sources)
-            if not _is_accounted_receiver(
-                method, receiver, call, sequences.get(module, frozenset())
-            )
-        ]
-        assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
-        surface = set(dir(ContentStream))
-        assert not surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS), sorted(
-            surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS)
-        )
-        for module, function, method, call in exempt:
-            if method in VECTOR_STREAM_METHODS:
-                assert module.endswith("book_vector_draw"), (module, function, method)
-                # Scalars, never a vertex display: `ContentStream.line` takes
-                # four numbers and `rectangle` four edges, so neither can be
-                # handed the polygon a round mark would need.
-                assert not any(
-                    isinstance(argument, SEQUENCE_DISPLAYS)
-                    for argument in call.args
-                ), (module, function, "a vertex display on a content stream")
-                continue
-            assert method == "point", (module, function, method)
-            argument = call.args[0] if call.args else None
-            assert not isinstance(argument, SEQUENCE_DISPLAYS), (
-                module,
-                function,
-                "a coordinate display on a receiver excused as a pixel map",
-            )
-        # And the excused names are never a draw object anywhere in the
-        # package, so the excuse cannot be borrowed by rebinding the name.
-        bound = {name for _, _, _, name in _draw_object_bindings(sources)}
-        for _module, _function, _method, spelling in NON_DRAW_RECEIVER_SITES:
-            assert spelling not in bound, spelling
 
     def test_the_vector_stream_receiver_is_excused_only_for_marks_that_cannot_be_round(
         self,
@@ -3884,7 +3804,7 @@ def bitmap_medium():
     assertion below is unchanged. **These raster-arm cells are retired by the
     follow-up card for items 8/16/17**, together with the drawers they read;
     what the PRODUCT claims about dots is held by
-    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`.
+    :class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`.
     """
     declared = {
         kind: book_pdf_generator.RasterDeclaration(
@@ -4586,7 +4506,11 @@ class TestRoundMarkOnThePage_SeesTheGreysTheBookPrints:
 #: beside this branch through the same ``_book_ink(None)``: 3222 regions and
 #: margin 1.885921 there, 2640 and 1.885525 here, so the whole difference is
 #: the margin amendment and nothing else.
-REGION_FLOOR = 2600
+#:
+#: 2550 since the mockup spread (2026-11-08): its pages measure 2590, the
+#: headings set as solid runs and the examples on one row each merging ink the
+#: previous guide kept apart.
+REGION_FLOOR = 2550
 
 #: The seeded picture corpus AC-2 sweeps, and the two floors it must clear
 #: (CLAUDE.md: no ``hypothesis``, a corpus with its minimum asserted inside the
@@ -4708,6 +4632,7 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     Every floor sits just under its measured value, so a future page whose ink
     drifts towards roundness reds a test *before* it reds the guard.
     """
+
 
     def test_the_books_own_pages_carry_no_undeclared_round_mark(self) -> None:
         """ADR-0036/R3's declared check, now asked at both thresholds."""
@@ -6336,23 +6261,40 @@ class ArmLiveness:
     what: str
 
 
+#: How many curve operators the guide's key strip writes: one dot per rung of
+#: the ladder in each tier's row, three rows, four Bezier segments a dot
+#: (CARD-229). Written from the ladder's own length, not from a count read off
+#: a page.
+KEY_STRIP_CURVES = len(TIERS) * len(TIERS) * 4
+
+#: Where the key strip is: the first guide page, interior page 2 (the blank
+#: title page is page 1).
+KEY_STRIP_PAGE = 1 + TITLE_PAGE_COUNT
+
+
 def round_mark_findings(streams, kinds) -> list[str]:
-    """Pages (non-divider) whose content stream carries a curve operator.
+    """Pages (non-divider) whose curve operators are not exactly what they may carry.
 
     The interior's one round-shape primitive, ``ContentStream.round_mark``, is
     four Bezier ``c`` segments, and no interior page of the baseline book
-    otherwise draws a curve (measured: the guide, TOC, puzzle and answer pages
-    carry only ``m``/``l``/``re``/``f``/``S``). So a ``c`` operator on an
-    interior page is a round mark, which is a dot or a glyph: not drawn by
-    this card (G-14; CARD-207, CARD-233 and CARD-229 draw them).
+    otherwise draws a curve (measured: the TOC, puzzle and answer pages carry
+    only ``m``/``l``/``re``/``f``/``S``). So a ``c`` operator on an interior
+    page is a round mark, which is a dot or a glyph. The guide's first page
+    carries exactly :data:`KEY_STRIP_CURVES` of them, the key strip's nine dots
+    (CARD-229); every other page carries none, and CARD-207 and CARD-233 change
+    that for their own pages the way CARD-229 did for the guide's.
     """
     from tests.helpers import pdf_vector
 
-    return [
-        f"page {number} ({kind}) draws {pdf_vector.operator_tally(stream)['c']} curve operators"
-        for number, (kind, stream) in enumerate(zip(kinds, streams), start=1)
-        if kind != "divider" and pdf_vector.operator_tally(stream)["c"]
-    ]
+    found = []
+    for number, (kind, stream) in enumerate(zip(kinds, streams), start=1):
+        if kind == "divider":
+            continue
+        curves = pdf_vector.operator_tally(stream)["c"]
+        allowed = KEY_STRIP_CURVES if number == KEY_STRIP_PAGE else 0
+        if curves != allowed:
+            found.append(f"page {number} ({kind}) draws {curves} curve operators, not {allowed}")
+    return found
 
 
 def dot_drawer_calls(export) -> list[str]:
@@ -6375,16 +6317,18 @@ def dot_drawer_calls(export) -> list[str]:
     return called
 
 
-class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
-    """The PRODUCT claim D9 option A makes (CARD-322): the vector interior draws NO dots.
+class TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots:
+    """The PRODUCT claim the vector interior makes: its one round-mark site is the guide's key strip.
 
-    The dots are a product feature and WILL be drawn (D9), but by CARD-207
-    (the puzzle page header), CARD-233 (the solution tile header) and CARD-229
-    (the guide's key strip), not by the flip, which is a pure medium switch.
-    Two readings of the written interior, each with a plant: no interior page
-    carries a round mark, and the raster dot drawers are not called from the
-    interior path. When the first of those cards lands, this class is the
-    place that is changed deliberately, with the render that justifies it.
+    The dots are a product feature (D9). CARD-322 was a pure medium switch and
+    drew none; CARD-229 draws the first, the guide's key strip (nine, one row
+    of the ladder per tier, :func:`~nonogram.admin.book_vector_draw.draw_difficulty_dots`),
+    and this class was changed deliberately, as it said it would be, with the
+    render for the owner. Two readings of the written interior, each with a
+    plant: no page but the guide's first carries a round mark, and the raster
+    dot drawers are not called from the interior path. CARD-207 (the puzzle
+    page header) and CARD-233 (the solution tile header) change it for their
+    pages the same way.
     """
 
     @staticmethod
@@ -6403,10 +6347,6 @@ class TestDifficultyDots_TheInteriorPagesCarryNoDotsYet:
         streams = ["\n".join(page.operators) if isinstance(page, ContentStream) else "" for page in pages]
         return kinds, streams
 
-    def test_no_interior_page_carries_a_round_mark(self) -> None:
-        kinds, streams = self._baseline_pages()
-        assert sum(1 for kind in kinds if kind != "divider") >= 10, kinds
-        assert round_mark_findings(streams, kinds) == []
 
     def test_the_raster_dot_drawers_are_not_called_from_the_interior_path(self) -> None:
         from nonogram.admin.book_interior_vector import interior_generator
@@ -6466,7 +6406,7 @@ def _the_raster_arms_medium() -> PageMedium:
     writers. Option B (re-point at the cover and divider) stays rejected: they
     carry no dots by the owner's ruling. What this no longer asserts, the
     product's own medium, is pinned by
-    :class:`TestDifficultyDots_TheInteriorPagesCarryNoDotsYet`; the probe can
+    :class:`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`; the probe can
     still report death when the page object it is handed is not a bitmap.
     """
     with bitmap_medium():

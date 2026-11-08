@@ -73,17 +73,18 @@
                     own (guide_* from book_pdf_generator), so the preview reads
                     as the printed page's full form — now both pages of it. -#}
                 <div class="guide-preview" data-guide-preview>
-                    <p class="guide-page-heading text-muted">Page 1</p>
+                    <p class="guide-page-heading text-muted">Page {{ guide_page_numbers[0] }}</p>
                     <h3 data-guide-title>{{ guide_title }}</h3>
                     <p data-guide-intro>{{ guide_intro }}</p>
 
-                    <h4 data-guide-basic-rule-heading>{{ guide_basic_rule_heading }}</h4>
-                    <p data-guide-basic-rule-text>{{ guide_basic_rule_text }}</p>
-                    <div class="guide-strip" aria-hidden="true">
-                        {%- for square in range(guide_basic_rule_length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in guide_basic_rule_filled else ('crossed' if square in guide_basic_rule_crossed else 'blank') }}"></span>{% endfor -%}
-                    </div>
-                    <p class="guide-diagram-caption" data-guide-basic-rule-caption>{{ guide_basic_rule_caption }}</p>
+                    {%- if guide_play_sentence %}
+                    <p data-guide-play-sentence>{{ guide_play_sentence }}</p>
+                    {%- endif %}
 
+                    {#- CARD-229: the key strip. The three marks and the difficulty legend sit
+                        together at the top of the first guide page, as printed; the legend
+                        carries the tier names (the printed page draws CARD-228's dots
+                        beside them, which a screen preview does not repeat). -#}
                     <h4 data-guide-cell-states-heading>{{ guide_cell_states_heading }}</h4>
                     <ul class="guide-cell-states">
                         {% for state in guide_cell_states %}
@@ -94,6 +95,33 @@
                         </li>
                         {% endfor %}
                     </ul>
+
+                    <h4 data-guide-difficulty-heading>{{ guide_difficulty_heading }}</h4>
+                    <p data-guide-difficulty-line>{{ guide_difficulty_line }}</p>
+                    <div class="guide-difficulty-box" data-guide-difficulty-box>
+                        {% for label in guide_difficulty_labels %}
+                        {# CARD-221 fix 1: the names alone. The printed guide page stopped
+                           setting DifficultyLabel.text when the owner ruled on 2026-10-14
+                           (234 px bought back for the worked example's own explanations), and
+                           this block is a preview of that page -- a preview that still showed
+                           the three sentences would be describing a book the export does not
+                           produce. CARD-229's key strip prints the names with CARD-228's dots
+                           and not the per-tier sentences either (the owner's 2026-11-08 ruling:
+                           the heading "Difficulty", one line, then the names), so the
+                           preview agrees with the page; `text` is carried by the constant, unprinted. The box's own rule
+                           is the screen's styling (.guide-difficulty-box in admin.css). #}
+                        <div class="guide-difficulty-column" data-guide-difficulty="{{ loop.index0 }}">
+                            <strong data-guide-difficulty-name>{{ label.name }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <h4 data-guide-basic-rule-heading>{{ guide_basic_rule_heading }}</h4>
+                    <p data-guide-basic-rule-text>{{ guide_basic_rule_text }}</p>
+                    <div class="guide-strip" aria-hidden="true">
+                        {%- for square in range(guide_basic_rule_length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in guide_basic_rule_filled else ('crossed' if square in guide_basic_rule_crossed else 'blank') }}"></span>{% endfor -%}
+                    </div>
+                    <p class="guide-diagram-caption" data-guide-basic-rule-caption>{{ guide_basic_rule_caption }}</p>
 
                     <h4 data-guide-certainty-heading>{{ guide_certainty_heading }}</h4>
                     <ol class="guide-techniques">
@@ -115,7 +143,7 @@
                     <p data-guide-switching-text>{{ guide_switching_text }}</p>
 
                     <hr>
-                    <p class="guide-page-heading text-muted">Page 2</p>
+                    <p class="guide-page-heading text-muted">Page {{ guide_page_numbers[1] }}</p>
                     <h3 data-guide2-title>{{ guide2_title }}</h3>
                     <p data-guide2-intro>{{ guide2_intro }}</p>
 
@@ -146,23 +174,6 @@
                     </div>
                     <p class="guide-diagram-caption" data-guide-assume-closing><em>{{ guide_assume_closing }}</em></p>
 
-                    <h4 data-guide-difficulty-heading>{{ guide_difficulty_heading }}</h4>
-                    <div class="guide-difficulty-box" data-guide-difficulty-box>
-                        {% for label in guide_difficulty_labels %}
-                        {# CARD-221 fix 1: the names alone. The printed guide page stopped
-                           setting DifficultyLabel.text when the owner ruled on 2026-10-14
-                           (234 px bought back for the worked example's own explanations), and
-                           this block is a preview of that page -- a preview that still showed
-                           the three sentences would be describing a book the export does not
-                           produce. `text` is still carried by the constant, for CARD-229's key
-                           strip. The box's own rule is the screen's styling (.guide-difficulty-box
-                           in admin.css) and is left to CARD-229 with the rest of that block. #}
-                        <div class="guide-difficulty-column" data-guide-difficulty="{{ loop.index0 }}">
-                            <strong data-guide-difficulty-name>{{ label.name }}</strong>
-                        </div>
-                        {% endfor %}
-                    </div>
-
                     <p class="mb-1">This book contains <strong data-guide-count="total">{{ puzzle_count }}</strong> puzzles:</p>
                     <ul>
                         <li><strong>Easy:</strong> <span data-guide-count="easy">{{ easy_count }}</span></li>
@@ -187,7 +198,7 @@
                     <p data-guide-closing-heading>{{ guide_closing_heading }}</p>
                     <p class="mb-0" data-guide-closing>{{ guide_closing }}</p>
                 </div>
-                <small class="text-muted d-block mt-2">Pages 1-2 of the interior PDF — page 1 a right-hand page — before the first puzzle.</small>
+                <small class="text-muted d-block mt-2">Pages {{ guide_page_numbers[0] }}-{{ guide_page_numbers[-1] }} of the interior PDF — page 1 is the blank title page — before the first puzzle.</small>
             </div>
         </div>
 

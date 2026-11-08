@@ -290,8 +290,9 @@ margins.
 
 `book_page_spec.book_page_spec(book, page_number)` (`:386`) is "the one door onto
 the book's sheet (CARD-115)", taking the page's **1-based position in the
-interior** so parity follows FR-043: interior page 1 is the guide page and is
-right-hand/odd (`_parity`, `:380`).
+interior** so parity follows FR-043: interior page 1 is the blank title page and is
+right-hand/odd (`_parity`, `:380`); the "How to Solve" guide is the facing spread on
+pages 2 (a verso) and 3 (a recto), set in the puzzle pages' own frame (CARD-229).
 
 ### Ink mode — in the code, absent from the model
 

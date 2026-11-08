@@ -1185,7 +1185,13 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # module that covers it -- and so was never bookkeeping-only. (The gate's own
 # class standing still while four others move is the reading worth keeping:
 # this card drained falsely-alive and honest-dead, not this one.)
-BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
+# RE-DERIVED 2026-11-08 at CARD-229 -- measured, not pasted: 11 -> 10. The one
+# departure is the guide-spread class AC-368 declares, which gained a real class
+# line in tests/test_book_guide_page_vector.py (it was registered on
+# 2026-10-17 for a test that did not exist yet). Membership was diffed at both
+# trees: OUT exactly that one ref, IN none, and `_refuse_unexplained_departures`
+# recovers it by name from the stored digests and judges it a repair.
+BOOKKEEPING_ONLY = (10, "462250d3ff57fe34")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
@@ -1235,7 +1241,11 @@ BOOKKEEPING_ONLY = (11, "2b973cfe3d340928")
 # NOT from this class: FR-042/AC-268's and AC-269's old refs. They resolved
 # from nothing at all, so they were honestly dead and left HONEST_DEAD -- the
 # distinction the pasted union block erased.
-FALSELY_ALIVE = (155, "8465e851f42f9867")
+# RE-DERIVED 2026-11-08 at CARD-229: 155 -> 152. -1 the AC-368 ref (alive on prose
+# alone, defined now) and -2 the retired AC-325/AC-326 classes, whose only live
+# text was a docstring this card rewrote and whose registry refs were re-pointed
+# at live classes.
+FALSELY_ALIVE = (152, "1b4357f825a25ec5")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1531,17 +1541,19 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # rewritten `test:` class (the one about narrow trims now pairing, in
 # requirements.yml; its name is not spelled here, G-2). CENSUS and DEFINED move by the same three; TRACE_TESTS
 # does not (none of the three is declared in trace.yml).
-# CARD-399 step 2: digest e0a8c03c0eed6b00 -> 9d527d75b1c0f220, count 583 unchanged (five refs replaced by five; see DEFINED).
 # CARD-392 (2026-11-08): 583 -> 584, ONE new declaration, measured by the diff
 # of the `test:` lines against main (IN 1, OUT 0): AC-413's class (the pair
 # thresholds on three trims, in requirements.yml; its name is not spelled here,
 # G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
 # other AC rows that CARD-392 restated keep their class names. CENSUS and
 # DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
-# CARD-399 step 3 (measured after merging main with CARD-392 and CARD-414 in): digest
-# 9a935fa131ddf749 -> 7dc31f115b77a2ed, count 584 unchanged; the step-2 swap of five refs for five
-# is what moves it (main alone: 9a935fa131ddf749).
-CENSUS = (584, "7dc31f115b77a2ed")
+# RE-DERIVED 2026-11-08 at CARD-229: 584 -> 585, worked independently: -3 refs
+# left the registry (the title, type, dpi and leading raster classes), -3 more
+# were re-pointed (AC-324/325/326 and their trace row) and +3 survivors were
+# declared in their place, +4 for the classes AC-414..AC-417 name for the
+# guide's Play online sentence (FR-047): 584 - 3 - 3 + 3 + 4 = 585.
+# Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only.
+CENSUS = (585, "a72e0d9eec99f15e")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1587,8 +1599,8 @@ CENSUS = (584, "7dc31f115b77a2ed")
 # CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
 # FR-047's trace.yml row (the one declaration site for each: the criteria
 # repeat two of them, which this list does not count twice).
-# CARD-399 step 2: digest c3123e749dd9300d -> 9647eab2ad3c4fa3, count 512 unchanged (see DEFINED).
-TRACE_TESTS = (512, "9647eab2ad3c4fa3")
+# Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
+TRACE_TESTS = (514, "c520c7164a2932cb")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1689,21 +1701,15 @@ TRACE_TESTS = (512, "9647eab2ad3c4fa3")
 # ref for the validator), each declared by requirements.yml and trace.yml with
 # its definition in place; HONEST_DEAD unmoved at 9.
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
-# CARD-399 step 2: the model's five verifying refs for the public player (AC-383..386 and
-# EC-050) moved from tests/test_public_player.py, whose twins retire, to the shared player's
-# own tests (declared in requirements.yml, trace.yml and ADR-0041/R4). Same count, five
-# refs replaced by five that each have a def and a one-line citation in their own module, so
-# the validator reads them alive: DEFINED, SAME_FILE_PROSE and TRACE_TESTS keep their
-# counts and take the digest of the new member set (measured by this module's own
-# derivation, not pasted from a prediction); CENSUS and the dead classes did not move
-# (FALSELY_DEAD stays 13 because the citations are what keeps these five out of it).
-# CENSUS moved the same way (digest only); its own line below says so.
-# DEFINED: digest 0a91e9a7753e31ec -> 9af7b521f444e194, count 419 unchanged.
 # CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
 # against its `class` line and not pasted from the printed figure.
-# CARD-399 step 3 (measured, same cause as CENSUS): digest 49c6c5cc1a6f80dc -> d2183a0cc37abe68,
-# count 420 unchanged.
-DEFINED = (420, "d2183a0cc37abe68")
+# RE-DERIVED 2026-11-08 at CARD-229: 420 -> 424. +7 declared refs now defined (the
+# four AC-414..417 classes, the AC-368 class, and the two survivors the AC-325/326
+# refs and the CON-020 trace row now name) and -4 retired classes (the title, type,
+# dpi and leading raster classes); each is a class line under tests/, not a
+# review report or a profiling artefact.
+# Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
+DEFINED = (424, "848cd95cd1d9f292")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1733,7 +1739,7 @@ DEFINED = (420, "d2183a0cc37abe68")
 #: warning set on ``meta/architecture`` is identical to main's (0 errors, 89
 #: warnings, forge_1), where a first draft with no such citation read one
 #: DEAD-ref warning more. Verified against the two ``def`` lines.
-# CARD-399 step 2: digest 531805932c7ba2e5 -> 5cb45488b9f74d4c, count 21 unchanged (see DEFINED).
+# Merge of CARD-229 into main after CARD-399 (2026-11-08): measured on the merged tree, count unchanged, digest only (CARD-399's five swapped refs).
 SAME_FILE_PROSE = (21, "5cb45488b9f74d4c")
 
 #: **Per-member digests of the two classes whose shrink is answerable

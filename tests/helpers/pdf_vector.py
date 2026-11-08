@@ -612,3 +612,56 @@ def ink_box(page: np.ndarray) -> tuple[int, int, int, int]:
 def to_buffer(data: BytesIO | bytes) -> bytes:
     """``data`` as bytes, whichever of the two a writer handed back."""
     return data.getvalue() if isinstance(data, BytesIO) else data
+
+
+#: One text object as the stream spells it: ``/F1 <size> Tf <x> <y> Td
+#: (<text>) Tj``, with its pen position.
+_PLACED = re.compile(
+    r"/\w+\s+(?P<size>-?\d+(?:\.\d+)?)\s+Tf\s+"
+    r"(?P<x>-?\d+(?:\.\d+)?)\s+(?P<y>-?\d+(?:\.\d+)?)\s+Td\s+"
+    r"\((?P<text>(?:\\.|[^()\\])*)\)\s+Tj"
+)
+
+#: A stroked straight line: ``<w> w`` then ``x1 y1 m x2 y2 l S``.
+_STROKED_LINE = re.compile(
+    r"(?P<w>\d+(?:\.\d+)?) w\n(?P<x1>-?\d+(?:\.\d+)?) (?P<y1>-?\d+(?:\.\d+)?) m "
+    r"(?P<x2>-?\d+(?:\.\d+)?) (?P<y2>-?\d+(?:\.\d+)?) l S"
+)
+
+
+def placed_text(stream: str) -> list[tuple[float, float, float, str]]:
+    """Every ``(x, y, size, text)`` the stream sets, in PDF points, in order."""
+    return [
+        (
+            float(m["x"]),
+            float(m["y"]),
+            float(m["size"]),
+            m["text"].replace("\\)", ")").replace("\\(", "("),
+        )
+        for m in _PLACED.finditer(stream)
+    ]
+
+
+def stroked_lines(stream: str) -> list[tuple[float, float, float, float, float]]:
+    """Every width-led straight stroke as ``(width, x1, y1, x2, y2)``, in order."""
+    return [
+        (float(m["w"]), float(m["x1"]), float(m["y1"]), float(m["x2"]), float(m["y2"]))
+        for m in _STROKED_LINE.finditer(stream)
+    ]
+
+
+def frame_rules(stream: str) -> list[tuple[float, float, float, float]]:
+    """The two frame rules of an interior page, top first, as ``(x1, x2, y, width)``.
+
+    The topmost and the lowest of the page's full-measure horizontal strokes: a
+    diagram's ruled line is a fraction of the measure, and a puzzle page's grid
+    lines, which are the measure wide, all lie between the two rules.
+    """
+    lines = [
+        (x1, x2, y1, width)
+        for width, x1, y1, x2, y2 in stroked_lines(stream)
+        if y1 == y2
+    ]
+    longest = max(x2 - x1 for x1, x2, _, _ in lines)
+    long_lines = [rule for rule in lines if rule[1] - rule[0] >= longest - 0.01]
+    return [max(long_lines, key=lambda rule: rule[2]), min(long_lines, key=lambda rule: rule[2])]

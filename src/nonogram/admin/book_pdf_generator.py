@@ -686,8 +686,11 @@ class InteriorPageWriters:
 
     Attributes:
         guide: ``(spec, dpi, page_number, *, puzzle_count, easy_count,
-            medium_count, hard_count) -> ContentStream`` — one page of the
-            2-page tutorial, the twin of :meth:`BookPDFGenerator.create_guide_page`.
+            medium_count, hard_count, play_page) -> ContentStream`` — one page
+            of the 2-page tutorial, the twin of
+            :meth:`BookPDFGenerator.create_guide_page`. ``play_page`` is the
+            Play online page's interior page number, ``None`` for a book that
+            prints none (CARD-229).
         toc: ``(rows, frame, dpi, page_number) -> ContentStream`` — one page of
             the table of contents over **its own slice** of the entries, the
             twin of :meth:`BookPDFGenerator.create_toc_page`.
@@ -1096,6 +1099,22 @@ GUIDE_EXAMPLE_HEADING = (
     + f" on a row of {WORKED_EXAMPLE_LENGTH} squares."
 )
 
+#: The line under the guide's intro that names the Play online page (CARD-229,
+#: folded in from CARD-393; the owner's wording, ADR-0041/R8). ``{page}`` is the
+#: Play page's interior page number, a described variable: the guide prints the
+#: sentence only for a book whose plan prints that page, so the number it names
+#: is always a page that exists (:func:`guide_play_sentence`).
+GUIDE_PLAY_SENTENCE = (
+    "Every puzzle in this book can also be played online. "
+    "Scan the code on page {page}."
+)
+
+
+def guide_play_sentence(page: int) -> str:
+    """:data:`GUIDE_PLAY_SENTENCE` for a Play online page at interior ``page``."""
+    return GUIDE_PLAY_SENTENCE.format(page=page)
+
+
 #: Page 2's closing heading and sentence, printed on the page's full form
 #: (CARD-167; a module constant since CARD-169).
 #:
@@ -1464,9 +1483,10 @@ class DifficultyLabel:
             :data:`GUIDE_DIFFICULTY_LABELS`. Still shown by the Finalise
             screen's own preview of the page
             (``templates/book_finalize.html``), and still carried here as
-            the text CARD-229 places in the guide's key strip, which is the
-            owner's reason for choosing this block over any other on the
-            page.
+            data that nothing prints or reads (owner, 2026-11-08: the legend
+            carries :data:`GUIDE_DIFFICULTY_LINE`, one line for the whole
+            ladder, and the :attr:`name` beside CARD-228's dots, not one
+            sentence per tier); both surfaces show the same heading and line.
     """
 
     name: str
@@ -1487,13 +1507,23 @@ class DifficultyLabel:
 #: The :attr:`DifficultyLabel.name`\ s still print, and the ruled box that
 #: held the sentences went with them (see :func:`_draw_difficulty_legend`).
 #:
-#: ``text`` is therefore data this module keeps and no longer prints. The
-#: Finalise screen's preview still shows it, which is a divergence between
-#: that screen and the page it previews: flagged for the owner and for
-#: CARD-229 in CARD-221's Worktree notes rather than fixed here, because
-#: that screen is out of this card's scope (G-6) and CARD-229 rebuilds the
-#: block on both surfaces.
-GUIDE_DIFFICULTY_HEADING = "What the difficulty labels mean"
+#: ``text`` is therefore data this module keeps and no longer prints. (The
+#: Finalise screen's preview showed it for a while, which was a divergence
+#: between that screen and the page it previews; CARD-221 fix 1 cut the
+#: preview to the names, and CARD-229's key strip, which moved the legend to the
+#: first guide page and drew CARD-228's dots beside each name, keeps the two
+#: agreeing. Printing the sentences is a wording question left to the owner.)
+GUIDE_DIFFICULTY_HEADING = "Difficulty"
+
+#: The one line under the legend's heading (owner approved 2026-11-08, the short
+#: form only): what the two ends of the ladder ask of a reader. The legend is
+#: this line, the heading and the three entries (CARD-228's dots beside each
+#: tier's name); the per-tier sentences of :class:`DifficultyLabel` are not
+#: printed.
+GUIDE_DIFFICULTY_LINE = (
+    "Easy puzzles need only direct deductions; Hard ones need contradiction "
+    "through much of the grid."
+)
 GUIDE_DIFFICULTY_LABELS: Tuple[DifficultyLabel, ...] = (
     DifficultyLabel(
         "EASY",
@@ -7644,6 +7674,7 @@ class BookPDFGenerator:
                         easy_count=counts[Tier.EASY],
                         medium_count=counts[Tier.MEDIUM],
                         hard_count=counts[Tier.HARD],
+                        play_page=decided.play_page,
                     )
                 else:
                     page = self.create_guide_page(

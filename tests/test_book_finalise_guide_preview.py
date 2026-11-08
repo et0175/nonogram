@@ -7,7 +7,7 @@
 
 AC-5 (the hoist leaves the printed page pixel-identical) is carried by the
 existing book baseline (``tests/fixtures/book_baseline_card167.json``) and
-``tests/test_book_guide_page.py``, unedited.
+``tests/test_book_guide_page.py`` (whose raster cells CARD-229 retired).
 
 CARD-201 adds:
 
@@ -33,6 +33,7 @@ them — records written straight into the store, membership through the real
 from __future__ import annotations
 
 import dataclasses
+import re
 import uuid
 from html.parser import HTMLParser
 
@@ -116,6 +117,7 @@ class GuideCard(HTMLParser):
     _FIELDS = {
         "data-guide-title": "title",
         "data-guide-intro": "intro",
+        "data-guide-play-sentence": "play_sentence",
         "data-guide-basic-rule-heading": "basic_rule_heading",
         "data-guide-basic-rule-text": "basic_rule_text",
         "data-guide-basic-rule-caption": "basic_rule_caption",
@@ -129,6 +131,7 @@ class GuideCard(HTMLParser):
         "data-guide-assume-text": "assume_text",
         "data-guide-assume-closing": "assume_closing",
         "data-guide-difficulty-heading": "difficulty_heading",
+        "data-guide-difficulty-line": "difficulty_line",
         "data-guide-example-heading": "example_heading",
         "data-guide-closing-heading": "closing_heading",
         "data-guide-closing": "closing",
@@ -569,6 +572,24 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         assert card.guide2_title == generator.GUIDE2_TITLE == "When the Puzzle Gets Harder"
         assert card.guide2_intro == generator.GUIDE2_INTRO
 
+    def test_the_play_sentence_and_the_page_numbers_are_the_printed_ones(self, panel):
+        """CARD-229: the preview heads its pages 2 and 3, and names the Play page.
+
+        The sentence is the generator's own, with the page number the same
+        screen states for the Play online page (the plan's figure, which the
+        panel adds nothing to); a book with no stored domain shows none.
+        """
+        plain = panel.shown(panel.book("easy", "medium", "hard"))
+        with_domain = panel.book("easy", "medium", "hard")
+        panel.books.get_book(with_domain).player_domain = "https://nonogram.adverax.io"
+        page = panel.shown(with_domain)
+        stated = re.search(r"Prints a Play online page at page (\d+)\.", page)
+
+        assert stated is not None
+        assert GuideCard(page).play_sentence == generator.guide_play_sentence(int(stated.group(1)))
+        assert GuideCard(plain).play_sentence is None
+        assert [m for m in re.findall(r"guide-page-heading text-muted\">Page (\d+)<", page)] == ["2", "3"]
+
     def test_page_1_new_headings_and_text(self, card):
         assert card.basic_rule_heading == generator.GUIDE_BASIC_RULE_HEADING
         assert card.basic_rule_text == generator.GUIDE_BASIC_RULE_TEXT
@@ -638,7 +659,13 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         rather than assumed: nothing stops a template from reaching for
         ``label.text`` again.
         """
-        assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING
+        assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING == "Difficulty"
+        # The one line the owner approved (2026-11-08), as a literal: the same
+        # line the printed legend sets, from the one constant.
+        assert card.difficulty_line == (
+            "Easy puzzles need only direct deductions; Hard ones need "
+            "contradiction through much of the grid."
+        )
         assert len(card.difficulty) == len(generator.GUIDE_DIFFICULTY_LABELS) == 3
         for shown, label in zip(card.difficulty, generator.GUIDE_DIFFICULTY_LABELS):
             assert shown["name"] == label.name

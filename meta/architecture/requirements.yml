@@ -4188,22 +4188,34 @@ functional:
       # --- guide page content (2026-10-04 (a), IDEA-071) ---
       - id: AC-324
         given: a Book 1 profile book with 3 easy 20x20 puzzles
-        when: the book is exported and the interior PDF's page 1 (the guide page, FR-043) is read
+        when: the book is exported and the interior PDF's page 2 (the guide's first page, FR-043; page 1 is the blank title page) is read
         then: its title reads "How to Solve Nonograms" and the old title "How to Use This Book" appears nowhere on it
         kind: happy
-        test: TestGuidePage_TitledHowToSolveNonograms
+        # Re-pointed 2026-11-08 (CARD-229): the raster class this named was
+        # retired with the raster guide; the spread's own cell reads the same
+        # title off the written file (and the second page's).
+        test: TestGuideSpread_SitsOnPagesTwoAndThree
       - id: AC-325
         given: the book of AC-324
-        when: the guide page is read
-        then: the same single page carries a worked example - one line with its clue, shown solved step by step from that clue to the finished line - with no part of the example continuing onto interior page 2, and its text holds CON-020's 10 pt floor
+        when: the guide's second page (interior page 3) is read
+        then: it carries a worked example - one line with its clue, shown solved step by step from that clue to the finished line - drawn whole on that page, and its text holds CON-020's 10 pt floor
         kind: happy
-        test: TestGuidePage_CarriesAWorkedExampleOnOnePage
+        # Restated and re-pointed 2026-11-08 (CARD-229). The single-page
+        # wording was superseded by CARD-201's two-page guide; the class this
+        # named has not existed since. The worked example's clue digits are the
+        # reader's instruction text, drawn and never exempt from the floor
+        # (`TestGuidePage_WorkedExampleClueDigitsAreNotExempt`); the survivor
+        # named reads the four steps back cell by cell, drawn whole on page 3.
+        test: TestGuideSpread_TextComesFromTheConstants
       - id: AC-326
         given: one Book 1 profile book exported with the "How to Use This Book" guide page and again with the "How to Solve Nonograms" guide page carrying its worked example
         when: the two interior PDFs are compared
-        then: both hold the same number of pages, the guide page is exactly one page (interior page 1) in each, and every later page keeps its parity (FR-043)
+        then: both hold the same number of pages with the guide exactly its two pages (interior pages 2 and 3), so every later page keeps its parity (FR-043)
         kind: boundary
-        test: TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
+        # Re-pointed 2026-11-08 (CARD-229): the class this named was retired by
+        # CARD-201, which made the guide two pages and left the claim to
+        # `TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity`.
+        test: TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity
     engineering_constraints:
       # AMENDED 2026-10-28 (CARD-305): the divider clause is now conditional
       # on the book's Print-setup divider-pages option (AC-400), and the
@@ -5845,7 +5857,11 @@ functional:
       plan, the exported file, the sheet-free KDP baseline and the page
       count the KDP gutter band is read at agree, and the TOC's Solutions
       row and every later folio follow the inserted pages. The Finalise
-      screen states whether the page prints and at which page.
+      screen states whether the page prints and at which page. The first
+      guide page names the Play online page under its intro ("Every puzzle in
+      this book can also be played online. Scan the code on page N."), N being
+      the page the plan prints it on; a book with no Play page prints no such
+      line and an otherwise identical guide (CARD-229, CARD-393 folded in).
     source: [US-028]
     _meta:
       source: authored
@@ -5904,6 +5920,32 @@ functional:
         then: it states, with the real page number, whether the Play online page prints
         kind: happy
         test: TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated
+      # New 2026-11-08 (CARD-229, CARD-393 folded in): the guide's line that
+      # names the Play online page.
+      - id: AC-414
+        given: a book with a Play online page at interior page 167
+        when: the first guide page is read
+        then: its text layer holds "Every puzzle in this book can also be played online. Scan the code on page 167." with 167 exactly, below the guide's intro and above its first technique heading
+        kind: happy
+        test: TestGuidePage_NamesThePlayPage
+      - id: AC-415
+        given: books of several sizes and trims, each with a stored player domain
+        when: the interior is exported
+        then: the page number in the guide's line equals the interior page number of the Play online page read from the exported PDF
+        kind: guard
+        test: TestGuidePage_PlayPageNumberIsTheRealOne
+      - id: AC-416
+        given: a book with no stored player domain
+        when: the interior is exported
+        then: the guide carries no line about playing online and is exactly the guide drawn without one
+        kind: negative
+        test: TestGuidePage_NoPlayPageNoLine
+      - id: AC-417
+        given: every trim in the Book 1 profile set (CON-018) and the shortest storable trim
+        when: the interior is exported with a Play online page
+        then: the guide is still two pages and the line overlaps no other mark on its page
+        kind: edge
+        test: TestGuidePage_TheLineFitsEveryTrim
 
 non_functional:
   - id: NFR-001

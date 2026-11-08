@@ -90,6 +90,7 @@ def guide_page_stream(
     easy_count: int = 0,
     medium_count: int = 0,
     hard_count: int = 0,
+    play_page: Optional[int] = None,
 ) -> ContentStream:
     """One guide page as the stream the interior's walk yields.
 
@@ -100,10 +101,13 @@ def guide_page_stream(
     page — so the unwrapping is the assembly point's business and not a second
     guide-page function.
     """
-    return guide_page(
+    from nonogram.admin.book_guide_spread import spread_page
+
+    return spread_page(
         spec,
         dpi,
         page_number,
+        play_page=play_page,
         puzzle_count=puzzle_count,
         easy_count=easy_count,
         medium_count=medium_count,

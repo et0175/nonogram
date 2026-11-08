@@ -1347,29 +1347,38 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
 
         assert writers == {self.THE_CURVE_SITE}, writers
 
-    def test_the_round_mark_primitive_is_defined_once_and_called_nowhere_yet(self):
-        """One spelling held: a page card that *calls* ``round_mark`` fails here.
+    #: The one module that calls ``round_mark``: the vector spelling of the
+    #: difficulty dots (CARD-229, ADR-0036/R3), whose single function
+    #: ``draw_difficulty_dots`` is the interior's one round-mark site.
+    THE_DOT_SITE = "nonogram/admin/book_vector_draw.py"
 
-        When a page card calls ``round_mark`` this test goes red, which is the
-        intended alarm: it is the moment
-        ``TestDifficultyDots_HasExactlyOneDrawingSite`` has to grow a fifth
-        route, and the moment this test should be replaced by that one rather
-        than relaxed.
+    def test_the_round_mark_primitive_is_defined_once_and_called_from_the_one_dot_drawer(self):
+        """One spelling held: a second module that *calls* ``round_mark`` fails here.
+
+        The day CARD-229 put the difficulty dots on the guide's key strip the
+        alarm this test was written for went off, and it was answered as the
+        alarm asked: the test is replaced rather than relaxed. The primitive is
+        still defined once, and it is now called from exactly one function in
+        exactly one module, :func:`~nonogram.admin.book_vector_draw.draw_difficulty_dots`
+        (ADR-0036/R3 reads "exactly one function puts a round mark on a page"
+        per medium; the raster one is ``_draw_difficulty_dots``, which
+        CARD-387 deletes with the raster band).
 
         **It is the alarm for this primitive, not for a round shape** — a dot
         approximated out of ``line_to`` calls never touches ``round_mark`` and
         is invisible here, measured (CARD-296 cycle 1, F-1). See the class
-        docstring: that route is a named limit with CARD-298 as its owner, and
-        nothing in the tree closes it today.
+        docstring: that route is a named limit with CARD-298 as its owner.
         """
+        sources = self._sources()
         callers = {
             path
-            for path, source in self._sources().items()
+            for path, source in sources.items()
             if "round_mark(" in source and path != self.THE_CURVE_SITE
         }
 
-        assert callers == set(), callers
-        assert self._sources()[self.THE_CURVE_SITE].count("def round_mark(") == 1
+        assert callers == {self.THE_DOT_SITE}, callers
+        assert sources[self.THE_CURVE_SITE].count("def round_mark(") == 1
+        assert sources[self.THE_DOT_SITE].count("round_mark(") == 1
 
     #: ``ContentStream``'s public surface, split three ways. The split is held
     #: against ``dir()`` rather than trusted, so a primitive added tomorrow

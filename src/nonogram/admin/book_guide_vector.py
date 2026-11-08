@@ -1,9 +1,28 @@
-"""The guide page as PDF content-stream operators (CARD-296, ADR-0042/R1).
+"""The "How to Solve" spread as PDF content-stream operators (CARD-296, CARD-229, ADR-0042/R1).
 
 CARD-293's spike refused to price this page (its §6 item 4 — *"This is the
-largest card and the one the spike deliberately did not price"*), so this
-module is the first drawing of it. It consumes CARD-294's vocabulary
-(:mod:`nonogram.admin.book_vector`) and COMP-007's ``Layout``, and it draws:
+largest card and the one the spike deliberately did not price"*), CARD-296
+drew it as a second renderer of the raster page, and **CARD-229 redesigned
+it** as the facing spread it is today: interior pages 2 (a verso) and 3 (a
+recto), in the puzzle pages' own frame —
+
+* the same margins, header rule and footer rule rows
+  (:func:`~nonogram.export.layout.guide_spread_layout`, which reads
+  :func:`~nonogram.export.layout.interior_frame`), the title set in the band
+  where a puzzle page sets its identity, and the folio the puzzle pages' own
+  (:func:`~nonogram.admin.book_sheet_vector.draw_sheet_furniture`);
+* each technique a row of **two columns**, its numbered heading and short
+  explanation on the left and its example on the right;
+* the three cell marks as a **key strip** with the difficulty legend beside it,
+  the legend's dots CARD-228's (:func:`~nonogram.admin.book_vector_draw.draw_difficulty_dots`);
+* **one cell size for every example** on both pages (:func:`example_cell_spec`),
+  so the examples look like the puzzles they teach, with a heavier outline
+  around the playable squares;
+* under the intro, one sentence naming the Play online page when the book
+  prints one (CARD-393, folded in).
+
+The module consumes CARD-294's vocabulary (:mod:`nonogram.admin.book_vector`)
+and COMP-007's ``Layout`` and draws:
 
 * the page's **title and body text** in the embedded face,
 * the **line diagrams** — the basic rule, the three cell-state icons, every
@@ -11,17 +30,15 @@ module is the first drawing of it. It consumes CARD-294's vocabulary
   CARD-167's four-step **worked example** — all through one routine,
   :func:`draw_line_diagram`,
 * the **pipeline diagram** ("assume, and watch it break"),
-* the **difficulty legend**,
+* the **key strip's legend**,
 * the **folio**.
 
-**It is a second renderer of the same page, not a redesign of it** (CARD-296
-G-1). Every string, every diagram, every fallback level and every position
-expression is
-:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.create_guide_page`'s,
-read from that module's own constants. CARD-229 (the facing spread) and
-CARD-230 (the four-step worked example) are queued and gated, and the point of
-porting the page before them is that they are then written against a vector
-page from the start.
+**Every string is a ``GUIDE_*`` constant of the generator** (CARD-229 AC-6):
+prose is never written in the drawing code. The worked example's four steps
+and the rows/columns callout stay as CARD-201 drew them, because CARD-230
+rebuilds them; **when a page cannot hold everything, the ladder in
+:data:`_FORMS` gives the worked example up before it gives up the explanations
+the spread exists for.**
 
 What this module does **not** do
 --------------------------------
@@ -54,8 +71,9 @@ What this module does **not** do
   pixels" section that contradicts it. What the module also computes is the
   **type-derived internal padding** of the two diagrams that are not line
   diagrams, and the page's vertical rhythm: :func:`_pipeline_geometry`'s
-  pad/icon/label/box/arrow, :func:`legend_extent`'s strip, the title's fitting
-  ladder, ``geometry.icon * 0.3``, and every leading. Each is a multiple of a
+  pad/icon/label/box/arrow, the key strip's dot box (a multiple of the leading,
+  handed to :func:`~nonogram.export.layout.difficulty_dots`, which places the
+  dots), and every leading. Each is a multiple of a
   *point constant of the guide* and of the face's own glyph box, exactly as
   the raster routines this module ports compute them — not a page position,
   and not a number from a ``Layout``, which is what R3 governs. The two
@@ -81,11 +99,10 @@ between sections — is that point size scaled to pixels as a **float**, not
 rounded to a whole one.
 
 The consequence is deliberate and is the reason it is written down: this page
-is **not pixel-identical** to the raster page it replaces, and it was never
-going to be (ADR-0042's own Consequences: "the 21
-``tests/fixtures/book_baseline_card*.json`` recordings change"). What is
-identical is the design — the strings, their order, the diagrams, and which
-of the five fallback forms fits.
+is **not pixel-identical** to the raster page it replaced, and since CARD-229
+it is not the same design either. The raster ``create_guide_page`` still draws
+the old single-column page, kept until CARD-387 deletes it; nothing in the
+product reads it, and its constants are the strings both pages share.
 
 The one size that is **not** a constant of this module is the clue digit: it
 follows its cell (``Layout.clue_font_size``, in device pixels), so it is
@@ -96,7 +113,9 @@ exempt here — see :data:`CLUE_DIGIT`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, replace
+from functools import lru_cache
 from io import BytesIO
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -122,6 +141,7 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_CLOSING,
     GUIDE_CLOSING_HEADING,
     GUIDE_DIFFICULTY_HEADING,
+    GUIDE_DIFFICULTY_LINE,
     GUIDE_DIFFICULTY_LABELS,
     GUIDE_EXAMPLE_HEADING,
     GUIDE_INTRO,
@@ -131,8 +151,6 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_TECHNIQUES_1,
     GUIDE_TECHNIQUES_2,
     GUIDE_TITLE,
-    GUIDE_TITLE_GAP_PT,
-    GUIDE_TITLE_PT,
     PIPELINE_ICON_BANG,
     PIPELINE_ICON_CROSS,
     PIPELINE_ICON_DOTS,
@@ -145,21 +163,36 @@ from nonogram.admin.book_pdf_generator import (
     ExampleStep,
     GuidePipelineStep,
     GuideTechnique,
-    PageFrame,
     _guide_face,
     _guide_rule_width,
     example_line_layout,
     guide_icon_layout,
     page_frame,
+    guide_play_sentence,
     page_is_right_hand,
+    type_px,
 )
+from nonogram.admin.book_plan import TIERS
+from nonogram.admin.book_puzzle_vector import band_type_size, draw_band
+from nonogram.admin.book_sheet_vector import SheetFurniture, draw_sheet_furniture
 from nonogram.admin.book_vector import (
     ContentStream,
     FontMetrics,
     interior_face_metrics,
     write_vector_pdf,
 )
-from nonogram.export.layout import Layout, PageSpec
+from nonogram.admin.book_vector_draw import draw_difficulty_dots, draw_frame, draw_grid_lines
+from nonogram.difficulty import tier_of_record
+from nonogram.export.layout import (
+    MAX_CELL_MM,
+    MIN_CELL_MM,
+    DifficultyDots,
+    Layout,
+    PageSpec,
+    difficulty_dots,
+    guide_example_limit,
+    guide_spread_layout,
+)
 
 __all__ = [
     "BODY_TEXT",
@@ -169,6 +202,7 @@ __all__ = [
     "GUIDE_PAGE_NUMBERS",
     "PIPELINE_LABEL",
     "DrawnFace",
+    "GuideForm",
     "GuidePage",
     "LEGEND_NAME",
     "TITLE",
@@ -285,15 +319,6 @@ GUIDE_PAGE_NUMBERS: Tuple[int, int] = (
     2 + TITLE_PAGE_COUNT,
 )
 
-#: How many points the title's fitting loop steps down by when the heading is
-#: wider than the usable measure. The raster page steps by one device pixel
-#: (``title_size -= 1``) because Pillow sizes a face in whole pixels; a ``Tf``
-#: operand is a real number, so the step is stated in the unit the size is
-#: stated in. A quarter point is finer than the pixel step it replaces at
-#: every resolution this book is composed at (one pixel is 0.24 pt at 300 DPI),
-#: so the fitted title is never *larger* than the raster page's.
-_TITLE_FIT_STEP_PT = 0.25
-
 
 @dataclass(frozen=True)
 class DrawnFace:
@@ -322,8 +347,11 @@ class GuidePage:
         stream: The content stream, ready for
             :func:`~nonogram.admin.book_vector.write_vector_pdf`.
         faces: Every string set on it, in drawing order.
-        fallback_level: Which of the five fallback forms was drawn, as the
-            raster page's own ``(full, captions, bare_level)`` triple.
+        fallback_level: Which form of the page was drawn: an index into the
+            ladder of forms (0 is everything the page can carry; each later one
+            drops less valuable marks first).
+        form: That form, so a reader can ask what the page kept without
+            knowing the ladder.
         content_bottom: The lowest pixel the page's marks reach — the figure
             the folio's omit-rather-than-collide check reads (CARD-200).
     """
@@ -331,7 +359,8 @@ class GuidePage:
     page_number: int
     stream: ContentStream
     faces: Tuple[DrawnFace, ...]
-    fallback_level: Tuple[bool, bool, int]
+    fallback_level: int
+    form: "GuideForm"
     content_bottom: float
 
     @property
@@ -578,6 +607,11 @@ def draw_line_diagram(
     xs = [line.position for line in layout.vertical_lines]
     ys = [line.position for line in layout.horizontal_lines]
 
+    # The grid first, in the puzzle pages' own style (their primitives, the
+    # layout's declared weights and tones: pale cell lines, heavier every fifth,
+    # a border), so the marks a reader fills go on top of it, dark.
+    _stroke_layout(stream, layout, dx=dx, dy=dy)
+
     stream.fill_grey(_BLACK)
     for column in sorted(step.filled):
         stream.rectangle(
@@ -598,68 +632,94 @@ def draw_line_diagram(
         stream.line(x0, y0, x1, y1)
         stream.line(x0, y1, x1, y0)
 
-    _stroke_layout(stream, layout, dx=dx, dy=dy)
+    if layout.frame is not None:
+        _outline_playable_squares(stream, layout, xs, ys, dx=dx, dy=dy)
     return _write_clue_digits(stream, layout, dx=dx, dy=dy, metrics=face)
+
+
+def _outline_playable_squares(
+    stream: ContentStream,
+    layout: Layout,
+    xs: Sequence[float],
+    ys: Sequence[float],
+    *,
+    dx: float,
+    dy: float,
+) -> None:
+    """A heavier outline around the playable squares, apart from their clues.
+
+    CARD-229 AC-5: the examples read as the puzzles they teach, and on a puzzle
+    the squares a reader fills are closed off from the clue boxes beside them
+    by the grid's own border. The frame :func:`_stroke_layout` strokes closes
+    off the clues *and* the squares together, so the squares' own boundary is
+    stroked here at the grid's **border** weight and tone, the layout's own
+    first vertical line (a border line, the same figure the frame is stroked
+    at), and so heavier than every cell line. Every coordinate is one of the
+    line positions already read above.
+    """
+    border = layout.vertical_lines[0]
+    stream.stroke_grey(_BLACK if border.grey is None else border.grey)
+    stream.stroke_width(
+        stream.to_points(border.width) if border.width_pt is None else border.width_pt
+    )
+    stream.rectangle(
+        xs[0] + dx, ys[0] + dy, xs[-1] + dx, ys[1] + dy, paint="stroke"
+    )
 
 
 def _stroke_layout(
     stream: ContentStream, layout: Layout, *, dx: float, dy: float
 ) -> None:
-    """Stroke every ruled line of ``layout``, thin ones first, then its frame.
+    """Stroke ``layout``'s ruled lines and frame with the puzzle pages' primitives.
 
-    :func:`~nonogram.admin.book_pdf_generator._stroke_drawing`'s loop, operator
-    for operator: the two line families merged, sorted on ``major`` so the
-    thin rules go down before the every-fifth rules and the border, and then
-    the frame's four sides last of all at :attr:`Layout.thick_rule`.
-
-    Every number is COMP-007's — each line's axis position, its two ends and
-    its width, and the frame's four boundaries. Nothing is measured, rounded
-    or offset, and a PDF stroke is centred on its path exactly as Pillow
-    centres a width on a coordinate, so the half a heavy rule that hangs
-    outside the frame's box hangs outside it here too.
+    :func:`~nonogram.admin.book_vector_draw.draw_grid_lines` and
+    :func:`~nonogram.admin.book_vector_draw.draw_frame`, the two routines a
+    puzzle page draws its grid with: one grid style in the book (CARD-229,
+    owner request 2026-11-08), the weights and tones the layout declares
+    (ADR-0037/R2) and nothing chosen here. What this adds is the clamp and the
+    translation: each line is cut to the box the raster routine cropped its
+    diagram out of (see :func:`diagram_box`; a bare cell icon's horizontal rules
+    otherwise run the whole sheet) and moved by ``dx``/``dy``, a translation
+    being the one operation that cannot re-derive geometry.
 
     ``layout.frame`` is ``None`` on
     :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`'s bare cell
-    icon — a live branch, taken three times on every page 1 of the guide, not
-    dead code.
+    icon: a live branch, taken three times on every page 1 of the guide.
     """
     box_left, box_top, box_right, box_bottom = diagram_box(layout)
-    oriented: List[Tuple[Any, bool]] = [
-        *((line, True) for line in layout.vertical_lines),
-        *((line, False) for line in layout.horizontal_lines),
+    verticals = [
+        replace(
+            line,
+            position=line.position + dx,
+            start=max(line.start, box_top) + dy,
+            end=min(line.end, box_bottom) + dy,
+        )
+        for line in layout.vertical_lines
+        if box_left <= line.position <= box_right and min(line.end, box_bottom) > max(line.start, box_top)
     ]
-    for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
-        # Clamped to the box the raster routine crops out of its canvas: ink
-        # outside it is ink that page never showed (see :func:`diagram_box`).
-        if vertical:
-            if not box_left <= line.position <= box_right:
-                continue
-            start = max(line.start, box_top)
-            end = min(line.end, box_bottom)
-            if end <= start:
-                continue
-            stream.stroke_width(stream.to_points(line.width))
-            stream.line(line.position + dx, start + dy, line.position + dx, end + dy)
-        else:
-            if not box_top <= line.position <= box_bottom:
-                continue
-            start = max(line.start, box_left)
-            end = min(line.end, box_right)
-            if end <= start:
-                continue
-            stream.stroke_width(stream.to_points(line.width))
-            stream.line(start + dx, line.position + dy, end + dx, line.position + dy)
-
+    horizontals = [
+        replace(
+            line,
+            position=line.position + dy,
+            start=max(line.start, box_left) + dx,
+            end=min(line.end, box_right) + dx,
+        )
+        for line in layout.horizontal_lines
+        if box_top <= line.position <= box_bottom and min(line.end, box_right) > max(line.start, box_left)
+    ]
+    draw_grid_lines(stream, verticals, horizontals)
     frame = layout.frame
-    if frame is None:
-        return
-    stream.stroke_width(stream.to_points(frame.width))
-    left, top = frame.left + dx, frame.top + dy
-    right, bottom = frame.right + dx, frame.bottom + dy
-    stream.line(left, top, right, top)
-    stream.line(left, bottom, right, bottom)
-    stream.line(left, top, left, bottom)
-    stream.line(right, top, right, bottom)
+    if frame is not None:
+        draw_frame(
+            stream,
+            replace(
+                frame,
+                left=frame.left + dx,
+                top=frame.top + dy,
+                right=frame.right + dx,
+                bottom=frame.bottom + dy,
+            ),
+        )
 
 
 def _write_clue_digits(
@@ -700,14 +760,23 @@ def _write_clue_digits(
     return tuple(drawn)
 
 
+
 # --------------------------------------------------------------------------
-# The two diagrams that are not line diagrams
+# The pipeline diagram, which is not a line diagram
 # --------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class _PipelineGeometry:
-    """The pipeline diagram's internal measurements, in device pixels."""
+    """The pipeline diagram's internal measurements, in device pixels.
+
+    A **column** of bordered boxes joined by down arrows, each box holding the
+    step's word at the left and its icon at the right (CARD-229). It was a row
+    of four boxes with the icon under the word, which is 1600 px wide at the
+    guide's 11 pt: wider than the example column of a two-column technique on
+    every trim but the largest, so the diagram is stacked instead and is as
+    wide as one box.
+    """
 
     border: int
     pad: float
@@ -715,15 +784,15 @@ class _PipelineGeometry:
     label_h: float
     box_w: float
     box_h: float
-    arrow_w: float
+    arrow_h: float
     width: float
+    height: float
 
 
 def _pipeline_geometry(
     spec: PageSpec, steps: Sequence[GuidePipelineStep], size_px: float
 ) -> _PipelineGeometry:
-    """:func:`~nonogram.admin.book_pdf_generator._draw_pipeline_diagram`'s own
-    arithmetic, read off the same two inputs it reads it off.
+    """The column's own arithmetic, off the same two inputs the row's was.
 
     The border is :func:`~nonogram.admin.book_pdf_generator._guide_rule_width`'s
     — a puzzle probe layout's thin rule, so the boxes are bordered at the same
@@ -735,18 +804,21 @@ def _pipeline_geometry(
     rule = _guide_rule_width(spec)
     pad = size_px
     label_h = glyph_box_height_px("Mg", size_px)
-    box_w = int(max(advance_px(step.label, size_px) for step in steps) + pad * 2)
-    box_h = int(pad * 3 + label_h + size_px * 2)
-    arrow_w = pad * 3
+    icon = size_px * 1.2
+    label_w = max(advance_px(step.label, size_px) for step in steps)
+    box_w = int(label_w + pad * 3 + icon)
+    box_h = int(pad * 2 + max(label_h, icon))
+    arrow_h = pad * 1.5
     return _PipelineGeometry(
         border=max(rule, 1),
         pad=pad,
-        icon=size_px * 2,
+        icon=icon,
         label_h=label_h,
         box_w=box_w,
         box_h=box_h,
-        arrow_w=arrow_w,
-        width=len(steps) * box_w + (len(steps) - 1) * arrow_w,
+        arrow_h=arrow_h,
+        width=box_w,
+        height=len(steps) * box_h + (len(steps) - 1) * arrow_h,
     )
 
 
@@ -755,7 +827,7 @@ def pipeline_extent(
 ) -> Tuple[float, float]:
     """``(width, height)`` of the pipeline diagram, in device pixels."""
     geometry = _pipeline_geometry(spec, steps, size_px)
-    return geometry.width, geometry.box_h
+    return geometry.width, geometry.height
 
 
 def draw_pipeline(
@@ -771,54 +843,46 @@ def draw_pipeline(
 ) -> Tuple[DrawnFace, ...]:
     """"Assume, and watch it break": four bordered boxes joined by arrows.
 
-    :func:`~nonogram.admin.book_pdf_generator._draw_pipeline_diagram` in
-    operators. Each box is bordered at the page's own thin rule, lettered with
-    the step's word centred at the top, and carries its icon under the word: a
-    filled square or a crossed square drawn with the same primitives a cell is
-    filled and crossed with, and plain ASCII ``"..."``/``"!"`` for the other
-    two (:class:`~nonogram.admin.book_pdf_generator.GuidePipelineStep` — a
-    kind, deliberately not a Unicode glyph a face might not carry). Pure black
-    ink, no fill but the icon's own.
+    Each box is bordered at the page's own thin rule, lettered with the step's
+    word at its left and carries its icon at its right: a filled square or a
+    crossed square drawn with the same primitives a cell is filled and crossed
+    with, and plain ASCII ``"..."``/``"!"`` for the other two
+    (:class:`~nonogram.admin.book_pdf_generator.GuidePipelineStep` — a kind,
+    deliberately not a Unicode glyph a face might not carry). Pure black ink,
+    no fill but the icon's own. An arrow runs down from each box to the next.
 
-    ``x``/``y`` are the diagram's top-left corner on the page. The raster
-    version draws into a canvas of its own and the page pastes it; here the
-    corner is an offset, which is the same placement written once instead of
-    twice.
+    ``x``/``y`` are the diagram's top-left corner on the page.
     """
     face = metrics or interior_face_metrics()
     geometry = _pipeline_geometry(spec, steps, size_px)
     border_pt = stream.to_points(geometry.border)
-    icon_top = y + geometry.pad * 2 + geometry.label_h
-    ascent = ascent_px(size_px, face)
     half_cap = cap_height_px(size_px, face) / 2.0
+    half = geometry.icon / 2.0
     drawn: List[DrawnFace] = []
-    at = x
+    top = y
     for index, step in enumerate(steps):
         stream.stroke_grey(_BLACK)
         stream.stroke_width(border_pt)
         stream.rectangle(
-            at, y, at + geometry.box_w - 1, y + geometry.box_h - 1, paint="stroke"
+            x, top, x + geometry.box_w - 1, top + geometry.box_h - 1, paint="stroke"
         )
-        # ``anchor="ma"`` on the raster side: the label's horizontal middle on
-        # the box's centre line, its ascender on ``pad``.
-        label_x = at + geometry.box_w / 2 - advance_px(step.label, size_px, face) / 2
-        stream.text(step.label, label_x, y + geometry.pad + ascent, size_pt, grey=_BLACK)
+        middle = top + geometry.box_h / 2
+        # The label, its capitals centred on the box's middle line.
+        stream.text(step.label, x + geometry.pad, middle + half_cap, size_pt, grey=_BLACK)
         drawn.append(DrawnFace(PIPELINE_LABEL, step.label, size_pt))
 
-        cx = at + geometry.box_w / 2
-        cy = icon_top + geometry.icon / 2
-        half = geometry.icon * 0.3
+        cx = x + geometry.box_w - geometry.pad - half
+        cy = middle
         if step.icon == PIPELINE_ICON_SQUARE:
             stream.fill_grey(_BLACK)
-            stream.rectangle(cx - half, cy - half, cx + half, cy + half, paint="fill")
+            stream.rectangle(cx - half * 0.5, cy - half * 0.5, cx + half * 0.5, cy + half * 0.5, paint="fill")
         elif step.icon == PIPELINE_ICON_CROSS:
             stream.stroke_grey(_BLACK)
             stream.stroke_width(border_pt)
-            stream.line(cx - half, cy - half, cx + half, cy + half)
-            stream.line(cx - half, cy + half, cx + half, cy - half)
+            stream.line(cx - half * 0.5, cy - half * 0.5, cx + half * 0.5, cy + half * 0.5)
+            stream.line(cx - half * 0.5, cy + half * 0.5, cx + half * 0.5, cy - half * 0.5)
         elif step.icon in (PIPELINE_ICON_DOTS, PIPELINE_ICON_BANG):
             glyph = "..." if step.icon == PIPELINE_ICON_DOTS else "!"
-            # ``anchor="mm"``: the glyph box centred on the icon's own centre.
             stream.text(
                 glyph,
                 cx - advance_px(glyph, size_px, face) / 2,
@@ -830,101 +894,267 @@ def draw_pipeline(
         else:  # pragma: no cover - defensive; every kind above is handled
             raise ValueError(f"unknown pipeline icon kind: {step.icon!r}")
 
-        at += geometry.box_w
+        top += geometry.box_h
         if index < len(steps) - 1:
-            mid_y = y + geometry.box_h // 2
-            tip_x = at + geometry.arrow_w - geometry.border
+            mid_x = x + geometry.box_w / 2
+            tip_y = top + geometry.arrow_h - geometry.border
             stream.stroke_grey(_BLACK)
             stream.stroke_width(border_pt)
-            stream.line(at + geometry.border, mid_y, tip_x, mid_y)
+            stream.line(mid_x, top + geometry.border, mid_x, tip_y)
             head = max(geometry.border * 3, geometry.pad // 2)
             stream.fill_grey(_BLACK)
-            stream.begin_path(tip_x, mid_y)
-            stream.line_to(tip_x - head, mid_y - head)
-            stream.line_to(tip_x - head, mid_y + head)
+            stream.begin_path(mid_x, tip_y)
+            stream.line_to(mid_x - head, tip_y - head)
+            stream.line_to(mid_x + head, tip_y - head)
             stream.close_path()
             stream.paint("fill")
-            at += geometry.arrow_w
+            top += geometry.arrow_h
     return tuple(drawn)
 
 
-def legend_extent(
-    labels: Sequence[DifficultyLabel], measure_px: float, size_px: float
-) -> Tuple[float, float]:
-    """``(width, height)`` of the difficulty legend, in device pixels.
+# --------------------------------------------------------------------------
+# The shared example cell (CARD-229 AC-5)
+# --------------------------------------------------------------------------
 
-    :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_legend`'s own:
-    a ``measure``-wide strip with one ``pad`` of white above and below the row
-    of names, ``pad`` being the type size.
 
-    **The width is ``measure_px`` echoed back, not a measurement** (review
-    cycle 1, F-8), and the strip's only ink is text: the three tier names,
-    which is all this diagram has drawn since CARD-221 fix 1. So there is no
-    path ink to hold to this extent the way
-    ``TestGuidePage_EveryDiagramStaysInsideItsOwnBox`` holds a line diagram's
-    and the pipeline's — the names' own ink is held instead by the page's
-    :func:`wrap`/``fits_width`` measure and by AC-2's record-against-stream
-    comparison, which is where every string the page sets is accounted for.
-    The day the legend draws a shape again (**CARD-229**, the key strip with
-    CARD-228's dots) it gets the extent control the pipeline has, and the
-    vertex bound on this page's paths already applies to it.
+def _example_lines() -> List[Tuple[Tuple[int, ...], int]]:
+    """Every distinct ``(clue, length)`` line either page of the spread draws."""
+    lines: List[Tuple[Tuple[int, ...], int]] = [
+        (GUIDE_BASIC_RULE_CLUE, GUIDE_BASIC_RULE_LENGTH),
+        (WORKED_EXAMPLE_CLUE, WORKED_EXAMPLE_LENGTH),
+    ]
+    for entry in (*GUIDE_TECHNIQUES_1, *GUIDE_TECHNIQUES_2):
+        lines.append((entry.clue, entry.length))
+    return list(dict.fromkeys(lines))
+
+
+#: How far the shared cell steps down at a time while the examples are too wide
+#: for their column, in millimetres.
+_CELL_STEP_MM = 0.1
+
+
+@lru_cache(maxsize=64)
+def example_cell_spec(spec: PageSpec, dpi: int) -> PageSpec:
+    """``spec`` with the one cell cap every example of the spread is drawn at.
+
+    **One cell for every example on both pages** (CARD-229 AC-5), reached
+    through COMP-007 alone: the cap is a ``PageSpec`` field, so each line is
+    still laid out by :func:`~nonogram.admin.book_pdf_generator.example_line_layout`
+    and this function derives no pitch of its own. It is the largest cap, from
+    the book's standard cell down, at which the widest example fits the example
+    column's limit
+    (:func:`~nonogram.export.layout.guide_example_limit`); and it never goes
+    below the cell whose clue digits hold CON-020's 10 pt floor, because the
+    guide's digits are instruction text and are not exempt (:data:`CLUE_DIGIT`).
+    Where the limit cannot be met at the floor the floor wins and the text
+    column is what gives. The search starts at the sheet's own cap (the book's
+    standard cell, NFR-008) and a sheet whose cap is the comfort curve starts
+    at that curve's largest cell.
     """
-    pad = size_px
-    return measure_px, pad * 2 + glyph_box_height_px("Mg", size_px)
-
-
-def draw_legend(
-    stream: ContentStream,
-    labels: Sequence[DifficultyLabel],
-    measure_px: float,
-    size_px: float,
-    size_pt: float,
-    *,
-    x: float,
-    y: float,
-    metrics: Optional[FontMetrics] = None,
-) -> Tuple[DrawnFace, ...]:
-    """"What the difficulty labels mean": the three tier names, in a row.
-
-    :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_legend` in
-    operators — one column per entry, each holding its tier's
-    :attr:`~nonogram.admin.book_pdf_generator.DifficultyLabel.name` and
-    nothing else, flush at the measure's own left edge, with one ``gutter``
-    between columns.
-
-    **It draws no round shape, and that is today's page and not an omission.**
-    CARD-296's brief calls the legend's dots "the card's one genuinely new
-    primitive"; the legend has had no dots since CARD-221 fix 1 retired
-    ``_draw_difficulty_box`` — the owner's decision of 2026-10-14 stopped
-    printing the three sentences, and the ruled box went with them, leaving
-    three words in a row. The round mark the brief means is
-    :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_dots`, which
-    **CARD-229** places in the guide's key strip; that card is queued and
-    gated, and CARD-296 G-1 forbids drawing its design here. See this card's
-    Worktree notes.
-    """
-    face = metrics or interior_face_metrics()
-    pad = size_px
-    gutter = pad
-    column_w = (measure_px - gutter * (len(labels) - 1)) // len(labels)
-    ascent = ascent_px(size_px, face)
-    drawn: List[DrawnFace] = []
-    at = x
-    for label in labels:
-        stream.text(label.name, at, y + pad + ascent, size_pt, grey=_BLACK)
-        drawn.append(DrawnFace(LEGEND_NAME, label.name, size_pt))
-        at += column_w + gutter
-    return tuple(drawn)
+    limit = guide_example_limit(spec)
+    scale = dpi / _POINTS_PER_INCH
+    chosen = spec
+    cap = spec.cell_cap if isinstance(spec.cell_cap, float) else MAX_CELL_MM
+    while cap >= MIN_CELL_MM:
+        candidate = replace(spec, cell_cap=round(cap, 3))
+        layouts = [example_line_layout(candidate, c, n) for c, n in _example_lines()]
+        if any(layout.clue_font_size / scale < FOLIO_PT for layout in layouts):
+            break
+        chosen = candidate
+        if max(diagram_extent(layout)[0] for layout in layouts) <= limit:
+            break
+        cap -= _CELL_STEP_MM
+    return chosen
 
 
 # --------------------------------------------------------------------------
 # The page
 # --------------------------------------------------------------------------
 #
-# Every expression below is ``create_guide_page``'s. The five fallback forms,
-# the order of the sections, which text each form drops, which diagram each
-# ``bare_level`` drops, the width check and the folio's omit-rather-than-
-# collide rule are all that method's, read from the same constants.
+# Every string is a ``GUIDE_*`` constant of ``book_pdf_generator`` (AC-6). The
+# page is the puzzle pages' own frame (``guide_spread_layout``: the same
+# margins, header rule and footer rule rows) with the title in the band where a
+# puzzle page sets its identity, and a body of rows between the two rules. A
+# technique is a row of two columns, its numbered heading and explanation on
+# the left and its example on the right.
+
+
+@dataclass(frozen=True)
+class GuideForm:
+    """One of the forms a page can take, from everything to the least.
+
+    The ladder is ordered by what a reader loses least: the worked example's
+    step sentences go first (CARD-230 rebuilds that block), then the counts and
+    the rows' notes, then the framing prose, then the worked example itself, and
+    only then the explanations the spread exists for, then the multi-row
+    reasoning, the pipeline and the pictures. The worked example outlasts the
+    prose because FR-041 promises one and the CON-020 control over its clue
+    digits needs one to read. **No form changes a font size** — only which
+    marks are drawn and how tight the gaps are.
+
+    Attributes:
+        prose: The page's framing sentences: the intro, the switching advice
+            and the closing sentences.
+        text: Each technique's explanation, the basic rule's and the pipeline's.
+        notes: A row's short note ("certain", "Compare") and the basic rule's
+            caption.
+        steps: The worked example's step sentences, as against their labels.
+        counts: "This book contains N puzzles" and the three counts.
+        worked: The worked example at all.
+        reasoning: Every row of a multi-row technique, as against its last,
+            and the pipeline.
+        pictures: The key strip's cell-state pictures and the last technique's
+            diagram, and the looser gaps.
+        captions: The key strip's one-line gloss under each mark's word.
+        headings: The key strip's two headings and the section headings
+            ("Start with certainty", "Keep switching ...").
+        rule: The basic-rule block (its heading, text and diagram).
+        last: The last numbered technique of the page's first section.
+        legend_line: The one line under the legend's heading.
+        tight: The leanest setting: the body keeps
+            :data:`~nonogram.export.layout.GUIDE_LEAN_INSET_MM` of white above
+            and below instead of the ordinary inset, and the gaps close up.
+    """
+
+    prose: bool = True
+    text: bool = True
+    notes: bool = True
+    steps: bool = True
+    counts: bool = True
+    worked: bool = True
+    reasoning: bool = True
+    pictures: bool = True
+    captions: bool = True
+    tight: bool = False
+    headings: bool = True
+    rule: bool = True
+    last: bool = True
+    legend_line: bool = True
+
+    @property
+    def shows_worked_example(self) -> bool:
+        """Whether this form draws the worked example's four steps."""
+        return self.worked and self.reasoning
+
+
+_FORMS: Tuple[GuideForm, ...] = (
+    GuideForm(),
+    GuideForm(steps=False),
+    GuideForm(steps=False, counts=False),
+    GuideForm(steps=False, counts=False, notes=False),
+    GuideForm(steps=False, counts=False, notes=False, prose=False),
+    GuideForm(steps=False, counts=False, notes=False, prose=False, worked=False),
+    GuideForm(steps=False, counts=False, notes=False, prose=False, worked=False, text=False),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+        rule=False,
+    ),
+    GuideForm(
+        steps=False,
+        counts=False,
+        notes=False,
+        prose=False,
+        worked=False,
+        text=False,
+        reasoning=False,
+        pictures=False,
+        captions=False,
+        tight=True,
+        legend_line=False,
+        headings=False,
+        rule=False,
+        last=False,
+    ),
+)
+
+#: What :func:`guide_page` offers back, most valuable first, once the ladder has
+#: settled on a form: a mark the ladder dropped comes back if the page still
+#: fits with it. The ladder only ever removes, so a page that settled low on a
+#: sheet with room to spare (a worked-example sentence dropped on one page,
+#: leaving a third of the next empty) would otherwise stay bare.
+_ADD_BACK: Tuple[str, ...] = (
+    "pictures",
+    "reasoning",
+    "text",
+    "worked",
+    "prose",
+    "notes",
+    "counts",
+    "steps",
+    "legend_line",
+    "captions",
+)
+
+
+def _guide_words() -> List[str]:
+    """Every word the left (text) column sets, for the column's minimum width."""
+    texts = [
+        GUIDE_BASIC_RULE_HEADING,
+        GUIDE_BASIC_RULE_TEXT,
+        GUIDE_ASSUME_HEADING,
+        GUIDE_ASSUME_TEXT,
+        GUIDE_ASSUME_CLOSING,
+    ]
+    for entry in (*GUIDE_TECHNIQUES_1, *GUIDE_TECHNIQUES_2):
+        texts.extend((entry.heading, entry.caption))
+    return [word for text in texts for word in text.split()]
 
 
 def guide_page(
@@ -936,68 +1166,52 @@ def guide_page(
     easy_count: int = 0,
     medium_count: int = 0,
     hard_count: int = 0,
+    play_page: Optional[int] = None,
     metrics: Optional[FontMetrics] = None,
 ) -> GuidePage:
-    """One page of the 2-page "how to solve" tutorial, as operators.
+    """One page of the 2-page "how to solve" spread, as operators.
 
     ``page_number`` is its 1-based position in the interior **and** which half
     of the tutorial it draws — the half being its position *within* the guide,
-    ``page_number - TITLE_PAGE_COUNT`` — exactly as the raster method reads
-    it. The page's margins are mirrored by the position itself like any other
-    page's (FR-043), through
-    :func:`~nonogram.admin.book_pdf_generator.page_frame`.
+    ``page_number - TITLE_PAGE_COUNT``. ``play_page`` is the Play online page's
+    interior page number, or ``None`` for a book that prints none: the first
+    page then carries the sentence that names it under the intro, and a book
+    with none prints exactly the page it would have without the sentence
+    (ADR-0041/R8).
     """
     face = metrics or interior_face_metrics()
-    frame: PageFrame = page_frame(spec)
-    stream = ContentStream(width_px=frame.width, height_px=frame.height, dpi=dpi)
     page_one = (page_number - TITLE_PAGE_COUNT) % 2 == 1
 
     scale = dpi / _POINTS_PER_INCH
     body_px = GUIDE_BODY_PT * scale
     leading = GUIDE_LEADING_PT * scale
-    measure = frame.right - frame.left
-    title_pt = GUIDE_TITLE_PT
-    title_text = GUIDE_TITLE if page_one else GUIDE2_TITLE
-    # On a narrow trim the title is wider than the measure: set it a step
-    # smaller at a time until it fits, never below the body size.
-    while (
-        title_pt > GUIDE_BODY_PT
-        and advance_px(title_text, title_pt * scale, face) > measure
-    ):
-        title_pt = max(GUIDE_BODY_PT, title_pt - _TITLE_FIT_STEP_PT)
-
-    # Inside the usable area the layout reported, so the guide page keeps the
-    # book's mirrored margins like every other interior page. The raster page
-    # draws it at ``(frame.left, frame.top)`` with Pillow's default anchor,
-    # which puts the ascender on ``frame.top``; the baseline is that plus the
-    # ascender.
-    stream.text(
-        title_text,
-        frame.left,
-        frame.top + ascent_px(title_pt * scale, face),
-        title_pt,
-        grey=_BLACK,
-    )
-    faces: List[DrawnFace] = [DrawnFace(TITLE, title_text, title_pt)]
-    first = frame.top + GUIDE_TITLE_GAP_PT * scale
     body_line = line_height_px(body_px, face)
+    body_ascent = ascent_px(body_px, face)
 
-    # Every line diagram this page draws, laid out once regardless of which
-    # fallback form is chosen: one ``example_line_layout`` call per distinct
-    # ``(clue, length)`` pair, cached so a technique whose rows share a line
-    # lays it out once.
+    cell_spec = example_cell_spec(spec, dpi)
     line_layouts: Dict[Tuple[Tuple[int, ...], int], Layout] = {}
 
     def layout_for(clue: Tuple[int, ...], length: int) -> Layout:
         key = (clue, length)
         layout = line_layouts.get(key)
         if layout is None:
-            layout = example_line_layout(spec, clue, length)
+            layout = example_line_layout(cell_spec, clue, length)
             line_layouts[key] = layout
         return layout
 
-    icon_layout = guide_icon_layout(spec)
-    pad = icon_layout.thick_rule
+    icon_layout = guide_icon_layout(cell_spec)
+    example_width = max(
+        diagram_extent(layout_for(clue, length))[0] for clue, length in _example_lines()
+    )
+    text_min = math.ceil(max(advance_px(word, body_px, face) for word in _guide_words()))
+    sheet = guide_spread_layout(spec, example_width=example_width, text_min=text_min)
+    lean_sheet = guide_spread_layout(
+        spec, example_width=example_width, text_min=text_min, lean=True
+    )
+    left, right = sheet.left, sheet.right
+    text_x, text_w = left, sheet.text_width
+    example_x = sheet.example_left
+    example_w = sheet.example_width
 
     basic_rule = _Diagram(
         layout_for(GUIDE_BASIC_RULE_CLUE, GUIDE_BASIC_RULE_LENGTH),
@@ -1026,185 +1240,314 @@ def guide_page(
         ]
 
     pipeline_w, pipeline_h = pipeline_extent(spec, GUIDE_ASSUME_STEPS, body_px)
-    legend_w, legend_h = legend_extent(GUIDE_DIFFICULTY_LABELS, measure, body_px)
 
-    def set_page(
-        full: bool, captions: bool, bare_level: int = 0
-    ) -> Tuple[List["_Mark"], float]:
-        """Every mark below the title, and the lowest pixel they reach.
+    # The key strip's legend: a row of dots (CARD-228's, through COMP-007) and
+    # the tier's name, one entry per tier, in the ladder's own order.
+    dot_box_h = round(leading * 1.2)
+    dot_box_w = round(dot_box_h * 1.5)
+    name_gap = body_px / 2
 
-        ``create_guide_page``'s ``set_page``, with its five fallback forms
-        unchanged: ``bare_level`` 0 is labels-only, 1 drops a multi-row
-        technique's reasoning rows, the pipeline and the worked-example recap,
-        and 2 also drops page 1's cell-state pictures and its "mark spaces"
-        diagram and tightens the gaps between sections. **No level changes a
-        font size** — only which diagrams and gaps are drawn.
-        """
+    def tier_rank(label: DifficultyLabel) -> int:
+        tier = tier_of_record(label.name)
+        if tier is None or tier not in TIERS:
+            raise ValueError(f"the legend names a tier the book does not have: {label.name!r}")
+        return TIERS.index(tier) + 1
+
+    def set_page(form: GuideForm) -> Tuple[List["_Mark"], float]:
+        """Every mark below the band, and the lowest pixel they reach."""
         marks: List[_Mark] = []
-        state = {"y": first, "bottom": first}
+        body_top = (lean_sheet if form.tight else sheet).body_top
+        reach = {"bottom": body_top}
 
-        def paragraph(text: str) -> None:
-            for line in wrap(text, body_px, measure, face):
-                marks.append(_Mark(state["y"], text=line))
-                state["bottom"] = state["y"] + body_line
-                state["y"] += leading
+        def note(bottom: float) -> None:
+            reach["bottom"] = max(reach["bottom"], bottom)
 
-        def picture(diagram: "_Diagram", gap: float, *, needs_pad: bool = True) -> None:
-            marks.append(_Mark(state["y"], diagram=diagram, needs_pad=needs_pad))
-            state["bottom"] = state["y"] + diagram.height
-            state["y"] = state["bottom"] + gap
+        def paragraph(text: str, x: float, width: float, y: float) -> float:
+            """Set ``text`` in the column; return where the next line would go."""
+            for line in wrap(text, body_px, width, face):
+                marks.append(_Mark(y, x=x, text=line))
+                note(y + body_line)
+                y += leading
+            return y
 
-        def block(kind: str, width: float, height: float, gap: float) -> None:
-            marks.append(_Mark(state["y"], block=kind, width=width, height=height))
-            state["bottom"] = state["y"] + height
-            state["y"] = state["bottom"] + gap
+        def picture(diagram: "_Diagram", x: float, y: float) -> float:
+            marks.append(_Mark(y, x=x, diagram=diagram))
+            note(y + diagram.height)
+            return y + diagram.height
 
-        def space(amount: Optional[float] = None) -> None:
-            if amount is None:
-                amount = leading / 6 if bare_level >= 2 else leading / 2
-            state["y"] += amount
+        def gap(amount: Optional[float] = None) -> float:
+            if amount is not None:
+                return amount
+            if form.tight:
+                return leading / 8
+            return leading / 2 if form.pictures else leading / 6
 
-        def technique(
-            entry: GuideTechnique,
-            rows: List["_Diagram"],
-            *,
-            draw_diagram: bool = True,
-        ) -> None:
-            paragraph(entry.heading)
-            if full:
-                paragraph(entry.caption)
-            if draw_diagram:
-                last_row_only = bare_level >= 1
-                pairs = list(zip(entry.rows, rows))
-                drawn = pairs[-1:] if last_row_only else pairs
-                for row, row_diagram in drawn:
-                    picture(row_diagram, gap=0)
-                    if row.note and captions:
-                        paragraph(row.note)
-            space(0 if bare_level >= 2 else leading / 4)
+        def technique(entry: GuideTechnique, rows: List["_Diagram"], y: float) -> float:
+            """One technique as a row of two columns; the row's lower edge."""
+            ly = paragraph(entry.heading, text_x, text_w, y)
+            if form.text:
+                ly = paragraph(entry.caption, text_x, text_w, ly)
+            ry = y if sheet.two_column else ly
+            pairs = list(zip(entry.rows, rows))
+            for row, row_diagram in pairs if form.reasoning else pairs[-1:]:
+                ry = picture(row_diagram, example_x, ry)
+                if row.note and form.notes:
+                    ry = paragraph(row.note, example_x, example_w, ry)
+            return max(ly, ry) + gap(leading / 4)
 
+        def legend_entry(label: DifficultyLabel, x: float, y: float) -> None:
+            dots = difficulty_dots(
+                round(x),
+                round(y),
+                round(x) + dot_box_w - 1,
+                round(y) + dot_box_h - 1,
+                filled=tier_rank(label),
+                total=len(TIERS),
+            )
+            if dots is not None:
+                marks.append(_Mark(y, x=x, dots=dots))
+            marks.append(
+                _Mark(
+                    y,
+                    x=x + dot_box_w + name_gap,
+                    text=label.name,
+                    kind=LEGEND_NAME,
+                    dy=(dot_box_h - body_line) / 2,
+                )
+            )
+            note(y + dot_box_h)
+
+        def cell_mark(index: int, x: float, width: float, y: float) -> float:
+            """One of the three marks: its picture, then its word and gloss."""
+            state = GUIDE_CELL_STATES[index]
+            if form.pictures:
+                y = picture(cell_states[index], x, y) + leading / 4
+            y = paragraph(state.heading, x, width, y)
+            return paragraph(state.caption, x, width, y) if form.captions else y
+
+        def key_strip(y: float) -> float:
+            """The three marks and the difficulty legend, as one strip."""
+            measure = right - left
+            mark_words = [
+                advance_px(word, body_px, face)
+                for state in GUIDE_CELL_STATES
+                for word in (state.heading + " " + state.caption).split()
+            ]
+            name_w = max(
+                advance_px(label.name, body_px, face) for label in GUIDE_DIFFICULTY_LABELS
+            )
+            entry_w = dot_box_w + name_gap + name_w
+            zone_pad = body_px / 2
+            beside = measure / 4 - zone_pad >= max(max(mark_words), entry_w)
+            if beside:
+                zone = measure / 4
+                top = (
+                    paragraph(GUIDE_CELL_STATES_HEADING, left, 3 * zone - zone_pad, y)
+                    if form.headings
+                    else y
+                )
+                legend_top = (
+                    paragraph(GUIDE_DIFFICULTY_HEADING, left + 3 * zone, zone - zone_pad, y)
+                    if form.headings
+                    else y
+                )
+                items = max(top, legend_top) + leading / 4
+                lowest = items
+                for index in range(len(GUIDE_CELL_STATES)):
+                    lowest = max(
+                        lowest,
+                        cell_mark(index, left + index * zone, zone - zone_pad, items),
+                    )
+                row = items
+                for label in GUIDE_DIFFICULTY_LABELS:
+                    legend_entry(label, left + 3 * zone, row)
+                    row += dot_box_h
+                below = max(lowest, row)
+                if form.legend_line:
+                    # The line is the legend's, set across the measure under the
+                    # strip: a quarter of the measure is too narrow for a sentence.
+                    below = paragraph(GUIDE_DIFFICULTY_LINE, left, measure, below + leading / 4)
+                return below
+            zone = measure / 3
+            items = (
+                paragraph(GUIDE_CELL_STATES_HEADING, left, measure, y) if form.headings else y
+            ) + leading / 4
+            lowest = items
+            for index in range(len(GUIDE_CELL_STATES)):
+                lowest = max(
+                    lowest, cell_mark(index, left + index * zone, zone - zone_pad, items)
+                )
+            items = (
+                paragraph(GUIDE_DIFFICULTY_HEADING, left, measure, lowest + gap())
+                if form.headings
+                else lowest + gap()
+            )
+            if form.legend_line:
+                items = paragraph(GUIDE_DIFFICULTY_LINE, left, measure, items)
+            items += leading / 4
+            if entry_w <= zone - zone_pad:
+                for index, label in enumerate(GUIDE_DIFFICULTY_LABELS):
+                    legend_entry(label, left + index * zone, items)
+                return items + dot_box_h
+            # A name that does not fit its third of the measure would print over
+            # the next entry's dots, so the entries stack, one to a row.
+            for label in GUIDE_DIFFICULTY_LABELS:
+                legend_entry(label, left, items)
+                items += dot_box_h
+            return items
+
+        y = body_top
         if page_one:
-            if full:
-                paragraph(GUIDE_INTRO)
-                space()
+            if form.prose:
+                y = paragraph(GUIDE_INTRO, left, right - left, y)
+            if play_page is not None:
+                y = paragraph(guide_play_sentence(play_page), left, right - left, y)
+            if y > body_top:
+                y += gap()
 
-            paragraph(GUIDE_BASIC_RULE_HEADING)
-            if full:
-                paragraph(GUIDE_BASIC_RULE_TEXT)
-            picture(basic_rule, gap=0)
-            if captions:
-                paragraph(GUIDE_BASIC_RULE_CAPTION)
-            space()
+            y = key_strip(y) + gap()
 
-            paragraph(GUIDE_CELL_STATES_HEADING)
-            for cell_state, cell_diagram in zip(GUIDE_CELL_STATES, cell_states):
-                paragraph(cell_state.heading)
-                if captions:
-                    paragraph(cell_state.caption)
-                if bare_level < 2:
-                    picture(cell_diagram, gap=leading / 4)
-            space()
+            if form.rule:
+                ly = paragraph(GUIDE_BASIC_RULE_HEADING, text_x, text_w, y)
+                if form.text:
+                    ly = paragraph(GUIDE_BASIC_RULE_TEXT, text_x, text_w, ly)
+                ry = y if sheet.two_column else ly
+                ry = picture(basic_rule, example_x, ry)
+                if form.reasoning:
+                    # The basic rule's gloss is the explanation of its diagram:
+                    # it stays until the page gives up its multi-row reasoning.
+                    ry = paragraph(GUIDE_BASIC_RULE_CAPTION, example_x, example_w, ry)
+                y = max(ly, ry) + gap()
 
-            paragraph(GUIDE_CERTAINTY_HEADING)
+            if form.headings:
+                y = paragraph(GUIDE_CERTAINTY_HEADING, left, right - left, y)
             for index, entry in enumerate(GUIDE_TECHNIQUES_1):
                 last = index == len(GUIDE_TECHNIQUES_1) - 1
-                technique(
-                    entry,
-                    technique_rows(entry),
-                    draw_diagram=not (bare_level >= 2 and last),
-                )
+                if last and not form.last:
+                    continue
+                if last and not form.pictures:
+                    y = paragraph(entry.heading, text_x, text_w, y) + gap(0)
+                    continue
+                y = technique(entry, technique_rows(entry), y)
 
-            paragraph(GUIDE_SWITCHING_HEADING)
-            if full:
-                paragraph(GUIDE_SWITCHING_TEXT)
+            if form.headings:
+                y = paragraph(GUIDE_SWITCHING_HEADING, left, right - left, y)
+            if form.prose:
+                paragraph(GUIDE_SWITCHING_TEXT, left, right - left, y)
         else:
-            if full:
-                paragraph(GUIDE2_INTRO)
-                space()
+            if form.prose:
+                y = paragraph(GUIDE2_INTRO, left, right - left, y) + gap()
 
             for entry in GUIDE_TECHNIQUES_2:
-                technique(entry, technique_rows(entry))
+                y = technique(entry, technique_rows(entry), y)
 
-            paragraph(GUIDE_ASSUME_HEADING)
-            if full:
-                paragraph(GUIDE_ASSUME_TEXT)
-            if bare_level < 1:
-                block(_PIPELINE, pipeline_w, pipeline_h, gap=leading / 4)
-            if full:
-                paragraph(GUIDE_ASSUME_CLOSING)
-            space()
+            ly = paragraph(GUIDE_ASSUME_HEADING, text_x, text_w, y)
+            if form.text:
+                ly = paragraph(GUIDE_ASSUME_TEXT, text_x, text_w, ly)
+                ly = paragraph(GUIDE_ASSUME_CLOSING, text_x, text_w, ly)
+            ry = y if sheet.two_column else ly
+            if form.reasoning:
+                marks.append(
+                    _Mark(
+                        ry,
+                        x=example_x,
+                        block=_PIPELINE,
+                        width=pipeline_w,
+                        height=pipeline_h,
+                    )
+                )
+                note(ry + pipeline_h)
+                ry += pipeline_h
+            y = max(ly, ry) + gap()
 
-            paragraph(GUIDE_DIFFICULTY_HEADING)
-            block(_LEGEND, legend_w, legend_h, gap=leading / 2)
+            if form.counts:
+                y = paragraph(f"This book contains {puzzle_count} puzzles:", left, right - left, y)
+                y = paragraph(f"Easy: {easy_count}", left, right - left, y)
+                y = paragraph(f"Medium: {medium_count}", left, right - left, y)
+                y = paragraph(f"Hard: {hard_count}", left, right - left, y) + gap()
 
-            if full:
-                paragraph(f"This book contains {puzzle_count} puzzles:")
-                paragraph(f"Easy: {easy_count}")
-                paragraph(f"Medium: {medium_count}")
-                paragraph(f"Hard: {hard_count}")
-                space()
-
-            if bare_level < 1:
-                if captions:
-                    paragraph(GUIDE_EXAMPLE_HEADING)
+            if form.shows_worked_example:
+                if form.steps:
+                    y = paragraph(GUIDE_EXAMPLE_HEADING, left, right - left, y)
                 for step, step_diagram in zip(WORKED_EXAMPLE_STEPS, worked_example):
-                    paragraph(step.caption if captions else step.label)
-                    picture(step_diagram, gap=leading / 2)
-                space()
+                    y = paragraph(
+                        step.caption if form.steps else step.label, left, right - left, y
+                    )
+                    y = picture(step_diagram, left, y) + leading / 2
+                y += gap()
 
-            paragraph(GUIDE_CLOSING_HEADING)
-            if full:
-                paragraph(GUIDE_CLOSING)
+            y = paragraph(GUIDE_CLOSING_HEADING, left, right - left, y)
+            if form.prose:
+                paragraph(GUIDE_CLOSING, left, right - left, y)
 
-        return marks, state["bottom"]
+        return marks, reach["bottom"]
 
-    def fits_width(marks: List["_Mark"]) -> bool:
-        """Whether every drawn mark stays inside ``frame.right``.
-
-        ``create_guide_page``'s own check (its review cycle 3, F-20), with the
-        same tolerance: a line diagram may cross ``frame.right`` by up to half
-        a heavy rule, because its frame's border is centred *on* its boundary
-        coordinate and half of it hangs outside the box — the by-design
-        sideways bleed every puzzle page's grid already has. The pipeline and
-        the legend draw flush with no such bleed and get none of it. A text
-        mark is skipped: :func:`wrap` already wrapped it to ``measure``.
-        """
+    def fits(marks: List["_Mark"], bottom: float, form: GuideForm) -> bool:
+        """Whether every drawn mark stays inside the body: below the header
+        rule's white, above the footer rule's white, and inside the margins."""
+        if bottom > (lean_sheet if form.tight else sheet).body_bottom:
+            return False
         for mark in marks:
             if mark.text is not None:
                 continue
             width = mark.width if mark.diagram is None else mark.diagram.width
-            x = frame.left - pad if mark.needs_pad else frame.left
-            bleed = (pad + 1) // 2 if mark.needs_pad else 0
-            if x + width > frame.right + bleed:
+            if mark.dots is not None:
+                width = dot_box_w
+            if mark.x + width > right:
                 return False
         return True
 
-    chosen: Tuple[bool, bool, int] = (False, False, 2)
-    marks: List[_Mark] = []
-    bottom = first
-    for level in ((True, True, 0), (False, True, 0), (False, False, 0), (False, False, 1), (False, False, 2)):
-        marks, bottom = set_page(*level)
-        chosen = level
-        if bottom <= frame.bottom and fits_width(marks):
+    chosen = len(_FORMS) - 1
+    form = _FORMS[chosen]
+    marks, bottom = set_page(form)
+    for index, candidate in enumerate(_FORMS):
+        laid, reached = set_page(candidate)
+        if fits(laid, reached, candidate):
+            chosen, form, marks, bottom = index, candidate, laid, reached
             break
+    else:
+        # No form fits: the leanest is drawn, as the page this replaces drew
+        # its last form on a sheet too short for any.
+        marks, bottom = set_page(form)
+    # Offer back, most valuable first, every mark the ladder dropped that the
+    # page still has room for (the ladder alone only ever removes).
+    for name in _ADD_BACK:
+        if getattr(form, name) or form.tight:
+            continue
+        candidate = replace(form, **{name: True})
+        laid, reached = set_page(candidate)
+        if fits(laid, reached, candidate):
+            form, marks, bottom = candidate, laid, reached
 
-    body_ascent = ascent_px(body_px, face)
+    trim = page_frame(spec)
+    stream = ContentStream(width_px=trim.width, height_px=trim.height, dpi=dpi)
+
+    title_text = GUIDE_TITLE if page_one else GUIDE2_TITLE
+    title_px = band_type_size(title_text, sheet.band, right - left, face)
+    draw_band(stream, sheet.band, title_text, right - left, face)
+    faces: List[DrawnFace] = [DrawnFace(TITLE, title_text, stream.to_points(title_px))]
+
     for mark in marks:
         if mark.text is not None:
             stream.text(
-                mark.text, frame.left, mark.y + body_ascent, GUIDE_BODY_PT, grey=_BLACK
+                mark.text, mark.x, mark.y + mark.dy + body_ascent, GUIDE_BODY_PT, grey=_BLACK
             )
-            faces.append(DrawnFace(BODY_TEXT, mark.text, GUIDE_BODY_PT))
+            faces.append(DrawnFace(mark.kind, mark.text, GUIDE_BODY_PT))
         elif mark.diagram is not None:
-            diagram = mark.diagram
-            x = frame.left - pad if mark.needs_pad else frame.left
-            dx, dy = diagram.translation(x, mark.y)
+            dx, dy = mark.diagram.translation(mark.x, mark.y)
             faces.extend(
                 draw_line_diagram(
-                    stream, diagram.layout, diagram.step, dx=dx, dy=dy, metrics=face
+                    stream,
+                    mark.diagram.layout,
+                    mark.diagram.step,
+                    dx=dx,
+                    dy=dy,
+                    metrics=face,
                 )
             )
-        elif mark.block == _PIPELINE:
+        elif mark.dots is not None:
+            draw_difficulty_dots(stream, mark.dots)
+        else:
             faces.extend(
                 draw_pipeline(
                     stream,
@@ -1212,52 +1555,46 @@ def guide_page(
                     GUIDE_ASSUME_STEPS,
                     body_px,
                     GUIDE_BODY_PT,
-                    x=frame.left,
-                    y=mark.y,
-                    metrics=face,
-                )
-            )
-        else:
-            faces.extend(
-                draw_legend(
-                    stream,
-                    GUIDE_DIFFICULTY_LABELS,
-                    measure,
-                    body_px,
-                    GUIDE_BODY_PT,
-                    x=frame.left,
+                    x=mark.x,
                     y=mark.y,
                     metrics=face,
                 )
             )
 
-    # The folio, after every mark above. ``bottom`` is the chosen fallback
-    # form's own lowest mark, never re-measured, so a tight fallback on a
-    # small trim omits the folio exactly when it would otherwise collide with
-    # this page's own last line (CARD-200's omit-rather-than-collide rule).
-    faces.extend(
-        _draw_folio(
-            stream,
-            frame,
-            page_number,
-            scale,
+    # The folio is the puzzle pages': under the footer rule at the trim's
+    # centre (``draw_sheet_furniture``), with no grid-size label and no pointer
+    # — the page names the Play online page in its own words. A page whose
+    # content reaches past the footer rule keeps the corner folio instead
+    # (CARD-200) and omits it when it would collide, so what was set is read
+    # off the stream rather than assumed: the record is what the page shows.
+    folio_px = type_px(FOLIO_PT, dpi)
+    written = len(stream.operators)
+    draw_sheet_furniture(
+        stream,
+        SheetFurniture(
+            frame=sheet.interior,
+            folio=str(page_number),
+            folio_size_px=folio_px,
             content_bottom=bottom,
-            metrics=face,
-        )
+            right_hand=page_is_right_hand(page_number),
+        ),
+        face,
     )
+    if any(f"({page_number}) Tj" in operator for operator in stream.operators[written:]):
+        faces.append(DrawnFace(FOLIO, str(page_number), stream.to_points(folio_px)))
 
     return GuidePage(
         page_number=page_number,
         stream=stream,
         faces=tuple(faces),
         fallback_level=chosen,
+        form=form,
         content_bottom=bottom,
     )
 
 
-#: The two mark kinds that are neither text nor a line diagram.
+#: The one mark kind that is neither text, a line diagram nor dots.
 _PIPELINE = "pipeline"
-_LEGEND = "legend"
 
 
 @dataclass(frozen=True)
@@ -1293,64 +1630,31 @@ class _Diagram:
 
         It lives here rather than in :func:`guide_page` so that the page itself
         reads **one** number off a ``Layout`` and not a grid: the paste pad,
-        ``icon_layout.thick_rule``, hoisted once — which is exactly what the
-        raster page reads at ``book_pdf_generator.py:4361``. This docstring
-        used to say the page "never reads a ``Layout``'s grid", which is false
-        as written (review cycle 1, F-2), and the correction is mechanical
-        rather than verbal: CARD-296's AC-4 guard now declares that read as
-        ``guide_page``'s *role* and holds the page to that one attribute name,
-        so a second number joining it is a test failure.
+        ``icon_layout.thick_rule``-sized, which :class:`_Diagram` holds. This
+        docstring used to say the page "never reads a ``Layout``'s grid", which
+        is false as written (review cycle 1, F-2), and the correction is
+        mechanical rather than verbal: CARD-296's AC-4 guard declares the reads
+        as ``guide_page``'s *role* and holds the page to those attribute names,
+        so a second number joining them is a test failure.
         """
         return x - (self.left - self.pad), y - (self.layout.grid_top - self.pad)
 
 
 @dataclass(frozen=True)
 class _Mark:
-    """One thing the page puts at a ``y``: a line of text, a diagram or a block."""
+    """One thing the page puts at a ``y``: a line of text, a diagram, a row of
+    dots or the pipeline, at the column edge ``x``."""
 
     y: float
+    x: float = 0.0
     text: Optional[str] = None
+    kind: str = BODY_TEXT
+    dy: float = 0.0
     diagram: Optional[_Diagram] = None
+    dots: Optional[DifficultyDots] = None
     block: Optional[str] = None
     width: float = 0.0
     height: float = 0.0
-    needs_pad: bool = False
-
-
-def _draw_folio(
-    stream: ContentStream,
-    frame: PageFrame,
-    page_number: int,
-    scale: float,
-    *,
-    content_bottom: float,
-    metrics: FontMetrics,
-) -> Tuple[DrawnFace, ...]:
-    """``page_number``'s plain-decimal folio at the bottom-outer corner.
-
-    :func:`~nonogram.admin.book_pdf_generator._draw_folio`'s guide-page path:
-    the vertical-only room check (this page passes no horizontal figure, as
-    the raster guide does not either), and Pillow's ``"rb"``/``"lb"`` anchor
-    at the usable area's bottom-outer corner, picked by
-    :func:`~nonogram.admin.book_pdf_generator.page_is_right_hand` (FR-043).
-
-    The anchor's bottom is the *glyph box's* bottom, which for a decimal
-    number is its baseline — digits have no descender — so unlike the "mm"
-    and "ma" anchors elsewhere on this page the baseline here is simply
-    ``frame.bottom``. Written out rather than left implicit, because it is the
-    one anchor conversion on the page that is the identity and a reader should
-    not have to re-derive that.
-    """
-    size_px = FOLIO_PT * scale
-    text = str(page_number)
-    if frame.bottom - content_bottom < line_height_px(size_px, metrics):
-        return ()
-    if page_is_right_hand(page_number):
-        x = frame.right - advance_px(text, size_px, metrics)
-    else:
-        x = frame.left
-    stream.text(text, x, frame.bottom, FOLIO_PT, grey=_BLACK)
-    return (DrawnFace(FOLIO, text, FOLIO_PT),)
 
 
 def guide_pages(
@@ -1361,6 +1665,7 @@ def guide_pages(
     easy_count: int = 0,
     medium_count: int = 0,
     hard_count: int = 0,
+    play_page: Optional[int] = None,
 ) -> List[GuidePage]:
     """Both halves of the tutorial, in the order they print.
 
@@ -1380,6 +1685,7 @@ def guide_pages(
             easy_count=easy_count,
             medium_count=medium_count,
             hard_count=hard_count,
+            play_page=play_page,
             metrics=metrics,
         )
         for page_number in GUIDE_PAGE_NUMBERS

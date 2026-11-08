@@ -8,15 +8,22 @@ is hand-counted. `rank_durations.py --verify-render-set tests` reports
 **render-set drift: none**, so the frozen render-heavy set still matches the
 tree eight days and ~1900 tests after it was frozen.
 
+**Restated 2026-11-08 (CARD-229):** the frozen render set lost
+`tests/test_book_guide_page_type.py` (its raster tests were retired with the
+raster guide and the file deleted), so the render-heavy row reads 552.06 s /
+38.71 % / 1374 tests / 402 ms and `property OR render` 621.91 s / 43.61 % /
+1547 tests / 402 ms; the recording and its sha256 are untouched, and the
+script's verbatim block below is its output over the set as it now stands.
+
 ## The deciding table, as markdown
 
 | family | time | share | tests | ms/test |
 |---|---|---|---|---|
 | browser family (Chromium) | 353.06 s | 24.76 % | 488 | 723 |
-| render-heavy frozen set | 554.47 s | 38.88 % | 1391 | 399 |
+| render-heavy frozen set | 552.06 s | 38.71 % | 1374 | 402 |
 | property corpora | 151.54 s | 10.63 % | 185 | 819 |
 | property AND render | 81.69 s | 5.73 % | 12 | 6808 |
-| property OR render | 624.32 s | 43.78 % | 1564 | 399 |
+| property OR render | 621.91 s | 43.61 % | 1547 | 402 |
 | admin-local script trio | 11.98 s | 0.84 % | 86 | 139 |
 | everything but the browser family | 1073.10 s | 75.24 % | 8493 | 126 |
 Shares are of attributed time (1426.16 s), not of wall clock.
@@ -77,10 +84,10 @@ tests**, where the render is 6 % of the file.
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              353.06s  24.76%    488      723
-render-heavy frozen set                554.47s  38.88%   1391      399
+render-heavy frozen set                552.06s  38.71%   1374      402
 property corpora                       151.54s  10.63%    185      819
 property AND render                     81.69s   5.73%     12     6808
-property OR render                     624.32s  43.78%   1564      399
+property OR render                     621.91s  43.61%   1547      402
 admin-local script trio                 11.98s   0.84%     86      139
 everything but the browser family     1073.10s  75.24%   8493      126
 
@@ -165,13 +172,13 @@ everything but the browser family     1073.10s  75.24%   8493      126
 ## Render-heavy files (the render hypothesis)
 
 files in the frozen set: 33
-files that contributed timings: 31
-tests in those files: 1391
-time: 554.47s
-share of attributed time:  38.88%
-share of wall clock:  38.68%
+files that contributed timings: 30
+tests in those files: 1374
+time: 552.06s
+share of attributed time:  38.71%
+share of wall clock:  38.51%
 
 ## Non-render remainder
 
-time: 871.69s
-share of attributed time:  61.12%
+time: 874.10s
+share of attributed time:  61.29%

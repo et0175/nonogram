@@ -1006,8 +1006,15 @@ class ContentStream:
         *,
         grey: float = 0.0,
         resource: str = FACE_RESOURCE_NAME,
+        embolden_pt: float = 0.0,
     ) -> None:
         """``value``, with its baseline starting at ``(x, y)``.
+
+        ``embolden_pt`` above zero sets the string in text render mode 2
+        (fill, then stroke) with a stroke that wide, in the fill's own tone:
+        the one embedded face reads as a semibold without a second face
+        (ADR-0042/R5). The graphics state it changes is saved and restored
+        around the string, so nothing after it inherits the stroke.
 
         ``size_pt`` is **points against the page** and is written straight
         into the ``Tf`` operand, which is AC-4: the same call at 300 DPI and
@@ -1021,6 +1028,16 @@ class ContentStream:
         """
         if size_pt <= 0:
             raise ContentStreamError(f"type is not set at {size_pt} pt")
+        if embolden_pt < 0:
+            raise ContentStreamError(f"a stroke is not {embolden_pt} pt wide")
+        if embolden_pt:
+            tone = _number(_grey(grey))
+            self._operators.append(
+                f"q {tone} g {tone} G {_number(embolden_pt)} w BT 2 Tr /{resource} "
+                f"{_number(size_pt)} Tf {self._x(x)} {self._y(y)} Td "
+                f"({_escape(value)}) Tj ET Q"
+            )
+            return
         self._operators.append(
             f"{_number(_grey(grey))} g BT /{resource} {_number(size_pt)} Tf "
             f"{self._x(x)} {self._y(y)} Td ({_escape(value)}) Tj ET"

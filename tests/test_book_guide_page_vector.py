@@ -73,10 +73,11 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_BASIC_RULE_CLUE,
     GUIDE_BASIC_RULE_LENGTH,
     GUIDE_BODY_PT,
+    GUIDE_CELL_STATES,
+    GUIDE_LEADING_PT,
     GUIDE_DIFFICULTY_LABELS,
     GUIDE_TECHNIQUES_1,
     GUIDE_TECHNIQUES_2,
-    GUIDE_TITLE_PT,
     WORKED_EXAMPLE_CLUE,
     WORKED_EXAMPLE_LENGTH,
     WORKED_EXAMPLE_STEPS,
@@ -85,7 +86,14 @@ from nonogram.admin.book_pdf_generator import (
     example_line_layout,
     guide_icon_layout,
 )
-from nonogram.export.layout import Layout, compute_layout
+from nonogram.admin.book_puzzle_vector import MIN_BAND_FONT_RATIO
+from nonogram.export.layout import (
+    HEADER_FONT_MM,
+    Layout,
+    compute_layout,
+    difficulty_dots,
+    interior_frame,
+)
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import corpus_book
 
@@ -107,11 +115,13 @@ needs_poppler = pytest.mark.skipif(pdf_vector.PDFTOTEXT is None, reason=NO_POPPL
 #: ``tests/test_book_interior_type_floor.py`` writes the same figure out.
 FLOOR_PT = 10.0
 
-#: The only tone this page may ink, as a ``g``/``G`` operand: pure black.
-#: Written here for the same reason :data:`FLOOR_PT` is — the control states
-#: what it holds the page to, and the writer's own ``_BLACK`` is the thing
-#: being checked rather than the authority for it.
+#: The only tones this page may ink, as ``g``/``G`` operands: pure black, and
+#: the paper (1.0) an outlined legend dot is filled with so the white inside
+#: its ring is painted (CARD-229). Written here for the same reason
+#: :data:`FLOOR_PT` is — the control states what it holds the page to, and the
+#: writer's own tones are the thing being checked rather than the authority.
 _BLACK_TONE = 0.0
+_PAPER_TONE = 1.0
 
 MIN_TRIM_CM = 10.0
 MIN_TRIM_GUTTER_CM = "0.95"
@@ -141,7 +151,7 @@ BOOKS = {"book1": corpus_book, "min-trim": min_trim_book}
 
 #: The tier counts the page prints on its full form. Arbitrary — the page
 #: letters whatever it is handed — but fixed so the drawn strings are stable.
-COUNTS = dict(puzzle_count=24, easy_count=8, medium_count=8, hard_count=8)
+COUNTS = dict(puzzle_count=24, easy_count=8, medium_count=8, hard_count=8, play_page=170)
 
 #: Which kinds of face each profile's guide really sets, and why the second is
 #: a subset rather than the whole of :data:`FACE_KINDS`.
@@ -150,18 +160,15 @@ COUNTS = dict(puzzle_count=24, easy_count=8, medium_count=8, hard_count=8)
 #: the body, its diagrams' clue digits and the folio; page 2 the pipeline's
 #: labels and the legend's names as well.
 #:
-#: ``min-trim`` sets four, and both absences are today's page behaving as
-#: designed rather than this writer omitting something:
-#:
-#: * no ``pipeline label`` — the 10 cm trim drives the page to the most
-#:   stripped-down of the five fallback forms (``bare_level`` 2), and the
-#:   pipeline diagram is dropped from ``bare_level`` 1 onward (CARD-201);
-#: * no ``folio`` — CARD-200's omit-rather-than-collide rule: the page's own
-#:   content already reaches the bottom margin, so the page number is omitted
-#:   rather than set on top of the last line.
+#: ``min-trim`` sets five, and the absence is the page behaving as designed
+#: rather than this writer omitting something: no ``pipeline label`` — the
+#: 10 cm trim drives both pages to the most stripped-down form of the ladder
+#: (the last of ``_FORMS``), which drops the pipeline diagram. (The first page
+#: still prints no folio there: its content reaches past the footer rule, so
+#: the page keeps the corner-folio rule of omitting rather than colliding.)
 REQUIRED_KINDS = {
     "book1": FACE_KINDS,
-    "min-trim": frozenset({TITLE, BODY_TEXT, CLUE_DIGIT, LEGEND_NAME}),
+    "min-trim": frozenset({TITLE, BODY_TEXT, CLUE_DIGIT, LEGEND_NAME, "folio"}),
 }
 
 #: The fewest faces each profile's guide may set, asserted so a page that
@@ -340,6 +347,10 @@ class TestGuidePage_EveryFaceHoldsTheFloorInTheStream:
 
         assert REQUIRED_KINDS[profile] <= covered, sorted(covered)
         assert covered <= FACE_KINDS, sorted(covered - FACE_KINDS)
+        # And the three marks' words survive in the page's least form, with
+        # their pictures dropped: the key strip keeps what it teaches.
+        words = {face.text for page in drawn(profile) for face in page.faces}
+        assert {state.heading for state in GUIDE_CELL_STATES} <= words
 
     def test_the_page_sets_enough_faces_for_the_floor_check_to_be_about_a_page(
         self, profile
@@ -441,8 +452,19 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
     #: a function that already has a role cannot inherit it.
     ROLES = {
         "draw_line_diagram": (
-            frozenset({"vertical_lines", "horizontal_lines", "thin_rule"}),
-            "the one composition: marks, rules, clue digits",
+            frozenset({"vertical_lines", "horizontal_lines", "thin_rule", "frame"}),
+            "the one composition: marks, rules, clue digits, and whether a "
+            "diagram has a frame to outline its playable squares inside",
+        ),
+        "_outline_playable_squares": (
+            frozenset({"vertical_lines"}),
+            "strokes the heavier outline around the playable squares at the "
+            "weight and tone of the layout's own border line (CARD-229)",
+        ),
+        "example_cell_spec": (
+            frozenset({"clue_font_size"}),
+            "steps the shared cell down only while the clue digits still hold "
+            "the floor: reads the digit size COMP-007 derived, nothing else",
         ),
         "_stroke_layout": (
             frozenset({"vertical_lines", "horizontal_lines", "frame"}),
@@ -468,12 +490,6 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
             frozenset({"thick_rule"}),
             "the paste pad: one heavy rule of bleed around a diagram",
         ),
-        "guide_page": (
-            frozenset({"thick_rule"}),
-            "hoists that same paste pad once, off the icon layout — exactly "
-            "what the raster page reads at book_pdf_generator.py:4361, and the "
-            "only grid number the page itself reads",
-        ),
     }
 
     #: The **seed** for how this module spells a ``Layout``-valued expression:
@@ -484,7 +500,7 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
     #: ``layout.width`` or ``layout.cell`` from being a way around
     #: :attr:`ALLOWED` — and, since review cycle 2, what stops ``lay = layout``
     #: from being a way around the receiver rule itself.
-    LAYOUT_SPELLINGS = frozenset({"layout", "self.layout", "icon_layout"})
+    LAYOUT_SPELLINGS = frozenset({"layout", "self.layout"})
 
     @staticmethod
     def _module_source() -> str:
@@ -1094,7 +1110,11 @@ class TestGuidePage_WorkedExampleClueDigitsAreNotExempt:
             face for page in drawn(profile) for face in page.faces if face.kind == CLUE_DIGIT
         ]
 
-        assert len(digits) >= len(WORKED_EXAMPLE_STEPS) * len(WORKED_EXAMPLE_CLUE)
+        # Book 1 draws the worked example's digits and more (24 measured); the
+        # minimum trim's leanest forms keep two techniques' rows (5 measured),
+        # so the floor there is the number of clue digits a single row carries.
+        floor = len(WORKED_EXAMPLE_STEPS) * len(WORKED_EXAMPLE_CLUE) if profile == "book1" else 2
+        assert len(digits) >= floor
 
     def test_every_clue_digit_holds_the_floor(self, profile):
         under = [
@@ -1153,124 +1173,33 @@ class TestGuidePage_WorkedExampleClueDigitsAreNotExempt:
 # --------------------------------------------------------------------------
 
 
-class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
-    """AC-3's subject does not exist on this page, and that is measured here.
+class TestGuidePage_DifficultyLegendCarriesTheTiersDots:
+    """The key strip's legend carries CARD-228's dots, and no other round shape.
 
-    **CARD-296's brief calls the difficulty legend's dots "the card's one
-    genuinely new primitive". The legend has had no dots since CARD-221 fix
-    1.** The owner's decision of 2026-10-14 stopped printing the three
-    sentences (``GUIDE_DIFFICULTY_LABELS``), the ruled box that held them went
-    with them, and what is left is three tier names in a row —
-    ``book_pdf_generator._draw_difficulty_legend``, whose only drawing call is
-    a ``draw.text``.
+    **This class was ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday``**
+    and said, at length, that the legend had had no dots since CARD-221 and
+    that the day it drew some they must come through ``round_mark``. CARD-229
+    is that day: the legend is one row of dots per tier beside the tier's name,
+    drawn by the interior's one dot drawer
+    (:func:`~nonogram.admin.book_vector_draw.draw_difficulty_dots`, which is
+    the one caller of ``ContentStream.round_mark``), from the geometry
+    :func:`~nonogram.export.layout.difficulty_dots` states. What the class holds
+    now is what stayed true of the old one:
 
-    The round mark the brief means is ``_draw_difficulty_dots``, which has
-    **no production caller at all** today: CARD-207 (the puzzle page's band),
-    **CARD-229** (the guide's key strip), CARD-231 and CARD-233 are the cards
-    that will call it. CARD-229 is queued and gated, and CARD-296 G-1 forbids
-    drawing its design here — *"this card ports today's design to the new
-    medium, unchanged"*.
-
-    So AC-3 is not assertable and is not asserted. What is asserted is the
-    tripwire: this page draws no round shape today, and the day it does, it
-    must come through ``ContentStream.round_mark``. That keeps
-    ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``'s own alarm
-    (CARD-294) intact rather than defusing it from this side.
-
-    "No round shape", and the three routes that sentence has to cover
-    ---------------------------------------------------------------------
-
-    **This class used to say "PDF has no circle operator, so no ``c`` is
-    exactly no round shape". That is false, and review cycle 1 measured it
-    false**: ``ContentStream`` also carries
-    :meth:`~nonogram.admin.book_vector.ContentStream.begin_path`,
-    ``line_to``, ``close_path`` and ``paint`` — an arbitrary polygon builder
-    that emits only ``m``, ``l``, ``h`` and a paint operator. A 32-gon filled
-    disc was planted beside each tier name in ``draw_legend`` and **248 tests
-    passed**, through the curve assertion, through ``round_mark(``, and through
-    CARD-294's own alarm. A polyline disc is also the *cheaper* implementation
-    of a difficulty dot than four Béziers, so it is the route CARD-229 is most
-    likely to take.
-
-    **Review cycle 2 then measured that the route is NOT closed either, and
-    that it cannot be closed by this instrument.** Fix round 1 answered cycle 1
-    by counting the vertices of every subpath off the stream and bounding them
-    at :data:`MAX_PATH_POINTS` = 4, on ``MAX_FLAT_VERTICES``' precedent. Two
-    plants of a *different shape* from the 32-gon that bound was written
-    against each drew a filled disc with the whole file green (264 passed):
-
-    * a **fan of 32 three-point triangles** — ``begin_path``, two ``line_to``,
-      ``close_path``, ``paint("fill")`` per sector. Every subpath is 3 points,
-      so ``max(points) <= 4`` passes and
-      :meth:`test_the_longest_path_the_page_writes_is_the_arrow_head` still
-      reads exactly 3;
-    * a **staircase of 24 filled ``re`` bands**, half-widths off the circle
-      equation. :func:`tests.helpers.pdf_vector.subpath_vertices` counts only
-      ``m``/``l``/``c``, so ``re`` ink is not counted at all.
-
-    The reason is structural rather than a tuning problem, and it is why no
-    third attempt at a bound is made here: **the page's own arrow head is 3
-    points and a triangle is 3 points, so no value of**
-    :data:`MAX_PATH_POINTS` **admits this page and refuses a disc.** The bound
-    has zero headroom in the direction that would matter.
-
-    So the three routes are stated as what each one really is — two with an
-    assertion, one with a named limit and an owner:
-
-    1. **a curve** — the ``c`` operator, the only non-straight path segment
-       PDF has. **Closed**, and this is the one closure this class claims:
-       :meth:`test_no_guide_page_emits_a_curve_operator`. "No ``c``" is "no
-       **Bézier**", exactly, and nothing wider.
-    2. **a straight-segment approximation** — a many-point polyline, a fan of
-       short subpaths, or a staircase of ``re`` bands. **A NAMED LIMIT, not a
-       closure**, owned by **CARD-298**, which carries ADR-0042/R1's derived
-       per-page-kind check and is where a real round-shape rule belongs (an
-       ink measurement, CARD-241's instrument, or a rule on filled subpaths —
-       not a vertex count). What is asserted here is narrower and true: the
-       longest *single* subpath this page writes is the three-point arrow head
-       (:meth:`test_no_guide_page_builds_a_round_shape_out_of_straight_segments`
-       and :meth:`test_the_longest_path_the_page_writes_is_the_arrow_head`).
-       That is a useful tripwire on the page's own drawing — the day a diagram
-       grows a long path, a reader is told — and it is **not** a statement that
-       the page cannot ink a disc. **The first of those two cells is named
-       wider than what it measures**; G-6 forbids renaming a test (its node id
-       would go), so the name is left and corrected here, and CARD-298 is where
-       it is replaced rather than relaxed.
-    3. **a round glyph** — a geometric-shapes codepoint or a bullet inside a
-       ``(…) Tj``, which is not a shape operator at all. **Closed on this
-       page**, by the sibling cell
-       :meth:`test_the_legend_sets_the_three_tier_names_and_nothing_else`
-       together with
-       :meth:`TestGuidePage_EveryFaceHoldsTheFloorInTheStream.test_the_writers_record_is_exactly_what_the_stream_shows`:
-       the legend's strings are held equal to ``GUIDE_DIFFICULTY_LABELS`` and
-       the record is held string-for-string against the file, so a tier glyph
-       smuggled into either reds. ``tests/test_book_difficulty_dots.py``'s
-       package-wide dingbat rule (``ROUND_DINGBATS``) does walk this module
-       the moment it lands — measured — but it is **not** what catches a round
-       glyph in this medium, and cycle 2 measured why: ``●`` (U+25CF) is
-       outside ``book_vector.TEXT_ENCODING`` (cp1252), so the *encoder* raises
-       before the rule looks; and U+00B7 MIDDLE DOT, the one round glyph a
-       WinAnsi stream really carries, is not in ``ROUND_DINGBATS`` at all. See
-       that rule's own comment for which of the two codepoints was added and
-       which is its named hole.
-
-    A note on the precedent this round cited. ``MAX_FLAT_VERTICES = 4`` in
-    ``tests/test_book_difficulty_dots.py`` **has the same hole** — a
-    ``draw.polygon`` triangle fan clears a per-call vertex bound exactly as a
-    ``line_to`` fan clears this one, and that file already carries the
-    accumulation limit for ``draw.point``. That is pre-existing and out of this
-    card's scope; it is recorded here because this class cited it as proof the
-    mechanism works, and it is not proof of that.
-
-    :func:`tests.helpers.pdf_vector.subpath_vertices` stays in the shared
-    reader so CARD-295 and CARD-297 inherit the count rather than writing a
-    fourth path scanner.
+    * the curves on the guide are exactly the key strip's nine dots, on the
+      first page and nowhere else (route 1, "a curve", closed as before);
+    * the longest single subpath the page writes is that dot's five operators,
+      so the vertex bound is a measurement and not a round number, and a long
+      polyline drawn as a second disc would exceed it (the same **named
+      limit** as before: a fan of short subpaths or a staircase of ``re`` bands
+      is not caught here, **CARD-298** owns that route);
+    * the legend's names are the tier names and nothing else, and no round
+      glyph is typed.
     """
 
     #: The most points a **single** subpath on this page may be built from.
-    #: The page's longest is the pipeline's **arrow head** — ``m`` plus two
-    #: ``l``, three points — asserted below so the bound's slack is a
-    #: measurement and not a guess.
+    #: The page's longest is a **dot** — ``m`` plus four ``c``, five points —
+    #: asserted below so the bound's slack is a measurement and not a guess.
     #:
     #: **It does not leave a circle out**, and this comment used to say it did
     #: ("four leaves room for a quadrilateral without leaving room for a
@@ -1286,11 +1215,11 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
     #: counts the elements of a Python vertex display handed to Pillow, this
     #: one counts path operators in a written stream, and the two instruments
     #: have no code in common. They also share the hole above.
-    MAX_PATH_POINTS = 4
+    MAX_PATH_POINTS = 5
 
-    #: The pipeline's arrow head, in points — the page's longest path, and the
-    #: reason :attr:`MAX_PATH_POINTS` is 4 and not 2.
-    ARROW_HEAD_POINTS = 3
+    #: A dot, in path points: the page's longest path, and the reason
+    #: :attr:`MAX_PATH_POINTS` is 5. (The pipeline's arrow head is three.)
+    DOT_POINTS = 5
 
     def test_the_legend_sets_the_three_tier_names_and_nothing_else(self):
         names = [
@@ -1301,20 +1230,22 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         ]
 
         assert names == [label.name for label in GUIDE_DIFFICULTY_LABELS]
+        # The legend's heading and its one line (owner approved 2026-11-08), as
+        # literals: the lines of a wrapped sentence run on to exactly it.
+        texts = [face.text for face in drawn("book1")[0].faces if face.kind == BODY_TEXT]
+        joined = " ".join(texts)
+        assert "Difficulty" in texts
+        assert (
+            "Easy puzzles need only direct deductions; Hard ones need contradiction "
+            "through much of the grid." in joined
+        )
 
-    def test_no_guide_page_emits_a_curve_operator(self, profile):
-        """Derived from the stream: no ``c`` is no **Bézier**, route 1 of three.
+    def test_only_the_key_strip_emits_curve_operators(self, profile):
+        """Derived from the stream: nine dots, four Bezier segments each, on page 2.
 
         PDF has no circle, ellipse or arc operator in a content stream
-        (ADR-0042, CARD-294), so a *curved* outline is built out of ``c`` and
-        nothing else — which makes this assertion exactly "this page draws no
-        curve", and **not** "this page draws no round shape". **Nothing in
-        this file delivers the second statement**, and two successive versions
-        of the class docstring claimed otherwise: first that no ``c`` was the
-        same thing, then that the vertex bound beside this test closed the
-        gap. Both were measured false (review cycles 1 and 2). The
-        straight-segment approximation is a named limit with CARD-298 as its
-        owner. Nothing is classified by eye either way.
+        (ADR-0042, CARD-294), so a round mark is built out of ``c``: the count
+        is the dots' count. One row of the ladder per tier, three tiers.
         """
         curves = {
             page.page_number: pdf_vector.operator_tally(
@@ -1323,7 +1254,7 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
             for page in drawn(profile)
         }
 
-        assert set(curves.values()) == {0}, curves
+        assert curves == {GUIDE_PAGE_NUMBERS[0]: 3 * 3 * 4, GUIDE_PAGE_NUMBERS[1]: 0}, curves
 
     def test_no_guide_page_builds_a_round_shape_out_of_straight_segments(self, profile):
         """**Read the name as "no single long subpath"** — see the class docstring.
@@ -1343,8 +1274,8 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         relaxing it.
 
         At the minimum trim this is the only path-length assertion that runs
-        (:meth:`test_the_longest_path_the_page_writes_is_the_arrow_head` reads
-        ``book1`` alone), so the ``<= 4`` is not redundant with the ``== 3``
+        (:meth:`test_the_longest_path_the_page_writes_is_a_dot` reads
+        ``book1`` alone), so the ``<= 5`` is not redundant with the ``== 5``
         beside it, though on ``book1`` the stronger one subsumes it.
         """
         for page in drawn(profile):
@@ -1357,24 +1288,26 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
                 "bound": self.MAX_PATH_POINTS,
             }
 
-    def test_the_longest_path_the_page_writes_is_the_arrow_head(self):
+    def test_the_longest_path_the_page_writes_is_a_dot(self):
         """What makes the bound above a measurement rather than a round number.
 
-        ``book1`` draws the pipeline, whose arrow head is the page's one path
-        longer than a segment. If this becomes 2 the diagram has gone; if it
-        becomes 5 the bound has one point of slack nobody intended.
+        ``book1`` draws the legend's dots, the page's one path longer than the
+        pipeline's three-point arrow head. If this becomes 3 the dots have
+        gone; if it becomes 6 the bound has a point of slack nobody intended.
         """
         longest = max(
             max(pdf_vector.subpath_vertices("\n".join(page.stream.operators)))
             for page in drawn("book1")
         )
 
-        assert longest == self.ARROW_HEAD_POINTS, longest
+        assert longest == self.DOT_POINTS, longest
 
     def test_the_writer_never_reaches_the_round_mark_primitive(self):
+        """The dots come through the one drawer, never through the primitive."""
         source = Path(guide_vector.__file__).read_text(encoding="utf-8")
 
         assert "round_mark(" not in source
+        assert source.count("draw_difficulty_dots(") == 1
 
 
 # --------------------------------------------------------------------------
@@ -1448,34 +1381,68 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         """``(stroke widths, type sizes)`` in points, derived independently.
 
         Every number comes from ``compute_layout`` on ``spec`` — the same door
-        ADR-0036/R2 makes the only one — or from the page's own point
-        constants. The title's fitted sizes are the whole ladder from
-        ``GUIDE_TITLE_PT`` down to ``GUIDE_BODY_PT`` in the writer's declared
-        step, because which rung a trim lands on is the trim's business.
+        ADR-0036/R2 makes the only one — from ``interior_frame`` (the two frame
+        rules), from ``difficulty_dots`` (the legend's stroke) or from the
+        page's own point constants. The spec is the book's with the one cell
+        cap every example is drawn at (CARD-229 AC-5): a cap is a ``PageSpec``
+        field, so the widths and clue sizes are still ``compute_layout``'s.
+        The title is set in the band at its stated size or one of the fitted
+        steps below it, down to the band's own floor.
         """
         to_points = 72.0 / dpi
+        capped = guide_vector.example_cell_spec(spec, dpi)
         widths: set = set()
-        sizes: set = {GUIDE_BODY_PT, FOLIO_PT}
-        probe = compute_layout(((1,),), ((1,),), spec)
+        sizes: set = {GUIDE_BODY_PT, FOLIO_PT, round(FOLIO_PT * dpi / 72) * to_points}
+        probe = compute_layout(((1,),), ((1,),), capped)
         widths.add(max(probe.thin_rule, 1) * to_points)
-        layouts = [compute_layout(((0,),), ((0,),), spec)]
+        layouts = [compute_layout(((0,),), ((0,),), capped)]
         for clue, length in cls.line_pairs():
-            layouts.append(compute_layout((clue,), ((0,),) * length, spec))
+            layouts.append(compute_layout((clue,), ((0,),) * length, capped))
         for layout in layouts:
             for line in (*layout.vertical_lines, *layout.horizontal_lines):
                 widths.add(line.width * to_points)
+                if line.width_pt is not None:
+                    # The grid is drawn in the puzzle pages' style: the
+                    # layout's declared physical weights (ADR-0037/R2).
+                    widths.add(line.width_pt)
             if layout.frame is not None:
                 widths.add(layout.frame.width * to_points)
+                if layout.frame.width_pt is not None:
+                    widths.add(layout.frame.width_pt)
             widths.add(layout.thin_rule * to_points)
+            widths.add(layout.thick_rule * to_points)
             sizes.add(layout.clue_font_size * to_points)
-        rung = GUIDE_TITLE_PT
-        while rung > GUIDE_BODY_PT:
-            sizes.add(rung)
-            rung = max(GUIDE_BODY_PT, rung - guide_vector._TITLE_FIT_STEP_PT)
-        sizes.add(GUIDE_BODY_PT)
+        frame = interior_frame(spec)
+        widths.add(frame.header_rule.width * to_points)
+        widths.add(frame.footer_rule.width * to_points)
+        # The legend's dots: a box one and a fifth leadings tall and a half
+        # again as wide (the page's own design), stroked at the geometry's own
+        # figure.
+        box_h = round(GUIDE_LEADING_PT * dpi / 72 * 1.2)
+        dots = difficulty_dots(0, 0, round(box_h * 1.5) - 1, box_h - 1, filled=1, total=3)
+        widths.add(dots.stroke * to_points)
+        band_px = round(HEADER_FONT_MM / 25.4 * dpi)
+        for size_px in range(max(1, round(band_px * MIN_BAND_FONT_RATIO)), band_px + 1):
+            sizes.add(size_px * to_points)
         return frozenset(round(value, 3) for value in widths), frozenset(
             round(value, 3) for value in sizes
         )
+
+    @classmethod
+    def allowed_tones(cls, spec, dpi: int) -> frozenset:
+        """Black, paper (outlined legend dots) and every tone the layouts declare."""
+        capped = guide_vector.example_cell_spec(spec, dpi)
+        tones = {_BLACK_TONE, _PAPER_TONE}
+        for clue, length in cls.line_pairs():
+            layout = compute_layout((clue,), ((0,),) * length, capped)
+            tones.update(
+                line.grey
+                for line in (*layout.vertical_lines, *layout.horizontal_lines)
+                if line.grey is not None
+            )
+            if layout.frame is not None and layout.frame.grey is not None:
+                tones.add(layout.frame.grey)
+        return frozenset(round(t, 3) for t in tones)
 
     def _corpus(self) -> List[Book]:
         rng = random.Random(self.SEED)
@@ -1529,7 +1496,9 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
                 }
 
                 inked = pdf_vector.tones(stream)
-                assert {level for level, _operator in inked} <= {_BLACK_TONE}, {
+                assert {round(level, 3) for level, _operator in inked} <= self.allowed_tones(
+                    generator.page_spec(page.page_number), generator.dpi
+                ), {
                     "trim": (book.trim_width_cm, book.trim_height_cm),
                     "page": page.page_number,
                     "tones": sorted({level for level, _op in inked}),
@@ -1608,7 +1577,7 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         # change in EITHER direction, including one that RAISES the folio and
         # so does not breach CON-020 — right for a zero-margin tripwire, and
         # the reason this is not phrased as `>=`.
-        assert min(smallest) == FOLIO_PT, (min(smallest), FOLIO_PT)
+        assert abs(min(smallest) - FOLIO_PT) <= 0.1, (min(smallest), FOLIO_PT)
         assert FOLIO_PT == FLOOR_PT, (
             "CON-020's floor and the folio's size have diverged — the zero "
             f"margin is gone: floor {FLOOR_PT}, folio {FOLIO_PT}"
@@ -1644,3 +1613,51 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
 
         assert len(sheets) > 1, sheets
         assert len(forms) > 1, forms
+
+
+    def test_every_mark_in_the_corpus_sits_inside_the_frame_and_the_lines_clear_the_type(self):
+        """Each page's marks are inside the margins and between the frame's two
+        rules, no two lines of type run together, and a line advances by at
+        least 1.4 of the body size -- on every trim of the corpus whose sheet
+        the ladder can fill.
+
+        **A sheet it cannot is named, not hidden**: the smallest trims have no
+        form of the page that fits (the writer then keeps the last form and
+        the page runs past its footer, as the page it replaced did), and this
+        cell counts them instead of excusing them. A bound on that count is
+        what stops "can't fit" growing into "doesn't try".
+        """
+        metrics = guide_vector.interior_face_metrics()
+        unfit = 0
+        checked = 0
+        for book in self._corpus():
+            generator = BookPDFGenerator(book)
+            for page in guide_pages(generator.page_spec, generator.dpi, **COUNTS):
+                stream = "\n".join(page.stream.operators)
+                header, footer = pdf_vector.frame_rules(stream)
+                left, right = header[0], header[1]
+                placed = pdf_vector.placed_text(stream)
+                body = [(x, y, text) for x, y, size, text in placed if size == GUIDE_BODY_PT]
+                lowest = min(y + metrics.descent * GUIDE_BODY_PT / 1000.0 for _, y, _ in body)
+                if lowest < footer[2]:
+                    unfit += 1
+                    continue
+                checked += 1
+                for x, y, size, text in placed:
+                    assert left - 0.01 <= x <= right + 0.01, (text, x, left, right)
+                    assert x + metrics.advance(text) * size <= right + 0.01, (text, x, right)
+                for x, y, text in body:
+                    assert footer[2] < y < header[2], (text, y, footer[2], header[2])
+                # Lines of one column advance by at least 1.4 of the body size
+                # unless a diagram stands between them.
+                columns = {}
+                for x, y, _ in body:
+                    columns.setdefault(round(x, 1), []).append(y)
+                for ys in columns.values():
+                    ordered = sorted(ys, reverse=True)
+                    for above, below in zip(ordered, ordered[1:]):
+                        if above - below < GUIDE_LEADING_PT * 1.5:
+                            assert above - below >= GUIDE_BODY_PT * 1.4 - 0.01, (above, below)
+
+        assert checked >= self.CORPUS, (checked, unfit)
+        assert unfit <= 8, (checked, unfit)

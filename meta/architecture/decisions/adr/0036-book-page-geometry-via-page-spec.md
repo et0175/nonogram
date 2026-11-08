@@ -74,6 +74,19 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
 
 ## History
 
+- 2026-11-08: **R3 is read per medium, decision and statement unchanged** — CARD-229. The
+  first difficulty dots on a vector page land on the guide's key strip, and a content stream
+  has no Pillow call for the ellipse walk to see. The one function that puts a round mark on a
+  vector page is `book_vector_draw.draw_difficulty_dots`, which draws exactly the geometry
+  `layout.difficulty_dots` states (the box, the diameter, the gap and the stroke arrive in the
+  `DifficultyDots` it is handed); the raster one is `book_pdf_generator._draw_difficulty_dots`,
+  which CARD-387 deletes with the raster band. So "exactly one function" holds for each medium
+  while both exist, and for the package once the raster one is gone. The alarm that held
+  `ContentStream.round_mark` to "called nowhere" now holds it to that one caller
+  (`TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee`), and the written interior is
+  held to "only the guide's first page carries curve operators, and exactly the key strip's
+  nine dots" (`TestDifficultyDots_OnlyTheGuidesKeyStripCarriesDots`). CARD-207 and CARD-233
+  widen the second the same way for their pages.
 - 2026-10-17: **The cell floor restated 4.8 → 4.75 mm, decision unchanged** — the
   owner-approved NFR-008 amendment of the same day (CARD-225 owns the requirement; the
   propagation pass that followed carried `requirements.yml`, `aggregates.yml`, CAP-006,

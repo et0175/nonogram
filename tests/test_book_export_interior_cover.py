@@ -4314,10 +4314,21 @@ class Generator:
         # receiver the module defines, so they cost no refusal. Steps still
         # strict drops; the four figures are read off this test's own
         # measurement.
-        ((), 831),
-        (("builtins",), 561),
-        (("builtins", "definitions and imports"), 210),
-        (("builtins", "definitions and imports", "parameters"), 207),
+        #
+        # **CARD-229 re-measured it a ninth time: +1 call, and it is absorbed
+        # by the LAST class**: ``GUIDE_PLAY_SENTENCE.format(page=page)``, the
+        # one call of the new ``guide_play_sentence``. ``.format`` is an
+        # attribute of a receiver this module does not define (a ``str``), the
+        # same shape ``QR_LINK_TEMPLATE.format`` was before CARD-391 removed
+        # it, so it costs a refusal at every step until that class and none at
+        # the last: 831 -> 832, 561 -> 562, 210 -> 211, 207 -> 208, and the
+        # steps 270/351/3/208 (the first three unchanged, the fourth was 207).
+        # Independently: the module gains exactly one ``ast.Call``
+        # (the same one), and the walk's other calls into it are unchanged.
+        ((), 832),
+        (("builtins",), 562),
+        (("builtins", "definitions and imports"), 211),
+        (("builtins", "definitions and imports", "parameters"), 208),
         (
             (
                 "builtins",
