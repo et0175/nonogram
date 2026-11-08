@@ -14,8 +14,10 @@ the day it was observed; it is not a claim about today's settings.
 Observed in the repository on **2026-10-29** (CARD-285):
 
 - `player/` holds the hand-written pages, one Python assembler, and `vercel.json`.
-  `player/assemble.py` needs the standard library and nothing else; it imports nothing
-  from `nonogram` by name.
+  Importing `player/assemble.py` needs only the standard library, and it imports nothing
+  from `nonogram` by name; *assembling* the site needs the admin extra (jinja2, which
+  comes with Flask), because the generated `/play/<key>` shell renders the admin's
+  template fragment. ADR-0006/R1 is unaffected: extras sit outside the closed runtime baseline.
 - `vercel.json` is the only host configuration in the repo, and the test fixtures route
   by reading it, so the rewrites below are the ones that deploy.
 - Nothing under `src/nonogram/**` references the assembler, and `pyproject.toml` ships

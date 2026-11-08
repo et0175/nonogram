@@ -25,7 +25,7 @@ counting snippet (a locally assembled tree carries none by default — see
 ``docs/deploy/player.md``'s "do not count locally"). It answers one question —
 do the pages render and play — and that is all it is for.
 
-Standard library only, like ``player/assemble.py`` and for the same reason
+Standard library only (importing ``player/assemble.py`` needs only that too; assembling a site needs the admin extra)
 (ADR-0006/R1 untouched): a preview of a no-toolchain site should need no
 toolchain either.
 """

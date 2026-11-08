@@ -21,7 +21,7 @@ AC-392 makes that page the allow-list a scan of the assembled site is held to.
 So the page is the configuration, read by this script at assembly time and by
 ``tests/test_public_player_pages.py::test_no_homegrown_tracking`` at scan time,
 and the site cannot reference an endpoint the page does not name without one of
-the two reding. ``player/assemble.py`` stays standard-library-only and knows
+the two reding. ``player/assemble.py`` imports only the standard library (assembling needs the admin extra, jinja2) and knows
 nothing about ``docs/`` (ADR-0041/R3, ADR-0006/R1 untouched).
 
 Which is also why the parsing lives here rather than there, and the split is

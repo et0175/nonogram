@@ -7,8 +7,11 @@ part of the Python package — it lives in ``player/`` beside the files it
 copies, imports nothing from ``nonogram`` by name (it loads
 ``src/nonogram/limits.py`` *by path*, see :func:`_limits`, because that module
 imports nothing and is the one authority on the supported grid extent), and is
-never imported by anything under ``src/``. Running it needs the standard
-library and nothing else (ADR-0006/R1 untouched).
+never imported by anything under ``src/``. IMPORTING it needs only the
+standard library; ASSEMBLING a site needs the admin extra (jinja2, which
+comes with Flask), because the generated ``/play/<key>`` shell renders the
+admin's template fragment (ADR-0006/R1 untouched: extras sit outside the
+closed runtime baseline).
 
     python player/assemble.py --bundle build/player-bundle --out build/site
 

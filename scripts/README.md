@@ -369,8 +369,8 @@ is what keeps it rather than a flag somebody remembers.
 thing it adds is reading the GoatCounter endpoints out of
 `docs/deploy/player.md` and passing them on the command line — those values are
 owner-managed, that page is the allow-list `tests/test_public_player_pages.py`
-scans the assembled site against, and `player/assemble.py` stays
-standard-library-only and knows nothing about `docs/`.
+scans the assembled site against, and `player/assemble.py` imports
+only the standard library (assembling needs the admin extra, jinja2) and knows nothing about `docs/`.
 
 Read `docs/deploy/player.md` before deploying: it has the owner steps, the QR
 URL base and the three URL shapes, and what is owner-managed rather than
