@@ -230,8 +230,8 @@ def test_a_changed_stylesheet_reds_the_fidelity_check(browser_page, bundle, frag
     root, keys, _ = bundle
     original = BASE_CSS.read_text(encoding="utf-8")
     for label, planted in (
-        ("no [hidden] rule", original.replace("[hidden] { display: none !important; }", "")),
-        ("wider .btn padding", original.replace("--bs-btn-padding-x: 0.75rem", "--bs-btn-padding-x: 0.9rem")),
+        ("no [hidden] rule", original.replace("[hidden] {\n  display: none !important;\n}\n", "")),
+        ("wider .btn padding", original.replace("0.4rem 0.75rem", "0.4rem 0.9rem")),
     ):
         assert planted != original, label
         site = preview_of(root, tmp_path / label.replace(" ", "-"), fragment, tmp_path).site_dir
