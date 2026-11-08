@@ -1241,9 +1241,11 @@ BOOKKEEPING_ONLY = (10, "462250d3ff57fe34")
 # NOT from this class: FR-042/AC-268's and AC-269's old refs. They resolved
 # from nothing at all, so they were honestly dead and left HONEST_DEAD -- the
 # distinction the pasted union block erased.
-# RE-DERIVED 2026-11-08 at CARD-229: 155 -> 154, the same single ref as
-# BOOKKEEPING_ONLY above (it was alive on prose alone and is defined now).
-FALSELY_ALIVE = (154, "3ac5e687e888be42")
+# RE-DERIVED 2026-11-08 at CARD-229: 155 -> 152. -1 the AC-368 ref (alive on prose
+# alone, defined now) and -2 the retired AC-325/AC-326 classes, whose only live
+# text was a docstring this card rewrote and whose registry refs were re-pointed
+# at live classes.
+FALSELY_ALIVE = (152, "1b4357f825a25ec5")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1545,9 +1547,12 @@ RESOLVED_FROM_AFAR = (3, "643e468dc7f7d76f")
 # G-2), with its `class` line in place in tests/test_book_pdf_two_up.py. The
 # other AC rows that CARD-392 restated keep their class names. CENSUS and
 # DEFINED move by the one; TRACE_TESTS does not (not declared in trace.yml).
-# RE-DERIVED 2026-11-08 at CARD-229: 584 -> 588. +4 declared refs, the four
-# classes AC-414..AC-417 name for the guide's Play online sentence (FR-047).
-CENSUS = (588, "61fe601f41a94226")
+# RE-DERIVED 2026-11-08 at CARD-229: 584 -> 585, worked independently: -3 refs
+# left the registry (the title, type, dpi and leading raster classes), -3 more
+# were re-pointed (AC-324/325/326 and their trace row) and +3 survivors were
+# declared in their place, +4 for the classes AC-414..AC-417 name for the
+# guide's Play online sentence (FR-047): 584 - 3 - 3 + 3 + 4 = 585.
+CENSUS = (585, "e6ab6d953c926b68")
 
 #: ``trace.yml``'s contribution on its own, pinned separately because it is the
 #: authority whose scan was broken: a ``break`` on a ``#`` comment inside a
@@ -1593,7 +1598,7 @@ CENSUS = (588, "61fe601f41a94226")
 # CARD-390 (2026-11-08): 507 -> 512, the same five class refs, now listed under
 # FR-047's trace.yml row (the one declaration site for each: the criteria
 # repeat two of them, which this list does not count twice).
-TRACE_TESTS = (512, "c3123e749dd9300d")
+TRACE_TESTS = (514, "e814689088158207")
 
 #: Every ref that resolves to a real ``def``/``class``. AC-3's first half used
 #: to assert ``> 300`` against a measured 382 -- 82 refs of headroom, i.e. the
@@ -1696,11 +1701,12 @@ TRACE_TESTS = (512, "c3123e749dd9300d")
 # CARD-391: 416 -> 419, the same three (see CENSUS above).
 # CARD-392: 419 -> 420, the one new class (see CENSUS above), re-derived
 # against its `class` line and not pasted from the printed figure.
-# RE-DERIVED 2026-11-08 at CARD-229: 420 -> 425. +5 = the four new classes
-# above plus the one AC-368 ref that left BOOKKEEPING_ONLY; each is a class line
-# in tests/test_book_guide_page_vector.py (not a review report or a profiling
-# artefact), which is what makes it DEFINED rather than alive on bookkeeping.
-DEFINED = (425, "9a86c871430b962a")
+# RE-DERIVED 2026-11-08 at CARD-229: 420 -> 424. +7 declared refs now defined (the
+# four AC-414..417 classes, the AC-368 class, and the two survivors the AC-325/326
+# refs and the CON-020 trace row now name) and -4 retired classes (the title, type,
+# dpi and leading raster classes); each is a class line under tests/, not a
+# review report or a profiling artefact.
+DEFINED = (424, "ce9e5f5ee75cf335")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
