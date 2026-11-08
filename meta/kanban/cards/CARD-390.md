@@ -1,6 +1,6 @@
 # CARD-390: A "Play online" page after the last puzzle — a right-hand page whose QR opens the book's landing page, with the short address under it
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 4c (1.5d)
@@ -19,11 +19,11 @@
 **Depends on:** CARD-388, CARD-389, CARD-311
 <!-- CARD-311 is in progress and edits the same hotspots (book_pdf_generator.py, book_page_spec.py, app.py, templates/book_finalize.html, requirements.yml, ADR-0042): this card must start after it merges, or the two collide in the page plan and in the divider's folio decision. -->
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/book_interior_vector.py, src/nonogram/admin/book_play_vector.py, src/nonogram/admin/book_sheet_vector.py, src/nonogram/export/layout.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_play_online_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py, meta/architecture/requirements.yml, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** —
+**Review score:** 8.6 (cycle 1/3 - CERTIFIED; fix round b7bf51ef not re-reviewed)
 **Started:** —
-**Closed:** —
+**Closed:** 2026-11-08T06:50Z
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** 5028c17e1cba4018c0341bdb47a96033c5b19cec
 **Blocked by:** —
 
 ## Why this card exists
@@ -102,3 +102,14 @@ Figures labelled **mine** were produced by a command in this worktree.
 Main merged in first (CARD-395/396), no conflict. **F-1** Finalise's Play sentence now follows the PLAN, not the domain alone (`_play_online_state` in `app.py`): no domain, "No valid player domain set", the page at N, "No printable puzzle: this book prints no Play online page", or, when the plan could not be laid out, "Prints a Play online page after the last puzzle; its page number is known once the print setup can be laid out". **F-2** one read: `print_specs.printable_player_domain` (the stored value only if the domain validator accepts it) is what the generator reads once and what the sheet-free KDP baseline reads, so an invalid hand-edited value plans, counts and exports as NO domain (no page, no blank). **F-3** the KDP refusal at a count that includes the block says so ("That count includes the Play online page and a blank page before it, which this book prints because it has a player domain"), via `InteriorStream.play_block_pages` / `InteriorCounts.play_block_pages`; the existing refusal cell asserts it (and its absence for a no-domain book at 151). F-4 skipped by the orchestrator's ruling. No new node id: net stays **+6**.
 
 **Owner-visible choices for the render review:** heading "Play online"; the instruction line is a DRAFT ("Scan the code with your phone to play any puzzle in this book, then tap the puzzle's number."); the code is 40 mm square with its quiet zone (a shorter sheet shrinks it, and gives up the instruction, then the heading, before the code); the typed address sits under the code in 12 pt (down to 10 pt, broken before `/b/` only if that overruns); the block is centred in the page's frame with the spare room split 42/58 (above/below), so there is a lot of white space below the address; a book on the shortest storable trim (10 x 10 cm) prints code plus address only.
+
+[Review 1/3] Score: 8.6 (threshold 8.0 reached; 0 blockers; PASS; certified). Reviewer-reported, not re-run by the merge gate. The fix round (b7bf51ef: the Finalise sentence follows the PLAN via `_play_online_state`; `printable_player_domain` in print_specs.py makes an invalid stored domain behave exactly like no domain; the KDP refusal text names the Play page and the blank; 7 files, no new test) was NOT re-reviewed.
+
+[Closing note, merge gate, merged `5028c17e1cba4018c0341bdb47a96033c5b19cec` (tip `b7bf51ef`; main was already the merge-base, so `git merge main` was a no-op; staged --no-ff merge into main, staged set equal to the branch diff, 23 files)]
+What the merge delivers: PageKind.PLAY and PageKind.BLANK (vector), `recto_blank_pages(pages_before)`, SectionPlan.play_page / play_blank_page, the `play_online` term in interior_page_count, `src/nonogram/admin/book_play_vector.py`, `play_page_layout` in export/layout.py, a Finalise line, FR-047 with AC-406..412, a trace row, capabilities.yml, an ADR-0042 History entry, a `play` digest in the vector golden (re-recorded through the deliberate entry point) and the frozen-census restatements. A right-hand page after the last puzzle: the QR opens the book's landing page, the short address is printed under it.
+KDP consequence (for the owner): a book that would have been 148-150 interior pages becomes 150-152 with a domain; crossing 150 -> 151+ moves the gutter requirement from 0.375 in to 0.5 in.
+What it does NOT do: no footer pointers (CARD-391), no guide sentence (CARD-229); the per-puzzle QR groups are still printed until CARD-391. Nothing is deployed or printed. The PLAYER BUNDLE must be deployed before a book with a Play page goes to print.
+OWNER'S pending render rulings (not decided here): the heading "Play online"; the DRAFT instruction wording; the 40 mm code size; the white space below the address. Renders: ~/Documents/nonogram-reviews/CARD-390/.
+Carried, no new cards: reviewer F-4 (the AC-410 tests do not catch a smaller code or a 3-module quiet zone; only the golden digest does); the ISO test reader misses 4 of 24 decodes on 11x14 cm at 100 dpi only (its crude sampler; CoreImage decoded all); the `no_puzzle` and `unplanned` Finalise sentences have no test; the author ran one pytest in the main checkout during an earlier gate window (touched nothing); `pages_saved` can read one less than the pure pairing saving when pairing changes whether a blank is needed (never negative).
+Gate block (`scripts/impact_set.py --gate --against main`, rc 0): `answer: SELECTION`, tests 11560 of 11705, marker wave_close_only 13 marked tests in 6 files, 11 run at this gate (5 lifted files), 2 owed at the wave close. Owner policy for src changes is the full armed suite, so the gate ran the whole `tests/` tree with `-m "not wave_close_only"` (run 1) and then the block's run 2 verbatim (`-m wave_close_only` on the 5 lifted files). Fast sanity first: 1565 passed in 15 files. Run 1: 11690 passed, 1 skipped (tests/test_book_pdf_memory.py:1688, setrlimit(RLIMIT_AS) refused on this platform), 1 xfailed, 13 deselected, 49m46s, rc 0. Run 2: 11 passed, 7m39s, rc 0. Collected total 11705 (= 11690 + 1 + 1 + 13). `git write-tree` before and after the run both 596a0c68. Net added node ids vs main: +6 (author-derived).
+Size datum: 23 files changed, +1128/-36 (git diff --shortstat 79c5052d b7bf51ef, branch vs merge-base). Estimate 4c -> 1 review cycle = ratio 0.25 (no wall-clock Actual).
