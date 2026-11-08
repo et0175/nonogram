@@ -112,7 +112,11 @@ from nonogram.admin.image_manager import (
     get_image_manager,
 )
 from nonogram.admin.grid_renderer import grid_to_svg
-from nonogram.admin.print_specs import PrintSpecValidator, stored_player_domain
+from nonogram.admin.print_specs import (
+    PrintSpecValidator,
+    printable_player_domain,
+    stored_player_domain,
+)
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
@@ -909,6 +913,27 @@ class InteriorCounts:
     unreadable: Optional[str] = None
     paired_only_page_count: Optional[int] = None
     play_page: Optional[int] = None
+    play_block_pages: int = 0
+
+
+def _play_online_state(book, counts: Optional[InteriorCounts]) -> str:
+    """What Finalise says about the Play online page (CARD-390), from the PLAN.
+
+    ``no_domain`` and ``invalid_domain`` (a stored value no address can be made
+    of: the plan treats it as none, :func:`printable_player_domain`) print no
+    page; ``page`` prints one at ``counts.play_page``; ``no_puzzle`` is a book
+    with a usable domain whose plan has no page because no puzzle prints;
+    ``unplanned`` is a book whose plan could not be laid out, so the page's
+    number is not known. The sentence follows the plan and never the domain
+    alone, so the screen cannot promise a page the export does not print.
+    """
+    if stored_player_domain(book) is None:
+        return "no_domain"
+    if printable_player_domain(book) is None:
+        return "invalid_domain"
+    if counts is None or not counts.exact:
+        return "unplanned"
+    return "page" if counts.play_page else "no_puzzle"
 
 
 def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
@@ -1022,6 +1047,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         exact=True,
         paired_only_page_count=stream.paired_only_page_count,
         play_page=stream.play_page,
+        play_block_pages=stream.play_block_pages,
     )
 
 
@@ -1191,6 +1217,15 @@ def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]
         return None
     if refusal and not counts.exact:
         refusal = _about(refusal, counts.page_count)
+    if refusal and counts.play_block_pages:
+        # CARD-390: the Play online page (and the blank that puts it on a
+        # right-hand page) is part of that count; say so, because it is what
+        # can carry a book across a band the owner did not expect.
+        refusal += (
+            " That count includes the Play online page"
+            + (" and a blank page before it" if counts.play_block_pages > 1 else "")
+            + ", which this book prints because it has a player domain."
+        )
     return refusal
 
 
@@ -5521,7 +5556,7 @@ def create_app(debug=None):
             # The page number is the page plan's (`counts.play_page`); the
             # panel adds none. A silent omission is how a book goes to print
             # without its code, so the screen says it either way.
-            "has_player_domain": stored_player_domain(book) is not None,
+            "play_state": _play_online_state(book, counts),
             "play_page": counts.play_page if counts else None,
             "pages_saved_by_packing": (
                 counts.paired_only_page_count - counts.page_count

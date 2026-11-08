@@ -404,7 +404,7 @@ from nonogram.admin.book_page_spec import (
     book_page_spec,
 )
 from nonogram.admin.book_plan import TIERS, book_level_order
-from nonogram.admin.print_specs import stored_player_domain
+from nonogram.admin.print_specs import printable_player_domain
 from nonogram.admin.book_puzzle_vector import puzzle_page_stream, two_up_page_stream
 from nonogram.admin.book_sheet_vector import (
     QrGroup,
@@ -3224,6 +3224,10 @@ class InteriorStream:
     #: ``None`` when the book prints none: :attr:`SectionPlan.play_page`, read
     #: from the same plan the page count is, so Finalise can say where it is.
     play_page: Optional[int] = None
+    #: How many pages the Play online block adds to :attr:`page_count`: 0, 1
+    #: (the page) or 2 (a blank before it), so a refusal made at that count can
+    #: say the block is part of it.
+    play_block_pages: int = 0
 
     @property
     def pages_saved(self) -> int:
@@ -4638,7 +4642,7 @@ class BookPDFGenerator:
         # prints the Play online page is this and nothing else (ADR-0041/R8:
         # no domain, no page); it moves the page COUNT, so every
         # `interior_page_count` call here is told.
-        self.player_domain = stored_player_domain(self.book)
+        self.player_domain = printable_player_domain(self.book)
         # The trim, as the layout reports it for this book's sheet. Parity
         # never changes a page's size, so page 1's frame gives it for all.
         #
@@ -8259,6 +8263,7 @@ class BookPDFGenerator:
             pages=_as_planned(produce(), planned),
             page_kinds=tuple(page_kinds),
             play_page=decided.play_page,
+            play_block_pages=decided.play_page_count,
         )
 
     def _write_pdf(

@@ -211,7 +211,7 @@
                     with no stored player domain prints no page and no code,
                     and a silent omission is how it would go to print without
                     one. The page number is the page plan's. -#}
-                <small class="text-muted d-block mb-3" data-play-online>{% if not has_player_domain %}No player domain set: this book prints no Play online page.{% elif play_page %}Prints a Play online page at page {{ play_page }}.{% else %}Prints a Play online page after the last puzzle.{% endif %}</small>
+                <small class="text-muted d-block mb-3" data-play-online>{% if play_state == 'no_domain' %}No player domain set: this book prints no Play online page.{% elif play_state == 'invalid_domain' %}No valid player domain set: this book prints no Play online page.{% elif play_state == 'page' %}Prints a Play online page at page {{ play_page }}.{% elif play_state == 'no_puzzle' %}No printable puzzle: this book prints no Play online page.{% else %}Prints a Play online page after the last puzzle; its page number is known once the print setup can be laid out.{% endif %}</small>
                 {#- CARD-153 (AC-2): why the figure above is approximate —
                     the sheet builder's own reason for refusing the stored
                     print specification — and where it is fixed. -#}

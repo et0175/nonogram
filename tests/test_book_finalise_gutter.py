@@ -974,9 +974,18 @@ class TestBookFinalise_PlayOnlinePageMovesTheBandAndIsStated:
         assert panel.counts(with_domain).page_count == 152
         assert "No player domain set: this book prints no Play online page." in panel.shown(plain)
         assert "Prints a Play online page at page 69." in panel.shown(with_domain)
+        # A stored value no address can be made of is no domain at all: no
+        # page, no blank, and the screen says so (F-2).
+        hand_edited = panel.book(AC288_CORPUS, title="Autumn")
+        panel.books.get_book(hand_edited).player_domain = "not a domain"
+        assert panel.counts(hand_edited).page_count == AC288_PAGES
+        assert "No valid player domain set" in panel.shown(hand_edited)
         assert panel.finalise(plain).status_code == 302
         refused = refusal_of(panel.finalise(with_domain))
         assert "152 pages" in refused and KDP_BAND_TEXT in refused
+        assert "includes the Play online page and a blank page before it" in refused
+        assert "includes the Play online" not in refusal_of(panel.finalise(panel.book(
+            CK1_OVER_CORPUS, title="Summer")))
         assert panel.status(with_domain) == DRAFT
 
 
