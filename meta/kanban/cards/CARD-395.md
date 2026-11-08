@@ -1,6 +1,6 @@
 # CARD-395: The gate stops running the heaviest sweeps — a `wave_close_only` marker the gate deselects, lifts by subject, and states; the wave close still runs everything
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 4c (1.5d)
@@ -13,7 +13,7 @@
 **Worktree:** —
 **Source:** owner ruling 2026-11-07 ("I'd do a+c, after measurement"; memory `gate-time-cuts-a-and-c`): A = a wave-close-only marker for the heaviest property / kill-matrix / mutant-arm / order-probe tests; the gate keeps a smoke slice AND every test that can fail (controls); corpus floors never shrink (G-4), only WHEN they run changes; the full suite still runs at every wave close as the backstop. B (teach impact_set that heavy files are reachable only from their subjects) was NOT chosen; this card's lift rule is the narrow part of B that A cannot be safe without, and is written as a RULE over the existing derivation, not as new reachability modelling. Measurement: `~/Documents/nonogram-reviews/suite-profile-2026-11-07/gate-card388-durations.txt` (one full armed run, 4626 s wall, 4607 s summed over 249 files, 11,606 passed, 12 failed, CONTENDED by other pytest runs and edits: usable for shares, not for seconds-saved and not committable as the artefact).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
 **Depends on:** CARD-388
@@ -47,6 +47,8 @@ The merge gate for any `src/`, admin-static, template or conftest change is the 
 A test that re-proves a property of the book layout cannot go red on a card that did not touch the book layout, the PDF generator, the layout module or the helpers those tests import. The gate pays for it anyway, every card. The owner's ruling: those tests move to the wave close (the full suite still runs there and is the backstop); the gate keeps a smoke slice and every control. This card makes that move without letting it become a silent shrink: the registry is closed, the marked set is derived and pinned, the floors inside the marked tests are held, and a marked test whose subject changed STILL runs at the gate.
 
 What already exists and is relied on, not re-built: `scripts/impact_set.py --gate` (one pasteable block, exit codes 0/10/11/12, the count collected never carried); `review.test_command` in `meta/kanban/config.yml` (`./.venv/bin/python -m pytest`, bare), which the forge kanban skill runs for `/merge --test-cmd` AND for the wave smoke test (`references/cmd-run.md`: "The smoke test is always the FULL suite (full_test_cmd)"); the dispatcher-state `smoke_test:` entries. An existing `slow` marker (conftest.py:111, 22 uses, informational) is NOT reused: it means "over 5 s", not "owed at wave close", and overloading it would change what 22 unrelated tests mean.
+
+**[CORRECTION 2026-11-08, from review cycle 1 (8.3) and the author's replay]** The savings figures in the table above are CEILINGS from a contended measurement, not the expected saving. Measured on the quiet run (`gate-card388-rerun-durations.txt`, 3660.7 s): the marked set is 13 tests in 6 files, 611.6 s (16.7 %), not 813.7 s (17.7 %) (the interior-cover candidates other than four are controls and stay at the gate). Replayed over the last 60 merges with the real import graph: a marked test is lifted back whenever a changed file reaches its subject, and the book code imports the whole admin package, so the mean deferred is about 313 s of 611.6 (51 %), i.e. about 3.8 minutes per gate with the (unverified) 0.74 solo scaling, about 5 minutes on the quiet-run clock, NOT 10. The rule is right (a proven miss in about 120 realistic edits: none) and is not to be weakened to buy minutes. Every instruction file, docstring and note this card writes must state the replayed figure, never the ceiling. Owner test budget (2026-11-07, 'fewer tests'): the card's cells are cut to the reviewer's list: keep about 45 of the 78 added node ids (merge duplicate plants, drop brittle real-tree lift cells that duplicate the hermetic ones) plus ONE `make test-gate` stub cell (run 2 runs after run 1 fails; the exit code propagates), plus ONE cell for the rule-A `no-scanners` addition.
 
 ## What to implement
 
