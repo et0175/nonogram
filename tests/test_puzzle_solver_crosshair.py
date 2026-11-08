@@ -532,7 +532,8 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
 
             def pen(kind, x, y):
                 cdp.send("Input.dispatchMouseEvent", {
-                    "type": kind, "x": x, "y": y, "pointerType": "pen", "button": "left", "buttons": 1, "clickCount": 1})
+                    "type": kind, "x": x, "y": y, "pointerType": "pen", "button": "left",
+                    "buttons": 0 if kind == "mouseReleased" else 1, "clickCount": 1})
 
             def synthetic(kind, pointer_id, x, y):  # a real pen cannot lose its own release
                 page.evaluate(
@@ -599,6 +600,20 @@ class TestSolverCrosshair_TouchKeepsTheLastCell:
             fingers("touchStart", _centre(page, 8, 8))
             fingers("touchEnd")
             is_crossed_at(8, 8, "crossing did not resume after the pen-first pinch")
+
+            # A pen released OUTSIDE the stage (no capture: its pointerup never reaches
+            # the stage) must not stay counted: a finger tap and a mouse hover cross.
+            x, y = _centre(page, 2, 2)
+            pen("mousePressed", x, y)
+            is_crossed_at(2, 2, "the pen alone is crossed")
+            pen("mouseMoved", 2, 2)
+            pen("mouseReleased", 2, 2)
+            page.mouse.move(2, 2)  # the mouse pointer is off the stage too: its pointerleave would clear a touch cross
+            fingers("touchStart", _centre(page, 4, 5))
+            fingers("touchEnd")
+            is_crossed_at(4, 5, "a pen released outside the stage stuck the pinch")
+            page.mouse.move(*_centre(page, 6, 3))
+            is_crossed_at(6, 3, "a mouse hover was refused after the lost pen release")
 
             # A mouse is never one of a pinch's pointers: with a finger down, a hover crosses.
             fingers("touchStart", _centre(page, 1, 1))

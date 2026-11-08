@@ -1713,8 +1713,16 @@ function wireCrosshair(container) {
     if (!down.delete(event.pointerId)) return;
     if (down.size === 0) pinching = false;
   };
-  container.addEventListener("pointerup", lift);
-  container.addEventListener("pointercancel", lift);
+  // The lift listens on the WINDOW, not the stage. A pointer's up that never
+  // reaches the stage would leave its entry in `down`, and a stuck entry counts
+  // as a second pointer for ever: a real pen pressed on the board, moved off the
+  // stage and released there delivers no pointerup to it (no pointer capture
+  // without Region). The window hears that release, and everything the stage
+  // hears bubbles to it (owner ruling 2026-11-08; play.js had the flaw). A pen genuinely
+  // still down has had no up, so a pen-then-finger pinch is untouched, and
+  // lift ignores a pointer it does not count.
+  window.addEventListener("pointerup", lift);
+  window.addEventListener("pointercancel", lift);
   container.addEventListener("pointerleave", (event) => {
     // Touch is exempt, and that exemption is the whole of the touch rule
     // (see CROSSHAIR above): a released touch pointer leaves the stage
