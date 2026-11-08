@@ -4506,7 +4506,11 @@ class TestRoundMarkOnThePage_SeesTheGreysTheBookPrints:
 #: beside this branch through the same ``_book_ink(None)``: 3222 regions and
 #: margin 1.885921 there, 2640 and 1.885525 here, so the whole difference is
 #: the margin amendment and nothing else.
-REGION_FLOOR = 2600
+#:
+#: 2550 since the mockup spread (2026-11-08): its pages measure 2590, the
+#: headings set as solid runs and the examples on one row each merging ink the
+#: previous guide kept apart.
+REGION_FLOOR = 2550
 
 #: The seeded picture corpus AC-2 sweeps, and the two floors it must clear
 #: (CLAUDE.md: no ``hypothesis``, a corpus with its minimum asserted inside the
@@ -4629,6 +4633,33 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     drifts towards roundness reds a test *before* it reds the guard.
     """
 
+
+    def test_the_books_own_pages_carry_no_undeclared_round_mark(self) -> None:
+        """ADR-0036/R3's declared check, now asked at both thresholds."""
+        ink = _book_ink(None)
+        assert ink.pages >= 13, f"the baseline interior lost pages: {ink.pages}"
+        # Both cards' claims, kept: CARD-243's per-level loop (the floor and the
+        # quiet-book assertion hold at EACH measured threshold, not aggregated)
+        # and CARD-222's lowered floor, :data:`REGION_FLOOR` — see there for the
+        # measurement it is set from and for the two readings of `main` and this
+        # branch that attribute the whole fall to CON-018's amended margins.
+        for level in MEASURED_LEVELS:
+            assert ink.at[level].regions >= REGION_FLOOR, (
+                f"only {ink.at[level].regions} regions on {ink.pages} pages at "
+                f"level {level} — these pages have stopped carrying the marks "
+                "this test exists to tolerate"
+            )
+            assert ink.at[level].found == (), (
+                f"at level {level} the book's own pages carry round marks "
+                f"nobody drew through the one site: {ink.at[level].found[:4]}"
+            )
+        assert ink.unaccounted == ()
+        assert ink.widened_pixels >= 50_000, (
+            "the baseline interior has nearly no pixels between the two "
+            "thresholds, so passing at the wider one says nothing about a wider "
+            f"population: {ink.widened_pixels} (58424 when measured; 76347 "
+            "before CON-018's amended margins shrank the usable area)"
+        )
 
     def test_the_closest_the_book_comes_to_a_round_mark_is_measured(self) -> None:
         """The margin at **both** thresholds, and which tolerance carries each.
