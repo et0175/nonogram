@@ -1,23 +1,23 @@
 # CARD-399: Retire the separate public play.js implementation and its tests — the shared-UI mode becomes the default, and a test stays only if its claim is a live decision
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
-**Estimate:** 8c (2.5d)
+**Estimate:** 5c (2d)
 <!-- Over the 3c target on purpose and said so: the default switch and the deletion are small; the cost is the CLAIM AUDIT of about 350 feature tests (probe 57, hint 70, zoom 39, circles 31, crosshair 39, maybe 15, agreement 98 test functions, 1,000 or so collected node ids once parametrised) where every retirement needs a named survivor with a plant. If the first cycle shows it does not fit, the split is: (a) the audit table only, as a committed document with every node id classified and the survivors verified, no deletion (reviewable on its own), then (b) the default switch, the deletions and the retirements by that table. (b) must not start before the owner's go. -->
 **Complexity:** architectural
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/399-retire-play-js
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-399
 **Source:** owner statement 2026-11-07: for the public player they "stopped the implementation of those features and just copy them" (design A: the public pages run the admin's own solver.js, solver_state.js, admin.css and tokens.css; CARD-385 done, CARD-386 done, CARD-394 ready), therefore "why not delete the tests" of the separate play.js implementation. The owner's standing rule for tests: a test is kept only if its claim is a live decision. This card also retires CARD-384 (parked: the crosshair colour and cell-size alignment of the OLD play.js has no subject once play.js is gone).
 **Idea:** —
-**Wave:** —
+**Wave:** 79
 **Created wave:** 79
 **Deferred waves:** 0
-**Depends on:** CARD-394, the owner's go after testing the shared-UI preview, and a deploy of the shared-UI mode to production
-<!-- NOT dispatchable until all three hold. Production (deployment nonogram-studio-qu83cb3hw) still serves play.js today and must not be left untested while it does: the owner rules WHEN the shared-UI mode is deployed; this card's step 2 (deleting play.js) runs only after that deploy has been observed working. The audit (step 1) may run earlier because it deletes nothing. -->
+**Depends on:** CARD-394 (merged 93d951f7); for STEP 3 only (switch + delete), CARD-414 (pinch/pen crosshair parity port into solver.js)
+<!-- RESTATED 2026-11-08 by the owner's rulings. REMOVED conditions: "the owner's go after testing the preview", "a deploy of the shared-UI mode to production", and "409/413 merge". WHY: production serves the ALREADY-DEPLOYED tree, so deleting play.js from the repo changes nothing a visitor sees; the shared-UI mode goes live in production only after CARD-394 and all findings cards 400-413 plus CARD-414 have merged. From now on every change is made ONCE in the admin files and reaches the public site by the build-time copy: no public duplicates. The conversions owed to CARD-408/409/400 (hint/circle rows) are carried by those cards on the admin side; the one-shot audit script of step 3 records the deliberately dropped ids. CARD-414 still gates step 3 because play.js's 7 crosshair tests retire only once the port lands. THE SWITCH CHANGES THE DEFAULT ASSEMBLY to the shared-UI mode; at step 3 a local git tag `play-js-last` is created on the commit before the deletion, so the old player can be rebuilt until shared-UI is live in production. Split: step 2 CONVERT-NOW (~2c) runs now; step 3 SWITCH+DELETE (~3c) after CARD-414. -->
 **Touches:** player/play.js, player/player.css, player/play.html, player/assemble.py, scripts/assemble_player_site.py, tests/test_public_player_probe.py, tests/test_public_player_hint.py, tests/test_public_player_zoom.py, tests/test_public_player_circles.py, tests/test_public_player_crosshair.py, tests/test_public_player_maybe.py, tests/test_public_player_agreement.py, tests/test_public_player.py, tests/test_public_player_pages.py, tests/test_player_public_mode.py, tests/test_player_shared_ui_site.py, tests/test_player_bundle.py, docs/deploy/player.md, meta/kanban/cards/CARD-384.md, meta/profiling/card-399-claim-audit.md
 <!-- Derived; the author re-derives from the tree after CARD-394 merges. Conflict edges: CARD-394 (assemble.py, tests/test_player_shared_ui_site.py, docs/deploy/player.md) must be merged first; CARD-389 (docs/deploy/player.md, test_player_bundle.py) is in its gate and must merge first; CARD-395's marker registry must not name any file this card deletes (it does not: the public-player family is deliberately outside it). -->
 **Review score:** —
