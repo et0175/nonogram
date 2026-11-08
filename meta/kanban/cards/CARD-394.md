@@ -61,4 +61,24 @@ The shared-UI preview (CARD-386) serves the admin's own `solver.js`, `solver_sta
 
 ## Worktree notes
 
-(none yet)
+Author round 1 (branch card/394-project-stylesheet, 2026-11-08).
+
+* Stylesheet: `player/shared-ui-base.css` (4.3 KB), published as `/base.css` in the preview tree, linked first in the shell where `/bootstrap.min.css` was. `SharedUi.bootstrap` is now optional: given, that file is published and linked INSTEAD (the owner's comparison); `--shared-ui` alone is a whole preview. Default (live) tree byte-identical to main's: `diff -r` of both built from `build/player-bundle` is empty (172 files).
+* Used classes derived by script (class tokens of solver.js/solver_state.js/puzzle_solve.html intersected with the real file's classes, plus the real file's rules matched against the live DOM): the card's four AND `alert alert-danger` (solver.js `showError`). `.alert` is covered; the card listed four.
+* Fidelity measured on the page of CARD-385's sweep board, 390 and 1280 px: every element (253) x every non-custom, non-logical computed property x rect, in normal, hover, focus-visible, active, disabled for all 13 `.btn`, the open menu, the confirm, the solved page and the error page: zero differences after one fix (first version missed that a pressed button under the keyboard ring keeps its pressed colours and shows the focus shadow; the frozen table caught it). Renders (390/1280, project vs real) are pixel-identical.
+* Test: `tests/test_player_base_css.py`: one fidelity test (x2 widths) and one plant test (two plants: no `[hidden]` rule, wider `.btn` padding). Without `NONOGRAM_REAL_BOOTSTRAP` it compares against `FROZEN` (provenance in the file: sha256 7f1d37f0..., Chromium 151.0.7922.34, macOS arm64, 2026-11-08); with it, live (run: passes). Tolerance 0.05 px on rectangles, exact on styles; measured residue 0. Caveat: frozen rects include text widths, so they hold where the fonts resolve as on the recording machine.
+* Existing cells re-pointed (none deleted/renamed): sheet list, requested set, PREVIEW_ONLY, default/override driver cells, flag cells in tests/test_player_shared_ui_site.py; `test_the_player_tree_is_static...` in tests/test_public_player.py now names `SHARED_UI_BASE_SOURCE` beside PLAYER_FILES. Net collected node ids: +3 (new module), 0 removed.
+* Served-tree scan on a preview built from `build/player-bundle` (160 puzzles): without `--bootstrap`: foreign 0, identifiers 0, unclassifiable 1 (solver.js relative import only); with the real file: foreign 3, unclassifiable 3.
+* ADR-0041/R3 wording ("plain hand-written JavaScript and CSS ... no framework") checked, still true, not edited. Not touched: vercel.json, admin files, live path.
+
+Review cycle 1 (6.5, one blocker: originality) - author step 1 of the clean-room rewrite, 2026-11-08.
+
+* The stylesheet is NOT edited in this step and is to be rewritten clean-room by someone who has not read the Bootstrap source; the author wrote only the computed-style specification `~/Documents/nonogram-reviews/CARD-394/computed-spec.json` (values measured in Chromium, real file present, minus a baseline of admin.css + tokens.css alone; no source text, selectors, custom-property names or declaration order).
+* F-2: the fidelity test now measures `html` under `prefers-reduced-motion: no-preference` (scroll-behavior is in PROPS); the table was re-recorded, so the test is RED on the current sheet by exactly one difference (`html: scroll-behavior 'smooth' != 'auto'`) until the new sheet is written. F-4: the failing assert names the recording Chromium and platform, the font-fallback cause, and the deliberate re-record command (`NONOGRAM_PRINT_FROZEN=1` with the real file prints the rows). F-5: the plain-button states are recorded on the enabled Hint button. F-6: no new test; net node ids unchanged (+3 for the card).
+
+
+Author round 2 (clean-room stylesheet landed; plant strings re-pointed), 2026-11-08.
+
+* Provenance, as reported by the writer (not independently verified by this author): the clean-room writer read only the spec JSON, the template, `solver.js`, `admin.css`, `tokens.css`, the head of `assemble.py`, and the test's frozen table; no Bootstrap source file. Size: `player/shared-ui-base.css`, 148 lines. Fidelity residue 0 at 390 and 1280 px, in frozen-table and live-real-file mode.
+* `test_a_changed_stylesheet_reds_the_fidelity_check` planted strings that only the old sheet contained. Now: drop the `[hidden]` block as formatted in the new sheet (`[hidden] {\n  display: none !important;\n}\n`), and `0.4rem 0.75rem` -> `0.4rem 0.9rem` (the `.btn` padding). Each still asserts `planted != original` and that the comparison reds. No test added or removed (net 0).
+* Mutant re-proof of the two declarations the writer could not re-run, on a scratch test (since deleted) planting into a copy served from the preview tree, committed sheet untouched: `.btn` `color` -> `#ff0000` reds the frozen comparison at 1280 px (20 differences, e.g. `color 'rgb(28, 35, 51)' != 'rgb(255, 0, 0)'`); `.btn:disabled` `border-color` -> `#ff0000` reds it (2 differences, `disabled plain` and `disabled danger` border-top-color).
