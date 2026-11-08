@@ -775,7 +775,8 @@ queued:
 - id: CARD-399   # P2 8c  RETIRE play.js and its tests (CARD-R); needs the owner's go after testing the preview + CARD-394 + a production deploy of the shared-UI mode. Unstamped.
 - id: CARD-401   # P1 3c ICON-ONLY toolbar on phones + short screens, 2-cell Region, title+badge on one line. Owner findings 2026-11-07. Unstamped.
 - id: CARD-397   # P3 2c  Module-scoped Chromium for admin solver files; measure first, may close as a null (owner C). Depends 395. Unstamped.
-- id: CARD-387   # P2 20c  CONVERT OR RETIRE the ~390 raster interior tests by the claim audit, then delete the 23 bitmap writers (CARD-322's items 8/16/17). Depends on CARD-322. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
+- id: CARD-387   # P2 10c  (387a) CONVERT OR RETIRE the raster interior tests no queued card owns + the dot arm (items 8/17); 369 true class a+c ids, 21 writers remain (recount 2026-11-08); the tail is CARD-416. Depends on CARD-322, CARD-391. Owner 2026-11-07: a test is kept only if its claim is a live decision. First module batch re-prices it. Unstamped.
+- id: CARD-416   # P2 6c  (387b) TAIL OF CARD-387, runs LAST: convert the ~62 'convert after' ids (pdf, pdf_band, type_floor, page_frame, page_numbers, toc), delete the 21 remaining raster writers + bitmap arms, restate docs/ADRs/censuses. Depends on CARD-387, 392, 207, 229, 230, 232, 233. Unstamped.
 - id: CARD-414   # P2 1c  SHARED CROSSHAIR stops during a pinch and counts a pen as part of one (ported from play.js; owner 2026-11-08, CARD-399 audit). Unstamped.
 - id: CARD-402   # P2 3c LANDSCAPE vertical ~52 px icon column, board gets the height. Depends 401, 403. Owner findings 2026-11-07. Unstamped.
 - id: CARD-403   # P1 3c STAGE ends above the fold at any toolbar height; the jump. Owner findings 2026-11-07. Unstamped.

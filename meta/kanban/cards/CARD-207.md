@@ -30,9 +30,9 @@
 - `band_identity(number, stored_tier)` (`book_pdf_generator.py:944`) composes
   **one** line: `"Puzzle 12 · Easy"` (`BAND_SEPARATOR`), or `"Puzzle 12"` alone
   when `tier_of_record` reads no tier off the row.
-- `_set_band` (`:1214`) draws that one piece **centred** on the band's
+- the vector band writer `book_puzzle_vector.draw_band` (sized by `band_type_size`, called by `draw_puzzle_slot`) draws that one piece **centred** on the band's
   `center_x`/`center_y` (`export.layout.header_band`), shrinking once if it
-  would not fit the usable width. Its docstring is explicit that a one-piece
+  would not fit the usable width. (The raster `_set_band` it replaced has no production caller and goes with CARD-387's tail; this card does not edit it.) A one-piece
   header has "no separator to stroke".
 - `export.pdf.render_pages` / `_draw_header` is the *other* renderer of a band
   — the single-puzzle CLI/web PDF, which carries the picture's name. CON-019
@@ -108,6 +108,7 @@ becomes two pieces plus a rule:
   CARD-204 this wave.
 - G-5: Rule weights come from the book PageSpec (ADR-0037/R2); no new stroke
   constant.
+- G-6: Writes the vector page only: no raster writer, no raster test twin; retires the raster-twin tests of its own module.
 
 ## System contract
 
