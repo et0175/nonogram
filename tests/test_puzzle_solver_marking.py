@@ -660,7 +660,7 @@ class TestSolverClickFollowsTheBrush:
             "Hint answers in three presses: the first highlights the row or column to look at, "
             "the second says why it decides a cell, the third reveals it; "
             "Check highlights the row of the first wrong mark, "
-            "and each press writes its answer in the line beside the puzzle's title."
+            "and each press writes its answer in a strip over the bottom of the board."
         )
 
 

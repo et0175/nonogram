@@ -462,12 +462,15 @@ SHARED_UI_BASE = "base.css"
 #: exactly once, so an edit to the admin template cannot quietly bring a false
 #: sentence back. "At the top of the page" is true at every width, and the
 #: tests measure it from the DOM at 390 and 1280 px.
+#: CARD-409 moved the answer line onto a strip over the bottom of the board,
+#: so the admin's clause now says so, and the public replacement drops only
+#: the Check half (owner finding 2026-11-07: the text right by the board).
 SHARED_UI_HINT_CLAUSE = (
     "; Check highlights the row of the first wrong mark, and each press writes"
-    " its answer in the line beside the puzzle's title."
+    " its answer in a strip over the bottom of the board."
 )
 SHARED_UI_HINT_REPLACEMENT = (
-    ", and each press writes its answer in the line at the top of the page."
+    ", and each press writes its answer in a strip over the bottom of the board."
 )
 
 #: Other exact edits to the admin markup, each refused unless found once.

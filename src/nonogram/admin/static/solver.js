@@ -1661,7 +1661,9 @@ function hintText({ row, col, state, deduced }) {
 //: Rung 1: where to look, and nothing more. `axis` is a hintLine axis, so it
 //: is already the word to say out loud ("row" / "column").
 function ladderPointText(axis, index) {
-  return `Hint: look at ${axis} ${index + 1}.`;
+  // CARD-409 (owner finding 2026-11-07): the highlight does the pointing,
+  // the number is the backup ("Look at row 13" asked for counting lines).
+  return `Hint: look at the highlighted ${axis} (${index + 1}).`;
 }
 
 //: Rung 2's reason clause, one sentence per HINT_REASONS name. Each is
@@ -1691,7 +1693,7 @@ function ladderExplainText(line) {
   if (sentence === undefined) {
     throw new RangeError(`"${reason}" is not a hint reason (${HINT_REASONS.join(", ")})`);
   }
-  return `Hint: look at ${line.axis} ${line.index + 1} — ${sentence(line.axis, run)}`;
+  return `Hint: look at the highlighted ${line.axis} (${line.index + 1}) — ${sentence(line.axis, run)}`;
 }
 
 //: The exhausted state (card rule 6): undecided cells remain but no single
@@ -1760,6 +1762,23 @@ function checkText(row) {
 function showExplain(text) {
   const line = document.getElementById("puzzle-player-explain");
   if (line !== null) line.textContent = text;
+}
+
+// CARD-409: the strip over the board's bottom edge goes away on the next
+// pointer-down anywhere and on Escape — it is a glance, not a panel; the
+// live region (#puzzle-player-announce) keeps the sentence for a screen
+// reader regardless. Wired once, from start().
+function wireExplainDismiss() {
+  const line = document.getElementById("puzzle-player-explain");
+  if (line === null) return;
+  const dismiss = () => { if (line.textContent !== "") line.textContent = ""; };
+  document.addEventListener("pointerdown", (event) => {
+    // The hint and check buttons write the next sentence on click; a
+    // pointer-down ON them must not wipe what their click is about to say.
+    if (event.target instanceof Element && event.target.closest('[data-player-action="hint"], [data-player-action="check"]')) return;
+    dismiss();
+  }, true);
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") dismiss(); });
 }
 
 // The elements `.is-hint-line` goes on for one line: every cell of it and
@@ -2764,6 +2783,7 @@ function wireMarking(container, player) {
   // puzzle_edit.html's sake, like the Hint and Check buttons.
   const explainLine = document.getElementById("puzzle-player-explain");
   if (explainLine !== null) explainLine.hidden = false;
+  wireExplainDismiss();
   // CARD-268: and the probe bar, with the toolbar and for the toolbar's
   // reason — a page whose script never ran, or whose payload was refused,
   // shows no dead buttons. Optional for puzzle_edit.html's sake, like Hint,
