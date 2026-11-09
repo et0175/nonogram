@@ -1012,9 +1012,10 @@ function start() {
   // broken now and not at the checkpoint) — both twins of a doubled axis, by
   // AXIS + data-line — and .is-flagged on Contradiction while there is one.
   // Derived and rewritten with paintProbe, so a close (Keep, Contradiction),
-  // an undo or a redraw leaves nothing stale. No probe, no flag.
+  // an undo or a redraw leaves nothing stale. No probe, no flag (and the
+  // editor has no probe bar, so it never flags).
   function paintBroken(probe) {
-    const broken = probe === null || editing ? { rows: [], columns: [] }
+    const broken = probe === null ? { rows: [], columns: [] }
       : brokenLines(history.board, checkpointHistory(history, probe).board, payload.rows, payload.columns);
     const lines = { row: new Set(broken.rows), col: new Set(broken.columns) };
     for (const box of table.querySelectorAll("th.player-clue")) {
