@@ -630,10 +630,11 @@ SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 #: three puzzles fit Book 1's own TOC capacity on one page), so every page
 #: number here is one more than before. CARD-206 (SCOPE+): the blank title /
 #: copyright page is reserved as interior page 1, so every page number here
-#: is one more again.
+#: is one more again. Since 2026-11-09 the three answers share one packed
+#: page (a level's last page keeps the 2x2 spots, CARD-232 AC-4).
 TWO_UP_PAGE = 6
 SINGLE_PAGE = 7
-INTERIOR_PAGES = 10
+INTERIOR_PAGES = 9
 
 
 def _book() -> Book:

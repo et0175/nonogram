@@ -1145,14 +1145,14 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert self._packed_folios(generator, easy, 2) == {9: "9"}
 
     def test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio(self) -> None:
-        """Review cycle 2, F-001: a capacity-2 page holding one leftover
-        answer fills only the left tile; on a right-hand page the folio's
+        """Review cycle 2, F-001: a packed page holding one leftover answer
+        fills only the top-left tile; on a right-hand page the folio's
         corner tile is empty, so there is nothing to collide with and the
         folio draws (and the corner lookup, ``corner < len(slots)``, must not
         index past the one slot)."""
         easy = puzzle("f1-packed-leftover", 10, 10, 3, "easy", "Leftover")
         generator = BookPDFGenerator(corpus_book("f1-packed-leftover-book"))
-        assert PackedAnswerPage((Answer(number=1, width=10, height=10, level=Tier.EASY),)).capacity == 2
+        assert PackedAnswerPage((Answer(number=1, width=10, height=10, level=Tier.EASY),)).capacity == 4
         assert page_is_right_hand(9), "the corner-collision check differs by parity"
         assert self._packed_folios(generator, easy, 1) == {9: "9"}
 
