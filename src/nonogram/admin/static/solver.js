@@ -598,7 +598,7 @@ import { circledClues } from "./solver_state.js";
 // The save in this browser (CARD-185): see SAVE below.
 import { deserializeState, saveKey, serializeState } from "./solver_state.js";
 // Zoom (CARD-195): see ZOOM below.
-import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, fitZoom, pinchZoom, stepZoom } from "./solver_state.js";
+import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, fitZoom, pinchZoom, revealScroll, stepZoom } from "./solver_state.js";
 // Region (CARD-194's modifier, its own toggle since CARD-211): see "region"
 // above. The flag's transitions and the "does this drag paint?" rule are
 // pure (ADR-0038/R4); the button that shows the flag is this file's.
@@ -974,11 +974,17 @@ function start() {
   // Move the .is-hinted highlight to `next` ({row, col}), or take it off
   // (null). The element is looked up through the live cellElements each
   // time, so this is also how the highlight is re-applied after a redraw.
-  function showHint(next) {
+  function showHint(next, reveal = false) {
     const element = (cell) => cellElements[cell.row * payload.width + cell.col];
     if (hintedAt) element(hintedAt)?.classList.remove("is-hinted");
     hintedAt = next;
     if (hintedAt) element(hintedAt)?.classList.add("is-hinted");
+    // CARD-408: a hint that has just been revealed is brought into view; a
+    // redraw that only puts the highlight back (reveal false) moves nothing.
+    if (hintedAt && reveal) {
+      const cell = element(hintedAt);
+      if (cell) bringIntoView(stage, [cell], "xy");
+    }
   }
 
   // CARD-268: which cells the open probe holds, written as data-probe (see
@@ -1370,7 +1376,7 @@ function start() {
       board = history.board;
       paint(cellElements, board);
       paintProbe();
-      showHint(hint ? { row: hint.row, col: hint.col } : null);
+      showHint(hint ? { row: hint.row, col: hint.col } : null, Boolean(hint));
       showProgress(hint);
       // CARD-268 rule 9: while a probe is open the entry is the history as of
       // its checkpoint, so a save never holds a probe stroke and a reload
@@ -1767,6 +1773,35 @@ function linedParts(table, axis, index) {
   const clues = axis === "row" ? `th.player-clue.is-row[data-line="${index}"]`
     : `th.player-clue.is-col[data-line="${index}"]`;
   return [...table.querySelectorAll(cells), ...table.querySelectorAll(clues)];
+}
+
+// BRING INTO VIEW (CARD-408). Scroll `stage` — the stage only, never the
+// page — so that the union of `elements` is visible on `axes` ("x", "y" or
+// both), clear of the sticky clue bands the table is keeping (CARD-271). A
+// hinted ROW is brought in vertically (a whole row seldom fits sideways
+// when zoomed), a COLUMN horizontally, a cell on both. Instant, never
+// smooth: a smooth scroll would fight the hint's own highlight.
+function bringIntoView(stage, elements, axes) {
+  const table = stage.querySelector(".player-board");
+  if (table === null || elements.length === 0) return;
+  const port = stage.getBoundingClientRect();
+  const rowBand = table.classList.contains("is-keeping-rows")
+    ? (table.querySelector("th.player-clue.is-row")?.getBoundingClientRect().width ?? 0) : 0;
+  const colBand = table.classList.contains("is-keeping-cols")
+    ? (table.querySelector("thead")?.getBoundingClientRect().height ?? 0) : 0;
+  const boxes = elements.map((element) => element.getBoundingClientRect());
+  const left = Math.min(...boxes.map((b) => b.left)) - port.left + stage.scrollLeft - stage.clientLeft;
+  const top = Math.min(...boxes.map((b) => b.top)) - port.top + stage.scrollTop - stage.clientTop;
+  const right = Math.max(...boxes.map((b) => b.right)) - port.left + stage.scrollLeft - stage.clientLeft;
+  const bottom = Math.max(...boxes.map((b) => b.bottom)) - port.top + stage.scrollTop - stage.clientTop;
+  if (axes.includes("x")) {
+    stage.scrollLeft = revealScroll(stage.scrollLeft, stage.clientWidth, rowBand, left, right - left,
+      stage.scrollWidth - stage.clientWidth);
+  }
+  if (axes.includes("y")) {
+    stage.scrollTop = revealScroll(stage.scrollTop, stage.clientHeight, colBand, top, bottom - top,
+      stage.scrollHeight - stage.clientHeight);
+  }
 }
 
 // The [row, col] of the board cell under the viewport point (x, y), or null.
@@ -2235,7 +2270,28 @@ function wireMarking(container, player) {
   function setLadderLine(line) {
     if (ladderLine !== null) paintLadderLine(ladderLine, false);
     ladderLine = line === null ? null : { axis: line.axis, index: line.index };
-    if (ladderLine !== null) paintLadderLine(ladderLine, true);
+    if (ladderLine !== null) {
+      paintLadderLine(ladderLine, true);
+      // CARD-408: and bring the line into view — its CELLS, on the axis
+      // across the line (a row vertically, a column horizontally).
+      const table = container.querySelector(".player-board");
+      // Across the line, its cells (a row vertically, a column sideways).
+      // Along it, its labelled clue box (AC-2; review cycle 1, F-002) — but
+      // only when that axis's band is NOT kept: a kept band pins the clue in
+      // view already, and moving anyway snapped a player's sideways scroll
+      // back to the start on every press (review cycle 2, F-101).
+      if (table !== null) {
+        const parts = [...linedParts(table, ladderLine.axis, ladderLine.index)];
+        const cells = parts.filter((part) => part.matches("td.player-cell"));
+        const clue = parts.filter((part) => part.matches("th.player-clue")
+          && part.getAttribute("aria-hidden") !== "true");
+        const row = ladderLine.axis === "row";
+        bringIntoView(container, cells, row ? "y" : "x");
+        if (!table.classList.contains(row ? "is-keeping-rows" : "is-keeping-cols")) {
+          bringIntoView(container, clue, row ? "x" : "y");
+        }
+      }
+    }
   }
 
   // The probe bar from `probe` and the lock — rendering, and nothing else:

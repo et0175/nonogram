@@ -748,6 +748,15 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
 #: that is the point — the guard now catches an *unrecorded* change to the
 #: family's coverage rather than any change at all.
 ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_HintComesIntoView::test_reveal_scroll_against_an_independent_rule": (
+        "CARD-408", "AC-1: revealScroll (the stage offset that shows a box clear of a sticky band) against an independent rule",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_HintComesIntoView::test_hint_and_check_bring_their_target_into_view[chromium-1440-900]": (
+        "CARD-408", "AC-2..AC-6 where the 30x30 at 200% keeps both sticky bands: the band arithmetic is exercised (both band mutants red here)",
+    ),
+    "tests/test_puzzle_solver_zoom.py::TestSolverZoom_HintComesIntoView::test_hint_and_check_bring_their_target_into_view[chromium-844-390]": (
+        "CARD-408", "AC-2..AC-6 on a landscape phone, where the hinted row was off-screen",
+    ),
     "tests/test_puzzle_solver_zoom.py::TestSolverZoom_Fit::test_a_big_board_opens_at_fit_on_a_compact_screen_only[chromium]": (
         "CARD-407", "AC-1 (owner ruling 2026-11-07): big boards open at Fit on compact screens only",
     ),

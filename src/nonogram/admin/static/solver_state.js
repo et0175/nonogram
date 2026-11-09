@@ -1093,6 +1093,27 @@ export function pinchZoom(startZoom, startDistance, currentDistance, floor = ZOO
   return clampZoom(startZoom * (currentDistance / startDistance), floor);
 }
 
+// Bring a box into view along ONE axis of a scroller (CARD-408, owner
+// findings 2026-11-07: "Hint and Check bring what they point at into
+// view"). `scroll` is the scroller's offset on that axis, `view` its client
+// size, `band` the depth of a sticky clue band pinned at the start of that
+// axis (0 when none: a box under the band is not seen), `start`/`size` the
+// box in the scroller's CONTENT coordinates, `max` the largest offset. A box
+// already fully inside [scroll + band, scroll + view] leaves `scroll` as it
+// is — no movement, so no jump. Otherwise the smallest move that shows it:
+// its start just past the band when it is above/left of the visible part
+// (or larger than it), its end at the edge when it is past it; clamped to
+// [0, max].
+export function revealScroll(scroll, view, band, start, size, max) {
+  const first = scroll + band;
+  const last = scroll + view;
+  let next = scroll;
+  if (start >= first && start + size <= last) return scroll;
+  if (start < first || size > view - band) next = start - band;
+  else next = start + size - view;
+  return Math.min(Math.max(next, 0), Math.max(max, 0));
+}
+
 // The "keep the view" formula (target behaviour #5), one axis at a time:
 // `scroll` is .player-stage's current scrollLeft or scrollTop, `anchor` is
 // the point that must stay put — its offset from the stage's own visible
