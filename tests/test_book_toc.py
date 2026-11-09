@@ -56,6 +56,7 @@ from typing import Dict, List, Optional, Tuple
 import pytest
 from PIL import ImageDraw
 
+from nonogram.admin.book_dividers import SOLUTIONS_SLOT as _SOLUTIONS_SLOT
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_plan import TIERS
@@ -1063,10 +1064,30 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
         A 150-puzzle book is near KDP's 151-300/301-500 boundaries, so this
         asserts the band the real page count lands in rather than only that
         two numbers match.
+
+        The estimate is one answer page per puzzle, an upper bound that is
+        exact only for a book whose answers are too large to pack. The 20x20s
+        of :func:`_puzzles` used to be (the packing limit was 15x20); the
+        owner raised it to ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT``, so
+        this corpus is sized one over that limit, read off the constants, to
+        keep the book the estimate is meant to be exact for.
         """
+        from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
         from nonogram.admin.book_kdp import kdp_page_band
 
-        puzzles = self._corpus()
+        easy, medium, hard = AC3_SPLIT
+        puzzles = [
+            puzzle(
+                f"card205-band-{tier}-{index}",
+                PACKED_MAX_WIDTH + 1,
+                PACKED_MAX_HEIGHT + 1,
+                4,
+                tier,
+                f"{tier.title()} {index}",
+            )
+            for tier, count in (("hard", hard), ("medium", medium), ("easy", easy))
+            for index in range(count)
+        ]
         book = _book("card-205-ac5-band")
         generator = BookPDFGenerator(book)
 
@@ -2568,8 +2589,16 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         rows, pages, generator = rendered
         solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
 
-        expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
+        # The Solutions divider is the approved mockup's opener (it names the
+        # span "PUZZLES 1-N"), reached through the same ``divider_page`` call
+        # the walk makes, with the book's puzzle count.
+        expected = self._solutions_divider(generator, solutions.page)
         assert _same_written_page(pages[solutions.page - 1], expected)
+
+    def _solutions_divider(self, generator: BookPDFGenerator, page_number: int):
+        return generator.divider_page(
+            _SOLUTIONS_SLOT, page_number, "SOLUTIONS", puzzle_count=3 * self.PER_TIER
+        )
 
     def test_the_comparison_would_have_caught_a_one_page_drift(self, rendered) -> None:
         """The control: the pages either side of a named one are *not* it.
@@ -2581,7 +2610,7 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
         """
         rows, pages, generator = rendered
         solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
-        expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
+        expected = self._solutions_divider(generator, solutions.page)
 
         # A neighbour that is operators is read as the device pixels it draws
         # (``page_image``, the one reading ``pdf_pages`` offers both media), so

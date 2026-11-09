@@ -1233,12 +1233,23 @@ class TestInteriorType_FloorHoldsWithoutArial:
         assert below_floor(recording(book, arial=False)) == []
 
     def test_the_dividers_are_drawn(self, book):
-        dividers = [call for call in recording(book, arial=False) if call.kind == "divider"]
-        # Three levels and SOLUTIONS, two draw.text calls each since
-        # CARD-200 (the word, then the folio sharing its bottom-outer
-        # corner — both carry "create_divider_page" in their call chain,
-        # so both are tagged "divider" by `TextCall.kind`).
-        assert len(dividers) == 8
+        calls = recording(book, arial=False)
+        dividers = [call for call in calls if call.kind == "divider"]
+        # Three levels, two draw.text calls each since CARD-200 (the word,
+        # then the folio sharing its bottom-outer corner — both carry
+        # "create_divider_page" in their call chain, so both are tagged
+        # "divider" by `TextCall.kind`).
+        assert len(dividers) == 6
+        # SOLUTIONS is no longer one of them: since the approved solutions
+        # mockup its slot draws the Solutions opener, whose four draw.text
+        # calls (the eyebrow "PUZZLES 1-N", "Solutions", the blurb and the
+        # folio) carry "create_solutions_opener" in their chain instead, and
+        # are held to the floor with every other call above.
+        opener = [call for call in calls if "create_solutions_opener" in call.caller_names]
+        assert len(opener) == 4, [call.describe() for call in opener]
+        assert all(call.points is not None and call.points >= 10.0 for call in opener), [
+            call.describe() for call in opener
+        ]
 
 
 # --------------------------------------------------------------------------

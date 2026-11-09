@@ -1021,11 +1021,15 @@ FRAME_FIGURES = {
 #: different unit from the 0.4 POINT footer stroke and unrelated to it. It is
 #: stated as the plain figure rather than derived, because it is a recorded
 #: rule of thumb with no formula behind it; dressing it as arithmetic to dodge
-#: this census would hide that.
+#: this census would hide that. ``RUNNING_HEAD_MM`` is 9 MILLIMETRES, the
+#: strip an answer page keeps above its tiles for the solutions running head
+#: (the approved solutions mockup): a depth of page, in a different unit from
+#: the 9 POINT footer gap and unrelated to it.
 PRE_EXISTING_SAME_NUMBER = {
     ("book_vector_draw.py", "MIN_MODULE_MM"),
     ("book_page_spec.py", "MIN_TRIM_CM"),
     ("book_pdf_generator.py", "FOLIO_PT"),
+    ("book_pdf_generator.py", "RUNNING_HEAD_MM"),
     ("book_pdf_generator.py", "TOC_ENTRY_PT"),
     ("pdf.py", "_RULE_LENGTH_RATIO"),
 }

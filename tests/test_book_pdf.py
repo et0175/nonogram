@@ -447,10 +447,13 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
     #: of contents (CARD-200 — 3 entries, far under one TOC page's capacity),
     #: the "Easy" divider that opens the book's one level (CARD-128), three
     #: puzzle pages (none of these three pairs) and the SOLUTIONS divider,
-    #: then three answer pages — one full solved page per puzzle (CARD-198,
-    #: up from the packed key's one four-up page before that card). The
-    #: leading ``1`` is CARD-206's blank title / copyright page.
-    PAGES = 1 + 2 + 1 + 1 + 3 + 1 + 3
+    #: then two answer pages: the 15x15 and the 20x20 share one packed page
+    #: (both within the owner's raised packing limit, ``PACKED_MAX_WIDTH`` x
+    #: ``PACKED_MAX_HEIGHT`` = 20 x 25, where the 20x20 used to take a full
+    #: page of its own under the old 15 x 20) and the 30x30 keeps CARD-198's
+    #: full solved page. The leading ``1`` is CARD-206's blank title /
+    #: copyright page.
+    PAGES = 1 + 2 + 1 + 1 + 3 + 1 + 2
 
     def test_every_interior_page_of_the_pdf_is_the_stored_trim(self, export):
         pages = pdf_pages(export.interior.getvalue())
@@ -4319,13 +4322,15 @@ class TestAssemblyPoint_TheDownstreamWritersAreReachable:
             pages = by_kind[kind]
             assert pages, kind.value
             assert any(word in stream for stream in pages), (kind.value, word)
-        # The answer pages are identified by the word every answer caption
-        # carries, taken from the module that composes it rather than spelled
-        # here, so a renamed caption reds instead of following silently.
-        from nonogram.admin.book_answer_key import answer_caption
+        # The answer pages are identified by the section word every answer
+        # page's running head carries (the approved solutions mockup retired
+        # the "Puzzle N — Name" caption they were identified by before), taken
+        # from the module that composes it rather than spelled here, so a
+        # renamed running head reds instead of following silently.
+        from nonogram.admin.book_answer_vector import running_head_text
 
-        caption = answer_caption(1, None)
-        assert any(caption in stream for stream in by_kind[PageKind.ANSWER]), caption
+        section, _ = running_head_text((1,), None)
+        assert any(section in stream for stream in by_kind[PageKind.ANSWER]), section
 
     def test_a_generator_with_no_downstream_writer_refuses(
         self, monkeypatch

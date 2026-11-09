@@ -463,6 +463,7 @@ class TestBookSolvedPage_TheVectorBoundariesAreTheThinGreyRule:
     @staticmethod
     def _render():
         from nonogram.admin.book_answer_vector import answer_page
+        from nonogram.admin.book_pdf_generator import answer_section_spec
         from tests.helpers.pdf_pages import page_image
 
         payload = _payload(_RUN_GRID, difficulty="Easy")
@@ -471,8 +472,13 @@ class TestBookSolvedPage_TheVectorBoundariesAreTheThinGreyRule:
         page = page_image(
             answer_page(generator.page_spec(page_number), generator.dpi, payload, 1, page_number)
         )
+        # The vector answer page is laid out on ``answer_section_spec`` (its
+        # top keeps the running head's strip), so the coordinates are read
+        # off that same spec.
         layout = compute_layout(
-            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+            payload.row_clues,
+            payload.column_clues,
+            answer_section_spec(generator.page_spec(page_number)),
         )
         xs = [line.position for line in layout.vertical_lines]
         ys = [line.position for line in layout.horizontal_lines]

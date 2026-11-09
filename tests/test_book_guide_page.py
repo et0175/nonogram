@@ -28,6 +28,7 @@ from typing import Dict, List, Tuple
 import pytest
 from PIL import Image
 
+from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import (
     GUIDE_TECHNIQUES_2,
     BookPDFGenerator,
@@ -160,9 +161,19 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         enough to stay comfortably inside every stored trim, but too wide
         for two to share a two-up page (FR-040) — this test wants exactly
         6 puzzle pages (one per puzzle), not a pairing saving.
+
+        The easy tier starts one over the answer key's packing width,
+        :data:`PACKED_MAX_WIDTH` + 1, read off the constant: it started at
+        20, which kept a full answer page of its own while the limit was
+        15x20. The owner raised the limit to 20x25 (2026-11-09), so a 20x20
+        answer now packs — alone, a leftover on a two-up page, whose tile
+        sits in the left column and reads as the wrong side for an odd page.
+        Every answer here keeps its own full page, so every answer page's
+        drawing is the centred one the parity test measures.
         """
+        easy = PACKED_MAX_WIDTH + 1
         return (
-            [puzzle(f"card201-ac5-easy-{n}", 20 + n, 20 + n, 3, "easy", f"Easy {n}") for n in range(3)]
+            [puzzle(f"card201-ac5-easy-{n}", easy + n, easy + n, 3, "easy", f"Easy {n}") for n in range(3)]
             + [puzzle(f"card201-ac5-medium-{n}", 25 + n, 25 + n, 4, "medium", f"Medium {n}") for n in range(2)]
             + [puzzle("card201-ac5-hard-0", 30, 30, 5, "hard", "Hard 0")]
         )

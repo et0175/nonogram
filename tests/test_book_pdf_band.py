@@ -63,6 +63,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram import clues, errors
 from nonogram.admin import book_interior_vector
+from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
@@ -133,6 +134,12 @@ BOTTOM_MM = 0.47 * 25.4
 #: The title band above each puzzle (TERM-028).
 BAND_MM = 12.0
 
+#: The strip an answer page keeps above its tiles for the running head
+#: ("SOLUTIONS · EASY" / "PUZZLE 1", the approved solutions mockup), so an
+#: answer's band starts this much lower than a puzzle's. Written out, as the
+#: figures above are, rather than imported.
+RUNNING_HEAD_MM = 9.0
+
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = 300 / 25.4
 
@@ -194,10 +201,13 @@ def expected_band(number: int, stored_tier: object) -> str:
 # FR-042's answer caption, restated (guardrail G-2a)
 # --------------------------------------------------------------------------
 
-#: What captions one answer in the packed key: the puzzle's number, an em dash
+#: What captioned one answer in the key: the puzzle's number, an em dash
 #: (U+2014) with a space either side, and the picture's title. Written out
 #: here for the same reason :data:`BAND_TEMPLATE` is — a second implementation
 #: of the rule, not ``book_answer_key``'s own ``answer_caption`` run twice.
+#: **Retired from the page by the approved solutions mockup**: the title now
+#: sits in the solution header beside the number alone, so the tests below
+#: hold this string to being printed nowhere.
 ANSWER_CAPTION = "Puzzle {number} — {title}"
 
 
@@ -246,18 +256,23 @@ def _gutter_grid(columns: int, rows: int, depth: int) -> list[list[bool]]:
     ]
 
 
-#: CARD-202: a puzzle this size or smaller (width<=15, height<=20) packs with
-#: its same-tier neighbours in the answer section instead of taking a full
-#: answer page to itself. This module's default puzzle is deliberately above
-#: that threshold — 18x18, not CON-011's own ``MIN_SIZE`` (10) — because its
-#: whole subject is the one-full-page answer key's identity (band, caption,
-#: page count), which CARD-198 gave every puzzle unconditionally and CARD-202
+#: CARD-202: a puzzle no wider than ``PACKED_MAX_WIDTH`` and no taller than
+#: ``PACKED_MAX_HEIGHT`` (20 and 25 since the owner raised the limit, from 15
+#: and 20) packs with its same-tier neighbours in the answer section instead
+#: of taking a full answer page to itself. This module's default puzzle is
+#: deliberately above that threshold — one column wider than the packing
+#: limit, not CON-011's own ``MIN_SIZE`` (10) — because its whole subject is
+#: the one-full-page answer key's identity (band, solution header, page
+#: count), which CARD-198 gave every puzzle unconditionally and CARD-202
 #: narrows to large ones only; this module keeps testing the large-puzzle
 #: case its hardcoded page arithmetic (``ONCE_PAGE_COUNT`` and friends) was
-#: built against. Small-answer packing has its own dedicated coverage in
+#: built against. Derived from the constant rather than written out, so a
+#: second raise of the limit cannot quietly turn this into a packed tile.
+#: Small-answer packing has its own dedicated coverage in
 #: ``tests/test_book_solved_answer_key.py`` and
 #: ``tests/property/test_book_answer_tiles.py``.
-_NEVER_PACKS_SIZE = 18
+_NEVER_PACKS_SIZE = PACKED_MAX_WIDTH + 1
+assert _NEVER_PACKS_SIZE <= MAX_SIZE
 
 
 def _puzzle(
@@ -698,8 +713,12 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
 class TestBookPdf_AnswerKeyCarriesPictureTitle:
     """AC-194 — the same book's answer-key page shows "Snowflake".
 
-    Beside the same "Puzzle N · Tier" identity the puzzle page carries, so the
-    answer is found by the printed number and recognised by the name.
+    Beside the same number the puzzle page's "Puzzle N · Tier" identity
+    carries, so the answer is found by the printed number and recognised by
+    the name. Since the approved solutions mockup the answer sets them as a
+    solution header (the number alone, then the name; the tier as dots and in
+    the running head's "SOLUTIONS · EASY"), not as a band line over a
+    "Puzzle N — Name" caption.
     """
 
     NAME = "Snowflake"
@@ -727,6 +746,11 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         One ``number`` feeds the band and the caption, so the two pages are
         being required to agree on the same N rather than on two numbers that
         happen to be spelled alike.
+
+        **Since the approved solutions mockup** the stream arm reads the
+        solution header instead of a caption: the number alone and then the
+        title in the answer's own band, with the tier in the running head;
+        the "Puzzle 1 — Snowflake" caption is asserted to be gone.
         """
         number = 1
         puzzle = _puzzle(name=self.NAME)
@@ -743,29 +767,32 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             # is taken on the stream's own words instead.
             #
             # **absent / present / contributing**, by poppler's text layer:
-            # the puzzle page has the identity and no title word, the answer
-            # page has the identity AND the caption "Puzzle 1 — Snowflake",
-            # and the same book with no title prints the caption "Puzzle 1"
-            # alone, so the title is a mark and not a string that was offered.
+            # the puzzle page has the identity and no title word; the answer
+            # page's solution header (the approved solutions mockup) is the
+            # same number alone and then "Snowflake", with the identity's tier
+            # in the running head above it ("SOLUTIONS · EASY"), and no
+            # "Puzzle 1 — Snowflake" caption under the grid any more; the same
+            # book with no title sets the number alone, so the title is a
+            # mark and not a string that was offered.
             puzzle_lines = _text_of(puzzle_raw)
             assert [line.text for line in _band_zone(puzzle_lines)] == [identity]
             assert self.NAME not in {
                 word for line in puzzle_lines for word in line.text.split()
             }
             answer_lines = _text_of(answer_raw)
-            assert [line.text for line in _band_zone(answer_lines)] == [identity]
-            assert [line.text for line in answer_lines if "—" in line.text] == [
-                caption
-            ]
+            assert _solution_header(answer_lines) == [str(number), self.NAME]
+            assert sorted(_running_head(answer_lines)) == sorted(
+                [_running_head_section(puzzle["difficulty_tier"]), f"PUZZLE {number}"]
+            )
+            assert not [line.text for line in answer_lines if "—" in line.text], (
+                f"the retired caption {caption!r} is still under the grid"
+            )
             untitled = _raw_interior([_puzzle(name=None)])[
                 answer_page_number([puzzle]) - 1
             ]
             untitled_lines = _text_of(untitled)
             assert not any(self.NAME in line.text for line in untitled_lines)
-            assert [
-                line.text for line in untitled_lines if line.text.startswith("Puzzle")
-                and line.text != identity
-            ] == [ANSWER_CAPTION.split(" —")[0].format(number=number)]
+            assert _solution_header(untitled_lines) == [str(number)]
             return
 
         expected_puzzle, _ = _pages_with_band(
@@ -808,6 +835,10 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
           its tile moved, its heading changed or a second answer appeared
           fails here rather than passing as "the title did something".
 
+        **Since the approved solutions mockup** that one line is the solution
+        header's (the number alone, then the title), not a caption under the
+        drawing; the measurement is unchanged, and so is what it pins.
+
         That last measurement is also the retired ``_has_ink(_band_strip(...))``
         line's epitaph. This whole difference is ~31 pixel rows; the strip it
         read is 142, and measured, that strip still holds some 18,000 ink
@@ -849,7 +880,8 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         their own full answer pages following on 8, 9 and 10 — which means an
         answer captioned from its position in the interior rather than from
         the puzzle it answers would read a number one or two off and be
-        caught. Each page is compared whole, so a caption carrying the wrong
+        caught. (Since the approved solutions mockup the number and the title
+        are the answer's solution header, not a caption under the drawing.) Each page is compared whole, so a caption carrying the wrong
         number or the wrong title fails, and each is then re-checked against
         its untitled control so the title is shown to be ink on every one of
         them.
@@ -877,21 +909,19 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             page = pages[page_number - 1]
 
             if isinstance(raw[page_number - 1], ContentStream):
-                # CARD-356: stream arm. The caption is read from the text
-                # layer and must be exactly "Puzzle N — Picture k" for this
-                # puzzle's own N, with the band above it carrying the same N;
-                # the title is shown to be ink by the same book drawn with no
-                # titles, whose page must differ.
+                # CARD-356: stream arm. The solution header (the approved
+                # solutions mockup) is read from the text layer and must be
+                # exactly this puzzle's own N and then "Picture k", with the
+                # running head above it naming the same N and the puzzle's
+                # tier; the title is shown to be ink by the same book drawn
+                # with no titles, whose page must differ.
                 lines = _text_of(raw[page_number - 1])
-                caption = ANSWER_CAPTION.format(
-                    number=number, title=puzzle["puzzle_name"]
-                )
-                assert [line.text for line in lines if "—" in line.text] == [
-                    caption
+                assert _solution_header(lines) == [
+                    str(number), puzzle["puzzle_name"]
                 ], f"answer {number}"
-                assert [line.text for line in _band_zone(lines)] == [
-                    expected_band(number, puzzle["difficulty_tier"])
-                ], f"answer {number} band"
+                assert sorted(_running_head(lines)) == sorted(
+                    [_running_head_section(puzzle["difficulty_tier"]), f"PUZZLE {number}"]
+                ), f"answer {number} band"
                 assert (
                     page.tobytes() != untitled_pages[page_number - 1].tobytes()
                 ), f"answer {number} shows no title"
@@ -2475,6 +2505,35 @@ def _band_zone(lines: Sequence[_TextLine]) -> list[_TextLine]:
     ]
 
 
+def _solution_header(lines: Sequence[_TextLine]) -> list[str]:
+    """An answer page's solution header, left to right: ``["7", "Snowflake"]``.
+
+    The approved solutions mockup sets the number alone and the picture's
+    name beside it (the tier is the dots, which are not text) in the answer's
+    own band, which sits :data:`RUNNING_HEAD_MM` below a puzzle's.
+    """
+    top = round((TOP_MM + RUNNING_HEAD_MM) * PX_PER_MM)
+    zone = [
+        line for line in lines if top <= line.top < top + round(BAND_MM * PX_PER_MM)
+    ]
+    return [line.text for line in sorted(zone, key=lambda line: line.left)]
+
+
+def _running_head(lines: Sequence[_TextLine]) -> list[str]:
+    """The answer page's running head, left to right, from the strip above its band."""
+    top = round(TOP_MM * PX_PER_MM)
+    zone = [
+        line for line in lines if top <= line.top < top + round(RUNNING_HEAD_MM * PX_PER_MM)
+    ]
+    return [line.text for line in sorted(zone, key=lambda line: line.left)]
+
+
+def _running_head_section(stored_tier: object) -> str:
+    """The running head's section words for a tier: "SOLUTIONS · EASY"."""
+    _, _, tier = expected_band(1, stored_tier).partition(" · ")
+    return f"SOLUTIONS · {tier.upper()}" if tier else "SOLUTIONS"
+
+
 class _Reading(NamedTuple):
     """One page, in the form its medium is read in."""
 
@@ -2605,18 +2664,18 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     def test_every_band_is_found_once_on_its_own_page_and_nowhere_else(
         self, once_export: _Exported
     ) -> None:
-        """Each band is found on exactly two pages, and nowhere else.
+        """Each band is found on exactly one page, its puzzle's, and nowhere else.
 
-        A puzzle's band prints twice, by design: once on its own puzzle page
-        (COMP-007's header / ``_set_band``) and once on its own answer
-        page — a full page (``solved_puzzle_page``) or, since CARD-202, its
-        own slot of a packed page (``_packed_answer_page``), both of which
-        draw the band through the same ``_set_band`` call
-        (``_draw_solved_slot``, shared by both) — never on any *other*
-        puzzle's page of either kind, packed page-mates included. "Nowhere
-        else" still means as a line of its own: a copy beside the drawing or
-        over other ink is not found (see the section comment; the recorder
-        covers it).
+        A puzzle's band prints once: on its own puzzle page (COMP-007's
+        header / ``_set_band``). Its answer — a full page or a slot of a
+        packed page — used to print the same "Puzzle N · Tier" line; since the
+        approved solutions mockup it carries a solution header of its own
+        instead (the number alone, the picture's name, the tier's dots;
+        ``draw_solution_header``), so the band line is now found on no answer
+        page at all, and never on any *other* puzzle's page. "Nowhere else"
+        still means as a line of its own: a copy beside the drawing or over
+        other ink is not found (see the section comment; the recorder covers
+        it).
 
         **CARD-356: each page is read in the medium it was written in.** A
         page written as operators is read from its text layer, where "a line
@@ -2631,9 +2690,8 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
             for hit in _find(once_export.readings, bands.values())
         )
         assert found == sorted(
-            (page, text, BAND_FONT_PX)
+            (ONCE_BAND_PAGES[number], text, BAND_FONT_PX)
             for number, text in bands.items()
-            for page in (ONCE_BAND_PAGES[number], ANSWER_PAGE_OF[number])
         )
 
     @pytest.mark.parametrize(
@@ -2795,16 +2853,26 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     ) -> None:
         """Control: the search sees the answer key's lettering too.
 
-        The Hard answer's caption is found once, on its own answer page, at
-        a size other than the band's — the caption and the band are two
-        different lines of type on the same page since CARD-198 (the band
-        above the drawing, the caption below it), and the search tells them
-        apart by size as well as by text, which is what this pins.
+        The Hard answer's picture name is found once, on its own answer page,
+        at a size other than the band's. Since the approved solutions mockup
+        that name is the solution header's (``draw_solution_header``: the
+        number alone, then the name in grey at the 10 pt floor), where it was
+        once the "Puzzle 5 — Snowflake" caption under the drawing; the search
+        tells it from a band by size as well as by text, which is what this
+        pins. Every puzzle of this book is named "Snowflake", so the name is
+        found once per answer and on the answer pages only — never in the
+        puzzle section.
         """
-        caption = ANSWER_CAPTION.format(number=5, title="Snowflake")
-        found = _find(once_export.readings, [caption])
-        assert [(hit.page, hit.text) for hit in found] == [(HARD_ANSWER_PAGE, caption)]
-        assert found[0].size != BAND_FONT_PX
+        name = "Snowflake"
+        found = _find(once_export.readings, [name])
+        assert sorted(hit.page for hit in found) == sorted(ANSWER_PAGE_OF.values())
+        hard = [hit for hit in found if hit.page == HARD_ANSWER_PAGE]
+        assert [(hit.page, hit.text) for hit in hard] == [(HARD_ANSWER_PAGE, name)]
+        assert hard[0].size != BAND_FONT_PX
+        retired = ANSWER_CAPTION.format(number=5, title=name)
+        assert not _find(once_export.readings, [retired]), (
+            f"the retired caption {retired!r} is still printed"
+        )
 
 
 class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
@@ -2837,6 +2905,11 @@ class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
     One-puzzle book, so the number is 1 rather than the criterion's 7; nothing
     else differs, exactly as for AC-268's 5. The negative half is this book's
     own picture name, which must be ink nowhere on that page.
+
+    **Since the approved solutions mockup** the caption under the drawing is
+    retired: the title is set in the solution header beside the number alone
+    (``draw_solution_header``), so the line read is the title itself, and the
+    header is checked to read the number and then the title, in that order.
     """
 
     TITLE = "Winter Star"
@@ -2850,18 +2923,21 @@ class TestBookPdf_AnswerCaptionPrintsTheCustomBookTitle:
         pages = _raw_interior([puzzle], book)
 
         answer = pages[answer_page_number([puzzle]) - 1]
-        custom = ANSWER_CAPTION.format(number=1, title=self.TITLE)
-        own = ANSWER_CAPTION.format(number=1, title=self.NAME)
-        found = _find([_reading_of(answer)], [custom, own])
+        found = _find([_reading_of(answer)], [self.TITLE, self.NAME])
 
-        assert [hit.text for hit in found] == [custom], (
+        assert [hit.text for hit in found] == [self.TITLE], (
             f"the answer page prints {[hit.text for hit in found]} where exactly "
-            f"one line of {custom!r} and no line of {own!r} was expected"
+            f"one line of {self.TITLE!r} and no line of {self.NAME!r} was expected"
         )
         assert found[0].size != BAND_FONT_PX, (
             "the caption was found at the band's size, so the line read is the "
             "band and not the caption"
         )
+        if isinstance(answer, ContentStream):
+            assert _solution_header(_text_of(answer)) == ["1", self.TITLE], (
+                "the solution header does not read the puzzle's number and then "
+                "the book's own title"
+            )
 
 
 _SHOWN = re.compile(r"\(((?:\\.|[^()\\])*)\) Tj")
@@ -3158,10 +3234,11 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
     def test_each_written_page_received_each_of_its_bands_exactly_once(
         self, band_draws: _BandDraws
     ) -> None:
-        """Each puzzle's band is drawn once on its puzzle page and once on its
-        own answer page — a full page or, since CARD-202, its own slot
-        of a packed page (both draw it through ``_draw_solved_slot``'s one
-        shared ``_set_band`` call).
+        """Each puzzle's band is drawn once, on its puzzle page. Its answer —
+        a full page or, since CARD-202, its own slot of a packed page — no
+        longer draws the band: since the approved solutions mockup it sets a
+        solution header of its own (``draw_solution_header``: the number
+        alone, the picture's name, the tier's dots), which reads no band line.
 
         **CARD-356: this is the raster arm of the claim.** The recorder sees
         ``ImageDraw.text`` and ``_write_page``, so it can only see the pages
@@ -3177,8 +3254,6 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
         expected: dict[int, Counter] = {}
         for number, page_number in ONCE_BAND_PAGES.items():
             expected.setdefault(page_number, Counter())[bands[number]] += 1
-        for number, text in bands.items():
-            expected.setdefault(ANSWER_PAGE_OF[number], Counter())[text] += 1
         in_bitmaps = {
             page: counts
             for page, counts in expected.items()
@@ -3193,7 +3268,8 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
 
         For every page of the exported PDF written as operators, the number of
         ``(text) Tj`` shows that read a band line is exactly the number the
-        book's own plan puts on that page -- and nothing else shows one. The
+        book's own plan puts on that page -- and nothing else shows one, the
+        answer pages included (their solution header is not a band line). The
         count is taken from the PDF's content streams
         (``pdf_vector.content_streams``), after the file was written, so a
         second draw of a band cannot reach a written page without raising the
@@ -3207,8 +3283,6 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
         expected: dict[int, Counter] = {}
         for number, page_number in ONCE_BAND_PAGES.items():
             expected.setdefault(page_number, Counter())[bands[number]] += 1
-        for number, text in bands.items():
-            expected.setdefault(ANSWER_PAGE_OF[number], Counter())[text] += 1
 
         media = pdf_vector.page_media(band_draws.data)
         streams = pdf_vector.content_streams(band_draws.data)

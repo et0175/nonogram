@@ -58,6 +58,7 @@ from nonogram.admin.book_pdf_generator import (
     structural_toc_entry_count,
 )
 from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
+from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import BookManager, BookStatus
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_plan import BUCKETS, TIERS, DistributionPlan, Split, bucket_of
@@ -141,14 +142,21 @@ def alone(tier: str, number: int) -> dict:
     return _record(22, 22, 6, tier, number)
 
 
-def alone_six_up(tier: str, number: int) -> dict:
-    """The same, but 20 x 20 — so its answer stays on a **six**-up page.
+def alone_unpackable(tier: str, number: int) -> dict:
+    """A puzzle that prints alone **and** keeps a full answer page of its own.
 
-    20 x 20 with 6-deep clues is 26 cells down; two of them would need a
-    4.5 mm shared cell, so these do not pair either. The longest side is
-    exactly 20, the largest INV-011 keeps at six answers to a page.
+    Was ``alone_six_up``, a 20 x 20: the largest INV-011 kept at six answers
+    to a page under the old packed key, and — while the packing limit was
+    15 x 20 — too wide to pack under CARD-202's, so one answer page per
+    puzzle. The owner raised that limit to :data:`PACKED_MAX_WIDTH` x
+    :data:`PACKED_MAX_HEIGHT` (2026-11-09), so a 20 x 20 now packs four to a
+    page. Sized one over the width limit, read off the constant, so the
+    premise "one answer page per puzzle" follows the limit rather than a
+    remembered figure. Square, with 6-deep clues: 27 cells down, so two of
+    them would need a ~4.1 mm shared cell against FR-040's 7.0 mm minimum
+    and never pair.
     """
-    return _record(20, 20, 6, tier, number)
+    return _record(PACKED_MAX_WIDTH + 1, PACKED_MAX_WIDTH + 1, 6, tier, number)
 
 
 def pairs_up(tier: str, number: int) -> dict:
@@ -175,21 +183,26 @@ def pairs_up(tier: str, number: int) -> dict:
     return _record(21, 10, 4, tier, number)
 
 
-def pairs_up_six(tier: str, number: int) -> dict:
-    """A puzzle that pairs on its puzzle page **and** stays six-up packed.
+def pairs_up_unpackable(tier: str, number: int) -> dict:
+    """A puzzle that pairs on its puzzle page and keeps a full answer page.
 
-    20 x 10 with 4-deep clues (5-deep until CARD-248 — see :func:`pairs_up`):
-    14 cells down, the same pairing shared cell
-    as :func:`pairs_up`, but its longest side is 20, not 21 — the largest
-    INV-011 ever kept at six answers to a page, before this card. CARD-198's
-    own AC-8 needs exactly this combination: a book whose puzzle pages
+    Was ``pairs_up_six``, a 20 x 10 (4-deep clues, 5-deep until CARD-248 —
+    see :func:`pairs_up`): the largest longest side INV-011 ever kept at six
+    answers to a page under the old packed key. The owner's 2026-11-09
+    packing limit (:data:`PACKED_MAX_WIDTH` x :data:`PACKED_MAX_HEIGHT`)
+    packs a 20 x 10 four to a page now, so a book of them no longer grows by
+    one answer page per puzzle — and no puzzle can be both six-up under the
+    old key (longest side <= 20) and over the new limit (wider than 20 or
+    taller than 25). So this one is :data:`PACKED_MAX_WIDTH` + 1 wide, read
+    off the constant: the same 14 cells down as :func:`pairs_up`, so it still
+    pairs two-up, and the old packed key put it four-up rather than six-up.
+    CARD-198's AC-8 needs exactly this combination: a book whose puzzle pages
     pairing already shortens, and whose answer pages the old packed key
-    already packed as tightly as INV-011 allowed (six-up), so that book sat
-    comfortably under the old 300-page ceiling — and *only* the switch to
-    one full answer page per puzzle, unpacked, is what can now carry it past
-    KDP's modelled table altogether.
+    packed tightly enough to sit under the old 300-page ceiling — so that
+    *only* one full answer page per puzzle, unpacked, is what can now carry
+    it past KDP's modelled table altogether.
     """
-    return _record(20, 10, 4, tier, number)
+    return _record(PACKED_MAX_WIDTH + 1, 10, 4, tier, number)
 
 
 def corpus(*runs) -> list[dict]:
@@ -299,7 +312,7 @@ AC179_PAGES = 287
 #: than 127. 278
 #: interior pages in all.
 AC271_CORPUS = (
-    (alone_six_up, "easy", 90),
+    (alone_unpackable, "easy", 90),
     (pairs_up, "medium", 58),
     (alone, "medium", 2),
 )
@@ -343,8 +356,9 @@ AC199_CARD198_PAGES = 488
 #: CARD-198's own AC-8 book: a book that *was* inside the old 300-page
 #: ceiling, purely because of the answer section's old packing, and crosses
 #: even CARD-199's widened 590-page ceiling once that packing is gone. 444
-#: one-tier :func:`pairs_up_six` puzzles, all pairing two-up and all
-#: six-up-packable under the old key:
+#: one-tier 20 x 10 puzzles, all pairing two-up and all six-up-packable
+#: under the old key (the corpus as CARD-198 built it; it is now 394 wider
+#: ones — see the 2026-11-09 note at the end):
 #:
 #: * old (packed, pre-CARD-198) arithmetic: 1 guide + 1 divider + 222 paired
 #:   puzzle pages + the SOLUTIONS divider + 74 six-up answer pages
@@ -367,9 +381,24 @@ AC199_CARD198_PAGES = 488
 #: :data:`AC8_OLD_PACKED_PAGES` is a reconstruction of the *pre*-CARD-198
 #: book (no TOC, no title page, the packed key) and is left as it was: it is
 #: not a figure this interior produces.
-AC8_CORPUS = ((pairs_up_six, "easy", 444),)
+#:
+#: **2026-11-09 note (retuned, same discipline).** The owner raised the
+#: answer key's packing limit to :data:`PACKED_MAX_WIDTH` x
+#: :data:`PACKED_MAX_HEIGHT`, so 444 20 x 10s now pack four to a page (111
+#: answer pages, 339 in all) and the book no longer crosses anything. No
+#: puzzle is both six-up under the old key and over the new limit (see
+#: :func:`pairs_up_unpackable`), so the corpus moves to one
+#: ``PACKED_MAX_WIDTH + 1`` wide, which the old key packed **four**-up, and
+#: to the count that keeps the old book at the same 299: 394 puzzles, all
+#: pairing — 1 + 1 + 197 paired puzzle pages + 1 + 99 four-up answer pages
+#: (ceil(394 / 4)) = 299. Today's interior: 6 front/back pages + 197 + 394
+#: answer pages (one per puzzle, nothing packs) = 597, over the 590-page
+#: ceiling purely from the answer section's own growth, as before.
+#: Measured against the live plan below, not asserted from this arithmetic.
+AC8_CORPUS = ((pairs_up_unpackable, "easy", 394),)
+AC8_PUZZLES = 394
 AC8_OLD_PACKED_PAGES = 299
-AC8_PAGES = 672
+AC8_PAGES = 597
 
 
 # --------------------------------------------------------------------------
@@ -1079,9 +1108,11 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
     :data:`AC8_CORPUS` sat at 299 pages under the old *packed* answer key —
     comfortably inside the old 300-page ceiling, on the gutter CON-018's own
     profile stores — purely because its answers packed six-up as tightly as
-    INV-011 ever allowed and its puzzle pages paired two-up. Since CARD-198
+    INV-011 ever allowed and its puzzle pages paired two-up (four-up since
+    the 2026-11-09 retune: see :data:`AC8_CORPUS`'s note). Since CARD-198
     replaced that packed key with one full answer page per puzzle, the exact
-    same book, same gutter, same everything else, is 669 pages — over even
+    same book, same gutter, same everything else, is :data:`AC8_PAGES`
+    pages — over even
     CARD-199's widened 590-page ceiling. Finalise must refuse it cleanly with
     :class:`KdpPageCountNotModelled`'s own wording, never crash and never
     silently truncate the count to something that fits.
@@ -1102,7 +1133,12 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
         book's own puzzle-page plan — not re-derived from the docstring's
         arithmetic alone.
         """
-        from nonogram.admin.book_answer_key import Answer, pack_answer_pages
+        from nonogram.admin.book_answer_key import (
+            FOUR_UP,
+            Answer,
+            pack_answer_pages,
+            qualifies_for_packing,
+        )
         from nonogram.admin.book_pdf_generator import _answer_extent, _pairable_tier
 
         book_id = panel.book(AC8_CORPUS)
@@ -1125,7 +1161,11 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
         old_total = 1 + 1 + len(plan) + 1 + len(key)
 
         assert len(plan) < len(payloads), "the puzzle pages are expected to pair"
-        assert all(answer.width <= 20 and answer.height <= 20 for answer in answers)
+        # 2026-11-09: no longer "all six-up" — no puzzle can be six-up under
+        # the old key and still over the owner's new packing limit, so the
+        # premise is the four-up old key and answers that do not pack today.
+        assert all(page.capacity == FOUR_UP for page in key)
+        assert not any(qualifies_for_packing(answer) for answer in answers)
         assert old_total == AC8_OLD_PACKED_PAGES
         assert old_total <= 300, "the premise: this book fit before CARD-198"
         assert gutter_refusal(old_total, 1.27) is None, (
@@ -1139,7 +1179,7 @@ class TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling:
         counts = panel.counts(book_id)
 
         assert counts.page_count == AC8_PAGES
-        assert counts.answer_page_count == 444, "one answer page per puzzle"
+        assert counts.answer_page_count == AC8_PUZZLES, "one answer page per puzzle"
         assert AC8_PAGES > MAX_MODELLED_PAGE_COUNT
 
     def test_finalise_refuses_cleanly_with_the_not_modelled_wording(
@@ -1228,7 +1268,7 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
 
     def test_a_book_with_no_pairing_at_all_shows_no_saving(self, panel) -> None:
         """The control: nothing to subtract, nothing shown as saved."""
-        book_id = panel.book(((alone_six_up, "easy", 5),))
+        book_id = panel.book(((alone_unpackable, "easy", 5),))
 
         shown = panel.shown(book_id)
 

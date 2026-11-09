@@ -116,6 +116,11 @@ TOP_MM = 0.55 * 25.4
 BOTTOM_MM = 0.47 * 25.4
 USABLE_WIDTH_MM = 8.5 * 25.4 - GUTTER_MM - OUTSIDE_MM
 USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
+#: The strip every answer page keeps above its drawing for its running head
+#: ("SOLUTIONS · EASY" / "PUZZLES 1–4", the approved solutions mockup), so an
+#: answer page's usable height is this much shorter than a puzzle page's.
+RUNNING_HEAD_MM = 9.0
+ANSWER_USABLE_HEIGHT_MM = USABLE_HEIGHT_MM - RUNNING_HEAD_MM
 STANDARD_CELL_MM = 7.5
 PX_PER_MM = 300 / 25.4
 
@@ -128,7 +133,7 @@ PACKED_GAP_MM = 4.0
 PACKED_MAX_CELL_MM = 6.0
 PACKED_BAND_MM = 12.0
 PACKED_TILE_WIDTH_MM = (USABLE_WIDTH_MM - PACKED_GAP_MM) / 2
-PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
+PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - RUNNING_HEAD_MM
 
 #: FR-040's two-up minimum, and the usable height a page has left once it
 #: reserves a band for each of two puzzles rather than one **and one footer
@@ -223,6 +228,7 @@ def _expected_drawing_left_mm(
     is_lower=False,
     gutter_mm=GUTTER_MM,
     outside_mm=OUTSIDE_MM,
+    usable_height_mm=USABLE_HEIGHT_MM,
 ):
     """Where interior page ``page_number`` puts this puzzle's left edge
     (FR-032, as CARD-224 restores it).
@@ -261,7 +267,7 @@ def _expected_drawing_left_mm(
     across = _across(puzzle)
     usable_width_mm = 8.5 * 25.4 - gutter_mm - outside_mm
     cell = (
-        min(STANDARD_CELL_MM, usable_width_mm / across, USABLE_HEIGHT_MM / _down(puzzle))
+        min(STANDARD_CELL_MM, usable_width_mm / across, usable_height_mm / _down(puzzle))
         if cell_mm is None
         else cell_mm
     )
@@ -289,6 +295,27 @@ def _packed_cell_mm(group):
         min(PACKED_TILE_WIDTH_MM / _across(p) for p in group),
         min(drawing_height / _down(p) for p in group),
     )
+
+
+#: How deep a run of inked rows must be to be a drawing rather than one line
+#: of type: a packed answer is at least ten cells deep at a cell of at least
+#: 2 mm, and a line of the running head or a solution header is under 5 mm.
+_DRAWING_MIN_MM = 10.0
+
+
+def _drawing_rows_only(ink):
+    """``ink`` with every run of inked rows shallower than ``_DRAWING_MIN_MM`` cleared."""
+    present = ink.any(axis=1)
+    kept = ink.copy()
+    start = None
+    for index, here in enumerate(list(present) + [False]):
+        if here and start is None:
+            start = index
+        elif not here and start is not None:
+            if (index - start) < _DRAWING_MIN_MM * PX_PER_MM:
+                kept[start:index] = False
+            start = None
+    return kept
 
 
 def _packed_column_left_mm(group, column, page_number):
@@ -714,8 +741,9 @@ def _divider_pages(puzzles):
 def _qualifies_for_packing(puzzle):
     """CARD-202's threshold, written out here rather than imported
     (:func:`~nonogram.admin.book_answer_key.qualifies_for_packing`):
-    width<=15 and height<=20, both sides checked separately."""
-    return puzzle["width"] <= 15 and puzzle["height"] <= 20
+    width<=20 and height<=25 since the owner raised it (from 15 and 20),
+    both sides checked separately."""
+    return puzzle["width"] <= 20 and puzzle["height"] <= 25
 
 
 def _grouped_run(run):
@@ -1086,7 +1114,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 # CARD-379 (M2): the frame's boundary, as on the puzzle pages
                 # above (``page`` is device pixels in either medium).
                 drawn_left_mm = frame_centre_of(page, drawing_of(page)).frame_left / PX_PER_MM
-                expected_mm = _expected_drawing_left_mm(puzzle, answer_page_number)
+                # The approved solutions mockup: an answer page fits its
+                # drawing under its running head's strip, so its page fit is
+                # taken over the answer page's own, shorter, usable height.
+                expected_mm = _expected_drawing_left_mm(
+                    puzzle, answer_page_number, usable_height_mm=ANSWER_USABLE_HEIGHT_MM
+                )
                 seen_error["answer page"] = max(
                     seen_error["answer page"], abs(drawn_left_mm - expected_mm)
                 )
@@ -1122,6 +1155,15 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                     bottom_limit = page.height - round((BOTTOM_MM + 6.0) * PX_PER_MM)
                     crop = page.crop((left, 0, right, bottom_limit))
                     ink = np.asarray(crop.convert("L")) < 128
+                    # The approved solutions mockup puts two lines of type
+                    # flush with the TILE's left edge rather than the
+                    # drawing's: the page's running head (and its rule) across
+                    # the top, and each tile's solution header (the number,
+                    # the name) in its band. Each is one line, a few mm tall,
+                    # where a drawing is at least ten cells deep, so the
+                    # drawing is read off the runs of inked rows at least
+                    # ``_DRAWING_MIN_MM`` deep and the lines of type are not.
+                    ink = _drawing_rows_only(ink)
                     cols_with_ink = np.where(ink.any(axis=0))[0]
                     assert cols_with_ink.size, (
                         f"{label}: packed answer page {answer_page_number} "

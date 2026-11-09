@@ -74,11 +74,19 @@ def _book(domain: str | None = DOMAIN, *, trim_mm: tuple[float, float] | None = 
 #: page, two guide pages and one TOC page (pages 1-4); the rest follows from
 #: the section: a divider per level, and a page per puzzle or per pair.
 #:
-#: * four 18/20 Easies-to-Hards: 3 dividers + 4 puzzle pages end on page 11
-#:   (a recto), so a blank (12) then the Play page (13), SOLUTIONS 14, four
-#:   answer pages 15-18;
-#: * five: the section ends on page 12 (a verso), so no blank: Play 13,
-#:   SOLUTIONS 14, five answers 15-19;
+#: * four 18/20 Easies-to-Hards (2 Easy, 1 Medium, 1 Hard): 3 dividers + 4
+#:   puzzle pages end on page 11 (a recto), so a blank (12) then the Play page
+#:   (13), SOLUTIONS 14, three answer pages 15-17 (the two Easies pack onto
+#:   one page, the Medium and the Hard each pack alone);
+#: * five (2 Easy, 2 Medium, 1 Hard): the section ends on page 12 (a verso),
+#:   so no blank: Play 13, SOLUTIONS 14, three answer pages 15-17 (a packed
+#:   Easy pair, a packed Medium pair, the Hard alone);
+#:
+#: Those two used to end on 18 and 19, one answer page per puzzle: an 18x18
+#: or 20x20 was too wide for the answer key's old 15x20 packing limit. The
+#: owner raised the limit to 20x25 (2026-11-09), so every corpus answer now
+#: packs, same-level neighbours four to a page (two for a leftover). Only the
+#: answer section shrank; the Play page and SOLUTIONS divider did not move.
 #: * the baseline book: its last puzzle page is 10, so Play 11, SOLUTIONS 12,
 #:   three answer pages 13-15;
 #: * two Hards that pair: one divider and one two-up page end on page 6, so
@@ -86,8 +94,8 @@ def _book(domain: str | None = DOMAIN, *, trim_mm: tuple[float, float] | None = 
 #: * three Hards (a pair and a single): the section ends on page 7, so a blank
 #:   (8), Play 9, SOLUTIONS 10, answers 11-12 (a packed pair, then one).
 CASES = [
-    ("four singles, ends on a recto", corpus_puzzles(4), 13, 12, 14, 18),
-    ("five singles, ends on a verso", corpus_puzzles(5), 13, None, 14, 19),
+    ("four singles, ends on a recto", corpus_puzzles(4), 13, 12, 14, 17),
+    ("five singles, ends on a verso", corpus_puzzles(5), 13, None, 14, 17),
     ("the baseline book", baseline_puzzles(), 11, None, 12, 15),
     ("a pair ends the section", _hard_pair(2), 7, None, 8, 9),
     ("a pair and a single", _hard_pair(3), 9, 8, 10, 12),

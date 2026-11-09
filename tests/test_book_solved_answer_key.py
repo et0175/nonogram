@@ -7,7 +7,9 @@
     AC-5  TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed
     AC-7  TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount
 
-CARD-202 narrows CARD-198's rule for small answers (width<=15, height<=20):
+CARD-202 narrows CARD-198's rule for small answers (width<=PACKED_MAX_WIDTH,
+height<=PACKED_MAX_HEIGHT; 15x20 when the card shipped, 20x25 since the owner
+raised the limit):
 they pack 2-or-4 to a page, with clues, instead of CARD-198's one full page
 each. Its own classes, appended below the CARD-198 ones above (same file,
 same module docstring — the card's own AC naming puts every one of these in
@@ -46,8 +48,10 @@ or :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page
 — never a bespoke third drawing path.
 
 **Puzzles here never pair.** Every puzzle is built with clue gutters 3 deep on
-an 18x18 (CARD-202: >15 wide, so it never qualifies for packing
-either — or, for AC-7's larger book, 6 deep on a 22x22 — the same shape
+a :data:`FULL_SIDE` square (one column wider than ``PACKED_MAX_WIDTH``, so it
+never qualifies for packing either — it was an 18x18 while the limit was 15
+wide; the owner raised it to 20x25, under which an 18x18 packs — or, for
+AC-7's larger book, 6 deep on a 22x22 — the same shape
 ``tests/test_book_finalise_gutter.py``'s own ``alone`` uses, chosen there for
 exactly this reason), so FR-040's two-up pairing never shortens the puzzle
 section and the interior's make-up is arithmetic, not a verdict of the pairing
@@ -64,6 +68,7 @@ import pytest
 from PIL import Image
 
 import nonogram.admin.book_pdf_generator as book_pdf_generator
+from nonogram.admin.book_dividers import SOLUTIONS_SLOT
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
@@ -75,6 +80,9 @@ from nonogram.admin.book_pdf_generator import (
     page_is_right_hand,
 )
 from nonogram.admin.book_answer_key import (
+    CAPTION_SEPARATOR,
+    PACKED_MAX_HEIGHT,
+    PACKED_MAX_WIDTH,
     Answer,
     PackedAnswerPage,
     answer_caption,
@@ -104,6 +112,13 @@ BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
 OUTSIDE_MM = 0.375 * 25.4
+
+
+#: The side of this file's default "full page" puzzle: one column wider than
+#: the packing limit, so its answer always takes CARD-198's full page. Derived
+#: from the constant, so the premise follows the owner's limit (it was a
+#: hard-coded 18 while the limit was 15 wide).
+FULL_SIDE = PACKED_MAX_WIDTH + 1
 
 
 def _cm(millimetres: float) -> str:
@@ -172,8 +187,8 @@ def _grid(columns: int, rows: int, depth: int = 3, mark: int = 0) -> List[List[b
 
 
 def _puzzle(
-    columns: int = 18,
-    rows: int = 18,
+    columns: int = FULL_SIDE,
+    rows: int = FULL_SIDE,
     *,
     number: int = 1,
     depth: int = 3,
@@ -303,7 +318,7 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
 
     def test_the_answer_section_holds_exactly_one_page_per_puzzle(self) -> None:
         book = _book()
-        puzzles = _book_of((18, 18), (18, 18), (18, 18), tiers=["easy"] * 3)
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy"] * 3)
         pages = _interior(puzzles, book)
         start = first_answer_page(book, puzzles)
 
@@ -313,7 +328,7 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
     def test_the_pages_print_in_book_order_one_to_n(self) -> None:
         """Each page's own band carries the puzzle number that page prints."""
         book = _book()
-        puzzles = _book_of((18, 18), (18, 18), (18, 18), (18, 18), tiers=["easy"] * 4)
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy"] * 4)
         pages = _interior(puzzles, book)
         start = first_answer_page(book, puzzles)
         gen = BookPDFGenerator(book)
@@ -354,7 +369,7 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
 
     def test_a_puzzle_with_its_own_name_matches_a_direct_call(self) -> None:
         book = _book()
-        puzzles = _book_of((18, 18), (18, 12), tiers=["easy", "medium"])
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, 12), tiers=["easy", "medium"])
         pages = _interior(puzzles, book)
         start = first_answer_page(book, puzzles)
         gen = BookPDFGenerator(book)
@@ -369,7 +384,7 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
     def test_a_custom_book_title_wins_over_the_pictures_own_name(self) -> None:
         """FR-041: ``books.puzzle_titles`` beats ``puzzle_name`` in the caption."""
         puzzles = [
-            _puzzle(18, 18, number=1, name="Snowflake", tier="easy"),
+            _puzzle(FULL_SIDE, FULL_SIDE, number=1, name="Snowflake", tier="easy"),
         ]
         book = _book({"p1": "Winter Star"})
         pages = _interior(puzzles, book)
@@ -389,7 +404,7 @@ class TestBookSolvedAnswerKey_EachPageIsOnePuzzleSolvedWithClues:
     def test_a_puzzle_with_no_name_at_all_is_still_captioned_by_number_alone(
         self,
     ) -> None:
-        puzzle = _puzzle(18, 18, number=1, name=None, tier="easy")
+        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=1, name=None, tier="easy")
         puzzle["puzzle_name"] = None
         book = _book()
         pages = _interior([puzzle], book)
@@ -411,7 +426,7 @@ class TestBookSolvedAnswerKey_PageCountIsOnePerPuzzleNotPacked:
 
     def test_answer_page_count_equals_the_drawable_puzzle_count(self) -> None:
         book = _book()
-        puzzles = _book_of(*[(18, 18)] * 9, tiers=["easy"] * 9)
+        puzzles = _book_of(*[(FULL_SIDE, FULL_SIDE)] * 9, tiers=["easy"] * 9)
         stream = BookPDFGenerator(book).interior_stream(puzzles)
 
         assert stream.answer_page_count == 9
@@ -432,7 +447,7 @@ class TestBookSolvedAnswerKey_PageCountIsOnePerPuzzleNotPacked:
         import nonogram.admin.book_pdf_generator as bpg
 
         book = _book()
-        puzzles = _book_of(*[(18, 18)] * 3, tiers=["easy"] * 3)
+        puzzles = _book_of(*[(FULL_SIDE, FULL_SIDE)] * 3, tiers=["easy"] * 3)
         real = bpg.interior_page_count
 
         def one_more(*args, **kwargs):
@@ -468,7 +483,7 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
     @staticmethod
     def _book_and_pages() -> Tuple[Book, List[dict], List[Image.Image]]:
         book = _book()
-        puzzles = _book_of((18, 18), (18, 18), (18, 18), tiers=["easy", "easy", "medium"])
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), (FULL_SIDE, FULL_SIDE), tiers=["easy", "easy", "medium"])
         return book, puzzles, _interior(puzzles, book)
 
     def test_pages_one_and_two_band_easy_and_page_three_bands_medium(self) -> None:
@@ -497,9 +512,13 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
         gen = BookPDFGenerator(book)
 
         # The page immediately before the answer section is the SOLUTIONS
-        # divider, built the same way every divider page is.
+        # divider: with no picture uploaded, the approved mockup's opener,
+        # reached through the same ``divider_page`` call the walk makes (it
+        # names the span, so it takes the book's puzzle count).
         assert _page_reading(pages[start - 2]) == _page_reading(
-            gen.create_divider_page(start - 1)
+            gen.divider_page(
+                SOLUTIONS_SLOT, start - 1, "SOLUTIONS", puzzle_count=len(puzzles)
+            )
         )
 
         # And every page from the first answer page on is a *puzzle* page —
@@ -546,7 +565,7 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
     def test_a_ragged_grid_aborts_naming_the_puzzle_with_a_value_error_cause(
         self,
     ) -> None:
-        puzzle = _puzzle(18, 18, number=4)
+        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=4)
         puzzle["grid"] = [row[:] for row in puzzle["grid"]]
         puzzle["grid"][2] = puzzle["grid"][2][:-1]
 
@@ -559,7 +578,7 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
 
     @pytest.mark.parametrize("grid", [[], [[]]])
     def test_an_empty_grid_aborts_the_same_way(self, grid: list) -> None:
-        puzzle = _puzzle(18, 18, number=9)
+        puzzle = _puzzle(FULL_SIDE, FULL_SIDE, number=9)
         puzzle["grid"] = grid
 
         with pytest.raises(RuntimeError) as raised:
@@ -576,8 +595,8 @@ class TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed:
         tripwires keep (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`'s
         own docstring).
         """
-        good = _puzzle(18, 18, number=1)
-        bad = _puzzle(18, 18, number=2)
+        good = _puzzle(FULL_SIDE, FULL_SIDE, number=1)
+        bad = _puzzle(FULL_SIDE, FULL_SIDE, number=2)
         bad["grid"] = []
 
         with pytest.raises(RuntimeError, match="could not be laid out"):
@@ -695,7 +714,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
 
 # ==========================================================================
-# CARD-202 — small answers (width<=15, height<=20) pack 2-or-4 to a page
+# CARD-202 — small answers (width<=PACKED_MAX_WIDTH, height<=PACKED_MAX_HEIGHT)
+# pack 2-or-4 to a page
 # ==========================================================================
 
 
@@ -895,33 +915,52 @@ class TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly:
 
 
 class TestBookSolvedAnswerKey_ThresholdIsWidthAndHeightNotLongestSide:
-    """AC-3 — 15x20 qualifies; 16-wide or 21-tall does not (both sides checked)."""
+    """AC-3 — W x H qualifies; one wider or one taller does not (both sides checked).
+
+    W x H is ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT``, read off the
+    constants: 15x20 when CARD-202 shipped (the test names below still carry
+    those figures, and are cited elsewhere, so they are not renamed), 20x25
+    since the owner raised the limit. The one-over cases are 21 wide and 26
+    tall.
+    """
 
     def test_exactly_15x20_qualifies(self) -> None:
-        assert qualifies_for_packing(Answer(number=1, width=15, height=20, level=None))
+        assert (PACKED_MAX_WIDTH, PACKED_MAX_HEIGHT) == (20, 25), (
+            "the owner's limit; this class's one-over cases are 21 and 26"
+        )
+        assert qualifies_for_packing(
+            Answer(number=1, width=PACKED_MAX_WIDTH, height=PACKED_MAX_HEIGHT, level=None)
+        )
 
     def test_16_wide_does_not_qualify_even_though_it_is_still_20_tall(self) -> None:
+        """One column over the width limit (21), at the full height limit."""
         assert not qualifies_for_packing(
-            Answer(number=1, width=16, height=20, level=None)
+            Answer(number=1, width=PACKED_MAX_WIDTH + 1, height=PACKED_MAX_HEIGHT, level=None)
         )
 
     def test_21_tall_does_not_qualify_even_though_it_is_still_15_wide(self) -> None:
+        """One row over the height limit (26), at the full width limit."""
         assert not qualifies_for_packing(
-            Answer(number=1, width=15, height=21, level=None)
+            Answer(number=1, width=PACKED_MAX_WIDTH, height=PACKED_MAX_HEIGHT + 1, level=None)
         )
 
     def test_the_check_is_not_a_longest_side_bound(self) -> None:
-        """A tall, narrow answer (5x20) qualifies; the old SIX_UP-style
-        longest-side bound would have nothing to say about width at all."""
-        assert qualifies_for_packing(Answer(number=1, width=5, height=20, level=None))
+        """A tall, narrow answer (5 x PACKED_MAX_HEIGHT) qualifies, and its
+        transpose does not; the old SIX_UP-style longest-side bound would have
+        nothing to say about width at all."""
+        assert qualifies_for_packing(
+            Answer(number=1, width=5, height=PACKED_MAX_HEIGHT, level=None)
+        )
         assert not qualifies_for_packing(
-            Answer(number=1, width=20, height=5, level=None)
+            Answer(number=1, width=PACKED_MAX_HEIGHT, height=5, level=None)
         )
 
     def test_the_boundary_holds_in_a_real_book(self) -> None:
-        """Integration: a 15x20 and a 16x20 of the same tier — only the first packs."""
+        """Integration: a W x H and a (W+1) x H of the same tier — only the first packs."""
         puzzles = _small_book_of(
-            (15, 20, "easy"), (16, 20, "easy"), depth=5
+            (PACKED_MAX_WIDTH, PACKED_MAX_HEIGHT, "easy"),
+            (PACKED_MAX_WIDTH + 1, PACKED_MAX_HEIGHT, "easy"),
+            depth=5,
         )
         answers = _answers_for(puzzles)
         plan = plan_small_answer_pages(list(answers))
@@ -1104,7 +1143,7 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
     """AC-7 — a book with no qualifying puzzle is unaffected by this card."""
 
     def test_no_puzzle_in_the_plan_is_ever_packed(self) -> None:
-        puzzles = _book_of((18, 18), (22, 22), (16, 21), tiers=["easy"] * 3)
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (22, 22), (FULL_SIDE, PACKED_MAX_HEIGHT + 1), tiers=["easy"] * 3)
         answers = _answers_for(puzzles)
         plan = plan_small_answer_pages(list(answers))
 
@@ -1115,7 +1154,7 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
         """Every answer page matches a direct ``solved_puzzle_page`` call —
         CARD-198's own exact contract, unchanged for an all-large book."""
         book = _book()
-        puzzles = _book_of((18, 18), (22, 22), (16, 21), tiers=["easy"] * 3)
+        puzzles = _book_of((FULL_SIDE, FULL_SIDE), (22, 22), (FULL_SIDE, PACKED_MAX_HEIGHT + 1), tiers=["easy"] * 3)
         pages = _interior(puzzles, book)
         start = first_answer_page(book, puzzles)
         gen = BookPDFGenerator(book)
@@ -2171,11 +2210,14 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_plan import TIERS
 from nonogram.admin.book_vector import ContentStream, interior_face_metrics, write_vector_pdf
 from nonogram.difficulty import Tier as _Tier
+from nonogram.admin.book_pdf_generator import RUNNING_HEAD_MM, answer_section_spec
 from nonogram.export.layout import (
+    INTERIOR_FOOTER_LINE_PT,
     PageParity,
     compute_answer_page_layout,
     compute_layout,
     difficulty_dots,
+    header_band,
 )
 from tests.helpers import pdf_vector, round_ink
 
@@ -2487,8 +2529,8 @@ def _titled_book_puzzles() -> List[dict]:
     return [
         _puzzle(12, 12, number=1, depth=3, name=_TITLES[0], tier="easy"),
         _puzzle(12, 12, number=2, depth=3, name=_TITLES[1], tier="easy"),
-        _puzzle(18, 18, number=3, depth=3, name=_TITLES[2], tier="medium"),
-        _puzzle(18, 18, number=4, depth=3, name=_TITLES[3], tier="hard"),
+        _puzzle(FULL_SIDE, FULL_SIDE, number=3, depth=3, name=_TITLES[2], tier="medium"),
+        _puzzle(FULL_SIDE, FULL_SIDE, number=4, depth=3, name=_TITLES[3], tier="hard"),
     ]
 
 
@@ -2586,11 +2628,22 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
         would be the over-applied mark CARD-314's AC-4 exists to catch, and
         this is the only reading in the tree that would see it on *these* two
         kinds together.
+
+        **The approved solutions mockup took it to 21.** Each solution's
+        header now sets its number emboldened (``q``/``Q`` around a ``2 Tr``
+        string, :meth:`ContentStream.text`'s ``embolden_pt``) and draws the
+        tier's dots flush right through ``draw_tier_dots`` -- the one
+        round-mark site -- whose quadrants are ``c``, closed by ``h`` and
+        painted by ``B``. So ``B``/``c``/``h`` are no longer surplus: they are
+        CARD-233's signal arriving, on the **answer** pages only, and the TOC
+        still draws no round shape (asserted per kind below).
         """
         emitted = {
             "g", "G", "w", "m", "l", "S", "re", "f",
             "BT", "ET", "Tf", "Td", "Tj",
             "BMC", "EMC",
+            "q", "Q", "Tr",
+            "B", "c", "h",
         }
         seen: set = set()
         for stream_text in pdf_vector.content_streams(
@@ -2600,11 +2653,15 @@ class TestAnswerAndTocPages_CarryNoImageXObject:
             assert tokens <= emitted, sorted(tokens - emitted)
             seen |= tokens
         assert seen == emitted, (sorted(seen - emitted), sorted(emitted - seen))
-        # The three members F-297-04 found surplus are a round mark's, and a
-        # round shape on these pages is CARD-233's signal rather than this
-        # card's licence. Stated here as well as in the limit cell so the two
-        # cannot drift apart again.
-        assert not ({"B", "c", "h"} & seen), sorted({"B", "c", "h"} & seen)
+        # The three members F-297-04 found surplus are a round mark's. Since
+        # the approved mockup they are the solution header's tier dots, and
+        # they belong to the answer pages alone: a round shape on a TOC page
+        # is still nobody's licence. Stated here as well as in the limit cell
+        # so the two cannot drift apart again.
+        round_ops = {"B", "c", "h"}
+        for stream_text in pdf_vector.content_streams(_written(recorded.toc_streams())):
+            tokens = set(pdf_vector.operator_tokens(stream_text))
+            assert not (round_ops & tokens), sorted(round_ops & tokens)
         # CARD-314: the mark is on the answer pages and NOT on the TOC, which
         # draws no clue digit. Read per page kind, so an over-applied bracket
         # on a TOC page reds here rather than disappearing into the union.
@@ -2694,6 +2751,15 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         set is not empty on either profile, and on Book 1 it is the whole
         book's four titles, so the comparison is not an agreement between two
         empty sets.
+
+        **The two media no longer correspond here (the approved solutions
+        mockup).** The vector page names every solution in its *header*,
+        beside the number, where there is always room; the raster twin
+        (``solved_puzzle_page`` / ``_packed_answer_page``, unchanged) still
+        sets the old caption under the drawing and still omits or clips it
+        where the trim leaves no slack. So equality became containment: the
+        vector pages name every title on both profiles, and every title the
+        raster twin drew is among them.
         """
         printed = [
             " ".join(_strings(text))
@@ -2709,10 +2775,10 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
             for _, text, names in recorded.text
             if "_draw_solved_slot" in names and title in text
         }
-        assert vector == raster, (sorted(vector), sorted(raster))
+        assert raster <= vector, (sorted(vector), sorted(raster))
         assert vector, "no answer page printed a title, so AC-2's sweep is vacuous"
-        if profile == "book1":
-            assert vector == set(_TITLES), sorted(vector)
+        assert raster, "the raster twin drew no caption, so the containment is vacuous"
+        assert vector == set(_TITLES), sorted(vector)
 
     def test_a_clipped_title_is_counted_as_printed_in_both_media(
         self, recorded
@@ -2726,24 +2792,37 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
         medium printed **something** for, clips included, must agree, and the
         caption cells' element-for-element comparison then pins the string
         itself.
+
+        **Read per medium in the form each now sets (the approved solutions
+        mockup).** The vector page sets the picture's *name* alone in the
+        solution header, so its readings are of the titles; the raster twin
+        (unchanged) still sets the whole caption line, so its readings are of
+        the captions and are mapped back to the title behind each. The two no
+        longer agree as sets -- the header always has room, the raster
+        caption is omitted on the minimum trim -- so the claim is that every
+        title the raster twin printed something for, the vector header
+        printed something for too, and that the vector header names all of
+        them.
         """
+        names = set(self._titles_of(recorded))
         wanted = set(self._captions_for(recorded))
         vector = {
-            _caption_behind(reading, wanted)
+            _caption_behind(reading, names)
             for stream_text in pdf_vector.content_streams(
                 _written(recorded.answer_streams())
             )
             for _, text in _shows(stream_text)
-            if (reading := _caption_reading(text, wanted)) is not None
+            if (reading := _caption_reading(text, names)) is not None
         }
         raster = {
-            _caption_behind(reading, wanted)
-            for _, text, names in recorded.text
-            if "_draw_solved_slot" in names
+            _caption_behind(reading, wanted).partition(CAPTION_SEPARATOR)[2]
+            for _, text, names_above in recorded.text
+            if "_draw_solved_slot" in names_above
             and (reading := _caption_reading(text, wanted)) is not None
         }
-        assert vector == raster, (sorted(vector), sorted(raster))
+        assert raster <= vector, (sorted(vector), sorted(raster))
         assert vector, "no answer page carried a name at all"
+        assert vector == names, (sorted(vector), sorted(names))
 
     @staticmethod
     def _captions_for(recorded: _Recorded) -> List[str]:
@@ -2916,12 +2995,13 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                     pdf_vector.content_streams(_written(answers))
                 ):
                     shown = " ".join(_strings(text))
-                    # The caption is OMITTED rather than overlapped where the
-                    # trim leaves no slack (CARD-197's AC-6), which the 10 cm
-                    # trim genuinely does. So the page either prints its own
-                    # title or prints no title at all -- never a different
-                    # puzzle's, and never one on a page that had no room for
-                    # a caption.
+                    # The page either prints its own title or prints no title
+                    # at all -- never a different puzzle's. Under the old
+                    # caption the 10 cm trim omitted it (CARD-197's AC-6: no
+                    # slack under the drawing); since the approved solutions
+                    # mockup the name sits in the solution header, which every
+                    # trim has room for, so the omission arm is dead by design
+                    # and asserted dead below.
                     if picked[index] in shown:
                         printed += 1
                     elif any(
@@ -2950,17 +3030,17 @@ class TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted:
                         assert name not in shown, (trim, seed, name, shown)
                     cases += 1
         assert cases >= 40, cases
-        # Measured on this corpus: 18 of the 24 answer pages have the slack to
-        # print a caption (the six that do not are the 10 cm trim's). Asserted
-        # as a floor so the sweep cannot go vacuous by every caption being
-        # omitted, which is the one way the "prints its own title" half above
-        # could pass without being exercised.
-        assert printed >= 18, printed
-        # And the omission branch is exercised rather than assumed: the 10 cm
-        # square trim's six answer pages have 0 px of slack (measured), so the
-        # ``else`` arm above is live. A corpus where every caption printed
-        # would make it dead.
-        assert omitted >= 6, omitted
+        # Measured on this corpus before the approved solutions mockup: 18 of
+        # the 24 answer pages had the slack to print a caption under the
+        # drawing, and the 10 cm trim's six had 0 px and omitted it. The name
+        # now sits in the solution header, so every page prints it: the floor
+        # is all 24, which still refuses a sweep gone vacuous by every name
+        # being omitted.
+        assert printed >= 24, printed
+        # And the omission branch is now dead rather than live: a header that
+        # stopped naming a page on the 10 cm trim reds here instead of being
+        # absorbed as the old, licensed omission.
+        assert omitted == 0, omitted
         # And no case in this corpus clips, so the two floors above are an
         # equality over 24 answer pages rather than three buckets with slack.
         # Pinned because a clip is what F-297-03 showed the old reading could
@@ -3133,6 +3213,64 @@ _STROKERS, _DOOR_EMITS, _UNCLASSIFIED_DOORS = _content_stream_doors()
 #: CARD-295's and is deliberately **not** in the domain — a guard over the
 #: routine itself would forbid the one implementation it exists to protect.
 _GUARDED = (book_answer_vector, book_toc_vector)
+
+#: The answer writer's page furniture: functions that rule exactly ONE
+#: horizontal line and hold no grid, each with the reason it is not a grid
+#: walk. Added with the approved solutions mockup, which gave every solution a
+#: header with a grey hairline under it and every answer page a running head
+#: over a rule. Neither is a function of the solution (so the derived ``grid``
+#: exemption rightly does not admit them) and neither is a grid rule; a single
+#: horizontal line cannot walk a grid, and
+#: :func:`_furniture_rule_violations` holds each name to exactly that shape,
+#: so this is a declared, checked exemption and not a licence.
+_FURNITURE_RULES = {
+    "draw_solution_header": "the grey hairline under one solution's header line",
+    "draw_running_head": "the rule under the answer page's running head",
+}
+
+
+def _furniture_rule_violations(source: str) -> List[str]:
+    """Every way a :data:`_FURNITURE_RULES` function exceeds one horizontal rule.
+
+    Each must exist, make exactly one call through a drawing door, that call
+    must be ``line``, and its two y arguments must be the same expression --
+    the shape of one horizontal rule, which no grid walk has.
+    """
+    tree = _ast.parse(source)
+    found: List[str] = []
+    functions = {
+        node.name: node
+        for node in _ast.walk(tree)
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+    }
+    for name in _FURNITURE_RULES:
+        function = functions.get(name)
+        if function is None:
+            found.append(f"{name} is declared but not defined")
+            continue
+        calls = [
+            node
+            for node in _ast.walk(function)
+            if isinstance(node, _ast.Attribute) and node.attr in _STROKERS
+        ]
+        if len(calls) != 1:
+            found.append(f"{name} reaches {len(calls)} drawing doors, not one")
+            continue
+        door = calls[0]
+        parent = next(
+            (
+                node
+                for node in _ast.walk(function)
+                if isinstance(node, _ast.Call) and node.func is door
+            ),
+            None,
+        )
+        if door.attr != "line" or parent is None or len(parent.args) != 4:
+            found.append(f"{name} draws through .{door.attr}, not one line call")
+            continue
+        if _ast.dump(parent.args[1]) != _ast.dump(parent.args[3]):
+            found.append(f"{name}'s line is not horizontal")
+    return found
 
 
 def _enclosing(tree: _ast.AST) -> dict:
@@ -3314,8 +3452,22 @@ class TestAnswerTiles_ReuseTheGridRoutine:
     """
 
     def test_neither_writer_rules_a_line_outside_the_exemption(self) -> None:
+        """Since the approved solutions mockup, outside the exemption **or**
+        the declared page furniture (:data:`_FURNITURE_RULES`): the solution
+        header's hairline and the running head's rule, each held to one
+        horizontal line by :func:`_furniture_rule_violations`."""
         for module in _GUARDED:
-            assert stroke_violations(_source_of(module)) == [], module.__name__
+            source = _source_of(module)
+            outside = [
+                violation
+                for violation in stroke_violations(source)
+                if not (
+                    module is book_answer_vector
+                    and any(f": {name} rules a line" in violation for name in _FURNITURE_RULES)
+                )
+            ]
+            assert outside == [], module.__name__
+        assert _furniture_rule_violations(_source_of(book_answer_vector)) == []
 
     def test_the_exemption_set_is_derived_and_not_everything(self) -> None:
         """The guard is not default-ALLOW underneath (ADR-0039/R2).
@@ -3351,16 +3503,23 @@ class TestAnswerTiles_ReuseTheGridRoutine:
         the solution, which no routine that does not take the grid could place
         — so the widening records the same property over a wider vocabulary.
         The cell's name predates it and G-6 forbids renaming a test.
+
+        **Plus the two furniture rules since the approved solutions mockup**
+        (:data:`_FURNITURE_RULES`): they stroke, they are *not* exempt (they
+        hold no grid), and they are admitted only as one horizontal rule each.
         """
         strokes = {
             owner.name
             for node, owner in _strokers_of(_source_of(book_answer_vector))
             if owner is not None
         }
-        assert strokes == {"draw_answer_cells", "draw_solved_joins"}
+        assert strokes == {"draw_answer_cells", "draw_solved_joins"} | set(_FURNITURE_RULES)
         # Both hold the grid, which is what makes them exempt rather than
         # tolerated: the set above is a subset of the derivation's own.
-        assert strokes <= set(exempt_functions(_source_of(book_answer_vector)))
+        exempt = set(exempt_functions(_source_of(book_answer_vector)))
+        assert strokes - set(_FURNITURE_RULES) <= exempt
+        # And the furniture is tolerated, not exempt: neither holds the grid.
+        assert not (set(_FURNITURE_RULES) & exempt)
 
     def test_the_watched_set_is_derived_from_the_class_and_not_listed(self) -> None:
         """F-297-01: the stroker vocabulary is a measurement of ``ContentStream``.
@@ -3914,6 +4073,13 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
     does **not** make is that an answer page prints dots, which
     :meth:`test_no_answer_page_draws_a_round_mark_today` states as a fact
     rather than leaving to be discovered.
+
+    **Since the approved solutions mockup** the paragraph above is history:
+    each solution's header draws its tier's dots flush right (through
+    ``book_puzzle_vector.draw_tier_dots``, the puzzle header's round-mark
+    site), so an answer page does print dots, and
+    :meth:`test_no_answer_page_draws_a_round_mark_today` now asserts that
+    rather than their absence. The box cells below are unchanged.
     """
 
     @pytest.fixture(scope="class")
@@ -4023,18 +4189,30 @@ class TestAnswerTileHeader_DifficultyDotsAreRound:
         assert raster.diameter == vector.diameter
 
     def test_no_answer_page_draws_a_round_mark_today(self, recorded) -> None:
-        """The stated limit, as a test rather than as prose (G-1).
+        """The stated limit, as a test rather than as prose (G-1) -- inverted.
 
         A ``c`` operator is how :meth:`ContentStream.round_mark` draws a
-        quadrant, and it is the only thing in this card's writers that could
-        emit one. A page kind that starts drawing dots reds here, which is
-        CARD-233's own signal to update AC-5 rather than to discover it.
+        quadrant. This cell used to assert no answer page emitted one, as
+        CARD-233's signal to update AC-5. The approved solutions mockup is
+        that signal: every solution's header now draws its tier's dots flush
+        right, through ``book_puzzle_vector.draw_tier_dots`` (the puzzle
+        header's own round-mark site, not a second one). So the reading is
+        now the other way round, per page kind: every answer page draws a
+        round mark, no TOC page does, and the answer writer reaches
+        ``round_mark`` only through ``draw_tier_dots``. (The name is kept: it
+        is cited by node id.)
         """
-        for text in pdf_vector.content_streams(
-            _written(recorded.answer_streams() + recorded.toc_streams())
-        ):
-            assert " c\n" not in text and not text.rstrip().endswith(" c")
+        def has_curve(text: str) -> bool:
+            return " c\n" in text or text.rstrip().endswith(" c")
+
+        answers = pdf_vector.content_streams(_written(recorded.answer_streams()))
+        assert answers
+        for text in answers:
+            assert has_curve(text), "a solution header drew no tier dots"
+        for text in pdf_vector.content_streams(_written(recorded.toc_streams())):
+            assert not has_curve(text)
         assert "round_mark" not in _source_of(book_answer_vector)
+        assert "draw_tier_dots" in _source_of(book_answer_vector)
         assert "round_mark" not in _source_of(book_toc_vector)
 
 
@@ -4083,6 +4261,11 @@ _FLOOR_PT = 10.0
 # this entry. If item 16 deletes the raster writer, this dict and its three
 # consumers go with it, with the measurement above as the record. NOT
 # re-measured on a second page: the module was green in E1fix and E2 (mine).
+# The approved solutions mockup: the vector answer page no longer sets this
+# caption line at all (the name moved into the solution header), so the
+# vector half below records the two clip FUNCTIONS' disagreement, which
+# `test_the_declared_clip_divergence_is_one_step_of_the_same_loop` still
+# machine-checks, and no longer a string any printed page sets.
 _DECLARED_CLIP_DIVERGENCE = {
     "Puzzle 2 — Owl in a Pine": (
         "Puzzle 2 — Owl in a P…",
@@ -4157,7 +4340,36 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
     asserted, and asserted as **agreement with the raster page's own
     verdict** rather than against a profile name, so a vector writer that
     omitted a caption Book 1 prints would red.
+
+    **The approved solutions mockup moved the vector page's caption into the
+    solution header**: the number alone at 12 pt, and the picture's name in
+    grey at the 10 pt floor, in the tile's band; nothing is set under the
+    drawing any more (``draw_answer_slot`` returns ``None``). The raster twin
+    (``solved_puzzle_page`` / ``_packed_answer_page``) is unchanged and still
+    sets the old caption line, clipping or omitting it by its own slack. So
+    the cells below that compared the two media's *captions* no longer have a
+    pair to compare: they now read the vector header's name (and number)
+    against the floor and against the title it names, keep the raster half
+    where it still stands on its own, and say per cell what dropped.
     """
+
+    @staticmethod
+    def _names(recorded: _Recorded) -> List[str]:
+        """Every picture name the vector answer key's headers set."""
+        return TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted._titles_of(recorded)
+
+    @staticmethod
+    def _header_readings(recorded: _Recorded) -> List[Tuple[float, str]]:
+        """``(size, reading)`` for every header name the vector pages set, clips included."""
+        names = set(TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted._titles_of(recorded))
+        return [
+            (size, reading)
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for size, text in _shows(stream_text)
+            if (reading := _caption_reading(text, names)) is not None
+        ]
 
     @staticmethod
     def _captions(recorded: _Recorded) -> List[str]:
@@ -4178,23 +4390,41 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
     def test_every_caption_the_stream_sets_is_at_or_above_the_floor(
         self, recorded, profile
     ) -> None:
+        """Read off the solution header since the approved mockup: the name
+        (whole or clipped) and the number, each at or above the floor; and
+        the old caption line is set nowhere on a vector answer page."""
         wanted = set(self._captions(recorded))
         assert wanted, "the book has no answer captions to look for"
-        found = [
-            (size, text)
-            for text in pdf_vector.content_streams(
-                _written(recorded.answer_streams())
-            )
-            for size, text in _shows(text)
-            if text in wanted
-        ]
+        found = self._header_readings(recorded)
         for size, text in found:
             assert size >= _FLOOR_PT, (size, text)
-        if profile != "min-trim":
-            assert found, (
-                "Book 1's answer key prints captions, so an empty reading here "
-                "is the writer failing to set them, not CARD-197's omission"
+        numbers = {
+            str(number) for _, number, _, _ in recorded.answers
+        } | {str(number) for plan, _, _, _ in recorded.packed for number in plan.numbers}
+        shown = [
+            (size, text)
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
             )
+            for size, text in _shows(stream_text)
+        ]
+        # A bare digit is also a clue digit (CON-020's exemption, below the
+        # floor), so each number is asserted to be set at or above the floor
+        # at least once -- its header -- rather than every "1" on the page.
+        for number in numbers:
+            assert any(text == number and size >= _FLOOR_PT for size, text in shown), number
+        assert not [
+            text
+            for stream_text in pdf_vector.content_streams(
+                _written(recorded.answer_streams())
+            )
+            for _, text in _shows(stream_text)
+            if _caption_reading(text, wanted) is not None
+        ], "the caption line moved into the header and is set nowhere else"
+        assert found, (
+            "Book 1's answer key prints captions, so an empty reading here "
+            "is the writer failing to set them, not CARD-197's omission"
+        )
 
     @staticmethod
     def _readings(recorded: _Recorded, wanted) -> Tuple[List[str], List[str]]:
@@ -4231,12 +4461,24 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
         clipped reading counting as printed — so a medium that omitted a
         caption the other clipped now reds here, where before cycle 2 both
         would have read as omissions and agreed.
+
+        **No longer an equality (the approved solutions mockup).** The vector
+        page names every solution in its header, where there is always room,
+        so it omits nothing; the raster twin still omits a caption it has no
+        slack for. What still corresponds is the direction: every solution the
+        raster twin named, the vector header names too -- and the vector
+        names all of them.
         """
         wanted = set(self._captions(recorded))
-        vector, raster = self._readings(recorded, wanted)
-        mine = {_caption_behind(reading, wanted) for reading in vector}
-        theirs = {_caption_behind(reading, wanted) for reading in raster}
-        assert mine == theirs, (sorted(mine), sorted(theirs))
+        _, raster = self._readings(recorded, wanted)
+        names = set(self._names(recorded))
+        mine = {_caption_behind(reading, names) for _, reading in self._header_readings(recorded)}
+        theirs = {
+            _caption_behind(reading, wanted).partition(CAPTION_SEPARATOR)[2]
+            for reading in raster
+        }
+        assert theirs <= mine, (sorted(mine), sorted(theirs))
+        assert mine == names, (sorted(mine), sorted(names))
 
     def test_the_two_media_clip_the_same_captions_to_the_same_string(
         self, recorded, profile
@@ -4249,13 +4491,28 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
         of collapsing into two. Any disagreement outside
         :data:`_DECLARED_CLIP_DIVERGENCE` fails here, which is what makes a
         clip that moves by one character red.
+
+        **Re-aimed at the header (the approved solutions mockup).** The vector
+        page clips the *name* against the header's own measure (between the
+        number and the tier's dots), the raster twin clips the whole caption
+        line against the slot under the drawing: two different strings against
+        two different measures, so the element-for-element comparison has no
+        pair left and is dropped. What still holds per medium: each solution's
+        name is set by the vector header exactly once, as the name itself or
+        a clip of it (a stem of the name plus "…"), never another puzzle's.
         """
-        wanted = set(self._captions(recorded))
-        vector, raster = self._readings(recorded, wanted)
-        assert vector or profile == "min-trim", "the vector pages set no caption"
-        assert (
-            _unexplained_clip_divergences(vector, raster, wanted) == []
-        ), _unexplained_clip_divergences(vector, raster, wanted)
+        names = self._names(recorded)
+        readings = [reading for _, reading in self._header_readings(recorded)]
+        assert readings, "the vector pages set no caption"
+        assert sorted(_caption_behind(r, set(names)) for r in readings) == sorted(set(names)), (
+            readings,
+            names,
+        )
+        for reading in readings:
+            name = _caption_behind(reading, set(names))
+            assert reading == name or (
+                reading.endswith("…") and name.startswith(reading[:-1])
+            ), (name, reading)
 
     def test_the_min_trim_really_does_clip_one_caption_in_each_medium(self) -> None:
         """Non-vacuity: the comparison above has a clip to compare.
@@ -4264,21 +4521,26 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
         never clip anything, which is how F-297-03's reading survived. Measured
         on the 10 x 10 cm trim, where a packed page prints one caption whole and
         clips the next.
+
+        **Vector half re-aimed (the approved solutions mockup).** The vector
+        page sets no caption line any more -- the name is in the solution
+        header -- so there is no vector caption to clip, and that is asserted
+        rather than skipped. The raster twin is unchanged and still clips on
+        this trim, so its half and its entry in the declared table stand.
         """
         recorded = _recorded("min-trim")
         wanted = set(self._captions(recorded))
         vector, raster = self._readings(recorded, wanted)
-        assert [r for r in vector if r.endswith("…")], vector
+        assert vector == [], vector
         assert [r for r in raster if r.endswith("…")], raster
-        # And the declared table is the pair this profile really sets, so an
-        # entry that stops being true reds here rather than going stale.
-        for caption, (raster_text, vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
+        # And the declared table's raster half is the string this profile
+        # really sets, so an entry that stops being true reds here rather
+        # than going stale. Its vector half described the caption the vector
+        # page used to set; that caption is gone, so the half is not read.
+        for caption, (raster_text, _vector_text) in _DECLARED_CLIP_DIVERGENCE.items():
             assert [
                 r for r in raster if _caption_behind(r, wanted) == caption
             ] == [raster_text], raster
-            assert [
-                r for r in vector if _caption_behind(r, wanted) == caption
-            ] == [vector_text], vector
 
     def test_the_declared_clip_divergence_is_one_step_of_the_same_loop(self) -> None:
         """The reason behind the declaration, machine-checked rather than told.
@@ -4475,6 +4737,39 @@ def _stated_coordinates(slots, height: float, dpi: int) -> Tuple[set, set]:
     return xs, ys
 
 
+def _furniture_coordinates(slots, frame, height: float, dpi: int) -> Tuple[set, set]:
+    """The page furniture the approved solutions mockup added, in points.
+
+    Not COMP-007 positions themselves but placed against them: each slot's
+    header hairline runs across its usable width, 0.3 of its band's height
+    below the band's centre (``header_band``, COMP-007's), and the running
+    head's rule runs across the page frame 0.55 of the way down the
+    ``RUNNING_HEAD_MM`` strip above the tiles. The two ratios are the writer's
+    own, restated here because no helper exposes the rule positions; the
+    geometry they are ratios of is read off the layout and the frame.
+    """
+    xs: set = set()
+    ys: set = set()
+    for slot in slots:
+        band = header_band(slot)
+        placement = slot.page
+        if band.height > 0 and placement is not None:
+            xs.update((_pt(placement.usable_left, dpi), _pt(placement.usable_right, dpi)))
+            ys.add(_flip(band.center_y + band.height * 0.3, height, dpi))
+    xs.update((_pt(frame.left, dpi), _pt(frame.right, dpi)))
+    ys.add(_flip(frame.top + RUNNING_HEAD_MM * dpi / 25.4 * 0.55, height, dpi))
+    # The clue-gutter shading (CLUE_SHADE, the puzzle pages' own
+    # ``shade_clue_cells``): its outer edge is ``grid_left - gutter * cell``,
+    # COMP-007's cell and gutter count, which is a pixel or two inside the
+    # frame's own edge where the layout's cells are not all one width.
+    for slot in slots:
+        if slot.row_gutter_cells:
+            xs.add(_pt(slot.grid_left - slot.row_gutter_cells * slot.cell, dpi))
+        if slot.column_gutter_cells:
+            ys.add(_flip(slot.grid_top - slot.column_gutter_cells * slot.cell, height, dpi))
+    return xs, ys
+
+
 class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
     """EC(ADR-0042/R3): every path coordinate is one COMP-007 already stated.
 
@@ -4537,8 +4832,12 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
             payload = generator._payload(
                 _puzzle(extent, extent, number=1, depth=3, name="Zarquon")
             )
+            # Laid out on the answer section's spec (the running head's
+            # strip off the top), as the writer lays it out.
             layout = compute_layout(
-                payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+                payload.row_clues,
+                payload.column_clues,
+                answer_section_spec(generator.page_spec(page_number)),
             )
             stream = book_answer_vector.answer_page(
                 generator.page_spec(page_number), generator.dpi, payload, 1, page_number, "Zarquon"
@@ -4548,6 +4847,13 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
             stated_x, stated_y = _stated_coordinates(
                 [layout], layout.height, layout.dpi
             )
+            furniture_x, furniture_y = _furniture_coordinates(
+                [layout],
+                page_frame(generator.page_spec(page_number)),
+                layout.height,
+                layout.dpi,
+            )
+            stated_x, stated_y = stated_x | furniture_x, stated_y | furniture_y
             assert xs <= stated_x, sorted(xs - stated_x)
             assert ys <= stated_y, sorted(ys - stated_y)
             assert xs and ys
@@ -4585,7 +4891,7 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
             packed = compute_packed_solved_layout(
                 [(payload.row_clues, payload.column_clues) for _, payload in payloads],
                 capacity,
-                generator.page_spec(page_number),
+                answer_section_spec(generator.page_spec(page_number)),
             )
             if packed is None:
                 continue
@@ -4604,6 +4910,10 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
             stated_x, stated_y = _stated_coordinates(
                 packed.slots, frame.height, packed.dpi
             )
+            furniture_x, furniture_y = _furniture_coordinates(
+                packed.slots, frame, frame.height, packed.dpi
+            )
+            stated_x, stated_y = stated_x | furniture_x, stated_y | furniture_y
             assert xs <= stated_x, sorted(xs - stated_x)
             assert ys <= stated_y, sorted(ys - stated_y)
             cases += 1
@@ -4619,7 +4929,7 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
         generator = BookPDFGenerator(_book())
         payload = generator._payload(_puzzle(12, 12, number=1, name="Zarquon"))
         layout = compute_layout(
-            payload.row_clues, payload.column_clues, generator.page_spec(11)
+            payload.row_clues, payload.column_clues, answer_section_spec(generator.page_spec(11))
         )
         stream = book_answer_vector.answer_page(
             generator.page_spec(11), generator.dpi, payload, 1, 11, "Zarquon"
@@ -4627,6 +4937,10 @@ class TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry:
         (text,) = pdf_vector.content_streams(_written([stream]))
         xs, _ = _page_coordinates(text)
         stated_x, _ = _stated_coordinates([layout], layout.height, layout.dpi)
+        furniture_x, _ = _furniture_coordinates(
+            [layout], page_frame(generator.page_spec(11)), layout.height, layout.dpi
+        )
+        stated_x |= furniture_x
         assert xs <= stated_x
         assert not xs <= (stated_x - {sorted(xs)[0]})
 
@@ -4793,47 +5107,57 @@ class TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt:
     def test_the_caption_is_right_aligned_on_the_slot_comp_007_reports(
         self, tmp_path
     ) -> None:
-        from nonogram.export.layout import caption_slot
+        """Re-aimed at the solution header (the approved solutions mockup).
 
+        The caption under the drawing is gone; the picture's name is set in
+        the header, after the number, in the band COMP-007's ``header_band``
+        reports. So the name's word is read back from poppler and held to the
+        header's own anchors: its left edge one gap after the number's
+        advance from the usable left edge, and its middle inside the band.
+        The name is still the word to read (it appears nowhere else on the
+        page, AC-2). The node id predates the move and is cited, so it keeps
+        its name.
+        """
         generator = BookPDFGenerator(_book())
         payload = generator._payload(_puzzle(12, 12, number=1, name="Snowflake"))
         layout = compute_layout(
-            payload.row_clues, payload.column_clues, generator.page_spec(11)
+            payload.row_clues, payload.column_clues, answer_section_spec(generator.page_spec(11))
         )
-        caption = answer_caption(1, "Snowflake")
         stream = book_answer_vector.answer_page(
             generator.page_spec(11), generator.dpi, payload, 1, 11, "Snowflake"
         )
         data = _written([stream])
         words = pdf_vector.word_boxes(data, out_dir=tmp_path)
-        # The **title** word only, and that is a measurement rather than a
-        # convenience: the band reads "Puzzle 1 · Easy" and the caption
-        # "Puzzle 1 — Snowflake", so matching on the caption's whole word
-        # list picks up the band's own "Puzzle" and "1" at the top of the page
-        # and the vertical reading comes back 233 pt out (measured). The title
-        # appears on the answer page and nowhere else on it (AC-2), which is
-        # exactly what makes it the word to read, and it is also the caption's
-        # **last** word, so its right edge is the caption's.
         picked = [word for word in words if word.text == "Snowflake"]
         assert len(picked) == 1, [word.text for word in words]
 
-        spec = book_answer_vector.answer_type(generator.dpi)
         face = interior_face_metrics()
-        width = book_vector_draw.advance_px(caption, spec.caption_size_px, face)
-        box = caption_slot(layout, _math.ceil(width))
-        assert box is not None
         scale = 72.0 / generator.dpi
-        right = max(word.right for word in picked)
-        assert abs(right - box.right * scale) <= 1.0, (right, box.right * scale)
-
         placement = layout.page
         assert placement is not None
-        height = book_vector_draw.line_height_px(spec.caption_size_px, face)
-        centre = (placement.drawing_bottom + spec.gap_px + height / 2) * scale
+        band = header_band(layout)
+        assert band.height > 0
+        # The header's own anchors: the number at SOLUTION_NUMBER_PT from the
+        # usable left edge, then the name 0.6 of its own size further on.
+        number_px = book_answer_vector.SOLUTION_NUMBER_PT * generator.dpi / 72.0
+        name_px = INTERIOR_FOOTER_LINE_PT * generator.dpi / 72.0
+        name_left = (
+            placement.usable_left
+            + book_vector_draw.advance_px("1", number_px, face)
+            + name_px * 0.6
+        )
+        left = min(word.left for word in picked)
+        assert abs(left - name_left * scale) <= 1.0, (left, name_left * scale)
+        assert max(word.right for word in picked) < placement.usable_right * scale
+
         middle = (
             min(word.top for word in picked) + max(word.bottom for word in picked)
         ) / 2
-        assert abs(middle - centre) <= 2.0, (middle, centre)
+        band_top = (band.center_y - band.height / 2) * scale
+        band_bottom = (band.center_y + band.height / 2) * scale
+        assert band_top <= middle <= band_bottom, (middle, band_top, band_bottom)
+        # And nothing of the name is under the drawing any more.
+        assert middle < placement.drawing_bottom * scale
 
 
 class TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries:

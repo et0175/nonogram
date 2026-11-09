@@ -18,7 +18,7 @@ follows on pages 2 and 3. ``TestBookExport_InteriorStartsAtGuidePage`` asserted
 the retired statement and is renamed to the registry's own planned name above.
 
 The book of AC-283 is a Book 1 profile book (8.5 x 11 in trim) holding three
-easy 20x20 puzzles, with a cover image uploaded through the Finalise screen —
+easy 21x20 puzzles, with a cover image uploaded through the Finalise screen —
 the real upload, so the tests also cover the defect that the upload was
 dropped before it reached any export. The PDFs are read back with Pillow's
 own PDF parser and poppler (``tests/helpers/pdf_pages.py``), and a page's
@@ -53,6 +53,7 @@ from PIL import Image, ImageDraw, PdfParser
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
+from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_pdf_generator import (
     GUIDE2_TITLE,
@@ -84,7 +85,7 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     literals. ``levels`` is how many divider pages the puzzle section opens —
     one per non-empty level (CARD-128), and every book in this module is a
     book of easy puzzles, so one. ``puzzle_count`` is also the puzzle-**page** count for every book
-    in this module: its puzzles are 20x20s, which never pair two-up here
+    in this module: its puzzles are 21x20s, which never pair two-up here
     (FR-040). That premise is not assumed — it is asserted off a written
     interior by ``TestBookFinalise_PageCountIsTheExportsPagePlan``'s
     ``test_a_puzzle_of_this_module_never_shares_a_page_with_the_next``, so a
@@ -116,7 +117,16 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     return 1 + 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
 
 
-#: This module's standard book: three easy 20x20s, one answer page each.
+#: Every puzzle this module writes is this many cells wide (and 20 tall): one
+#: wider than the answer key's packing limit, so each answer still takes a
+#: full page of its own (CARD-198's treatment) and ``answer_pages`` stays the
+#: puzzle count. These were 20x20s until the owner raised the limit to
+#: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), which
+#: made a 20x20 answer pack four to a page; derived from the constant so a
+#: second raise cannot do the same silently.
+_PUZZLE_WIDTH = PACKED_MAX_WIDTH + 1
+
+#: This module's standard book: three easy 21x20s, one answer page each.
 STANDARD_BOOK_PAGES = _interior_pages(3, 3)
 
 
@@ -164,7 +174,7 @@ def admin_app(monkeypatch, tmp_path):
 
 
 def _make_book(app, puzzle_count=3):
-    """A Book 1 profile book holding ``puzzle_count`` easy 20x20 puzzles."""
+    """A Book 1 profile book holding ``puzzle_count`` easy 21x20 puzzles."""
     book_id = app.book_manager.create_book(
         title=BOOK_TITLE,
         description="Twenty winter pictures.",
@@ -174,14 +184,14 @@ def _make_book(app, puzzle_count=3):
     )
     ids = []
     for i in range(puzzle_count):
-        grid = _rectangle(20, 20, i, i, 8 + 2 * i, 10 + i)
+        grid = _rectangle(_PUZZLE_WIDTH, 20, i, i, 8 + 2 * i, 10 + i)
         found = clues.compute_clues(grid)
         ids.append(
             app.puzzle_review_service.add_puzzle(
                 grid=grid,
                 clues_rows=[list(c) for c in found.rows],
                 clues_cols=[list(c) for c in found.columns],
-                width=20,
+                width=_PUZZLE_WIDTH,
                 height=20,
                 theme="winter",
                 difficulty_score=10,
@@ -451,13 +461,13 @@ class TestBookExport_InteriorOpensWithABlankTitlePage:
         assert pdf_page_count(data) == STANDARD_BOOK_PAGES
 
     def test_the_generator_reports_the_interiors_own_page_count(self):
-        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        grid = _rectangle(_PUZZLE_WIDTH, 20, 0, 0, 5, 5)
         found = clues.compute_clues(grid)
         puzzle = {
             "grid": grid,
             "clues_rows": found.rows,
             "clues_cols": found.columns,
-            "width": 20,
+            "width": _PUZZLE_WIDTH,
             "height": 20,
             "difficulty_tier": "easy",
         }
@@ -744,7 +754,7 @@ class TestBookFinalise_OffersBothDownloads:
         assert "Cover page (" not in body
         # Since CARD-129 the figure is the interior's **own** page count, not
         # the un-paired bound the screen used to print with a "~": a
-        # 3-puzzle book of easy 20x20s is 1 guide + 1 divider + 3 puzzle
+        # 3-puzzle book of easy 21x20s is 1 guide + 1 divider + 3 puzzle
         # pages + SOLUTIONS + 3 answer pages (CARD-198: one per puzzle).
         assert f'data-interior-page-count="{_interior_pages(3, 3)}"' in body
         assert 'data-interior-page-count-exact="true"' in body
@@ -990,14 +1000,14 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
     @staticmethod
     def _interior_of(puzzle_count):
-        """The written interior of a book of ``puzzle_count`` easy 20x20s."""
-        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        """The written interior of a book of ``puzzle_count`` easy 21x20s."""
+        grid = _rectangle(_PUZZLE_WIDTH, 20, 0, 0, 5, 5)
         found = clues.compute_clues(grid)
         puzzle = {
             "grid": grid,
             "clues_rows": found.rows,
             "clues_cols": found.columns,
-            "width": 20,
+            "width": _PUZZLE_WIDTH,
             "height": 20,
             "difficulty_tier": "easy",
         }
@@ -1011,7 +1021,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
         Every count this module writes reads ``puzzle_count`` as the
         puzzle-**page** count too. That is true only while no two of these
-        puzzles pair two-up (FR-040) — true today, because they are 20x20s,
+        puzzles pair two-up (FR-040) — true today, because they are 21x20s,
         and silently false the day the profile or the pairing rule moves,
         which would take every page-count assertion in this module down with
         it without naming the reason.
@@ -1042,7 +1052,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # plan function entirely.
         assert written == _interior_pages(puzzle_count, answer_pages)
         # And the plan function, given the same terms, against the file. A
-        # 20x20 never pairs here, so the puzzle-page term is the count, and
+        # 21x20 never pairs here, so the puzzle-page term is the count, and
         # these books are one level, so the divider term is 1 — 0 for the
         # empty book, which has no puzzle section at all.
         assert (
@@ -1068,7 +1078,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
     @staticmethod
     def _one_per_level_interior():
-        """The written interior of three 20x20s, one on each of the levels.
+        """The written interior of three 21x20s, one on each of the levels.
 
         Every other book in this module is easy throughout, so its puzzle
         section opens a single divider. This one opens the most a three-puzzle
@@ -1076,7 +1086,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         its key takes a page per level, since each level's answers start a new
         answer page (FR-042, AC-290).
         """
-        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        grid = _rectangle(_PUZZLE_WIDTH, 20, 0, 0, 5, 5)
         found = clues.compute_clues(grid)
         return BookPDFGenerator().export_interior(
             [
@@ -1084,7 +1094,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
                     "grid": grid,
                     "clues_rows": found.rows,
                     "clues_cols": found.columns,
-                    "width": 20,
+                    "width": _PUZZLE_WIDTH,
                     "height": 20,
                     "difficulty_tier": tier,
                 }
@@ -1129,7 +1139,7 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # The figure on the screen, against this module's own arithmetic and
         # not against the function that produced it. Since CARD-129 it is the
         # **exact** count of the file the button beside it downloads (EC-034):
-        # the puzzle-page term is the count (a 20x20 never pairs here), and
+        # the puzzle-page term is the count (a 21x20 never pairs here), and
         # since CARD-198 the answer term is the count too — one page each.
         exact = _interior_pages(
             puzzle_count, self._answer_pages(puzzle_count), min(1, puzzle_count)
@@ -1172,20 +1182,20 @@ class TestBookExport_TitlePageCountedEverywhere:
 
     @staticmethod
     def _rows(puzzle_count, tier="easy"):
-        """``puzzle_count`` easy 20x20 rows, as both callers take them.
+        """``puzzle_count`` easy 21x20 rows, as both callers take them.
 
         Carries ``grid``/``clues_rows``/``clues_cols``, which is what
         ``book_kdp.unpaired_interior_page_count`` measures an answer's extent
         from (``book_kdp._grid_extent``), as well as what the generator draws.
         """
-        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        grid = _rectangle(_PUZZLE_WIDTH, 20, 0, 0, 5, 5)
         found = clues.compute_clues(grid)
         return [
             {
                 "grid": grid,
                 "clues_rows": [list(c) for c in found.rows],
                 "clues_cols": [list(c) for c in found.columns],
-                "width": 20,
+                "width": _PUZZLE_WIDTH,
                 "height": 20,
                 "difficulty_tier": tier,
             }
@@ -1213,7 +1223,7 @@ class TestBookExport_TitlePageCountedEverywhere:
         # readable term rather than a diff against a deleted helper.
         assert written == (5 + 2 * puzzle_count) + 1
         # The generator's own formula, given every term, and the sheet-free
-        # KDP estimate: nothing pairs or packs in a book of 20x20s, so all
+        # KDP estimate: nothing pairs or packs in a book of 21x20s, so all
         # three figures are the same number rather than merely ordered.
         assert (
             interior_page_count(puzzle_count, puzzle_count, puzzle_count, 1, toc_pages=1)
@@ -4325,10 +4335,28 @@ class Generator:
         # steps 270/351/3/208 (the first three unchanged, the fourth was 207).
         # Independently: the module gains exactly one ``ast.Call``
         # (the same one), and the walk's other calls into it are unchanged.
-        ((), 832),
-        (("builtins",), 562),
-        (("builtins", "definitions and imports"), 211),
-        (("builtins", "definitions and imports", "parameters"), 208),
+        #
+        # **The approved solutions mockup re-measured it a tenth time: +28
+        # refusals** (832 -> 860, 562 -> 586, 211 -> 219, 208 -> 216, last two
+        # still 0; steps 270/351/3/208 -> 274/367/3/216), every call
+        # attributed. ``answer_section_spec`` (``replace``), the Solutions
+        # opener ``create_solutions_opener`` and the answer plan's
+        # ``answer_section_spec(...)`` wrap: **builtins +4** (``round``,
+        # ``max`` x2, and ``len(payloads)`` for the opener's puzzle count);
+        # **definitions and imports +16** (``type_px`` x9, ``_guide_face`` x3,
+        # ``replace``, ``page_frame``, ``_draw_folio`` and
+        # ``answer_section_spec``); **parameters 0**; **an attribute of a
+        # receiver this module does not define +8** (``Image.new``,
+        # ``ImageDraw.Draw``, ``draw.rectangle``, ``draw.text`` x3,
+        # ``draw.textbbox`` x2). The opener's ``self.page_spec`` and
+        # ``divider_page``'s ``self.create_solutions_opener`` resolve (``self``
+        # is a receiver the module defines) and cost no refusal. Steps still
+        # strict drops; the four figures are read off this test's own
+        # measurement.
+        ((), 860),
+        (("builtins",), 586),
+        (("builtins", "definitions and imports"), 219),
+        (("builtins", "definitions and imports", "parameters"), 216),
         (
             (
                 "builtins",
@@ -6286,7 +6314,13 @@ class Generator:
         # count still one, so 24 + 1 = 25 (25 ``self.page_spec(`` occurrences by
         # a plain text search; the blank is the title page's own empty stream
         # and takes no sheet of its own here).
-        assert inside == 25, inside
+        # The approved solutions mockup: 26, and the one added call is named
+        # rather than counted -- ``self.page_spec(page_number)`` inside
+        # ``create_solutions_opener``, which takes the Solutions opener's
+        # frame from its own position exactly as ``create_divider_page`` does.
+        # Same door, definition count still one, so 25 + 1 = 26 (26
+        # ``self.page_spec(`` occurrences by a plain text search).
+        assert inside == 26, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
             "a module outside the generator now computes a geometry-door "

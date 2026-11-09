@@ -206,7 +206,11 @@ EC1_BOOKS = 14
 #: comment described and the constant the file held had drifted apart, and a
 #: floor with 54 pages of room in it is the defect CARD-149's review found,
 #: here in the very place that cites it.
-EC1_PAGES = 171
+#:
+#: **167 since the answer key packs up to 20x25 four to a page** (owner,
+#: 2026-11-09): four of the corpus's answer pages now share a page with
+#: their neighbours, so the same fourteen books print four pages fewer.
+EC1_PAGES = 167
 
 #: How many of those pages the **stored ink mode actually reaches**: the pages
 #: written as a bitmap, where a colour space is declared at all.

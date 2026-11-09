@@ -410,8 +410,9 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     puzzle count. Either way this makes the function an **upper bound** on
     such a book's interior, never an under-count, so it can only ever name a
     band at or above the true one — and it is exact for any book whose
-    puzzles are too large to share a page, which a real curated book of
-    20x20s and 30x30s largely is. It is the same figure the Finalise screen
+    puzzles are too large to share a page (since 2026-11-09 that means
+    wider than 20 or taller than 25 cells, so a book of 20x20s now packs and
+    this figure over-counts it). It is the same figure the Finalise screen
     shows as "before pairing", and it is cross-checked against the
     generator's own ``unpaired_page_count`` over the property corpus
     (EC-034), so the two cannot drift apart.

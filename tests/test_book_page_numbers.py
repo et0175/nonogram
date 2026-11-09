@@ -55,7 +55,11 @@ from PIL import Image, ImageDraw
 
 from nonogram import clues
 from nonogram.admin.book_interior_vector import interior_generator
-from nonogram.admin.book_answer_key import Answer, PackedAnswerPage
+from nonogram.admin.book_answer_key import (
+    PACKED_MAX_WIDTH,
+    Answer,
+    PackedAnswerPage,
+)
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     _RASTER_DECLARATIONS,
@@ -704,8 +708,14 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         page's own number.
         """
         generator = BookPDFGenerator(corpus_book("card-200-ac9-big"))
+        # One over the packing limit's width, read off the constant: these
+        # were 20x20s, which kept one answer page each while the limit was
+        # 15x20 — the "well over a hundred pages" below counts on that. The
+        # owner raised the limit to 20x25 (2026-11-09), so 20x20s now pack
+        # four to a page and this book fell to 81 pages.
+        side = PACKED_MAX_WIDTH + 1
         puzzles = [
-            puzzle(f"card200-ac9-{n}", 20, 20, 4, "easy", f"Picture {n}")
+            puzzle(f"card200-ac9-{n}", side, side, 4, "easy", f"Picture {n}")
             for n in range(60)
         ]
         calls, drawn = _spy_interior(generator, puzzles, monkeypatch)

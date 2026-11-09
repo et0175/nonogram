@@ -58,6 +58,7 @@ from dataclasses import replace
 import pytest
 from PIL import ImageChops
 
+from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_page_spec import (
     DEFAULT_DIVIDER_PAGES,
@@ -81,7 +82,7 @@ from nonogram.admin.book_pdf_generator import (
 from tests.helpers.db import sqlite_session_scope
 from tests.helpers.page_ink import drawing_of, frame_centre_of
 from tests.helpers.pdf_pages import interior_images
-from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of
+from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of, _puzzle
 from tests.test_book_plan_storage import (
     AC198_MATRIX,
     MODES,
@@ -122,6 +123,23 @@ def _generator(divider_pages):
 
 def _puzzles():
     return _book_of(*AC253_MEMBERS)
+
+
+def _unpackable_puzzles():
+    """AC-253's members, each one cell over the packing limit both ways.
+
+    The parity class below measures every answer page with ``drawing_of``,
+    which reads ONE ruled grid per page. AC-253's 20x20s used to be too wide
+    to pack (the limit was 15x20); the owner raised it to
+    :data:`PACKED_MAX_WIDTH` x :data:`PACKED_MAX_HEIGHT`, so a 20x20 now packs
+    and its page carries several grids. Sized from the constants, so the
+    premise "nothing here packs" follows the limit rather than a remembered
+    figure.
+    """
+    return [
+        _puzzle(name, tier, PACKED_MAX_WIDTH + 1, PACKED_MAX_HEIGHT + 1, mark=index)
+        for index, (name, tier) in enumerate(AC253_MEMBERS)
+    ]
 
 
 class TestDividerPages_TheDefaultIsEveryBookAsItWasBefore:
@@ -178,23 +196,30 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
 
         The cell above reads the **plan**, which holds the three level
         dividers; the SOLUTIONS page is not in it — ``interior_stream`` yields
-        that one directly. Both go through ``create_divider_page`` (it is one
-        page design for all four), so counting its calls over the whole walk
-        is the one place that sees every divider the book draws, which is
-        what makes this the criterion for FR-041's *and* FR-042's off case
-        rather than two separate readings.
+        that one directly. The three level dividers go through
+        ``create_divider_page``; the SOLUTIONS one, with no picture uploaded,
+        is the approved mockup's opener, ``create_solutions_opener``. Counting
+        the calls of both over the whole walk is the one place that sees every
+        divider the book draws, which is what makes this the criterion for
+        FR-041's *and* FR-042's off case rather than two separate readings.
 
         The ON leg is the control: without it "zero were drawn" would hold
         for a generator that draws no dividers at all.
         """
         drawn: list[str] = []
         original = BookPDFGenerator.create_divider_page
+        original_opener = BookPDFGenerator.create_solutions_opener
 
         def record(self, page_number, text="SOLUTIONS"):
             drawn.append(text)
             return original(self, page_number, text)
 
+        def record_opener(self, page_number, puzzle_count):
+            drawn.append("SOLUTIONS")
+            return original_opener(self, page_number, puzzle_count)
+
         monkeypatch.setattr(BookPDFGenerator, "create_divider_page", record)
+        monkeypatch.setattr(BookPDFGenerator, "create_solutions_opener", record_opener)
 
         list(_generator(True).interior_stream(list(_puzzles())).pages)
         assert drawn == ["Easy", "Medium", "Hard", "SOLUTIONS"]
@@ -268,7 +293,8 @@ MIRROR_GUTTER_MM = 20.0
 MIRROR_OUTSIDE_MM = 10.0
 
 #: The pages of this book that carry a measurable drawing: its 5 puzzle pages
-#: and its 5 answer pages (one per 20x20 puzzle — nothing here packs). The
+#: and its 5 answer pages (one per puzzle — :func:`_unpackable_puzzles` sizes
+#: them one over the packing limit, so nothing here packs). The
 #: title page, the two guide pages, the TOC and any divider carry no ruled
 #: grid, so ``drawing_of`` declines them. Asserted, because a loop that
 #: quietly stopped finding any page to measure would pass.
@@ -378,7 +404,7 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
             **{DIVIDER_PAGES_COLUMN: flag},
         )
         generator = BookPDFGenerator(book)
-        pages = interior_images(generator.interior_pages(list(_puzzles())))
+        pages = interior_images(generator.interior_pages(list(_unpackable_puzzles())))
         if page_shift_px:
             # A drift common to every page (the white margin absorbs the wrap).
             pages = [ImageChops.offset(page, page_shift_px, 0) for page in pages]
@@ -386,7 +412,7 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         problems: list[str] = []
         frame_lefts: dict[bool, set[float]] = {True: set(), False: set()}
         widths: set[int] = set()
-        numbers = _measurable_page_numbers(generator, list(_puzzles()))
+        numbers = _measurable_page_numbers(generator, list(_unpackable_puzzles()))
         for number in numbers:
             page = pages[number - 1]
             drawing = drawing_of(page)
@@ -534,8 +560,8 @@ class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
         sides = {}
         for flag in (True, False):
             generator = BookPDFGenerator(self._mirrored(flag))
-            pages = interior_images(generator.interior_pages(list(_puzzles())))
-            number = _measurable_page_numbers(generator, list(_puzzles()))[0]
+            pages = interior_images(generator.interior_pages(list(_unpackable_puzzles())))
+            number = _measurable_page_numbers(generator, list(_unpackable_puzzles()))[0]
             drawing = drawing_of(pages[number - 1])
             offset = (
                 (drawing.left + drawing.grid_right) / 2 - pages[number - 1].width / 2

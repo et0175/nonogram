@@ -166,6 +166,7 @@ import sys
 import time
 import tracemalloc
 import weakref
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
@@ -176,7 +177,15 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from nonogram.admin.book_answer_key import Answer, PackedAnswerPage, answer_title, plan_small_answer_pages
+from nonogram.admin.book_answer_key import (
+    PACKED_FOUR_UP,
+    PACKED_MAX_HEIGHT,
+    PACKED_MAX_WIDTH,
+    Answer,
+    PackedAnswerPage,
+    answer_title,
+    plan_small_answer_pages,
+)
 from nonogram.admin.book_pdf_generator import (
     TITLE_PAGE_COUNT,
     FOLIO_PT,
@@ -203,7 +212,6 @@ from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
     BASELINE_SHAPE,
     GUIDE_INTERIOR_PAGES,
-    CORPUS_PAGE_COUNT,
     CORPUS_PUZZLE_COUNT,
     MATERIALISED_SHAPE,
     STREAMING_SHAPE,
@@ -299,6 +307,11 @@ PAGE_FACTORIES = (
     # uploaded picture fitted to the page, or the drawn page above. A page
     # factory in its own right (it builds the fitted bitmap itself).
     "divider_page",
+    # The approved solutions mockup: the Solutions opener ``divider_page``
+    # draws for the SOLUTIONS slot when no picture is stored (a rule,
+    # "PUZZLES 1-N", "Solutions" and a blurb). It allocates a full-size
+    # bitmap of its own, so it is wrapped like the drawn divider beside it.
+    "create_solutions_opener",
     # CARD-200 adds the table of contents page beside the guide and the
     # divider — the same "draw something generic on page_frame" shape, and
     # a page factory `interior_stream`'s own producer calls just like them.
@@ -315,6 +328,31 @@ PAGE_FACTORIES = (
     # which kind of page the packing walk planned.
     "solved_puzzle_page",
     "_packed_answer_page",
+)
+
+#: The corpus book's interior, in pages, as this module counts it.
+#:
+#: ``tests.helpers.book_corpus.CORPUS_PAGE_COUNT`` still counts CARD-198's one
+#: answer page per puzzle (308), which held while the corpus's 18x18 and 20x20
+#: answers were wider than the packing limit. The owner raised that limit to
+#: ``PACKED_MAX_WIDTH`` x ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), so
+#: every corpus answer now packs ``PACKED_FOUR_UP`` to a page within its tier
+#: (CARD-202's "always 4-up, 2-up only for a leftover"): ceil(50 / 4) = 13
+#: pages for each of the three 50-puzzle tiers, 39 in all, and the interior is
+#: 1 + 2 + 1 TOC + 3 dividers + 150 puzzle pages + SOLUTIONS + 39 = 197 pages.
+#: Counted here, from the corpus's own sizes and the packing constants, rather
+#: than in the shared helper (outside this module's edit), and still asserted
+#: against the pages the export really draws and the file really holds.
+_CORPUS_TIER_COUNTS = Counter(puzzle["difficulty_tier"] for puzzle in corpus_puzzles())
+assert all(
+    puzzle["width"] <= PACKED_MAX_WIDTH and puzzle["height"] <= PACKED_MAX_HEIGHT
+    for puzzle in corpus_puzzles()
+), "a corpus answer no longer packs: re-derive CORPUS_PAGE_COUNT"
+CORPUS_ANSWER_PAGE_COUNT = sum(
+    -(-count // PACKED_FOUR_UP) for count in _CORPUS_TIER_COUNTS.values()
+)
+CORPUS_PAGE_COUNT = (
+    1 + 2 + 1 + len(_CORPUS_TIER_COUNTS) + CORPUS_PUZZLE_COUNT + 1 + CORPUS_ANSWER_PAGE_COUNT
 )
 
 #: The book title the cover file carries (AC-4).
@@ -511,6 +549,11 @@ BASELINE_PAGE_KINDS = (
     PageKind.DIVIDER, PageKind.PUZZLE, PageKind.DIVIDER,
     PageKind.ANSWER, PageKind.ANSWER, PageKind.ANSWER,
 )
+
+
+#: The baseline book's SOLUTIONS divider, the one raster page the approved
+#: solutions mockup redrew (as the Solutions opener).
+SOLUTIONS_DIVIDER_PAGE = BASELINE_PAGE_KINDS.index(PageKind.ANSWER)
 
 
 def declared_media_of_the_baseline() -> List[str]:
@@ -861,7 +904,9 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
 
         assert small.seen == BASELINE_PAGE_COUNT
         assert big.seen == CORPUS_PAGE_COUNT
-        assert big.seen > 16 * small.seen, "the two books must differ in size"
+        # 14x since the packing limit was raised (197 pages against 14); it
+        # was 16x while every corpus answer took a page of its own (308).
+        assert big.seen > 14 * small.seen, "the two books must differ in size"
         assert big.peak == small.peak, (
             f"{big.seen} pages peaked at {big.peak_in_pages:.2f} page bitmaps, "
             f"{small.seen} pages at {small.peak_in_pages:.2f}"
@@ -2271,6 +2316,22 @@ class TestBookPdfMemory_PagesAreUnchanged:
                 # determinism test's (see ``raster_digests``).
                 operators += 1
                 continue
+            if number == SOLUTIONS_DIVIDER_PAGE:
+                # The approved solutions mockup deliberately redrew this page
+                # (the Solutions opener, not the one word), so its recording is
+                # superseded: it must differ from it and be the opener.
+                assert drawn != was, (
+                    f"interior page {number} is still the one-word SOLUTIONS "
+                    "divider the baseline recorded"
+                )
+                assert same_page(
+                    exported[number - 1],
+                    BookPDFGenerator(corpus_book()).create_solutions_opener(
+                        number, len(baseline_puzzles())
+                    ),
+                ), f"interior page {number} is not the Solutions opener"
+                compared += 1
+                continue
             assert drawn == was, f"interior page {number} is not the page it was"
             compared += 1
 
@@ -2375,7 +2436,11 @@ class TestBookPdfMemory_PagesAreUnchanged:
         )
         assert same_page(exported[1], reference_guide_page(generator, 2))
         assert same_page(exported[2], reference_guide_page(generator, 3))
-        assert same_page(exported[10], generator.create_divider_page(11))
+        # The SOLUTIONS divider is the approved mockup's Solutions opener
+        # since that change (a rule, "PUZZLES 1-4", "Solutions", a blurb).
+        assert same_page(
+            exported[10], generator.create_solutions_opener(11, len(baseline_puzzles()))
+        )
         for number, level in ((5, "Easy"), (7, "Medium"), (9, "Hard")):
             assert same_page(
                 exported[number - 1], generator.create_divider_page(number, level)
@@ -2413,7 +2478,12 @@ class TestBookPdfMemory_PagesAreUnchanged:
         # icon whose checkerboard modules were each a solid block at least
         # FILLED_CELL_PROBE wide, and this loop masked it out first. The icon
         # is gone, so the pages are probed as drawn.)
-        for number in (4, 5, 6, 7, 8, 9, 10, 11):
+        # Not page 11 either, since the approved solutions mockup: its
+        # Solutions opener sets "Solutions" at 48 pt, emboldened, under a
+        # heavy rule, and those strokes are solid blocks a filled cell wide.
+        # It is identified positively above, as the opener the generator
+        # draws for that page, so it cannot pass for an answer page here.
+        for number in (4, 5, 6, 7, 8, 9, 10):
             assert not solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"
@@ -2805,7 +2875,15 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #: comparison beside it.
     LIVE_OFFSET = TITLE_PAGE_COUNT
 
-    STRICTLY_UNCHANGED_PAGES = (4, 6, 8, 10)
+    STRICTLY_UNCHANGED_PAGES = (4, 6, 8)
+
+    #: Stored page 10 (live 11), the SOLUTIONS divider, left the group above
+    #: with the approved solutions mockup: with no stored picture its slot now
+    #: draws the Solutions opener (a rule, "PUZZLES 1-N", "Solutions" at
+    #: 48 pt, a grey blurb) instead of the one word, a deliberate change to
+    #: what the page prints. Its live page is asserted to differ from
+    #: CARD-206's recording and to be the generator's own opener instead.
+    SOLUTIONS_OPENER_PAGE = (10,)
 
     #: Interior page 3, the table of contents. CARD-205 rewrites its rows,
     #: so it is byte-identical to **CARD-205's** recording and deliberately
@@ -2837,6 +2915,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     GUIDE_PAGES = (1, 2)
     NON_DRAWING_PAGES = (
         STRICTLY_UNCHANGED_PAGES
+        + SOLUTIONS_OPENER_PAGE
         + CARD205_TOC_PAGE
         + CARD203_CAPTION_PAGES
         + CARD224_FLOATED_PAGE
@@ -3067,6 +3146,22 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             )
             compared += 1
         assert compared == len(self.STRICTLY_UNCHANGED_PAGES), compared
+
+        generator = BookPDFGenerator(corpus_book())
+        for number in self.SOLUTIONS_OPENER_PAGE:
+            live = number + self.LIVE_OFFSET
+            assert now[live - 1] is not None, (
+                f"interior page {live} is the SOLUTIONS divider and a divider "
+                "is a bitmap: written as operators it would be skipped here"
+            )
+            assert now[live - 1] != card206_baseline["pages"][live - 1], (
+                f"interior page {live} still matches CARD-206's one-word "
+                "SOLUTIONS divider, so the Solutions opener never reached it"
+            )
+            assert same_page(
+                exported[live - 1],
+                generator.create_solutions_opener(live, len(baseline_puzzles())),
+            ), f"interior page {live} is not the Solutions opener"
 
     def test_the_toc_page_matches_the_card206_baseline(
         self, card205_baseline, card221_baseline, card222_baseline, card206_baseline,
@@ -3654,7 +3749,12 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         # on CARD-201's own shipped layout, the same even shift this class's
         # `_reference` uses and for the same parity reason.
         new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
-        reference = generator.create_divider_page(new_number - plan.toc_page_count - TITLE_PAGE_COUNT, "SOLUTIONS")
+        # The approved solutions mockup: with no stored picture the SOLUTIONS
+        # slot draws the Solutions opener (a rule, "PUZZLES 1-N", "Solutions"
+        # and a blurb), not the one-word divider, so that is the reference.
+        reference = generator.create_solutions_opener(
+            new_number - plan.toc_page_count - TITLE_PAGE_COUNT, len(plan.payloads)
+        )
         assert _matches_shifted_content(
             _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
         )
@@ -4006,7 +4106,9 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     ):
         new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
         old_number = new_number - TITLE_PAGE_COUNT
-        reference = generator.create_divider_page(old_number, "SOLUTIONS")
+        # The Solutions opener (the approved solutions mockup), drawn at the
+        # old position, as production's ``divider_page`` draws it.
+        reference = generator.create_solutions_opener(old_number, len(plan.payloads))
         assert _matches_shifted_content(
             _ink_bbox_crop(_above_footer(exported[new_number - 1], cutoff)),
             _ink_bbox_crop(_above_footer(reference, cutoff)),

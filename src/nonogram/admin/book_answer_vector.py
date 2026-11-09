@@ -55,6 +55,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Sequence, Tuple
 
 from nonogram.admin.book_answer_key import (
+    CAPTION_SEPARATOR,
     PackedAnswerPage,
     answer_caption,
     answer_title,
@@ -63,16 +64,23 @@ from nonogram.admin.book_pdf_generator import (
     FOLIO_PT,
     POINTS_PER_INCH,
     PageFrame,
+    RUNNING_HEAD_MM,
     _SOLVED_GRID_GRAY,
+    answer_section_spec,
     band_identity,
     page_frame,
     page_is_right_hand,
     type_px,
 )
-from nonogram.admin.book_puzzle_vector import draw_band, slot_room
+from nonogram.admin.book_puzzle_vector import (
+    draw_tier_dots,
+    shade_clue_cells,
+    slot_room,
+)
 from nonogram.admin.book_vector import ContentStream, FontMetrics, interior_face_metrics
 from nonogram.admin.book_vector_draw import (
     INK_GREY,
+    _middle_em,
     advance_px,
     as_grey,
     draw_clue_digits,
@@ -83,10 +91,12 @@ from nonogram.admin.book_vector_draw import (
     page_stream,
     set_right_middle,
 )
+from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     ANSWER_TILE_GAP_MM,
+    INTERIOR_FOOTER_LINE_PT,
     HeaderBand,
     Layout,
     PageSpec,
@@ -94,6 +104,7 @@ from nonogram.export.layout import (
     compute_layout,
     compute_packed_solved_layout,
     header_band,
+    interior_header_rule_px,
 )
 
 __all__ = [
@@ -397,19 +408,75 @@ def draw_answer_slot(
     Returns the caption's own box, as :func:`draw_answer_caption` reports it.
     """
     face = interior_face_metrics() if metrics is None else metrics
+    shade_clue_cells(stream, slot)
     draw_solved_grid(stream, slot, grid, grey=grey)
     if slot.frame is not None:
         draw_frame(stream, slot.frame, grey=grey)
     draw_clue_digits(stream, slot, face, grey=grey)
-    draw_band(
-        stream,
-        band,
-        band_text,
-        slot_room(slot) if room is None else room,
-        face,
-        grey=grey,
+    draw_solution_header(stream, slot, band, band_text, caption, face, grey=grey)
+    # The picture's name moved into the header (the approved mockup), so
+    # nothing is set under the drawing any more.
+    return None
+
+
+#: The approved mockup's solution header: the number at 12 pt semibold, the
+#: picture's name in grey at the 10 pt floor (CON-020), a grey hairline under
+#: both. Points, converted at the stream's own resolution.
+SOLUTION_NUMBER_PT = 12.0
+SOLUTION_NAME_GREY = 0.36
+SOLUTION_RULE_GREY = 0.78
+_SOLUTION_BOLD_RATIO = 0.04
+
+
+def draw_solution_header(
+    stream: ContentStream,
+    slot: Layout,
+    band: HeaderBand,
+    band_text: str,
+    caption: str,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """One solution's header line, in its tile's band (the approved mockup).
+
+    Left to right: the puzzle's number, semibold; the picture's name in grey;
+    and, flush right, the tier's dots. A grey hairline runs under the whole
+    line, the width of the tile. The number and tier are read from
+    ``band_text`` (``band_identity``'s "Puzzle 7 · Easy") and the name from
+    ``caption`` (``answer_caption``'s "Puzzle 7 — Snowflake"), so the strings
+    the key is built from stay the one source of what it says.
+    """
+    placement = slot.page
+    if band.height <= 0 or placement is None or not band_text:
+        return
+    identity, _, tier = band_text.partition(" · ")
+    number = identity.rpartition(" ")[2]
+    _, _, name = caption.partition(CAPTION_SEPARATOR)
+    left, right = placement.usable_left, placement.usable_right
+    number_px = SOLUTION_NUMBER_PT * stream.dpi / 72.0
+    name_px = INTERIOR_FOOTER_LINE_PT * stream.dpi / 72.0
+    baseline = band.center_y + _middle_em(metrics) * number_px
+    stream.text(
+        number, left, baseline, SOLUTION_NUMBER_PT, grey=grey,
+        embolden_pt=SOLUTION_NUMBER_PT * _SOLUTION_BOLD_RATIO,
     )
-    return draw_answer_caption(stream, slot, caption, type_spec, face, grey=grey)
+    dots_left = right
+    if tier:
+        middle = baseline - metrics.cap_height / metrics.units_per_em * name_px / 2
+        draw_tier_dots(stream, tier, right, middle, name_px, grey=grey)
+        dots_left = right - name_px * 0.55 * 3.6
+    if name:
+        name_left = left + advance_px(number, number_px, metrics) + name_px * 0.6
+        measure = dots_left - name_px * 0.8 - name_left
+        if measure > 0:
+            if advance_px(name, name_px, metrics) > measure:
+                name = _clipped_to_measure(name, name_px, metrics, measure)
+            stream.text(name, name_left, baseline, INTERIOR_FOOTER_LINE_PT, grey=SOLUTION_NAME_GREY)
+    rule_y = band.center_y + band.height * 0.3
+    stream.stroke_grey(SOLUTION_RULE_GREY)
+    stream.stroke_width(stream.to_points(interior_header_rule_px()))
+    stream.line(left, rule_y, right, rule_y)
 
 
 def answer_page_stream(
@@ -584,8 +651,8 @@ def answer_page(
     ``custom_titles``), exactly as the raster twin documents, so this function
     never reads ``payload.name`` either.
     """
-    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
-    return answer_page_stream(
+    layout = compute_layout(payload.row_clues, payload.column_clues, answer_section_spec(spec))
+    stream = answer_page_stream(
         layout,
         payload.grid,
         header_band(layout),
@@ -595,6 +662,11 @@ def answer_page(
         page_number,
         metrics=metrics,
     )
+    draw_running_head(
+        stream, page_frame(spec), page_number, (puzzle_number,), payload.difficulty,
+        interior_face_metrics() if metrics is None else metrics,
+    )
+    return stream
 
 
 def packed_answer_page(
@@ -627,7 +699,7 @@ def packed_answer_page(
     layout = compute_packed_solved_layout(
         [(payload.row_clues, payload.column_clues) for _, payload in members],
         plan.capacity,
-        spec,
+        answer_section_spec(spec),
     )
     if layout is None:
         raise ValueError(
@@ -635,7 +707,7 @@ def packed_answer_page(
             f"out at capacity {plan.capacity} after the packing walk already "
             "found it feasible"
         )
-    return packed_answer_page_stream(
+    stream = packed_answer_page_stream(
         layout,
         [
             (
@@ -655,3 +727,54 @@ def packed_answer_page(
         page_number,
         metrics=metrics,
     )
+    draw_running_head(
+        stream, page_frame(spec), page_number, plan.numbers, members[0][1].difficulty,
+        interior_face_metrics() if metrics is None else metrics,
+    )
+    return stream
+
+
+def running_head_text(numbers: Sequence[int], tier: object) -> Tuple[str, str]:
+    """The answer page's running head: ``("SOLUTIONS · EASY", "PUZZLES 1–4")``."""
+    record = tier_of_record(tier)
+    section = "SOLUTIONS" if record is None else f"SOLUTIONS · {record.label.upper()}"
+    if len(numbers) == 1:
+        span = f"PUZZLE {numbers[0]}"
+    else:
+        span = f"PUZZLES {numbers[0]}–{numbers[-1]}"
+    return section, span
+
+
+def draw_running_head(
+    stream: ContentStream,
+    frame: PageFrame,
+    page_number: int,
+    numbers: Sequence[int],
+    tier: object,
+    metrics: FontMetrics,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """The approved mockup's running head across the top of an answer page.
+
+    "SOLUTIONS · <LEVEL>" on the page's outside edge and the span of puzzle
+    numbers on its gutter side, in grey at the 10 pt floor, over a rule the
+    page's header rule's weight. It sits in the strip
+    :func:`~nonogram.admin.book_pdf_generator.answer_section_spec` keeps free.
+    """
+    section, span = running_head_text(numbers, tier)
+    size_pt = INTERIOR_FOOTER_LINE_PT
+    size_px = size_pt * stream.dpi / 72.0
+    strip_px = RUNNING_HEAD_MM * stream.dpi / 25.4
+    rule_y = frame.top + strip_px * 0.55
+    baseline = rule_y - size_px * 0.45
+    if page_is_right_hand(page_number):
+        left_text, right_text = span, section
+    else:
+        left_text, right_text = section, span
+    stream.text(left_text, frame.left, baseline, size_pt, grey=SOLUTION_NAME_GREY)
+    width = advance_px(right_text, size_px, metrics)
+    stream.text(right_text, frame.right - width, baseline, size_pt, grey=SOLUTION_NAME_GREY)
+    stream.stroke_grey(grey)
+    stream.stroke_width(stream.to_points(interior_header_rule_px()))
+    stream.line(frame.left, rule_y, frame.right, rule_y)

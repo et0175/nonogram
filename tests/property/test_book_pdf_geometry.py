@@ -44,6 +44,7 @@ from __future__ import annotations
 import math
 import random
 
+from nonogram.admin.book_answer_key import PACKED_MAX_HEIGHT, PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
 from nonogram.admin.book_vector import ContentStream
@@ -196,6 +197,11 @@ TWO_UP_RULE_GAP_MM = 3.0
 CLEARANCE_WINDOW_MM = 2.0
 
 TOP_MM = 0.55 * 25.4
+#: The strip an answer page keeps above its drawing for its running head
+#: ("SOLUTIONS · EASY" / "PUZZLE 7", the approved solutions mockup): every
+#: answer page is laid out on the sheet with this much more top margin.
+#: Written out, as this module writes every other figure out.
+RUNNING_HEAD_MM = 9.0
 BOTTOM_MM = 0.47 * 25.4
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
@@ -240,6 +246,23 @@ class Sheet:
         self.height_mm = float(height_cm) * 10
         self.gutter_mm = float(gutter_cm) * 10
         self.outside_mm = float(outside_cm) * 10
+        #: The top margin this sheet lays a drawing out under: CON-018's own,
+        #: or that plus :data:`RUNNING_HEAD_MM` on an answer page
+        #: (:meth:`answer_sheet`).
+        self.top_mm = TOP_MM
+
+    def answer_sheet(self) -> "Sheet":
+        """This sheet as an answer page lays its drawing out on it.
+
+        The approved solutions mockup reserves :data:`RUNNING_HEAD_MM` above
+        the band of every answer page for its running head, so an answer's
+        band, puzzle area and page fit all start that much lower than a
+        puzzle page's; nothing else about the sheet moves.
+        """
+        answer = Sheet.__new__(Sheet)
+        answer.__dict__.update(self.__dict__)
+        answer.top_mm = self.top_mm + RUNNING_HEAD_MM
+        return answer
 
     def __repr__(self):
         return (
@@ -253,7 +276,7 @@ class Sheet:
 
     @property
     def usable_height_mm(self) -> float:
-        return self.height_mm - TOP_MM - BOTTOM_MM - BAND_MM
+        return self.height_mm - self.top_mm - BOTTOM_MM - BAND_MM
 
     def page_fit_mm(self, across: int, down: int) -> float:
         """FR-030's page fit: the largest cell the usable area holds the drawing at."""
@@ -312,7 +335,7 @@ class Sheet:
     def puzzle_area_mm(self) -> tuple[float, float]:
         """CARD-222's puzzle area on this sheet: ``(header rule, footer rule)``."""
         return (
-            TOP_MM + BAND_MM * (1 - HEADER_RULE_LIFT_SHARE),
+            self.top_mm + BAND_MM * (1 - HEADER_RULE_LIFT_SHARE),
             self.height_mm - BOTTOM_MM - FOOTER_STRIP_MM,
         )
 
@@ -346,7 +369,7 @@ class Sheet:
         area_top, area_bottom = self.puzzle_area_mm()
         drawn = self.cell_mm(across, down) if cell is None else cell
         spare = (area_bottom - area_top) - down * drawn
-        band_foot = TOP_MM + BAND_MM
+        band_foot = self.top_mm + BAND_MM
         if spare <= 0:
             return (band_foot,)
         ratio = area_top + SPARE_ABOVE * spare
@@ -808,16 +831,18 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
     checked = 0
     mirrored = 0
     windowed = 0
-    for case in range(160):
+    for case in range(240):
         # CARD-202 (SCOPE+): more cases than before, to keep at least 100
         # genuinely checked even after skipping qualifying (packable)
-        # extents below — the corpus must not silently shrink.
+        # extents below — the corpus must not silently shrink. 240, up from
+        # 160, since the owner raised the packing limit (20 x 25, from
+        # 15 x 20) and about two in five random extents now pack.
         sheet = BOOK1 if case % 10 == 0 else _random_sheet(rng)
         puzzle = _puzzle(rng)
         columns, rows, across, down = _extent(puzzle)
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
             continue
-        if columns <= 15 and rows <= 20:
+        if columns <= PACKED_MAX_WIDTH and rows <= PACKED_MAX_HEIGHT:
             # CARD-202: a puzzle this size qualifies for answer packing, even
             # alone (one packed slot on its own 2-up page, not a full page),
             # which measures at a different geometry (centred in its own
@@ -879,9 +904,15 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
             number: frame_centre_of(pages[number - 1], by_number[number])
             for number in page_numbers
         }
+        # The approved solutions mockup: an answer page lays its drawing out
+        # under its running head's strip (:meth:`Sheet.answer_sheet`), so
+        # its predictions come from that sheet and a puzzle page's from the
+        # sheet itself.
+        answer_sheet = sheet.answer_sheet()
         for number in page_numbers:
             boundary = boundary_by_number[number]
-            expected_left = sheet.drawing_left_mm(number, across, down)
+            on = answer_sheet if number in (easy_answer_page, medium_answer_page) else sheet
+            expected_left = on.drawing_left_mm(number, across, down)
             assert abs(_mm(boundary.frame_left) - expected_left) <= (
                 2 * HALF_PIXEL_MM + 1e-9
             ), (sheet, number, _mm(boundary.frame_left), expected_left)
@@ -889,7 +920,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
             # since CARD-198, every answer page too (the same compute_layout
             # call, the same band). Parity does not enter it: the same figure
             # is expected on all four pages, which is AC-276's own claim.
-            tops_mm = sheet.drawing_top_mm(across, down)
+            tops_mm = on.drawing_top_mm(across, down)
             assert min(abs(_mm(boundary.frame_top) - top) for top in tops_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
             ), (sheet, number, _mm(boundary.frame_top), tops_mm)

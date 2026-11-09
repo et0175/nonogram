@@ -77,12 +77,15 @@ from nonogram.export.layout import (
 
 __all__ = [
     "BAND_WIDTH_RATIO",
+    "CLUE_SHADE",
     "MIN_BAND_FONT_RATIO",
     "band_type_size",
     "draw_band",
     "draw_puzzle_header",
     "draw_puzzle_slot",
+    "draw_tier_dots",
     "puzzle_page_stream",
+    "shade_clue_cells",
     "slot_room",
     "two_up_page_stream",
 ]
@@ -250,16 +253,34 @@ def draw_puzzle_header(
     tier_px = max(floor_px, size_px * _TIER_RATIO)
     word_left = right - metrics.advance(word) * tier_px
     stream.text(word, word_left, baseline, stream.to_points(tier_px), grey=grey)
+    # The dots end one dot short of the word.
+    draw_tier_dots(
+        stream, tier, word_left - tier_px * 0.55 * 0.75,
+        baseline - _cap_height_em(metrics) * tier_px / 2, tier_px, grey=grey,
+    )
+
+
+def draw_tier_dots(
+    stream: ContentStream,
+    tier: object,
+    row_right: float,
+    middle: float,
+    type_px: float,
+    *,
+    grey: float = INK_GREY,
+) -> None:
+    """A tier's dots (one filled per rank, of three), ending at ``row_right``.
+
+    CARD-228's glyph through the one round-mark site, sized to sit beside text
+    set at ``type_px``, centred on ``middle``. Nothing for a tier the book's
+    ladder does not hold.
+    """
     record = tier_of_record(tier)
     if record is None or record not in TIERS:
         return
-    # The dots: CARD-228's glyph through the one round-mark site, its row
-    # ending one dot short of the word.
-    diameter = tier_px * 0.55
+    diameter = type_px * 0.55
     box_h = diameter / DIFFICULTY_DOT_RATIO
     box_w = diameter * (1 + DIFFICULTY_DOT_GAP_RATIO) * len(TIERS)
-    row_right = word_left - diameter * 0.75
-    middle = baseline - _cap_height_em(metrics) * tier_px / 2
     dots = difficulty_dots(
         round(row_right - box_w), round(middle - box_h / 2), round(row_right), round(middle + box_h / 2),
         filled=TIERS.index(record) + 1, total=len(TIERS),

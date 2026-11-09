@@ -3190,6 +3190,21 @@ class PageFrame:
 _PROBE_CLUES: Tuple[Tuple[int, ...], ...] = ((1,),)
 
 
+#: The strip an answer page keeps above its tiles for the running head (the
+#: approved mockup's "SOLUTIONS · EASY" / "PUZZLES 1–4" line and its rule).
+RUNNING_HEAD_MM = 9.0
+
+
+def answer_section_spec(spec: PageSpec) -> PageSpec:
+    """``spec`` with the running head's strip taken off the top of its usable area.
+
+    Every answer page is planned and laid out on this spec, so the packing
+    walk's feasibility check and the page that is finally drawn agree about
+    how much room the tiles have.
+    """
+    return replace(spec, top_mm=spec.top_mm + RUNNING_HEAD_MM)
+
+
 def page_frame(spec: PageSpec) -> PageFrame:
     """The trim and usable area of a page laid out on ``spec``.
 
@@ -5211,7 +5226,9 @@ class BookPDFGenerator:
         )
         return stream
 
-    def divider_page(self, slot: str, page_number: int, text: str) -> Image.Image:
+    def divider_page(
+        self, slot: str, page_number: int, text: str, *, puzzle_count: Optional[int] = None
+    ) -> Image.Image:
         """The divider page for ``slot``: the owner's picture if one is stored, else the drawn word.
 
         CARD-311. The picture is fitted to this page's own frame
@@ -5226,10 +5243,63 @@ class BookPDFGenerator:
                 trim was changed after the upload). Raised, never stretched.
         """
         stored = self.divider_images.get(require_slot(slot))
+        if stored is None and slot == SOLUTIONS_SLOT and puzzle_count:
+            return self.create_solutions_opener(page_number, puzzle_count)
         if stored is None:
             return self.create_divider_page(page_number, text)
         frame = page_frame(self.page_spec(page_number))
         return fit_to_page(stored, slot, frame.width, frame.height, self.dpi)
+
+    def create_solutions_opener(self, page_number: int, puzzle_count: int) -> Image.Image:
+        """The approved mockup's Solutions opener, for a book with no uploaded picture.
+
+        Set on the page's usable left edge, a little above the middle: a short
+        rule, the eyebrow "PUZZLES 1–N" in grey, the title "Solutions" large
+        and heavy, and one grey line saying how the key runs. Every size is at
+        or above CON-020's 10 pt floor.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        page = Image.new("RGB", (frame.width, frame.height), "white")
+        draw = ImageDraw.Draw(page)
+        grey = (96, 96, 96)
+        left = frame.left
+        top = round(frame.height * 0.28)
+        rule_w = type_px(60, self.dpi)
+        draw.rectangle(
+            (left, top, left + rule_w, top + max(1, type_px(2.4, self.dpi))), fill="black"
+        )
+        eyebrow_font = _guide_face(type_px(10, self.dpi))
+        eyebrow = "PUZZLES 1" if puzzle_count == 1 else f"PUZZLES 1–{puzzle_count}"
+        y = top + type_px(14, self.dpi)
+        draw.text((left, y), eyebrow, fill=grey, font=eyebrow_font)
+        title_font = _guide_face(type_px(48, self.dpi))
+        y += type_px(18, self.dpi)
+        draw.text(
+            (left, y), "Solutions", fill="black", font=title_font,
+            stroke_width=max(1, type_px(1.2, self.dpi)), stroke_fill="black",
+        )
+        bbox = draw.textbbox((left, y), "Solutions", font=title_font)
+        blurb_font = _guide_face(type_px(11, self.dpi))
+        y = bbox[3] + type_px(30, self.dpi)
+        draw.text(
+            (left, y), "Check your finished picture. Solutions run in puzzle order.",
+            fill=grey, font=blurb_font,
+        )
+        blurb_box = draw.textbbox(
+            (left, y), "Check your finished picture. Solutions run in puzzle order.",
+            font=blurb_font,
+        )
+        _draw_folio(
+            draw,
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            page_number,
+            self.dpi,
+            content_bottom=blurb_box[3],
+        )
+        return page
 
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
         """A divider page: one word on the book's trim, one page (TERM-031).
@@ -7409,7 +7479,7 @@ class BookPDFGenerator:
         # table (`_write_pdf`). `payloads` carries the real grids and clue
         # sets this check needs; `plan_small_answer_pages` never sees them.
         answer_plan = _degrade_infeasible_packed_pages(
-            answer_plan, payloads, self.page_spec(first_answer_page)
+            answer_plan, payloads, answer_section_spec(self.page_spec(first_answer_page))
         )
 
         # The walk's own half of the page-plan tripwire below, and the one the
@@ -7823,7 +7893,8 @@ class BookPDFGenerator:
             # being absent, so the answer key simply starts one page earlier.
             if self.divider_pages:
                 yield self.divider_page(
-                    SOLUTIONS_SLOT, first_answer_page - 1, "SOLUTIONS"
+                    SOLUTIONS_SLOT, first_answer_page - 1, "SOLUTIONS",
+                    puzzle_count=len(payloads),
                 )
             for index, entry in enumerate(answer_plan):
                 page_number = first_answer_page + index

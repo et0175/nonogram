@@ -43,7 +43,9 @@ of AC-254 are different claims:
   band, a page number, a grid or a second line fails it, and nothing in that
   measurement knows what a divider is supposed to look like.
 * **"its level's name"** is a comparison against the divider pages of the four
-  words the interior can print — "Easy", "Medium", "Hard" and "SOLUTIONS" —
+  words the interior can print — "Easy", "Medium", "Hard" and "SOLUTIONS" (the
+  last now the approved mockup's Solutions opener, named by comparison with
+  ``create_solutions_opener`` instead, :func:`is_solutions_opener`) —
   built by :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.create_divider_page`
   itself. Exactly one of the four must match, which is a statement about the
   word this card **chooses** for the page rather than about the ink a word
@@ -53,9 +55,11 @@ of AC-254 are different claims:
   assumed to.
 
 The book is CON-018's Book 1 profile throughout, written out in millimetres
-rather than imported. Its puzzles are 20x20 with 3-deep clue gutters, so no two
-of them ever share a page (FR-040, CARD-127) and the interior's make-up is one
-page per puzzle — which is what lets these tests count pages. Each puzzle's
+rather than imported. Its puzzles are 21x20 with 3-deep clue gutters, so no two
+of them ever share a page (FR-040, CARD-127), and one column wider than the
+answer key's packing limit, so no two answers share one either: the
+interior's make-up is one page per puzzle in both sections — which is what
+lets these tests count pages. Each puzzle's
 grid carries a different extra cell, so two puzzles of the same extent are
 different pictures with different clues and a page holding the wrong one is
 visible.
@@ -132,6 +136,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from nonogram import clues
+from nonogram.admin.book_answer_key import PACKED_MAX_WIDTH
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin import book_vector
@@ -214,10 +219,20 @@ def _grid(columns: int, rows: int, depth: int = 3, mark: int = 0) -> List[List[b
     return grid
 
 
+#: This module's default puzzle width: one column wider than the answer key's
+#: packing limit, so every answer here still takes a full page of its own and
+#: the page counts below stay one answer page per puzzle. It was 20 (20x20s)
+#: until the owner raised the limit to ``PACKED_MAX_WIDTH`` x
+#: ``PACKED_MAX_HEIGHT`` (20 x 25, from 15 x 20), which made a 20x20 answer
+#: pack four to a page; derived from the constant so a second raise cannot do
+#: the same silently.
+_PUZZLE_COLUMNS = PACKED_MAX_WIDTH + 1
+
+
 def _puzzle(
     name: str,
     tier: object,
-    columns: int = 20,
+    columns: int = _PUZZLE_COLUMNS,
     rows: int = 20,
     mark: int = 0,
 ) -> dict:
@@ -522,6 +537,20 @@ def divider_page(page_number: int, text: str) -> Image.Image:
     return BookPDFGenerator(_book()).create_divider_page(page_number, text)
 
 
+def is_solutions_opener(page: Image.Image, page_number: int, puzzle_count: int) -> bool:
+    """Whether ``page`` is the Solutions opener for a book of ``puzzle_count`` puzzles.
+
+    The approved solutions mockup: with no stored picture the SOLUTIONS slot
+    no longer prints the one word but an opener (a rule, "PUZZLES 1-N",
+    "Solutions" at 48 pt and a grey blurb), which is more than
+    :func:`is_divider`'s "one word and a folio". So it is named by comparison
+    with the page the generator draws for it at that position, as the level
+    dividers are named by :func:`divider_word`.
+    """
+    reference = BookPDFGenerator(_book()).create_solutions_opener(page_number, puzzle_count)
+    return page.tobytes() == reference.tobytes()
+
+
 def _ink(page: Image.Image) -> np.ndarray:
     return np.asarray(page.convert("L")) < INK_LEVEL
 
@@ -629,7 +658,7 @@ def interior_shape(pages: Sequence[Image.Image]) -> List[str]:
 # AC-253 — the order, and the divider that opens each level
 # --------------------------------------------------------------------------
 
-#: AC-253's book: two easy, two medium and one hard 20x20, arranged in that
+#: AC-253's book: two easy, two medium and one hard 21x20, arranged in that
 #: order already, so what is under test is the make-up of the pages and not the
 #: grouping (that is AC-260's book).
 AC253_MEMBERS = (
@@ -706,8 +735,12 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
 
         assert len(pages) == 18
         assert stream.page_count == 18
-        assert is_divider(pages[12]), "interior page 13 is the SOLUTIONS divider"
-        assert divider_word(pages[12], 13) == SOLUTIONS
+        # The approved solutions mockup: the SOLUTIONS divider is the
+        # Solutions opener, which carries more than one word and so is named
+        # by comparison rather than by ``is_divider``.
+        assert is_solutions_opener(pages[12], 13, len(puzzles)), (
+            "interior page 13 is the SOLUTIONS divider"
+        )
         assert stream.answer_page_count == 5
         assert not any(is_divider(page) for page in pages[13:])
 
@@ -853,7 +886,14 @@ class TestBookPdf_EmptyLevelHasNoDivider:
             if is_divider(page) and _ink(page).any()
         ]
 
-        assert words == ["Easy", "Medium", SOLUTIONS]
+        # The SOLUTIONS divider is the approved mockup's Solutions opener,
+        # which is more than one word (so ``is_divider`` does not take it) and
+        # is named by comparison instead, on its own page: after the title
+        # page, the guide, the TOC, two dividers and five puzzle pages.
+        assert words == ["Easy", "Medium"]
+        assert is_solutions_opener(pages[11], 12, len(self.MEMBERS)), (
+            "interior page 12 is the SOLUTIONS divider"
+        )
         # The one page the walk above excludes, and why: CARD-206's blank
         # title page carries no ink, which `is_divider` cannot tell from a
         # divider's own sparseness (its own docstring says so). Asserted here
@@ -1122,7 +1162,11 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         folio, read by poppler, can. Plant it and the page is refused."""
         puzzles = _book_of(*AC253_MEMBERS)
         control = self._written_page(puzzles[0], 6, 1, "Easy")
-        assert footer_digits(control, (20, 20)) == ["6"], "the control reads its folio"
+        # The grid's own size, as its footer label prints it (this module's
+        # default puzzle is ``_PUZZLE_COLUMNS`` x 20 since the packing limit
+        # was raised).
+        extent = (puzzles[0]["width"], puzzles[0]["height"])
+        assert footer_digits(control, extent) == ["6"], "the control reads its folio"
 
         real = BookPDFGenerator.vector_puzzle_page
 
@@ -1133,7 +1177,7 @@ class TestBookPdf_AnOperatorsPageIsTheSameStreamEveryExport:
         planted = self._written_page(puzzles[0], 6, 1, "Easy")
 
         assert same_page(planted, expected_in_the_medium_of(planted, puzzles[0], 6, 1, "Easy"))
-        assert footer_digits(planted, (20, 20)) == ["7"]
+        assert footer_digits(planted, extent) == ["7"]
         assert not names_the_page(planted, puzzles[0], 6, 1, "Easy")
 
 

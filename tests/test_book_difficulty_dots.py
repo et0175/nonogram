@@ -4606,8 +4606,11 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     filled block (``aspect`` 1.0421 — already inside
     :data:`ROUND_ASPECT_TOLERANCE`); **1.8182** at the widened one, carried by
     ``aspect`` on a 7 x 11 letter stem (``fill`` 0.8599, outside its tolerance
-    too). Both numbers, each mark's **footprint**, and *which* tolerance
-    carries each are asserted in
+    too). **Since the approved solutions mockup** both readings are the
+    Solutions opener's 48 pt letters instead, carried by ``fill`` at both:
+    **1.7472** (a 93 x 125 letter) and **1.6580** (a 102 x 122 one). Both
+    numbers, each mark's **footprint**, and *which* tolerance carries each
+    are asserted in
     :meth:`test_the_closest_the_book_comes_to_a_round_mark_is_measured`, and
     each tolerance's own room is measured separately in
     :meth:`test_each_tolerances_own_room_on_the_book_is_measured` — because
@@ -4697,23 +4700,44 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         *changes hands*. The floor stays at 1.8, just under the measured
         1.8182, for the reason CARD-241 set it there: a floor at 1.5 would let
         the margin fall by a fifth in silence (cycle 1, F-003).
+
+        **What the approved solutions mockup did to both readings, measured
+        rather than assumed.** Its Solutions opener sets "Solutions" at 48 pt,
+        emboldened, on the SOLUTIONS divider page, and those letters' bowls
+        are now the nearest thing to a round mark on the book's pages — at
+        **both** thresholds, and by ``fill`` at both, which is the account
+        above changing hands again:
+
+        * at :data:`INK_LEVEL`, **1.7472** on a 93 x 125 letter (``aspect``
+          0.7440, already outside the aspect tolerance; ``fill`` 0.7903);
+        * at :data:`MARK_LEVEL`, **1.6580** on a 102 x 122 letter (``aspect``
+          0.8361, inside the aspect tolerance; ``fill`` 0.8010), a *different*
+          letter: a glyph has an anti-aliased edge to grow by, so the wider
+          threshold moves it, where the guide's hard-edged block did not.
+
+        Both still clear 1.0, so no glyph of the opener is a false positive;
+        what moved is the room. The floor moves to 1.65, just under the new
+        widened reading, for CARD-241's reason: it sits just under what is
+        measured, so a further drift reds here before it reds the guard.
         """
         ink = _book_ink(None)
         black, widened = ink.at[INK_LEVEL], ink.at[MARK_LEVEL]
         for level in (black, widened):
-            assert level.margin >= 1.8, (
+            assert level.margin >= 1.65, (
                 f"the roundest mark on the book's pages at level {level.level} "
                 f"is now {level.margin:.4f} tolerances from round; it was "
-                "1.8855 at the black threshold and 1.8182 at the widened one "
-                "when they were set, and under 1.0 it would be a false positive"
+                "1.7472 at the black threshold and 1.6580 at the widened one "
+                "when they were set (the Solutions opener's 48 pt letters), "
+                "and under 1.0 it would be a false positive"
             )
             assert level.closest is not None, "a book with no region to measure"
-        # CARD-241's reading, unchanged by the widening: the same block, the
-        # same number, still carried by `fill` alone. Its FOOTPRINT is pinned
-        # and its position is not — see the class docstring's "the footprint
-        # rather than the box" for why (CARD-243 review, F-001).
-        assert (black.closest.width, black.closest.height) == (99, 95), black.closest
-        assert black.margin == pytest.approx(1.8855, abs=5e-4), black.margin
+        # The black reading: one of the opener's 48 pt letters, carried by
+        # `fill`, with its footprint already outside the aspect tolerance. Its
+        # FOOTPRINT is pinned and its position is not — see the class
+        # docstring's "the footprint rather than the box" (CARD-243 review,
+        # F-001).
+        assert (black.closest.width, black.closest.height) == (93, 125), black.closest
+        assert black.margin == pytest.approx(1.7472, abs=5e-4), black.margin
         assert abs(black.closest.fill - 1.0) / ROUND_FILL_TOLERANCE == pytest.approx(
             black.margin
         ), (
@@ -4721,38 +4745,35 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
             f"closest mark is {black.closest.box}, aspect "
             f"{black.closest.aspect:.4f}, fill {black.closest.fill:.4f}"
         )
-        assert abs(black.closest.aspect - 1.0) <= ROUND_ASPECT_TOLERANCE, (
-            "at the black threshold the closest mark is a near-square filled "
-            "block whose footprint is already inside the aspect tolerance; it "
-            f"is now {black.closest.box} at aspect {black.closest.aspect:.4f}"
+        assert abs(black.closest.aspect - 1.0) > ROUND_ASPECT_TOLERANCE, (
+            "at the black threshold the closest mark is a letter whose "
+            "footprint is outside the aspect tolerance as well; it is now "
+            f"{black.closest.box} at aspect {black.closest.aspect:.4f}"
         )
-        # And the widened reading, which is the guard's own: a different mark,
-        # a smaller margin, and the other tolerance carrying it.
-        # One of eleven 7 x 11 stems at exactly this distance, so the footprint
-        # is the claim and the box is not: which member is reported is page and
-        # region iteration order (CARD-243 review, F-001).
+        # And the widened reading, which is the guard's own: a different
+        # letter, a smaller margin, still carried by `fill`, and this time
+        # with its footprint inside the aspect tolerance.
         assert (widened.closest.width, widened.closest.height) == (
-            7,
-            11,
+            102,
+            122,
         ), widened.closest
-        assert widened.margin == pytest.approx(1.8182, abs=5e-4), widened.margin
+        assert widened.margin == pytest.approx(1.6580, abs=5e-4), widened.margin
         assert widened.margin < black.margin, (
             "the widened threshold is supposed to bring more ink into the "
             "population, so the margin can only shrink or stay; it grew from "
             f"{black.margin:.4f} to {widened.margin:.4f}"
         )
         assert abs(
-            widened.closest.aspect - 1.0
-        ) / ROUND_ASPECT_TOLERANCE == pytest.approx(widened.margin), (
-            "the widened threshold's margin is no longer carried by aspect: "
+            widened.closest.fill - 1.0
+        ) / ROUND_FILL_TOLERANCE == pytest.approx(widened.margin), (
+            "the widened threshold's margin is no longer carried by fill: "
             f"the closest mark is {widened.closest.box}, aspect "
             f"{widened.closest.aspect:.4f}, fill {widened.closest.fill:.4f}"
         )
-        assert abs(widened.closest.fill - 1.0) > ROUND_FILL_TOLERANCE, (
-            "the widened threshold's closest mark used to be clear of BOTH "
-            "tolerances, unlike the black threshold's; it is now "
-            f"{widened.closest.box} at fill {widened.closest.fill:.4f}, so the "
-            "account above is stale"
+        assert abs(widened.closest.aspect - 1.0) <= ROUND_ASPECT_TOLERANCE, (
+            "the widened threshold's closest mark has a footprint inside the "
+            f"aspect tolerance; it is now {widened.closest.box} at aspect "
+            f"{widened.closest.aspect:.4f}, so the account above is stale"
         )
 
     def test_each_tolerances_own_room_on_the_book_is_measured(self) -> None:
@@ -4790,24 +4811,44 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         room at grey 128 is **unchanged at 2.2727**: it is set by a 6 x 11
         stem, and 6/11 does not care how wide the page is. No tolerance was
         touched to keep any of this green.
+
+        **And the approved solutions mockup moved ``fill``'s room**, at both
+        thresholds: the Solutions opener's 48 pt "Solutions" puts letters on
+        the book whose bowls are nearer a disc's ``fill`` than the guide's
+        99 x 95 block, so the room falls 1.8855 → **1.8157** at grey 128 (a
+        102 x 122 letter, not the one that sets it at grey 208) and → **1.6580** at grey 208 (the 102 x 122 letter
+        that is also that threshold's closest mark). A letter has an
+        anti-aliased edge, so — unlike the block — the widened threshold
+        finds a different region and a smaller room; that is asserted below
+        instead of the old "the same region at both". ``aspect``'s room is
+        set by the same stem and rule as before and did not move. No
+        tolerance was touched to keep any of this green.
         """
         ink = _book_ink(None)
         black, widened = ink.at[INK_LEVEL], ink.at[MARK_LEVEL]
-        assert black.fill_headroom == pytest.approx(1.8855, abs=5e-4), black
-        assert widened.fill_headroom == pytest.approx(1.8855, abs=5e-4), widened
-        # The footprint, not the position (CARD-243 review, F-001) — and then
-        # the claim the two readings share: it is the SAME region that sets
-        # `fill`'s room at both thresholds, which is what "the block has no
-        # grey edge to grow by" means and what a pair of equal numbers alone
-        # would not show.
+        assert black.fill_headroom == pytest.approx(1.8157, abs=5e-4), black
+        assert widened.fill_headroom == pytest.approx(1.6580, abs=5e-4), widened
+        # The footprint, not the position (CARD-243 review, F-001). `fill`'s
+        # room is set by the opener's letters now, which have a grey edge to
+        # grow by, so the widened threshold finds a different, nearer letter —
+        # and that letter is the widened reading's closest mark too.
         assert (black.fill_closest.width, black.fill_closest.height) == (
-            99,
-            95,
+            102,
+            122,
         ), black.fill_closest
-        assert widened.fill_closest.box == black.fill_closest.box, (
-            "`fill`'s room is set by a hard-edged block with no grey edge, so "
-            "the widened threshold must find the very same region; it now "
-            f"finds {widened.fill_closest.box} against {black.fill_closest.box}"
+        assert (widened.fill_closest.width, widened.fill_closest.height) == (
+            102,
+            122,
+        ), widened.fill_closest
+        assert widened.fill_closest.box == widened.closest.box, (
+            "at the widened threshold `fill`'s room and the margin are set by "
+            f"one letter; they are now {widened.fill_closest.box} and "
+            f"{widened.closest.box}"
+        )
+        assert widened.fill_headroom < black.fill_headroom, (
+            "a letter's anti-aliased edge grows at the lighter threshold, so "
+            "`fill`'s room is measured to NARROW there; it now reads "
+            f"{widened.fill_headroom:.4f} against {black.fill_headroom:.4f}"
         )
         assert black.aspect_headroom == pytest.approx(2.2727, abs=5e-4), black
         assert widened.aspect_headroom == pytest.approx(46.5789, abs=5e-4), widened
@@ -5218,13 +5259,14 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
         assert oval.aspect > 1 + ROUND_ASPECT_TOLERANCE, oval.aspect
         assert not oval.is_round
         # And the gap on the real book's own pages, in units of the tolerance
-        # that binds the closest mark there. At the black threshold that is
-        # `fill`, on a near-square filled block already inside this tolerance
-        # (CARD-241 cycle 1, F-003); at the widened one it is this tolerance,
-        # on a letter stem at 0.6364. Which is which, and each tolerance's own
-        # room, are measured in
-        # `test_each_tolerances_own_room_on_the_book_is_measured`.
-        assert _book_ink(None).at[level].margin >= 1.8
+        # that binds the closest mark there. Since the approved solutions
+        # mockup that is `fill` at both thresholds, on the Solutions opener's
+        # 48 pt letters (1.7472 at grey 128, 1.6580 at grey 208; it was a
+        # filled block at 1.8855 and a letter stem's aspect at 1.8182 before
+        # the opener). Which is which, and each tolerance's own room, are
+        # measured in `test_the_closest_the_book_comes_to_a_round_mark_is_measured`
+        # and `test_each_tolerances_own_room_on_the_book_is_measured`.
+        assert _book_ink(None).at[level].margin >= 1.65
 
     @pytest.mark.parametrize("level", MEASURED_LEVELS)
     def test_the_rounded_rectangle_boundary_is_where_the_measurement_puts_it(
